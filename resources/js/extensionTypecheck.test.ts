@@ -118,7 +118,8 @@ const entryWithRuntime = [
 ].join('\n')
 
 // The consumer, in memory: the scaffold `martis:install` publishes, the
-// generator outputs and the docs blocks.
+// generator outputs, an entry that imports the runtime, the probes below
+// and the docs blocks.
 const consumer = `${ts.sys.getCurrentDirectory()}/node_modules/.cache/martis-extension-typecheck`
 const files = new Map<string, string>()
 const put = (relative: string, contents: string): void => void files.set(`${consumer}/${relative}`, contents)
@@ -184,11 +185,6 @@ function importableNames(): Set<string> {
 const extensionSources = [`${EXT}/index.ts`, ...Object.keys(generatorOutputs())]
 
 /**
- * What an extension can take from `react-dom`: the build sends it to a shim
- * that carries the runtime's `createPortal` only, so tsc has to refuse the
- * rest of the module (`flushSync`) instead of reading `@types/react-dom`.
- */
-/**
  * The types a consumer imports from the libraries the build shims: the
  * tsconfig `paths` send those specifiers to the declarations, not to
  * `node_modules`, so the declarations carry each library's types. A class
@@ -215,6 +211,11 @@ put(LIBRARY_TYPES_PROBE, [
     '',
 ].join('\n'))
 
+/**
+ * What an extension can take from `react-dom`: the build sends it to a shim
+ * that carries the runtime's `createPortal` only, so tsc has to refuse the
+ * rest of the module (`flushSync`) instead of reading `@types/react-dom`.
+ */
 const REACT_DOM_PROBE = `${EXT}/tools/ReactDomProbe.tsx`
 put(REACT_DOM_PROBE, [
     "import ReactDOM, { createPortal } from 'react-dom'",

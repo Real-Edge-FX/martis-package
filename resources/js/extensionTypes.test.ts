@@ -134,8 +134,7 @@ function libraryTypeExports(specifiers: string[]): Record<string, string[]> {
         const names = checker.getExportsOfModule(module as ts.Symbol)
             .map((symbol) => [symbol, (symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol).flags] as const)
             .filter(([, flags]) => (flags & ts.SymbolFlags.Type) !== 0 && (flags & ts.SymbolFlags.Value) === 0)
-            .map(([symbol]) => symbol)
-            .map((symbol) => symbol.name)
+            .map(([symbol]) => symbol.name)
             .filter((name) => name !== 'default')
 
         return [specifier, names.sort()]
@@ -217,9 +216,10 @@ describe('the published tsconfig.extensions.json', () => {
         for (const [, literal, source, replacement] of viteExtensionsConfig.matchAll(/\{find: (?:'([^']+)'|\/(.+?)\/[a-z]*), replacement: (\w+)\}/g)) {
             const specifier = literal ?? tsPathPattern(source)
             // `react` and `react/jsx-runtime` are typed by the consumer's
-            // @types/react, whose exports cover the React shims'. Any other
-            // specifier tsc resolved on its own would accept names the shim
-            // does not export: the build would then fail on code tsc passed.
+            // @types/react, at the host's major (`martis:install`), since
+            // their shims pass the host's React through. Any other specifier
+            // tsc resolved on its own would accept names its shim does not
+            // export: the build would then fail on code tsc passed.
             if (specifier === 'react' || specifier === 'react/jsx-runtime') continue
             const shim = shimFiles[replacement]
             expect(declared.has(shim), `${specifier} goes to .shims/${shim}.mjs, which has no declarations`).toBe(true)

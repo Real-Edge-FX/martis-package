@@ -17,11 +17,12 @@
  * imports each surface here, exposes the bag on
  * `window.Martis.runtime`, and the consumer's vite config (via
  * `martis:install`-published shims) aliases `@martis/runtime`,
- * `react-router-dom`, `react-i18next`, `@tanstack/react-query`,
  * `@martis/martis/*` and the legacy `@/contexts/*` / `@/lib/*` /
- * `@/components/auth/*` paths to the same shim. The shim re-exports
- * from `window.Martis.runtime`, so the published bundle reads the
- * runtime off the host's React + context tree at boot time.
+ * `@/components/auth/*` paths to the runtime shim, and `react-dom`,
+ * `react-router-dom`, `react-i18next` and `@tanstack/react-query` to
+ * shims of their own. The shims re-export from `window.Martis.runtime`,
+ * so the published bundle reads the runtime off the host's React +
+ * context tree at boot time.
  *
  * Adding to this surface: new exports are non-breaking (semver minor).
  * Removing or renaming = breaking (major). Rule of thumb: add only

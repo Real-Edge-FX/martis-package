@@ -32,15 +32,16 @@ function resolveAlias(id: string): string {
 }
 
 /**
- * The names the shim behind a replacement variable exports. The config
- * publishes each shim as `.shims/<name>.mjs` (`const runtimeShim =
- * path.join(shimsDir, 'runtime.mjs')`) from the `<name>-shim.mjs.stub`
- * next to it.
+ * The shim behind a replacement variable: the config publishes each shim as
+ * `.shims/<name>.mjs` (`const runtimeShim = path.join(shimsDir,
+ * 'runtime.mjs')`) from the `<name>-shim.mjs.stub` next to it, with its
+ * declarations from `<name>-shim.d.mts.stub`.
  */
 function shimFile(variable: string): string | undefined {
     return viteExtensionsConfig.match(new RegExp(`const ${variable} = path\\.join\\(shimsDir, '([\\w-]+)\\.mjs'\\)`))?.[1]
 }
 
+/** The names the shim behind a replacement variable exports. */
 function shimExports(variable: string): Set<string> {
     const source = shims[`../../stubs/extensions/${shimFile(variable)}-shim.mjs.stub`] ?? ''
     return new Set([...source.matchAll(/^export const (\w+) =/gm)].map(([, name]) => name))
@@ -199,8 +200,8 @@ describe('martisRuntime', () => {
         // must be one the shim's declarations export (from `@martis/runtime`,
         // one `lib/martisRuntime.ts` re-exports), since the consumer's
         // tsconfig sends the specifier to them, React's own shims excepted
-        // (typed by @types/react). An `@/...` or `@martis/...` path no alias matches does
-        // not resolve at all, and one the legacy aliases send to the runtime
+        // (typed by @types/react). An `@/...` or `@martis/...` path no alias
+        // matches does not resolve at all, and one the legacy aliases send to the runtime
         // shim builds but teaches a package path, so the docs name
         // `@martis/runtime`. A code block that documents the package's own
         // source says so on a `// Package-internal` line and is skipped.
