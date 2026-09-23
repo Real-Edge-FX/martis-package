@@ -1,5 +1,6 @@
-/* PrimeReact dark theme + components */
-@import "primereact/resources/themes/lara-dark-indigo/theme.css";
+/* PrimeReact component structure. The theme itself is compiled from its
+   SASS source with the Martis tokens (resources/sass/primereact/theme.scss,
+   imported by app.tsx before this file). */
 @import "primereact/resources/primereact.min.css";
 @import "primeicons/primeicons.css";
 
@@ -254,10 +255,22 @@
   color-scheme: dark;
 
   /* ▸ PrimeReact bridge: every PrimeReact variable points at a Martis token.
-     The bundled lara theme paints with literal colours and reads only
-     --maskbg of these, so the component overrides further down do the
-     restyling; the bridge serves the modal mask and code that reads the
-     variables (see docs/theming.md, "Some colors don't change"). */
+     The PrimeReact components already paint with the tokens (their theme is
+     compiled from resources/sass/primereact); the bridge keeps the
+     variables that theme publishes on :root in step, for code that reads
+     them (extensions, utility classes). The --surface-0..900 scale runs
+     from the page background to the text colour, as the lara palettes do. */
+  --surface-0: var(--martis-bg);
+  --surface-50: color-mix(in srgb, var(--martis-text) 8%, var(--martis-bg));
+  --surface-100: color-mix(in srgb, var(--martis-text) 16%, var(--martis-bg));
+  --surface-200: color-mix(in srgb, var(--martis-text) 28%, var(--martis-bg));
+  --surface-300: color-mix(in srgb, var(--martis-text) 42%, var(--martis-bg));
+  --surface-400: color-mix(in srgb, var(--martis-text) 58%, var(--martis-bg));
+  --surface-500: color-mix(in srgb, var(--martis-text) 74%, var(--martis-bg));
+  --surface-600: color-mix(in srgb, var(--martis-text) 84%, var(--martis-bg));
+  --surface-700: color-mix(in srgb, var(--martis-text) 91%, var(--martis-bg));
+  --surface-800: color-mix(in srgb, var(--martis-text) 96%, var(--martis-bg));
+  --surface-900: var(--martis-text);
   --primary-color: var(--martis-accent);
   --primary-color-text: var(--martis-accent-contrast, #ffffff);
   --primary-50: var(--martis-accent-bg-light);

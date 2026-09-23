@@ -1,0 +1,418 @@
+// Lara theme variables pointed at the Martis design tokens.
+//
+// Every variable in upstream/lara/_variables.scss is declared `!default`, so
+// the values set here win. Each colour reads a `--martis-*` token (directly
+// or through the colour shims), which makes one compiled theme follow the
+// active palette: light, dark, an accent preset or a consumer theme.
+//
+// Variables are mapped by meaning, not through the lara shade scale: the
+// shades carry different roles in the lara light and dark palettes, so a
+// shade-based mapping would put, say, the input background on the page
+// background. The shades are still pointed at tokens as a fallback for any
+// rule that reads them directly.
+
+// ── Shades (fallback only) ─────────────────────────────────────────
+$shade000: var(--martis-text);
+$shade100: var(--martis-text-muted);
+$shade500: var(--martis-text-muted);
+$shade600: var(--martis-border);
+$shade700: var(--martis-surface-alt);
+$shade800: var(--martis-surface);
+$shade900: var(--martis-bg);
+$hoverBg: var(--martis-hover);
+
+// ── Primary and highlight ──────────────────────────────────────────
+$primaryColor: var(--martis-accent);
+$primaryLightColor: var(--martis-accent-hover);
+$primaryLighterColor: var(--martis-accent-active);
+$primaryLightestColor: var(--martis-accent-bg-light);
+$primaryTextColor: var(--martis-accent-contrast);
+$highlightBg: var(--martis-accent-bg-light);
+$highlightTextColor: var(--martis-accent);
+$highlightFocusBg: var(--martis-accent-bg);
+
+// ── Global ─────────────────────────────────────────────────────────
+$fontFamily: var(--martis-font-sans);
+$textColor: var(--martis-text);
+$textSecondaryColor: var(--martis-text-muted);
+$divider: 1px solid var(--martis-border);
+$maskBg: var(--martis-overlay);
+$errorColor: var(--martis-danger);
+
+// ── Focus ──────────────────────────────────────────────────────────
+$focusOutlineColor: var(--martis-focus-ring);
+$focusShadow: 0 0 0 3px var(--martis-focus-ring);
+
+// ── Action icons ───────────────────────────────────────────────────
+$actionIconColor: var(--martis-text-muted);
+$actionIconHoverBg: var(--martis-hover);
+$actionIconHoverColor: var(--martis-text);
+
+// ── Input fields ───────────────────────────────────────────────────
+$inputBg: var(--martis-input-bg);
+$inputTextColor: var(--martis-text);
+$inputIconColor: var(--martis-text-muted);
+$inputBorder: 1px solid var(--martis-border);
+$inputHoverBorderColor: var(--martis-accent);
+$inputFocusBorderColor: var(--martis-accent);
+$inputErrorBorderColor: var(--martis-danger);
+$inputPlaceholderTextColor: var(--martis-text-muted);
+$inputFilledBg: var(--martis-surface-alt);
+$inputFilledHoverBg: var(--martis-surface-alt);
+$inputFilledFocusBg: var(--martis-surface-alt);
+
+// ── Input groups, lists and overlays ───────────────────────────────
+$inputGroupBg: var(--martis-surface-alt);
+$inputGroupTextColor: var(--martis-text-muted);
+$inputListBg: var(--martis-surface);
+$inputListTextColor: var(--martis-text);
+$inputListBorder: 1px solid var(--martis-border);
+$inputListItemTextColor: var(--martis-text);
+$inputListItemHoverBg: var(--martis-hover);
+$inputListItemTextHoverColor: var(--martis-text);
+$inputListItemTextFocusColor: var(--martis-text);
+$inputListItemFocusBg: var(--martis-hover);
+$inputListItemFocusShadow: inset 0 0 0 0.15rem var(--martis-focus-ring);
+$inputListHeaderBg: var(--martis-surface);
+$inputListHeaderTextColor: var(--martis-text);
+$inputListHeaderBorder: 1px solid var(--martis-border);
+$inputOverlayBg: var(--martis-surface);
+$inputOverlayHeaderBg: var(--martis-surface);
+$inputOverlayBorder: 1px solid var(--martis-border);
+$inputOverlayShadow: var(--martis-shadow-md);
+
+// ── Password meter ─────────────────────────────────────────────────
+$passwordMeterBg: var(--martis-border);
+$passwordWeakBg: var(--martis-danger);
+$passwordMediumBg: var(--martis-warning);
+$passwordStrongBg: var(--martis-success);
+
+// ── Buttons ────────────────────────────────────────────────────────
+// Severity fills carry white text, like the Martis .martis-btn-* buttons.
+$severityButtonTextColor: #ffffff;
+
+$buttonBg: var(--martis-accent);
+$buttonTextColor: var(--martis-accent-contrast);
+$buttonBorder: 1px solid var(--martis-accent);
+$buttonHoverBg: var(--martis-accent-hover);
+$buttonTextHoverColor: var(--martis-accent-contrast);
+$buttonHoverBorderColor: var(--martis-accent-hover);
+$buttonActiveBg: var(--martis-accent-active);
+$buttonTextActiveColor: var(--martis-accent-contrast);
+$buttonActiveBorderColor: var(--martis-accent-active);
+$plainButtonTextColor: var(--martis-text-muted);
+$plainButtonHoverBgColor: var(--martis-hover);
+$plainButtonActiveBgColor: var(--martis-active);
+
+$secondaryButtonBg: var(--martis-surface-alt);
+$secondaryButtonTextColor: var(--martis-text);
+$secondaryButtonBorder: 1px solid var(--martis-border);
+$secondaryButtonHoverBg: var(--martis-border);
+$secondaryButtonTextHoverColor: var(--martis-text);
+$secondaryButtonHoverBorderColor: var(--martis-border);
+$secondaryButtonActiveBg: mix(var(--martis-text), var(--martis-border), 12%);
+$secondaryButtonTextActiveColor: var(--martis-text);
+$secondaryButtonActiveBorderColor: var(--martis-border);
+$secondaryButtonFocusShadow: 0 0 0 3px var(--martis-focus-ring);
+
+$infoButtonBg: var(--martis-info);
+$infoButtonTextColor: $severityButtonTextColor;
+$infoButtonBorder: 1px solid var(--martis-info);
+$infoButtonHoverBg: var(--martis-info-hover);
+$infoButtonTextHoverColor: $severityButtonTextColor;
+$infoButtonHoverBorderColor: var(--martis-info-hover);
+$infoButtonActiveBg: darken(var(--martis-info-hover), 10%);
+$infoButtonTextActiveColor: $severityButtonTextColor;
+$infoButtonActiveBorderColor: darken(var(--martis-info-hover), 10%);
+$infoButtonFocusShadow: 0 0 0 3px rgba(var(--martis-info), 0.35);
+
+$successButtonBg: var(--martis-success);
+$successButtonTextColor: $severityButtonTextColor;
+$successButtonBorder: 1px solid var(--martis-success);
+$successButtonHoverBg: var(--martis-success-hover);
+$successButtonTextHoverColor: $severityButtonTextColor;
+$successButtonHoverBorderColor: var(--martis-success-hover);
+$successButtonActiveBg: darken(var(--martis-success-hover), 10%);
+$successButtonTextActiveColor: $severityButtonTextColor;
+$successButtonActiveBorderColor: darken(var(--martis-success-hover), 10%);
+$successButtonFocusShadow: 0 0 0 3px rgba(var(--martis-success), 0.35);
+
+$warningButtonBg: var(--martis-warning);
+$warningButtonTextColor: $severityButtonTextColor;
+$warningButtonBorder: 1px solid var(--martis-warning);
+$warningButtonHoverBg: var(--martis-warning-hover);
+$warningButtonTextHoverColor: $severityButtonTextColor;
+$warningButtonHoverBorderColor: var(--martis-warning-hover);
+$warningButtonActiveBg: darken(var(--martis-warning-hover), 10%);
+$warningButtonTextActiveColor: $severityButtonTextColor;
+$warningButtonActiveBorderColor: darken(var(--martis-warning-hover), 10%);
+$warningButtonFocusShadow: 0 0 0 3px rgba(var(--martis-warning), 0.35);
+
+// Martis has no "help" colour; help buttons use the accent.
+$helpButtonBg: var(--martis-accent);
+$helpButtonTextColor: var(--martis-accent-contrast);
+$helpButtonBorder: 1px solid var(--martis-accent);
+$helpButtonHoverBg: var(--martis-accent-hover);
+$helpButtonTextHoverColor: var(--martis-accent-contrast);
+$helpButtonHoverBorderColor: var(--martis-accent-hover);
+$helpButtonActiveBg: var(--martis-accent-active);
+$helpButtonTextActiveColor: var(--martis-accent-contrast);
+$helpButtonActiveBorderColor: var(--martis-accent-active);
+$helpButtonFocusShadow: 0 0 0 3px var(--martis-focus-ring);
+
+$dangerButtonBg: var(--martis-danger);
+$dangerButtonTextColor: $severityButtonTextColor;
+$dangerButtonBorder: 1px solid var(--martis-danger);
+$dangerButtonHoverBg: var(--martis-danger-hover);
+$dangerButtonTextHoverColor: $severityButtonTextColor;
+$dangerButtonHoverBorderColor: var(--martis-danger-hover);
+$dangerButtonActiveBg: darken(var(--martis-danger-hover), 10%);
+$dangerButtonTextActiveColor: $severityButtonTextColor;
+$dangerButtonActiveBorderColor: darken(var(--martis-danger-hover), 10%);
+$dangerButtonFocusShadow: 0 0 0 3px rgba(var(--martis-danger), 0.35);
+
+// The contrast severity inverts text and surface.
+$contrastButtonBg: var(--martis-text);
+$contrastButtonTextColor: var(--martis-surface);
+$contrastButtonBorder: 1px solid var(--martis-text);
+$contrastButtonHoverBg: mix(var(--martis-surface), var(--martis-text), 15%);
+$contrastButtonTextHoverColor: var(--martis-surface);
+$contrastButtonHoverBorderColor: mix(var(--martis-surface), var(--martis-text), 15%);
+$contrastButtonActiveBg: mix(var(--martis-surface), var(--martis-text), 25%);
+$contrastButtonTextActiveColor: var(--martis-surface);
+$contrastButtonActiveBorderColor: mix(var(--martis-surface), var(--martis-text), 25%);
+$contrastButtonFocusShadow: 0 0 0 3px var(--martis-focus-ring);
+
+$raisedButtonShadow: var(--martis-shadow-md);
+
+$linkButtonColor: var(--martis-accent);
+$linkButtonHoverColor: var(--martis-accent-hover);
+$linkButtonFocusShadow: 0 0 0 3px var(--martis-focus-ring);
+
+// ── Checkbox and radio ─────────────────────────────────────────────
+$checkboxBorder: 2px solid var(--martis-border);
+$checkboxActiveBorderColor: var(--martis-accent);
+$checkboxActiveBg: var(--martis-accent);
+$checkboxIconActiveColor: var(--martis-accent-contrast);
+$checkboxActiveHoverBg: var(--martis-accent-hover);
+$checkboxIconActiveHoverColor: var(--martis-accent-contrast);
+$checkboxActiveHoverBorderColor: var(--martis-accent-hover);
+
+$radiobuttonBorder: 2px solid var(--martis-border);
+$radiobuttonActiveBorderColor: var(--martis-accent);
+$radiobuttonActiveBg: var(--martis-accent);
+$radiobuttonIconActiveColor: var(--martis-accent-contrast);
+$radiobuttonActiveHoverBg: var(--martis-accent-hover);
+$radiobuttonIconActiveHoverColor: var(--martis-accent-contrast);
+$radiobuttonActiveHoverBorderColor: var(--martis-accent-hover);
+
+// ── Colour picker, toggle button, inplace, rating, slider ──────────
+$colorPickerBg: var(--martis-surface);
+$colorPickerBorder: 1px solid var(--martis-border);
+$colorPickerHandleColor: var(--martis-text);
+
+$toggleButtonBg: var(--martis-surface);
+$toggleButtonBorder: 1px solid var(--martis-border);
+$toggleButtonTextColor: var(--martis-text);
+$toggleButtonIconColor: var(--martis-text-muted);
+$toggleButtonHoverBg: var(--martis-hover);
+$toggleButtonHoverBorderColor: var(--martis-border);
+$toggleButtonTextHoverColor: var(--martis-text);
+$toggleButtonIconHoverColor: var(--martis-text-muted);
+$toggleButtonActiveBg: var(--martis-accent);
+$toggleButtonActiveBorderColor: var(--martis-accent);
+$toggleButtonTextActiveColor: var(--martis-accent-contrast);
+$toggleButtonIconActiveColor: var(--martis-accent-contrast);
+$toggleButtonActiveHoverBg: var(--martis-accent-hover);
+$toggleButtonActiveHoverBorderColor: var(--martis-accent-hover);
+$toggleButtonTextActiveHoverColor: var(--martis-accent-contrast);
+$toggleButtonIconActiveHoverColor: var(--martis-accent-contrast);
+
+$inplaceHoverBg: var(--martis-hover);
+$inplaceTextHoverColor: var(--martis-text);
+
+$ratingCancelIconColor: var(--martis-danger);
+$ratingCancelIconHoverColor: var(--martis-danger-hover);
+$ratingStarIconOffColor: var(--martis-text-muted);
+$ratingStarIconOnColor: var(--martis-accent);
+$ratingStarIconHoverColor: var(--martis-accent-hover);
+
+$sliderBg: var(--martis-border);
+$sliderHandleBg: var(--martis-surface);
+$sliderHandleBorder: 2px solid var(--martis-accent);
+$sliderHandleHoverBorderColor: var(--martis-accent-hover);
+$sliderHandleHoverBg: var(--martis-accent);
+$sliderRangeBg: var(--martis-accent);
+
+// ── Calendar ───────────────────────────────────────────────────────
+$calendarBg: var(--martis-surface);
+$calendarInlineBg: var(--martis-surface);
+$calendarTextColor: var(--martis-text);
+$calendarBorder: 1px solid var(--martis-border);
+$calendarOverlayBorder: 1px solid var(--martis-border);
+$calendarHeaderBg: var(--martis-surface);
+$calendarInlineHeaderBg: var(--martis-surface);
+$calendarHeaderBorder: 1px solid var(--martis-border);
+$calendarHeaderTextColor: var(--martis-text);
+$calendarMonthYearHeaderHoverTextColor: var(--martis-accent);
+$calendarCellDateHoverBg: var(--martis-hover);
+$calendarCellDateTodayTextColor: var(--martis-accent);
+
+// ── Input switch ───────────────────────────────────────────────────
+$inputSwitchSliderOffBg: mix(var(--martis-text-muted), var(--martis-border), 25%);
+$inputSwitchSliderOffHoverBg: mix(var(--martis-text-muted), var(--martis-border), 45%);
+$inputSwitchHandleOffBg: var(--martis-accent-contrast);
+$inputSwitchSliderOnBg: var(--martis-accent);
+$inputSwitchSliderOnHoverBg: var(--martis-accent-hover);
+$inputSwitchHandleOnBg: var(--martis-accent-contrast);
+
+// ── Panels, accordion, tabs, card, editor, paginator ───────────────
+$panelHeaderBorderColor: var(--martis-border);
+$panelHeaderBorder: 1px solid var(--martis-border);
+$panelHeaderBg: var(--martis-surface-alt);
+$panelHeaderTextColor: var(--martis-text);
+$panelHeaderHoverBg: var(--martis-hover);
+$panelHeaderHoverBorderColor: var(--martis-border);
+$panelHeaderTextHoverColor: var(--martis-text);
+$panelContentBorderColor: var(--martis-border);
+$panelContentBorder: 1px solid var(--martis-border);
+$panelContentBg: var(--martis-card);
+$panelContentEvenRowBg: var(--martis-row-even);
+$panelContentTextColor: var(--martis-text);
+$panelFooterBorder: 1px solid var(--martis-border);
+$panelFooterBg: var(--martis-card);
+$panelFooterTextColor: var(--martis-text);
+
+$tabviewNavBorder: 1px solid var(--martis-border);
+$tabviewHeaderBorder: solid var(--martis-border);
+$tabviewHeaderBorderColor: transparent transparent var(--martis-border) transparent;
+$tabviewHeaderBg: var(--martis-card);
+$tabviewHeaderTextColor: var(--martis-text-muted);
+$tabviewHeaderHoverBg: var(--martis-card);
+$tabviewHeaderHoverBorderColor: var(--martis-accent);
+$tabviewHeaderTextHoverColor: var(--martis-text);
+$tabviewHeaderActiveBg: var(--martis-card);
+$tabviewHeaderActiveBorderColor: var(--martis-accent);
+$tabviewHeaderTextActiveColor: var(--martis-accent);
+$tabviewContentBg: var(--martis-card);
+$tabviewContentTextColor: var(--martis-text);
+
+$paginatorBg: var(--martis-surface);
+$paginatorTextColor: var(--martis-text-muted);
+$paginatorBorder: solid var(--martis-border);
+$paginatorElementIconColor: var(--martis-text-muted);
+$paginatorElementHoverBg: var(--martis-hover);
+$paginatorElementIconHoverColor: var(--martis-text);
+
+// ── Table ──────────────────────────────────────────────────────────
+$tableHeaderBorder: 1px solid var(--martis-table-header-border);
+$tableHeaderBg: var(--martis-table-header-bg);
+$tableHeaderTextColor: var(--martis-table-header-text);
+$tableHeaderCellBg: var(--martis-table-header-bg);
+$tableHeaderCellTextColor: var(--martis-table-header-text);
+$tableHeaderCellBorder: 1px solid var(--martis-table-header-border);
+$tableHeaderCellHoverBg: var(--martis-row-hover);
+$tableHeaderCellTextHoverColor: var(--martis-text);
+$tableHeaderCellIconColor: var(--martis-text-muted);
+$tableHeaderCellIconHoverColor: var(--martis-text);
+$tableBodyRowBg: var(--martis-surface);
+$tableBodyRowTextColor: var(--martis-text);
+$tableBodyRowEvenBg: var(--martis-row-even);
+$tableBodyRowHoverBg: var(--martis-row-hover);
+$tableBodyRowTextHoverColor: var(--martis-text);
+$tableBodyCellBorder: 1px solid var(--martis-border);
+$tableFooterCellBg: var(--martis-table-header-bg);
+$tableFooterCellTextColor: var(--martis-text);
+$tableFooterCellBorder: 1px solid var(--martis-border);
+$tableFooterBorder: 1px solid var(--martis-border);
+$tableFooterBg: var(--martis-table-header-bg);
+$tableFooterTextColor: var(--martis-text);
+
+// ── Timeline ───────────────────────────────────────────────────────
+$timelineEventMarkerBackground: var(--martis-surface);
+
+// ── Messages, toasts and inline messages ───────────────────────────
+$infoMessageBg: var(--martis-info-bg);
+$infoMessageBorder: solid var(--martis-info);
+$infoMessageTextColor: var(--martis-info-text);
+$infoMessageIconColor: var(--martis-info-text);
+$successMessageBg: var(--martis-success-bg);
+$successMessageBorder: solid var(--martis-success);
+$successMessageTextColor: var(--martis-success-text);
+$successMessageIconColor: var(--martis-success-text);
+$warningMessageBg: var(--martis-warning-bg);
+$warningMessageBorder: solid var(--martis-warning);
+$warningMessageTextColor: var(--martis-warning-text);
+$warningMessageIconColor: var(--martis-warning-text);
+$errorMessageBg: var(--martis-danger-bg);
+$errorMessageBorder: solid var(--martis-danger);
+$errorMessageTextColor: var(--martis-danger-text);
+$errorMessageIconColor: var(--martis-danger-text);
+
+// ── Overlays, dialog, tooltip ──────────────────────────────────────
+$overlayContentBorder: 1px solid var(--martis-border);
+$overlayContentBg: var(--martis-card);
+$overlayContainerShadow: var(--martis-shadow-lg);
+$dialogHeaderBg: var(--martis-card);
+$dialogHeaderTextColor: var(--martis-text);
+$tooltipBg: var(--martis-surface-alt);
+$tooltipTextColor: var(--martis-text);
+
+// ── Steps, progress bar ────────────────────────────────────────────
+$stepsItemTextColor: var(--martis-text-muted);
+$stepsItemNumberColor: var(--martis-text);
+$progressBarBg: var(--martis-border);
+$progressBarValueBg: var(--martis-accent);
+$progressBarValueTextColor: var(--martis-accent-contrast);
+
+// ── Menus ──────────────────────────────────────────────────────────
+$menuBg: var(--martis-card);
+$menuBorder: 1px solid var(--martis-border);
+$menuTextColor: var(--martis-text);
+$menuitemTextColor: var(--martis-text);
+$menuitemIconColor: var(--martis-text-muted);
+$menuitemTextHoverColor: var(--martis-text);
+$menuitemIconHoverColor: var(--martis-text);
+$menuitemHoverBg: var(--martis-hover);
+$menuitemTextFocusColor: var(--martis-text);
+$menuitemIconFocusColor: var(--martis-text);
+$menuitemFocusBg: var(--martis-hover);
+$submenuHeaderBg: var(--martis-card);
+$submenuHeaderTextColor: var(--martis-text);
+$overlayMenuBorder: 1px solid var(--martis-border);
+$overlayMenuShadow: var(--martis-shadow-md);
+$horizontalMenuBg: var(--martis-card);
+
+// ── Badge and tag ──────────────────────────────────────────────────
+$badgeBg: var(--martis-accent);
+$badgeTextColor: var(--martis-accent-contrast);
+
+// ── Card ───────────────────────────────────────────────────────────
+// Martis cards are outlined (martis.css), not raised.
+$cardShadow: none;
+
+// ── Carousel, divider, avatar, chip ────────────────────────────────
+$carouselIndicatorBg: var(--martis-border);
+$carouselIndicatorHoverBg: var(--martis-hover);
+$dividerColor: var(--martis-border);
+$avatarBg: var(--martis-surface-alt);
+$avatarTextColor: var(--martis-text);
+$chipBg: var(--martis-surface-alt);
+$chipTextColor: var(--martis-text);
+$chipFocusBg: var(--martis-border);
+$chipFocusTextColor: var(--martis-text);
+
+// ── Skeleton, splitter, speed dial, dock ───────────────────────────
+$skeletonBg: var(--martis-active);
+$skeletonAnimationBg: var(--martis-hover);
+$splitterGutterBg: var(--martis-hover);
+$splitterGutterHandleBg: var(--martis-border);
+$speedDialActionBg: var(--martis-text);
+$speedDialActionHoverBg: var(--martis-text-muted);
+$speedDialActionTextColor: var(--martis-surface);
+$speedDialActionTextHoverColor: var(--martis-surface);
+$dockBg: rgba(var(--martis-surface), 0.1);
+$dockBorder: 1px solid rgba(var(--martis-surface), 0.2);
+
+// Galleria and the image preview keep their own dark scrim and white
+// controls in both modes: they frame media, not the admin surface.

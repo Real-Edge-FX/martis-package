@@ -1,0 +1,103 @@
+// Colour functions that also accept a Martis token.
+//
+// The lara theme derives colours with Sass colour functions (rgba, mix,
+// darken, scale-color, ...). They need a real colour at compile time, so a
+// variable pointing at a token (`var(--martis-accent)`) would break them.
+// Each shim keeps the built-in result for a real colour and emits the
+// matching `color-mix()` for a token, so the browser resolves the colour
+// from the active theme at run time.
+//
+// A token reaches Sass as an unquoted string (`var(...)` is a special CSS
+// function), which is how the shims tell the two cases apart.
+@use "sass:color";
+@use "sass:list";
+@use "sass:map";
+@use "sass:math";
+@use "sass:meta";
+
+@function _is-token($value) {
+  @return meta.type-of($value) == "string";
+}
+
+@function _percent($value) {
+  @if math.is-unitless($value) {
+    @return $value * 100%;
+  }
+
+  @return $value;
+}
+
+// rgba($color, $alpha) or rgba($red, $green, $blue, $alpha)
+@function rgba($args...) {
+  @if list.length($args) == 2 {
+    $value: list.nth($args, 1);
+    $alpha: list.nth($args, 2);
+
+    @if _is-token($value) {
+      @return unquote("color-mix(in srgb, #{$value} #{_percent($alpha)}, transparent)");
+    }
+
+    @return color.change($value, $alpha: $alpha);
+  }
+
+  @return rgb($args...);
+}
+
+@function mix($color1, $color2, $weight: 50%) {
+  @if _is-token($color1) or _is-token($color2) {
+    @return unquote("color-mix(in srgb, #{$color1} #{$weight}, #{$color2})");
+  }
+
+  @return color.mix($color1, $color2, $weight);
+}
+
+@function darken($value, $amount) {
+  @if _is-token($value) {
+    @return unquote("color-mix(in srgb, #{$value}, black #{$amount})");
+  }
+
+  @return color.adjust($value, $lightness: -$amount);
+}
+
+@function lighten($value, $amount) {
+  @if _is-token($value) {
+    @return unquote("color-mix(in srgb, #{$value}, white #{$amount})");
+  }
+
+  @return color.adjust($value, $lightness: $amount);
+}
+
+@function transparentize($value, $amount) {
+  @if _is-token($value) {
+    @return unquote("color-mix(in srgb, #{$value} #{_percent(1 - $amount)}, transparent)");
+  }
+
+  @return color.adjust($value, $alpha: -$amount);
+}
+
+@function scale-color($value, $kwargs...) {
+  @if not _is-token($value) {
+    @return color.scale($value, $kwargs...);
+  }
+
+  $scale: meta.keywords($kwargs);
+  $out: $value;
+
+  @if map.has-key($scale, "lightness") {
+    $lightness: map.get($scale, "lightness");
+
+    @if $lightness < 0 {
+      $out: unquote("color-mix(in srgb, #{$out}, black #{-$lightness})");
+    } @else {
+      $out: unquote("color-mix(in srgb, #{$out}, white #{$lightness})");
+    }
+  }
+
+  // color-mix() cannot raise the opacity a token already has, so only a
+  // negative alpha scale (more transparent) is carried over.
+  @if map.has-key($scale, "alpha") and map.get($scale, "alpha") < 0 {
+    $out: unquote("color-mix(in srgb, #{$out} #{100% + map.get($scale, 'alpha')}, transparent)");
+  }
+
+  @return $out;
+}

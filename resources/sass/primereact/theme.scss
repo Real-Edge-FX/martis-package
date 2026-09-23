@@ -1,0 +1,13 @@
+// Martis PrimeReact theme.
+//
+// The PrimeReact 10 lara theme, compiled from its SASS source (upstream/) with
+// every colour read from the --martis-* design tokens (_tokens.scss). One
+// compiled theme follows the active palette: light and dark mode, the accent
+// presets and consumer themes all restyle every PrimeReact component, not
+// only the ones Martis renders.
+@import "shims";
+@import "tokens";
+@import "upstream/lara/variables";
+@import "fonts";
+@import "upstream/theme-base/components";
+@import "upstream/lara/extensions";
