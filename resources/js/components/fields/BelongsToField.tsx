@@ -23,6 +23,14 @@ function isBelongsToValue(v: unknown): v is BelongsToValue {
   return v !== null && typeof v === 'object' && 'id' in (v as Record<string, unknown>)
 }
 
+/** The records a multiple-mode value names (its `{ id, title }` entries). */
+function selectedItemsOf(value: unknown): Array<{ id: number | string; title: string | null }> {
+  if (!Array.isArray(value)) return []
+  return (value as unknown[])
+    .filter(v => isBelongsToValue(v as BelongsToValue))
+    .map(v => { const bv = v as BelongsToValue; return { id: bv.id, title: bv.title ?? null } })
+}
+
 // ---------------------------------------------------------------------------
 // PeekCard — hover preview card fetching content from the resource's
 // fieldsForPreview() via the /peek endpoint.
@@ -392,12 +400,9 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   }, [value, isMultiple])
 
   // Multiple mode: selected items array
-  const [selectedItems, setSelectedItems] = useState<Array<{id: number | string; title: string | null}>>(() => {
-    if (!isMultiple || !Array.isArray(value)) return []
-    return (value as unknown[])
-      .filter(v => isBelongsToValue(v as BelongsToValue))
-      .map(v => { const bv = v as BelongsToValue; return { id: bv.id, title: bv.title ?? null } })
-  })
+  const [selectedItems, setSelectedItems] = useState<Array<{id: number | string; title: string | null}>>(
+    () => (isMultiple ? selectedItemsOf(value) : []),
+  )
 
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -411,39 +416,24 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   const searchInputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Update selectedLabel when currentTitle changes (e.g. on form init)
-  useEffect(() => {
-    if (currentTitle) {
-      setSelectedLabel(currentTitle)
-    }
-  }, [currentTitle])
+  // The last value this input handed to `onChange` (a bare id, or the ids in
+  // multiple mode). A `value` prop that differs from it came from outside
+  // (the edit form seeding the record, "Create & add another" clearing the
+  // form) and replaces what the trigger shows; the form handing back what the
+  // input just emitted keeps the labels of the records it picked.
+  const emitted = useRef<unknown>(value)
 
-  // Stable key derived from BelongsToValue ids in the incoming value array.
-  // Avoids putting JSON.stringify() directly in the dependency array (lint anti-pattern).
-  const valueIdKey = useMemo(() => {
-    if (!isMultiple || !Array.isArray(value)) return ''
-    return (value as unknown[])
-      .filter(v => isBelongsToValue(v as BelongsToValue))
-      .map(v => (v as BelongsToValue).id)
-      .join(',')
-  }, [isMultiple, value])
-
-  // Sync selectedItems when value changes in multiple mode (e.g. edit form loads from server)
-  // Only sync when value contains BelongsToValue objects — skip when it contains plain IDs
-  // (plain IDs come from onChange calls during user interaction and must not reset selectedItems)
   useEffect(() => {
-    if (isMultiple && Array.isArray(value)) {
-      const hasBelongsToValues = (value as unknown[]).some(v => isBelongsToValue(v as BelongsToValue))
-      if (hasBelongsToValues) {
-        setSelectedItems(
-          (value as unknown[])
-            .filter(v => isBelongsToValue(v as BelongsToValue))
-            .map(v => { const bv = v as BelongsToValue; return { id: bv.id, title: bv.title ?? null } })
-        )
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMultiple, valueIdKey])
+    if (value === emitted.current) return
+    emitted.current = value
+    if (isMultiple) setSelectedItems(selectedItemsOf(value))
+    else setSelectedLabel(currentTitle)
+  }, [value, isMultiple, currentTitle])
+
+  function emit(next: unknown) {
+    emitted.current = next
+    onChange(next)
+  }
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -524,7 +514,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
       const next = exists
         ? prev.filter(item => String(item.id) !== String(record.id))
         : [...prev, { id: record.id, title: label }]
-      onChange(next.map(item => item.id))
+      emit(next.map(item => item.id))
       return next
     })
   }
@@ -534,11 +524,11 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     e.stopPropagation()
     e.preventDefault()
     setSelectedItems([])
-    onChange([])
+    emit([])
   }
 
   function handleInlineCreated(record: { id: string | number; title: string | null }) {
-    onChange(record.id)
+    emit(record.id)
     setSelectedLabel(record.title ?? String(record.id))
     setShowInlineCreate(false)
     void qc.invalidateQueries({ queryKey: ["relatable"] })
@@ -546,7 +536,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
 
   function handleSelect(record: RelatedRecord) {
     const label = getOptionLabel(record)
-    onChange(record.id)
+    emit(record.id)
     setSelectedLabel(label)
     setOpen(false)
     setSearch('')
@@ -555,7 +545,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   function handleClear(e: React.MouseEvent) {
     e.stopPropagation()
     e.preventDefault()
-    onChange(null)
+    emit(null)
     setSelectedLabel(null)
     setSearch('')
   }
@@ -672,7 +662,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
           value={currentId === null ? '' : String(currentId)}
           readOnly={field.readonly}
           required={field.required}
-          onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+          onChange={(e) => emit(e.target.value === '' ? null : Number(e.target.value))}
           className="martis-input block w-full rounded-md border px-3 py-2 text-sm"
           style={{
             backgroundColor: 'var(--martis-input-bg)',

@@ -88,6 +88,19 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
   const preload = (field as Record<string, unknown>).preload as boolean | undefined
 
   const [selected, setSelected] = useState<TagValue[]>(() => toTagArray(value))
+
+  // The last value this input handed to `onChange`. A `value` prop that
+  // differs from it came from outside (the edit form seeding the stored tags
+  // after mount, "Create & add another" clearing the form) and replaces the
+  // selection; the form handing back what the input just emitted does not.
+  const emitted = useRef<unknown>(value)
+
+  useEffect(() => {
+    if (value === emitted.current) return
+    emitted.current = value
+    setSelected(toTagArray(value))
+  }, [value])
+
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [options, setOptions] = useState<RelatedRecord[]>([])
@@ -169,26 +182,26 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
     return selected.some((t) => String(t.id) === String(id))
   }
 
-  function toggleTag(record: RelatedRecord) {
-    if (field.readonly) return
-    const label = getOptionLabel(record)
-    let next: TagValue[]
-
-    if (isSelectedId(record.id)) {
-      next = selected.filter((t) => String(t.id) !== String(record.id))
-    } else {
-      next = [...selected, { id: record.id, title: label }]
-    }
-
+  function emitChange(next: TagValue[]) {
+    emitted.current = next
     setSelected(next)
     onChange(next)
   }
 
+  function toggleTag(record: RelatedRecord) {
+    if (field.readonly) return
+    const label = getOptionLabel(record)
+
+    if (isSelectedId(record.id)) {
+      emitChange(selected.filter((t) => String(t.id) !== String(record.id)))
+    } else {
+      emitChange([...selected, { id: record.id, title: label }])
+    }
+  }
+
   function removeTag(id: number | string) {
     if (field.readonly) return
-    const next = selected.filter((t) => String(t.id) !== String(id))
-    setSelected(next)
-    onChange(next)
+    emitChange(selected.filter((t) => String(t.id) !== String(id)))
   }
 
   return (

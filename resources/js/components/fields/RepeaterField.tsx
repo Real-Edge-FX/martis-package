@@ -90,6 +90,16 @@ function normalizeRows(value: unknown): RepeaterRow[] {
     .filter((r): r is RepeaterRow => r !== null)
 }
 
+/** The rows `collapsedByDefault()` starts collapsed, keyed by row id. */
+function defaultCollapsed(rows: RepeaterRow[], meta: RepeaterMeta): Record<string, boolean> {
+  if (!meta.collapsible || !meta.collapsedByDefault) return {}
+  const map: Record<string, boolean> = {}
+  rows.forEach((r) => {
+    if (r.id !== null) map[String(r.id)] = true
+  })
+  return map
+}
+
 /** Apply a `{attr}` template against the row's field values. */
 function applyTitleTemplate(template: string, rowFields: Record<string, unknown>): string {
   return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (_m, key) => {
@@ -183,14 +193,21 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
 
   const rows = useMemo(() => normalizeRows(value), [value])
 
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
-    if (!meta.collapsible || !meta.collapsedByDefault) return {}
-    const map: Record<string, boolean> = {}
-    rows.forEach((r) => {
-      if (r.id !== null) map[String(r.id)] = true
-    })
-    return map
-  })
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => defaultCollapsed(rows, meta))
+
+  // The last value this input handed to `onChange`. A `value` prop that
+  // differs from it came from outside (the edit form seeding the stored rows
+  // after mount, "Create & add another" clearing the form), so its rows start
+  // collapsed again; the form handing back what the input just emitted keeps
+  // the rows the user opened, collapsed or added. Compared while rendering,
+  // not in an effect: a row's own field can emit while it mounts (a slug
+  // generated from a default), and child effects run before this input's.
+  const emitted = useRef<unknown>(value)
+  const [renderedValue, setRenderedValue] = useState<unknown>(value)
+  if (value !== renderedValue) {
+    setRenderedValue(value)
+    if (value !== emitted.current) setCollapsed(defaultCollapsed(rows, meta))
+  }
 
   const [pendingRemoval, setPendingRemoval] = useState<{ index: number; label: string } | null>(null)
   const [showAddMenu, setShowAddMenu] = useState(false)
@@ -227,7 +244,10 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
     return repeatables.find((r) => r.shortName === type) ?? repeatables[0]
   }, [repeatables])
 
-  const commit = (next: RepeaterRow[]) => onChange(next)
+  const commit = (next: RepeaterRow[]) => {
+    emitted.current = next
+    onChange(next)
+  }
 
   const addRow = (type: string, seedFields?: Record<string, unknown>) => {
     const rep = repeatableFor(type)

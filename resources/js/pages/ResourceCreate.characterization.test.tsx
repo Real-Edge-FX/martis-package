@@ -21,6 +21,8 @@ import { ToastProvider } from '@/contexts/ToastContext'
  *      `values` object, and a second field reading `formValues` sees the change
  *      (verified both directly and through a layout container).
  *   3. Container items (tab_group / section / panel) render their child fields.
+ *   4. "Create & add another" clears the form for the next record, including
+ *      the inputs that keep their own state (a Tag field).
  *
  * -------------------------------------------------------------------------
  * Harness note (IMPORTANT — read before editing):
@@ -442,5 +444,65 @@ describe('ResourceCreatePage — nested-container dependsOn reactivity', () => {
       const label = screen.getByText('Subtitle').closest('label')
       expect(label?.querySelector('.martis-input-required')).not.toBeNull()
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// (4) "Create & add another" — the next record starts from an empty form
+// ---------------------------------------------------------------------------
+
+describe('ResourceCreatePage — Create & add another', () => {
+  it('starts the next record without the tags picked for the previous one', async () => {
+    mockSchema([baseField({ attribute: 'tags', label: 'Tags', type: 'tag', relatedResource: 'tags' })])
+    const schemaFetch = apiGetMock.getMockImplementation()!
+    apiGetMock.mockImplementation((path: string) =>
+      path.includes('/relatable/tags')
+        ? Promise.resolve({ data: [{ id: 1, _title: 'php' }, { id: 3, _title: 'react' }] })
+        : schemaFetch(path),
+    )
+    apiPostMock.mockResolvedValue({ data: { id: 99 } })
+
+    renderCreatePage()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add Tags' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'php' }))
+    // No `create_and_add_another` translation in the test i18n bundle.
+    fireEvent.click(screen.getByRole('button', { name: 'create_and_add_another' }))
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(document.querySelector('[data-pr-tooltip="Remove php"]')).toBeNull())
+
+    if (!screen.queryByRole('button', { name: 'react' })) {
+      fireEvent.click(screen.getByRole('button', { name: 'Add Tags' }))
+    }
+    fireEvent.click(await screen.findByRole('button', { name: 'react' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create Post' }))
+
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(2))
+    const [, body] = apiPostMock.mock.calls[1] as [string, Record<string, unknown>]
+    expect(body.tags).toEqual([{ id: 3, title: 'react' }])
+  })
+
+  it('starts the next record without the parent picked for the previous one', async () => {
+    mockSchema([baseField({ attribute: 'author_id', label: 'Author', type: 'belongs_to', relatedResource: 'authors', nullable: true })])
+    const schemaFetch = apiGetMock.getMockImplementation()!
+    apiGetMock.mockImplementation((path: string) =>
+      path.includes('/relatable/author_id')
+        ? Promise.resolve({ data: [{ id: 7, _title: 'Ana' }] })
+        : schemaFetch(path),
+    )
+    apiPostMock.mockResolvedValue({ data: { id: 99 } })
+    const triggerLabel = () => document.querySelector('.martis-belongs-to-trigger-label')?.textContent
+
+    renderCreatePage()
+
+    // No `select_field` translation in the test i18n bundle.
+    fireEvent.click(await screen.findByText('select_field'))
+    fireEvent.click(await screen.findByText('Ana'))
+    expect(triggerLabel()).toBe('Ana')
+    fireEvent.click(screen.getByRole('button', { name: 'create_and_add_another' }))
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(1))
+    expect((apiPostMock.mock.calls[0] as [string, Record<string, unknown>])[1].author_id).toBe(7)
+
+    await waitFor(() => expect(triggerLabel()).toBe('select_field'))
   })
 })

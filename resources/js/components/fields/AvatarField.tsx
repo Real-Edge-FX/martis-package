@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UserIcon } from '@phosphor-icons/react'
 import { avatarColorForSeed, avatarHexForSeed } from '@/lib/avatarPalette'
@@ -158,10 +158,23 @@ export function AvatarFieldInput({ field, value, onChange, error }: FieldInputPr
   const { t } = useTranslation('messages')
   const inputRef = useRef<HTMLInputElement | null>(null)
   const payload = asPayload(value as Value)
-  const initialPreview = resolveUrl(value as Value)
-  const [preview, setPreview] = useState<string | null>(initialPreview)
+  const [preview, setPreview] = useState<string | null>(() => resolveUrl(value as Value))
+
+  // The last value this input handed to `onChange`. A `value` prop that
+  // differs from it came from outside (the edit form seeding the stored
+  // avatar after mount, "Create & add another" clearing the form) and
+  // replaces the preview; the form handing back the file the input just
+  // emitted does not.
+  const emitted = useRef<unknown>(value)
+
+  useEffect(() => {
+    if (value === emitted.current) return
+    emitted.current = value
+    setPreview(resolveUrl(value as Value))
+  }, [value])
 
   const handleFile = (file: File | null) => {
+    emitted.current = file
     onChange(file)
     setPreview(file ? URL.createObjectURL(file) : null)
   }
@@ -209,7 +222,12 @@ export function AvatarFieldInput({ field, value, onChange, error }: FieldInputPr
         type="file"
         accept={accepted}
         style={{ display: 'none' }}
-        onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+        onChange={(e) => {
+          handleFile(e.target.files?.[0] ?? null)
+          // A browser fires no `change` for the file the input still holds, so
+          // after Remove or a cleared form the same file could not be picked.
+          e.target.value = ''
+        }}
       />
       {error && <p className="martis-field-error">{error}</p>}
     </div>
