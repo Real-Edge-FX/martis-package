@@ -28,10 +28,12 @@ use Martis\Http\Resources\JsonErrorResponse;
  * - a `readonly()` pivot field never takes its value from the request: the
  *   attach stores its `default()` when it has one, as it does for any pivot
  *   field the request omits, and the pivot update leaves the column alone;
- * - a pivot field the user cannot see (`canSee()`) is written the same way
- *   as a readonly one, is not validated, and `presentPivotValues()` leaves it
- *   out of the pivot values sent back, as the resource endpoints leave out a
- *   field of the record the user cannot see;
+ * - a pivot field the user cannot see (`canSee()`, or `canSeeForModel()` for
+ *   the pivot row: the stored row on a pivot update, the new row, before any
+ *   value is written to it, on attach) is written the same way as a readonly
+ *   one, is not validated, and `presentPivotValues()` leaves it out of the
+ *   pivot values sent back, as the resource endpoints leave out a field of
+ *   the record the user cannot see;
  * - an `immutable()` pivot field is written on attach and skipped on the
  *   pivot update, as the resource's own update and the inline relationship
  *   updates skip an immutable field.
@@ -71,12 +73,19 @@ trait CollectsPivotData
         // be stored through. On a pivot update it holds the stored rows of
         // the pivot Repeaters, which the rows sent continue.
         $pivot = $relation->newPivot();
+        // The pivot row the fields' canSeeForModel() decides on: the stored
+        // row on a pivot update, the new row (still blank) on attach.
+        $row = $pivot;
         if ($isUpdate && $relatedId !== null) {
-            $this->withStoredRepeaterRows($pivot, $fields, $relation, $relatedId);
+            $row = $this->storedPivotRow($relation, $relatedId) ?? $pivot;
+            $this->withStoredRepeaterRows($pivot, $fields, $row);
         }
         $preset = $pivot->getAttributes();
 
-        $visible = array_values(array_filter($fields, static fn (Field $field): bool => $field->isAuthorizedToSee($request)));
+        $visible = array_values(array_filter(
+            Field::filterForModel($fields, $request, $row),
+            static fn (Field $field): bool => $field->isAuthorizedToSee($request),
+        ));
         $validation = $this->buildWriteValidation($visible, $request->all(), $isUpdate, [], $pivot);
 
         if ($validation['rules'] !== []) {
@@ -123,50 +132,44 @@ trait CollectsPivotData
 
     /**
      * Put on `$pivot` the stored value of each pivot Repeater among
-     * `$fields`, read from the pivot row of the attached record `$relatedId`,
-     * so the rows a pivot update sends continue the stored ones.
+     * `$fields`, read from `$stored`, the pivot row a pivot update writes,
+     * so the rows the update sends continue the stored ones.
      *
      * @param  list<Field>  $fields
-     * @param  EloquentBelongsToMany<Model, Model, covariant Pivot, covariant string>  $relation
      */
-    private function withStoredRepeaterRows(Pivot $pivot, array $fields, EloquentBelongsToMany $relation, int|string $relatedId): void
+    private function withStoredRepeaterRows(Pivot $pivot, array $fields, Pivot $stored): void
     {
-        $columns = [];
+        $values = [];
         foreach ($fields as $field) {
-            if ($field instanceof Repeater) {
-                $columns[] = $field->attribute();
+            if ($field instanceof Repeater && array_key_exists($field->attribute(), $stored->getAttributes())) {
+                $values[$field->attribute()] = $stored->getAttributes()[$field->attribute()];
             }
         }
 
-        if ($columns === []) {
-            return;
-        }
-
-        $stored = $relation->newPivotStatementForId($relatedId)->first($columns);
-
-        if ($stored !== null) {
-            $pivot->setRawAttributes(array_merge($pivot->getAttributes(), (array) $stored), true);
+        if ($values !== []) {
+            $pivot->setRawAttributes(array_merge($pivot->getAttributes(), $values), true);
         }
     }
 
     /**
      * Pivot values as they are sent back: without the value of a pivot field
-     * the user cannot see, and with the rows of each pivot Repeater as its
-     * read gives them (without the row fields the user cannot see); the other
-     * values as they are.
+     * the user cannot see (`canSee()`, or `canSeeForModel()` for `$row`, the
+     * pivot row the values come from), and with the rows of each pivot
+     * Repeater as its read gives them (without the row fields the user
+     * cannot see); the other values as they are.
      *
      * @param  list<mixed>  $pivotFields
      * @param  array<string, mixed>  $values
      * @return array<string, mixed>
      */
-    protected function presentPivotValues(Request $request, array $pivotFields, array $values): array
+    protected function presentPivotValues(Request $request, array $pivotFields, array $values, ?Model $row = null): array
     {
         foreach ($pivotFields as $field) {
             if (! $field instanceof Field || ! array_key_exists($field->attribute(), $values)) {
                 continue;
             }
 
-            if (! $field->isAuthorizedToSee($request)) {
+            if (! $field->isAuthorizedToSee($request) || ($row !== null && ! $field->isAuthorizedForModel($request, $row))) {
                 unset($values[$field->attribute()]);
             } elseif ($field instanceof Repeater) {
                 $values[$field->attribute()] = $field->resolveRows($values[$field->attribute()]);

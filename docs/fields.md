@@ -18,6 +18,7 @@ All available field types in Martis, their methods, and configuration options.
   - [Granular Visibility](#granular-visibility)
   - [Convenience Visibility Presets](#convenience-visibility-presets)
   - [Context-Aware Visibility](#context-aware-visibility)
+  - [Field authorization: `canSee()` and `canSeeForModel()`](#field-authorization-cansee-and-canseeformodel)
   - [Sortable / Searchable](#sortable--searchable)
   - [Validation](#validation)
     - [What an update validates](#what-an-update-validates)
@@ -273,6 +274,39 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 | `create` / `inline-create` | `showOnCreate` ?? `showOnForms` |
 | `update` | `showOnUpdate` ?? `showOnForms` |
 | `preview` | `showOnPreview` ?? `showOnDetail` |
+
+### Field authorization: `canSee()` and `canSeeForModel()`
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `canSee` | `canSee(callable $callback): static` | Show the field only when `$callback(Request $request)` returns `true`. |
+| `canSeeWhen` | `canSeeWhen(string $ability, mixed ...$arguments): static` | `canSee()` through a Gate ability of the current user. |
+| `canSeeForModel` | `canSeeForModel(callable $callback): static` | Show the field on a record only when `$callback(Request $request, Model $model)` returns `true` for that record. |
+| `canSeeUsingPolicy` | `canSeeUsingPolicy(string $ability): static` | `canSeeForModel()` through a Gate ability of the current user on the record. |
+| `isAuthorizedToSee` | `isAuthorizedToSee(Request $request): bool` | Resolve `canSee()`. |
+| `isAuthorizedForModel` | `isAuthorizedForModel(Request $request, Model $model): bool` | Resolve `canSeeForModel()` for a record. |
+| `filterForModel` | `static filterForModel(array $fields, Request $request, Model $model): array` | The fields of a list the user may see on a record (v1.38.0). |
+
+A field the user cannot see is hidden by the server, not only by the UI. `canSee()` hides it for the request, `canSeeForModel()` for one record, and both hold on every endpoint:
+
+- **Reads.** `canSee()` leaves the field out of every field list of the schema and of every value the API sends. `canSeeForModel()` leaves its value out of each record it hides the field for: the index, the detail, the values of the update form, the replicate form, the rows and the record of a relationship panel (and the responses of its inline create and update), the rows of a lens, the peek card, and for a pivot field the `_pivot` values of the attached records. The schema describes the resource, not a record, so a form still lists a field that `canSeeForModel()` hides for the record it shows; the form's value for it is empty and its save ignores it.
+- **Writes.** A hidden field is neither validated nor written, like a `readonly()` field: the request is accepted, the other fields are written and the column keeps its value. This holds on every endpoint that writes a record through its fields: the resource create and update, the inline create, the inline create and update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne` panel, and the attach and pivot update of a `BelongsToMany` / `MorphToMany` for its pivot fields (the attach stores the field's `default()`).
+- **Creates.** `canSeeForModel()` is decided on the record written before any value of the request is written to it: the stored record on an update and, on a create, the new, unsaved model, as Nova resolves the fields of a create on a fresh model. A callback that grants on the record's stored values (an owner column, `exists`, a policy that reads them) denies on a create, and the create does not write the field. Grant on `! $model->exists` to let a create write it:
+
+```php
+Currency::make('salary')
+    ->canSeeForModel(fn (Request $request, Employee $employee): bool => ! $employee->exists
+        || ($request->user()?->can('viewSalary', $employee) ?? false));
+```
+
+- **Pivot fields.** The model a pivot field's `canSeeForModel()` receives is the pivot row, an instance of the relationship's pivot class (the `->using()` class, else `Pivot` / `MorphPivot`) whose `pivotParent` is the parent record: the attached row when the pivot values are read or updated, a new row on attach.
+- **Relationship fields.** A `HasMany`, `HasOne`, `MorphMany`, `MorphOne`, `BelongsToMany` or `MorphToMany` field that `canSeeForModel()` hides for the parent record answers 404 on every endpoint of its panel (the list, its create, update and delete, the attach, the detach, the pivot update, the pivot actions and the pickers of its pivot fields), as a relationship the resource does not declare.
+- **Action fields.** An Action field the user cannot see is left out of the modal, is not validated and never takes its value from the request. See [Actions → Fields the request cannot set](actions.md#fields-the-request-cannot-set).
+- **Layouts.** The rules are the same whatever layout container holds the field: `Panel`, `Section`, or directly a `Tab`.
+
+A field inside a Repeater row follows `canSee()` (see [Repeater → Readonly, computed, hidden and immutable row fields](repeater.md#readonly-computed-hidden-and-immutable-row-fields)); `canSeeForModel()` is not applied to row fields.
+
+Before v1.38.0 `canSeeForModel()` only hid the value on the resource's own reads (the index, the detail, the update form values, the replicate form). The resource create and update, the inline create and the inline forms of a relationship panel validated a field it hides and wrote the value the request sent (and the update form, which sends every field it lists, emptied the column); the relationship panels, the lens rows and the peek card sent its value; a relationship field it hides still served its panel; and a pivot field's callback was never asked. An Action field hidden with `canSee()` was listed in the modal, validated and handed to `handle()`. A field placed directly in a `Tab` ignored `canSee()` altogether: the schema listed it, the record's values carried it, and the create and the update validated it and wrote the value the request sent.
 
 ### Sortable / Searchable
 

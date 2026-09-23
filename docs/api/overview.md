@@ -229,6 +229,8 @@ Each relation type has a full sub-tree under the parent's URL. The shape mirrors
 
 (`/{r}` is shorthand for `/martis/api/resources/{resource}`.) MorphMany / MorphOne / MorphToMany follow the same shape under `/morph-many/`, `/morph-one/`, `/morph-to-many/`.
 
+A relationship field that `canSeeForModel()` hides for the parent record answers 404 on all of them, as an undeclared relationship (v1.38.0). Every record they send leaves out the fields hidden for it, and their writes neither validate nor write those fields: the new model decides on a create, the pivot row on an attach and a pivot update (v1.38.0). See [Fields → Field authorization](../fields.md#field-authorization-cansee-and-canseeformodel).
+
 ## Actions
 
 Per-resource and per-row action execution.

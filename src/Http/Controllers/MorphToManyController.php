@@ -108,7 +108,8 @@ class MorphToManyController extends MartisController
                     foreach ($pivotColumns as $col) {
                         $pivotData[$col] = $model->pivot->{$col} ?? null;
                     }
-                    $row['_pivot'] = $this->presentPivotValues($request, $field->getPivotFields(), $pivotData);
+                    // The pivot row decides the canSeeForModel() of its fields.
+                    $row['_pivot'] = $this->presentPivotValues($request, $field->getPivotFields(), $pivotData, $model->pivot);
                 }
 
                 return $row;
@@ -506,7 +507,13 @@ class MorphToManyController extends MartisController
         // Find the MorphToMany field in the parent resource. filterForContext
         // flattens layout containers (Section/Panel/TabGroup) so a relation
         // nested in one still resolves — a raw scan would 404 it.
-        $fields = Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL);
+        // A relationship field hidden for the parent record (canSeeForModel())
+        // is not on its detail page, so it answers like an undeclared one.
+        $fields = Field::filterForModel(
+            Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL),
+            $request,
+            $parentModel,
+        );
         $mtmField = null;
 
         foreach ($fields as $fieldItem) {
@@ -722,7 +729,9 @@ class MorphToManyController extends MartisController
         ];
         $data['_authorization'] = $resource->authorizationMetadata(request());
 
-        foreach ($fields as $field) {
+        // A field hidden for this record (canSeeForModel()) is left out, as
+        // on every read of a record.
+        foreach (Field::filterForModel($fields, request(), $model) as $field) {
             $data[$field->attribute()] = $field->resolve($model);
         }
 

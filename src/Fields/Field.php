@@ -97,12 +97,12 @@ abstract class Field implements FieldContract
     protected ?\Closure $canSeeCallback = null;
 
     /**
-     * Per-model visibility callback. v1.8.8. Accepts `(Request, Model)`
-     * and runs at serialization time inside `serializeModel`. When set,
-     * the field is hidden from the per-record payload when the closure
-     * returns false. Differs from `canSeeCallback` (which is per-request,
-     * model-agnostic) — this one supports field-level authorization
-     * that depends on the row being shown.
+     * Per-model visibility callback. v1.8.8. Accepts `(Request, Model)`.
+     * When set and the closure returns false for a record, the field is
+     * left out of that record's values on every read, and every write of
+     * that record neither validates nor writes it (see `filterForModel()`).
+     * Differs from `canSeeCallback` (which is per-request, model-agnostic):
+     * this one supports field-level authorization that depends on the record.
      */
     protected ?\Closure $canSeeForModelCallback = null;
 
@@ -1299,14 +1299,17 @@ abstract class Field implements FieldContract
     /**
      * Per-model visibility callback (v1.8.8).
      *
-     * Use it when whether the field should appear depends on the row
-     * being rendered, not just on the user. Common case: hiding the
-     * `email` column on a User index for non-admins, regardless of
-     * whether the row exists or not.
+     * Use it when whether the field should appear depends on the record,
+     * not just on the user. Common case: hiding a user's `email` from
+     * everyone but admins and that user.
      *
      * The callback receives `(Request $request, Model $model)` and
-     * returns `bool`. When false, the field is stripped from the
-     * per-record payload at serialization time.
+     * returns `bool`. When false, the field is hidden for that record, as
+     * `canSee()` hides it for the request: every read of the record leaves
+     * its value out, and every write of the record neither validates it nor
+     * takes its value from the request (see `filterForModel()`). A create
+     * decides on the new, unsaved model before any value is written to it;
+     * a pivot field decides on the pivot row.
      */
     public function canSeeForModel(callable $callback): static
     {
@@ -1338,9 +1341,9 @@ abstract class Field implements FieldContract
     }
 
     /**
-     * Resolve per-model visibility for serialization. Returns true when
-     * no per-model callback is set (most fields). When set, runs the
-     * closure with the active request + model.
+     * Resolve per-model visibility. Returns true when no per-model callback
+     * is set (most fields). When set, runs the closure with the active
+     * request + model.
      */
     public function isAuthorizedForModel(Request $request, Model $model): bool
     {
@@ -1349,6 +1352,34 @@ abstract class Field implements FieldContract
         }
 
         return (bool) ($this->canSeeForModelCallback)($request, $model);
+    }
+
+    /**
+     * The fields of `$fields` the user may see on `$model`: all of them but
+     * the ones a `canSeeForModel()` / `canSeeUsingPolicy()` callback hides
+     * for that record (see `isAuthorizedForModel()`). A field without such a
+     * callback is kept.
+     *
+     * Every read of a record gives the values of these fields only, and
+     * every write of a record validates and fills these fields only, so a
+     * field hidden for the record is written like one the user cannot see
+     * (`canSee()`): an update leaves its column alone, a create does not
+     * write it. `$model` is the record read or updated, or on a create the
+     * new, unsaved model the create fills, before any value is written to it
+     * (Nova resolves the fields of a create on a fresh model too).
+     *
+     * @template TField of FieldContract
+     *
+     * @param  list<TField>  $fields
+     * @return list<TField>
+     */
+    public static function filterForModel(array $fields, Request $request, Model $model): array
+    {
+        return array_values(array_filter(
+            $fields,
+            static fn (FieldContract $field): bool => ! method_exists($field, 'isAuthorizedForModel')
+                || $field->isAuthorizedForModel($request, $model),
+        ));
     }
 
     // -------------------------------------------------------------------------

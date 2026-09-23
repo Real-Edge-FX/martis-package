@@ -293,7 +293,14 @@ class ResourceController extends MartisController
 
         $model = $resourceClass::newModel();
         $res = new $resourceClass($model);
-        $fields = Field::filterForContext($res->fieldsForCreate($request), FieldContext::CREATE);
+        // A field hidden for the new record (canSeeForModel(), decided on the
+        // unsaved model before any value is written) is neither validated
+        // nor written, like a field the user cannot see.
+        $fields = Field::filterForModel(
+            Field::filterForContext($res->fieldsForCreate($request), FieldContext::CREATE),
+            $request,
+            $model,
+        );
 
         $validationError = $this->validateRequest($request, $fields, validationMessage: $resourceClass::validationMessage());
         if ($validationError !== null) {
@@ -378,7 +385,14 @@ class ResourceController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $fields = Field::filterForContext($res->fieldsForUpdate($request), FieldContext::UPDATE);
+        // A field hidden for this record (canSeeForModel()) is neither
+        // validated nor written: the request is accepted and the column
+        // keeps its value, as for a field the user cannot see.
+        $fields = Field::filterForModel(
+            Field::filterForContext($res->fieldsForUpdate($request), FieldContext::UPDATE),
+            $request,
+            $model,
+        );
 
         // Set unique-ignore ID so unique validation skips the current record
         foreach ($fields as $field) {
@@ -668,18 +682,19 @@ class ResourceController extends MartisController
 
         // Resolve fields for create context and extract current values from the replica
         $resReplica = new $resourceClass($replica);
-        $fields = Field::filterForContext($resReplica->fieldsForCreate($request), FieldContext::CREATE);
+        // Respect per-model field authorization: a field hidden for this
+        // record (canSeeForModel / canSeeUsingPolicy) must not leak its
+        // value through the replicate form. Checked against the original
+        // model the replica was copied from.
+        $fields = Field::filterForModel(
+            Field::filterForContext($resReplica->fieldsForCreate($request), FieldContext::CREATE),
+            $request,
+            $model,
+        );
         $values = [];
         foreach ($fields as $field) {
             // Skip file fields — files cannot be replicated
             if ($field instanceof File) {
-                continue;
-            }
-            // Respect per-model field authorization — a field hidden for this
-            // record (canSeeForModel / canSeeUsingPolicy) must not leak its
-            // value through the replicate form. Checked against the original
-            // model the replica was copied from.
-            if (method_exists($field, 'isAuthorizedForModel') && ! $field->isAuthorizedForModel($request, $model)) {
                 continue;
             }
             $resolved = $field->resolve($replica);
@@ -852,7 +867,13 @@ class ResourceController extends MartisController
         // create button is never rendered inside an inline create modal).
         $model = $resourceClass::newModel();
         $res = new $resourceClass($model);
-        $fields = Field::filterForContext($res->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE);
+        // A field hidden for the new record is neither validated nor
+        // written, as on store().
+        $fields = Field::filterForModel(
+            Field::filterForContext($res->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE),
+            $request,
+            $model,
+        );
 
         $validationError = $this->validateRequest($request, $fields, validationMessage: $resourceClass::validationMessage());
         if ($validationError !== null) {
@@ -2133,7 +2154,13 @@ class ResourceController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $fields = Field::filterForContext($res->fieldsForPreview($request), FieldContext::PREVIEW);
+        // A field hidden for this record (canSeeForModel()) is left out, as
+        // on every read of the record.
+        $fields = Field::filterForModel(
+            Field::filterForContext($res->fieldsForPreview($request), FieldContext::PREVIEW),
+            $request,
+            $model,
+        );
 
         $attributes = [];
         foreach ($fields as $field) {
@@ -2169,17 +2196,12 @@ class ResourceController extends MartisController
 
         $request = request();
 
-        foreach ($fields as $field) {
-            // v1.8.8 — per-model field authorization. When the field
-            // declared `canSeeForModel(...)` or `canSeeUsingPolicy(...)`,
-            // skip its serialization for rows where the closure returns
-            // false. Stripping at serialization time means the value
-            // never reaches the wire — the consumer cannot read it
-            // even if the React layer has stale state.
-            if (method_exists($field, 'isAuthorizedForModel') && ! $field->isAuthorizedForModel($request, $model)) {
-                continue;
-            }
-
+        // v1.8.8: per-model field authorization. A field that declared
+        // `canSeeForModel(...)` or `canSeeUsingPolicy(...)` is skipped for
+        // the rows its closure hides it on. Stripping at serialization time
+        // means the value never reaches the wire: the consumer cannot read
+        // it even if the React layer has stale state.
+        foreach (Field::filterForModel($fields, $request, $model) as $field) {
             if ($forDisplay) {
                 /** @var FieldContract&Field $fieldInstance */
                 $fieldInstance = $field;

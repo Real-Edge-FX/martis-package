@@ -3,6 +3,8 @@
 namespace Martis\Http\Controllers;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
@@ -343,6 +345,23 @@ abstract class MartisController extends Controller
     }
 
     /**
+     * The pivot row that attaches `$relatedId` through `$relation`, with
+     * every column it stores, as a pivot model of the relationship's class
+     * (its `->using()` class, else `Pivot` / `MorphPivot`, whose
+     * `pivotParent` is the parent record), or null when the relationship
+     * does not attach that record. The `canSeeForModel()` of a pivot field
+     * decides on it.
+     *
+     * @param  EloquentBelongsToMany<Model, Model, covariant Pivot, covariant string>  $relation
+     */
+    protected function storedPivotRow(EloquentBelongsToMany $relation, int|string $relatedId): ?Pivot
+    {
+        $row = $relation->newPivotStatementForId($relatedId)->first();
+
+        return $row === null ? null : $relation->newExistingPivot((array) $row);
+    }
+
+    /**
      * Find a model by primary key, respecting soft-delete inclusion.
      */
     protected function findModelByKey(string $resourceClass, int|string $id): ?Model
@@ -371,7 +390,9 @@ abstract class MartisController extends Controller
         /** @var array<string, mixed> $data */
         $data = ['id' => $model->getKey()];
 
-        foreach ($fields as $field) {
+        // A field hidden for this record (canSeeForModel()) is left out, as
+        // on every read of a record.
+        foreach (Field::filterForModel($fields, request(), $model) as $field) {
             if ($forDisplay) {
                 /** @var FieldContract&Field $fieldInstance */
                 $fieldInstance = $field;

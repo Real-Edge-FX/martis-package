@@ -31,6 +31,13 @@ use Martis\Fields\Repeater;
  * `buildWriteValidation()` assembles everything those endpoints hand the
  * validator, including the fields inside the rows of a `Repeater`
  * (`buildNestedFieldValidation()`, which an Action's fields use too).
+ *
+ * The endpoints hand it the fields the request may write, the same ones they
+ * fill: the fields of the form the user can see (`canSee()`), and of those
+ * the ones the user may see on the record written (`canSeeForModel()`, see
+ * `Field::filterForModel()`; the new model on a create, the pivot row for
+ * pivot fields). So a field hidden from the user is neither validated nor
+ * written.
  */
 trait BuildsFieldRules
 {

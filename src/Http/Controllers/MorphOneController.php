@@ -154,14 +154,21 @@ class MorphOneController extends MartisController
         }
 
         $relatedInstance = new $relatedResourceClass;
-        $fields = Field::filterForContext($relatedInstance->fieldsForCreate($request), FieldContext::CREATE);
+        $relatedModel = $relatedResourceClass::newModel();
+        // A field hidden for the new record (canSeeForModel(), decided on the
+        // unsaved model before any value is written) is neither validated
+        // nor written, as on the resource's own create.
+        $fields = Field::filterForModel(
+            Field::filterForContext($relatedInstance->fieldsForCreate($request), FieldContext::CREATE),
+            $request,
+            $relatedModel,
+        );
 
         $validationError = $this->validateRequest($request, $fields);
         if ($validationError !== null) {
             return $validationError;
         }
 
-        $relatedModel = $relatedResourceClass::newModel();
         $this->fillFields($request, $fields, $relatedModel);
 
         // Set the polymorphic type and id columns
@@ -228,7 +235,13 @@ class MorphOneController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $fields = Field::filterForContext($relatedInstance->fieldsForUpdate($request), FieldContext::UPDATE);
+        // A field hidden for the related record (canSeeForModel()) is neither
+        // validated nor written, as on the resource's own update.
+        $fields = Field::filterForModel(
+            Field::filterForContext($relatedInstance->fieldsForUpdate($request), FieldContext::UPDATE),
+            $request,
+            $relatedModel,
+        );
 
         foreach ($fields as $field) {
             if (method_exists($field, 'setUniqueIgnoreId')) {
@@ -366,7 +379,13 @@ class MorphOneController extends MartisController
 
         // filterForContext flattens layout containers (Section/Panel/TabGroup)
         // so a relation nested in one still resolves — a raw scan would 404 it.
-        $fields = Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL);
+        // A relationship field hidden for the parent record (canSeeForModel())
+        // is not on its detail page, so it answers like an undeclared one.
+        $fields = Field::filterForModel(
+            Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL),
+            $request,
+            $parentModel,
+        );
         $morphOneField = null;
 
         foreach ($fields as $field) {
@@ -436,7 +455,9 @@ class MorphOneController extends MartisController
         ];
         $data['_authorization'] = $resource->authorizationMetadata(request());
 
-        foreach ($fields as $field) {
+        // A field hidden for this record (canSeeForModel()) is left out, as
+        // on every read of a record.
+        foreach (Field::filterForModel($fields, request(), $model) as $field) {
             $data[$field->attribute()] = $field->resolve($model);
         }
 

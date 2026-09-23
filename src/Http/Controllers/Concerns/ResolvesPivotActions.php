@@ -71,9 +71,16 @@ trait ResolvesPivotActions
         }
 
         // filterForContext flattens layout containers (Section/Panel/TabGroup),
-        // so a relationship nested in one is still found.
+        // so a relationship nested in one is still found. A relationship field
+        // hidden for the parent record (canSeeForModel()) is not on its detail
+        // page, so it answers like an undeclared one.
         $field = null;
-        foreach (Field::filterForContext($parentResource->fieldsForDetail($request), FieldContext::DETAIL) as $candidate) {
+        $detailFields = Field::filterForModel(
+            Field::filterForContext($parentResource->fieldsForDetail($request), FieldContext::DETAIL),
+            $request,
+            $parentModel,
+        );
+        foreach ($detailFields as $candidate) {
             if ($candidate instanceof $fieldClass && $candidate->getRelationship() === $relationship) {
                 $field = $candidate;
                 break;

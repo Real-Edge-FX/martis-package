@@ -184,6 +184,10 @@ Every dashboard primitive supports a `canSee(Closure)` callback.
   run does not validate it, and `handle()` receives its `default()` or
   nothing, whatever the request sends. See
   [Actions → Fields the request cannot set](actions.md#fields-the-request-cannot-set).
+- `Field::canSeeForModel(Closure)` / `canSeeUsingPolicy(ability)`: hides a
+  field on the records the callback denies, on every read and every write
+  of those records (v1.38.0+ for the writes). See
+  [Per-field authorization](#per-field-authorization).
 - `Field::readonly(bool|Closure)`: renders the field without an editor, and
   the save never takes its value from the request, inside a `Repeater` row
   included (v1.38.0+).
@@ -279,7 +283,17 @@ Email::make('email')->canSeeUsingPolicy('viewEmail');
 // Equivalent to canSeeForModel(fn (Request, Model) => Gate::forUser($request->user())->allows('viewEmail', $model))
 ```
 
-The check runs at serialization time inside `serializeModel()`, so the value never reaches the wire when the closure returns false. Stripping at serialization time means even a tampered React layer cannot read the masked field — the bytes are simply not in the response payload.
+A field the callback hides for a record is hidden for that record on the server, like a field `canSee()` hides for the request:
+
+- **Every read** of the record leaves its value out: the index, the detail, the update form's values, the replicate form, the rows and the record of a relationship panel (with the responses of its inline create and update), the rows of a lens and the peek card. The bytes are not in the response, so even a tampered React layer cannot read the masked field.
+- **Every write** of the record neither validates the field nor takes its value from the request: the request is accepted and the column keeps its value. This covers the resource update and create, the inline create, the inline forms of the `HasMany` / `HasOne` / `MorphMany` / `MorphOne` panels, and the attach and pivot update of the pivot fields of a `BelongsToMany` / `MorphToMany` (the attach stores the field's `default()`), as Nova leaves a field out of the update request of the resource instance it cannot see.
+- **A create** decides on the new, unsaved model before any value of the request is written to it, as Nova resolves the fields of a create on a fresh model: a callback that grants on stored values (an owner column, `$model->exists`, a policy that reads them, as `viewEmail` above may for a user not created yet) denies, and the create does not write the field. Grant on `! $model->exists` when a create should write it.
+- **A pivot field** decides on the pivot row (the relationship's pivot class; `pivotParent` is the parent record): the attached row when the pivot values are read or updated, a new row on attach.
+- **A relationship field** (`HasMany`, `HasOne`, `MorphMany`, `MorphOne`, `BelongsToMany`, `MorphToMany`) the callback hides for the parent record answers 404 on every endpoint of its panel, as an undeclared relationship.
+
+The schema describes the resource, not a record, so a form still lists a field the callback hides for the record it shows: its value is empty, and the save ignores it. See [Fields → Field authorization](fields.md#field-authorization-cansee-and-canseeformodel).
+
+Before v1.38.0 the callback only ran when the resource's own endpoints serialised a record (index, detail, update form values, replicate): every write validated the field and wrote the value the request sent, so a user who could not see a record's `email` could still set it with a `PUT` (and the update form, which sends every field it lists, emptied it); the relationship panels, the lens rows and the peek card sent the value; a relationship field it hid still served its panel; and a pivot field's callback was never asked.
 
 ## Declarative query scopes
 

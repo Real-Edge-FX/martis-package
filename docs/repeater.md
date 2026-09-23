@@ -546,6 +546,9 @@ whatever the request sends (v1.38.0+; before, `handle()` received the rows as
 the modal sent them). See
 [Actions → Fields the request cannot set](actions.md#fields-the-request-cannot-set).
 
+`canSee()` is the visibility a row field follows: `canSeeForModel()` is not
+applied inside a row.
+
 Before v1.38.0 `readonly()` on a row field only reached the form, and
 `computed()`, `canSee()` and `immutable()` had no effect there: every storage
 mode wrote each value a row sent, so any request could set a readonly or
