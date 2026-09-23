@@ -209,6 +209,15 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
     if (value !== emitted.current) setCollapsed(defaultCollapsed(rows, meta))
   }
 
+  // The `value` the last emission started from. Several row fields can emit
+  // before the form hands the rows back (every stored row whose slug
+  // generates itself while it mounts), and each of their handlers still sees
+  // the `rows` of the last render. While the input sees that same `value`,
+  // the emitted rows are the latest ones and the next update builds on them;
+  // once another value reaches it (the rows handed back, a reset), it builds
+  // on that value's rows.
+  const emittedFrom = useRef<unknown>(value)
+
   const [pendingRemoval, setPendingRemoval] = useState<{ index: number; label: string } | null>(null)
   const [showAddMenu, setShowAddMenu] = useState(false)
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null)
@@ -245,9 +254,15 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
   }, [repeatables])
 
   const commit = (next: RepeaterRow[]) => {
+    emittedFrom.current = value
     emitted.current = next
     onChange(next)
   }
+
+  // A fresh copy of the rows every update builds on, so updates emitted
+  // before the form hands the rows back add up instead of the last one
+  // replacing the others.
+  const latestRows = (): RepeaterRow[] => (value === emittedFrom.current ? normalizeRows(emitted.current) : rows.slice())
 
   const addRow = (type: string, seedFields?: Record<string, unknown>) => {
     const rep = repeatableFor(type)
@@ -259,7 +274,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
       type: rep.shortName,
       fields: { ...blankFields, ...(seedFields ?? {}) },
     }
-    commit([...rows, row])
+    commit([...latestRows(), row])
     setShowAddMenu(false)
   }
 
@@ -268,14 +283,14 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
   }
 
   const duplicateRow = (index: number) => {
-    const source = rows[index]
+    const next = latestRows()
+    const source = next[index]
     if (!source) return
     const copy: RepeaterRow = {
       id: randomId(),
       type: source.type,
       fields: { ...source.fields },
     }
-    const next = rows.slice()
     next.splice(index + 1, 0, copy)
     commit(next)
   }
@@ -289,17 +304,17 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
       setPendingRemoval({ index, label: title })
       return
     }
-    commit(rows.filter((_, i) => i !== index))
+    commit(latestRows().filter((_, i) => i !== index))
   }
 
   const confirmRemove = () => {
     if (pendingRemoval === null) return
-    commit(rows.filter((_, i) => i !== pendingRemoval.index))
+    commit(latestRows().filter((_, i) => i !== pendingRemoval.index))
     setPendingRemoval(null)
   }
 
   const updateRowField = (index: number, attribute: string, fieldValue: unknown) => {
-    const next = rows.slice()
+    const next = latestRows()
     next[index] = {
       ...next[index],
       fields: { ...next[index].fields, [attribute]: fieldValue },
@@ -328,7 +343,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
   const onDrop = (index: number) => (e: DragEvent<HTMLDivElement>) => {
     if (!meta.reorderable || draggingIndex === null) return
     e.preventDefault()
-    const next = rows.slice()
+    const next = latestRows()
     const [moved] = next.splice(draggingIndex, 1)
     next.splice(index, 0, moved)
     commit(next)
@@ -706,7 +721,8 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                     setBulkPasteError(t('repeater_paste_empty', 'Nothing detected to import.') as string)
                     return
                   }
-                  const remaining = meta.maxRows != null ? meta.maxRows - rows.length : Infinity
+                  const current = latestRows()
+                  const remaining = meta.maxRows != null ? meta.maxRows - current.length : Infinity
                   const slice = parsed.slice(0, remaining)
                   const blankFields: Record<string, unknown> = {}
                   rep.fields.forEach((f) => { blankFields[f.attribute] = f.defaultValue ?? null })
@@ -715,7 +731,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                     type: rep.shortName,
                     fields: { ...blankFields, ...fields },
                   }))
-                  commit([...rows, ...toInsert])
+                  commit([...current, ...toInsert])
                   setBulkPasteOpen(false)
                 }}
               >

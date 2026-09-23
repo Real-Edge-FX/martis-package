@@ -516,6 +516,31 @@ export function ChipsInput({ value, onChange }: FieldInputProps) {
 
 The bundled `KeyValue`, `Tag`, `Avatar`, `BelongsTo` and `Repeater` inputs follow this pattern, and `Slug` uses it to follow its source again once the form clears it. When the fields inside your input can emit while they mount (a slug generating itself from a default), compare during render instead of in an effect, as `Repeater` does: child effects run before the parent's.
 
+Several of those fields can also emit before the form hands your value back (on an edit form, every stored row whose slug generates itself from its source), and each of their handlers still sees the `value` of your last render, so an update built on that `value` drops the updates before it. Build each update on the value you emitted last, until the form hands you a new one, as `Repeater` does since v1.38.0:
+
+```typescript
+type Row = Record<string, unknown>
+const toRows = (v: unknown): Row[] => (Array.isArray(v) ? v.map((row) => ({ ...row })) : [])
+
+// Next to `emitted`: the `value` the last emission started from.
+const emittedFrom = useRef<unknown>(value)
+
+function emit(next: Row[]) {
+  emittedFrom.current = value
+  emitted.current = next
+  onChange(next)
+}
+
+// A fresh copy of the rows the next update builds on.
+const latestRows = () => toRows(value === emittedFrom.current ? emitted.current : value)
+
+function setRowField(index: number, attribute: string, fieldValue: unknown) {
+  const next = latestRows()
+  next[index] = { ...next[index], [attribute]: fieldValue }
+  emit(next)
+}
+```
+
 ## 5.A Composing native field components (v1.14.0+)
 
 The two sections above show how to **replace** a field renderer. The opposite direction — **composing** the canonical Martis field renderer from inside your own custom component (a custom Action component, a Tool, a Card) — is supported via the consumer-extension runtime.
