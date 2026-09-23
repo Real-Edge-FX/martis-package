@@ -1751,7 +1751,7 @@ class ResourceController extends MartisController
     {
         // Multipart requests carry list / map values as JSON strings; give
         // the rules below and the fill that follows the decoded structure.
-        $this->decodeStructuredValues($request, $fields);
+        $undecodable = $this->decodeStructuredValues($request, $fields);
 
         $rules = [];
         $attributes = [];
@@ -1760,6 +1760,12 @@ class ResourceController extends MartisController
 
         foreach ($fields as $field) {
             $fieldRules = $field->buildRules($context);
+
+            // A structured value that arrived as a string which is not JSON
+            // for a list or map fails here instead of reaching fill().
+            if (in_array($field->attribute(), $undecodable, true)) {
+                $fieldRules[] = 'array';
+            }
 
             if ($isUpdate) {
                 // On update, fields are optional unless explicitly provided.

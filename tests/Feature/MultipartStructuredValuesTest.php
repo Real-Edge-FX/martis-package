@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use Martis\Fields\Boolean;
 use Martis\Fields\BooleanGroup;
 use Martis\Fields\Field;
+use Martis\Fields\HasMany;
 use Martis\Fields\Image;
 use Martis\Fields\KeyValue;
 use Martis\Fields\MorphTo;
@@ -58,6 +59,7 @@ class MSVSiteModel extends Model
         'sections' => 'array',
         'states' => 'array',
         'effects' => 'array',
+        'hours' => 'array',
         'published' => 'boolean',
     ];
 }
@@ -77,8 +79,63 @@ class MSVSiteResource extends Resource
             Repeater::make('sections')->asJson()->repeatables([MSVSection::make()]),
             MultiSelect::make('states')->options(['available' => 'Available', 'reserved' => 'Reserved', 'sold' => 'Sold'])->rules(['nullable', 'array', 'max:2']),
             BooleanGroup::make('effects')->options(['blur' => 'Blur', 'grain' => 'Grain']),
+            KeyValue::make('hours'),
             Boolean::make('published'),
         ];
+    }
+}
+
+class MSVOwnerModel extends Model
+{
+    protected $table = 'msv_owners';
+
+    protected $guarded = [];
+
+    public $timestamps = false;
+
+    public function notes(): Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(MSVNoteModel::class, 'owner_id');
+    }
+}
+
+class MSVNoteModel extends Model
+{
+    protected $table = 'msv_notes';
+
+    protected $guarded = [];
+
+    public $timestamps = false;
+
+    protected $casts = ['meta' => 'array'];
+}
+
+class MSVOwnerResource extends Resource
+{
+    public static function model(): string
+    {
+        return MSVOwnerModel::class;
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('name'),
+            HasMany::make('Notes', 'notes')->relatedResource('m-s-v-note-models'),
+        ];
+    }
+}
+
+class MSVNoteResource extends Resource
+{
+    public static function model(): string
+    {
+        return MSVNoteModel::class;
+    }
+
+    public function fields(Request $request): array
+    {
+        return [KeyValue::make('meta')];
     }
 }
 
@@ -99,24 +156,42 @@ beforeEach(function () use ($sections) {
         $table->json('sections')->nullable();
         $table->json('states')->nullable();
         $table->json('effects')->nullable();
+        $table->json('hours')->nullable();
         $table->boolean('published')->default(false);
+    });
+
+    Schema::dropIfExists('msv_notes');
+    Schema::dropIfExists('msv_owners');
+    Schema::create('msv_owners', function ($table) {
+        $table->id();
+        $table->string('name')->nullable();
+    });
+    Schema::create('msv_notes', function ($table) {
+        $table->id();
+        $table->unsignedBigInteger('owner_id');
+        $table->json('meta')->nullable();
     });
 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
     $registry->register(MSVSiteResource::class);
+    $registry->register(MSVOwnerResource::class);
+    $registry->register(MSVNoteResource::class);
 
     $this->site = MSVSiteModel::create([
         'name' => 'Acme',
         'sections' => $sections,
         'states' => ['available', 'reserved'],
         'effects' => ['blur' => true, 'grain' => false],
+        'hours' => ['mon' => '09:00-18:00', 'sun' => 'closed'],
         'published' => true,
     ]);
 });
 
 afterEach(function () {
     Schema::dropIfExists('msv_sites');
+    Schema::dropIfExists('msv_notes');
+    Schema::dropIfExists('msv_owners');
 });
 
 function msvMultipartUpdate($test, int $id, array $parameters, array $files = [])
@@ -199,6 +274,64 @@ it('rejects a stringified structure that is not JSON instead of storing it', fun
     expect($this->site->fresh()->states)->toBe(['available', 'reserved']);
 });
 
+it('rejects a non-JSON string for structured fields that declare no array rule, leaving the stored values untouched', function () use ($sections) {
+    // Repeater, BooleanGroup and KeyValue carry no `array` rule of their
+    // own: the string a pre-1.37.3 bundle sent must still fail validation
+    // rather than reach fill(), which would empty the rows, store the text
+    // or clear the map.
+    $response = msvMultipartUpdate($this, $this->site->id, [
+        'sections' => '[object Object],[object Object]',
+        'effects' => '[object Object]',
+        'hours' => '[object Object],[object Object]',
+    ], ['logo' => UploadedFile::fake()->image('logo.png', 64, 64)]);
+
+    $response->assertStatus(422);
+    expect(collect($response->json('errors'))->pluck('field')->all())->toBe(['sections', 'effects', 'hours']);
+
+    $fresh = $this->site->fresh();
+    expect($fresh->sections)->toBe($sections)
+        ->and($fresh->effects)->toBe(['blur' => true, 'grain' => false])
+        ->and($fresh->hours)->toBe(['mon' => '09:00-18:00', 'sun' => 'closed'])
+        ->and($fresh->logo)->toBeNull();
+});
+
+it('rejects a non-JSON string for a structured field on the JSON request path too', function () {
+    $response = $this->putJson("/martis/api/resources/m-s-v-site-models/{$this->site->id}", [
+        'hours' => 'mon=09:00',
+    ]);
+
+    $response->assertStatus(422);
+    expect(collect($response->json('errors'))->pluck('field')->all())->toBe(['hours']);
+    expect($this->site->fresh()->hours)->toBe(['mon' => '09:00-18:00', 'sun' => 'closed']);
+});
+
+it('rejects a non-JSON string for a structured field on the inline HasMany endpoints', function () {
+    $owner = MSVOwnerModel::create(['name' => 'Acme']);
+    $note = $owner->notes()->create(['meta' => ['a' => '1']]);
+    $base = "/martis/api/resources/m-s-v-owner-models/{$owner->id}/has-many/notes";
+
+    $store = $this->postJson($base, ['meta' => '[object Object]']);
+    $store->assertStatus(422);
+    expect(collect($store->json('errors'))->pluck('field')->all())->toBe(['meta'])
+        ->and($owner->notes()->count())->toBe(1);
+
+    $update = $this->putJson("{$base}/{$note->id}", ['meta' => '[object Object]']);
+    $update->assertStatus(422);
+    expect($note->fresh()->meta)->toBe(['a' => '1']);
+
+    $this->putJson("{$base}/{$note->id}", ['meta' => '{"a":"2","b":"3"}'])->assertStatus(200);
+    expect($note->fresh()->meta)->toBe(['a' => '2', 'b' => '3']);
+});
+
+it('still clears a structured field from the empty string the multipart path sends for null', function () {
+    $response = msvMultipartUpdate($this, $this->site->id, [
+        'hours' => '',
+    ], ['logo' => UploadedFile::fake()->image('logo.png', 64, 64)]);
+
+    $response->assertStatus(200);
+    expect($this->site->fresh()->hours)->toBeNull();
+});
+
 it('still accepts the JSON request path unchanged', function () {
     $response = $this->putJson("/martis/api/resources/m-s-v-site-models/{$this->site->id}", [
         'sections' => [['id' => 'a', 'type' => 'm-s-v-section', 'fields' => ['key' => 'hero', 'enabled' => false]]],
@@ -251,10 +384,13 @@ it('decodes only JSON-string values of structured fields and leaves everything e
     {
         use DecodesStructuredValues;
 
-        /** @param list<Field> $fields */
-        public function run(Request $request, array $fields): void
+        /**
+         * @param  list<Field>  $fields
+         * @return list<string>
+         */
+        public function run(Request $request, array $fields): array
         {
-            $this->decodeStructuredValues($request, $fields);
+            return $this->decodeStructuredValues($request, $fields);
         }
     };
 
@@ -265,20 +401,30 @@ it('decodes only JSON-string values of structured fields and leaves everything e
         'meta' => '{"a":"1"}',
         'already' => ['k' => 'v'],
         'broken' => '[object Object]',
+        'scalar' => '"just a string"',
+        'cleared' => '',
         'body' => '{"looks":"like json"}',
         'name' => 'plain',
     ]);
 
-    $decoder->run($request, [
+    $undecodable = $decoder->run($request, [
         Tag::make('tags', 'tags'),
         MorphTo::make('owner', 'owner'),
         Sparkline::make('points'),
         KeyValue::make('meta'),
         KeyValue::make('already'),
         MultiSelect::make('broken'),
+        Repeater::make('scalar'),
+        BooleanGroup::make('cleared'),
+        MultiSelect::make('missing'),
         Text::make('body'),
         Text::make('name'),
     ]);
+
+    // Only a non-empty string that is not JSON for a list or map is
+    // reported; the empty string (null on the multipart path), an absent
+    // value and non-structured fields are not.
+    expect($undecodable)->toBe(['broken', 'scalar']);
 
     expect($request->input('tags'))->toBe([1, 2])
         ->and($request->input('owner'))->toBe(['resourceType' => 'users', 'id' => 7])
@@ -286,6 +432,8 @@ it('decodes only JSON-string values of structured fields and leaves everything e
         ->and($request->input('meta'))->toBe(['a' => '1'])
         ->and($request->input('already'))->toBe(['k' => 'v'])
         ->and($request->input('broken'))->toBe('[object Object]')
+        ->and($request->input('scalar'))->toBe('"just a string"')
+        ->and($request->input('cleared'))->toBe('')
         ->and($request->input('body'))->toBe('{"looks":"like json"}')
         ->and($request->input('name'))->toBe('plain');
 });

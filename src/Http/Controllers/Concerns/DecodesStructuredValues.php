@@ -17,17 +17,27 @@ use Martis\Fields\Field;
  * structure (`Field::hasStructuredValue()`: Repeater, MultiSelect,
  * BooleanGroup, KeyValue, Tag, MorphTo, Sparkline) see the same shape the
  * JSON request path sends: rules such as `array` pass, `fill()` receives
- * the list or map. A string that does not decode to an array is left as
- * is and fails validation instead of being stored.
+ * the list or map.
+ *
+ * A non-empty string that does not decode to an array is left as is and
+ * its attribute is returned, so the caller validates it with `array` on
+ * top of the field's own rules: the request fails with a 422 whether or
+ * not the field declares an `array` rule, and `fill()` never receives the
+ * string (a Repeater would empty its rows, a KeyValue clear its map, a
+ * Tag detach every tag). The empty string, which the multipart path sends
+ * for null, still clears the field.
  */
 trait DecodesStructuredValues
 {
     /**
      * @param  list<FieldContract>  $fields
+     * @return list<string> Attributes of structured fields whose value is a
+     *                      string that does not decode to a list or map.
      */
-    protected function decodeStructuredValues(Request $request, array $fields): void
+    protected function decodeStructuredValues(Request $request, array $fields): array
     {
         $decoded = [];
+        $undecodable = [];
 
         foreach ($fields as $field) {
             if (! $field instanceof Field || ! $field->hasStructuredValue()) {
@@ -36,18 +46,22 @@ trait DecodesStructuredValues
 
             $attribute = $field->attribute();
             $value = $request->input($attribute);
-            if (! is_string($value)) {
+            if (! is_string($value) || $value === '') {
                 continue;
             }
 
             $json = json_decode($value, true);
             if (is_array($json)) {
                 $decoded[$attribute] = $json;
+            } else {
+                $undecodable[] = $attribute;
             }
         }
 
         if ($decoded !== []) {
             $request->merge($decoded);
         }
+
+        return $undecodable;
     }
 }
