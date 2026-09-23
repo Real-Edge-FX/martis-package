@@ -38,6 +38,7 @@ return [
     'action_queued' => 'Ação colocada em fila para processamento.',
     'confirm_destructive' => 'Sim, prosseguir',
     'preview' => 'Pré-visualizar',
+    'preview_result' => 'Pré-visualização (nada foi alterado)',
     'no_actions' => 'Nenhuma ação disponível.',
     'select_action' => 'Selecione uma ação…',
     'selected_count' => ':count selecionados',

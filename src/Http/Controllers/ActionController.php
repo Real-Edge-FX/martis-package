@@ -3,6 +3,7 @@
 namespace Martis\Http\Controllers;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -13,6 +14,8 @@ use Martis\Actions\Action;
 use Martis\Actions\ActionFields;
 use Martis\Actions\ActionResponse;
 use Martis\Actions\Jobs\ExecuteAction;
+use Martis\Actions\Jobs\ExecutePivotAction;
+use Martis\Actions\PivotActionEventLog;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Enums\ActionVisibility;
@@ -674,7 +677,7 @@ class ActionController extends MartisController
             return $resolved;
         }
 
-        ['field' => $field, 'relation' => $relation, 'action' => $actionInstance] = $resolved;
+        ['parentModel' => $parentModel, 'parentResource' => $parentResource, 'field' => $field, 'relation' => $relation, 'action' => $actionInstance] = $resolved;
 
         /** @var list<int|string> $relatedIds */
         $relatedIds = $request->input('resources', []);
@@ -715,6 +718,20 @@ class ActionController extends MartisController
                     return JsonErrorResponse::notFound('You are not authorized to run this action on one or more selected resources.')->toResponse();
                 }
             }
+
+            // The policy execute() checks for a resource action, against the
+            // record whose relationship panel runs it: runDestructiveAction
+            // (falling back to delete) for a destructive action, runAction
+            // (falling back to update) otherwise.
+            $allowed = $actionInstance->isDestructive()
+                ? $parentResource->authorizedToRunDestructiveAction($request)
+                : $parentResource->authorizedToRunAction($request);
+
+            if (! $allowed) {
+                return JsonErrorResponse::notFound($actionInstance->isDestructive()
+                    ? 'You are not authorized to run this destructive action.'
+                    : 'You are not authorized to run this action.')->toResponse();
+            }
         }
 
         $actionFields = $actionInstance->fields($request);
@@ -732,11 +749,33 @@ class ActionController extends MartisController
         $rawFields = $request->input('fields', []);
         $fields = ActionFields::fromRequest($rawFields);
 
+        if ($request->boolean('dryRun') && $actionInstance->hasDryRun()) {
+            return JsonResponse::make(['preview' => $actionInstance->dryRun($fields, $models)])->toResponse();
+        }
+
+        $logEvents = $actionInstance->shouldLogEvents() && (bool) config('martis.action_events.enabled', true);
+
+        if ($actionInstance->isQueued()) {
+            return $this->dispatchQueuedPivotAction($actionInstance, $fields, $parentModel, $relation, $relationship, $models, $pivotColumns, $request, $logEvents);
+        }
+
+        $before = $logEvents ? PivotActionEventLog::pivotRows($relation, $models) : [];
+        $userId = $request->user()?->getAuthIdentifier();
+
         try {
             if ($actionInstance->getClosureHandler() !== null) {
                 $result = ($actionInstance->getClosureHandler())($fields, $models);
             } else {
                 $result = $actionInstance->handle($fields, $models);
+            }
+
+            if ($logEvents) {
+                PivotActionEventLog::record($actionInstance, $parentModel, $relation, $models, $userId, $rawFields, 'completed', null, $before, PivotActionEventLog::pivotRows($relation, $models));
+            }
+
+            $thenCallback = $actionInstance->getThenCallback();
+            if ($thenCallback !== null) {
+                $thenCallback(collect([$result]));
             }
 
             if ($result instanceof ActionResponse) {
@@ -755,11 +794,75 @@ class ActionController extends MartisController
                 'error' => $e->getMessage(),
             ]);
 
+            if ($logEvents) {
+                PivotActionEventLog::record($actionInstance, $parentModel, $relation, $models, $userId, $rawFields, 'failed', $e->getMessage(), $before, PivotActionEventLog::pivotRows($relation, $models));
+            }
+
             if ($e instanceof MartisException) {
                 throw $e;
             }
 
-            return JsonErrorResponse::serverError('Pivot action failed: '.$e->getMessage())->toResponse();
+            // Like the resource action path: the detail is in the log and the
+            // action event, never in the HTTP response.
+            return JsonErrorResponse::serverError('The action could not be completed due to an internal error.')->toResponse();
         }
+    }
+
+    /**
+     * Dispatch a queued pivot action as a job that reloads the selected rows
+     * through the parent's relationship, and log it as queued.
+     *
+     * @param  BelongsToMany<Model, Model, covariant \Illuminate\Database\Eloquent\Relations\Pivot, covariant string>  $relation
+     * @param  Collection<int, Model>  $models
+     * @param  list<string>  $pivotColumns
+     */
+    private function dispatchQueuedPivotAction(
+        Action $action,
+        ActionFields $fields,
+        Model $parentModel,
+        BelongsToMany $relation,
+        string $relationship,
+        Collection $models,
+        array $pivotColumns,
+        Request $request,
+        bool $logEvents,
+    ): IlluminateJsonResponse {
+        /** @var list<int|string> $relatedIds */
+        $relatedIds = array_values($models->map(fn (Model $model): int|string => $model->getKey())->all());
+        $userId = $request->user()?->getAuthIdentifier();
+
+        $job = new ExecutePivotAction(
+            actionClass: get_class($action),
+            fields: $fields->all(),
+            parentModelClass: get_class($parentModel),
+            parentId: $parentModel->getKey(),
+            relationship: $relationship,
+            relatedIds: $relatedIds,
+            pivotColumns: $pivotColumns,
+            userId: $userId,
+            logEvents: $logEvents,
+        );
+
+        if (property_exists($action, 'connection')) {
+            $job->onConnection($action->connection);
+        }
+        if (property_exists($action, 'queue')) {
+            $job->onQueue($action->queue);
+        }
+
+        // Written before the dispatch: a sync queue runs the job at once and
+        // settles these rows.
+        if ($logEvents) {
+            /** @var array<string, mixed> $rawFields */
+            $rawFields = $request->input('fields', []);
+            PivotActionEventLog::record($action, $parentModel, $relation, $models, $userId, $rawFields, 'queued');
+        }
+
+        dispatch($job);
+
+        return JsonResponse::make([
+            'type' => 'message',
+            'data' => ['message' => 'Action has been queued for processing.'],
+        ])->toResponse();
     }
 }

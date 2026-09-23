@@ -912,6 +912,7 @@ Key points:
 - `original` and `changes` store **only the diff** — unchanged attributes are not stored
 - `fields` holds the values the user submitted in the action modal
 - For standalone actions, `actionable_type/id` are `null` (no model targeted)
+- For a [pivot action](#pivot-actions), one row per selected related record with Nova's mapping: `actionable` is the record whose relationship panel ran the action, `target` the related record, `model` its pivot row (the pivot class, and the pivot key when the table has one), and `original` / `changes` hold the pivot columns the action changed (v1.38.0+)
 
 ### Querying the audit log
 
@@ -971,12 +972,12 @@ php artisan migrate
 | `batch_id` | `uuid` | Groups per-model records from a single bulk execution |
 | `user_id` | `int\|null` | ID of the user who triggered the action |
 | `name` | `string` | Action display name (e.g. "Publish Posts") |
-| `actionable_type` | `string\|null` | Polymorphic model class (e.g. `App\Models\Post`) |
-| `actionable_id` | `int\|null` | ID of the target model |
-| `target_type` | `string\|null` | Target model class (for pivot actions) |
-| `target_id` | `int\|null` | Target model ID |
-| `model_type` | `string\|null` | Source model class |
-| `model_id` | `int\|null` | Source model ID |
+| `actionable_type` | `string\|null` | Polymorphic model class (e.g. `App\Models\Post`); for a pivot action, the class of the record whose panel ran it |
+| `actionable_id` | `int\|null` | ID of the target model; for a pivot action, that record's ID |
+| `target_type` | `string\|null` | Target model class; for a pivot action, the related record's class |
+| `target_id` | `int\|null` | Target model ID; for a pivot action, the related record's ID |
+| `model_type` | `string\|null` | Source model class; for a pivot action, the pivot class |
+| `model_id` | `int\|null` | Source model ID; for a pivot action, the pivot row's key (`null` when the pivot table has none) |
 | `fields` | `json` | Submitted action field values |
 | `status` | `string` | `completed`, `failed`, or `queued` |
 | `exception` | `text` | Error message on failure (empty string on success) |
@@ -1193,7 +1194,9 @@ Enable dry-run when registering:
 BulkArchivePosts::make()->withDryRun()
 ```
 
-The UI shows a **Preview** button alongside the Confirm button. Clicking Preview calls `dryRun()` and displays the result without running `handle()`.
+The UI shows a **Preview** button alongside the Confirm button, in the resource action modal and in the [pivot action](#pivot-actions) modal. Clicking Preview calls `dryRun()` and shows the result in the modal without running `handle()`: the `preview` text first, then every other key the array returns. The modal stays open, so the user can run the action or cancel; changing a field clears the preview. A dry-run action always opens its modal, even with no fields and no confirmation, so Preview is on offer before anything runs.
+
+Before v1.38.0 the resource modal took the preview answer for a finished run (a success toast, the modal closed and the list refreshed, though nothing had run), and an action with no fields and no confirmation ran before Preview could be offered.
 
 ---
 
@@ -1273,7 +1276,18 @@ public function actions(Request $request): array
 }
 ```
 
-`referToPivotAs()` labels the panel's dropdown (**Actions** by default); actions with different labels get one dropdown each. `canSee()`, `canRun()`, `sole()`, `standalone()` and the validation of the action's `fields()` apply as they do on the resource. Pivot actions always run synchronously: `ShouldQueue`, `withDryRun()` and the action event log apply to resource actions only.
+`referToPivotAs()` labels the panel's dropdown (**Actions** by default); actions with different labels get one dropdown each. `canSee()`, `canRun()`, `sole()`, `standalone()` and the validation of the action's `fields()` apply as they do on the resource.
+
+Running a pivot action also needs the policy a resource action checks, asked of the record whose relationship panel runs it (v1.38.0+): `runAction` on its resource's policy, falling back to `update`, or for a `DestructiveAction`, `runDestructiveAction`, falling back to `delete`. A user who may only view the parent record cannot run a pivot action on its rows; before v1.38.0 only `canSee()` and `canRun()` gated one.
+
+A pivot action runs like a resource action (v1.38.0+):
+
+- **Dry run.** `withDryRun()` adds a Preview button to the pivot action modal; it posts the same body with `dryRun: true`, and the modal shows what `dryRun()` returns (the related models carry their `pivot`) without running `handle()`.
+- **Queue.** An action implementing `ShouldQueue` is dispatched as `Martis\Actions\Jobs\ExecutePivotAction` (on the action's `$connection` / `$queue` when it declares them). The job reloads the selected rows through the parent's relationship, with the pivot columns the field declares, so `handle()` receives the same models it would receive synchronously.
+- **Action event log.** Every run writes one `ActionEvent` per selected row, `completed`, `failed` or `queued` (a queued run settles its rows when the job ends), with the parent record as `actionable`, the related record as `target` and the pivot row as `model`; `original` / `changes` hold the pivot columns the action changed. `withoutActionEvents()` and `martis.action_events.enabled` switch it off, as on the resource. See [What lands in martis_action_events](#what-lands-in-martis_action_events).
+- **Errors.** A failed run answers with the same generic message as a resource action; the exception text goes to the log and the action event, never to the response.
+
+Before v1.38.0 a pivot action always ran synchronously: `ShouldQueue` and `withDryRun()` were ignored, no action event was written, and a failed run returned the exception message to the client.
 
 The pivot action routes (see the [API Reference](#api-reference)) resolve `{relationship}` only to a relationship field the resource declares with the route's type (`BelongsToMany` on `belongs-to-many`, `MorphToMany` on `morph-to-many`, nested layouts included). Any other name answers 404 without calling a model method.
 

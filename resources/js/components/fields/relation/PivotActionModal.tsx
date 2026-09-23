@@ -8,6 +8,7 @@ import { useModalHistoryLock } from '@/lib/historyLock'
 import { useToast } from '@/contexts/ToastContext'
 import { FieldInput } from '@/components/fields/FieldRenderer'
 import type { ActionMeta } from '@/components/Actions/ActionModal'
+import { ActionDryRunPreview } from '@/components/Actions/ActionDryRunPreview'
 import type { FieldDefinition } from '@/types'
 
 // -------------------------------------------------------------------------
@@ -19,7 +20,9 @@ import type { FieldDefinition } from '@/types'
 // relation pickers from `{actionsUrl}/{uriKey}/relatable/{attribute}`, and the
 // run posts to `{actionsUrl}/{uriKey}`, so an action declared on the field with
 // `->actions()` (which is not one of the resource's own actions) resolves
-// through the same relationship the panel lists it for.
+// through the same relationship the panel lists it for. A `withDryRun()`
+// action gets a Preview button that posts the same body with `dryRun: true`
+// and shows the answer of its `dryRun()`, as the resource action modal does.
 // -------------------------------------------------------------------------
 
 // PHP ModalSize enum value → CSS max-width
@@ -57,6 +60,9 @@ export function PivotActionModal({
 
   const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({})
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  // The last dry-run answer (`undefined` until Preview is used); a field
+  // change clears it.
+  const [preview, setPreview] = useState<unknown>(undefined)
   const [animVisible, setAnimVisible] = useState(false)
   const autoExecuted = useRef(false)
 
@@ -90,15 +96,21 @@ export function PivotActionModal({
   const fields = fieldsQuery.data?.data?.fields ?? []
 
   const executeMutation = useMutation({
-    mutationFn: () =>
-      api.post<{ data: { type: string; data: Record<string, unknown> } }>(
+    mutationFn: (params: { dryRun?: boolean }) =>
+      api.post<{ data: { type?: string; data?: Record<string, unknown>; preview?: unknown } }>(
         actionUrl,
         {
           resources: selectedIds,
           fields: fieldValues,
+          dryRun: params.dryRun ?? false,
         }
       ),
-    onSuccess: (res) => {
+    onSuccess: (res, params) => {
+      if (params.dryRun) {
+        setPreview(res?.data?.preview ?? null)
+        return
+      }
+
       const responseData = res?.data
       if (responseData) {
         const data = responseData.data
@@ -135,12 +147,13 @@ export function PivotActionModal({
   })
 
   const hasFields = fields.length > 0
-  const needsConfirmation = action.withConfirmation || hasFields
+  // A dry-run action opens the modal so Preview can be offered before it runs.
+  const needsConfirmation = action.withConfirmation || hasFields || action.supportsDryRun
 
   // Auto-execute if no confirmation or fields needed (only once)
   if (!needsConfirmation && !autoExecuted.current && !executeMutation.isPending) {
     autoExecuted.current = true
-    setTimeout(() => executeMutation.mutate(), 0)
+    setTimeout(() => executeMutation.mutate({}), 0)
     return null
   }
 
@@ -198,9 +211,10 @@ export function PivotActionModal({
                   <FieldInput
                     field={f}
                     value={fieldValues[f.attribute] ?? ''}
-                    onChange={(val: unknown) =>
+                    onChange={(val: unknown) => {
                       setFieldValues((prev) => ({ ...prev, [f.attribute]: val }))
-                    }
+                      setPreview(undefined)
+                    }}
                     error={fieldErrors[f.attribute]}
                     context="create"
                     actionEndpoint={actionUrl}
@@ -209,9 +223,21 @@ export function PivotActionModal({
               ))}
             </div>
           )}
+
+          {preview !== undefined && <ActionDryRunPreview preview={preview} />}
         </div>
 
         <div className="martis-modal-foot">
+          {action.supportsDryRun && (
+            <button
+              type="button"
+              onClick={() => executeMutation.mutate({ dryRun: true })}
+              disabled={executeMutation.isPending}
+              className="martis-btn-secondary"
+            >
+              {t('preview')}
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -223,7 +249,7 @@ export function PivotActionModal({
           </button>
           <button
             type="button"
-            onClick={() => executeMutation.mutate()}
+            onClick={() => executeMutation.mutate({})}
             disabled={executeMutation.isPending}
             className={action.destructive ? 'martis-btn-danger' : 'martis-btn-primary'}
           >

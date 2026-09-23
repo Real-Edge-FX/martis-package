@@ -11,6 +11,7 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { LightningIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { useModalHistoryLock } from '@/lib/historyLock'
+import { ActionDryRunPreview } from './ActionDryRunPreview'
 
 export interface ActionMeta {
   uriKey: string
@@ -80,6 +81,9 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   const { t } = useTranslation('actions')
   const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({})
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  // The last dry-run answer (`undefined` until Preview is used). A field
+  // change clears it: it described the previous values.
+  const [preview, setPreview] = useState<unknown>(undefined)
   const [animVisible, setAnimVisible] = useState(false)
   const autoExecuted = useRef(false)
 
@@ -125,11 +129,12 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   useEffect(() => {
     setFieldValues({})
     setFieldErrors({})
+    setPreview(undefined)
   }, [action?.uriKey, visible])
 
   const executeMutation = useMutation({
     mutationFn: (params: { dryRun?: boolean; extraFields?: Record<string, unknown> }) =>
-      api.post<{ data: { type: string; data: Record<string, unknown> } }>(
+      api.post<{ data: { type?: string; data?: Record<string, unknown>; preview?: unknown } }>(
         `/api/resources/${resource}/actions/${action!.uriKey}`,
         {
           resources: selectedIds,
@@ -137,7 +142,14 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
           dryRun: params.dryRun ?? false,
         },
       ),
-    onSuccess: (res) => {
+    onSuccess: (res, params) => {
+      // A dry run answers with the action's preview and runs nothing: show
+      // it and keep the modal open.
+      if (params.dryRun) {
+        setPreview(res?.data?.preview ?? null)
+        return
+      }
+
       const responseData = res?.data
       if (responseData) {
         const data = responseData.data
@@ -241,7 +253,8 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   }
 
   const hasFields = fields.length > 0
-  const needsConfirmation = action.withConfirmation || hasFields
+  // A dry-run action opens the modal so Preview can be offered before it runs.
+  const needsConfirmation = action.withConfirmation || hasFields || action.supportsDryRun
 
   // Auto-execute if no confirmation or fields needed (only once)
   if (!needsConfirmation && !autoExecuted.current && !executeMutation.isPending) {
@@ -327,9 +340,10 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
                   <FieldInput
                     field={field}
                     value={fieldValues[field.attribute] ?? ''}
-                    onChange={(val: unknown) =>
+                    onChange={(val: unknown) => {
                       setFieldValues((prev) => ({ ...prev, [field.attribute]: val }))
-                    }
+                      setPreview(undefined)
+                    }}
                     error={fieldErrors[field.attribute]}
                     context="create"
                     actionEndpoint={`/api/resources/${resource}/actions/${action.uriKey}`}
@@ -338,6 +352,8 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
               ))}
             </div>
           )}
+
+          {preview !== undefined && <ActionDryRunPreview preview={preview} />}
         </div>
 
         <div className="martis-modal-foot">

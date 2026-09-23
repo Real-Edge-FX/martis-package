@@ -108,7 +108,7 @@ describe('pivot actions on the many-to-many panels', () => {
     await runPivotActionFrom(<MorphToManyFieldDisplay field={field as unknown as FieldDefinition} value={undefined} />)
 
     await waitFor(() => {
-      expect(api.post).toHaveBeenCalledWith(`${actionsUrl}/report-priorities`, { resources: [3, 5], fields: {} })
+      expect(api.post).toHaveBeenCalledWith(`${actionsUrl}/report-priorities`, { resources: [3, 5], fields: {}, dryRun: false })
     })
     expect(api.get).toHaveBeenCalledWith(`${actionsUrl}/report-priorities/fields`, expect.anything())
   })
@@ -121,7 +121,7 @@ describe('pivot actions on the many-to-many panels', () => {
     await runPivotActionFrom(<BelongsToManyFieldDisplay field={field as unknown as FieldDefinition} value={undefined} />)
 
     await waitFor(() => {
-      expect(api.post).toHaveBeenCalledWith(`${actionsUrl}/report-priorities`, { resources: [3, 5], fields: {} })
+      expect(api.post).toHaveBeenCalledWith(`${actionsUrl}/report-priorities`, { resources: [3, 5], fields: {}, dryRun: false })
     })
     expect(api.get).toHaveBeenCalledWith(`${actionsUrl}/report-priorities/fields`, expect.anything())
   })
