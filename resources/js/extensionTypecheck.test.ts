@@ -178,6 +178,24 @@ function importableNames(): Set<string> {
 
 const extensionSources = [`${EXT}/index.ts`, ...Object.keys(generatorOutputs())]
 
+/**
+ * What an extension can take from `react-dom`: the build sends it to a shim
+ * that carries the runtime's `createPortal` only, so tsc has to refuse the
+ * rest of the module (`flushSync`) instead of reading `@types/react-dom`.
+ */
+const REACT_DOM_PROBE = `${EXT}/tools/ReactDomProbe.tsx`
+put(REACT_DOM_PROBE, [
+    "import ReactDOM, { createPortal } from 'react-dom'",
+    '// @ts-expect-error the react-dom shim carries createPortal only',
+    "import { flushSync } from 'react-dom'",
+    '',
+    'export default function ReactDomProbe() {',
+    '  void flushSync',
+    '  return ReactDOM.createPortal(createPortal(<span />, document.body), document.body)',
+    '}',
+    '',
+].join('\n'))
+
 describe('a consumer extension type-checks against the published declarations', () => {
     it('fills every placeholder of the generator stubs', () => {
         // The placeholders the generators substitute (`'{{ class }}' => ...` in
@@ -194,6 +212,10 @@ describe('a consumer extension type-checks against the published declarations', 
 
     it('type-checks the TSX every generator writes, strict', () => {
         expect(typecheck('tsconfig.extensions.json', extensionSources)).toEqual([])
+    }, 120_000)
+
+    it('types react-dom as the shim the build sends it to, strict', () => {
+        expect(typecheck('tsconfig.extensions.json', [REACT_DOM_PROBE])).toEqual([])
     }, 120_000)
 
     it('type-checks the extension entry once it imports @martis/runtime, strict', () => {

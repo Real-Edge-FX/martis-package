@@ -107,10 +107,12 @@ jobs:
           test -f resources/js/martis-extensions/.shims/react.mjs
           test -f resources/js/martis-extensions/.shims/react-jsx-runtime.mjs
           test -f resources/js/martis-extensions/.shims/runtime.mjs
+          test -f resources/js/martis-extensions/.shims/react-dom.mjs
           test -f resources/js/martis-extensions/.shims/react-router-dom.mjs
           test -f resources/js/martis-extensions/.shims/react-i18next.mjs
           test -f resources/js/martis-extensions/.shims/tanstack-react-query.mjs
           test -f resources/js/martis-extensions/.shims/runtime.d.mts
+          test -f resources/js/martis-extensions/.shims/react-dom.d.mts
           test -f resources/js/martis-extensions/.shims/react-router-dom.d.mts
           test -f resources/js/martis-extensions/.shims/react-i18next.d.mts
           test -f resources/js/martis-extensions/.shims/tanstack-react-query.d.mts

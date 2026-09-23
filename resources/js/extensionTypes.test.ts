@@ -5,6 +5,7 @@ import * as runtimeEntry from '@/extension-types/runtime'
 import * as routerEntry from '@/extension-types/react-router-dom'
 import * as i18nextEntry from '@/extension-types/react-i18next'
 import * as queryEntry from '@/extension-types/tanstack-react-query'
+import * as reactDomEntry from '@/extension-types/react-dom'
 import runtimeSource from '@/lib/martisRuntime.ts?raw'
 import runtimeEntrySource from '@/extension-types/runtime.ts?raw'
 import viteExtensionsConfig from '../../stubs/extensions/vite.extensions.config.ts.stub?raw'
@@ -23,22 +24,29 @@ const stub = (file: string): string => stubs[`../../stubs/extensions/${file}`] ?
  *    (plus the types the runtime module exports) and imports only what a
  *    consumer app installs.
  * 3. The published tsconfig sends every specifier the Vite config sends to a
- *    declared shim to that shim's declarations, and nothing else.
+ *    shim to that shim's declarations (`react` and `react/jsx-runtime`
+ *    excepted, typed by the consumer's `@types/react`), and nothing else.
  */
 
-/** The object each shim reads its exports from (`const R = window.Martis.runtime`, `RR`, `I`, `Q`). */
+/**
+ * The object each shim reads its exports from (`const R = window.Martis.runtime`,
+ * `RR`, `I`, `Q`), and the default export of the react-dom shim: the part of
+ * `react-dom` the runtime carries.
+ */
 const RUNTIME_OBJECTS: Record<string, Record<string, unknown>> = {
     R: martisRuntime as unknown as Record<string, unknown>,
     RR: martisRuntime.reactRouterDom as unknown as Record<string, unknown>,
     I: martisRuntime.reactI18next as unknown as Record<string, unknown>,
     Q: martisRuntime.tanstackReactQuery as unknown as Record<string, unknown>,
+    ReactDOM: { createPortal: martisRuntime.createPortal },
 }
 
 const SHIMS = [
-    { shim: 'runtime', entry: runtimeEntry },
-    { shim: 'react-router-dom', entry: routerEntry },
-    { shim: 'react-i18next', entry: i18nextEntry },
-    { shim: 'tanstack-react-query', entry: queryEntry },
+    { shim: 'runtime', specifier: '@martis/runtime', entry: runtimeEntry },
+    { shim: 'react-dom', specifier: 'react-dom', entry: reactDomEntry },
+    { shim: 'react-router-dom', specifier: 'react-router-dom', entry: routerEntry },
+    { shim: 'react-i18next', specifier: 'react-i18next', entry: i18nextEntry },
+    { shim: 'tanstack-react-query', specifier: '@tanstack/react-query', entry: queryEntry },
 ]
 
 /** The `export const <name> = <object>.<key>` lines of a shim, and the object it exports as default. */
@@ -102,7 +110,7 @@ describe('the extension shim declarations', () => {
         expect(declared).toEqual(SHIMS.map(({ shim }) => shim).sort())
     })
 
-    it.each(SHIMS)('declare exactly what the $shim shim exports, and import only what a consumer installs', ({ shim }) => {
+    it.each(SHIMS)('declare exactly what the $shim shim exports, and import only what a consumer installs', ({ shim, specifier }) => {
         const { named } = shimExports(stub(`${shim}-shim.mjs.stub`))
         const declaration = declarationExports(stub(`${shim}-shim.d.mts.stub`))
 
@@ -112,8 +120,11 @@ describe('the extension shim declarations', () => {
         // consumer; the runtime reaches the third-party types through the
         // sibling shims' declarations.
         for (const module of declaration.modules) {
-            expect(module).toMatch(/^(?:react(?:-dom)?(?:\/[\w-]+)?|@phosphor-icons\/react|\.\/(?:react-router-dom|react-i18next|tanstack-react-query)\.mjs)$/)
+            expect(module).toMatch(/^(?:react(?:-dom)?(?:\/[\w-]+)?|@phosphor-icons\/react|\.\/(?:react-dom|react-router-dom|react-i18next|tanstack-react-query)\.mjs)$/)
         }
+        // The consumer's tsconfig sends the shim's specifier to these very
+        // declarations, so they cannot take anything from it.
+        expect(declaration.modules).not.toContain(specifier)
     })
 })
 
@@ -155,19 +166,24 @@ function tsPathPattern(source: string): string {
 describe('the published tsconfig.extensions.json', () => {
     const tsconfig = JSON.parse(tsconfigExtensions) as { compilerOptions: Record<string, unknown>; include?: string[] }
 
-    it('sends every specifier the Vite config aliases to a declared shim to its declarations, and nothing else', () => {
+    it('sends every specifier the Vite config aliases to a shim to that shim\'s declarations, React\'s own excepted', () => {
         const shimFiles = Object.fromEntries([...viteExtensionsConfig.matchAll(/const (\w+) = path\.join\(shimsDir, '([\w-]+)\.mjs'\)/g)].map(([, variable, file]) => [variable, file]))
         const declared = new Set(SHIMS.map(({ shim }) => shim))
         const expected: Record<string, string[]> = {}
 
         for (const [, literal, source, replacement] of viteExtensionsConfig.matchAll(/\{find: (?:'([^']+)'|\/(.+?)\/[a-z]*), replacement: (\w+)\}/g)) {
+            const specifier = literal ?? tsPathPattern(source)
+            // `react` and `react/jsx-runtime` are typed by the consumer's
+            // @types/react, whose exports cover the React shims'. Any other
+            // specifier tsc resolved on its own would accept names the shim
+            // does not export: the build would then fail on code tsc passed.
+            if (specifier === 'react' || specifier === 'react/jsx-runtime') continue
             const shim = shimFiles[replacement]
-            // react, react-dom and react/jsx-runtime are typed by the consumer's @types/react.
-            if (!declared.has(shim)) continue
-            expected[literal ?? tsPathPattern(source)] = [`./resources/js/martis-extensions/.shims/${shim}.d.mts`]
+            expect(declared.has(shim), `${specifier} goes to .shims/${shim}.mjs, which has no declarations`).toBe(true)
+            expected[specifier] = [`./resources/js/martis-extensions/.shims/${shim}.d.mts`]
         }
 
-        expect(Object.keys(expected)).toHaveLength(9)
+        expect(Object.keys(expected)).toHaveLength(10)
         expect(tsconfig.compilerOptions.paths).toEqual(expected)
     })
 

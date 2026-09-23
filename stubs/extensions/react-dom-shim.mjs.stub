@@ -1,0 +1,36 @@
+/**
+ * `react-dom` shim (v1.38.0+).
+ *
+ * The consumer's `vite.extensions.config.ts` aliases bare `react-dom`
+ * imports to this file. It re-exports the part of `react-dom` the Martis
+ * runtime carries, `createPortal` (on `window.Martis.runtime` since
+ * v1.29.0), so a portal an extension opens renders with the host's React
+ * DOM instead of a second copy. Nothing else of `react-dom` reaches an
+ * extension: an import of any other name stops the build with
+ * `"flushSync" is not exported by ".shims/react-dom.mjs"`, and `tsc` reports
+ * it too, since `tsconfig.extensions.json` maps `react-dom` to the
+ * declarations next to this file (`react-dom.d.mts`).
+ *
+ * Before v1.38.0 the config sent `react-dom` to the React shim, which
+ * exports React core only. `createPortal` is also a named export of
+ * `@martis/runtime`.
+ */
+
+const R =
+  typeof window !== 'undefined' && window.Martis && window.Martis.runtime
+    ? window.Martis.runtime
+    : null
+
+if (R === null) {
+  throw new Error(
+    '[react-dom-shim] window.Martis.runtime not available: Martis v1.10+ exposes it from app.tsx. Upgrade the package or override the consumer alias to point at a custom shim.',
+  )
+}
+
+export const createPortal = R.createPortal
+
+// The default export, for `import ReactDOM from 'react-dom'`: the same
+// members as the named exports.
+const ReactDOM = { createPortal }
+
+export default ReactDOM

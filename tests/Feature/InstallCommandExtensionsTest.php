@@ -150,7 +150,7 @@ it('martis:install is a no-op for package.json when none exists', function () {
 it('martis:install publishes the declarations of the shims next to them', function () {
     $this->artisan('martis:install', ['--force' => true])->assertSuccessful();
 
-    foreach (['runtime', 'react-router-dom', 'react-i18next', 'tanstack-react-query'] as $shim) {
+    foreach (['runtime', 'react-dom', 'react-router-dom', 'react-i18next', 'tanstack-react-query'] as $shim) {
         $published = base_path("resources/js/martis-extensions/.shims/{$shim}.d.mts");
 
         expect($this->fs->exists($published))->toBeTrue()

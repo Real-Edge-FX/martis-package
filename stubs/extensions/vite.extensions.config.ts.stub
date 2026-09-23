@@ -15,7 +15,7 @@
  *
  * React + runtime handling (v1.10.0+):
  *
- * Eight bare module specifiers are aliased to small shim modules
+ * Seven bare module specifiers are aliased to small shim modules
  * under `resources/js/martis-extensions/.shims/` that re-export
  * from `window.Martis.{react, reactJsxRuntime, runtime}`. Vite
  * inlines those shims into the bundle at build time, so the compiled
@@ -25,21 +25,26 @@
  *
  * | Bare specifier              | Shim file                              |
  * |-----------------------------|----------------------------------------|
- * | `react`, `react-dom`        | `.shims/react.mjs`                     |
+ * | `react`                     | `.shims/react.mjs`                     |
  * | `react/jsx-runtime`         | `.shims/react-jsx-runtime.mjs`         |
+ * | `react-dom`                 | `.shims/react-dom.mjs`                 |
  * | `react-router-dom`          | `.shims/react-router-dom.mjs`          |
  * | `react-i18next`             | `.shims/react-i18next.mjs`             |
  * | `@tanstack/react-query`     | `.shims/tanstack-react-query.mjs`      |
  * | `@martis/runtime`           | `.shims/runtime.mjs`                   |
+ *
+ * The `react-dom` shim (v1.38.0+) carries `createPortal`, the part of
+ * `react-dom` the runtime serves; before, `react-dom` went to the React
+ * shim, which has no `createPortal`.
  *
  * Plus five legacy-path aliases (also pointing at the runtime shim)
  * so override stubs published by older Martis versions keep building:
  * `@/contexts/*`, `@/lib/*`, `@/components/auth/*`, `@martis/martis/*`
  * and `@/components/fields/types`.
  * They resolve only the names the runtime shim exports.
- * `tsconfig.extensions.json` maps the same specifiers (the React ones
- * excepted, typed by `@types/react`) to the declarations published next to
- * each shim (`.shims/*.d.mts`, v1.38.0+).
+ * `tsconfig.extensions.json` maps the same specifiers (`react` and
+ * `react/jsx-runtime` excepted, typed by `@types/react`) to the
+ * declarations published next to each shim (`.shims/*.d.mts`, v1.38.0+).
  *
  * The earlier v1.9.0–v1.9.2 stub used `rollupOptions.external` +
  * `output.globals` for the same goal, but `globals` only works for
@@ -57,6 +62,7 @@ const shimsDir = path.resolve(__dirname, 'resources/js/martis-extensions/.shims'
 
 const reactShim = path.join(shimsDir, 'react.mjs')
 const jsxRuntimeShim = path.join(shimsDir, 'react-jsx-runtime.mjs')
+const reactDomShim = path.join(shimsDir, 'react-dom.mjs')
 const routerShim = path.join(shimsDir, 'react-router-dom.mjs')
 const i18nextShim = path.join(shimsDir, 'react-i18next.mjs')
 const queryShim = path.join(shimsDir, 'tanstack-react-query.mjs')
@@ -78,7 +84,7 @@ export default defineConfig({
       // React first — most-specific patterns top.
       {find: 'react/jsx-runtime', replacement: jsxRuntimeShim},
       {find: /^react$/, replacement: reactShim},
-      {find: /^react-dom$/, replacement: reactShim},
+      {find: /^react-dom$/, replacement: reactDomShim},
       // Re-exposed 3rd-party modules (host bundles them; consumer
       // doesn't need to install).
       {find: /^react-router-dom$/, replacement: routerShim},

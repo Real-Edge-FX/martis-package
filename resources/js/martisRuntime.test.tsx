@@ -231,7 +231,7 @@ describe('martisRuntime', () => {
     it('the consumer vite config sends @martis/runtime and every legacy runtime path to the whole shim', () => {
         const expected: Record<string, string> = {
             'react': 'reactShim',
-            'react-dom': 'reactShim',
+            'react-dom': 'reactDomShim',
             'react/jsx-runtime': 'jsxRuntimeShim',
             'react-router-dom': 'routerShim',
             'react-i18next': 'i18nextShim',

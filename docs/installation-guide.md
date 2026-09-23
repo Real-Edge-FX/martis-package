@@ -447,7 +447,7 @@ The blade view emits the resolved array as `window.MartisConfig.extensions`. The
 npx tsc -p tsconfig.extensions.json
 ```
 
-Your app installs none of `@martis/runtime`, `react-router-dom`, `react-i18next` or `@tanstack/react-query`: the Vite config sends each to a shim under `.shims/` that re-exports the host's copy. Each of those shims has its TypeScript declarations next to it (`runtime.d.mts`, `react-router-dom.d.mts`, `react-i18next.d.mts`, `tanstack-react-query.d.mts`, since v1.38.0), and the tsconfig `paths` sends the same specifiers to them, the legacy paths included, so `tsc` checks your code against the modules the build uses. The declarations carry the Martis types and those of the host's copy of each library; `react`, `react-dom` and `@phosphor-icons/react` come from your own `node_modules`, where `martis:install` adds them.
+Your app installs none of `@martis/runtime`, `react-router-dom`, `react-i18next` or `@tanstack/react-query`: the Vite config sends each to a shim under `.shims/` that re-exports the host's copy. It sends `react-dom` to a shim too (v1.38.0), which carries `createPortal`, the part of `react-dom` the runtime serves, so a portal renders with the host's React DOM. Each of those shims has its TypeScript declarations next to it (`runtime.d.mts`, `react-dom.d.mts`, `react-router-dom.d.mts`, `react-i18next.d.mts`, `tanstack-react-query.d.mts`, since v1.38.0), and the tsconfig `paths` sends the same specifiers to them, the legacy paths included, so `tsc` checks your code against the modules the build uses: a name a shim does not export fails `tsc` as it fails the build. The declarations carry the Martis types and those of the host's copy of each library; `react` and `@phosphor-icons/react` come from your own `node_modules`, where `martis:install` adds them.
 
 Editors type a file with the nearest `tsconfig.json`, so the scaffold also puts one in `resources/js/martis-extensions/` that extends `tsconfig.extensions.json` (v1.38.0): VS Code and other tsserver clients resolve `@martis/runtime` the same way `tsc` does, and `npx tsc -p resources/js/martis-extensions` is equivalent to the command above.
 
@@ -489,6 +489,7 @@ Three ways to get a missing name, from the narrowest:
 ```json
 "paths": {
   "@martis/runtime": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+  "react-dom": ["./resources/js/martis-extensions/.shims/react-dom.d.mts"],
   "react-router-dom": ["./resources/js/martis-extensions/.shims/react-router-dom.d.mts"],
   "react-i18next": ["./resources/js/martis-extensions/.shims/react-i18next.d.mts"],
   "@tanstack/react-query": ["./resources/js/martis-extensions/.shims/tanstack-react-query.d.mts"],
@@ -508,6 +509,8 @@ For your editor, add `resources/js/martis-extensions/tsconfig.json` (or copy `ve
   "include": ["./**/*"]
 }
 ```
+
+**`react-dom` (fixed in v1.38.0).** Scaffolds published before v1.38.0 send `react-dom` to the React shim, which exports React core only: `import { createPortal } from 'react-dom'` passes `tsc`, which reads `@types/react-dom`, and then stops the build with `"createPortal" is not exported by ".shims/react.mjs"`. Import `createPortal` from `@martis/runtime` instead (republishing the shims, option 1 above, is enough for that), or send `react-dom` to its own shim: republish the shims, then in `vite.extensions.config.ts` add `const reactDomShim = path.join(shimsDir, 'react-dom.mjs')` and point the `/^react-dom$/` alias at `reactDomShim`, and add the `react-dom` line of the `paths` above to `tsconfig.extensions.json` (or copy both stubs over, re-applying your own edits).
 
 **Legacy import paths (fixed in v1.38.0).** The Vite config also sends the paths that override files published by older versions import to the runtime shim, so those files keep building: `@/contexts/*`, `@/lib/*`, `@/components/auth/*`, `@martis/martis/*` and `@/components/fields/types` (the type module the v1.9.3 field override imports its props from). From v1.10.0 to v1.37.x the config matched only the start of the first four, and the alias replaces only what it matches, so every import through them failed (`Could not load .../.shims/runtime.mjsapi` for `@/lib/api`). If your extension imports through them, copy `vendor/martis/martis/stubs/extensions/vite.extensions.config.ts.stub` over `vite.extensions.config.ts` (re-applying your own edits), or make each pattern match the whole path (`/^@\/lib\/.*$/`). These paths reach only the names the runtime shim exports; new code imports from `@martis/runtime`. `tsc` resolves them too, through the tsconfig `paths` above. On the sidebar override the v1.9.3 generator wrote, it then reports what that file does wrong: it draws a nested menu group (`type: 'group'`) as a link. Regenerate it with `php artisan martis:component --type=sidebar --force`, whose output lists a nested group's items under its label.
 

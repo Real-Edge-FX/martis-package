@@ -587,7 +587,7 @@ Since v1.14.0, `@martis/runtime` exposes:
 | `DrawerShellProps` (type) | Props for `DrawerShell`: `title`, `subtitle?`, `icon?`, `onClose`, `children`, … |
 | `Tooltip` | The PrimeReact `Tooltip` component. Needed for rich tooltip content (JSX `content`; the global `[data-pr-tooltip]` provider renders plain text) since the extension build doesn't alias `primereact`. |
 | `Dropdown`, `MultiSelect` (v1.29.0) | The exact PrimeReact controls Martis's own filters use. Apply the `martis-filter-dropdown` class for the compact filter look. Lets a Tool render pixel-identical single/multi filters without bundling a second copy of PrimeReact. |
-| `createPortal` (v1.29.0) | `react-dom`'s `createPortal`, for overlays. The extension's React shim is React-core-only (no `react-dom`), so it is exposed here. |
+| `createPortal` (v1.29.0) | `react-dom`'s `createPortal`, for overlays: the host's, so the portal renders with the host's React DOM. Since v1.38.0 `import { createPortal } from 'react-dom'` reaches the same function: the extension build sends `react-dom` to a shim that carries it and nothing else of `react-dom`. |
 | `DropdownProps`, `MultiSelectProps` (types) | Re-exported so you can type the controls above without reaching into `primereact/*`. |
 | `NestedParentProvider` (v1.38.0) | Names the record whose related records the relationship panels inside list, when the page URL does not name it; `id: null` on a create form. See [Naming the record of the relationship panels](#naming-the-record-of-the-relationship-panels-v1380). |
 | `NestedParent` (type) | The provider's `value`: `{ resource: string; id: string \| number \| null }`. |
@@ -686,9 +686,9 @@ export function StatusFilter() {
 }
 ```
 
-`createPortal` (also exported by `@martis/runtime`) is available for overlays that must
-escape a clipped/overflow-hidden container — the extension's React shim is
-React-core-only, so `react-dom`'s portal is exposed through the runtime.
+`createPortal` (exported by `@martis/runtime`, and since v1.38.0 by the extension's
+`react-dom` shim, which carries nothing else of `react-dom`) is available for
+overlays that must escape a clipped or `overflow: hidden` container.
 
 ### Naming the record of the relationship panels (v1.38.0+)
 

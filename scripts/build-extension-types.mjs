@@ -2,20 +2,23 @@
 /**
  * Generates the TypeScript declarations of the consumer-extension shims.
  *
- * A consumer extension imports `@martis/runtime`, `react-router-dom`,
- * `react-i18next` and `@tanstack/react-query`; its Vite config sends each
- * to a shim under `resources/js/martis-extensions/.shims/` that re-exports
- * the host's copy from `window.Martis.runtime`. `martis:install` publishes
- * a `<shim>.d.mts` next to each of those shims, and the consumer's
- * `tsconfig.extensions.json` maps the same specifiers to them.
+ * A consumer extension imports `@martis/runtime`, `react-dom`,
+ * `react-router-dom`, `react-i18next` and `@tanstack/react-query`; its Vite
+ * config sends each to a shim under `resources/js/martis-extensions/.shims/`
+ * that re-exports the host's copy from `window.Martis.runtime`.
+ * `martis:install` publishes a `<shim>.d.mts` next to each of those shims,
+ * and the consumer's `tsconfig.extensions.json` maps the same specifiers to
+ * them.
  *
  * Each type entry in `resources/js/extension-types/` is bundled into
  * `stubs/extensions/<shim>-shim.d.mts.stub` with rollup-plugin-dts. The
  * Martis types and the third-party types behind the shim exports are
  * inlined, since the consumer installs none of those libraries; only the
  * packages `martis:install` adds to the consumer stay imports (`react`,
- * `react-dom`, `@phosphor-icons/react`), and the runtime declarations
- * import the three third-party shims' declarations as siblings.
+ * `react-dom`, `@phosphor-icons/react`), except in the declarations of the
+ * shim for that specifier (`react-dom`), which inline the host's: the
+ * consumer's tsconfig sends the specifier to them. The runtime declarations
+ * import the other shims' declarations as siblings.
  *
  * Usage: `npm run build:types` (`npm run build` runs it too), or
  * `npm run build:types -- --check` to fail when a committed stub is stale.
@@ -33,6 +36,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const CONSUMER_PACKAGES = /^(?:react|react-dom|@phosphor-icons\/react)(?:\/|$)/
 
 const SIBLINGS = {
+  'react-dom': './react-dom.mjs',
   'react-router-dom': './react-router-dom.mjs',
   'react-i18next': './react-i18next.mjs',
   '@tanstack/react-query': './tanstack-react-query.mjs',
@@ -40,6 +44,7 @@ const SIBLINGS = {
 
 const SHIMS = [
   { name: 'runtime', specifier: '@martis/runtime', siblings: SIBLINGS },
+  { name: 'react-dom', specifier: 'react-dom', siblings: {} },
   { name: 'react-router-dom', specifier: 'react-router-dom', siblings: {} },
   { name: 'react-i18next', specifier: 'react-i18next', siblings: {} },
   { name: 'tanstack-react-query', specifier: '@tanstack/react-query', siblings: {} },
@@ -81,7 +86,9 @@ async function generate(shim) {
   const siblings = new Set(Object.keys(shim.siblings))
   const bundle = await rollup({
     input: path.join(root, 'resources/js/extension-types', `${shim.name}.ts`),
-    external: (id) => CONSUMER_PACKAGES.test(id) || siblings.has(id),
+    // A shim's own specifier is inlined even when the consumer installs
+    // it: its tsconfig `paths` entry points back at these declarations.
+    external: (id) => (CONSUMER_PACKAGES.test(id) && id !== shim.specifier) || siblings.has(id),
     plugins: [dts({ tsconfig: path.join(root, 'tsconfig.json'), respectExternal: true })],
     onwarn(warning) {
       throw new Error(`${shim.name}: ${warning.message}`)
@@ -97,6 +104,9 @@ async function generate(shim) {
     for (const specifier of importedModules(code)) {
       if (!CONSUMER_PACKAGES.test(specifier) && !allowed.has(specifier)) {
         throw new Error(`${shim.name}: the declarations import '${specifier}', which a consumer app does not install`)
+      }
+      if (specifier === shim.specifier) {
+        throw new Error(`${shim.name}: the declarations import '${specifier}', which the consumer's tsconfig sends back to them`)
       }
     }
 
