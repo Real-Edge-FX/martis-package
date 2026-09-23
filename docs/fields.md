@@ -2972,6 +2972,8 @@ BelongsTo fields can display a "+" button that opens a modal for creating a rela
 4. On submit, the new record is created and automatically selected in the BelongsTo dropdown
 5. Nesting is limited to 1 level (no inline create inside an inline create)
 
+Closing the modal discards what was typed in it, so it opens on an empty form every time (v1.38.0+). Before v1.38.0 the modal emptied its form one render after it opened again, so an input that reads its value when it mounts kept the text typed the previous time.
+
 ### API Endpoints
 
 ```

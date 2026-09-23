@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, fireEvent, waitFor } from '@testing-library/react'
+import { useState } from 'react'
+import { render, fireEvent, waitFor, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ToastProvider } from '@/contexts/ToastContext'
@@ -24,8 +25,27 @@ vi.mock('@/lib/api', async (importOriginal) => {
 
 import { InlineCreateModal } from './InlineCreateModal'
 import { registerDefaultFields } from './fields/FieldRenderer'
+import { componentRegistry } from '@/lib/componentRegistry'
+import type { FieldInputProps } from './fields/types'
 
 registerDefaultFields()
+
+// A custom input (registered the way a consumer registers one) that keeps
+// what the user types in its own state, read from `value` once, at mount.
+function MountDraftInput({ field, value, onChange }: FieldInputProps) {
+  const [draft, setDraft] = useState(() => String(value ?? ''))
+  return (
+    <input
+      id={field.attribute}
+      value={draft}
+      onChange={(e) => {
+        setDraft(e.target.value)
+        onChange(e.target.value)
+      }}
+    />
+  )
+}
+componentRegistry.registerFieldInput('mount_draft', MountDraftInput)
 
 const teamField = {
   attribute: 'team_id', label: 'Team', type: 'belongs_to', relatedResource: 'teams',
@@ -72,5 +92,59 @@ describe('InlineCreateModal pickers', () => {
 
     await waitFor(() => expect(relatableCalls()).toHaveLength(1))
     expect(relatableCalls()[0].split('?')[0]).toBe('/api/resources/clients/_/relatable/team_id')
+  })
+})
+
+/*
+ * The modal cleared what the user had typed when it opened again, one
+ * render after its fields had mounted with those values: an input that reads
+ * its value when it mounts kept the text of the record the user had given
+ * up on. The modal now clears its form as it closes, so its fields always
+ * mount on an empty form.
+ */
+describe('InlineCreateModal opened again', () => {
+  const codeField = {
+    attribute: 'code', label: 'Code', type: 'mount_draft',
+    nullable: true, readonly: false, required: false, sortable: false, searchable: false,
+    showOnIndex: false, showOnDetail: true, showOnForms: true, rules: [],
+  }
+
+  function Host() {
+    const [open, setOpen] = useState(false)
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)}>New author</button>
+        <InlineCreateModal relatedResource="authors" open={open} onClose={() => setOpen(false)} onCreated={() => setOpen(false)} />
+      </>
+    )
+  }
+
+  const code = () => document.getElementById('code') as HTMLInputElement | null
+
+  it('starts from an empty form after the user closed it with something typed', async () => {
+    apiGetMock.mockImplementation(async (url: string) =>
+      url === '/api/resources/authors/inline-create-schema'
+        ? { data: { fields: [codeField], singularLabel: 'Author', label: 'Authors' } }
+        : { data: [] },
+    )
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ToastProvider>
+          <MemoryRouter>
+            <Host />
+          </MemoryRouter>
+        </ToastProvider>
+      </QueryClientProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'New author' }))
+    await waitFor(() => expect(code()).not.toBeNull())
+    fireEvent.change(code()!, { target: { value: 'Given up' } })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Cancel' })[0])
+    await waitFor(() => expect(code()).toBeNull())
+
+    fireEvent.click(screen.getByRole('button', { name: 'New author' }))
+
+    await waitFor(() => expect(code()).not.toBeNull())
+    expect(code()!.value).toBe('')
   })
 })

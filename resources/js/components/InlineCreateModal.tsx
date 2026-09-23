@@ -149,9 +149,11 @@ export function InlineCreateModal({
     createMutation.mutate(values)
   }
 
-  // Reset state when modal opens/closes
+  // Clear the form as the modal closes, not as it opens again: the fields
+  // mount when it opens, and would mount with what was typed last time (an
+  // input that reads its value at mount would keep it).
   useEffect(() => {
-    if (open) {
+    if (!open) {
       setValues({})
       setErrors({})
     }
