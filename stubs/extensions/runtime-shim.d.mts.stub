@@ -5188,13 +5188,24 @@ interface Result {
  *      NOT attempt to handle the back button itself (known flicker
  *      bug in v6: the URL updates before the block takes effect).
  *
- *   2. **Browser back/forward** — handled manually via a history
- *      sentinel pushed on mount and a **capture-phase** popstate
- *      listener that calls `stopImmediatePropagation()` so React
- *      Router's own listener never fires for that event. On cancel we
- *      simply push the sentinel again; on confirm we set a suppress
- *      flag and call `history.back()` one more time to actually reach
- *      the user's intended destination.
+ *   2. **Browser back/forward** — a clean form leaves the history alone,
+ *      so Back and Forward work as on any other page. Once the form has
+ *      unsaved changes, the guard pushes a sentinel: a copy of the page's
+ *      own history entry (same URL, same router `key` and `idx`, so the
+ *      router's bookkeeping stays right) flagged as the guard's. Back from
+ *      the sentinel lands on the page entry, which a **capture-phase**
+ *      popstate listener recognises and keeps from React Router with
+ *      `stopImmediatePropagation()`: with unsaved changes it pushes the
+ *      sentinel again and asks, and a confirmed discard steps over the
+ *      page with `history.go(-2)`; changes saved since then let the pop
+ *      carry on to the previous page with one more `history.back()`. Every
+ *      other pop belongs to the router (and to the modal or drawer that
+ *      pushed it).
+ *
+ * The sentinel stays behind when the page is left with it on top (a save
+ * that redirects, a confirmed in-app navigation). When Back returns to it,
+ * the page adopts it as its own, so the next Back walks past the page in one
+ * press instead of stopping on a copy of the same URL.
  *
  * `beforeunload` is intentionally NOT wired up. It produced a double
  * prompt (native browser dialog + our custom modal) whenever the
