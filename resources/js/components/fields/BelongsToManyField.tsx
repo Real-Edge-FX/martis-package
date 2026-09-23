@@ -344,6 +344,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
         <EditPivotModal
           title={editTarget.title ?? String(editTarget.id)}
           endpoint={`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/${editTarget.id}/pivot`}
+          pivotEndpoint={`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/pivot-fields/${editTarget.id}`}
           pivotFields={pivotFields}
           initialValues={editTarget.pivot}
           onSuccess={() => {
@@ -804,6 +805,10 @@ function AttachModal({
                     field={pf}
                     value={pivotValues[pf.attribute] ?? null}
                     onChange={(v) => setPivotValues((prev) => ({ ...prev, [pf.attribute]: v }))}
+                    context="create"
+                    // The parent's forms do not declare pivot fields: the
+                    // relation pickers ask the panel.
+                    pivotEndpoint={`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/pivot-fields`}
                   />
                   {fieldError && (
                     <p className="mt-1 text-xs" style={{ color: 'var(--martis-danger)' }}>{fieldError}</p>
@@ -868,12 +873,15 @@ export function BelongsToManyFieldInput({ field, formValues }: FieldInputProps) 
 // -------------------------------------------------------------------------
 // Edit pivot modal — updates the pivot row for an already-attached record.
 // Shared by BelongsToMany and MorphToMany via direct reuse (the endpoint
-// shape is identical: PUT {parent}/{id}/<rel-type>/{rel}/{relatedId}/pivot).
+// shape is identical: PUT {parent}/{id}/<rel-type>/{rel}/{relatedId}/pivot,
+// and the pickers of the pivot fields ask
+// {parent}/{id}/<rel-type>/{rel}/pivot-fields/{relatedId}/relatable/{attribute}).
 // -------------------------------------------------------------------------
 
 export function EditPivotModal({
   title,
   endpoint,
+  pivotEndpoint,
   pivotFields,
   initialValues,
   onSuccess,
@@ -881,6 +889,8 @@ export function EditPivotModal({
 }: {
   title: string
   endpoint: string
+  /** Base path of the attached record's pivot fields, for their relation pickers. */
+  pivotEndpoint: string
   pivotFields: FieldDefinition[]
   initialValues: Record<string, unknown>
   onSuccess: () => void
@@ -966,6 +976,8 @@ export function EditPivotModal({
                   field={pf}
                   value={values[pf.attribute] ?? null}
                   onChange={(v) => setValues((prev) => ({ ...prev, [pf.attribute]: v }))}
+                  context="update"
+                  pivotEndpoint={pivotEndpoint}
                 />
                 {fieldError && (
                   <p className="mt-1 text-xs" style={{ color: 'var(--martis-danger)' }}>{fieldError}</p>

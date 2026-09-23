@@ -1255,7 +1255,8 @@ class ResourceController extends MartisController
             // on fieldsForCreate() / fieldsForUpdate() only resolves (it
             // used to answer "Field 'X' not found." with an empty picker),
             // and the form's own declaration wins over the one in
-            // fields(). Layout containers are searched too.
+            // fields(). Layout containers are searched too, and a picker in
+            // a Repeater row is read from the row the request names.
             [$formInstance, $formContext] = $this->resolveFormFromRecordId($request, $resourceClass, $id);
             $relationField = $this->findFormField(
                 $formInstance,
@@ -1264,6 +1265,7 @@ class ResourceController extends MartisController
                 $fieldAttr,
                 [BelongsTo::class, MorphTo::class, TagField::class],
                 orFields: true,
+                repeaterRow: $this->repeaterRowOf($request),
             );
 
             if ($relationField === null) {
@@ -1401,8 +1403,170 @@ class ResourceController extends MartisController
         string $fieldAttr,
         string $resourceClass,
     ): IlluminateJsonResponse {
-        $relationField = $this->findField(
+        return $this->declaredFieldRelatableResponse(
+            $request,
             [fn (): array => $action->fields($request)],
+            $fieldAttr,
+            $resourceClass,
+        );
+    }
+
+    /**
+     * Return filtered options for a relationship field of a BelongsToMany
+     * panel's pivot fields, in the attach modal.
+     *
+     * GET /api/resources/{resource}/{id}/belongs-to-many/{relationship}/pivot-fields/relatable/{field}
+     *
+     * The attach modal renders the relationship's pivot fields, which the
+     * parent's forms do not declare, so their pickers ask the panel: the
+     * field is found in the relationship field's `fields()` only. Gated like
+     * the panel (viewAny, the parent record through indexQuery(), view on
+     * it, a declared relationship field of the route's type), then like the
+     * attach: `authorizedToAttachAny()` for the related model (no record is
+     * picked yet; `attach()` checks each one), then like every picker.
+     */
+    public function pivotFieldRelatableOptions(
+        Request $request,
+        string $resource,
+        string $id,
+        string $relationship,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        return $this->pivotFieldRelatable($request, $resource, $id, $relationship, null, $fieldAttr, BelongsToManyField::class);
+    }
+
+    /**
+     * Return filtered options for a relationship field of a BelongsToMany
+     * panel's pivot fields, in the pivot edit modal of one attached record
+     * (see pivotFieldRelatableOptions()). `{relatedId}` names a record the
+     * relationship attaches (404 otherwise), and the endpoint is gated like
+     * the pivot update: `authorizedToUpdatePivot()` for that record.
+     *
+     * GET /api/resources/{resource}/{id}/belongs-to-many/{relationship}/pivot-fields/{relatedId}/relatable/{field}
+     */
+    public function attachedPivotFieldRelatableOptions(
+        Request $request,
+        string $resource,
+        string $id,
+        string $relationship,
+        string $relatedId,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        return $this->pivotFieldRelatable($request, $resource, $id, $relationship, $relatedId, $fieldAttr, BelongsToManyField::class);
+    }
+
+    /**
+     * The MorphToMany variant of pivotFieldRelatableOptions().
+     *
+     * GET /api/resources/{resource}/{id}/morph-to-many/{relationship}/pivot-fields/relatable/{field}
+     */
+    public function morphToManyPivotFieldRelatableOptions(
+        Request $request,
+        string $resource,
+        string $id,
+        string $relationship,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        return $this->pivotFieldRelatable($request, $resource, $id, $relationship, null, $fieldAttr, MorphToManyField::class);
+    }
+
+    /**
+     * The MorphToMany variant of attachedPivotFieldRelatableOptions().
+     *
+     * GET /api/resources/{resource}/{id}/morph-to-many/{relationship}/pivot-fields/{relatedId}/relatable/{field}
+     */
+    public function morphToManyAttachedPivotFieldRelatableOptions(
+        Request $request,
+        string $resource,
+        string $id,
+        string $relationship,
+        string $relatedId,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        return $this->pivotFieldRelatable($request, $resource, $id, $relationship, $relatedId, $fieldAttr, MorphToManyField::class);
+    }
+
+    /**
+     * The options of a pivot field's picker: in the attach modal when
+     * `$relatedId` is null, in the pivot edit modal of that attached
+     * record otherwise. The parent resource is the source of the relatable
+     * hooks, as for the panel's pivot actions.
+     *
+     * @param  class-string<BelongsToManyField|MorphToManyField>  $fieldClass
+     */
+    private function pivotFieldRelatable(
+        Request $request,
+        string $resource,
+        string $id,
+        string $relationship,
+        ?string $relatedId,
+        string $fieldAttr,
+        string $fieldClass,
+    ): IlluminateJsonResponse {
+        [$resourceClass, $error] = $this->resolveResource($resource);
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        /** @var class-string<\Martis\Resource> $resourceClass */
+        $context = $this->resolvePivotRelationship($request, $resourceClass, $id, $relationship, $fieldClass);
+
+        if ($context instanceof IlluminateJsonResponse) {
+            return $context;
+        }
+
+        ['parentResource' => $parentResource, 'field' => $field, 'relation' => $relation] = $context;
+        $related = $relation->getRelated();
+
+        if ($relatedId === null) {
+            $authorized = $parentResource->authorizedToAttachAny($request, $related::class);
+        } else {
+            // Only a record the relationship attaches has a pivot row to
+            // edit, so any other id answers 404 like a missing one (no
+            // probing of the related table), and an id an integer key
+            // cannot hold never reaches the database (PostgreSQL rejects it
+            // where other drivers match nothing).
+            $relatedModel = $related->getKeyType() === 'int' && preg_match('/^-?\d+$/', $relatedId) !== 1
+                ? null
+                : (clone $relation)->where($related->qualifyColumn($related->getKeyName()), $relatedId)->first();
+
+            if (! $relatedModel instanceof Model) {
+                return JsonErrorResponse::notFound('Related record not found.')->toResponse();
+            }
+
+            $authorized = $parentResource->authorizedToUpdatePivot($request, $relatedModel);
+        }
+
+        if (! $authorized) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        return $this->declaredFieldRelatableResponse(
+            $request,
+            [fn (): array => $field->getPivotFields()],
+            $fieldAttr,
+            $resourceClass,
+        );
+    }
+
+    /**
+     * The options of a relationship field found in `$sets` (an Action's
+     * fields, a relationship's pivot fields), once the endpoint ran its
+     * gates. A picker in a Repeater row is read from the row the request
+     * names.
+     *
+     * @param  list<\Closure(): iterable<mixed>>  $sets
+     * @param  class-string<\Martis\Resource>  $resourceClass  The source of the relatable hooks
+     */
+    private function declaredFieldRelatableResponse(
+        Request $request,
+        array $sets,
+        string $fieldAttr,
+        string $resourceClass,
+    ): IlluminateJsonResponse {
+        $relationField = $this->findField(
+            $this->inRepeaterRow($sets, $this->repeaterRowOf($request), $request),
             $fieldAttr,
             [BelongsTo::class, MorphTo::class, TagField::class],
         );

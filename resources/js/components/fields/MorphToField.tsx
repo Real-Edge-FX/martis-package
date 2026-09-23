@@ -10,7 +10,7 @@ import { InlineCreateModal } from '@/components/InlineCreateModal'
 import { useQueryClient } from '@tanstack/react-query'
 import { recordHref } from '@/lib/recordHref'
 import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
-import { relatablePath } from '@/lib/relatableEndpoint'
+import { relatableUrl, withQuery } from '@/lib/relatableEndpoint'
 // Tooltip handled by global <Tooltip> in Layout.tsx
 
 interface MorphToValue {
@@ -250,7 +250,7 @@ interface RelatedRecord {
   [key: string]: unknown
 }
 
-export function MorphToFieldInput({ field, value, onChange, error, resourceKey, recordId, context, actionEndpoint }: FieldInputProps) {
+export function MorphToFieldInput({ field, value, onChange, error, resourceKey, recordId, context, actionEndpoint, pivotEndpoint, repeaterRow }: FieldInputProps) {
   const { t: tMsg } = useTranslation('messages')
   const morphTypes = (field as unknown as Record<string, unknown>).morphTypes as MorphTypeOption[] | undefined
   const titleAttribute = (field as unknown as Record<string, unknown>).titleAttribute as string | undefined
@@ -315,9 +315,10 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     }
   }, [open])
 
-  // The form (or Action) the picker renders in scopes the relatable endpoint.
+  // The form (or Action, pivot fields, Repeater row) the picker renders in
+  // scopes the relatable endpoint.
   const params = useParams<{ resource?: string; id?: string }>()
-  const scopedPath = relatablePath(field.attribute, { resourceKey, recordId, context, actionEndpoint }, params)
+  const scopedUrl = relatableUrl(field.attribute, { resourceKey, recordId, context, actionEndpoint, pivotEndpoint, repeaterRow }, params)
 
   // Fetch options for the selected type
   const fetchOptions = useCallback(async (query: string) => {
@@ -326,8 +327,8 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     setLoading(true)
     try {
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
-      const endpoint = scopedPath
-        ? `${scopedPath}?per_page=20&related_resource=${selectedType}${searchParam}`
+      const endpoint = scopedUrl
+        ? withQuery(scopedUrl, `per_page=20&related_resource=${selectedType}${searchParam}`)
         : `/api/resources/_/_/relatable/${field.attribute}?per_page=20&related_resource=${selectedType}${searchParam}`
       const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
@@ -336,7 +337,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     } finally {
       setLoading(false)
     }
-  }, [selectedType, scopedPath, field.attribute])
+  }, [selectedType, scopedUrl, field.attribute])
 
   // Load options when dropdown opens
   useEffect(() => {

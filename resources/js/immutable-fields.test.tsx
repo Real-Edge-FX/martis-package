@@ -234,6 +234,7 @@ describe('immutable fields in the pivot edit form', () => {
         <EditPivotModal
           title="Laravel"
           endpoint="/api/resources/posts/1/belongs-to-many/tags/3/pivot"
+          pivotEndpoint="/api/resources/posts/1/belongs-to-many/tags/pivot-fields/3"
           pivotFields={[baseField({ attribute: 'note', label: 'Note', type: 'text' }), codeField]}
           initialValues={{ note: 'Pinned', code: 'P-7' }}
           onSuccess={vi.fn()}

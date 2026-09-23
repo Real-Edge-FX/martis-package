@@ -21,6 +21,9 @@ use Martis\ResourceRegistry;
  *   GET /martis/api/resources/{resource}/fields/{field}/options?search=&context=create|update&id=
  *   GET /martis/api/tools/{uriKey}/fields/{field}/options?search=
  *
+ * A select in a Repeater row adds `repeater` (the Repeater's attribute) and
+ * `repeatable` (the row type) to either route, and is found in that row.
+ *
  * Response envelope: JsonResponse
  *   data.options — list<{label, value}> exactly as `Select::searchOptions()` returns it
  *
@@ -71,7 +74,7 @@ class FieldOptionsController extends MartisController
             return $forbidden ?? JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $select = $this->findFormField($instance, $request, $context, $field, [Select::class]);
+        $select = $this->findFormField($instance, $request, $context, $field, [Select::class], repeaterRow: $this->repeaterRowOf($request));
 
         return $this->respond($request, $select instanceof Select ? $select : null, $field);
     }
@@ -87,7 +90,11 @@ class FieldOptionsController extends MartisController
         }
 
         $select = $this->findField(
-            [fn (): array => $tool instanceof ProvidesFields ? $tool->fields($request) : []],
+            $this->inRepeaterRow(
+                [fn (): array => $tool instanceof ProvidesFields ? $tool->fields($request) : []],
+                $this->repeaterRowOf($request),
+                $request,
+            ),
             $field,
             [Select::class],
         );

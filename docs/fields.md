@@ -1108,7 +1108,7 @@ Select::make('model')
 
 - **`searchableOptions()`** renders PrimeReact's filter box inside the panel; filtering happens in the browser over the serialised `options`. Coming from Nova: Nova's `Select::searchable()` is this method. In Martis, `searchable()` on any field (including `Select`) means "the column takes part in the resource search", and it is serialised as `searchable`; the option search box is a separate flag, `searchableOptions`.
 - **`allowCustomValues()`** makes the control editable. A typed value reaches the form state on every keystroke, exactly like a `Text` field, and is stored as-is; `SelectFieldDisplay` renders a value with no matching option as the raw string. The field adds no `Rule::in` validation, so add one yourself when the list must be closed after all.
-- **`searchOptionsUsing()`** moves the search to the server. When the panel opens the frontend calls the field-options endpoint with an empty term (return your "first page" there), then again after each typing pause (300 ms), aborting the previous request; the initial `options()` list is shown until the first response lands. The endpoint is derived from the form's scope: `GET /api/resources/{resource}/fields/{attribute}/options?context=create|update&id=<record>` for a Resource form (gated on the create ability, or on the update ability with the edited record bound, like `sync-field`) and `GET /api/tools/{uriKey}/fields/{attribute}/options` for a Tool implementing `ProvidesFields` whose form passes `toolKey` (see [Tool fields](tool-fields.md#server-side-option-search)). Outside those two scopes (Action modals, Repeaters, a frontend-only Tool form) the select falls back to local filtering over `options()`. The server decides what matches: results are shown as returned, never re-filtered in the browser. A stored value that is not in the current list is still shown in the control and can be cleared. The term is trimmed and clamped to 255 characters before it reaches your closure. On a Resource form the select is looked up on the form of the context only: `fieldsForUpdate()`, or `fieldsForCreate()` and then the inline-create modal's `fieldsForInlineCreate()` (v1.38.0: a select declared on the inline-create form alone used to answer 422).
+- **`searchOptionsUsing()`** moves the search to the server. When the panel opens the frontend calls the field-options endpoint with an empty term (return your "first page" there), then again after each typing pause (300 ms), aborting the previous request; the initial `options()` list is shown until the first response lands. The endpoint is derived from the form's scope: `GET /api/resources/{resource}/fields/{attribute}/options?context=create|update&id=<record>` for a Resource form (gated on the create ability, or on the update ability with the edited record bound, like `sync-field`) and `GET /api/tools/{uriKey}/fields/{attribute}/options` for a Tool implementing `ProvidesFields` whose form passes `toolKey` (see [Tool fields](tool-fields.md#server-side-option-search)). A select in a `Repeater` row asks the same endpoints with the form's own context and names its row (`&repeater={attribute}&repeatable={type}`), where the server finds it (v1.38.0+; see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)). Outside those two scopes (Action modals, a relationship's pivot fields, a frontend-only Tool form) the select falls back to local filtering over `options()`. The server decides what matches: results are shown as returned, never re-filtered in the browser. A stored value that is not in the current list is still shown in the control and can be cleared. The term is trimmed and clamped to 255 characters before it reaches your closure. On a Resource form the select is looked up on the form of the context only: `fieldsForUpdate()`, or `fieldsForCreate()` and then the inline-create modal's `fieldsForInlineCreate()` (v1.38.0: a select declared on the inline-create form alone used to answer 422).
 
 **Filter variant + custom class (v1.29.0).** When rendering a select through the runtime `FieldInput` (e.g. a filter bar inside a [Tool](tool-fields.md)), the frontend honours two extra keys on the field definition:
 
@@ -1674,6 +1674,23 @@ BelongsTo::make('category_id', 'Category')
 | `modalSize` | `modalSize(ModalSize $size): static` | `$this` | Set the inline create modal size. Pass any `Martis\Enums\ModalSize` case (`Small`, `Medium`, `Large`, `ExtraLarge`, `TwoExtraLarge` through `SevenExtraLarge`). | `ModalSize::TwoExtraLarge` |
 | `iconColor` | `iconColor(string $color): static` | `$this` | Color for the resource icon in the inline create modal header. Any CSS color. | accent color |
 
+#### Where the picker loads its options
+
+The `BelongsTo`, `MorphTo` and `Tag` pickers list their options from the relatable endpoint of what declares the field, so that declaration (related resource, `relatableQueryUsing()`, `withoutTrashed()`) and the relatable hooks apply:
+
+| The picker renders in | It asks |
+|---|---|
+| a resource form | `GET /api/resources/{resource}/{id}/relatable/{attribute}` (`{id}` is the record under edit, `_` on a create form) |
+| an Action modal | `GET /api/resources/{resource}/actions/{action}/relatable/{attribute}` |
+| a pivot action modal | `GET /api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions/{action}/relatable/{attribute}` |
+| the attach modal of a `BelongsToMany` / `MorphToMany` (a pivot field, v1.38.0+) | `GET /api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/pivot-fields/relatable/{attribute}` |
+| the pivot edit modal of an attached record (v1.38.0+) | `GET /api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/pivot-fields/{relatedId}/relatable/{attribute}` |
+| a `Repeater` row (v1.38.0+) | any of the above, with `?repeater={attribute}&repeatable={type}` naming the row |
+
+Each is gated like the surface it serves (the form, running the Action, the attach or the pivot update), then on `viewAny` of the related resource. See [Relationships → Relation fields declared on one form only](relationships.md#relation-fields-declared-on-one-form-only), [Relation pickers among the pivot fields](relationships.md#relation-pickers-among-the-pivot-fields) and [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows).
+
+> Before v1.38.0 a picker among a relationship's pivot fields or in a Repeater row asked the page's resource for the attribute, which its forms do not declare: 404 and an empty picker.
+
 #### Peek / Preview
 
 The peek card appears when the user hovers the small preview icon next to a related record link.
@@ -1859,6 +1876,10 @@ BelongsToMany::make('Tags', 'tags', TagResource::class)
 | `POST` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/attach` | Attach a record (with optional pivot data) |
 | `DELETE` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/detach` | Detach a record |
 | `PUT` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/pivot` | Update pivot fields |
+| `GET` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/pivot-fields/relatable/{attribute}` | Options of a `BelongsTo` / `MorphTo` / `Tag` pivot field in the attach modal (v1.38.0) |
+| `GET` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/pivot-fields/{relatedId}/relatable/{attribute}` | The same in the pivot edit modal of an attached record (v1.38.0) |
+
+A relation picker among the pivot fields asks the panel (the two `pivot-fields` routes), gated like the panel and then like the attach (`attachAny{Model}`) or the pivot update (`updatePivot{Model}`). See [Relationships → Relation pickers among the pivot fields](relationships.md#relation-pickers-among-the-pivot-fields).
 
 #### Authorization
 
@@ -2368,6 +2389,8 @@ MorphToMany::make('Tags', 'tags', TagResource::class)
 | `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
 | `canAttach` | `canAttach(bool $value = true): static` | `$this` | Control visibility of the Attach button. | `true` |
 | `canDetach` | `canDetach(bool $value = true): static` | `$this` | Control visibility of the Detach button per row. | `true` |
+
+A relation picker among the pivot fields asks the panel, under `/api/resources/{resource}/{id}/morph-to-many/{relationship}/pivot-fields/relatable/{attribute}` in the attach modal and `.../pivot-fields/{relatedId}/relatable/{attribute}` in the pivot edit modal (v1.38.0+), gated like a `BelongsToMany`'s (see [Relationships → Relation pickers among the pivot fields](relationships.md#relation-pickers-among-the-pivot-fields)).
 
 *src/Fields/MorphToMany.php*
 
@@ -2880,6 +2903,10 @@ full API. Highlights:
 **Repeatable** header decorations (⭐): `icon`, `color`, `title` (template or closure),
 `badgeCount`. Row-level UX extras: duplicate button per row, bulk-paste modal that
 parses TSV/CSV/JSON.
+
+A `BelongsTo`, `MorphTo` or `Tag` in a row type lists its options, and a `Select`
+with `searchOptionsUsing()` searches them, from the row (v1.38.0+): see
+[Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows).
 
 ---
 

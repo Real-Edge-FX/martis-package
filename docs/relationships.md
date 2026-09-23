@@ -293,6 +293,27 @@ A value the request sends for a skipped field still runs the field's rules. A pi
 
 Up to v1.37.3 the attach and the pivot update wrote every pivot value the request sent, readonly and immutable fields included, and a pivot update with nothing to write answered 500 (an `UPDATE` with an empty `SET`) unless the relation declared `withTimestamps()` or `using()`. The values were copied from the request as they came, so a pivot `fillUsing()` never ran, a computed pivot field was written to a column that does not exist and a `MultiSelect` sent its array to the column (both a 500).
 
+#### Relation pickers among the pivot fields
+
+A `BelongsTo`, `MorphTo` or `Tag` pivot field lists its options from the panel (v1.38.0+). The parent resource's forms do not declare pivot fields, so the attach modal asks `GET /api/resources/{resource}/{id}/belongs-to-many/{relationship}/pivot-fields/relatable/{attribute}`, and the modal that edits the pivot row of an attached record asks `.../pivot-fields/{relatedId}/relatable/{attribute}` (`morph-to-many` for a `MorphToMany`):
+
+```php
+BelongsToMany::make('Members', 'members')
+    ->relatedResource('users')
+    ->fields(fn () => [
+        BelongsTo::make('role', 'Role')->relatedResource('roles'),
+    ])
+```
+
+The field is looked up in the relationship's `fields()` only (a `Repeater` row among them included, see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)), so its related resource, `relatableQueryUsing()` and `withoutTrashed()` apply, and the parent resource is the source of the `relatable{PluralModelName}()` hook, as for the panel's pivot actions. The two routes are gated like the panel: `viewAny` on the resource, the parent record found through its `indexQuery()`, `view` on it, and `{relationship}` resolved only to a relationship field of the route's type the resource declares. Then like the operation the modal performs:
+
+- the attach modal needs `authorizedToAttachAny()` for the related model (the `attachAny{Model}` policy ability): no record is picked yet, and the attach checks `attach{Model}` for each one;
+- the pivot edit modal needs `authorizedToUpdatePivot()` for that record (`updatePivot{Model}`, falling back to `update`), as the pivot update does.
+
+Then, like every picker, `viewAny` on the related resource. An attribute the relationship does not declare as a `BelongsTo`, `MorphTo` or `Tag` pivot field, an unknown relationship, a missing parent, or a `{relatedId}` the relationship does not attach answer 404.
+
+> Before v1.38.0 the pickers of a pivot field asked the parent resource's relatable endpoint (`/api/resources/{resource}/{id}/relatable/{attribute}`), which reads the parent's forms: 404 and an empty picker.
+
 ### Pivot Actions
 
 Actions declared on the field with `->actions()` run on the rows selected in this relationship's panel, and `handle()` receives each related model with its `pivot` row (the pivot fields above included). A resource action flagged `->pivotAction()` shows on every `BelongsToMany` and `MorphToMany` panel of the resource. See [Actions → Pivot Actions](actions.md#pivot-actions).
@@ -362,6 +383,10 @@ If these methods are absent, the framework falls back to `authorizedToUpdate()`.
 | `POST` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/attach` | Attach record |
 | `DELETE` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/detach` | Detach record |
 | `PUT` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/pivot` | Update pivot |
+| `GET` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/pivot-fields/relatable/{attribute}` | Options of a `BelongsTo` / `MorphTo` / `Tag` pivot field in the attach modal (v1.38.0, see [Relation pickers among the pivot fields](#relation-pickers-among-the-pivot-fields)) |
+| `GET` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/pivot-fields/{relatedId}/relatable/{attribute}` | The same, in the pivot edit modal of an attached record (v1.38.0) |
+
+The `MorphToMany` panel serves the same routes under `morph-to-many`.
 
 **Attach payload:**
 ```json
@@ -630,7 +655,7 @@ MorphToMany::make('Tags', 'tags', TagResource::class)
     ])
 ```
 
-See [fields.md § MorphToMany](fields.md#morphtomany) for the full API.
+See [fields.md § MorphToMany](fields.md#morphtomany) for the full API. The relation pickers among its pivot fields ask the panel, under `.../morph-to-many/{relationship}/pivot-fields/...`, like a `BelongsToMany`'s (see [Relation pickers among the pivot fields](#relation-pickers-among-the-pivot-fields)).
 
 
 
@@ -753,11 +778,15 @@ The pickers of an Action modal ask the Action instead: `GET /api/resources/{reso
 
 > Before v1.38.0 the pickers of an Action modal asked the page's resource: an attribute only the Action declares answered 404 with an empty picker, and one the resource also declares listed the resource's options (its related resource and scope) instead of the Action's.
 
+The pickers among a `BelongsToMany` / `MorphToMany` panel's pivot fields ask the panel the same way, under `.../{relationship}/pivot-fields/relatable/{attribute}` (the attach modal) and `.../{relationship}/pivot-fields/{relatedId}/relatable/{attribute}` (the pivot edit modal), gated like the attach and the pivot update (see [Relation pickers among the pivot fields](#relation-pickers-among-the-pivot-fields)).
+
+A picker in a `Repeater` row adds the row to any of these requests: `?repeater={attribute}&repeatable={type}` names the Repeater and the row type (`Repeatable::shortName()`), and the field is read from that row type's `fields()` on the form (or Action, or pivot fields) the Repeater belongs to, under the same gates. See [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows).
+
 The [Slug](fields.md#slug) collision check reads the forms in the same order (the update form when its `id` names a record the user may update, and only that record is left out of the uniqueness probe). The [`dependsOn` sync](fields.md#reactive-fields--dependsonfield-closure) and the server-side [`Select` search](fields.md#select) take the form from their `context` parameter and search only that form (`create` includes `fieldsForInlineCreate()`), never `fields()`, so a field that is not on the form cannot be probed.
 
 ### Relatable scoping precedence
 
-When a picker list is computed, scopes apply in this order, on **every** picker that targets the resource — the BelongsTo dropdown (`/relatable/{field}`), the Action modal pickers (`/actions/{action}/relatable/{field}`, with the resource the Action runs on as the source, and `.../{relationship}/actions/{action}/relatable/{field}` for a pivot action, with the parent resource), the context-free relatable form (`/_/_/relatable/{field}?related_resource=`), and the BelongsToMany / MorphToMany attach picker (`.../attachable`):
+When a picker list is computed, scopes apply in this order, on **every** picker that targets the resource: the BelongsTo dropdown (`/relatable/{field}`), the Action modal pickers (`/actions/{action}/relatable/{field}`, with the resource the Action runs on as the source, and `.../{relationship}/actions/{action}/relatable/{field}` for a pivot action, with the parent resource), the pivot field pickers (`.../{relationship}/pivot-fields/relatable/{field}` and `.../pivot-fields/{relatedId}/relatable/{field}`, with the parent resource), the pickers of a Repeater row (any of these with `?repeater=&repeatable=`), the context-free relatable form (`/_/_/relatable/{field}?related_resource=`), and the BelongsToMany / MorphToMany attach picker (`.../attachable`). The layers:
 
 1. **`relatableQuery` on the target resource** — the generic fence the target declares for itself. It always runs.
 2. **`relatable{PluralModelName}` on the source resource** (specific override, gets passed the field) — narrows the already-fenced query for that source's relationships.
@@ -811,6 +840,8 @@ Per-type feature tests:
 - `tests/Feature/FormFieldLookupTest.php` (19) — `BelongsTo`, `MorphTo` and `Tag` pickers declared only in `fieldsForCreate()` / `fieldsForUpdate()` / `fieldsForInlineCreate()`, the form declaration winning over `fields()`, the record bound to the update form, the `fields()` fallback and the `viewAny` gate, plus the Slug check, `dependsOn` sync and `Select` search on a form-only field.
 - `tests/Feature/ActionRelatableEndpointTest.php` (13) — `BelongsTo`, `MorphTo` and `Tag` pickers of an Action modal: the Action's declaration (related resource, `relatableQueryUsing()`) over the resource's, the relatable hooks, search, 404 for what the Action does not declare, and the `viewAny` / `canSee()` gates.
 - `tests/Feature/PivotActionRelatableEndpointTest.php` (12) — the same pickers in a pivot action modal, on `BelongsToMany` and `MorphToMany` panels: field actions and resource `pivotAction()` ones, the parent resource's relatable hooks, and 404 for an action the panel does not offer, an undeclared attribute or relationship, or a missing parent.
+- `tests/Feature/PivotFieldRelatableEndpointTest.php` (40): the same pickers among the pivot fields, in the attach modal and the pivot edit modal of both panels: the pivot field's declaration and `relatableQueryUsing()`, the parent resource's relatable hooks, search, a Repeater row among the pivot fields, 404 for an undeclared attribute or relationship, a missing parent and a related record the relationship does not attach, and the `viewAny` / `view` / `attachAny{Model}` / `updatePivot{Model}` gates.
+- `tests/Feature/RepeaterRowFieldLookupTest.php` (21): pickers and a remote `Select` declared in a Repeater's row types, read from the row the request names (`repeater` + `repeatable`) on the create and update forms, an Action's fields and a Tool's fields: two row types declaring the same attribute, search, the relatable hooks, 404 for an unknown Repeater, row type or attribute, and the `viewAny` gates.
 
 ---
 

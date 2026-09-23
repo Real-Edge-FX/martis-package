@@ -761,6 +761,8 @@ upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrad
 />
 ```
 
+A custom modal that renders a relationship's pivot fields passes `pivotEndpoint` the same way: `/api/resources/{resource}/{id}/{belongs-to-many|morph-to-many}/{relationship}/pivot-fields` to attach, plus `/{relatedId}` to edit the pivot row of an attached record (v1.38.0+). A custom container that renders the fields of a Repeater row passes `repeaterRow={{ repeater: '<Repeater attribute>', repeatable: '<row type>' }}` next to the form's own scope, so the pickers and the remote `Select` search name the row the server reads the field from (see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)).
+
 With no resource at all (a Tool page without `resourceKey`), the input falls back to the context-free `/api/resources/_/_/relatable/{attribute}?related_resource={uriKey}`, so the `FieldDefinition` must carry `relatedResource` (the target resource's `uriKey`) for the server to resolve the relatable query. For pure enum dropdowns prefer `select`: it has no async dependency and works anywhere.
 
 **2. Consumer bundles hosted outside the Martis shell need the published stylesheet.**

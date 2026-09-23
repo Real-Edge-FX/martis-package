@@ -6,6 +6,12 @@ export interface FieldDisplayProps {
   value: unknown
 }
 
+/** A Repeater row: the Repeater's attribute and the row type (`Repeatable::shortName()`). */
+export interface RepeaterRowScope {
+  repeater: string
+  repeatable: string
+}
+
 /** Props for renderers used inside a form context (create/update). */
 export interface FieldInputProps {
   field: FieldDefinition
@@ -30,6 +36,23 @@ export interface FieldInputProps {
    * resource-scoped lookups do not reach Action fields.
    */
   actionEndpoint?: string
+  /**
+   * Base path of a many-to-many panel's pivot fields when the input renders
+   * one of them: `/api/resources/{resource}/{id}/{belongs-to-many|morph-to-many}/{relationship}/pivot-fields`
+   * in the attach modal, plus `/{relatedId}` in the pivot edit modal of an
+   * attached record. Relation pickers then load their options from
+   * `{pivotEndpoint}/relatable/{attribute}`, which reads the relationship's
+   * pivot fields instead of the parent resource's forms.
+   */
+  pivotEndpoint?: string
+  /**
+   * The Repeater row the input renders in, set by the Repeater on each row
+   * field. Server-backed row fields (relation pickers, remote Select search)
+   * send it as the `repeater` and `repeatable` query parameters, so the
+   * server reads the field from that row type's `fields()` on the form (or
+   * Action, or pivot fields) the Repeater belongs to.
+   */
+  repeaterRow?: RepeaterRowScope
   /**
    * The Tool URI key when the form is scoped to a Tool implementing
    * `ProvidesFields`. Routes server-backed field behaviours (remote Select

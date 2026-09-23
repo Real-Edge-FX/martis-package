@@ -1,7 +1,7 @@
 import { lazy, Suspense, type ComponentType } from 'react'
 import { componentRegistry } from '@/lib/componentRegistry'
 import type { FieldDefinition } from '@/types'
-import type { FieldDisplayProps, FieldInputProps } from './types'
+import type { FieldDisplayProps, FieldInputProps, RepeaterRowScope } from './types'
 import { TextFieldDisplay, TextFieldInput } from './TextField'
 import { TextareaFieldDisplay, TextareaFieldInput } from './TextareaField'
 import { NumberFieldDisplay, NumberFieldInput } from './NumberField'
@@ -385,6 +385,8 @@ export function FieldInput({
   toolKey,
   context,
   actionEndpoint,
+  pivotEndpoint,
+  repeaterRow,
   formValues,
 }: {
   field: FieldDefinition
@@ -396,6 +398,8 @@ export function FieldInput({
   toolKey?: string
   context?: 'create' | 'update'
   actionEndpoint?: string
+  pivotEndpoint?: string
+  repeaterRow?: RepeaterRowScope
   formValues?: Record<string, unknown>
 }) {
   // Tier 0: per-context field override (from PHP field->overrideCreate/Update)
@@ -420,6 +424,8 @@ export function FieldInput({
       toolKey={toolKey}
       context={context}
       actionEndpoint={actionEndpoint}
+      pivotEndpoint={pivotEndpoint}
+      repeaterRow={repeaterRow}
       formValues={formValues}
     />
   )

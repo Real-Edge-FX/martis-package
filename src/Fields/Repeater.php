@@ -641,6 +641,16 @@ class Repeater extends Field
         return $this->repeatables[0] ?? null;
     }
 
+    /**
+     * The row type whose `shortName()` is `$shortName`, or null. The
+     * per-field endpoints (a row picker's relatable options, a row Select's
+     * remote options) read a row's fields through it.
+     */
+    public function findRepeatable(string $shortName): ?Repeatable
+    {
+        return $this->findRepeatableByShortName($shortName);
+    }
+
     protected function findRepeatableByShortName(?string $shortName): ?Repeatable
     {
         if ($shortName === null) {

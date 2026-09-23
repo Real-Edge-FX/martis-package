@@ -340,6 +340,7 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
         <EditPivotModal
           title={editTarget.title ?? String(editTarget.id)}
           endpoint={`/api/resources/${parentResource}/${parentId}/morph-to-many/${relationship}/${editTarget.id}/pivot`}
+          pivotEndpoint={`/api/resources/${parentResource}/${parentId}/morph-to-many/${relationship}/pivot-fields/${editTarget.id}`}
           pivotFields={pivotFields}
           initialValues={editTarget.pivot}
           onSuccess={() => {
@@ -752,6 +753,10 @@ function AttachModal({
                     field={pf}
                     value={pivotValues[pf.attribute] ?? null}
                     onChange={(v) => setPivotValues((prev) => ({ ...prev, [pf.attribute]: v }))}
+                    context="create"
+                    // The parent's forms do not declare pivot fields: the
+                    // relation pickers ask the panel.
+                    pivotEndpoint={`/api/resources/${parentResource}/${parentId}/morph-to-many/${relationship}/pivot-fields`}
                   />
                   {fieldError && (
                     <p className="mt-1 text-xs" style={{ color: 'var(--martis-danger)' }}>{fieldError}</p>

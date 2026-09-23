@@ -6,7 +6,7 @@ import { api } from '@/lib/api'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
 import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
-import { relatablePath } from '@/lib/relatableEndpoint'
+import { relatableUrl, withQuery } from '@/lib/relatableEndpoint'
 
 interface TagValue {
   id: number | string
@@ -82,7 +82,7 @@ export function TagFieldDisplay({ field, value }: FieldDisplayProps) {
 // Input — relational tag selector
 // ---------------------------------------------------------------------------
 
-export function TagFieldInput({ field, value, onChange, error, resourceKey, recordId, context, actionEndpoint }: FieldInputProps) {
+export function TagFieldInput({ field, value, onChange, error, resourceKey, recordId, context, actionEndpoint, pivotEndpoint, repeaterRow }: FieldInputProps) {
   const { t: tMsg } = useTranslation('messages')
   const relatedResource = (field as Record<string, unknown>).relatedResource as string | undefined
   const titleAttribute = (field as Record<string, unknown>).titleAttribute as string | undefined
@@ -129,9 +129,10 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
     }
   }, [])
 
-  // The form (or Action) the picker renders in scopes the relatable endpoint
+  // The form (or Action, pivot fields, Repeater row) the picker renders in
+  // scopes the relatable endpoint
   const params = useParams<{ resource?: string; id?: string }>()
-  const scopedPath = relatablePath(field.attribute, { resourceKey, recordId, context, actionEndpoint }, params)
+  const scopedUrl = relatableUrl(field.attribute, { resourceKey, recordId, context, actionEndpoint, pivotEndpoint, repeaterRow }, params)
 
   const fetchOptions = useCallback(async (query: string) => {
     if (!relatedResource) return
@@ -140,8 +141,8 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
     try {
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
       // Always use relatable endpoint - applies query hooks server-side
-      const endpoint = scopedPath
-        ? `${scopedPath}?per_page=30${searchParam}`
+      const endpoint = scopedUrl
+        ? withQuery(scopedUrl, `per_page=30${searchParam}`)
         : `/api/resources/_/_/relatable/${field.attribute}?per_page=30&related_resource=${relatedResource}${searchParam}`
       const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
@@ -150,7 +151,7 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
     } finally {
       setLoading(false)
     }
-  }, [relatedResource, scopedPath, field.attribute])
+  }, [relatedResource, scopedUrl, field.attribute])
 
   // Preload all options on mount if preload=true
   useEffect(() => {

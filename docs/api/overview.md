@@ -173,7 +173,7 @@ Used by `Slug::make()` for live "this slug is taken" hints in the create / updat
 GET /martis/api/resources/{resource}/fields/{field}/options?search=term&context=create|update&id=<record>
 ```
 
-Backs `Select::searchOptionsUsing()` (v1.37.0). Locates the select in the field set of the given context (default `create`: `fieldsForCreate()`, then `fieldsForInlineCreate()` since v1.38.0; `update`: `fieldsForUpdate()`), gated on the matching ability like `sync-field` (`create`, or `update` with the record named by `id` bound first: `id` is required in the update context, 404 when it does not exist), and returns `{ options: [{ label, value }] }`. 422 for an unknown field, a non-select field or a select without a server-side resolver.
+Backs `Select::searchOptionsUsing()` (v1.37.0). Locates the select in the field set of the given context (default `create`: `fieldsForCreate()`, then `fieldsForInlineCreate()` since v1.38.0; `update`: `fieldsForUpdate()`), gated on the matching ability like `sync-field` (`create`, or `update` with the record named by `id` bound first: `id` is required in the update context, 404 when it does not exist), and returns `{ options: [{ label, value }] }`. 422 for an unknown field, a non-select field or a select without a server-side resolver. A select in a Repeater row adds `&repeater={attribute}&repeatable={type}` and is found in that row type's `fields()` (v1.38.0, see [Repeater → Relation pickers and remote selects in rows](../repeater.md#relation-pickers-and-remote-selects-in-rows)).
 
 ### Lenses
 
@@ -201,7 +201,7 @@ GET /martis/api/resources/{resource}/{id}/relatable/{field}
 GET /martis/api/resources/{resource}/{id}/relatable/{field}?search=term
 ```
 
-Returns the option list for a BelongsTo / MorphTo / Tag picker, filtered by the resource's `relatableQuery()` if defined. The field is looked up on the form the picker renders in: `fieldsForUpdate()` (on the resource bound to the record) when `{id}` names a record the user may update (`authorizedToUpdate()`), otherwise `fieldsForCreate()` then `fieldsForInlineCreate()` (`{id}` = `_` on a create form; a record the user may not update is answered like a missing one); `fields()` comes last. A picker declared on one form only resolves (v1.38.0). A create form nested in another resource's page (the inline-create modal) sends `_`, and the pickers of an action modal use the action's own endpoint (see [Actions](#actions)). See [Relationships → Relation fields declared on one form only](../relationships.md#relation-fields-declared-on-one-form-only).
+Returns the option list for a BelongsTo / MorphTo / Tag picker, filtered by the resource's `relatableQuery()` if defined. The field is looked up on the form the picker renders in: `fieldsForUpdate()` (on the resource bound to the record) when `{id}` names a record the user may update (`authorizedToUpdate()`), otherwise `fieldsForCreate()` then `fieldsForInlineCreate()` (`{id}` = `_` on a create form; a record the user may not update is answered like a missing one); `fields()` comes last. A picker declared on one form only resolves (v1.38.0). A create form nested in another resource's page (the inline-create modal) sends `_`, the pickers of an action modal use the action's own endpoint (see [Actions](#actions)), and the pickers among a relationship's pivot fields the panel's (below). A picker in a Repeater row adds `&repeater={attribute}&repeatable={type}` to any of them and is read from that row type's `fields()` (v1.38.0). See [Relationships → Relation fields declared on one form only](../relationships.md#relation-fields-declared-on-one-form-only).
 
 ### HasMany / HasOne / BelongsToMany / MorphMany / MorphOne / MorphToMany
 
@@ -222,6 +222,8 @@ Each relation type has a full sub-tree under the parent's URL. The shape mirrors
 | `POST` | `/{r}/{id}/belongs-to-many/{rel}/attach` | Attach with optional pivot fields. |
 | `DELETE` | `/{r}/{id}/belongs-to-many/{rel}/{relatedId}/detach` | Detach. |
 | `PUT` | `/{r}/{id}/belongs-to-many/{rel}/{relatedId}/pivot` | Update pivot row. |
+| `GET` | `/{r}/{id}/belongs-to-many/{rel}/pivot-fields/relatable/{field}` | Options of a `BelongsTo` / `MorphTo` / `Tag` pivot field in the attach modal: read from the relationship's `fields()`, gated like the panel and on `attachAny{Model}`, with the parent resource as the source of the relatable hooks (v1.38.0). |
+| `GET` | `/{r}/{id}/belongs-to-many/{rel}/pivot-fields/{relatedId}/relatable/{field}` | The same in the pivot edit modal of an attached record, gated on its `updatePivot{Model}` (v1.38.0). |
 
 (`/{r}` is shorthand for `/martis/api/resources/{resource}`.) MorphMany / MorphOne / MorphToMany follow the same shape under `/morph-many/`, `/morph-one/`, `/morph-to-many/`.
 
@@ -296,6 +298,7 @@ GET  /martis/api/tools/{uriKey}         Single tool metadata, or 404 (also when 
 GET  /martis/api/tools/{uriKey}/fields  Serialized field definitions of a Tool implementing ProvidesFields.
 GET  /martis/api/tools/{uriKey}/fields/{field}/options?search=
                                         Server-side option search for a Tool select (v1.37.0); 422 when the field has no resolver.
+                                        A select in a Repeater row adds &repeater=&repeatable= (v1.38.0).
 ```
 
 The 404-when-denied behaviour is intentional — an unauthorised user cannot probe which tools the app ships.

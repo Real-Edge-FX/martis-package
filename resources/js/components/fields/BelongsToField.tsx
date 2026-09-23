@@ -11,7 +11,7 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { useQueryClient } from '@tanstack/react-query'
 import { recordHref } from '@/lib/recordHref'
 import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
-import { relatablePath } from '@/lib/relatableEndpoint'
+import { relatableUrl, withQuery } from '@/lib/relatableEndpoint'
 // Tooltip handled by global <Tooltip> in Layout.tsx
 
 interface BelongsToValue {
@@ -366,7 +366,7 @@ interface RelatedRecord {
   [key: string]: unknown
 }
 
-export function BelongsToFieldInput({ field, value, onChange, error, resourceKey, recordId, context, actionEndpoint }: FieldInputProps) {
+export function BelongsToFieldInput({ field, value, onChange, error, resourceKey, recordId, context, actionEndpoint, pivotEndpoint, repeaterRow }: FieldInputProps) {
   const { t: tMsg } = useTranslation('messages')
   const relatedResource = (field as unknown as Record<string, unknown>).relatedResource as string | undefined
   const titleAttribute = (field as unknown as Record<string, unknown>).titleAttribute as string | undefined
@@ -454,9 +454,10 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     }
   }, [open])
 
-  // The form (or Action) the picker renders in scopes the relatable endpoint.
+  // The form (or Action, pivot fields, Repeater row) the picker renders in
+  // scopes the relatable endpoint.
   const params = useParams<{ resource?: string; id?: string }>()
-  const scopedPath = relatablePath(field.attribute, { resourceKey, recordId, context, actionEndpoint }, params)
+  const scopedUrl = relatableUrl(field.attribute, { resourceKey, recordId, context, actionEndpoint, pivotEndpoint, repeaterRow }, params)
 
   // Fetch options from relatable endpoint (applies relatableQuery hooks)
   const fetchOptions = useCallback(async (query: string) => {
@@ -465,8 +466,8 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     setLoading(true)
     try {
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
-      const endpoint = scopedPath
-        ? `${scopedPath}?per_page=20${searchParam}`
+      const endpoint = scopedUrl
+        ? withQuery(scopedUrl, `per_page=20${searchParam}`)
         : `/api/resources/_/_/relatable/${field.attribute}?per_page=20&related_resource=${relatedResource}${searchParam}`
       const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
@@ -475,7 +476,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     } finally {
       setLoading(false)
     }
-  }, [relatedResource, scopedPath, field.attribute])
+  }, [relatedResource, scopedUrl, field.attribute])
 
   // Load initial options when dropdown opens
   useEffect(() => {

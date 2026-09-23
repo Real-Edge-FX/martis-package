@@ -10,6 +10,7 @@ use Illuminate\Routing\Controller;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Fields\Field;
+use Martis\Fields\Repeater;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -149,10 +150,13 @@ abstract class MartisController extends Controller
      * declaration wins over a differently configured one in `fields()`.
      * Layout containers are searched too, and only an instance of one of
      * `$types` matches, so a form that reuses an attribute for another kind
-     * of field does not shadow the one the caller needs.
+     * of field does not shadow the one the caller needs. With `$repeaterRow`
+     * (see repeaterRowOf()) the field is one of that Repeater row's instead,
+     * found in the same sets (see inRepeaterRow()).
      *
      * @param  'create'|'update'  $context
      * @param  list<class-string<FieldContract>>  $types
+     * @param  array{repeater: string, repeatable: string}|null  $repeaterRow
      */
     protected function findFormField(
         Resource $resource,
@@ -161,6 +165,7 @@ abstract class MartisController extends Controller
         string $attribute,
         array $types = [FieldContract::class],
         bool $orFields = false,
+        ?array $repeaterRow = null,
     ): ?FieldContract {
         $sets = $context === 'update'
             ? [fn (): array => $resource->fieldsForUpdate($request)]
@@ -173,7 +178,66 @@ abstract class MartisController extends Controller
             $sets[] = fn (): array => $resource->fields($request);
         }
 
-        return $this->findField($sets, $attribute, $types);
+        return $this->findField($this->inRepeaterRow($sets, $repeaterRow, $request), $attribute, $types);
+    }
+
+    /**
+     * The Repeater row a per-field request names, or null when it names
+     * none: `repeater` is the Repeater's attribute and `repeatable` the row
+     * type (`Repeatable::shortName()`), since two row types may declare the
+     * same attribute. A request that sends only one of them names a row no
+     * Repeater has, so the lookup finds nothing (404) instead of reading
+     * the form's own fields.
+     *
+     * @return array{repeater: string, repeatable: string}|null
+     */
+    protected function repeaterRowOf(Request $request): ?array
+    {
+        $repeater = $request->query('repeater');
+        $repeatable = $request->query('repeatable');
+
+        if ($repeater === null && $repeatable === null) {
+            return null;
+        }
+
+        return [
+            'repeater' => is_string($repeater) ? $repeater : '',
+            'repeatable' => is_string($repeatable) ? $repeatable : '',
+        ];
+    }
+
+    /**
+     * The field sets to search for a field of the Repeater row `$row` (all
+     * of `$sets` when `$row` is null): in each set, the fields of the row
+     * type the Repeater with that attribute declares (layout containers
+     * opened), or none when the set declares no such Repeater or the
+     * Repeater no such row type. A set is only built when the sets before
+     * it do not declare the field, as in findField().
+     *
+     * @param  iterable<\Closure(): iterable<mixed>>  $sets
+     * @param  array{repeater: string, repeatable: string}|null  $row
+     * @return iterable<\Closure(): iterable<mixed>>
+     */
+    protected function inRepeaterRow(iterable $sets, ?array $row, Request $request): iterable
+    {
+        if ($row === null) {
+            return $sets;
+        }
+
+        $rowSets = [];
+        foreach ($sets as $set) {
+            $rowSets[] = function () use ($set, $row, $request): array {
+                foreach ($this->flattenFormItems($set()) as $field) {
+                    if ($field instanceof Repeater && $field->attribute() === $row['repeater']) {
+                        return $field->findRepeatable($row['repeatable'])?->fields($request) ?? [];
+                    }
+                }
+
+                return [];
+            };
+        }
+
+        return $rowSets;
     }
 
     /**

@@ -491,6 +491,8 @@ The endpoint is gated like running the Action (403 without `viewAny` on the reso
 
 The modal of a [pivot action](#pivot-actions) asks the relationship panel instead, `GET /api/resources/{resource}/{id}/{belongs-to-many|morph-to-many}/{relationship}/actions/{action}/relatable/{attribute}`: it finds the action where the panel's fields endpoint finds it (the field's `->actions()`, then the resource's `->pivotAction()` ones), behind the same gates, and reads the action's declaration of the field with the parent resource as the source of the relatable hooks.
 
+A picker in a row of a `Repeater` among the Action's fields adds the row to either request (`?repeater={attribute}&repeatable={type}`), and the field is read from that row type's `fields()` (v1.38.0+, see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)).
+
 > Before v1.38.0 these pickers asked the page's resource for the attribute: one only the Action declares answered 404 and the picker opened empty, and one the resource also declares listed the resource's options instead of the Action's.
 
 ---

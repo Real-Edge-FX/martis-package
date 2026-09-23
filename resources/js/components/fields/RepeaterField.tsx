@@ -182,7 +182,7 @@ export function RepeaterFieldDisplay({ field, value }: FieldDisplayProps) {
 // Input (create/update)
 // ---------------------------------------------------------------------------
 
-export function RepeaterFieldInput({ field, value, onChange, error, resourceKey, recordId, formValues }: FieldInputProps) {
+export function RepeaterFieldInput({ field, value, onChange, error, resourceKey, recordId, context, toolKey, actionEndpoint, pivotEndpoint, formValues }: FieldInputProps) {
   const { t } = useTranslation('messages')
   const { t: tAct } = useTranslation('actions')
 
@@ -498,9 +498,16 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                           value={row.fields[childField.attribute] ?? null}
                           onChange={(v) => updateRowField(index, childField.attribute, v)}
                           error={rowError}
+                          // The form's scope, plus the row: server-backed row
+                          // fields (relation pickers, remote Select search)
+                          // name it, and the server reads the field from it.
                           resourceKey={resourceKey}
                           recordId={recordId}
-                          context="update"
+                          context={context}
+                          toolKey={toolKey}
+                          actionEndpoint={actionEndpoint}
+                          pivotEndpoint={pivotEndpoint}
+                          repeaterRow={{ repeater: field.attribute, repeatable: rep.shortName }}
                           formValues={{
                             ...formValues,
                             ...row.fields,

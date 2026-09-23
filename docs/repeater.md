@@ -15,6 +15,7 @@ page-builder-style layouts.
 - [Core API](#core-api)
 - [⭐ Martis differentials](#-martis-differentials)
 - [Validation](#validation)
+- [Relation pickers and remote selects in rows](#relation-pickers-and-remote-selects-in-rows)
 - [Payload format](#payload-format)
 
 ## Quick start
@@ -320,6 +321,28 @@ every row. Errors are formatted as `attribute.index.field`:
 immediately (Add button disables, footer banner shows the minimum). A
 server-side cardinality validator can be added via the Resource's
 `validationMessage()` hook if stricter guarantees are required.
+
+## Relation pickers and remote selects in rows
+
+A `BelongsTo`, `MorphTo` or `Tag` declared in a row type lists its options from the server like one on the form, and a `Select` with `searchOptionsUsing()` searches its options there (v1.38.0+). Each row field gets the scope of the form the Repeater renders in (its resource and record, its `create` or `update` context, the Action or the pivot fields it belongs to) plus the row, which its request names:
+
+```
+GET /api/resources/{resource}/{id}/relatable/{attribute}?repeater={attribute}&repeatable={type}
+GET /api/resources/{resource}/fields/{attribute}/options?context={context}&repeater={attribute}&repeatable={type}
+```
+
+`repeater` is the Repeater's attribute and `repeatable` the row type (`Repeatable::shortName()`), since two row types may declare the same attribute with their own scope:
+
+```php
+Repeater::make('lines', 'Lines')->repeatables([
+    ProductLine::make(), // BelongsTo::make('product')->relatedResource('products')
+    ServiceLine::make(), // the same attribute, ->relatableQueryUsing(fn ($request, $query) => $query->where('kind', 'service'))
+]);
+```
+
+The server finds the Repeater where it finds any field of that form (the update form, or the create forms, then `fields()`, with layout containers opened) and reads the field from the row type's `fields()`: the row field's related resource, `relatableQueryUsing()` and `withoutTrashed()` apply, and the resource is the source of the `relatable{PluralModelName}()` hook. The gates are the form's own: `viewAny` on the resource and on the related resource for a picker, the create or update ability for a `Select` search. The two parameters work on every relatable endpoint and on both option searches, so a Repeater among an Action's fields, a pivot action's fields or a relationship's pivot fields reads its rows there, and so does one on a Tool form (`/api/tools/{tool}/fields/{attribute}/options`). An unknown Repeater or row type, a request that sends only one of the two parameters, or an attribute the row type does not declare answers like an undeclared field: 404 for a picker, 422 for a `Select` search. A Repeater nested in a row type is not searched, so the pickers of its rows answer 404.
+
+> Before v1.38.0 the row fields got the form's resource and record with the `update` context forced, and the endpoints only read the form's own fields: a picker declared in a row type answered 404 and opened empty (or listed the options of a form field that reused the attribute), and a remote `Select` in a row answered 422.
 
 ## Payload format
 

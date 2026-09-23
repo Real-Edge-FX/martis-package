@@ -13,7 +13,9 @@ import type { FieldInputProps } from './types'
  * `{id}`, the create forms for `_`. The pickers filled whatever the input
  * did not say from the page's route, so a create form nested in an edit
  * page (the inline-create modal) sent the page's record id, and an Action's
- * fields asked the page's resource for a field the Action declares.
+ * fields asked the page's resource for a field the Action declares. The
+ * pivot fields of a relationship's modals ask the panel instead, and a field
+ * of a Repeater row names the row the server reads it from.
  */
 
 const apiGetMock = vi.fn()
@@ -64,7 +66,7 @@ const pickers: Record<string, Picker> = {
   },
 }
 
-type Scope = Pick<FieldInputProps, 'resourceKey' | 'recordId' | 'context' | 'actionEndpoint'>
+type Scope = Pick<FieldInputProps, 'resourceKey' | 'recordId' | 'context' | 'actionEndpoint' | 'pivotEndpoint' | 'repeaterRow'>
 
 /** A form around the input that stores what it emits, as the real forms do. */
 function Form({ picker, scope }: { picker: Picker; scope: Scope }) {
@@ -73,8 +75,8 @@ function Form({ picker, scope }: { picker: Picker; scope: Scope }) {
   return <Input field={picker.field} value={value} onChange={setValue} {...scope} />
 }
 
-/** Renders the input on a page of the SPA and returns the path of the first relatable request. */
-async function relatablePathOf(picker: Picker, page: string, scope: Scope): Promise<string> {
+/** Renders the input on a page of the SPA and returns the first relatable request. */
+async function relatableRequestOf(picker: Picker, page: string, scope: Scope): Promise<URL> {
   const { container } = render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter initialEntries={[page]}>
@@ -91,7 +93,12 @@ async function relatablePathOf(picker: Picker, page: string, scope: Scope): Prom
   picker.open(container)
 
   await waitFor(() => expect(apiGetMock).toHaveBeenCalled())
-  return String(apiGetMock.mock.calls[0][0]).split('?')[0]
+  return new URL(String(apiGetMock.mock.calls[0][0]), 'http://martis.test')
+}
+
+/** The path of the first relatable request (no query string). */
+async function relatablePathOf(picker: Picker, page: string, scope: Scope): Promise<string> {
+  return (await relatableRequestOf(picker, page, scope)).pathname
 }
 
 beforeEach(() => {
@@ -141,5 +148,28 @@ describe.each(Object.entries(pickers))('%s picker relatable endpoint', (_name, p
     const path = await relatablePathOf(picker, '/resources/projects/7/edit', {})
 
     expect(path).toBe(`/api/resources/projects/7/relatable/${attribute}`)
+  })
+
+  it('asks the relationship panel for a pivot field (attach and pivot edit modals)', async () => {
+    const path = await relatablePathOf(picker, '/resources/projects/7', {
+      pivotEndpoint: '/api/resources/projects/7/belongs-to-many/members/pivot-fields/5',
+      context: 'update',
+    })
+
+    expect(path).toBe(`/api/resources/projects/7/belongs-to-many/members/pivot-fields/5/relatable/${attribute}`)
+  })
+
+  it('names the Repeater row the input renders in', async () => {
+    const url = await relatableRequestOf(picker, '/resources/projects/7/edit', {
+      resourceKey: 'projects',
+      recordId: 7,
+      context: 'update',
+      repeaterRow: { repeater: 'lines', repeatable: 'product-line' },
+    })
+
+    expect(url.pathname).toBe(`/api/resources/projects/7/relatable/${attribute}`)
+    expect(url.searchParams.get('repeater')).toBe('lines')
+    expect(url.searchParams.get('repeatable')).toBe('product-line')
+    expect(url.searchParams.get('per_page')).not.toBeNull()
   })
 })
