@@ -48,7 +48,8 @@ class Tab
     // -------------------------------------------------------------------------
 
     /**
-     * Return a new Tab containing only content visible in the given context.
+     * Return a new Tab containing only content visible in the given context,
+     * without the fields the user cannot see (`canSee()`).
      * Returns null when no content is visible.
      */
     public function filterForContext(FieldContext $context): ?static
@@ -62,8 +63,9 @@ class Tab
                     $filtered[] = $result;
                 }
             } elseif ($item instanceof FieldContract) {
-                // Apply same visibility rules as Field::filterForContext
-                if ($item->isVisibleForContext($context)) {
+                // The rules of Field::filterForContext(), as a Panel applies
+                // them: the context, and canSee() for the current request.
+                if (Field::filterForContext([$item], $context) !== []) {
                     $filtered[] = $item;
                 }
             }

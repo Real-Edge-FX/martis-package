@@ -177,6 +177,9 @@ Every dashboard primitive supports a `canSee(Closure)` callback.
   back, is not validated, and is never written from the request (the attach
   stores its `default()`). See
   [Relationships → With Pivot Fields](relationships.md#with-pivot-fields).
+  A field placed directly in a `Tab` is hidden like one anywhere else
+  (v1.38.0+; before, a `Tab` ignored `canSee()` on the fields it holds
+  directly: they were listed, sent, validated and written).
 - `Field::readonly(bool|Closure)`: renders the field without an editor, and
   the save never takes its value from the request, inside a `Repeater` row
   included (v1.38.0+).
