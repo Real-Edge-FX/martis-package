@@ -9,13 +9,12 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
 use Martis\Enums\SortDirection;
 use Martis\FieldContext;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\Field;
-use Martis\Http\Controllers\Concerns\BuildsFieldRules;
+use Martis\Http\Controllers\Concerns\CollectsPivotData;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -36,7 +35,7 @@ use Martis\SearchResolver;
  */
 class BelongsToManyController extends MartisController
 {
-    use BuildsFieldRules;
+    use CollectsPivotData;
 
     /** Create the controller and inject the resource registry. */
     public function __construct(
@@ -313,7 +312,7 @@ class BelongsToManyController extends MartisController
         }
 
         // Pivot data
-        $pivotData = $this->extractPivotData($request, $field);
+        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false);
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }
@@ -358,7 +357,7 @@ class BelongsToManyController extends MartisController
         $relatedModelClass = $relatedResourceClass::model();
 
         // Pivot data (shared across all records in batch mode)
-        $pivotData = $this->extractPivotData($request, $field);
+        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false);
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }
@@ -422,48 +421,6 @@ class BelongsToManyController extends MartisController
                 'errors' => ! empty($errors) ? $errors : null,
             ]),
         )->toResponse(201);
-    }
-
-    /**
-     * Extract and validate pivot data from the request.
-     *
-     * @return array<string, mixed>|IlluminateJsonResponse
-     */
-    private function extractPivotData(Request $request, BelongsToMany $field): array|IlluminateJsonResponse
-    {
-        $pivotData = [];
-        $pivotFields = $field->getPivotFields();
-        if (! empty($pivotFields)) {
-            $pivotRules = [];
-            $pivotAttributes = [];
-            foreach ($pivotFields as $pf) {
-                if ($pf instanceof Field) {
-                    $pivotRules[$pf->attribute()] = $this->buildFieldRules($pf, isUpdate: false);
-                    $pivotAttributes[$pf->attribute()] = $pf->label();
-                }
-            }
-            if (! empty($pivotRules)) {
-                $validator = Validator::make($request->all(), $pivotRules, [], $pivotAttributes);
-                if ($validator->fails()) {
-                    return JsonErrorResponse::validation(
-                        $validator->errors()->toArray(),
-                        'Validation failed.',
-                    )->toResponse();
-                }
-            }
-            foreach ($pivotFields as $pf) {
-                if (! $pf instanceof Field) {
-                    continue;
-                }
-                if ($request->has($pf->attribute())) {
-                    $pivotData[$pf->attribute()] = $request->input($pf->attribute());
-                } elseif ($pf->getDefaultValue() !== null) {
-                    $pivotData[$pf->attribute()] = $pf->getDefaultValue();
-                }
-            }
-        }
-
-        return $pivotData;
     }
 
     /**
@@ -560,42 +517,27 @@ class BelongsToManyController extends MartisController
             return JsonErrorResponse::forbidden('Not authorized to update pivot data for this relation.')->toResponse();
         }
 
-        // Validate pivot fields
-        $pivotRules = [];
-        $pivotAttributes = [];
-        foreach ($pivotFields as $pf) {
-            if ($pf instanceof Field) {
-                $pivotRules[$pf->attribute()] = $this->buildFieldRules($pf, isUpdate: true);
-                $pivotAttributes[$pf->attribute()] = $pf->label();
+        // Readonly and immutable pivot fields keep their stored value.
+        $pivotData = $this->collectPivotData($request, $pivotFields, isUpdate: true);
+        if ($pivotData instanceof IlluminateJsonResponse) {
+            return $pivotData;
+        }
+
+        // Nothing to write (no pivot value sent, or only skipped ones): an
+        // update with an empty SET is invalid SQL, and the row stays as is.
+        if ($pivotData !== []) {
+            try {
+                $relation->updateExistingPivot($relatedModel->getKey(), $pivotData);
+            } catch (QueryException $e) {
+                Log::error('Martis: BelongsToMany updatePivot error', [
+                    'resource' => $resource,
+                    'relationship' => $relationship,
+                    'relatedId' => $relatedId,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return $this->handleDatabaseError($e);
             }
-        }
-
-        $validator = Validator::make($request->all(), $pivotRules, [], $pivotAttributes);
-        if ($validator->fails()) {
-            return JsonErrorResponse::validation(
-                $validator->errors()->toArray(),
-                'Validation failed.',
-            )->toResponse();
-        }
-
-        $pivotData = [];
-        foreach ($pivotFields as $pf) {
-            if ($pf instanceof Field && $request->has($pf->attribute())) {
-                $pivotData[$pf->attribute()] = $request->input($pf->attribute());
-            }
-        }
-
-        try {
-            $relation->updateExistingPivot($relatedModel->getKey(), $pivotData);
-        } catch (QueryException $e) {
-            Log::error('Martis: BelongsToMany updatePivot error', [
-                'resource' => $resource,
-                'relationship' => $relationship,
-                'relatedId' => $relatedId,
-                'error' => $e->getMessage(),
-            ]);
-
-            return $this->handleDatabaseError($e);
         }
 
         return JsonResponse::make(

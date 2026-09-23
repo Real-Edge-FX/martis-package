@@ -215,7 +215,7 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
 | `nullable` | `nullable(bool\|Closure $value = true): static` | `$this` | Mark as nullable (adds `nullable` validation rule). Accepts a closure for request-time resolution. |
-| `readonly` | `readonly(bool\|Closure $value = true): static` | `$this` | Prevent modification through UI. `fill()` becomes a no-op. Accepts a closure for request-time resolution. |
+| `readonly` | `readonly(bool\|Closure $value = true): static` | `$this` | Prevent modification through UI. `fill()` becomes a no-op. Accepts a closure for request-time resolution. A readonly pivot field is never written from the request either: the attach stores its `default()` and the pivot update leaves it alone (v1.38.0+, see [Immutable fields](#immutable-fields)). |
 | `required` | `required(bool\|Closure $value = true): static` | `$this` | Require a non-null value (adds `required` validation rule). Accepts a closure for request-time resolution. **v1.8.3**: declaring `'required'` (or any `required_*` variant) inside `->rules([...])` is enough — the visual asterisk now auto-detects it. Calling `->required()` explicitly is still supported and required when you want a Closure-resolved flag. |
 | `placeholder` | `placeholder(string\|Closure $text): static` | `$this` | Set placeholder text for the input. Accepts a closure for request-time resolution. |
 | `help` | `help(string\|Closure $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension). Accepts a closure for request-time resolution. |
@@ -330,7 +330,7 @@ Up to v1.37.3 the relationship endpoints validated less. The pivot update kept s
 
 ### Immutable fields
 
-`immutable()` flags a field as **writable on create, readonly on update**. On update the field is skipped silently: the request is accepted, the other fields are written and the column keeps its stored value. This holds on every endpoint that updates a record through its resource's fields: the resource's own PUT and the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne` from the parent's detail page. The resource's own POST and the inline creates write the value. A value the update sends still runs the field's rules, like any other field (see [What an update validates](#what-an-update-validates)).
+`immutable()` flags a field as **writable on create, readonly on update**. On update the field is skipped silently: the request is accepted, the other fields are written and the column keeps its stored value. This holds on every endpoint that updates a record through its resource's fields (the resource's own PUT and the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne` from the parent's detail page) and on the pivot update of a `BelongsToMany` / `MorphToMany` for its pivot fields. The resource's own POST, the inline creates and the attach write the value. A value the update sends still runs the field's rules, like any other field (see [What an update validates](#what-an-update-validates)).
 
 ```php
 Text::make('slug')->immutable()->required();
@@ -338,9 +338,11 @@ Text::make('slug')->immutable()->required();
 
 Common cases: slugs, account numbers, document references.
 
-The schema exposes the flag as `immutable`, but the bundled field components do not read it yet: the edit form still renders an editable input, and the update ignores the value it sends. Pivot fields (the `fields()` of a `BelongsToMany` / `MorphToMany`) do not honour `immutable()`: the pivot update writes every pivot value the request sends.
+The schema exposes the flag as `immutable`, but the bundled field components do not read it yet: the edit form still renders an editable input, and the update ignores the value it sends.
 
-Up to v1.37.3 only the resource's own update skipped an immutable field: the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne` wrote it like any other field.
+The pivot endpoints write the pivot row without going through `fill()`, so they apply `readonly()` themselves as well: a readonly pivot field (in the `fields()` of a `BelongsToMany` / `MorphToMany`) never takes its value from the request. The attach stores its `default()` instead, as it does for any pivot field the request omits, and the pivot update leaves the column alone. See [Relationships → With Pivot Fields](relationships.md#with-pivot-fields).
+
+Up to v1.37.3 only the resource's own update skipped an immutable field: the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne` and the pivot update wrote it like any other field, and the attach and the pivot update also wrote a readonly pivot field from the request.
 
 ### Reactive fields — `dependsOn(['field'], Closure)`
 

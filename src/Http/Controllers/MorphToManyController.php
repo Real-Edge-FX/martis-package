@@ -9,13 +9,12 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
 use Martis\Enums\SortDirection;
 use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\MorphToMany;
-use Martis\Http\Controllers\Concerns\BuildsFieldRules;
+use Martis\Http\Controllers\Concerns\CollectsPivotData;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -41,7 +40,7 @@ use Martis\SearchResolver;
  */
 class MorphToManyController extends MartisController
 {
-    use BuildsFieldRules;
+    use CollectsPivotData;
 
     /** Create the controller and inject the resource registry. */
     public function __construct(
@@ -306,7 +305,7 @@ class MorphToManyController extends MartisController
         }
 
         // Pivot data
-        $pivotData = $this->extractPivotData($request, $field);
+        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false);
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }
@@ -422,40 +421,27 @@ class MorphToManyController extends MartisController
             return JsonErrorResponse::forbidden('Not authorized to update pivot data for this relation.')->toResponse();
         }
 
-        // Validate pivot fields
-        $pivotRules = [];
-        $pivotAttributes = [];
-        foreach ($pivotFields as $pf) {
-            $pivotRules[$pf->attribute()] = $this->buildFieldRules($pf, isUpdate: true);
-            $pivotAttributes[$pf->attribute()] = $pf->label();
+        // Readonly and immutable pivot fields keep their stored value.
+        $pivotData = $this->collectPivotData($request, $pivotFields, isUpdate: true);
+        if ($pivotData instanceof IlluminateJsonResponse) {
+            return $pivotData;
         }
 
-        $validator = Validator::make($request->all(), $pivotRules, [], $pivotAttributes);
-        if ($validator->fails()) {
-            return JsonErrorResponse::validation(
-                $validator->errors()->toArray(),
-                'Validation failed.',
-            )->toResponse();
-        }
+        // Nothing to write (no pivot value sent, or only skipped ones): an
+        // update with an empty SET is invalid SQL, and the row stays as is.
+        if ($pivotData !== []) {
+            try {
+                $relation->updateExistingPivot($relatedModel->getKey(), $pivotData);
+            } catch (QueryException $e) {
+                Log::error('Martis: MorphToMany updatePivot error', [
+                    'resource' => $resource,
+                    'relationship' => $relationship,
+                    'relatedId' => $relatedId,
+                    'error' => $e->getMessage(),
+                ]);
 
-        $pivotData = [];
-        foreach ($pivotFields as $pf) {
-            if ($request->has($pf->attribute())) {
-                $pivotData[$pf->attribute()] = $request->input($pf->attribute());
+                return $this->handleDatabaseError($e);
             }
-        }
-
-        try {
-            $relation->updateExistingPivot($relatedModel->getKey(), $pivotData);
-        } catch (QueryException $e) {
-            Log::error('Martis: MorphToMany updatePivot error', [
-                'resource' => $resource,
-                'relationship' => $relationship,
-                'relatedId' => $relatedId,
-                'error' => $e->getMessage(),
-            ]);
-
-            return $this->handleDatabaseError($e);
         }
 
         return JsonResponse::make(
@@ -573,7 +559,7 @@ class MorphToManyController extends MartisController
         /** @var class-string<Model> $relatedModelClass */
         $relatedModelClass = $relatedResourceClass::model();
 
-        $pivotData = $this->extractPivotData($request, $field);
+        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false);
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }
@@ -637,41 +623,6 @@ class MorphToManyController extends MartisController
                 'errors' => ! empty($errors) ? $errors : null,
             ]),
         )->toResponse(201);
-    }
-
-    /**
-     * Extract and validate pivot data from the request.
-     *
-     * @return array<string, mixed>|IlluminateJsonResponse
-     */
-    private function extractPivotData(Request $request, MorphToMany $field): array|IlluminateJsonResponse
-    {
-        $pivotData = [];
-        $pivotFields = $field->getPivotFields();
-        if (! empty($pivotFields)) {
-            $pivotRules = [];
-            $pivotAttributes = [];
-            foreach ($pivotFields as $pf) {
-                $pivotRules[$pf->attribute()] = $this->buildFieldRules($pf, isUpdate: false);
-                $pivotAttributes[$pf->attribute()] = $pf->label();
-            }
-            $validator = Validator::make($request->all(), $pivotRules, [], $pivotAttributes);
-            if ($validator->fails()) {
-                return JsonErrorResponse::validation(
-                    $validator->errors()->toArray(),
-                    'Validation failed.',
-                )->toResponse();
-            }
-            foreach ($pivotFields as $pf) {
-                if ($request->has($pf->attribute())) {
-                    $pivotData[$pf->attribute()] = $request->input($pf->attribute());
-                } elseif ($pf->getDefaultValue() !== null) {
-                    $pivotData[$pf->attribute()] = $pf->getDefaultValue();
-                }
-            }
-        }
-
-        return $pivotData;
     }
 
     /**

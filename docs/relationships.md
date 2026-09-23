@@ -237,7 +237,23 @@ BelongsToMany::make('Tags', 'tags')
 
 Pivot fields validate with their own rules, like any field: the attach runs `rules()` plus `creationRules()`, and the pivot update runs `rules()` plus `updateRules()` with the literal `required` dropped and `sometimes` first, so a pivot field the update does not send is left alone. Rule objects (`Rule::in()`, `Rule::unique()`), `ValidationRule` instances and closures run on both. See [Fields → What an update validates](fields.md#what-an-update-validates).
 
-Pivot values are written as the request sends them: a pivot field does not honour `immutable()`, so the pivot update overwrites it. See [Fields → Immutable fields](fields.md#immutable-fields).
+Pivot values are written as the request sends them, except where a record field would not be written either. The pivot endpoints write the row without `fill()`, so they apply these rules themselves:
+
+- an `immutable()` pivot field is written on attach and skipped on the pivot update;
+- a `readonly()` pivot field never takes its value from the request: the attach stores its `default()` when it has one, and the pivot update leaves the column alone.
+
+The attach stores the `default()` of every pivot field it does not take from the request (one the request omits, or a readonly one), so a readonly pivot field with a default stamps the row with a value the client cannot change:
+
+```php
+->fields(fn () => [
+    Text::make('reference')->immutable(),
+    Number::make('added_by')->readonly()->default(fn ($request) => $request?->user()?->id),
+])
+```
+
+A value the request sends for a skipped field still runs the field's rules. A pivot update with nothing left to write (an empty body, or only readonly and immutable values) answers 200 and leaves the row as it was. See [Fields → Immutable fields](fields.md#immutable-fields).
+
+Up to v1.37.3 the attach and the pivot update wrote every pivot value the request sent, readonly and immutable fields included, and a pivot update with nothing to write answered 500 (an `UPDATE` with an empty `SET`) unless the relation declared `withTimestamps()` or `using()`.
 
 ### Full Configuration
 
@@ -598,7 +614,8 @@ The hardening pass codified the contract every relationship surface guarantees. 
 | 404 on unknown parent / record / relationship | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 422 on missing required input | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Field rules run as on the resource endpoint (rule objects, `ValidationRule`s, closures, `creationRules()` / `updateRules()`) | ✅ | ✅ | ✅ (pivot fields) | ✅ | ✅ | ✅ (pivot fields) |
-| `immutable()` fields written on create, skipped on update, as on the resource endpoint | ✅ | ✅ | ❌ (pivot fields) | ✅ | ✅ | ❌ (pivot fields) |
+| `immutable()` fields written on create, skipped on update, as on the resource endpoint | ✅ | ✅ | ✅ (pivot fields) | ✅ | ✅ | ✅ (pivot fields) |
+| `readonly()` pivot fields never written from the request (the attach stores their `default()`) | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Pivot data round-trip on attach + index + update | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Authorization — `authorizedToCreate` / view / detach respected | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
@@ -692,6 +709,7 @@ Per-type feature tests:
 - `tests/Feature/RelationshipsHardeningTest.php` (8) — multi-relation isolation, `relatableQueryUsing`, `relatable{PluralModelName}`, detach idempotency, search.
 - `tests/Feature/RelationshipFieldRulesTest.php` (61) — every kind of field rule and the context rules on each write endpoint, next to the resource endpoint they match.
 - `tests/Feature/RelationshipImmutableFieldsTest.php` (10) — `immutable()` on each inline create and update, next to the resource endpoint they match.
+- `tests/Feature/PivotReadonlyImmutableFieldsTest.php` (24) — `readonly()` and `immutable()` pivot fields on the attach (single and batch) and the pivot update, next to the resource endpoint they match, plus a pivot update with nothing to write.
 
 ---
 
