@@ -922,8 +922,13 @@ class InstallCommand extends Command
         ],
         'devDependencies' => [
             'typescript' => '^5 || ^6',
-            '@types/react' => '^18 || ^19',
-            '@types/react-dom' => '^18 || ^19',
+            // The types of the React an extension runs on, the host's (the
+            // package's own `react`, 18): the Vite config sends `react` to a
+            // shim of it. With the React 19 types, `use`, `useActionState`
+            // and `useOptimistic` would type-check and build, then be
+            // undefined in the browser.
+            '@types/react' => '^18',
+            '@types/react-dom' => '^18',
             '@types/node' => '^20 || ^22 || ^25',
             '@phosphor-icons/react' => '^2',
         ],
