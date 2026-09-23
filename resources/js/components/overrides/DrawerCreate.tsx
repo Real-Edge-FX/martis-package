@@ -55,6 +55,10 @@ export function DrawerCreate(props: OverrideProps) {
 
   const [values, setValues] = useState<Record<string, unknown>>(initialValues)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  // Bumped once a record is created, to mount the fields again for the next
+  // one when the host keeps the drawer open (`redirectAfter` 'stay'): an
+  // input cannot always tell the cleared form from its own last value.
+  const [fieldsKey, setFieldsKey] = useState(0)
 
   // ⭐ Camada B — track dirty state against the initial values so the
   // drawer can warn before discarding. A live ref for `values` avoids a
@@ -104,6 +108,10 @@ export function DrawerCreate(props: OverrideProps) {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       setValues({})
       setErrors({})
+      // The next record starts from the empty form, which is therefore its
+      // baseline (a drawer opened on a copy had the copy).
+      initialSnapshot.current = JSON.stringify({})
+      setFieldsKey((key) => key + 1)
       onCreated(res.data)
     },
     onError: (err) => {
@@ -187,7 +195,7 @@ export function DrawerCreate(props: OverrideProps) {
           </>
         }
       >
-        <form id="martis-drawer-create-form" onSubmit={handleSubmit} noValidate className="martis-form-body martis-form-stack">
+        <form key={fieldsKey} id="martis-drawer-create-form" onSubmit={handleSubmit} noValidate className="martis-form-body martis-form-stack">
           {allFormFields.map((item, idx) => {
             if (item.type === 'tab_group') {
               const tg = item as TabGroupDefinition

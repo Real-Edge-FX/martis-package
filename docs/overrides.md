@@ -182,7 +182,7 @@ public function overrides(): array
 }
 ```
 
-`RedirectAfter` enum cases: `DETAIL` · `INDEX` · `EDIT` · `CREATE` · `DASHBOARD` · `STAY`. A literal string (`'detail'`, `'index'`, …) is accepted as a fallback for the same values. `STAY` keeps the drawer / page open after save — useful for "save and continue editing" workflows. With `confirmUnsavedChanges()` on, the update drawer then counts the values it saved as clean, and what was typed while the save ran as unsaved (v1.38.0+; before v1.38.0 closing it after the save asked to discard the changes just saved).
+`RedirectAfter` enum cases: `DETAIL` · `INDEX` · `EDIT` · `CREATE` · `DASHBOARD` · `STAY`. A literal string (`'detail'`, `'index'`, …) is accepted as a fallback for the same values. `STAY` keeps the drawer / page open after save — useful for "save and continue editing" workflows. With `confirmUnsavedChanges()` on, the update drawer then counts the values it saved as clean, and what was typed while the save ran as unsaved (v1.38.0+; before v1.38.0 closing it after the save asked to discard the changes just saved). The create drawer clears its form for the next record and mounts its fields again, so no input keeps the previous record's state, and counts the empty form as clean (v1.38.0+; before v1.38.0 an input that keeps state of its own could carry the previous record's over, and a drawer opened on a copy asked to discard the empty form).
 
 ### `DrawerSlot` enum (typed slot keys)
 
