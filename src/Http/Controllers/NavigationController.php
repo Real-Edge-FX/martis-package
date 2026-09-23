@@ -447,7 +447,8 @@ class NavigationController extends MartisController
     /**
      * Whether a resolved navigation payload already holds an in-app link
      * to the given SPA path. Trailing slashes, a query string and a
-     * fragment are ignored; external links never match.
+     * fragment are ignored; external links and absolute URLs (with a scheme
+     * or a host) never match.
      *
      * @param  list<array<string, mixed>>  $sections
      */
@@ -460,7 +461,12 @@ class NavigationController extends MartisController
                 continue;
             }
 
-            if (trim((string) parse_url($item['url'], PHP_URL_PATH), '/') === $target) {
+            $parts = parse_url($item['url']);
+            if ($parts === false || isset($parts['scheme']) || isset($parts['host'])) {
+                continue;
+            }
+
+            if (trim($parts['path'] ?? '', '/') === $target) {
                 return true;
             }
         }

@@ -391,6 +391,7 @@ it('still appends the cache link when the host only links elsewhere or externall
         return $menu->append(MenuSection::make('Links', [
             MenuItem::link('Cache docs', '/system/cache-docs'),
             MenuItem::externalLink('Remote cache', 'https://example.test/system/cache'),
+            MenuItem::link('Other host', 'https://other.test/system/cache'),
         ]));
     });
 
