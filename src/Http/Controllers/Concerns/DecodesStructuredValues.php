@@ -19,24 +19,25 @@ use Martis\Fields\Field;
  * JSON request path sends: rules such as `array` pass, `fill()` receives
  * the list or map.
  *
- * A non-empty string that does not decode to an array is left as is and,
- * when the field rejects unstructured values
- * (`Field::rejectsUnstructuredValue()`), its attribute is returned, so the
- * caller validates it with `array` on top of the field's own rules: the
- * request fails with a 422 whether or not the field declares an `array`
- * rule, and `fill()` never receives the string (a Repeater would empty its
- * rows, a KeyValue clear its map, a Tag detach every tag). A MorphTo, a
- * readonly or computed field and a field with a `fillUsing()` callback are
- * left to their fill. The empty string, which the multipart path sends for
- * null, still clears the field.
+ * Any other value that is not a list or a map is left as is and, when the
+ * field rejects unstructured values (`Field::rejectsUnstructuredValue()`),
+ * its attribute is returned, so the caller validates it with `array` on top
+ * of the field's own rules: a string that does not decode to an array on
+ * either path, and a number or a boolean a JSON request sends. The request
+ * fails with a 422 whether or not the field declares an `array` rule, and
+ * `fill()` never receives the value (a Repeater would empty its rows, a
+ * KeyValue clear its map, a MultiSelect its list, a Tag detach every tag).
+ * A MorphTo, a readonly or computed field and a field with a `fillUsing()`
+ * callback are left to their fill. Null and the empty string, which the
+ * multipart path sends for null, still clear the field.
  */
 trait DecodesStructuredValues
 {
     /**
      * @param  list<FieldContract>  $fields
      * @return list<string> Attributes of fields that reject unstructured
-     *                      values whose value is a string that does not
-     *                      decode to a list or map.
+     *                      values whose value is neither a list or map nor
+     *                      a string that decodes to one.
      */
     protected function decodeStructuredValues(Request $request, array $fields): array
     {
@@ -50,11 +51,11 @@ trait DecodesStructuredValues
 
             $attribute = $field->attribute();
             $value = $request->input($attribute);
-            if (! is_string($value) || $value === '') {
+            if ($value === null || $value === '' || is_array($value)) {
                 continue;
             }
 
-            $json = json_decode($value, true);
+            $json = is_string($value) ? json_decode($value, true) : null;
             if (is_array($json)) {
                 $decoded[$attribute] = $json;
             } elseif ($field->rejectsUnstructuredValue()) {

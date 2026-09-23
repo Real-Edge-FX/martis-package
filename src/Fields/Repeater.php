@@ -373,6 +373,17 @@ class Repeater extends Field
             return;
         }
 
+        if ($this->fillCallback !== null) {
+            ($this->fillCallback)($model, $value, $this->attribute, $this->safeRequest());
+
+            return;
+        }
+
+        // A computed field has no backing attribute or relation to write (see Field::fill()).
+        if ($this->computed) {
+            return;
+        }
+
         $rows = $this->normalizeIncomingRows($value);
 
         if ($this->storage === RepeaterStorage::HasMany || $this->storage === RepeaterStorage::Polymorphic) {
