@@ -634,7 +634,7 @@ The package ships 28 commands. The full list:
 | `martis:user` | Create an admin user (`--if-missing` / `--update` for idempotent bootstrap scripts) |
 | `martis:vendor-publish` | Wrapper around `vendor:publish` with Martis-aware defaults and prompts |
 | `martis:stubs` | List or scaffold the customizable stubs used by the make commands |
-| `martis:list-overrides` | Print every component / layout / field override active in the current install |
+| `martis:list-overrides` | Print the component keys the PHP layer declares (Tools, Actions with a custom component, resources); `--frontend` checks that your extension registers them |
 
 ### Cache control
 

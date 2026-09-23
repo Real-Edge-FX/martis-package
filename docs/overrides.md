@@ -980,7 +980,7 @@ The same instance is `window.Martis.componentRegistry`, so `window.Martis.compon
 
 ## Debugging — `martis:list-overrides`
 
-When an override does not pick up, the most common cause is a key mismatch between the PHP layer (which declares "I want a component called `<key>`") and the consumer extension bundle (`resources/js/martis-extensions/`) (which registers the actual React component under that key). The `martis:list-overrides` artisan command prints every component key the PHP layer expects:
+When an override does not pick up, the most common cause is a key mismatch between the PHP layer (which declares "I want a component called `<key>`") and the consumer extension bundle (`resources/js/martis-extensions/`) (which registers the actual React component under that key). The `martis:list-overrides` artisan command prints the keys the PHP layer declares: the component key of each Tool and of each Action with a custom component, and each resource's URI key:
 
 ```bash
 php artisan martis:list-overrides
@@ -993,21 +993,22 @@ php artisan martis:list-overrides --frontend        # ⭐ cross-check vs `resour
 
 ### ⭐ `--frontend` cross-check
 
-The `--frontend` flag adds a **Frontend** column to the table that statically parses your `resources/js/martis-extensions/index.ts` for `componentRegistry.register/registerFieldDisplay/registerFieldInput/registerResourceFieldDisplay/registerResourceFieldInput` calls and shows whether each PHP-declared key is registered:
+The `--frontend` flag adds a **Frontend** column that shows whether your extension registers each key, read statically from `resources/js/martis-extensions/`: the key each file of the four buckets registers through the auto-discovery entry (`tools/Charts.tsx` is `tool:charts`, `overrides/Sidebar.tsx` is `layout:sidebar`), and the literal key of each `register()` call on the component registry in `index.ts` (v1.38.0). A resource row shows `n/a`: the SPA renders a resource without a component of its own.
 
 ```
-+----------+--------------------------+------------------------+----------------+
-| Kind     | Component key            | Source                 | Frontend       |
-+----------+--------------------------+------------------------+----------------+
-| resource | clients                  | App\Martis\ClientResource | ✓ registered |
-| resource | invoices                 | App\Martis\InvoiceResource| ✓ registered |
-| tool     | system-status            | App\Martis\Tools\…        | ✗ missing     |
-+----------+--------------------------+------------------------+----------------+
++----------+-----------------+----------------------------+--------------+
+| Kind     | Component key   | Source                     | Frontend     |
++----------+-----------------+----------------------------+--------------+
+| resource | clients         | App\Martis\ClientResource  | n/a          |
+| resource | invoices        | App\Martis\InvoiceResource | n/a          |
+| tool     | tool:imports    | App\Martis\Tools\Imports   | ✓ registered |
+| tool     | system-status   | App\Martis\Tools\…         | ✗ missing    |
++----------+-----------------+----------------------------+--------------+
 ```
 
-Exit code `2` (INVALID) when any key is missing, so you can wire it into CI as `php artisan martis:list-overrides --frontend || exit 1`. Pass `--boot=path/to/file.ts` to point at a non-default boot file.
+Exit code `2` (INVALID) when a Tool or Action key is missing, so you can wire it into CI as `php artisan martis:list-overrides --frontend || exit 1`. Pass `--extensions-dir=path/to/dir` when the extension sources live outside `resources/js/martis-extensions/`.
 
-The parser handles string-literal keys; computed keys (e.g. `register('field:' + kind, ...)` or template-literal variants) are not resolved — list those manually.
+Only string-literal keys are read, and only from `index.ts`: a computed key (`register('field:' + kind, ...)`, a template literal with `${...}`) or a `register()` call in another module shows as missing. Check those in the browser console (below).
 
 Sample output:
 
@@ -1020,17 +1021,18 @@ Sample output:
 | tool     | system-status            | App\Martis\Tools\SystemStatus            |
 | action   | order-bulk-publish       | App\Martis\OrderResource → PublishOrders |
 +----------+--------------------------+------------------------------------------+
-4 component key(s) declared. Verify each one is backed by a TSX file under
-resources/js/martis-extensions/{tools,fields,cards,overrides}/ (v1.9+ filename → key auto-discovery).
+4 component key(s) declared. Verify each Tool and Action key is registered by your extension: a TSX file
+under resources/js/martis-extensions/{tools,fields,cards,overrides}/ (v1.9+ filename → key auto-discovery)
+or a register() call in its index.ts. A resource needs no component.
 ```
 
-The command lists what is **expected**, not what is **registered** — the actual override registry lives in the browser and cannot be introspected from PHP. Check the matching list in your frontend by running this in the browser devtools console after the SPA boots:
+The command lists what is **expected**, not what is **registered**: the actual override registry lives in the browser and cannot be introspected from PHP. Check the matching list in your frontend by running this in the browser devtools console after the SPA boots:
 
 ```js
 window.Martis.componentRegistry.keys()
 ```
 
-Any key that appears in `martis:list-overrides` but not in `componentRegistry.keys()` is a missing TSX file under `resources/js/martis-extensions/` — the most common reason an override fails to resolve.
+Any Tool or Action key that appears in `martis:list-overrides` but not in `componentRegistry.keys()` is one your extension does not register (a missing TSX file under `resources/js/martis-extensions/`, or a missing `register()` call), the most common reason an override fails to resolve.
 
 ## ⭐ Component Inspector — `/dev/components`
 
