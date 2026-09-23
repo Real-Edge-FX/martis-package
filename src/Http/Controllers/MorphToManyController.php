@@ -723,10 +723,12 @@ class MorphToManyController extends MartisController
         $data['_authorization'] = $resource->authorizationMetadata(request());
 
         // A field hidden for this record (canSeeForModel()) is left out, as
-        // on every read of a record.
-        foreach (Field::filterForModel($fields, request(), $model) as $field) {
+        // on every read of a record, and listed under `_hidden`.
+        $visible = Field::filterForModel($fields, request(), $model);
+        foreach ($visible as $field) {
             $data[$field->attribute()] = $field->resolve($model);
         }
+        $data += $this->hiddenFieldsEntry($fields, $visible);
 
         return $data;
     }

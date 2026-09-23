@@ -129,6 +129,8 @@ GET /martis/api/resources/{resource}
 }
 ```
 
+**Record envelope.** Every record the API sends carries `id`, its field values and the `_title`, `_resource` and `_authorization` keys. A record that hides a field (`canSeeForModel()`) leaves its value out and lists its attribute under `_hidden` (v1.38.0): `"_hidden": ["salary"]`. The key is absent when the record hides no field. It holds the attributes of the fields of the response's field list (the index fields on the index, the detail fields on the detail, the update fields with `?context=update`), on the resource endpoints, the rows of a lens and the rows and records of the relationship endpoints, so a client that renders the schema's field list leaves those fields out instead of showing them empty. See [Fields → Field authorization](../fields.md#field-authorization-cansee-and-canseeformodel).
+
 ### Single record (CRUD)
 
 | Method | Path | Notes |
@@ -150,7 +152,7 @@ GET /martis/api/resources/{resource}/schema
 
 Returns the field structure and metadata for the resource — `fields`, `fieldsForIndex`, `fieldsForDetail`, `fieldsForCreate`, `fieldsForUpdate`, `accentColor`, `loaderConfig`, `tableStriped`, `perPageOptions`, `overrides`, etc. The React shell hits this endpoint on every navigation to a resource page.
 
-Every field list leaves out a field the user cannot see (`canSee()`): the contextual arrays, and since v1.38.0 `fields` too (it listed every field of `fields()`), as well as the row fields of a Repeater's row types and the pivot fields of a `BelongsToMany` / `MorphToMany`.
+Every field list leaves out a field the user cannot see (`canSee()`): the contextual arrays, and since v1.38.0 `fields` too (it listed every field of `fields()`), as well as the row fields of a Repeater's row types and the pivot fields of a `BelongsToMany` / `MorphToMany`. `fieldsForCreate` and `fieldsForInlineCreate` also leave out a field `canSeeForModel()` hides for the new model a create fills (v1.38.0), as does `inline-create-schema`; the other lists describe the resource, and each record names the fields it hides (`_hidden`, above).
 
 ### Inline create
 

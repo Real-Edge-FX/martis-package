@@ -1430,6 +1430,34 @@ abstract class Field implements FieldContract
         ));
     }
 
+    /**
+     * The attributes of the fields of `$fields` a record hides: those
+     * `filterForModel()` left out of `$visible`, the fields it kept for the
+     * record. An attribute a kept field shows too is not listed.
+     *
+     * A serialised record lists them under `_hidden`, so a page that
+     * renders the resource's field list (the schema describes the
+     * resource, not the record) leaves those fields out instead of showing
+     * them empty.
+     *
+     * @param  list<FieldContract>  $fields
+     * @param  list<FieldContract>  $visible
+     * @return list<string>
+     */
+    public static function hiddenAttributes(array $fields, array $visible): array
+    {
+        $shown = array_map(static fn (FieldContract $field): string => $field->attribute(), $visible);
+        $hidden = [];
+
+        foreach ($fields as $field) {
+            if (! in_array($field, $visible, true) && ! in_array($field->attribute(), $shown, true)) {
+                $hidden[] = $field->attribute();
+            }
+        }
+
+        return array_values(array_unique($hidden));
+    }
+
     // -------------------------------------------------------------------------
     // Sortable / Searchable
     // -------------------------------------------------------------------------

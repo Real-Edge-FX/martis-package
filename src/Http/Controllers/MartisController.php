@@ -451,7 +451,8 @@ abstract class MartisController extends Controller
 
     /**
      * Serialize a model into an array using the provided fields and the
-     * standard Martis envelope (`_title`, `_resource`, `_authorization`).
+     * standard Martis envelope (`_title`, `_resource`, `_authorization`,
+     * and `_hidden` when the record hides a field, see hiddenFieldsEntry()).
      *
      * @param  list<FieldContract>  $fields
      * @return array<string, mixed>
@@ -463,7 +464,8 @@ abstract class MartisController extends Controller
 
         // A field hidden for this record (canSeeForModel()) is left out, as
         // on every read of a record.
-        foreach (Field::filterForModel($fields, request(), $model) as $field) {
+        $visible = Field::filterForModel($fields, request(), $model);
+        foreach ($visible as $field) {
             if ($forDisplay) {
                 /** @var FieldContract&Field $fieldInstance */
                 $fieldInstance = $field;
@@ -472,6 +474,7 @@ abstract class MartisController extends Controller
                 $data[$field->attribute()] = $field->resolve($model);
             }
         }
+        $data += $this->hiddenFieldsEntry($fields, $visible);
 
         $data['_title'] = $resource->title();
         $data['_resource'] = $resource->toArray();
@@ -482,6 +485,26 @@ abstract class MartisController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * The `_hidden` entry of a serialised record: the attributes of the
+     * fields of `$fields` that `canSeeForModel()` hides for the record
+     * (`$visible` holds the ones it keeps, see `Field::filterForModel()`).
+     * The record leaves their values out, and the schema, which describes
+     * the resource, still lists them: with this list a page leaves those
+     * fields out instead of rendering them empty. Empty, so the record
+     * carries no `_hidden` key, when the record hides no field.
+     *
+     * @param  list<FieldContract>  $fields
+     * @param  list<FieldContract>  $visible
+     * @return array{_hidden?: list<string>}
+     */
+    protected function hiddenFieldsEntry(array $fields, array $visible): array
+    {
+        $hidden = Field::hiddenAttributes($fields, $visible);
+
+        return $hidden === [] ? [] : ['_hidden' => $hidden];
     }
 
     /**

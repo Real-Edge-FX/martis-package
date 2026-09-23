@@ -735,8 +735,14 @@ class ResourceController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        // Use fieldsForInlineCreate (falls back to fieldsForCreate -> fields)
-        $fields = Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE);
+        // Use fieldsForInlineCreate (falls back to fieldsForCreate -> fields),
+        // without the fields canSeeForModel() hides for the new model the
+        // inline create fills: it neither validates nor writes them.
+        $fields = Field::filterForModel(
+            Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE),
+            $request,
+            $resourceClass::newModel(),
+        );
 
         // Depth enforcement: strip showCreateRelationButton from belongs_to/morph_to/tag fields.
         // This is the canonical server-side guard that prevents nested inline creates —
@@ -1034,9 +1040,22 @@ class ResourceController extends MartisController
             fn (FieldContract $f): array => $f->toArray(),
             Field::filterForContext($instance->detailSidebar($request), FieldContext::DETAIL),
         );
-        $fieldsForCreate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForCreate($request), FieldContext::CREATE));
+        // The create forms write a new record: a field canSeeForModel()
+        // hides for the new, unsaved model is left out of them, as a create
+        // neither validates nor writes it (Field::filterForModel()). The
+        // other lists describe the resource; each record the SPA loads
+        // names the fields it hides (`_hidden`).
+        $newModel = $resourceClass::newModel();
+        $fieldsForCreate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutFields(
+            Field::filterLayoutForContext($instance->fieldsForCreate($request), FieldContext::CREATE),
+            fn (FieldContract $field): bool => Field::filterForModel([$field], $request, $newModel) !== [],
+        ));
         $fieldsForUpdate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForUpdate($request), FieldContext::UPDATE));
-        $fieldsForInlineCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE));
+        $fieldsForInlineCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForModel(
+            Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE),
+            $request,
+            $newModel,
+        ));
         $fieldsForPreview = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForPreview($request), FieldContext::PREVIEW));
         $filters = $this->serializeFilters($instance->filters($request), $request);
         $lenses = $this->serializeSchemaDescriptors(
@@ -2193,8 +2212,11 @@ class ResourceController extends MartisController
         // `canSeeForModel(...)` or `canSeeUsingPolicy(...)` is skipped for
         // the rows its closure hides it on. Stripping at serialization time
         // means the value never reaches the wire: the consumer cannot read
-        // it even if the React layer has stale state.
-        foreach (Field::filterForModel($fields, $request, $model) as $field) {
+        // it even if the React layer has stale state. The record lists
+        // those fields under `_hidden` (v1.38.0), so the pages leave them
+        // out instead of rendering them empty.
+        $visible = Field::filterForModel($fields, $request, $model);
+        foreach ($visible as $field) {
             if ($forDisplay) {
                 /** @var FieldContract&Field $fieldInstance */
                 $fieldInstance = $field;
@@ -2203,6 +2225,7 @@ class ResourceController extends MartisController
                 $data[$field->attribute()] = $field->resolve($model);
             }
         }
+        $data += $this->hiddenFieldsEntry($fields, $visible);
 
         $data['_title'] = $resource->title();
         $data['_resource'] = $resource->toArray();
