@@ -82,8 +82,11 @@ class MagicLinkController
             return redirect($loginPath.'?magic_link=disabled');
         }
 
-        $email = strtolower((string) $request->query('email', ''));
-        $token = (string) $request->query('token', '');
+        // A parameter sent as an array (`email[]=`) reads as missing.
+        $rawEmail = $request->query('email', '');
+        $rawToken = $request->query('token', '');
+        $email = strtolower(is_string($rawEmail) ? $rawEmail : '');
+        $token = is_string($rawToken) ? $rawToken : '';
 
         if ($email === '' || $token === '') {
             return redirect($loginPath.'?magic_link=invalid');

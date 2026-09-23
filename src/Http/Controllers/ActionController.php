@@ -85,7 +85,8 @@ class ActionController extends MartisController
         $instance = new $resourceClass;
         $actions = $this->resolveActions($instance, $request);
 
-        $context = ActionVisibility::tryFrom((string) $request->query('context', 'index'));
+        $rawContext = $request->query('context', 'index');
+        $context = ActionVisibility::tryFrom(is_string($rawContext) ? $rawContext : 'index');
         $filtered = array_values(array_filter($actions, function (ActionContract $action) use ($context) {
             return match ($context) {
                 ActionVisibility::Index => $action->isShownOnIndex(),
@@ -718,7 +719,8 @@ class ActionController extends MartisController
             return $context;
         }
 
-        $visibility = ActionVisibility::tryFrom((string) $request->query('context', 'detail'))
+        $rawContext = $request->query('context', 'detail');
+        $visibility = ActionVisibility::tryFrom(is_string($rawContext) ? $rawContext : 'detail')
             ?? ActionVisibility::Detail;
 
         $pivotActions = array_values(array_filter(

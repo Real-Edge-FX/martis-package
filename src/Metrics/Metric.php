@@ -236,8 +236,8 @@ abstract class Metric implements MetricContract
         // honour it directly and skip the centralized layer so users
         // overriding the method retain full control.
         if ($cacheFor !== null) {
-            $range = $request->query('range', '30');
-            $filters = $request->query('filters', '');
+            $range = self::queryString($request, 'range', '30');
+            $filters = self::queryString($request, 'filters', '');
             $cacheKey = 'martis_metric_'.md5($this->uriKey().'_'.$range.'_'.$filters.'_'.app()->getLocale());
 
             return Cache::remember($cacheKey, $cacheFor, fn () => $this->resolveResult($request));
@@ -253,8 +253,8 @@ abstract class Metric implements MetricContract
             return $this->resolveResult($request);
         }
 
-        $range = $request->query('range', '30');
-        $filters = $request->query('filters', '');
+        $range = self::queryString($request, 'range', '30');
+        $filters = self::queryString($request, 'filters', '');
         // Include the current locale so `__()`-derived labels (trend buckets,
         // partition slice names, progress summaries) stay in sync when the
         // user switches language — otherwise a cached payload keeps serving
@@ -491,5 +491,17 @@ abstract class Metric implements MetricContract
             'help' => $this->helpText,
             'meta' => $this->meta(),
         ];
+    }
+
+    /**
+     * A query parameter read as a string: a parameter sent as an array
+     * (`?range[]=30`) reads as the default instead of failing the request
+     * with an "Array to string conversion".
+     */
+    protected static function queryString(Request $request, string $key, string $default): string
+    {
+        $value = $request->query($key, $default);
+
+        return is_string($value) ? $value : $default;
     }
 }

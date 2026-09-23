@@ -718,7 +718,10 @@ class MartisServiceProvider extends ServiceProvider
         $minutes = (int) config('martis.throttle.login_minutes', 1);
 
         RateLimiter::for('martis-login', function (Request $request) use ($attempts, $minutes) {
-            $email = strtolower((string) $request->input('email', ''));
+            // The limiter runs before validation: an email sent as an
+            // array reads as empty, and the login answers its 422.
+            $rawEmail = $request->input('email', '');
+            $email = strtolower(is_string($rawEmail) ? $rawEmail : '');
 
             // Empty-email request (no payload at all): fall back to
             // the standard per-IP envelope so a script hammering the

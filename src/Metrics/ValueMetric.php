@@ -93,7 +93,7 @@ abstract class ValueMetric extends Metric
     protected function aggregate(Request $request, string $model, AggregateFunction $function, ?string $column, ?string $dateColumn): ValueResult
     {
         $dateColumn = $dateColumn ?? 'created_at';
-        $range = $request->query('range', '30');
+        $range = self::queryString($request, 'range', '30');
         [$currentStart, $currentEnd, $previousStart, $previousEnd] = $this->calculateDateRange($range);
 
         $currentQuery = $this->applyFilterScope(
