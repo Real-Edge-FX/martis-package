@@ -204,6 +204,40 @@ describe('ResourceUpdatePage — inputs that keep their own state', () => {
   })
 })
 
+describe('ResourceUpdatePage — submitted relation values', () => {
+  it('reduces a BelongsTo to its id and keeps the MorphTo target map', async () => {
+    const commentable = { type: 'App\\Models\\Post', id: 3, title: 'Hello', resourceType: 'posts' }
+    mockSchemaAndRecord(
+      [
+        titleField,
+        baseField({ attribute: 'author', label: 'Author', type: 'belongs_to', relatedResource: 'users' }),
+        baseField({ attribute: 'commentable', label: 'Commentable', type: 'morph_to', morphTypes: [{ value: 'posts', label: 'Posts' }] }),
+      ],
+      {
+        id: 1,
+        title: 'Existing Title',
+        author: { id: 7, title: 'Ana' },
+        commentable,
+      } as unknown as ResourceRecord,
+    )
+    // Left pending: only the request body matters here, and a settled save
+    // would redirect through the data router, which jsdom cannot drive.
+    apiPutMock.mockReturnValue(new Promise(() => {}))
+
+    renderUpdatePage()
+
+    await waitFor(() => {
+      expect((document.getElementById('title') as HTMLInputElement | null)?.value).toBe('Existing Title')
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() => expect(apiPutMock).toHaveBeenCalled())
+    const [, body] = apiPutMock.mock.calls[0] as [string, Record<string, unknown>]
+    expect(body.author).toBe(7)
+    expect(body.commentable).toEqual(commentable)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // (2) context: 'update' — record fetched with ?context=update; fieldsForUpdate
 //     is the rendered source of fields.

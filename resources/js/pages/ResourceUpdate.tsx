@@ -16,6 +16,7 @@ import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import { recordHref } from '@/lib/recordHref'
+import { updatePayload } from '@/lib/updatePayload'
 
 export function ResourceUpdatePage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -211,25 +212,8 @@ export function ResourceUpdatePage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     form.setErrors({})
-    // Filter values: skip file/image fields that haven't changed (still object from API)
-    const submitValues: Record<string, unknown> = {}
-    for (const [key, val] of Object.entries(form.values)) {
-      if (val === null || val === undefined) {
-        submitValues[key] = val
-        continue
-      }
-      // Skip File objects that are still existing server values (have 'url')
-      if (typeof val === 'object' && !(val instanceof File) && 'url' in (val as Record<string, unknown>)) {
-        continue
-      }
-      // BelongsTo: if value is still the original {id, title} object, extract just the ID
-      if (typeof val === 'object' && !(val instanceof File) && 'id' in (val as Record<string, unknown>) && 'title' in (val as Record<string, unknown>)) {
-        submitValues[key] = (val as Record<string, unknown>).id
-        continue
-      }
-      submitValues[key] = val
-    }
-    updateMutation.mutate(submitValues)
+    // Unchanged files left out, BelongsTo reduced to its id, MorphTo kept whole.
+    updateMutation.mutate(updatePayload(form.values))
   }
 
   if (schemaQuery.isLoading || recordQuery.isLoading) return <FormSkeleton />

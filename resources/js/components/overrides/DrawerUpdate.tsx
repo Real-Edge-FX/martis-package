@@ -10,6 +10,7 @@ import { TabsInput } from '@/components/fields/TabsRenderer'
 import { useTranslation } from 'react-i18next'
 import { DrawerShell } from './DrawerShell'
 import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
+import { updatePayload } from '@/lib/updatePayload'
 
 /** Recursively extract scalar fields from layout containers (Panel, Section, TabGroup) */
 function extractScalarFields(items: Array<Record<string, unknown>>): FieldDefinition[] {
@@ -197,25 +198,8 @@ export function DrawerUpdate(props: OverrideProps) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErrors({})
-    // Filter values: skip unchanged file/image fields and extract BelongsTo IDs
-    const submitValues: Record<string, unknown> = {}
-    for (const [key, val] of Object.entries(values)) {
-      if (val === null || val === undefined) {
-        submitValues[key] = val
-        continue
-      }
-      // Skip File objects that are still existing server values (have 'url')
-      if (typeof val === 'object' && !(val instanceof File) && 'url' in (val as Record<string, unknown>)) {
-        continue
-      }
-      // BelongsTo: extract just the ID from {id, title} objects
-      if (typeof val === 'object' && !(val instanceof File) && 'id' in (val as Record<string, unknown>) && 'title' in (val as Record<string, unknown>)) {
-        submitValues[key] = (val as Record<string, unknown>).id
-        continue
-      }
-      submitValues[key] = val
-    }
-    updateMutation.mutate(submitValues)
+    // Unchanged files left out, BelongsTo reduced to its id, MorphTo kept whole.
+    updateMutation.mutate(updatePayload(values))
   }
 
   const isLoading = !activeRecord || recordQuery.isLoading

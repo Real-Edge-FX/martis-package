@@ -161,6 +161,7 @@ Text::make('first_name', 'First Name') // explicit label
 | `resolveForDisplay` | `resolveForDisplay(Model $model, ?string $attribute = null): mixed` | Resolve then apply `displayUsing()` callback. Use for index/detail serialization. |
 | `fill` | `fill(Model $model, mixed $value): void` | Write a value to the model. Respects `fillUsing()` callback and `readonly` flag. |
 | `hasStructuredValue` | `hasStructuredValue(): bool` | Whether the form submits this field's value as a list or a map rather than a scalar. `true` on `Repeater`, `MultiSelect`, `BooleanGroup`, `KeyValue`, `Tag`, `MorphTo` and `Sparkline`; override it on a custom field whose form value is structured. See [Structured values and file uploads](#structured-values-and-file-uploads). |
+| `rejectsUnstructuredValue` | `rejectsUnstructuredValue(): bool` | Whether a value that is not a list or a map (a string that is not JSON for one) fails validation instead of reaching `fill()`. `true` for a structured field the package fills itself; `false` for a readonly or computed field, a field with a `fillUsing()` callback, and `MorphTo` (its `fill()` ignores anything that is not a target map). Override it on a custom field whose `fill()` ignores such a value. v1.38.0+. |
 
 #### Structured values and file uploads
 
@@ -176,7 +177,7 @@ A form that uploads a file (a new `File` / `Image` was picked) is sent as `multi
 
 The decoding runs in every resource controller (`ResourceController`, `HasMany` / `HasOne` / `MorphMany` / `MorphOne` inline forms) through `DecodesStructuredValues`, so a `Repeater`'s rows, a `MultiSelect`'s selection, a `BooleanGroup`'s flag map, a `KeyValue`'s pairs, a `Tag`'s ids, a `MorphTo`'s target or a `Sparkline`'s points survive a save that also uploads a file, validation rules such as `array` / `max:N` see the real list, and `fill()` receives the same value it gets on a JSON save.
 
-A non-empty string that does not decode to a list or a map (`"[object Object]"`, `"12,15"`, a JSON scalar) is never stored: the controller validates it with Laravel's `array` rule on top of the field's own rules, so the request fails with a 422 (`The <label> field must be an array.`) and the stored value stays as it was, whether or not the field declares an `array` rule. This holds on both request paths and for every structured field, so a stale SPA bundle or a hand-written API call cannot empty a `Repeater`, clear a `KeyValue` or `MultiSelect`, detach every `Tag` or store the text in a `BooleanGroup` column. The empty string (what the multipart path sends for `null`) still clears the field. Since v1.38.0; in v1.37.3 only a field with its own `array` rule was protected.
+A non-empty string that does not decode to a list or a map (`"[object Object]"`, `"12,15"`, a JSON scalar) is never stored: the controller validates it with Laravel's `array` rule on top of the field's own rules, so the request fails with a 422 (`The <label> field must be an array.`) and the stored value stays as it was, whether or not the field declares an `array` rule. This holds on both request paths for every field whose `rejectsUnstructuredValue()` is `true`, so a stale SPA bundle or a hand-written API call cannot empty a `Repeater`, clear a `KeyValue` or `MultiSelect`, detach every `Tag` or store the text in a `BooleanGroup` column. It does not apply where no data is at risk: a readonly or computed field writes nothing, a `fillUsing()` callback decides which shapes it accepts, and a `MorphTo` ignores any value that is not a target map (an update form up to v1.37.3 sends a bare id for an untouched target, and a morph key can be a string). The empty string (what the multipart path sends for `null`) still clears the field. Since v1.38.0; in v1.37.3 only a field with its own `array` rule was protected.
 
 Custom fields whose form value is a list or a map should return `true` from `hasStructuredValue()` to join that path; a field whose value is a *string that happens to look like JSON* (a `Code` editor holding JSON, a `Textarea`) must leave it `false` so its text is never decoded.
 
@@ -2272,7 +2273,9 @@ The frontend submits:
 { "resourceType": "posts", "id": 42 }
 ```
 
-The backend resolves the model class from the resource URI key and writes both `commentable_type` and `commentable_id` columns on the parent.
+The backend resolves the model class from the resource URI key and writes both `commentable_type` and `commentable_id` columns on the parent. The resolve format (`type` + `id`) is accepted too, which is what an edit form sends for a target the user did not change; `type` must name one of the field's `types()` (the model class or its morph-map alias), exactly as `resourceType` must name one of their resources, otherwise it is ignored (v1.38.0+; before, any class name was written). Any value that is not a map is ignored, so the stored target stays as it was.
+
+Since v1.38.0 the update page and the update drawer send the MorphTo map as is. They used to reduce every `{ id, title }` value to its id (right for a `BelongsTo`), which caught the MorphTo map too, so a target changed on an edit form was never saved.
 
 **Inline create**
 

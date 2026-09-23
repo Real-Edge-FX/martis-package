@@ -386,6 +386,27 @@ abstract class Field implements FieldContract
     }
 
     /**
+     * Whether a value that is not a list or a map fails validation instead
+     * of reaching `fill()`: a string that is not JSON for one, such as the
+     * `"[object Object]"` / `"12,15"` a pre-1.37.3 bundle sent on the
+     * multipart path (see `DecodesStructuredValues`).
+     *
+     * True for a field with a structured value that the package fills
+     * itself, because the built-in fills would empty or overwrite what is
+     * stored. False when nothing would be written from the value (a
+     * readonly or computed field) and when a `fillUsing()` callback owns the
+     * write, since the callback decides which shapes it accepts. Override
+     * it on a custom field whose `fill()` ignores such a value.
+     */
+    public function rejectsUnstructuredValue(): bool
+    {
+        return $this->hasStructuredValue()
+            && $this->fillCallback === null
+            && ! $this->computed
+            && ! $this->isReadonly();
+    }
+
+    /**
      * Encode a structured value for storage unless the model's cast will.
      *
      * Fields that persist a list or a map (`MultiSelect`, `KeyValue`, the
