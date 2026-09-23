@@ -15,6 +15,7 @@ use Martis\Enums\SortDirection;
 use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\MorphToMany;
+use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -40,6 +41,8 @@ use Martis\SearchResolver;
  */
 class MorphToManyController extends MartisController
 {
+    use BuildsFieldRules;
+
     /** Create the controller and inject the resource registry. */
     public function __construct(
         private readonly ResourceRegistry $registry,
@@ -423,8 +426,7 @@ class MorphToManyController extends MartisController
         $pivotRules = [];
         $pivotAttributes = [];
         foreach ($pivotFields as $pf) {
-            $fieldRules = array_values(array_filter($pf->buildRules(), fn ($r) => is_string($r) && $r !== 'required'));
-            $pivotRules[$pf->attribute()] = $fieldRules === [] ? ['sometimes'] : array_merge(['sometimes'], $fieldRules);
+            $pivotRules[$pf->attribute()] = $this->buildFieldRules($pf, isUpdate: true);
             $pivotAttributes[$pf->attribute()] = $pf->label();
         }
 
@@ -650,7 +652,7 @@ class MorphToManyController extends MartisController
             $pivotRules = [];
             $pivotAttributes = [];
             foreach ($pivotFields as $pf) {
-                $pivotRules[$pf->attribute()] = $pf->buildRules();
+                $pivotRules[$pf->attribute()] = $this->buildFieldRules($pf, isUpdate: false);
                 $pivotAttributes[$pf->attribute()] = $pf->label();
             }
             $validator = Validator::make($request->all(), $pivotRules, [], $pivotAttributes);

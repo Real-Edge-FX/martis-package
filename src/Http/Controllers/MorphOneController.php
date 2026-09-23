@@ -2,7 +2,6 @@
 
 namespace Martis\Http\Controllers;
 
-use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany as EloquentMorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne as EloquentMorphOne;
@@ -16,6 +15,7 @@ use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\MorphOne;
 use Martis\Fields\MorphOneOfMany;
+use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -33,6 +33,7 @@ use Martis\ResourceRegistry;
  */
 class MorphOneController extends MartisController
 {
+    use BuildsFieldRules;
     use DecodesStructuredValues;
 
     /** Create the controller and inject the resource registry. */
@@ -453,21 +454,12 @@ class MorphOneController extends MartisController
         $attributes = [];
 
         foreach ($fields as $field) {
-            $fieldRules = $field->buildRules();
+            $fieldRules = $this->buildFieldRules($field, $isUpdate);
 
             // A structured value that arrived as a string which is not JSON
             // for a list or map fails here instead of reaching fill().
             if (in_array($field->attribute(), $undecodable, true)) {
                 $fieldRules[] = 'array';
-            }
-
-            if ($isUpdate) {
-                $fieldRules = array_values(array_filter($fieldRules, fn (string|Rule|\Closure $r): bool => is_string($r) && $r !== 'required'));
-                if (empty($fieldRules)) {
-                    $fieldRules = ['sometimes'];
-                } elseif (! in_array('sometimes', $fieldRules, true)) {
-                    array_unshift($fieldRules, 'sometimes');
-                }
             }
 
             $rules[$field->attribute()] = $fieldRules;

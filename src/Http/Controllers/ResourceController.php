@@ -3,7 +3,6 @@
 namespace Martis\Http\Controllers;
 
 use Dedoc\Scramble\Attributes\QueryParameter;
-use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
@@ -28,6 +27,7 @@ use Martis\Fields\File;
 use Martis\Fields\MorphTo;
 use Martis\Fields\Tag as TagField;
 use Martis\Filters\Filter;
+use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
@@ -53,6 +53,7 @@ use Martis\SearchResolver;
  */
 class ResourceController extends MartisController
 {
+    use BuildsFieldRules;
     use DecodesStructuredValues;
 
     /** Create the controller and inject the resource registry. */
@@ -1756,30 +1757,13 @@ class ResourceController extends MartisController
         $rules = [];
         $attributes = [];
 
-        $context = $isUpdate ? 'update' : 'create';
-
         foreach ($fields as $field) {
-            $fieldRules = $field->buildRules($context);
+            $fieldRules = $this->buildFieldRules($field, $isUpdate);
 
             // A structured value that arrived as a string which is not JSON
             // for a list or map fails here instead of reaching fill().
             if (in_array($field->attribute(), $undecodable, true)) {
                 $fieldRules[] = 'array';
-            }
-
-            if ($isUpdate) {
-                // On update, fields are optional unless explicitly provided.
-                // Rules can be strings, Rule objects, or Closures — we drop
-                // the literal 'required' string and keep everything else.
-                $fieldRules = array_values(array_filter(
-                    $fieldRules,
-                    fn ($r): bool => ! (is_string($r) && $r === 'required')
-                ));
-                if (empty($fieldRules)) {
-                    $fieldRules = ['sometimes'];
-                } elseif (! in_array('sometimes', $fieldRules, true)) {
-                    array_unshift($fieldRules, 'sometimes');
-                }
             }
 
             $rules[$field->attribute()] = $fieldRules;

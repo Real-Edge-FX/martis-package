@@ -20,6 +20,7 @@ All available field types in Martis, their methods, and configuration options.
   - [Context-Aware Visibility](#context-aware-visibility)
   - [Sortable / Searchable](#sortable--searchable)
   - [Validation](#validation)
+    - [What an update validates](#what-an-update-validates)
   - [Unique Validation](#unique-validation)
   - [Customization Hooks](#customization-hooks)
     - [Computed fields](#computed-fields)
@@ -287,8 +288,8 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
 | `rules` | `rules(array\|Closure $rules): static` | `$this` | Add validation rules that apply on every context (merged with existing). Accepts a closure for request-time resolution; closure replaces any prior static rule list (and vice versa). See [Closure-aware setters](#closure-aware-setters). |
-| `creationRules` | `creationRules(array $rules): static` | `$this` | Rules that apply ONLY on POST `/resources/{r}` (create context). Layered on top of `rules()`. |
-| `updateRules` | `updateRules(array $rules): static` | `$this` | Rules that apply ONLY on PUT `/resources/{r}/{id}` (update context). Layered on top of `rules()`. |
+| `creationRules` | `creationRules(array $rules): static` | `$this` | Rules that apply ONLY in the create context: POST `/resources/{r}`, the inline create of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne`, and the attach of a `BelongsToMany` / `MorphToMany` (pivot fields). Layered on top of `rules()`. |
+| `updateRules` | `updateRules(array $rules): static` | `$this` | Rules that apply ONLY in the update context: PUT `/resources/{r}/{id}`, the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne`, and the pivot update of a `BelongsToMany` / `MorphToMany` (pivot fields). Layered on top of `rules()`. |
 | `buildRules` | `buildRules(?string $context = null): array` | `array` | Build the final rule array. Pass `'create'` or `'update'` to layer the matching context rules. |
 | `validationMessages` | `validationMessages(): array` | `array` | Custom validation messages (e.g. for unique). |
 
@@ -301,9 +302,31 @@ Password::make('password')
     ->updateRules(['nullable']);    // update only
 ```
 
-The controller hits `buildRules('create')` for POST and `buildRules('update')` for PUT. The schema endpoint also exposes both rule sets under `creationRules` / `updateRules` keys so the React frontend can pre-validate per context.
+Every endpoint that writes through fields calls `buildRules('create')` on create and `buildRules('update')` on update: the resource's own POST and PUT, the inline create and update of the `HasMany` / `HasOne` / `MorphMany` / `MorphOne` panels, and the attach and pivot update of `BelongsToMany` / `MorphToMany` pivot fields. The schema endpoint also exposes both rule sets under `creationRules` / `updateRules` keys so the React frontend can pre-validate per context.
 
 When `creationRules` contains `required`, the base `sometimes` rule is automatically stripped — `sometimes` short-circuits validation when a key is missing and would defeat the `required` directive otherwise.
+
+#### What an update validates
+
+On update a field is validated only when the request sends it. The controller drops the literal `required` string from the field's rules and puts `sometimes` first, so a payload that carries some fields leaves the others alone. Every other rule is kept, whatever its type: strings such as `required_with:…`, `Rule::` builder objects (`Rule::unique(...)->ignore(...)`, `Rule::in()`, `Rule::enum()`, `Rule::requiredIf()`), `ValidationRule` instances and closures. A key the request sends runs all of them (an implicit rule such as `Rule::requiredIf()` rejects a sent empty value); a key it does not send runs none.
+
+```php
+Text::make('code')
+    ->required()   // dropped on update: an update may omit `code`
+    ->rules([
+        // `$this->model` is the record being edited (null on create).
+        Rule::unique('invoices', 'code')->ignore($this->model?->getKey()),
+        function (string $attribute, mixed $value, Closure $fail): void {
+            if (str_contains((string) $value, ' ')) {
+                $fail('The :attribute may not contain spaces.');
+            }
+        },
+    ]);
+```
+
+This holds on every update endpoint: the resource's own PUT, the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne`, and the pivot update of a `BelongsToMany` / `MorphToMany`. A record edited from its parent's detail page is validated exactly like the same record edited on its own page. Take the record to ignore from `$this->model`, not from the route: on the relationship endpoints the `{id}` route parameter is the parent's id.
+
+Up to v1.37.3 the relationship endpoints validated less. The pivot update kept string rules only (every rule object and closure was skipped); the inline updates skipped closures and `Rule::enum()` / `Rule::requiredIf()` objects and answered any update of a related resource that declares a `ValidationRule` instance with a 500; and no relationship endpoint applied `creationRules()` / `updateRules()`.
 
 ### Immutable fields
 

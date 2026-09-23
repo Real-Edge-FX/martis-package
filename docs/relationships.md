@@ -235,6 +235,8 @@ BelongsToMany::make('Tags', 'tags')
     ])
 ```
 
+Pivot fields validate with their own rules, like any field: the attach runs `rules()` plus `creationRules()`, and the pivot update runs `rules()` plus `updateRules()` with the literal `required` dropped and `sometimes` first, so a pivot field the update does not send is left alone. Rule objects (`Rule::in()`, `Rule::unique()`), `ValidationRule` instances and closures run on both. See [Fields → What an update validates](fields.md#what-an-update-validates).
+
 ### Full Configuration
 
 ```php
@@ -593,6 +595,7 @@ The hardening pass codified the contract every relationship surface guarantees. 
 | Delete / detach scoped — never touches another parent's records | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 404 on unknown parent / record / relationship | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 422 on missing required input | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Field rules run as on the resource endpoint (rule objects, `ValidationRule`s, closures, `creationRules()` / `updateRules()`) | ✅ | ✅ | ✅ (pivot fields) | ✅ | ✅ | ✅ (pivot fields) |
 | Pivot data round-trip on attach + index + update | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Authorization — `authorizedToCreate` / view / detach respected | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
@@ -676,14 +679,15 @@ For every morph relation (`MorphMany`, `MorphOne`, `MorphToMany`), the controlle
 
 Per-type feature tests:
 
-- `tests/Feature/HasManyControllerTest.php` (19)
-- `tests/Feature/HasOneControllerTest.php` (10)
-- `tests/Feature/BelongsToManyControllerTest.php` (21)
-- `tests/Feature/MorphManyControllerTest.php` (16)
-- `tests/Feature/MorphOneControllerTest.php` (12)
-- `tests/Feature/MorphToManyControllerTest.php` (13)
-- `tests/Feature/PivotActionControllerTest.php` (5)
+- `tests/Feature/HasManyControllerTest.php` (22)
+- `tests/Feature/HasOneControllerTest.php` (11)
+- `tests/Feature/BelongsToManyControllerTest.php` (24)
+- `tests/Feature/MorphManyControllerTest.php` (17)
+- `tests/Feature/MorphOneControllerTest.php` (13)
+- `tests/Feature/MorphToManyControllerTest.php` (16)
+- `tests/Feature/PivotActionControllerTest.php` (8)
 - `tests/Feature/RelationshipsHardeningTest.php` (8) — multi-relation isolation, `relatableQueryUsing`, `relatable{PluralModelName}`, detach idempotency, search.
+- `tests/Feature/RelationshipFieldRulesTest.php` (61) — every kind of field rule and the context rules on each write endpoint, next to the resource endpoint they match.
 
 ---
 

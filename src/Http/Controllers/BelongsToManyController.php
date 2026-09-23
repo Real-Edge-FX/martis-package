@@ -15,6 +15,7 @@ use Martis\Enums\SortDirection;
 use Martis\FieldContext;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\Field;
+use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -35,6 +36,8 @@ use Martis\SearchResolver;
  */
 class BelongsToManyController extends MartisController
 {
+    use BuildsFieldRules;
+
     /** Create the controller and inject the resource registry. */
     public function __construct(
         private readonly ResourceRegistry $registry,
@@ -435,7 +438,7 @@ class BelongsToManyController extends MartisController
             $pivotAttributes = [];
             foreach ($pivotFields as $pf) {
                 if ($pf instanceof Field) {
-                    $pivotRules[$pf->attribute()] = $pf->buildRules();
+                    $pivotRules[$pf->attribute()] = $this->buildFieldRules($pf, isUpdate: false);
                     $pivotAttributes[$pf->attribute()] = $pf->label();
                 }
             }
@@ -562,8 +565,7 @@ class BelongsToManyController extends MartisController
         $pivotAttributes = [];
         foreach ($pivotFields as $pf) {
             if ($pf instanceof Field) {
-                $fieldRules = array_values(array_filter($pf->buildRules(), fn ($r) => is_string($r) && $r !== 'required'));
-                $pivotRules[$pf->attribute()] = empty($fieldRules) ? ['sometimes'] : array_merge(['sometimes'], $fieldRules);
+                $pivotRules[$pf->attribute()] = $this->buildFieldRules($pf, isUpdate: true);
                 $pivotAttributes[$pf->attribute()] = $pf->label();
             }
         }
