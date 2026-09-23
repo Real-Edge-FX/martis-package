@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Docs
+
+- The installation guide and the components page, the header of the published `vite.extensions.config.ts` and the code comments on the runtime and the install command still said the `react-dom` shim carries `createPortal` and nothing else; they now name `flushSync` too, which it carries since v1.38.2.
+
 ## [1.38.2] — 2026-09-23
 
 ### Fixed
