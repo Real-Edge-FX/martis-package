@@ -15,8 +15,9 @@ import type { FieldDefinition } from '@/types'
 //
 // `actionsUrl` is the panel's pivot actions endpoint,
 // `/api/resources/{resource}/{id}/{belongs-to-many|morph-to-many}/{relationship}/actions`.
-// The action's fields come from `{actionsUrl}/{uriKey}/fields` and the run
-// posts to `{actionsUrl}/{uriKey}`, so an action declared on the field with
+// The action's fields come from `{actionsUrl}/{uriKey}/fields`, their
+// relation pickers from `{actionsUrl}/{uriKey}/relatable/{attribute}`, and the
+// run posts to `{actionsUrl}/{uriKey}`, so an action declared on the field with
 // `->actions()` (which is not one of the resource's own actions) resolves
 // through the same relationship the panel lists it for.
 // -------------------------------------------------------------------------
@@ -202,6 +203,7 @@ export function PivotActionModal({
                     }
                     error={fieldErrors[f.attribute]}
                     context="create"
+                    actionEndpoint={actionUrl}
                   />
                 </div>
               ))}

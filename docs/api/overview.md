@@ -237,6 +237,7 @@ Per-resource and per-row action execution.
 | `POST` | `/martis/api/resources/{resource}/actions/{action}` | Run a bulk / standalone action. |
 | `POST` | `/martis/api/resources/{resource}/{id}/actions/{action}` | Run an inline (per-row) action. |
 | `GET` | `/martis/api/resources/{resource}/{id}/belongs-to-many/{rel}/actions` | Pivot-row actions list. |
+| `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions/{action}/relatable/{field}` | Options of a `BelongsTo` / `MorphTo` / `Tag` a pivot action declares, behind the panel's pivot action gates, with the parent resource as the source of the relatable hooks (v1.38.0). |
 | `POST` | `/martis/api/resources/{resource}/{id}/belongs-to-many/{rel}/actions/{action}` | Run a pivot-row action. |
 
 ## Translation Endpoint

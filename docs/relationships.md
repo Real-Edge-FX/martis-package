@@ -708,7 +708,7 @@ The first declaration found wins: when `fields()` and `fieldsForUpdate()` declar
 
 The pickers fill `{id}` from the form they render in: the record under edit on an update form, `_` on a create form. A create form nested in another resource's page sends `_` as well, so the inline-create modal and a create drawer opened from an edit or detail page read the create forms of their own resource. A record id the host passes explicitly (`recordId`, as a Tool form bound to a record does) always wins; otherwise the record id in the page URL is only used outside a create form, and only for the page's own resource.
 
-The pickers of an Action modal ask the Action instead: `GET /api/resources/{resource}/actions/{action}/relatable/{attribute}` looks the field up in the Action's `fields()`, so its related resource, `relatableQueryUsing()` and `withoutTrashed()` apply, and the resource the Action runs on is the source of the `relatable{PluralModelName}()` hook. It answers 403 without `viewAny` on that resource or when the Action's `canSee()` denies, and 404 for an attribute the Action does not declare as a `BelongsTo`, `MorphTo` or `Tag`. See [Actions → Relation fields](actions.md#relation-fields).
+The pickers of an Action modal ask the Action instead: `GET /api/resources/{resource}/actions/{action}/relatable/{attribute}` looks the field up in the Action's `fields()`, so its related resource, `relatableQueryUsing()` and `withoutTrashed()` apply, and the resource the Action runs on is the source of the `relatable{PluralModelName}()` hook. It answers 403 without `viewAny` on that resource or when the Action's `canSee()` denies, and 404 for an attribute the Action does not declare as a `BelongsTo`, `MorphTo` or `Tag`. The modal of a pivot action asks its panel the same way, under `/{resource}/{id}/{belongs-to-many|morph-to-many}/{relationship}/actions/{action}/relatable/{attribute}`, with the gates of the panel's pivot actions (see [Pivot Actions](#pivot-actions)) and the parent resource as the source. See [Actions → Relation fields](actions.md#relation-fields).
 
 > Before v1.38.0 the pickers of an Action modal asked the page's resource: an attribute only the Action declares answered 404 with an empty picker, and one the resource also declares listed the resource's options (its related resource and scope) instead of the Action's.
 
@@ -716,7 +716,7 @@ The [Slug](fields.md#slug) collision check reads the forms in the same order (th
 
 ### Relatable scoping precedence
 
-When a picker list is computed, scopes apply in this order, on **every** picker that targets the resource — the BelongsTo dropdown (`/relatable/{field}`), the Action modal pickers (`/actions/{action}/relatable/{field}`, with the resource the Action runs on as the source), the context-free relatable form (`/_/_/relatable/{field}?related_resource=`), and the BelongsToMany / MorphToMany attach picker (`.../attachable`):
+When a picker list is computed, scopes apply in this order, on **every** picker that targets the resource — the BelongsTo dropdown (`/relatable/{field}`), the Action modal pickers (`/actions/{action}/relatable/{field}`, with the resource the Action runs on as the source, and `.../{relationship}/actions/{action}/relatable/{field}` for a pivot action, with the parent resource), the context-free relatable form (`/_/_/relatable/{field}?related_resource=`), and the BelongsToMany / MorphToMany attach picker (`.../attachable`):
 
 1. **`relatableQuery` on the target resource** — the generic fence the target declares for itself. It always runs.
 2. **`relatable{PluralModelName}` on the source resource** (specific override, gets passed the field) — narrows the already-fenced query for that source's relationships.
@@ -767,6 +767,7 @@ Per-type feature tests:
 - `tests/Feature/PivotReadonlyImmutableFieldsTest.php` (24) — `readonly()` and `immutable()` pivot fields on the attach (single and batch) and the pivot update, next to the resource endpoint they match, plus a pivot update with nothing to write.
 - `tests/Feature/FormFieldLookupTest.php` (19) — `BelongsTo`, `MorphTo` and `Tag` pickers declared only in `fieldsForCreate()` / `fieldsForUpdate()` / `fieldsForInlineCreate()`, the form declaration winning over `fields()`, the record bound to the update form, the `fields()` fallback and the `viewAny` gate, plus the Slug check, `dependsOn` sync and `Select` search on a form-only field.
 - `tests/Feature/ActionRelatableEndpointTest.php` (13) — `BelongsTo`, `MorphTo` and `Tag` pickers of an Action modal: the Action's declaration (related resource, `relatableQueryUsing()`) over the resource's, the relatable hooks, search, 404 for what the Action does not declare, and the `viewAny` / `canSee()` gates.
+- `tests/Feature/PivotActionRelatableEndpointTest.php` (12) — the same pickers in a pivot action modal, on `BelongsToMany` and `MorphToMany` panels: field actions and resource `pivotAction()` ones, the parent resource's relatable hooks, and 404 for an action the panel does not offer, an undeclared attribute or relationship, or a missing parent.
 
 ---
 

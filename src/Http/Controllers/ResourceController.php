@@ -20,15 +20,18 @@ use Martis\Enums\SortDirection;
 use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\BelongsTo;
+use Martis\Fields\BelongsToMany as BelongsToManyField;
 use Martis\Fields\DeferredRelationSync;
 use Martis\Fields\DeferredRepeaterSync;
 use Martis\Fields\Field;
 use Martis\Fields\File;
 use Martis\Fields\MorphTo;
+use Martis\Fields\MorphToMany as MorphToManyField;
 use Martis\Fields\Tag as TagField;
 use Martis\Filters\Filter;
 use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
+use Martis\Http\Controllers\Concerns\ResolvesPivotActions;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -55,6 +58,7 @@ class ResourceController extends MartisController
 {
     use BuildsFieldRules;
     use DecodesStructuredValues;
+    use ResolvesPivotActions;
 
     /** Create the controller and inject the resource registry. */
     public function __construct(
@@ -1311,8 +1315,90 @@ class ResourceController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
+        return $this->actionFieldRelatableResponse($request, $actionInstance, $fieldAttr, $resourceClass);
+    }
+
+    /**
+     * Return filtered options for a relationship field of a pivot action.
+     *
+     * GET /api/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}/relatable/{field}
+     *
+     * The pivot action modal of a many-to-many panel asks here. The Action
+     * is found where the panel's fields endpoint finds it (the field's
+     * actions(), then the resource's pivotAction() ones), behind the same
+     * gates, and its own declaration of the field applies, with the parent
+     * resource as the source of the relatable hooks.
+     */
+    public function pivotActionRelatableOptions(
+        Request $request,
+        string $resource,
+        string $id,
+        string $relationship,
+        string $action,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        return $this->pivotActionRelatable($request, $resource, $id, $relationship, $action, $fieldAttr, BelongsToManyField::class);
+    }
+
+    /**
+     * Return filtered options for a relationship field of a MorphToMany
+     * pivot action (see pivotActionRelatableOptions()).
+     *
+     * GET /api/resources/{resource}/{id}/morph-to-many/{relationship}/actions/{action}/relatable/{field}
+     */
+    public function morphToManyPivotActionRelatableOptions(
+        Request $request,
+        string $resource,
+        string $id,
+        string $relationship,
+        string $action,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        return $this->pivotActionRelatable($request, $resource, $id, $relationship, $action, $fieldAttr, MorphToManyField::class);
+    }
+
+    /**
+     * @param  class-string<BelongsToManyField|MorphToManyField>  $fieldClass
+     */
+    private function pivotActionRelatable(
+        Request $request,
+        string $resource,
+        string $id,
+        string $relationship,
+        string $action,
+        string $fieldAttr,
+        string $fieldClass,
+    ): IlluminateJsonResponse {
+        [$resourceClass, $error] = $this->resolveResource($resource);
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        /** @var class-string<\Martis\Resource> $resourceClass */
+        $resolved = $this->resolvePivotAction($request, $resourceClass, $id, $relationship, $action, $fieldClass);
+
+        if ($resolved instanceof IlluminateJsonResponse) {
+            return $resolved;
+        }
+
+        return $this->actionFieldRelatableResponse($request, $resolved['action'], $fieldAttr, $resourceClass);
+    }
+
+    /**
+     * The options of a relationship field an Action declares, once the
+     * endpoint found the Action and ran its gates.
+     *
+     * @param  class-string<\Martis\Resource>  $resourceClass  The resource that declares the Action
+     */
+    private function actionFieldRelatableResponse(
+        Request $request,
+        ActionContract $action,
+        string $fieldAttr,
+        string $resourceClass,
+    ): IlluminateJsonResponse {
         $relationField = $this->findField(
-            [fn (): array => $actionInstance->fields($request)],
+            [fn (): array => $action->fields($request)],
             $fieldAttr,
             [BelongsTo::class, MorphTo::class, TagField::class],
         );

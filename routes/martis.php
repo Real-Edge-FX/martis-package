@@ -409,6 +409,8 @@ Route::middleware(config('martis.middleware', ['web']))
                                     ->name('resources.belongs-to-many.actions.index');
                                 Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}/fields', [ActionController::class, 'pivotFields'])
                                     ->name('resources.belongs-to-many.actions.fields');
+                                Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}/relatable/{field}', [ResourceController::class, 'pivotActionRelatableOptions'])
+                                    ->name('resources.belongs-to-many.actions.relatable');
                                 Route::post('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}', [ActionController::class, 'executePivot'])
                                     ->name('resources.belongs-to-many.actions.execute');
 
@@ -428,6 +430,8 @@ Route::middleware(config('martis.middleware', ['web']))
                                     ->name('resources.morph-to-many.actions.index');
                                 Route::get('/resources/{resource}/{id}/morph-to-many/{relationship}/actions/{action}/fields', [ActionController::class, 'morphToManyPivotFields'])
                                     ->name('resources.morph-to-many.actions.fields');
+                                Route::get('/resources/{resource}/{id}/morph-to-many/{relationship}/actions/{action}/relatable/{field}', [ResourceController::class, 'morphToManyPivotActionRelatableOptions'])
+                                    ->name('resources.morph-to-many.actions.relatable');
                                 Route::post('/resources/{resource}/{id}/morph-to-many/{relationship}/actions/{action}', [ActionController::class, 'executeMorphToManyPivot'])
                                     ->name('resources.morph-to-many.actions.execute');
 

@@ -489,6 +489,8 @@ public function fields(Request $request): array
 
 The endpoint is gated like running the Action (403 without `viewAny` on the resource, or when the Action's `canSee()` denies), then like every picker (403 without `viewAny` on the related resource), and answers 404 for an attribute the Action does not declare as a `BelongsTo`, `MorphTo` or `Tag`. The scope decides what the picker lists; `handle()` receives the submitted value under the field's attribute (`$fields->assignee_id` for the `BelongsTo` above) and should check it like any other input.
 
+The modal of a [pivot action](#pivot-actions) asks the relationship panel instead, `GET /api/resources/{resource}/{id}/{belongs-to-many|morph-to-many}/{relationship}/actions/{action}/relatable/{attribute}`: it finds the action where the panel's fields endpoint finds it (the field's `->actions()`, then the resource's `->pivotAction()` ones), behind the same gates, and reads the action's declaration of the field with the parent resource as the source of the relatable hooks.
+
 > Before v1.38.0 these pickers asked the page's resource for the attribute: one only the Action declares answered 404 and the picker opened empty, and one the resource also declares listed the resource's options instead of the Action's.
 
 ---
@@ -1290,6 +1292,7 @@ The pivot action routes (see the [API Reference](#api-reference)) resolve `{rela
 | `POST` | `/api/resources/{resource}/{id}/actions/{action}` | Execute action (single record) |
 | `GET` | `/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions` | List the pivot actions of a relationship panel (see [Pivot Actions](#pivot-actions)) |
 | `GET` | `/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions/{action}/fields` | Get pivot action fields |
+| `GET` | `/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions/{action}/relatable/{attribute}` | Options of a `BelongsTo` / `MorphTo` / `Tag` the pivot action declares (see [Relation fields](#relation-fields)) |
 | `POST` | `/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions/{action}` | Execute a pivot action on attached records (`resources` holds related ids) |
 
 ### Execute request body
