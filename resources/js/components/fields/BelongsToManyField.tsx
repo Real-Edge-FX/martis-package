@@ -13,6 +13,7 @@ import { useRelationParent } from './NestedParentContext'
 import { recordHref } from '@/lib/recordHref'
 import { useModalHistoryLock } from '@/lib/historyLock'
 import { lockImmutableFields } from '@/lib/lockImmutableFields'
+import { useHiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
 import { pivotRowActions } from '@/lib/relationRowActions'
 import { useTranslation } from 'react-i18next'
 import type { ActionMeta } from '@/components/Actions/ActionModal'
@@ -914,14 +915,18 @@ export function EditPivotModal({
 }) {
   const { t: tAct } = useTranslation('actions')
   // The pivot update skips an `immutable()` pivot field, so it renders
-  // read-only here (the attach form keeps it editable).
-  const fields = useMemo(() => lockImmutableFields(pivotFields), [pivotFields])
+  // read-only here (the attach form keeps it editable). A pivot field the
+  // pivot row hides (`_hidden` among its values) is left out: the form
+  // neither renders it empty nor sends it.
+  const hidden = useHiddenAttributes(initialValues)
+  const shownFields = useMemo(() => withoutHiddenFields(pivotFields, hidden), [pivotFields, hidden])
+  const fields = useMemo(() => lockImmutableFields(shownFields), [shownFields])
 
   useModalHistoryLock(true)
 
   const [values, setValues] = useState<Record<string, unknown>>(() => {
     const seeded: Record<string, unknown> = {}
-    for (const pf of pivotFields) {
+    for (const pf of shownFields) {
       seeded[pf.attribute] = initialValues[pf.attribute] ?? null
     }
     return seeded

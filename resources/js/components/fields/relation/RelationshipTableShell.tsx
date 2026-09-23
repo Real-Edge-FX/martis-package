@@ -457,6 +457,8 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                   }
                   body={(row: ResourceRecord) => {
                     const pivot = row._pivot as Record<string, unknown> | undefined
+                    // A pivot field the pivot row hides (`_pivot._hidden`) leaves its cell empty.
+                    if (isHiddenOn(pivot, pf.attribute)) return null
                     const val = pivot?.[pf.attribute] ?? null
                     return <FieldDisplay field={pf} value={val} resourceKey={relatedResource} />
                   }}

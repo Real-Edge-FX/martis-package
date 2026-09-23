@@ -158,22 +158,39 @@ trait CollectsPivotData
      * Repeater as its read gives them (without the row fields the user
      * cannot see); the other values as they are.
      *
+     * With `$row`, the attributes of the pivot fields `canSeeForModel()`
+     * hides for it are listed under `_hidden` (absent when it hides none),
+     * as a record lists its own: the schema lists the relationship's pivot
+     * fields, and the panel leaves those out of the row's cells and of its
+     * pivot edit form.
+     *
      * @param  list<mixed>  $pivotFields
      * @param  array<string, mixed>  $values
      * @return array<string, mixed>
      */
     protected function presentPivotValues(Request $request, array $pivotFields, array $values, ?Model $row = null): array
     {
+        $hidden = [];
+
         foreach ($pivotFields as $field) {
-            if (! $field instanceof Field || ! array_key_exists($field->attribute(), $values)) {
+            if (! $field instanceof Field || ! $field->isAuthorizedToSee($request)) {
+                if ($field instanceof Field) {
+                    unset($values[$field->attribute()]);
+                }
+
                 continue;
             }
 
-            if (! $field->isAuthorizedToSee($request) || ($row !== null && ! $field->isAuthorizedForModel($request, $row))) {
+            if ($row !== null && ! $field->isAuthorizedForModel($request, $row)) {
+                $hidden[] = $field->attribute();
                 unset($values[$field->attribute()]);
-            } elseif ($field instanceof Repeater) {
+            } elseif ($field instanceof Repeater && array_key_exists($field->attribute(), $values)) {
                 $values[$field->attribute()] = $field->resolveRows($values[$field->attribute()]);
             }
+        }
+
+        if ($hidden !== []) {
+            $values['_hidden'] = array_values(array_unique($hidden));
         }
 
         return $values;

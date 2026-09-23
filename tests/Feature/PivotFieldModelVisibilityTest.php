@@ -243,10 +243,13 @@ it('lists the attached records without the values hidden for their pivot row or 
     $rows = collect($this->getJson("/martis/api/resources/pmv-projects/{$this->project->id}/{$endpoint}/{$relation}")->assertOk()->json('data'))
         ->keyBy('name');
 
-    // The flag comes back as the column stores it (0 / 1 on SQLite).
-    expect($rows['Ann']['_pivot'])->toEqual(['role' => 'Dev', 'shared' => false, 'mentor_id' => null])
-        ->and(array_keys($rows['Ann']['_pivot']))->toBe(['role', 'shared', 'mentor_id'])
+    // The flag comes back as the column stores it (0 / 1 on SQLite). The
+    // pivot values list the fields hidden for their row under `_hidden`
+    // (v1.38.0), as a record lists its own.
+    expect($rows['Ann']['_pivot'])->toEqual(['role' => 'Dev', 'shared' => false, 'mentor_id' => null, '_hidden' => ['rate', 'approver_id']])
+        ->and(array_keys($rows['Ann']['_pivot']))->toBe(['role', 'shared', 'mentor_id', '_hidden'])
         ->and($rows['Ann'])->not->toHaveKey('salary')
+        ->and($rows['Ann']['_hidden'])->toBe(['salary'])
         ->and($rows['Bob']['_pivot'])->toEqual(['role' => 'Lead', 'rate' => '20', 'approver_id' => null, 'shared' => true, 'mentor_id' => null])
         ->and($rows['Bob']['salary'])->toBe('200');
 })->with($endpoints);
