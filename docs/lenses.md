@@ -260,6 +260,13 @@ The first load hydrates the URL with those values. If the user clears
 them manually, the empty state is respected; the defaults do not
 re-populate.
 
+Each lens hydrates its own defaults, also when the page moves to it from
+another lens through the lens dropdown, and starts with no selection and
+no drawer or confirmation of the previous lens open (v1.38.0+). Before
+v1.38.0 only the first lens the page opened applied its defaults: the
+router kept the page when the URL moved to another lens, so that lens
+loaded without its own, under the previous lens's selection.
+
 Use `Lens::defaultFilters(): array` to read the configured map back —
 useful for diagnostics or to forward the defaults into another lens.
 
