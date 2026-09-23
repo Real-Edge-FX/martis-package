@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, ApiError } from '@/lib/api'
 import type { FieldDefinition } from '@/types'
 import { FieldInput } from '@/components/fields/FieldRenderer'
+import { fieldErrorProps } from '@/lib/fieldErrors'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { registry } from '@/lib/registry'
@@ -133,6 +134,9 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   }, [action?.uriKey, visible])
 
   const executeMutation = useMutation({
+    // Each run starts without the errors of the last one, as every form
+    // clears its errors before a save.
+    onMutate: () => setFieldErrors({}),
     mutationFn: (params: { dryRun?: boolean; extraFields?: Record<string, unknown> }) =>
       api.post<{ data: { type?: string; data?: Record<string, unknown>; preview?: unknown } }>(
         `/api/resources/${resource}/actions/${action!.uriKey}`,
@@ -344,7 +348,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
                       setFieldValues((prev) => ({ ...prev, [field.attribute]: val }))
                       setPreview(undefined)
                     }}
-                    error={fieldErrors[field.attribute]}
+                    {...fieldErrorProps(fieldErrors, field.attribute)}
                     context="create"
                     actionEndpoint={`/api/resources/${resource}/actions/${action.uriKey}`}
                   />

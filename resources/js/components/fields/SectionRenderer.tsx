@@ -6,6 +6,7 @@ import { fieldGridSpanStyle, fieldGridStyle } from '@/lib/fieldGridSpan'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
 import { FieldLabelTooltip } from './FieldLabelTooltip'
 import { FieldWrapper } from './FieldWrapper'
+import { fieldErrorProps } from '@/lib/fieldErrors'
 
 // -------------------------------------------------------------------------
 // Section — shared internal container
@@ -145,7 +146,7 @@ export function SectionInput({
                   field={field}
                   value={values[field.attribute]}
                   onChange={(v) => onChange(field.attribute, v)}
-                  error={errors[field.attribute]}
+                  {...fieldErrorProps(errors, field.attribute)}
                   resourceKey={resourceKey}
                   recordId={recordId}
                   toolKey={toolKey}

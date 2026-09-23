@@ -5,6 +5,7 @@ import { api, ApiError } from '@/lib/api'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay, FieldInput } from '@/components/fields/FieldRenderer'
+import { nestedErrorsOf } from '@/lib/fieldErrors'
 import { Pagination } from '@/components/Pagination'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
 import { PivotActionModal } from '@/components/fields/relation/PivotActionModal'
@@ -47,7 +48,7 @@ export function BelongsToManyFieldDisplay({ field, value }: FieldDisplayProps) {
     return <BelongsToManyCountBadge count={value} />
   }
 
-  // No record to attach to yet: like Nova, no panel.
+  // No record to attach to yet: no panel.
   if (!parentId) return null
 
   // Detail page — render the full panel with attach/detach/pivot actions.
@@ -809,6 +810,7 @@ function AttachModal({
                     // The parent's forms do not declare pivot fields: the
                     // relation pickers ask the panel.
                     pivotEndpoint={`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/pivot-fields`}
+                    nestedErrors={nestedErrorsOf(fieldErrors, pf.attribute)}
                   />
                   {fieldError && (
                     <p className="mt-1 text-xs" style={{ color: 'var(--martis-danger)' }}>{fieldError}</p>
@@ -863,7 +865,7 @@ function AttachModal({
 
 export function BelongsToManyFieldInput({ field, formValues }: FieldInputProps) {
   // A create surface names no record (the schema keeps this field off its
-  // forms, like Nova): the panel would read another record, or none.
+  // forms): the panel would read another record, or none.
   const { id: parentId } = useRelationParent()
   if (!parentId) return null
 
@@ -978,6 +980,7 @@ export function EditPivotModal({
                   onChange={(v) => setValues((prev) => ({ ...prev, [pf.attribute]: v }))}
                   context="update"
                   pivotEndpoint={pivotEndpoint}
+                  nestedErrors={nestedErrorsOf(fieldErrors, pf.attribute)}
                 />
                 {fieldError && (
                   <p className="mt-1 text-xs" style={{ color: 'var(--martis-danger)' }}>{fieldError}</p>

@@ -7,6 +7,7 @@ import { api, ApiError } from '@/lib/api'
 import { useModalHistoryLock } from '@/lib/historyLock'
 import { useToast } from '@/contexts/ToastContext'
 import { FieldInput } from '@/components/fields/FieldRenderer'
+import { fieldErrorProps } from '@/lib/fieldErrors'
 import type { ActionMeta } from '@/components/Actions/ActionModal'
 import { ActionDryRunPreview } from '@/components/Actions/ActionDryRunPreview'
 import type { FieldDefinition } from '@/types'
@@ -96,6 +97,9 @@ export function PivotActionModal({
   const fields = fieldsQuery.data?.data?.fields ?? []
 
   const executeMutation = useMutation({
+    // Each run starts without the errors of the last one, as every form
+    // clears its errors before a save.
+    onMutate: () => setFieldErrors({}),
     mutationFn: (params: { dryRun?: boolean }) =>
       api.post<{ data: { type?: string; data?: Record<string, unknown>; preview?: unknown } }>(
         actionUrl,
@@ -215,7 +219,7 @@ export function PivotActionModal({
                       setFieldValues((prev) => ({ ...prev, [f.attribute]: val }))
                       setPreview(undefined)
                     }}
-                    error={fieldErrors[f.attribute]}
+                    {...fieldErrorProps(fieldErrors, f.attribute)}
                     context="create"
                     actionEndpoint={actionUrl}
                   />

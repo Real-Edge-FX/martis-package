@@ -149,7 +149,7 @@ The end-to-end target: your own drawer (composed from `runtime.DrawerShell`, the
 
 ```tsx
 import { useState } from 'react'
-import { DrawerShell, useMartisForm, FieldsForm, api } from '@martis/runtime'
+import { DrawerShell, useMartisForm, FieldsForm, api, ApiError } from '@martis/runtime'
 import type { FieldDefinition } from '@martis/runtime'
 
 const fields: FieldDefinition[] = [
@@ -167,8 +167,9 @@ export function CreateProjectTool() {
       await api.post('/api/tools/create-project', form.values)
       setOpen(false)
     } catch (e) {
-      // Feed a 422 straight into the form — errors render under each field.
-      form.setErrors((e as { errors?: Record<string, string> }).errors ?? {})
+      // Feed a 422 into the form: each error renders under its field, and a
+      // Repeater row error under the row field it belongs to.
+      form.setErrors(e instanceof ApiError ? e.errorsByField() : {})
     }
   }
 
@@ -266,14 +267,14 @@ The three are on the runtime since v1.29.0, but the extension's `.shims/runtime.
 | `values` | `Record<string, unknown>` | Current form values. |
 | `setValue(attribute, value)` | `(string, unknown) => void` | Set one field; also clears that field's error. |
 | `setValues(v)` | `(Record<string, unknown>) => void` | Replace all values. |
-| `errors` | `Record<string, string>` | Per-attribute error messages. |
-| `setErrors(e)` | `(Record<string, string>) => void` | Set errors — feed a server 422 body straight in. |
+| `errors` | `Record<string, string>` | One message per validated path, as `ApiError.errorsByField()` returns a 422: a field's own error under its attribute, an error inside a field's value under its dotted path (`lines.1.fields.name`, a Repeater row field). |
+| `setErrors(e)` | `(Record<string, string>) => void` | Set errors: pass `ApiError.errorsByField()` from a 422 (the server's `errors` list is not a map). |
 | `resolvedFields` | `FieldDefinition[]` | Fields with `dependsOn` overrides applied through the whole container tree. |
 | `recordId?` | `string \| number` | Echo of the bound record id. |
 | `toolKey?` | `string` | Echo of the bound Tool key. |
 | `fieldProps(field)` | see below | The exact prop bundle for a `FieldInput`. |
 
-`fieldProps(field)` returns `{ field, value, onChange, error, resourceKey, recordId, toolKey, formValues }` — spread it straight onto `<FieldInput {...form.fieldProps(field)} />`.
+`fieldProps(field)` returns `{ field, value, onChange, error, nestedErrors, resourceKey, recordId, toolKey, formValues }`: spread it straight onto `<FieldInput {...form.fieldProps(field)} />`. `nestedErrors` holds the errors inside the field's value (a Repeater's rows, keyed `1.fields.name`), so a Repeater shows each row error under its row field (since v1.38.0).
 
 Internally `useMartisForm` runs the **same** `useDependsOnSync` the Resource pages run, and applies the resulting `dependsOn` overrides through the entire container tree (top-level and nested inside `section` / `panel` / `tab_group`). When there is no `resourceKey` the server `dependsOn` round-trip is disabled and overrides simply stay empty — offline degradation, not an error.
 

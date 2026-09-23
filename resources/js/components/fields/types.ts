@@ -18,6 +18,14 @@ export interface FieldInputProps {
   value: unknown
   onChange: (value: unknown) => void
   error?: string
+  /**
+   * The server errors of the values inside this field's value, keyed by their
+   * path below the field's attribute: `1.fields.name` is the `name` field of
+   * row 1 of a Repeater. Only an input whose value holds other values (the
+   * Repeater's rows) reads it. Every bundled form fills it from its error map,
+   * and so does `useMartisForm().fieldProps(field)`.
+   */
+  nestedErrors?: Record<string, string>
   /** The resource URI key (e.g. 'posts') — used by relatable fields to build the correct API endpoint. */
   resourceKey?: string
   /** The record ID being edited — used by relatable fields for contextual relatable queries. */

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { FieldDefinition } from '@/types'
 import { useDependsOnSync } from '@/hooks/useDependsOnSync'
 import { lockImmutableFields } from '@/lib/lockImmutableFields'
+import { fieldErrorProps } from '@/lib/fieldErrors'
 
 export interface MartisFormOptions {
   fields: FieldDefinition[]
@@ -38,6 +39,11 @@ export interface MartisForm {
   values: Record<string, unknown>
   setValue: (attribute: string, value: unknown) => void
   setValues: (v: Record<string, unknown>) => void
+  /**
+   * One message per validated path, as `ApiError.errorsByField()` returns a
+   * 422: a field's own error under its attribute, the error of a value inside
+   * a field's value under its dotted path (`lines.1.fields.name`).
+   */
   errors: Record<string, string>
   setErrors: (e: Record<string, string>) => void
   resolvedFields: FieldDefinition[]
@@ -49,6 +55,8 @@ export interface MartisForm {
     value: unknown
     onChange: (v: unknown) => void
     error?: string
+    /** The errors inside the field's value (a Repeater's rows), keyed by their path below the attribute. */
+    nestedErrors?: Record<string, string>
     resourceKey?: string
     recordId?: string | number
     toolKey?: string
@@ -156,7 +164,7 @@ export function useMartisForm(options: MartisFormOptions): MartisForm {
     field,
     value: values[field.attribute] ?? null,
     onChange: (v: unknown) => setValue(field.attribute, v),
-    error: errors[field.attribute],
+    ...fieldErrorProps(errors, field.attribute),
     resourceKey,
     recordId,
     toolKey,

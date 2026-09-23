@@ -4,6 +4,7 @@ import { api, ApiError, hasFileValues } from '@/lib/api'
 import type { OverrideProps, ResourceRecord, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
 import { FieldInput } from '@/components/fields/FieldRenderer'
 import { FieldWrapper } from '@/components/fields/FieldWrapper'
+import { fieldErrorProps } from '@/lib/fieldErrors'
 import { PanelInput } from '@/components/fields/PanelRenderer'
 import { SectionInput } from '@/components/fields/SectionRenderer'
 import { TabsInput } from '@/components/fields/TabsRenderer'
@@ -308,7 +309,7 @@ export function DrawerUpdate(props: OverrideProps) {
                       field={field}
                       value={values[field.attribute] ?? null}
                       onChange={(v) => handleChange(field.attribute, v)}
-                      error={errors[field.attribute]}
+                      {...fieldErrorProps(errors, field.attribute)}
                       resourceKey={resource}
                       recordId={recordId ?? undefined}
                       context="update"

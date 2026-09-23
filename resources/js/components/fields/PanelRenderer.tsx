@@ -5,6 +5,7 @@ import type { PanelDefinition, FieldDefinition } from '@/types'
 import { fieldGridSpanStyle, fieldGridStyle } from '@/lib/fieldGridSpan'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
 import { FieldWrapper } from './FieldWrapper'
+import { fieldErrorProps } from '@/lib/fieldErrors'
 
 // -------------------------------------------------------------------------
 // Panel — shared internal container
@@ -169,7 +170,7 @@ export function PanelInput({
                   field={field}
                   value={values[field.attribute]}
                   onChange={(v) => onChange(field.attribute, v)}
-                  error={errors[field.attribute]}
+                  {...fieldErrorProps(errors, field.attribute)}
                   resourceKey={resourceKey}
                   recordId={recordId}
                   toolKey={toolKey}

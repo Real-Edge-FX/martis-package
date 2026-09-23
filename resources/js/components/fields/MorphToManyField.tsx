@@ -5,6 +5,7 @@ import { api, ApiError } from '@/lib/api'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay, FieldInput } from '@/components/fields/FieldRenderer'
+import { nestedErrorsOf } from '@/lib/fieldErrors'
 import { Pagination } from '@/components/Pagination'
 import { useModalHistoryLock } from '@/lib/historyLock'
 import { useTranslation } from 'react-i18next'
@@ -47,7 +48,7 @@ export function MorphToManyFieldDisplay({ field, value }: FieldDisplayProps) {
     return <MorphToManyCountBadge count={value} />
   }
 
-  // No record to attach to yet: like Nova, no panel.
+  // No record to attach to yet: no panel.
   if (!parentId) return null
 
   // Detail page — render the full panel in read-only mode (no attach/detach/pivot actions)
@@ -757,6 +758,7 @@ function AttachModal({
                     // The parent's forms do not declare pivot fields: the
                     // relation pickers ask the panel.
                     pivotEndpoint={`/api/resources/${parentResource}/${parentId}/morph-to-many/${relationship}/pivot-fields`}
+                    nestedErrors={nestedErrorsOf(fieldErrors, pf.attribute)}
                   />
                   {fieldError && (
                     <p className="mt-1 text-xs" style={{ color: 'var(--martis-danger)' }}>{fieldError}</p>
@@ -811,7 +813,7 @@ function AttachModal({
 
 export function MorphToManyFieldInput({ field }: FieldInputProps) {
   // A create surface names no record (the schema keeps this field off its
-  // forms, like Nova): the panel would read another record, or none.
+  // forms): the panel would read another record, or none.
   const { id: parentId } = useRelationParent()
   if (!parentId) return null
 

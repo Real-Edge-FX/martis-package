@@ -3,6 +3,7 @@ import type { TabGroupDefinition, TabDefinition, FieldDefinition, PanelDefinitio
 import { fieldGridSpanStyle, fieldGridStyle } from '@/lib/fieldGridSpan'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
 import { FieldWrapper } from './FieldWrapper'
+import { fieldErrorProps } from '@/lib/fieldErrors'
 import { PanelDisplay, PanelInput } from './PanelRenderer'
 import { FieldLabelTooltip } from './FieldLabelTooltip'
 
@@ -210,7 +211,7 @@ export function TabsInput({
                     field={field}
                     value={values[field.attribute]}
                     onChange={(v) => onChange(field.attribute, v)}
-                    error={errors[field.attribute]}
+                    {...fieldErrorProps(errors, field.attribute)}
                     resourceKey={resourceKey}
                     recordId={recordId}
                     toolKey={toolKey}

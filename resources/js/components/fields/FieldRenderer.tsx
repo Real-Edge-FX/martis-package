@@ -380,6 +380,7 @@ export function FieldInput({
   value,
   onChange,
   error,
+  nestedErrors,
   resourceKey,
   recordId,
   toolKey,
@@ -393,6 +394,7 @@ export function FieldInput({
   value: unknown
   onChange: (v: unknown) => void
   error?: string
+  nestedErrors?: Record<string, string>
   resourceKey?: string
   recordId?: string | number
   toolKey?: string
@@ -419,6 +421,7 @@ export function FieldInput({
       value={value}
       onChange={onChange}
       error={error}
+      nestedErrors={nestedErrors}
       resourceKey={resourceKey}
       recordId={recordId}
       toolKey={toolKey}

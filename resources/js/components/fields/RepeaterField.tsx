@@ -4,6 +4,8 @@ import { PlusIcon, TrashIcon, CaretUpIcon, CaretDownIcon, DotsSixVerticalIcon, X
 import { createPortal } from 'react-dom'
 import { FieldInput } from './FieldRenderer'
 import { ResourceIcon } from '@/components/ResourceIcon'
+import { nestedErrorsOf, rowErrorsByIndex } from '@/lib/fieldErrors'
+import type { FormErrors, RowErrors } from '@/lib/fieldErrors'
 import type { FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 
@@ -100,6 +102,45 @@ function defaultCollapsed(rows: RepeaterRow[], meta: RepeaterMeta): Record<strin
   return map
 }
 
+/** The key a row is known by: its id, or its position when it has none. */
+function rowKeyOf(row: RepeaterRow, index: number): string {
+  return String(row.id ?? index)
+}
+
+/**
+ * The server errors of the rows, bound to the key of the row each one was
+ * reported for. The server keys them by the position the row had in the
+ * save that failed, which is still its position when the errors arrive.
+ * A row with no id (a legacy JSON row) is known by its position, so its
+ * errors do not follow it when the rows above it move.
+ */
+function bindRowErrors(rows: RepeaterRow[], nestedErrors: FormErrors | undefined): Record<string, RowErrors> {
+  const bound: Record<string, RowErrors> = {}
+  for (const [index, errors] of Object.entries(rowErrorsByIndex(nestedErrors))) {
+    const row = rows[Number(index)]
+    if (row) bound[rowKeyOf(row, Number(index))] = errors
+  }
+  return bound
+}
+
+/** `collapsed` with every row that has an error open: a collapsed row would hide it. */
+function openRowsWithErrors(collapsed: Record<string, boolean>, rowErrors: Record<string, RowErrors>): Record<string, boolean> {
+  const keys = Object.keys(rowErrors)
+  if (keys.length === 0) return collapsed
+  const next = { ...collapsed }
+  keys.forEach((key) => { next[key] = false })
+  return next
+}
+
+/** `rowErrors` without the error of one row field (the errors inside the field's value stay). */
+function withoutFieldError(rowErrors: Record<string, RowErrors>, key: string, attribute: string): Record<string, RowErrors> {
+  const row = rowErrors[key]
+  if (!row || !(attribute in row.fields)) return rowErrors
+  const fields = { ...row.fields }
+  delete fields[attribute]
+  return { ...rowErrors, [key]: { ...row, fields } }
+}
+
 /** Apply a `{attr}` template against the row's field values. */
 function applyTitleTemplate(template: string, rowFields: Record<string, unknown>): string {
   return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (_m, key) => {
@@ -182,7 +223,7 @@ export function RepeaterFieldDisplay({ field, value }: FieldDisplayProps) {
 // Input (create/update)
 // ---------------------------------------------------------------------------
 
-export function RepeaterFieldInput({ field, value, onChange, error, resourceKey, recordId, context, toolKey, actionEndpoint, pivotEndpoint, formValues }: FieldInputProps) {
+export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors, resourceKey, recordId, context, toolKey, actionEndpoint, pivotEndpoint, formValues }: FieldInputProps) {
   const { t } = useTranslation('messages')
   const { t: tAct } = useTranslation('actions')
 
@@ -201,7 +242,19 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
 
   const rows = useMemo(() => normalizeRows(value), [value])
 
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => defaultCollapsed(rows, meta))
+  // The server errors of the rows. `nestedErrors` keys them by the position
+  // each row had in the save that failed (`1.fields.name`); they are bound to
+  // the rows' keys when they arrive, so an error stays on its row when rows
+  // are removed, reordered or added afterwards, and editing a row field
+  // clears that field's error, as a form clears a field's own error on edit.
+  // New errors are told apart by content while rendering: the form hands a
+  // new object on every render, and every bundled form clears its errors
+  // before a save, so the errors of the next failed save always arrive as new.
+  const errorsSignature = nestedErrors ? JSON.stringify(nestedErrors) : ''
+  const [adoptedErrors, setAdoptedErrors] = useState(errorsSignature)
+  const [rowErrors, setRowErrors] = useState<Record<string, RowErrors>>(() => bindRowErrors(rows, nestedErrors))
+
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => openRowsWithErrors(defaultCollapsed(rows, meta), rowErrors))
 
   // The last value this input handed to `onChange`. A `value` prop that
   // differs from it came from outside (the edit form seeding the stored rows
@@ -215,6 +268,13 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
   if (value !== renderedValue) {
     setRenderedValue(value)
     if (value !== emitted.current) setCollapsed(defaultCollapsed(rows, meta))
+  }
+
+  if (errorsSignature !== adoptedErrors) {
+    const bound = bindRowErrors(rows, nestedErrors)
+    setAdoptedErrors(errorsSignature)
+    setRowErrors(bound)
+    setCollapsed((prev) => openRowsWithErrors(prev, bound))
   }
 
   // Which `value` the last emission started from. Several row fields can
@@ -335,6 +395,8 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
       fields: { ...next[index].fields, [attribute]: fieldValue },
     }
     commit(next)
+    const key = rowKeyOf(next[index], index)
+    setRowErrors((prev) => withoutFieldError(prev, key, attribute))
   }
 
   const toggleCollapse = (rowId: string) => {
@@ -373,8 +435,9 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
         const rep = repeatableFor(row.type)
         if (!rep) return null
 
-        const rowKey = String(row.id ?? index)
+        const rowKey = rowKeyOf(row, index)
         const isCollapsed = meta.collapsible === true && !!collapsed[rowKey]
+        const errorsOfRow = rowErrors[rowKey]
 
         // The "#N" badge below already renders the row number for a static
         // label, so the text carries it only inside a dynamic title's fallback.
@@ -471,13 +534,19 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
               )}
             </div>
 
+            {/* Errors of the row itself (a row type the server rejected), shown even when the row is collapsed */}
+            {errorsOfRow && errorsOfRow.row.length > 0 && (
+              <div className="flex flex-col gap-1 px-4 pt-3">
+                {errorsOfRow.row.map((message, messageIndex) => (
+                  <small key={messageIndex} style={{ color: 'var(--martis-danger)' }}>{message}</small>
+                ))}
+              </div>
+            )}
+
             {/* Body */}
             {!isCollapsed && (
               <div className="space-y-3 p-4">
                 {rep.fields.map((childField, fieldIndex) => {
-                  const rowError = error && typeof error === 'object'
-                    ? ((error as unknown as Record<string, Record<string, string>>)[String(index)]?.[childField.attribute])
-                    : undefined
                   return (
                     <div key={`${childField.attribute}-${fieldIndex}`} className="grid grid-cols-3 gap-4">
                       <div>
@@ -497,7 +566,8 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                           field={childField}
                           value={row.fields[childField.attribute] ?? null}
                           onChange={(v) => updateRowField(index, childField.attribute, v)}
-                          error={rowError}
+                          error={errorsOfRow?.fields[childField.attribute]}
+                          nestedErrors={nestedErrorsOf(errorsOfRow?.fields, childField.attribute)}
                           // The form's scope, plus the row: server-backed row
                           // fields (relation pickers, remote Select search)
                           // name it, and the server reads the field from it.
@@ -532,6 +602,8 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
           </div>
         )
       })}
+
+      {error && <small style={{ color: 'var(--martis-danger)' }}>{error}</small>}
 
       {/* Footer — Add row + cardinality feedback */}
       <div className="flex items-center justify-between">

@@ -1862,6 +1862,14 @@ interface FieldInputProps {
     value: unknown;
     onChange: (value: unknown) => void;
     error?: string;
+    /**
+     * The server errors of the values inside this field's value, keyed by their
+     * path below the field's attribute: `1.fields.name` is the `name` field of
+     * row 1 of a Repeater. Only an input whose value holds other values (the
+     * Repeater's rows) reads it. Every bundled form fills it from its error map,
+     * and so does `useMartisForm().fieldProps(field)`.
+     */
+    nestedErrors?: Record<string, string>;
     /** The resource URI key (e.g. 'posts') — used by relatable fields to build the correct API endpoint. */
     resourceKey?: string;
     /** The record ID being edited — used by relatable fields for contextual relatable queries. */
@@ -1933,11 +1941,12 @@ declare function FieldDisplay({ field, value, resourceKey, context, }: {
  *
  * @param resourceKey  The resource URI key — enables per-resource overrides
  */
-declare function FieldInput({ field, value, onChange, error, resourceKey, recordId, toolKey, context, actionEndpoint, pivotEndpoint, repeaterRow, formValues, }: {
+declare function FieldInput({ field, value, onChange, error, nestedErrors, resourceKey, recordId, toolKey, context, actionEndpoint, pivotEndpoint, repeaterRow, formValues, }: {
     field: FieldDefinition;
     value: unknown;
     onChange: (v: unknown) => void;
     error?: string;
+    nestedErrors?: Record<string, string>;
     resourceKey?: string;
     recordId?: string | number;
     toolKey?: string;
@@ -4902,6 +4911,11 @@ interface MartisForm {
     values: Record<string, unknown>;
     setValue: (attribute: string, value: unknown) => void;
     setValues: (v: Record<string, unknown>) => void;
+    /**
+     * One message per validated path, as `ApiError.errorsByField()` returns a
+     * 422: a field's own error under its attribute, the error of a value inside
+     * a field's value under its dotted path (`lines.1.fields.name`).
+     */
     errors: Record<string, string>;
     setErrors: (e: Record<string, string>) => void;
     resolvedFields: FieldDefinition[];
@@ -4913,6 +4927,8 @@ interface MartisForm {
         value: unknown;
         onChange: (v: unknown) => void;
         error?: string;
+        /** The errors inside the field's value (a Repeater's rows), keyed by their path below the attribute. */
+        nestedErrors?: Record<string, string>;
         resourceKey?: string;
         recordId?: string | number;
         toolKey?: string;

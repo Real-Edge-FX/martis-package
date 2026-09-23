@@ -10,6 +10,7 @@ import type { FieldDefinition } from "@/types"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { useModalHistoryLock } from "@/lib/historyLock"
 import { NestedParentProvider } from "@/components/fields/NestedParentContext"
+import { fieldErrorProps, isFieldErrorKey } from "@/lib/fieldErrors"
 
 /** Modal size — maps to a max-width in pixels so the panel scales
  *  beyond the 480px default of `.martis-modal-surface`. */
@@ -108,14 +109,14 @@ export function InlineCreateModal({
       if (err instanceof ApiError && err.errors && err.errors.length > 0) {
         const byField = err.errorsByField()
         // Get visible field attributes from schema
-        const visibleFields = new Set(
-          schemaQuery.data?.data?.fields?.map((f) => f.attribute) ?? [],
-        )
-        // Separate mapped (visible) vs unmapped (invisible field) errors
+        const visibleFields = schemaQuery.data?.data?.fields?.map((f) => f.attribute) ?? []
+        // Separate mapped (visible) vs unmapped (invisible field) errors. An
+        // error inside a visible field's value (a Repeater row field,
+        // `lines.0.fields.name`) belongs to that field.
         const mapped: Record<string, string> = {}
         const unmapped: string[] = []
         for (const [field, msg] of Object.entries(byField)) {
-          if (visibleFields.has(field)) {
+          if (visibleFields.some((attribute) => isFieldErrorKey(field, attribute))) {
             mapped[field] = msg
           } else {
             unmapped.push(msg)
@@ -277,7 +278,7 @@ export function InlineCreateModal({
                           field={field}
                           value={values[field.attribute] ?? null}
                           onChange={(v) => handleChange(field.attribute, v)}
-                          error={errors[field.attribute]}
+                          {...fieldErrorProps(errors, field.attribute)}
                           resourceKey={relatedResource}
                           context="create"
                         />

@@ -508,6 +508,8 @@ export function StatusSelect({ field, value, onChange, error }: FieldInputProps)
 
 If you opted out of the Tailwind preset, the same effect works with inline styles (`style={{ color: 'var(--martis-danger)' }}`) or the bundled helper classes (`.martis-text`, `.martis-border`). Either way, **don't hard-code colours like `bg-red-500`** — they don't follow the active theme.
 
+**An input whose value holds other values** (rows, items with fields of their own) also receives `nestedErrors`: the server errors of the values inside its value, keyed by their path below the field's attribute. A 422 on the `name` field of row 1 of a `lines` Repeater (`lines.1.fields.name`) reaches the `lines` input as `nestedErrors = { '1.fields.name': 'The Name field is required.' }`, while `error` keeps the field's own message. The bundled `Repeater` shows each under the matching row field. An input that renders other inputs passes each child its own error and the entries below `child.`, so a nested input gets its errors too. Every bundled form and `useMartisForm().fieldProps()` fill the prop (since v1.38.0); an input with a scalar value can ignore it.
+
 **`value` can change after the input mounts.** The edit forms (the update page and the update drawer) mount the fields once the record has filled the form, so an input gets the stored value on its first render. When the form moves to another record (the update page follows the record in the URL, the update drawer the record its host hands it), the fields mount again with that record's values, and the create page does the same when it moves to another resource, parent or record to replicate, so no input state carries from one form to the next. "Create & add another" mounts the fields again as well, with the empty values of the next record (v1.38.0+; before v1.38.0 it cleared the values under the mounted inputs, and an input that could not tell the cleared value from its own last one carried the previous record's state over). The replicate form, too, mounts its fields once the copy has filled it (v1.38.0+; before v1.38.0 the copy arrived one render after the fields mounted). The value can still change under a mounted input: a nested create form fills its parent in once the parent has loaded, and a Tool form can replace its values with `setValues()`. Render from `value` where you can. An input that keeps its own state (rows, a selection, a preview) has to adopt a `value` it did not emit itself, and keep its state when the form hands back what it just emitted:
 
 ```typescript
@@ -730,7 +732,7 @@ or team member 2's own rows when team members declare the same relationship).
 A custom create override names no record, since it does not exist yet: pass
 `id: null`. A `BelongsToMany` / `MorphToMany` panel with no record renders
 nothing and asks nothing (the schema keeps both fields off create forms
-anyway, like Nova). Without the provider, a create override opened over a
+anyway). Without the provider, a create override opened over a
 record's page (a Replicate, an action response) would hand its panels that
 record.
 
