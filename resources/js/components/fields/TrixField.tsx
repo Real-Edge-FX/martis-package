@@ -63,12 +63,12 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
   const ext = field as unknown as Record<string, unknown>
   const imageClickBehavior = (ext.imageClickBehavior as string) || 'modal'
   const linkClickBehavior = (ext.linkClickBehavior as string) || 'same_page'
-
-  if (value === null || value === undefined || value === "") {
-    return <span className="martis-text-muted">&mdash;</span>
-  }
-
   const alwaysShow = (ext.alwaysShow as boolean) ?? false
+
+  // Every hook runs before the empty-value return below: the same element
+  // renders a value that is set or cleared later (a refetch, polling, an
+  // inline edit), and React requires the same hooks on every render. With no
+  // value there is no content element, so the effect below does nothing.
   const [expanded, setExpanded] = useState(alwaysShow)
 
   // Intercept image + attachment link clicks inside trix content
@@ -168,6 +168,10 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
 
     return () => el.removeEventListener('click', handleClick)
   }, [expanded, imageClickBehavior, linkClickBehavior, value])
+
+  if (value === null || value === undefined || value === "") {
+    return <span className="martis-text-muted">&mdash;</span>
+  }
 
   if (!expanded) {
     return (

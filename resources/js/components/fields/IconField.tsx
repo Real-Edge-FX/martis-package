@@ -123,25 +123,12 @@ export function IconFieldDisplay({ field, value }: FieldDisplayProps) {
 export function IconFieldInput({ field, value, onChange, error }: FieldInputProps) {
   const { t } = useTranslation('messages')
   const extras = field as unknown as IconExtras
-
-  if (!extras.stored) {
-    // Safety net — a display-only Icon field should never reach a form
-    // renderer, but if a resource mistakenly puts it there we render a
-    // disabled read-out instead of a broken picker.
-    const pair = coerceToPair(value, extras)
-    return (
-      <span className="inline-flex items-center gap-2 text-xs" style={{ color: 'var(--martis-text-muted)' }}>
-        {pair.icon ? <ResourceIcon iconName={pair.icon} size={extras.size ?? 16} /> : '—'}
-        <span>{t('icon_display_only', 'Display only')}</span>
-      </span>
-    )
-  }
-
   const palette = extras.palette && extras.palette.length > 0 ? extras.palette : DEFAULT_PALETTE
-  const size = extras.size ?? 16
-  const selected = typeof value === 'string' && value !== '' ? value : null
-  const selectedColor = resolveIconColor(extras.color) ?? 'var(--martis-text)'
 
+  // The picker's hooks run before the display-only return below: the same
+  // element can be handed a field definition that becomes stored, or stops
+  // being stored, later (a `dependsOn` sync), and React requires the same
+  // hooks on every render.
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const ref = useRef<HTMLDivElement | null>(null)
@@ -161,6 +148,23 @@ export function IconFieldInput({ field, value, onChange, error }: FieldInputProp
     const needle = query.toLowerCase()
     return palette.filter((name) => name.toLowerCase().includes(needle))
   }, [palette, query])
+
+  if (!extras.stored) {
+    // Safety net: a display-only Icon field should never reach a form
+    // renderer, but if a resource mistakenly puts it there we render a
+    // disabled read-out instead of a broken picker.
+    const pair = coerceToPair(value, extras)
+    return (
+      <span className="inline-flex items-center gap-2 text-xs" style={{ color: 'var(--martis-text-muted)' }}>
+        {pair.icon ? <ResourceIcon iconName={pair.icon} size={extras.size ?? 16} /> : '—'}
+        <span>{t('icon_display_only', 'Display only')}</span>
+      </span>
+    )
+  }
+
+  const size = extras.size ?? 16
+  const selected = typeof value === 'string' && value !== '' ? value : null
+  const selectedColor = resolveIconColor(extras.color) ?? 'var(--martis-text)'
 
   return (
     <div ref={ref} className="relative flex flex-col gap-1">

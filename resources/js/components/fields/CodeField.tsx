@@ -70,10 +70,8 @@ function getLanguageExtension(lang: string): Extension | null {
 }
 
 export function CodeFieldDisplay({ field, value }: FieldDisplayProps) {
-  if (value === null || value === undefined || value === "") {
-    return <span className="text-gray-400 dark:text-gray-500">&mdash;</span>
-  }
-
+  // The hooks run before the empty-value return below: the same element
+  // renders a value that is set or cleared later (a refetch, an inline edit).
   const language =
     ((field as Record<string, unknown>).language as string) ?? "javascript"
   const langExt = useMemo(() => getLanguageExtension(language), [language])
@@ -84,6 +82,10 @@ export function CodeFieldDisplay({ field, value }: FieldDisplayProps) {
     if (dark) exts.push(oneDark)
     return exts
   }, [langExt, dark])
+
+  if (value === null || value === undefined || value === "") {
+    return <span className="text-gray-400 dark:text-gray-500">&mdash;</span>
+  }
 
   return (
     <div className="rounded overflow-hidden" style={{ border: "1px solid var(--martis-border)" }}>
