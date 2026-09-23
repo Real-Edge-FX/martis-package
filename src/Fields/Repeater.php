@@ -2,6 +2,7 @@
 
 namespace Martis\Fields;
 
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Http\Request;
@@ -915,13 +916,18 @@ class Repeater extends Field
     }
 
     /**
-     * The rows of a stored JSON value (a list of rows or its JSON), in
-     * order: the entries that are rows.
+     * The rows of a stored JSON value (a list of rows, its JSON, or the
+     * collection an `AsCollection` / `AsArrayObject` cast reads), in order:
+     * the entries that are rows.
      *
      * @return list<array<array-key, mixed>>
      */
     protected function jsonRowsOf(mixed $value): array
     {
+        if ($value instanceof Arrayable) {
+            $value = $value->toArray();
+        }
+
         if (is_string($value)) {
             $decoded = json_decode($value, true);
             $value = is_array($decoded) ? $decoded : [];

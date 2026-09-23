@@ -62,7 +62,9 @@ links) that don't need their own table.
 Requirements:
 
 - Migration adds `->json('attribute')` on the parent table
-- `protected $casts = ['attribute' => 'array']` on the model
+- `protected $casts = ['attribute' => 'array']` on the model (an
+  `AsCollection::class` or `AsArrayObject::class` cast works too; before
+  v1.38.0 a Repeater read no rows from one)
 - `->uniqueField('id')` strongly recommended — Martis otherwise generates
   a UUID on create so rows survive reorder
 
@@ -527,8 +529,11 @@ than leaving the field out of `fields()` for them.
 record, row by row: a new row writes and validates the value it sends, and a
 stored row keeps its value without validating the one it sends back. An update
 form renders the field read-only on the rows the record stores and editable on
-the rows added since; a create form keeps it editable on every row. An
-immutable Repeater as a whole is skipped on every update, as any immutable
+the rows added since; a create form keeps it editable on every row. The
+Repeater's input tells the two forms apart by its `context` prop, which every
+bundled update form sets to `'update'`; a form of your own that renders the
+input with `useMartisForm().fieldProps()` passes `context="update"` next to
+them. An immutable Repeater as a whole is skipped on every update, as any immutable
 field (see [Fields → Immutable fields](fields.md#immutable-fields)).
 
 A Repeater inside a row applies the same rules to its own rows, continued from

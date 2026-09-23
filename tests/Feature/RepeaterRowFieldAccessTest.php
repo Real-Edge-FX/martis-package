@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\Eloquent\Casts\AsCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
@@ -92,7 +93,7 @@ class RFAPageModel extends Model
 
     public $timestamps = false;
 
-    protected $casts = ['sections' => 'array', 'keyed' => 'array', 'menus' => 'array', 'mixed' => 'array', 'custom' => 'array'];
+    protected $casts = ['sections' => 'array', 'keyed' => 'array', 'menus' => 'array', 'mixed' => 'array', 'custom' => 'array', 'listed' => AsCollection::class];
 }
 
 class RFAPageResource extends Resource
@@ -110,6 +111,7 @@ class RFAPageResource extends Resource
             Repeater::make('keyed', 'Keyed')->asJson()->uniqueField('uuid')->repeatables([RFASection::make()]),
             Repeater::make('menus', 'Menus')->asJson()->repeatables([RFAMenu::make()]),
             Repeater::make('mixed', 'Mixed')->asJson()->repeatables([RFASection::make(), RFALink::make()]),
+            Repeater::make('listed', 'Listed')->asJson()->repeatables([RFASection::make()]),
             Repeater::make('custom', 'Custom')->repeatables([RFASection::make()])
                 ->fillUsing(function (Model $model, mixed $value, string $attribute): void {
                     $model->setAttribute($attribute, $value);
@@ -280,7 +282,7 @@ beforeEach(function () {
         $table->id();
         $table->unsignedBigInteger('client_id')->nullable();
         $table->string('name')->nullable();
-        foreach (['sections', 'keyed', 'menus', 'mixed', 'custom'] as $column) {
+        foreach (['sections', 'keyed', 'menus', 'mixed', 'custom', 'listed'] as $column) {
             $table->json($column)->nullable();
         }
     });
@@ -519,6 +521,18 @@ it('keeps the stored values of a row on the HasMany inline update, and validates
     ]]);
     $response->assertStatus(422);
     expect(rfaErrorFields($response))->toBe(['sections.1.fields.slug']);
+});
+
+it('reads and continues the rows of a JSON Repeater on a collection cast', function () {
+    $page = RFAPageModel::create(['listed' => [['id' => 'a', 'type' => 'r-f-a-section', 'fields' => ['name' => 'Hero', 'code' => 'C-1', 'secret' => 's3cr3t']]]]);
+    $uri = "/martis/api/resources/r-f-a-page-models/{$page->id}";
+
+    expect($this->getJson("{$uri}?context=update")->json('data.listed'))
+        ->toBe([['id' => 'a', 'type' => 'r-f-a-section', 'fields' => ['name' => 'Hero', 'code' => 'C-1']]]);
+
+    $this->putJson($uri, ['listed' => [rfaSection(['name' => 'Hero 2', 'code' => 'forged'], ['id' => 'a'])]])->assertOk();
+
+    expect($page->fresh()->listed->first()['fields'])->toEqual(['name' => 'Hero 2', 'code' => 'C-1', 'secret' => 's3cr3t']);
 });
 
 it('hands a fillUsing() callback the rows with the stored values of the fields they cannot write', function () {
