@@ -132,6 +132,28 @@ shell itself).
 Keep in mind: visible = authorized AND NOT hidden. The shell never
 *up-grades* an unauthorized action; the `hideXxx` flags only subtract.
 
+### Which record a panel belongs to
+
+Every relationship panel (the `-Many` panels above and the single-record
+`HasOne` / `MorphOne` cards, `*OfMany` and Through variants included) lists
+the related records of the record it belongs to, and builds every URL from
+it: the list, the pivot actions, the attach picker, Create / Edit links
+(`viaResource` / `viaResourceId`) and Delete / Detach.
+
+| Where the panel renders | The record it belongs to |
+|-------------------------|--------------------------|
+| Top level of a detail page, or an edit form (`BelongsToMany` / `MorphToMany`) | The record in the URL (`/resources/{resource}/{id}`). |
+| Among the fields of a `HasOne` / `MorphOne` card (`*OfMany`, `HasOneThrough`) | The card's related record. |
+| Inside a bundled record drawer (`DrawerDetail`, `DrawerUpdate`, `DrawerQuick`) | The record the drawer shows, which the page URL may not name (a lens row, an index row or an action response opens it). |
+
+On `team-members/2`, a `HasOneThrough` card showing project 3 renders the
+project's `HasMany` tasks from `/api/resources/projects/3/has-many/tasks`, and
+its Create button opens `/resources/tasks/create?viaResource=projects&viaResourceId=3&…`.
+Since **v1.38.0**: before it, only the `HasOne` / `MorphOne` cards honoured the
+enclosing card, so a `HasMany`, `MorphMany`, `BelongsToMany` or `MorphToMany`
+nested in a card or rendered in a drawer asked the page's record (404, or the
+page record's rows when it declares the same relationship).
+
 ---
 
 ## Soft-delete filter

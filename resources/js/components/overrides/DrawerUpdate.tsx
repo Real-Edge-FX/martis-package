@@ -12,6 +12,7 @@ import { DrawerShell } from './DrawerShell'
 import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 import { updatePayload } from '@/lib/updatePayload'
 import { lockImmutableFields } from '@/lib/lockImmutableFields'
+import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 
 /** Recursively extract scalar fields from layout containers (Panel, Section, TabGroup) */
 function extractScalarFields(items: Array<Record<string, unknown>>): FieldDefinition[] {
@@ -221,6 +222,11 @@ export function DrawerUpdate(props: OverrideProps) {
   const icon = params.showIcon ? (params.icon as string) || schema.icon || null : null
   const iconColor = (params.iconColor as string) || null
 
+  // The page behind the drawer may not name this record (an action, a lens row
+  // or an index row opens it), so the relationship panels inside are told
+  // which record they belong to.
+  const relationParent = { resource, id: recordId ?? activeRecord?.id ?? '' }
+
   return (
     <DrawerShell
       title={title}
@@ -269,45 +275,47 @@ export function DrawerUpdate(props: OverrideProps) {
           />
         </div>
       ) : (
-        <form id="martis-drawer-update-form" onSubmit={handleSubmit} noValidate className="martis-form-body martis-form-stack">
-          {allFormFields.map((item, idx) => {
-            if (item.type === 'tab_group') {
-              const tg = item as TabGroupDefinition
-              return <TabsInput key={tg.tabs.map((t) => t.title).join('|') || `tab_group-${idx}`} tabGroup={tg} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
-            }
-            if (item.type === 'section') {
-              const sec = item as SectionDefinition
-              return <SectionInput key={sec.title ?? `section-${idx}`} section={sec} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
-            }
-            if (item.type === 'panel') {
-              const panel = item as PanelDefinition
-              return <PanelInput key={panel.title ?? `panel-${idx}`} panel={panel} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
-            }
-            const field = item as FieldDefinition
-            return (
-              <div key={field.attribute} style={colSpanStyle(field)}>
-                <FieldWrapper
-                  htmlFor={field.attribute}
-                  label={field.label}
-                  required={field.required}
-                  tooltip={field.tooltip}
-                  help={field.helpText}
-                >
-                  <FieldInput
-                    field={field}
-                    value={values[field.attribute] ?? null}
-                    onChange={(v) => handleChange(field.attribute, v)}
-                    error={errors[field.attribute]}
-                    resourceKey={resource}
-                    recordId={recordId ?? undefined}
-                    context="update"
-                    formValues={values}
-                  />
-                </FieldWrapper>
-              </div>
-            )
-          })}
-        </form>
+        <NestedParentProvider value={relationParent}>
+          <form id="martis-drawer-update-form" onSubmit={handleSubmit} noValidate className="martis-form-body martis-form-stack">
+            {allFormFields.map((item, idx) => {
+              if (item.type === 'tab_group') {
+                const tg = item as TabGroupDefinition
+                return <TabsInput key={tg.tabs.map((t) => t.title).join('|') || `tab_group-${idx}`} tabGroup={tg} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
+              }
+              if (item.type === 'section') {
+                const sec = item as SectionDefinition
+                return <SectionInput key={sec.title ?? `section-${idx}`} section={sec} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
+              }
+              if (item.type === 'panel') {
+                const panel = item as PanelDefinition
+                return <PanelInput key={panel.title ?? `panel-${idx}`} panel={panel} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
+              }
+              const field = item as FieldDefinition
+              return (
+                <div key={field.attribute} style={colSpanStyle(field)}>
+                  <FieldWrapper
+                    htmlFor={field.attribute}
+                    label={field.label}
+                    required={field.required}
+                    tooltip={field.tooltip}
+                    help={field.helpText}
+                  >
+                    <FieldInput
+                      field={field}
+                      value={values[field.attribute] ?? null}
+                      onChange={(v) => handleChange(field.attribute, v)}
+                      error={errors[field.attribute]}
+                      resourceKey={resource}
+                      recordId={recordId ?? undefined}
+                      context="update"
+                      formValues={values}
+                    />
+                  </FieldWrapper>
+                </div>
+              )
+            })}
+          </form>
+        </NestedParentProvider>
       )}
 
       <UnsavedChangesDialog

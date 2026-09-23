@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useParams } from 'react-router-dom'
 import { api, ApiError } from '@/lib/api'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
@@ -9,6 +8,7 @@ import { FieldDisplay, FieldInput } from '@/components/fields/FieldRenderer'
 import { Pagination } from '@/components/Pagination'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
 import { PivotActionModal } from '@/components/fields/relation/PivotActionModal'
+import { useRelationParent } from './NestedParentContext'
 import { recordHref } from '@/lib/recordHref'
 import { useModalHistoryLock } from '@/lib/historyLock'
 import { lockImmutableFields } from '@/lib/lockImmutableFields'
@@ -99,7 +99,9 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
   const withSubtitles = !!(field.withSubtitles as boolean | undefined)
   const subtitleAttribute = (field.subtitleAttribute as string | undefined) ?? 'subtitle'
 
-  const { resource: parentResource = '', id: parentId = '' } = useParams<{ resource?: string; id?: string }>()
+  // The record whose related records this panel lists: the enclosing card's
+  // or drawer's record when nested, else the one in the URL.
+  const { resource: parentResource, id: parentId } = useRelationParent()
 
   const [showAttachModal, setShowAttachModal] = useState(false)
   const [detachTarget, setDetachTarget] = useState<{ id: string | number; title?: string } | null>(null)

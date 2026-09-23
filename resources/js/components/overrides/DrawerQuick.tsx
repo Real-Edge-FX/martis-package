@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { DrawerShell } from './DrawerShell'
 import { recordHref } from '@/lib/recordHref'
+import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 
 /**
  * Quick-look drawer override.
@@ -49,6 +50,10 @@ export function DrawerQuick(props: OverrideProps) {
   const previewFields = ((schema.fieldsForPreview ?? schema.fieldsForDetail ?? []) as Array<FieldDefinition | { type: string }>)
     .filter((f): f is FieldDefinition => 'attribute' in f)
 
+  // The page behind the drawer may not name this record, so the relationship
+  // panels inside are told which record they belong to.
+  const relationParent = { resource, id: recordId ?? activeRecord?.id ?? '' }
+
   return (
     <DrawerShell
       title={schema.singularLabel}
@@ -73,24 +78,26 @@ export function DrawerQuick(props: OverrideProps) {
           {recordQuery.isLoading ? t('loading', { defaultValue: 'Loading…' }) : t('no_record', { defaultValue: 'No record found' })}
         </div>
       ) : (
-        <dl className="grid grid-cols-1 gap-4">
-          {previewFields.map((field) => (
-            <div key={field.attribute} className="grid grid-cols-3 gap-3">
-              <dt className="martis-text-muted text-sm">
-                {field.label}
-                <FieldLabelTooltip text={field.tooltip} />
-              </dt>
-              <dd className="col-span-2">
-                <FieldDisplay
-                  field={field}
-                  value={activeRecord[field.attribute]}
-                  resourceKey={resource}
-                  context="detail"
-                />
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <NestedParentProvider value={relationParent}>
+          <dl className="grid grid-cols-1 gap-4">
+            {previewFields.map((field) => (
+              <div key={field.attribute} className="grid grid-cols-3 gap-3">
+                <dt className="martis-text-muted text-sm">
+                  {field.label}
+                  <FieldLabelTooltip text={field.tooltip} />
+                </dt>
+                <dd className="col-span-2">
+                  <FieldDisplay
+                    field={field}
+                    value={activeRecord[field.attribute]}
+                    resourceKey={resource}
+                    context="detail"
+                  />
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </NestedParentProvider>
       )}
     </DrawerShell>
   )

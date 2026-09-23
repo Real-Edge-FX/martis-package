@@ -1,6 +1,7 @@
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
+import { useRelationParent } from './NestedParentContext'
 import { recordHref } from '@/lib/recordHref'
 
 /**
@@ -61,10 +62,9 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
   const relatedResource = field.relatedResource as string
   const redirectAfterSave = (field.redirectAfterSave as string) ?? 'parent'
 
-  const pathParts = window.location.pathname.split('/')
-  const resourcesIdx = pathParts.indexOf('resources')
-  const parentResource = resourcesIdx >= 0 ? pathParts[resourcesIdx + 1] : ''
-  const parentId = resourcesIdx >= 0 ? pathParts[resourcesIdx + 2] : ''
+  // The record whose related records this panel lists: the enclosing card's
+  // or drawer's record when nested, else the one in the URL.
+  const { resource: parentResource, id: parentId } = useRelationParent()
 
   const viaBaseParams = `viaResource=${parentResource}&viaResourceId=${parentId}&viaRelationship=${relationship}`
   const viaParams = `?${viaBaseParams}&redirectMode=${redirectAfterSave}`

@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
 import { DrawerShell } from './DrawerShell'
 import { STANDALONE_RELATIONSHIP_TYPES } from '@/lib/relationshipFieldTypes'
+import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 
 /**
  * Built-in drawer override for the DETAIL context.
@@ -77,8 +78,13 @@ export function DrawerDetail(props: OverrideProps) {
   const icon = params.showIcon ? (params.icon as string) || schema.icon || null : null
   const iconColor = (params.iconColor as string) || null
 
+  // The page behind the drawer may not name this record (an action or a lens
+  // row opens it), so the relationship panels inside are told which record
+  // they belong to.
+  const relationParent = { resource, id: recordId ?? activeRecord?.id ?? '' }
+
   return (
-    <>
+    <NestedParentProvider value={relationParent}>
       <DrawerShell
         title={recordTitle}
         subtitle={subtitle}
@@ -192,6 +198,6 @@ export function DrawerDetail(props: OverrideProps) {
         onCancel={() => setShowDelete(false)}
         confirmMessage={schema.softDeletes ? schema.messages?.archiveConfirm : schema.messages?.deleteConfirm}
       />
-    </>
+    </NestedParentProvider>
   )
 }

@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 import type { ActionMeta } from '@/components/Actions/ActionModal'
 import { PlusIcon, LinkSimpleIcon, LinkBreakIcon, PencilSimpleIcon, MagnifyingGlassIcon, CaretDownIcon, XIcon, LightningIcon } from '@phosphor-icons/react'
 import { EditPivotModal } from './BelongsToManyField'
+import { useRelationParent } from './NestedParentContext'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
 import { PivotActionModal } from '@/components/fields/relation/PivotActionModal'
 import { recordHref } from '@/lib/recordHref'
@@ -96,10 +97,9 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
   const withSubtitles = !!(field.withSubtitles as boolean | undefined)
   const subtitleAttribute = (field.subtitleAttribute as string | undefined) ?? 'subtitle'
 
-  const pathParts = window.location.pathname.split('/')
-  const resourcesIdx = pathParts.indexOf('resources')
-  const parentResource = resourcesIdx >= 0 ? (pathParts[resourcesIdx + 1] ?? '') : ''
-  const parentId = resourcesIdx >= 0 ? (pathParts[resourcesIdx + 2] ?? '') : ''
+  // The record whose related records this panel lists: the enclosing card's
+  // or drawer's record when nested, else the one in the URL.
+  const { resource: parentResource, id: parentId } = useRelationParent()
 
   const [showAttachModal, setShowAttachModal] = useState(false)
   const [detachTarget, setDetachTarget] = useState<{ id: string | number; title?: string } | null>(null)

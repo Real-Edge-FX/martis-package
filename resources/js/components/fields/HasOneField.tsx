@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { NestedParentProvider, useNestedParent } from './NestedParentContext'
+import { NestedParentProvider, useRelationParent } from './NestedParentContext'
 import { buildViaParams } from '@/lib/relationViaParams'
 import { STANDALONE_RELATIONSHIP_TYPES } from '@/lib/relationshipFieldTypes'
 import { useNavigate } from 'react-router-dom'
@@ -76,15 +76,10 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
   const relationship = field.relationship as string
   const relatedResource = field.relatedResource as string
 
-  // Parent context: read NestedParent when rendered inside another
-  // relationship (e.g. a Latest Invoice nested inside a HasOneThrough
-  // Project). Fallback to the URL when we are at the top level of the
-  // detail page.
-  const nested = useNestedParent()
-  const pathParts = window.location.pathname.split('/')
-  const resourcesIdx = pathParts.indexOf('resources')
-  const parentResource = nested?.resource ?? (resourcesIdx >= 0 ? (pathParts[resourcesIdx + 1] ?? '') : '')
-  const parentId = nested?.id !== undefined ? String(nested.id) : (resourcesIdx >= 0 ? (pathParts[resourcesIdx + 2] ?? '') : '')
+  // The record this card belongs to: the enclosing card's or drawer's record
+  // when nested (e.g. a Latest Invoice inside a Project card), else the one
+  // in the URL.
+  const { resource: parentResource, id: parentId } = useRelationParent()
 
   const [deleteOpen, setDeleteOpen] = useState(false)
 

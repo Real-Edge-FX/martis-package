@@ -16,8 +16,12 @@ vi.mock('react-i18next', () => ({
   }),
 }))
 
+// The detail page the panel renders on. Both panels read their parent record
+// from the route; each test names the page it runs on.
+const page = { params: { resource: 'users', id: '7' } }
+
 vi.mock('react-router-dom', () => ({
-  useParams: () => ({ resource: 'users', id: '7' }),
+  useParams: () => page.params,
   Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
 }))
 
@@ -89,13 +93,14 @@ async function runPivotActionFrom(panel: ReactElement) {
 }
 
 beforeEach(() => {
+  page.params = { resource: 'users', id: '7' }
   vi.mocked(api.get).mockReset()
   vi.mocked(api.post).mockReset()
 })
 
 describe('pivot actions on the many-to-many panels', () => {
   it('reads the fields of a MorphToMany pivot action and runs it under the morph-to-many relationship', async () => {
-    window.history.pushState({}, '', '/martis/resources/projects/7')
+    page.params = { resource: 'projects', id: '7' }
     const actionsUrl = '/api/resources/projects/7/morph-to-many/tags/actions'
     mockPivotEndpoints(actionsUrl)
 
@@ -122,7 +127,7 @@ describe('pivot actions on the many-to-many panels', () => {
   })
 
   it('opens only the dropdown clicked when the pivot actions carry different labels', async () => {
-    window.history.pushState({}, '', '/martis/resources/projects/7')
+    page.params = { resource: 'projects', id: '7' }
     const actionsUrl = '/api/resources/projects/7/morph-to-many/tags/actions'
     const retag = { ...action, uriKey: 'retag', name: 'Retag', pivotLabel: 'Tag assignment' }
     vi.mocked(api.get).mockImplementation((url: string) => {

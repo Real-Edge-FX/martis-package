@@ -233,6 +233,8 @@ A host can hand a mounted override another `record` / `recordId`, or another res
 | DrawerDetail | `martis:drawer-detail` | Slide-in detail view |
 | DrawerQuick | `martis:drawer-quick` | ⭐ Lightweight read-only quick-look (narrower, no actions). Distinct from the BelongsTo / MorphTo hover **peek** popover, which surfaces *related-record* metadata; `DrawerQuick` is for the current row. |
 
+`DrawerDetail`, `DrawerUpdate` and `DrawerQuick` tell the relationship panels inside them which record they belong to, since the page behind the drawer may not name it (see [relationships.md § Which record a panel belongs to](relationships.md#which-record-a-panel-belongs-to)).
+
 ### ⭐ Reading override props from nested components — `useOverrideProps()`
 
 When a custom override has its own internal component tree (header, sidebar, form sections), prop-drilling `OverrideProps` through every level is noisy. The `useOverrideProps()` hook exposes the same payload via React context — wrap once at the top of your override, read anywhere underneath:
