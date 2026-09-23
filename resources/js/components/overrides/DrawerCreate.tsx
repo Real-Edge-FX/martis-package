@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
 import type { OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
@@ -60,6 +60,15 @@ export function DrawerCreate(props: OverrideProps) {
   // input cannot always tell the cleared form from its own last value.
   const [fieldsKey, setFieldsKey] = useState(0)
 
+  // What the form was seeded for: the resource and the record it replicates.
+  // A host can hand the open drawer another resource, or another record to
+  // replicate, without remounting it; the form is seeded again for it, so
+  // nothing from the previous target (values, errors, dirty baseline)
+  // carries over. A fresh copy of the same record keeps the edits.
+  const targetKey = `${resource}/${record?.id ?? ''}`
+  const [seededKey, setSeededKey] = useState(targetKey)
+  const seeded = seededKey === targetKey
+
   // ⭐ Camada B — track dirty state against the initial values so the
   // drawer can warn before discarding. A live ref for `values` avoids a
   // stale-closure false positive when popstate fires between setValues()
@@ -68,9 +77,22 @@ export function DrawerCreate(props: OverrideProps) {
   const valuesRef = useRef<Record<string, unknown>>(values)
   valuesRef.current = values
   const isDirty = useCallback(
-    () => JSON.stringify(valuesRef.current) !== initialSnapshot.current,
-    [],
+    // Nothing typed yet for a target the form has not been seeded for.
+    () => seeded && JSON.stringify(valuesRef.current) !== initialSnapshot.current,
+    [seeded],
   )
+
+  // Seed the form again when the host hands the drawer another target. The
+  // fields render only once it is seeded, so every input mounts afresh with
+  // the new target's values.
+  useEffect(() => {
+    if (seeded) return
+    valuesRef.current = initialValues
+    initialSnapshot.current = JSON.stringify(initialValues)
+    setValues(initialValues)
+    setErrors({})
+    setSeededKey(targetKey)
+  }, [seeded, initialValues, targetKey])
   // `confirmUnsavedChanges` can be `true` (default config), `false`
   // (disabled), or a full UnsavedChangesConfig object.
   const confirmRaw = schema.confirmUnsavedChanges
@@ -187,7 +209,7 @@ export function DrawerCreate(props: OverrideProps) {
             <button
               type="submit"
               form="martis-drawer-create-form"
-              disabled={createMutation.isPending}
+              disabled={createMutation.isPending || !seeded}
               className="martis-btn-primary"
             >
               {createMutation.isPending ? tAct('saving') : `${tAct('create')} ${schema.singularLabel}`}
@@ -195,46 +217,55 @@ export function DrawerCreate(props: OverrideProps) {
           </>
         }
       >
-        <form key={fieldsKey} id="martis-drawer-create-form" onSubmit={handleSubmit} noValidate className="martis-form-body martis-form-stack">
-          {allFormFields.map((item, idx) => {
-            if (item.type === 'tab_group') {
-              const tg = item as TabGroupDefinition
-              return <TabsInput key={tg.tabs.map((t) => t.title).join('|') || `tab_group-${idx}`} tabGroup={tg} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
-            }
-            if (item.type === 'section') {
-              const sec = item as SectionDefinition
-              return <SectionInput key={sec.title ?? `section-${idx}`} section={sec} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
-            }
-            if (item.type === 'panel') {
-              const panel = item as PanelDefinition
-              return <PanelInput key={panel.title ?? `panel-${idx}`} panel={panel} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
-            }
-            // A loose field is a full-width row of the form stack: spans only
-            // place fields inside the Section, Panel and Tab grids.
-            const field = item as FieldDefinition
-            return (
-              <div key={field.attribute}>
-                <FieldWrapper
-                  htmlFor={field.attribute}
-                  label={field.label}
-                  required={field.required}
-                  tooltip={field.tooltip}
-                  help={field.helpText}
-                >
-                  <FieldInput
-                    field={field}
-                    value={values[field.attribute] ?? null}
-                    onChange={(v) => handleChange(field.attribute, v)}
-                    error={errors[field.attribute]}
-                    resourceKey={resource}
-                    context="create"
-                    formValues={values}
-                  />
-                </FieldWrapper>
-              </div>
-            )
-          })}
-        </form>
+        {!seeded ? (
+          <div className="flex items-center justify-center p-12">
+            <div
+              className="h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent"
+              style={{ color: 'var(--martis-accent)' }}
+            />
+          </div>
+        ) : (
+          <form key={fieldsKey} id="martis-drawer-create-form" onSubmit={handleSubmit} noValidate className="martis-form-body martis-form-stack">
+            {allFormFields.map((item, idx) => {
+              if (item.type === 'tab_group') {
+                const tg = item as TabGroupDefinition
+                return <TabsInput key={tg.tabs.map((t) => t.title).join('|') || `tab_group-${idx}`} tabGroup={tg} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+              }
+              if (item.type === 'section') {
+                const sec = item as SectionDefinition
+                return <SectionInput key={sec.title ?? `section-${idx}`} section={sec} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+              }
+              if (item.type === 'panel') {
+                const panel = item as PanelDefinition
+                return <PanelInput key={panel.title ?? `panel-${idx}`} panel={panel} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+              }
+              // A loose field is a full-width row of the form stack: spans only
+              // place fields inside the Section, Panel and Tab grids.
+              const field = item as FieldDefinition
+              return (
+                <div key={field.attribute}>
+                  <FieldWrapper
+                    htmlFor={field.attribute}
+                    label={field.label}
+                    required={field.required}
+                    tooltip={field.tooltip}
+                    help={field.helpText}
+                  >
+                    <FieldInput
+                      field={field}
+                      value={values[field.attribute] ?? null}
+                      onChange={(v) => handleChange(field.attribute, v)}
+                      error={errors[field.attribute]}
+                      resourceKey={resource}
+                      context="create"
+                      formValues={values}
+                    />
+                  </FieldWrapper>
+                </div>
+              )
+            })}
+          </form>
+        )}
 
         <UnsavedChangesDialog
           open={dirtyPrompt !== null}

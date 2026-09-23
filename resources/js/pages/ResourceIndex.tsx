@@ -79,6 +79,23 @@ export function ResourceIndexPage() {
   // Track which row IDs the inline action targets (separate from visual selection)
   const [inlineActionRowIds, setInlineActionRowIds] = useState<(string | number)[]>([])
 
+  // The router keeps this page when the URL moves to another resource's
+  // index (a menu link, the command palette, which opens over any drawer or
+  // modal). The overlays belong to the resource they were opened for: left
+  // open, the create drawer would come back as the new resource's, and a
+  // confirmation or drawer opened from a row would act on the record with the
+  // same id in the new resource.
+  useEffect(() => {
+    setShowCreateOverride(false)
+    setActionDrawer(null)
+    setActiveAction(null)
+    inlineActionRef.current = false
+    setInlineActionRowIds([])
+    setDeleteTarget(null)
+    setRestoreTarget(null)
+    setForceDeleteTarget(null)
+  }, [resource])
+
   // Restore sticky view state when navigating between resources, or
   // fall back to defaults when no saved state exists. Each resource
   // gets its own sessionStorage entry (`martis:view:{uriKey}`) so
