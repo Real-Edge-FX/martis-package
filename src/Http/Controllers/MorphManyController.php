@@ -77,8 +77,7 @@ class MorphManyController extends MartisController
 
         // Soft-delete filter
         if ($relatedResourceClass::softDeletes() && $relatedResourceClass::canViewTrashed()) {
-            $trashed = TrashedFilter::tryFrom((string) $request->query('trashed', ''))
-                ?? TrashedFilter::Active;
+            $trashed = TrashedFilter::fromQuery($request->query('trashed'));
             if ($trashed === TrashedFilter::With) {
                 /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
                 $query->withTrashed();

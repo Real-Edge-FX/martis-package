@@ -105,7 +105,7 @@ GET /martis/api/resources/{resource}
 | `direction` | `?direction=desc` | `asc` (default) or `desc`; any other value, a non-string one included, means `asc` (v1.38.0: `?direction[]=` answered 500) |
 | `per_page` | `?per_page=25` | Records per page |
 | `page` | `?page=2` | Page number |
-| `trashed` | `?trashed=only` | `only` or `with` for soft-deleted records |
+| `trashed` | `?trashed=only` | `only` or `with` for soft-deleted records; any other value, a non-string one included, lists the records that are not trashed (v1.38.0: `?trashed[]=` answered 500) |
 
 **Response:**
 

@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Martis\Contracts\FilterContract;
+use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Http\Requests\LensRequest;
@@ -79,11 +80,12 @@ class LensController extends MartisController
         $baseQuery = $modelClass::query();
         $trashedMode = '';
         if ($resourceClass::softDeletes() && $resourceClass::canViewTrashed()) {
-            $trashedMode = (string) $request->query('trashed', '');
-            if ($trashedMode === 'with') {
+            $trashed = TrashedFilter::fromQuery($request->query('trashed'));
+            $trashedMode = $trashed->value;
+            if ($trashed === TrashedFilter::With) {
                 /** @phpstan-ignore-next-line — guarded by softDeletes() check */
                 $baseQuery = $modelClass::withTrashed();
-            } elseif ($trashedMode === 'only') {
+            } elseif ($trashed === TrashedFilter::Only) {
                 /** @phpstan-ignore-next-line — guarded by softDeletes() check */
                 $baseQuery = $modelClass::onlyTrashed();
             }
@@ -113,8 +115,8 @@ class LensController extends MartisController
         // becomes part of the cache key, so inserts/deletes bump COUNT and
         // updates bump MAX — either way the next request misses the cache.
         // This provides "just works" caching without needing model
-        // observers or cache tags.
-        $tableVersion = $this->resolveTableVersion($modelClass, $resourceClass::softDeletes());
+        // observers or cache tags. Only a cached lens needs it.
+        $tableVersion = $ttl > 0 ? $this->resolveTableVersion($modelClass, $resourceClass::softDeletes()) : '';
         $cacheKey = $this->buildCacheKey($lensInstance, $lensRequest, $perPage, $page, $trashedMode, $tableVersion);
 
         $fields = $this->resolveLensFields($lensInstance, $request);
@@ -296,6 +298,11 @@ class LensController extends MartisController
      * invalidation. Combines row count and max updated_at so either a
      * write or a delete bumps the signature.
      *
+     * The updated_at column is the model's own (`getUpdatedAtColumn()`). A
+     * model that keeps no timestamps (`$timestamps = false`, or no
+     * `UPDATED_AT` column) is signed by its row count alone: its table may
+     * have no such column, and Eloquent does not write one.
+     *
      * @param  class-string<Model>  $modelClass
      */
     private function resolveTableVersion(string $modelClass, bool $withTrashed): string
@@ -306,11 +313,13 @@ class LensController extends MartisController
             ? $modelClass::withTrashed()
             : $modelClass::query();
 
-        $row = $q->selectRaw('COUNT(*) as c, MAX(updated_at) as u')->first();
-        $count = (int) ($row?->c ?? 0);
-        $updated = (string) ($row?->u ?? '');
+        $model = $q->getModel();
+        $updatedAt = $model->usesTimestamps() ? $model->getUpdatedAtColumn() : null;
 
-        return $count.'|'.$updated;
+        $count = (clone $q)->count();
+        $updated = $updatedAt === null ? '' : $q->max($model->qualifyColumn($updatedAt));
+
+        return $count.'|'.(is_scalar($updated) ? (string) $updated : '');
     }
 
     private static function classHash(Lens $lens): string

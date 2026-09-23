@@ -110,8 +110,7 @@ class ResourceController extends MartisController
         // ?trashed=only  → show only soft-deleted (trashed) records
         // default        → active records only (standard Eloquent behavior)
         if ($resourceClass::softDeletes() && $resourceClass::canViewTrashed()) {
-            $trashed = TrashedFilter::tryFrom((string) $request->query('trashed', ''))
-                ?? TrashedFilter::Active;
+            $trashed = TrashedFilter::fromQuery($request->query('trashed'));
             if ($trashed === TrashedFilter::With) {
                 /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
                 $query = $modelClass::withTrashed();

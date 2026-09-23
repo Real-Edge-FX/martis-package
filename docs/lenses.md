@@ -277,6 +277,14 @@ Any insert, update or delete on the model bumps the signature, so the
 next request automatically misses the cache without any observers or
 cache tags. TTL `0` (default) disables the cache.
 
+The `updated_at` column is the model's own (`getUpdatedAtColumn()`). A
+model that keeps no timestamps (`public $timestamps = false`, or
+`const UPDATED_AT = null`) is signed by its row count alone, so an
+update that keeps the count serves the cached rows until the TTL
+expires. The signature is taken for a cached lens only (v1.38.0).
+Before v1.38.0 every lens request ran `MAX(updated_at)`, the cache off
+included, so a lens over a table without that column answered 500.
+
 ### Default filters pre-applied
 
 > Declare the filters the lens should open with so product dashboards
