@@ -7,9 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.39.0] — 2026-09-23
+
+### Security
+
+- **`primereact` 10.9.9.** It fixes a prototype pollution in `ObjectUtils.mutateFieldData` (CVE-2026-15538, GHSA-vg36-rrrg-4wqv), reached through DataTable cell editing with a field path an attacker controls. Martis does not use cell editing; the bundled copy is updated anyway (from 10.9.7). Its theme is byte-identical to 10.9.7's.
+
+### Changed
+
+- **Every PrimeReact component now paints with the Martis tokens.** Martis bundled the precompiled `lara-dark-indigo` theme, which paints with literal colours and reads none of the PrimeReact variables `martis.css` mapped to the tokens; a component followed the `--martis-*` tokens only where `martis.css` overrode its selectors. What the overrides missed kept the stock indigo and dark surfaces, in light mode too: the calendar popup in dark mode (lara's blue-grey surfaces, an indigo selected day) and any `MultiSelect`, `OverlayPanel`, `Menu` or `Slider` a Tool page or an extension renders (dark panels on the light theme). A consumer theme reached none of them. The theme is now compiled from the lara SASS source (`resources/sass/primereact`, MIT) with every colour variable pointed at a token, so light and dark mode, the accent presets and consumer themes restyle every PrimeReact component. The PrimeReact variables (`--primary-color`, `--surface-ground`, `--surface-0` to `--surface-900`, …) mirror the tokens for code that reads them. +4 Vitest. See [Theming → PrimeReact components](docs/theming.md#primereact-components-v1390).
+- **The PrimeReact overrides in `martis.css` read the tokens too.** The danger buttons kept `#ef4444` in light mode, where `--martis-danger` is `#DC2626`; the outlined-button hover and the login button glow were indigo; the light input switch, the dropdown clear icons and the light toast text used fixed colours. They follow the tokens now. 32 overrides that restated what the theme paints are gone, each proven to change no computed colour in either mode, and `<Badge severity="…">` matches the `.martis-badge-*` pills (the profile page's session and 2FA badges). A consumer stylesheet that restyled PrimeReact selectors only to reach the Martis colours can drop those rules. +6 Pest.
+
 ### Docs
 
 - The installation guide and the components page, the header of the published `vite.extensions.config.ts` and the code comments on the runtime and the install command still said the `react-dom` shim carries `createPortal` and nothing else; they now name `flushSync` too, which it carries since v1.38.2.
+- The theming guide describes the token-driven PrimeReact theme and rewrites "Some colors don't change", which described the `lara-dark-indigo` limits.
 
 ## [1.38.2] — 2026-09-23
 
