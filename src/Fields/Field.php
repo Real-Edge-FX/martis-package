@@ -1436,6 +1436,32 @@ abstract class Field implements FieldContract
         return $this->sortable;
     }
 
+    /**
+     * The attributes a request may sort a list by among `$items` (layout
+     * containers opened): those of the `sortable()` fields the user may see
+     * (`canSee()`). A field the user cannot see does not order a list for
+     * them, since the order of the rows would tell the order of its values:
+     * a `?sort=` naming it is ignored like one naming an unknown attribute.
+     *
+     * `canSeeForModel()` is not asked: a list spans many records, and a
+     * field it hides on some of them still orders the list.
+     *
+     * @param  list<FieldContract|LayoutContract>  $items
+     * @return list<string>
+     */
+    public static function sortableAttributes(array $items, Request $request): array
+    {
+        $attributes = [];
+
+        foreach (self::flattenLayoutFields($items) as $field) {
+            if ($field->isSortable() && $field->isAuthorizedToSee($request)) {
+                $attributes[] = $field->attribute();
+            }
+        }
+
+        return array_values(array_unique($attributes));
+    }
+
     /** {@inheritdoc} */
     public function isSearchable(): bool
     {

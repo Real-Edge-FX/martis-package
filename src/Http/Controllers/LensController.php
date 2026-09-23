@@ -61,7 +61,13 @@ class LensController extends MartisController
         }
 
         $filtersByUriKey = $this->collectAuthorizedFilters($lensInstance, $resourceInstance, $request);
-        $lensRequest = LensRequest::fromRequest($request, $filtersByUriKey);
+        // `?sort=` may name a sortable field of the lens the user can see,
+        // nothing else (see LensRequest::fromRequest()).
+        $lensRequest = LensRequest::fromRequest(
+            $request,
+            $filtersByUriKey,
+            Field::sortableAttributes($lensInstance->fields($request), $request),
+        );
 
         /** @var class-string<Model> $modelClass */
         $modelClass = $resourceClass::model();

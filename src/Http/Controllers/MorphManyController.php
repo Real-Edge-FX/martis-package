@@ -12,7 +12,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
-use Martis\Enums\SortDirection;
 use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\Field;
@@ -96,7 +95,9 @@ class MorphManyController extends MartisController
             SearchResolver::apply($request, $query, $relatedResourceClass, $search);
         }
 
-        $this->applySorting($request, $query, $relatedResourceClass);
+        // Only a sortable field of the related resource the user can see
+        // orders the rows.
+        $this->applyRequestedSort($request, $query, $relatedResourceClass);
 
         $perPage = min(
             (int) ($request->query('per_page', '10')),
@@ -573,45 +574,5 @@ class MorphManyController extends MartisController
         };
 
         return JsonErrorResponse::serverError($message)->toResponse();
-    }
-
-    /**
-     * @param  class-string<resource>  $resourceClass
-     * @param  Builder<Model>  $query
-     */
-    private function applySorting(Request $request, Builder $query, string $resourceClass): void
-    {
-        $rawSort = $request->query('sort');
-        $rawDirection = $request->query('direction', SortDirection::Asc->value);
-        $direction = SortDirection::tryFrom(strtolower(is_string($rawDirection) ? $rawDirection : SortDirection::Asc->value))
-            ?? SortDirection::Asc;
-
-        if (! is_string($rawSort) || $rawSort === '') {
-            return;
-        }
-
-        $sort = $rawSort;
-        $instance = new $resourceClass;
-
-        // Flatten Section / Panel / TabGroup before iterating —
-        // otherwise the closure's `FieldContract` type hint trips on
-        // layout nodes and sorting on related-model index requests
-        // 500s. Mirrors the parent `ResourceController::applySorting`
-        // fix.
-        $flatFields = Field::flattenLayoutFields($instance->fields($request));
-
-        $sortableAttributes = array_map(
-            fn (FieldContract $field): string => $field->attribute(),
-            array_values(array_filter(
-                $flatFields,
-                fn (FieldContract $field): bool => $field->isSortable(),
-            )),
-        );
-
-        if (! in_array($sort, $sortableAttributes, true)) {
-            return;
-        }
-
-        $query->orderBy($sort, $direction->value);
     }
 }

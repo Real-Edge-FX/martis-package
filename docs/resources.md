@@ -584,6 +584,8 @@ Source: `src/Resource.php::resolvedPerPage()`.
 
 Sets the initial sort column and direction on the index page. Returns `null` (default) for no default sorting.
 
+The default sort follows the rule of every `?sort=` (v1.38.0): it orders the index only when it names a `sortable()` field the user can see (`canSee()`). For a user who cannot see that field the index keeps the order its query gives (`indexQuery()`), as for a default sort that names no sortable field. Before v1.38.0 a default sort by a field the user cannot see ordered the index by that field.
+
 ```php
 public static function defaultSort(): ?string
 {

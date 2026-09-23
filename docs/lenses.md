@@ -124,6 +124,37 @@ public function query(LensRequest $request, Builder $query): Builder
 }
 ```
 
+#### Which columns sort a lens
+
+A lens is sorted only by its own sortable fields the user can see: the
+attributes of the `sortable()` fields its `fields()` declares (layout
+containers opened) whose `canSee()` allows the user (v1.38.0). A `?sort=`
+naming any other column is dropped before the lens runs: `sortColumn` is
+`null`, as if the request named none, so `withOrdering()` calls the
+default closure. That covers a column no field of the lens exposes, a
+field the user cannot see (the order of the rows would tell the order of
+its values) and a column that does not exist, which never reaches the
+query. The same holds for a lens that reads `$request->sortColumn` itself
+instead of calling `withOrdering()`.
+
+```php
+public function fields(Request $request): array
+{
+    return [
+        Text::make('name')->sortable(),              // ?sort=name orders the lens
+        Currency::make('monthly_revenue')->sortable()
+            ->canSee(fn (Request $request) => $request->user()?->isAdmin() ?? false),
+        // ?sort=monthly_revenue orders the lens for an admin only;
+        // ?sort=internal_score (no field) never does.
+    ];
+}
+```
+
+Before v1.38.0 `withOrdering()` ordered the lens by whatever column
+`?sort=` named: a column no field exposes or a field the user cannot see
+ordered the rows by values the user may not read, and a column that does
+not exist answered 500 on MySQL / PostgreSQL.
+
 ### Inheritance from the parent resource
 
 When the lens does not declare its own override, it inherits the value

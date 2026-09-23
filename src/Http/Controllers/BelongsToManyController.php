@@ -10,7 +10,6 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Martis\Contracts\FieldContract;
-use Martis\Enums\SortDirection;
 use Martis\FieldContext;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\Field;
@@ -76,15 +75,9 @@ class BelongsToManyController extends MartisController
             SearchResolver::apply($request, $query, $relatedResourceClass, $search);
         }
 
-        // Sort
-        $rawSort = $request->query('sort');
-        $rawDir = $request->query('direction', SortDirection::Asc->value);
-        $dirStr = is_string($rawDir) ? $rawDir : SortDirection::Asc->value;
-        $direction = SortDirection::tryFrom(strtolower($dirStr)) ?? SortDirection::Asc;
-
-        if (is_string($rawSort) && $rawSort !== '' && $this->isSortableAttribute($relatedResourceClass, $request, $rawSort)) {
-            $query->orderBy($rawSort, $direction->value);
-        }
+        // Sort: only a sortable field of the related resource the user can
+        // see orders the rows.
+        $this->applyRequestedSort($request, $query, $relatedResourceClass);
 
         // Pagination — use $relation->paginate() (not $query->paginate()) so Laravel
         // can hydrate the pivot accessor on each resulting Model instance.

@@ -101,8 +101,8 @@ GET /martis/api/resources/{resource}
 | Parameter | Example | Description |
 |---|---|---|
 | `search` | `?search=john` | Full-text search across `searchable()` fields |
-| `sort` | `?sort=name` | Sort column |
-| `direction` | `?direction=desc` | `asc` (default) or `desc` |
+| `sort` | `?sort=name` | Sort attribute: a `sortable()` field the user can see (`canSee()`). Any other value (an unknown attribute, a field that is not sortable, one the user cannot see) is ignored and the list keeps its default order (v1.38.0: a sortable field the user could not see ordered the list). |
+| `direction` | `?direction=desc` | `asc` (default) or `desc`; any other value, a non-string one included, means `asc` (v1.38.0: `?direction[]=` answered 500) |
 | `per_page` | `?per_page=25` | Records per page |
 | `page` | `?page=2` | Page number |
 | `trashed` | `?trashed=only` | `only` or `with` for soft-deleted records |
@@ -183,7 +183,7 @@ Backs `Select::searchOptionsUsing()` (v1.37.0). Locates the select in the field 
 GET /martis/api/resources/{resource}/lenses/{lens}
 ```
 
-Index endpoint for the named lens. Same query params as the resource index. See [Lenses](../lenses.md).
+Index endpoint for the named lens. Same query params as the resource index. `sort` names a sortable field of the lens's own `fields()` the user can see; any other column is dropped before the lens runs, so its default ordering applies (v1.38.0: the lens was ordered by any column `sort` named, and a column that does not exist answered 500 on MySQL / PostgreSQL). See [Lenses → Which columns sort a lens](../lenses.md#which-columns-sort-a-lens).
 
 ### Reactive (`dependsOn`) field sync
 
@@ -228,6 +228,8 @@ Each relation type has a full sub-tree under the parent's URL. The shape mirrors
 | `GET` | `/{r}/{id}/belongs-to-many/{rel}/pivot-fields/{relatedId}/relatable/{field}` | The same in the pivot edit modal of an attached record, gated on its `updatePivot{Model}` (v1.38.0). |
 
 (`/{r}` is shorthand for `/martis/api/resources/{resource}`.) MorphMany / MorphOne / MorphToMany follow the same shape under `/morph-many/`, `/morph-one/`, `/morph-to-many/`.
+
+The lists (`GET` on `has-many`, `morph-many`, `belongs-to-many` and `morph-to-many`) take the `search`, `sort`, `direction` and `per_page` parameters of the resource index, applied with the related resource's fields: `sort` names a `sortable()` field of the related resource the user can see, and anything else is ignored (v1.38.0).
 
 A relationship field that `canSeeForModel()` hides for the parent record answers 404 on all of them, as an undeclared relationship (v1.38.0). Every record they send leaves out the fields hidden for it, and their writes neither validate nor write those fields: the new model decides on a create, the pivot row on an attach and a pivot update (v1.38.0). See [Fields → Field authorization](../fields.md#field-authorization-cansee-and-canseeformodel).
 

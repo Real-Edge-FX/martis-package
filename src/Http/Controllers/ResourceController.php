@@ -1990,12 +1990,6 @@ class ResourceController extends MartisController
     }
 
     /**
-     * Apply column sorting to the query.
-     *
-     * @param  class-string<resource>  $resourceClass
-     * @param  Builder<Model>  $query
-     */
-    /**
      * Apply user-selected filters to the index query.
      *
      * Reads the `filters` query parameter (JSON-encoded object mapping
@@ -2053,43 +2047,32 @@ class ResourceController extends MartisController
         }
     }
 
+    /**
+     * Order the index by the attribute the request's `?sort=` names, or by
+     * the resource's `defaultSort()` when the request names none.
+     *
+     * Only a sortable field the user can see orders the index (see
+     * isSortableAttribute()), the default sort included: any other
+     * attribute is ignored like an unknown one, and the index keeps the
+     * order its query gives.
+     *
+     * @param  class-string<resource>  $resourceClass
+     * @param  Builder<Model>  $query
+     */
     private function applySorting(Request $request, Builder $query, string $resourceClass): void
     {
-        $rawSort = $request->query('sort');
-        $direction = SortDirection::tryFrom(
-            strtolower((string) $request->query('direction', 'asc'))
-        ) ?? SortDirection::Asc;
+        $sort = $request->query('sort');
+        $direction = SortDirection::fromQuery($request->query('direction'));
 
         // Fall back to the resource-level default sort when the request
         // didn't specify one. Keeps the first paint consistent with the
         // "load me already sorted by X" contract from `Resource::defaultSort()`.
-        if (! is_string($rawSort) || $rawSort === '') {
-            $defaultSort = $resourceClass::defaultSort();
-            if ($defaultSort === null || $defaultSort === '') {
-                return;
-            }
-            $rawSort = $defaultSort;
+        if (! is_string($sort) || $sort === '') {
+            $sort = $resourceClass::defaultSort();
             $direction = $resourceClass::defaultSortDirection();
         }
 
-        $sort = $rawSort;
-        $instance = new $resourceClass;
-
-        // `fields()` may return a mix of FieldContract and layout
-        // containers (Panel, TabGroup, Section). Flatten before
-        // filtering — otherwise the closure's `FieldContract` type
-        // hint throws TypeError when a layout slips through.
-        $flatFields = Field::flattenLayoutFields($instance->fields($request));
-
-        $sortableAttributes = array_map(
-            fn (FieldContract $field): string => $field->attribute(),
-            array_values(array_filter(
-                $flatFields,
-                fn (FieldContract $field): bool => $field->isSortable(),
-            )),
-        );
-
-        if (! in_array($sort, $sortableAttributes, true)) {
+        if ($sort === null || $sort === '' || ! $this->isSortableAttribute($resourceClass, $request, $sort)) {
             return;
         }
 
