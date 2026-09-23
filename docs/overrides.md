@@ -229,6 +229,20 @@ interface OverrideProps {
 
 On a create override, `fromResourceId` names the record the form replicates: the detail page opens its create override with it for the Replicate action (together with that `record`), and `/create?fromResourceId={id}` passes it too. A custom create override reads the copy's values from `GET /api/resources/{resource}/{id}/replicate`, which applies `authorizedToReplicate()`, leaves File fields out and hides the fields the user may not see for the record, and sends the id back as `fromResourceId` with the create, so the server answers with `replicatedMessage()`. The bundled `DrawerCreate` does exactly that (v1.38.0+): it mounts its fields once the copy has arrived, shows the endpoint's error instead of a form when the record cannot be replicated, and sends `fromResourceId` with the first create only. Before v1.38.0 it copied the record's detail payload into the form (File paths and fields the replicate endpoint leaves out included, with no `authorizedToReplicate()` check), and a create override opened by `/create?fromResourceId={id}` got no copy at all.
 
+A `record` lists under `_hidden` the attributes of the fields `canSeeForModel()` hides for it (v1.38.0), and carries no value for them: the schema describes the resource, not the record. The bundled pages and drawers leave those fields out (the detail page and `DrawerDetail`, the update page and `DrawerUpdate`, the cells of the index, a lens and a relationship panel). A custom override that renders `schema.fieldsForDetail` or `schema.fieldsForUpdate` against a record skips them the same way, so it does not render a hidden field empty (and an update form does not send it):
+
+```tsx
+export function EmployeeCard({ schema, record }: OverrideProps) {
+  const hidden = new Set(record?._hidden ?? [])
+  const fields = (schema.fieldsForDetail ?? []).filter(
+    (item) => !('attribute' in item) || !hidden.has(item.attribute),
+  )
+  // ...render `fields`; walk the fields of a panel, section or tab the same way
+}
+```
+
+Before v1.38.0 nothing told a hidden field from an empty one, and the bundled pages rendered it empty.
+
 A host can hand a mounted override another `record` / `recordId`, or another resource's `schema` and `resource`, without remounting it: `ActionDrawer` does when Edit on another index row or an action response opens another record while its drawer is open, and the detail page does when its route moves to another record behind an open update drawer. An override that keeps form state has to seed it again for the record it now receives, or render its body with a `key` built from `resource` and `recordId`. Since v1.38.0 the bundled `DrawerUpdate` seeds its values, validation errors and dirty baseline again when the resource or the record changes; a fresh copy of the same record keeps the edits. The bundled `DrawerCreate` does the same since v1.38.0 when the resource or the record it replicates changes (an action response that opens another resource's create drawer while one is open, the detail page moving to another record behind an open Replicate drawer); before, it kept what was typed for the first target and created it in the second. The index page, for its part, closes its create drawer, the drawers opened from its rows or by an action, and its confirmations when its route moves to another resource's index (v1.38.0+); before, they stayed open, and the delete confirmation of a row then deleted the record with the same id in the new resource. The detail page keeps its drawers on the record in the URL but closes its delete, force-delete and restore confirmations and its action modal when that record changes, and a lens page starts over for each lens (v1.38.0+); before, confirming the delete opened for one record deleted the record the page had moved to.
 
 ### Built-in Drawer Components

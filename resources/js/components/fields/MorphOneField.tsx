@@ -5,6 +5,7 @@ import { api } from '@/lib/api'
 import type { ResourceRecord, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
+import { hiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
 import { DeleteModal } from '@/components/DeleteModal'
 import { NestedParentProvider, useRelationParent } from './NestedParentContext'
 import { buildViaParams } from '@/lib/relationViaParams'
@@ -102,7 +103,8 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
       }
       return [f]
     })
-  const detailFields = flattenFields(rawDetailFields)
+  // The fields the related record hides (`_hidden`) are left out.
+  const detailFields: FieldDefinition[] = withoutHiddenFields(flattenFields(rawDetailFields), hiddenAttributes(record))
 
   const viaParams = buildViaParams({
     parentResource,

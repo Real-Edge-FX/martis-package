@@ -17,6 +17,7 @@ import { usePageTitle } from '@/hooks/usePageTitle'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import { recordHref } from '@/lib/recordHref'
 import { updatePayload } from '@/lib/updatePayload'
+import { useHiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
 
 export function ResourceUpdatePage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -64,9 +65,13 @@ function RecordUpdatePage() {
   const { t: tNav } = useTranslation('navigation')
   usePageTitle(schema ? `${tNav('edit', { defaultValue: 'Edit' })} ${schema.singularLabel}` : null)
 
+  // The fields the record hides (`canSeeForModel()`, listed under
+  // `_hidden`) are left out of the form: it neither renders them empty nor
+  // sends them.
+  const hidden = useHiddenAttributes(record)
   const allFormFields = useMemo<FieldDefinition[]>(
-    () => (schema?.fieldsForUpdate ?? []) as FieldDefinition[],
-    [schema],
+    () => withoutHiddenFields((schema?.fieldsForUpdate ?? []) as FieldDefinition[], hidden),
+    [schema, hidden],
   )
 
   // Shared form state — `values`/`errors`, dependsOn override resolution (via

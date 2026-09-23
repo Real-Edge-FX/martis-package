@@ -25,6 +25,7 @@ import { useResourceAccent } from "@/lib/useResourceAccent"
 import { useResourceLoaderConfig } from "@/contexts/LoaderConfigContext"
 import { recordHref } from "@/lib/recordHref"
 import { STANDALONE_RELATIONSHIP_TYPES } from "@/lib/relationshipFieldTypes"
+import { hiddenAttributes, withoutHiddenFields } from "@/lib/hiddenFields"
 
 export function ResourceDetailPage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -250,13 +251,17 @@ export function ResourceDetailPage() {
     }
   }
 
-  const detailFields = schema.fieldsForDetail ?? []
+  // The schema describes the resource: the fields this record hides
+  // (`canSeeForModel()`, listed under `_hidden`) are left out, instead of
+  // rendering empty, and so is a container left without fields.
+  const hidden = hiddenAttributes(record)
+  const detailFields = withoutHiddenFields(schema.fieldsForDetail ?? [], hidden)
   // F7-11 Part 2 — sticky right-rail panel. Resolved from
   // `Resource::detailSidebar()` and emitted by the schema endpoint.
   // When non-empty, the page lays out as a 1fr 320px grid and strips
   // the sidebar attributes from the main scalar list so they only
   // render once.
-  const sidebarFields = schema.detailSidebar ?? []
+  const sidebarFields = withoutHiddenFields(schema.detailSidebar ?? [], hidden)
   const sidebarAttrs = new Set(sidebarFields.map((f) => f.attribute))
   const hasSidebar = sidebarFields.length > 0
   const panelItems = detailFields.filter(f => f.type === 'panel') as PanelDefinition[]

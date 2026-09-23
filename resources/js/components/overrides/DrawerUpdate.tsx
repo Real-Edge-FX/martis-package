@@ -14,6 +14,7 @@ import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 import { updatePayload } from '@/lib/updatePayload'
 import { lockImmutableFields } from '@/lib/lockImmutableFields'
 import { NestedParentProvider } from '@/components/fields/NestedParentContext'
+import { useHiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
 
 /** Recursively extract scalar fields from layout containers (Panel, Section, TabGroup) */
 function extractScalarFields(items: Array<Record<string, unknown>>): FieldDefinition[] {
@@ -71,8 +72,14 @@ export function DrawerUpdate(props: OverrideProps) {
   })
 
   const activeRecord = record ?? recordQuery.data?.data
-  // An `immutable()` field renders read-only here: every update endpoint skips it.
-  const allFormFields = useMemo(() => lockImmutableFields(schema.fieldsForUpdate ?? []), [schema])
+  // An `immutable()` field renders read-only here: every update endpoint
+  // skips it. A field the record hides (`_hidden`) is left out: the form
+  // neither renders it empty nor sends it.
+  const hidden = useHiddenAttributes(activeRecord)
+  const allFormFields = useMemo(
+    () => lockImmutableFields(withoutHiddenFields(schema.fieldsForUpdate ?? [], hidden)),
+    [schema, hidden],
+  )
   const scalarFields = useMemo(
     () => extractScalarFields(allFormFields as unknown as Array<Record<string, unknown>>),
     [allFormFields],

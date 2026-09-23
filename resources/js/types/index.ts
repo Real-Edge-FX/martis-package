@@ -628,6 +628,13 @@ export interface ResourceRecord {
    * current user cannot execute on this specific row.
    */
   _actionAuthorization?: Record<string, boolean>
+  /**
+   * The attributes of the fields this record hides from the user (a field's
+   * `canSeeForModel()`): the record carries no value for them, and the pages
+   * leave them out of the schema's field lists they render. Absent when the
+   * record hides no field. v1.38.0.
+   */
+  _hidden?: string[]
   [key: string]: unknown
   _resource: ResourceEmbedded
 }

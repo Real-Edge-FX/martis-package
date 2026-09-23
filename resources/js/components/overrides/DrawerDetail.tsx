@@ -13,6 +13,7 @@ import { PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
 import { DrawerShell } from './DrawerShell'
 import { STANDALONE_RELATIONSHIP_TYPES } from '@/lib/relationshipFieldTypes'
 import { NestedParentProvider } from '@/components/fields/NestedParentContext'
+import { hiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
 
 /**
  * Built-in drawer override for the DETAIL context.
@@ -53,8 +54,9 @@ export function DrawerDetail(props: OverrideProps) {
   // sections and tab groups rendering with their own chrome (headings,
   // descriptions, tab bar) instead of being silently flattened inside the
   // drawer. Loose scalar fields still fall back to a single-grid layout at
-  // the top, before the structured blocks and the relationship cards.
-  const detailFields = (schema.fieldsForDetail ?? []) as FieldDefinition[]
+  // the top, before the structured blocks and the relationship cards. The
+  // fields the record hides (`_hidden`) are left out, as on the detail page.
+  const detailFields = withoutHiddenFields((schema.fieldsForDetail ?? []) as FieldDefinition[], hiddenAttributes(activeRecord))
   const kindOf = (f: FieldDefinition): string => (f as { type?: string }).type ?? ''
   const panelItems = detailFields.filter((f) => kindOf(f) === 'panel') as unknown as PanelDefinition[]
   const tabGroupItems = detailFields.filter((f) => kindOf(f) === 'tab_group') as unknown as TabGroupDefinition[]

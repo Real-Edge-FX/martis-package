@@ -8,6 +8,7 @@ import { api } from '@/lib/api'
 import type { ResourceRecord, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
+import { hiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
 import { DeleteModal } from '@/components/DeleteModal'
 import { useTranslation } from 'react-i18next'
 import { PlusIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
@@ -143,7 +144,8 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
       }
       return [f]
     })
-  const detailFields: FieldDefinition[] = flattenFields(rawDetailFields)
+  // The fields the related record hides (`_hidden`) are left out.
+  const detailFields: FieldDefinition[] = withoutHiddenFields(flattenFields(rawDetailFields), hiddenAttributes(record))
 
   const viaParams = buildViaParams({
     parentResource,
