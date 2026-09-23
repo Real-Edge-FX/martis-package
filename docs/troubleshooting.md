@@ -228,7 +228,7 @@ Almost always a key mismatch between the PHP layer (which declares "I want a com
 php artisan martis:list-overrides
 ```
 
-Confirm that every key in the output is registered in your `resources/js/martis-extensions/index.ts`. The `componentRegistry` is exported as a module from `@/lib/componentRegistry` — there is no `window.componentRegistry`, so to inspect at runtime add a temporary `import { componentRegistry } from '@/lib/componentRegistry'; (window as any).componentRegistry = componentRegistry;` to your extension entry, rebuild, and read `componentRegistry.keys()` from devtools.
+Confirm that every key in the output is registered by your extension: the auto-discovery entry registers each file of the four buckets, and `resources/js/martis-extensions/index.ts` holds any `register()` call of your own. To inspect the live registry, run `window.Martis.componentRegistry.keys()` in the browser console once the SPA has booted: it is the registry the SPA resolves from (the same instance `@martis/runtime` exports as `componentRegistry`), so no rebuild is needed. `php artisan martis:list-overrides --frontend` runs the same cross-check statically against your `index.ts`.
 
 Common culprits when an override is missing:
 

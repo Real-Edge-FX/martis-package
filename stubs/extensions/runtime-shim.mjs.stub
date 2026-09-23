@@ -103,6 +103,44 @@ export const useToolFields = R.useToolFields
 // (no react-query, which already revalidates on window focus by default).
 export const useRevalidateOnFocus = R.useRevalidateOnFocus
 
+// Registries (v1.38.0+). The instances the SPA reads: components and
+// overrides (also on `window.Martis.componentRegistry`), icons, and the
+// layout of one resource's pages. See docs/overrides.md.
+export const componentRegistry = R.componentRegistry
+export const iconRegistry = R.iconRegistry
+export const layoutRegistry = R.layoutRegistry
+
+// Page and override hooks (v1.38.0+): tab title, the back-button lock of
+// a dialog inside a drawer, the override-props context, the
+// unsaved-changes guard and the error state. See docs/components.md.
+export const usePageTitle = R.usePageTitle
+export const useModalHistoryLock = R.useModalHistoryLock
+export const OverridePropsProvider = R.OverridePropsProvider
+export const useOverrideProps = R.useOverrideProps
+export const useOverridePropsOptional = R.useOverridePropsOptional
+export const useUnsavedChangesGuard = R.useUnsavedChangesGuard
+export const useError = R.useError
+
+// Theme and display helpers (v1.38.0+): theme colours for canvas /
+// Chart.js, the avatar palette, and the sparkline, clear button and
+// loader the package's own cards and fields render. See docs/theming.md.
+export const cssVar = R.cssVar
+export const accentColor = R.accentColor
+export const mutedTextColor = R.mutedTextColor
+export const chartPalette = R.chartPalette
+export const resolveColor = R.resolveColor
+export const avatarColorForSeed = R.avatarColorForSeed
+export const Sparkline = R.Sparkline
+export const ClearButton = R.ClearButton
+export const MartisLoader = R.MartisLoader
+
+// Preferences and locale (v1.38.0+). See docs/i18n.md.
+export const usePreferences = R.usePreferences
+export const usePreferencesOptional = R.usePreferencesOptional
+export const loadLocale = R.loadLocale
+export const applyDocumentDirection = R.applyDocumentDirection
+export const usePrefersReducedMotion = R.usePrefersReducedMotion
+
 // `react-router-dom` re-exports flattened on the top level so legacy
 // stub imports `import {useNavigate} from 'react-router-dom'` resolve
 // when the consumer's vite alias points the bare module specifier

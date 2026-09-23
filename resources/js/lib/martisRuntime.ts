@@ -25,13 +25,15 @@
  *
  * Adding to this surface: new exports are non-breaking (semver minor).
  * Removing or renaming = breaking (major). Rule of thumb: add only
- * what an override stub actually imports. Each member also needs its
- * `export const` line in `stubs/extensions/runtime-shim.mjs.stub`, the
- * file a consumer build resolves `@martis/runtime` to (the shim test in
- * `martisRuntime.test.tsx` fails without it). The consumer's vite also
- * sends the pre-v1.10 paths (`@/contexts/*`, `@/lib/*`,
- * `@/components/auth/*`, `@martis/martis/*`) to that shim, so they
- * reach these names only, not package internals.
+ * what an override stub or a documented consumer example imports. Each
+ * member also needs its `export const` line in
+ * `stubs/extensions/runtime-shim.mjs.stub`, the file a consumer build
+ * resolves `@martis/runtime` to (the shim test in `martisRuntime.test.tsx`
+ * fails without it, and its docs guard fails on a docs example that
+ * imports a name no shim exports or a path no alias resolves). The
+ * consumer's vite also sends the pre-v1.10 paths (`@/contexts/*`,
+ * `@/lib/*`, `@/components/auth/*`, `@martis/martis/*`) to that shim, so
+ * they reach these names only, not package internals.
  *
  * @see docs/overrides.md (5.A) and docs/installation-guide.md
  *      ("Refreshing the extension scaffold after an upgrade")
@@ -61,6 +63,22 @@ import { createPortal } from 'react-dom'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import { useToolFields } from '@/hooks/useToolFields'
 import { useRevalidateOnFocus } from '@/hooks/useRevalidateOnFocus'
+import { componentRegistry } from '@/lib/componentRegistry'
+import { iconRegistry } from '@/lib/iconRegistry'
+import { layoutRegistry } from '@/lib/layoutRegistry'
+import { usePageTitle } from '@/hooks/usePageTitle'
+import { useModalHistoryLock } from '@/lib/historyLock'
+import { OverridePropsProvider, useOverrideProps, useOverridePropsOptional } from '@/hooks/useOverrideProps'
+import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
+import { useError } from '@/lib/useError'
+import { cssVar, accentColor, mutedTextColor, chartPalette, resolveColor } from '@/lib/themeColors'
+import { avatarColorForSeed } from '@/lib/avatarPalette'
+import { Sparkline } from '@/components/metrics/Sparkline'
+import { ClearButton } from '@/components/ClearButton'
+import { MartisLoader } from '@/components/Loader'
+import { usePreferences, usePreferencesOptional } from '@/contexts/PreferencesContext'
+import { loadLocale, applyDocumentDirection } from '@/lib/i18n'
+import { usePrefersReducedMotion } from '@/lib/usePrefersReducedMotion'
 
 /**
  * The `@martis/runtime` bag. Exposed on `window.Martis.runtime`
@@ -139,6 +157,56 @@ export const martisRuntime = {
   // "revalidate when the operator returns to this tab" behaviour.
   useRevalidateOnFocus,
 
+  // Registries (since v1.38.0). The instances the SPA reads, so an
+  // extension registers straight into the host: `componentRegistry`
+  // (also on `window.Martis.componentRegistry`) for Tools, cards,
+  // overrides and field renderers, `iconRegistry` for icons outside the
+  // Phosphor set, `layoutRegistry` for the layout every page of one
+  // resource renders in. See docs/overrides.md and docs/components.md.
+  componentRegistry,
+  iconRegistry,
+  layoutRegistry,
+
+  // Page and override hooks (since v1.38.0), the ones the package's own
+  // pages and drawers use: the tab title of a custom page, the back-button
+  // lock a dialog inside a `DrawerShell` needs (it shares the drawers'
+  // lock count, so it has to be this instance), the override-props
+  // context, the unsaved-changes guard of a custom form, and the error
+  // state that parses an `ApiError`. See docs/components.md.
+  usePageTitle,
+  useModalHistoryLock,
+  OverridePropsProvider,
+  useOverrideProps,
+  useOverridePropsOptional,
+  useUnsavedChangesGuard,
+  useError,
+
+  // Theme and display helpers (since v1.38.0): theme colours resolved for
+  // canvas / Chart.js, which cannot read CSS variables; the avatar
+  // palette; the sparkline of the trend cards; the clear button of the
+  // inputs; and the loader, as the registry-aware wrapper, so an extension
+  // shows the loader the app registered under `loader`. See
+  // docs/theming.md and docs/components.md.
+  cssVar,
+  accentColor,
+  mutedTextColor,
+  chartPalette,
+  resolveColor,
+  avatarColorForSeed,
+  Sparkline,
+  ClearButton,
+  MartisLoader,
+
+  // Preferences and locale (since v1.38.0): the user's preference set, the
+  // locale switch the Preferences panel runs, the `dir` the shell sets on
+  // `<html>` for a locale, and the reduced-motion signal (OS setting or
+  // Martis preference). See docs/components.md and docs/i18n.md.
+  usePreferences,
+  usePreferencesOptional,
+  loadLocale,
+  applyDocumentDirection,
+  usePrefersReducedMotion,
+
   // Generic slide-over drawer shell. Lets consumer Tools host
   // edit/add/detail forms (composed from FieldInput) in a native
   // drawer without re-implementing the shell — the Tool controls
@@ -213,3 +281,15 @@ export type { UseToolFieldsResult } from '@/hooks/useToolFields'
  * names and payloads without reaching into `@/lib/eventBus` directly.
  */
 export type { EventBusEvents } from '@/lib/eventBus'
+
+/**
+ * Types for the v1.38.0 members: the props of a layout registered on
+ * `runtime.layoutRegistry`, of an override component (what
+ * `runtime.useOverrideProps()` returns), and of a loader registered
+ * under `loader` or rendered through `runtime.MartisLoader`, with the
+ * `loader` config block its `configOverride` overrides.
+ */
+export type { LayoutProps } from '@/lib/layoutRegistry'
+export type { OverrideProps } from '@/types'
+export type { MartisLoaderProps } from '@/components/Loader'
+export type { MartisLoaderConfig } from '@/lib/config'

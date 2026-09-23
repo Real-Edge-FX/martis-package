@@ -412,14 +412,16 @@ Each generator (`martis:tool`, `martis:field`, `martis:card`, `martis:component`
 
 ### How the registry is exposed
 
-At SPA boot, `app.tsx` writes:
+At SPA boot, before it loads the extension bundles, the SPA fills `window.Martis`:
 
 ```js
 window.Martis = {
-  componentRegistry,   // import('@/lib/componentRegistry') equivalent
+  componentRegistry,   // the registry the SPA resolves from (also `componentRegistry` on @martis/runtime)
   react,               // the React module instance bundled with Martis
+  reactJsxRuntime,     // react/jsx-runtime, read by the JSX shim
+  runtime,             // the @martis/runtime surface the shims re-export
   version,             // "1.9.0" etc.
-  shortcuts,           // global keyboard-shortcut helpers
+  shortcuts,           // global keyboard-shortcut helpers: add, remove, list
 }
 ```
 
@@ -452,7 +454,7 @@ Your extension build resolves `@martis/runtime` to `.shims/runtime.mjs`, which r
 | `useMartisForm`, `FieldsForm`, `useToolFields` | v1.20.0 |
 | `martisEventBus` | v1.21.0 |
 | `useRevalidateOnFocus` | v1.22.0 |
-| `NestedParentProvider`, `Dropdown`, `MultiSelect`, `createPortal` | v1.38.0 |
+| `NestedParentProvider`, `Dropdown`, `MultiSelect`, `createPortal`, the registries (`componentRegistry`, `iconRegistry`, `layoutRegistry`), `usePageTitle`, `useModalHistoryLock`, `OverridePropsProvider`, `useOverrideProps`, `useOverridePropsOptional`, `useUnsavedChangesGuard`, `useError`, `cssVar`, `accentColor`, `mutedTextColor`, `chartPalette`, `resolveColor`, `avatarColorForSeed`, `Sparkline`, `ClearButton`, `MartisLoader`, `usePreferences`, `usePreferencesOptional`, `loadLocale`, `applyDocumentDirection`, `usePrefersReducedMotion` | v1.38.0 |
 
 Three ways to get a missing name, from the narrowest:
 

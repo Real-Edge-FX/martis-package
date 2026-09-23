@@ -80,6 +80,28 @@ describe('keyboardShortcuts', () => {
     expect(handler).toHaveBeenCalledTimes(1)
   })
 
+  it('runs only the first handler registered under a combo, past one that skips inputs', () => {
+    // docs/keyboard-shortcuts.md "Take over a bundled shortcut": an
+    // extension registers before the topbar mounts, so its handler is the
+    // first under `mod+k` and wins over the bundled palette toggle.
+    const first = vi.fn()
+    const later = vi.fn()
+    addShortcut('cmd+k', first)
+    addShortcut('cmd+k', later, { allowInInput: true })
+
+    dispatch('k', { metaKey: true })
+    expect(first).toHaveBeenCalledTimes(1)
+    expect(later).not.toHaveBeenCalled()
+
+    const input = document.createElement('input')
+    document.body.appendChild(input)
+    dispatch('k', { metaKey: true }, input)
+    document.body.removeChild(input)
+
+    expect(first).toHaveBeenCalledTimes(1)
+    expect(later).toHaveBeenCalledTimes(1)
+  })
+
   it('disableShortcut removes a previously-registered handler', () => {
     const handler = vi.fn()
     addShortcut('escape', handler)

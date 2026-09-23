@@ -4,9 +4,10 @@ import type { OverrideProps } from '@/types'
 /**
  * React context that carries the live `OverrideProps` payload Martis
  * hands every override component (drawer create/update/detail, custom
- * resource view, etc.). The bundled drawer / page wrappers wrap their
- * children with this provider so deeply-nested components can pull
- * the same payload without prop-drilling.
+ * resource view, etc.). The package mounts no provider itself: a custom
+ * override wraps its own tree with it, so deeply-nested components can
+ * pull the same payload without prop-drilling. An extension imports the
+ * three exports from `@martis/runtime` (v1.38.0+).
  *
  * Usage in a custom override:
  *

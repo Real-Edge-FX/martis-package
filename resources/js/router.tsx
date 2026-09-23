@@ -1,6 +1,7 @@
 import { ComponentType, createElement } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
+import { ResourceLayout } from '@/components/ResourceLayout'
 import { LoginPage } from '@/pages/Login'
 import { RegisterPage } from '@/pages/Register'
 import { ForgotPasswordPage } from '@/pages/ForgotPassword'
@@ -130,39 +131,47 @@ export const router = createBrowserRouter([
         },
       },
       {
-        path: 'resources/:resource',
-        lazy: async () => {
-          const { ResourceIndexPage } = await import('@/pages/ResourceIndex')
-          return { element: <ResourceIndexPage />, handle: { crumb: 'resources' } }
-        },
-      },
-      {
-        path: 'resources/:resource/lens/:lens',
-        lazy: async () => {
-          const { ResourceLensPage } = await import('@/pages/ResourceLens')
-          return { element: <ResourceLensPage />, handle: { crumb: 'lens' } }
-        },
-      },
-      {
-        path: 'resources/:resource/create',
-        lazy: async () => {
-          const { ResourceCreatePage } = await import('@/pages/ResourceCreate')
-          return { element: <ResourceCreatePage />, handle: { crumb: 'create' } }
-        },
-      },
-      {
-        path: 'resources/:resource/:id',
-        lazy: async () => {
-          const { ResourceDetailPage } = await import('@/pages/ResourceDetail')
-          return { element: <ResourceDetailPage />, handle: { crumb: 'detail' } }
-        },
-      },
-      {
-        path: 'resources/:resource/:id/edit',
-        lazy: async () => {
-          const { ResourceUpdatePage } = await import('@/pages/ResourceUpdate')
-          return { element: <ResourceUpdatePage />, handle: { crumb: 'edit' } }
-        },
+        // Pathless: wraps every resource page in the layout registered
+        // for its resource on `layoutRegistry` (docs/overrides.md,
+        // "Layout Overrides"). The child paths and crumbs are unchanged.
+        element: <ResourceLayout />,
+        children: [
+          {
+            path: 'resources/:resource',
+            lazy: async () => {
+              const { ResourceIndexPage } = await import('@/pages/ResourceIndex')
+              return { element: <ResourceIndexPage />, handle: { crumb: 'resources' } }
+            },
+          },
+          {
+            path: 'resources/:resource/lens/:lens',
+            lazy: async () => {
+              const { ResourceLensPage } = await import('@/pages/ResourceLens')
+              return { element: <ResourceLensPage />, handle: { crumb: 'lens' } }
+            },
+          },
+          {
+            path: 'resources/:resource/create',
+            lazy: async () => {
+              const { ResourceCreatePage } = await import('@/pages/ResourceCreate')
+              return { element: <ResourceCreatePage />, handle: { crumb: 'create' } }
+            },
+          },
+          {
+            path: 'resources/:resource/:id',
+            lazy: async () => {
+              const { ResourceDetailPage } = await import('@/pages/ResourceDetail')
+              return { element: <ResourceDetailPage />, handle: { crumb: 'detail' } }
+            },
+          },
+          {
+            path: 'resources/:resource/:id/edit',
+            lazy: async () => {
+              const { ResourceUpdatePage } = await import('@/pages/ResourceUpdate')
+              return { element: <ResourceUpdatePage />, handle: { crumb: 'edit' } }
+            },
+          },
+        ],
       },
       {
         path: '403',

@@ -32,7 +32,7 @@ Text::make('bio')->component('rich-bio-display')
 
 ```typescript
 // TypeScript: register a custom component under `resources/js/martis-extensions/`
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { RichBioDisplay } from './components/RichBioDisplay'
 
 componentRegistry.register('rich-bio-display', RichBioDisplay)
@@ -608,10 +608,10 @@ Country, MultiSelect, BelongsTo, MorphTo, Tag):
 - Only renders when `field.nullable === true && hasValue && !field.readonly`.
 - Hover: darker red, no background fill.
 
-For consumer apps building custom fields:
+For consumer apps building custom fields (on `@martis/runtime` since v1.38.0):
 
 ```tsx
-import { ClearButton } from '@/components/ClearButton'
+import { ClearButton } from '@martis/runtime'
 
 <ClearButton
   visible={field.nullable && hasValue && !field.readonly}
@@ -731,7 +731,7 @@ return $this->countByDays($request, Order::class)
     ->prefix('€');
 ```
 
-The `<Sparkline>` component is also exported (`@/components/metrics`)
+The `<Sparkline>` component is also on `@martis/runtime` (v1.38.0+)
 for custom framed cards.
 
 ### Per-metric color override
@@ -759,10 +759,10 @@ Accepts any CSS color value — hex, rgb, rgba, hsl, named colors, or
 ### Theme-aware chart colors
 
 Chart.js cannot read CSS variables natively. Martis ships a runtime
-resolver:
+resolver (on `@martis/runtime` since v1.38.0):
 
 ```tsx
-import { chartPalette, accentColor, mutedTextColor, resolveColor } from '@/lib/themeColors'
+import { chartPalette, accentColor, mutedTextColor, resolveColor } from '@martis/runtime'
 
 const colors = chartPalette()              // ['#6366f1', '#22c55e', ...] resolved from --martis-chart-*
 const accent = accentColor()                // resolved --martis-accent
@@ -900,21 +900,24 @@ Full reference: [sso.md](sso.md).
 
 ### Event bus
 
-Decoupled pub/sub for cross-component communication:
+Decoupled pub/sub for cross-component communication. An extension uses
+the `martisEventBus` singleton on `@martis/runtime`:
 
 ```typescript
-import { useEventBus } from '@/lib/useEventBus'
-
-const { emit, on } = useEventBus()
+import { martisEventBus } from '@martis/runtime'
 
 // Emit an event
-emit('martis:record-created', { resource: 'users', id: 42 })
+martisEventBus.emit('martis:record-created', { resourceKey: 'users', id: 42 })
 
-// Listen for events
-on('martis:record-created', (payload) => {
-    console.log('New record:', payload)
-})
+// Listen for events, and stop with the same handler
+const onCreated = (payload) => console.log('New record:', payload)
+martisEventBus.on('martis:record-created', onCreated)
+martisEventBus.off('martis:record-created', onCreated)
 ```
+
+The package's own components use the `useEventBus()` hook over the same
+singleton, which drops its handlers on unmount (see
+[components.md](components.md#event-bus)).
 
 Built-in events: `martis:record-created`, `martis:record-updated`,
 `martis:record-deleted`, `martis:record-restored`,

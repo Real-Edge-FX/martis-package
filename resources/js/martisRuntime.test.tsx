@@ -1,11 +1,45 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { martisRuntime } from '@/lib/martisRuntime'
+import { componentRegistry } from '@/lib/componentRegistry'
+import { iconRegistry } from '@/lib/iconRegistry'
+import { layoutRegistry } from '@/lib/layoutRegistry'
+import { MartisLoader } from '@/components/Loader'
+import runtimeSource from './lib/martisRuntime.ts?raw'
 import runtimeShim from '../../stubs/extensions/runtime-shim.mjs.stub?raw'
 import viteExtensionsConfig from '../../stubs/extensions/vite.extensions.config.ts.stub?raw'
 import type { FieldDefinition } from '@/types'
 
 const docs = import.meta.glob('../../docs/*.md', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+const shims = import.meta.glob('../../stubs/extensions/*-shim.mjs.stub', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+
+/**
+ * The consumer vite's alias table, applied the way Vite's alias plugin
+ * does: the first entry whose `find` matches wins (a string matches the
+ * whole specifier or a path prefix), and only the matched text is
+ * replaced, so a regex that matches the start of `@/lib/api` would leave
+ * `api` on the shim path. Resolves to the replacement's variable name
+ * (`runtimeShim`), or to the specifier itself when no entry matches.
+ */
+const aliases: { find: string | RegExp; replacement: string }[] = [...viteExtensionsConfig.matchAll(/\{find: (?:'([^']+)'|\/(.+?)\/([a-z]*)), replacement: (\w+)\}/g)]
+    .map(([, literal, source, flags, replacement]) => ({ find: literal ?? new RegExp(source, flags), replacement }))
+
+function resolveAlias(id: string): string {
+    const entry = aliases.find(({ find }) => (typeof find === 'string' ? id === find || id.startsWith(`${find}/`) : find.test(id)))
+    return entry ? id.replace(entry.find, entry.replacement) : id
+}
+
+/**
+ * The names the shim behind a replacement variable exports. The config
+ * publishes each shim as `.shims/<name>.mjs` (`const runtimeShim =
+ * path.join(shimsDir, 'runtime.mjs')`) from the `<name>-shim.mjs.stub`
+ * next to it.
+ */
+function shimExports(variable: string): Set<string> {
+    const file = viteExtensionsConfig.match(new RegExp(`const ${variable} = path\\.join\\(shimsDir, '([\\w-]+)\\.mjs'\\)`))?.[1]
+    const source = shims[`../../stubs/extensions/${file}-shim.mjs.stub`] ?? ''
+    return new Set([...source.matchAll(/^export const (\w+) =/gm)].map(([, name]) => name))
+}
 
 /**
  * Contract tests for the consumer-extension runtime bag. Three concerns:
@@ -16,9 +50,10 @@ const docs = import.meta.glob('../../docs/*.md', { query: '?raw', import: 'defau
  *    only after deploy. These tests guard the contract.
  *
  * 2. The scaffold `martis:install` publishes resolves them: the runtime
- *    shim names every member (and every name the docs import), and the
- *    vite aliases send `@martis/runtime` and the legacy paths to it. A
- *    gap here fails the consumer's build, not ours.
+ *    shim names every member, the vite aliases send `@martis/runtime` and
+ *    the legacy paths to it, and every import the docs examples make
+ *    resolves in that build. A gap here fails the consumer's build, not
+ *    ours.
  *
  * 3. The FieldInput export added in v1.14.0 actually routes to the
  *    right component for the field type and threads `onChange`
@@ -70,6 +105,42 @@ describe('martisRuntime', () => {
         expect(martisRuntime.useToolFields).toBeTypeOf('function')
         expect(martisRuntime.useRevalidateOnFocus).toBeTypeOf('function')
 
+        // Registries (v1.38.0): the instances the SPA reads, not copies,
+        // so a registration from an extension reaches the host.
+        expect(martisRuntime.componentRegistry).toBe(componentRegistry)
+        expect(martisRuntime.iconRegistry).toBe(iconRegistry)
+        expect(martisRuntime.layoutRegistry).toBe(layoutRegistry)
+
+        // Page and override hooks (v1.38.0)
+        expect(martisRuntime.usePageTitle).toBeTypeOf('function')
+        expect(martisRuntime.useModalHistoryLock).toBeTypeOf('function')
+        expect(martisRuntime.useOverrideProps).toBeTypeOf('function')
+        expect(martisRuntime.useOverridePropsOptional).toBeTypeOf('function')
+        // A context Provider is an object, not a plain function.
+        expect(martisRuntime.OverridePropsProvider).toBeDefined()
+        expect(martisRuntime.useUnsavedChangesGuard).toBeTypeOf('function')
+        expect(martisRuntime.useError).toBeTypeOf('function')
+
+        // Theme and display helpers (v1.38.0). The loader is the
+        // registry-aware wrapper, so an extension renders the loader the
+        // app registered under `loader`.
+        expect(martisRuntime.cssVar).toBeTypeOf('function')
+        expect(martisRuntime.accentColor).toBeTypeOf('function')
+        expect(martisRuntime.mutedTextColor).toBeTypeOf('function')
+        expect(martisRuntime.chartPalette).toBeTypeOf('function')
+        expect(martisRuntime.resolveColor).toBeTypeOf('function')
+        expect(martisRuntime.avatarColorForSeed).toBeTypeOf('function')
+        expect(martisRuntime.Sparkline).toBeTypeOf('function')
+        expect(martisRuntime.ClearButton).toBeTypeOf('function')
+        expect(martisRuntime.MartisLoader).toBe(MartisLoader)
+
+        // Preferences and locale (v1.38.0)
+        expect(martisRuntime.usePreferences).toBeTypeOf('function')
+        expect(martisRuntime.usePreferencesOptional).toBeTypeOf('function')
+        expect(martisRuntime.loadLocale).toBeTypeOf('function')
+        expect(martisRuntime.applyDocumentDirection).toBeTypeOf('function')
+        expect(martisRuntime.usePrefersReducedMotion).toBeTypeOf('function')
+
         // 3rd-party re-exports
         expect(martisRuntime.reactRouterDom).toBeTypeOf('object')
         expect(martisRuntime.reactI18next).toBeTypeOf('object')
@@ -95,39 +166,61 @@ describe('martisRuntime', () => {
         expect(Object.keys(martisRuntime).filter((key) => !namespaces.includes(key) && !named.has(key))).toEqual([])
     })
 
-    it('every name the docs import from @martis/runtime is a shim export', () => {
-        // The docs examples are copied into consumer extensions, whose build
-        // fails on any imported name the shim does not export.
-        const exported = new Set([...runtimeShim.matchAll(/^export const (\w+) =/gm)].map(([, name]) => name))
-        const missing: string[] = []
+    it('every import the docs examples make resolves in a consumer extension build', () => {
+        // The docs examples are copied into consumer extensions, which the
+        // consumer's own vite builds from `vite.extensions.config.ts`. An
+        // aliased specifier (`@martis/runtime`, the legacy `@/lib/*` style
+        // paths, `react-dom`, ...) reaches a shim, and a value name that shim
+        // does not export fails the build with "is not exported"; a type
+        // from `@martis/runtime` must be one `lib/martisRuntime.ts`
+        // re-exports. An `@/...` or `@martis/...` path no alias matches does
+        // not resolve at all, and one the legacy aliases send to the runtime
+        // shim builds but teaches a package path, so the docs name
+        // `@martis/runtime`. A code block that documents the package's own
+        // source says so on a `// Package-internal` line and is skipped.
+        const runtimeTypes = new Set([
+            ...[...runtimeSource.matchAll(/^export type \{([^}]*)\}/gm)].flatMap(([, names]) => names.split(',').map((name) => name.trim())),
+            ...[...runtimeSource.matchAll(/^export type (\w+)/gm)].map(([, name]) => name),
+        ])
+        const problems: string[] = []
 
         for (const [file, source] of Object.entries(docs)) {
-            const imports = source.matchAll(/^import\s+(type\s+)?((?:\w+\s*,\s*)?(?:\{[^}]*\}|\*\s*as\s+\w+|\w+))\s+from\s+['"]@martis\/runtime['"]/gm)
-            for (const [, typeOnly, clause] of imports) {
-                if (typeOnly) continue
-                const specifiers = (clause.match(/\{([^}]*)\}/)?.[1] ?? '').split(',').map((s) => s.trim())
-                for (const specifier of specifiers) {
-                    if (specifier === '' || specifier.startsWith('type ')) continue
-                    const name = specifier.split(/\s+as\s+/)[0]
-                    if (!exported.has(name)) missing.push(`${file.replace('../../', '')}: ${name}`)
+            const page = file.replace('../../docs/', '')
+            const consumerFacing = source.replace(
+                /^([ \t>]*)(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1\2[ \t]*$/gm,
+                (block) => (/^[ \t>]*\/\/ Package-internal\b/m.test(block) ? '' : block),
+            )
+            const imports = consumerFacing.matchAll(/import\s+(type\s+)?((?:\w+\s*,\s*)?(?:\{[^}]*\}|\*\s*as\s+\w+|\w+))\s+from\s+['"]([^'"]+)['"]/g)
+
+            for (const [, typeOnly, clause, specifier] of imports) {
+                const target = resolveAlias(specifier)
+                if (target === specifier) {
+                    if (/^@(\/|martis\/)/.test(specifier)) problems.push(`${page}: '${specifier}' does not resolve`)
+                    continue
+                }
+                if (target === 'runtimeShim' && specifier !== '@martis/runtime') {
+                    problems.push(`${page}: '${specifier}' is a legacy path, import from '@martis/runtime'`)
+                    continue
+                }
+
+                const exported = shimExports(target)
+                const names = (clause.match(/\{([^}]*)\}/)?.[1] ?? '').split(',').map((s) => s.trim()).filter((s) => s !== '')
+                for (const entry of names) {
+                    const isType = typeOnly !== undefined || entry.startsWith('type ')
+                    const name = entry.replace(/^type\s+/, '').split(/\s+as\s+/)[0]
+                    // Types from React and the other third-party shims come
+                    // from the `@types` packages the consumer installs.
+                    if (isType && target !== 'runtimeShim') continue
+                    if (exported.has(name) || (isType && runtimeTypes.has(name))) continue
+                    problems.push(`${page}: ${isType ? 'type ' : ''}${name} from '${specifier}'`)
                 }
             }
         }
 
-        expect(missing).toEqual([])
+        expect(problems).toEqual([])
     })
 
     it('the consumer vite config sends @martis/runtime and every legacy runtime path to the whole shim', () => {
-        // Mirrors Vite's alias plugin: the first entry whose `find` matches
-        // wins (a string matches the whole specifier or a path prefix), and
-        // only the matched text is replaced, so a regex that matches the
-        // start of `@/lib/api` would leave `api` on the shim path.
-        const entries: { find: string | RegExp; replacement: string }[] = [...viteExtensionsConfig.matchAll(/\{find: (?:'([^']+)'|\/(.+?)\/([a-z]*)), replacement: (\w+)\}/g)]
-            .map(([, literal, source, flags, replacement]) => ({ find: literal ?? new RegExp(source, flags), replacement }))
-        const resolve = (id: string) => {
-            const entry = entries.find(({ find }) => (typeof find === 'string' ? id === find || id.startsWith(`${find}/`) : find.test(id)))
-            return entry ? id.replace(entry.find, entry.replacement) : id
-        }
         const expected: Record<string, string> = {
             'react': 'reactShim',
             'react-dom': 'reactShim',
@@ -143,7 +236,7 @@ describe('martisRuntime', () => {
             '@martis/martis/hooks/useIsMobile': 'runtimeShim',
         }
 
-        expect(Object.fromEntries(Object.keys(expected).map((id) => [id, resolve(id)]))).toEqual(expected)
+        expect(Object.fromEntries(Object.keys(expected).map((id) => [id, resolveAlias(id)]))).toEqual(expected)
     })
 
     it('FieldInput renders a text input for type=text and threads onChange', () => {

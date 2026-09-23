@@ -13,6 +13,8 @@ Martis provides a 4-tier component resolution system that allows you to replace 
 | 3 | Global type | All fields of a given type | `registerFieldDisplay()` |
 | 4 (lowest) | Built-in default | Fallback | Pre-registered by Martis |
 
+The registry calls below run in your consumer extension (`resources/js/martis-extensions/`), which imports `componentRegistry` from `@martis/runtime` (v1.38.0+). It is the instance the SPA resolves from, also reachable as `window.Martis.componentRegistry`, which the auto-discovery entry uses to register the four buckets. On an extension scaffolded before v1.38.0, refresh the shim first: see [Refreshing the extension scaffold after an upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade).
+
 ## 1. Field Component Overrides
 
 ### 1.1 Global Type Override
@@ -21,7 +23,7 @@ Replace the component for **all fields** of a given type across every resource.
 
 ```typescript
 // resources/js/martis-extensions/index.ts
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { MyRatingDisplay, MyRatingInput } from './components/RatingField'
 
 // All "number" fields now use MyRatingDisplay/MyRatingInput
@@ -35,7 +37,7 @@ Replace the component only for a specific field in a specific resource.
 
 ```typescript
 // resources/js/martis-extensions/index.ts
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { StatusBadgeDisplay } from './components/StatusBadge'
 
 // Only the "status" field in the "posts" resource uses StatusBadgeDisplay
@@ -63,7 +65,7 @@ public function fields(Request $request): array
 **TypeScript:**
 ```typescript
 // resources/js/martis-extensions/index.ts
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { StatusBadge } from './components/StatusBadge'
 import { StarRating } from './components/StarRating'
 
@@ -85,23 +87,23 @@ Text::make('status')
 
 ## 2. Layout Overrides
 
-Each resource can use a custom page layout shell.
+Each resource can render its pages in a layout of its own (v1.38.0+). The layout wraps every page of the resource (index, lens, create, detail and update) inside the shell, so the sidebar and topbar stay, and receives the page as `children`. A resource with no registered layout renders its pages as before. Before v1.38.0 `layoutRegistry.register()` had no effect: nothing in the SPA read the registry.
 
 ```typescript
 // resources/js/martis-extensions/index.ts
-import { layoutRegistry } from '@/lib/layoutRegistry'
+import { layoutRegistry } from '@martis/runtime'
 import { UserResourceLayout } from './layouts/UserResourceLayout'
 
 // The "users" resource uses a custom layout
 layoutRegistry.register('users', UserResourceLayout)
 ```
 
-**Layout component:**
+**Layout component** (outside the four auto-discovered buckets, since the call above registers it):
 ```tsx
-// resources/js/martis/layouts/UserResourceLayout.tsx
-import type { ReactNode } from 'react'
+// resources/js/martis-extensions/layouts/UserResourceLayout.tsx
+import type { LayoutProps } from '@martis/runtime'
 
-export function UserResourceLayout({ children }: { children: ReactNode }) {
+export function UserResourceLayout({ children }: LayoutProps) {
   return (
     <div className="user-admin-shell">
       <UserQuickStats />
@@ -118,6 +120,8 @@ export function UserResourceLayout({ children }: { children: ReactNode }) {
 | `sidebar` | Left sidebar navigation + top bar (default) |
 | `topnav` | Top navigation bar |
 | `minimal` | Minimal header, no sidebar |
+
+A resource layout lives inside the shell. To replace the shell itself, for every page, register a component under `layout:shell` in the component registry, or one piece under `layout:sidebar`, `layout:topbar` or `layout:footer`: see [Shell piece-by-piece overrides](#shell-piece-by-piece-overrides).
 
 ## 3. CRUD View Overrides (Drawers)
 
@@ -143,7 +147,7 @@ Register a custom component to handle a CRUD action:
 
 ```typescript
 // resources/js/martis-extensions/index.ts
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { MyPostCreator } from './components/MyPostCreator'
 
 componentRegistry.register('custom-post-creator', MyPostCreator)
@@ -240,7 +244,7 @@ A host can hand a mounted override another `record` / `recordId`, or another res
 When a custom override has its own internal component tree (header, sidebar, form sections), prop-drilling `OverrideProps` through every level is noisy. The `useOverrideProps()` hook exposes the same payload via React context — wrap once at the top of your override, read anywhere underneath:
 
 ```tsx
-import { useOverrideProps, OverridePropsProvider } from '@/hooks/useOverrideProps'
+import { useOverrideProps, OverridePropsProvider, type OverrideProps } from '@martis/runtime' // v1.38.0+
 
 export function MyDrawerCreate(props: OverrideProps) {
   return (
@@ -265,7 +269,7 @@ function MyHeader() {
 
 The hook **throws** outside the provider so wiring bugs are loud. Use `useOverridePropsOptional()` (returns `null`) when an override component is shared between contexts where the provider may not exist.
 
-The provider is opt-in — overrides that pass `props` manually keep working unchanged.
+The provider is opt-in — overrides that pass `props` manually keep working unchanged. It is the override's own: the package mounts none around the components it renders.
 
 **Drawer features:**
 - Slide-in animation from left/right
@@ -439,7 +443,7 @@ Event::listen(BeforeDelete::class, function (BeforeDelete $event) {
 Every display component receives `FieldDisplayProps`. Examples below use the [Tailwind preset](theming.md#-in-tsx-tailwind-preset) so the override stays in sync with the active theme (light/dark, accent override, density).
 
 ```typescript
-import type { FieldDisplayProps } from '@/components/fields/types'
+import type { FieldDisplayProps } from '@martis/runtime'
 
 export function StatusBadge({ field, value }: FieldDisplayProps) {
   const label = String(value ?? '')
@@ -466,7 +470,7 @@ export function StatusBadge({ field, value }: FieldDisplayProps) {
 Every input component receives `FieldInputProps`:
 
 ```typescript
-import type { FieldInputProps } from '@/components/fields/types'
+import type { FieldInputProps } from '@martis/runtime'
 
 export function StatusSelect({ field, value, onChange, error }: FieldInputProps) {
   return (
@@ -872,7 +876,7 @@ Replace any of the three shell pieces (`Sidebar`, `Topbar`, `Footer`) without to
 
 ```typescript
 // resources/js/martis-extensions/index.ts
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { MyTopbar } from './components/MyTopbar'
 import { MyFooter } from './components/MyFooter'
 
@@ -910,7 +914,7 @@ Use `layout:shell` (or `config.layout.components.shell`) when you want to rebuil
 ## Component Registry API
 
 ```typescript
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 
 // ─── Registration ──────────────────────────────────────────
 // Register by key (also used for explicit `field.component` keys from PHP)
@@ -943,6 +947,8 @@ componentRegistry.keys()
 ```
 
 `resolveDisplay` and `resolveInput` walk Tiers 1 → 4 in order (explicit key → per-resource → global type → fallback). The single-arg `resolve(key)` is the low-level lookup used by drawer / shell overrides where the consumer already knows the exact registry key.
+
+The same instance is `window.Martis.componentRegistry`, so `window.Martis.componentRegistry.keys()` in the browser console lists every registered key without a rebuild.
 
 ## Debugging — `martis:list-overrides`
 
@@ -993,7 +999,7 @@ resources/js/martis-extensions/{tools,fields,cards,overrides}/ (v1.9+ filename �
 The command lists what is **expected**, not what is **registered** — the actual override registry lives in the browser and cannot be introspected from PHP. Check the matching list in your frontend by running this in the browser devtools console after the SPA boots:
 
 ```js
-window.componentRegistry.keys()
+window.Martis.componentRegistry.keys()
 ```
 
 Any key that appears in `martis:list-overrides` but not in `componentRegistry.keys()` is a missing TSX file under `resources/js/martis-extensions/` — the most common reason an override fails to resolve.
@@ -1033,7 +1039,7 @@ Setting this is a server-side config change, so re-publish or re-bundle after ed
 Custom pages (layouts, custom resource views, dashboards built outside the default router) should set the browser tab title so navigation inside the SPA stays consistent with the server-side title on hard reload.
 
 ```tsx
-import { usePageTitle } from '@/hooks/usePageTitle'
+import { usePageTitle } from '@martis/runtime' // v1.38.0+
 
 export function MyCustomPage({ resource }) {
   // Passing a segment → `"${segment} · ${brand}"`.

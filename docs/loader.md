@@ -127,12 +127,12 @@ All options are optional. Omitted keys use the built-in defaults.
 For full control, replace `MartisLoader` with your own component. Register the override from your consumer extension bundle (`resources/js/martis-extensions/`) (typically `resources/js/martis-extensions/index.ts`):
 
 ```typescript
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { MyLoader } from './MyLoader'
 
-// Replace the global loader with your custom component. Every page in
-// the package that imports `MartisLoader` from `@/components/Loader`
-// transparently routes through this override.
+// Replace the global loader with your custom component. Every Martis
+// page, and every `MartisLoader` an extension renders from
+// `@martis/runtime`, routes through this override.
 componentRegistry.register('loader', MyLoader)
 ```
 
@@ -183,8 +183,8 @@ interface MartisLoaderProps {
 ### Custom Loader Example
 
 ```tsx
-// resources/martis-extensions/martis/MyLoader.tsx
-import type { MartisLoaderProps } from '@/components/Loader'
+// resources/js/martis-extensions/MyLoader.tsx
+import type { MartisLoaderProps } from '@martis/runtime'
 
 export function MyLoader({ loading, size, overlay, children }: MartisLoaderProps) {
   if (!loading) return overlay ? <>{children}</> : null
@@ -255,7 +255,7 @@ The PHP-side `loader` config reaches the SPA via `window.MartisConfig.loader`, s
 loader: {!! json_encode(config('martis.loader', ['disabled' => false])) !!},
 ```
 
-The TypeScript shape is exposed as `MartisLoaderConfig` in `@/lib/config`. If you need to gate the loader from the same closure that already drives a feature flag (e.g. dim the spinner during a maintenance window), point `MARTIS_LOADER_DISABLED` at an env value the closure reads — the env wrapper avoids editing the published config file.
+The TypeScript shape is `MartisLoaderConfig`, a type `@martis/runtime` exports (v1.38.0+). If you need to gate the loader from the same closure that already drives a feature flag (e.g. dim the spinner during a maintenance window), point `MARTIS_LOADER_DISABLED` at an env value the closure reads — the env wrapper avoids editing the published config file.
 
 ## Publishing via `martis:vendor-publish`
 

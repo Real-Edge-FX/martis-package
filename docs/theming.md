@@ -439,10 +439,10 @@ The preset is additive — your existing `colors`, `fontFamily`, etc. stay untou
 
 ### In TSX (canvas/Chart.js — runtime resolution)
 
-CSS variables can't be read by canvas APIs. Use the helper:
+CSS variables can't be read by canvas APIs. Use the helpers on `@martis/runtime` (v1.38.0+):
 
 ```tsx
-import { cssVar, accentColor, mutedTextColor, chartPalette, resolveColor } from '@/lib/themeColors'
+import { cssVar, accentColor, mutedTextColor, chartPalette, resolveColor } from '@martis/runtime'
 
 const accent = accentColor()                           // 'rgb(...)' resolved
 const muted = mutedTextColor()

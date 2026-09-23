@@ -372,7 +372,7 @@ Bind a React component to the key your PHP tool declared:
 
 ```ts
 // resources/js/martis-extensions/index.ts
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { FinanceImportsTool } from './tools/FinanceImportsTool'
 
 componentRegistry.register('tool:imports', FinanceImportsTool)

@@ -6,16 +6,22 @@ No 3rd-party dependency: implementation lives in `resources/js/lib/keyboardShort
 
 ## Public API
 
-```ts
-import { addShortcut, disableShortcut, listShortcuts } from '@/lib/keyboardShortcuts'
+An extension reaches the registry through `window.Martis.shortcuts`, which the SPA sets before it loads your extension bundle:
 
-// Or, from a consumer's extension bundle entry (no module imports needed):
-window.Martis.shortcuts.add('mod+s', handler)
-window.Martis.shortcuts.remove('mod+s')   // alias for disableShortcut
-window.Martis.shortcuts.list()            // alias for listShortcuts
+```ts
+window.Martis.shortcuts.add('mod+s', handler)   // addShortcut: returns a disposer
+window.Martis.shortcuts.remove('mod+s')          // disableShortcut
+window.Martis.shortcuts.list()                   // listShortcuts
 ```
 
-The window binding (`window.Martis.shortcuts`) exposes exactly three methods — `add`, `remove`, `list` — mapping 1:1 to the three exports above. Use it from your extension entry or any non-module surface where importing from `@/lib/...` is awkward.
+Inside the package the same three functions are module exports, which `window.Martis.shortcuts` maps 1:1 (`add`, `remove`, `list`):
+
+```ts
+// Package-internal: resources/js/lib/keyboardShortcuts.ts, not on @martis/runtime.
+import { addShortcut, disableShortcut, listShortcuts } from '@/lib/keyboardShortcuts'
+```
+
+The sections below use the function names; from an extension, call `window.Martis.shortcuts.add`, `.remove` and `.list` with the same arguments.
 
 ### `addShortcut(combo, handler, options?)`
 
@@ -132,14 +138,13 @@ Override with `{ allowInInput: true }` for combos that should always fire (typic
 ```ts
 // In your Tool's React entry component.
 import { useEffect } from 'react'
-import { addShortcut } from '@/lib/keyboardShortcuts'
 import { useNavigate } from 'react-router-dom'
 
 export function MyDeploymentsTool() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    return addShortcut('g d', () => navigate('/tools/deployments'), {
+    return window.Martis.shortcuts.add('g d', () => navigate('/tools/deployments'), {
       description: 'Go to Deployments tool',
       group: 'Tools',
     })
@@ -149,24 +154,24 @@ export function MyDeploymentsTool() {
 }
 ```
 
-### Replace the bundled palette shortcut
+### Take over a bundled shortcut
 
-If you want to bind the palette to `mod+/` instead of `mod+k`, run this at app boot (e.g. in your extension bundle entry):
+The topbar registers `mod+k` and `/` when the shell mounts, and the SPA mounts only after your extension bundle has run, so `window.Martis.shortcuts.remove('mod+k')` in the extension entry finds nothing to remove yet. Take the combo over instead: when several handlers share a combo, the one registered first runs and the others do not, so a handler your extension entry registers wins over the bundled one:
 
 ```ts
-import { disableShortcut, addShortcut } from '@/lib/keyboardShortcuts'
-
-disableShortcut('mod+k')
-addShortcut('mod+/', () => {
-  // your palette opener
-}, { description: 'Open palette', group: 'Navigation', allowInInput: true })
+// resources/js/martis-extensions/index.ts (runs before the shell mounts)
+window.Martis.shortcuts.add('mod+k', () => {
+  // your command
+}, { description: 'Open my launcher', group: 'Navigation', allowInInput: true })
 ```
+
+Pass `allowInInput: true` when the bundled handler has it (`mod+k` does): a handler without it is skipped while an input has focus, and the bundled one runs instead.
 
 ### Form-save shortcut on a custom page
 
 ```ts
 useEffect(() => {
-  return addShortcut('mod+s', (e) => {
+  return window.Martis.shortcuts.add('mod+s', (e) => {
     e.preventDefault()
     formRef.current?.submit()
   }, {
@@ -179,9 +184,10 @@ useEffect(() => {
 
 ## Testing
 
-The registry is written to be testable without jsdom shenanigans — call `addShortcut`, dispatch a `KeyboardEvent` against `document.body`, assert.
+The registry is written to be testable without jsdom shenanigans — call `addShortcut`, dispatch a `KeyboardEvent` against `document.body`, assert. This is the package's own suite:
 
 ```ts
+// Package-internal: the package's Vitest suite imports the module directly.
 import { keyboardShortcuts, addShortcut } from '@/lib/keyboardShortcuts'
 
 beforeEach(() => keyboardShortcuts.reset()) // clears everything between tests
