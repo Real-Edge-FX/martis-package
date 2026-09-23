@@ -29,6 +29,8 @@ class KeyValue extends Field
 
     protected bool $addingRowsDisabled = false;
 
+    protected bool $deletingRowsDisabled = false;
+
     /** {@inheritdoc} */
     public function type(): string
     {
@@ -92,6 +94,19 @@ class KeyValue extends Field
     }
 
     /**
+     * Prevent the user from deleting rows: the form renders no delete
+     * button on any row. Together with `disableEditingKeys()` and
+     * `disableAddingRows()` this presents a fixed set of keys whose values
+     * are the only editable part (Nova's `disableDeletingRows()`).
+     */
+    public function disableDeletingRows(): static
+    {
+        $this->deletingRowsDisabled = true;
+
+        return $this;
+    }
+
+    /**
      * Get key label.
      */
     public function getKeyLabel(): string
@@ -129,6 +144,14 @@ class KeyValue extends Field
     public function isAddingRowsDisabled(): bool
     {
         return $this->addingRowsDisabled;
+    }
+
+    /**
+     * Is deleting rows disabled.
+     */
+    public function isDeletingRowsDisabled(): bool
+    {
+        return $this->deletingRowsDisabled;
     }
 
     /** {@inheritdoc} */
@@ -293,6 +316,7 @@ class KeyValue extends Field
             'actionText' => $this->actionText,
             'editingKeysDisabled' => $this->editingKeysDisabled,
             'addingRowsDisabled' => $this->addingRowsDisabled,
+            'deletingRowsDisabled' => $this->deletingRowsDisabled,
         ];
     }
 }

@@ -2521,15 +2521,36 @@ KeyValue::make('metadata', 'Metadata')
 | `actionText` | `actionText(string $text): static` | `$this` | Label for "add row" button. | `'Add Row'` |
 | `disableEditingKeys` | `disableEditingKeys(): static` | `$this` | Prevent editing existing keys. | `false` |
 | `disableAddingRows` | `disableAddingRows(): static` | `$this` | Prevent adding new rows. | `false` |
+| `disableDeletingRows` | `disableDeletingRows(): static` | `$this` | Prevent deleting rows: no row renders a delete button. | `false` |
 | `getKeyLabel` | `getKeyLabel(): string` | `string` | Get key label. | — |
 | `getValueLabel` | `getValueLabel(): string` | `string` | Get value label. | — |
 | `getActionText` | `getActionText(): string` | `string` | Get action text. | — |
 | `isEditingKeysDisabled` | `isEditingKeysDisabled(): bool` | `bool` | Check if key editing disabled. | — |
 | `isAddingRowsDisabled` | `isAddingRowsDisabled(): bool` | `bool` | Check if adding disabled. | — |
+| `isDeletingRowsDisabled` | `isDeletingRowsDisabled(): bool` | `bool` | Check if deleting disabled. | — |
+
+**A fixed set of keys.** The three `disable*` flags are independent. To present
+a map whose keys are fixed and only the values are editable (opening hours per
+weekday, one row per locale), declare all three; with only
+`disableEditingKeys()->disableAddingRows()` the operator can still delete a row,
+and saving then drops that key from the stored map:
+
+```php
+KeyValue::make('opening_hours', 'Opening hours')
+    ->keyLabel('Day')
+    ->valueLabel('Hours')
+    ->disableEditingKeys()
+    ->disableAddingRows()
+    ->disableDeletingRows()
+```
+
+The flags shape the form only. The server stores the rows it receives, so a
+payload sent outside the form is not held to the fixed key set; enforce it
+with a validation rule when that matters.
 
 **Storage format:** `{"key1":"value1","key2":"value2"}`
 **Overrides:** `resolve()` decodes to `[{key, value}]` rows; `fill()` normalizes to the associative map and stores it, JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
-**Extra attributes:** `keyLabel`, `valueLabel`, `actionText`, `editingKeysDisabled`, `addingRowsDisabled`
+**Extra attributes:** `keyLabel`, `valueLabel`, `actionText`, `editingKeysDisabled`, `addingRowsDisabled`, `deletingRowsDisabled`
 
 ---
 

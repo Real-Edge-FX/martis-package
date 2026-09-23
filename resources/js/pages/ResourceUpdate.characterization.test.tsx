@@ -185,6 +185,25 @@ describe('ResourceUpdatePage — pre-filled record values', () => {
   })
 })
 
+describe('ResourceUpdatePage — inputs that keep their own state', () => {
+  // The page renders the fields before it seeds the form from the record (an
+  // effect on the next pass), so an input that copies its value into local
+  // state has to adopt the value that arrives after mount.
+  it('shows the stored rows of a KeyValue field', async () => {
+    mockSchemaAndRecord([baseField({ attribute: 'metadata', label: 'Metadata', type: 'key_value' })], {
+      id: 1,
+      metadata: [{ key: 'size', value: '50-200' }, { key: 'industry', value: 'Technology' }],
+    } as unknown as ResourceRecord)
+
+    renderUpdatePage()
+
+    await waitFor(() => {
+      const values = [...document.querySelectorAll('input')].map((input) => input.value)
+      expect(values).toEqual(['size', '50-200', 'industry', 'Technology'])
+    })
+  })
+})
+
 // ---------------------------------------------------------------------------
 // (2) context: 'update' — record fetched with ?context=update; fieldsForUpdate
 //     is the rendered source of fields.
