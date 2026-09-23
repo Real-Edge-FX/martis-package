@@ -6,6 +6,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use Martis\Stubs\StubResolver;
 use Martis\Support\AgentDetector;
 use Martis\Support\AgentProfile;
 use Martis\Support\DocGuardWriter;
@@ -20,16 +21,23 @@ use function Laravel\Prompts\multiselect;
  * optionally wire the Martis MCP server into the agent's config.
  *
  * Standalone command, idempotent. Re-running with the same flags
- * produces a zero diff. The guideline content is the canonical
- * `stubs/agents/AGENTS.md.stub`, rendered with the project's name
- * and namespace; the MCP section is conditional on whether the user
- * opted into wiring the MCP server.
+ * produces a zero diff. The guideline content is the
+ * `agents/AGENTS.md.stub` template, resolved like every generator stub
+ * (the host's `stubs/martis/agents/AGENTS.md.stub`, published by
+ * `martis:stubs`, before the package's), rendered with the project's
+ * name and namespace; the MCP section is conditional on whether the
+ * user opted into wiring the MCP server. The primer names no package
+ * version: it is a committed file, and a version stamped at generation
+ * time goes stale on the next upgrade (`composer.lock` is the source).
  *
  * Lifecycle scenarios live in the package docs at
  * `docs/agent-guidelines.md`.
  */
 class AgentsCommand extends Command
 {
+    /** The primer template, relative to the stub directories. */
+    public const STUB = 'agents/AGENTS.md.stub';
+
     protected $signature = 'martis:agents
         {--agent=* : Restrict to specific agents (claude, cursor, gemini, codex, copilot)}
         {--with-mcp : Wire the Martis MCP server in the agent\'s config without prompting}
@@ -362,14 +370,9 @@ class AgentsCommand extends Command
 
     private function render(string $stub, bool $withMcp): string
     {
-        $project = $this->guessProjectName();
-        $namespace = $this->guessAppNamespace();
-        $version = $this->guessMartisVersion();
-
         $rendered = strtr($stub, [
-            '{{project_name}}' => $project,
-            '{{namespace}}' => $namespace,
-            '{{martis_version}}' => $version,
+            '{{project_name}}' => $this->guessProjectName(),
+            '{{namespace}}' => $this->guessAppNamespace(),
         ]);
 
         // Two conditional block kinds:
@@ -390,9 +393,14 @@ class AgentsCommand extends Command
         return $rendered;
     }
 
+    /**
+     * The primer template: the host's published copy
+     * (`stubs/martis/agents/AGENTS.md.stub`) when it exists, else the
+     * package's, so a host's edits survive `martis:agents --force`.
+     */
     private function stubPath(): string
     {
-        return __DIR__.'/../../stubs/agents/AGENTS.md.stub';
+        return StubResolver::path(self::STUB);
     }
 
     private function guessProjectName(): string
@@ -424,21 +432,5 @@ class AgentsCommand extends Command
         }
 
         return 'App';
-    }
-
-    private function guessMartisVersion(): string
-    {
-        $installed = base_path().'/vendor/composer/installed.json';
-        if (file_exists($installed)) {
-            $data = json_decode((string) file_get_contents($installed), associative: true);
-            $packages = $data['packages'] ?? $data ?? [];
-            foreach ($packages as $package) {
-                if (($package['name'] ?? null) === 'martis/martis') {
-                    return (string) ($package['version'] ?? 'unknown');
-                }
-            }
-        }
-
-        return 'unknown';
     }
 }

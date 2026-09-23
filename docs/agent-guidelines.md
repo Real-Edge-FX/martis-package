@@ -47,7 +47,7 @@ The primer covers Martis idioms: the 31 generators, field rules, resource conven
 | Already ran without MCP, want to add it now | `php artisan martis:agents --mcp-only` |
 | Disable MCP temporarily | edit `.env` → `MARTIS_MCP_ENABLED=false` |
 | Remove MCP entirely | `php artisan martis:agents --mcp-unwire` |
-| Re-generate guidelines after a package upgrade | `php artisan martis:agents --force` |
+| Re-generate guidelines after a package upgrade | `php artisan martis:agents --force` (a primer template you published keeps your edits; see [Customising the primer](#customising-the-primer)) |
 | Add support for a second agent later | `php artisan martis:agents --agent=cursor` (additive) |
 | Enforce MCP-only doc reads (Claude Code) | `php artisan martis:agents --with-mcp --with-doc-guard` |
 
@@ -62,6 +62,14 @@ reports `enabled: false` (or errors), the guidance is to **stop and ask the
 operator to re-enable/restart the MCP**, not to fall back to the files. When no
 MCP is wired, the guidelines list the file paths, because then the files are the
 only source.
+
+With the MCP wired the primer does not repeat what the MCP serves: it names
+`martis_doc_list()` for the page index instead of listing the slugs, states the
+MCP-only rule once, and leaves the transport and the runtime knobs to this page
+(they are the operator's concern). The file-based primer keeps the slug table
+with the file paths. Before v1.38.1 the MCP-wired primer also carried the slug
+table, the MCP-only rule four times and the operator-only subsections, about
+15 KB against about 10 KB now.
 
 ### Optional: machine-enforced doc guard (`--with-doc-guard`)
 
@@ -241,13 +249,23 @@ Codex uses a TOML format under `[mcp_servers.martis]` instead of `mcpServers.mar
 
 ## Customising the primer
 
-The primer is rendered from a stub at `stubs/agents/AGENTS.md.stub` inside the package. Three placeholders are substituted at write time:
+The primer is rendered from the `agents/AGENTS.md.stub` template, resolved like every generator stub: your project's `stubs/martis/agents/AGENTS.md.stub` when it exists, the package's otherwise. Publish it with the other stubs and edit your copy:
+
+```bash
+php artisan martis:stubs            # writes stubs/martis/agents/AGENTS.md.stub among the others
+php artisan martis:agents --force   # renders your edited copy
+```
+
+A published template keeps your edits through `martis:agents --force`, the post-upgrade step above; compare it with the package's after an upgrade (`php artisan martis:stubs --force` into a scratch checkout, or a diff against `vendor/martis/martis/stubs/agents/AGENTS.md.stub`) to pick up new guidance. With no published template the output is the package's, byte for byte.
+
+Two placeholders are substituted at write time:
 
 - `{{project_name}}` — pulled from your `composer.json` `name`, falls back to the directory basename.
-- `{{namespace}}` — resolved from the `App\` PSR-4 mapping in `composer.json`.
-- `{{martis_version}}` — read from `vendor/composer/installed.json`.
+- `{{namespace}}` — resolved from the `app/` PSR-4 mapping in `composer.json`.
 
-The MCP section is wrapped in `{{MCP_SECTION}}...{{/MCP_SECTION}}` markers and rendered only when MCP is wired. To override the stub for your project, publish it through the existing `martis:stubs` mechanism and edit your local copy.
+The primer names no package version: it is a committed file, and a version stamped when it was generated goes stale on the next upgrade, so it points the agent at `composer.lock`. Two kinds of conditional block work in a published copy too: `{{MCP_SECTION}}…{{/MCP_SECTION}}` is kept only when the MCP is wired, `{{^MCP_SECTION}}…{{/^MCP_SECTION}}` only when it is not.
+
+Before v1.38.1 `martis:stubs` did not publish the primer template and the command never read a project copy, so `--force` discarded every edit, and the primer stamped the installed version (`{{martis_version}}`), which went stale on every upgrade.
 
 ## Idempotency
 

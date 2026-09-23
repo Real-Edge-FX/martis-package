@@ -12,7 +12,7 @@ Every Martis make-command (e.g. `martis:resource`, `martis:action`, `martis:lens
 php artisan martis:stubs
 ```
 
-Output (truncated — the package ships ~45 stubs):
+Output (truncated; the package ships 60 stubs):
 
 ```
   resource.stub ............................................... PUBLISHED
@@ -21,7 +21,7 @@ Output (truncated — the package ships ~45 stubs):
   lens.stub ................................................... PUBLISHED
   ...
 
-  45 stubs published; 0 skipped. Edit them in stubs/martis/ to customise generator output.
+  60 stubs published; 0 skipped. Edit them in stubs/martis/ to customise generator output.
 ```
 
 When you re-run with `--force`, the status column reads `OVERWRITTEN` instead of `PUBLISHED` so the overwrite is visible in the log.
@@ -44,6 +44,7 @@ The folder is created at `base_path('stubs/martis/')`. From now on every `martis
 | `policy.stub` | `martis:policy` |
 | `theme.css.stub` | `martis:theme` |
 | `component-{type}.tsx.stub` (12 variants) | `martis:component --type={type}` (see table below) |
+| `agents/AGENTS.md.stub` | `martis:agents`: the guidelines primer for AI coding agents, published to `stubs/martis/agents/` (v1.38.1+; see [Agent guidelines → Customising the primer](agent-guidelines.md#customising-the-primer)) |
 
 ### `martis:component` types
 

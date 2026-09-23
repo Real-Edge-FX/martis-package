@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.38.1] — 2026-09-23
+
+### Changed
+
+- **With the docs MCP wired, the `martis:agents` primer no longer repeats what the MCP serves.** It kept the 41-row slug table meant for file reads although `martis_doc_list()` returns the same index as data, stated the "read the docs only through the MCP" rule four times, carried transport and runtime-knob subsections that labelled themselves the operator's concern, and its section 9 restated eight rules of earlier sections without their reasons. The MCP-wired primer now names `martis_doc_list()` for the page index, states the rule once with its one instruction (on `enabled: false`, a 401 or a connection error, stop and tell the operator; never fall back to the files), and leaves the transport and the knobs to the agent guidelines page; section 9 keeps the one rule stated nowhere else, and the vendor and host-code rules moved into section 1 with their reasons. About 15 KB down to about 10 KB, no rule dropped. The file-based primer keeps the slug table with the file paths. +4 Pest. See [Agent guidelines → Docs are read through the MCP](docs/agent-guidelines.md#docs-are-read-through-the-mcp).
+
+### Fixed
+
+- **The `martis:agents` primer stamped the installed package version, so a committed primer went stale on every upgrade.** It opened with "package version `vX.Y.Z`", read from `vendor/composer/installed.json` when the file was generated: a project that upgraded without regenerating it shipped a primer naming a version it did not run, and one that regenerated it lost its edits (next entry). The primer names no version now and points the agent at `composer.lock`. +2 Pest. See [Agent guidelines → Customising the primer](docs/agent-guidelines.md#customising-the-primer).
+- **The `martis:agents` primer template could not be customised, and `--force` discarded every edit.** The agent guidelines page said to publish it with `martis:stubs`, but `martis:stubs` only published the top-level stubs and the command always read the package's template, so the documented post-upgrade step (`martis:agents --force`) rewrote the primer from it. The command now resolves `agents/AGENTS.md.stub` like every generator stub (the project's `stubs/martis/agents/AGENTS.md.stub` first), `martis:stubs` publishes it there, and a published copy keeps its placeholders and MCP blocks working; with none published the output is the package's, byte for byte. +3 Pest. See [Customising Generators](docs/customizing-generators.md#what-gets-published).
+
 ## [1.38.0] — 2026-09-23
 
 ### Security
