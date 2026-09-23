@@ -531,9 +531,8 @@ stored row keeps its value without validating the one it sends back. An update
 form renders the field read-only on the rows the record stores and editable on
 the rows added since; a create form keeps it editable on every row. The
 Repeater's input tells the two forms apart by its `context` prop, which every
-bundled update form sets to `'update'`; a form of your own that renders the
-input with `useMartisForm().fieldProps()` passes `context="update"` next to
-them. An immutable Repeater as a whole is skipped on every update, as any immutable
+bundled update form sets to `'update'`, and so do `useMartisForm({ context:
+'update' }).fieldProps()` and `FieldsForm` for a form of your own (v1.38.0+). An immutable Repeater as a whole is skipped on every update, as any immutable
 field (see [Fields → Immutable fields](fields.md#immutable-fields)).
 
 A Repeater inside a row applies the same rules to its own rows, continued from

@@ -122,6 +122,7 @@ return [
     'write_markdown_placeholder' => 'Write your markdown here...',
     'page_not_found' => 'Page not found.',
     'detach_confirm' => 'This record will be detached from the relationship. No data will be deleted. Continue?',
+    'error_detach' => 'The record could not be detached.',
     'back_to_dashboard' => 'Back to Dashboard',
     'not_found_title' => 'Resource not found',
     'not_found_desc' => "The page you're looking for doesn't exist or you don't have permission to see it.",

@@ -4922,6 +4922,8 @@ interface MartisForm {
     resourceKey?: string;
     toolKey?: string;
     recordId?: string | number;
+    /** The context the form was built with (`'create'` unless the options said `'update'`). */
+    context: 'create' | 'update';
     fieldProps: (field: FieldDefinition) => {
         field: FieldDefinition;
         value: unknown;
@@ -4932,6 +4934,8 @@ interface MartisForm {
         resourceKey?: string;
         recordId?: string | number;
         toolKey?: string;
+        /** The form's context, so an input knows it edits a stored record (a Repeater locks the immutable fields of its stored rows). */
+        context: 'create' | 'update';
         formValues: Record<string, unknown>;
     };
 }
@@ -4940,6 +4944,7 @@ declare function useMartisForm(options: MartisFormOptions): MartisForm;
 interface FieldsFormProps {
     /** Controlled form — caller owns the form state via `useMartisForm`. */
     form: MartisForm;
+    /** Render context; defaults to the context the form was built with. */
     context?: 'create' | 'update';
 }
 /**

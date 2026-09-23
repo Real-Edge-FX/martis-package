@@ -274,7 +274,7 @@ The three are on the runtime since v1.29.0, but the extension's `.shims/runtime.
 | `toolKey?` | `string` | Echo of the bound Tool key. |
 | `fieldProps(field)` | see below | The exact prop bundle for a `FieldInput`. |
 
-`fieldProps(field)` returns `{ field, value, onChange, error, nestedErrors, resourceKey, recordId, toolKey, formValues }`: spread it straight onto `<FieldInput {...form.fieldProps(field)} />`. `nestedErrors` holds the errors inside the field's value (a Repeater's rows, keyed `1.fields.name`), so a Repeater shows each row error under its row field (since v1.38.0).
+`fieldProps(field)` returns `{ field, value, onChange, error, nestedErrors, resourceKey, recordId, toolKey, context, formValues }` (`context` is the form's since v1.38.0, so an input that behaves differently on an edit form, a `Slug` or a Repeater's immutable row fields, sees `'update'`): spread it straight onto `<FieldInput {...form.fieldProps(field)} />`. `nestedErrors` holds the errors inside the field's value (a Repeater's rows, keyed `1.fields.name`), so a Repeater shows each row error under its row field (since v1.38.0).
 
 Internally `useMartisForm` runs the **same** `useDependsOnSync` the Resource pages run, and applies the resulting `dependsOn` overrides through the entire container tree (top-level and nested inside `section` / `panel` / `tab_group`). When there is no `resourceKey` the server `dependsOn` round-trip is disabled and overrides simply stay empty — offline degradation, not an error.
 
@@ -285,7 +285,7 @@ Internally `useMartisForm` runs the **same** `useDependsOnSync` the Resource pag
 | Prop | Type | Purpose |
 |---|---|---|
 | `form` | `MartisForm` | The form from `useMartisForm`. Owns state. |
-| `context?` | `'create' \| 'update'` | Render context. Defaults to `'create'`. |
+| `context?` | `'create' \| 'update'` | Render context. Defaults to the context the form was built with (`useMartisForm({ context })`; before v1.38.0 it defaulted to `'create'`, so a form built for a stored record rendered its inputs as a create form unless told). |
 
 Renders `form.resolvedFields` in declaration order — scalar fields wrapped in the standard `FieldWrapper` (label, required marker, tooltip, help text) and the `tab_group` / `section` / `panel` containers via their canonical renderers. This is the exact loop the Resource create/update pages use; they now consume this same component, so there is no duplication and no drift.
 

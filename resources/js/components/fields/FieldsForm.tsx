@@ -10,6 +10,7 @@ import type { MartisForm } from '@/hooks/useMartisForm'
 export interface FieldsFormProps {
   /** Controlled form — caller owns the form state via `useMartisForm`. */
   form: MartisForm
+  /** Render context; defaults to the context the form was built with. */
   context?: 'create' | 'update'
 }
 
@@ -20,7 +21,7 @@ export interface FieldsFormProps {
  * `ResourceCreate.tsx` ~L432-475), now driven entirely by `useMartisForm`'s
  * `resolvedFields` + `fieldProps`.
  */
-export function FieldsForm({ form, context = 'create' }: FieldsFormProps): JSX.Element {
+export function FieldsForm({ form, context = form.context }: FieldsFormProps): JSX.Element {
   const { resolvedFields, values, errors, setValue, recordId, resourceKey, toolKey } = form
   const handleChange = (attribute: string, value: unknown) => setValue(attribute, value)
 

@@ -83,3 +83,17 @@ it('keeps an immutable field readonly on an update form after a dependsOn sync',
     depsSpy.mockImplementation(() => new Map())
   }
 })
+
+// A form built for a stored record hands its context to every input, so an
+// input that behaves differently on an edit form (a Slug keeps a stored slug,
+// a Repeater locks the immutable fields of its stored rows) sees 'update'.
+// fieldProps() left it out, and FieldsForm rendered 'create' unless told.
+it('hands the form context to every input', () => {
+  const update = renderHook(() => useMartisForm({ fields, resourceKey: 'projects', context: 'update', recordId: 42 }))
+  expect(update.result.current.context).toBe('update')
+  expect(update.result.current.fieldProps(fields[1]).context).toBe('update')
+
+  const create = renderHook(() => useMartisForm({ fields, resourceKey: 'projects' }))
+  expect(create.result.current.context).toBe('create')
+  expect(create.result.current.fieldProps(fields[1]).context).toBe('create')
+})

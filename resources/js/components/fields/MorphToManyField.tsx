@@ -89,6 +89,7 @@ interface BtmMeta {
 
 function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDisplayProps['field']; readOnly?: boolean }) {
   const { t: tAct } = useTranslation('actions')
+  const { t: tMsg } = useTranslation('messages')
   const qc = useQueryClient()
 
   const meta = field.morphToManyMeta as BtmMeta | undefined
@@ -109,6 +110,9 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
 
   const [showAttachModal, setShowAttachModal] = useState(false)
   const [detachTarget, setDetachTarget] = useState<{ id: string | number; title?: string } | null>(null)
+  // Why the last detach failed (a 403 when the policy denies it, a 500), shown
+  // in the confirmation until it closes or the next attempt.
+  const [detachError, setDetachError] = useState<string | null>(null)
   const [editTarget, setEditTarget] = useState<{ id: string | number; title?: string; pivot: Record<string, unknown> } | null>(null)
   const [selectedRows, setSelectedRows] = useState<ResourceRecord[]>([])
   const [activePivotAction, setActivePivotAction] = useState<ActionMeta | null>(null)
@@ -156,6 +160,10 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
       void qc.invalidateQueries({ queryKey: ['morph-to-many', parentResource, parentId, relationship] })
       void qc.invalidateQueries({ queryKey: ['mtm-attachable', parentResource, parentId, relationship] })
       setDetachTarget(null)
+      setDetachError(null)
+    },
+    onError: (e: unknown) => {
+      setDetachError(e instanceof ApiError && e.message ? e.message : tMsg('error_detach', 'The record could not be detached.'))
     },
   })
 
@@ -330,9 +338,10 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
       {detachTarget && (
         <DetachConfirmModal
           title={detachTarget.title ?? String(detachTarget.id)}
-          onConfirm={async () => { await detachMutation.mutateAsync(detachTarget.id) }}
-          onCancel={() => setDetachTarget(null)}
+          onConfirm={() => { setDetachError(null); detachMutation.mutate(detachTarget.id) }}
+          onCancel={() => { setDetachTarget(null); setDetachError(null) }}
           loading={detachMutation.isPending}
+          error={detachError}
         />
       )}
 
@@ -400,11 +409,13 @@ function DetachConfirmModal({
   onConfirm,
   onCancel,
   loading,
+  error,
 }: {
   title: string
-  onConfirm: () => Promise<void>
+  onConfirm: () => void
   onCancel: () => void
   loading: boolean
+  error?: string | null
 }) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
@@ -441,6 +452,9 @@ function DetachConfirmModal({
 
         <div className="martis-modal-body">
           {tMsg('detach_confirm', 'This record will be detached from the relationship. No data will be deleted. Continue?')}
+          {error && (
+            <p role="alert" className="mt-3 text-sm" style={{ color: 'var(--martis-danger)' }}>{error}</p>
+          )}
         </div>
 
         <div className="martis-modal-foot">
@@ -451,7 +465,7 @@ function DetachConfirmModal({
           <button
             type="button"
             disabled={loading}
-            onClick={() => { void onConfirm() }}
+            onClick={onConfirm}
             className="martis-btn-danger"
           >
             <LinkBreakIcon size={14} />
@@ -582,10 +596,10 @@ function AttachModal({
     setFieldErrors({})
     if (selected.length === 1) {
       const payload: Record<string, unknown> = { related_id: selected[0].id, ...pivotValues }
-      void attachMutation.mutateAsync(payload)
+      attachMutation.mutate(payload)
     } else {
       const payload: Record<string, unknown> = { related_ids: selected.map((s) => s.id), ...pivotValues }
-      void attachMutation.mutateAsync(payload)
+      attachMutation.mutate(payload)
     }
   }
 

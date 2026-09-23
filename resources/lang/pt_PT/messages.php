@@ -122,6 +122,7 @@ return [
     'write_markdown_placeholder' => 'Escreva o seu markdown aqui...',
     'page_not_found' => 'Página não encontrada.',
     'detach_confirm' => 'Este registo será desassociado do relacionamento. Nenhum dado será eliminado. Continuar?',
+    'error_detach' => 'Não foi possível desassociar o registo.',
     'back_to_dashboard' => 'Voltar ao Dashboard',
     'not_found_title' => 'Recurso não encontrado',
     'not_found_desc' => 'A página que procura não existe ou não tem permissão para a ver.',
