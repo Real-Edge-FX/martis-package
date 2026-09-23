@@ -51,6 +51,8 @@ export function CreateProjectTool() {
 
 Typing into the Title field generates and formats the Slug — the same behaviour the field has in a Resource form, with zero PHP.
 
+A definition you write needs only `type`, `attribute` and `label` (v1.38.0): the flags the server fills in (`nullable`, `required`, `showOnForms`, `rules`, …) are optional, and `type` also takes a custom field's type.
+
 ### Mode B — fields declared in PHP
 
 Declare the fields on the Tool itself and fetch them at runtime. Opt in with the `ProvidesFields` contract and the `ProvidesToolFields` trait:

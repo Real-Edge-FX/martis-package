@@ -54,7 +54,12 @@ type EventName = keyof EventBusEvents | (string & Record<never, never>)
 class EventBus {
   private readonly listeners = new Map<string, Set<EventHandler>>()
 
-  /** Subscribe to an event. The handler is called on every emission. */
+  /**
+   * Subscribe to an event. The handler is called on every emission; a
+   * built-in event types its payload (`EventBusEvents`).
+   */
+  on<K extends Extract<keyof EventBusEvents, string>>(event: K, handler: (payload: EventBusEvents[K]) => void): void
+  on(event: string, handler: EventHandler): void
   on(event: string, handler: EventHandler): void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set())
@@ -65,6 +70,8 @@ class EventBus {
   /**
    * Subscribe to an event once. The handler is automatically removed after first call.
    */
+  once<K extends Extract<keyof EventBusEvents, string>>(event: K, handler: (payload: EventBusEvents[K]) => void): void
+  once(event: string, handler: EventHandler): void
   once(event: string, handler: EventHandler): void {
     const wrappedHandler: EventHandler = (payload) => {
       handler(payload)
@@ -74,6 +81,8 @@ class EventBus {
   }
 
   /** Unsubscribe a handler from an event. */
+  off<K extends Extract<keyof EventBusEvents, string>>(event: K, handler: (payload: EventBusEvents[K]) => void): void
+  off(event: string, handler: EventHandler): void
   off(event: string, handler: EventHandler): void {
     this.listeners.get(event)?.delete(handler)
   }

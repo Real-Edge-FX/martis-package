@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { EventBus, martisEventBus } from '@/lib/eventBus'
+import { EventBus, martisEventBus, type EventBusEvents } from '@/lib/eventBus'
 
 describe('EventBus', () => {
   let bus: EventBus
@@ -117,5 +117,22 @@ describe('EventBus', () => {
 
   it('exports a singleton martisEventBus', () => {
     expect(martisEventBus).toBeInstanceOf(EventBus)
+  })
+
+  it('types the payload of a built-in event for on, once and off', () => {
+    // Consumer extensions reach this bus through `@martis/runtime`, whose
+    // declarations carry these signatures: a handler destructures the
+    // payload of the event it subscribes to (checked by `tsc`).
+    const received: string[] = []
+    const onCreated = ({ resourceKey, id }: EventBusEvents['martis:record-created']) => received.push(`${resourceKey.toUpperCase()}:${id}`)
+
+    bus.on('martis:record-created', onCreated)
+    bus.once('martis:record-deleted', ({ resourceKey }) => received.push(`deleted ${resourceKey.toUpperCase()}`))
+    bus.emit('martis:record-created', { resourceKey: 'posts', id: 1 })
+    bus.emit('martis:record-deleted', { resourceKey: 'posts', id: 1 })
+    bus.off('martis:record-created', onCreated)
+    bus.emit('martis:record-created', { resourceKey: 'posts', id: 2 })
+
+    expect(received).toEqual(['POSTS:1', 'deleted POSTS'])
   })
 })

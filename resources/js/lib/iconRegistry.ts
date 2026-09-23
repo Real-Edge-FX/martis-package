@@ -336,7 +336,9 @@ function buildLazyIcon(pascal: string): ComponentType<IconProps> {
   return Wrapped
 }
 
-class IconRegistry {
+// Exported so the runtime's generated declarations (`npm run build:types`)
+// can name the type of `iconRegistry`.
+export class IconRegistry {
   private readonly custom = new Map<string, ComponentType<IconProps>>()
 
   /**

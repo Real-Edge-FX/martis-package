@@ -563,14 +563,14 @@ Since v1.14.0, `@martis/runtime` exposes:
 | `FieldDisplayProps`, `FieldInputProps` (types) | Re-exported for the same reason. |
 | `DrawerShell` | Generic slide-over drawer shell. Host edit/add/detail forms (composed from `FieldInput`) in a native drawer; you control open/close from your own state, like a modal. |
 | `DrawerShellProps` (type) | Props for `DrawerShell`: `title`, `subtitle?`, `icon?`, `onClose`, `children`, … |
-| `Tooltip` | The PrimeReact `Tooltip` component. Needed for rich/HTML tooltip content (`escape={false}`) since the extension build doesn't alias `primereact`. |
+| `Tooltip` | The PrimeReact `Tooltip` component. Needed for rich tooltip content (JSX `content`; the global `[data-pr-tooltip]` provider renders plain text) since the extension build doesn't alias `primereact`. |
 | `Dropdown`, `MultiSelect` (v1.29.0) | The exact PrimeReact controls Martis's own filters use. Apply the `martis-filter-dropdown` class for the compact filter look. Lets a Tool render pixel-identical single/multi filters without bundling a second copy of PrimeReact. |
 | `createPortal` (v1.29.0) | `react-dom`'s `createPortal`, for overlays. The extension's React shim is React-core-only (no `react-dom`), so it is exposed here. |
 | `DropdownProps`, `MultiSelectProps` (types) | Re-exported so you can type the controls above without reaching into `primereact/*`. |
 | `NestedParentProvider` (v1.38.0) | Names the record whose related records the relationship panels inside list, when the page URL does not name it; `id: null` on a create form. See [Naming the record of the relationship panels](#naming-the-record-of-the-relationship-panels-v1380). |
 | `NestedParent` (type) | The provider's `value`: `{ resource: string; id: string \| number \| null }`. |
 
-Import each one by name from `@martis/runtime`, which your extension build resolves to `resources/js/martis-extensions/.shims/runtime.mjs`. `martis:install` publishes that file once and `composer update` does not refresh it, so on an extension scaffolded before the version that added a name the build fails with `"Dropdown" is not exported by "resources/js/martis-extensions/.shims/runtime.mjs"`: see [Refreshing the extension scaffold after an upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade).
+Import each one by name from `@martis/runtime`, which your extension build resolves to `resources/js/martis-extensions/.shims/runtime.mjs`. `martis:install` publishes that file once and `composer update` does not refresh it, so on an extension scaffolded before the version that added a name the build fails with `"Dropdown" is not exported by "resources/js/martis-extensions/.shims/runtime.mjs"`: see [Refreshing the extension scaffold after an upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade). Their types come with the scaffold (`.shims/runtime.d.mts`, v1.38.0): see [Type-checking your extensions](installation-guide.md#type-checking-your-extensions).
 
 ### Example — Select inside a custom Action component
 
@@ -682,7 +682,7 @@ the same way:
 
 ```tsx
 import { FieldDisplay, NestedParentProvider } from '@martis/runtime'
-import type { FieldDefinition } from '@martis/runtime'
+import type { FieldDefinition, OverrideProps } from '@martis/runtime'
 
 export function ProjectSummaryDrawer({ schema, resource, record, recordId }: OverrideProps) {
     const fields = (schema.fieldsForDetail ?? []) as FieldDefinition[]

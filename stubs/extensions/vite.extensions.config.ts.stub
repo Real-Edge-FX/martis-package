@@ -36,6 +36,9 @@
  * so override stubs published by older Martis versions keep building:
  * `@/contexts/*`, `@/lib/*`, `@/components/auth/*`, `@martis/martis/*`.
  * They resolve only the names the runtime shim exports.
+ * `tsconfig.extensions.json` maps the same specifiers (the React ones
+ * excepted, typed by `@types/react`) to the declarations published next to
+ * each shim (`.shims/*.d.mts`, v1.38.0+).
  *
  * The earlier v1.9.0–v1.9.2 stub used `rollupOptions.external` +
  * `output.globals` for the same goal, but `globals` only works for

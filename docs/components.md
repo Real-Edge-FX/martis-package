@@ -584,11 +584,11 @@ The Martis Event Bus enables decoupled communication between components without 
 
 ```tsx
 import { useEffect } from 'react'
-import { martisEventBus } from '@martis/runtime'
+import { martisEventBus, type EventBusEvents } from '@martis/runtime'
 
 // Subscribe, and unsubscribe on unmount:
 useEffect(() => {
-  const onCreated = ({ resourceKey, id }) => console.log('New record', id, 'in', resourceKey)
+  const onCreated = ({ resourceKey, id }: EventBusEvents['martis:record-created']) => console.log('New record', id, 'in', resourceKey)
   martisEventBus.on('martis:record-created', onCreated)
   return () => martisEventBus.off('martis:record-created', onCreated)
 }, [])
@@ -596,6 +596,8 @@ useEffect(() => {
 // Emit:
 martisEventBus.emit('martis:record-created', { resourceKey: 'posts', id: 1 })
 ```
+
+A built-in event types its payload in `on`, `once`, `off` and `emit` (`EventBusEvents`, v1.38.0): a handler written inline, `martisEventBus.on('martis:record-created', ({ resourceKey, id }) => …)`, gets both typed.
 
 The package's own components use the `useEventBus()` hook, which wraps the same singleton and drops every handler it registered when the component unmounts:
 
@@ -840,13 +842,14 @@ const btnRef = useRef(null)
 <Tooltip target={btnRef} content="Save record" position="top" />
 ```
 
-> **Rich / HTML content:** the global `[data-pr-tooltip]` provider registers with
-> the default `escape` (HTML is escaped), so `data-pr-tooltip="<b>…</b>"` renders
-> the literal markup. Rich content therefore **must** use the ref-based component
-> with `escape={false}`:
+> **Rich / HTML content:** the global `[data-pr-tooltip]` provider inserts the
+> attribute as plain text, so `data-pr-tooltip="<b>…</b>"` renders the literal
+> markup. Rich content therefore **must** use the ref-based component with JSX
+> `content` (PrimeReact's `Tooltip` has no `escape` prop; a string `content` is
+> plain text too):
 >
 > ```tsx
-> <Tooltip target={ref} position="top" content={<div><b>Re-index</b><br/>…</div>} escape={false} />
+> <Tooltip target={ref} position="top" content={<div><b>Re-index</b><br/>…</div>} />
 > ```
 
 ### From a consumer Tool / extension
@@ -860,7 +863,7 @@ runtime surface (`window.Martis.runtime`, since v1.19.0), exactly like
 import { Tooltip } from '@martis/runtime' // shim → window.Martis.runtime.Tooltip
 
 <button ref={ref}>Re-index</button>
-<Tooltip target={ref} position="top" escape={false}
+<Tooltip target={ref} position="top"
   content={<div className="martis-…"><b>Re-index</b><br/>Rebuilds the index.</div>} />
 ```
 

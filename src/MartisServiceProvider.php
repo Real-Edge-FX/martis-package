@@ -268,6 +268,18 @@ class MartisServiceProvider extends ServiceProvider
                 __DIR__.'/../resources/lang' => $this->app->langPath('vendor/martis'),
             ], 'martis-lang');
 
+            // Consumer-extension shims and their TypeScript declarations
+            // (v1.38.0). `martis:install` publishes them once with the
+            // scaffold; after an upgrade,
+            // `vendor:publish --tag=martis-extension-shims --force` rewrites
+            // them together without touching the Vite config, the tsconfig
+            // or the extension entry.
+            $shims = [];
+            foreach (InstallCommand::EXTENSION_SHIMS as $stub => $target) {
+                $shims[__DIR__.'/../stubs/extensions/'.$stub] = base_path($target);
+            }
+            $this->publishes($shims, 'martis-extension-shims');
+
             // Profile: 2FA columns migration stub
             $this->publishes([
                 __DIR__.'/../stubs/add_two_factor_columns.php.stub' => database_path('migrations/'.date('Y_m_d').'_000002_add_two_factor_columns.php'),

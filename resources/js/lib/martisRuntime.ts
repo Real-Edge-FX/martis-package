@@ -30,7 +30,10 @@
  * `stubs/extensions/runtime-shim.mjs.stub`, the file a consumer build
  * resolves `@martis/runtime` to (the shim test in `martisRuntime.test.tsx`
  * fails without it, and its docs guard fails on a docs example that
- * imports a name no shim exports or a path no alias resolves). The
+ * imports a name no shim exports or a path no alias resolves). It also
+ * needs its re-export in `resources/js/extension-types/runtime.ts`, the
+ * entry `npm run build:types` turns into the declarations published next
+ * to the shim (`extensionTypes.test.ts` fails without it). The
  * consumer's vite also sends the pre-v1.10 paths (`@/contexts/*`,
  * `@/lib/*`, `@/components/auth/*`, `@martis/martis/*`) to that shim, so
  * they reach these names only, not package internals.
@@ -215,9 +218,9 @@ export const martisRuntime = {
   // shell. Pair with the DrawerShellProps type re-exported below.
   DrawerShell,
 
-  // PrimeReact Tooltip. The global `[data-pr-tooltip]` provider escapes
-  // HTML, so rich/HTML tooltip content must use this ref-based component
-  // with `escape={false}` (see docs/components.md "Tooltip Standard").
+  // PrimeReact Tooltip. The global `[data-pr-tooltip]` provider renders
+  // plain text, so rich tooltip content must use this ref-based component
+  // with JSX `content` (see docs/components.md "Tooltip Standard").
   // Consumer Tools can't import `primereact/tooltip` (the extension build
   // doesn't alias `primereact`), so it is exposed here.
   Tooltip,

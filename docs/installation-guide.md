@@ -345,11 +345,12 @@ Once you run `php artisan martis:install`, the consumer app gets the entire exte
 ```
 your-app/
 ├── vite.extensions.config.ts                  # Vite library mode, react externalised
-├── tsconfig.extensions.json                   # TS config for the bundle
+├── tsconfig.extensions.json                   # TS config for the extension sources: npx tsc -p tsconfig.extensions.json
 ├── package.json                               # gains: "build:extensions": "vite build --config vite.extensions.config.ts"
 ├── .env                                       # gains: MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js
 └── resources/js/martis-extensions/
     ├── index.ts                               # auto-discovery entry — picks up everything below
+    ├── .shims/                                # the host modules the build imports (*.mjs) and their types (*.d.mts)
     ├── tools/                                 # martis:tool --with-component drops files here
     ├── fields/                                # martis:field drops files here
     ├── cards/                                 # martis:card drops files here
@@ -437,9 +438,21 @@ MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js,/vendor/another/lib.js
 
 The blade view emits the resolved array as `window.MartisConfig.extensions`. The SPA loops over it and dynamic-imports each via `import(url)`. Failures are isolated — one broken extension can't take down the whole panel; the error is logged with the URL.
 
+### Type-checking your extensions
+
+`tsconfig.extensions.json` covers the sources under `resources/js/martis-extensions/`. Check them with:
+
+```bash
+npx tsc -p tsconfig.extensions.json
+```
+
+Your app installs none of `@martis/runtime`, `react-router-dom`, `react-i18next` or `@tanstack/react-query`: the Vite config sends each to a shim under `.shims/` that re-exports the host's copy. Each of those shims has its TypeScript declarations next to it (`runtime.d.mts`, `react-router-dom.d.mts`, `react-i18next.d.mts`, `tanstack-react-query.d.mts`, since v1.38.0), and the tsconfig `paths` sends the same specifiers to them, the four legacy paths included, so `tsc` checks your code against the modules the build uses. The declarations carry the Martis types and those of the host's copy of each library; `react`, `react-dom` and `@phosphor-icons/react` come from your own `node_modules`, where `martis:install` adds them.
+
+The tsconfig is browser-only (`"types": ["vite/client"]`, no `@types/node`) and does not cover `vite.extensions.config.ts`. If your app has its own `tsconfig.json` that includes `resources/js` (the Laravel React starter kit does), exclude `resources/js/martis-extensions` from it: that config does not know the aliases, so it reports `Cannot find module '@martis/runtime'`.
+
 ### Refreshing the extension scaffold after an upgrade
 
-The scaffold files (`vite.extensions.config.ts`, `tsconfig.extensions.json`, `resources/js/martis-extensions/index.ts` and the shims under `resources/js/martis-extensions/.shims/`) are copied into your app once. `composer update` does not touch them, and `martis:install` skips every file that already exists unless you pass `--force`, which rewrites all of them (the files in the four buckets are never touched).
+The scaffold files (`vite.extensions.config.ts`, `tsconfig.extensions.json`, `resources/js/martis-extensions/index.ts` and the shims under `resources/js/martis-extensions/.shims/` with their declarations) are copied into your app once. `composer update` does not touch them, and `martis:install` skips every file that already exists unless you pass `--force`, which rewrites all of them (the files in the four buckets are never touched).
 
 Your extension build resolves `@martis/runtime` to `.shims/runtime.mjs`, which re-exports the members of `window.Martis.runtime` by name. A name the runtime gains in a later Martis version can be imported by name only once your copy of that file exports it. Until then the build stops with:
 
@@ -458,17 +471,32 @@ Your extension build resolves `@martis/runtime` to `.shims/runtime.mjs`, which r
 
 Three ways to get a missing name, from the narrowest:
 
-1. **Copy the shim from the package.** It holds no app code, so replacing it is safe:
+1. **Republish the shims.** They hold no app code, so replacing them is safe. The `martis-extension-shims` tag rewrites every shim and its declarations together, and leaves the Vite config, the tsconfig and `index.ts` alone:
 
    ```bash
-   cp vendor/martis/martis/stubs/extensions/runtime-shim.mjs.stub resources/js/martis-extensions/.shims/runtime.mjs
+   php artisan vendor:publish --tag=martis-extension-shims --force
    npm run build:extensions
    ```
 
-2. **Refresh the whole scaffold** with `php artisan martis:install --force`. It rewrites the Vite config, the tsconfig, `index.ts` and every shim, so review the diff if you edited any of them.
+2. **Refresh the whole scaffold** with `php artisan martis:install --force`. It rewrites the Vite config, the tsconfig, `index.ts` and every shim with its declarations, so review the diff if you edited any of them.
 3. **Read the name off the default export**, which every shim since v1.10.0 provides and which is the host's runtime object itself: `import runtime from '@martis/runtime'`, then `const { Dropdown } = runtime`. A misspelt name is then `undefined` at render time instead of a build error.
 
-**Legacy import paths (fixed in v1.38.0).** The Vite config also sends four pre-v1.10 paths to the runtime shim, so override files published by older versions keep building: `@/contexts/*`, `@/lib/*`, `@/components/auth/*` and `@martis/martis/*`. From v1.10.0 to v1.37.x the config matched only the start of those paths, and the alias replaces only what it matches, so every import through them failed (`Could not load .../.shims/runtime.mjsapi` for `@/lib/api`). If your extension imports through them, copy `vendor/martis/martis/stubs/extensions/vite.extensions.config.ts.stub` over `vite.extensions.config.ts` (re-applying your own edits), or make each of the four patterns match the whole path (`/^@\/lib\/.*$/`). These paths reach only the names the runtime shim exports; new code imports from `@martis/runtime`.
+**Type declarations (v1.38.0).** Scaffolds published before v1.38.0 have no declarations, so `tsc -p tsconfig.extensions.json` reports `Cannot find module '@martis/runtime'` for every runtime import, and TypeScript 6 (what `martis:install` installs today) stops earlier on the deprecated `baseUrl` (TS5101). Republish the shims (option 1), then bring `tsconfig.extensions.json` in line with `vendor/martis/martis/stubs/extensions/tsconfig.extensions.json.stub`: copy it over (re-applying your own edits), or remove `baseUrl` and the `@ext/*` path (the Vite config never resolved it), set `"types": ["vite/client"]`, set `"include"` to `["resources/js/martis-extensions/**/*"]`, and use these `paths`:
+
+```json
+"paths": {
+  "@martis/runtime": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+  "react-router-dom": ["./resources/js/martis-extensions/.shims/react-router-dom.d.mts"],
+  "react-i18next": ["./resources/js/martis-extensions/.shims/react-i18next.d.mts"],
+  "@tanstack/react-query": ["./resources/js/martis-extensions/.shims/tanstack-react-query.d.mts"],
+  "@/contexts/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+  "@/lib/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+  "@/components/auth/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+  "@martis/martis/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"]
+}
+```
+
+**Legacy import paths (fixed in v1.38.0).** The Vite config also sends four pre-v1.10 paths to the runtime shim, so override files published by older versions keep building: `@/contexts/*`, `@/lib/*`, `@/components/auth/*` and `@martis/martis/*`. From v1.10.0 to v1.37.x the config matched only the start of those paths, and the alias replaces only what it matches, so every import through them failed (`Could not load .../.shims/runtime.mjsapi` for `@/lib/api`). If your extension imports through them, copy `vendor/martis/martis/stubs/extensions/vite.extensions.config.ts.stub` over `vite.extensions.config.ts` (re-applying your own edits), or make each of the four patterns match the whole path (`/^@\/lib\/.*$/`). These paths reach only the names the runtime shim exports; new code imports from `@martis/runtime`. A type-only import from another internal path still builds, because Vite drops it, but `tsc` cannot resolve it: the v1.9.3 field override takes `FieldDisplayProps` / `FieldInputProps` from `@/components/fields/types` (import them from `@martis/runtime`), and the v1.9.3 sidebar override takes `NavigationGroup` from `@martis/martis/lib/api` (declare it in the file, as the current stub does).
 
 ### Upgrading from v1.8.18 or earlier
 
@@ -550,7 +578,7 @@ Use the asset-only command if you only want to refresh static files. Use the ins
 php artisan martis:install --force
 ```
 
-`--force` also rewrites the extension scaffold (Vite config, shims, `index.ts`), which is how an existing extension picks up the runtime names added since it was scaffolded. See [Refreshing the extension scaffold after an upgrade](#refreshing-the-extension-scaffold-after-an-upgrade) for the narrower options.
+`--force` also rewrites the extension scaffold (Vite config, tsconfig, shims and their declarations, `index.ts`), which is how an existing extension picks up the runtime names added since it was scaffolded. See [Refreshing the extension scaffold after an upgrade](#refreshing-the-extension-scaffold-after-an-upgrade) for the narrower options.
 
 If your application uses the optional profile migration, re-run the install command with the same profile options after upgrading:
 
@@ -570,6 +598,7 @@ The package exposes the following `--tag` values for `vendor:publish`:
 | `martis-assets` | Precompiled React frontend | `public/vendor/martis/` |
 | `martis-views` | Blade SPA shell template | `resources/views/vendor/martis/` |
 | `martis-lang` | Translation files (en, pt_BR, pt_PT) | `lang/vendor/martis/` |
+| `martis-extension-shims` | Consumer-extension shims and their TypeScript declarations (v1.38.0) | `resources/js/martis-extensions/.shims/` |
 | `martis-migrations` | Action-events audit log table | `database/migrations/*_create_martis_action_events_table.php` |
 | `martis-preferences-migration` | User preferences table | `database/migrations/*_create_martis_user_preferences_table.php` |
 | `martis-2fa-migration` | 2FA columns on `users` | `database/migrations/*_add_two_factor_columns.php` |

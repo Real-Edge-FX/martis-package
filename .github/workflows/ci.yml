@@ -138,3 +138,6 @@ jobs:
 
       - name: Run Vitest
         run: npm run test
+
+      - name: Check the extension declarations are current
+        run: npm run build:types -- --check

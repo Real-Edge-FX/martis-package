@@ -26,7 +26,9 @@ export interface LayoutProps {
   children: React.ReactNode
 }
 
-class LayoutRegistry {
+// Exported so the runtime's generated declarations (`npm run build:types`)
+// can name the type of `layoutRegistry`.
+export class LayoutRegistry {
   private readonly layouts = new Map<string, ComponentType<LayoutProps>>()
 
   /**
