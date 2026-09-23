@@ -735,11 +735,15 @@ public function fieldsForCreate(Request $request): array
 
 The `{id}` segment of the URL decides which form is read, and `fields()` comes last:
 
-1. **`{id}` names a record of the resource** (the edit form): `fieldsForUpdate()`, on the resource bound to that record, so a `relatableQueryUsing()` closure on the field can read it through `$this->model`.
-2. **`{id}` is `_`** (a create form) **or names no record**: `fieldsForCreate()`, then `fieldsForInlineCreate()` (the inline-create modal).
+1. **`{id}` names a record of the resource the user may update** (the edit form): `fieldsForUpdate()`, on the resource bound to that record, so a `relatableQueryUsing()` closure on the field can read it through `$this->model`.
+2. **`{id}` is `_`** (a create form), **names no record, or names a record the user may not update**: `fieldsForCreate()`, then `fieldsForInlineCreate()` (the inline-create modal), on a resource bound to no record.
 3. **`fields()`**, so a picker that only `fields()` declares keeps working on every form.
 
-The first declaration found wins: when `fields()` and `fieldsForUpdate()` declare the same attribute differently, the edit form's picker uses the `fieldsForUpdate()` one (its `relatableQueryUsing()`, `withoutTrashed()`, related resource). Section / Panel / TabGroup containers are searched, and only a `BelongsTo`, `MorphTo` or `Tag` under the attribute counts, so a read-only `Text` that reuses the attribute on a form does not hide the picker declared in `fields()`. Authorisation does not depend on which declaration is used: `viewAny` on the resource and on the related resource, then the scoping below.
+The first declaration found wins: when `fields()` and `fieldsForUpdate()` declare the same attribute differently, the edit form's picker uses the `fieldsForUpdate()` one (its `relatableQueryUsing()`, `withoutTrashed()`, related resource). Section / Panel / TabGroup containers are searched, and only a `BelongsTo`, `MorphTo` or `Tag` under the attribute counts, so a read-only `Text` that reuses the attribute on a form does not hide the picker declared in `fields()`.
+
+Authorisation: `viewAny` on the resource and on the related resource, then the scoping below. The record `{id}` names is only bound when the resource's `authorizedToUpdate()` passes for it (the same check the edit form itself needs); any other record is answered from the create form, exactly like an id that names no record, so nothing a closure derives from that record reaches the answer and the answer does not reveal whether the record exists.
+
+> Before v1.38.0 any record `{id}` named was bound after the `viewAny` check alone: a user who could not view or edit a record read the options its `fieldsForUpdate()` closures derived from it.
 
 > Before v1.38.0 the endpoint searched `fields()` only: a picker declared on a form alone answered `Field 'x' not found.` (404) and opened with no options.
 
@@ -749,7 +753,7 @@ The pickers of an Action modal ask the Action instead: `GET /api/resources/{reso
 
 > Before v1.38.0 the pickers of an Action modal asked the page's resource: an attribute only the Action declares answered 404 with an empty picker, and one the resource also declares listed the resource's options (its related resource and scope) instead of the Action's.
 
-The [Slug](fields.md#slug) collision check reads the forms in the same order (the update form when its `id` names a record). The [`dependsOn` sync](fields.md#reactive-fields--dependsonfield-closure) and the server-side [`Select` search](fields.md#select) take the form from their `context` parameter and search only that form (`create` includes `fieldsForInlineCreate()`), never `fields()`, so a field that is not on the form cannot be probed.
+The [Slug](fields.md#slug) collision check reads the forms in the same order (the update form when its `id` names a record the user may update, and only that record is left out of the uniqueness probe). The [`dependsOn` sync](fields.md#reactive-fields--dependsonfield-closure) and the server-side [`Select` search](fields.md#select) take the form from their `context` parameter and search only that form (`create` includes `fieldsForInlineCreate()`), never `fields()`, so a field that is not on the form cannot be probed.
 
 ### Relatable scoping precedence
 
@@ -803,6 +807,7 @@ Per-type feature tests:
 - `tests/Feature/RelationshipImmutableFieldsTest.php` (10) — `immutable()` on each inline create and update, next to the resource endpoint they match.
 - `tests/Feature/PivotReadonlyImmutableFieldsTest.php` (24) — `readonly()` and `immutable()` pivot fields on the attach (single and batch) and the pivot update, next to the resource endpoint they match, plus a pivot update with nothing to write.
 - `tests/Feature/PivotFieldFillTest.php` (7) — pivot values written through each field's `fill()` on the attach (single and batch) and the pivot update of both panels: a `fillUsing()` callback, a `MultiSelect`, a computed field and a `Boolean`, plus a custom pivot class that casts a structured field once.
+- `tests/Feature/FormRecordAuthorizationTest.php` (4) — the relatable options and the Slug check bind the update form of a record only when `authorizedToUpdate()` passes for it; a record the user may not update answers like a missing one (no option derived from it, no reserved value of its update form) and is not left out of the slug uniqueness probe.
 - `tests/Feature/FormFieldLookupTest.php` (19) — `BelongsTo`, `MorphTo` and `Tag` pickers declared only in `fieldsForCreate()` / `fieldsForUpdate()` / `fieldsForInlineCreate()`, the form declaration winning over `fields()`, the record bound to the update form, the `fields()` fallback and the `viewAny` gate, plus the Slug check, `dependsOn` sync and `Select` search on a form-only field.
 - `tests/Feature/ActionRelatableEndpointTest.php` (13) — `BelongsTo`, `MorphTo` and `Tag` pickers of an Action modal: the Action's declaration (related resource, `relatableQueryUsing()`) over the resource's, the relatable hooks, search, 404 for what the Action does not declare, and the `viewAny` / `canSee()` gates.
 - `tests/Feature/PivotActionRelatableEndpointTest.php` (12) — the same pickers in a pivot action modal, on `BelongsToMany` and `MorphToMany` panels: field actions and resource `pivotAction()` ones, the parent resource's relatable hooks, and 404 for an action the panel does not offer, an undeclared attribute or relationship, or a missing parent.

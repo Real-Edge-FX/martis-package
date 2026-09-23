@@ -108,25 +108,33 @@ abstract class MartisController extends Controller
      * Resolve the form a per-field endpoint answers for from the record id
      * in its URL (relatable options, slug check).
      *
-     * An id that names a record of the resource is the update form, on an
-     * instance bound to that record so closures on its fields can read it.
-     * Anything else is the create form on a fresh instance: the `_`
-     * placeholder, no id, or an id that names no record (a form nested in
-     * another resource's page can send that page's id). No ability is
-     * checked here: the caller keeps its own gates.
+     * An id that names a record the user may update is the update form, on
+     * an instance bound to that record so closures on its fields can read
+     * it. Anything else is the create form on a fresh instance: the `_`
+     * placeholder, no id, an id that names no record (a form nested in
+     * another resource's page can send that page's id), or a record the
+     * user may not update, so nothing derived from that record reaches the
+     * answer and the answer does not tell it apart from a missing one. The
+     * caller keeps its own gates (viewAny on the resource).
      *
      * @param  class-string<\Martis\Resource>  $resourceClass
      * @return array{0: \Martis\Resource, 1: 'create'|'update'}
      */
-    protected function resolveFormFromRecordId(string $resourceClass, int|string|null $id): array
+    protected function resolveFormFromRecordId(Request $request, string $resourceClass, int|string|null $id): array
     {
         $model = $id === null || $id === '' || $id === '_'
             ? null
             : $this->findFormRecord($resourceClass, $id);
 
-        return $model === null
-            ? [new $resourceClass, 'create']
-            : [new $resourceClass($model), 'update'];
+        if ($model !== null) {
+            $instance = new $resourceClass($model);
+
+            if ($instance->authorizedToUpdate($request)) {
+                return [$instance, 'update'];
+            }
+        }
+
+        return [new $resourceClass, 'create'];
     }
 
     /**

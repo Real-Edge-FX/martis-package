@@ -1246,13 +1246,13 @@ class ResourceController extends MartisController
             }
 
             // Find the relationship field on the form the picker renders
-            // in: the update form when the id names a record, the create
-            // forms otherwise, then fields(). A picker a resource declares
+            // in: the update form when the id names a record the user may
+            // update, the create forms otherwise, then fields(). A picker a resource declares
             // on fieldsForCreate() / fieldsForUpdate() only resolves (it
             // used to answer "Field 'X' not found." with an empty picker),
             // and the form's own declaration wins over the one in
             // fields(). Layout containers are searched too.
-            [$formInstance, $formContext] = $this->resolveFormFromRecordId($resourceClass, $id);
+            [$formInstance, $formContext] = $this->resolveFormFromRecordId($request, $resourceClass, $id);
             $relationField = $this->findFormField(
                 $formInstance,
                 $request,

@@ -165,7 +165,7 @@ Drives the lightweight "Create related" form embedded in HasMany / BelongsToMany
 GET /martis/api/resources/{resource}/slug-check/{field}?value=...&id=...
 ```
 
-Used by `Slug::make()` for live "this slug is taken" hints in the create / update form. `id` is the record being edited: it is left out of the uniqueness probe, and when it names a record the Slug is read from `fieldsForUpdate()`; otherwise from `fieldsForCreate()`, then `fieldsForInlineCreate()`. `fields()` is searched last.
+Used by `Slug::make()` for live "this slug is taken" hints in the create / update form. `id` is the record being edited: when it names a record the user may update (`authorizedToUpdate()`), that record is left out of the uniqueness probe and the Slug is read from `fieldsForUpdate()`; otherwise (no `id`, no such record, or a record the user may not update) the Slug is read from `fieldsForCreate()`, then `fieldsForInlineCreate()`, and nothing is left out of the probe. `fields()` is searched last.
 
 ### Select option search
 
@@ -201,7 +201,7 @@ GET /martis/api/resources/{resource}/{id}/relatable/{field}
 GET /martis/api/resources/{resource}/{id}/relatable/{field}?search=term
 ```
 
-Returns the option list for a BelongsTo / MorphTo / Tag picker, filtered by the resource's `relatableQuery()` if defined. The field is looked up on the form the picker renders in: `fieldsForUpdate()` (on the resource bound to the record) when `{id}` names a record, otherwise `fieldsForCreate()` then `fieldsForInlineCreate()` (`{id}` = `_` on a create form); `fields()` comes last. A picker declared on one form only resolves (v1.38.0). A create form nested in another resource's page (the inline-create modal) sends `_`, and the pickers of an action modal use the action's own endpoint (see [Actions](#actions)). See [Relationships → Relation fields declared on one form only](../relationships.md#relation-fields-declared-on-one-form-only).
+Returns the option list for a BelongsTo / MorphTo / Tag picker, filtered by the resource's `relatableQuery()` if defined. The field is looked up on the form the picker renders in: `fieldsForUpdate()` (on the resource bound to the record) when `{id}` names a record the user may update (`authorizedToUpdate()`), otherwise `fieldsForCreate()` then `fieldsForInlineCreate()` (`{id}` = `_` on a create form; a record the user may not update is answered like a missing one); `fields()` comes last. A picker declared on one form only resolves (v1.38.0). A create form nested in another resource's page (the inline-create modal) sends `_`, and the pickers of an action modal use the action's own endpoint (see [Actions](#actions)). See [Relationships → Relation fields declared on one form only](../relationships.md#relation-fields-declared-on-one-form-only).
 
 ### HasMany / HasOne / BelongsToMany / MorphMany / MorphOne / MorphToMany
 

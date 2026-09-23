@@ -1388,7 +1388,7 @@ Slug::make('slug')
   }
   ```
   The UI renders a clickable suggestion when `suggestion` is non-null.
-  The check uses the Slug declared on the form it comes from: `fieldsForUpdate()` when `id` names a record, otherwise `fieldsForCreate()` and then `fieldsForInlineCreate()`, then `fields()`. A Slug declared on one form only is found, and that declaration's `separator()` and `reserved()` apply (v1.38.0: the check read `fields()` first and never the inline-create form).
+  The check uses the Slug declared on the form it comes from: `fieldsForUpdate()` when `id` names a record the user may update (`authorizedToUpdate()`), otherwise `fieldsForCreate()` and then `fieldsForInlineCreate()`, then `fields()`. A Slug declared on one form only is found, and that declaration's `separator()` and `reserved()` apply (v1.38.0: the check read `fields()` first and never the inline-create form). The record being edited is left out of the uniqueness probe, so its own slug reads as available; an `id` the user may not update is answered like one that names no record (v1.38.0: any record `id` named was bound and left out of the probe, which told the slug of a record the user could not edit apart).
 
 **Validation:** a closure rule verifies the submitted value is already in its slugified form (so the server rejects mismatched case / spaces) and that it is not in the `reserved` list.
 
