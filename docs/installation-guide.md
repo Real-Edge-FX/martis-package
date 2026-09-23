@@ -74,7 +74,9 @@ command fails with `A user with email [...] already exists.`
 
 | Flag | Effect |
 |------|--------|
-| `--force` | Overwrite previously published config, migrations, and translations |
+| `--force` | Overwrite previously published migrations, translations and the extension scaffold (Vite config, both tsconfig files, `index.ts`, the shims and their declarations); `config/martis.php` and the host provider stay unless you add `--force-config` / `--force-provider` |
+| `--force-config` | Republish `config/martis.php`, overwriting your changes to it |
+| `--force-provider` | Republish `app/Providers/MartisServiceProvider.php`, overwriting your changes to it |
 | `--with-profile` | Publish the optional Martis profile migration for avatar + 2FA columns |
 | `--with-2fa` | Publish only the 2FA columns migration (subset of `--with-profile`) |
 | `--avatar-column=<column>` | Customize which `users` table column Martis should use for avatar paths |
@@ -455,7 +457,7 @@ The tsconfig is browser-only (`"types": ["vite/client"]`, no `@types/node`) and 
 
 ### Refreshing the extension scaffold after an upgrade
 
-The scaffold files (`vite.extensions.config.ts`, `tsconfig.extensions.json`, `resources/js/martis-extensions/index.ts` and the shims under `resources/js/martis-extensions/.shims/` with their declarations) are copied into your app once. `composer update` does not touch them, and `martis:install` skips every file that already exists unless you pass `--force`, which rewrites all of them (the files in the four buckets are never touched).
+The scaffold files (`vite.extensions.config.ts`, `tsconfig.extensions.json`, `resources/js/martis-extensions/index.ts`, `resources/js/martis-extensions/tsconfig.json` and the shims under `resources/js/martis-extensions/.shims/` with their declarations) are copied into your app once. `composer update` does not touch them, and `martis:install` skips every file that already exists unless you pass `--force`, which rewrites all of them (the files in the four buckets are never touched).
 
 Your extension build resolves `@martis/runtime` to `.shims/runtime.mjs`, which re-exports the members of `window.Martis.runtime` by name. A name the runtime gains in a later Martis version can be imported by name only once your copy of that file exports it. Until then the build stops with:
 
@@ -474,14 +476,14 @@ Your extension build resolves `@martis/runtime` to `.shims/runtime.mjs`, which r
 
 Three ways to get a missing name, from the narrowest:
 
-1. **Republish the shims.** They hold no app code, so replacing them is safe. The `martis-extension-shims` tag rewrites every shim and its declarations together, and leaves the Vite config, the tsconfig and `index.ts` alone:
+1. **Republish the shims.** They hold no app code, so replacing them is safe. The `martis-extension-shims` tag rewrites every shim and its declarations together, and leaves the Vite config, both tsconfig files and `index.ts` alone:
 
    ```bash
    php artisan vendor:publish --tag=martis-extension-shims --force
    npm run build:extensions
    ```
 
-2. **Refresh the whole scaffold** with `php artisan martis:install --force`. It rewrites the Vite config, the tsconfig, `index.ts` and every shim with its declarations, so review the diff if you edited any of them.
+2. **Refresh the whole scaffold** with `php artisan martis:install --force`. It rewrites the Vite config, `tsconfig.extensions.json`, `index.ts`, `resources/js/martis-extensions/tsconfig.json` and every shim with its declarations, so review the diff if you edited any of them.
 3. **Read the name off the default export**, which every shim since v1.10.0 provides and which is the host's runtime object itself: `import runtime from '@martis/runtime'`, then `const { Dropdown } = runtime`. A misspelt name is then `undefined` at render time instead of a build error.
 
 **Type declarations (v1.38.0).** Scaffolds published before v1.38.0 have no declarations, so `tsc -p tsconfig.extensions.json` reports `Cannot find module '@martis/runtime'` for every runtime import, and TypeScript 6 (what `martis:install` installs today) stops earlier on the deprecated `baseUrl` (TS5101). Republish the shims (option 1), then bring `tsconfig.extensions.json` in line with `vendor/martis/martis/stubs/extensions/tsconfig.extensions.json.stub`: copy it over (re-applying your own edits), or remove `baseUrl` and the `@ext/*` path (the Vite config never resolved it), set `"types": ["vite/client"]`, set `"include"` to `["resources/js/martis-extensions/**/*"]`, and use these `paths`:
@@ -559,7 +561,8 @@ your-laravel-app/
     └── js/
         └── martis-extensions/                            # Consumer React extensions (v1.9+)
             ├── index.ts                                  # Auto-discovery entry — ships with martis:install
-            ├── .shims/                                   # Vite alias shims (react, runtime, etc.)
+            ├── tsconfig.json                             # Editor tsconfig, extends tsconfig.extensions.json (v1.38.0)
+            ├── .shims/                                   # Vite alias shims (react, runtime, etc.) and their declarations
             ├── tools/                                    # `martis:tool --with-component` outputs land here
             ├── fields/                                   # `martis:field` outputs
             ├── cards/                                    # `martis:card` outputs
@@ -594,7 +597,7 @@ Use the asset-only command if you only want to refresh static files. Use the ins
 php artisan martis:install --force
 ```
 
-`--force` also rewrites the extension scaffold (Vite config, tsconfig, shims and their declarations, `index.ts`), which is how an existing extension picks up the runtime names added since it was scaffolded. See [Refreshing the extension scaffold after an upgrade](#refreshing-the-extension-scaffold-after-an-upgrade) for the narrower options.
+`--force` also rewrites the extension scaffold (Vite config, `tsconfig.extensions.json`, shims and their declarations, `index.ts`, `resources/js/martis-extensions/tsconfig.json`), which is how an existing extension picks up the runtime names added since it was scaffolded. See [Refreshing the extension scaffold after an upgrade](#refreshing-the-extension-scaffold-after-an-upgrade) for the narrower options.
 
 If your application uses the optional profile migration, re-run the install command with the same profile options after upgrading:
 
