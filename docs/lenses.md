@@ -124,6 +124,58 @@ public function query(LensRequest $request, Builder $query): Builder
 }
 ```
 
+#### Which columns sort a lens
+
+A lens is sorted only by its own sortable fields the user can see: the
+attributes of the `sortable()` fields its `fields()` declares (layout
+containers opened) whose `canSee()` allows the user (v1.38.0). A `?sort=`
+naming any other column is dropped before the lens runs: `sortColumn` is
+`null`, as if the request named none, so `withOrdering()` calls the
+default closure. That covers a column no field of the lens exposes, a
+field the user cannot see (the order of the rows would tell the order of
+its values) and a column that does not exist, which never reaches the
+query. The same holds for a lens that reads `$request->sortColumn` itself
+instead of calling `withOrdering()`.
+
+```php
+public function fields(Request $request): array
+{
+    return [
+        Text::make('name')->sortable(),              // ?sort=name orders the lens
+        Currency::make('monthly_revenue')->sortable()
+            ->canSee(fn (Request $request) => $request->user()?->isAdmin() ?? false),
+        // ?sort=monthly_revenue orders the lens for an admin only;
+        // ?sort=internal_score (no field) never does.
+    ];
+}
+```
+
+Before v1.38.0 `withOrdering()` ordered the lens by whatever column
+`?sort=` named: a column no field exposes or a field the user cannot see
+ordered the rows by values the user may not read, and a column that does
+not exist answered 500 on MySQL / PostgreSQL.
+
+#### Searching a lens
+
+The lens's search box sends `?search=`, which reaches the lens as
+`$request->search`; Martis does not match it on anything itself, so the
+lens decides which columns it searches. Search the columns the user may
+see: a term matched on a column a field hides from the user (`canSee()`)
+tells which records hold it. The resource index, by contrast, matches only
+the `searchable()` fields the user can see (see
+[Fields → Field authorization](fields.md#field-authorization-cansee-and-canseeformodel)).
+
+```php
+public function query(LensRequest $request, Builder $query): Builder
+{
+    if ($request->search !== '') {
+        $query->where('name', 'like', '%'.$request->search.'%');
+    }
+
+    return $request->withOrdering($request->withFilters($query), fn (Builder $q) => $q->latest());
+}
+```
+
 ### Inheritance from the parent resource
 
 When the lens does not declare its own override, it inherits the value
@@ -246,6 +298,14 @@ Any insert, update or delete on the model bumps the signature, so the
 next request automatically misses the cache without any observers or
 cache tags. TTL `0` (default) disables the cache.
 
+The `updated_at` column is the model's own (`getUpdatedAtColumn()`). A
+model that keeps no timestamps (`public $timestamps = false`, or
+`const UPDATED_AT = null`) is signed by its row count alone, so an
+update that keeps the count serves the cached rows until the TTL
+expires. The signature is taken for a cached lens only (v1.38.0).
+Before v1.38.0 every lens request ran `MAX(updated_at)`, the cache off
+included, so a lens over a table without that column answered 500.
+
 ### Default filters pre-applied
 
 > Declare the filters the lens should open with so product dashboards
@@ -259,6 +319,13 @@ cache tags. TTL `0` (default) disables the cache.
 The first load hydrates the URL with those values. If the user clears
 them manually, the empty state is respected; the defaults do not
 re-populate.
+
+Each lens hydrates its own defaults, also when the page moves to it from
+another lens through the lens dropdown, and starts with no selection and
+no drawer or confirmation of the previous lens open (v1.38.0+). Before
+v1.38.0 only the first lens the page opened applied its defaults: the
+router kept the page when the URL moved to another lens, so that lens
+loaded without its own, under the previous lens's selection.
 
 Use `Lens::defaultFilters(): array` to read the configured map back —
 useful for diagnostics or to forward the defaults into another lens.

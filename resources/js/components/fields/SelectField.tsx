@@ -37,7 +37,7 @@ interface DropdownFilterTemplateOptions {
   filterInputKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void
 }
 
-export function SelectFieldInput({ field, value, onChange, error, resourceKey, recordId, toolKey, context }: FieldInputProps) {
+export function SelectFieldInput({ field, value, onChange, error, resourceKey, recordId, toolKey, context, repeaterRow }: FieldInputProps) {
   const { t } = useTranslation('messages')
   const staticOptions = field.options?.map((o) => ({ label: o.label, value: String(o.value) })) ?? []
   // Pass `null` (not '') when empty so PrimeReact's own `value != null` guard
@@ -58,7 +58,7 @@ export function SelectFieldInput({ field, value, onChange, error, resourceKey, r
   // Remote search needs a scope to derive its endpoint from; without one the
   // select degrades to local filtering, the way `dependsOn` degrades offline.
   const endpoint = field.remoteOptionsSearch === true
-    ? remoteOptionsEndpoint(field.attribute, { resourceKey, toolKey, context, recordId })
+    ? remoteOptionsEndpoint(field.attribute, { resourceKey, toolKey, context, recordId, repeaterRow })
     : null
   const remote = endpoint !== null
   const searchable = field.searchableOptions === true || remote

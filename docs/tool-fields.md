@@ -34,10 +34,8 @@ Where a field's *definition* comes from is your choice, and the three sources ar
 Define a `FieldDefinition[]` inline in your Tool and feed it to `useMartisForm`. No backend at all. Pure-frontend behaviours work immediately.
 
 ```tsx
-import { martisRuntime } from '@martis/runtime'
+import { useMartisForm, FieldsForm } from '@martis/runtime'
 import type { FieldDefinition } from '@martis/runtime'
-
-const { useMartisForm, FieldsForm } = martisRuntime
 
 const fields: FieldDefinition[] = [
   { type: 'text', attribute: 'title', label: 'Title' },
@@ -52,6 +50,8 @@ export function CreateProjectTool() {
 ```
 
 Typing into the Title field generates and formats the Slug — the same behaviour the field has in a Resource form, with zero PHP.
+
+A definition you write needs only `type`, `attribute` and `label` (v1.38.0): the flags the server fills in (`nullable`, `required`, `showOnForms`, `rules`, …) are optional, and `type` also takes a custom field's type.
 
 ### Mode B — fields declared in PHP
 
@@ -83,9 +83,7 @@ class CreateProject extends Tool implements ProvidesFields
 The Tool declares its React component key exactly as any Tool does (see [tools.md](tools.md)). On the frontend, fetch the definitions with `useToolFields`:
 
 ```tsx
-import { martisRuntime } from '@martis/runtime'
-
-const { useToolFields, useMartisForm, FieldsForm } = martisRuntime
+import { useToolFields, useMartisForm, FieldsForm } from '@martis/runtime'
 
 export function CreateProjectTool() {
   const { fields, isLoading, error } = useToolFields('create-project')
@@ -99,6 +97,19 @@ export function CreateProjectTool() {
 
 `useToolFields('create-project')` issues `GET /api/tools/create-project/fields`, which serializes `Tool::fields()` through the same `Field::toArray()` serializer the Resource and Action forms already consume — so the returned shape is identical.
 
+A field the user cannot see (its own `canSee()`) is left out, as the Resource schema leaves it out (v1.38.0): at every depth of the layout containers, a `Section`, `Panel`, `TabGroup` or `Tab` left without fields goes with them, and a `Repeater`'s row types list only the row fields the user can see. The form never renders such a field, and its option search answers like an undeclared field's (see [Server-side option search](#server-side-option-search)). Before v1.38.0 the endpoint served every field of `fields()`, hidden ones included.
+
+```php
+public function fields(Request $request): array
+{
+    return [
+        Text::make('Title'),
+        // Served, and rendered, for an admin only.
+        Text::make('Internal note')->canSee(fn (Request $request) => $request->user()?->isAdmin() ?? false),
+    ];
+}
+```
+
 Tools that don't `use ProvidesToolFields` (the default) return no fields; the endpoint responds with `{ "fields": [] }`.
 
 ### Mode C — bound to an existing Resource
@@ -106,10 +117,8 @@ Tools that don't `use ProvidesToolFields` (the default) return no fields; the en
 Pass `resourceKey` (and `recordId` when editing an existing record) so **server-backed** behaviours reuse that Resource's endpoints. This is what unlocks slug-uniqueness checks, `BelongsTo` option loading, and server `dependsOn` closures inside a Tool.
 
 ```tsx
-import { martisRuntime } from '@martis/runtime'
+import { useMartisForm, FieldsForm } from '@martis/runtime'
 import type { FieldDefinition } from '@martis/runtime'
-
-const { useMartisForm, FieldsForm } = martisRuntime
 
 const fields: FieldDefinition[] = [
   { type: 'text', attribute: 'title', label: 'Title' },
@@ -134,9 +143,11 @@ const form = useMartisForm({
 })
 ```
 
+With `context: 'update'`, `form.resolvedFields` (and so `FieldsForm`) carries an `immutable()` field as `readonly`, so its input renders read-only as on the Resource update page. See [Fields → Immutable fields](fields.md#immutable-fields).
+
 ### Server-side option search
 
-A `Select` declared in `Tool::fields()` with `searchOptionsUsing(...)` searches its options on the server through `GET /api/tools/{uriKey}/fields/{attribute}/options?search=...` (same `canSee()` gate as `/fields`: 404 when denied). The form only needs to know which Tool owns the fields:
+A `Select` declared in `Tool::fields()` with `searchOptionsUsing(...)` searches its options on the server through `GET /api/tools/{uriKey}/fields/{attribute}/options?search=...` (same `canSee()` gate as `/fields`: 404 when denied). A select the user cannot see (the field's own `canSee()`) answers 422 exactly like an undeclared one (v1.38.0). The form only needs to know which Tool owns the fields:
 
 ```tsx
 const { fields } = useToolFields('settings')
@@ -151,10 +162,8 @@ The end-to-end target: your own drawer (composed from `runtime.DrawerShell`, the
 
 ```tsx
 import { useState } from 'react'
-import { martisRuntime } from '@martis/runtime'
+import { DrawerShell, useMartisForm, FieldsForm, api, ApiError } from '@martis/runtime'
 import type { FieldDefinition } from '@martis/runtime'
-
-const { DrawerShell, useMartisForm, FieldsForm, api } = martisRuntime
 
 const fields: FieldDefinition[] = [
   { type: 'text', attribute: 'title', label: 'Title' },
@@ -171,8 +180,9 @@ export function CreateProjectTool() {
       await api.post('/api/tools/create-project', form.values)
       setOpen(false)
     } catch (e) {
-      // Feed a 422 straight into the form — errors render under each field.
-      form.setErrors((e as { errors?: Record<string, string> }).errors ?? {})
+      // Feed a 422 into the form: each error renders under its field, and a
+      // Repeater row error under the row field it belongs to.
+      form.setErrors(e instanceof ApiError ? e.errorsByField() : {})
     }
   }
 
@@ -196,10 +206,8 @@ Persistence stays the Tool's job — Martis does not impose a save pipeline on T
 `FieldsForm` renders the **entire** field set, containers included. But because `useMartisForm` hands you the `fieldProps(field)` bundle, you can also drop a **single** `FieldInput` anywhere in your own JSX and interleave it with non-Martis UI. Every field driven by the same `form` shares one state, so a Slug field still sees the Title field's value.
 
 ```tsx
-import { martisRuntime } from '@martis/runtime'
+import { useMartisForm, FieldInput } from '@martis/runtime'
 import type { FieldDefinition } from '@martis/runtime'
-
-const { useMartisForm, FieldInput } = martisRuntime
 
 const titleField: FieldDefinition = { type: 'text', attribute: 'title', label: 'Title' }
 const slugField: FieldDefinition = { type: 'slug', attribute: 'slug', label: 'Slug', sourceAttribute: 'title' }
@@ -229,13 +237,11 @@ A Tool that renders its own filter bar — separate from the field-form harness 
 | Export | Purpose |
 |---|---|
 | `Dropdown`, `MultiSelect` | Single / multi filter controls. Add the `martis-filter-dropdown` class for the compact look, and pass `field.className` when routing through `FieldInput` (see [fields.md](fields.md#select) — the `select` field honours `variant: 'filter'`). Prefer the native `select` field with `searchableOptions` / `allowCustomValues` (v1.37.0) over a raw `Dropdown` when the control lives in a form. |
-| `createPortal` | `react-dom`'s portal for overlays that must escape a clipped container. The extension's React shim is React-core-only, so it is surfaced here. |
+| `createPortal` | `react-dom`'s portal for overlays that must escape a clipped container, the host's copy. Since v1.38.0 `import { createPortal } from 'react-dom'` reaches the same function: the extension build sends `react-dom` to a shim that carries it and nothing else of `react-dom`. |
 | `DropdownProps`, `MultiSelectProps` (types) | Type the controls without importing from `primereact/*` (the extension build doesn't alias it). |
 
 ```tsx
-import { martisRuntime } from '@martis/runtime'
-
-const { Dropdown } = martisRuntime
+import { Dropdown } from '@martis/runtime'
 
 <Dropdown
   className="martis-filter-dropdown"
@@ -247,6 +253,8 @@ const { Dropdown } = martisRuntime
 ```
 
 See [overrides.md §5.A](overrides.md#5a-composing-native-field-components-v1140) for the full runtime-exports table and a longer example.
+
+The three are on the runtime since v1.29.0, but the extension's `.shims/runtime.mjs` exports them by name only since v1.38.0: on an extension scaffolded earlier, refresh the shim first (see [Refreshing the extension scaffold after an upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade)).
 
 ## API contracts
 
@@ -272,14 +280,14 @@ See [overrides.md §5.A](overrides.md#5a-composing-native-field-components-v1140
 | `values` | `Record<string, unknown>` | Current form values. |
 | `setValue(attribute, value)` | `(string, unknown) => void` | Set one field; also clears that field's error. |
 | `setValues(v)` | `(Record<string, unknown>) => void` | Replace all values. |
-| `errors` | `Record<string, string>` | Per-attribute error messages. |
-| `setErrors(e)` | `(Record<string, string>) => void` | Set errors — feed a server 422 body straight in. |
+| `errors` | `Record<string, string>` | One message per validated path, as `ApiError.errorsByField()` returns a 422: a field's own error under its attribute, an error inside a field's value under its dotted path (`lines.1.fields.name`, a Repeater row field). |
+| `setErrors(e)` | `(Record<string, string>) => void` | Set errors: pass `ApiError.errorsByField()` from a 422 (the server's `errors` list is not a map). |
 | `resolvedFields` | `FieldDefinition[]` | Fields with `dependsOn` overrides applied through the whole container tree. |
 | `recordId?` | `string \| number` | Echo of the bound record id. |
 | `toolKey?` | `string` | Echo of the bound Tool key. |
 | `fieldProps(field)` | see below | The exact prop bundle for a `FieldInput`. |
 
-`fieldProps(field)` returns `{ field, value, onChange, error, resourceKey, recordId, toolKey, formValues }` — spread it straight onto `<FieldInput {...form.fieldProps(field)} />`.
+`fieldProps(field)` returns `{ field, value, onChange, error, nestedErrors, resourceKey, recordId, toolKey, context, formValues }` (`context` is the form's since v1.38.0, so an input that behaves differently on an edit form, a `Slug` or a Repeater's immutable row fields, sees `'update'`): spread it straight onto `<FieldInput {...form.fieldProps(field)} />`. `nestedErrors` holds the errors inside the field's value (a Repeater's rows, keyed `1.fields.name`), so a Repeater shows each row error under its row field (since v1.38.0).
 
 Internally `useMartisForm` runs the **same** `useDependsOnSync` the Resource pages run, and applies the resulting `dependsOn` overrides through the entire container tree (top-level and nested inside `section` / `panel` / `tab_group`). When there is no `resourceKey` the server `dependsOn` round-trip is disabled and overrides simply stay empty — offline degradation, not an error.
 
@@ -290,9 +298,11 @@ Internally `useMartisForm` runs the **same** `useDependsOnSync` the Resource pag
 | Prop | Type | Purpose |
 |---|---|---|
 | `form` | `MartisForm` | The form from `useMartisForm`. Owns state. |
-| `context?` | `'create' \| 'update'` | Render context. Defaults to `'create'`. |
+| `context?` | `'create' \| 'update'` | Render context. Defaults to the context the form was built with (`useMartisForm({ context })`; before v1.38.0 it defaulted to `'create'`, so a form built for a stored record rendered its inputs as a create form unless told). |
 
 Renders `form.resolvedFields` in declaration order — scalar fields wrapped in the standard `FieldWrapper` (label, required marker, tooltip, help text) and the `tab_group` / `section` / `panel` containers via their canonical renderers. This is the exact loop the Resource create/update pages use; they now consume this same component, so there is no duplication and no drift.
+
+To start the form over for another entry, clear it with `setValues({})` and render `<FieldsForm>` under a `key` you change at the same time, so every input mounts again with the empty values, as the create page does for "Create & add another" (v1.38.0+). An input that keeps state of its own cannot always tell a cleared value from its own last one: a slug the user had emptied by hand is `null` before and after the form is cleared, and a custom input that reads its value once, when it mounts, never sees the clear at all.
 
 ### `useToolFields(toolKey): UseToolFieldsResult`
 
@@ -319,7 +329,7 @@ Also exported from `@martis/runtime` so you can type your options and results wi
 Two operational caveats carry over from composing native field components. They are documented in full in [overrides.md §5.A "Composing native field components"](overrides.md#5a-composing-native-field-components-v1140); the short version:
 
 1. **A consumer bundle hosted outside the Martis shell must load the published `martis.css`.** Field components rely on the `martis-*` class namespace. If your Tool renders inside Martis pages (the normal case — registered via `componentRegistry`) you inherit the styles for free. A bundle running outside the shell must also load `vendor/martis/assets/app-*.css`, or the fields render unstyled.
-2. **`BelongsTo` outside a resource form needs `related_resource`.** Without a parent resource context, `BelongsTo` resolves options against a synthetic endpoint and needs the target resource's `uriKey` on its `FieldDefinition` (`related_resource`). For pure enum dropdowns prefer `select` — it has no async dependency and works anywhere. Binding a `resourceKey` (Mode C) is the cleaner path when the field belongs to a real Resource.
+2. **Relation pickers take their scope from the props you pass.** `BelongsTo`, `MorphTo` and `Tag` scope their options with `resourceKey` / `recordId`, or `actionEndpoint` in a custom Action component. With no resource at all, the `FieldDefinition` must carry `relatedResource` (the target resource's `uriKey`). For pure enum dropdowns prefer `select`.
 
 ## Compatibility
 

@@ -439,10 +439,10 @@ The preset is additive — your existing `colors`, `fontFamily`, etc. stay untou
 
 ### In TSX (canvas/Chart.js — runtime resolution)
 
-CSS variables can't be read by canvas APIs. Use the helper:
+CSS variables can't be read by canvas APIs. Use the helpers on `@martis/runtime` (v1.38.0+):
 
 ```tsx
-import { cssVar, accentColor, mutedTextColor, chartPalette, resolveColor } from '@/lib/themeColors'
+import { cssVar, accentColor, mutedTextColor, chartPalette, resolveColor } from '@martis/runtime'
 
 const accent = accentColor()                           // 'rgb(...)' resolved
 const muted = mutedTextColor()
@@ -595,7 +595,17 @@ Exit codes: `0` (everything aligned), `2` (drift detected — useful for CI gate
 4. Inspect HTML `<head>` — theme `<link>` must appear AFTER app CSS
 
 ### Some colors don't change
-Since v0.6.0, Martis ships a **PrimeReact bridge**: `--primary-color`, `--surface-card`, `--surface-border`, `--text-color`, `--text-color-secondary`, `--highlight-bg`, `--highlight-text-color`, `--focus-ring`, `--border-radius`, and `--maskbg` are mapped to the matching `--martis-*` tokens. PrimeReact components therefore inherit your theme automatically. If a specific PrimeReact internal still uses its own colour, override it alongside the Martis tokens in your theme file.
+The bundled PrimeReact theme (`lara-dark-indigo`, imported by `martis.css`) paints its components with literal colours: of the PrimeReact variables it reads only `--font-family`, `--font-feature-settings` and `--maskbg`. Martis restyles the PrimeReact components it renders with selector overrides in `martis.css` that read the `--martis-*` tokens, so a theme that sets the Martis tokens reaches them.
+
+Since v0.6.0 `martis.css` also maps the PrimeReact variables (`--primary-color`, `--surface-card`, `--surface-border`, `--text-color`, `--text-color-secondary`, `--highlight-bg`, `--highlight-text-color`, `--focus-ring`, `--border-radius` and `--maskbg`) to the matching `--martis-*` tokens. Only the modal mask and code that reads those variables follow that bridge: setting `--primary-color` alone restyles no PrimeReact component.
+
+A PrimeReact element Martis does not restyle keeps the stock colour, for example a `Slider` in a custom component. Override its selector in your theme file with the Martis tokens:
+
+```css
+.p-slider .p-slider-range {
+  background: var(--martis-accent);
+}
+```
 
 ### Chart colors don't update
 Chart.js receives resolved color strings, not CSS variables. The theme system already resolves `--martis-chart-*` at runtime. If you provide `var(--my-custom-var)` directly to a chart prop without using the helper, it won't work.

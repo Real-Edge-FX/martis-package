@@ -50,6 +50,15 @@ describe('remoteOptionsEndpoint', () => {
       .toBe('/api/tools/t/fields/model/options')
   })
 
+  it('names the Repeater row of a row field, for the Resource and the Tool endpoints', () => {
+    const repeaterRow = { repeater: 'lines', repeatable: 'product-line' }
+
+    expect(remoteOptionsEndpoint('unit', { resourceKey: 'orders', context: 'update', recordId: 7, repeaterRow }))
+      .toBe('/api/resources/orders/fields/unit/options?context=update&id=7&repeater=lines&repeatable=product-line')
+    expect(remoteOptionsEndpoint('unit', { toolKey: 'importer', repeaterRow }))
+      .toBe('/api/tools/importer/fields/unit/options?repeater=lines&repeatable=product-line')
+  })
+
   it('returns null without a scope', () => {
     expect(remoteOptionsEndpoint('model', {})).toBeNull()
   })

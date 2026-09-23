@@ -29,7 +29,11 @@ class LensRequest extends Request
     /** Search term applied to the lens, if any. */
     public string $search = '';
 
-    /** Column name to order by (null = no explicit sort). */
+    /**
+     * Column name to order by (null = no explicit sort). Built by
+     * `fromRequest()`, it names a sortable field of the lens the user can
+     * see, or nothing.
+     */
     public ?string $sortColumn = null;
 
     /** Sort direction. */
@@ -68,6 +72,10 @@ class LensRequest extends Request
     /**
      * Apply user-selected ordering; if none, invoke the default closure.
      *
+     * The ordering is the `sortColumn` the request may sort the lens by
+     * (see `fromRequest()`); a `?sort=` naming any other column leaves it
+     * empty, so the default closure orders the lens.
+     *
      * @param  Builder<TModel>  $query
      * @return Builder<TModel>
      */
@@ -90,9 +98,18 @@ class LensRequest extends Request
      * Build a LensRequest from the incoming HTTP request plus the
      * context the controller has already resolved.
      *
+     * `$sortableColumns` are the columns `?sort=` may name: the attributes
+     * of the lens's sortable fields the user can see
+     * (`Field::sortableAttributes()`). A `?sort=` naming any other column,
+     * one no field exposes, a field the user cannot see or a column that
+     * does not exist, leaves `sortColumn` empty, as if the request named
+     * none: it never reaches the query, so it cannot order the lens by
+     * values the user may not read, or fail the query.
+     *
      * @param  array<string, FilterContract>  $availableFilters
+     * @param  list<string>  $sortableColumns
      */
-    public static function fromRequest(Request $source, array $availableFilters): self
+    public static function fromRequest(Request $source, array $availableFilters, array $sortableColumns = []): self
     {
         /** @var self $req */
         $req = self::createFrom($source, new self);
@@ -115,10 +132,8 @@ class LensRequest extends Request
         $req->search = trim(is_string($rawSearch) ? $rawSearch : '');
 
         $rawSort = $source->query('sort');
-        $req->sortColumn = is_string($rawSort) && $rawSort !== '' ? $rawSort : null;
-
-        $rawDir = strtolower((string) $source->query('direction', SortDirection::Asc->value));
-        $req->sortDirection = SortDirection::tryFrom($rawDir) ?? SortDirection::Asc;
+        $req->sortColumn = is_string($rawSort) && in_array($rawSort, $sortableColumns, true) ? $rawSort : null;
+        $req->sortDirection = SortDirection::fromQuery($source->query('direction'));
 
         return $req;
     }

@@ -3,7 +3,6 @@
 namespace Martis\Http\Controllers;
 
 use Dedoc\Scramble\Attributes\QueryParameter;
-use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
@@ -21,14 +20,17 @@ use Martis\Enums\SortDirection;
 use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\BelongsTo;
-use Martis\Fields\DeferredRelationSync;
-use Martis\Fields\DeferredRepeaterSync;
+use Martis\Fields\BelongsToMany as BelongsToManyField;
 use Martis\Fields\Field;
 use Martis\Fields\File;
 use Martis\Fields\MorphTo;
+use Martis\Fields\MorphToMany as MorphToManyField;
 use Martis\Fields\Tag as TagField;
 use Martis\Filters\Filter;
+use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
+use Martis\Http\Controllers\Concerns\ResolvesPivotActions;
+use Martis\Http\Controllers\Concerns\SyncsDeferredWrites;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -53,7 +55,10 @@ use Martis\SearchResolver;
  */
 class ResourceController extends MartisController
 {
+    use BuildsFieldRules;
     use DecodesStructuredValues;
+    use ResolvesPivotActions;
+    use SyncsDeferredWrites;
 
     /** Create the controller and inject the resource registry. */
     public function __construct(
@@ -74,11 +79,11 @@ class ResourceController extends MartisController
      * Authentication: requires an authenticated session (Laravel session cookie).
      * The response includes an envelope with data, meta (pagination) and links (navigation).
      */
-    #[QueryParameter('search', description: 'Filter records by free text. Searches all fields marked as searchable in the Resource.', required: false, type: 'string')]
+    #[QueryParameter('search', description: 'Filter records by free text. Searches the fields marked as searchable in the Resource that the user can see.', required: false, type: 'string')]
     #[QueryParameter('per_page', description: 'Number of records per page. Maximum: 100. Default defined by the Resource (usually 15).', required: false, type: 'integer', example: 15)]
-    #[QueryParameter('sort', description: 'Attribute name to sort by (e.g. "name", "created_at"). Must be a field marked as sortable in the Resource.', required: false, type: 'string')]
-    #[QueryParameter('direction', description: 'Sort direction. Accepted values: "asc" (ascending) or "desc" (descending). Default: "asc".', required: false, type: 'string', example: 'asc')]
-    #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only).', required: false, type: 'string', example: 'with')]
+    #[QueryParameter('sort', description: 'Attribute name to sort by (e.g. "name", "created_at"). Must be a field marked as sortable in the Resource that the user can see; any other value is ignored.', required: false, type: 'string')]
+    #[QueryParameter('direction', description: 'Sort direction. Accepted values: "asc" (ascending) or "desc" (descending). Default, and for any other value: "asc".', required: false, type: 'string', example: 'asc')]
+    #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only); any other value means active only.', required: false, type: 'string', example: 'with')]
     public function index(Request $request, string $resource): IlluminateJsonResponse
     {
         [$resourceClass, $error] = $this->resolveRoutableResource($resource);
@@ -105,8 +110,7 @@ class ResourceController extends MartisController
         // ?trashed=only  → show only soft-deleted (trashed) records
         // default        → active records only (standard Eloquent behavior)
         if ($resourceClass::softDeletes() && $resourceClass::canViewTrashed()) {
-            $trashed = TrashedFilter::tryFrom((string) $request->query('trashed', ''))
-                ?? TrashedFilter::Active;
+            $trashed = TrashedFilter::fromQuery($request->query('trashed'));
             if ($trashed === TrashedFilter::With) {
                 /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
                 $query = $modelClass::withTrashed();
@@ -288,7 +292,14 @@ class ResourceController extends MartisController
 
         $model = $resourceClass::newModel();
         $res = new $resourceClass($model);
-        $fields = Field::filterForContext($res->fieldsForCreate($request), FieldContext::CREATE);
+        // A field hidden for the new record (canSeeForModel(), decided on the
+        // unsaved model before any value is written) is neither validated
+        // nor written, like a field the user cannot see.
+        $fields = Field::filterForModel(
+            Field::filterForContext($res->fieldsForCreate($request), FieldContext::CREATE),
+            $request,
+            $model,
+        );
 
         $validationError = $this->validateRequest($request, $fields, validationMessage: $resourceClass::validationMessage());
         if ($validationError !== null) {
@@ -301,7 +312,7 @@ class ResourceController extends MartisController
             $res->beforeSave($model, $request, creating: true);
             $model->save();
             $res->afterSave($model, $request, creating: true);
-            $this->syncDeferredRelations($model);
+            $this->syncDeferredWrites($model);
         } catch (QueryException $e) {
             Log::error('Martis: database error on store', [
                 'resource' => $resource,
@@ -313,7 +324,11 @@ class ResourceController extends MartisController
 
         $res = new $resourceClass($model);
 
-        $meta = ['message' => $resourceClass::createdMessage()];
+        // A create form that replicates a record sends the id it copied
+        // (`fromResourceId`), and the toast reads the replicated message.
+        $meta = ['message' => $request->filled('fromResourceId')
+            ? $resourceClass::replicatedMessage()
+            : $resourceClass::createdMessage()];
         $redirectTo = $res->redirectAfterCreate($model, $request);
         if (is_string($redirectTo) && $redirectTo !== '') {
             $meta['redirectTo'] = $redirectTo;
@@ -369,7 +384,14 @@ class ResourceController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $fields = Field::filterForContext($res->fieldsForUpdate($request), FieldContext::UPDATE);
+        // A field hidden for this record (canSeeForModel()) is neither
+        // validated nor written: the request is accepted and the column
+        // keeps its value, as for a field the user cannot see.
+        $fields = Field::filterForModel(
+            Field::filterForContext($res->fieldsForUpdate($request), FieldContext::UPDATE),
+            $request,
+            $model,
+        );
 
         // Set unique-ignore ID so unique validation skips the current record
         foreach ($fields as $field) {
@@ -378,7 +400,7 @@ class ResourceController extends MartisController
             }
         }
 
-        $validationError = $this->validateRequest($request, $fields, isUpdate: true, validationMessage: $resourceClass::validationMessage());
+        $validationError = $this->validateRequest($request, $fields, isUpdate: true, validationMessage: $resourceClass::validationMessage(), model: $model);
         if ($validationError !== null) {
             return $validationError;
         }
@@ -389,7 +411,7 @@ class ResourceController extends MartisController
             $res->beforeSave($model, $request, creating: false);
             $model->save();
             $res->afterSave($model, $request, creating: false);
-            $this->syncDeferredRelations($model);
+            $this->syncDeferredWrites($model);
         } catch (QueryException $e) {
             Log::error('Martis: database error on update', [
                 'resource' => $resource,
@@ -659,18 +681,19 @@ class ResourceController extends MartisController
 
         // Resolve fields for create context and extract current values from the replica
         $resReplica = new $resourceClass($replica);
-        $fields = Field::filterForContext($resReplica->fieldsForCreate($request), FieldContext::CREATE);
+        // Respect per-model field authorization: a field hidden for this
+        // record (canSeeForModel / canSeeUsingPolicy) must not leak its
+        // value through the replicate form. Checked against the original
+        // model the replica was copied from.
+        $fields = Field::filterForModel(
+            Field::filterForContext($resReplica->fieldsForCreate($request), FieldContext::CREATE),
+            $request,
+            $model,
+        );
         $values = [];
         foreach ($fields as $field) {
             // Skip file fields — files cannot be replicated
             if ($field instanceof File) {
-                continue;
-            }
-            // Respect per-model field authorization — a field hidden for this
-            // record (canSeeForModel / canSeeUsingPolicy) must not leak its
-            // value through the replicate form. Checked against the original
-            // model the replica was copied from.
-            if (method_exists($field, 'isAuthorizedForModel') && ! $field->isAuthorizedForModel($request, $model)) {
                 continue;
             }
             $resolved = $field->resolve($replica);
@@ -711,17 +734,23 @@ class ResourceController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        // Use fieldsForInlineCreate (falls back to fieldsForCreate -> fields)
-        $fields = Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE);
+        // Use fieldsForInlineCreate (falls back to fieldsForCreate -> fields),
+        // without the fields canSeeForModel() hides for the new model the
+        // inline create fills: it neither validates nor writes them.
+        $fields = Field::filterForModel(
+            Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE),
+            $request,
+            $resourceClass::newModel(),
+        );
 
-        // Depth enforcement: strip showCreateRelationButton from belongs_to/morph_to fields.
+        // Depth enforcement: strip showCreateRelationButton from belongs_to/morph_to/tag fields.
         // This is the canonical server-side guard that prevents nested inline creates —
-        // BelongsToField.tsx gates both the button and the InlineCreateModal on
-        // showCreateRelationButton === true, so the nested create UI is never rendered
-        // inside an inline create modal.
+        // the BelongsTo, MorphTo and Tag inputs gate both the button and the
+        // InlineCreateModal on showCreateRelationButton === true, so the nested create UI
+        // is never rendered inside an inline create modal.
         $fieldData = array_map(function (FieldContract $f): array {
             $arr = $f->toArray();
-            if (($arr['type'] ?? '') === 'belongs_to' || ($arr['type'] ?? '') === 'morph_to') {
+            if (in_array($arr['type'] ?? '', ['belongs_to', 'morph_to', 'tag'], true)) {
                 $arr['showCreateRelationButton'] = false;
             }
 
@@ -760,8 +789,9 @@ class ResourceController extends MartisController
             return $error;
         }
 
-        $attribute = (string) $request->input('field', '');
-        if ($attribute === '') {
+        // A `field` that is not a string (`field[]=`) names no attribute.
+        $attribute = $request->input('field');
+        if (! is_string($attribute) || $attribute === '') {
             return JsonErrorResponse::validation(['field' => ['Field attribute is required.']])->toResponse();
         }
 
@@ -771,9 +801,7 @@ class ResourceController extends MartisController
         $context = in_array($context, ['create', 'update'], true) ? $context : 'create';
         $id = $request->input('id');
 
-        // Resolve the field set for the current context, flatten layout
-        // containers (Panel/Section/TabGroup), and locate the requested
-        // attribute. Gate on the ability that matches the context so a user
+        // Gate on the ability that matches the context so a user
         // who cannot create/update the resource cannot probe its sync data —
         // the previous update check (create OR viewAny) let a view-only user
         // reach update-field metadata. The update gate binds the record named
@@ -790,36 +818,10 @@ class ResourceController extends MartisController
             return $forbidden ?? JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $rawFields = $context === 'update'
-            ? $instance->fieldsForUpdate($request)
-            : $instance->fieldsForCreate($request);
-
-        // Layout containers (Section/Panel/TabGroup) expose flattenFields();
-        // the getFields()/fields() probes below are kept for custom layouts.
-        $flatten = function (array $items) use (&$flatten): array {
-            $out = [];
-            foreach ($items as $item) {
-                if ($item instanceof FieldContract) {
-                    $out[] = $item;
-                } elseif ($item instanceof LayoutContract) {
-                    $out = array_merge($out, $item->flattenFields());
-                } elseif (method_exists($item, 'getFields')) {
-                    $out = array_merge($out, $flatten($item->getFields()));
-                } elseif (method_exists($item, 'fields')) {
-                    $out = array_merge($out, $flatten($item->fields()));
-                }
-            }
-
-            return $out;
-        };
-
-        $field = null;
-        foreach ($flatten($rawFields) as $candidate) {
-            if ($candidate->attribute() === $attribute) {
-                $field = $candidate;
-                break;
-            }
-        }
+        // Locate the field on the form it renders on (layout containers
+        // included): the update form, or the create page and the
+        // inline-create modal.
+        $field = $this->findFormField($instance, $request, $context, $attribute);
 
         if ($field === null) {
             return JsonErrorResponse::validation(['field' => ["Unknown field [{$attribute}]."]])->toResponse();
@@ -871,7 +873,13 @@ class ResourceController extends MartisController
         // create button is never rendered inside an inline create modal).
         $model = $resourceClass::newModel();
         $res = new $resourceClass($model);
-        $fields = Field::filterForContext($res->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE);
+        // A field hidden for the new record is neither validated nor
+        // written, as on store().
+        $fields = Field::filterForModel(
+            Field::filterForContext($res->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE),
+            $request,
+            $model,
+        );
 
         $validationError = $this->validateRequest($request, $fields, validationMessage: $resourceClass::validationMessage());
         if ($validationError !== null) {
@@ -884,7 +892,7 @@ class ResourceController extends MartisController
             $res->beforeSave($model, $request, creating: true);
             $model->save();
             $res->afterSave($model, $request, creating: true);
-            $this->syncDeferredRelations($model);
+            $this->syncDeferredWrites($model);
         } catch (QueryException $e) {
             Log::error('Martis: database error on inline create', [
                 'resource' => $resource,
@@ -997,8 +1005,14 @@ class ResourceController extends MartisController
 
             return $out;
         };
-        $fields = $flattenFields($instance->fields($request));
-        $fieldData = array_map(fn (FieldContract $field): array => $field->toArray(), $fields);
+        // The catalogue of every field the user can see, whatever the
+        // context: a field hidden by canSee() is left out, as it is from the
+        // contextual arrays below.
+        $fields = array_filter(
+            $flattenFields($instance->fields($request)),
+            fn (FieldContract $field): bool => $field->isAuthorizedToSee($request),
+        );
+        $fieldData = array_values(array_map(fn (FieldContract $field): array => $field->toArray(), $fields));
 
         // Context-specific field arrays — resolved then filtered by visibility
         $fieldsForIndex = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForIndex($request), FieldContext::INDEX));
@@ -1026,9 +1040,22 @@ class ResourceController extends MartisController
             fn (FieldContract $f): array => $f->toArray(),
             Field::filterForContext($instance->detailSidebar($request), FieldContext::DETAIL),
         );
-        $fieldsForCreate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForCreate($request), FieldContext::CREATE));
+        // The create forms write a new record: a field canSeeForModel()
+        // hides for the new, unsaved model is left out of them, as a create
+        // neither validates nor writes it (Field::filterForModel()). The
+        // other lists describe the resource; each record the SPA loads
+        // names the fields it hides (`_hidden`).
+        $newModel = $resourceClass::newModel();
+        $fieldsForCreate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutFields(
+            Field::filterLayoutForContext($instance->fieldsForCreate($request), FieldContext::CREATE),
+            fn (FieldContract $field): bool => Field::filterForModel([$field], $request, $newModel) !== [],
+        ));
         $fieldsForUpdate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForUpdate($request), FieldContext::UPDATE));
-        $fieldsForInlineCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE));
+        $fieldsForInlineCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForModel(
+            Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE),
+            $request,
+            $newModel,
+        ));
         $fieldsForPreview = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForPreview($request), FieldContext::PREVIEW));
         $filters = $this->serializeFilters($instance->filters($request), $request);
         $lenses = $this->serializeSchemaDescriptors(
@@ -1253,7 +1280,6 @@ class ResourceController extends MartisController
         /** @var class-string<resource>|null $resourceClass */
         $resourceClass = null;
         $relationField = null;
-        $relatedUriKey = null;
 
         if ($hasSourceContext) {
             [$resourceClass, $error] = $this->resolveResource($resource);
@@ -1269,40 +1295,363 @@ class ResourceController extends MartisController
                 return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
             }
 
-            // Find the relationship field in the resource fields.
-            // Flatten layout containers first so a relationship field
-            // nested inside Section / Panel / TabGroup still resolves
-            // — without it, the lookup silently misses and the user
-            // sees a "Field 'X' not found." 404 even though the field
-            // is declared on the resource.
-            $fields = Field::flattenLayoutFields($instance->fields($request));
-            foreach ($fields as $field) {
-                if ($field->attribute() === $fieldAttr) {
-                    $relationField = $field;
-                    break;
-                }
-            }
+            // Find the relationship field on the form the picker renders
+            // in: the update form when the id names a record the user may
+            // update, the create forms otherwise, then fields(). A picker a resource declares
+            // on fieldsForCreate() / fieldsForUpdate() only resolves (it
+            // used to answer "Field 'X' not found." with an empty picker),
+            // and the form's own declaration wins over the one in
+            // fields(). Layout containers are searched too, and a picker in
+            // a Repeater row is read from the row the request names.
+            [$formInstance, $formContext] = $this->resolveFormFromRecordId($request, $resourceClass, $id);
+            $relationField = $this->findFormField(
+                $formInstance,
+                $request,
+                $formContext,
+                $fieldAttr,
+                [BelongsTo::class, MorphTo::class, TagField::class],
+                orFields: true,
+                repeaterRow: $this->repeaterRowOf($request),
+            );
 
             if ($relationField === null) {
                 return JsonErrorResponse::notFound("Field '{$fieldAttr}' not found.")->toResponse();
             }
 
-            // Determine the related resource class from the field
-            if ($relationField instanceof BelongsTo) {
-                $relatedUriKey = $this->getRelatedResourceKey($relationField);
-            } elseif ($relationField instanceof MorphTo) {
-                // MorphTo: resolve from related_resource query param (type-specific)
-                $rawRelated = $request->query('related_resource', '');
-                $relatedUriKey = is_string($rawRelated) ? $rawRelated : null;
-            } elseif ($relationField instanceof TagField) {
-                $relatedUriKey = $relationField->getRelatedResource();
-            }
+            $relatedUriKey = $this->relatedUriKeyOf($relationField, $request);
         } else {
             // No source context - resolve related resource from query param
             $rawRelated = $request->query('related_resource', '');
             $relatedUriKey = is_string($rawRelated) ? $rawRelated : null;
         }
 
+        return $this->relatableResponse($request, $relatedUriKey, $resourceClass, $relationField);
+    }
+
+    /**
+     * Return filtered options for a relationship field an Action declares.
+     *
+     * GET /api/resources/{resource}/actions/{action}/relatable/{field}
+     *
+     * The pickers of an action modal read the Action's own declaration of
+     * the field: its related resource and its field-level scope
+     * (relatableQueryUsing(), withoutTrashed()) apply, and the resource the
+     * Action runs on is the source of the relatable{PluralModelName}() hook.
+     * Gated like running the Action (viewAny on the resource, canSee() on
+     * the Action), then like every picker (viewAny on the related resource).
+     */
+    public function actionRelatableOptions(
+        Request $request,
+        string $resource,
+        string $action,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        [$resourceClass, $error] = $this->resolveResource($resource);
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        /** @var class-string<\Martis\Resource> $resourceClass */
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
+        $actionInstance = $this->findAction(new $resourceClass, $action, $request);
+
+        if ($actionInstance === null) {
+            return JsonErrorResponse::notFound("Action [{$action}] not found.")->toResponse();
+        }
+
+        if (! $actionInstance->authorizedToSee($request)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        return $this->actionFieldRelatableResponse($request, $actionInstance, $fieldAttr, $resourceClass);
+    }
+
+    /**
+     * Return filtered options for a relationship field of a pivot action.
+     *
+     * GET /api/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}/relatable/{field}
+     *
+     * The pivot action modal of a many-to-many panel asks here. The Action
+     * is found where the panel's fields endpoint finds it (the field's
+     * actions(), then the resource's pivotAction() ones), behind the same
+     * gates, and its own declaration of the field applies, with the parent
+     * resource as the source of the relatable hooks.
+     */
+    public function pivotActionRelatableOptions(
+        Request $request,
+        string $resource,
+        string $id,
+        string $relationship,
+        string $action,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        return $this->pivotActionRelatable($request, $resource, $id, $relationship, $action, $fieldAttr, BelongsToManyField::class);
+    }
+
+    /**
+     * Return filtered options for a relationship field of a MorphToMany
+     * pivot action (see pivotActionRelatableOptions()).
+     *
+     * GET /api/resources/{resource}/{id}/morph-to-many/{relationship}/actions/{action}/relatable/{field}
+     */
+    public function morphToManyPivotActionRelatableOptions(
+        Request $request,
+        string $resource,
+        string $id,
+        string $relationship,
+        string $action,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        return $this->pivotActionRelatable($request, $resource, $id, $relationship, $action, $fieldAttr, MorphToManyField::class);
+    }
+
+    /**
+     * @param  class-string<BelongsToManyField|MorphToManyField>  $fieldClass
+     */
+    private function pivotActionRelatable(
+        Request $request,
+        string $resource,
+        string $id,
+        string $relationship,
+        string $action,
+        string $fieldAttr,
+        string $fieldClass,
+    ): IlluminateJsonResponse {
+        [$resourceClass, $error] = $this->resolveResource($resource);
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        /** @var class-string<\Martis\Resource> $resourceClass */
+        $resolved = $this->resolvePivotAction($request, $resourceClass, $id, $relationship, $action, $fieldClass);
+
+        if ($resolved instanceof IlluminateJsonResponse) {
+            return $resolved;
+        }
+
+        return $this->actionFieldRelatableResponse($request, $resolved['action'], $fieldAttr, $resourceClass);
+    }
+
+    /**
+     * The options of a relationship field an Action declares, once the
+     * endpoint found the Action and ran its gates.
+     *
+     * @param  class-string<\Martis\Resource>  $resourceClass  The resource that declares the Action
+     */
+    private function actionFieldRelatableResponse(
+        Request $request,
+        ActionContract $action,
+        string $fieldAttr,
+        string $resourceClass,
+    ): IlluminateJsonResponse {
+        return $this->declaredFieldRelatableResponse(
+            $request,
+            [fn (): array => $action->fields($request)],
+            $fieldAttr,
+            $resourceClass,
+        );
+    }
+
+    /**
+     * Return filtered options for a relationship field of a BelongsToMany
+     * panel's pivot fields, in the attach modal.
+     *
+     * GET /api/resources/{resource}/{id}/belongs-to-many/{relationship}/pivot-fields/relatable/{field}
+     *
+     * The attach modal renders the relationship's pivot fields, which the
+     * parent's forms do not declare, so their pickers ask the panel: the
+     * field is found in the relationship field's `fields()` only. Gated like
+     * the panel (viewAny, the parent record through indexQuery(), view on
+     * it, a declared relationship field of the route's type), then like the
+     * attach: `authorizedToAttachAny()` for the related model (no record is
+     * picked yet; `attach()` checks each one), then like every picker.
+     */
+    public function pivotFieldRelatableOptions(
+        Request $request,
+        string $resource,
+        string $id,
+        string $relationship,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        return $this->pivotFieldRelatable($request, $resource, $id, $relationship, null, $fieldAttr, BelongsToManyField::class);
+    }
+
+    /**
+     * Return filtered options for a relationship field of a BelongsToMany
+     * panel's pivot fields, in the pivot edit modal of one attached record
+     * (see pivotFieldRelatableOptions()). `{relatedId}` names a record the
+     * relationship attaches (404 otherwise), and the endpoint is gated like
+     * the pivot update: `authorizedToUpdatePivot()` for that record.
+     *
+     * GET /api/resources/{resource}/{id}/belongs-to-many/{relationship}/pivot-fields/{relatedId}/relatable/{field}
+     */
+    public function attachedPivotFieldRelatableOptions(
+        Request $request,
+        string $resource,
+        string $id,
+        string $relationship,
+        string $relatedId,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        return $this->pivotFieldRelatable($request, $resource, $id, $relationship, $relatedId, $fieldAttr, BelongsToManyField::class);
+    }
+
+    /**
+     * The MorphToMany variant of pivotFieldRelatableOptions().
+     *
+     * GET /api/resources/{resource}/{id}/morph-to-many/{relationship}/pivot-fields/relatable/{field}
+     */
+    public function morphToManyPivotFieldRelatableOptions(
+        Request $request,
+        string $resource,
+        string $id,
+        string $relationship,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        return $this->pivotFieldRelatable($request, $resource, $id, $relationship, null, $fieldAttr, MorphToManyField::class);
+    }
+
+    /**
+     * The MorphToMany variant of attachedPivotFieldRelatableOptions().
+     *
+     * GET /api/resources/{resource}/{id}/morph-to-many/{relationship}/pivot-fields/{relatedId}/relatable/{field}
+     */
+    public function morphToManyAttachedPivotFieldRelatableOptions(
+        Request $request,
+        string $resource,
+        string $id,
+        string $relationship,
+        string $relatedId,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        return $this->pivotFieldRelatable($request, $resource, $id, $relationship, $relatedId, $fieldAttr, MorphToManyField::class);
+    }
+
+    /**
+     * The options of a pivot field's picker: in the attach modal when
+     * `$relatedId` is null, in the pivot edit modal of that attached
+     * record otherwise. The parent resource is the source of the relatable
+     * hooks, as for the panel's pivot actions.
+     *
+     * @param  class-string<BelongsToManyField|MorphToManyField>  $fieldClass
+     */
+    private function pivotFieldRelatable(
+        Request $request,
+        string $resource,
+        string $id,
+        string $relationship,
+        ?string $relatedId,
+        string $fieldAttr,
+        string $fieldClass,
+    ): IlluminateJsonResponse {
+        [$resourceClass, $error] = $this->resolveResource($resource);
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        /** @var class-string<\Martis\Resource> $resourceClass */
+        $context = $this->resolvePivotRelationship($request, $resourceClass, $id, $relationship, $fieldClass);
+
+        if ($context instanceof IlluminateJsonResponse) {
+            return $context;
+        }
+
+        ['parentResource' => $parentResource, 'field' => $field, 'relation' => $relation] = $context;
+        $related = $relation->getRelated();
+
+        // The pivot row the pivot fields' canSeeForModel() decides on: a new
+        // row in the attach modal, the attached record's row in its pivot edit
+        // modal (as the attach and the pivot update decide).
+        $pivotRow = $relation->newPivot();
+
+        if ($relatedId === null) {
+            $authorized = $parentResource->authorizedToAttachAny($request, $related::class);
+        } else {
+            // Only a record the relationship attaches has a pivot row to
+            // edit, so any other id answers 404 like a missing one (no
+            // probing of the related table), and an id an integer key
+            // cannot hold never reaches the database (PostgreSQL rejects it
+            // where other drivers match nothing).
+            $relatedModel = $related->getKeyType() === 'int' && preg_match('/^-?\d+$/', $relatedId) !== 1
+                ? null
+                : (clone $relation)->where($related->qualifyColumn($related->getKeyName()), $relatedId)->first();
+
+            if (! $relatedModel instanceof Model) {
+                return JsonErrorResponse::notFound('Related record not found.')->toResponse();
+            }
+
+            $authorized = $parentResource->authorizedToUpdatePivot($request, $relatedModel);
+            $pivotRow = $this->storedPivotRow($relation, $relatedId) ?? $pivotRow;
+        }
+
+        if (! $authorized) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        return $this->declaredFieldRelatableResponse(
+            $request,
+            [fn (): array => $field->getPivotFields()],
+            $fieldAttr,
+            $resourceClass,
+            $pivotRow,
+        );
+    }
+
+    /**
+     * The options of a relationship field found in `$sets` (an Action's
+     * fields, a relationship's pivot fields), once the endpoint ran its
+     * gates. A picker in a Repeater row is read from the row the request
+     * names. A field the user cannot see answers like an undeclared one
+     * (see findDeclaredField()); `$model` is the record the fields of
+     * `$sets` belong to (the pivot row of pivot fields), if any.
+     *
+     * @param  list<\Closure(): iterable<mixed>>  $sets
+     * @param  class-string<\Martis\Resource>  $resourceClass  The source of the relatable hooks
+     */
+    private function declaredFieldRelatableResponse(
+        Request $request,
+        array $sets,
+        string $fieldAttr,
+        string $resourceClass,
+        ?Model $model = null,
+    ): IlluminateJsonResponse {
+        $relationField = $this->findDeclaredField(
+            $sets,
+            $fieldAttr,
+            $request,
+            [BelongsTo::class, MorphTo::class, TagField::class],
+            $model,
+            $this->repeaterRowOf($request),
+        );
+
+        if ($relationField === null) {
+            return JsonErrorResponse::notFound("Field '{$fieldAttr}' not found.")->toResponse();
+        }
+
+        return $this->relatableResponse($request, $this->relatedUriKeyOf($relationField, $request), $resourceClass, $relationField);
+    }
+
+    /**
+     * List the records of the related resource a picker offers, one page
+     * at a time, with the relatable scoping applied.
+     *
+     * Without a source resource (the context-free call) only the target's
+     * relatableQuery() applies.
+     *
+     * @param  class-string<\Martis\Resource>|null  $resourceClass  The source resource, if any
+     */
+    private function relatableResponse(
+        Request $request,
+        ?string $relatedUriKey,
+        ?string $resourceClass,
+        ?FieldContract $relationField,
+    ): IlluminateJsonResponse {
         // Auth check: ensure user can viewAny the related resource (F-2 fix)
         if ($relatedUriKey !== null && $this->registry->has($relatedUriKey)) {
             $relatedCheck = new ($this->registry->get($relatedUriKey));
@@ -1325,7 +1674,7 @@ class ResourceController extends MartisController
         $query = $relatedModelClass::query();
 
         // Apply relatable query hooks via central resolver
-        if ($hasSourceContext && $resourceClass !== null) {
+        if ($resourceClass !== null) {
             $query = RelationshipQueryResolver::resolve(
                 $resourceClass,
                 $relatedResourceClass,
@@ -1348,16 +1697,13 @@ class ResourceController extends MartisController
 
         if ($search !== '') {
             $relatedInstance = new $relatedResourceClass;
-            // Flatten Section / Panel / TabGroup before filtering so
-            // searchable fields nested inside layouts are visible to
-            // the relatable search. The previous top-level `instanceof`
-            // guard avoided a crash but silently dropped every nested
-            // searchable, which made the BelongsTo / MorphTo dropdown
-            // search return the unfiltered set.
-            $searchableFields = array_filter(
-                Field::flattenLayoutFields($relatedInstance->fields($request)),
-                fn (FieldContract $field): bool => $field->isSearchable(),
-            );
+            // The searchable fields of the related resource the user can
+            // see (canSee()), nested ones included: a field inside a
+            // Section / Panel / TabGroup is searched like a top-level one.
+            // A field the user cannot see is not searched, as the options a
+            // term returns would tell which records hold it there; without
+            // any field left the picker searches the title it shows.
+            $searchableFields = Field::searchableFields($relatedInstance->fields($request), $request);
 
             // Case-insensitive on PostgreSQL (ilike) too — same rule and
             // single source of truth as the global-search pipeline.
@@ -1420,6 +1766,30 @@ class ResourceController extends MartisController
                 'next' => $paginator->nextPageUrl(),
             ],
         )->toResponse();
+    }
+
+    /**
+     * The URI key of the resource a relationship field picks from: a
+     * BelongsTo or Tag names it, a MorphTo takes the type its picker
+     * selected (`related_resource`).
+     */
+    private function relatedUriKeyOf(FieldContract $field, Request $request): ?string
+    {
+        if ($field instanceof BelongsTo) {
+            return $this->getRelatedResourceKey($field);
+        }
+
+        if ($field instanceof MorphTo) {
+            $rawRelated = $request->query('related_resource', '');
+
+            return is_string($rawRelated) ? $rawRelated : null;
+        }
+
+        if ($field instanceof TagField) {
+            return $field->getRelatedResource();
+        }
+
+        return null;
     }
 
     /**
@@ -1636,12 +2006,6 @@ class ResourceController extends MartisController
     }
 
     /**
-     * Apply column sorting to the query.
-     *
-     * @param  class-string<resource>  $resourceClass
-     * @param  Builder<Model>  $query
-     */
-    /**
      * Apply user-selected filters to the index query.
      *
      * Reads the `filters` query parameter (JSON-encoded object mapping
@@ -1699,43 +2063,32 @@ class ResourceController extends MartisController
         }
     }
 
+    /**
+     * Order the index by the attribute the request's `?sort=` names, or by
+     * the resource's `defaultSort()` when the request names none.
+     *
+     * Only a sortable field the user can see orders the index (see
+     * isSortableAttribute()), the default sort included: any other
+     * attribute is ignored like an unknown one, and the index keeps the
+     * order its query gives.
+     *
+     * @param  class-string<resource>  $resourceClass
+     * @param  Builder<Model>  $query
+     */
     private function applySorting(Request $request, Builder $query, string $resourceClass): void
     {
-        $rawSort = $request->query('sort');
-        $direction = SortDirection::tryFrom(
-            strtolower((string) $request->query('direction', 'asc'))
-        ) ?? SortDirection::Asc;
+        $sort = $request->query('sort');
+        $direction = SortDirection::fromQuery($request->query('direction'));
 
         // Fall back to the resource-level default sort when the request
         // didn't specify one. Keeps the first paint consistent with the
         // "load me already sorted by X" contract from `Resource::defaultSort()`.
-        if (! is_string($rawSort) || $rawSort === '') {
-            $defaultSort = $resourceClass::defaultSort();
-            if ($defaultSort === null || $defaultSort === '') {
-                return;
-            }
-            $rawSort = $defaultSort;
+        if (! is_string($sort) || $sort === '') {
+            $sort = $resourceClass::defaultSort();
             $direction = $resourceClass::defaultSortDirection();
         }
 
-        $sort = $rawSort;
-        $instance = new $resourceClass;
-
-        // `fields()` may return a mix of FieldContract and layout
-        // containers (Panel, TabGroup, Section). Flatten before
-        // filtering — otherwise the closure's `FieldContract` type
-        // hint throws TypeError when a layout slips through.
-        $flatFields = Field::flattenLayoutFields($instance->fields($request));
-
-        $sortableAttributes = array_map(
-            fn (FieldContract $field): string => $field->attribute(),
-            array_values(array_filter(
-                $flatFields,
-                fn (FieldContract $field): bool => $field->isSortable(),
-            )),
-        );
-
-        if (! in_array($sort, $sortableAttributes, true)) {
+        if ($sort === null || $sort === '' || ! $this->isSortableAttribute($resourceClass, $request, $sort)) {
             return;
         }
 
@@ -1743,67 +2096,26 @@ class ResourceController extends MartisController
     }
 
     /**
-     * Validate the incoming request against field rules.
+     * Validate the incoming request against field rules (see
+     * `BuildsFieldRules::buildWriteValidation()`), the fields inside a
+     * Repeater's rows included. `$model` is the record an update writes,
+     * whose stored Repeater rows the rows sent continue.
      *
      * @param  list<FieldContract>  $fields
      */
-    private function validateRequest(Request $request, array $fields, bool $isUpdate = false, ?string $validationMessage = null): ?IlluminateJsonResponse
+    private function validateRequest(Request $request, array $fields, bool $isUpdate = false, ?string $validationMessage = null, ?Model $model = null): ?IlluminateJsonResponse
     {
         // Multipart requests carry list / map values as JSON strings; give
         // the rules below and the fill that follows the decoded structure.
-        $this->decodeStructuredValues($request, $fields);
+        $undecodable = $this->decodeStructuredValues($request, $fields);
 
-        $rules = [];
-        $attributes = [];
+        $validation = $this->buildWriteValidation($fields, $request->all(), $isUpdate, $undecodable, $model);
 
-        $context = $isUpdate ? 'update' : 'create';
-
-        foreach ($fields as $field) {
-            $fieldRules = $field->buildRules($context);
-
-            if ($isUpdate) {
-                // On update, fields are optional unless explicitly provided.
-                // Rules can be strings, Rule objects, or Closures — we drop
-                // the literal 'required' string and keep everything else.
-                $fieldRules = array_values(array_filter(
-                    $fieldRules,
-                    fn ($r): bool => ! (is_string($r) && $r === 'required')
-                ));
-                if (empty($fieldRules)) {
-                    $fieldRules = ['sometimes'];
-                } elseif (! in_array('sometimes', $fieldRules, true)) {
-                    array_unshift($fieldRules, 'sometimes');
-                }
-            }
-
-            $rules[$field->attribute()] = $fieldRules;
-
-            if ($field instanceof Field) {
-                $attributes[$field->attribute()] = $field->label();
-            }
-
-            // Add item-level validation rules for multiple file fields
-            if (method_exists($field, 'buildItemRules')) {
-                $itemRules = $field->buildItemRules();
-                if (! empty($itemRules)) {
-                    $rules[$field->attribute().'.*'] = $itemRules;
-                }
-            }
-        }
-
-        if (empty($rules)) {
+        if ($validation['rules'] === []) {
             return null;
         }
 
-        // Collect custom validation messages from fields
-        $customMessages = [];
-        foreach ($fields as $field) {
-            if (method_exists($field, 'validationMessages')) {
-                $customMessages = array_merge($customMessages, $field->validationMessages());
-            }
-        }
-
-        $validator = Validator::make($request->all(), $rules, $customMessages, $attributes);
+        $validator = Validator::make($request->all(), $validation['rules'], $validation['messages'], $validation['attributes']);
 
         if ($validator->fails()) {
             $msg = $validationMessage ?? 'The given data was invalid.';
@@ -1814,13 +2126,6 @@ class ResourceController extends MartisController
         return null;
     }
 
-    /**
-     * Sync deferred many-to-many relationships after model save.
-     *
-     * BelongsTo fields in multiple mode register pending syncs during fill().
-     * This method executes them after the model has been persisted.
-     */
-
     // -------------------------------------------------------------------------
     // Peek — GET /api/resources/{resource}/{id}/peek
     // -------------------------------------------------------------------------
@@ -1829,7 +2134,8 @@ class ResourceController extends MartisController
      * Return a compact peek card payload for the given resource record.
      *
      * Used by BelongsTo and MorphTo frontend components to load peek content
-     * lazily when the user hovers the preview icon. Content is derived from
+     * lazily when the user hovers the preview icon, and by a Tag with
+     * withPreview() when the user hovers a tag. Content is derived from
      * fieldsForPreview() on the related resource — aligned with the resource's
      * own field definitions, not a custom column list on the field.
      *
@@ -1860,7 +2166,13 @@ class ResourceController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $fields = Field::filterForContext($res->fieldsForPreview($request), FieldContext::PREVIEW);
+        // A field hidden for this record (canSeeForModel()) is left out, as
+        // on every read of the record.
+        $fields = Field::filterForModel(
+            Field::filterForContext($res->fieldsForPreview($request), FieldContext::PREVIEW),
+            $request,
+            $model,
+        );
 
         $attributes = [];
         foreach ($fields as $field) {
@@ -1882,12 +2194,6 @@ class ResourceController extends MartisController
         ])->toResponse();
     }
 
-    private function syncDeferredRelations(Model $model): void
-    {
-        DeferredRelationSync::sync($model);
-        DeferredRepeaterSync::sync($model);
-    }
-
     /**
      * Serialize a model into an array of attribute values using its fields.
      *
@@ -1902,17 +2208,15 @@ class ResourceController extends MartisController
 
         $request = request();
 
-        foreach ($fields as $field) {
-            // v1.8.8 — per-model field authorization. When the field
-            // declared `canSeeForModel(...)` or `canSeeUsingPolicy(...)`,
-            // skip its serialization for rows where the closure returns
-            // false. Stripping at serialization time means the value
-            // never reaches the wire — the consumer cannot read it
-            // even if the React layer has stale state.
-            if (method_exists($field, 'isAuthorizedForModel') && ! $field->isAuthorizedForModel($request, $model)) {
-                continue;
-            }
-
+        // v1.8.8: per-model field authorization. A field that declared
+        // `canSeeForModel(...)` or `canSeeUsingPolicy(...)` is skipped for
+        // the rows its closure hides it on. Stripping at serialization time
+        // means the value never reaches the wire: the consumer cannot read
+        // it even if the React layer has stale state. The record lists
+        // those fields under `_hidden` (v1.38.0), so the pages leave them
+        // out instead of rendering them empty.
+        $visible = Field::filterForModel($fields, $request, $model);
+        foreach ($visible as $field) {
             if ($forDisplay) {
                 /** @var FieldContract&Field $fieldInstance */
                 $fieldInstance = $field;
@@ -1921,6 +2225,7 @@ class ResourceController extends MartisController
                 $data[$field->attribute()] = $field->resolve($model);
             }
         }
+        $data += $this->hiddenFieldsEntry($fields, $visible);
 
         $data['_title'] = $resource->title();
         $data['_resource'] = $resource->toArray();

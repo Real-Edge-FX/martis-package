@@ -38,6 +38,7 @@ return [
     'action_queued' => 'Action queued for processing.',
     'confirm_destructive' => 'Yes, proceed',
     'preview' => 'Preview',
+    'preview_result' => 'Preview (nothing was changed)',
     'no_actions' => 'No actions available.',
     'select_action' => 'Select an action…',
     'selected_count' => ':count selected',

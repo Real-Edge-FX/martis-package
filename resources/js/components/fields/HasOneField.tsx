@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { NestedParentProvider, useNestedParent } from './NestedParentContext'
+import { NestedParentProvider, useRelationParent } from './NestedParentContext'
 import { buildViaParams } from '@/lib/relationViaParams'
 import { STANDALONE_RELATIONSHIP_TYPES } from '@/lib/relationshipFieldTypes'
 import { useNavigate } from 'react-router-dom'
@@ -8,6 +8,7 @@ import { api } from '@/lib/api'
 import type { ResourceRecord, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
+import { hiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
 import { DeleteModal } from '@/components/DeleteModal'
 import { useTranslation } from 'react-i18next'
 import { PlusIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
@@ -76,15 +77,10 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
   const relationship = field.relationship as string
   const relatedResource = field.relatedResource as string
 
-  // Parent context: read NestedParent when rendered inside another
-  // relationship (e.g. a Latest Invoice nested inside a HasOneThrough
-  // Project). Fallback to the URL when we are at the top level of the
-  // detail page.
-  const nested = useNestedParent()
-  const pathParts = window.location.pathname.split('/')
-  const resourcesIdx = pathParts.indexOf('resources')
-  const parentResource = nested?.resource ?? (resourcesIdx >= 0 ? (pathParts[resourcesIdx + 1] ?? '') : '')
-  const parentId = nested?.id !== undefined ? String(nested.id) : (resourcesIdx >= 0 ? (pathParts[resourcesIdx + 2] ?? '') : '')
+  // The record this card belongs to: the enclosing card's or drawer's record
+  // when nested (e.g. a Latest Invoice inside a Project card), else the one
+  // in the URL.
+  const { resource: parentResource, id: parentId } = useRelationParent()
 
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -148,7 +144,8 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
       }
       return [f]
     })
-  const detailFields: FieldDefinition[] = flattenFields(rawDetailFields)
+  // The fields the related record hides (`_hidden`) are left out.
+  const detailFields: FieldDefinition[] = withoutHiddenFields(flattenFields(rawDetailFields), hiddenAttributes(record))
 
   const viaParams = buildViaParams({
     parentResource,
@@ -208,9 +205,9 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* O bot\u00e3o Criar do header foi removido quando record === null
-           *  para evitar duplica\u00e7\u00e3o com o Criar prominente dentro do
-           *  empty-state card abaixo. */}
+          {/* No Create button in the header while record === null: the
+           *  empty-state card below carries the prominent one, and two
+           *  would duplicate it. */}
           {record !== null && showEdit && viaParams !== null && (
             <button
               type="button"

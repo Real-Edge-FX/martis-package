@@ -17,7 +17,6 @@ use React\Http\Message\ServerRequest;
 function invokeHandler(AuthenticatedStreamableHttpTransport $t, ServerRequestInterface $request): mixed
 {
     $rm = new ReflectionMethod(AuthenticatedStreamableHttpTransport::class, 'createRequestHandler');
-    $rm->setAccessible(true);
     $handler = $rm->invoke($t);
 
     return $handler($request);

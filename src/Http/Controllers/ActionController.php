@@ -2,7 +2,9 @@
 
 namespace Martis\Http\Controllers;
 
+use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -13,13 +15,18 @@ use Martis\Actions\Action;
 use Martis\Actions\ActionFields;
 use Martis\Actions\ActionResponse;
 use Martis\Actions\Jobs\ExecuteAction;
+use Martis\Actions\Jobs\ExecutePivotAction;
+use Martis\Actions\PivotActionEventLog;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Enums\ActionVisibility;
 use Martis\Exceptions\MartisException;
-use Martis\FieldContext;
 use Martis\Fields\BelongsToMany as BelongsToManyField;
 use Martis\Fields\Field as MartisField;
+use Martis\Fields\MorphToMany as MorphToManyField;
+use Martis\Fields\Repeater;
+use Martis\Http\Controllers\Concerns\BuildsFieldRules;
+use Martis\Http\Controllers\Concerns\ResolvesPivotActions;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Models\ActionEvent;
@@ -37,6 +44,9 @@ use Martis\ResourceRegistry;
  */
 class ActionController extends MartisController
 {
+    use BuildsFieldRules;
+    use ResolvesPivotActions;
+
     /** Create the controller and inject the resource registry. */
     public function __construct(
         private readonly ResourceRegistry $registry,
@@ -75,7 +85,8 @@ class ActionController extends MartisController
         $instance = new $resourceClass;
         $actions = $this->resolveActions($instance, $request);
 
-        $context = ActionVisibility::tryFrom((string) $request->query('context', 'index'));
+        $rawContext = $request->query('context', 'index');
+        $context = ActionVisibility::tryFrom(is_string($rawContext) ? $rawContext : 'index');
         $filtered = array_values(array_filter($actions, function (ActionContract $action) use ($context) {
             return match ($context) {
                 ActionVisibility::Index => $action->isShownOnIndex(),
@@ -118,7 +129,7 @@ class ActionController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $fields = $actionInstance->fields($request);
+        $fields = $this->visibleActionFields($actionInstance->fields($request), $request);
 
         /** @var array<string, mixed> $data */
         $data = ['fields' => array_map(fn (FieldContract $f) => $f->toArray(), $fields)];
@@ -182,21 +193,11 @@ class ActionController extends MartisController
             }
         }
 
-        $actionFields = $actionInstance->fields($request);
-        if (! empty($actionFields)) {
-            $rules = $this->buildFieldValidationRules($actionFields);
-            /** @var array<string, mixed> $fieldData */
-            $fieldData = $request->input('fields', []);
-            $validator = Validator::make($fieldData, $rules, [], $this->buildFieldAttributeMap($actionFields));
+        $fields = $this->resolveActionFields($actionInstance->fields($request), $request);
 
-            if ($validator->fails()) {
-                return JsonErrorResponse::validation($validator->errors()->toArray())->toResponse();
-            }
+        if ($fields instanceof IlluminateJsonResponse) {
+            return $fields;
         }
-
-        /** @var array<string, mixed> $rawFields */
-        $rawFields = $request->input('fields', []);
-        $fields = ActionFields::fromRequest($rawFields);
 
         if ($request->boolean('dryRun') && $actionInstance instanceof Action && $actionInstance->hasDryRun()) {
             $preview = $actionInstance->dryRun($fields, $models);
@@ -292,20 +293,6 @@ class ActionController extends MartisController
         ));
     }
 
-    /** Find a specific action by URI key. */
-    private function findAction(Resource $resource, string $uriKey, Request $request): ?ActionContract
-    {
-        $actions = $resource->actions($request);
-
-        foreach ($actions as $action) {
-            if ($action->uriKey() === $uriKey) {
-                return $action;
-            }
-        }
-
-        return null;
-    }
-
     /**
      * Resolve Eloquent models from the request.
      *
@@ -340,6 +327,127 @@ class ActionController extends MartisController
         )->get();
 
         return $result;
+    }
+
+    /**
+     * The field values a run of an Action hands `handle()` (and `dryRun()`,
+     * and the job of a queued Action), or the 422 of a failed validation.
+     *
+     * As Nova resolves an Action's fields, only the fields that take their
+     * value from the request (see `takesValueFromRequest()`) are validated
+     * and give `handle()` the value the request sends; see
+     * `actionFieldValues()` for the others.
+     *
+     * @param  list<FieldContract>  $fields  The Action's fields.
+     */
+    private function resolveActionFields(array $fields, Request $request): ActionFields|IlluminateJsonResponse
+    {
+        $raw = $request->input('fields', []);
+        /** @var array<string, mixed> $values */
+        $values = is_array($raw) ? $raw : [];
+
+        if ($fields !== []) {
+            $writable = array_values(array_filter(
+                $fields,
+                fn (FieldContract $field): bool => $this->takesValueFromRequest($field, $request),
+            ));
+
+            $validator = $this->actionFieldsValidator($writable, $values);
+
+            if ($validator->fails()) {
+                return JsonErrorResponse::validation($validator->errors()->toArray())->toResponse();
+            }
+        }
+
+        return ActionFields::fromRequest($this->actionFieldValues($fields, $values, $request));
+    }
+
+    /**
+     * The fields of an Action the modal renders: the ones the user may see
+     * (`canSee()`), as Nova serialises an Action's fields.
+     *
+     * @param  list<FieldContract>  $fields
+     * @return list<FieldContract>
+     */
+    private function visibleActionFields(array $fields, Request $request): array
+    {
+        return array_values(array_filter(
+            $fields,
+            fn (FieldContract $field): bool => $field->isAuthorizedToSee($request),
+        ));
+    }
+
+    /**
+     * Whether an Action field takes its value from the request: not when
+     * the user cannot see it (`canSee()`), nor when it is readonly or
+     * computed, as a field of a record never takes its value from the
+     * request then.
+     */
+    private function takesValueFromRequest(FieldContract $field, Request $request): bool
+    {
+        if (! $field->isAuthorizedToSee($request)) {
+            return false;
+        }
+
+        return ! $field instanceof MartisField || (! $field->isReadonly() && ! $field->isComputed());
+    }
+
+    /**
+     * The values `handle()` receives: the value the request sends for each
+     * field that takes its value from it (see `takesValueFromRequest()`),
+     * with the rows of a Repeater written as new rows (an Action stores
+     * nothing, see `Repeater::protectNewRows()`), and for every other field
+     * its `default()`, or nothing when it has none (a computed field has
+     * none). A key that names no field of the Action is kept as sent: a
+     * custom component posts its own values that way.
+     *
+     * @param  list<FieldContract>  $fields
+     * @param  array<string, mixed>  $values
+     * @return array<string, mixed>
+     */
+    private function actionFieldValues(array $fields, array $values, Request $request): array
+    {
+        foreach ($fields as $field) {
+            $attribute = $field->attribute();
+
+            if ($this->takesValueFromRequest($field, $request)) {
+                if ($field instanceof Repeater && array_key_exists($attribute, $values)) {
+                    $values[$attribute] = $field->protectNewRows($values[$attribute], $request);
+                }
+
+                continue;
+            }
+
+            unset($values[$attribute]);
+
+            $default = $field instanceof MartisField && ! $field->isComputed() ? $field->getDefaultValue() : null;
+            if ($default !== null) {
+                $values[$attribute] = $default;
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * The validator of an Action's fields: each field's rules under its
+     * attribute, named by its label, and the fields inside every row a
+     * Repeater among them receives (see
+     * `BuildsFieldRules::buildNestedFieldValidation()`).
+     *
+     * @param  list<FieldContract>  $fields
+     * @param  array<string, mixed>  $fieldData
+     */
+    private function actionFieldsValidator(array $fields, array $fieldData): ValidatorContract
+    {
+        $nested = $this->buildNestedFieldValidation($fields, $fieldData, null);
+
+        return Validator::make(
+            $fieldData,
+            $this->buildFieldValidationRules($fields) + $nested['rules'],
+            $nested['messages'],
+            $this->buildFieldAttributeMap($fields) + $nested['attributes'],
+        );
     }
 
     /**
@@ -503,57 +611,64 @@ class ActionController extends MartisController
     }
 
     // -------------------------------------------------------------------------
-    // Pivot action routes (BelongsToMany context)
+    // Pivot action routes (BelongsToMany and MorphToMany context)
     // -------------------------------------------------------------------------
 
     /**
-     * List pivot actions for a BelongsToMany relationship.
+     * List the pivot actions of a BelongsToMany relationship panel.
      *
      * GET /api/resources/{resource}/{id}/belongs-to-many/{relationship}/actions
      */
     public function pivotIndex(Request $request, string $resource, string|int $id, string $relationship): IlluminateJsonResponse
     {
-        $resourceClass = $this->resolveResource($resource);
-        if ($resourceClass === null) {
-            return JsonErrorResponse::notFound("Resource [{$resource}] not found.")->toResponse();
-        }
-
-        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
-            return $forbidden;
-        }
-
-        $instance = new $resourceClass;
-        $allActions = $this->resolveActions($instance, $request);
-
-        $context = ActionVisibility::tryFrom((string) $request->query('context', 'detail'))
-            ?? ActionVisibility::Detail;
-
-        $pivotActions = array_values(array_filter($allActions, function (ActionContract $action) use ($context) {
-            if (! ($action instanceof Action) || ! $action->isPivotAction()) {
-                return false;
-            }
-
-            return match ($context) {
-                ActionVisibility::Index => $action->isShownOnIndex(),
-                ActionVisibility::Detail => $action->isShownOnDetail(),
-                ActionVisibility::Inline => $action->isShownInline(),
-            };
-        }));
-
-        /** @var array<string, mixed> $data */
-        $data = ['actions' => array_map(fn (ActionContract $a) => $a->jsonSerialize(), $pivotActions)];
-
-        return JsonResponse::make($data)->toResponse();
+        return $this->listPivotActions($request, $resource, $id, $relationship, BelongsToManyField::class);
     }
 
     /**
-     * Execute a pivot action on selected related records.
+     * List the pivot actions of a MorphToMany relationship panel.
+     *
+     * GET /api/resources/{resource}/{id}/morph-to-many/{relationship}/actions
+     */
+    public function morphToManyPivotIndex(Request $request, string $resource, string|int $id, string $relationship): IlluminateJsonResponse
+    {
+        return $this->listPivotActions($request, $resource, $id, $relationship, MorphToManyField::class);
+    }
+
+    /**
+     * Get the fields of a pivot action on a BelongsToMany relationship.
+     *
+     * GET /api/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}/fields
+     */
+    public function pivotFields(
+        Request $request,
+        string $resource,
+        string|int $id,
+        string $relationship,
+        string $action,
+    ): IlluminateJsonResponse {
+        return $this->describePivotAction($request, $resource, $id, $relationship, $action, BelongsToManyField::class);
+    }
+
+    /**
+     * Get the fields of a pivot action on a MorphToMany relationship.
+     *
+     * GET /api/resources/{resource}/{id}/morph-to-many/{relationship}/actions/{action}/fields
+     */
+    public function morphToManyPivotFields(
+        Request $request,
+        string $resource,
+        string|int $id,
+        string $relationship,
+        string $action,
+    ): IlluminateJsonResponse {
+        return $this->describePivotAction($request, $resource, $id, $relationship, $action, MorphToManyField::class);
+    }
+
+    /**
+     * Execute a pivot action on records attached through a BelongsToMany relationship.
      *
      * POST /api/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}
      * Body: { "resources": [1, 2, 3], "fields": { "priority": "high" } }
-     *
-     * Related models are loaded through the parent relationship so each model
-     * carries its pivot (e.g. $tag->pivot->priority).
      */
     public function executePivot(
         Request $request,
@@ -562,57 +677,124 @@ class ActionController extends MartisController
         string $relationship,
         string $action,
     ): IlluminateJsonResponse {
+        return $this->runPivotAction($request, $resource, $id, $relationship, $action, BelongsToManyField::class);
+    }
+
+    /**
+     * Execute a pivot action on records attached through a MorphToMany relationship.
+     *
+     * POST /api/resources/{resource}/{id}/morph-to-many/{relationship}/actions/{action}
+     * Body: { "resources": [1, 2, 3], "fields": { "priority": "high" } }
+     */
+    public function executeMorphToManyPivot(
+        Request $request,
+        string $resource,
+        string|int $id,
+        string $relationship,
+        string $action,
+    ): IlluminateJsonResponse {
+        return $this->runPivotAction($request, $resource, $id, $relationship, $action, MorphToManyField::class);
+    }
+
+    /**
+     * List the pivot actions of one relationship panel the user may see in
+     * the requested context (detail by default).
+     *
+     * @param  class-string<BelongsToManyField|MorphToManyField>  $fieldClass
+     */
+    private function listPivotActions(
+        Request $request,
+        string $resource,
+        string|int $id,
+        string $relationship,
+        string $fieldClass,
+    ): IlluminateJsonResponse {
         $resourceClass = $this->resolveResource($resource);
         if ($resourceClass === null) {
             return JsonErrorResponse::notFound("Resource [{$resource}] not found.")->toResponse();
         }
 
-        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
-            return $forbidden;
+        $context = $this->resolvePivotRelationship($request, $resourceClass, $id, $relationship, $fieldClass);
+        if ($context instanceof IlluminateJsonResponse) {
+            return $context;
         }
 
-        $modelClass = $resourceClass::model();
-        // Resolve the parent through the resource's indexQuery scope (tenant /
-        // ownership filters) + a key match — never a bare find(). This keeps a
-        // scoped-out id indistinguishable from a missing one (uniform 404, no
-        // existence oracle across ownership boundaries) and enforces the scope
-        // even for resources with no policy, matching resolveModels().
-        $parentModel = $resourceClass::indexQuery($request, $modelClass::query())
-            ->whereKey($id)
-            ->first();
-        if ($parentModel === null) {
-            return JsonErrorResponse::notFound("Parent record [{$id}] not found.")->toResponse();
+        $rawContext = $request->query('context', 'detail');
+        $visibility = ActionVisibility::tryFrom(is_string($rawContext) ? $rawContext : 'detail')
+            ?? ActionVisibility::Detail;
+
+        $pivotActions = array_values(array_filter(
+            $this->pivotActionsFor($context['parentResource'], $context['field'], $request),
+            fn (Action $action): bool => $action->authorizedToSee($request) && match ($visibility) {
+                ActionVisibility::Index => $action->isShownOnIndex(),
+                ActionVisibility::Detail => $action->isShownOnDetail(),
+                ActionVisibility::Inline => $action->isShownInline(),
+            },
+        ));
+
+        /** @var array<string, mixed> $data */
+        $data = ['actions' => array_map(fn (Action $a) => $a->jsonSerialize(), $pivotActions)];
+
+        return JsonResponse::make($data)->toResponse();
+    }
+
+    /**
+     * Serve the input fields of one pivot action, gated like its execution.
+     *
+     * @param  class-string<BelongsToManyField|MorphToManyField>  $fieldClass
+     */
+    private function describePivotAction(
+        Request $request,
+        string $resource,
+        string|int $id,
+        string $relationship,
+        string $action,
+        string $fieldClass,
+    ): IlluminateJsonResponse {
+        $resourceClass = $this->resolveResource($resource);
+        if ($resourceClass === null) {
+            return JsonErrorResponse::notFound("Resource [{$resource}] not found.")->toResponse();
         }
 
-        if (! method_exists($parentModel, $relationship)) {
-            return JsonErrorResponse::notFound("Relationship [{$relationship}] not found on resource.")->toResponse();
+        $resolved = $this->resolvePivotAction($request, $resourceClass, $id, $relationship, $action, $fieldClass);
+        if ($resolved instanceof IlluminateJsonResponse) {
+            return $resolved;
         }
 
-        // Authorize access to the PARENT record before anything else.
-        // Without this a caller could run a pivot action against any
-        // parent row by guessing its id (IDOR) — the relationship index
-        // controllers gate the parent the same way.
-        $parentInstance = new $resourceClass($parentModel);
-        if (! $parentInstance->authorizedToView($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        $fields = $this->visibleActionFields($resolved['action']->fields($request), $request);
+
+        /** @var array<string, mixed> $data */
+        $data = ['fields' => array_map(fn (FieldContract $f) => $f->toArray(), $fields)];
+
+        return JsonResponse::make($data)->toResponse();
+    }
+
+    /**
+     * Run a pivot action on the selected records attached through the
+     * relationship. Related models are loaded through the parent relationship
+     * so each one carries its pivot (e.g. $tag->pivot->priority).
+     *
+     * @param  class-string<BelongsToManyField|MorphToManyField>  $fieldClass
+     */
+    private function runPivotAction(
+        Request $request,
+        string $resource,
+        string|int $id,
+        string $relationship,
+        string $action,
+        string $fieldClass,
+    ): IlluminateJsonResponse {
+        $resourceClass = $this->resolveResource($resource);
+        if ($resourceClass === null) {
+            return JsonErrorResponse::notFound("Resource [{$resource}] not found.")->toResponse();
         }
 
-        $instance = new $resourceClass;
-        $actionInstance = $this->findAction($instance, $action, $request);
-        if ($actionInstance === null) {
-            return JsonErrorResponse::notFound("Action [{$action}] not found.")->toResponse();
+        $resolved = $this->resolvePivotAction($request, $resourceClass, $id, $relationship, $action, $fieldClass);
+        if ($resolved instanceof IlluminateJsonResponse) {
+            return $resolved;
         }
 
-        if (! ($actionInstance instanceof Action) || ! $actionInstance->isPivotAction()) {
-            return JsonErrorResponse::notFound("Action [{$action}] is not a pivot action.")->toResponse();
-        }
-
-        if (! $actionInstance->authorizedToSee($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
-        }
-
-        // Resolve pivot columns from the BelongsToMany field definition
-        $pivotColumns = $this->resolvePivotColumns($parentInstance, $request, $relationship);
+        ['parentModel' => $parentModel, 'parentResource' => $parentResource, 'field' => $field, 'relation' => $relation, 'action' => $actionInstance] = $resolved;
 
         /** @var list<int|string> $relatedIds */
         $relatedIds = $request->input('resources', []);
@@ -623,14 +805,20 @@ class ActionController extends MartisController
             )->toResponse();
         }
 
-        // Load related models via the relationship so pivot data is included
-        $relation = $parentModel->{$relationship}();
-        if (! empty($pivotColumns)) {
+        // Load the pivot columns the field declares, so the action can read
+        // them even when the model's relation has no withPivot().
+        $pivotColumns = array_values(array_map(
+            fn (MartisField $f): string => $f->attribute(),
+            array_filter($field->getPivotFields(), fn ($f): bool => $f instanceof MartisField),
+        ));
+        if ($pivotColumns !== []) {
             $relation->withPivot($pivotColumns);
         }
 
+        // Qualified key: the relation joins the pivot table, and a pivot table
+        // with its own `id` column would make a bare key ambiguous.
         /** @var Collection<int, Model> $models */
-        $models = $relation->whereIn($relation->getRelated()->getKeyName(), $relatedIds)->get();
+        $models = $relation->whereIn($relation->getRelated()->getQualifiedKeyName(), $relatedIds)->get();
 
         if ($actionInstance->isSole() && $models->count() !== 1) {
             return JsonErrorResponse::validation(
@@ -647,28 +835,58 @@ class ActionController extends MartisController
                     return JsonErrorResponse::notFound('You are not authorized to run this action on one or more selected resources.')->toResponse();
                 }
             }
+
+            // The policy execute() checks for a resource action, against the
+            // record whose relationship panel runs it: runDestructiveAction
+            // (falling back to delete) for a destructive action, runAction
+            // (falling back to update) otherwise.
+            $allowed = $actionInstance->isDestructive()
+                ? $parentResource->authorizedToRunDestructiveAction($request)
+                : $parentResource->authorizedToRunAction($request);
+
+            if (! $allowed) {
+                return JsonErrorResponse::notFound($actionInstance->isDestructive()
+                    ? 'You are not authorized to run this destructive action.'
+                    : 'You are not authorized to run this action.')->toResponse();
+            }
         }
 
-        $actionFields = $actionInstance->fields($request);
-        if (! empty($actionFields)) {
-            $rules = $this->buildFieldValidationRules($actionFields);
-            /** @var array<string, mixed> $fieldData */
-            $fieldData = $request->input('fields', []);
-            $validator = Validator::make($fieldData, $rules, [], $this->buildFieldAttributeMap($actionFields));
-            if ($validator->fails()) {
-                return JsonErrorResponse::validation($validator->errors()->toArray())->toResponse();
-            }
+        $fields = $this->resolveActionFields($actionInstance->fields($request), $request);
+
+        if ($fields instanceof IlluminateJsonResponse) {
+            return $fields;
         }
 
         /** @var array<string, mixed> $rawFields */
         $rawFields = $request->input('fields', []);
-        $fields = ActionFields::fromRequest($rawFields);
+
+        if ($request->boolean('dryRun') && $actionInstance->hasDryRun()) {
+            return JsonResponse::make(['preview' => $actionInstance->dryRun($fields, $models)])->toResponse();
+        }
+
+        $logEvents = $actionInstance->shouldLogEvents() && (bool) config('martis.action_events.enabled', true);
+
+        if ($actionInstance->isQueued()) {
+            return $this->dispatchQueuedPivotAction($actionInstance, $fields, $parentModel, $relation, $relationship, $models, $pivotColumns, $request, $logEvents);
+        }
+
+        $before = $logEvents ? PivotActionEventLog::pivotRows($relation, $models) : [];
+        $userId = $request->user()?->getAuthIdentifier();
 
         try {
             if ($actionInstance->getClosureHandler() !== null) {
                 $result = ($actionInstance->getClosureHandler())($fields, $models);
             } else {
                 $result = $actionInstance->handle($fields, $models);
+            }
+
+            if ($logEvents) {
+                PivotActionEventLog::record($actionInstance, $parentModel, $relation, $models, $userId, $rawFields, 'completed', null, $before, PivotActionEventLog::pivotRows($relation, $models));
+            }
+
+            $thenCallback = $actionInstance->getThenCallback();
+            if ($thenCallback !== null) {
+                $thenCallback(collect([$result]));
             }
 
             if ($result instanceof ActionResponse) {
@@ -687,34 +905,75 @@ class ActionController extends MartisController
                 'error' => $e->getMessage(),
             ]);
 
+            if ($logEvents) {
+                PivotActionEventLog::record($actionInstance, $parentModel, $relation, $models, $userId, $rawFields, 'failed', $e->getMessage(), $before, PivotActionEventLog::pivotRows($relation, $models));
+            }
+
             if ($e instanceof MartisException) {
                 throw $e;
             }
 
-            return JsonErrorResponse::serverError('Pivot action failed: '.$e->getMessage())->toResponse();
+            // Like the resource action path: the detail is in the log and the
+            // action event, never in the HTTP response.
+            return JsonErrorResponse::serverError('The action could not be completed due to an internal error.')->toResponse();
         }
     }
 
     /**
-     * Resolve pivot column names from the BelongsToMany field definition on a resource.
+     * Dispatch a queued pivot action as a job that reloads the selected rows
+     * through the parent's relationship, and log it as queued.
      *
-     * @return list<string>
+     * @param  BelongsToMany<Model, Model, covariant \Illuminate\Database\Eloquent\Relations\Pivot, covariant string>  $relation
+     * @param  Collection<int, Model>  $models
+     * @param  list<string>  $pivotColumns
      */
-    private function resolvePivotColumns(Resource $parentInstance, Request $request, string $relationship): array
-    {
-        // filterForContext flattens layout containers (Section/Panel/TabGroup)
-        // so a BelongsToMany nested in one is still found — a raw scan would
-        // silently return [] and drop the pivot data.
-        $fields = MartisField::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL);
-        foreach ($fields as $field) {
-            if ($field instanceof BelongsToManyField && $field->getRelationship() === $relationship) {
-                return array_values(array_map(
-                    fn (MartisField $f): string => $f->attribute(),
-                    array_filter($field->getPivotFields(), fn ($f): bool => $f instanceof MartisField),
-                ));
-            }
+    private function dispatchQueuedPivotAction(
+        Action $action,
+        ActionFields $fields,
+        Model $parentModel,
+        BelongsToMany $relation,
+        string $relationship,
+        Collection $models,
+        array $pivotColumns,
+        Request $request,
+        bool $logEvents,
+    ): IlluminateJsonResponse {
+        /** @var list<int|string> $relatedIds */
+        $relatedIds = array_values($models->map(fn (Model $model): int|string => $model->getKey())->all());
+        $userId = $request->user()?->getAuthIdentifier();
+
+        $job = new ExecutePivotAction(
+            actionClass: get_class($action),
+            fields: $fields->all(),
+            parentModelClass: get_class($parentModel),
+            parentId: $parentModel->getKey(),
+            relationship: $relationship,
+            relatedIds: $relatedIds,
+            pivotColumns: $pivotColumns,
+            userId: $userId,
+            logEvents: $logEvents,
+        );
+
+        if (property_exists($action, 'connection')) {
+            $job->onConnection($action->connection);
+        }
+        if (property_exists($action, 'queue')) {
+            $job->onQueue($action->queue);
         }
 
-        return [];
+        // Written before the dispatch: a sync queue runs the job at once and
+        // settles these rows.
+        if ($logEvents) {
+            /** @var array<string, mixed> $rawFields */
+            $rawFields = $request->input('fields', []);
+            PivotActionEventLog::record($action, $parentModel, $relation, $models, $userId, $rawFields, 'queued');
+        }
+
+        dispatch($job);
+
+        return JsonResponse::make([
+            'type' => 'message',
+            'data' => ['message' => 'Action has been queued for processing.'],
+        ])->toResponse();
     }
 }

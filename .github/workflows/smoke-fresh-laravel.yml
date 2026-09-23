@@ -32,6 +32,9 @@ on:
       - "composer.json"
       - "package.json"
       - "vite.config.ts"
+      - "resources/js/extension-types/**"
+      - "resources/js/types/index.ts"
+      - "scripts/build-extension-types.mjs"
       - ".github/workflows/smoke-fresh-laravel.yml"
 
 jobs:
@@ -104,9 +107,15 @@ jobs:
           test -f resources/js/martis-extensions/.shims/react.mjs
           test -f resources/js/martis-extensions/.shims/react-jsx-runtime.mjs
           test -f resources/js/martis-extensions/.shims/runtime.mjs
+          test -f resources/js/martis-extensions/.shims/react-dom.mjs
           test -f resources/js/martis-extensions/.shims/react-router-dom.mjs
           test -f resources/js/martis-extensions/.shims/react-i18next.mjs
           test -f resources/js/martis-extensions/.shims/tanstack-react-query.mjs
+          test -f resources/js/martis-extensions/.shims/runtime.d.mts
+          test -f resources/js/martis-extensions/.shims/react-dom.d.mts
+          test -f resources/js/martis-extensions/.shims/react-router-dom.d.mts
+          test -f resources/js/martis-extensions/.shims/react-i18next.d.mts
+          test -f resources/js/martis-extensions/.shims/tanstack-react-query.d.mts
           test -d resources/js/martis-extensions/tools
           test -d resources/js/martis-extensions/fields
           test -d resources/js/martis-extensions/cards
@@ -177,6 +186,11 @@ jobs:
           cd test-app
           npm install --no-progress --no-audit --no-fund --no-package-lock
           npm run build:extensions
+
+      - name: Type-check every generated extension against the shim declarations
+        run: |
+          cd test-app
+          npx tsc -p tsconfig.extensions.json
 
       - name: Bundle assertion — every TSX is bundled and every key static
         run: |

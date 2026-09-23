@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useBlocker } from 'react-router-dom'
+import { useBlocker, useLocation } from 'react-router-dom'
 import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
-import { consumeSuppressFlag } from '@/lib/historyLock'
+import { consumeSuppressFlag, getModalLockCount } from '@/lib/historyLock'
 import type { ResourceSchema, UnsavedChangesConfig } from '@/types'
 
 interface Options {
@@ -28,6 +28,45 @@ interface Result {
   markSaved: () => void
 }
 
+/** Flag on the history entry the guard pushes on top of a page with unsaved changes. */
+const SENTINEL = 'martisUnsavedGuard'
+
+type EntryState = Record<string, unknown> | null
+
+/** The router entry the sentinel stands on: its `key` and `idx`. */
+interface PageEntry {
+  key: unknown
+  idx: unknown
+}
+
+function currentEntry(): EntryState {
+  const state: unknown = window.history.state
+  return state !== null && typeof state === 'object' ? (state as Record<string, unknown>) : null
+}
+
+/**
+ * The location key the router reads from a history entry: the router's own
+ * entries carry it, the first entry of the tab has none and reads as
+ * `'default'`.
+ */
+function entryKey(state: EntryState): unknown {
+  return state?.key ?? 'default'
+}
+
+function isGuardSentinel(state: EntryState): boolean {
+  return state?.[SENTINEL] === true
+}
+
+/** A sentinel pushed by a modal history lock or a drawer. */
+function isForeignSentinel(state: EntryState): boolean {
+  return state?.martisModalLock === true || state?.martisModalSoftLock === true || state?.martisDrawer === true
+}
+
+function isPageEntry(state: EntryState, page: PageEntry | null): boolean {
+  if (page === null || isGuardSentinel(state) || isForeignSentinel(state)) return false
+  return state?.key === page.key && state?.idx === page.idx
+}
+
 /**
  * Unsaved-changes guard for full-page create/update routes.
  *
@@ -40,13 +79,24 @@ interface Result {
  *      NOT attempt to handle the back button itself (known flicker
  *      bug in v6: the URL updates before the block takes effect).
  *
- *   2. **Browser back/forward** — handled manually via a history
- *      sentinel pushed on mount and a **capture-phase** popstate
- *      listener that calls `stopImmediatePropagation()` so React
- *      Router's own listener never fires for that event. On cancel we
- *      simply push the sentinel again; on confirm we set a suppress
- *      flag and call `history.back()` one more time to actually reach
- *      the user's intended destination.
+ *   2. **Browser back/forward** — a clean form leaves the history alone,
+ *      so Back and Forward work as on any other page. Once the form has
+ *      unsaved changes, the guard pushes a sentinel: a copy of the page's
+ *      own history entry (same URL, same router `key` and `idx`, so the
+ *      router's bookkeeping stays right) flagged as the guard's. Back from
+ *      the sentinel lands on the page entry, which a **capture-phase**
+ *      popstate listener recognises and keeps from React Router with
+ *      `stopImmediatePropagation()`: with unsaved changes it pushes the
+ *      sentinel again and asks, and a confirmed discard steps over the
+ *      page with `history.go(-2)`; changes saved since then let the pop
+ *      carry on to the previous page with one more `history.back()`. Every
+ *      other pop belongs to the router (and to the modal or drawer that
+ *      pushed it).
+ *
+ * The sentinel stays behind when the page is left with it on top (a save
+ * that redirects, a confirmed in-app navigation). When Back returns to it,
+ * the page adopts it as its own, so the next Back walks past the page in one
+ * press instead of stopping on a copy of the same URL.
  *
  * `beforeunload` is intentionally NOT wired up. It produced a double
  * prompt (native browser dialog + our custom modal) whenever the
@@ -72,6 +122,10 @@ export function useUnsavedChangesGuard({
   snapshotRef.current = initialSnapshot
   const bypassRef = useRef(!!bypass)
   bypassRef.current = !!bypass
+  // The key of the location the router shows: the sentinel only ever stands
+  // on this page's own entry, never on one a pop is about to leave for.
+  const locationKeyRef = useRef<unknown>(null)
+  locationKeyRef.current = useLocation().key
 
   const isDirty = useCallback(() => {
     if (!enabled) return false
@@ -96,70 +150,106 @@ export function useUnsavedChangesGuard({
 
   const [dialogOpen, setDialogOpen] = useState(false)
   // Holds the action to run when the user confirms. For blocker flows
-  // it's `blocker.proceed`; for popstate flows it's `history.back` + a
-  // suppress flag. Unified here so the dialog only needs one handler.
+  // it's `blocker.proceed`; for popstate flows it's `history.go(-2)`.
+  // Unified here so the dialog only needs one handler.
   const pendingConfirmRef = useRef<(() => void) | null>(null)
   const pendingCancelRef = useRef<(() => void) | null>(null)
 
-  // Pipe blocker state changes into the unified dialog.
+  // Pipe blocker state changes into the unified dialog. The router hands a
+  // new blocker object on every change of the blocker (and the same one on
+  // any other render), so the pending actions always belong to the latest
+  // blocked navigation, including one blocked while the dialog is open.
   useEffect(() => {
     if (blocker.state === 'blocked') {
       pendingConfirmRef.current = () => blocker.proceed?.()
       pendingCancelRef.current = () => blocker.reset?.()
       setDialogOpen(true)
     }
-  }, [blocker.state])
+  }, [blocker])
 
   // ── Browser back / forward ────────────────────────────────────────
+  // Whether the guard's sentinel is on the stack, and the page entry it
+  // stands on. Refs, so the arming effect and the popstate listener share
+  // them across re-runs.
+  const armedRef = useRef(false)
+  const pageEntryRef = useRef<PageEntry | null>(null)
+
+  const pushSentinel = useCallback((pageState: EntryState) => {
+    try {
+      window.history.pushState({ ...(pageState ?? {}), [SENTINEL]: true }, '')
+      pageEntryRef.current = { key: pageState?.key, idx: pageState?.idx }
+      armedRef.current = true
+    } catch {
+      // The browser refused the entry (Safari caps pushState calls): Back
+      // leaves unguarded, in-app links are still blocked.
+    }
+  }, [])
+
+  // A sentinel left on the stack by this page (it was left with the
+  // sentinel on top) stands on the page's entry just below it.
+  const adoptSentinel = useCallback(() => {
+    const state = currentEntry()
+    if (!isGuardSentinel(state) || entryKey(state) !== locationKeyRef.current) return
+    pageEntryRef.current = { key: state?.key, idx: state?.idx }
+    armedRef.current = true
+  }, [])
+
+  const arm = useCallback(() => {
+    if (armedRef.current || !isDirty()) return
+    const state = currentEntry()
+    // A modal or a drawer holds the top entry; the pop that removes it
+    // arms the guard (see the popstate listener).
+    if (isForeignSentinel(state)) return
+    if (entryKey(state) !== locationKeyRef.current) return
+    if (isGuardSentinel(state)) {
+      adoptSentinel()
+      return
+    }
+    pushSentinel(state)
+  }, [isDirty, adoptSentinel, pushSentinel])
+
+  // The first change that makes the form dirty arms the guard.
+  useEffect(() => {
+    if (enabled) arm()
+  }, [enabled, values, initialSnapshot, bypass, arm])
+
   useEffect(() => {
     if (!enabled) return
     if (typeof window === 'undefined') return
 
-    const marker = { martisUnsavedGuard: true, key: Date.now() + Math.random() }
-    let sentinelOnStack = false
-    let suppressNext = false
-
-    const ensureSentinel = () => {
-      try {
-        window.history.pushState(marker, '')
-        sentinelOnStack = true
-      } catch {
-        sentinelOnStack = false
-      }
-    }
-    ensureSentinel()
+    adoptSentinel()
 
     const onPop = (e: PopStateEvent) => {
-      if (suppressNext) {
-        // This is our own programmatic back() that runs after the user
-        // confirmed the discard. Let React Router see it and process
-        // the navigation normally — don't stop propagation.
-        suppressNext = false
-        sentinelOnStack = false
-        return
-      }
-
-      // If a nested modal lock (e.g. the UnsavedChangesDialog itself)
-      // just popped its own sentinel on unmount, it set the shared
-      // suppress flag. Consume it here so we don't mistake that
-      // cleanup-driven popstate for a real user back press and re-open
-      // the dialog we just closed.
+      // If a nested modal lock (e.g. an InlineCreateModal) just popped its
+      // own sentinel on unmount, it set the shared suppress flag. Consume
+      // it here so we don't mistake that cleanup-driven popstate for a
+      // real user back press. The pop lands back on this page, so a form
+      // that became dirty while the modal held the top entry arms now.
       if (consumeSuppressFlag()) {
         e.stopImmediatePropagation()
+        arm()
+        return
+      }
+      // A modal on top owns the back button: it re-pushes its sentinel.
+      if (getModalLockCount() > 0) return
+
+      const state = currentEntry()
+      if (!armedRef.current || !isPageEntry(state, pageEntryRef.current)) {
+        // Any other pop belongs to the router. One that lands on the
+        // sentinel of this very page (Forward onto it) re-arms the guard.
+        adoptSentinel()
         return
       }
 
-      // Prevent React Router (and anyone else) from reacting to this
-      // pop — we are going to either cancel it (re-push) or let it
-      // through only after the user confirms.
+      // Back from the sentinel: the router already shows this page, so
+      // it must not see the pop.
       e.stopImmediatePropagation()
-      sentinelOnStack = false
+      armedRef.current = false
 
       if (!isDirty()) {
-        // Form is clean — user expects back to work. Emit one more
-        // back() so we skip past our sentinel and actually reach the
-        // previous URL. The second popstate lands in the branch above.
-        suppressNext = true
+        // Nothing to lose (the changes were saved since): carry on to the
+        // previous page, as the back press meant to. That pop is not the
+        // page entry, so it reaches the router.
         try {
           window.history.back()
         } catch {
@@ -173,15 +263,13 @@ export function useUnsavedChangesGuard({
       // we only re-armed on cancel, a user pressing back twice in a
       // row would escape the modal (first back pops our sentinel, the
       // dialog opens; second back pops the real page entry).
-      ensureSentinel()
+      pushSentinel(state)
 
       pendingConfirmRef.current = () => {
         // The stack now has [..., prev, page, sentinel] with index at
         // sentinel. We want to reach `prev`, so go(-2) atomically pops
-        // both entries. Suppress the resulting popstate so React
-        // Router processes it as a regular navigation (our listener
-        // lets it through unobstructed).
-        suppressNext = true
+        // both entries; the pop lands on `prev`, which the listener
+        // hands to React Router as a regular navigation.
         try {
           window.history.go(-2)
         } catch {
@@ -205,16 +293,12 @@ export function useUnsavedChangesGuard({
 
     return () => {
       window.removeEventListener('popstate', onPop, { capture: true })
-      // If the sentinel is still on the stack (user left via Link /
-      // save / page close), leave it there: popping it now would fire
-      // a popstate that no-one is listening for, and could confuse the
-      // next page's React Router navigation. The stale entry harmlessly
-      // lives on the tab's history stack — user's "back" will pass
-      // through it as a no-op duplicate URL before reaching the real
-      // previous entry.
-      void sentinelOnStack
+      // A sentinel still on the stack (the page was left through a link, a
+      // save or a closed tab) stays there: popping it now would fire a
+      // popstate the next page's router would take for a Back press. The
+      // page adopts it if Back returns to it.
     }
-  }, [enabled, isDirty])
+  }, [enabled, isDirty, arm, adoptSentinel, pushSentinel])
 
   const markSaved = useCallback(() => {
     bypassRef.current = true

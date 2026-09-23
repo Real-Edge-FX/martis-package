@@ -47,7 +47,6 @@ function runAgents(array $opts = []): void
     $output = new OutputStyle(new ArrayInput([]), new BufferedOutput);
     $command->setOutput($output);
     $componentsRef = new ReflectionProperty(Command::class, 'components');
-    $componentsRef->setAccessible(true);
     $componentsRef->setValue($command, app()->make(Factory::class, ['output' => $output]));
 
     $defaults = [

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Contracts\FieldContract;
+use Martis\Contracts\FiltersFields;
 use Martis\Contracts\LayoutContract;
 use Martis\Contracts\OverrideContract;
 use Martis\FieldContext;
@@ -97,12 +98,12 @@ abstract class Field implements FieldContract
     protected ?\Closure $canSeeCallback = null;
 
     /**
-     * Per-model visibility callback. v1.8.8. Accepts `(Request, Model)`
-     * and runs at serialization time inside `serializeModel`. When set,
-     * the field is hidden from the per-record payload when the closure
-     * returns false. Differs from `canSeeCallback` (which is per-request,
-     * model-agnostic) — this one supports field-level authorization
-     * that depends on the row being shown.
+     * Per-model visibility callback. v1.8.8. Accepts `(Request, Model)`.
+     * When set and the closure returns false for a record, the field is
+     * left out of that record's values on every read, and every write of
+     * that record neither validates nor writes it (see `filterForModel()`).
+     * Differs from `canSeeCallback` (which is per-request, model-agnostic):
+     * this one supports field-level authorization that depends on the record.
      */
     protected ?\Closure $canSeeForModelCallback = null;
 
@@ -383,6 +384,27 @@ abstract class Field implements FieldContract
     public function hasStructuredValue(): bool
     {
         return false;
+    }
+
+    /**
+     * Whether a value that is not a list or a map fails validation instead
+     * of reaching `fill()`: a string that is not JSON for one, such as the
+     * `"[object Object]"` / `"12,15"` a pre-1.37.3 bundle sent on the
+     * multipart path (see `DecodesStructuredValues`).
+     *
+     * True for a field with a structured value that the package fills
+     * itself, because the built-in fills would empty or overwrite what is
+     * stored. False when nothing would be written from the value (a
+     * readonly or computed field) and when a `fillUsing()` callback owns the
+     * write, since the callback decides which shapes it accepts. Override
+     * it on a custom field whose `fill()` ignores such a value.
+     */
+    public function rejectsUnstructuredValue(): bool
+    {
+        return $this->hasStructuredValue()
+            && $this->fillCallback === null
+            && ! $this->computed
+            && ! $this->isReadonly();
     }
 
     /**
@@ -1196,6 +1218,53 @@ abstract class Field implements FieldContract
     }
 
     /**
+     * `$items` without the fields `$keep` rejects, the layout structure
+     * kept: a container (Panel, Section, TabGroup and its Tabs) holds only
+     * the fields it keeps, at every depth, and is left out when it keeps
+     * none. A custom container that cannot rebuild itself (it does not
+     * implement `FiltersFields`) gives way to the fields it keeps.
+     *
+     * No context rule applies, unlike filterLayoutForContext(): the Tool
+     * fields endpoint drops the fields the user cannot see with it, and the
+     * schema drops from the create form the fields hidden for the new model.
+     *
+     * @param  list<FieldContract|LayoutContract>  $items
+     * @param  \Closure(FieldContract): bool  $keep
+     * @return list<FieldContract|LayoutContract>
+     */
+    public static function filterLayoutFields(array $items, \Closure $keep): array
+    {
+        $result = [];
+
+        foreach ($items as $item) {
+            if ($item instanceof FiltersFields) {
+                $filtered = $item->filterFields($keep);
+                if ($filtered !== null) {
+                    $result[] = $filtered;
+                }
+
+                continue;
+            }
+
+            if ($item instanceof LayoutContract) {
+                foreach ($item->flattenFields() as $field) {
+                    if ($keep($field)) {
+                        $result[] = $field;
+                    }
+                }
+
+                continue;
+            }
+
+            if ($keep($item)) {
+                $result[] = $item;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * Flatten a mixed array of fields and layout containers into a flat list of FieldContract items.
      *
      * Used for validation and model filling, where layout structure is irrelevant.
@@ -1278,14 +1347,17 @@ abstract class Field implements FieldContract
     /**
      * Per-model visibility callback (v1.8.8).
      *
-     * Use it when whether the field should appear depends on the row
-     * being rendered, not just on the user. Common case: hiding the
-     * `email` column on a User index for non-admins, regardless of
-     * whether the row exists or not.
+     * Use it when whether the field should appear depends on the record,
+     * not just on the user. Common case: hiding a user's `email` from
+     * everyone but admins and that user.
      *
      * The callback receives `(Request $request, Model $model)` and
-     * returns `bool`. When false, the field is stripped from the
-     * per-record payload at serialization time.
+     * returns `bool`. When false, the field is hidden for that record, as
+     * `canSee()` hides it for the request: every read of the record leaves
+     * its value out, and every write of the record neither validates it nor
+     * takes its value from the request (see `filterForModel()`). A create
+     * decides on the new, unsaved model before any value is written to it;
+     * a pivot field decides on the pivot row.
      */
     public function canSeeForModel(callable $callback): static
     {
@@ -1317,9 +1389,9 @@ abstract class Field implements FieldContract
     }
 
     /**
-     * Resolve per-model visibility for serialization. Returns true when
-     * no per-model callback is set (most fields). When set, runs the
-     * closure with the active request + model.
+     * Resolve per-model visibility. Returns true when no per-model callback
+     * is set (most fields). When set, runs the closure with the active
+     * request + model.
      */
     public function isAuthorizedForModel(Request $request, Model $model): bool
     {
@@ -1328,6 +1400,62 @@ abstract class Field implements FieldContract
         }
 
         return (bool) ($this->canSeeForModelCallback)($request, $model);
+    }
+
+    /**
+     * The fields of `$fields` the user may see on `$model`: all of them but
+     * the ones a `canSeeForModel()` / `canSeeUsingPolicy()` callback hides
+     * for that record (see `isAuthorizedForModel()`). A field without such a
+     * callback is kept.
+     *
+     * Every read of a record gives the values of these fields only, and
+     * every write of a record validates and fills these fields only, so a
+     * field hidden for the record is written like one the user cannot see
+     * (`canSee()`): an update leaves its column alone, a create does not
+     * write it. `$model` is the record read or updated, or on a create the
+     * new, unsaved model the create fills, before any value is written to it
+     * (Nova resolves the fields of a create on a fresh model too).
+     *
+     * @template TField of FieldContract
+     *
+     * @param  list<TField>  $fields
+     * @return list<TField>
+     */
+    public static function filterForModel(array $fields, Request $request, Model $model): array
+    {
+        return array_values(array_filter(
+            $fields,
+            static fn (FieldContract $field): bool => ! method_exists($field, 'isAuthorizedForModel')
+                || $field->isAuthorizedForModel($request, $model),
+        ));
+    }
+
+    /**
+     * The attributes of the fields of `$fields` a record hides: those
+     * `filterForModel()` left out of `$visible`, the fields it kept for the
+     * record. An attribute a kept field shows too is not listed.
+     *
+     * A serialised record lists them under `_hidden`, so a page that
+     * renders the resource's field list (the schema describes the
+     * resource, not the record) leaves those fields out instead of showing
+     * them empty.
+     *
+     * @param  list<FieldContract>  $fields
+     * @param  list<FieldContract>  $visible
+     * @return list<string>
+     */
+    public static function hiddenAttributes(array $fields, array $visible): array
+    {
+        $shown = array_map(static fn (FieldContract $field): string => $field->attribute(), $visible);
+        $hidden = [];
+
+        foreach ($fields as $field) {
+            if (! in_array($field, $visible, true) && ! in_array($field->attribute(), $shown, true)) {
+                $hidden[] = $field->attribute();
+            }
+        }
+
+        return array_values(array_unique($hidden));
     }
 
     // -------------------------------------------------------------------------
@@ -1384,10 +1512,58 @@ abstract class Field implements FieldContract
         return $this->sortable;
     }
 
+    /**
+     * The attributes a request may sort a list by among `$items` (layout
+     * containers opened): those of the `sortable()` fields the user may see
+     * (`canSee()`). A field the user cannot see does not order a list for
+     * them, since the order of the rows would tell the order of its values:
+     * a `?sort=` naming it is ignored like one naming an unknown attribute.
+     *
+     * `canSeeForModel()` is not asked: a list spans many records, and a
+     * field it hides on some of them still orders the list.
+     *
+     * @param  list<FieldContract|LayoutContract>  $items
+     * @return list<string>
+     */
+    public static function sortableAttributes(array $items, Request $request): array
+    {
+        $attributes = [];
+
+        foreach (self::flattenLayoutFields($items) as $field) {
+            if ($field->isSortable() && $field->isAuthorizedToSee($request)) {
+                $attributes[] = $field->attribute();
+            }
+        }
+
+        return array_values(array_unique($attributes));
+    }
+
     /** {@inheritdoc} */
     public function isSearchable(): bool
     {
         return $this->searchable;
+    }
+
+    /**
+     * The fields of `$items` (layout containers opened) a search matches
+     * its term on: the `searchable()` fields the user may see (`canSee()`).
+     * A field the user cannot see is not searched for them, since the rows
+     * a term returns would tell which records hold it in that field: a
+     * `field:value` token naming it is dropped like one naming an unknown
+     * field.
+     *
+     * `canSeeForModel()` is not asked: a search spans many records, and a
+     * field it hides on some of them is still searched.
+     *
+     * @param  list<FieldContract|LayoutContract>  $items
+     * @return list<FieldContract>
+     */
+    public static function searchableFields(array $items, Request $request): array
+    {
+        return array_values(array_filter(
+            self::flattenLayoutFields($items),
+            static fn (FieldContract $field): bool => $field->isSearchable() && $field->isAuthorizedToSee($request),
+        ));
     }
 
     // -------------------------------------------------------------------------

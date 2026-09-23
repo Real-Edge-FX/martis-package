@@ -209,7 +209,7 @@ admin status:active          → free-text "admin" + WHERE status LIKE %active%
 title:"Quarterly Report"     → quoted value, treated as one token
 ```
 
-If the named field is not declared `searchable()` on the resource, the token is silently dropped. When a user types **only** unknown tokens (no free-text fallback), the search returns no results — preferable to returning every row from a typo.
+If the named field is not declared `searchable()` on the resource, or the user cannot see it (`canSee()`), the token is silently dropped. When a user types **only** unknown tokens (no free-text fallback), the search returns no results — preferable to returning every row from a typo.
 
 ---
 
@@ -227,6 +227,30 @@ public static function searchableRelations(): array
 A query like `John` on the snippet above also matches Orders whose `customer.name` or `customer.email` contains `John`. Defaults to `[]` (own fields only).
 
 Scout-backed resources ignore this hook — Scout indexes whatever the model exposes via `toSearchableArray()`.
+
+---
+
+## Fields the user cannot see
+
+The `LIKE` pipeline matches the term only on the `searchable()` fields the user can see (v1.38.0). A field whose `canSee()` denies the user is left out of the free-text match, its `field:value` token is dropped and it does not rank the results: otherwise the records a term returns would tell which ones hold it in a field the user may not read. A resource whose searchable fields are all hidden from a user returns nothing for them, like a resource that declares none.
+
+```php
+public function fields(Request $request): array
+{
+    return [
+        Text::make('name')->searchable(),
+        // Searched for the users who can see it only.
+        Text::make('tax_number')->searchable()
+            ->canSee(fn (Request $request) => $request->user()?->can('viewTaxNumbers') ?? false),
+    ];
+}
+```
+
+The same rule holds on every search built from the fields' `searchable()` flags: the resource index, the relationship panels and their attach picker, and the relation pickers. What the resource declares itself is searched as declared, whatever the fields show: its `searchableRelations()` paths, its `searchQuery()` predicate and, with Scout, the model's `toSearchableArray()`. Leave out of those a column a user must not be able to probe.
+
+`canSeeForModel()` is decided on one record, so a search, which spans many, still matches a field it hides on some records. Do not make such a field `searchable()` when its values must not be probed, or hide it with `canSee()`. See [Fields → Field authorization](fields.md#field-authorization-cansee-and-canseeformodel).
+
+Before v1.38.0 every search matched the searchable fields the user cannot see too, and a `field:value` token could name one.
 
 ---
 

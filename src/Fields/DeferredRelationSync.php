@@ -9,8 +9,10 @@ use WeakMap;
 /**
  * Static registry for deferred many-to-many relationship syncs.
  *
- * BelongsTo fields in multiple mode call register() during fill().
- * The ResourceController calls sync() after the model is saved.
+ * The {@see Tag} field calls register() during fill(): its pivot rows need
+ * the parent's primary key, which a record being created only has once it
+ * is saved. Every controller that saves a record through its fields calls
+ * sync() right after the save (see `SyncsDeferredWrites`).
  *
  * Uses a WeakMap keyed by model instances so entries are automatically
  * garbage-collected when the model goes out of scope.

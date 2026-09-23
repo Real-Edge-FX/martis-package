@@ -114,6 +114,7 @@ class VisibilityTestResource extends Resource
             Text::make('no_forms')->exceptOnForms(),
             Text::make('hidden_on_create')->hideWhenCreating(),
             Text::make('hidden_on_update')->hideWhenUpdating(),
+            Text::make('secret')->canSee(fn () => false),
         ];
     }
 }
@@ -609,6 +610,14 @@ it('schema returns all fields with visibility metadata', function () {
     expect($bodyField)->toHaveKey('showOnIndex');
     expect($bodyField)->toHaveKey('showOnDetail');
     expect($bodyField)->toHaveKey('showOnForms');
+});
+
+it('schema leaves a field the user cannot see out of the field list and every contextual array', function () {
+    $data = $this->getJson('/martis/api/resources/visibility-test-models/schema')->assertOk()->json('data');
+
+    foreach (['fields', 'fieldsForIndex', 'fieldsForDetail', 'fieldsForCreate', 'fieldsForUpdate', 'fieldsForInlineCreate', 'fieldsForPreview'] as $key) {
+        expect(array_column($data[$key], 'attribute'))->toContain('plain')->not->toContain('secret');
+    }
 });
 
 it('schema returns 404 for unknown resource', function () {

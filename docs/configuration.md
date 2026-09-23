@@ -836,8 +836,11 @@ Drop the entry from `MARTIS_CUSTOM_ACCENTS` and `php artisan config:cache`. User
     'dashboards' => ['enabled' => true, 'ttl' => 5],
     'schema'     => ['enabled' => true, 'ttl' => null],
     'admin_ui'   => true,
+    'admin_ui_order' => 1000,
 ],
 ```
+
+`admin_ui_order` (v1.38.0+) positions the "System cache" link inside the bundled System sidebar section, which sorts its entries by weight (System-section resources and Tools default to `100`, so `1000` keeps the link last). See [Menus → Order inside the System section](menus.md#order-inside-the-system-section-v1380).
 
 Per-subsystem cache layer with three control planes (config / env / runtime), bypass header, and admin page. See [Cache](cache.md) for the full reference.
 

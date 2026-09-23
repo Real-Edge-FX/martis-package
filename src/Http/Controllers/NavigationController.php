@@ -16,6 +16,9 @@ use Martis\ResourceRegistry;
 
 class NavigationController extends MartisController
 {
+    /** SPA path of the bundled Cache admin page (`martis.cache.admin_ui`). */
+    protected const CACHE_ADMIN_PATH = '/system/cache';
+
     /** Create the controller and inject the resource registry. */
     public function __construct(
         private readonly ResourceRegistry $registry,
@@ -198,7 +201,7 @@ class NavigationController extends MartisController
         /** @var array<string, list<MenuItem>> $grouped */
         $grouped = [];
 
-        /** @var list<MenuItem> $systemResources */
+        /** @var list<array{item: MenuItem, order: int}> $systemResources */
         $systemResources = [];
 
         foreach ($this->registry->list() as $resourceClass) {
@@ -218,7 +221,10 @@ class NavigationController extends MartisController
             // enforced above, so the section reflects exactly what
             // this user is authorized to see.
             if ($instance->belongsToSystemSection()) {
-                $systemResources[] = $instance->menuItem($request);
+                $systemResources[] = [
+                    'item' => $instance->menuItem($request),
+                    'order' => $instance->systemSectionOrder(),
+                ];
 
                 continue;
             }
@@ -277,8 +283,8 @@ class NavigationController extends MartisController
         if ($referencedResourceUriKeys !== []) {
             $systemResources = array_values(array_filter(
                 $systemResources,
-                function (MenuItem $item) use ($referencedResourceUriKeys) {
-                    $resourceClass = $item->resourceClass();
+                function (array $entry) use ($referencedResourceUriKeys) {
+                    $resourceClass = $entry['item']->resourceClass();
                     if ($resourceClass === null) {
                         return true;
                     }
@@ -296,14 +302,28 @@ class NavigationController extends MartisController
             ));
         }
 
-        // Resources first, then tools; `appendSystemSection` adds the Cache
-        // admin link last. Host-app concerns (users, roles) typically
-        // outweigh operational tools, and both outweigh the Cache admin in
-        // the admin's mental model.
-        $systemItems = [
+        // Natural order: resources, then tools, then the Cache admin link.
+        // Host-app concerns (users, roles) typically outweigh operational
+        // tools, and both outweigh the Cache admin in the admin's mental
+        // model. Every entry carries a weight (`systemSectionOrder()`,
+        // default 100; `martis.cache.admin_ui_order`, default 1000) and the
+        // stable sort below keeps that natural order among equal weights,
+        // so a host that sets none gets exactly this order.
+        $systemEntries = [
             ...$systemResources,
-            ...array_map(fn (ToolContract $tool): MenuItem => MenuItem::tool($tool), $systemTools),
+            ...array_map(fn (ToolContract $tool): array => [
+                'item' => MenuItem::tool($tool),
+                'order' => $tool->systemSectionOrder(),
+            ], $systemTools),
         ];
+
+        $cacheEntry = $this->cacheAdminEntry($request, $resolved);
+        if ($cacheEntry !== null) {
+            $systemEntries[] = $cacheEntry;
+        }
+
+        // usort() is stable since PHP 8.0.
+        usort($systemEntries, fn (array $a, array $b): int => $a['order'] <=> $b['order']);
 
         // Append the System section AFTER the host-app resolver runs so
         // a custom `Martis::mainMenu(...)` callback that replaces the
@@ -311,7 +331,45 @@ class NavigationController extends MartisController
         // section appears whenever there is at least one item visible
         // to this user (cache admin link + any system-grouped resources
         // and tools).
-        return $this->appendSystemSection($resolved, $request, $systemItems);
+        return $this->appendSystemSection(
+            $resolved,
+            $request,
+            array_map(fn (array $entry): MenuItem => $entry['item'], $systemEntries),
+        );
+    }
+
+    /**
+     * The bundled Cache admin link with its System-section weight, or
+     * `null` when the cache admin UI is off, the user fails the
+     * `manage-martis-cache` Gate, or the host already links to the page
+     * from its own `Martis::mainMenu(...)` (the same dedup System-section
+     * resources and tools get, so a host that builds the section itself
+     * does not end up with a second "System" header holding only this
+     * link).
+     *
+     * @param  list<array<string, mixed>>  $resolved
+     * @return array{item: MenuItem, order: int}|null
+     */
+    protected function cacheAdminEntry(Request $request, array $resolved): ?array
+    {
+        $user = $request->user();
+
+        if (! (bool) config('martis.cache.admin_ui', true)
+            || $user === null
+            || ! Gate::forUser($user)->allows('manage-martis-cache')
+            || $this->menuLinksTo($resolved, self::CACHE_ADMIN_PATH)) {
+            return null;
+        }
+
+        // A published config that sets the key to null (or anything that is
+        // not a number) keeps the default instead of sorting the link first.
+        $order = config('martis.cache.admin_ui_order');
+
+        return [
+            'item' => MenuItem::link(__('martis::messages.cache_admin_title'), self::CACHE_ADMIN_PATH)
+                ->icon('database'),
+            'order' => is_numeric($order) ? (int) $order : 1000,
+        ];
     }
 
     /**
@@ -377,23 +435,70 @@ class NavigationController extends MartisController
     {
         $found = [];
 
-        $walk = function (array $items) use (&$walk, &$found, $type): void {
+        foreach ($this->resolvedLeaves($sections) as $item) {
+            if (($item['type'] ?? null) === $type && isset($item['uriKey']) && is_string($item['uriKey'])) {
+                $found[] = $item['uriKey'];
+            }
+        }
+
+        return array_values(array_unique($found));
+    }
+
+    /**
+     * Whether a resolved navigation payload already holds an in-app link
+     * to the given SPA path. Trailing slashes, a query string and a
+     * fragment are ignored; external links and absolute URLs (with a scheme
+     * or a host) never match.
+     *
+     * @param  list<array<string, mixed>>  $sections
+     */
+    protected function menuLinksTo(array $sections, string $path): bool
+    {
+        $target = trim($path, '/');
+
+        foreach ($this->resolvedLeaves($sections) as $item) {
+            if (($item['type'] ?? null) !== 'link' || ! empty($item['external']) || ! is_string($item['url'] ?? null)) {
+                continue;
+            }
+
+            $parts = parse_url($item['url']);
+            if ($parts === false || isset($parts['scheme']) || isset($parts['host'])) {
+                continue;
+            }
+
+            if (trim($parts['path'] ?? '', '/') === $target) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Flatten a resolved navigation payload to its leaf items: top-level
+     * sections, nested `MenuGroup` containers (`type === 'group'`) and the
+     * leaves of any factory type they hold.
+     *
+     * @param  list<array<string, mixed>>  $sections
+     * @return list<array<string, mixed>>
+     */
+    protected function resolvedLeaves(array $sections): array
+    {
+        $leaves = [];
+
+        $walk = function (array $items) use (&$walk, &$leaves): void {
             foreach ($items as $item) {
                 if (! is_array($item)) {
                     continue;
                 }
 
-                $itemType = $item['type'] ?? null;
-
-                if ($itemType === 'group' && isset($item['items']) && is_array($item['items'])) {
+                if (($item['type'] ?? null) === 'group' && isset($item['items']) && is_array($item['items'])) {
                     $walk($item['items']);
 
                     continue;
                 }
 
-                if ($itemType === $type && isset($item['uriKey']) && is_string($item['uriKey'])) {
-                    $found[] = $item['uriKey'];
-                }
+                $leaves[] = $item;
             }
         };
 
@@ -403,7 +508,7 @@ class NavigationController extends MartisController
             }
         }
 
-        return array_values(array_unique($found));
+        return $leaves;
     }
 
     /**
@@ -417,12 +522,13 @@ class NavigationController extends MartisController
      *      (`Tool::withSystemSection()`), e.g. a settings console or a
      *      health dashboard the host ships as a Tool.
      *   3. The bundled Cache admin link (gated by
-     *      `martis.cache.admin_ui` + the `manage-martis-cache` Gate).
+     *      `martis.cache.admin_ui` + the `manage-martis-cache` Gate, see
+     *      `cacheAdminEntry()`).
      *
-     * `$systemItems` arrives from `buildNavigation()` already ordered
-     * (resources first, then tools), with per-entity auth and the
-     * `Martis::mainMenu(...)` dedup applied upstream. The Cache admin link
-     * is appended last here.
+     * `$systemItems` arrives from `buildNavigation()` complete and sorted
+     * by `systemSectionOrder()` / `martis.cache.admin_ui_order`, with
+     * per-entity auth and the `Martis::mainMenu(...)` dedup applied
+     * upstream.
      *
      * The section appears whenever at least one of those sources
      * produces a visible item for the current user. It collapses
@@ -434,21 +540,11 @@ class NavigationController extends MartisController
      */
     protected function appendSystemSection(array $sections, Request $request, array $systemItems = []): array
     {
-        $items = $systemItems;
-
-        $cacheUiEnabled = (bool) config('martis.cache.admin_ui', true);
-        $user = $request->user();
-
-        if ($cacheUiEnabled && $user !== null && Gate::forUser($user)->allows('manage-martis-cache')) {
-            $items[] = MenuItem::link(__('martis::messages.cache_admin_title'), '/system/cache')
-                ->icon('database');
-        }
-
-        if ($items === []) {
+        if ($systemItems === []) {
             return $sections;
         }
 
-        $section = MenuSection::make(__('martis::messages.system'), $items)
+        $section = MenuSection::make(__('martis::messages.system'), $systemItems)
             ->collapsable(true)
             ->resolve($request);
 

@@ -122,6 +122,12 @@ class PostPolicy
         return $this->update($user, $post);
     }
 
+    // Optional: whether the user may attach any tag to this post at all
+    public function attachAnyTag(User $user, Post $post): bool
+    {
+        return $this->update($user, $post);
+    }
+
     // Optional — attach / detach on belongsToMany / morphToMany
     public function attachTag(User $user, Post $post, \App\Models\Tag $tag): bool
     {
@@ -160,14 +166,56 @@ Every dashboard primitive supports a `canSee(Closure)` callback.
 
 ## Fields and relations
 
-- `Field::canSee(Closure)` — hides a field from every context.
-- `Field::readonly(bool|Closure)` — renders the field without an editor.
+- `Field::canSee(Closure)`: hides a field from every context. Inside a
+  `Repeater` row too (v1.38.0+): the field is left out of the row type's
+  schema and of every row's values, is not validated, and a row never takes
+  its value from the request (a stored row keeps it, a new row stores the
+  field's `default()`). See
+  [Repeater → Readonly, computed, hidden and immutable row fields](repeater.md#readonly-computed-hidden-and-immutable-row-fields).
+  On a pivot field of a `BelongsToMany` / `MorphToMany` too (v1.38.0+): it
+  is left out of the relationship's schema and of the pivot values sent
+  back, is not validated, and is never written from the request (the attach
+  stores its `default()`). See
+  [Relationships → With Pivot Fields](relationships.md#with-pivot-fields).
+  A field placed directly in a `Tab` is hidden like one anywhere else
+  (v1.38.0+; before, a `Tab` ignored `canSee()` on the fields it holds
+  directly: they were listed, sent, validated and written).
+  Among an Action's fields too (v1.38.0+): the modal does not list it, the
+  run does not validate it, and `handle()` receives its `default()` or
+  nothing, whatever the request sends. See
+  [Actions → Fields the request cannot set](actions.md#fields-the-request-cannot-set).
+  The endpoints a form field asks on its own (the options of a relation
+  picker, the option search of a `Select`, the Slug check, the `dependsOn`
+  sync) answer for a hidden field exactly as for an undeclared one
+  (v1.38.0+).
+- `Field::canSeeForModel(Closure)` / `canSeeUsingPolicy(ability)`: hides a
+  field on the records the callback denies, on every read and every write
+  of those records (v1.38.0+ for the writes). See
+  [Per-field authorization](#per-field-authorization).
+- `Field::readonly(bool|Closure)`: renders the field without an editor, and
+  the save never takes its value from the request, inside a `Repeater` row
+  included (v1.38.0+).
 - Relation fields (`BelongsTo`, `HasMany`, `BelongsToMany`,
   `MorphTo`, `MorphToMany`, `MorphMany`, `MorphOne`, `HasOne`) emit
   `authorizedToCreate` / `authorizedToViewAny` flags **derived from the
   target resource's policy**. The inline "Create Related" button is
   automatically hidden when the current user cannot create the target
-  resource, independent of the `showCreateRelationButton()` toggle.
+  resource, independent of the `showCreateRelationButton()` toggle. A
+  `MorphTo` flags each of its types, and its button follows the type the
+  operator picked (v1.38.0+; before, it showed for every type as soon as
+  one was creatable). `Tag` applies the same rule to its inline create
+  (v1.38.0+).
+- `BelongsToMany` / `MorphToMany` attach: `attachAny{Model}`
+  (`authorizedToAttachAny()`) gates the attach as a whole. When it
+  denies, the list of records to attach (`.../attachable`), the attach
+  itself (one record or several) and the pickers of the attach modal's
+  pivot fields answer 403 (v1.38.0+). When it allows, `attach{Model}`
+  decides per record (a batch attach skips the records it denies),
+  `detach{Model}` decides the detach, and `updatePivot{Model}` (falling
+  back to `update`) the pivot update and the pickers of the pivot edit
+  modal. The Attach button follows the field's `canAttach()` toggle.
+  Before v1.38.0 the attach and the list of records to attach did not
+  check `attachAny{Model}`, so a user it denied could still attach.
 
 ## UI flag contract
 
@@ -239,7 +287,18 @@ Email::make('email')->canSeeUsingPolicy('viewEmail');
 // Equivalent to canSeeForModel(fn (Request, Model) => Gate::forUser($request->user())->allows('viewEmail', $model))
 ```
 
-The check runs at serialization time inside `serializeModel()`, so the value never reaches the wire when the closure returns false. Stripping at serialization time means even a tampered React layer cannot read the masked field — the bytes are simply not in the response payload.
+A field the callback hides for a record is hidden for that record on the server, like a field `canSee()` hides for the request:
+
+- **Every read** of the record leaves its value out: the index, the detail, the update form's values, the replicate form, the rows and the record of a relationship panel (with the responses of its inline create and update), the rows of a lens and the peek card. The bytes are not in the response, so even a tampered React layer cannot read the masked field.
+- **Every write** of the record neither validates the field nor takes its value from the request: the request is accepted and the column keeps its value. This covers the resource update and create, the inline create, the inline forms of the `HasMany` / `HasOne` / `MorphMany` / `MorphOne` panels, and the attach and pivot update of the pivot fields of a `BelongsToMany` / `MorphToMany` (the attach stores the field's `default()`), as Nova leaves a field out of the update request of the resource instance it cannot see.
+- **A create** decides on the new, unsaved model before any value of the request is written to it, as Nova resolves the fields of a create on a fresh model: a callback that grants on stored values (an owner column, `$model->exists`, a policy that reads them, as `viewEmail` above may for a user not created yet) denies, and the create does not write the field. Grant on `! $model->exists` when a create should write it.
+- **A pivot field** decides on the pivot row (the relationship's pivot class; `pivotParent` is the parent record): the attached row when the pivot values are read or updated, a new row on attach.
+- **A relationship field** (`HasMany`, `HasOne`, `MorphMany`, `MorphOne`, `BelongsToMany`, `MorphToMany`) the callback hides for the parent record answers 404 on every endpoint of its panel, as an undeclared relationship.
+- **The endpoints a form field asks on its own** (relation picker options, `Select` search, Slug check, `dependsOn` sync) answer for a field hidden for the record the update form edits, or for the new model of a create form, exactly as for an undeclared field.
+
+The schema describes the resource, not a record, so a form still lists a field the callback hides for the record it shows: its value is empty, and the save ignores it. See [Fields → Field authorization](fields.md#field-authorization-cansee-and-canseeformodel).
+
+Before v1.38.0 the callback only ran when the resource's own endpoints serialised a record (index, detail, update form values, replicate): every write validated the field and wrote the value the request sent, so a user who could not see a record's `email` could still set it with a `PUT` (and the update form, which sends every field it lists, emptied it); the relationship panels, the lens rows and the peek card sent the value; a relationship field it hid still served its panel; and a pivot field's callback was never asked.
 
 ## Declarative query scopes
 

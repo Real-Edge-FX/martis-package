@@ -242,7 +242,7 @@ Only the default `signup_fields` (`name`, `password`) render — matching the co
 Register a replacement under the `auth:invitation-accept` key from your consumer extension bundle:
 
 ```ts
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { MyInvitationAccept } from './components/MyInvitationAccept'
 
 componentRegistry.register('auth:invitation-accept', MyInvitationAccept)

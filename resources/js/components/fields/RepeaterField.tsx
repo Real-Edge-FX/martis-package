@@ -4,6 +4,8 @@ import { PlusIcon, TrashIcon, CaretUpIcon, CaretDownIcon, DotsSixVerticalIcon, X
 import { createPortal } from 'react-dom'
 import { FieldInput } from './FieldRenderer'
 import { ResourceIcon } from '@/components/ResourceIcon'
+import { nestedErrorsOf, rowErrorsByIndex } from '@/lib/fieldErrors'
+import type { FormErrors, RowErrors } from '@/lib/fieldErrors'
 import type { FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 
@@ -90,6 +92,83 @@ function normalizeRows(value: unknown): RepeaterRow[] {
     .filter((r): r is RepeaterRow => r !== null)
 }
 
+/** The rows `collapsedByDefault()` starts collapsed, keyed by row id. */
+function defaultCollapsed(rows: RepeaterRow[], meta: RepeaterMeta): Record<string, boolean> {
+  if (!meta.collapsible || !meta.collapsedByDefault) return {}
+  const map: Record<string, boolean> = {}
+  rows.forEach((r) => {
+    if (r.id !== null) map[String(r.id)] = true
+  })
+  return map
+}
+
+/** The key a row is known by: its id, or its position when it has none. */
+function rowKeyOf(row: RepeaterRow, index: number): string {
+  return String(row.id ?? index)
+}
+
+/** The ids of the rows that carry one. */
+function rowIdsOf(rows: RepeaterRow[]): Set<string> {
+  const ids = new Set<string>()
+  rows.forEach((row) => {
+    if (row.id !== null) ids.add(String(row.id))
+  })
+  return ids
+}
+
+/**
+ * The values a new row starts with: each field's default, and the value
+ * `seed` holds for a field the row writes (a row template's, a duplicated
+ * row's, a pasted one's). A readonly field keeps its default: the save takes
+ * no value of it from a new row. A key of `seed` that names no field of the
+ * row type is kept.
+ */
+function newRowFields(rep: RepeatableDef, seed: Record<string, unknown> = {}): Record<string, unknown> {
+  const fields: Record<string, unknown> = {}
+  rep.fields.forEach((f) => {
+    const seeded = !f.readonly && Object.prototype.hasOwnProperty.call(seed, f.attribute)
+    fields[f.attribute] = seeded ? seed[f.attribute] : (f.defaultValue ?? null)
+  })
+  Object.entries(seed).forEach(([attribute, value]) => {
+    if (!(attribute in fields)) fields[attribute] = value
+  })
+  return fields
+}
+
+/**
+ * The server errors of the rows, bound to the key of the row each one was
+ * reported for. The server keys them by the position the row had in the
+ * save that failed, which is still its position when the errors arrive.
+ * A row with no id (a legacy JSON row) is known by its position, so its
+ * errors do not follow it when the rows above it move.
+ */
+function bindRowErrors(rows: RepeaterRow[], nestedErrors: FormErrors | undefined): Record<string, RowErrors> {
+  const bound: Record<string, RowErrors> = {}
+  for (const [index, errors] of Object.entries(rowErrorsByIndex(nestedErrors))) {
+    const row = rows[Number(index)]
+    if (row) bound[rowKeyOf(row, Number(index))] = errors
+  }
+  return bound
+}
+
+/** `collapsed` with every row that has an error open: a collapsed row would hide it. */
+function openRowsWithErrors(collapsed: Record<string, boolean>, rowErrors: Record<string, RowErrors>): Record<string, boolean> {
+  const keys = Object.keys(rowErrors)
+  if (keys.length === 0) return collapsed
+  const next = { ...collapsed }
+  keys.forEach((key) => { next[key] = false })
+  return next
+}
+
+/** `rowErrors` without the error of one row field (the errors inside the field's value stay). */
+function withoutFieldError(rowErrors: Record<string, RowErrors>, key: string, attribute: string): Record<string, RowErrors> {
+  const row = rowErrors[key]
+  if (!row || !(attribute in row.fields)) return rowErrors
+  const fields = { ...row.fields }
+  delete fields[attribute]
+  return { ...rowErrors, [key]: { ...row, fields } }
+}
+
 /** Apply a `{attr}` template against the row's field values. */
 function applyTitleTemplate(template: string, rowFields: Record<string, unknown>): string {
   return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (_m, key) => {
@@ -172,25 +251,92 @@ export function RepeaterFieldDisplay({ field, value }: FieldDisplayProps) {
 // Input (create/update)
 // ---------------------------------------------------------------------------
 
-export function RepeaterFieldInput({ field, value, onChange, error, resourceKey, recordId, formValues }: FieldInputProps) {
+export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors, resourceKey, recordId, context, toolKey, actionEndpoint, pivotEndpoint, formValues }: FieldInputProps) {
   const { t } = useTranslation('messages')
   const { t: tAct } = useTranslation('actions')
 
   const meta = field as unknown as RepeaterMeta
-  const repeatables = meta.repeatables ?? []
+  // `fill()` skips a readonly Repeater whole (an `immutable()` one on update
+  // arrives as readonly too), so its row fields render read-only and no
+  // control below changes the rows.
+  const repeatables = useMemo(() => {
+    const defs = meta.repeatables ?? []
+    if (!field.readonly) return defs
+    return defs.map((rep) => ({ ...rep, fields: rep.fields.map((f) => ({ ...f, readonly: true })) }))
+  }, [meta.repeatables, field.readonly])
+  // The row fields of a row the record stores: the save keeps an immutable
+  // field of such a row (it writes one on a new row only), so it renders
+  // read-only there, as an update form renders an immutable field.
+  const storedRowFields = useMemo(() => {
+    const byType = new Map<string, FieldDefinition[]>()
+    repeatables.forEach((rep) => {
+      byType.set(rep.shortName, rep.fields.map((f) => (f.immutable && !f.readonly ? { ...f, readonly: true } : f)))
+    })
+    return byType
+  }, [repeatables])
+  const canReorder = meta.reorderable === true && !field.readonly
   const isMultiType = repeatables.length > 1
+  const hasTemplates = (meta.rowTemplates?.length ?? 0) > 0
   const primaryType = repeatables[0]?.shortName ?? ''
 
   const rows = useMemo(() => normalizeRows(value), [value])
 
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
-    if (!meta.collapsible || !meta.collapsedByDefault) return {}
-    const map: Record<string, boolean> = {}
-    rows.forEach((r) => {
-      if (r.id !== null) map[String(r.id)] = true
-    })
-    return map
-  })
+  // The server errors of the rows. `nestedErrors` keys them by the position
+  // each row had in the save that failed (`1.fields.name`); they are bound to
+  // the rows' keys when they arrive, so an error stays on its row when rows
+  // are removed, reordered or added afterwards, and editing a row field
+  // clears that field's error, as a form clears a field's own error on edit.
+  // New errors are told apart by content while rendering: the form hands a
+  // new object on every render, and every bundled form clears its errors
+  // before a save, so the errors of the next failed save always arrive as new.
+  const errorsSignature = nestedErrors ? JSON.stringify(nestedErrors) : ''
+  const [adoptedErrors, setAdoptedErrors] = useState(errorsSignature)
+  const [rowErrors, setRowErrors] = useState<Record<string, RowErrors>>(() => bindRowErrors(rows, nestedErrors))
+
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => openRowsWithErrors(defaultCollapsed(rows, meta), rowErrors))
+
+  // The ids of the rows the record stores, on an update form: the rows of the
+  // value the form hands in (the record it edits), as opposed to the rows
+  // added, duplicated or pasted since, which are new.
+  const [storedRowIds, setStoredRowIds] = useState<Set<string>>(() => rowIdsOf(rows))
+
+  // The last value this input handed to `onChange`. A `value` prop that
+  // differs from it came from outside (the edit form seeding the stored rows
+  // after mount, "Create & add another" clearing the form), so its rows start
+  // collapsed again; the form handing back what the input just emitted keeps
+  // the rows the user opened, collapsed or added. Compared while rendering,
+  // not in an effect: a row's own field can emit while it mounts (a slug
+  // generated from a default), and child effects run before this input's.
+  const emitted = useRef<unknown>(value)
+  const [renderedValue, setRenderedValue] = useState<unknown>(value)
+  if (value !== renderedValue) {
+    setRenderedValue(value)
+    if (value !== emitted.current) {
+      setCollapsed(defaultCollapsed(rows, meta))
+      setStoredRowIds(rowIdsOf(rows))
+    }
+  }
+
+  if (errorsSignature !== adoptedErrors) {
+    const bound = bindRowErrors(rows, nestedErrors)
+    setAdoptedErrors(errorsSignature)
+    setRowErrors(bound)
+    setCollapsed((prev) => openRowsWithErrors(prev, bound))
+  }
+
+  // Which `value` the last emission started from. Several row fields can
+  // emit before the form hands the rows back (every stored row whose slug
+  // generates itself while it mounts), and each of their handlers still sees
+  // the `rows` of the last render. While the input sees that same `value`,
+  // the emitted rows are the latest ones and the next update builds on them;
+  // once another value reaches it (the rows handed back, a reset), it builds
+  // on that value's rows. Each value the input receives gets its own token,
+  // compared instead of the value: a form cleared back to `null` after an
+  // emission that started from `null` ("Create & add another") hands in a
+  // value equal to the one the emission started from, and the rows of the
+  // previous record would come back.
+  const valueToken = useMemo(() => ({ value }), [value])
+  const emittedFrom = useRef<object | null>(null)
 
   const [pendingRemoval, setPendingRemoval] = useState<{ index: number; label: string } | null>(null)
   const [showAddMenu, setShowAddMenu] = useState(false)
@@ -227,19 +373,28 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
     return repeatables.find((r) => r.shortName === type) ?? repeatables[0]
   }, [repeatables])
 
-  const commit = (next: RepeaterRow[]) => onChange(next)
+  const commit = (next: RepeaterRow[]) => {
+    // Also holds back a row input that ignores `readonly` (a custom one).
+    if (field.readonly) return
+    emittedFrom.current = valueToken
+    emitted.current = next
+    onChange(next)
+  }
+
+  // A fresh copy of the rows every update builds on, so updates emitted
+  // before the form hands the rows back add up instead of the last one
+  // replacing the others.
+  const latestRows = (): RepeaterRow[] => (valueToken === emittedFrom.current ? normalizeRows(emitted.current) : rows.slice())
 
   const addRow = (type: string, seedFields?: Record<string, unknown>) => {
     const rep = repeatableFor(type)
     if (!rep) return
-    const blankFields: Record<string, unknown> = {}
-    rep.fields.forEach((f) => { blankFields[f.attribute] = f.defaultValue ?? null })
     const row: RepeaterRow = {
       id: randomId(),
       type: rep.shortName,
-      fields: { ...blankFields, ...(seedFields ?? {}) },
+      fields: newRowFields(rep, seedFields),
     }
-    commit([...rows, row])
+    commit([...latestRows(), row])
     setShowAddMenu(false)
   }
 
@@ -248,14 +403,17 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
   }
 
   const duplicateRow = (index: number) => {
-    const source = rows[index]
+    const next = latestRows()
+    const source = next[index]
     if (!source) return
+    const rep = repeatableFor(source.type)
+    // The copy is a new row: a readonly field takes its default, not the
+    // stored row's value.
     const copy: RepeaterRow = {
       id: randomId(),
       type: source.type,
-      fields: { ...source.fields },
+      fields: rep ? newRowFields(rep, source.fields) : { ...source.fields },
     }
-    const next = rows.slice()
     next.splice(index + 1, 0, copy)
     commit(next)
   }
@@ -269,22 +427,24 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
       setPendingRemoval({ index, label: title })
       return
     }
-    commit(rows.filter((_, i) => i !== index))
+    commit(latestRows().filter((_, i) => i !== index))
   }
 
   const confirmRemove = () => {
     if (pendingRemoval === null) return
-    commit(rows.filter((_, i) => i !== pendingRemoval.index))
+    commit(latestRows().filter((_, i) => i !== pendingRemoval.index))
     setPendingRemoval(null)
   }
 
   const updateRowField = (index: number, attribute: string, fieldValue: unknown) => {
-    const next = rows.slice()
+    const next = latestRows()
     next[index] = {
       ...next[index],
       fields: { ...next[index].fields, [attribute]: fieldValue },
     }
     commit(next)
+    const key = rowKeyOf(next[index], index)
+    setRowErrors((prev) => withoutFieldError(prev, key, attribute))
   }
 
   const toggleCollapse = (rowId: string) => {
@@ -293,22 +453,22 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
 
   // Drag & drop (native HTML5 — no external lib required)
   const onDragStart = (index: number) => (e: DragEvent<HTMLDivElement>) => {
-    if (!meta.reorderable) return
+    if (!canReorder) return
     setDraggingIndex(index)
     e.dataTransfer.effectAllowed = 'move'
   }
 
   const onDragOver = (index: number) => (e: DragEvent<HTMLDivElement>) => {
-    if (!meta.reorderable || draggingIndex === null) return
+    if (!canReorder || draggingIndex === null) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     if (draggingIndex === index) return
   }
 
   const onDrop = (index: number) => (e: DragEvent<HTMLDivElement>) => {
-    if (!meta.reorderable || draggingIndex === null) return
+    if (!canReorder || draggingIndex === null) return
     e.preventDefault()
-    const next = rows.slice()
+    const next = latestRows()
     const [moved] = next.splice(draggingIndex, 1)
     next.splice(index, 0, moved)
     commit(next)
@@ -323,8 +483,11 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
         const rep = repeatableFor(row.type)
         if (!rep) return null
 
-        const rowKey = String(row.id ?? index)
+        const rowKey = rowKeyOf(row, index)
         const isCollapsed = meta.collapsible === true && !!collapsed[rowKey]
+        const errorsOfRow = rowErrors[rowKey]
+        const isStoredRow = context === 'update' && row.id !== null && storedRowIds.has(String(row.id))
+        const rowFields = isStoredRow ? (storedRowFields.get(rep.shortName) ?? rep.fields) : rep.fields
 
         // The "#N" badge below already renders the row number for a static
         // label, so the text carries it only inside a dynamic title's fallback.
@@ -335,7 +498,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
         return (
           <div
             key={rowKey}
-            draggable={meta.reorderable === true}
+            draggable={canReorder}
             onDragStart={onDragStart(index)}
             onDragOver={onDragOver(index)}
             onDrop={onDrop(index)}
@@ -353,7 +516,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
               className="flex items-center gap-2 border-b px-3 py-2"
               style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface-alt)' }}
             >
-              {meta.reorderable && (
+              {canReorder && (
                 <span
                   className="flex cursor-grab items-center active:cursor-grabbing"
                   style={{ color: 'var(--martis-text-muted)' }}
@@ -394,7 +557,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                   {isCollapsed ? <CaretDownIcon size={14} /> : <CaretUpIcon size={14} />}
                 </button>
               )}
-              {!meta.hideDuplicate && (
+              {!meta.hideDuplicate && !field.readonly && (
                 <button
                   type="button"
                   onClick={() => duplicateRow(index)}
@@ -407,25 +570,33 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                   <CopyIcon size={14} />
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => removeRow(index)}
-                className="rounded p-1 hover:bg-[color:var(--martis-hover)]"
-                style={{ color: 'var(--martis-danger)' }}
-                data-pr-tooltip={tAct('remove', 'Remove')}
-                data-pr-position="top"
-              >
-                <TrashIcon size={14} />
-              </button>
+              {!field.readonly && (
+                <button
+                  type="button"
+                  onClick={() => removeRow(index)}
+                  className="rounded p-1 hover:bg-[color:var(--martis-hover)]"
+                  style={{ color: 'var(--martis-danger)' }}
+                  data-pr-tooltip={tAct('remove', 'Remove')}
+                  data-pr-position="top"
+                >
+                  <TrashIcon size={14} />
+                </button>
+              )}
             </div>
+
+            {/* Errors of the row itself (a row type the server rejected), shown even when the row is collapsed */}
+            {errorsOfRow && errorsOfRow.row.length > 0 && (
+              <div className="flex flex-col gap-1 px-4 pt-3">
+                {errorsOfRow.row.map((message, messageIndex) => (
+                  <small key={messageIndex} style={{ color: 'var(--martis-danger)' }}>{message}</small>
+                ))}
+              </div>
+            )}
 
             {/* Body */}
             {!isCollapsed && (
               <div className="space-y-3 p-4">
-                {rep.fields.map((childField, fieldIndex) => {
-                  const rowError = error && typeof error === 'object'
-                    ? ((error as unknown as Record<string, Record<string, string>>)[String(index)]?.[childField.attribute])
-                    : undefined
+                {rowFields.map((childField, fieldIndex) => {
                   return (
                     <div key={`${childField.attribute}-${fieldIndex}`} className="grid grid-cols-3 gap-4">
                       <div>
@@ -445,10 +616,18 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                           field={childField}
                           value={row.fields[childField.attribute] ?? null}
                           onChange={(v) => updateRowField(index, childField.attribute, v)}
-                          error={rowError}
+                          error={errorsOfRow?.fields[childField.attribute]}
+                          nestedErrors={nestedErrorsOf(errorsOfRow?.fields, childField.attribute)}
+                          // The form's scope, plus the row: server-backed row
+                          // fields (relation pickers, remote Select search)
+                          // name it, and the server reads the field from it.
                           resourceKey={resourceKey}
                           recordId={recordId}
-                          context="update"
+                          context={context}
+                          toolKey={toolKey}
+                          actionEndpoint={actionEndpoint}
+                          pivotEndpoint={pivotEndpoint}
+                          repeaterRow={{ repeater: field.attribute, repeatable: rep.shortName }}
                           formValues={{
                             ...formValues,
                             ...row.fields,
@@ -474,6 +653,8 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
         )
       })}
 
+      {error && <small style={{ color: 'var(--martis-danger)' }}>{error}</small>}
+
       {/* Footer — Add row + cardinality feedback */}
       <div className="flex items-center justify-between">
         <div className="text-xs" style={{ color: 'var(--martis-text-muted)' }}>
@@ -488,113 +669,114 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {!meta.hideBulkPaste && (
-            <button
-              type="button"
-              onClick={() => {
-                setBulkPasteType(repeatables[0]?.shortName ?? '')
-                setBulkPasteText('')
-                setBulkPasteError(null)
-                setBulkPasteOpen(true)
-              }}
-              disabled={atMax || repeatables.length === 0}
-              className="martis-btn-secondary inline-flex items-center gap-1.5"
-              data-pr-tooltip={tAct('paste_rows', 'Paste rows (CSV/TSV/JSON)')}
-              data-pr-position="top"
-            >
-              <ClipboardIcon size={14} />
-              {tAct('paste_rows', 'Paste rows')}
-            </button>
-          )}
-          <div className="relative" ref={addMenuRef}>
-            {isMultiType || (meta.rowTemplates && meta.rowTemplates.length > 0) ? (
-              <>
-                <button
-                  type="button"
-                  disabled={atMax}
-                  onClick={() => setShowAddMenu((s) => !s)}
-                  className="martis-btn-secondary inline-flex items-center gap-1.5"
-                >
-                  <PlusIcon size={14} />
-                  {tAct('add_row', 'Add row')}
-                </button>
-                {showAddMenu && (
-                  <div
-                    className="absolute right-0 z-10 mt-1 min-w-[220px] overflow-hidden rounded-md border shadow-lg"
-                    style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}
+        {!field.readonly && (
+          <div className="flex items-center gap-2">
+            {!meta.hideBulkPaste && (
+              <button
+                type="button"
+                onClick={() => {
+                  setBulkPasteType(repeatables[0]?.shortName ?? '')
+                  setBulkPasteText('')
+                  setBulkPasteError(null)
+                  setBulkPasteOpen(true)
+                }}
+                disabled={atMax || repeatables.length === 0}
+                className="martis-btn-secondary inline-flex items-center gap-1.5"
+                data-pr-tooltip={tAct('paste_rows', 'Paste rows (CSV/TSV/JSON)')}
+                data-pr-position="top"
+              >
+                <ClipboardIcon size={14} />
+                {tAct('paste_rows', 'Paste rows')}
+              </button>
+            )}
+            <div className="relative" ref={addMenuRef}>
+              {isMultiType || hasTemplates ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={atMax}
+                    onClick={() => setShowAddMenu((s) => !s)}
+                    className="martis-btn-secondary inline-flex items-center gap-1.5"
                   >
-                    {isMultiType && repeatables.map((rep) => (
-                      <button
-                        key={rep.shortName}
-                        type="button"
-                        onClick={() => addRow(rep.shortName)}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[color:var(--martis-hover)]"
-                        style={{ color: 'var(--martis-text)' }}
-                      >
-                        {rep.icon && (
-                          <span style={{ color: tokenColor(rep.color) ?? 'var(--martis-accent)' }}>
-                            <ResourceIcon iconName={rep.icon} size={14} />
-                          </span>
-                        )}
-                        {rep.label}
-                      </button>
-                    ))}
-                    {meta.rowTemplates && meta.rowTemplates.length > 0 && (
-                      <>
-                        {isMultiType && (
+                    <PlusIcon size={14} />
+                    {tAct('add_row', 'Add row')}
+                  </button>
+                  {showAddMenu && (
+                    <div
+                      className="absolute right-0 z-10 mt-1 min-w-[220px] overflow-hidden rounded-md border shadow-lg"
+                      style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}
+                    >
+                      {/* The row types come first, so a blank row can be added next to the templates. */}
+                      {repeatables.map((rep) => (
+                        <button
+                          key={rep.shortName}
+                          type="button"
+                          onClick={() => addRow(rep.shortName)}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[color:var(--martis-hover)]"
+                          style={{ color: 'var(--martis-text)' }}
+                        >
+                          {rep.icon && (
+                            <span style={{ color: tokenColor(rep.color) ?? 'var(--martis-accent)' }}>
+                              <ResourceIcon iconName={rep.icon} size={14} />
+                            </span>
+                          )}
+                          {rep.label}
+                        </button>
+                      ))}
+                      {meta.rowTemplates && meta.rowTemplates.length > 0 && (
+                        <>
                           <div
                             className="px-3 py-1 text-[10px] uppercase tracking-wide"
                             style={{ borderTop: '1px solid var(--martis-border)', color: 'var(--martis-text-muted)' }}
                           >
                             {t('repeater_templates', 'Templates')}
                           </div>
-                        )}
-                        {meta.rowTemplates.map((tpl, tIdx) => (
-                          <button
-                            key={`tpl-${tIdx}`}
-                            type="button"
-                            onClick={() => addFromTemplate(tpl)}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[color:var(--martis-hover)]"
-                            style={{ color: 'var(--martis-text)' }}
-                          >
-                            {tpl.icon && (
-                              <span style={{ color: tokenColor(tpl.color ?? null) ?? 'var(--martis-accent)' }}>
-                                <ResourceIcon iconName={tpl.icon} size={14} />
-                              </span>
-                            )}
-                            <span>{tpl.label}</span>
-                            <span
-                              className="ml-auto rounded px-1.5 py-0.5 text-[10px]"
-                              style={{
-                                backgroundColor: 'color-mix(in oklab, var(--martis-text-muted) 12%, transparent)',
-                                color: 'var(--martis-text-muted)',
-                              }}
+                          {meta.rowTemplates.map((tpl, tIdx) => (
+                            <button
+                              key={`tpl-${tIdx}`}
+                              type="button"
+                              onClick={() => addFromTemplate(tpl)}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[color:var(--martis-hover)]"
+                              style={{ color: 'var(--martis-text)' }}
                             >
-                              {repeatableFor(tpl.type)?.label ?? tpl.type}
-                            </span>
-                          </button>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : (
-              <button
-                type="button"
-                disabled={atMax}
-                onClick={() => addRow(primaryType)}
-                className="martis-btn-secondary inline-flex items-center gap-1.5"
-              >
-                <PlusIcon size={14} />
-                {repeatables[0]?.label
-                  ? t('repeater_add_named', { label: repeatables[0].label, defaultValue: `Add ${repeatables[0].label}` })
-                  : tAct('add_row', 'Add row')}
-              </button>
-            )}
+                              {tpl.icon && (
+                                <span style={{ color: tokenColor(tpl.color ?? null) ?? 'var(--martis-accent)' }}>
+                                  <ResourceIcon iconName={tpl.icon} size={14} />
+                                </span>
+                              )}
+                              <span>{tpl.label}</span>
+                              <span
+                                className="ml-auto rounded px-1.5 py-0.5 text-[10px]"
+                                style={{
+                                  backgroundColor: 'color-mix(in oklab, var(--martis-text-muted) 12%, transparent)',
+                                  color: 'var(--martis-text-muted)',
+                                }}
+                              >
+                                {repeatableFor(tpl.type)?.label ?? tpl.type}
+                              </span>
+                            </button>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <button
+                  type="button"
+                  disabled={atMax}
+                  onClick={() => addRow(primaryType)}
+                  className="martis-btn-secondary inline-flex items-center gap-1.5"
+                >
+                  <PlusIcon size={14} />
+                  {repeatables[0]?.label
+                    ? t('repeater_add_named', { label: repeatables[0].label, defaultValue: `Add ${repeatables[0].label}` })
+                    : tAct('add_row', 'Add row')}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Bulk-paste modal — parses TSV / CSV / JSON into rows */}
@@ -686,16 +868,15 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                     setBulkPasteError(t('repeater_paste_empty', 'Nothing detected to import.') as string)
                     return
                   }
-                  const remaining = meta.maxRows != null ? meta.maxRows - rows.length : Infinity
+                  const current = latestRows()
+                  const remaining = meta.maxRows != null ? meta.maxRows - current.length : Infinity
                   const slice = parsed.slice(0, remaining)
-                  const blankFields: Record<string, unknown> = {}
-                  rep.fields.forEach((f) => { blankFields[f.attribute] = f.defaultValue ?? null })
                   const toInsert: RepeaterRow[] = slice.map((fields) => ({
                     id: randomId(),
                     type: rep.shortName,
-                    fields: { ...blankFields, ...fields },
+                    fields: newRowFields(rep, fields),
                   }))
-                  commit([...rows, ...toInsert])
+                  commit([...current, ...toInsert])
                   setBulkPasteOpen(false)
                 }}
               >

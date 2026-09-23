@@ -101,5 +101,10 @@ export default defineConfig({
         setupFiles: ['resources/js/test-setup.ts'],
         globals: true,
         environment: 'jsdom',
+        // The first test of a file that renders fields pays for transforming
+        // their lazy chunks, which a loaded machine (a CI runner, a full
+        // parallel run) can stretch past the 5 s default. The async
+        // utilities give up at 3 s (test-setup.ts), well inside this.
+        testTimeout: 10_000,
     },
 })

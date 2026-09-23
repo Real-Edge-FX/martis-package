@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
-import type { ResourceSchema, OverrideProps, FieldDefinition } from '@/types'
+import type { ResourceSchema, OverrideProps, FieldDefinition, DetailItem } from '@/types'
 import { FieldsForm } from '@/components/fields/FieldsForm'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
@@ -15,8 +15,25 @@ import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import { recordHref } from '@/lib/recordHref'
+import { NestedParentProvider } from '@/components/fields/NestedParentContext'
+
+/** Shared fallback while the schema loads: a stable reference keeps the form
+ *  fields memo (and the form built on it) from recomputing on every render. */
+const NO_FIELDS: DetailItem[] = []
 
 export function ResourceCreatePage() {
+  const { resource } = useParams<{ resource: string }>()
+  const [searchParams] = useSearchParams()
+  // The router keeps this element when the URL moves to another resource's
+  // create page, another parent's nested create or another record to
+  // replicate, so the page is keyed by what the form starts from: nothing
+  // typed or prefilled for the previous target (values, parent, replica,
+  // dirty baseline) carries over.
+  const target = [resource, ...['viaResource', 'viaResourceId', 'viaRelationship', 'fromResourceId'].map((key) => searchParams.get(key))]
+  return <CreateTargetPage key={JSON.stringify(target)} />
+}
+
+function CreateTargetPage() {
   const { resource } = useParams<{ resource: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -51,12 +68,11 @@ export function ResourceCreatePage() {
   const schema = schemaQuery.data?.data
   const { t: tNav } = useTranslation('navigation')
   usePageTitle(schema ? `${tNav('create', { defaultValue: 'Create' })} ${schema.singularLabel}` : null)
-  const rawFormFields = (schema?.fieldsForCreate ?? [])
+  const rawFormFields = schema?.fieldsForCreate ?? NO_FIELDS
 
-  // Marca a FK do pai como readonly quando criamos via rela\u00e7\u00e3o
-  // aninhada: o utilizador n\u00e3o deve poder mudar o pai —
-  // s\u00f3 ver o seu nome. Deep-walk para apanhar o campo mesmo
-  // dentro de Panel/Section/TabGroup.
+  // Mark the parent's FK readonly when creating through a nested relation:
+  // the user must not change the parent, only see its name. Deep-walk so the
+  // field is found inside a Panel / Section / TabGroup too.
   const allFormFields = useMemo(() => {
     if (!isViaRelation) return rawFormFields
     const walk = (fields: unknown[]): unknown[] =>
@@ -78,12 +94,15 @@ export function ResourceCreatePage() {
         return f
       })
     return walk(rawFormFields)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawFormFields, isViaRelation, viaResource])
 
   const form = useMartisForm({ fields: allFormFields as FieldDefinition[], resourceKey: resource, context: 'create' })
   const [replicateApplied, setReplicateApplied] = useState(false)
   const baselineRef = useRef<string | null>(null)
+  // Bumped by "Create & add another" to mount the fields again for the next
+  // record, so no input keeps state from the record just created (an input
+  // cannot always tell the cleared form from its own last value).
+  const [fieldsKey, setFieldsKey] = useState(0)
 
   /**
    * Controls the post-save redirect on the create form.
@@ -100,10 +119,11 @@ export function ResourceCreatePage() {
   // internally and exposes `resolvedFields`). The page keeps only the
   // page-level concerns below.
 
-  // Pre-fill form with replicated values when data loads
+  // Pre-fill form with replicated values when data loads. A copy that carries
+  // no values starts from an empty form, so the fields still mount.
   useEffect(() => {
-    if (isReplicate && replicateQuery.data?.data?.values && !replicateApplied) {
-      form.setValues(replicateQuery.data.data.values)
+    if (isReplicate && replicateQuery.data && !replicateApplied) {
+      form.setValues(replicateQuery.data.data?.values ?? {})
       setReplicateApplied(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -168,16 +188,13 @@ export function ResourceCreatePage() {
   // The dirty guard compares against this baseline; capturing too early
   // means the pre-fill itself counts as "dirty", triggering the unsaved
   // dialog on a pristine form the user never touched.
-  const initialSnapshot = useMemo(() => {
-    if (!schema) return null
-    if (isReplicate && !replicateApplied) return null
-    if (isViaRelation && !viaFkApplied) return null
-    if (baselineRef.current === null) {
-      baselineRef.current = JSON.stringify(form.values)
-    }
-    return baselineRef.current
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema, isReplicate, replicateApplied, isViaRelation, viaFkApplied])
+  const baselineReady = !!schema && (!isReplicate || replicateApplied) && (!isViaRelation || viaFkApplied)
+  if (baselineReady && baselineRef.current === null) {
+    baselineRef.current = JSON.stringify(form.values)
+  }
+  // Read on every render: "Create & add another" moves the baseline to the
+  // empty form it starts the next record from.
+  const initialSnapshot = baselineReady ? baselineRef.current : null
 
   const { dialog: unsavedGuardDialog, markSaved } = useUnsavedChangesGuard({
     values: form.values,
@@ -188,10 +205,14 @@ export function ResourceCreatePage() {
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
       if (isViaRelation) {
-        return api.post<{ data: { id: string | number }; meta?: { message?: string; redirectTo?: string } }>(
-          `/api/resources/${viaResource}/${viaResourceId}/${viaRelationshipType}/${viaRelationship}`,
-          data,
-        )
+        // The relationship's endpoint takes a file the way the resource's
+        // does: multipart when the form carries one (a File serialises to
+        // `{}` in JSON).
+        const url = `/api/resources/${viaResource}/${viaResourceId}/${viaRelationshipType}/${viaRelationship}`
+        if (hasFileValues(data)) {
+          return api.upload<{ data: { id: string | number }; meta?: { message?: string; redirectTo?: string } }>('POST', url, data)
+        }
+        return api.post<{ data: { id: string | number }; meta?: { message?: string; redirectTo?: string } }>(url, data)
       }
       const payload = isReplicate ? { ...data, fromResourceId } : data
       if (hasFileValues(payload)) {
@@ -215,7 +236,12 @@ export function ResourceCreatePage() {
       // again.
       if (mode === 'add_another') {
         submitModeRef.current = 'detail'
-        // The form is already cleared above; nothing to navigate.
+        // The form is already cleared above; nothing to navigate. The next
+        // record starts from that empty form, which is therefore its
+        // baseline (a replicated form's was the copy), with its fields
+        // mounted again.
+        baselineRef.current = JSON.stringify({})
+        setFieldsKey((key) => key + 1)
         return
       }
 
@@ -306,11 +332,12 @@ export function ResourceCreatePage() {
         params: schema.overrides.create.params ?? {},
         record: null,
         recordId: null,
+        fromResourceId: isReplicate ? fromResourceId : null,
         navigate: (to: string) => navigate(to),
         onClose: () => navigate(`/resources/${resource}`),
         onCreated: (rec) => {
           void qc.invalidateQueries({ queryKey: ['resources', resource] })
-          addToast('success', schema.messages?.created ?? 'Record created successfully.')
+          addToast('success', (isReplicate ? schema.messages?.replicated : undefined) ?? schema.messages?.created ?? 'Record created successfully.')
           const target = resolveRedirect(schema.overrides?.create?.redirectAfter, resource!, rec.id)
           if (target) navigate(target)
         },
@@ -332,6 +359,13 @@ export function ResourceCreatePage() {
       return <C {...overrideProps} />
     }
   }
+
+  // The copy fills the form in an effect after the replicate query resolves.
+  // Mount the fields only then, as Nova's Replicate view does, so every input
+  // starts from the copied value (an input that reads its value at mount
+  // would otherwise see an empty form, and a slug would take the copy for
+  // its title changing).
+  if (isReplicate && !replicateApplied) return <FormSkeleton />
 
   return (
     <div className="space-y-6">
@@ -361,81 +395,85 @@ export function ResourceCreatePage() {
         {tAct('create')} {schema.singularLabel}
       </h1>
 
-      <form onSubmit={handleSubmit} noValidate>
-        <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
-          {/* Fields rendered in declaration order — layout containers and
-              scalar fields interleaved. The render loop (including dependsOn
-              override resolution) is now owned by <FieldsForm>, driven by
-              useMartisForm's resolvedFields + fieldProps. */}
-          <FieldsForm form={form} context="create" />
+      {/* The record does not exist yet: no relationship panel in the form
+          reads another one (see NestedParentContext). */}
+      <NestedParentProvider value={{ resource: resource!, id: null }}>
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
+            {/* Fields rendered in declaration order — layout containers and
+                scalar fields interleaved. The render loop (including dependsOn
+                override resolution) is now owned by <FieldsForm>, driven by
+                useMartisForm's resolvedFields + fieldProps. */}
+            <FieldsForm key={fieldsKey} form={form} context="create" />
 
-          {/* Footer */}
-          <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface-alt)' }}>
-            <button
-              type="button"
-              onClick={() => {
-                // Nested create/edit screens pass a `from` query param with
-                // the exact URL the user clicked from. Using that beats
-                // navigate(-1): it survives hard reloads and respects the
-                // click origin even when the immediate parent differs from
-                // the page the user was actually viewing (e.g. a task
-                // created from a team-member's nested HasOneThrough panel
-                // has viaResource=projects but the return target is the
-                // team-member page).
-                const fromParam = searchParams.get('from')
-                if (fromParam) {
-                  navigate(fromParam)
-                } else if (window.history.length > 1) {
-                  navigate(-1)
-                } else if (isViaRelation) {
-                  navigate(recordHref(viaResource!, viaResourceId!))
-                } else {
-                  navigate(`/resources/${resource}`)
-                }
-              }}
-              className="martis-btn-secondary"
-            >
-              {tAct('cancel')}
-            </button>
-            {/*
-              Save variants — Nova-parity. The default Create button
-              navigates to the new record's detail page; the secondary
-              buttons stay on the create page (add another) or jump to
-              the list. Hidden in nested-relation flows because those
-              are launched from a parent surface that already manages
-              the post-save redirect.
-            */}
-            {!isViaRelation && (
-              <>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="martis-btn-secondary"
-                  onClick={() => { submitModeRef.current = 'add_another' }}
-                >
-                  {tAct('create_and_add_another')}
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="martis-btn-secondary"
-                  onClick={() => { submitModeRef.current = 'list' }}
-                >
-                  {tAct('create_and_view_list')}
-                </button>
-              </>
-            )}
-            <button
-              type="submit"
-              disabled={createMutation.isPending}
-              className="martis-btn-primary"
-              onClick={() => { submitModeRef.current = 'detail' }}
-            >
-              {createMutation.isPending ? tAct('saving') : `${tAct('create')} ${schema.singularLabel}`}
-            </button>
+            {/* Footer */}
+            <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface-alt)' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  // Nested create/edit screens pass a `from` query param with
+                  // the exact URL the user clicked from. Using that beats
+                  // navigate(-1): it survives hard reloads and respects the
+                  // click origin even when the immediate parent differs from
+                  // the page the user was actually viewing (e.g. a task
+                  // created from a team-member's nested HasOneThrough panel
+                  // has viaResource=projects but the return target is the
+                  // team-member page).
+                  const fromParam = searchParams.get('from')
+                  if (fromParam) {
+                    navigate(fromParam)
+                  } else if (window.history.length > 1) {
+                    navigate(-1)
+                  } else if (isViaRelation) {
+                    navigate(recordHref(viaResource!, viaResourceId!))
+                  } else {
+                    navigate(`/resources/${resource}`)
+                  }
+                }}
+                className="martis-btn-secondary"
+              >
+                {tAct('cancel')}
+              </button>
+              {/*
+                Save variants — Nova-parity. The default Create button
+                navigates to the new record's detail page; the secondary
+                buttons stay on the create page (add another) or jump to
+                the list. Hidden in nested-relation flows because those
+                are launched from a parent surface that already manages
+                the post-save redirect.
+              */}
+              {!isViaRelation && (
+                <>
+                  <button
+                    type="submit"
+                    disabled={createMutation.isPending}
+                    className="martis-btn-secondary"
+                    onClick={() => { submitModeRef.current = 'add_another' }}
+                  >
+                    {tAct('create_and_add_another')}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createMutation.isPending}
+                    className="martis-btn-secondary"
+                    onClick={() => { submitModeRef.current = 'list' }}
+                  >
+                    {tAct('create_and_view_list')}
+                  </button>
+                </>
+              )}
+              <button
+                type="submit"
+                disabled={createMutation.isPending}
+                className="martis-btn-primary"
+                onClick={() => { submitModeRef.current = 'detail' }}
+              >
+                {createMutation.isPending ? tAct('saving') : `${tAct('create')} ${schema.singularLabel}`}
+              </button>
+            </div>
           </div>
-        </div>
-      </form>
+        </form>
+      </NestedParentProvider>
       {unsavedGuardDialog}
     </div>
   )

@@ -3,7 +3,6 @@
 namespace Martis\Http\Controllers;
 
 use Dedoc\Scramble\Attributes\QueryParameter;
-use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
@@ -14,13 +13,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
-use Martis\Enums\SortDirection;
 use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\File;
 use Martis\Fields\HasMany;
+use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
+use Martis\Http\Controllers\Concerns\SyncsDeferredWrites;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -39,7 +39,9 @@ use Martis\SearchResolver;
  */
 class HasManyController extends MartisController
 {
+    use BuildsFieldRules;
     use DecodesStructuredValues;
+    use SyncsDeferredWrites;
 
     /** Create the controller and inject the resource registry. */
     public function __construct(
@@ -53,11 +55,11 @@ class HasManyController extends MartisController
      * sorting, and pagination. Uses the related resource's field definitions
      * and search pipeline (including Scout when applicable).
      */
-    #[QueryParameter('search', description: 'Filter related records by free text.', required: false, type: 'string')]
+    #[QueryParameter('search', description: 'Filter related records by free text, on the searchable fields of the related resource the user can see.', required: false, type: 'string')]
     #[QueryParameter('per_page', description: 'Records per page. Default: 10, max: 100.', required: false, type: 'integer')]
-    #[QueryParameter('sort', description: 'Column to sort by.', required: false, type: 'string')]
-    #[QueryParameter('direction', description: 'Sort direction: asc or desc.', required: false, type: 'string')]
-    #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only).', required: false, type: 'string')]
+    #[QueryParameter('sort', description: 'Attribute to sort by: a sortable field of the related resource the user can see; any other value is ignored.', required: false, type: 'string')]
+    #[QueryParameter('direction', description: 'Sort direction: asc or desc (asc for any other value).', required: false, type: 'string')]
+    #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only); any other value means active only.', required: false, type: 'string')]
     public function index(
         Request $request,
         string $resource,
@@ -80,8 +82,7 @@ class HasManyController extends MartisController
 
         // Soft-delete filter
         if ($relatedResourceClass::softDeletes() && $relatedResourceClass::canViewTrashed()) {
-            $trashed = TrashedFilter::tryFrom((string) $request->query('trashed', ''))
-                ?? TrashedFilter::Active;
+            $trashed = TrashedFilter::fromQuery($request->query('trashed'));
             if ($trashed === TrashedFilter::With) {
                 /** @phpstan-ignore-next-line — guarded by softDeletes() check above */
                 $query->withTrashed();
@@ -99,8 +100,9 @@ class HasManyController extends MartisController
             SearchResolver::apply($request, $query, $relatedResourceClass, $search);
         }
 
-        // Apply sorting
-        $this->applySorting($request, $query, $relatedResourceClass);
+        // Only a sortable field of the related resource the user can see
+        // orders the rows.
+        $this->applyRequestedSort($request, $query, $relatedResourceClass);
 
         // Pagination
         $perPage = min(
@@ -175,14 +177,21 @@ class HasManyController extends MartisController
         }
 
         $relatedInstance = new $relatedResourceClass;
-        $fields = Field::filterForContext($relatedInstance->fieldsForCreate($request), FieldContext::CREATE);
+        $relatedModel = $relatedResourceClass::newModel();
+        // A field hidden for the new record (canSeeForModel(), decided on the
+        // unsaved model before any value is written) is neither validated
+        // nor written, as on the resource's own create.
+        $fields = Field::filterForModel(
+            Field::filterForContext($relatedInstance->fieldsForCreate($request), FieldContext::CREATE),
+            $request,
+            $relatedModel,
+        );
 
         $validationError = $this->validateRequest($request, $fields);
         if ($validationError !== null) {
             return $validationError;
         }
 
-        $relatedModel = $relatedResourceClass::newModel();
         $this->fillFields($request, $fields, $relatedModel);
 
         // Set the foreign key to the parent
@@ -196,6 +205,7 @@ class HasManyController extends MartisController
             $relatedInstance->beforeSave($relatedModel, $request, creating: true);
             $relatedModel->save();
             $relatedInstance->afterSave($relatedModel, $request, creating: true);
+            $this->syncDeferredWrites($relatedModel);
         } catch (QueryException $e) {
             Log::error('Martis: HasMany store error', [
                 'resource' => $resource,
@@ -252,7 +262,13 @@ class HasManyController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $fields = Field::filterForContext($relatedInstance->fieldsForUpdate($request), FieldContext::UPDATE);
+        // A field hidden for the related record (canSeeForModel()) is neither
+        // validated nor written, as on the resource's own update.
+        $fields = Field::filterForModel(
+            Field::filterForContext($relatedInstance->fieldsForUpdate($request), FieldContext::UPDATE),
+            $request,
+            $relatedModel,
+        );
 
         // Set unique-ignore ID
         foreach ($fields as $field) {
@@ -261,7 +277,7 @@ class HasManyController extends MartisController
             }
         }
 
-        $validationError = $this->validateRequest($request, $fields, isUpdate: true);
+        $validationError = $this->validateRequest($request, $fields, isUpdate: true, model: $relatedModel);
         if ($validationError !== null) {
             return $validationError;
         }
@@ -272,6 +288,7 @@ class HasManyController extends MartisController
             $relatedInstance->beforeSave($relatedModel, $request, creating: false);
             $relatedModel->save();
             $relatedInstance->afterSave($relatedModel, $request, creating: false);
+            $this->syncDeferredWrites($relatedModel);
         } catch (QueryException $e) {
             Log::error('Martis: HasMany update error', [
                 'resource' => $resource,
@@ -394,7 +411,13 @@ class HasManyController extends MartisController
         // Find the HasMany field in the parent resource. filterForContext
         // flattens layout containers (Section/Panel/TabGroup) so a relation
         // nested in one still resolves — a raw scan would 404 it.
-        $fields = Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL);
+        // A relationship field hidden for the parent record (canSeeForModel())
+        // is not on its detail page, so it answers like an undeclared one.
+        $fields = Field::filterForModel(
+            Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL),
+            $request,
+            $parentModel,
+        );
         $hasManyField = null;
 
         foreach ($fields as $field) {
@@ -467,9 +490,13 @@ class HasManyController extends MartisController
         ];
         $data['_authorization'] = $resource->authorizationMetadata(request());
 
-        foreach ($fields as $field) {
+        // A field hidden for this record (canSeeForModel()) is left out, as
+        // on every read of a record, and listed under `_hidden`.
+        $visible = Field::filterForModel($fields, request(), $model);
+        foreach ($visible as $field) {
             $data[$field->attribute()] = $field->resolve($model);
         }
+        $data += $this->hiddenFieldsEntry($fields, $visible);
 
         if ($resource::softDeletes() && $model->getAttribute('deleted_at') !== null) {
             $data['deleted_at'] = $model->getAttribute('deleted_at');
@@ -479,88 +506,22 @@ class HasManyController extends MartisController
     }
 
     /**
-     * Apply column sorting.
-     *
-     * @param  class-string<resource>  $resourceClass
-     * @param  Builder<Model>  $query
-     */
-    private function applySorting(Request $request, Builder $query, string $resourceClass): void
-    {
-        $rawSort = $request->query('sort');
-        $rawDirection = $request->query('direction', SortDirection::Asc->value);
-        $direction = SortDirection::tryFrom(strtolower(is_string($rawDirection) ? $rawDirection : SortDirection::Asc->value))
-            ?? SortDirection::Asc;
-
-        if (! is_string($rawSort) || $rawSort === '') {
-            return;
-        }
-
-        $sort = $rawSort;
-        $instance = new $resourceClass;
-
-        // Flatten Section / Panel / TabGroup before iterating —
-        // otherwise the closure's `FieldContract` type hint trips on
-        // layout nodes and sorting on HasMany sub-tables 500s.
-        // Mirrors the parent `ResourceController::applySorting` fix.
-        $flatFields = Field::flattenLayoutFields($instance->fields($request));
-
-        $sortableAttributes = array_map(
-            fn (FieldContract $field): string => $field->attribute(),
-            array_values(array_filter(
-                $flatFields,
-                fn (FieldContract $field): bool => $field->isSortable(),
-            )),
-        );
-
-        if (! in_array($sort, $sortableAttributes, true)) {
-            return;
-        }
-
-        $query->orderBy($sort, $direction->value);
-    }
-
-    /**
-     * Validate request against field rules.
+     * Validate request against field rules (see
+     * `BuildsFieldRules::buildWriteValidation()`), the fields inside a
+     * Repeater's rows included. `$model` is the related record an update
+     * writes, whose stored Repeater rows the rows sent continue.
      *
      * @param  list<FieldContract>  $fields
      */
-    private function validateRequest(Request $request, array $fields, bool $isUpdate = false): ?IlluminateJsonResponse
+    private function validateRequest(Request $request, array $fields, bool $isUpdate = false, ?Model $model = null): ?IlluminateJsonResponse
     {
         // Multipart requests carry list / map values as JSON strings; give
         // the rules below and the fill that follows the decoded structure.
-        $this->decodeStructuredValues($request, $fields);
+        $undecodable = $this->decodeStructuredValues($request, $fields);
 
-        $rules = [];
-        $attributes = [];
+        $validation = $this->buildWriteValidation($fields, $request->all(), $isUpdate, $undecodable, $model);
 
-        foreach ($fields as $field) {
-            $fieldRules = $field->buildRules();
-
-            if ($isUpdate) {
-                $fieldRules = array_values(array_filter($fieldRules, fn (string|Rule|\Closure $r): bool => is_string($r) && $r !== 'required'));
-                if (empty($fieldRules)) {
-                    $fieldRules = ['sometimes'];
-                } elseif (! in_array('sometimes', $fieldRules, true)) {
-                    array_unshift($fieldRules, 'sometimes');
-                }
-            }
-
-            $rules[$field->attribute()] = $fieldRules;
-
-            // Register per-item rules for multiple-file fields (e.g. MIME type, max size).
-            if (method_exists($field, 'buildItemRules')) {
-                $itemRules = $field->buildItemRules();
-                if (! empty($itemRules)) {
-                    $rules[$field->attribute().'.*'] = $itemRules;
-                }
-            }
-
-            if ($field instanceof Field) {
-                $attributes[$field->attribute()] = $field->label();
-            }
-        }
-
-        $validator = Validator::make($request->all(), $rules, [], $attributes);
+        $validator = Validator::make($request->all(), $validation['rules'], $validation['messages'], $validation['attributes']);
 
         if ($validator->fails()) {
             return JsonErrorResponse::validation(
@@ -579,8 +540,17 @@ class HasManyController extends MartisController
      */
     private function fillFields(Request $request, array $fields, Model $model): void
     {
+        // The related record exists on update and is a fresh model on create.
+        $isUpdate = $model->exists;
+
         foreach ($fields as $field) {
             $attr = $field->attribute();
+
+            // Immutable fields are writable on create and silently skipped
+            // on update, as ResourceController::fillFields() does.
+            if ($isUpdate && $field instanceof Field && $field->isImmutable()) {
+                continue;
+            }
 
             if ($field instanceof File && $field->isMultiple()) {
                 $newFiles = [];

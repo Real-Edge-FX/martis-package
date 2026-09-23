@@ -38,7 +38,6 @@ it('thumbnail(Closure) overrides disk-based thumbnail resolution with the closur
 it('thumbnail(int, int) keeps the disk-based behaviour and disables the closure path', function () {
     $field = Image::make('avatar')->thumbnail(150, 150);
     $reflection = new ReflectionProperty(Image::class, 'thumbnailResolver');
-    $reflection->setAccessible(true);
 
     expect($reflection->getValue($field))->toBeNull();
 });
@@ -50,8 +49,6 @@ it('thumbnail(Closure) clears any previously-set dimensions so disk generation i
 
     $widthRef = new ReflectionProperty(Image::class, 'thumbnailWidth');
     $heightRef = new ReflectionProperty(Image::class, 'thumbnailHeight');
-    $widthRef->setAccessible(true);
-    $heightRef->setAccessible(true);
 
     expect($widthRef->getValue($field))->toBeNull();
     expect($heightRef->getValue($field))->toBeNull();

@@ -32,7 +32,7 @@ Text::make('bio')->component('rich-bio-display')
 
 ```typescript
 // TypeScript: register a custom component under `resources/js/martis-extensions/`
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { RichBioDisplay } from './components/RichBioDisplay'
 
 componentRegistry.register('rich-bio-display', RichBioDisplay)
@@ -93,14 +93,28 @@ resource uses a drawer override or the page-based create/update flow.
 
 **Implementation**
 
-- **Browser back/forward** — handled via a history *sentinel* pushed on
-  mount plus a **capture-phase popstate listener** that calls
-  `stopImmediatePropagation()`. This prevents React Router from ever
-  seeing the pop, avoiding the v6 URL-flicker bug. The sentinel is
-  re-armed the moment the dialog opens, so repeated back presses while
-  the dialog is visible stay trapped. On confirm the guard pops the
-  re-armed sentinel (drawer: one `back()`; page: `go(-2)` for sentinel
-  + real entry).
+- **Browser back/forward** — a drawer pushes a history *sentinel* while
+  it is open. A full-page form pushes one only once it has unsaved
+  changes (v1.38.0+): a copy of the page's own history entry (same URL,
+  same router `key` and `idx`) flagged as the guard's, so a clean form
+  leaves the history alone and Back and Forward move between pages as
+  anywhere else. Back from the sentinel lands on the page's entry, which
+  a **capture-phase popstate listener** recognises and keeps from React
+  Router with `stopImmediatePropagation()`, avoiding the v6 URL-flicker
+  bug; every other pop belongs to the router, or to the modal or drawer
+  on top. The sentinel is re-armed the moment the dialog opens, so
+  repeated back presses while the dialog is visible stay trapped. On
+  confirm the guard pops the re-armed sentinel (drawer: one `back()`;
+  page: `go(-2)` for sentinel + real entry); changes saved since the
+  sentinel was pushed let the back press carry on to the previous page.
+  A page left with its sentinel on top (a save that redirects, a
+  confirmed link) adopts that sentinel when Back returns to it, so the
+  next Back walks past the page in one press. Before v1.38.0 the page
+  pushed its sentinel on every mount, including a return by Back or
+  Forward: that erased the Forward history, and a clean form took every
+  pop for its own sentinel and went back once more, skipping the
+  previous page or leaving the app while the address bar and the page on
+  screen disagreed.
 - **In-app navigation** — `useBlocker` (React Router v6.4 data-router
   API) intercepts `<Link>` clicks and imperative `navigate()` calls.
   Popstate-originated navigations are deliberately ignored
@@ -360,15 +374,17 @@ uniformly to every field via the base class — Panel, Section, TabGroup,
 ResourceCreate, ResourceUpdate, and detail labels rendered inside
 Sections/TabGroups.
 
-Only field tooltips render as HTML. Every other `data-pr-tooltip`
-trigger keeps the default plain-text escape via an explicit
-`data-pr-tooltip-html="true"` opt-in set only by the label renderer.
-Authors are responsible for producing safe markup, the same way they
-are for `help()`.
+The label renderer sets `data-pr-tooltip-html="true"` on the `(?)`
+icon, and the global `MartisTooltip` provider renders any trigger with
+that attribute as HTML: a field tooltip, a metric's `help()`, or a
+trigger of your own. A trigger without it keeps the plain-text escape.
+The markup is not sanitised, so it must be trusted: authors are
+responsible for producing safe markup, and user or record data never
+goes into it.
 
 A `Tooltip` field class was deliberately rejected — a `Field`
 represents a value, not a decoration. See
-[Fields → Tooltips](fields.md#tooltips) for the full rationale and the
+[Fields → Tooltips](fields.md#tooltips-martis-differential) for the full rationale and the
 `tooltip()` vs `help()` decision matrix.
 
 ### Icon — Phosphor picker
@@ -510,8 +526,10 @@ Section::make('Details', [
 ])->columns(12)
 ```
 
-Supports responsive breakpoints: `colSpan()`, `colSpanMd()`,
-`colSpanLg()`.
+Supports responsive breakpoints (`md` = 768px, `lg` = 1024px) as a
+mobile-first cascade: `colSpan()`, `colSpanMd()`, `colSpanLg()`. Below `md`
+every field takes the full row. The same grid lays out Panel and Tab bodies.
+See [Grid Layout → Responsiveness](grid-layout.md#responsiveness).
 
 ---
 
@@ -608,10 +626,10 @@ Country, MultiSelect, BelongsTo, MorphTo, Tag):
 - Only renders when `field.nullable === true && hasValue && !field.readonly`.
 - Hover: darker red, no background fill.
 
-For consumer apps building custom fields:
+For consumer apps building custom fields (on `@martis/runtime` since v1.38.0):
 
 ```tsx
-import { ClearButton } from '@/components/ClearButton'
+import { ClearButton } from '@martis/runtime'
 
 <ClearButton
   visible={field.nullable && hasValue && !field.readonly}
@@ -629,7 +647,8 @@ Tooltip limitations:
 - Works reliably with dynamically rendered elements (conditional buttons, pills, drawers).
 - No tooltip "skip" when hovering quickly between adjacent items (e.g. sidebar menu).
 - Instant switch between targets without delay when moving between tooltip elements.
-- First hover uses 300ms delay; subsequent hovers between targets are immediate.
+- First hover uses a 500 ms delay; subsequent hovers between targets are immediate.
+- Long text wraps inside the bubble, up to 360 px wide (or the viewport width minus 16 px), and a long unbroken token such as a URL breaks inside it. The ref-based PrimeReact `<Tooltip>` wraps the same way and keeps explicit line breaks (v1.38.0+; before, it kept `white-space: nowrap`, so a sentence ran out of its 300 px bubble).
 
 All elements use `data-pr-tooltip` and `data-pr-position` attributes:
 
@@ -673,7 +692,8 @@ StatusFilter::make('Status')->span(4)          // 1/3 width
 DateRangeFilter::make('Period')->span(8)       // 2/3 width
 ```
 
-Filters layout in the same 12-column grid as the metric cards.
+Filters sit on a 12-column grid with the same breakpoint as the metric
+cards: full row below `md` (768px), their span from there.
 
 ### `ActivityFeedMetric`
 
@@ -695,7 +715,7 @@ class RecentDeploys extends ActivityFeedMetric
 ```
 
 Generator: `php artisan martis:activity-feed`. Full reference in
-[metrics.md](metrics.md#activity-feed-metric).
+[metrics.md](metrics.md#activity-feed-metric-martis-extension).
 
 ### `EndpointTableMetric`
 
@@ -716,7 +736,7 @@ class TopEndpoints extends EndpointTableMetric
 ```
 
 Generator: `php artisan martis:endpoint-table`. Full reference in
-[metrics.md](metrics.md#endpoint-table-metric).
+[metrics.md](metrics.md#endpoint-table-metric-martis-extension).
 
 ### Trend sparkline mode
 
@@ -731,7 +751,7 @@ return $this->countByDays($request, Order::class)
     ->prefix('€');
 ```
 
-The `<Sparkline>` component is also exported (`@/components/metrics`)
+The `<Sparkline>` component is also on `@martis/runtime` (v1.38.0+)
 for custom framed cards.
 
 ### Per-metric color override
@@ -759,10 +779,10 @@ Accepts any CSS color value — hex, rgb, rgba, hsl, named colors, or
 ### Theme-aware chart colors
 
 Chart.js cannot read CSS variables natively. Martis ships a runtime
-resolver:
+resolver (on `@martis/runtime` since v1.38.0):
 
 ```tsx
-import { chartPalette, accentColor, mutedTextColor, resolveColor } from '@/lib/themeColors'
+import { chartPalette, accentColor, mutedTextColor, resolveColor } from '@martis/runtime'
 
 const colors = chartPalette()              // ['#6366f1', '#22c55e', ...] resolved from --martis-chart-*
 const accent = accentColor()                // resolved --martis-accent
@@ -783,8 +803,8 @@ same breakpoint.
 
 ### Custom dashboard cards (with scaffolding)
 
-A single command scaffolds the PHP class, the React component, and
-the boot-file registration:
+A single command scaffolds the PHP class and the React component,
+bound to each other by the key the extension entry registers:
 
 ```bash
 php artisan martis:card RevenueChart
@@ -792,9 +812,8 @@ php artisan martis:card RevenueChart
 
 Creates:
 
-1. `app/Martis/Cards/RevenueChart.php` — with `componentKey()` pre-configured.
-2. `resources/js/martis-extensions/overrides/RevenueChart.tsx` — starter React component.
-3. Auto-registers via `resources/js/martis-extensions/cards/{Name}.tsx` filename auto-discovery.
+1. `app/Martis/Cards/RevenueChart.php`, with `componentKey('card:revenue-chart')`.
+2. `resources/js/martis-extensions/cards/RevenueChart.tsx`, the starter React component, which the extension entry registers under `card:revenue-chart` (filename auto-discovery, no registration call).
 
 Usage in a Dashboard:
 
@@ -900,21 +919,24 @@ Full reference: [sso.md](sso.md).
 
 ### Event bus
 
-Decoupled pub/sub for cross-component communication:
+Decoupled pub/sub for cross-component communication. An extension uses
+the `martisEventBus` singleton on `@martis/runtime`:
 
 ```typescript
-import { useEventBus } from '@/lib/useEventBus'
-
-const { emit, on } = useEventBus()
+import { martisEventBus } from '@martis/runtime'
 
 // Emit an event
-emit('martis:record-created', { resource: 'users', id: 42 })
+martisEventBus.emit('martis:record-created', { resourceKey: 'users', id: 42 })
 
-// Listen for events
-on('martis:record-created', (payload) => {
-    console.log('New record:', payload)
-})
+// Listen for events, and stop with the same handler
+const onCreated = (payload) => console.log('New record:', payload)
+martisEventBus.on('martis:record-created', onCreated)
+martisEventBus.off('martis:record-created', onCreated)
 ```
+
+The package's own components use the `useEventBus()` hook over the same
+singleton, which drops its handlers on unmount (see
+[components.md](components.md#event-bus)).
 
 Built-in events: `martis:record-created`, `martis:record-updated`,
 `martis:record-deleted`, `martis:record-restored`,

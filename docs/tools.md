@@ -108,13 +108,14 @@ Tool::make(__('Finance Imports'))
 | `component()` | Registered React component key, or `null` (config-only tools). |
 | `menuSection()` | Active menu section label, or `null`. |
 | `belongsToSystemSection()` | `true` when the Tool is docked in the bundled "System" sidebar section. Defaults to `false`. v1.35.0+. |
+| `systemSectionOrder()` | Weight of the Tool inside the "System" section, lowest first. Defaults to `100`. v1.38.0+. |
 | `menuCount(Request)` | Sidebar count badge for this tool. Returns `null` (no badge) by default. Override to return a count. v1.29.0+. |
 | `showMenuCount()` | Whether the count badge renders. Defaults to `true`; the badge only appears when `menuCount()` also returns non-null. v1.29.0+. |
 | `meta()` | The accumulated metadata array (mirrors what `withMeta()` set). |
 | `withIcon(string)` | Phosphor icon for the menu entry. Chainable. |
 | `withComponent(string)` | React component key. The frontend looks this up in `componentRegistry`. Chainable. |
 | `withMenuSection(?string)` | Optional menu section label. Chainable. |
-| `withSystemSection(bool $value = true)` | Dock the Tool in the bundled "System" section (with the audit log, the System-section resources and the Cache admin link). Wins over `withMenuSection()`. Chainable. v1.35.0+. |
+| `withSystemSection(bool $value = true, ?int $order = null)` | Dock the Tool in the bundled "System" section (with the audit log, the System-section resources and the Cache admin link). Wins over `withMenuSection()`. `order:` sets `systemSectionOrder()` (v1.38.0+); `null` keeps the current weight. Chainable. v1.35.0+. |
 | `withMeta(array)` | Merge arbitrary descriptor data; surfaced verbatim to the React component. Chainable. |
 | `breadcrumb()` | Breadcrumb override getter. Returns `null` when the breadcrumb tracks `name()` (default). v1.10.3+. |
 | `withBreadcrumb(?string)` | Override the breadcrumb label without touching `name()`. Pass `null` to clear. Chainable. v1.10.3+. |
@@ -142,6 +143,7 @@ Subclasses may override the getter instead (`public function belongsToSystemSect
 What changes for an opted-in Tool:
 
 - It renders inside the **single** bundled System section, after the System-section resources and before the "System cache" link. No section of its own is created, and `/api/navigation` carries one section labelled "System".
+- Its place in that section is a weight: `withSystemSection(order: 10)` lists it before every entry that keeps the default `100` (the resources included), a weight above `1000` after the cache link. Equal weights keep the natural order. See [Menus → Order inside the System section](menus.md#order-inside-the-system-section-v1380) (v1.38.0+).
 - `menuSection()` / `withMenuSection()` are ignored for it (the opt-in wins).
 - The command palette (⌘K) tags it "System", the same label the sidebar uses.
 - Its `menuCount()` badge keeps working, including the `/api/navigation/badges` poll (`tool:{uriKey}` key).
@@ -370,7 +372,7 @@ Bind a React component to the key your PHP tool declared:
 
 ```ts
 // resources/js/martis-extensions/index.ts
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { FinanceImportsTool } from './tools/FinanceImportsTool'
 
 componentRegistry.register('tool:imports', FinanceImportsTool)
@@ -415,20 +417,14 @@ php artisan martis:tool SystemStatus [flags]
 | Flag | Effect |
 |---|---|
 | `--with-component` | Also drop a TSX stub at `resources/js/martis-extensions/tools/{Name}.tsx` (no `Tool` filename suffix). The auto-discovery entry registers it against the derived key automatically; no manual `componentRegistry.register` call required. |
-| `--component-key=foo` | Use `foo` as the React component key instead of the auto-generated `tool:{kebab-name}`. |
+| `--component-key=foo` | Use `foo` as the React component key instead of the auto-generated `tool:{kebab-name}` (kebab case with an acronym kept whole: `SEOReport` is `tool:seo-report`). With `--with-component`, the entry still registers the TSX under `tool:{kebab-name}`, so the command prints the `register()` call that binds it to `foo` in `resources/js/martis-extensions/index.ts`. |
 | `--use-bundled` | Bind to the package-bundled `martis:tool:system-status-demo` component so the Tool renders out of the box without writing TSX. |
 | `--menu-section="Operations"` | Embed `withMenuSection('Operations')` in the generated stub. |
 | `--system-section` | Embed `withSystemSection()` in the generated stub so the Tool docks in the bundled "System" section. Wins over `--menu-section` (a warning is printed when both are given). v1.35.0+. |
 | `--icon=wrench` | Phosphor icon for the menu entry (default `wrench`). |
 | `--force` | Overwrite the file if it already exists. |
 
-After the command finishes, the CLI prints a "next steps" block with:
-
-1. The exact `Martis::tools([...])` registration snippet for your service provider.
-2. The `MenuItem::tool(...)` line to copy into your menu.
-3. The `componentRegistry.register('...', ...)` call to add under `resources/js/martis-extensions/` (auto-discovered) (or a note that you used `--use-bundled`).
-
-You should not need to alt-tab to the docs after running it.
+After the command finishes, the CLI prints the next step: with `--with-component`, the build reminder (`npm run build:extensions`), preceded by the `componentRegistry.register(...)` call to add to `resources/js/martis-extensions/index.ts` when `--component-key` names a key the file name does not derive; with `--use-bundled`, a note that no build is needed; otherwise the two ways to bind a component to the key. The Tool class itself is auto-registered (see [the five-minute Tool path](installation-guide.md#the-five-minute-tool-path)).
 
 ## Distribution patterns
 

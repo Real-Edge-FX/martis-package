@@ -9,6 +9,8 @@ import { ArrowSquareOutIcon, CaretDownIcon, MagnifyingGlassIcon, XIcon, CheckIco
 import { InlineCreateModal } from '@/components/InlineCreateModal'
 import { useQueryClient } from '@tanstack/react-query'
 import { recordHref } from '@/lib/recordHref'
+import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
+import { relatableUrl, withQuery } from '@/lib/relatableEndpoint'
 // Tooltip handled by global <Tooltip> in Layout.tsx
 
 interface MorphToValue {
@@ -21,6 +23,8 @@ interface MorphToValue {
 interface MorphTypeOption {
   value: string // resource URI key
   label: string // singular label
+  /** The related resource's policy allows the user to create a record of this type. */
+  authorizedToCreate?: boolean
 }
 
 function isMorphToValue(v: unknown): v is MorphToValue {
@@ -248,7 +252,7 @@ interface RelatedRecord {
   [key: string]: unknown
 }
 
-export function MorphToFieldInput({ field, value, onChange, error, resourceKey, recordId }: FieldInputProps) {
+export function MorphToFieldInput({ field, value, onChange, error, resourceKey, recordId, context, actionEndpoint, pivotEndpoint, repeaterRow }: FieldInputProps) {
   const { t: tMsg } = useTranslation('messages')
   const morphTypes = (field as unknown as Record<string, unknown>).morphTypes as MorphTypeOption[] | undefined
   const titleAttribute = (field as unknown as Record<string, unknown>).titleAttribute as string | undefined
@@ -257,6 +261,10 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
   const fieldModalSize = ((field as unknown as Record<string, unknown>).modalSize as string) || '2xl'
   const withSubtitles = (field as unknown as Record<string, unknown>).withSubtitles === true
   const subtitleAttribute = ((field as unknown as Record<string, unknown>).subtitleAttribute as string) || 'subtitle'
+  // `relationSearchable(false)`: no search box, so the list shows as many
+  // options as the relatable endpoint returns (it caps a page at 100).
+  const relationSearchable = (field as unknown as Record<string, unknown>).relationSearchable !== false
+  const perPage = relationSearchable ? 20 : 100
 
   const qc = useQueryClient()
 
@@ -313,10 +321,10 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     }
   }, [open])
 
-  // Get current resource context for relatable endpoint.
+  // The form (or Action, pivot fields, Repeater row) the picker renders in
+  // scopes the relatable endpoint.
   const params = useParams<{ resource?: string; id?: string }>()
-  const sourceResource = resourceKey ?? params.resource
-  const sourceId = recordId != null ? String(recordId) : (params.id ?? '_')
+  const scopedUrl = relatableUrl(field.attribute, { resourceKey, recordId, context, actionEndpoint, pivotEndpoint, repeaterRow }, params)
 
   // Fetch options for the selected type
   const fetchOptions = useCallback(async (query: string) => {
@@ -325,9 +333,9 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     setLoading(true)
     try {
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
-      const endpoint = sourceResource
-        ? `/api/resources/${sourceResource}/${sourceId}/relatable/${field.attribute}?per_page=20&related_resource=${selectedType}${searchParam}`
-        : `/api/resources/_/_/relatable/${field.attribute}?per_page=20&related_resource=${selectedType}${searchParam}`
+      const endpoint = scopedUrl
+        ? withQuery(scopedUrl, `per_page=${perPage}&related_resource=${selectedType}${searchParam}`)
+        : `/api/resources/_/_/relatable/${field.attribute}?per_page=${perPage}&related_resource=${selectedType}${searchParam}`
       const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
     } catch {
@@ -335,14 +343,15 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     } finally {
       setLoading(false)
     }
-  }, [selectedType, sourceResource, sourceId, field.attribute])
+  }, [selectedType, scopedUrl, field.attribute, perPage])
 
-  // Load options when dropdown opens
+  // Load the options of the picked type while the dropdown is open: when it
+  // opens, and again if the type or the scope changes under it.
   useEffect(() => {
     if (open && selectedType) {
       void fetchOptions('')
     }
-  }, [open, selectedType])
+  }, [open, selectedType, fetchOptions])
 
   // Debounced search
   function handleSearchChange(query: string) {
@@ -354,16 +363,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
   }
 
   function getOptionLabel(record: RelatedRecord): string {
-    if (titleAttribute && record[titleAttribute] !== undefined && record[titleAttribute] !== null) {
-      return String(record[titleAttribute])
-    }
-    if (record._title) return record._title
-    for (const attr of ['name', 'title', 'label', 'email']) {
-      if (record[attr] !== undefined && record[attr] !== null) {
-        return String(record[attr])
-      }
-    }
-    return `#${record.id}`
+    return relatedRecordLabel(record, titleAttribute)
   }
 
   function getOptionSubtitle(record: RelatedRecord): string | null {
@@ -415,17 +415,30 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     onChange(null)
   }
 
+  // The inline-create modal reports the record it created from the render
+  // that submitted it, so the readonly flag is read live when it settles.
+  const readonlyRef = useRef(field.readonly)
+  readonlyRef.current = field.readonly
+
   function handleInlineCreated(record: { id: string | number; title: string | null }) {
+    setShowInlineCreate(false)
+    void qc.invalidateQueries({ queryKey: ['relatable'] })
+    // A field that turned readonly while the record was being created keeps
+    // its value: the save would drop the new one.
+    if (readonlyRef.current) return
     setSelectedId(record.id)
     setSelectedLabel(record.title ?? String(record.id))
-    setShowInlineCreate(false)
     onChange({ resourceType: selectedType, id: record.id, title: record.title })
-    void qc.invalidateQueries({ queryKey: ['relatable'] })
   }
 
   const hideCreateButton = (field as unknown as Record<string, unknown>).hideCreateButton === true
-  const canShowCreateButton = showCreateRelationButton && !!selectedType && !hideCreateButton
-  const selectedTypeLabel = morphTypes?.find(t => t.value === selectedType)?.label ?? selectedType
+  const selectedTypeOption = morphTypes?.find(t => t.value === selectedType)
+  // `showCreateRelationButton` holds when the user can create any of the
+  // types; each type carries its own flag. A readonly field (an `immutable()`
+  // one on an update form) keeps its value, so it offers no inline create.
+  const canShowCreateButton = showCreateRelationButton && !!selectedType && !hideCreateButton && !field.readonly
+    && selectedTypeOption?.authorizedToCreate !== false
+  const selectedTypeLabel = selectedTypeOption?.label ?? selectedType
 
   return (
     <div ref={containerRef} className="space-y-2">
@@ -527,17 +540,19 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
           {/* Dropdown panel */}
           {open && (
             <div className="martis-belongs-to-dropdown">
-              <div className="martis-belongs-to-search">
-                <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={search}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder={tMsg('morph_to_search_placeholder', 'Search...')}
-                  className="martis-belongs-to-search-input"
-                />
-              </div>
+              {relationSearchable && (
+                <div className="martis-belongs-to-search">
+                  <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={search}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    placeholder={tMsg('morph_to_search_placeholder', 'Search...')}
+                    className="martis-belongs-to-search-input"
+                  />
+                </div>
+              )}
 
               <div className="martis-belongs-to-options">
                 {loading && options.length === 0 ? (

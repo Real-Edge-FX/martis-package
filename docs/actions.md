@@ -467,6 +467,69 @@ public function handle(ActionFields $fields, Collection $models): ActionResponse
 }
 ```
 
+### Fields the request cannot set
+
+As Nova resolves an Action's fields, the run takes a value from the request only for the fields the user may set (v1.38.0+). A field the request cannot set is not validated, and `handle()` receives its `default()` whatever the request sends, or no value at all when it has no default:
+
+| Action field | In the modal | Validated | What `handle()` receives |
+|---|---|---|---|
+| hidden by `canSee()` / `canSeeWhen()` | no | no | its `default()`, or nothing |
+| `readonly()` | yes, read-only | no | its `default()`, or nothing |
+| `computed()` | yes | no | nothing |
+| any other field | yes | yes | the value the request sends |
+
+```php
+public function fields(Request $request): array
+{
+    return [
+        Textarea::make('message', 'Message')->required(),
+        // Admins pick the channel; everyone else runs with `email`.
+        Select::make('channel', 'Channel')
+            ->optionsFromMap(['email' => 'Email', 'sms' => 'SMS'])
+            ->default('email')
+            ->canSee(fn (Request $request) => $request->user()?->isAdmin() ?? false),
+        // Shown, never set by the user.
+        Text::make('reference', 'Reference')->readonly()->default(fn () => 'REF-'.now()->format('Ymd')),
+    ];
+}
+```
+
+A user who cannot see `channel` runs the action with `channel` = `email` even when the request says `sms`, and `reference` always holds the server's default.
+
+The rows of a `Repeater` among the fields follow the Repeater's row rules, every row being a new one (an Action stores nothing): a readonly or hidden row field holds its `default()` or nothing, a computed one nothing, and an immutable one the value the row sends. See [Repeater → Readonly, computed, hidden and immutable row fields](repeater.md#readonly-computed-hidden-and-immutable-row-fields).
+
+This holds for a resource action and a [pivot action](#pivot-actions), synchronous, dry run or queued (the job receives the same values). A key of `fields` that names no field of the Action reaches `handle()` as sent: a [custom component](#custom-component-martis-extension) posts its own values that way, so check such a value like any other input.
+
+Before v1.38.0 the fields endpoints listed every field of the Action, the run validated every field (a required field the user could not see failed the run) and `handle()` received every value the request sent, a hidden, readonly or computed field and the fields of a Repeater's rows included.
+
+### Relation fields
+
+`BelongsTo`, `MorphTo` and `Tag` fields work in `fields()` as on a resource form. Their pickers load options from the Action itself, `GET /api/resources/{resource}/actions/{action}/relatable/{attribute}`, which reads the Action's declaration of the field: its related resource, `relatableQueryUsing()` and `withoutTrashed()` apply, even when the resource declares a field under the same attribute. The usual [relatable scoping](relationships.md#relatable-scoping-precedence) runs first: the target resource's `relatableQuery()`, then the `relatable{PluralModelName}()` hook of the resource the Action runs on.
+
+```php
+use Illuminate\Database\Eloquent\Builder;
+use Martis\Fields\BelongsTo;
+use Martis\Fields\Tag;
+
+public function fields(Request $request): array
+{
+    return [
+        BelongsTo::make('assignee', 'Assignee', UserResource::class)
+            ->relatableQueryUsing(fn (Request $request, Builder $query) => $query->where('active', true)),
+
+        Tag::make('labels', 'Labels')->relatedResource('labels'),
+    ];
+}
+```
+
+The endpoint is gated like running the Action (403 without `viewAny` on the resource, or when the Action's `canSee()` denies), then like every picker (403 without `viewAny` on the related resource), and answers 404 for an attribute the Action does not declare as a `BelongsTo`, `MorphTo` or `Tag`, and for one the user cannot see (the field's `canSee()`, v1.38.0+). The scope decides what the picker lists; `handle()` receives the submitted value under the field's attribute (`$fields->assignee_id` for the `BelongsTo` above) and should check it like any other input.
+
+The modal of a [pivot action](#pivot-actions) asks the relationship panel instead, `GET /api/resources/{resource}/{id}/{belongs-to-many|morph-to-many}/{relationship}/actions/{action}/relatable/{attribute}`: it finds the action where the panel's fields endpoint finds it (the field's `->actions()`, then the resource's `->pivotAction()` ones), behind the same gates, and reads the action's declaration of the field with the parent resource as the source of the relatable hooks.
+
+A picker in a row of a `Repeater` among the Action's fields adds the row to either request (`?repeater={attribute}&repeatable={type}`), and the field is read from that row type's `fields()` (v1.38.0+, see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)).
+
+> Before v1.38.0 these pickers asked the page's resource for the attribute: one only the Action declares answered 404 and the picker opened empty, and one the resource also declares listed the resource's options instead of the Action's.
+
 ---
 
 ## Post-processing with then()
@@ -823,7 +886,9 @@ ActionController::execute()
   3. Check canSee() — 403 if unauthorized
   4. Load Eloquent models by the IDs in "resources"
   5. Check canRun() per model — 403 if any unauthorized
-  6. Validate fields against action->fields() rules
+  6. Validate the fields the request may set against their rules
+     (a hidden, readonly or computed field is not validated and gets its
+     default(); see "Fields the request cannot set")
   7. Capture model attribute snapshots (state BEFORE execution)
          │
          ▼
@@ -886,6 +951,7 @@ Key points:
 - `original` and `changes` store **only the diff** — unchanged attributes are not stored
 - `fields` holds the values the user submitted in the action modal
 - For standalone actions, `actionable_type/id` are `null` (no model targeted)
+- For a [pivot action](#pivot-actions), one row per selected related record with Nova's mapping: `actionable` is the record whose relationship panel ran the action, `target` the related record, `model` its pivot row (the pivot class, and the pivot key when the table has one), and `original` / `changes` hold the pivot columns the action changed (v1.38.0+)
 
 ### Querying the audit log
 
@@ -945,12 +1011,12 @@ php artisan migrate
 | `batch_id` | `uuid` | Groups per-model records from a single bulk execution |
 | `user_id` | `int\|null` | ID of the user who triggered the action |
 | `name` | `string` | Action display name (e.g. "Publish Posts") |
-| `actionable_type` | `string\|null` | Polymorphic model class (e.g. `App\Models\Post`) |
-| `actionable_id` | `int\|null` | ID of the target model |
-| `target_type` | `string\|null` | Target model class (for pivot actions) |
-| `target_id` | `int\|null` | Target model ID |
-| `model_type` | `string\|null` | Source model class |
-| `model_id` | `int\|null` | Source model ID |
+| `actionable_type` | `string\|null` | Polymorphic model class (e.g. `App\Models\Post`); for a pivot action, the class of the record whose panel ran it |
+| `actionable_id` | `int\|null` | ID of the target model; for a pivot action, that record's ID |
+| `target_type` | `string\|null` | Target model class; for a pivot action, the related record's class |
+| `target_id` | `int\|null` | Target model ID; for a pivot action, the related record's ID |
+| `model_type` | `string\|null` | Source model class; for a pivot action, the pivot class |
+| `model_id` | `int\|null` | Source model ID; for a pivot action, the pivot row's key (`null` when the pivot table has none) |
 | `fields` | `json` | Submitted action field values |
 | `status` | `string` | `completed`, `failed`, or `queued` |
 | `exception` | `text` | Error message on failure (empty string on success) |
@@ -1167,7 +1233,9 @@ Enable dry-run when registering:
 BulkArchivePosts::make()->withDryRun()
 ```
 
-The UI shows a **Preview** button alongside the Confirm button. Clicking Preview calls `dryRun()` and displays the result without running `handle()`.
+The UI shows a **Preview** button alongside the Confirm button, in the resource action modal and in the [pivot action](#pivot-actions) modal. Clicking Preview calls `dryRun()` and shows the result in the modal without running `handle()`: the `preview` text first, then every other key the array returns. The modal stays open, so the user can run the action or cancel; changing a field clears the preview. A dry-run action always opens its modal, even with no fields and no confirmation, so Preview is on offer before anything runs.
+
+Before v1.38.0 the resource modal took the preview answer for a finished run (a success toast, the modal closed and the list refreshed, though nothing had run), and an action with no fields and no confirmation ran before Preview could be offered.
 
 ---
 
@@ -1185,14 +1253,84 @@ Register the component in the frontend registry. The component receives `action`
 
 ## Pivot Actions
 
-Actions can run on BelongsToMany pivot rows instead of the primary model:
+A pivot action runs on records attached through a `BelongsToMany` or `MorphToMany` relationship, from that relationship's panel on the detail page: select rows, then pick the action from the panel's dropdown. `handle()` receives the related models loaded through the relationship, so each one carries its pivot row, including the pivot fields the relationship field declares:
 
 ```php
-RemoveTag::make()
-    ->pivotAction()
-    ->referToPivotAs('tag assignment')
-    ->icon('tag')
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Martis\Actions\Action;
+use Martis\Actions\ActionFields;
+use Martis\Actions\ActionResponse;
+use Martis\Fields\Select;
+
+class SetTagPriority extends Action
+{
+    public function handle(ActionFields $fields, Collection $models): ActionResponse
+    {
+        foreach ($models as $tag) {
+            $tag->pivot->priority = $fields->get('priority');
+            $tag->pivot->save();
+        }
+
+        return ActionResponse::message('Priority updated.');
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Select::make('priority', 'Priority')
+                ->optionsFromMap(['low' => 'Low', 'normal' => 'Normal', 'high' => 'High'])
+                ->required(),
+        ];
+    }
+}
 ```
+
+Declare it on the relationship field to show it on that relationship's panel only, as Nova's `->actions()` does:
+
+```php
+MorphToMany::make('Tags', 'tags', TagResource::class)
+    ->fields(fn () => [
+        Select::make('priority', 'Priority')
+            ->optionsFromMap(['low' => 'Low', 'normal' => 'Normal', 'high' => 'High']),
+    ])
+    ->actions(fn (Request $request) => [
+        SetTagPriority::make(),
+    ])
+```
+
+`BelongsToMany` takes the same `->actions()`. The closure receives the current request, and an action declared there does not need `->pivotAction()`.
+
+A resource action flagged `->pivotAction()` shows on **every** `BelongsToMany` and `MorphToMany` panel of the resource instead, after the actions the field declares. When a field action and a resource pivot action share a URI key, the field's action wins on that panel.
+
+```php
+public function actions(Request $request): array
+{
+    return [
+        RemoveTag::make()
+            ->pivotAction()
+            ->referToPivotAs('tag assignment')
+            ->icon('tag'),
+    ];
+}
+```
+
+`referToPivotAs()` labels the panel's dropdown (**Actions** by default); actions with different labels get one dropdown each. `canSee()`, `canRun()`, `sole()`, `standalone()` and the validation of the action's `fields()` apply as they do on the resource, and so do the rules for the [fields the request cannot set](#fields-the-request-cannot-set).
+
+Running a pivot action also needs the policy a resource action checks, asked of the record whose relationship panel runs it (v1.38.0+): `runAction` on its resource's policy, falling back to `update`, or for a `DestructiveAction`, `runDestructiveAction`, falling back to `delete`. A user who may only view the parent record cannot run a pivot action on its rows; before v1.38.0 only `canSee()` and `canRun()` gated one.
+
+A pivot action runs like a resource action (v1.38.0+):
+
+- **Dry run.** `withDryRun()` adds a Preview button to the pivot action modal; it posts the same body with `dryRun: true`, and the modal shows what `dryRun()` returns (the related models carry their `pivot`) without running `handle()`.
+- **Queue.** An action implementing `ShouldQueue` is dispatched as `Martis\Actions\Jobs\ExecutePivotAction` (on the action's `$connection` / `$queue` when it declares them). The job reloads the selected rows through the parent's relationship, with the pivot columns the field declares, so `handle()` receives the same models it would receive synchronously.
+- **Action event log.** Every run writes one `ActionEvent` per selected row, `completed`, `failed` or `queued` (a queued run settles its rows when the job ends), with the parent record as `actionable`, the related record as `target` and the pivot row as `model`; `original` / `changes` hold the pivot columns the action changed. `withoutActionEvents()` and `martis.action_events.enabled` switch it off, as on the resource. See [What lands in martis_action_events](#what-lands-in-martis_action_events).
+- **Errors.** A failed run answers with the same generic message as a resource action; the exception text goes to the log and the action event, never to the response.
+
+Before v1.38.0 a pivot action always ran synchronously: `ShouldQueue` and `withDryRun()` were ignored, no action event was written, and a failed run returned the exception message to the client.
+
+The pivot action routes (see the [API Reference](#api-reference)) resolve `{relationship}` only to a relationship field the resource declares with the route's type (`BelongsToMany` on `belongs-to-many`, `MorphToMany` on `morph-to-many`, nested layouts included). Any other name answers 404 without calling a model method.
+
+> Before v1.38.0 a `MorphToMany` panel requested pivot action endpoints that did not exist (a 404 on every render), so its pivot actions never showed or ran; the `->actions()` closure of both fields was stored and never read; and the `belongs-to-many` routes called whatever parent model method `{relationship}` named, so a user who could view the parent and see one pivot action could run its `delete()`.
 
 ---
 
@@ -1201,9 +1339,14 @@ RemoveTag::make()
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/resources/{resource}/actions` | List available actions (filter with `?context=index\|detail\|inline`) |
-| `GET` | `/api/resources/{resource}/actions/{action}/fields` | Get action fields |
+| `GET` | `/api/resources/{resource}/actions/{action}/fields` | Get action fields (without the ones the user cannot see) |
+| `GET` | `/api/resources/{resource}/actions/{action}/relatable/{attribute}` | Options of a `BelongsTo` / `MorphTo` / `Tag` the action declares (see [Relation fields](#relation-fields)) |
 | `POST` | `/api/resources/{resource}/actions/{action}` | Execute action (bulk) |
 | `POST` | `/api/resources/{resource}/{id}/actions/{action}` | Execute action (single record) |
+| `GET` | `/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions` | List the pivot actions of a relationship panel (see [Pivot Actions](#pivot-actions)) |
+| `GET` | `/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions/{action}/fields` | Get pivot action fields (without the ones the user cannot see) |
+| `GET` | `/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions/{action}/relatable/{attribute}` | Options of a `BelongsTo` / `MorphTo` / `Tag` the pivot action declares (see [Relation fields](#relation-fields)) |
+| `POST` | `/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions/{action}` | Execute a pivot action on attached records (`resources` holds related ids) |
 
 ### Execute request body
 

@@ -2,6 +2,8 @@
 
 namespace Martis\Layout;
 
+use Martis\Contracts\FieldContract;
+use Martis\Contracts\FiltersFields;
 use Martis\Contracts\LayoutContract;
 use Martis\FieldContext;
 
@@ -19,7 +21,7 @@ use Martis\FieldContext;
  *
  * @phpstan-consistent-constructor
  */
-class TabGroup implements LayoutContract
+class TabGroup implements FiltersFields, LayoutContract
 {
     /** @var list<Tab> */
     protected array $tabs;
@@ -64,6 +66,34 @@ class TabGroup implements LayoutContract
 
         $clone = clone $this;
         $clone->tabs = $filtered;
+
+        return $clone;
+    }
+
+    /**
+     * Return a new TabGroup holding only the fields `$keep` accepts: each
+     * tab keeps those it holds, and a tab left with none is left out. Null
+     * when no tab is left (see `Field::filterLayoutFields()`).
+     *
+     * @param  \Closure(FieldContract): bool  $keep
+     */
+    public function filterFields(\Closure $keep): ?static
+    {
+        $tabs = [];
+
+        foreach ($this->tabs as $tab) {
+            $filtered = $tab->filterFields($keep);
+            if ($filtered !== null) {
+                $tabs[] = $filtered;
+            }
+        }
+
+        if ($tabs === []) {
+            return null;
+        }
+
+        $clone = clone $this;
+        $clone->tabs = $tabs;
 
         return $clone;
     }

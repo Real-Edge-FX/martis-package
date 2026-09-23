@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import type { FieldDefinition } from '@/types'
 import { useDependsOnSync } from '@/hooks/useDependsOnSync'
+import { lockImmutableFields } from '@/lib/lockImmutableFields'
+import { fieldErrorProps } from '@/lib/fieldErrors'
 
 export interface MartisFormOptions {
   fields: FieldDefinition[]
@@ -13,6 +15,7 @@ export interface MartisFormOptions {
    * still needs a `resourceKey`.
    */
   toolKey?: string
+  /** Defaults to `'create'`. On `'update'`, `resolvedFields` carries `immutable()` fields as `readonly`. */
   context?: 'create' | 'update'
   /**
    * Id of the record this form edits, when bound to one. Threaded to fields so
@@ -36,20 +39,31 @@ export interface MartisForm {
   values: Record<string, unknown>
   setValue: (attribute: string, value: unknown) => void
   setValues: (v: Record<string, unknown>) => void
+  /**
+   * One message per validated path, as `ApiError.errorsByField()` returns a
+   * 422: a field's own error under its attribute, the error of a value inside
+   * a field's value under its dotted path (`lines.1.fields.name`).
+   */
   errors: Record<string, string>
   setErrors: (e: Record<string, string>) => void
   resolvedFields: FieldDefinition[]
   resourceKey?: string
   toolKey?: string
   recordId?: string | number
+  /** The context the form was built with (`'create'` unless the options said `'update'`). */
+  context: 'create' | 'update'
   fieldProps: (field: FieldDefinition) => {
     field: FieldDefinition
     value: unknown
     onChange: (v: unknown) => void
     error?: string
+    /** The errors inside the field's value (a Repeater's rows), keyed by their path below the attribute. */
+    nestedErrors?: Record<string, string>
     resourceKey?: string
     recordId?: string | number
     toolKey?: string
+    /** The form's context, so an input knows it edits a stored record (a Repeater locks the immutable fields of its stored rows). */
+    context: 'create' | 'update'
     formValues: Record<string, unknown>
   }
 }
@@ -135,10 +149,13 @@ export function useMartisForm(options: MartisFormOptions): MartisForm {
     disabled: !resourceKey || Boolean(syncDisabled),
   })
 
+  // An update form renders an `immutable()` field read-only (every update
+  // endpoint skips it). Applied after the dependsOn overrides, which carry
+  // the flag the way the schema does.
   const resolvedFields = useMemo(() => {
-    if (overrides.size === 0) return fields
-    return applyOverrides(fields, overrides) as FieldDefinition[]
-  }, [fields, overrides])
+    const resolved = overrides.size === 0 ? fields : (applyOverrides(fields, overrides) as FieldDefinition[])
+    return context === 'update' ? lockImmutableFields(resolved) : resolved
+  }, [fields, overrides, context])
 
   const setValue = (attribute: string, value: unknown) => {
     setValues((prev) => ({ ...prev, [attribute]: value }))
@@ -151,12 +168,13 @@ export function useMartisForm(options: MartisFormOptions): MartisForm {
     field,
     value: values[field.attribute] ?? null,
     onChange: (v: unknown) => setValue(field.attribute, v),
-    error: errors[field.attribute],
+    ...fieldErrorProps(errors, field.attribute),
     resourceKey,
     recordId,
     toolKey,
+    context,
     formValues: values,
   })
 
-  return { values, setValue, setValues, errors, setErrors, resolvedFields, resourceKey, toolKey, recordId, fieldProps }
+  return { values, setValue, setValues, errors, setErrors, resolvedFields, resourceKey, toolKey, recordId, context, fieldProps }
 }

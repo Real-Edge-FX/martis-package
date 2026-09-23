@@ -10,8 +10,9 @@ use WeakMap;
  *
  * The {@see Repeater} field's `fill()` registers the normalised rows here
  * because they can only be persisted after the parent has been saved (and
- * therefore has a primary key). The ResourceController flushes the queue
- * via {@see self::sync()} right after `$model->save()`.
+ * therefore has a primary key). Every controller that saves a record
+ * through its fields flushes the queue via {@see self::sync()} right after
+ * `$model->save()` (see `SyncsDeferredWrites`).
  *
  * The underlying WeakMap releases each entry automatically once the parent
  * goes out of scope, so there is no long-lived state to clean up.

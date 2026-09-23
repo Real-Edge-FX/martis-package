@@ -222,6 +222,21 @@ it('sync-field rejects an empty field attribute', function () {
     $response->assertStatus(422);
 });
 
+it('sync-field rejects a field attribute that is not a string like an empty one (v1.38.0: 500)', function () {
+    $response = $this->postJson('/martis/api/resources/depends-on-test-models/sync-field', [
+        'field' => ['price'],
+        'context' => 'create',
+        'formData' => ['plan' => 'paid'],
+    ]);
+
+    $response->assertStatus(422);
+    expect($response->json())->toEqual($this->postJson('/martis/api/resources/depends-on-test-models/sync-field', [
+        'field' => '',
+        'context' => 'create',
+        'formData' => ['plan' => 'paid'],
+    ])->json());
+});
+
 // -----------------------------------------------------------------------------
 // update context binds the record before gating (v1.37.0)
 // -----------------------------------------------------------------------------

@@ -16,7 +16,9 @@ use Martis\ResourceRegistry;
  * Backs the live collision-check for Slug fields.
  *
  * Route: GET /martis/api/resources/{resource}/slug-check/{field}
- * Query: value (required), id (optional — excluded from the uniqueness probe)
+ * Query: value (required), id (optional: the record being edited; it is
+ *   excluded from the uniqueness probe and its update form answers, when
+ *   the user may update it)
  *
  * Response envelope: JsonResponse
  *   data.available  — bool; true if the value is free to use
@@ -42,8 +44,15 @@ class SlugController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $slugField = $this->findSlugField($resourceInstance, $field, $request);
-        if ($slugField === null) {
+        // The Slug of the form the check comes from: the update form when
+        // `id` names a record the user may update, the create forms
+        // otherwise, then fields(), so a slug declared on one form only (the
+        // inline-create modal included) resolves, and that form's separator
+        // and reserved list apply.
+        $rawId = $request->query('id');
+        [$formInstance, $formContext] = $this->resolveFormFromRecordId($request, $resourceClass, is_string($rawId) ? $rawId : null);
+        $slugField = $this->findFormField($formInstance, $request, $formContext, $field, [Slug::class], orFields: true);
+        if (! $slugField instanceof Slug) {
             return JsonErrorResponse::notFound("Slug field '{$field}' not found.")->toResponse();
         }
 
@@ -59,20 +68,25 @@ class SlugController extends MartisController
 
         $normalised = $slugField->generate($value);
 
+        // Only the record being edited is left out of the uniqueness probe:
+        // excluding a record the user may not update would tell its slug
+        // apart (taken without the id, free with it).
+        $excludeId = $formContext === 'update' ? $formInstance->getModel()?->getKey() : null;
+        $excludeId = is_string($excludeId) || is_int($excludeId) ? $excludeId : null;
+
         if (in_array($normalised, $slugField->getReserved(), true)) {
             return (new JsonResponse([
                 'available' => false,
-                'suggestion' => $this->suggest($resourceClass, $field, $normalised, $slugField, $request),
+                'suggestion' => $this->suggest($resourceClass, $field, $normalised, $slugField, $excludeId),
                 'reserved' => true,
             ]))->toResponse();
         }
 
-        $excludeId = $request->query('id');
-        $isTaken = $this->isTaken($resourceClass, $field, $normalised, is_string($excludeId) || is_int($excludeId) ? $excludeId : null);
+        $isTaken = $this->isTaken($resourceClass, $field, $normalised, $excludeId);
 
         return (new JsonResponse([
             'available' => ! $isTaken,
-            'suggestion' => $isTaken ? $this->suggest($resourceClass, $field, $normalised, $slugField, $request) : null,
+            'suggestion' => $isTaken ? $this->suggest($resourceClass, $field, $normalised, $slugField, $excludeId) : null,
             'reserved' => false,
         ]))->toResponse();
     }
@@ -98,11 +112,8 @@ class SlugController extends MartisController
      *
      * @param  class-string<\Martis\Resource>  $resourceClass
      */
-    private function suggest(string $resourceClass, string $field, string $base, Slug $slugField, Request $request): ?string
+    private function suggest(string $resourceClass, string $field, string $base, Slug $slugField, int|string|null $excludeId): ?string
     {
-        $excludeId = $request->query('id');
-        $excludeId = is_string($excludeId) || is_int($excludeId) ? $excludeId : null;
-
         for ($suffix = 2; $suffix <= 50; $suffix++) {
             $candidate = $base.$slugField->getSeparator().$suffix;
             if (in_array($candidate, $slugField->getReserved(), true)) {
@@ -114,47 +125,5 @@ class SlugController extends MartisController
         }
 
         return null;
-    }
-
-    private function findSlugField(object $resourceInstance, string $attribute, Request $request): ?Slug
-    {
-        // Search across every context where Slug may legitimately appear — a
-        // resource may only expose the Slug field on create/update forms.
-        $candidateMethods = ['fields', 'fieldsForCreate', 'fieldsForUpdate'];
-        foreach ($candidateMethods as $method) {
-            if (! method_exists($resourceInstance, $method)) {
-                continue;
-            }
-            /** @var list<mixed> $fields */
-            $fields = $resourceInstance->{$method}($request);
-            foreach ($this->flatten($fields) as $f) {
-                if ($f instanceof Slug && $f->attribute() === $attribute) {
-                    return $f;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Recursively flatten layout containers (Panel, Section, TabGroup) into a
-     * single list of Field instances.
-     *
-     * @param  iterable<mixed>  $items
-     * @return iterable<object>
-     */
-    private function flatten(iterable $items): iterable
-    {
-        foreach ($items as $item) {
-            if (is_object($item) && method_exists($item, 'flattenFields')) {
-                yield from $item->flattenFields();
-
-                continue;
-            }
-            if (is_object($item)) {
-                yield $item;
-            }
-        }
     }
 }

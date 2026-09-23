@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PlusIcon, TrashIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import type { FieldDisplayProps, FieldInputProps } from './types'
@@ -85,10 +85,28 @@ export function KeyValueFieldInput({ field, value, onChange, error }: FieldInput
   const actionText = (field as Record<string, unknown>).actionText as string | undefined
   const editingKeysDisabled = (field as Record<string, unknown>).editingKeysDisabled as boolean | undefined
   const addingRowsDisabled = (field as Record<string, unknown>).addingRowsDisabled as boolean | undefined
+  const deletingRowsDisabled = (field as Record<string, unknown>).deletingRowsDisabled as boolean | undefined
+  // `disableDeletingRows()` (with `disableEditingKeys()` / `disableAddingRows()`)
+  // presents a fixed set of keys: no row may leave the map.
+  const canDeleteRows = !deletingRowsDisabled && !field.readonly
+  const removeRowLabel = tMsg('remove_row', 'Remove row')
 
   const [rows, setRows] = useState<KeyValueRow[]>(() => toRows(value))
 
+  // The last value this input handed to `onChange`. A `value` prop that
+  // differs from it came from outside (the edit form seeding the stored
+  // rows after mount, a form reset) and replaces the rows; the form handing
+  // back what the input just emitted does not.
+  const emitted = useRef<unknown>(value)
+
+  useEffect(() => {
+    if (value === emitted.current) return
+    emitted.current = value
+    setRows(toRows(value))
+  }, [value])
+
   function emitChange(next: KeyValueRow[]) {
+    emitted.current = next
     setRows(next)
     onChange(next)
   }
@@ -99,7 +117,7 @@ export function KeyValueFieldInput({ field, value, onChange, error }: FieldInput
   }
 
   function removeRow(index: number) {
-    if (field.readonly) return
+    if (!canDeleteRows) return
     emitChange(rows.filter((_, i) => i !== index))
   }
 
@@ -123,7 +141,7 @@ export function KeyValueFieldInput({ field, value, onChange, error }: FieldInput
       <div className="flex gap-2 text-xs font-medium" style={{ color: 'var(--martis-text-muted)' }}>
         <div style={{ flex: 2 }}>{keyLabel ?? 'Key'}</div>
         <div style={{ flex: 3 }}>{valueLabel ?? 'Value'}</div>
-        <div style={{ width: '1.75rem' }} />
+        {canDeleteRows && <div style={{ width: '1.75rem' }} />}
       </div>
 
       {/* Rows */}
@@ -147,11 +165,12 @@ export function KeyValueFieldInput({ field, value, onChange, error }: FieldInput
             className="martis-input"
             style={{ ...inputBase, flex: 3 }}
           />
-          {!field.readonly && (
+          {canDeleteRows && (
             <button
               type="button"
               onClick={() => removeRow(i)}
-              data-pr-tooltip={tMsg('remove_row', 'Remove row')}
+              aria-label={removeRowLabel}
+              data-pr-tooltip={removeRowLabel}
               data-pr-position="top"
               style={{ color: 'var(--martis-text-muted)', width: '1.75rem', flexShrink: 0 }}
               className="flex items-center justify-center hover:text-red-500 transition-colors"

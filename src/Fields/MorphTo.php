@@ -286,6 +286,16 @@ class MorphTo extends Field
         return true;
     }
 
+    /**
+     * `fill()` only reads a target map and ignores any other value, so a
+     * bare id is harmless: the update forms up to v1.37.3 send one for an
+     * untouched target, and a morph key can be a string (ULID, UUID).
+     */
+    public function rejectsUnstructuredValue(): bool
+    {
+        return false;
+    }
+
     /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
@@ -310,7 +320,7 @@ class MorphTo extends Field
 
         // Value should be {type: 'App\Models\Post', id: 42} or {resourceType: 'posts', id: 42}
         if (is_array($value)) {
-            $morphType = $value['type'] ?? null;
+            $morphType = $this->allowedMorphType($value['type'] ?? null);
             $morphId = $value['id'] ?? null;
 
             // If resourceType provided instead of full class, resolve it
@@ -323,6 +333,33 @@ class MorphTo extends Field
                 $model->setAttribute($this->morphIdColumn, $morphId);
             }
         }
+    }
+
+    /**
+     * The submitted morph type when it names one of this field's types, by
+     * model class or by its morph-map alias; `null` otherwise, so a crafted
+     * request cannot point the relation at a model the field does not offer
+     * (the `resourceType` path is limited to `types()` the same way).
+     */
+    protected function allowedMorphType(mixed $type): ?string
+    {
+        if (! is_string($type) || $type === '') {
+            return null;
+        }
+
+        foreach ($this->morphTypes as $resourceClass) {
+            try {
+                $model = $resourceClass::newModel();
+            } catch (\Throwable) {
+                continue;
+            }
+
+            if ($type === get_class($model) || $type === $model->getMorphClass()) {
+                return $type;
+            }
+        }
+
+        return null;
     }
 
     /**

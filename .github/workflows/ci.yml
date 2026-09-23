@@ -138,3 +138,26 @@ jobs:
 
       - name: Run Vitest
         run: npm run test
+
+      - name: Lint (ESLint)
+        run: npm run lint -- --max-warnings=0
+
+      - name: Check the extension declarations are current
+        run: npm run build:types -- --check
+
+      - name: Check the committed build is current
+        run: |
+          # public/ ships the compiled SPA and stubs/extensions/ the
+          # generated declarations: a consumer gets what is committed, not
+          # what resources/js would build. Rebuild both and fail when the
+          # output differs from the commit (a changed, missing or new file).
+          # The build is deterministic: on Node 20 a Linux and a macOS build
+          # of the same commit are byte-identical, so a difference here is a
+          # stale commit, never the platform.
+          npm run build
+          changes="$(git status --porcelain -- public stubs/extensions)"
+          if [ -n "$changes" ]; then
+            echo "::error::public/ or stubs/extensions/ does not match the sources. Run npm run build and commit the output."
+            echo "$changes" | head -50
+            exit 1
+          fi

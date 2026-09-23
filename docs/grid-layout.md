@@ -69,6 +69,8 @@ Grid layout applies to **`create`**, **`update`**, and **`detail`** views.
 
 On index views, fields are flattened into table columns — Section containers have no effect there.
 
+Spans place a field inside a grid: the body of a `Section`, a `Panel` or a `Tab`, on the create, update and detail pages and in the create, update and detail drawers. A field declared outside any layout container is a full-width row of the form, whatever its span.
+
 ---
 
 ## API Reference
@@ -146,23 +148,30 @@ Id::make('id')->span(4)             // one third
 
 ### Advanced: colSpan / colSpanMd / colSpanLg
 
-For fine-grained responsive control, use the breakpoint-specific variants:
+For fine-grained responsive control, use the breakpoint-specific variants (v1.38.0+):
 
 ```php
 Text::make('name')
-    ->colSpan(12)     // all breakpoints: full width (default)
+    ->colSpan(12)     // base span: full width (default)
     ->colSpanMd(6)    // >= 768px: half width
     ->colSpanLg(4)    // >= 1024px: one third
 ```
 
-| Method        | Breakpoint | Fallback           |
-|---------------|------------|--------------------|
-| `colSpan()`   | all        | 12                 |
-| `colSpanMd()` | >= 768px   | inherits `colSpan` |
-| `colSpanLg()` | >= 1024px  | inherits `colSpanMd` |
+The three methods form a mobile-first cascade, like Tailwind's `col-span-* md:col-span-* lg:col-span-*`:
+
+| Method        | Applies from    | Fallback                                 |
+|---------------|-----------------|------------------------------------------|
+| `colSpan()`   | `md` (768px)    | 12 (full row)                            |
+| `colSpanMd()` | `md` (768px)    | inherits `colSpan()`                     |
+| `colSpanLg()` | `lg` (1024px)   | inherits `colSpanMd()`, then `colSpan()` |
+
+Below `md` every field takes the full row, whatever its spans (see [Responsiveness](#responsiveness)).
+Every tier is clamped to the grid it sits in: in a `columns(3)` section a span above 3 takes the full row.
 
 `span()` is an alias for `colSpan()` with a cleaner API suited for Section usage.
 Use `colSpanMd()` / `colSpanLg()` when you need breakpoint-specific control.
+
+> Before v1.38.0 `colSpanMd()` and `colSpanLg()` were serialised but never applied: every breakpoint used `colSpan()`.
 
 ---
 
@@ -362,6 +371,7 @@ Section::make('Project Details', [
 | Scope                | create/update/detail | create/update/detail |
 | Grid control         | fixed 12-col        | configurable        |
 | `span()` / `colSpan()` | ✅ (both work)    | ✅ (both work)      |
+| `colSpanMd()` / `colSpanLg()` | ✅          | ✅                  |
 | Collapsible          | ✅                  | ✅                  |
 | Can be placed inside a Tab | ✅           | ❌ (Tab accepts Panel, not Section) |
 
@@ -372,32 +382,53 @@ Use `Section` when you want configurable multi-column grid layout on forms or de
 
 ## Responsiveness
 
-Sections are fully responsive out of the box.
+Every field grid is responsive out of the box: the body of a Section, a Panel or a Tab, on the
+create, update and detail pages and in the drawers. The breakpoints are the ones the dashboard
+grid uses, `md` = 768px and `lg` = 1024px:
 
-- **Desktop / Tablet** (`>= 768px`): fields use their `span()` values within the section grid.
-- **Mobile** (`< 768px`): all fields collapse to full width, one per row. No gaps, no overlap.
+- **Mobile** (`< 768px`): every field takes the full row, one per row, whatever its spans. No gaps, no overlap.
+- **Tablet** (`>= 768px`): each field spans `colSpanMd()`, falling back to `span()` / `colSpan()`.
+- **Desktop** (`>= 1024px`): each field spans `colSpanLg()`, falling back to the tablet span.
 
-The mobile collapse is handled by a global CSS rule in `martis.css`:
-
-```css
-@media (max-width: 767px) {
-  .martis-section-grid > * {
-    grid-column: 1 / -1 !important;
-  }
-}
-```
-
-This behaviour is intentional and cannot be overridden per-field on mobile — a consistent
-single-column layout is always better than trying to fit a 3-column grid on a 375px screen.
+A field that only calls `span()` keeps that span on tablets and desktops. The mobile collapse is
+intentional and not configurable per field: a consistent single-column layout is always better
+than trying to fit a 3-column grid on a 375px screen.
 
 For fine-grained breakpoint control on tablet and desktop, use `colSpanMd()` and `colSpanLg()`:
 
 ```php
-Text::make('name')
-    ->span(12)         // mobile: full (always)
-    ->colSpanMd(6)     // tablet: half
-    ->colSpanLg(4)     // desktop: one third
+Section::make('Contact', [
+    Text::make('name')->colSpanLg(4),                  // tablet: full row, desktop: one third
+    Email::make('email')->colSpanMd(6)->colSpanLg(4),  // tablet: half, desktop: one third
+    Text::make('phone')->colSpanMd(6)->colSpanLg(4),   // tablet: half, desktop: one third
+])->columns(12)
 ```
+
+**How it is applied (v1.38.0+).** The SPA never writes `grid-column` inline. Each field grid
+carries the `.martis-field-grid` class and its track count as `--martis-field-columns`
+(`Section::columns()`, 12 for a Panel or a Tab); each field carries its resolved tiers as custom
+properties on the grid item (`--martis-field-span`, `--martis-field-span-md`,
+`--martis-field-span-lg`, each clamped to the grid), and `.martis-field-grid` in `martis.css`
+owns the placement per media query: `grid-column: 1 / -1` below `md`, then
+`span var(--martis-field-span-md)` and `span var(--martis-field-span-lg)`. A Section grid also
+carries `.martis-section-grid`; `.martis-form-grid` sets the gap (16px, 10px in the dense density).
+
+A theme overrides any tier with an ordinary rule, no `!important` needed. For example, to honour
+`colSpan()` on phones too:
+
+```css
+@media (max-width: 767px) {
+  .martis-field-grid > * {
+    grid-column: span var(--martis-field-span);
+  }
+}
+```
+
+Before v1.38.0 every field wrote `grid-column: span {colSpan}` inline: `colSpanMd()` /
+`colSpanLg()` were ignored, only Section grids collapsed on phones (through an `!important` rule
+on `.martis-section-grid`; Panel and Tab grids kept their spans at every width), and a span wider
+than `Section::columns()` added implicit columns to the section grid, squeezing the real ones,
+instead of taking the full row.
 
 ---
 
@@ -405,9 +436,11 @@ Text::make('name')
 
 - **Index views**: Sections are ignored — fields are flattened into table columns. Section containers have no effect on the index.
 - **Inline create (drawer)**: Sections are flattened for inline create. Every field inside a Section renders in the inline-create form, but the section header and multi-column grid are dropped — fields appear in the standard single-column label/input layout. To customise inline create fields independently, define `fieldsForInlineCreate()`.
-- **Span overflow**: `span()` / `colSpan()` values are clamped to `[1, 12]` server-side, regardless of the section's `columns()` setting. If a value still overflows the CSS grid at render time, the browser places the field on its own row — no error is thrown.
+- **Span overflow**: `span()` / `colSpan()` / `colSpanMd()` / `colSpanLg()` values are clamped to `[1, 12]` server-side, and to the grid's columns at render time: a field whose span is wider than its section's `columns()` takes the full row (v1.38.0+).
 - **Nested sections**: Sections cannot be nested. Use a flat structure with multiple
   top-level Sections instead.
 - **Mixed scalar + section**: You can mix top-level scalar fields and Sections in the same
-  `fieldsForCreate()`. Scalar fields render in the traditional label/input layout below
-  all sections, while Sections render above the form as grouped cards.
+  `fieldsForCreate()`. On create and update forms they render in declaration order; on the
+  detail page the loose scalar fields are grouped in the Details panel below the layout
+  containers. A loose scalar field is always a full-width row: spans only apply inside a
+  Section, Panel or Tab grid.

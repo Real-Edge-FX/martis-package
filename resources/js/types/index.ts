@@ -280,33 +280,96 @@ export interface ProgressMetricData {
 // Field & Resource schema types (Bloco 8)
 // -------------------------------------------------------------------------
 
-export type FieldType =  | 'text'  | 'textarea'  | 'number'  | 'boolean'  | 'select'  | 'date'  | 'datetime'  | 'belongs_to'  | 'id'  | 'email'  | 'password'  | 'heading'  | 'hidden'  | 'file'  | 'image'  | 'key_value'  | 'badge'  | 'status'  | 'multi_select'  | 'tag'  | 'url'  | 'code'  | 'color'  | 'markdown'  | 'trix'  | 'country'  | 'currency'  | 'sparkline'  | 'gravatar'
-  | 'has_many'
+/**
+ * The `type` of a field: one of the fields the package ships (each PHP
+ * field's `type()`, checked by `fieldDefinition.test.tsx`), or the type of
+ * a custom field (`martis:field` generates one).
+ */
+export type FieldType =
+  | 'audio'
+  | 'avatar'
+  | 'badge'
+  | 'belongs_to'
   | 'belongs_to_many'
-  | 'morph_to'
+  | 'boolean'
+  | 'boolean_group'
+  | 'code'
+  | 'color'
+  | 'country'
+  | 'currency'
+  | 'date'
+  | 'datetime'
+  | 'email'
+  | 'file'
+  | 'gravatar'
+  | 'has_many'
+  | 'has_many_through'
   | 'has_one'
+  | 'has_one_of_many'
+  | 'has_one_through'
+  | 'heading'
+  | 'hidden'
+  | 'icon'
+  | 'id'
+  | 'image'
+  | 'key_value'
+  | 'line'
+  | 'markdown'
   | 'morph_many'
   | 'morph_one'
+  | 'morph_one_of_many'
+  | 'morph_to'
   | 'morph_to_many'
+  | 'multi_select'
+  | 'number'
+  | 'password'
+  | 'password_confirmation'
+  | 'repeater'
+  | 'select'
+  | 'slug'
+  | 'sparkline'
+  | 'stack'
+  | 'status'
+  | 'tag'
+  | 'text'
+  | 'textarea'
+  | 'timezone'
+  | 'trix'
+  | 'ui_avatar'
+  | 'url'
+  | (string & {})
 
 export interface SelectOption {
   value: string | number
   label: string
 }
 
+/**
+ * A field as the forms, displays and tables render it. The server sends
+ * every flag below (`Field::toArray()`); a definition written by hand, such
+ * as a Tool's own field set for `useMartisForm({ fields })`, needs only
+ * `attribute`, `label` and `type`. An absent flag reads as off, and the
+ * client never reads `showOn*` or `rules` (the server resolves visibility
+ * and validation).
+ */
 export interface FieldDefinition {
   attribute: string
   label: string
   type: FieldType
-  nullable: boolean
-  readonly: boolean
-  required: boolean
-  sortable: boolean
-  searchable: boolean
-  showOnIndex: boolean
-  showOnDetail: boolean
-  showOnForms: boolean
-  rules: string[]
+  nullable?: boolean
+  readonly?: boolean
+  /**
+   * Writable on create, skipped on update (PHP `Field::immutable()`). The
+   * update forms render the field read-only, as for `readonly`.
+   */
+  immutable?: boolean
+  required?: boolean
+  sortable?: boolean
+  searchable?: boolean
+  showOnIndex?: boolean
+  showOnDetail?: boolean
+  showOnForms?: boolean
+  rules?: string[]
   /** Per-column width metadata resolved from `->width()/minWidth/maxWidth/truncate()` + type defaults. */
   column?: {
     width?: string | null
@@ -403,6 +466,12 @@ export interface ResourceMessages {
   restored: string
   deleteConfirm: string
   archiveConfirm: string
+  /** `Resource::forceDeletedMessage()`. */
+  forceDeleted?: string
+  /** `Resource::replicatedMessage()`: the toast after a Replicate creates the copy. */
+  replicated?: string
+  /** `Resource::forceDeleteConfirmMessage()`. */
+  forceDeleteConfirm?: string
 }
 
 
@@ -559,6 +628,13 @@ export interface ResourceRecord {
    * current user cannot execute on this specific row.
    */
   _actionAuthorization?: Record<string, boolean>
+  /**
+   * The attributes of the fields this record hides from the user (a field's
+   * `canSeeForModel()`): the record carries no value for them, and the pages
+   * leave them out of the schema's field lists they render. Absent when the
+   * record hides no field. v1.38.0.
+   */
+  _hidden?: string[]
   [key: string]: unknown
   _resource: ResourceEmbedded
 }
@@ -581,6 +657,13 @@ export interface OverrideProps {
   record?: ResourceRecord | null
   /** The record ID (populated on detail/update contexts, null on create/index). */
   recordId?: string | null
+  /**
+   * Create context only: the id of the record the form replicates (the
+   * Replicate action), or null for a plain create. Fetch its values from
+   * `GET /api/resources/{resource}/{id}/replicate` and send the id back as
+   * `fromResourceId` with the create, as the bundled create drawer does.
+   */
+  fromResourceId?: string | number | null
 
   // Navigation
   /** React Router navigate function for arbitrary navigation. */

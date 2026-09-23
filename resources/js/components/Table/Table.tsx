@@ -3,6 +3,7 @@ import { registry } from "@/lib/registry"
 import type { FieldDefinition, ResourceRecord } from "@/types"
 import type { ActionMeta } from "@/components/Actions"
 import { FieldDisplay } from "@/components/fields/FieldRenderer"
+import { isHiddenOn } from "@/lib/hiddenFields"
 import { DataTable, type DataTableSelectionMultipleChangeEvent, type DataTableSortEvent } from "primereact/datatable"
 import { Column } from "primereact/column"
 import { CaretUpIcon, CaretDownIcon, CaretUpDownIcon, LightningIcon, WarningIcon, DotsThreeVerticalIcon, CaretRightIcon, EyeIcon, PencilSimpleIcon, TrashIcon, ArrowCounterClockwiseIcon, SkullIcon } from "@phosphor-icons/react"
@@ -591,7 +592,10 @@ function DefaultTable({
               )
             }
             body={(row: ResourceRecord) => (
-              <FieldDisplay field={field} value={row[field.attribute]} resourceKey={resourceKey} context="index" />
+              // A field the row hides (`_hidden`) leaves its cell empty.
+              isHiddenOn(row, field.attribute)
+                ? null
+                : <FieldDisplay field={field} value={row[field.attribute]} resourceKey={resourceKey} context="index" />
             )}
             sortable={false}
             style={style}

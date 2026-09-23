@@ -71,6 +71,15 @@ interface ToolContract
      */
     public function belongsToSystemSection(): bool;
 
+    /**
+     * Position of this tool inside the bundled "System" section, sorted
+     * together with the System-section resources and the Cache admin link,
+     * lowest first; equal weights keep the natural order. Only read when
+     * `belongsToSystemSection()` is true. Mirrors
+     * `ResourceContract::systemSectionOrder()`. Default: 100.
+     */
+    public function systemSectionOrder(): int;
+
     /** Whether the sidebar shows a numeric count badge next to this Tool. */
     public function showMenuCount(): bool;
 

@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Filesystem\Filesystem;
+use Martis\Console\InstallCommand;
+use Martis\Stubs\StubResolver;
 
 /**
  * Coverage for the v1.9.0 extension scaffold published by
@@ -143,4 +145,59 @@ it('martis:install is a no-op for package.json when none exists', function () {
             $this->fs->put($this->paths['package_json'], $backup);
         }
     }
+});
+
+it('martis:install publishes the declarations of the shims next to them', function () {
+    $this->artisan('martis:install', ['--force' => true])->assertSuccessful();
+
+    foreach (['runtime', 'react-dom', 'react-router-dom', 'react-i18next', 'tanstack-react-query'] as $shim) {
+        $published = base_path("resources/js/martis-extensions/.shims/{$shim}.d.mts");
+
+        expect($this->fs->exists($published))->toBeTrue()
+            ->and((string) $this->fs->get($published))
+            ->toBe((string) $this->fs->get(StubResolver::packagePath("extensions/{$shim}-shim.d.mts.stub")));
+    }
+});
+
+it('the martis-extension-shims tag publishes every shim and its declarations, and nothing else', function () {
+    $this->artisan('vendor:publish', ['--tag' => 'martis-extension-shims'])->assertSuccessful();
+
+    // Every shim stub the package ships is in the list the tag and the installer share.
+    $stubs = array_map('basename', glob(StubResolver::packagePath('extensions').'/*-shim.*.stub') ?: []);
+    expect(array_keys(InstallCommand::EXTENSION_SHIMS))->toEqualCanonicalizing($stubs);
+
+    foreach (InstallCommand::EXTENSION_SHIMS as $stub => $target) {
+        expect((string) $this->fs->get(base_path($target)))
+            ->toBe((string) $this->fs->get(StubResolver::packagePath('extensions/'.$stub)));
+    }
+
+    // The Vite config, the tsconfig and the entry stay the app's.
+    expect($this->fs->exists($this->paths['vite']))->toBeFalse()
+        ->and($this->fs->exists($this->paths['tsconfig']))->toBeFalse()
+        ->and($this->fs->exists($this->paths['index']))->toBeFalse();
+});
+
+it('the martis-extension-shims tag rewrites an existing shim only with --force', function () {
+    $runtime = base_path('resources/js/martis-extensions/.shims/runtime.mjs');
+    $this->fs->ensureDirectoryExists(dirname($runtime));
+    $this->fs->put($runtime, '// stale shim');
+
+    $this->artisan('vendor:publish', ['--tag' => 'martis-extension-shims'])->assertSuccessful();
+    expect((string) $this->fs->get($runtime))->toBe('// stale shim');
+
+    $this->artisan('vendor:publish', ['--tag' => 'martis-extension-shims', '--force' => true])->assertSuccessful();
+    expect((string) $this->fs->get($runtime))
+        ->toBe((string) $this->fs->get(StubResolver::packagePath('extensions/runtime-shim.mjs.stub')));
+});
+
+it('martis:install publishes a tsconfig.json next to the extension sources for editors', function () {
+    $this->artisan('martis:install', ['--force' => true])->assertSuccessful();
+
+    $published = base_path('resources/js/martis-extensions/tsconfig.json');
+    expect($this->fs->exists($published))->toBeTrue();
+
+    /** @var array{extends: string, include: list<string>} $config */
+    $config = json_decode((string) $this->fs->get($published), true);
+    expect($config['extends'])->toBe('../../../tsconfig.extensions.json')
+        ->and($config['include'])->toBe(['./**/*']);
 });

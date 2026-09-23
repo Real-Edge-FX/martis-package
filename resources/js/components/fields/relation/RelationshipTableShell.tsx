@@ -18,6 +18,7 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { Pagination } from '@/components/Pagination'
 import { QueryErrorState } from '@/components/QueryErrorState'
 import { recordHref } from '@/lib/recordHref'
+import { isHiddenOn } from '@/lib/hiddenFields'
 
 /**
  * Shared toolbar/table/pagination shell for *-Many relationship fields.
@@ -429,7 +430,8 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                     )
                   }
                   body={(row: ResourceRecord) => (
-                    f.attribute === 'id' ? (
+                    // A field the related record hides (`_hidden`) leaves its cell empty.
+                    isHiddenOn(row, f.attribute) ? null : f.attribute === 'id' ? (
                       <Link
                         to={viewUrl ? viewUrl(row.id as string | number) : recordHref(relatedResource, row.id)}
                         className="font-medium no-underline"
@@ -455,6 +457,8 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                   }
                   body={(row: ResourceRecord) => {
                     const pivot = row._pivot as Record<string, unknown> | undefined
+                    // A pivot field the pivot row hides (`_pivot._hidden`) leaves its cell empty.
+                    if (isHiddenOn(pivot, pf.attribute)) return null
                     const val = pivot?.[pf.attribute] ?? null
                     return <FieldDisplay field={pf} value={val} resourceKey={relatedResource} />
                   }}

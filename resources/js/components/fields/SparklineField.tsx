@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react"
+import React, { useMemo, useState, useEffect, useRef } from "react"
 import type { FieldDisplayProps, FieldInputProps } from "./types"
 
 interface SparklineExt {
@@ -83,10 +83,22 @@ export function SparklineFieldInput({ field, value, onChange, error }: FieldInpu
   const [rawText, setRawText] = useState(() => JSON.stringify(data))
   const [parseError, setParseError] = useState<string | null>(null)
 
-  // Sync raw text when external value changes (e.g. initial load)
+  // The last value this input handed to `onChange`. A `value` that differs
+  // from it came from outside (the edit form seeding the record, a cleared
+  // form) and replaces the text and its parse error; the form handing back
+  // the numbers the input just parsed leaves the text as the user typed it.
+  const emitted = useRef<unknown>(value)
   useEffect(() => {
+    if (value === emitted.current) return
+    emitted.current = value
     setRawText(JSON.stringify(Array.isArray(value) ? value : []))
+    setParseError(null)
   }, [value])
+
+  const emit = (next: number[]) => {
+    emitted.current = next
+    onChange(next)
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value
@@ -94,14 +106,14 @@ export function SparklineFieldInput({ field, value, onChange, error }: FieldInpu
 
     const trimmed = text.trim()
     if (!trimmed) {
-      onChange([])
+      emit([])
       setParseError(null)
       return
     }
     try {
       const parsed = JSON.parse(trimmed)
       if (Array.isArray(parsed) && parsed.every((v: unknown) => typeof v === "number")) {
-        onChange(parsed)
+        emit(parsed)
         setParseError(null)
       } else {
         setParseError("Must be a JSON array of numbers")

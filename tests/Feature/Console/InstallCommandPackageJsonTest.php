@@ -49,14 +49,12 @@ function runUpdatePackageJsonDeps(): InstallCommand
     // calling a protected helper in isolation, so bootstrap it the
     // same way the framework does.
     $componentsRef = new ReflectionProperty(Command::class, 'components');
-    $componentsRef->setAccessible(true);
     $componentsRef->setValue($command, app()->make(
         Factory::class,
         ['output' => $output],
     ));
 
     $ref = new ReflectionMethod(InstallCommand::class, 'updatePackageJsonDeps');
-    $ref->setAccessible(true);
     $ref->invoke($command, new Filesystem);
 
     return $command;
@@ -73,6 +71,25 @@ it('writes vite + plugin-react from the table when the host has vite ^7', functi
     expect($pkg['devDependencies']['vite'])->toBe('^7')
         ->and($pkg['devDependencies']['@vitejs/plugin-react'])->toBe('^5')
         ->and($pkg['dependencies']['react'])->toBe('^18 || ^19');
+});
+
+it('adds the types of the React the extensions run on: the host\'s major, whatever the app installs', function () {
+    // An extension's `react` resolves to the host's React at run time. With
+    // newer types than that React, `use` or `useOptimistic` type-check and
+    // build, then are undefined in the browser.
+    file_put_contents($this->base.'/package.json', json_encode([
+        'devDependencies' => ['vite' => '^7'],
+    ]));
+
+    runUpdatePackageJsonDeps();
+
+    /** @var array{dependencies: array<string, string>} $host */
+    $host = json_decode((string) file_get_contents(dirname(__DIR__, 3).'/package.json'), true);
+    expect(preg_match('/\d+/', $host['dependencies']['react'], $major))->toBe(1);
+
+    $pkg = json_decode((string) file_get_contents($this->base.'/package.json'), true);
+    expect($pkg['devDependencies']['@types/react'])->toBe('^'.$major[0])
+        ->and($pkg['devDependencies']['@types/react-dom'])->toBe('^'.$major[0]);
 });
 
 it('respects the env override on the actual write path', function () {

@@ -9,12 +9,11 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
-use Martis\Enums\SortDirection;
 use Martis\FieldContext;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\Field;
+use Martis\Http\Controllers\Concerns\CollectsPivotData;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -35,6 +34,8 @@ use Martis\SearchResolver;
  */
 class BelongsToManyController extends MartisController
 {
+    use CollectsPivotData;
+
     /** Create the controller and inject the resource registry. */
     public function __construct(
         private readonly ResourceRegistry $registry,
@@ -74,15 +75,9 @@ class BelongsToManyController extends MartisController
             SearchResolver::apply($request, $query, $relatedResourceClass, $search);
         }
 
-        // Sort
-        $rawSort = $request->query('sort');
-        $rawDir = $request->query('direction', SortDirection::Asc->value);
-        $dirStr = is_string($rawDir) ? $rawDir : SortDirection::Asc->value;
-        $direction = SortDirection::tryFrom(strtolower($dirStr)) ?? SortDirection::Asc;
-
-        if (is_string($rawSort) && $rawSort !== '' && $this->isSortableAttribute($relatedResourceClass, $request, $rawSort)) {
-            $query->orderBy($rawSort, $direction->value);
-        }
+        // Sort: only a sortable field of the related resource the user can
+        // see orders the rows.
+        $this->applyRequestedSort($request, $query, $relatedResourceClass);
 
         // Pagination — use $relation->paginate() (not $query->paginate()) so Laravel
         // can hydrate the pivot accessor on each resulting Model instance.
@@ -105,7 +100,8 @@ class BelongsToManyController extends MartisController
                     foreach ($pivotColumns as $col) {
                         $pivotData[$col] = $model->pivot->{$col} ?? null;
                     }
-                    $row['_pivot'] = $pivotData;
+                    // The pivot row decides the canSeeForModel() of its fields.
+                    $row['_pivot'] = $this->presentPivotValues($request, $field->getPivotFields(), $pivotData, $model->pivot);
                 }
 
                 return $row;
@@ -153,6 +149,10 @@ class BelongsToManyController extends MartisController
             'relation' => $relation,
             'field' => $field,
         ] = $ctx;
+
+        if (! $this->canAttachAny($request, $parentModel, $ctx)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
 
         /** @var class-string<Model> $relatedModelClass */
         $relatedModelClass = $relatedResourceClass::model();
@@ -239,6 +239,10 @@ class BelongsToManyController extends MartisController
                 'prev' => $paginator->previousPageUrl(),
                 'next' => $paginator->nextPageUrl(),
             ],
+            // The pivot fields a new row hides (`canSeeForModel()` asked on
+            // the row the attach would write), so the attach modal leaves
+            // them out; the attach stores their `default()` anyway.
+            extraMeta: ['hiddenPivotFields' => $this->pivotFieldsHiddenOnAttach($request, $field->getPivotFields(), $relation)],
         )->toResponse();
     }
 
@@ -264,6 +268,12 @@ class BelongsToManyController extends MartisController
             'relation' => $relation,
             'field' => $field,
         ] = $ctx;
+
+        // The parent-level ability first: a user who may attach no record
+        // of the related model attaches none, one or several.
+        if (! $this->canAttachAny($request, $parentModel, $ctx)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
 
         // Accept related_ids (array) or related_id (single)
         $relatedIds = $request->input('related_ids');
@@ -310,7 +320,7 @@ class BelongsToManyController extends MartisController
         }
 
         // Pivot data
-        $pivotData = $this->extractPivotData($request, $field);
+        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false, relation: $relation);
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }
@@ -355,7 +365,7 @@ class BelongsToManyController extends MartisController
         $relatedModelClass = $relatedResourceClass::model();
 
         // Pivot data (shared across all records in batch mode)
-        $pivotData = $this->extractPivotData($request, $field);
+        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false, relation: $relation);
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }
@@ -419,48 +429,6 @@ class BelongsToManyController extends MartisController
                 'errors' => ! empty($errors) ? $errors : null,
             ]),
         )->toResponse(201);
-    }
-
-    /**
-     * Extract and validate pivot data from the request.
-     *
-     * @return array<string, mixed>|IlluminateJsonResponse
-     */
-    private function extractPivotData(Request $request, BelongsToMany $field): array|IlluminateJsonResponse
-    {
-        $pivotData = [];
-        $pivotFields = $field->getPivotFields();
-        if (! empty($pivotFields)) {
-            $pivotRules = [];
-            $pivotAttributes = [];
-            foreach ($pivotFields as $pf) {
-                if ($pf instanceof Field) {
-                    $pivotRules[$pf->attribute()] = $pf->buildRules();
-                    $pivotAttributes[$pf->attribute()] = $pf->label();
-                }
-            }
-            if (! empty($pivotRules)) {
-                $validator = Validator::make($request->all(), $pivotRules, [], $pivotAttributes);
-                if ($validator->fails()) {
-                    return JsonErrorResponse::validation(
-                        $validator->errors()->toArray(),
-                        'Validation failed.',
-                    )->toResponse();
-                }
-            }
-            foreach ($pivotFields as $pf) {
-                if (! $pf instanceof Field) {
-                    continue;
-                }
-                if ($request->has($pf->attribute())) {
-                    $pivotData[$pf->attribute()] = $request->input($pf->attribute());
-                } elseif ($pf->getDefaultValue() !== null) {
-                    $pivotData[$pf->attribute()] = $pf->getDefaultValue();
-                }
-            }
-        }
-
-        return $pivotData;
     }
 
     /**
@@ -557,47 +525,32 @@ class BelongsToManyController extends MartisController
             return JsonErrorResponse::forbidden('Not authorized to update pivot data for this relation.')->toResponse();
         }
 
-        // Validate pivot fields
-        $pivotRules = [];
-        $pivotAttributes = [];
-        foreach ($pivotFields as $pf) {
-            if ($pf instanceof Field) {
-                $fieldRules = array_values(array_filter($pf->buildRules(), fn ($r) => is_string($r) && $r !== 'required'));
-                $pivotRules[$pf->attribute()] = empty($fieldRules) ? ['sometimes'] : array_merge(['sometimes'], $fieldRules);
-                $pivotAttributes[$pf->attribute()] = $pf->label();
+        // Readonly, hidden and immutable pivot fields keep their stored value,
+        // and so do the row fields of a pivot Repeater a row cannot write.
+        $pivotData = $this->collectPivotData($request, $pivotFields, isUpdate: true, relation: $relation, relatedId: $relatedModel->getKey());
+        if ($pivotData instanceof IlluminateJsonResponse) {
+            return $pivotData;
+        }
+
+        // Nothing to write (no pivot value sent, or only skipped ones): an
+        // update with an empty SET is invalid SQL, and the row stays as is.
+        if ($pivotData !== []) {
+            try {
+                $relation->updateExistingPivot($relatedModel->getKey(), $pivotData);
+            } catch (QueryException $e) {
+                Log::error('Martis: BelongsToMany updatePivot error', [
+                    'resource' => $resource,
+                    'relationship' => $relationship,
+                    'relatedId' => $relatedId,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return $this->handleDatabaseError($e);
             }
-        }
-
-        $validator = Validator::make($request->all(), $pivotRules, [], $pivotAttributes);
-        if ($validator->fails()) {
-            return JsonErrorResponse::validation(
-                $validator->errors()->toArray(),
-                'Validation failed.',
-            )->toResponse();
-        }
-
-        $pivotData = [];
-        foreach ($pivotFields as $pf) {
-            if ($pf instanceof Field && $request->has($pf->attribute())) {
-                $pivotData[$pf->attribute()] = $request->input($pf->attribute());
-            }
-        }
-
-        try {
-            $relation->updateExistingPivot($relatedModel->getKey(), $pivotData);
-        } catch (QueryException $e) {
-            Log::error('Martis: BelongsToMany updatePivot error', [
-                'resource' => $resource,
-                'relationship' => $relationship,
-                'relatedId' => $relatedId,
-                'error' => $e->getMessage(),
-            ]);
-
-            return $this->handleDatabaseError($e);
         }
 
         return JsonResponse::make(
-            ['id' => $relatedId, 'pivot' => $pivotData],
+            ['id' => $relatedId, 'pivot' => $this->presentPivotValues($request, $pivotFields, $pivotData)],
             meta: ['message' => 'Pivot updated successfully.'],
         )->toResponse();
     }
@@ -651,7 +604,13 @@ class BelongsToManyController extends MartisController
         // Find the BelongsToMany field in the parent resource. filterForContext
         // flattens layout containers (Section/Panel/TabGroup) so a relation
         // nested in one still resolves — a raw scan would 404 it.
-        $fields = Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL);
+        // A relationship field hidden for the parent record (canSeeForModel())
+        // is not on its detail page, so it answers like an undeclared one.
+        $fields = Field::filterForModel(
+            Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL),
+            $request,
+            $parentModel,
+        );
         $btmField = null;
 
         foreach ($fields as $fieldItem) {
@@ -745,6 +704,22 @@ class BelongsToManyController extends MartisController
     }
 
     /**
+     * Whether the user may attach any record of the related model to the
+     * parent: `authorizedToAttachAny()`, the `attachAny{Model}` policy
+     * ability (permitted when the policy does not define it). The list of
+     * records to attach, the attach modal's pivot pickers and the attach
+     * need it; `canAttach()` then decides per record.
+     *
+     * @param  array{relation: EloquentBelongsToMany<Model, Model>, parentResourceClass: class-string<\Martis\Resource>}  $ctx
+     */
+    private function canAttachAny(Request $request, Model $parentModel, array $ctx): bool
+    {
+        $parentInstance = new $ctx['parentResourceClass']($parentModel);
+
+        return $parentInstance->authorizedToAttachAny($request, $ctx['relation']->getRelated()::class);
+    }
+
+    /**
      * Check attach authorization on the parent resource.
      */
     /**
@@ -808,9 +783,13 @@ class BelongsToManyController extends MartisController
         ];
         $data['_authorization'] = $resource->authorizationMetadata(request());
 
-        foreach ($fields as $field) {
+        // A field hidden for this record (canSeeForModel()) is left out, as
+        // on every read of a record, and listed under `_hidden`.
+        $visible = Field::filterForModel($fields, request(), $model);
+        foreach ($visible as $field) {
             $data[$field->attribute()] = $field->resolve($model);
         }
+        $data += $this->hiddenFieldsEntry($fields, $visible);
 
         return $data;
     }

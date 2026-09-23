@@ -51,7 +51,8 @@ it('packagePath always returns the bundled stub regardless of override', functio
 
     $packagePath = StubResolver::packagePath('resource.stub');
 
-    expect($packagePath)->toContain('martis-package/stubs/resource.stub');
+    // The package's own stubs/ folder, whatever the checkout is called.
+    expect(realpath($packagePath))->toBe(realpath(__DIR__.'/../../../stubs/resource.stub'));
     expect($packagePath)->not->toContain('stubs/martis');
 });
 

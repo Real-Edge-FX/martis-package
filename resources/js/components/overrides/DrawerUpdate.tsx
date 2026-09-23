@@ -4,12 +4,17 @@ import { api, ApiError, hasFileValues } from '@/lib/api'
 import type { OverrideProps, ResourceRecord, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
 import { FieldInput } from '@/components/fields/FieldRenderer'
 import { FieldWrapper } from '@/components/fields/FieldWrapper'
+import { fieldErrorProps } from '@/lib/fieldErrors'
 import { PanelInput } from '@/components/fields/PanelRenderer'
 import { SectionInput } from '@/components/fields/SectionRenderer'
 import { TabsInput } from '@/components/fields/TabsRenderer'
 import { useTranslation } from 'react-i18next'
 import { DrawerShell } from './DrawerShell'
 import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
+import { updatePayload } from '@/lib/updatePayload'
+import { lockImmutableFields } from '@/lib/lockImmutableFields'
+import { NestedParentProvider } from '@/components/fields/NestedParentContext'
+import { useHiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
 
 /** Recursively extract scalar fields from layout containers (Panel, Section, TabGroup) */
 function extractScalarFields(items: Array<Record<string, unknown>>): FieldDefinition[] {
@@ -33,18 +38,17 @@ function extractScalarFields(items: Array<Record<string, unknown>>): FieldDefini
   return result
 }
 
-
-
-/** Resolve the effective column span for a field. */
-function resolveColSpan(field: { colSpan?: number; colSpanMd?: number | null; colSpanLg?: number | null }): { base: number; md?: number; lg?: number } {
-  const base = field.colSpan ?? 12
-  return { base, md: field.colSpanMd ?? undefined, lg: field.colSpanLg ?? undefined }
-}
-
-/** Build inline gridColumn style. */
-function colSpanStyle(field: { colSpan?: number; colSpanMd?: number | null; colSpanLg?: number | null }): React.CSSProperties {
-  const span = resolveColSpan(field)
-  return { gridColumn: `span ${span.base} / span ${span.base}` } as React.CSSProperties
+/**
+ * The values of the scalar fields, the part of the form the dirty check
+ * compares: fields that manage their own state outside `values` (e.g. Trix,
+ * tag widgets) may write back after mount without a user edit.
+ */
+function scalarSnapshot(fields: FieldDefinition[], values: Record<string, unknown>): string {
+  const scalar: Record<string, unknown> = {}
+  fields.forEach((field) => {
+    scalar[field.attribute] = values[field.attribute] ?? null
+  })
+  return JSON.stringify(scalar)
 }
 
 /**
@@ -68,7 +72,14 @@ export function DrawerUpdate(props: OverrideProps) {
   })
 
   const activeRecord = record ?? recordQuery.data?.data
-  const allFormFields = useMemo(() => schema.fieldsForUpdate ?? [], [schema])
+  // An `immutable()` field renders read-only here: every update endpoint
+  // skips it. A field the record hides (`_hidden`) is left out: the form
+  // neither renders it empty nor sends it.
+  const hidden = useHiddenAttributes(activeRecord)
+  const allFormFields = useMemo(
+    () => lockImmutableFields(withoutHiddenFields(schema.fieldsForUpdate ?? [], hidden)),
+    [schema, hidden],
+  )
   const scalarFields = useMemo(
     () => extractScalarFields(allFormFields as unknown as Array<Record<string, unknown>>),
     [allFormFields],
@@ -76,7 +87,13 @@ export function DrawerUpdate(props: OverrideProps) {
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [initialized, setInitialized] = useState(false)
+  // The record the form was seeded from. A host can hand the open drawer
+  // another record, or another resource's, without remounting it; the form
+  // is initialized only once that record has seeded it, so nothing from the
+  // previous one (values, edits, errors, dirty baseline) carries over.
+  const recordKey = `${resource}/${recordId ?? ''}`
+  const [seededKey, setSeededKey] = useState<string | null>(null)
+  const initialized = seededKey === recordKey
 
   // ⭐ Camada B — snapshot of the values the record loaded with, used to
   // detect dirty state and warn before discarding edits. We keep a live
@@ -85,13 +102,21 @@ export function DrawerUpdate(props: OverrideProps) {
   // and the next render, and a stale-closure comparison would show a
   // spurious diff right as the drawer opens.
   const initialSnapshot = useRef<string | null>(null)
+  // The values the save under way sent, and the record they belong to: its
+  // success makes them the baseline. The inputs stay editable while the
+  // request runs, so what is typed meanwhile still counts as unsaved when
+  // the drawer stays open.
+  const submittedSnapshot = useRef<{ recordKey: string; snapshot: string } | null>(null)
+  const recordKeyRef = useRef(recordKey)
+  recordKeyRef.current = recordKey
   const valuesRef = useRef<Record<string, unknown>>(values)
   valuesRef.current = values
   // Pending prompt holds BOTH resolvers so cancel explicitly rejects
   // the beforeClose Promise instead of leaving it dangling.
   const [dirtyPrompt, setDirtyPrompt] = useState<null | { confirm: () => void; cancel: () => void }>(null)
 
-  // Pre-populate form when record loads
+  // Pre-populate form when record loads, and again when the host hands the
+  // drawer another record.
   useEffect(() => {
     if (activeRecord && !initialized) {
       const initial: Record<string, unknown> = {}
@@ -104,9 +129,10 @@ export function DrawerUpdate(props: OverrideProps) {
       valuesRef.current = initial
       initialSnapshot.current = JSON.stringify(initial)
       setValues(initial)
-      setInitialized(true)
+      setErrors({})
+      setSeededKey(recordKey)
     }
-  }, [activeRecord, scalarFields, initialized])
+  }, [activeRecord, scalarFields, initialized, recordKey])
 
   // Some fields (BelongsTo, Icon, Timezone, …) normalise their value on
   // mount via onChange, which would otherwise spuriously mark the drawer
@@ -116,11 +142,7 @@ export function DrawerUpdate(props: OverrideProps) {
   useEffect(() => {
     if (!initialized) return
     const rebase = window.setTimeout(() => {
-      const settled: Record<string, unknown> = {}
-      scalarFields.forEach((field) => {
-        settled[field.attribute] = valuesRef.current[field.attribute] ?? null
-      })
-      initialSnapshot.current = JSON.stringify(settled)
+      initialSnapshot.current = scalarSnapshot(scalarFields, valuesRef.current)
     }, 250)
     return () => window.clearTimeout(rebase)
   }, [initialized, scalarFields])
@@ -133,17 +155,10 @@ export function DrawerUpdate(props: OverrideProps) {
     confirmRaw && typeof confirmRaw === 'object' ? confirmRaw : null
 
   const isDirty = useCallback(() => {
-    if (initialSnapshot.current === null) return false
-    // Compare only the scalar fields captured in the baseline — fields
-    // that manage their own state outside `values` (e.g. Trix, tag
-    // widgets) may write back after mount without representing a user
-    // edit, and would otherwise flip the drawer into a false-dirty state.
-    const current: Record<string, unknown> = {}
-    scalarFields.forEach((field) => {
-      current[field.attribute] = valuesRef.current[field.attribute] ?? null
-    })
-    return JSON.stringify(current) !== initialSnapshot.current
-  }, [scalarFields])
+    // Nothing to lose while the record the host handed over is still loading.
+    if (!initialized || initialSnapshot.current === null) return false
+    return scalarSnapshot(scalarFields, valuesRef.current) !== initialSnapshot.current
+  }, [initialized, scalarFields])
   const beforeClose = useCallback(async (): Promise<boolean> => {
     if (!confirmEnabled || !isDirty()) return true
     return new Promise<boolean>((resolve) => {
@@ -168,6 +183,13 @@ export function DrawerUpdate(props: OverrideProps) {
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       void qc.invalidateQueries({ queryKey: ['resource', resource, recordId] })
+      // A host can keep the drawer open after the save (`redirectAfter`
+      // 'stay'): the saved values must not count as unsaved there, unless
+      // the host has handed the drawer another record meanwhile.
+      const submitted = submittedSnapshot.current
+      if (submitted && submitted.recordKey === recordKeyRef.current) {
+        initialSnapshot.current = submitted.snapshot
+      }
       onUpdated(res.data)
     },
     onError: (err) => {
@@ -197,32 +219,23 @@ export function DrawerUpdate(props: OverrideProps) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErrors({})
-    // Filter values: skip unchanged file/image fields and extract BelongsTo IDs
-    const submitValues: Record<string, unknown> = {}
-    for (const [key, val] of Object.entries(values)) {
-      if (val === null || val === undefined) {
-        submitValues[key] = val
-        continue
-      }
-      // Skip File objects that are still existing server values (have 'url')
-      if (typeof val === 'object' && !(val instanceof File) && 'url' in (val as Record<string, unknown>)) {
-        continue
-      }
-      // BelongsTo: extract just the ID from {id, title} objects
-      if (typeof val === 'object' && !(val instanceof File) && 'id' in (val as Record<string, unknown>) && 'title' in (val as Record<string, unknown>)) {
-        submitValues[key] = (val as Record<string, unknown>).id
-        continue
-      }
-      submitValues[key] = val
-    }
-    updateMutation.mutate(submitValues)
+    submittedSnapshot.current = { recordKey, snapshot: scalarSnapshot(scalarFields, values) }
+    // Unchanged files left out, BelongsTo reduced to its id, MorphTo kept whole.
+    updateMutation.mutate(updatePayload(values))
   }
 
-  const isLoading = !activeRecord || recordQuery.isLoading
+  // The record seeds `values` in an effect; the fields mount only after it,
+  // so every input starts from the stored value.
+  const isLoading = !activeRecord || recordQuery.isLoading || !initialized
   const title = `${tAct('edit')} ${schema.singularLabel}`
   const subtitle = (params.subtitle as string) ?? schema.subtitle ?? null
   const icon = params.showIcon ? (params.icon as string) || schema.icon || null : null
   const iconColor = (params.iconColor as string) || null
+
+  // The page behind the drawer may not name this record (an action, a lens row
+  // or an index row opens it), so the relationship panels inside are told
+  // which record they belong to.
+  const relationParent = { resource, id: recordId ?? activeRecord?.id ?? '' }
 
   return (
     <DrawerShell
@@ -272,45 +285,49 @@ export function DrawerUpdate(props: OverrideProps) {
           />
         </div>
       ) : (
-        <form id="martis-drawer-update-form" onSubmit={handleSubmit} noValidate className="martis-form-body martis-form-stack">
-          {allFormFields.map((item, idx) => {
-            if (item.type === 'tab_group') {
-              const tg = item as TabGroupDefinition
-              return <TabsInput key={tg.tabs.map((t) => t.title).join('|') || `tab_group-${idx}`} tabGroup={tg} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
-            }
-            if (item.type === 'section') {
-              const sec = item as SectionDefinition
-              return <SectionInput key={sec.title ?? `section-${idx}`} section={sec} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
-            }
-            if (item.type === 'panel') {
-              const panel = item as PanelDefinition
-              return <PanelInput key={panel.title ?? `panel-${idx}`} panel={panel} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
-            }
-            const field = item as FieldDefinition
-            return (
-              <div key={field.attribute} style={colSpanStyle(field)}>
-                <FieldWrapper
-                  htmlFor={field.attribute}
-                  label={field.label}
-                  required={field.required}
-                  tooltip={field.tooltip}
-                  help={field.helpText}
-                >
-                  <FieldInput
-                    field={field}
-                    value={values[field.attribute] ?? null}
-                    onChange={(v) => handleChange(field.attribute, v)}
-                    error={errors[field.attribute]}
-                    resourceKey={resource}
-                    recordId={recordId ?? undefined}
-                    context="update"
-                    formValues={values}
-                  />
-                </FieldWrapper>
-              </div>
-            )
-          })}
-        </form>
+        <NestedParentProvider value={relationParent}>
+          <form id="martis-drawer-update-form" onSubmit={handleSubmit} noValidate className="martis-form-body martis-form-stack">
+            {allFormFields.map((item, idx) => {
+              if (item.type === 'tab_group') {
+                const tg = item as TabGroupDefinition
+                return <TabsInput key={tg.tabs.map((t) => t.title).join('|') || `tab_group-${idx}`} tabGroup={tg} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
+              }
+              if (item.type === 'section') {
+                const sec = item as SectionDefinition
+                return <SectionInput key={sec.title ?? `section-${idx}`} section={sec} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
+              }
+              if (item.type === 'panel') {
+                const panel = item as PanelDefinition
+                return <PanelInput key={panel.title ?? `panel-${idx}`} panel={panel} values={values} onChange={handleChange} errors={errors} resourceKey={resource} recordId={recordId ?? undefined} context="update" />
+              }
+              // A loose field is a full-width row of the form stack: spans only
+              // place fields inside the Section, Panel and Tab grids.
+              const field = item as FieldDefinition
+              return (
+                <div key={field.attribute}>
+                  <FieldWrapper
+                    htmlFor={field.attribute}
+                    label={field.label}
+                    required={field.required}
+                    tooltip={field.tooltip}
+                    help={field.helpText}
+                  >
+                    <FieldInput
+                      field={field}
+                      value={values[field.attribute] ?? null}
+                      onChange={(v) => handleChange(field.attribute, v)}
+                      {...fieldErrorProps(errors, field.attribute)}
+                      resourceKey={resource}
+                      recordId={recordId ?? undefined}
+                      context="update"
+                      formValues={values}
+                    />
+                  </FieldWrapper>
+                </div>
+              )
+            })}
+          </form>
+        </NestedParentProvider>
       )}
 
       <UnsavedChangesDialog

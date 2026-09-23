@@ -268,6 +268,18 @@ class MartisServiceProvider extends ServiceProvider
                 __DIR__.'/../resources/lang' => $this->app->langPath('vendor/martis'),
             ], 'martis-lang');
 
+            // Consumer-extension shims and their TypeScript declarations
+            // (v1.38.0). `martis:install` publishes them once with the
+            // scaffold; after an upgrade,
+            // `vendor:publish --tag=martis-extension-shims --force` rewrites
+            // them together without touching the Vite config, the tsconfig
+            // or the extension entry.
+            $shims = [];
+            foreach (InstallCommand::EXTENSION_SHIMS as $stub => $target) {
+                $shims[__DIR__.'/../stubs/extensions/'.$stub] = base_path($target);
+            }
+            $this->publishes($shims, 'martis-extension-shims');
+
             // Profile: 2FA columns migration stub
             $this->publishes([
                 __DIR__.'/../stubs/add_two_factor_columns.php.stub' => database_path('migrations/'.date('Y_m_d').'_000002_add_two_factor_columns.php'),
@@ -583,7 +595,6 @@ class MartisServiceProvider extends ServiceProvider
             $ref = new \ReflectionClass(ResetPassword::class);
             if ($ref->hasProperty('createUrlCallback')) {
                 $prop = $ref->getProperty('createUrlCallback');
-                $prop->setAccessible(true);
                 if ($prop->getValue() !== null) {
                     return; // Already customised — respect it.
                 }
@@ -630,7 +641,6 @@ class MartisServiceProvider extends ServiceProvider
             $ref = new \ReflectionClass(VerifyEmail::class);
             if ($ref->hasProperty('createUrlCallback')) {
                 $prop = $ref->getProperty('createUrlCallback');
-                $prop->setAccessible(true);
                 if ($prop->getValue() !== null) {
                     return; // Consumer already customised — respect it.
                 }
@@ -708,7 +718,10 @@ class MartisServiceProvider extends ServiceProvider
         $minutes = (int) config('martis.throttle.login_minutes', 1);
 
         RateLimiter::for('martis-login', function (Request $request) use ($attempts, $minutes) {
-            $email = strtolower((string) $request->input('email', ''));
+            // The limiter runs before validation: an email sent as an
+            // array reads as empty, and the login answers its 422.
+            $rawEmail = $request->input('email', '');
+            $email = strtolower(is_string($rawEmail) ? $rawEmail : '');
 
             // Empty-email request (no payload at all): fall back to
             // the standard per-IP envelope so a script hammering the

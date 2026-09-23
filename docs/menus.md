@@ -114,7 +114,7 @@ Mid-level cluster nested **inside** a `MenuSection`. See [Nested MenuGroup](#nes
 
 Since v1.8.20, every registered Tool is auto-grouped into the sidebar by default. A Tool that declares `withMenuSection('Operations')` lands in the "Operations" section; everything else goes under the localised "Tools" header (translation key `martis::messages.tools_section`, default English label `Tools`). You only need to call `MenuItem::tool(...)` when you build a fully custom main menu via `Martis::mainMenu(...)` and want a Tool placed alongside hand-rolled links.
 
-A Tool that calls `withSystemSection()` (v1.35.0+) skips the auto-grouping entirely and renders inside the bundled **System** section (the one holding the audit log and the "System cache" link), after the System-section resources and before the cache link; its `menuSection()` is ignored. The `Martis::mainMenu(...)` dedup applies to it too: place it manually with `MenuItem::tool(...)` and the System section will not repeat it. A Tool that merely returns the label "System" from `menuSection()` is not merged (no label matching). See [Tools → Place a Tool under "System"](tools.md#place-a-tool-under-system--withsystemsection-v1350).
+A Tool that calls `withSystemSection()` (v1.35.0+) skips the auto-grouping entirely and renders inside the bundled **System** section (the one holding the audit log and the "System cache" link), after the System-section resources and before the cache link unless you order the section (see [Order inside the System section](#order-inside-the-system-section-v1380)); its `menuSection()` is ignored. The `Martis::mainMenu(...)` dedup applies to it too: place it manually with `MenuItem::tool(...)` and the System section will not repeat it. A Tool that merely returns the label "System" from `menuSection()` is not merged (no label matching). See [Tools → Place a Tool under "System"](tools.md#place-a-tool-under-system--withsystemsection-v1350).
 
 ```php
 use App\Martis\Tools\HealthCheck;
@@ -136,6 +136,67 @@ Martis::mainMenu(function ($request, $menu) {
 `MenuItem::tool()` accepts either a class-string or a tool instance, and reads `name()`, `uriKey()`, `icon()`, and `authorizedToSee()` lazily at request time. The rendered menu always reflects the live state of the tool — including authorization checks, which silently drop the item when the user is not allowed to see it.
 
 Any combination of `label()`, `icon()`, and `path()` overrides the tool's defaults. Otherwise the item resolves to `/tools/<uriKey>` automatically.
+
+#### Order inside the System section (v1.38.0+)
+
+The bundled **System** section collects three kinds of entries: resources with `belongsToSystemSection()`, Tools with `withSystemSection()` and the "System cache" link. Each entry carries a weight and the section lists them lowest first:
+
+| Entry | Weight | Default |
+|---|---|---|
+| System-section resource | `systemSectionOrder(): int` (override on the resource) | `100` |
+| System-section Tool | `withSystemSection(order: 10)`, or override `systemSectionOrder()` | `100` |
+| "System cache" link | `config('martis.cache.admin_ui_order')` | `1000` |
+
+Entries with the same weight keep the natural order: resources in registration order, then Tools in discovery order. So with no weight set anywhere the section renders exactly as before v1.38.0 (resources, then Tools, then the cache link), and setting one weight moves only that entry.
+
+```php
+// Settings and System Events first, then the audit resources, the cache link last.
+class Settings extends Tool
+{
+    public function __construct()
+    {
+        parent::__construct(name: __('Settings'), uriKey: 'settings');
+        $this->withIcon('sliders')->withSystemSection(order: 10);
+    }
+}
+
+class SystemEvents extends Tool
+{
+    public function __construct()
+    {
+        parent::__construct(name: __('System Events'), uriKey: 'system-events');
+        $this->withIcon('pulse')->withSystemSection(order: 20);
+    }
+}
+
+class AuditLogResource extends Resource
+{
+    public function belongsToSystemSection(): bool { return true; }
+
+    public function systemSectionOrder(): int { return 30; } // optional: 100 already sorts it after the Tools
+}
+```
+
+```php
+// config/martis.php: move the cache link to the top of the section
+'cache' => [
+    // ...
+    'admin_ui_order' => 0,
+],
+```
+
+The bundled `ActionEventResource` keeps the default `100`; give your own entries a weight above or below it to place them around the audit log. Weights only order the System section. Per-entry authorisation is unchanged (an entry the user may not see is dropped, and the section disappears when nothing is left), the navigation cache stays keyed per user and locale, and the command palette (⌘K) keeps listing resources and Tools alphabetically with the "System" tag.
+
+**Building the section yourself.** A host that wants full control can still assemble a "System" section in `Martis::mainMenu(...)`. Every System-section resource or Tool it places is left out of the bundled section, and since v1.38.0 so is the cache link: when the resolved menu already holds an in-app link to `/system/cache`, Martis does not append its own, so the host's section is the only "System" header once it places every System entry (an entry left out still docks in the bundled section). Gate the link the way the bundled one is gated:
+
+```php
+use Illuminate\Support\Facades\Gate;
+
+MenuItem::link(__('martis::messages.cache_admin_title'), '/system/cache')
+    ->icon('database')
+    ->canSee(fn ($request) => config('martis.cache.admin_ui', true)
+        && Gate::forUser($request->user())->allows('manage-martis-cache')),
+```
 
 #### Default Tools section
 

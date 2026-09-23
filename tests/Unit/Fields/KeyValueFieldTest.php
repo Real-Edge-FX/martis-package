@@ -83,6 +83,23 @@ it('KeyValue disableAddingRows() disables row addition', function () {
         ->and($field->toArray()['addingRowsDisabled'])->toBeTrue();
 });
 
+it('KeyValue disableDeletingRows() disables row deletion (Nova parity)', function () {
+    $field = KeyValue::make('meta')->disableDeletingRows();
+
+    expect($field->isDeletingRowsDisabled())->toBeTrue()
+        ->and($field->toArray()['deletingRowsDisabled'])->toBeTrue();
+});
+
+it('KeyValue row deletion stays enabled by default, also when only adding and key editing are disabled', function () {
+    // A fixed-key map declares all three flags; disabling the other two
+    // alone must not change what the delete button does for existing callers.
+    $field = KeyValue::make('meta')->disableEditingKeys()->disableAddingRows();
+
+    expect($field->isDeletingRowsDisabled())->toBeFalse()
+        ->and($field->toArray()['deletingRowsDisabled'])->toBeFalse()
+        ->and(KeyValue::make('meta')->toArray()['deletingRowsDisabled'])->toBeFalse();
+});
+
 it('KeyValue defaults resolve through the translation system', function () {
     // When no explicit label/text is set, getters delegate to __() which in
     // unit tests (no booted translator) returns the translation key. The important
@@ -231,12 +248,13 @@ it('KeyValue toArray contains all required keys', function () {
 
     expect($arr)->toHaveKeys([
         'attribute', 'label', 'type', 'nullable', 'readonly', 'required',
-        'keyLabel', 'valueLabel', 'actionText', 'editingKeysDisabled', 'addingRowsDisabled',
+        'keyLabel', 'valueLabel', 'actionText', 'editingKeysDisabled', 'addingRowsDisabled', 'deletingRowsDisabled',
     ])
         ->and($arr['type'])->toBe('key_value')
         ->and($arr['keyLabel'])->toBe('Setting')
         ->and($arr['editingKeysDisabled'])->toBeTrue()
-        ->and($arr['addingRowsDisabled'])->toBeFalse();
+        ->and($arr['addingRowsDisabled'])->toBeFalse()
+        ->and($arr['deletingRowsDisabled'])->toBeFalse();
 });
 
 // ---------------------------------------------------------------------------

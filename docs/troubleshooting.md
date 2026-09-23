@@ -196,17 +196,16 @@ If you still see the empty state on an older version, check `storage/logs/larave
 
 ### Searchable on a relationship column returns 0 results
 
-`->searchable()` defaults to `LIKE %term%` against the field's column on the resource's table. To search a related model's column (for example, the owner's `name`), use a relationship field with `relationSearchable()`:
+`->searchable()` defaults to `LIKE %term%` against the field's column on the resource's table. To search a related model's column (for example, the owner's `name`), list it as a dot path in the resource's `searchableRelations()`: the index search and the global search add a `whereHas` for it.
 
 ```php
-use Martis\Fields\BelongsTo;
-
-BelongsTo::make('Owner', 'owner', \App\Martis\UserResource::class)
-    ->searchable()
-    ->relationSearchable(),
+public static function searchableRelations(): array
+{
+    return ['owner.name'];
+}
 ```
 
-`relationSearchable()` is shipped on `BelongsTo`, `MorphTo`, `HasMany`, `MorphMany`, and `Tag`. It tells the global search to issue a `whereHas` against the related table's title attribute (or the columns you explicitly opt in via the resource's `searchableRelations()`). See [Fields](fields.md#searchable) for the full search behaviour.
+See [Global Search → Searchable detail relations](global-search.md#-searchable-detail-relations--searchablerelations). `relationSearchable()` on a relationship field searches nothing on its own: it shows or hides the search box of that field's panel (`HasMany`, `MorphMany`, `BelongsToMany`, `MorphToMany`) or, since v1.38.0, of its picker (`BelongsTo`, `MorphTo`, `Tag`).
 
 ## Theme and components
 
@@ -222,13 +221,13 @@ If you scaffolded a custom theme via `php artisan martis:theme`, regenerate the 
 
 ### Custom override not picked up
 
-Almost always a key mismatch between the PHP layer (which declares "I want a component called `<key>`") and your consumer extension bundle (`resources/js/martis-extensions/`) (which registers the actual React component under that key). The `martis:list-overrides` command shows every key the PHP layer expects:
+Almost always a key mismatch between the PHP layer (which declares "I want a component called `<key>`") and your consumer extension bundle (`resources/js/martis-extensions/`) (which registers the actual React component under that key). The `martis:list-overrides` command shows the keys the PHP layer declares (the component key of each Tool and of each Action with a custom component, and each resource's URI key):
 
 ```bash
 php artisan martis:list-overrides
 ```
 
-Confirm that every key in the output is registered in your `resources/js/martis-extensions/index.ts`. The `componentRegistry` is exported as a module from `@/lib/componentRegistry` — there is no `window.componentRegistry`, so to inspect at runtime add a temporary `import { componentRegistry } from '@/lib/componentRegistry'; (window as any).componentRegistry = componentRegistry;` to your extension entry, rebuild, and read `componentRegistry.keys()` from devtools.
+Confirm that every Tool and Action key in the output is registered by your extension (a resource needs no component): the auto-discovery entry registers each file of the four buckets, and `resources/js/martis-extensions/index.ts` holds any `register()` call of your own. To inspect the live registry, run `window.Martis.componentRegistry.keys()` in the browser console once the SPA has booted: it is the registry the SPA resolves from (the same instance `@martis/runtime` exports as `componentRegistry`), so no rebuild is needed. `php artisan martis:list-overrides --frontend` runs the same cross-check statically: it derives the key of each file in the four buckets and reads the literal key of each `register()` call in `index.ts` (v1.38.0), and exits `2` when a Tool or Action key is missing. A computed key, or a call in another module, is not read: check it in the console.
 
 Common culprits when an override is missing:
 

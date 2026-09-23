@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import type { TabGroupDefinition, TabDefinition, FieldDefinition, PanelDefinition } from '@/types'
+import { fieldGridSpanStyle, fieldGridStyle } from '@/lib/fieldGridSpan'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
 import { FieldWrapper } from './FieldWrapper'
+import { fieldErrorProps } from '@/lib/fieldErrors'
 import { PanelDisplay, PanelInput } from './PanelRenderer'
 import { FieldLabelTooltip } from './FieldLabelTooltip'
 
@@ -66,6 +68,18 @@ function isPanelDefinition(item: FieldDefinition | PanelDefinition): item is Pan
 }
 
 // -------------------------------------------------------------------------
+// Grid placement
+// -------------------------------------------------------------------------
+//
+// The tab body is a 12-track `.martis-field-grid`. Each field only carries its
+// colSpan / colSpanMd / colSpanLg cascade as custom properties
+// (lib/fieldGridSpan.ts); martis.css owns `grid-column` per breakpoint, full
+// row below md. A nested panel takes the full row at every breakpoint and
+// lays its own fields out on its own grid.
+
+const NESTED_PANEL_SPAN = fieldGridSpanStyle({})
+
+// -------------------------------------------------------------------------
 // Display mode (detail)
 // -------------------------------------------------------------------------
 
@@ -94,22 +108,18 @@ export function TabsDisplay({
         aria-labelledby={`tab-${activeIndex}`}
         className="p-4"
       >
-        <div className="martis-form-grid grid grid-cols-12">
+        <div className="martis-field-grid martis-form-grid" style={fieldGridStyle()}>
           {activeTab.fields.map((item: FieldDefinition | PanelDefinition) => {
             if (isPanelDefinition(item)) {
               return (
-                <div key={item.title} className="col-span-12">
+                <div key={item.title} style={NESTED_PANEL_SPAN}>
                   <PanelDisplay panel={item} values={values} resourceKey={resourceKey} />
                 </div>
               )
             }
             const field = item as FieldDefinition
             return (
-              <div
-                key={field.attribute}
-                className="col-span-12"
-                style={{ gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12' }}
-              >
+              <div key={field.attribute} style={fieldGridSpanStyle(field)}>
                 <dl>
                   <dt className="martis-detail-label mb-1">{field.label}<FieldLabelTooltip text={field.tooltip} /></dt>
                   <dd>
@@ -169,11 +179,11 @@ export function TabsInput({
         aria-labelledby={`tab-${activeIndex}`}
         className="p-4"
       >
-        <div className="martis-form-grid grid grid-cols-12">
+        <div className="martis-field-grid martis-form-grid" style={fieldGridStyle()}>
           {activeTab.fields.map((item: FieldDefinition | PanelDefinition) => {
             if (isPanelDefinition(item)) {
               return (
-                <div key={item.title} className="col-span-12">
+                <div key={item.title} style={NESTED_PANEL_SPAN}>
                   <PanelInput
                     panel={item}
                     values={values}
@@ -189,11 +199,7 @@ export function TabsInput({
             }
             const field = item as FieldDefinition
             return (
-              <div
-                key={field.attribute}
-                className="col-span-12"
-                style={{ gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12' }}
-              >
+              <div key={field.attribute} style={fieldGridSpanStyle(field)}>
                 <FieldWrapper
                   htmlFor={field.attribute}
                   label={field.label}
@@ -205,7 +211,7 @@ export function TabsInput({
                     field={field}
                     value={values[field.attribute]}
                     onChange={(v) => onChange(field.attribute, v)}
-                    error={errors[field.attribute]}
+                    {...fieldErrorProps(errors, field.attribute)}
                     resourceKey={resourceKey}
                     recordId={recordId}
                     toolKey={toolKey}

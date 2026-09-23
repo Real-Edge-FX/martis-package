@@ -74,7 +74,6 @@ function buildLensCacheKey(Authenticatable $user): string
 {
     $controller = app(LensController::class);
     $method = new ReflectionMethod($controller, 'buildCacheKey');
-    $method->setAccessible(true);
 
     $lens = LensCacheKeyTestLens::make();
     $request = new LensRequest;

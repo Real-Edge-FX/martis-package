@@ -7,6 +7,8 @@ import { useTranslation } from 'react-i18next'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { DrawerShell } from './DrawerShell'
 import { recordHref } from '@/lib/recordHref'
+import { NestedParentProvider } from '@/components/fields/NestedParentContext'
+import { hiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
 
 /**
  * Quick-look drawer override.
@@ -45,9 +47,17 @@ export function DrawerQuick(props: OverrideProps) {
   // Pull leaf fields from `fieldsForPreview` (or fall back to detail
   // when the resource hasn't customised it). The quick drawer is
   // intentionally flat — nested Panel / Tab / Section wrappers are
-  // dropped so the surface stays scannable.
-  const previewFields = ((schema.fieldsForPreview ?? schema.fieldsForDetail ?? []) as Array<FieldDefinition | { type: string }>)
-    .filter((f): f is FieldDefinition => 'attribute' in f)
+  // dropped so the surface stays scannable. The fields the record hides
+  // (`_hidden`) are left out, as on the detail page.
+  const previewFields = withoutHiddenFields(
+    ((schema.fieldsForPreview ?? schema.fieldsForDetail ?? []) as Array<FieldDefinition | { type: string }>)
+      .filter((f): f is FieldDefinition => 'attribute' in f),
+    hiddenAttributes(activeRecord),
+  )
+
+  // The page behind the drawer may not name this record, so the relationship
+  // panels inside are told which record they belong to.
+  const relationParent = { resource, id: recordId ?? activeRecord?.id ?? '' }
 
   return (
     <DrawerShell
@@ -73,24 +83,26 @@ export function DrawerQuick(props: OverrideProps) {
           {recordQuery.isLoading ? t('loading', { defaultValue: 'Loading…' }) : t('no_record', { defaultValue: 'No record found' })}
         </div>
       ) : (
-        <dl className="grid grid-cols-1 gap-4">
-          {previewFields.map((field) => (
-            <div key={field.attribute} className="grid grid-cols-3 gap-3">
-              <dt className="martis-text-muted text-sm">
-                {field.label}
-                <FieldLabelTooltip text={field.tooltip} />
-              </dt>
-              <dd className="col-span-2">
-                <FieldDisplay
-                  field={field}
-                  value={activeRecord[field.attribute]}
-                  resourceKey={resource}
-                  context="detail"
-                />
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <NestedParentProvider value={relationParent}>
+          <dl className="grid grid-cols-1 gap-4">
+            {previewFields.map((field) => (
+              <div key={field.attribute} className="grid grid-cols-3 gap-3">
+                <dt className="martis-text-muted text-sm">
+                  {field.label}
+                  <FieldLabelTooltip text={field.tooltip} />
+                </dt>
+                <dd className="col-span-2">
+                  <FieldDisplay
+                    field={field}
+                    value={activeRecord[field.attribute]}
+                    resourceKey={resource}
+                    context="detail"
+                  />
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </NestedParentProvider>
       )}
     </DrawerShell>
   )

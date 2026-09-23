@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Enums\ModalSize;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
+use Martis\Fields\Concerns\HasPivotActions;
+use Martis\Fields\Concerns\StaysOffCreateForms;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -22,6 +24,7 @@ use Martis\ResourceRegistry;
  *   BelongsToMany::make('Tags')
  *   BelongsToMany::make('Tags', 'tags', TagResource::class)
  *   BelongsToMany::make('Tags')->fields(fn() => [Text::make('notes', 'Notes')])
+ *   BelongsToMany::make('Tags')->actions(fn() => [MarkAsPrimary::make()])
  *   BelongsToMany::make('Tags')->searchable()->collapsable()->allowDuplicateRelations()
  *   BelongsToMany::make('Tags')->showCreateRelationButton()->modalSize(ModalSize::Large)
  *   BelongsToMany::make('Tags')->relatableQueryUsing(fn($request, $q) => $q->where('active', 1))
@@ -31,6 +34,8 @@ use Martis\ResourceRegistry;
 class BelongsToMany extends Field
 {
     use ControlsRelationshipToolbar;
+    use HasPivotActions;
+    use StaysOffCreateForms;
 
     /** Eloquent relationship method name on the parent model. */
     protected string $relationship;
@@ -43,9 +48,6 @@ class BelongsToMany extends Field
 
     /** Closure that returns extra pivot field definitions. */
     protected ?\Closure $pivotFieldsClosure = null;
-
-    /** Closure that returns pivot action definitions. */
-    protected ?\Closure $pivotActionsClosure = null;
 
     /** Whether the inline list supports search on attachable records. */
     protected bool $relationSearchable = true;
@@ -108,17 +110,10 @@ class BelongsToMany extends Field
         parent::__construct($attribute, $label);
         $this->relationship = $relationship ?: Str::camel($attribute);
 
-        // BelongsToMany is hidden from index by default (shown on detail + forms)
+        // BelongsToMany is hidden from index by default and shown on the detail
+        // page and the update form; StaysOffCreateForms keeps it off every
+        // create form.
         $this->hideFromIndex();
-
-        // v1.8.4 — Auto-hide on the create form. Pivot rows need both
-        // `(parent_id, related_id)` and the parent doesn't exist yet
-        // when the form is rendered. Showing the picker on create is
-        // visually misleading: clicks would attach to nothing or, with
-        // the v1.8.2 form-draft mechanism, would still need the parent
-        // saved before sync. Use `->showOnCreating()` to override when
-        // you have a custom afterSave hook that drains the picker.
-        $this->showOnCreate = false;
     }
 
     /** {@inheritdoc} */
@@ -173,18 +168,6 @@ class BelongsToMany extends Field
     public function fields(\Closure $closure): static
     {
         $this->pivotFieldsClosure = $closure;
-
-        return $this;
-    }
-
-    /**
-     * Define pivot actions for attached records.
-     *
-     * @param  \Closure(): list<mixed>  $closure
-     */
-    public function actions(\Closure $closure): static
-    {
-        $this->pivotActionsClosure = $closure;
 
         return $this;
     }
@@ -411,9 +394,12 @@ class BelongsToMany extends Field
      */
     protected function extraAttributes(): array
     {
+        // A pivot field the user cannot see (`canSee()`) is left out, as the
+        // pivot endpoints never write it from the request nor send it back.
+        $request = $this->safeRequest() ?? Request::create('/');
         $pivotFields = [];
         foreach ($this->getPivotFields() as $field) {
-            if ($field instanceof Field) {
+            if ($field instanceof Field && $field->isAuthorizedToSee($request)) {
                 $pivotFields[] = $field->toArray();
             }
         }

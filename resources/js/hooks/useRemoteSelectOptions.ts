@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
+import { repeaterRowQuery, withQuery } from '@/lib/relatableEndpoint'
+import type { RepeaterRowScope } from '@/components/fields/types'
 
 /** One option as the field-options endpoint returns it, value coerced to string. */
 export interface RemoteSelectOption {
@@ -36,20 +38,29 @@ interface FieldOptionsEnvelope {
  * select then filters locally, the way `dependsOn` degrades offline).
  * `toolKey` wins over `resourceKey`: the Tool is who declared the field.
  * In the update context the record id travels along so the server can
- * bind the record before running the update policy.
+ * bind the record before running the update policy. A select in a
+ * Repeater row names the row (`repeater` + `repeatable`), where the server
+ * finds the field.
  */
 export function remoteOptionsEndpoint(
   attribute: string,
-  scope: { resourceKey?: string; toolKey?: string; context?: 'create' | 'update'; recordId?: string | number },
+  scope: {
+    resourceKey?: string
+    toolKey?: string
+    context?: 'create' | 'update'
+    recordId?: string | number
+    repeaterRow?: RepeaterRowScope
+  },
 ): string | null {
   const attr = encodeURIComponent(attribute)
+  const row = scope.repeaterRow ? repeaterRowQuery(scope.repeaterRow) : ''
   if (scope.toolKey) {
-    return `/api/tools/${encodeURIComponent(scope.toolKey)}/fields/${attr}/options`
+    return withQuery(`/api/tools/${encodeURIComponent(scope.toolKey)}/fields/${attr}/options`, row)
   }
   if (scope.resourceKey) {
     const context = scope.context ?? 'create'
     const id = context === 'update' && scope.recordId != null ? `&id=${encodeURIComponent(String(scope.recordId))}` : ''
-    return `/api/resources/${encodeURIComponent(scope.resourceKey)}/fields/${attr}/options?context=${context}${id}`
+    return withQuery(`/api/resources/${encodeURIComponent(scope.resourceKey)}/fields/${attr}/options?context=${context}${id}`, row)
   }
   return null
 }

@@ -5,8 +5,9 @@ import { api } from '@/lib/api'
 import type { ResourceRecord, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
+import { hiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
 import { DeleteModal } from '@/components/DeleteModal'
-import { NestedParentProvider, useNestedParent } from './NestedParentContext'
+import { NestedParentProvider, useRelationParent } from './NestedParentContext'
 import { buildViaParams } from '@/lib/relationViaParams'
 import { STANDALONE_RELATIONSHIP_TYPES } from '@/lib/relationshipFieldTypes'
 import { useTranslation } from 'react-i18next'
@@ -49,12 +50,9 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
   const relationship = field.relationship as string
   const relatedResource = field.relatedResource as string
 
-  // Parent context: read from NestedParent when inside another relationship.
-  const nested = useNestedParent()
-  const pathParts = window.location.pathname.split('/')
-  const resourcesIdx = pathParts.indexOf('resources')
-  const parentResource = nested?.resource ?? (resourcesIdx >= 0 ? (pathParts[resourcesIdx + 1] ?? '') : '')
-  const parentId = nested?.id !== undefined ? String(nested.id) : (resourcesIdx >= 0 ? (pathParts[resourcesIdx + 2] ?? '') : '')
+  // The record this card belongs to: the enclosing card's or drawer's record
+  // when nested, else the one in the URL.
+  const { resource: parentResource, id: parentId } = useRelationParent()
 
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -105,7 +103,8 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
       }
       return [f]
     })
-  const detailFields = flattenFields(rawDetailFields)
+  // The fields the related record hides (`_hidden`) are left out.
+  const detailFields: FieldDefinition[] = withoutHiddenFields(flattenFields(rawDetailFields), hiddenAttributes(record))
 
   const viaParams = buildViaParams({
     parentResource,

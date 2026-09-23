@@ -323,7 +323,6 @@ it('MartisServiceProvider seeds the default accept-URL callback when invitations
 
     $provider = new MartisServiceProvider(app());
     $method = new ReflectionMethod($provider, 'registerInvitationAcceptUrl');
-    $method->setAccessible(true);
     $method->invoke($provider);
 
     expect(InvitationUrl::hasCustomCallback())->toBeTrue();
@@ -340,7 +339,6 @@ it('MartisServiceProvider does not clobber an already-registered accept-URL call
 
     $provider = new MartisServiceProvider(app());
     $method = new ReflectionMethod($provider, 'registerInvitationAcceptUrl');
-    $method->setAccessible(true);
     $method->invoke($provider);
 
     $inv = new Invitation;
@@ -353,7 +351,6 @@ it('MartisServiceProvider does not seed the accept-URL callback when invitations
 
     $provider = new MartisServiceProvider(app());
     $method = new ReflectionMethod($provider, 'registerInvitationAcceptUrl');
-    $method->setAccessible(true);
     $method->invoke($provider);
 
     expect(InvitationUrl::hasCustomCallback())->toBeFalse();

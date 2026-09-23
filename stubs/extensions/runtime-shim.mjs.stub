@@ -4,7 +4,8 @@
  * Re-exports the public Martis runtime surface from
  * `window.Martis.runtime`. The consumer's `vite.extensions.config.ts`
  * aliases `@martis/runtime` (and the legacy `@/contexts/*`,
- * `@/lib/*`, `@/components/auth/*`, `@martis/martis/*` paths) to
+ * `@/lib/*`, `@/components/auth/*`, `@martis/martis/*`,
+ * `@/components/fields/types` paths) to
  * this file so override stubs can `import {useAuth, api, AuthFrame,
  * ...} from '@martis/runtime'` and the bundle reads everything off
  * the host SPA's React tree at runtime — no duplicate React, no
@@ -15,8 +16,16 @@
  * loaded (`app.tsx` awaits all `MARTIS_EXTENSIONS` URLs since v1.9.2),
  * so by the time this shim runs the global is always populated.
  *
- * See `martis-package/docs/runtime-api.md` for the full surface and
- * the semver contract.
+ * `martis:install` publishes this file once and rewrites it only with
+ * `--force`, so a name the runtime gains in a later Martis version is
+ * importable by name only once this file exports it; the default
+ * export reads any member (`import runtime from '@martis/runtime'`).
+ * See "Refreshing the extension scaffold after an upgrade" in the
+ * package's `docs/installation-guide.md`, and `docs/overrides.md`
+ * section 5.A for the composition components. Its TypeScript
+ * declarations (`runtime.d.mts`, v1.38.0+) sit next to this file;
+ * `php artisan vendor:publish --tag=martis-extension-shims --force`
+ * refreshes both.
  */
 
 const R =
@@ -63,14 +72,29 @@ export const Footer = R.Footer
 
 // Composition components consumer Tools/Actions/cards render natively:
 // the canonical field renderer, the generic drawer shell, and the
-// PrimeReact Tooltip (for rich/HTML tooltips via `escape={false}` — the
-// global `[data-pr-tooltip]` provider escapes HTML). These live in the
-// host bundle and are reached through the runtime, since the extension
-// build does not alias `primereact` / internal component paths.
+// PrimeReact Tooltip (the ref-based one, for React content via JSX
+// `content`; plain text goes through the global `[data-pr-tooltip]`
+// provider, and so does markup you write, with `data-pr-tooltip-html="true"`
+// on the trigger). These live in the host bundle and are reached through
+// the runtime, since the extension build does not alias `primereact` /
+// internal component paths.
 export const FieldInput = R.FieldInput
 export const FieldDisplay = R.FieldDisplay
 export const DrawerShell = R.DrawerShell
 export const Tooltip = R.Tooltip
+
+// PrimeReact filter controls + `react-dom`'s portal (on the runtime since
+// v1.29.0). The controls Martis's own filters use, and the host's portal for
+// overlays, which the `react-dom` shim (v1.38.0+) re-exports as well.
+export const Dropdown = R.Dropdown
+export const MultiSelect = R.MultiSelect
+export const createPortal = R.createPortal
+
+// Relation parent provider (v1.38.0+). Names the record whose related
+// records the relationship panels inside list, when the page URL does not
+// name it (a custom drawer or detail override); `id: null` on a custom
+// create override, whose record does not exist yet. See docs/overrides.md.
+export const NestedParentProvider = R.NestedParentProvider
 
 // Shared field-form harness (v1.20.0+). `useMartisForm` owns the form state
 // and yields `fieldProps(field)` for a `FieldInput`; `FieldsForm` renders a
@@ -84,6 +108,51 @@ export const useToolFields = R.useToolFields
 // Focus/visibility revalidation seam for Tools that fetch data manually
 // (no react-query, which already revalidates on window focus by default).
 export const useRevalidateOnFocus = R.useRevalidateOnFocus
+
+// Registries (v1.38.0+). The instances the SPA reads: components and
+// overrides (also on `window.Martis.componentRegistry`), icons, and the
+// layout of one resource's pages. See docs/overrides.md.
+export const componentRegistry = R.componentRegistry
+export const iconRegistry = R.iconRegistry
+export const layoutRegistry = R.layoutRegistry
+
+// Page and override hooks (v1.38.0+): tab title, the back-button lock of
+// a dialog inside a drawer, the override-props context, the
+// unsaved-changes guard and the error state. See docs/components.md.
+export const usePageTitle = R.usePageTitle
+export const useModalHistoryLock = R.useModalHistoryLock
+export const OverridePropsProvider = R.OverridePropsProvider
+export const useOverrideProps = R.useOverrideProps
+export const useOverridePropsOptional = R.useOverridePropsOptional
+export const useUnsavedChangesGuard = R.useUnsavedChangesGuard
+export const useError = R.useError
+
+// Theme and display helpers (v1.38.0+): theme colours for canvas /
+// Chart.js, the avatar palette, and the sparkline, clear button and
+// loader the package's own cards and fields render. See docs/theming.md.
+export const cssVar = R.cssVar
+export const accentColor = R.accentColor
+export const mutedTextColor = R.mutedTextColor
+export const chartPalette = R.chartPalette
+export const resolveColor = R.resolveColor
+export const avatarColorForSeed = R.avatarColorForSeed
+export const Sparkline = R.Sparkline
+export const ClearButton = R.ClearButton
+export const MartisLoader = R.MartisLoader
+
+// Preferences and locale (v1.38.0+). See docs/i18n.md.
+export const usePreferences = R.usePreferences
+export const usePreferencesOptional = R.usePreferencesOptional
+export const loadLocale = R.loadLocale
+export const applyDocumentDirection = R.applyDocumentDirection
+export const usePrefersReducedMotion = R.usePrefersReducedMotion
+
+// Keyboard shortcuts (v1.38.0+): the registry the shell binds its own combos
+// to, so a combo registered here shows in the help overlay. The same
+// functions are on `window.Martis.shortcuts`. See docs/keyboard-shortcuts.md.
+export const addShortcut = R.addShortcut
+export const disableShortcut = R.disableShortcut
+export const listShortcuts = R.listShortcuts
 
 // `react-router-dom` re-exports flattened on the top level so legacy
 // stub imports `import {useNavigate} from 'react-router-dom'` resolve

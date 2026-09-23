@@ -59,6 +59,16 @@ interface LensMeta {
 type LensResponse = Omit<PaginatedResponse<ResourceRecord>, 'meta'> & { meta: LensMeta }
 
 export function ResourceLensPage() {
+  const { resource, lens } = useParams<{ resource: string; lens: string }>()
+  // The router keeps this element when the URL moves to another lens (the
+  // lens dropdown) or to another resource's lens, so the page is keyed by
+  // the lens: the selection, the drawers, the confirmations and the seeding
+  // of the lens's default filters start over. The view state lives in the
+  // URL, so nothing the user chose for the new lens is lost.
+  return <LensPage key={`${resource}/${lens}`} />
+}
+
+function LensPage() {
   const { resource, lens: lensKey } = useParams<{ resource: string; lens: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -133,6 +143,9 @@ export function ResourceLensPage() {
   // Debounced search (matches ResourceIndex UX).
   const [searchLocal, setSearchLocal] = useState(search)
   const searchTimer = useRef<ReturnType<typeof setTimeout>>()
+  // A search still waiting for its debounce belongs to this lens: it must
+  // not land in the URL of the lens the page moves to.
+  useEffect(() => () => clearTimeout(searchTimer.current), [])
   useEffect(() => setSearchLocal(search), [search])
   const handleSearchChange = useCallback((value: string) => {
     setSearchLocal(value)

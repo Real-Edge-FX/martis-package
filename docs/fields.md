@@ -18,8 +18,10 @@ All available field types in Martis, their methods, and configuration options.
   - [Granular Visibility](#granular-visibility)
   - [Convenience Visibility Presets](#convenience-visibility-presets)
   - [Context-Aware Visibility](#context-aware-visibility)
+  - [Field authorization: `canSee()` and `canSeeForModel()`](#field-authorization-cansee-and-canseeformodel)
   - [Sortable / Searchable](#sortable--searchable)
   - [Validation](#validation)
+    - [What an update validates](#what-an-update-validates)
   - [Unique Validation](#unique-validation)
   - [Customization Hooks](#customization-hooks)
     - [Computed fields](#computed-fields)
@@ -159,8 +161,9 @@ Text::make('first_name', 'First Name') // explicit label
 |--------|-----------|-------------|
 | `resolve` | `resolve(Model $model, ?string $attribute = null): mixed` | Read the field value from a model: the raw value comes from the `computed()` callback when set, from `$model->getAttribute()` otherwise, then the `resolveUsing()` callback runs if set. |
 | `resolveForDisplay` | `resolveForDisplay(Model $model, ?string $attribute = null): mixed` | Resolve then apply `displayUsing()` callback. Use for index/detail serialization. |
-| `fill` | `fill(Model $model, mixed $value): void` | Write a value to the model. Respects `fillUsing()` callback and `readonly` flag. |
+| `fill` | `fill(Model $model, mixed $value): void` | Write a value to the model. Respects the `fillUsing()` callback, the `readonly` flag and `computed()` (a computed field writes nothing unless a `fillUsing()` callback translates it), on every built-in field (`Repeater` honours both since v1.38.0, and applies them, `canSee()` and `immutable()` to the fields inside its rows, see [Repeater](repeater.md#readonly-computed-hidden-and-immutable-row-fields)). |
 | `hasStructuredValue` | `hasStructuredValue(): bool` | Whether the form submits this field's value as a list or a map rather than a scalar. `true` on `Repeater`, `MultiSelect`, `BooleanGroup`, `KeyValue`, `Tag`, `MorphTo` and `Sparkline`; override it on a custom field whose form value is structured. See [Structured values and file uploads](#structured-values-and-file-uploads). |
+| `rejectsUnstructuredValue` | `rejectsUnstructuredValue(): bool` | Whether a value that is not a list or a map (a string that is not JSON for one, a number, a boolean) fails validation instead of reaching `fill()`. `true` for a structured field the package fills itself; `false` for a readonly or computed field, a field with a `fillUsing()` callback, and `MorphTo` (its `fill()` ignores anything that is not a target map). Override it on a custom field whose `fill()` ignores such a value. v1.38.0+. |
 
 #### Structured values and file uploads
 
@@ -174,7 +177,9 @@ A form that uploads a file (a new `File` / `Image` was picked) is sent as `multi
 | array or plain object | `JSON.stringify(value)` | decoded back to the array before validation and fill for every field whose `hasStructuredValue()` is `true` |
 | other scalar | `String(value)` | as is |
 
-The decoding runs in every resource controller (`ResourceController`, `HasMany` / `HasOne` / `MorphMany` / `MorphOne` inline forms) through `DecodesStructuredValues`, so a `Repeater`'s rows, a `MultiSelect`'s selection, a `BooleanGroup`'s flag map, a `KeyValue`'s pairs, a `Tag`'s ids, a `MorphTo`'s target or a `Sparkline`'s points survive a save that also uploads a file, validation rules such as `array` / `max:N` see the real list, and `fill()` receives the same value it gets on a JSON save. A string that does not decode to an array is left untouched and fails validation instead of being stored.
+The decoding runs in every resource controller (`ResourceController`, `HasMany` / `HasOne` / `MorphMany` / `MorphOne` inline forms) through `DecodesStructuredValues`, so a `Repeater`'s rows, a `MultiSelect`'s selection, a `BooleanGroup`'s flag map, a `KeyValue`'s pairs, a `Tag`'s ids, a `MorphTo`'s target or a `Sparkline`'s points survive a save that also uploads a file, validation rules such as `array` / `max:N` see the real list, and `fill()` receives the same value it gets on a JSON save.
+
+A value that is not a list or a map is never stored: a non-empty string that does not decode to one (`"[object Object]"`, `"12,15"`, a JSON scalar) on either path, and a number or a boolean a JSON request sends (`{"meta": 5, "labels": true}`). The controller validates it with Laravel's `array` rule on top of the field's own rules, so the request fails with a 422 (`The <label> field must be an array.`) and the stored value stays as it was, whether or not the field declares an `array` rule. This holds on both request paths for every field whose `rejectsUnstructuredValue()` is `true`, so a stale SPA bundle or a hand-written API call cannot empty a `Repeater`, clear a `KeyValue` or `MultiSelect`, detach every `Tag` or store the text in a `BooleanGroup` column. It does not apply where no data is at risk: a readonly or computed field writes nothing, a `fillUsing()` callback decides which shapes it accepts, and a `MorphTo` ignores any value that is not a target map (an update form up to v1.37.3 sends a bare id for an untouched target, and a morph key can be a string). `null` and the empty string (what the multipart path sends for `null`) still clear the field. Since v1.38.0; in v1.37.3 only a field with its own `array` rule was protected from a string, and nothing stopped a number or a boolean sent on the JSON path from reaching `fill()` and emptying the field.
 
 Custom fields whose form value is a list or a map should return `true` from `hasStructuredValue()` to join that path; a field whose value is a *string that happens to look like JSON* (a `Code` editor holding JSON, a `Textarea`) must leave it `false` so its text is never decoded.
 
@@ -211,7 +216,7 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
 | `nullable` | `nullable(bool\|Closure $value = true): static` | `$this` | Mark as nullable (adds `nullable` validation rule). Accepts a closure for request-time resolution. |
-| `readonly` | `readonly(bool\|Closure $value = true): static` | `$this` | Prevent modification through UI. `fill()` becomes a no-op. Accepts a closure for request-time resolution. |
+| `readonly` | `readonly(bool\|Closure $value = true): static` | `$this` | Prevent modification through UI. `fill()` becomes a no-op. Accepts a closure for request-time resolution. Every bundled input renders the field read-only (`Avatar`, `BooleanGroup`, `Repeater`, `File`, `Image` and the inline-create "+" of `BelongsTo` / `MorphTo` since v1.38.0, see [Immutable fields](#immutable-fields)). A readonly pivot field is never written from the request either: the attach stores its `default()` and the pivot update leaves it alone (v1.38.0+, see [Immutable fields](#immutable-fields)). Nor is a readonly field inside a `Repeater` row: a stored row keeps its value and a new row stores its `default()` (v1.38.0+, see [Repeater](repeater.md#readonly-computed-hidden-and-immutable-row-fields)). |
 | `required` | `required(bool\|Closure $value = true): static` | `$this` | Require a non-null value (adds `required` validation rule). Accepts a closure for request-time resolution. **v1.8.3**: declaring `'required'` (or any `required_*` variant) inside `->rules([...])` is enough — the visual asterisk now auto-detects it. Calling `->required()` explicitly is still supported and required when you want a Closure-resolved flag. |
 | `placeholder` | `placeholder(string\|Closure $text): static` | `$this` | Set placeholder text for the input. Accepts a closure for request-time resolution. |
 | `help` | `help(string\|Closure $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension). Accepts a closure for request-time resolution. |
@@ -241,7 +246,7 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 |--------|-----------|---------|-------------|
 | `hideWhenCreating` | `hideWhenCreating(): static` | `$this` | Hide on create form only. |
 | `hideWhenUpdating` | `hideWhenUpdating(): static` | `$this` | Hide on update form only. |
-| `showOnCreating` | `showOnCreating(): static` | `$this` | Show on create form. **v1.8.4**: required to opt back in for relationship fields whose persistence requires a saved parent — `BelongsToMany` and `MorphToMany` are hidden on create by default; `HasOne`, `HasMany`, `HasManyThrough`, `HasOneThrough`, `HasOneOfMany`, `MorphOne`, `MorphMany`, `MorphOneOfMany` stay detail-only as before. |
+| `showOnCreating` | `showOnCreating(): static` | `$this` | Show on create form. Relationship fields whose persistence requires a saved parent stay off the create form: `HasOne`, `HasMany`, `HasManyThrough`, `HasOneThrough`, `HasOneOfMany`, `MorphOne`, `MorphMany`, `MorphOneOfMany` are detail-only by default, and **`BelongsToMany` / `MorphToMany` never render on a create form** (since **v1.38.0**, like Nova): no visibility call brings them there, since a pivot row needs the record's key. Attach once the record exists, or use [`Tag`](#tag) to pick related records while creating. |
 | `showOnUpdating` | `showOnUpdating(): static` | `$this` | Show on update form. |
 
 ### Convenience Visibility Presets
@@ -270,12 +275,54 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 | `update` | `showOnUpdate` ?? `showOnForms` |
 | `preview` | `showOnPreview` ?? `showOnDetail` |
 
+### Field authorization: `canSee()` and `canSeeForModel()`
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `canSee` | `canSee(callable $callback): static` | Show the field only when `$callback(Request $request)` returns `true`. |
+| `canSeeWhen` | `canSeeWhen(string $ability, mixed ...$arguments): static` | `canSee()` through a Gate ability of the current user. |
+| `canSeeForModel` | `canSeeForModel(callable $callback): static` | Show the field on a record only when `$callback(Request $request, Model $model)` returns `true` for that record. |
+| `canSeeUsingPolicy` | `canSeeUsingPolicy(string $ability): static` | `canSeeForModel()` through a Gate ability of the current user on the record. |
+| `isAuthorizedToSee` | `isAuthorizedToSee(Request $request): bool` | Resolve `canSee()`. |
+| `isAuthorizedForModel` | `isAuthorizedForModel(Request $request, Model $model): bool` | Resolve `canSeeForModel()` for a record. |
+| `filterForModel` | `static filterForModel(array $fields, Request $request, Model $model): array` | The fields of a list the user may see on a record (v1.38.0). |
+| `sortableAttributes` | `static sortableAttributes(array $items, Request $request): array` | The attributes a request may sort a list by: those of the `sortable()` fields the user may see, layout containers opened (v1.38.0). |
+| `searchableFields` | `static searchableFields(array $items, Request $request): array` | The fields a search matches its term on: the `searchable()` fields the user may see, layout containers opened (v1.38.0). |
+| `hiddenAttributes` | `static hiddenAttributes(array $fields, array $visible): array` | The attributes of the fields of a list a record hides, given the ones `filterForModel()` kept: a serialised record's `_hidden` (v1.38.0). |
+| `filterLayoutFields` | `static filterLayoutFields(array $items, Closure $keep): array` | A field list without the fields `$keep` rejects, its layout containers rebuilt with the fields they keep and left out when they keep none (v1.38.0). |
+
+A field the user cannot see is hidden by the server, not only by the UI. `canSee()` hides it for the request, `canSeeForModel()` for one record, and both hold on every endpoint:
+
+- **Reads.** `canSee()` leaves the field out of every field list of the schema and of every value the API sends. `canSeeForModel()` leaves its value out of each record it hides the field for: the index, the detail, the values of the update form, the replicate form, the rows and the record of a relationship panel (and the responses of its inline create and update), the rows of a lens, the peek card, and for a pivot field the `_pivot` values of the attached records. The schema describes the resource, not a record, so each record lists under `_hidden` the attributes of the fields it hides (v1.38.0), and the pages leave those fields out instead of rendering them empty: the detail page, the detail and quick-look drawers, the update page and drawer (which neither render nor send them), the card of a `HasOne` / `MorphOne`, and the rows of the index, a lens and a relationship panel, where the field's cell stays empty for that record. A layout container left without fields is left out too. The `_pivot` values of an attached record list the pivot fields hidden for its pivot row the same way, and the panel leaves them out of the row and of its pivot edit form. The create forms leave out a field hidden for the new model (see **Creates** below).
+- **Writes.** A hidden field is neither validated nor written, like a `readonly()` field: the request is accepted, the other fields are written and the column keeps its value. This holds on every endpoint that writes a record through its fields: the resource create and update, the inline create, the inline create and update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne` panel, and the attach and pivot update of a `BelongsToMany` / `MorphToMany` for its pivot fields (the attach stores the field's `default()`).
+- **Creates.** `canSeeForModel()` is decided on the record written before any value of the request is written to it: the stored record on an update and, on a create, the new, unsaved model, as Nova resolves the fields of a create on a fresh model. A callback that grants on the record's stored values (an owner column, `exists`, a policy that reads them) denies on a create, and the create does not write the field. The create forms leave such a field out (v1.38.0): the schema's `fieldsForCreate` (a layout container left without fields goes with them) and `fieldsForInlineCreate`, and the inline-create schema, are decided on a new model. Grant on `! $model->exists` to let a create write it:
+
+```php
+Currency::make('salary')
+    ->canSeeForModel(fn (Request $request, Employee $employee): bool => ! $employee->exists
+        || ($request->user()?->can('viewSalary', $employee) ?? false));
+```
+
+- **Pivot fields.** The model a pivot field's `canSeeForModel()` receives is the pivot row, an instance of the relationship's pivot class (the `->using()` class, else `Pivot` / `MorphPivot`) whose `pivotParent` is the parent record: the attached row when the pivot values are read or updated and when the pivot edit modal asks for a picker's options, a new row on attach and in the attach modal. The list of records to attach names the pivot fields a new row hides (`meta.hiddenPivotFields`), and the attach modal leaves them out (v1.38.0+; before, it offered an input the attach then ignored, storing the field's `default()`).
+- **Relationship fields.** A `HasMany`, `HasOne`, `MorphMany`, `MorphOne`, `BelongsToMany` or `MorphToMany` field that `canSeeForModel()` hides for the parent record answers 404 on every endpoint of its panel (the list, its create, update and delete, the attach, the detach, the pivot update, the pivot actions and the pickers of its pivot fields), as a relationship the resource does not declare.
+- **Per-field endpoints.** The options of a relation picker (on a form, among an Action's or a pivot action's fields, among pivot fields), the option search of a `Select` (of a resource or a Tool), the Slug check and the `dependsOn` sync answer for a hidden field exactly as for an attribute nothing declares: 404 for a picker and the Slug check, 422 for the `Select` search and the sync. So does a field of a Repeater row the user cannot see, and every row field of a Repeater the user cannot see. On a form, `canSeeForModel()` is decided on the record the update form edits, or on the new model of a create form.
+- **Action fields.** An Action field the user cannot see is left out of the modal, is not validated and never takes its value from the request. See [Actions → Fields the request cannot set](actions.md#fields-the-request-cannot-set).
+- **Sorting.** A list is sorted only by a `sortable()` field the user can see (v1.38.0): the order of the rows would otherwise tell the order of the field's values. A `?sort=` naming a field `canSee()` hides is ignored like one naming an unknown attribute, and the list keeps its default order. This holds on every list that takes `?sort=`: the resource index (its `defaultSort()` too), the rows of a `HasMany`, `MorphMany`, `BelongsToMany` and `MorphToMany` panel, and a lens, which is sorted by its own sortable fields only (see [Lenses → Which columns sort a lens](lenses.md#which-columns-sort-a-lens)).
+- **Searching.** A search matches its term only on the `searchable()` fields the user can see (v1.38.0): the rows a term returns would otherwise tell which records hold it in a field the user may not read. This holds on every search built from the fields' `searchable()` flags: the resource index, the rows of a relationship panel and its attach picker, the global search (see [Global Search → Fields the user cannot see](global-search.md#fields-the-user-cannot-see)) and a relation picker (`BelongsTo`, `MorphTo`, `Tag`), which searches the title it shows when none of the related resource's searchable fields is left. A `field:value` token naming a field the user cannot see is dropped like one naming an unknown field. What a resource declares itself is searched as declared: its `searchableRelations()` paths, its `searchQuery()` predicate and, with Scout, its `toSearchableArray()`.
+- **Layouts.** The rules are the same whatever layout container holds the field: `Panel`, `Section`, or directly a `Tab`.
+
+A field inside a Repeater row follows `canSee()` (see [Repeater → Readonly, computed, hidden and immutable row fields](repeater.md#readonly-computed-hidden-and-immutable-row-fields)); `canSeeForModel()` is not applied to row fields.
+
+`canSeeForModel()` is decided on one record, so it cannot be decided for a list or a search, which span many: a `sortable()` field it hides on some records still orders the lists that show them, and a `searchable()` one is still searched, so the order of the rows and the rows a term returns tell something about the values of the records it is hidden on. When they must stay hidden, do not make the field `sortable()` / `searchable()`, or hide it with `canSee()` from the users who may not see it on every record.
+
+Before v1.38.0 `canSeeForModel()` only hid the value on the resource's own reads (the index, the detail, the update form values, the replicate form). The resource create and update, the inline create and the inline forms of a relationship panel validated a field it hides and wrote the value the request sent (and the update form, which sends every field it lists, emptied the column); the relationship panels, the lens rows and the peek card sent its value; a relationship field it hides still served its panel; and a pivot field's callback was never asked. The per-field endpoints found a field whatever `canSee()` said, and an Action field hidden with `canSee()` was listed in the modal, validated and handed to `handle()`. A `?sort=` naming a sortable field the user cannot see ordered the resource index, the relationship panels and a lens by that field, and a lens was sorted by any column `?sort=` named. Every search matched the searchable fields the user cannot see too, and a `field:value` token could name one. The create forms listed a field `canSeeForModel()` hides for the new model, and the pages rendered a field a record hides empty (a hidden `Boolean` read "No"), since nothing told it from an empty one. A field placed directly in a `Tab` ignored `canSee()` altogether: the schema listed it, the record's values carried it, and the create and the update validated it and wrote the value the request sent.
+
 ### Sortable / Searchable
 
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
-| `sortable` | `sortable(bool $value = true): static` | `$this` | Allow sorting the index table by this field. |
-| `searchable` | `searchable(bool $value = true): static` | `$this` | Include in global search queries. |
+| `sortable` | `sortable(bool $value = true): static` | `$this` | Allow sorting the index table by this field, for the users who can see it (see [Field authorization](#field-authorization-cansee-and-canseeformodel)). |
+| `searchable` | `searchable(bool $value = true): static` | `$this` | Match the searches (resource index, relationship panels, relation pickers, global search) on this field, for the users who can see it (see [Field authorization](#field-authorization-cansee-and-canseeformodel)). |
 | `isSortable` | `isSortable(): bool` | `bool` | Check if sortable. |
 | `isSearchable` | `isSearchable(): bool` | `bool` | Check if searchable. |
 
@@ -284,8 +331,8 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
 | `rules` | `rules(array\|Closure $rules): static` | `$this` | Add validation rules that apply on every context (merged with existing). Accepts a closure for request-time resolution; closure replaces any prior static rule list (and vice versa). See [Closure-aware setters](#closure-aware-setters). |
-| `creationRules` | `creationRules(array $rules): static` | `$this` | Rules that apply ONLY on POST `/resources/{r}` (create context). Layered on top of `rules()`. |
-| `updateRules` | `updateRules(array $rules): static` | `$this` | Rules that apply ONLY on PUT `/resources/{r}/{id}` (update context). Layered on top of `rules()`. |
+| `creationRules` | `creationRules(array $rules): static` | `$this` | Rules that apply ONLY in the create context: POST `/resources/{r}`, the inline create of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne`, and the attach of a `BelongsToMany` / `MorphToMany` (pivot fields). Layered on top of `rules()`. |
+| `updateRules` | `updateRules(array $rules): static` | `$this` | Rules that apply ONLY in the update context: PUT `/resources/{r}/{id}`, the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne`, and the pivot update of a `BelongsToMany` / `MorphToMany` (pivot fields). Layered on top of `rules()`. |
 | `buildRules` | `buildRules(?string $context = null): array` | `array` | Build the final rule array. Pass `'create'` or `'update'` to layer the matching context rules. |
 | `validationMessages` | `validationMessages(): array` | `array` | Custom validation messages (e.g. for unique). |
 
@@ -298,19 +345,49 @@ Password::make('password')
     ->updateRules(['nullable']);    // update only
 ```
 
-The controller hits `buildRules('create')` for POST and `buildRules('update')` for PUT. The schema endpoint also exposes both rule sets under `creationRules` / `updateRules` keys so the React frontend can pre-validate per context.
+Every endpoint that writes through fields calls `buildRules('create')` on create and `buildRules('update')` on update: the resource's own POST and PUT, the inline create and update of the `HasMany` / `HasOne` / `MorphMany` / `MorphOne` panels, and the attach and pivot update of `BelongsToMany` / `MorphToMany` pivot fields. The schema endpoint also exposes both rule sets under `creationRules` / `updateRules` keys so the React frontend can pre-validate per context.
 
 When `creationRules` contains `required`, the base `sometimes` rule is automatically stripped — `sometimes` short-circuits validation when a key is missing and would defeat the `required` directive otherwise.
 
+#### What an update validates
+
+On update a field is validated only when the request sends it. The controller drops the literal `required` string from the field's rules and puts `sometimes` first, so a payload that carries some fields leaves the others alone. Every other rule is kept, whatever its type: strings such as `required_with:…`, `Rule::` builder objects (`Rule::unique(...)->ignore(...)`, `Rule::in()`, `Rule::enum()`, `Rule::requiredIf()`), `ValidationRule` instances and closures. A key the request sends runs all of them (an implicit rule such as `Rule::requiredIf()` rejects a sent empty value); a key it does not send runs none.
+
+```php
+Text::make('code')
+    ->required()   // dropped on update: an update may omit `code`
+    ->rules([
+        // `$this->model` is the record being edited (unsaved, or null, on create).
+        Rule::unique('invoices', 'code')->ignore($this->model?->getKey()),
+        function (string $attribute, mixed $value, Closure $fail): void {
+            if (str_contains((string) $value, ' ')) {
+                $fail('The :attribute may not contain spaces.');
+            }
+        },
+    ]);
+```
+
+This holds on every update endpoint: the resource's own PUT, the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne`, and the pivot update of a `BelongsToMany` / `MorphToMany`. A record edited from its parent's detail page is validated exactly like the same record edited on its own page. Take the record to ignore from `$this->model`, not from the route: on the relationship endpoints the `{id}` route parameter is the parent's id. On a pivot update `$this->model` is the parent record; the pivot row is the route's `{relatedId}`.
+
+Up to v1.37.3 the relationship endpoints validated less. The pivot update kept string rules only (every rule object and closure was skipped); the inline updates skipped closures and `Rule::enum()` / `Rule::requiredIf()` objects and answered any update of a related resource that declares a `ValidationRule` instance with a 500; and no relationship endpoint applied `creationRules()` / `updateRules()`.
+
 ### Immutable fields
 
-`immutable()` flags a field as **writable on create, readonly on update**. The controller silently skips the fill on update (the request is accepted, the column is not mutated). The schema also exposes the flag so the frontend can render the input as disabled on the edit page.
+`immutable()` flags a field as **writable on create, readonly on update**. On update the field is skipped silently: the request is accepted, the other fields are written and the column keeps its stored value. This holds on every endpoint that updates a record through its resource's fields (the resource's own PUT and the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne` from the parent's detail page) and on the pivot update of a `BelongsToMany` / `MorphToMany` for its pivot fields. The resource's own POST, the inline creates and the attach write the value. A value the update sends still runs the field's rules, like any other field (see [What an update validates](#what-an-update-validates)).
 
 ```php
 Text::make('slug')->immutable()->required();
 ```
 
 Common cases: slugs, account numbers, document references.
+
+The forms follow the same split. The update forms render an immutable field read-only, exactly as they render a `readonly()` field, and still submit its stored value: the update page (also when a relation panel opens the record to edit it), the update drawer (`DrawerOverride::update()`) and the form that edits a pivot row. The create page, the create drawer, the inline create and the attach keep the input editable. The schema serialises the flag as `immutable`; a form built with `useMartisForm({ context: 'update' })` (see [Tool fields](tool-fields.md)) resolves it the same way, and a custom input registered for the field type receives the field with `readonly: true`. A field inside a `Repeater` row is immutable row by row (v1.38.0+): a new row writes and validates the value it sends, a row the record stores keeps its value, on every storage mode, and an update form renders the field read-only on the stored rows only; an immutable `Repeater` as a whole is skipped on update like any field. See [Repeater → Readonly, computed, hidden and immutable row fields](repeater.md#readonly-computed-hidden-and-immutable-row-fields). Up to v1.37.3 every form rendered an immutable field as an editable input, and the update dropped the new value silently.
+
+Every bundled input renders a readonly field read-only, so the lock holds whatever the field type. The inputs with more than one control lock each of them: `Avatar` shows the stored image with the picker disabled and no Choose file / Remove buttons; `BooleanGroup` disables every checkbox; `Repeater` shows its rows (the collapse toggles still work) with read-only row fields and no control that adds, removes, duplicates, reorders or pastes rows; `File` / `Image` keep their download links and previews, drop the remove and Change buttons, disable the picker and ignore a dropped file; `Audio` keeps its player, drops the Replace and Remove buttons, disables the picker and ignores a dropped file; `BelongsTo` and `MorphTo` disable their pickers and offer no inline-create "+" (`showCreateRelationButton()`), and a record the modal creates after the field turned readonly leaves the value alone (v1.38.0+). A file dropped on a readonly `File`, `Image` or `Audio` input is still cancelled, so the browser does not open it in place of the form. Up to v1.37.3 `Avatar`, `BooleanGroup`, `Repeater`, `File` and `Image` ignored `readonly()` (`File` / `Image` only disabled their hidden file input), so a readonly field of those types took a change in the form that the save then dropped (200, column unchanged), and a file dropped on a readonly `Audio` field was not cancelled: the browser opened it in the tab and left the form. Before v1.38.0 the "+" of a readonly `BelongsTo` / `MorphTo` stayed live: it created a real record and selected it, the update dropped the new value and left a record nothing points to, and on a nested create it replaced the locked parent on screen while the record was still created under the parent in the URL.
+
+The pivot endpoints write each pivot field (in the `fields()` of a `BelongsToMany` / `MorphToMany`) through its `fill()`, and `readonly()` holds there too: a readonly pivot field never takes its value from the request. The attach stores its `default()` instead, as it does for any pivot field the request omits, and the pivot update leaves the column alone. See [Relationships → With Pivot Fields](relationships.md#with-pivot-fields).
+
+Up to v1.37.3 only the resource's own update skipped an immutable field: the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne` and the pivot update wrote it like any other field, and the attach and the pivot update also wrote a readonly pivot field from the request.
 
 ### Reactive fields — `dependsOn(['field'], Closure)`
 
@@ -361,7 +438,7 @@ Text::make('access_code')
 
 **Wire format.** The schema endpoint serializes `dependsOn: { fields: ['attr1', 'attr2'] }` (an object) for reactive fields and `null` for non-reactive ones. The frontend `useDependsOnSync` hook subscribes to the listed attributes, debounces 200ms, and POSTs the payload when any watched value changes — older requests are aborted via `AbortController` so the latest value always wins.
 
-**Endpoint.** `POST /api/resources/{r}/sync-field` body: `{ field: string, formData: object, context?: 'create' | 'update' }`. Response: a single field descriptor in the same shape as `schema.fields[]`. Authorization gates the same as create/update.
+**Endpoint.** `POST /api/resources/{r}/sync-field` body: `{ field: string, formData: object, context?: 'create' | 'update' }`. Response: a single field descriptor in the same shape as `schema.fields[]`. Authorization gates the same as create/update. The field is looked up on the form of `context` only, layout containers included: `fieldsForUpdate()` for `update`, `fieldsForCreate()` then the inline-create modal's `fieldsForInlineCreate()` for `create` (v1.38.0: a reactive field declared on the inline-create form alone used to answer 422). A field that is not on that form is `422 Unknown field`.
 
 ### Closure-aware setters
 
@@ -660,12 +737,15 @@ ResourceUpdate) **and** on detail labels rendered inside Sections/TabGroups.
 
 ### HTML support
 
-The frontend opts in via the `data-pr-tooltip-html="true"` attribute, so only
-field tooltips render as HTML — every other `data-pr-tooltip` trigger in the
-app keeps the default plain-text escape. Allowed markup: any inline HTML
-(`<br />`, `<strong>`, `<em>`, `<ul>`/`<li>`, `<code>`, `<a>`). The author is
-responsible for producing safe markup; prefer localised strings from
-`__()` / i18n dictionaries to keep content reviewable.
+The label renderer opts in with the `data-pr-tooltip-html="true"` attribute,
+which makes the global `MartisTooltip` provider render the text as HTML; a
+`data-pr-tooltip` trigger without it keeps the default plain-text escape (the
+metric `help()` tooltip and an extension's own triggers can opt in the same
+way, see [Tooltip Standard](components.md#tooltip-standard-primereact)).
+Allowed markup: any inline HTML (`<br />`, `<strong>`, `<em>`, `<ul>`/`<li>`,
+`<code>`, `<a>`). The markup is not sanitised: the author is responsible for
+producing safe markup and never puts user or record data in it; prefer
+localised strings from `__()` / i18n dictionaries to keep content reviewable.
 
 ### When to use `tooltip()` vs `help()`
 
@@ -683,9 +763,24 @@ Both can coexist on the same field: `->help('Must be unique')->tooltip('<strong>
 - The `(?)` icon uses the muted text colour so it reads as a quiet affordance.
 - Hover delay is **500 ms** — long enough that a cursor skimming the form
   doesn't flash tooltips, short enough that intentional hover feels responsive.
-- Tooltip content falls back to `white-space: nowrap` for plain text and
-  `white-space: normal` for HTML content so `<br />` and wrapping actually work.
-- Position respects the trigger's `data-pr-position` (defaults to `top`).
+- Both channels wrap. The bubble is shrink-to-fit up to 360 px (never wider
+  than the viewport minus 16 px): a short label stays on one line, a sentence
+  wraps inside the bubble, and a long unbroken token (a URL, an id) breaks
+  inside it (`overflow-wrap: anywhere`) instead of running past its edge.
+  Plain text renders at 11 px with a tight padding; HTML content at 12 px with
+  a 220 px minimum width so paragraphs read as prose. Since v1.38.0; before,
+  a plain tooltip was pinned to one line in a 300 px box and a long one spilled
+  out of the bubble.
+- Plain text stays plain whatever its length: a sentence in `data-pr-tooltip`
+  wraps without the HTML opt-in, and markup in it renders literally. Use
+  `data-pr-tooltip-html="true"` only for content that needs markup.
+- Position respects the trigger's `data-pr-position` (defaults to `top`). The
+  bubble is measured first, flips to the opposite side when the requested one
+  has no room for it (a `left` / `right` bubble with room on neither side goes
+  above or below), and is kept inside the viewport with an 8 px margin; the
+  arrow moves along the edge so it keeps pointing at the trigger. While it is
+  open the bubble follows its trigger when the page or a container scrolls,
+  and closes once the trigger leaves the viewport (v1.38.0+).
 
 ### Why NOT a `Tooltip` field class
 
@@ -1059,7 +1154,7 @@ Select::make('model')
 
 - **`searchableOptions()`** renders PrimeReact's filter box inside the panel; filtering happens in the browser over the serialised `options`. Coming from Nova: Nova's `Select::searchable()` is this method. In Martis, `searchable()` on any field (including `Select`) means "the column takes part in the resource search", and it is serialised as `searchable`; the option search box is a separate flag, `searchableOptions`.
 - **`allowCustomValues()`** makes the control editable. A typed value reaches the form state on every keystroke, exactly like a `Text` field, and is stored as-is; `SelectFieldDisplay` renders a value with no matching option as the raw string. The field adds no `Rule::in` validation, so add one yourself when the list must be closed after all.
-- **`searchOptionsUsing()`** moves the search to the server. When the panel opens the frontend calls the field-options endpoint with an empty term (return your "first page" there), then again after each typing pause (300 ms), aborting the previous request; the initial `options()` list is shown until the first response lands. The endpoint is derived from the form's scope: `GET /api/resources/{resource}/fields/{attribute}/options?context=create|update&id=<record>` for a Resource form (gated on the create ability, or on the update ability with the edited record bound, like `sync-field`) and `GET /api/tools/{uriKey}/fields/{attribute}/options` for a Tool implementing `ProvidesFields` whose form passes `toolKey` (see [Tool fields](tool-fields.md#server-side-option-search)). Outside those two scopes (Action modals, Repeaters, a frontend-only Tool form) the select falls back to local filtering over `options()`. The server decides what matches: results are shown as returned, never re-filtered in the browser. A stored value that is not in the current list is still shown in the control and can be cleared. The term is trimmed and clamped to 255 characters before it reaches your closure.
+- **`searchOptionsUsing()`** moves the search to the server. When the panel opens the frontend calls the field-options endpoint with an empty term (return your "first page" there), then again after each typing pause (300 ms), aborting the previous request; the initial `options()` list is shown until the first response lands. The endpoint is derived from the form's scope: `GET /api/resources/{resource}/fields/{attribute}/options?context=create|update&id=<record>` for a Resource form (gated on the create ability, or on the update ability with the edited record bound, like `sync-field`) and `GET /api/tools/{uriKey}/fields/{attribute}/options` for a Tool implementing `ProvidesFields` whose form passes `toolKey` (see [Tool fields](tool-fields.md#server-side-option-search)). A select in a `Repeater` row asks the same endpoints with the form's own context and names its row (`&repeater={attribute}&repeatable={type}`), where the server finds it (v1.38.0+; see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)). Outside those two scopes (Action modals, a relationship's pivot fields, a frontend-only Tool form) the select falls back to local filtering over `options()`. The server decides what matches: results are shown as returned, never re-filtered in the browser. A stored value that is not in the current list is still shown in the control and can be cleared. The term is trimmed and clamped to 255 characters before it reaches your closure. On a Resource form the select is looked up on the form of the context only: `fieldsForUpdate()`, or `fieldsForCreate()` and then the inline-create modal's `fieldsForInlineCreate()` (v1.38.0: a select declared on the inline-create form alone used to answer 422).
 
 **Filter variant + custom class (v1.29.0).** When rendering a select through the runtime `FieldInput` (e.g. a filter bar inside a [Tool](tool-fields.md)), the frontend honours two extra keys on the field definition:
 
@@ -1325,7 +1420,7 @@ Slug::make('slug')
 - `isLockedFor(?Model $model): bool` — Query the lock condition directly.
 
 **⭐ Martis extensions (UI, automatic):**
-- **Live preview** — the React input regenerates the slug as the user types in the source field (i18n-aware transliteration).
+- **Live preview** — the React input regenerates the slug as the user types in the source field (i18n-aware transliteration), until the slug is edited by hand. On a create form, a replicated record included, the slug follows the source from the source's first change, as in Nova: the slug the form opens with, copied or empty, stays until then (v1.38.0+). On an edit form (the update page or the update drawer) a stored slug counts as set: changing the source leaves it alone, so renaming a record does not silently change its URL, and an empty stored slug follows the source at once. Edit the slug directly, or clear it (a `nullable()` slug shows a clear button) to regenerate it from the source and follow it again. A slug the user empties by hand stays empty while the source has text, and follows the source again once the source is empty too, so the next record's slug follows its title after "Create & add another" (v1.38.0+). Before v1.38.0 a create form took a slug it opened with for one set by hand, so a replicated slug never followed the title, and filled an empty slug from a source that already had text.
 - **Live collision detection** — debounced probe against
   `GET /martis/api/resources/{resource}/slug-check/{field}?value=…&id=…`.
   Response envelope:
@@ -1339,6 +1434,7 @@ Slug::make('slug')
   }
   ```
   The UI renders a clickable suggestion when `suggestion` is non-null.
+  The check uses the Slug declared on the form it comes from: `fieldsForUpdate()` when `id` names a record the user may update (`authorizedToUpdate()`), otherwise `fieldsForCreate()` and then `fieldsForInlineCreate()`, then `fields()`. A Slug declared on one form only is found, and that declaration's `separator()` and `reserved()` apply (v1.38.0: the check read `fields()` first and never the inline-create form). The record being edited is left out of the uniqueness probe, so its own slug reads as available; an `id` the user may not update is answered like one that names no record (v1.38.0: any record `id` named was bound and left out of the probe, which told the slug of a record the user could not edit apart).
 
 **Validation:** a closure rule verifies the submitted value is already in its slugified form (so the server rejects mismatched case / spaces) and that it is not in the `reserved` list.
 
@@ -1597,7 +1693,7 @@ BelongsTo::make('user', 'Author')
     ->relatedResource('users')
 ```
 
-For many-to-many relationships use [`BelongsToMany`](#belongstomany), [`MorphToMany`](#morphtomany), or [`Tag`](#tag) — `BelongsTo` itself is single-cardinality.
+For many-to-many relationships use [`BelongsToMany`](#belongstomany), [`MorphToMany`](#morphtomany), or [`Tag`](#tag) — `BelongsTo` itself is single-cardinality. Since v1.38.0 a `multiple` key on its definition (`withMeta(['multiple' => true])`) changes nothing; before, it switched the input to a multi-select left over from the `multiple()` method removed in April 2026, which sent a list of ids that `fill()` stored as an empty foreign key.
 
 ```php
 // Inline create — show "+" button to create related record in a modal
@@ -1616,13 +1712,30 @@ BelongsTo::make('category_id', 'Category')
 | `foreignKey` | `foreignKey(string $key): static` | `$this` | Override FK column name. | `{relationship}_id` |
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource for dropdown API. | `null` |
 | `placeholder` | `placeholder(string\|\Closure $text): static` | `$this` | Custom placeholder shown when no value is selected. Closure receives `(?Request $r)` for per-request resolution. | translated `'Select {field}...'` |
-| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable/disable text search in dropdown. | `true` |
+| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable/disable text search in dropdown. Without it the dropdown has no search box and lists up to 100 records, or the related resource's `$relatableSearchResults` (v1.38.0+; before, the flag was ignored and the search box always showed). | `true` |
 | `relatableQueryUsing` | `relatableQueryUsing(\Closure $closure): static` | `$this` | Per-field constraint on the picker query. Closure receives `(Request $request, Builder $query, BelongsTo $field)` and must return a `Builder`. Runs after the resource's static `relatableQuery()`. | `null` |
 | `displayAsLink` | `displayAsLink(bool $value = true): static` | `$this` | Render as clickable link on index/detail. | `true` |
 | `showCreateRelationButton` | `showCreateRelationButton(bool\|\Closure $callback = true): static` | `$this` | Show "+" button to create related record inline via modal. | `false` |
 | `hideCreateRelationButton` | `hideCreateRelationButton(): static` | `$this` | Explicitly hide the inline create button. | — |
 | `modalSize` | `modalSize(ModalSize $size): static` | `$this` | Set the inline create modal size. Pass any `Martis\Enums\ModalSize` case (`Small`, `Medium`, `Large`, `ExtraLarge`, `TwoExtraLarge` through `SevenExtraLarge`). | `ModalSize::TwoExtraLarge` |
 | `iconColor` | `iconColor(string $color): static` | `$this` | Color for the resource icon in the inline create modal header. Any CSS color. | accent color |
+
+#### Where the picker loads its options
+
+The `BelongsTo`, `MorphTo` and `Tag` pickers list their options from the relatable endpoint of what declares the field, so that declaration (related resource, `relatableQueryUsing()`, `withoutTrashed()`) and the relatable hooks apply:
+
+| The picker renders in | It asks |
+|---|---|
+| a resource form | `GET /api/resources/{resource}/{id}/relatable/{attribute}` (`{id}` is the record under edit, `_` on a create form) |
+| an Action modal | `GET /api/resources/{resource}/actions/{action}/relatable/{attribute}` |
+| a pivot action modal | `GET /api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions/{action}/relatable/{attribute}` |
+| the attach modal of a `BelongsToMany` / `MorphToMany` (a pivot field, v1.38.0+) | `GET /api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/pivot-fields/relatable/{attribute}` |
+| the pivot edit modal of an attached record (v1.38.0+) | `GET /api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/pivot-fields/{relatedId}/relatable/{attribute}` |
+| a `Repeater` row (v1.38.0+) | any of the above, with `?repeater={attribute}&repeatable={type}` naming the row |
+
+Each is gated like the surface it serves (the form, running the Action, the attach or the pivot update), then on `viewAny` of the related resource. See [Relationships → Relation fields declared on one form only](relationships.md#relation-fields-declared-on-one-form-only), [Relation pickers among the pivot fields](relationships.md#relation-pickers-among-the-pivot-fields) and [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows).
+
+> Before v1.38.0 a picker among a relationship's pivot fields or in a Repeater row asked the page's resource for the attribute, which its forms do not declare: 404 and an empty picker.
 
 #### Peek / Preview
 
@@ -1713,7 +1826,7 @@ Tag::make('tags', 'Tags')
 | `showCreateRelationButton` | `showCreateRelationButton(): static` | `$this` | Show inline create button. | `false` |
 | `modalSize` | `modalSize(string $size): static` | `$this` | Inline creation modal size (`sm` to `7xl`). | `'2xl'` |
 | `preload` | `preload(): static` | `$this` | Preload all tags on init (for small sets). | `false` |
-| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable/disable text search. | `true` |
+| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable/disable text search in the picker. Without it the picker has no search box and lists up to 100 tags, or the related resource's `$relatableSearchResults` (v1.38.0+; before, the flag was ignored). | `true` |
 | `getRelationship` | `getRelationship(): string` | `string` | Get relationship method name. | — |
 | `getTitleAttribute` | `getTitleAttribute(): string` | `string` | Get title attribute. | — |
 | `getRelatedResource` | `getRelatedResource(): ?string` | `?string` | Get related resource URI key. | — |
@@ -1722,6 +1835,10 @@ Tag::make('tags', 'Tags')
 | `isShowCreateRelationButton` | `isShowCreateRelationButton(): bool` | `bool` | Check if create button shown. | — |
 | `getModalSize` | `getModalSize(): string` | `string` | Get modal size. | — |
 | `isPreload` | `isPreload(): bool` | `bool` | Check if preloading. | — |
+
+**Preview** (v1.38.0+): with `withPreview()` a tag on the index and detail pages opens the peek card of its record after a short hover: the related resource's `fieldsForPreview()`, the card a `BelongsTo` shows (see [Peek / Preview](#peek--preview)). Before v1.38.0 the method only serialised the flag and nothing opened.
+
+**Inline create** (v1.38.0+): with `showCreateRelationButton()` the picker's dropdown ends with a *Create* entry that opens the related resource's inline-create modal (its `fieldsForInlineCreate()`, sized by `modalSize()`), and the record it creates joins the selection. The entry follows the related resource's policy (the schema serialises `showCreateRelationButton: false` when the user may not create a record there), is absent on a readonly field, and never shows on a `Tag` inside another inline-create form. Before v1.38.0 the method only serialised the flag: the picker offered no way to create a tag.
 
 **Overrides:**
 - `resolve()` loads related models, returns `[{id, title}]`.
@@ -1748,7 +1865,9 @@ dropdown.
 
 Full many-to-many pivot relationship field. Renders as a DataTable panel on the detail page with attach/detach, pivot field editing, search, sort, and pagination. On the index page, shows a count badge.
 
-> **Detail-only by default** — BelongsToMany is hidden from index and forms automatically. Use `->showOnIndex()` to display the count badge.
+> **Where it shows** — the detail page and the update form; hidden from index (`->showOnIndex()` displays the count badge). Never on a create form (the create page, the create drawer, the inline-create modal): a pivot row needs the key of the record, which does not exist yet, so, like Nova, no visibility call (`showOnCreating()`, `showOnForms()`, `onlyOnForms()`) brings the field there. Attach once the record exists, or use [`Tag`](#tag) to pick related records while creating.
+>
+> Since **v1.38.0**. Before it, `showOnCreating()` put the panel on the create forms, where it asked `/api/resources/{resource}//belongs-to-many/{relationship}` (404) on the create page, and listed, and attached to, the page's record in a create drawer or an inline-create modal opened over another record (a Replicate drawer, for instance, attached to the record it copies).
 
 ```php
 // Minimal usage
@@ -1771,7 +1890,7 @@ BelongsToMany::make('Tags', 'tags', TagResource::class)
         Date::make('expires_at', 'Expires At')->nullable(),
     ])
     ->actions(fn () => [
-        // Pivot actions defined here
+        ExtendExpiry::make(), // runs on the selected rows, see actions.md § Pivot Actions
     ])
     ->perPage(15)
     ->canAttach(true)
@@ -1783,7 +1902,7 @@ BelongsToMany::make('Tags', 'tags', TagResource::class)
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource. | inferred from relationship |
 | `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Attribute on related model for display label. | `'name'` |
 | `fields` | `fields(Closure(): list<Field>): static` | `$this` | Define pivot fields (stored on the pivot table). | `null` |
-| `actions` | `actions(Closure(): list<mixed>): static` | `$this` | Define pivot actions for attached records. | `null` |
+| `actions` | `actions(Closure(Request): list<Action>): static` | `$this` | Pivot actions for this relationship's panel only; `handle()` receives the selected attached records, each with its `pivot` row. See [Actions → Pivot Actions](actions.md#pivot-actions). | `null` |
 | `searchable` | `searchable(bool $value = true): static` | `$this` | Enable search in the attach modal. | `false` |
 | `collapsable` | `collapsable(bool $value = true): static` | `$this` | Make the panel collapsable. | `false` |
 | `collapsedByDefault` | `collapsedByDefault(bool $value = true): static` | `$this` | Start the panel collapsed. Implies `collapsable`. | `false` |
@@ -1807,6 +1926,10 @@ BelongsToMany::make('Tags', 'tags', TagResource::class)
 | `POST` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/attach` | Attach a record (with optional pivot data) |
 | `DELETE` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/detach` | Detach a record |
 | `PUT` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/pivot` | Update pivot fields |
+| `GET` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/pivot-fields/relatable/{attribute}` | Options of a `BelongsTo` / `MorphTo` / `Tag` pivot field in the attach modal (v1.38.0) |
+| `GET` | `/api/resources/{resource}/{id}/belongs-to-many/{relationship}/pivot-fields/{relatedId}/relatable/{attribute}` | The same in the pivot edit modal of an attached record (v1.38.0) |
+
+A relation picker among the pivot fields asks the panel (the two `pivot-fields` routes), gated like the panel and then like the attach (`attachAny{Model}`) or the pivot update (`updatePivot{Model}`). See [Relationships → Relation pickers among the pivot fields](relationships.md#relation-pickers-among-the-pivot-fields).
 
 #### Authorization
 
@@ -1824,7 +1947,7 @@ public function authorizedToDetach(Request $request, Model $related): bool
 }
 ```
 
-If these methods are not defined, the field falls back to `authorizedToUpdate()`.
+Without an override they ask the parent's policy (`attach{Model}`, `detach{Model}`; permitted when the policy does not define them). `attachAny{Model}` (`authorizedToAttachAny()`) gates the attach as a whole: when it denies, the list of records to attach, the attach and the attach modal's pivot pickers answer 403 (v1.38.0+). See [Relationships → Authorization](relationships.md#authorization).
 
 **Overrides:**
 - `resolve()` returns `null` on the detail page (data is loaded via API endpoints), or the count (integer) when shown on index.
@@ -2231,7 +2354,7 @@ MorphTo::make('commentable', 'Commentable')
 |--------|-----------|---------|-------------|---------|
 | `types` | `types(array $resourceClasses): static` | `$this` | Allowed resource families for this polymorphic relationship. Each entry is a `Resource` class name; the model class is derived via `newModel()`. | — |
 | `titleAttribute` | `titleAttribute(string $attr): static` | `$this` | Attribute used for the display label in the picker and on detail rows. | `'name'` |
-| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable / disable text search inside the record dropdown. | `true` |
+| `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable / disable text search inside the record dropdown. Without it the dropdown has no search box and lists up to 100 records of the picked type, or its resource's `$relatableSearchResults` (v1.38.0+; before, the flag was ignored). | `true` |
 | `showCreateRelationButton` | `showCreateRelationButton(bool\|\Closure $callback = true): static` | `$this` | Show the inline "+" button that creates a related record per type. | `false` |
 | `hideCreateRelationButton` | `hideCreateRelationButton(): static` | `$this` | Explicitly hide the inline create button. | — |
 | `modalSize` | `modalSize(ModalSize $size): static` | `$this` | Modal size for the inline create flow. Pass any `Martis\Enums\ModalSize` case (`Small` through `SevenExtraLarge`). | `ModalSize::TwoExtraLarge` |
@@ -2256,11 +2379,13 @@ The frontend submits:
 { "resourceType": "posts", "id": 42 }
 ```
 
-The backend resolves the model class from the resource URI key and writes both `commentable_type` and `commentable_id` columns on the parent.
+The backend resolves the model class from the resource URI key and writes both `commentable_type` and `commentable_id` columns on the parent. The resolve format (`type` + `id`) is accepted too, which is what an edit form sends for a target the user did not change; `type` must name one of the field's `types()` (the model class or its morph-map alias), exactly as `resourceType` must name one of their resources, otherwise it is ignored (v1.38.0+; before, any class name was written). Any value that is not a map is ignored, so the stored target stays as it was.
+
+Since v1.38.0 the update page and the update drawer send the MorphTo map as is. They used to reduce every `{ id, title }` value to its id (right for a `BelongsTo`), which caught the MorphTo map too, so a target changed on an edit form was never saved.
 
 **Inline create**
 
-Inline create is per-type — the create button appears only after the operator picks a type. Nesting is limited to one level (no inline create inside an inline create). The related resource's `fieldsForInlineCreate()` controls which fields show; falls back to `fieldsForCreate()`.
+Inline create is per-type — the create button appears only after the operator picks a type. Nesting is limited to one level (no inline create inside an inline create). A readonly MorphTo (a `readonly()` field, an `immutable()` one on an update form) offers no create button (v1.38.0+; before, the button stayed live and created a record the save then dropped). The button shows only for a type the user may create: each `morphTypes` entry of the schema carries that type's `authorizedToCreate`, and `showCreateRelationButton` holds as soon as one type is creatable (v1.38.0+; before, every type showed the button, and the modal of a type the user cannot create failed with a 403 on its schema). The related resource's `fieldsForInlineCreate()` controls which fields show; falls back to `fieldsForCreate()`.
 
 **Toolbar controls (inherited)**
 
@@ -2276,8 +2401,10 @@ All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited �
 **File:** `src/Fields/MorphToMany.php`
 
 Polymorphic many-to-many relationship (`morphToMany`). Same pivot UI as
-`BelongsToMany` — DataTable, attach/detach, pivot fields, search, sort,
-per-page, pagination — via `RelationshipTableShell`. Detail-only by default.
+`BelongsToMany` — DataTable, attach/detach, pivot fields, pivot actions,
+search, sort, per-page, pagination — via `RelationshipTableShell`.
+Shown where `BelongsToMany` shows: the detail page and the update form,
+never a create form (see the note under [BelongsToMany](#belongstomany)).
 
 ```php
 use Martis\Fields\MorphToMany;
@@ -2296,7 +2423,7 @@ MorphToMany::make('Tags', 'tags', TagResource::class)
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
 | `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Display attribute on the related model. | `'name'` |
 | `fields` | `fields(Closure $closure): static` | `$this` | Define pivot fields (stored on the morph-pivot table). | — |
-| `actions` | `actions(Closure $closure): static` | `$this` | Define pivot actions for attached records. | — |
+| `actions` | `actions(Closure(Request): list<Action>): static` | `$this` | Pivot actions for this relationship's panel only; `handle()` receives the selected attached records, each with its `pivot` row. See [Actions → Pivot Actions](actions.md#pivot-actions). | — |
 | `searchable` | `searchable(bool $value = true): static` | `$this` | Enable search in the attach modal. | `false` |
 | `collapsable` | `collapsable(bool $value = true): static` | `$this` | Make the panel collapsable. | `false` |
 | `collapsedByDefault` | `collapsedByDefault(bool $value = true): static` | `$this` | Start collapsed. Implies `collapsable`. | `false` |
@@ -2312,6 +2439,8 @@ MorphToMany::make('Tags', 'tags', TagResource::class)
 | `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
 | `canAttach` | `canAttach(bool $value = true): static` | `$this` | Control visibility of the Attach button. | `true` |
 | `canDetach` | `canDetach(bool $value = true): static` | `$this` | Control visibility of the Detach button per row. | `true` |
+
+A relation picker among the pivot fields asks the panel, under `/api/resources/{resource}/{id}/morph-to-many/{relationship}/pivot-fields/relatable/{attribute}` in the attach modal and `.../pivot-fields/{relatedId}/relatable/{attribute}` in the pivot edit modal (v1.38.0+), gated like a `BelongsToMany`'s (see [Relationships → Relation pickers among the pivot fields](relationships.md#relation-pickers-among-the-pivot-fields)).
 
 *src/Fields/MorphToMany.php*
 
@@ -2521,15 +2650,36 @@ KeyValue::make('metadata', 'Metadata')
 | `actionText` | `actionText(string $text): static` | `$this` | Label for "add row" button. | `'Add Row'` |
 | `disableEditingKeys` | `disableEditingKeys(): static` | `$this` | Prevent editing existing keys. | `false` |
 | `disableAddingRows` | `disableAddingRows(): static` | `$this` | Prevent adding new rows. | `false` |
+| `disableDeletingRows` | `disableDeletingRows(): static` | `$this` | Prevent deleting rows: no row renders a delete button. v1.38.0+. | `false` |
 | `getKeyLabel` | `getKeyLabel(): string` | `string` | Get key label. | — |
 | `getValueLabel` | `getValueLabel(): string` | `string` | Get value label. | — |
 | `getActionText` | `getActionText(): string` | `string` | Get action text. | — |
 | `isEditingKeysDisabled` | `isEditingKeysDisabled(): bool` | `bool` | Check if key editing disabled. | — |
 | `isAddingRowsDisabled` | `isAddingRowsDisabled(): bool` | `bool` | Check if adding disabled. | — |
+| `isDeletingRowsDisabled` | `isDeletingRowsDisabled(): bool` | `bool` | Check if deleting disabled. v1.38.0+. | — |
+
+**A fixed set of keys.** The three `disable*` flags are independent. To present
+a map whose keys are fixed and only the values are editable (opening hours per
+weekday, one row per locale), declare all three; with only
+`disableEditingKeys()->disableAddingRows()` the operator can still delete a row,
+and saving then drops that key from the stored map:
+
+```php
+KeyValue::make('opening_hours', 'Opening hours')
+    ->keyLabel('Day')
+    ->valueLabel('Hours')
+    ->disableEditingKeys()
+    ->disableAddingRows()
+    ->disableDeletingRows()
+```
+
+The flags shape the form only. The server stores the rows it receives, so a
+payload sent outside the form is not held to the fixed key set; enforce it
+with a validation rule when that matters.
 
 **Storage format:** `{"key1":"value1","key2":"value2"}`
 **Overrides:** `resolve()` decodes to `[{key, value}]` rows; `fill()` normalizes to the associative map and stores it, JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
-**Extra attributes:** `keyLabel`, `valueLabel`, `actionText`, `editingKeysDisabled`, `addingRowsDisabled`
+**Extra attributes:** `keyLabel`, `valueLabel`, `actionText`, `editingKeysDisabled`, `addingRowsDisabled`, `deletingRowsDisabled`
 
 ---
 
@@ -2793,7 +2943,7 @@ full API. Highlights:
 | `asPolymorphic` ⭐ | `asPolymorphic(string $type = 'type', string $payload = 'payload')` | One child table for every row type |
 | `uniqueField` | `uniqueField(string)` | Column used to identify rows across saves |
 | `confirmRemoval` | `confirmRemoval(bool = true)` | Open a confirmation modal on remove |
-| `minRows` / `maxRows` ⭐ | `minRows(int)` / `maxRows(int)` | Cardinality limits enforced in the UI |
+| `minRows` / `maxRows` ⭐ | `minRows(int)` / `maxRows(int)` | Cardinality shown in the form (Add disables at the max, a notice shows below the min); add `rules(['array', 'min:N', 'max:N'])` to enforce it on the server |
 | `collapsible` ⭐ | `collapsible(bool = true)` | Add collapse chevron to every row |
 | `collapsedByDefault` ⭐ | `collapsedByDefault(bool = true)` | Start collapsed |
 | `reorderable` ⭐ | `reorderable(bool = true, ?string $column = null)` | Drag-and-drop reorder |
@@ -2804,6 +2954,14 @@ full API. Highlights:
 `badgeCount`. Row-level UX extras: duplicate button per row, bulk-paste modal that
 parses TSV/CSV/JSON.
 
+A `BelongsTo`, `MorphTo` or `Tag` in a row type lists its options, and a `Select`
+with `searchOptionsUsing()` searches them, from the row (v1.38.0+): see
+[Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows).
+
+The fields inside the rows are validated on the server with their own rules, under
+`{attribute}.{row}.fields.{field}`, and each error shows under its row field (since
+v1.38.0): see [Repeater § Validation](repeater.md#validation).
+
 ---
 
 ## Utility Classes
@@ -2812,14 +2970,14 @@ parses TSV/CSV/JSON.
 
 **File:** `src/Fields/DeferredRelationSync.php`
 
-Static registry for deferred many-to-many relationship syncs. Used by `Tag` and similar fields where the pivot rows can only be written after the parent model has been saved (so the parent's primary key is available).
+Static registry for deferred many-to-many relationship syncs. Used by `Tag`, whose pivot rows can only be written after the parent model has been saved (so the parent's primary key is available). No other bundled field registers syncs here: `BelongsTo` has no multiple mode (use `BelongsToMany` or `Tag` for a N:N relation).
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `register` | `static register(Model $model, string $relationship, array $ids): void` | Register a relationship sync to be executed after save. |
 | `sync` | `static sync(Model $model): void` | Execute all pending syncs for a model, then clear them. |
 
-Uses `WeakMap` keyed by model instances for automatic garbage collection. The `ResourceController` calls `sync()` after the model is saved.
+Uses `WeakMap` keyed by model instances for automatic garbage collection. Every controller that saves a record through its fields calls `sync()` right after the save: the resource's own create and update and, since v1.38.0, the HasMany / HasOne / MorphMany / MorphOne inline forms (up to v1.37.3 those saved the record and dropped the `Tag` values, and the rows of a HasMany or polymorphic `Repeater`, queued for it).
 
 ### FieldContext (Enum)
 
@@ -2856,10 +3014,12 @@ Martis supports resource replication. When a user clicks "Replicate" on a detail
 ### How It Works
 
 1. User clicks "Replicate" on `ResourceDetail`
-2. Frontend navigates to `/resources/{resource}/create?fromResourceId={id}`
-3. `ResourceCreate` fetches pre-fill data from `GET /api/resources/{resource}/{id}/replicate`
+2. Frontend navigates to `/resources/{resource}/create?fromResourceId={id}` (a resource with a create override opens that override instead, with `fromResourceId`; see [Overrides → Override Props](overrides.md#override-props))
+3. `ResourceCreate` (or the create drawer) fetches pre-fill data from `GET /api/resources/{resource}/{id}/replicate`
 4. Form is pre-filled with source record values (File fields excluded)
-5. User can modify values and submit to create the new record
+5. User can modify values and submit to create the new record; the create carries `fromResourceId`, and the success toast reads the resource's `replicatedMessage()` (v1.38.0+; before, it always read `createdMessage()`)
+
+The form keeps its loading skeleton until the copied values have filled it, then mounts the fields, as Nova's Replicate view does, so every input starts from the copy (v1.38.0+). A response without `values` opens an empty form, and a failed request shows the error page. A copied `Slug` stays as copied until the title changes, and then follows it (see [Slug](#slug)). Before v1.38.0 the fields mounted empty and received the copy one render later: an input that reads its value when it mounts showed nothing of it, and the copied slug was replaced at once by one made from the copied title.
 
 ### API Endpoint
 
@@ -2883,7 +3043,7 @@ Override `fieldsForCreate()` on your resource to control which fields appear in 
 
 ## Inline Create
 
-BelongsTo fields can display a "+" button that opens a modal for creating a related record inline, without leaving the current form. This is controlled by `showCreateRelationButton()` on the BelongsTo field.
+BelongsTo fields can display a "+" button that opens a modal for creating a related record inline, without leaving the current form. This is controlled by `showCreateRelationButton()` on the BelongsTo field. `MorphTo` offers the same per type, and `Tag` from its picker's dropdown (v1.38.0+); see their sections.
 
 ### How It Works
 
@@ -2891,7 +3051,10 @@ BelongsTo fields can display a "+" button that opens a modal for creating a rela
 2. Clicking "+" opens a modal with the related resource's inline create fields
 3. The related resource defines `fieldsForInlineCreate()` for a reduced field set
 4. On submit, the new record is created and automatically selected in the BelongsTo dropdown
-5. Nesting is limited to 1 level (no inline create inside an inline create)
+5. Nesting is limited to 1 level (no inline create inside an inline create): the inline-create schema turns `showCreateRelationButton` off for its `BelongsTo`, `MorphTo` and `Tag` fields (`Tag` since v1.38.0)
+6. A readonly field offers no "+" (v1.38.0+): a `readonly()` field, an `immutable()` one on an update form, and the `BelongsTo` a nested create locks to its parent. Before v1.38.0 the "+" stayed live there and created a record the save then dropped.
+
+Closing the modal discards what was typed in it, so it opens on an empty form every time (v1.38.0+). Before v1.38.0 the modal emptied its form one render after it opened again, so an input that reads its value when it mounts kept the text typed the previous time.
 
 ### API Endpoints
 

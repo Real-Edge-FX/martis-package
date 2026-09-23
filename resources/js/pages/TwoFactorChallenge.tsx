@@ -37,10 +37,15 @@ export function TwoFactorChallengePage() {
   const recoveryRef = useRef<HTMLInputElement | null>(null)
 
   // Auto-expire the challenge after CHALLENGE_TIMEOUT_MS — matches the
-  // backend TTL and logs the user out if they leave the tab idle.
+  // backend TTL and logs the user out if they leave the tab idle. The timer
+  // starts once, on mount (the countdown re-renders the page every second),
+  // and runs the `handleCancel` of the latest render, with its `t` and
+  // `addToast`.
+  const handleCancelRef = useRef(handleCancel)
+  handleCancelRef.current = handleCancel
   useEffect(() => {
     const timer = setTimeout(() => {
-      void handleCancel(true)
+      void handleCancelRef.current(true)
     }, CHALLENGE_TIMEOUT_MS)
     return () => clearTimeout(timer)
   }, [])

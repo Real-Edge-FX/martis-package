@@ -205,7 +205,7 @@ class WeeklyRevenue extends TrendMetric
 }
 ```
 
-The `<Sparkline>` React component used internally is also exported (`@/components/metrics`) for use inside custom cards or framed components.
+The `<Sparkline>` React component used internally is also on `@martis/runtime` (v1.38.0+) for use inside custom cards or framed components: `import { Sparkline } from '@martis/runtime'`.
 
 ## Custom date column on query helpers
 

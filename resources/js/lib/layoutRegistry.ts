@@ -3,18 +3,22 @@ import type { ComponentType } from 'react'
 /**
  * Layout Registry — Bloco 9 (Override System v1)
  *
- * Allows resources to declare a custom page layout.
- * The default layout wraps every resource page (index, detail, create, update).
- * Override per-resource to provide a completely custom shell.
+ * Lets a resource declare the layout its pages render in. `ResourceLayout`
+ * (the route above every resource page: index, lens, create, detail,
+ * update) wraps the page in the layout registered for the resource in the
+ * URL, inside the shell, so the sidebar and topbar stay; a resource with
+ * no registration renders its pages as is (since v1.38.0; before, nothing
+ * read the registry). The whole shell is replaced through the component
+ * registry instead (`layout:shell`).
  *
- * Usage:
- *   import { layoutRegistry } from '@/lib/layoutRegistry'
+ * Usage, from a consumer extension:
+ *   import { layoutRegistry } from '@martis/runtime'
  *   import { UserResourceLayout } from './UserResourceLayout'
  *
  *   // Override layout for the "users" resource
  *   layoutRegistry.register('users', UserResourceLayout)
  *
- * Layout components receive children as props:
+ * Layout components receive the page as children:
  *   function UserResourceLayout({ children }: { children: React.ReactNode }) { ... }
  */
 
@@ -22,7 +26,9 @@ export interface LayoutProps {
   children: React.ReactNode
 }
 
-class LayoutRegistry {
+// Exported so the runtime's generated declarations (`npm run build:types`)
+// can name the type of `layoutRegistry`.
+export class LayoutRegistry {
   private readonly layouts = new Map<string, ComponentType<LayoutProps>>()
 
   /**

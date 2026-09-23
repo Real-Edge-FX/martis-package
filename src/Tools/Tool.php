@@ -74,6 +74,9 @@ class Tool implements ToolContract
     /** Opt-in for the bundled "System" sidebar section (v1.35.0+). */
     protected bool $systemSection = false;
 
+    /** Position inside the bundled "System" section (v1.38.0+). */
+    protected int $systemSectionOrder = 100;
+
     /**
      * Optional breadcrumb label override. When set, the React shell shows
      * this label as the deepest crumb instead of `name()`. Defaults to
@@ -165,16 +168,30 @@ class Tool implements ToolContract
         return $this->systemSection;
     }
 
+    public function systemSectionOrder(): int
+    {
+        return $this->systemSectionOrder;
+    }
+
     /**
      * Place this tool inside the bundled "System" sidebar section, next to
      * the audit log, the System-section resources and the Cache admin
      * link, instead of a section of its own. Takes precedence over
      * `withMenuSection()`. Mirrors `Resource::belongsToSystemSection()`;
      * subclasses may override the getter instead of calling the setter.
+     *
+     * `$order` positions the tool inside the section (see
+     * `systemSectionOrder()`); `null` keeps the current weight (100 unless
+     * set before), so a tool that sets nothing keeps the default order:
+     * after the System-section resources, before the Cache admin link.
      */
-    public function withSystemSection(bool $value = true): static
+    public function withSystemSection(bool $value = true, ?int $order = null): static
     {
         $this->systemSection = $value;
+
+        if ($order !== null) {
+            $this->systemSectionOrder = $order;
+        }
 
         return $this;
     }

@@ -16,8 +16,20 @@ import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import { recordHref } from '@/lib/recordHref'
+import { updatePayload } from '@/lib/updatePayload'
+import { useHiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
 
 export function ResourceUpdatePage() {
+  const { resource, id } = useParams<{ resource: string; id: string }>()
+  // The router keeps this element when the URL moves to another record's
+  // edit page (a link in the form, back/forward, a redirect after saving), so
+  // the page is keyed by the record it edits: nothing from the previous
+  // record (seeded values, dirty baseline, dependsOn overrides, field state)
+  // carries over.
+  return <RecordUpdatePage key={`${resource}/${id}`} />
+}
+
+function RecordUpdatePage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -53,9 +65,13 @@ export function ResourceUpdatePage() {
   const { t: tNav } = useTranslation('navigation')
   usePageTitle(schema ? `${tNav('edit', { defaultValue: 'Edit' })} ${schema.singularLabel}` : null)
 
+  // The fields the record hides (`canSeeForModel()`, listed under
+  // `_hidden`) are left out of the form: it neither renders them empty nor
+  // sends them.
+  const hidden = useHiddenAttributes(record)
   const allFormFields = useMemo<FieldDefinition[]>(
-    () => (schema?.fieldsForUpdate ?? []) as FieldDefinition[],
-    [schema],
+    () => withoutHiddenFields((schema?.fieldsForUpdate ?? []) as FieldDefinition[], hidden),
+    [schema, hidden],
   )
 
   // Shared form state — `values`/`errors`, dependsOn override resolution (via
@@ -65,7 +81,8 @@ export function ResourceUpdatePage() {
   // `initialized` flips true once the record has hydrated the form. Declared
   // before useMartisForm so we can gate the server dependsOn sync on it —
   // preserving the pre-refactor `disabled: !resource || !initialized` behaviour
-  // (no sync-field round-trip with empty form data on mount).
+  // (no sync-field round-trip with empty form data on mount). The fields
+  // themselves only mount once it is true (see the render below).
   const [initialized, setInitialized] = useState(false)
   const form = useMartisForm({
     fields: allFormFields,
@@ -75,6 +92,10 @@ export function ResourceUpdatePage() {
     syncDisabled: !initialized,
   })
   const baselineRef = useRef<string | null>(null)
+  // The values the save under way sent. The inputs stay editable while the
+  // request runs, so the form's values when it succeeds may hold more than
+  // what was saved.
+  const submittedRef = useRef<string | null>(null)
 
   /**
    * Controls the post-save redirect on the update form.
@@ -136,6 +157,11 @@ export function ResourceUpdatePage() {
       addToast('success', res.meta?.message ?? tMsg('record_updated'))
       // Suppress the unsaved-changes guard for the post-save redirect.
       markSaved()
+      // The saved values are the new baseline, so a redirect that keeps this
+      // page ("Save & continue editing", a redirectAfterUpdate() to this
+      // record's edit page) does not count them as unsaved. What was typed
+      // while the request ran still does.
+      baselineRef.current = submittedRef.current
       // Navigate back to parent resource detail if editing via a
       // relationship, otherwise to record detail. Invalidate the matching
       // query (has-many or has-one depending on viaRelationshipType),
@@ -150,13 +176,11 @@ export function ResourceUpdatePage() {
       }
 
       const mode = submitModeRef.current
-      // "Save & continue editing" stays on the edit page. We refresh the
-      // baseline so the unsaved-changes guard does not re-trigger on the
-      // values we just persisted, and reset the mode so the next submit
-      // defaults back to "detail".
+      // "Save & continue editing" stays on the edit page (the baseline was
+      // refreshed above) and resets the mode so the next submit defaults back
+      // to "detail".
       if (mode === 'continue_editing') {
         submitModeRef.current = 'detail'
-        baselineRef.current = JSON.stringify(form.values)
         return
       }
 
@@ -211,25 +235,9 @@ export function ResourceUpdatePage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     form.setErrors({})
-    // Filter values: skip file/image fields that haven't changed (still object from API)
-    const submitValues: Record<string, unknown> = {}
-    for (const [key, val] of Object.entries(form.values)) {
-      if (val === null || val === undefined) {
-        submitValues[key] = val
-        continue
-      }
-      // Skip File objects that are still existing server values (have 'url')
-      if (typeof val === 'object' && !(val instanceof File) && 'url' in (val as Record<string, unknown>)) {
-        continue
-      }
-      // BelongsTo: if value is still the original {id, title} object, extract just the ID
-      if (typeof val === 'object' && !(val instanceof File) && 'id' in (val as Record<string, unknown>) && 'title' in (val as Record<string, unknown>)) {
-        submitValues[key] = (val as Record<string, unknown>).id
-        continue
-      }
-      submitValues[key] = val
-    }
-    updateMutation.mutate(submitValues)
+    submittedRef.current = JSON.stringify(form.values)
+    // Unchanged files left out, BelongsTo reduced to its id, MorphTo kept whole.
+    updateMutation.mutate(updatePayload(form.values))
   }
 
   if (schemaQuery.isLoading || recordQuery.isLoading) return <FormSkeleton />
@@ -291,6 +299,11 @@ export function ResourceUpdatePage() {
       return <C {...overrideProps} />
     }
   }
+
+  // The record seeds the form in an effect after the queries resolve. Mount
+  // the fields only then, so every input starts from the stored value (an
+  // input that reads its value at mount would otherwise see an empty form).
+  if (!initialized) return <FormSkeleton />
 
   // Back link: go to parent detail when via HasMany, otherwise to record detail
   const backLink = isViaHasMany

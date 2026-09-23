@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\LayoutContract;
 use Martis\Contracts\ProvidesFields;
+use Martis\Fields\Field;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\MartisManager;
@@ -36,7 +37,9 @@ class ToolFieldsController extends MartisController
      * `canSee()` callback denies the user — `MartisManager::findTool()`
      * already applies `authorizedToSee()`, so these cases are
      * intentionally indistinguishable and the field definitions never
-     * leak to an unauthorised caller.
+     * leak to an unauthorised caller. The fields the user cannot see
+     * (their own `canSee()`) are left out, at every depth of the layout
+     * containers, and a container left without fields goes with them.
      */
     public function fields(Request $request, string $uriKey): IlluminateJsonResponse
     {
@@ -46,7 +49,13 @@ class ToolFieldsController extends MartisController
             return JsonErrorResponse::notFound("Tool [{$uriKey}] not found.")->toResponse();
         }
 
-        $fields = $tool instanceof ProvidesFields ? $tool->fields($request) : [];
+        // A field the user cannot see (canSee()) is left out, as the
+        // resource schema leaves it out: its option search already answers
+        // like an undeclared field's.
+        $fields = Field::filterLayoutFields(
+            $tool instanceof ProvidesFields ? $tool->fields($request) : [],
+            fn (FieldContract $field): bool => $field->isAuthorizedToSee($request),
+        );
 
         // A Tool's fields() may return layout wrappers (Section/Panel/TabGroup)
         // just like a Resource's; both FieldContract and LayoutContract expose

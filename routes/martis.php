@@ -404,9 +404,19 @@ Route::middleware(config('martis.middleware', ['web']))
                                     ->name('resources.belongs-to-many.detach');
                                 Route::put('/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/pivot', [BelongsToManyController::class, 'updatePivot'])
                                     ->name('resources.belongs-to-many.pivot');
-                                // Pivot action execution
+                                // Options of a relation field among the pivot fields: the attach
+                                // modal, and the pivot edit modal of one attached record
+                                Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/pivot-fields/relatable/{field}', [ResourceController::class, 'pivotFieldRelatableOptions'])
+                                    ->name('resources.belongs-to-many.pivot-fields.relatable');
+                                Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/pivot-fields/{relatedId}/relatable/{field}', [ResourceController::class, 'attachedPivotFieldRelatableOptions'])
+                                    ->name('resources.belongs-to-many.pivot-fields.attached.relatable');
+                                // Pivot actions
                                 Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions', [ActionController::class, 'pivotIndex'])
                                     ->name('resources.belongs-to-many.actions.index');
+                                Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}/fields', [ActionController::class, 'pivotFields'])
+                                    ->name('resources.belongs-to-many.actions.fields');
+                                Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}/relatable/{field}', [ResourceController::class, 'pivotActionRelatableOptions'])
+                                    ->name('resources.belongs-to-many.actions.relatable');
                                 Route::post('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}', [ActionController::class, 'executePivot'])
                                     ->name('resources.belongs-to-many.actions.execute');
 
@@ -421,6 +431,21 @@ Route::middleware(config('martis.middleware', ['web']))
                                     ->name('resources.morph-to-many.detach');
                                 Route::put('/resources/{resource}/{id}/morph-to-many/{relationship}/{relatedId}/pivot', [MorphToManyController::class, 'updatePivot'])
                                     ->name('resources.morph-to-many.pivot');
+                                // Options of a relation field among the pivot fields: the attach
+                                // modal, and the pivot edit modal of one attached record
+                                Route::get('/resources/{resource}/{id}/morph-to-many/{relationship}/pivot-fields/relatable/{field}', [ResourceController::class, 'morphToManyPivotFieldRelatableOptions'])
+                                    ->name('resources.morph-to-many.pivot-fields.relatable');
+                                Route::get('/resources/{resource}/{id}/morph-to-many/{relationship}/pivot-fields/{relatedId}/relatable/{field}', [ResourceController::class, 'morphToManyAttachedPivotFieldRelatableOptions'])
+                                    ->name('resources.morph-to-many.pivot-fields.attached.relatable');
+                                // Pivot actions
+                                Route::get('/resources/{resource}/{id}/morph-to-many/{relationship}/actions', [ActionController::class, 'morphToManyPivotIndex'])
+                                    ->name('resources.morph-to-many.actions.index');
+                                Route::get('/resources/{resource}/{id}/morph-to-many/{relationship}/actions/{action}/fields', [ActionController::class, 'morphToManyPivotFields'])
+                                    ->name('resources.morph-to-many.actions.fields');
+                                Route::get('/resources/{resource}/{id}/morph-to-many/{relationship}/actions/{action}/relatable/{field}', [ResourceController::class, 'morphToManyPivotActionRelatableOptions'])
+                                    ->name('resources.morph-to-many.actions.relatable');
+                                Route::post('/resources/{resource}/{id}/morph-to-many/{relationship}/actions/{action}', [ActionController::class, 'executeMorphToManyPivot'])
+                                    ->name('resources.morph-to-many.actions.execute');
 
                                 // MorphMany polymorphic one-to-many
                                 Route::get('/resources/{resource}/{id}/morph-many/{relationship}', [MorphManyController::class, 'index'])
@@ -460,6 +485,9 @@ Route::middleware(config('martis.middleware', ['web']))
                                     ->name('resources.actions.index');
                                 Route::get('/resources/{resource}/actions/{action}/fields', [ActionController::class, 'fields'])
                                     ->name('resources.actions.fields');
+                                // Options of a relation field the Action declares (its modal's pickers)
+                                Route::get('/resources/{resource}/actions/{action}/relatable/{field}', [ResourceController::class, 'actionRelatableOptions'])
+                                    ->name('resources.actions.relatable');
                                 Route::post('/resources/{resource}/actions/{action}', [ActionController::class, 'execute'])
                                     ->name('resources.actions.execute');
                                 Route::post('/resources/{resource}/{id}/actions/{action}', [ActionController::class, 'executeSingle'])

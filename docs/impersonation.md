@@ -100,7 +100,7 @@ The poll cadence is configurable via `martis.impersonation.poll_interval` (env `
 Register a custom React component under the canonical registry key from your consumer extension bundle (`resources/js/martis-extensions/`):
 
 ```ts
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { MyBrandedImpersonationBanner } from './components/MyBrandedImpersonationBanner'
 
 componentRegistry.register('impersonation:banner', MyBrandedImpersonationBanner)

@@ -88,7 +88,7 @@ Content-Type: application/json
 
 ## Resource Endpoints
 
-The list of registered resources lives in the [Navigation endpoint](#navigation-endpoint) (`/api/navigation`). Each entry carries the `uriKey` you use below.
+The list of registered resources lives in the [Navigation endpoint](#navigation-endpoints) (`/api/navigation`). Each entry carries the `uriKey` you use below.
 
 ### Index (List Records)
 
@@ -100,12 +100,12 @@ GET /martis/api/resources/{resource}
 
 | Parameter | Example | Description |
 |---|---|---|
-| `search` | `?search=john` | Full-text search across `searchable()` fields |
-| `sort` | `?sort=name` | Sort column |
-| `direction` | `?direction=desc` | `asc` (default) or `desc` |
+| `search` | `?search=john` | Full-text search across the `searchable()` fields the user can see (`canSee()`; v1.38.0: the hidden ones were searched too) |
+| `sort` | `?sort=name` | Sort attribute: a `sortable()` field the user can see (`canSee()`). Any other value (an unknown attribute, a field that is not sortable, one the user cannot see) is ignored and the list keeps its default order (v1.38.0: a sortable field the user could not see ordered the list). |
+| `direction` | `?direction=desc` | `asc` (default) or `desc`; any other value, a non-string one included, means `asc` (v1.38.0: `?direction[]=` answered 500) |
 | `per_page` | `?per_page=25` | Records per page |
 | `page` | `?page=2` | Page number |
-| `trashed` | `?trashed=only` | `only` or `with` for soft-deleted records |
+| `trashed` | `?trashed=only` | `only` or `with` for soft-deleted records; any other value, a non-string one included, lists the records that are not trashed (v1.38.0: `?trashed[]=` answered 500) |
 
 **Response:**
 
@@ -129,6 +129,8 @@ GET /martis/api/resources/{resource}
 }
 ```
 
+**Record envelope.** Every record the API sends carries `id`, its field values and the `_title`, `_resource` and `_authorization` keys. A record that hides a field (`canSeeForModel()`) leaves its value out and lists its attribute under `_hidden` (v1.38.0): `"_hidden": ["salary"]`. The key is absent when the record hides no field. It holds the attributes of the fields of the response's field list (the index fields on the index, the detail fields on the detail, the update fields with `?context=update`), on the resource endpoints, the rows of a lens and the rows and records of the relationship endpoints, so a client that renders the schema's field list leaves those fields out instead of showing them empty. The `_pivot` values of a record a `BelongsToMany` / `MorphToMany` list attaches carry their own `_hidden`: the pivot fields hidden for that pivot row. See [Fields → Field authorization](../fields.md#field-authorization-cansee-and-canseeformodel).
+
 ### Single record (CRUD)
 
 | Method | Path | Notes |
@@ -150,6 +152,8 @@ GET /martis/api/resources/{resource}/schema
 
 Returns the field structure and metadata for the resource — `fields`, `fieldsForIndex`, `fieldsForDetail`, `fieldsForCreate`, `fieldsForUpdate`, `accentColor`, `loaderConfig`, `tableStriped`, `perPageOptions`, `overrides`, etc. The React shell hits this endpoint on every navigation to a resource page.
 
+Every field list leaves out a field the user cannot see (`canSee()`): the contextual arrays, and since v1.38.0 `fields` too (it listed every field of `fields()`), as well as the row fields of a Repeater's row types and the pivot fields of a `BelongsToMany` / `MorphToMany`. `fieldsForCreate` and `fieldsForInlineCreate` also leave out a field `canSeeForModel()` hides for the new model a create fills (v1.38.0), as does `inline-create-schema`; the other lists describe the resource, and each record names the fields it hides (`_hidden`, above).
+
 ### Inline create
 
 ```
@@ -162,10 +166,10 @@ Drives the lightweight "Create related" form embedded in HasMany / BelongsToMany
 ### Slug live collision check
 
 ```http
-GET /martis/api/resources/{resource}/slug-check/{field}?value=...&exclude_id=...
+GET /martis/api/resources/{resource}/slug-check/{field}?value=...&id=...
 ```
 
-Used by `Slug::make()` for live "this slug is taken" hints in the create / update form.
+Used by `Slug::make()` for live "this slug is taken" hints in the create / update form. `id` is the record being edited: when it names a record the user may update (`authorizedToUpdate()`), that record is left out of the uniqueness probe and the Slug is read from `fieldsForUpdate()`; otherwise (no `id`, no such record, or a record the user may not update) the Slug is read from `fieldsForCreate()`, then `fieldsForInlineCreate()`, and nothing is left out of the probe. `fields()` is searched last. A Slug the user cannot see (`canSee()`, or `canSeeForModel()` for the record the form edits or the new one a create fills) answers 404 like an undeclared one (v1.38.0).
 
 ### Select option search
 
@@ -173,7 +177,7 @@ Used by `Slug::make()` for live "this slug is taken" hints in the create / updat
 GET /martis/api/resources/{resource}/fields/{field}/options?search=term&context=create|update&id=<record>
 ```
 
-Backs `Select::searchOptionsUsing()` (v1.37.0). Locates the select in the field set of the given context (default `create`), gated on the matching ability like `sync-field` (`create`, or `update` with the record named by `id` bound first: `id` is required in the update context, 404 when it does not exist), and returns `{ options: [{ label, value }] }`. 422 for an unknown field, a non-select field or a select without a server-side resolver.
+Backs `Select::searchOptionsUsing()` (v1.37.0). Locates the select in the field set of the given context (default `create`: `fieldsForCreate()`, then `fieldsForInlineCreate()` since v1.38.0; `update`: `fieldsForUpdate()`), gated on the matching ability like `sync-field` (`create`, or `update` with the record named by `id` bound first: `id` is required in the update context, 404 when it does not exist), and returns `{ options: [{ label, value }] }`. 422 for an unknown field, a non-select field or a select without a server-side resolver, and for a select the user cannot see, which answers exactly like an unknown field (`canSee()`, or `canSeeForModel()` for the record the form edits or the new one a create fills; v1.38.0). A select in a Repeater row adds `&repeater={attribute}&repeatable={type}` and is found in that row type's `fields()` (v1.38.0, see [Repeater → Relation pickers and remote selects in rows](../repeater.md#relation-pickers-and-remote-selects-in-rows)).
 
 ### Lenses
 
@@ -181,7 +185,7 @@ Backs `Select::searchOptionsUsing()` (v1.37.0). Locates the select in the field 
 GET /martis/api/resources/{resource}/lenses/{lens}
 ```
 
-Index endpoint for the named lens. Same query params as the resource index. See [Lenses](../lenses.md).
+Index endpoint for the named lens. Same query params as the resource index. `sort` names a sortable field of the lens's own `fields()` the user can see; any other column is dropped before the lens runs, so its default ordering applies (v1.38.0: the lens was ordered by any column `sort` named, and a column that does not exist answered 500 on MySQL / PostgreSQL). See [Lenses → Which columns sort a lens](../lenses.md#which-columns-sort-a-lens).
 
 ### Reactive (`dependsOn`) field sync
 
@@ -190,7 +194,7 @@ POST /martis/api/resources/{resource}/sync-field
 Body: { field: "<attribute>", formData: { ...current form values... }, context: "create" | "update", id?: <record> }
 ```
 
-Server-side resolution of reactive `dependsOn()` fields. Frontend debounces (200 ms) + uses `AbortController` so the latest value always wins. Gated on the create ability, or on the update ability with the record named by `id` bound first (required in the update context since v1.37.0, so a policy typed `update(User, Model)` receives the model; 404 when the record does not exist). Rejects unknown attributes (422), non-reactive attributes (422), empty attribute names (422). See [Fields § Reactive fields](../fields.md#reactive-fields--dependsonfield-closure).
+Server-side resolution of reactive `dependsOn()` fields. Frontend debounces (200 ms) + uses `AbortController` so the latest value always wins. Gated on the create ability, or on the update ability with the record named by `id` bound first (required in the update context since v1.37.0, so a policy typed `update(User, Model)` receives the model; 404 when the record does not exist). Rejects unknown attributes (422), non-reactive attributes (422), empty attribute names (422) and a `field` that is not a string (422; v1.38.0: 500); a field the user cannot see answers exactly like an unknown attribute (v1.38.0). The field is looked up in the same field set as the select search above (`create` covers `fieldsForInlineCreate()` since v1.38.0). See [Fields § Reactive fields](../fields.md#reactive-fields--dependsonfield-closure).
 
 ## Relationship Endpoints
 
@@ -201,7 +205,7 @@ GET /martis/api/resources/{resource}/{id}/relatable/{field}
 GET /martis/api/resources/{resource}/{id}/relatable/{field}?search=term
 ```
 
-Returns the option list for a BelongsTo / MorphTo dropdown, filtered by the resource's `relatableQuery()` if defined.
+Returns the option list for a BelongsTo / MorphTo / Tag picker, filtered by the resource's `relatableQuery()` if defined. The field is looked up on the form the picker renders in: `fieldsForUpdate()` (on the resource bound to the record) when `{id}` names a record the user may update (`authorizedToUpdate()`), otherwise `fieldsForCreate()` then `fieldsForInlineCreate()` (`{id}` = `_` on a create form; a record the user may not update is answered like a missing one); `fields()` comes last. A picker declared on one form only resolves (v1.38.0). A create form nested in another resource's page (the inline-create modal) sends `_`, the pickers of an action modal use the action's own endpoint (see [Actions](#actions)), and the pickers among a relationship's pivot fields the panel's (below). A picker in a Repeater row adds `&repeater={attribute}&repeatable={type}` to any of them and is read from that row type's `fields()` (v1.38.0). On every one of them a picker the user cannot see answers 404 exactly like an undeclared one (v1.38.0): its field's `canSee()`, or `canSeeForModel()` for the record the form edits (the new one a create fills, the pivot row for a pivot field), a row field's `canSee()` and the `canSee()` of the Repeater holding the row. See [Relationships → Relation fields declared on one form only](../relationships.md#relation-fields-declared-on-one-form-only).
 
 ### HasMany / HasOne / BelongsToMany / MorphMany / MorphOne / MorphToMany
 
@@ -218,12 +222,18 @@ Each relation type has a full sub-tree under the parent's URL. The shape mirrors
 | `PUT` | `/{r}/{id}/has-one/{rel}` | Update. |
 | `DELETE` | `/{r}/{id}/has-one/{rel}` | Delete. |
 | `GET` | `/{r}/{id}/belongs-to-many/{rel}` | List with pivot data. |
-| `GET` | `/{r}/{id}/belongs-to-many/{rel}/attachable` | Options available to attach. |
+| `GET` | `/{r}/{id}/belongs-to-many/{rel}/attachable` | Options available to attach. `meta.hiddenPivotFields` lists the attributes of the pivot fields a new row hides (`canSeeForModel()` on the row the attach writes), which the attach modal leaves out (v1.38.0). |
 | `POST` | `/{r}/{id}/belongs-to-many/{rel}/attach` | Attach with optional pivot fields. |
 | `DELETE` | `/{r}/{id}/belongs-to-many/{rel}/{relatedId}/detach` | Detach. |
 | `PUT` | `/{r}/{id}/belongs-to-many/{rel}/{relatedId}/pivot` | Update pivot row. |
+| `GET` | `/{r}/{id}/belongs-to-many/{rel}/pivot-fields/relatable/{field}` | Options of a `BelongsTo` / `MorphTo` / `Tag` pivot field in the attach modal: read from the relationship's `fields()`, gated like the panel and on `attachAny{Model}`, with the parent resource as the source of the relatable hooks (v1.38.0). |
+| `GET` | `/{r}/{id}/belongs-to-many/{rel}/pivot-fields/{relatedId}/relatable/{field}` | The same in the pivot edit modal of an attached record, gated on its `updatePivot{Model}` (v1.38.0). |
 
 (`/{r}` is shorthand for `/martis/api/resources/{resource}`.) MorphMany / MorphOne / MorphToMany follow the same shape under `/morph-many/`, `/morph-one/`, `/morph-to-many/`.
+
+The lists (`GET` on `has-many`, `morph-many`, `belongs-to-many` and `morph-to-many`) take the `search`, `sort`, `direction` and `per_page` parameters of the resource index, applied with the related resource's fields: `sort` names a `sortable()` field of the related resource the user can see, and anything else is ignored (v1.38.0).
+
+A relationship field that `canSeeForModel()` hides for the parent record answers 404 on all of them, as an undeclared relationship (v1.38.0). Every record they send leaves out the fields hidden for it, and their writes neither validate nor write those fields: the new model decides on a create, the pivot row on an attach and a pivot update (v1.38.0). See [Fields → Field authorization](../fields.md#field-authorization-cansee-and-canseeformodel).
 
 ## Actions
 
@@ -232,11 +242,16 @@ Per-resource and per-row action execution.
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/martis/api/resources/{resource}/actions` | List actions visible on the index. |
-| `GET` | `/martis/api/resources/{resource}/actions/{action}/fields` | Confirmation-modal field schema for an action. |
+| `GET` | `/martis/api/resources/{resource}/actions/{action}/fields` | Confirmation-modal field schema for an action, without the fields the user cannot see (v1.38.0). |
+| `GET` | `/martis/api/resources/{resource}/actions/{action}/relatable/{field}` | Options of a `BelongsTo` / `MorphTo` / `Tag` the action declares, read from the action's `fields()` (v1.38.0). Gated on `viewAny` of the resource, the action's `canSee()` and `viewAny` of the related resource. |
 | `POST` | `/martis/api/resources/{resource}/actions/{action}` | Run a bulk / standalone action. |
 | `POST` | `/martis/api/resources/{resource}/{id}/actions/{action}` | Run an inline (per-row) action. |
-| `GET` | `/martis/api/resources/{resource}/{id}/belongs-to-many/{rel}/actions` | Pivot-row actions list. |
-| `POST` | `/martis/api/resources/{resource}/{id}/belongs-to-many/{rel}/actions/{action}` | Run a pivot-row action. |
+| `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions` | Pivot-row actions list. |
+| `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions/{action}/fields` | Field schema of a pivot action, without the fields the user cannot see (v1.38.0). |
+| `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions/{action}/relatable/{field}` | Options of a `BelongsTo` / `MorphTo` / `Tag` a pivot action declares, behind the panel's pivot action gates, with the parent resource as the source of the relatable hooks (v1.38.0). |
+| `POST` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions/{action}` | Run a pivot-row action: a dry run (`dryRun: true` with `withDryRun()`) answers `{ preview }`, a `ShouldQueue` action is queued, and the run is written to the action event log (v1.38.0). Gated on the parent's `runAction` / `runDestructiveAction` policy ability like a resource action. |
+
+A run validates, and takes from `fields`, only the values of the fields the user may set: a field the user cannot see, a readonly one and a computed one are not validated, and `handle()` receives their `default()` or nothing (v1.38.0). See [Actions → Fields the request cannot set](../actions.md#fields-the-request-cannot-set). The pickers of an Action modal answer 404 for a field the user cannot see, like an undeclared one (v1.38.0).
 
 ## Translation Endpoint
 
@@ -263,7 +278,7 @@ GET /martis/api/navigation/badges    # v1.8.8
 GET /martis/api/search?q=...
 ```
 
-Cross-resource record search. Powers the topbar search input. See [Global Search](../global-search.md).
+Cross-resource record search. Powers the topbar search input. Each resource is matched on the `searchable()` fields the user can see (v1.38.0). See [Global Search](../global-search.md).
 
 ## Command Palette
 
@@ -290,9 +305,11 @@ Surface for the [Custom Tools](../tools.md) primitive.
 ```
 GET  /martis/api/tools                  List every authorised tool.
 GET  /martis/api/tools/{uriKey}         Single tool metadata, or 404 (also when canSee denies).
-GET  /martis/api/tools/{uriKey}/fields  Serialized field definitions of a Tool implementing ProvidesFields.
+GET  /martis/api/tools/{uriKey}/fields  Serialized field definitions of a Tool implementing ProvidesFields,
+                                        without the fields the user cannot see (canSee(); v1.38.0).
 GET  /martis/api/tools/{uriKey}/fields/{field}/options?search=
                                         Server-side option search for a Tool select (v1.37.0); 422 when the field has no resolver.
+                                        A select in a Repeater row adds &repeater=&repeatable= (v1.38.0).
 ```
 
 The 404-when-denied behaviour is intentional — an unauthorised user cannot probe which tools the app ships.
@@ -401,12 +418,39 @@ Returns the URL the editor inserts inline. See [Fields § Trix](../fields.md).
 
 ### Validation Error (422)
 
+The resource, relationship, pivot and Action endpoints answer a failed
+validation with the Martis envelope: `errors` is a list with one entry per
+message, and `field` is the path of the value that failed.
+
 ```json
 {
   "message": "The given data was invalid.",
+  "errors": [
+    { "field": "title", "message": "The Title field is required.", "code": "required" },
+    { "field": "sections.1.fields.key", "message": "The Key field is required.", "code": "required" }
+  ]
+}
+```
+
+`field` is the field's attribute for the field's own error, and the dotted path
+of the value for an error inside a field's value: `sections.1.fields.key` is the
+`key` field of row 1 of the `sections` Repeater (see
+[Repeater § Validation](../repeater.md#validation)). `code` is a best-effort
+hint derived from the message (`required`, `unique`, `email`, `min`, `max`,
+otherwise `invalid`). The top-level `message` is the resource's
+`validationMessage()` on the resource endpoints, "Validation failed." on the
+relationship and pivot endpoints, and "The given data was invalid." on the
+Action endpoints.
+
+The endpoints that validate with Laravel's `$request->validate()` (login,
+registration, password reset, profile, two-factor, magic link) answer with
+Laravel's own shape instead, a map of messages per field:
+
+```json
+{
+  "message": "The email field is required.",
   "errors": {
-    "title": ["The title field is required."],
-    "email": ["The email field must be a valid email address."]
+    "email": ["The email field is required."]
   }
 }
 ```

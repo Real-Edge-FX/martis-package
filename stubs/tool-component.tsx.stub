@@ -4,15 +4,15 @@
  * Auto-discovery convention (v1.9.0+): this file lives at
  * `resources/js/martis-extensions/tools/{{ class_short }}.tsx` and is
  * registered automatically against `window.Martis.componentRegistry`
- * by the bundle entry. The component key is derived from the
- * filename:
+ * by the bundle entry, under the key it derives from the file name
+ * (`tool:` and the name in kebab case, an acronym kept whole).
  *
- *   {{ class_short }}.tsx → "{{ component_key }}"
- *
- * The PHP Tool class binds to the same key via
- * `withComponent('{{ component_key }}')`. No manual registration
- * needed — drop the file in this folder, run
- * `npm run build:extensions`, and the Tool renders.
+ * The PHP Tool class binds to "{{ component_key }}" via
+ * `withComponent('{{ component_key }}')`. When that is the derived key,
+ * as `martis:tool` writes by default, no manual registration is needed:
+ * drop the file in this folder, run `npm run build:extensions`, and the
+ * Tool renders. For another key (`--component-key`), `martis:tool`
+ * prints the line that registers this file under it in the entry.
  *
  * The Martis `ToolPage` shell fetches `/api/tools/{uriKey}` and
  * resolves this component by key. The descriptor matches the JSON

@@ -98,7 +98,6 @@ it('Country toArray contains countries and showFlags', function () {
 it('Country countryList returns the same array instance on repeated calls (memoization)', function () {
     // Reset the static cache so this test is not order-dependent.
     $reflection = new ReflectionProperty(Country::class, 'cachedCountryList');
-    $reflection->setAccessible(true);
     $reflection->setValue(null, null);
 
     $first = Country::countryList();

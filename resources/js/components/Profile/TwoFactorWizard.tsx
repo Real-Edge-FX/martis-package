@@ -33,6 +33,13 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
   const [copied, setCopied] = useState(false)
   const otpRef = useRef<HTMLInputElement>(null)
 
+  // The setup request runs when the wizard opens, not when a callback changes
+  // (the parent's `onClose` is a new function on every render, and every
+  // request generates a new secret): its failure reads the callbacks of the
+  // latest render from here.
+  const latestRef = useRef({ addToast, t, onClose })
+  latestRef.current = { addToast, t, onClose }
+
   // Load setup data when modal opens
   useEffect(() => {
     if (!visible) {
@@ -52,6 +59,7 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
         const data = await api.post<TwoFactorSetupData>('/api/profile/2fa/setup')
         setSetupData(data)
       } catch {
+        const { addToast, t, onClose } = latestRef.current
         addToast('error', t('error'))
         onClose()
       } finally {

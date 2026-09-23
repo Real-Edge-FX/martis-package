@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
@@ -25,6 +25,7 @@ import { useResourceAccent } from "@/lib/useResourceAccent"
 import { useResourceLoaderConfig } from "@/contexts/LoaderConfigContext"
 import { recordHref } from "@/lib/recordHref"
 import { STANDALONE_RELATIONSHIP_TYPES } from "@/lib/relationshipFieldTypes"
+import { hiddenAttributes, withoutHiddenFields } from "@/lib/hiddenFields"
 
 export function ResourceDetailPage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -38,6 +39,19 @@ export function ResourceDetailPage() {
   const [showRestore, setShowRestore] = useState(false)
   const [activeAction, setActiveAction] = useState<ActionMeta | null>(null)
   const [actionDrawer, setActionDrawer] = useState<{ type: "create" | "detail" | "update"; resource: string; recordId?: string | number } | null>(null)
+
+  // The router keeps this page when the URL moves to another record (the
+  // command palette opens over any confirmation). The drawers follow the
+  // record in the URL, but a confirmation or the action modal belongs to the
+  // record it was opened for: left open, confirming it would delete, restore
+  // or run the action on the new record.
+  useEffect(() => {
+    setShowDelete(false)
+    setShowForceDelete(false)
+    setShowRestore(false)
+    setActiveAction(null)
+  }, [resource, id])
+
   const { t: tAct } = useTranslation("actions")
   const { t: tMsg } = useTranslation("messages")
 
@@ -237,13 +251,17 @@ export function ResourceDetailPage() {
     }
   }
 
-  const detailFields = schema.fieldsForDetail ?? []
+  // The schema describes the resource: the fields this record hides
+  // (`canSeeForModel()`, listed under `_hidden`) are left out, instead of
+  // rendering empty, and so is a container left without fields.
+  const hidden = hiddenAttributes(record)
+  const detailFields = withoutHiddenFields(schema.fieldsForDetail ?? [], hidden)
   // F7-11 Part 2 — sticky right-rail panel. Resolved from
   // `Resource::detailSidebar()` and emitted by the schema endpoint.
   // When non-empty, the page lays out as a 1fr 320px grid and strips
   // the sidebar attributes from the main scalar list so they only
   // render once.
-  const sidebarFields = schema.detailSidebar ?? []
+  const sidebarFields = withoutHiddenFields(schema.detailSidebar ?? [], hidden)
   const sidebarAttrs = new Set(sidebarFields.map((f) => f.attribute))
   const hasSidebar = sidebarFields.length > 0
   const panelItems = detailFields.filter(f => f.type === 'panel') as PanelDefinition[]
@@ -464,12 +482,14 @@ export function ResourceDetailPage() {
           params: schema.overrides.create.params ?? {},
           record,
           recordId: null,
+          // The create override opens here for the Replicate action only.
+          fromResourceId: id ?? null,
           navigate: (to: string) => navigate(to),
           onClose: () => setShowCreateOverride(false),
           onCreated: (rec) => {
             setShowCreateOverride(false)
             void qc.invalidateQueries({ queryKey: ["resources", resource] })
-            addToast("success", schema.messages?.created ?? "Record created successfully.")
+            addToast("success", schema.messages?.replicated ?? schema.messages?.created ?? "Record created successfully.")
             const target = resolveRedirect(schema.overrides?.create?.redirectAfter, resource!, rec.id)
             if (target) navigate(target)
           },

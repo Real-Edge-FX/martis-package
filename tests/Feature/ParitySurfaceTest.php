@@ -299,7 +299,7 @@ it('Tool implements ToolContract and exposes the documented hooks', function () 
 
     $reflection = new ReflectionClass(Tool::class);
     // Identity + descriptor surface.
-    foreach (['name', 'uriKey', 'icon', 'component', 'menuSection', 'belongsToSystemSection', 'canSee', 'authorizedToSee', 'toArray'] as $method) {
+    foreach (['name', 'uriKey', 'icon', 'component', 'menuSection', 'belongsToSystemSection', 'systemSectionOrder', 'canSee', 'authorizedToSee', 'toArray'] as $method) {
         expect($reflection->hasMethod($method))
             ->toBeTrue("Tool::{$method}() must exist.");
         expect($reflection->getMethod($method)->isPublic())->toBeTrue();

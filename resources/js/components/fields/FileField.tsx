@@ -141,6 +141,9 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
   }
 
   function handleFile(file: globalThis.File) {
+    // `fill()` skips a readonly field (an `immutable()` one on update arrives
+    // as readonly too): a dropped file is ignored.
+    if (field.readonly) return
     if (acceptedTypes && acceptedTypes.length > 0) {
       const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
       if (!acceptedTypes.includes(ext)) {
@@ -174,10 +177,11 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
       <div
         className={[
           'martis-dropzone',
+          field.readonly ? 'is-readonly' : '',
           dragOver ? 'is-drag-over' : '',
           error ? 'has-error' : '',
         ].filter(Boolean).join(' ')}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragOver={(e) => { e.preventDefault(); if (!field.readonly) setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
       >
@@ -198,21 +202,24 @@ function SingleFileInput({ field, value, onChange, error }: FieldInputProps) {
                 <DownloadSimpleIcon size={16} />
               </a>
             )}
-            <button
-              type="button"
-              onClick={handleClear}
-              className="flex-shrink-0 rounded p-1 transition-colors"
-              style={{ color: 'var(--martis-danger)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--martis-danger) 10%, transparent)')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-            >
-              <TrashIcon size={16} />
-            </button>
+            {!field.readonly && (
+              <button
+                type="button"
+                onClick={handleClear}
+                className="flex-shrink-0 rounded p-1 transition-colors"
+                style={{ color: 'var(--martis-danger)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--martis-danger) 10%, transparent)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+              >
+                <TrashIcon size={16} />
+              </button>
+            )}
           </>
         ) : (
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
+            disabled={field.readonly}
             className="flex w-full items-center gap-2 text-sm"
             style={{ color: 'var(--martis-text-muted)' }}
           >
@@ -303,6 +310,9 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
   }, [onChange])
 
   function handleFiles(files: FileList | globalThis.File[]) {
+    // `fill()` skips a readonly field (an `immutable()` one on update arrives
+    // as readonly too): dropped files are ignored.
+    if (field.readonly) return
     const newItems = [...items]
     for (const file of Array.from(files)) {
       if (acceptedTypes && acceptedTypes.length > 0) {
@@ -360,16 +370,18 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
                     <DownloadSimpleIcon size={14} />
                   </a>
                 )}
-                <button
-                  type="button"
-                  onClick={() => handleRemove(item.id)}
-                  className="flex-shrink-0 rounded p-1 transition-colors"
-                  style={{ color: 'var(--martis-danger)' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--martis-danger) 10%, transparent)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                >
-                  <TrashIcon size={14} />
-                </button>
+                {!field.readonly && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(item.id)}
+                    className="flex-shrink-0 rounded p-1 transition-colors"
+                    style={{ color: 'var(--martis-danger)' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--martis-danger) 10%, transparent)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    <TrashIcon size={14} />
+                  </button>
+                )}
               </div>
             )
           })}
@@ -380,16 +392,18 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
       <div
         className={[
           'martis-dropzone',
+          field.readonly ? 'is-readonly' : '',
           dragOver ? 'is-drag-over' : '',
           error ? 'has-error' : '',
         ].filter(Boolean).join(' ')}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragOver={(e) => { e.preventDefault(); if (!field.readonly) setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
       >
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
+          disabled={field.readonly}
           className="flex w-full items-center gap-2 text-sm"
           style={{ color: 'var(--martis-text-muted)' }}
         >

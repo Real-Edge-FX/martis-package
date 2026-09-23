@@ -13,6 +13,8 @@ Martis provides a 4-tier component resolution system that allows you to replace 
 | 3 | Global type | All fields of a given type | `registerFieldDisplay()` |
 | 4 (lowest) | Built-in default | Fallback | Pre-registered by Martis |
 
+The registry calls below run in your consumer extension (`resources/js/martis-extensions/`), which imports `componentRegistry` from `@martis/runtime` (v1.38.0+). It is the instance the SPA resolves from, also reachable as `window.Martis.componentRegistry`, which the auto-discovery entry uses to register the four buckets. On an extension scaffolded before v1.38.0, refresh the shim first: see [Refreshing the extension scaffold after an upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade).
+
 ## 1. Field Component Overrides
 
 ### 1.1 Global Type Override
@@ -21,7 +23,7 @@ Replace the component for **all fields** of a given type across every resource.
 
 ```typescript
 // resources/js/martis-extensions/index.ts
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { MyRatingDisplay, MyRatingInput } from './components/RatingField'
 
 // All "number" fields now use MyRatingDisplay/MyRatingInput
@@ -35,7 +37,7 @@ Replace the component only for a specific field in a specific resource.
 
 ```typescript
 // resources/js/martis-extensions/index.ts
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { StatusBadgeDisplay } from './components/StatusBadge'
 
 // Only the "status" field in the "posts" resource uses StatusBadgeDisplay
@@ -63,7 +65,7 @@ public function fields(Request $request): array
 **TypeScript:**
 ```typescript
 // resources/js/martis-extensions/index.ts
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { StatusBadge } from './components/StatusBadge'
 import { StarRating } from './components/StarRating'
 
@@ -85,23 +87,23 @@ Text::make('status')
 
 ## 2. Layout Overrides
 
-Each resource can use a custom page layout shell.
+Each resource can render its pages in a layout of its own (v1.38.0+). The layout wraps every page of the resource (index, lens, create, detail and update) inside the shell, so the sidebar and topbar stay, and receives the page as `children`. A resource with no registered layout renders its pages as before. Before v1.38.0 `layoutRegistry.register()` had no effect: nothing in the SPA read the registry.
 
 ```typescript
 // resources/js/martis-extensions/index.ts
-import { layoutRegistry } from '@/lib/layoutRegistry'
+import { layoutRegistry } from '@martis/runtime'
 import { UserResourceLayout } from './layouts/UserResourceLayout'
 
 // The "users" resource uses a custom layout
 layoutRegistry.register('users', UserResourceLayout)
 ```
 
-**Layout component:**
+**Layout component** (outside the four auto-discovered buckets, since the call above registers it):
 ```tsx
-// resources/js/martis/layouts/UserResourceLayout.tsx
-import type { ReactNode } from 'react'
+// resources/js/martis-extensions/layouts/UserResourceLayout.tsx
+import type { LayoutProps } from '@martis/runtime'
 
-export function UserResourceLayout({ children }: { children: ReactNode }) {
+export function UserResourceLayout({ children }: LayoutProps) {
   return (
     <div className="user-admin-shell">
       <UserQuickStats />
@@ -118,6 +120,8 @@ export function UserResourceLayout({ children }: { children: ReactNode }) {
 | `sidebar` | Left sidebar navigation + top bar (default) |
 | `topnav` | Top navigation bar |
 | `minimal` | Minimal header, no sidebar |
+
+A resource layout lives inside the shell. To replace the shell itself, for every page, register a component under `layout:shell` in the component registry, or one piece under `layout:sidebar`, `layout:topbar` or `layout:footer`: see [Shell piece-by-piece overrides](#shell-piece-by-piece-overrides).
 
 ## 3. CRUD View Overrides (Drawers)
 
@@ -143,7 +147,7 @@ Register a custom component to handle a CRUD action:
 
 ```typescript
 // resources/js/martis-extensions/index.ts
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { MyPostCreator } from './components/MyPostCreator'
 
 componentRegistry.register('custom-post-creator', MyPostCreator)
@@ -178,7 +182,7 @@ public function overrides(): array
 }
 ```
 
-`RedirectAfter` enum cases: `DETAIL` · `INDEX` · `EDIT` · `CREATE` · `DASHBOARD` · `STAY`. A literal string (`'detail'`, `'index'`, …) is accepted as a fallback for the same values. `STAY` keeps the drawer / page open after save — useful for "save and continue editing" workflows.
+`RedirectAfter` enum cases: `DETAIL` · `INDEX` · `EDIT` · `CREATE` · `DASHBOARD` · `STAY`. A literal string (`'detail'`, `'index'`, …) is accepted as a fallback for the same values. `STAY` keeps the drawer / page open after save — useful for "save and continue editing" workflows. With `confirmUnsavedChanges()` on, the update drawer then counts the values it saved as clean, and what was typed while the save ran as unsaved (v1.38.0+; before v1.38.0 closing it after the save asked to discard the changes just saved). The create drawer clears its form for the next record and mounts its fields again, so no input keeps the previous record's state, and counts the empty form as clean (v1.38.0+; before v1.38.0 an input that keeps state of its own could carry the previous record's over, and a drawer opened on a copy asked to discard the empty form).
 
 ### `DrawerSlot` enum (typed slot keys)
 
@@ -211,6 +215,7 @@ interface OverrideProps {
   params: Record<string, unknown>  // Custom parameters from Override()
   record?: ResourceRecord | null   // Current record (detail/update) or null (create)
   recordId?: string | null     // Record ID
+  fromResourceId?: string | number | null  // Create only: the record a Replicate copies (v1.38.0+)
   navigate: (to: string) => void   // Navigation function
   onClose: () => void          // Close the drawer/panel
   onCreated: (record: { id: string | number }) => void
@@ -222,6 +227,24 @@ interface OverrideProps {
 }
 ```
 
+On a create override, `fromResourceId` names the record the form replicates: the detail page opens its create override with it for the Replicate action (together with that `record`), and `/create?fromResourceId={id}` passes it too. A custom create override reads the copy's values from `GET /api/resources/{resource}/{id}/replicate`, which applies `authorizedToReplicate()`, leaves File fields out and hides the fields the user may not see for the record, and sends the id back as `fromResourceId` with the create, so the server answers with `replicatedMessage()`. The bundled `DrawerCreate` does exactly that (v1.38.0+): it mounts its fields once the copy has arrived, shows the endpoint's error instead of a form when the record cannot be replicated, and sends `fromResourceId` with the first create only. Before v1.38.0 it copied the record's detail payload into the form (File paths and fields the replicate endpoint leaves out included, with no `authorizedToReplicate()` check), and a create override opened by `/create?fromResourceId={id}` got no copy at all.
+
+A `record` lists under `_hidden` the attributes of the fields `canSeeForModel()` hides for it (v1.38.0), and carries no value for them: the schema describes the resource, not the record. The bundled pages and drawers leave those fields out (the detail page, `DrawerDetail` and `DrawerQuick`, the update page and `DrawerUpdate`, the cells of the index, a lens and a relationship panel). A custom override that renders `schema.fieldsForDetail` or `schema.fieldsForUpdate` against a record skips them the same way, so it does not render a hidden field empty (and an update form does not send it):
+
+```tsx
+export function EmployeeCard({ schema, record }: OverrideProps) {
+  const hidden = new Set(record?._hidden ?? [])
+  const fields = (schema.fieldsForDetail ?? []).filter(
+    (item) => !('attribute' in item) || !hidden.has(item.attribute),
+  )
+  // ...render `fields`; walk the fields of a panel, section or tab the same way
+}
+```
+
+Before v1.38.0 nothing told a hidden field from an empty one, and the bundled pages rendered it empty.
+
+A host can hand a mounted override another `record` / `recordId`, or another resource's `schema` and `resource`, without remounting it: `ActionDrawer` does when Edit on another index row or an action response opens another record while its drawer is open, and the detail page does when its route moves to another record behind an open update drawer. An override that keeps form state has to seed it again for the record it now receives, or render its body with a `key` built from `resource` and `recordId`. Since v1.38.0 the bundled `DrawerUpdate` seeds its values, validation errors and dirty baseline again when the resource or the record changes; a fresh copy of the same record keeps the edits. The bundled `DrawerCreate` does the same since v1.38.0 when the resource or the record it replicates changes (an action response that opens another resource's create drawer while one is open, the detail page moving to another record behind an open Replicate drawer); before, it kept what was typed for the first target and created it in the second. The index page, for its part, closes its create drawer, the drawers opened from its rows or by an action, and its confirmations when its route moves to another resource's index (v1.38.0+); before, they stayed open, and the delete confirmation of a row then deleted the record with the same id in the new resource. The detail page keeps its drawers on the record in the URL but closes its delete, force-delete and restore confirmations and its action modal when that record changes, and a lens page starts over for each lens (v1.38.0+); before, confirming the delete opened for one record deleted the record the page had moved to.
+
 ### Built-in Drawer Components
 
 | Component | Key | Description |
@@ -231,12 +254,14 @@ interface OverrideProps {
 | DrawerDetail | `martis:drawer-detail` | Slide-in detail view |
 | DrawerQuick | `martis:drawer-quick` | ⭐ Lightweight read-only quick-look (narrower, no actions). Distinct from the BelongsTo / MorphTo hover **peek** popover, which surfaces *related-record* metadata; `DrawerQuick` is for the current row. |
 
+`DrawerDetail`, `DrawerUpdate` and `DrawerQuick` tell the relationship panels inside them which record they belong to, since the page behind the drawer may not name it, and `DrawerCreate` tells them its record does not exist yet (see [relationships.md § Which record a panel belongs to](relationships.md#which-record-a-panel-belongs-to)). A custom override does the same through `@martis/runtime`: see [Naming the record of the relationship panels](#naming-the-record-of-the-relationship-panels-v1380).
+
 ### ⭐ Reading override props from nested components — `useOverrideProps()`
 
 When a custom override has its own internal component tree (header, sidebar, form sections), prop-drilling `OverrideProps` through every level is noisy. The `useOverrideProps()` hook exposes the same payload via React context — wrap once at the top of your override, read anywhere underneath:
 
 ```tsx
-import { useOverrideProps, OverridePropsProvider } from '@/hooks/useOverrideProps'
+import { useOverrideProps, OverridePropsProvider, type OverrideProps } from '@martis/runtime' // v1.38.0+
 
 export function MyDrawerCreate(props: OverrideProps) {
   return (
@@ -261,7 +286,7 @@ function MyHeader() {
 
 The hook **throws** outside the provider so wiring bugs are loud. Use `useOverridePropsOptional()` (returns `null`) when an override component is shared between contexts where the provider may not exist.
 
-The provider is opt-in — overrides that pass `props` manually keep working unchanged.
+The provider is opt-in — overrides that pass `props` manually keep working unchanged. It is the override's own: the package mounts none around the components it renders.
 
 **Drawer features:**
 - Slide-in animation from left/right
@@ -281,7 +306,18 @@ edits. The guard intercepts:
 - The drawer close button, backdrop click and ESC
 - The browser back button
 - Clicks on breadcrumb / in-app router links
-- Tab close / hard reload (via `beforeunload`)
+
+Tab close and hard reload are not intercepted: the guard wires no
+`beforeunload` prompt, which doubled up with its own dialog.
+
+On the full-page routes the guard holds the browser back button only
+while the form has unsaved changes (v1.38.0+). A clean form leaves the
+history alone, so Back and Forward move between pages as on any other
+page; once the user has typed something, Back asks first, and leaving
+the page after that can drop the Forward history, as editing a page does
+in any browser. Before v1.38.0 every visit to a create or edit page
+added an entry to the history, which erased the pages the user could go
+Forward to, and a clean form could make Back skip the previous page.
 
 Opt in via `Resource::confirmUnsavedChanges()`:
 
@@ -434,8 +470,8 @@ Event::listen(BeforeDelete::class, function (BeforeDelete $event) {
 
 Every display component receives `FieldDisplayProps`. Examples below use the [Tailwind preset](theming.md#-in-tsx-tailwind-preset) so the override stays in sync with the active theme (light/dark, accent override, density).
 
-```typescript
-import type { FieldDisplayProps } from '@/components/fields/types'
+```tsx
+import type { FieldDisplayProps } from '@martis/runtime'
 
 export function StatusBadge({ field, value }: FieldDisplayProps) {
   const label = String(value ?? '')
@@ -461,8 +497,8 @@ export function StatusBadge({ field, value }: FieldDisplayProps) {
 
 Every input component receives `FieldInputProps`:
 
-```typescript
-import type { FieldInputProps } from '@/components/fields/types'
+```tsx
+import type { FieldInputProps } from '@martis/runtime'
 
 export function StatusSelect({ field, value, onChange, error }: FieldInputProps) {
   return (
@@ -486,6 +522,69 @@ export function StatusSelect({ field, value, onChange, error }: FieldInputProps)
 
 If you opted out of the Tailwind preset, the same effect works with inline styles (`style={{ color: 'var(--martis-danger)' }}`) or the bundled helper classes (`.martis-text`, `.martis-border`). Either way, **don't hard-code colours like `bg-red-500`** — they don't follow the active theme.
 
+**An input whose value holds other values** (rows, items with fields of their own) also receives `nestedErrors`: the server errors of the values inside its value, keyed by their path below the field's attribute. A 422 on the `name` field of row 1 of a `lines` Repeater (`lines.1.fields.name`) reaches the `lines` input as `nestedErrors = { '1.fields.name': 'The Name field is required.' }`, while `error` keeps the field's own message. The bundled `Repeater` shows each under the matching row field. An input that renders other inputs passes each child its own error and the entries below `child.`, so a nested input gets its errors too. Every bundled form and `useMartisForm().fieldProps()` fill the prop (since v1.38.0); an input with a scalar value can ignore it.
+
+**`value` can change after the input mounts.** The edit forms (the update page and the update drawer) mount the fields once the record has filled the form, so an input gets the stored value on its first render. When the form moves to another record (the update page follows the record in the URL, the update drawer the record its host hands it), the fields mount again with that record's values, and the create page does the same when it moves to another resource, parent or record to replicate, so no input state carries from one form to the next. "Create & add another" mounts the fields again as well, with the empty values of the next record (v1.38.0+; before v1.38.0 it cleared the values under the mounted inputs, and an input that could not tell the cleared value from its own last one carried the previous record's state over). The replicate form, too, mounts its fields once the copy has filled it (v1.38.0+; before v1.38.0 the copy arrived one render after the fields mounted). The value can still change under a mounted input: a nested create form fills its parent in once the parent has loaded, and a Tool form can replace its values with `setValues()`. Render from `value` where you can. An input that keeps its own state (rows, a selection, a preview) has to adopt a `value` it did not emit itself, and keep its state when the form hands back what it just emitted:
+
+```typescript
+import { useEffect, useRef, useState } from 'react'
+
+const toChips = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : [])
+
+export function ChipsInput({ value, onChange }: FieldInputProps) {
+  const [chips, setChips] = useState(() => toChips(value))
+  // The last value this input handed to `onChange`.
+  const emitted = useRef<unknown>(value)
+
+  useEffect(() => {
+    if (value === emitted.current) return // the form handing back our own value
+    emitted.current = value // a value from outside: the record, a cleared form
+    setChips(toChips(value))
+  }, [value])
+
+  function emit(next: string[]) {
+    emitted.current = next
+    setChips(next)
+    onChange(next)
+  }
+
+  // ... render `chips`, call `emit(...)` on every edit
+}
+```
+
+The bundled `KeyValue`, `Tag`, `Avatar`, `BelongsTo`, `Repeater` and (v1.38.0+) `Sparkline` inputs follow this pattern, and `Slug` uses it to follow its source again once the form clears it. When the fields inside your input can emit while they mount (a slug generating itself from a default), compare during render instead of in an effect, as `Repeater` does: child effects run before the parent's.
+
+The comparison only sees a value that changes. A form cleared back to the very value your input emitted last (`null` after its own Clear button) hands it nothing new, so keep no state that `value` does not carry, or that the rest of the form can tell you about: a slug the user emptied by hand is `null` before and after the form is cleared, and `Slug` follows its source again once the source is empty too (v1.38.0+).
+
+Several of those fields can also emit before the form hands your value back (on an edit form, every stored row whose slug generates itself from its source), and each of their handlers still sees the `value` of your last render, so an update built on that `value` drops the updates before it. Build each update on the value you emitted last, until the form hands you a new one, as `Repeater` does since v1.38.0. Tell the two apart with a token for each `value` your input receives, not with the value itself: a form cleared back to `null` hands an input that started empty the very value its first emission started from, and the comparison would take the cleared form for one that has not handed anything back yet. Before v1.38.0 this snippet compared the value, and so did `Repeater`, which brought the previous record's rows back into the next one after "Create & add another":
+
+```typescript
+import { useMemo, useRef } from 'react'
+
+type Row = Record<string, unknown>
+const toRows = (v: unknown): Row[] => (Array.isArray(v) ? v.map((row) => ({ ...row })) : [])
+
+// Next to `emitted`: a token for each `value` the form hands in, and the
+// token of the value the last emission started from.
+const valueToken = useMemo(() => ({ value }), [value])
+const emittedFrom = useRef<object | null>(null)
+
+function emit(next: Row[]) {
+  emittedFrom.current = valueToken
+  emitted.current = next
+  onChange(next)
+}
+
+// A fresh copy of the rows the next update builds on.
+const latestRows = () => toRows(valueToken === emittedFrom.current ? emitted.current : value)
+
+function setRowField(index: number, attribute: string, fieldValue: unknown) {
+  const next = latestRows()
+  next[index] = { ...next[index], [attribute]: fieldValue }
+  emit(next)
+}
+```
+
 ## 5.A Composing native field components (v1.14.0+)
 
 The two sections above show how to **replace** a field renderer. The opposite direction — **composing** the canonical Martis field renderer from inside your own custom component (a custom Action component, a Tool, a Card) — is supported via the consumer-extension runtime.
@@ -500,18 +599,20 @@ Since v1.14.0, `@martis/runtime` exposes:
 | `FieldDisplayProps`, `FieldInputProps` (types) | Re-exported for the same reason. |
 | `DrawerShell` | Generic slide-over drawer shell. Host edit/add/detail forms (composed from `FieldInput`) in a native drawer; you control open/close from your own state, like a modal. |
 | `DrawerShellProps` (type) | Props for `DrawerShell`: `title`, `subtitle?`, `icon?`, `onClose`, `children`, … |
-| `Tooltip` | The PrimeReact `Tooltip` component. Needed for rich/HTML tooltip content (`escape={false}`) since the extension build doesn't alias `primereact`. |
+| `Tooltip` | The PrimeReact `Tooltip` component, for React content in a tooltip (JSX `content`), since the extension build doesn't alias `primereact`. The global `[data-pr-tooltip]` provider renders plain text, or markup you write when the trigger sets `data-pr-tooltip-html="true"` (unsanitised): see [Tooltip Standard](components.md#tooltip-standard-primereact). |
 | `Dropdown`, `MultiSelect` (v1.29.0) | The exact PrimeReact controls Martis's own filters use. Apply the `martis-filter-dropdown` class for the compact filter look. Lets a Tool render pixel-identical single/multi filters without bundling a second copy of PrimeReact. |
-| `createPortal` (v1.29.0) | `react-dom`'s `createPortal`, for overlays. The extension's React shim is React-core-only (no `react-dom`), so it is exposed here. |
+| `createPortal` (v1.29.0) | `react-dom`'s `createPortal`, for overlays: the host's, so the portal renders with the host's React DOM. Since v1.38.0 `import { createPortal } from 'react-dom'` reaches the same function: the extension build sends `react-dom` to a shim that carries it and nothing else of `react-dom`. |
 | `DropdownProps`, `MultiSelectProps` (types) | Re-exported so you can type the controls above without reaching into `primereact/*`. |
+| `NestedParentProvider` (v1.38.0) | Names the record whose related records the relationship panels inside list, when the page URL does not name it; `id: null` on a create form. See [Naming the record of the relationship panels](#naming-the-record-of-the-relationship-panels-v1380). |
+| `NestedParent` (type) | The provider's `value`: `{ resource: string; id: string \| number \| null }`. |
+
+Import each one by name from `@martis/runtime`, which your extension build resolves to `resources/js/martis-extensions/.shims/runtime.mjs`. `martis:install` publishes that file once and `composer update` does not refresh it, so on an extension scaffolded before the version that added a name the build fails with `"Dropdown" is not exported by "resources/js/martis-extensions/.shims/runtime.mjs"`: see [Refreshing the extension scaffold after an upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade). Their types come with the scaffold (`.shims/runtime.d.mts`, v1.38.0): see [Type-checking your extensions](installation-guide.md#type-checking-your-extensions).
 
 ### Example — Select inside a custom Action component
 
 ```tsx
 import { useState } from 'react'
-import { martisRuntime } from '@martis/runtime'
-
-const { FieldInput } = martisRuntime
+import { FieldInput } from '@martis/runtime'
 
 const docTypeField = {
     type: 'select',
@@ -551,9 +652,7 @@ its own state:
 
 ```tsx
 import { useState } from 'react'
-import { martisRuntime } from '@martis/runtime'
-
-const { DrawerShell, FieldInput } = martisRuntime
+import { DrawerShell, FieldInput } from '@martis/runtime'
 
 export function ReviewTool() {
     const [open, setOpen] = useState(false)
@@ -581,9 +680,7 @@ PrimeReact's DOM. Add the `martis-filter-dropdown` class for the compact look:
 
 ```tsx
 import { useState } from 'react'
-import { martisRuntime } from '@martis/runtime'
-
-const { Dropdown } = martisRuntime
+import { Dropdown } from '@martis/runtime'
 
 export function StatusFilter() {
     const [status, setStatus] = useState<string | null>(null)
@@ -603,15 +700,89 @@ export function StatusFilter() {
 }
 ```
 
-`createPortal` (also on `martisRuntime`) is available for overlays that must
-escape a clipped/overflow-hidden container — the extension's React shim is
-React-core-only, so `react-dom`'s portal is exposed through the runtime.
+`createPortal` (exported by `@martis/runtime`, and since v1.38.0 by the extension's
+`react-dom` shim, which carries nothing else of `react-dom`) is available for
+overlays that must escape a clipped or `overflow: hidden` container.
+
+### Naming the record of the relationship panels (v1.38.0+)
+
+A relationship field rendered through `FieldDisplay` or `FieldInput` (a
+`HasMany`, `MorphMany`, `BelongsToMany` or `MorphToMany` panel, a `HasOne` /
+`MorphOne` card) lists the related records of the record it belongs to: the
+nearest record named with `NestedParentProvider`, else the record in the page
+URL (`/resources/{resource}/{id}`). The bundled drawers and cards name theirs
+(see [relationships.md § Which record a panel belongs to](relationships.md#which-record-a-panel-belongs-to)).
+A custom override that shows a record the URL may not name (a drawer an
+action, a lens row or an index row opens, a card of another record) names it
+the same way:
+
+```tsx
+import { FieldDisplay, NestedParentProvider } from '@martis/runtime'
+import type { FieldDefinition, OverrideProps } from '@martis/runtime'
+
+export function ProjectSummaryDrawer({ schema, resource, record, recordId }: OverrideProps) {
+    const fields = (schema.fieldsForDetail ?? []) as FieldDefinition[]
+    return (
+        <NestedParentProvider value={{ resource, id: recordId ?? null }}>
+            {fields.map((field) => (
+                <FieldDisplay
+                    key={field.attribute}
+                    field={field}
+                    value={record?.[field.attribute] ?? null}
+                    resourceKey={resource}
+                    context="detail"
+                />
+            ))}
+        </NestedParentProvider>
+    )
+}
+```
+
+Without the provider the panels read the page's record: on
+`/resources/team-members/2`, a drawer showing project 3 would ask
+`/api/resources/team-members/2/has-many/tasks` for the project's tasks (404,
+or team member 2's own rows when team members declare the same relationship).
+
+A custom create override names no record, since it does not exist yet: pass
+`id: null`. A `BelongsToMany` / `MorphToMany` panel with no record renders
+nothing and asks nothing (the schema keeps both fields off create forms
+anyway). Without the provider, a create override opened over a
+record's page (a Replicate, an action response) would hand its panels that
+record.
+
+```tsx
+<NestedParentProvider value={{ resource, id: null }}>
+    {/* the create form */}
+</NestedParentProvider>
+```
+
+The nearest provider wins, so a provider inside another one (a create modal
+opened from a record drawer) names the record of its own subtree. Type the
+`value` with the re-exported `NestedParent`.
+
+An extension scaffolded before v1.38.0 has a `.shims/runtime.mjs` without the
+`NestedParentProvider` export: see [Refreshing the extension scaffold after an
+upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade).
 
 ### Caveats
 
-**1. `BelongsTo` outside a resource form needs `related_resource`.**
+**1. Relation pickers take their scope from the props you pass.**
 
-`BelongsToFieldInput` builds its options endpoint from the resource context: `/api/resources/{resourceKey}/{recordId}/relatable/{attribute}`. When you mount it from a custom Action component that has no parent resource, it falls through to the synthetic endpoint `/api/resources/_/_/relatable/{attribute}?related_resource={uriKey}`. Make sure your `FieldDefinition` carries the `relatedResource` (the target resource's `uriKey`) so Martis can resolve the relatable query on the server side. For pure enum dropdowns prefer `select` — it has no async dependency and works anywhere.
+`BelongsTo`, `MorphTo` and `Tag` load their options from `/api/resources/{resource}/{id}/relatable/{attribute}`. `{resource}` is `resourceKey`, else the resource of the page. `{id}` is `recordId`; without one, `context="create"` sends `_` (the create forms), and any other input uses the page's record only when it is scoped to the page's own resource (`_` otherwise). In a custom Action component, pass `actionEndpoint` so the pickers read the Action's own declaration of the field:
+
+```tsx
+<FieldInput
+    field={field}
+    value={values[field.attribute] ?? null}
+    onChange={(v) => setValue(field.attribute, v)}
+    context="create"
+    actionEndpoint={`/api/resources/${resource}/actions/${action.uriKey}`}
+/>
+```
+
+A custom modal that renders a relationship's pivot fields passes `pivotEndpoint` the same way: `/api/resources/{resource}/{id}/{belongs-to-many|morph-to-many}/{relationship}/pivot-fields` to attach, plus `/{relatedId}` to edit the pivot row of an attached record (v1.38.0+). A custom container that renders the fields of a Repeater row passes `repeaterRow={{ repeater: '<Repeater attribute>', repeatable: '<row type>' }}` next to the form's own scope, so the pickers and the remote `Select` search name the row the server reads the field from (see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)).
+
+With no resource at all (a Tool page without `resourceKey`), the input falls back to the context-free `/api/resources/_/_/relatable/{attribute}?related_resource={uriKey}`, so the `FieldDefinition` must carry `relatedResource` (the target resource's `uriKey`) for the server to resolve the relatable query. For pure enum dropdowns prefer `select`: it has no async dependency and works anywhere.
 
 **2. Consumer bundles hosted outside the Martis shell need the published stylesheet.**
 
@@ -658,7 +829,7 @@ Use the `martis:component` artisan command to scaffold an override TSX (alias: `
 >
 > The PHP `Override('status-badge')` / `Override('status-badge-input')` strings match what `martis:component --type=field StatusBadge` produces. No manual `OVERRIDE_KEYS` extension required since v1.10.1.
 >
-> **Recommendation**: when you want a brand-new field type with matching PHP class, prefer `martis:field <Name>` — that generator writes the PHP Field subclass too and routes the override through the bundle's `fields/` bucket (key namespace `field:{kebab}` instead of the bare `{kebab}`). Use `martis:component --type=field` only when you want to override the visual of an existing field (Text, Select, etc.) without introducing a new PHP field.
+> **Recommendation**: when you want a brand-new field type with matching PHP class, prefer `martis:field <Name>`: that generator writes the PHP Field subclass too and routes the component through the bundle's `fields/` bucket, which registers it as the display and input of the field type the PHP class declares (`field:display:{kebab}` / `field:input:{kebab}`) instead of under the bare `{kebab}`. Use `martis:component --type=field` only when you want to override the visual of an existing field (Text, Select, etc.) without introducing a new PHP field.
 
 | `--type` | Stub source |
 |----------|-------------|
@@ -696,9 +867,9 @@ The command:
 1. Creates the React component file at `resources/js/martis-extensions/overrides/{ClassName}.tsx`.
 2. For shell pieces and auth pages, the file is published with the canonical fixed filename (`Shell.tsx`, `Sidebar.tsx`, `LoginPage.tsx`, etc.) so the bundle's `OVERRIDE_KEYS` map registers it automatically. The user-supplied `name` argument is ignored for these fixed slots — they exist exactly once each.
 3. For `--type=generic` and `--type=field` the user-supplied name becomes the filename; the bundle's auto-discovery loop derives `{kebab(name)}` (and `{kebab(name)}-input` for the field-shape pair) and registers each half automatically. v1.10.1+.
-4. Shell stubs document the exact props the shell injects (collapsed state, mobile drawer callbacks, navigation payload from `/api/navigation`) so you can skip reading the source.
+4. Shell stubs document the exact props the shell injects (collapsed state, mobile drawer callbacks, navigation payload from `/api/navigation`) so you can skip reading the source. The sidebar stub types that payload with `NavigationGroup` / `NavigationItem` from `@martis/runtime` and lists the items of a nested menu group (`type: 'group'`) under its label (v1.38.0; the v1.9.3 stub drew such a group as a link).
 
-> **`martis:component --type=field` only scaffolds TSX.** To create a brand-new field type with matching PHP class + React display/input, use `php artisan martis:field <Name>` instead — that command writes both `app/Martis/Fields/<Name>Field.php` and `resources/js/martis/fields/<name>.tsx`. Use `martis:component --type=field` when you just want to override the *visual* of an existing field (Text, Badge, etc.) without introducing a new PHP field.
+> **`martis:component --type=field` only scaffolds TSX.** To create a brand-new field type with matching PHP class + React display/input, use `php artisan martis:field <Name>` instead: that command writes both `app/Martis/Fields/<Name>Field.php` and `resources/js/martis-extensions/fields/<Name>.tsx`. Use `martis:component --type=field` when you just want to override the *visual* of an existing field (Text, Badge, etc.) without introducing a new PHP field.
 
 **Arguments:**
 
@@ -743,7 +914,7 @@ Replace any of the three shell pieces (`Sidebar`, `Topbar`, `Footer`) without to
 
 ```typescript
 // resources/js/martis-extensions/index.ts
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 import { MyTopbar } from './components/MyTopbar'
 import { MyFooter } from './components/MyFooter'
 
@@ -755,6 +926,10 @@ componentRegistry.register('layout:footer', MyFooter)
 
 ```typescript
 // resources/js/martis-extensions/index.ts
+import { componentRegistry } from '@martis/runtime'
+import { MyTopbar } from './components/MyTopbar'
+import { MyFooter } from './components/MyFooter'
+
 componentRegistry.register('my-topbar', MyTopbar)
 componentRegistry.register('my-footer', MyFooter)
 ```
@@ -781,7 +956,7 @@ Use `layout:shell` (or `config.layout.components.shell`) when you want to rebuil
 ## Component Registry API
 
 ```typescript
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 
 // ─── Registration ──────────────────────────────────────────
 // Register by key (also used for explicit `field.component` keys from PHP)
@@ -815,9 +990,11 @@ componentRegistry.keys()
 
 `resolveDisplay` and `resolveInput` walk Tiers 1 → 4 in order (explicit key → per-resource → global type → fallback). The single-arg `resolve(key)` is the low-level lookup used by drawer / shell overrides where the consumer already knows the exact registry key.
 
+The same instance is `window.Martis.componentRegistry`, so `window.Martis.componentRegistry.keys()` in the browser console lists every registered key without a rebuild.
+
 ## Debugging — `martis:list-overrides`
 
-When an override does not pick up, the most common cause is a key mismatch between the PHP layer (which declares "I want a component called `<key>`") and the consumer extension bundle (`resources/js/martis-extensions/`) (which registers the actual React component under that key). The `martis:list-overrides` artisan command prints every component key the PHP layer expects:
+When an override does not pick up, the most common cause is a key mismatch between the PHP layer (which declares "I want a component called `<key>`") and the consumer extension bundle (`resources/js/martis-extensions/`) (which registers the actual React component under that key). The `martis:list-overrides` artisan command prints the keys the PHP layer declares: the component key of each Tool and of each Action with a custom component, and each resource's URI key:
 
 ```bash
 php artisan martis:list-overrides
@@ -830,21 +1007,22 @@ php artisan martis:list-overrides --frontend        # ⭐ cross-check vs `resour
 
 ### ⭐ `--frontend` cross-check
 
-The `--frontend` flag adds a **Frontend** column to the table that statically parses your `resources/js/martis-extensions/index.ts` for `componentRegistry.register/registerFieldDisplay/registerFieldInput/registerResourceFieldDisplay/registerResourceFieldInput` calls and shows whether each PHP-declared key is registered:
+The `--frontend` flag adds a **Frontend** column that shows whether your extension registers each key, read statically from `resources/js/martis-extensions/`: the key each file of the four buckets registers through the auto-discovery entry (`tools/Charts.tsx` is `tool:charts`, `overrides/Sidebar.tsx` is `layout:sidebar`), and the literal key of each `register()` call on the component registry in `index.ts` (v1.38.0). A resource row shows `n/a`: the SPA renders a resource without a component of its own.
 
 ```
-+----------+--------------------------+------------------------+----------------+
-| Kind     | Component key            | Source                 | Frontend       |
-+----------+--------------------------+------------------------+----------------+
-| resource | clients                  | App\Martis\ClientResource | ✓ registered |
-| resource | invoices                 | App\Martis\InvoiceResource| ✓ registered |
-| tool     | system-status            | App\Martis\Tools\…        | ✗ missing     |
-+----------+--------------------------+------------------------+----------------+
++----------+-----------------+----------------------------+--------------+
+| Kind     | Component key   | Source                     | Frontend     |
++----------+-----------------+----------------------------+--------------+
+| resource | clients         | App\Martis\ClientResource  | n/a          |
+| resource | invoices        | App\Martis\InvoiceResource | n/a          |
+| tool     | tool:imports    | App\Martis\Tools\Imports   | ✓ registered |
+| tool     | system-status   | App\Martis\Tools\…         | ✗ missing    |
++----------+-----------------+----------------------------+--------------+
 ```
 
-Exit code `2` (INVALID) when any key is missing, so you can wire it into CI as `php artisan martis:list-overrides --frontend || exit 1`. Pass `--boot=path/to/file.ts` to point at a non-default boot file.
+Exit code `2` (INVALID) when a Tool or Action key is missing, so you can wire it into CI as `php artisan martis:list-overrides --frontend || exit 1`. Pass `--extensions-dir=path/to/dir` when the extension sources live outside `resources/js/martis-extensions/`.
 
-The parser handles string-literal keys; computed keys (e.g. `register('field:' + kind, ...)` or template-literal variants) are not resolved — list those manually.
+Only string-literal keys are read, and only from `index.ts`: a computed key (`register('field:' + kind, ...)`, a template literal with `${...}`) or a `register()` call in another module shows as missing. Check those in the browser console (below).
 
 Sample output:
 
@@ -857,17 +1035,18 @@ Sample output:
 | tool     | system-status            | App\Martis\Tools\SystemStatus            |
 | action   | order-bulk-publish       | App\Martis\OrderResource → PublishOrders |
 +----------+--------------------------+------------------------------------------+
-4 component key(s) declared. Verify each one is backed by a TSX file under
-resources/js/martis-extensions/{tools,fields,cards,overrides}/ (v1.9+ filename → key auto-discovery).
+4 component key(s) declared. Verify each Tool and Action key is registered by your extension: a TSX file
+under resources/js/martis-extensions/{tools,fields,cards,overrides}/ (v1.9+ filename → key auto-discovery)
+or a register() call in its index.ts. A resource needs no component.
 ```
 
-The command lists what is **expected**, not what is **registered** — the actual override registry lives in the browser and cannot be introspected from PHP. Check the matching list in your frontend by running this in the browser devtools console after the SPA boots:
+The command lists what is **expected**, not what is **registered**: the actual override registry lives in the browser and cannot be introspected from PHP. Check the matching list in your frontend by running this in the browser devtools console after the SPA boots:
 
 ```js
-window.componentRegistry.keys()
+window.Martis.componentRegistry.keys()
 ```
 
-Any key that appears in `martis:list-overrides` but not in `componentRegistry.keys()` is a missing TSX file under `resources/js/martis-extensions/` — the most common reason an override fails to resolve.
+Any Tool or Action key that appears in `martis:list-overrides` but not in `componentRegistry.keys()` is one your extension does not register (a missing TSX file under `resources/js/martis-extensions/`, or a missing `register()` call), the most common reason an override fails to resolve.
 
 ## ⭐ Component Inspector — `/dev/components`
 
@@ -904,7 +1083,7 @@ Setting this is a server-side config change, so re-publish or re-bundle after ed
 Custom pages (layouts, custom resource views, dashboards built outside the default router) should set the browser tab title so navigation inside the SPA stays consistent with the server-side title on hard reload.
 
 ```tsx
-import { usePageTitle } from '@/hooks/usePageTitle'
+import { usePageTitle } from '@martis/runtime' // v1.38.0+
 
 export function MyCustomPage({ resource }) {
   // Passing a segment → `"${segment} · ${brand}"`.

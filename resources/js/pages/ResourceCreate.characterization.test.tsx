@@ -21,6 +21,9 @@ import { ToastProvider } from '@/contexts/ToastContext'
  *      `values` object, and a second field reading `formValues` sees the change
  *      (verified both directly and through a layout container).
  *   3. Container items (tab_group / section / panel) render their child fields.
+ *   4. "Create & add another" clears the form for the next record, including
+ *      the inputs that keep their own state (a Tag field, a Repeater, a
+ *      custom input that reads its value when it mounts).
  *
  * -------------------------------------------------------------------------
  * Harness note (IMPORTANT — read before editing):
@@ -78,10 +81,29 @@ vi.mock('@/lib/api', async (importOriginal) => {
 
 import { ResourceCreatePage } from '@/pages/ResourceCreate'
 import { registerDefaultFields, FieldInput } from '@/components/fields/FieldRenderer'
+import { componentRegistry } from '@/lib/componentRegistry'
+import type { FieldInputProps } from '@/components/fields/types'
 
 // FieldInput resolves its concrete component through the global registry, so
 // the default field components must be registered (app.tsx does this at boot).
 registerDefaultFields()
+
+// A custom input (registered the way a consumer registers one) that keeps
+// what the user types in its own state, read from `value` once, at mount.
+function MountDraftInput({ field, value, onChange }: FieldInputProps) {
+  const [draft, setDraft] = useState(() => String(value ?? ''))
+  return (
+    <input
+      id={field.attribute}
+      value={draft}
+      onChange={(e) => {
+        setDraft(e.target.value)
+        onChange(e.target.value)
+      }}
+    />
+  )
+}
+componentRegistry.registerFieldInput('mount_draft', MountDraftInput)
 
 // ---------------------------------------------------------------------------
 // Field fixtures — referentially stable (module constants), matching how the
@@ -442,5 +464,111 @@ describe('ResourceCreatePage — nested-container dependsOn reactivity', () => {
       const label = screen.getByText('Subtitle').closest('label')
       expect(label?.querySelector('.martis-input-required')).not.toBeNull()
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// (4) "Create & add another" — the next record starts from an empty form
+// ---------------------------------------------------------------------------
+
+describe('ResourceCreatePage — Create & add another', () => {
+  it('starts the next record without the tags picked for the previous one', async () => {
+    mockSchema([baseField({ attribute: 'tags', label: 'Tags', type: 'tag', relatedResource: 'tags' })])
+    const schemaFetch = apiGetMock.getMockImplementation()!
+    apiGetMock.mockImplementation((path: string) =>
+      path.includes('/relatable/tags')
+        ? Promise.resolve({ data: [{ id: 1, _title: 'php' }, { id: 3, _title: 'react' }] })
+        : schemaFetch(path),
+    )
+    apiPostMock.mockResolvedValue({ data: { id: 99 } })
+
+    renderCreatePage()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add Tags' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'php' }))
+    // No `create_and_add_another` translation in the test i18n bundle.
+    fireEvent.click(screen.getByRole('button', { name: 'create_and_add_another' }))
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(document.querySelector('[data-pr-tooltip="Remove php"]')).toBeNull())
+
+    if (!screen.queryByRole('button', { name: 'react' })) {
+      fireEvent.click(screen.getByRole('button', { name: 'Add Tags' }))
+    }
+    fireEvent.click(await screen.findByRole('button', { name: 'react' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create Post' }))
+
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(2))
+    const [, body] = apiPostMock.mock.calls[1] as [string, Record<string, unknown>]
+    expect(body.tags).toEqual([{ id: 3, title: 'react' }])
+  })
+
+  it('starts the next record without the parent picked for the previous one', async () => {
+    mockSchema([baseField({ attribute: 'author_id', label: 'Author', type: 'belongs_to', relatedResource: 'authors', nullable: true })])
+    const schemaFetch = apiGetMock.getMockImplementation()!
+    apiGetMock.mockImplementation((path: string) =>
+      path.includes('/relatable/author_id')
+        ? Promise.resolve({ data: [{ id: 7, _title: 'Ana' }] })
+        : schemaFetch(path),
+    )
+    apiPostMock.mockResolvedValue({ data: { id: 99 } })
+    const triggerLabel = () => document.querySelector('.martis-belongs-to-trigger-label')?.textContent
+
+    renderCreatePage()
+
+    // No `select_field` translation in the test i18n bundle.
+    fireEvent.click(await screen.findByText('select_field'))
+    fireEvent.click(await screen.findByText('Ana'))
+    expect(triggerLabel()).toBe('Ana')
+    fireEvent.click(screen.getByRole('button', { name: 'create_and_add_another' }))
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(1))
+    expect((apiPostMock.mock.calls[0] as [string, Record<string, unknown>])[1].author_id).toBe(7)
+
+    await waitFor(() => expect(triggerLabel()).toBe('select_field'))
+  })
+
+  it('starts the next record with a fresh Repeater row', async () => {
+    mockSchema([
+      baseField({
+        attribute: 'lines', label: 'Lines', type: 'repeater', storage: 'json',
+        repeatables: [
+          {
+            shortName: 'line', uniqueKey: 'line', label: 'Line',
+            fields: [{ attribute: 'name', label: 'Name', type: 'text', rules: [] }],
+          },
+        ],
+      }),
+    ])
+    apiPostMock.mockResolvedValue({ data: { id: 99 } })
+
+    renderCreatePage()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add Line' }))
+    fireEvent.click(screen.getByRole('button', { name: 'create_and_add_another' }))
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(1))
+    const [previous] = (apiPostMock.mock.calls[0] as [string, Record<string, unknown>])[1].lines as Array<{ id: string }>
+    await waitFor(() => expect(screen.queryByText('Name')).toBeNull())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Line' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create Post' }))
+
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(2))
+    const lines = (apiPostMock.mock.calls[1] as [string, Record<string, unknown>])[1].lines as Array<{ id: string }>
+    expect(lines).toHaveLength(1)
+    expect(lines[0].id).not.toBe(previous.id)
+  })
+
+  it('starts a custom input that reads its value at mount from the next record\'s empty value', async () => {
+    mockSchema([baseField({ attribute: 'code', label: 'Code', type: 'mount_draft' })])
+    apiPostMock.mockResolvedValue({ data: { id: 99 } })
+
+    renderCreatePage()
+
+    const code = () => document.getElementById('code') as HTMLInputElement
+    await waitFor(() => expect(code()).not.toBeNull())
+    fireEvent.change(code(), { target: { value: 'FIRST-01' } })
+    fireEvent.click(screen.getByRole('button', { name: 'create_and_add_another' }))
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(1))
+
+    await waitFor(() => expect(code().value).toBe(''))
   })
 })

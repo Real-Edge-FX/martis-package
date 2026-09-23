@@ -20,7 +20,7 @@ import type { FieldDisplayProps, FieldInputProps } from '@/components/fields/typ
  *
  * Resolution order: explicit key → resource-field → type → built-in default
  *
- * Usage:
+ * Usage (a consumer extension imports it from `@martis/runtime`):
  *   import { componentRegistry } from '@/lib/componentRegistry'
  *
  *   // Register custom display for all "text" fields globally
@@ -31,8 +31,11 @@ import type { FieldDisplayProps, FieldInputProps } from '@/components/fields/typ
  *
  *   // Register by explicit key (matching field.component in PHP)
  *   componentRegistry.register('status-badge', StatusBadgeDisplay)
+ *
+ * Exported so the runtime's generated declarations (`npm run build:types`)
+ * can name the type of `componentRegistry`.
  */
-class ComponentRegistry {
+export class ComponentRegistry {
   /** Keyed by arbitrary string (explicit component keys, type keys, resource-field keys). */
   private readonly components = new Map<string, ComponentType<never>>()
 

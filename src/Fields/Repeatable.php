@@ -167,13 +167,20 @@ abstract class Repeatable
         return null;
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * The row type as the form receives it: its header decorations and the
+     * fields the user can see. A field hidden from the user (`canSee()`) is
+     * left out, as the Repeater leaves its value out of every row and never
+     * writes it from the request.
+     *
+     * @return array<string, mixed>
+     */
     public function toArray(Request $request): array
     {
-        $fields = array_map(
+        $fields = array_values(array_map(
             fn (FieldContract $f) => $f->toArray(),
-            $this->fields($request),
-        );
+            array_filter($this->fields($request), fn (FieldContract $f): bool => $f->isAuthorizedToSee($request)),
+        ));
 
         return [
             'shortName' => $this->shortName(),

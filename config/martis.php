@@ -1067,6 +1067,14 @@ return [
         //   Gate::define('manage-martis-cache', fn ($u) => $u->is_admin);
         //
         'admin_ui' => env('MARTIS_CACHE_ADMIN_UI', true),
+
+        // Position of the Cache link inside the bundled "System" sidebar
+        // section. The section sorts its entries by ascending weight:
+        // System-section resources and tools default to 100
+        // (`systemSectionOrder()`, `Tool::withSystemSection(order: ...)`),
+        // so the default 1000 keeps the link last. Lower it to move the
+        // link up, e.g. 50 to show it before every default-weight entry.
+        'admin_ui_order' => 1000,
     ],
 
     /*

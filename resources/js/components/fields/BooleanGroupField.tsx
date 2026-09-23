@@ -15,6 +15,10 @@ interface BooleanGroupSchema {
 
 type Value = Record<string, boolean> | null | undefined
 
+/** Shared fallback for a field without options: a stable reference keeps the
+ *  input's value memo from recomputing on every render. */
+const NO_OPTIONS: Record<string, string> = {}
+
 function labelFor(schema: BooleanGroupSchema, key: string): string {
   return schema.labels?.[key] ?? schema.options?.[key] ?? key
 }
@@ -68,7 +72,7 @@ export function BooleanGroupFieldDisplay({ field, value }: FieldDisplayProps) {
 // ─────────────────────────────────────────────────────────────────────
 export function BooleanGroupFieldInput({ field, value, onChange, error }: FieldInputProps) {
   const schema = field as unknown as BooleanGroupSchema
-  const options = schema.options ?? {}
+  const options = schema.options ?? NO_OPTIONS
   const groups = schema.groups
 
   const v = useMemo<Record<string, boolean>>(() => {
@@ -135,8 +139,10 @@ export function BooleanGroupFieldInput({ field, value, onChange, error }: FieldI
             <div className="martis-boolgroup-options">
               {section.keys.map((key) => {
                 const on = !!v[key]
+                // `fill()` skips a readonly field (an `immutable()` one on
+                // update arrives as readonly too): every flag keeps its state.
                 const disabled =
-                  !on && maxChecked !== undefined && checked >= maxChecked
+                  field.readonly || (!on && maxChecked !== undefined && checked >= maxChecked)
                 const inputId = `mbg-${key.replace(/[^a-z0-9]/gi, '-')}`
                 return (
                   <label

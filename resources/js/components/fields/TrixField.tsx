@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useId, useRef } from "react"
 import { createPortal } from "react-dom"
 import type { FieldDisplayProps, FieldInputProps } from "./types"
 import { EyeIcon, EyeSlashIcon, XIcon } from "@phosphor-icons/react"
@@ -63,12 +63,12 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
   const ext = field as unknown as Record<string, unknown>
   const imageClickBehavior = (ext.imageClickBehavior as string) || 'modal'
   const linkClickBehavior = (ext.linkClickBehavior as string) || 'same_page'
-
-  if (value === null || value === undefined || value === "") {
-    return <span className="martis-text-muted">&mdash;</span>
-  }
-
   const alwaysShow = (ext.alwaysShow as boolean) ?? false
+
+  // Every hook runs before the empty-value return below: the same element
+  // renders a value that is set or cleared later (a refetch, polling, an
+  // inline edit), and React requires the same hooks on every render. With no
+  // value there is no content element, so the effect below does nothing.
   const [expanded, setExpanded] = useState(alwaysShow)
 
   // Intercept image + attachment link clicks inside trix content
@@ -169,6 +169,10 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
     return () => el.removeEventListener('click', handleClick)
   }, [expanded, imageClickBehavior, linkClickBehavior, value])
 
+  if (value === null || value === undefined || value === "") {
+    return <span className="martis-text-muted">&mdash;</span>
+  }
+
   if (!expanded) {
     return (
       <button
@@ -215,8 +219,10 @@ export function TrixFieldInput({
   const containerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<HTMLElement | null>(null)
   const hiddenInputRef = useRef<HTMLInputElement | null>(null)
-  const inputId = `trix-input-${field.attribute}`
-  const initialized = useRef(false)
+  // Trix finds its hidden input by id in the whole document, so the id is
+  // unique per editor: another editor for the same attribute (the next row
+  // of a Repeater, an inline-create modal over the form) has its own input.
+  const inputId = `trix-input-${field.attribute}-${useId().replace(/:/g, "")}`
   const lastPropValue = useRef<string>("")
   const internalUpdate = useRef(false)
 
@@ -252,34 +258,51 @@ export function TrixFieldInput({
   const currentValue =
     value === null || value === undefined ? "" : String(value)
 
-  const handleChange = useCallback(() => {
-    if (hiddenInputRef.current) {
-      internalUpdate.current = true
-      onChange(hiddenInputRef.current.value)
-    }
-  }, [onChange])
+  // The editor lives outside React and outlasts the render that built it. It
+  // reports an edit through the `onChange` of the latest render (a Repeater
+  // row hands a new one on every render, built on that render's rows), and a
+  // rebuilt editor starts from the latest value; later values reach it through
+  // the sync effect below.
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+  const currentValueRef = useRef(currentValue)
+  currentValueRef.current = currentValue
 
-  // Initialize Trix editor once
+  const extras = field as Record<string, unknown>
+  const readonly = !!field.readonly
+  const toolbarSize = extras.toolbarSize as string | undefined
+  const withFiles = !!extras.withFiles
+
+  // Build the Trix editor, again only when its configuration changes. The
+  // cleanup tears it down, so a rebuild (and StrictMode's second run of the
+  // effect) starts from an empty container.
   useEffect(() => {
-    if (!containerRef.current || initialized.current) return
+    const container = containerRef.current
+    if (!container) return
 
+    const initialValue = currentValueRef.current
     const input = document.createElement("input")
     input.id = inputId
     input.type = "hidden"
-    input.value = currentValue
-    containerRef.current.appendChild(input)
+    input.value = initialValue
+    container.appendChild(input)
     hiddenInputRef.current = input
-    lastPropValue.current = currentValue
+    lastPropValue.current = initialValue
+    internalUpdate.current = false
 
     const editor = document.createElement("trix-editor")
     editor.setAttribute("input", inputId)
     editor.classList.add("trix-content")
-    if (field.readonly) {
+    if (readonly) {
       editor.setAttribute("contenteditable", "false")
     }
-    containerRef.current.appendChild(editor)
+    container.appendChild(editor)
     editorRef.current = editor
 
+    const handleChange = () => {
+      internalUpdate.current = true
+      onChangeRef.current(input.value)
+    }
     editor.addEventListener("trix-change", handleChange)
 
     // After Trix initializes, change link dialog input type from "url" to "text"
@@ -309,7 +332,6 @@ export function TrixFieldInput({
       }
 
       // Apply toolbar size from field config
-      const toolbarSize = (field as Record<string, unknown>).toolbarSize as string | undefined
       if (toolbarSize) {
         const tb = (editor as HTMLElement).previousElementSibling as HTMLElement
         if (tb) {
@@ -335,7 +357,6 @@ export function TrixFieldInput({
     })
 
     // Handle file attachments
-    const withFiles = (field as Record<string, unknown>).withFiles
     editor.addEventListener(
       "trix-attachment-add",
       ((event: Event) => {
@@ -409,16 +430,19 @@ export function TrixFieldInput({
       }
     }) as EventListener)
 
-    initialized.current = true
-
     return () => {
       editor.removeEventListener("trix-change", handleChange)
+      // The wrapper holds only what this effect added: the hidden input, the
+      // editor and the toolbar Trix inserts before it.
+      container.replaceChildren()
+      editorRef.current = null
+      hiddenInputRef.current = null
     }
-  }, [])
+  }, [inputId, readonly, toolbarSize, withFiles])
 
   // Sync external value changes into the editor (record loading on edit)
   useEffect(() => {
-    if (!initialized.current || !editorRef.current) return
+    if (!editorRef.current) return
 
     if (internalUpdate.current) {
       internalUpdate.current = false

@@ -57,3 +57,43 @@ it('gates the dependsOn sync: disabled when syncDisabled or no resourceKey, enab
   renderHook(() => useMartisForm({ fields, context: 'create' }))
   expect(depsSpy.mock.calls[0][0].disabled).toBe(true)
 })
+
+it('resolves an immutable field as readonly on an update form only', () => {
+  const code = { type: 'text', attribute: 'code', label: 'Code', readonly: false, immutable: true } as unknown as FieldDefinition
+
+  const update = renderHook(() => useMartisForm({ fields: [code], context: 'update' }))
+  expect(update.result.current.resolvedFields[0]!.readonly).toBe(true)
+  expect(update.result.current.fieldProps(update.result.current.resolvedFields[0]!).field.readonly).toBe(true)
+
+  const create = renderHook(() => useMartisForm({ fields: [code], context: 'create' }))
+  expect(create.result.current.resolvedFields[0]!.readonly).toBe(false)
+})
+
+it('keeps an immutable field readonly on an update form after a dependsOn sync', () => {
+  const code = {
+    type: 'text', attribute: 'code', label: 'Code', readonly: false, immutable: true, dependsOn: { fields: ['title'] },
+  } as unknown as FieldDefinition
+  // A sync-field response carries the flags the way the schema does.
+  const overrides = new Map([['code', { ...code, placeholder: 'Synced' }]])
+  depsSpy.mockImplementation(() => overrides)
+  try {
+    const { result } = renderHook(() => useMartisForm({ fields: [code], resourceKey: 'projects', context: 'update' }))
+    expect(result.current.resolvedFields[0]).toMatchObject({ placeholder: 'Synced', readonly: true })
+  } finally {
+    depsSpy.mockImplementation(() => new Map())
+  }
+})
+
+// A form built for a stored record hands its context to every input, so an
+// input that behaves differently on an edit form (a Slug keeps a stored slug,
+// a Repeater locks the immutable fields of its stored rows) sees 'update'.
+// fieldProps() left it out, and FieldsForm rendered 'create' unless told.
+it('hands the form context to every input', () => {
+  const update = renderHook(() => useMartisForm({ fields, resourceKey: 'projects', context: 'update', recordId: 42 }))
+  expect(update.result.current.context).toBe('update')
+  expect(update.result.current.fieldProps(fields[1]).context).toBe('update')
+
+  const create = renderHook(() => useMartisForm({ fields, resourceKey: 'projects' }))
+  expect(create.result.current.context).toBe('create')
+  expect(create.result.current.fieldProps(fields[1]).context).toBe('create')
+})

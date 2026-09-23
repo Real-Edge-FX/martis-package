@@ -7,6 +7,7 @@ import { InputSwitch } from 'primereact/inputswitch'
 import { FunnelIcon, XIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { componentRegistry } from '@/lib/componentRegistry'
+import { filterGridSpanStyle } from '@/lib/filterGridSpan'
 import type { FilterDefinition, ActiveFilters } from '@/types'
 
 interface FilterPanelProps {
@@ -180,11 +181,12 @@ export function FilterPanel({ filters, value, onChange, prefix, rightSlot, open:
             border: '1px solid var(--martis-border)',
           }}
         >
-          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}>
-            {filters.map((filter) => {
-              const colSpan = filter.span ?? (filter.filterType === 'date-range' ? 6 : 3)
-              return (
-              <div key={filter.uriKey} style={{ gridColumn: `span ${colSpan}` }}>
+          {/* `.martis-filter-grid` (martis.css) owns the 12 tracks and places
+              every filter: full row below md, then its span, which each
+              filter only carries as `--martis-filter-span`. */}
+          <div className="martis-filter-grid">
+            {filters.map((filter) => (
+              <div key={filter.uriKey} style={filterGridSpanStyle(filter)}>
                 <label
                   className="mb-1 block text-xs font-medium"
                   style={{ color: 'var(--martis-text-muted)' }}
@@ -197,8 +199,7 @@ export function FilterPanel({ filters, value, onChange, prefix, rightSlot, open:
                   onChange={(v) => handleChange(filter.uriKey, v)}
                 />
               </div>
-              )
-            })}
+            ))}
           </div>
 
         </div>

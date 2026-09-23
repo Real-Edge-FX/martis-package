@@ -19,7 +19,10 @@
  * ------------------------------------
  * `/api/navigation` returns groups of resources. The grouping,
  * per-item authorization, icons and labels are built server-side
- * from the resources you defined under `app/Martis/Resources/`.
+ * from the resources you defined under `app/Martis/Resources/`. A
+ * group's `items` hold entries and nested groups (`type: 'group'`,
+ * a menu group inside a section); `NavigationGroup` and
+ * `NavigationItem` from `@martis/runtime` type the payload.
  * Customise via:
  *   • Resource::label() / group() / icon()
  *   • Martis::mainMenu(fn($request, $menu) => ...)  in a service provider
@@ -34,19 +37,7 @@
  */
 
 import {NavLink, useQuery, api} from '@martis/runtime'
-
-interface NavigationItem {
-  type?: 'resource' | 'link'
-  uriKey?: string
-  label: string
-  url: string
-  external?: boolean
-}
-
-interface NavigationGroup {
-  label: string | null
-  items: NavigationItem[]
-}
+import type {NavigationGroup, NavigationItem} from '@martis/runtime'
 
 interface {{ class }}Props {
   mobileOpen?: boolean
@@ -56,12 +47,38 @@ interface {{ class }}Props {
 
 export default function {{ class }}({mobileOpen, onMobileClose, collapsed}: {{ class }}Props) {
   const isMobile = mobileOpen !== undefined
+  const onNavigate = isMobile ? onMobileClose : undefined
 
   const {data: groups = []} = useQuery<NavigationGroup[]>({
     queryKey: ['navigation'],
     queryFn: () => api.get('/api/navigation'),
     staleTime: 60_000,
   })
+
+  // One entry: an external link opens in a new tab, anything else routes
+  // inside the SPA.
+  const renderItem = (item: NavigationItem, groupKey: string) =>
+    item.external === true ? (
+      <a
+        key={`${groupKey}-${item.label}-${item.url}`}
+        href={item.url}
+        target="_blank"
+        rel="noreferrer"
+        className="martis-sb-item"
+        onClick={onNavigate}
+      >
+        <span className="martis-sb-item-label">{item.label}</span>
+      </a>
+    ) : (
+      <NavLink
+        key={item.type === 'resource' ? item.uriKey : `${groupKey}-${item.label}-${item.url}`}
+        to={item.url}
+        className={({isActive}) => 'martis-sb-item' + (isActive ? ' active' : '')}
+        onClick={onNavigate}
+      >
+        <span className="martis-sb-item-label">{item.label}</span>
+      </NavLink>
+    )
 
   // Keep the `.martis-sb` class + `data-mobile` / `data-collapsed`
   // attributes if you want Martis's bundled mobile drawer animation
@@ -76,44 +93,35 @@ export default function {{ class }}({mobileOpen, onMobileClose, collapsed}: {{ c
       <div className="martis-sb-logo">{/* brand / logo */}</div>
 
       <div className="martis-sb-scroll">
-        {groups.map((group, i) => (
-          <div className="martis-sb-group" key={group.label ?? `group-${i}`}>
-            {group.label !== null && (
-              <div className="martis-sb-group-label">
-                <span>{group.label}</span>
-              </div>
-            )}
-            {group.items.map((item) =>
-              item.external === true ? (
-                <a
-                  key={`${group.label ?? ''}-${item.label}-${item.url}`}
-                  href={item.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="martis-sb-item"
-                  onClick={isMobile ? onMobileClose : undefined}
-                >
-                  <span className="martis-sb-item-label">{item.label}</span>
-                </a>
-              ) : (
-                <NavLink
-                  key={
-                    item.type === 'resource'
-                      ? (item.uriKey ?? `${item.label}-${item.url}`)
-                      : `${group.label ?? ''}-${item.label}-${item.url}`
-                  }
-                  to={item.url}
-                  className={({isActive}) =>
-                    'martis-sb-item' + (isActive ? ' active' : '')
-                  }
-                  onClick={isMobile ? onMobileClose : undefined}
-                >
-                  <span className="martis-sb-item-label">{item.label}</span>
-                </NavLink>
-              ),
-            )}
-          </div>
-        ))}
+        {groups.map((group, i) => {
+          const groupKey = group.label ?? `group-${i}`
+
+          return (
+            <div className="martis-sb-group" key={groupKey}>
+              {group.label !== null && (
+                <div className="martis-sb-group-label">
+                  <span>{group.label}</span>
+                </div>
+              )}
+              {group.items.map((child) =>
+                // A nested group (a menu group inside a section, `type: 'group'`)
+                // lists its own items under its label.
+                child.type === 'group' ? (
+                  <div className="martis-sb-subgroup" data-open="true" key={`${groupKey}::${child.label}`}>
+                    <div className="martis-sb-subgroup-header">
+                      <span className="martis-sb-subgroup-label">{child.label}</span>
+                    </div>
+                    <div className="martis-sb-subgroup-items">
+                      {child.items.map((item) => renderItem(item, `${groupKey}::${child.label}`))}
+                    </div>
+                  </div>
+                ) : (
+                  renderItem(child, groupKey)
+                ),
+              )}
+            </div>
+          )
+        })}
       </div>
     </aside>
   )

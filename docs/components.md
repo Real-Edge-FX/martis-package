@@ -51,7 +51,7 @@ Form for creating a new record.
 - Inline validation errors per field
 - Via-relationship support (create child from parent's HasMany)
 - Custom create override support (drawer mode)
-- Responsive grid layout with `colSpan` support
+- Responsive field grids (Section, Panel, Tab) with `colSpan` / `colSpanMd` / `colSpanLg` support
 
 ### ResourceUpdate
 
@@ -104,14 +104,16 @@ The main application shell that wraps all pages. Resolves layout preset from con
 | `topnav` | TopnavLayout | Top navigation bar + main content |
 | `minimal` | MinimalLayout | Minimal header + main content |
 
-> `SidebarLayout` is an inner function inside `resources/js/components/Layout.tsx`, not a standalone file under `components/layouts/`. `TopnavLayout` and `MinimalLayout` each live in their own file there. To override the sidebar preset wholesale, register a custom layout via `layoutRegistry.register('sidebar', MyLayout)`.
+> `SidebarLayout` is an inner function inside `resources/js/components/Layout.tsx`, not a standalone file under `components/layouts/`. `TopnavLayout` and `MinimalLayout` each live in their own file there. To replace the whole shell, register a component under `layout:shell` (`componentRegistry.register('layout:shell', MyShell)`); to replace one piece, under `layout:sidebar`, `layout:topbar` or `layout:footer`. See [Overrides → Shell piece-by-piece overrides](overrides.md#shell-piece-by-piece-overrides).
 
-Override the layout for a specific resource using `layoutRegistry`:
+Give the pages of one resource a layout of their own with `layoutRegistry` (v1.38.0+):
 
 ```typescript
-import { layoutRegistry } from '@/lib/layoutRegistry'
+import { layoutRegistry } from '@martis/runtime'
 layoutRegistry.register('users', CustomUserLayout)
 ```
+
+The layout wraps every page of that resource (index, lens, create, detail, update) inside the shell and receives the page as `children`. See [Overrides → Layout Overrides](overrides.md#2-layout-overrides).
 
 ### Sidebar
 
@@ -228,9 +230,17 @@ Every dialog in Martis renders through the same CSS shell so consumer-built over
 Consumer recipe for a custom confirmation dialog:
 
 ```tsx
-import { createPortal } from 'react-dom'
+import type { ReactNode } from 'react'
 import { XIcon, WarningIcon } from '@phosphor-icons/react'
-import { useModalHistoryLock } from '@/lib/historyLock'
+import { createPortal, useModalHistoryLock } from '@martis/runtime'
+
+interface Props {
+  open: boolean
+  onCancel: () => void
+  onConfirm: () => void
+  title: ReactNode
+  body: ReactNode
+}
 
 export function DangerConfirm({ open, onCancel, onConfirm, title, body }: Props) {
   useModalHistoryLock(open)
@@ -258,7 +268,7 @@ export function DangerConfirm({ open, onCancel, onConfirm, title, body }: Props)
 }
 ```
 
-The `useModalHistoryLock(open)` hook intercepts the browser back button while the dialog is visible and cooperates with the DrawerShell so closing the dialog does not also close the drawer underneath. Required whenever a modal nests inside a drawer or the unsaved-changes guard.
+The `useModalHistoryLock(open)` hook intercepts the browser back button while the dialog is visible and cooperates with the DrawerShell so closing the dialog does not also close the drawer underneath. Required whenever a modal nests inside a drawer or the unsaved-changes guard. It is on `@martis/runtime` since v1.38.0 and has to come from there: it shares a lock count with the drawers, which a copy of the hook would not see. `createPortal` comes from the runtime too: it is the host's, so the dialog renders with the host's React DOM. Since v1.38.0 `import { createPortal } from 'react-dom'` reaches the same function, since the extension build sends `react-dom` to a shim that carries it and nothing else of `react-dom`; on a scaffold published earlier, `react-dom` resolves to the React shim, which exports React core only (see [Refreshing the extension scaffold](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade)).
 
 ### Index toolbar (`.martis-index-toolbar`)
 
@@ -295,11 +305,11 @@ Names that don't match any Phosphor export fall back silently to `DatabaseIcon` 
 
 #### Registering custom icons
 
-For icons outside Phosphor (custom SVGs) or to skip the dynamic-import roundtrip on a hot path, register synchronously from a consumer boot file:
+For icons outside Phosphor (custom SVGs) or to skip the dynamic-import roundtrip on a hot path, register synchronously from the extension entry (`iconRegistry` is on `@martis/runtime` since v1.38.0):
 
 ```ts
 // resources/js/martis-extensions/index.ts
-import { iconRegistry } from '@/lib/iconRegistry'
+import { iconRegistry } from '@martis/runtime'
 import { CrownIcon } from '@phosphor-icons/react'
 
 iconRegistry.register('crown', CrownIcon)
@@ -319,10 +329,10 @@ Skeleton loading placeholders with pulse animation. Displayed while data is bein
 
 ### Sparkline (`components/metrics/Sparkline.tsx`)
 
-Tiny SVG area sparkline used by `TrendCard` when the backend opts into sparkline mode (`TrendResult::sparkline()`). Exported from `@/components/metrics` so custom framed cards can reuse it.
+Tiny SVG area sparkline used by `TrendCard` when the backend opts into sparkline mode (`TrendResult::sparkline()`). A custom framed card reuses it from `@martis/runtime` (v1.38.0+).
 
 ```tsx
-import { Sparkline } from '@/components/metrics'
+import { Sparkline } from '@martis/runtime'
 
 <Sparkline values={[32, 38, 41, 44, 52, 60, 70]} variant="inline" color="var(--martis-chart-2)" />
 ```
@@ -348,7 +358,10 @@ Inline error state for a failed **listing** fetch, rendered in place of the tabl
 - The index and lens pages also fire an error toast on the transition to the error state (again on each failed retry), so the failure is visible when the user is scrolled away from the table. Relationship panels render the `compact` variant without a toast.
 - A failed *refetch* on top of data already held (polling, focus revalidation) keeps the last good rows on screen; the toast is the signal.
 
+How the package's pages render it:
+
 ```tsx
+// Package-internal: resources/js/components/QueryErrorState.tsx, not on @martis/runtime.
 import { QueryErrorState } from '@/components/QueryErrorState'
 
 <QueryErrorState error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
@@ -407,7 +420,7 @@ Reusable container for all drawer overrides.
 
 ### DrawerCreate
 
-Wraps the create form inside a `DrawerShell`. Fields are rendered in a responsive grid layout respecting `colSpan` settings.
+Wraps the create form inside a `DrawerShell`. Sections, Panels and Tabs lay their fields out on the responsive field grid (`colSpan` / `colSpanMd` / `colSpanLg`, see [Grid Layout](grid-layout.md#responsiveness)); a field outside any layout container is a full-width row.
 
 ### DrawerUpdate
 
@@ -446,12 +459,14 @@ const { theme, toggle, setTheme } = useTheme()
 - Persists to localStorage (`martis-theme`)
 - Toggles `.dark` class on `<html>`
 
+`useTheme()` is package-internal (not on `@martis/runtime`). An extension reads and sets the theme through [`usePreferences()`](#preferencescontext): `prefs.theme` and `update({ theme })`.
+
 ### PreferencesContext
 
 Single source of truth for user-tunable preferences (theme, accent, density, locale, reduced motion). Drives the Preferences menu, the per-resource accent override, and the density / reduced-motion CSS hooks (`data-density`, `data-reduced-motion`).
 
 ```typescript
-import { usePreferences, usePreferencesOptional } from '@/contexts/PreferencesContext'
+import { usePreferences, usePreferencesOptional } from '@martis/runtime' // v1.38.0+
 
 const { prefs, meta, update, reset, enabled } = usePreferences()
 
@@ -492,7 +507,7 @@ addToast('success', 'Changes saved')
 Unified API client with CSRF handling, JSON and multipart support.
 
 ```typescript
-import { api } from '@/lib/api'
+import { api } from '@martis/runtime'
 
 const data = await api.get<Post[]>('/api/posts')
 await api.post('/api/posts', { title: 'New Post' })
@@ -511,22 +526,24 @@ await api.upload('POST', '/api/posts', formValues) // handles file uploads
 Reads configuration from `window.MartisConfig` (set by Laravel's Blade template).
 
 ```typescript
-import { config, API_BASE_URL, BASE_PATH } from '@/lib/config'
+import { config } from '@martis/runtime'
 
 config.theme?.default      // 'dark' or 'light'
 config.layout?.preset      // 'sidebar', 'topnav', 'minimal'
 config.search?.enabled     // boolean
 config.footer?.text        // string
-API_BASE_URL               // e.g. 'http://app.test/martis'
-BASE_PATH                  // e.g. '/martis'
+config.basePath            // e.g. '/martis'
 ```
+
+The package's own modules also import two constants from `@/lib/config`, which are not on the runtime: `BASE_PATH` (`config.basePath ?? '/martis'`) and `API_BASE_URL` (`window.location.origin` followed by `BASE_PATH`, e.g. `'http://app.test/martis'`). An extension rarely needs them: `api` prefixes every request path with `API_BASE_URL`.
 
 ### usePrefersReducedMotion (`lib/usePrefersReducedMotion.ts`)
 
 Reactive React hook that returns `true` when motion should be paused. Combines the OS-level signal (`@media (prefers-reduced-motion: reduce)`) with the per-user Martis preference (`html[data-reduced-motion="true"]` written by `PreferencesContext`).
 
 ```tsx
-import { usePrefersReducedMotion } from '@/lib/usePrefersReducedMotion'
+import { useEffect } from 'react'
+import { usePrefersReducedMotion } from '@martis/runtime' // v1.38.0+
 
 const reducedMotion = usePrefersReducedMotion()
 
@@ -573,22 +590,38 @@ Resolves post-CRUD navigation targets:
 
 ## Event Bus
 
-The Martis Event Bus enables decoupled communication between components without prop drilling. It is available via the `useEventBus` hook.
+The Martis Event Bus enables decoupled communication between components without prop drilling. An extension reaches it through the `martisEventBus` singleton on `@martis/runtime`:
 
 ```tsx
+import { useEffect } from 'react'
+import { martisEventBus, type EventBusEvents } from '@martis/runtime'
+
+// Subscribe, and unsubscribe on unmount:
+useEffect(() => {
+  const onCreated = ({ resourceKey, id }: EventBusEvents['martis:record-created']) => console.log('New record', id, 'in', resourceKey)
+  martisEventBus.on('martis:record-created', onCreated)
+  return () => martisEventBus.off('martis:record-created', onCreated)
+}, [])
+
+// Emit:
+martisEventBus.emit('martis:record-created', { resourceKey: 'posts', id: 1 })
+```
+
+A built-in event types its payload in `on`, `once`, `off` and `emit` (`EventBusEvents`, v1.38.0): a handler written inline, `martisEventBus.on('martis:record-created', ({ resourceKey, id }) => …)`, gets both typed.
+
+The package's own components use the `useEventBus()` hook, which wraps the same singleton and drops every handler it registered when the component unmounts:
+
+```tsx
+// Package-internal: resources/js/lib/useEventBus.ts, not on @martis/runtime.
 import { useEventBus } from '@/lib/useEventBus'
 
 const { on, emit } = useEventBus()
 
-// Subscribe — auto-cleaned up on unmount:
 useEffect(() => {
   return on('martis:record-created', ({ resourceKey, id }) => {
     console.log('New record', id, 'in', resourceKey)
   })
 }, [on])
-
-// Emit:
-emit('martis:record-created', { resourceKey: 'posts', id: 1 })
 ```
 
 **Built-in events:**
@@ -606,7 +639,7 @@ emit('martis:record-created', { resourceKey: 'posts', id: 1 })
 
 Custom events can use any string key. Martis prefixes built-in events with `martis:`.
 
-The event bus is also exposed on the `@martis/runtime` barrel as `martisEventBus` (the singleton instance, not the hook) so consumer-extension bundles can emit into native Martis UI without importing `@/lib/eventBus` directly:
+An extension emits into native Martis UI the same way, for example a notification pushed into the bell:
 
 ```ts
 import { martisEventBus } from '@martis/runtime'
@@ -621,8 +654,7 @@ martisEventBus.emit('martis:notification-received', { id: 42, title: 'New order'
 Resources and Tools built on `useQuery` already get `refetchOnWindowFocus` from the react-query default: the data revalidates automatically when the operator returns to a backgrounded Martis tab. Custom Tools that fetch data manually (no react-query) don't get this for free — `useRevalidateOnFocus` closes that gap.
 
 ```tsx
-import { useRevalidateOnFocus } from '@/hooks/useRevalidateOnFocus'
-// or, from a consumer-extension bundle:
+import { useCallback, useEffect, useState } from 'react'
 import { useRevalidateOnFocus } from '@martis/runtime'
 
 function MyManualFetchTool() {
@@ -655,10 +687,11 @@ Reason about staleness explicitly rather than discovering it via a duplicate act
 
 ## useUnsavedChangesGuard Hook
 
-Wraps a form with the package-wide unsaved-changes guard. Reads the resource's `confirmUnsavedChanges` flag from the schema, snapshots initial values, and intercepts navigation when the form is dirty.
+Wraps a form with the package-wide unsaved-changes guard. Reads the resource's `confirmUnsavedChanges` flag from the schema, snapshots initial values, and intercepts navigation when the form is dirty. The full-page create and update forms use it; a custom create or update override takes it from `@martis/runtime` (v1.38.0+).
 
 ```tsx
-import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
+import { useMemo, useState } from 'react'
+import { useUnsavedChangesGuard } from '@martis/runtime'
 
 function MyForm({ schema, initialValues }) {
   const [values, setValues] = useState(initialValues)
@@ -691,16 +724,18 @@ function MyForm({ schema, initialValues }) {
 | `schema` | `ResourceSchema \| undefined` | Resource schema. The hook reads `schema.confirmUnsavedChanges` to decide whether to engage. |
 | `bypass` | `boolean` | When `true`, suppresses the guard for the next navigation (used after a successful submit). |
 
-The hook integrates with `react-router-dom`'s `useBlocker`, so navigation via `<Link>` or `useNavigate()` triggers the dialog. It also integrates with the modal-history lock primitives in `resources/js/lib/historyLock.ts` so back-button navigation respects the guard.
+The hook integrates with `react-router-dom`'s `useBlocker`, so navigation via `<Link>` or `useNavigate()` triggers the dialog. It holds the browser back button only while the form is dirty (v1.38.0+): the first render where `values` differ from `initialSnapshot` pushes a copy of the page's history entry, and the Back press that removes it opens the dialog. A clean form leaves the history alone, so Back and Forward work as on any other page. It also integrates with the modal-history lock primitives in `resources/js/lib/historyLock.ts`: a modal open over the form keeps the back button, and a form that turns dirty while a modal holds the top history entry is guarded once the modal closes. Before v1.38.0 the hook pushed its history entry on mount, which erased the Forward history and could make Back skip a page.
+
+If the form stays on the page after a save, pass the values the save sent as the new `initialSnapshot`, not the values the form holds when the request returns: the inputs stay editable while it runs, and what the user typed meanwhile is still unsaved.
 
 ## useError Hook
 
-Centralised error state management for forms and page components.
+Centralised error state management for the forms and pages of an extension (on `@martis/runtime` since v1.38.0).
 
 ```tsx
-import { useError } from '@/lib/useError'
+import { api, useError } from '@martis/runtime'
 
-const { errors, setError, clearErrors, hasErrors } = useError()
+const { errors, setError, clearErrors, clearFieldError, hasErrors } = useError()
 
 try {
   await api.post('/api/posts', data)
@@ -710,15 +745,16 @@ try {
 
 // Render errors:
 {errors.message && <p className="text-destructive">{errors.message}</p>}
-{errors.fieldErrors?.title && <p className="text-destructive">{errors.fieldErrors.title}</p>}
+{errors.fieldErrors.title && <p className="text-destructive">{errors.fieldErrors.title}</p>}
 ```
 
 | Property / Method | Type | Description |
 |-------------------|------|-------------|
-| `errors` | `{ message?: string; fieldErrors: Record<string, string> }` | Current error state |
-| `setError(err)` | `(ApiError \| Error \| string) => void` | Parse and set errors from a caught exception |
+| `errors` | `{ message: string \| null; fieldErrors: Record<string, string>; apiError: ApiError \| null }` | Current error state. `fieldErrors` keeps the first message of each field; `apiError` is the caught `ApiError`, if any. |
+| `setError(err)` | `(err: unknown) => void` | Parse and set errors from a caught exception: an `ApiError` fills `message`, `fieldErrors` and `apiError`, another `Error` or a string fills `message`, anything else sets a generic message. |
 | `clearErrors()` | `() => void` | Reset all error state |
-| `hasErrors` | `boolean` | Whether any error is currently set |
+| `clearFieldError(field)` | `(field: string) => void` | Drop one field's error, e.g. when the user edits that field |
+| `hasErrors` | `boolean` | Whether a message or any field error is set |
 
 ---
 
@@ -727,7 +763,7 @@ try {
 React context primitive that carries the live `OverrideProps` payload (the `schema`, `record`, `recordId`, `params`, navigation callbacks, etc.) every drawer or page override receives. Wrap children with the provider and any deeply-nested component reads the same payload without prop-drilling.
 
 ```tsx
-import { OverridePropsProvider, useOverrideProps, useOverridePropsOptional } from '@/hooks/useOverrideProps'
+import { OverridePropsProvider, useOverrideProps, useOverridePropsOptional, type OverrideProps } from '@martis/runtime' // v1.38.0+
 
 export function MyDrawerCreate(props: OverrideProps) {
   return (
@@ -750,14 +786,14 @@ function MyOptionalConsumer() {
 }
 ```
 
-Opt-in. Overrides that prefer manual prop passing don't need to wrap.
+Opt-in. Overrides that prefer manual prop passing don't need to wrap. The provider is the override's own: the package mounts none around it.
 
 ## usePageTitle Hook
 
-Sets `document.title` for the currently-mounted page and restores the previous title on unmount, so stacked drawers and modals do not leave stale segments after they close.
+Sets `document.title` for the currently-mounted page and restores the previous title on unmount, so stacked drawers and modals do not leave stale segments after they close. The package's pages call it; a custom page or override takes it from `@martis/runtime` (v1.38.0+).
 
 ```tsx
-import { usePageTitle } from '@/hooks/usePageTitle'
+import { usePageTitle } from '@martis/runtime'
 
 function MyCustomPage({ resource }) {
   usePageTitle(resource.label)            // → "Clients · Brand"
@@ -778,7 +814,7 @@ Brand resolves from `config.brand`; the translation namespace is `navigation`.
 Reactive viewport-width hook. Returns `true` when `window.innerWidth <= breakpoint` (default `768`) and re-renders on every resize. Used by the topbar to switch the search input between bar and icon modes; consumers can reuse it from any override that needs a JS-side mobile gate without re-implementing the matchMedia listener.
 
 ```tsx
-import { useIsMobile } from '@/hooks/useIsMobile'
+import { useIsMobile } from '@martis/runtime'
 
 const isMobile = useIsMobile()           // default 768px
 const isNarrow = useIsMobile(540)        // custom breakpoint
@@ -794,7 +830,7 @@ Prefer CSS media queries when the layout swap is purely visual; reach for this h
 
 All tooltips in Martis **must** use [`primereact/tooltip`](https://primereact.org/tooltip/). Native HTML `title=` attributes and custom tooltip implementations are prohibited.
 
-A global Tooltip provider is registered in the layout targeting `[data-pr-tooltip]`, so any element with `data-pr-tooltip` automatically gets a tooltip.
+A global tooltip provider (`MartisTooltip`) is registered in the layout targeting `[data-pr-tooltip]`, so any element with `data-pr-tooltip` automatically gets a tooltip.
 
 ### Simple tooltip (recommended)
 
@@ -807,26 +843,46 @@ A global Tooltip provider is registered in the layout targeting `[data-pr-toolti
 </button>
 ```
 
-### Ref-based tooltip (for complex / HTML content)
+### Rich content: markup or React
 
-```tsx
-import { Tooltip } from 'primereact/tooltip'
-import { useRef } from 'react'
+The global provider renders `data-pr-tooltip` as plain text, so markup in it
+shows literally. Rich content takes one of two routes, depending on what it
+is made of:
 
-const btnRef = useRef(null)
+- **Markup you write: add `data-pr-tooltip-html="true"`.** The global provider
+  then renders the attribute as HTML (line breaks, bold, lists) in the same
+  bubble, with the same placement and delay as a plain tooltip and a roomier
+  layout for paragraphs. The field label tooltips (`->tooltip()`), the metric
+  help and the cache page use it. The markup goes into the page as is, without
+  sanitising: use it for markup you control (your own strings, translations),
+  never for text that comes from users or records.
 
-<button ref={btnRef}>Save</button>
-<Tooltip target={btnRef} content="Save record" position="top" />
-```
+  ```tsx
+  <span
+    data-pr-tooltip="<strong>Re-index</strong><br/>Rebuilds the search index."
+    data-pr-tooltip-html="true"
+    data-pr-position="top"
+  >
+    <InfoIcon size={14} />
+  </span>
+  ```
 
-> **Rich / HTML content:** the global `[data-pr-tooltip]` provider registers with
-> the default `escape` (HTML is escaped), so `data-pr-tooltip="<b>…</b>"` renders
-> the literal markup. Rich content therefore **must** use the ref-based component
-> with `escape={false}`:
->
-> ```tsx
-> <Tooltip target={ref} position="top" content={<div><b>Re-index</b><br/>…</div>} escape={false} />
-> ```
+- **React content: the ref-based `Tooltip` with JSX `content`.** For content
+  made of components (an icon, a formatted value, a small table), content
+  built from data (JSX escapes it), or PrimeReact options such as
+  `autoHide={false}` for a tooltip the pointer can move into. PrimeReact's
+  `Tooltip` has no `escape` prop, and a string `content` is plain text:
+
+  ```tsx
+  // Package-internal: an extension imports Tooltip from '@martis/runtime' (see below).
+  import { Tooltip } from 'primereact/tooltip'
+  import { useRef } from 'react'
+
+  const btnRef = useRef(null)
+
+  <button ref={btnRef}>Re-index</button>
+  <Tooltip target={btnRef} position="top" content={<div><b>Re-index</b><br/>Rebuilds the index.</div>} />
+  ```
 
 ### From a consumer Tool / extension
 
@@ -839,9 +895,28 @@ runtime surface (`window.Martis.runtime`, since v1.19.0), exactly like
 import { Tooltip } from '@martis/runtime' // shim → window.Martis.runtime.Tooltip
 
 <button ref={ref}>Re-index</button>
-<Tooltip target={ref} position="top" escape={false}
+<Tooltip target={ref} position="top"
   content={<div className="martis-…"><b>Re-index</b><br/>Rebuilds the index.</div>} />
 ```
+
+### Long text and viewport edges
+
+The global `[data-pr-tooltip]` provider (`MartisTooltip`) lays the bubble out
+before placing it, so any trigger can carry a sentence (v1.38.0+):
+
+- The text wraps inside a shrink-to-fit bubble of at most 360 px (or the
+  viewport width minus 16 px on a narrow screen); a one-word label keeps its
+  single-line pill, and a long unbroken token breaks inside the bubble.
+- The bubble stays inside the viewport with an 8 px margin. A trigger near an
+  edge keeps the full-width bubble, shifted inward, with the arrow still on
+  the trigger; when the requested side (`data-pr-position`) has no room the
+  bubble flips to the opposite side, and a `left` / `right` bubble with room
+  on neither side goes above or below the trigger.
+- While open it follows its trigger through page and container scrolls and
+  closes when the trigger scrolls out of view.
+
+No escaping workaround is needed for a long plain-text tooltip: keep it on
+`data-pr-tooltip` and reserve `data-pr-tooltip-html="true"` for real markup.
 
 ### Rules
 
@@ -850,7 +925,8 @@ import { Tooltip } from '@martis/runtime' // shim → window.Martis.runtime.Tool
 | ❌ Never use `title=` | Native browser tooltips are inconsistent across themes |
 | ❌ Never build custom tooltip divs | Breaks dark/light mode consistency |
 | ✅ Always use `data-pr-tooltip` for simple text | Covered by global provider |
-| ✅ Use ref-based `<Tooltip>` for complex/HTML tooltips | Full PrimeReact API available |
+| ✅ Add `data-pr-tooltip-html="true"` for markup you write | Same bubble and placement; not sanitised, so never for user or record data |
+| ✅ Use the ref-based `<Tooltip>` for React content | JSX `content` (escaped), full PrimeReact API |
 | ✅ Use `data-pr-position` to control placement | `"top"` \| `"bottom"` \| `"left"` \| `"right"` |
 
 
@@ -893,10 +969,10 @@ The built-in loading indicator used across all resource pages, the profile page,
 | `size` | `'sm' \| 'md' \| 'lg'` | `'md'` | Spinner and text size |
 | `children` | `ReactNode` | — | Content to wrap in overlay mode |
 
-**Usage:**
+**Usage** (from an extension, on `@martis/runtime` since v1.38.0; it renders the loader registered under `loader` when there is one):
 
 ```tsx
-import { MartisLoader } from '@/components/Loader'
+import { MartisLoader } from '@martis/runtime'
 
 // Simple spinner
 <MartisLoader loading={isLoading} />
@@ -912,7 +988,7 @@ import { MartisLoader } from '@/components/Loader'
 **Custom loader component:** Replace the built-in loader entirely via the component registry:
 
 ```typescript
-import { componentRegistry } from '@/lib/componentRegistry'
+import { componentRegistry } from '@martis/runtime'
 componentRegistry.register('loader', MyCustomLoader)
 ```
 
@@ -978,10 +1054,10 @@ Use `.martis-avatar-stack` on a wrapper to overlap several avatars with a subtle
 
 `.martis-avatar-fallback` paints a muted user glyph slot for records with no image and no initials seed, keeping row layouts aligned.
 
-The `lib/avatarPalette.ts` helper returns a deterministic colour for any seed string, picking one of the 16 `--martis-avatar-1..16` token hues. Two users with the same name always get the same colour, and the colour stays stable across light/dark themes:
+The `avatarColorForSeed` helper (on `@martis/runtime` since v1.38.0) returns a deterministic colour for any seed string, picking one of the 16 `--martis-avatar-1..16` token hues. Two users with the same name always get the same colour, and the colour stays stable across light/dark themes:
 
 ```ts
-import { avatarColorForSeed } from '@/lib/avatarPalette'
+import { avatarColorForSeed } from '@martis/runtime'
 
 <span
   className="martis-avatar martis-avatar-md martis-avatar-circle"
@@ -1061,7 +1137,8 @@ Wrap form bodies in these classes so the create / update pages and drawer forms 
 |-------|--------|
 | `martis-form-body` | Padded form container. Tightens on `[data-density="dense"]`. |
 | `martis-form-stack` | Vertical flex stack of fields with token-driven gap. |
-| `martis-form-grid` | 12-column form grid container; pair with `martis-input-wrap` per field. |
+| `martis-form-grid` | Grid gap of a form or detail field grid (16px, 10px dense); pair with `martis-input-wrap` per field. |
+| `martis-field-grid` | Responsive field grid: tracks from `--martis-field-columns` (12 by default), each child placed from its `--martis-field-span` / `-md` / `-lg` custom properties, full row below 768px. See [Grid Layout](grid-layout.md#responsiveness). |
 
 ### Tabs / Segmented / Skeleton
 
@@ -1125,6 +1202,7 @@ Public file-upload surface used by `FileField`, `ImageField`, and any consumer t
 | `martis-dropzone.is-zone` | Dashed border, centred icon + CTA. Use for empty states. |
 | `martis-dropzone.is-drag-over` | Accent border + tinted bg while a file is hovering. |
 | `martis-dropzone.has-error` | Danger border. |
+| `martis-dropzone.is-readonly` | 0.6 opacity, `not-allowed` cursor, no accent on hover. `FileField` / `ImageField` set it on a readonly field, which ignores dropped files. |
 | `martis-dropzone-icon` / `-title` / `-hint` / `-cta` | Children of the `is-zone` variant. |
 
 ### Card chrome

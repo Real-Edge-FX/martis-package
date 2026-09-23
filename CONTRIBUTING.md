@@ -4,13 +4,17 @@
 
 Releases follow semver and ship as a "trio atómico":
 
-1. **Package tag** (`vN.N.N`) — annotated git tag on `main`.
+1. **Package tag** (`vN.N.N`) on the merge commit of the release PR on `main`.
 2. **GitHub release** with notes mirrored from `CHANGELOG.md`.
 3. **martis-docs landing pill** bumped to match (and any per-page mirrors of changed `docs/*.md`).
 
 Optionally:
 
-4. **Consumer apps** (`edge-flow`, others) bumped via `composer update martis/martis`.
+4. **Consumer apps** bumped via `composer update martis/martis`.
+
+The release PR carries everything the tag needs: the `## [N.N.N]` section of `CHANGELOG.md`, the docs, and the rebuilt `public/` (the compiled SPA consumers publish with `martis:publish-assets`; a `resources/js` change that is not rebuilt and committed never reaches them). CI rebuilds `public/` and `stubs/extensions/` on every PR and fails when the committed output differs from the sources, so run `npm run build` and commit the result before pushing a frontend change.
+
+Merge the release PR through the GitHub web UI: GitHub signs the merge commit, so the tag created on it shows as Verified. Do not merge release work locally, and do not push a tag from a local `git tag`: a local tag creates no GitHub release and sits on an unsigned commit.
 
 ### Pre-tag check
 
@@ -35,18 +39,19 @@ PRE_TAG_ROOT=/path/to/workspace bash martis-package/.tooling/pre-tag.sh v1.10.0
 The full release sequence is:
 
 ```bash
-# 1. Make sure CI is green on main, CHANGELOG has the section, and
-#    martis-docs PR is merged with the new pill.
+# 1. After the release PR is merged on GitHub: CI is green on main,
+#    CHANGELOG has the section, and the martis-docs pill is bumped.
 git checkout main && git pull --ff-only
 
 # 2. Pre-flight (aborts on drift).
 bash martis-package/.tooling/pre-tag.sh v1.10.0
 
-# 3. Tag + push + GitHub release.
-git tag -a v1.10.0 -m "v1.10.0 — <one-liner>"
-git push origin v1.10.0
-gh release create v1.10.0 --title "v1.10.0 — <one-liner>" --notes-file <(awk '/^## \[1.10.0\]/,/^## \[/{print}' CHANGELOG.md | sed '$d')
+# 3. GitHub release, which creates the tag on the signed merge commit.
+gh release create v1.10.0 --target "$(git rev-parse HEAD)" --title "v1.10.0" \
+  --notes-file <(awk '/^## \[1.10.0\]/{found=1; print; next} found && /^## \[/{exit} found{print}' CHANGELOG.md)
 ```
+
+`.github/workflows/release.yml` does the same from the Actions tab (Release, Run workflow, `version` without the `v`).
 
 ## Smoke test against a fresh laravel app
 
@@ -59,7 +64,7 @@ Run locally before opening a generator-touching PR:
 rm -rf /tmp/audit-fresh && mkdir /tmp/audit-fresh && cd /tmp/audit-fresh
 composer create-project laravel/laravel test-app --no-interaction
 cd test-app
-composer config repositories.martis path /Users/lmoura/projects/martis/martis-package
+composer config repositories.martis path /path/to/martis-package
 composer require martis/martis:@dev
 touch database/database.sqlite
 php artisan martis:install --force --no-interaction

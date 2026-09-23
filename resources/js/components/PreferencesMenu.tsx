@@ -3,7 +3,7 @@ import { OverlayPanel } from 'primereact/overlaypanel'
 import { useTranslation } from 'react-i18next'
 import { SlidersHorizontalIcon, SunIcon, MoonIcon, MonitorIcon, CheckIcon, ArrowCounterClockwiseIcon } from '@phosphor-icons/react'
 import { usePreferences, resolveTheme, type AccentColor, type ThemeMode, type UiDensity } from '@/contexts/PreferencesContext'
-import { config, resolvePickerLocales } from '@/lib/config'
+import { config, resolvePickerLocales, type MartisCustomAccent } from '@/lib/config'
 import { resolveAccentSwatchColor } from '@/lib/accentSwatches'
 import { loadLocale } from '@/lib/i18n'
 import { Segmented } from '@/components/ui/Segmented'
@@ -29,6 +29,10 @@ const ACCENT_SWATCHES: Array<{ key: AccentColor; label: string; color: string }>
   { key: 'violet', label: 'Violet', color: '#8B5CF6' },
   { key: 'amber', label: 'Amber', color: '#F59E0B' },
 ]
+
+/** Shared fallback when no custom accent is configured: a stable reference
+ *  keeps the swatch-colour memo from recomputing on every render. */
+const NO_CUSTOM_ACCENTS: MartisCustomAccent[] = []
 
 const THEME_OPTIONS: Array<{ key: ThemeMode; labelKey: string; fallback: string; icon: typeof SunIcon }> = [
   { key: 'dark', labelKey: 'theme_dark', fallback: 'Dark', icon: MoonIcon },
@@ -93,7 +97,7 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
   // in an effect after this render) so a theme switch re-tints the swatches
   // in the same render that switches the mode.
   const swatchMode = resolveTheme(prefs.theme)
-  const customAccents = config.preferences?.customAccents ?? []
+  const customAccents = config.preferences?.customAccents ?? NO_CUSTOM_ACCENTS
   const swatchColors = useMemo(() => {
     const out: Record<string, string> = {}
     for (const { key, color } of ACCENT_SWATCHES) out[key] = resolveAccentSwatchColor(key, swatchMode, color)

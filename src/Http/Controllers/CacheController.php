@@ -65,7 +65,8 @@ class CacheController extends Controller
             return JsonErrorResponse::forbidden(__('martis::messages.unauthorized'))->toResponse();
         }
 
-        $type = (string) $request->input('type', '');
+        $type = $request->input('type', '');
+        $type = is_string($type) ? $type : '';
         if (! in_array($type, MartisCache::types(), true)) {
             return JsonErrorResponse::validation(['type' => [__('martis::messages.cache_unknown_type')]])->toResponse();
         }
@@ -82,7 +83,8 @@ class CacheController extends Controller
             return JsonErrorResponse::forbidden(__('martis::messages.unauthorized'))->toResponse();
         }
 
-        $type = (string) $request->input('type', '');
+        $type = $request->input('type', '');
+        $type = is_string($type) ? $type : '';
         if (! in_array($type, MartisCache::types(), true)) {
             return JsonErrorResponse::validation(['type' => [__('martis::messages.cache_unknown_type')]])->toResponse();
         }
@@ -99,7 +101,8 @@ class CacheController extends Controller
             return JsonErrorResponse::forbidden(__('martis::messages.unauthorized'))->toResponse();
         }
 
-        $type = (string) $request->input('type', '');
+        $type = $request->input('type', '');
+        $type = is_string($type) ? $type : '';
         if (! in_array($type, MartisCache::types(), true)) {
             return JsonErrorResponse::validation(['type' => [__('martis::messages.cache_unknown_type')]])->toResponse();
         }

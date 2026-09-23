@@ -107,7 +107,6 @@ abstract class ToolServiceProvider extends ServiceProvider
 
         // Reflection-safe append even when `tools` is protected.
         $reflection = new \ReflectionProperty($manager, 'tools');
-        $reflection->setAccessible(true);
         $current = (array) $reflection->getValue($manager);
         $reflection->setValue($manager, array_values(array_merge($current, $tools)));
     }

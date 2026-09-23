@@ -6,6 +6,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
+use Martis\Stubs\ExtensionKey;
 use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
@@ -72,10 +73,10 @@ class ToolMakeCommand extends GeneratorCommand
         $shortName = class_basename($name);
         // Convention: TSX filename is the bare class basename (e.g.
         // `Charts.tsx`, NOT `ChartsTool.tsx`). The auto-discovery
-        // entry derives the registry key from the filename — keeping
-        // the filename and uriKey aligned avoids a key-vs-uriKey
-        // mismatch surprise later.
-        $uriKey = Str::kebab($shortName);
+        // entry derives the registry key from the filename (an acronym
+        // kept whole: `SEOReport` is `seo-report`); keeping the filename
+        // and uriKey aligned avoids a key-vs-uriKey mismatch surprise later.
+        $uriKey = ExtensionKey::kebab($shortName);
 
         $componentKey = (string) $this->option('component-key');
         if ($componentKey === '') {
@@ -156,7 +157,7 @@ class ToolMakeCommand extends GeneratorCommand
     protected function scaffoldReactComponent(): void
     {
         $shortName = class_basename($this->getNameInput());
-        $componentKey = (string) ($this->option('component-key') ?: 'tool:'.Str::kebab($shortName));
+        $componentKey = (string) ($this->option('component-key') ?: 'tool:'.ExtensionKey::kebab($shortName));
         $componentName = $shortName.'Tool';
         $relativePath = 'resources/js/martis-extensions/tools/'.$shortName.'.tsx';
         $absolutePath = base_path($relativePath);
@@ -262,7 +263,8 @@ class ToolMakeCommand extends GeneratorCommand
     protected function printNextSteps(): void
     {
         $shortName = class_basename($this->getNameInput());
-        $componentKey = (string) ($this->option('component-key') ?: 'tool:'.Str::kebab($shortName));
+        $derivedKey = 'tool:'.ExtensionKey::kebab($shortName);
+        $componentKey = (string) ($this->option('component-key') ?: $derivedKey);
 
         $this->newLine();
         $this->components->info('Next steps:');
@@ -270,6 +272,15 @@ class ToolMakeCommand extends GeneratorCommand
         if ($this->option('use-bundled')) {
             $this->line('  Bound to bundled component <fg=yellow>martis:tool:system-status-demo</> — no build required.');
         } elseif ($this->option('with-component')) {
+            if ($componentKey !== $derivedKey) {
+                // The entry registers the file under the key its name
+                // derives; only a register() call binds the Tool's key.
+                $this->line("  The extension entry registers <fg=cyan>tools/{$shortName}.tsx</> as <fg=yellow>{$derivedKey}</>, and the Tool binds <fg=yellow>{$componentKey}</>.");
+                $this->line('  Register it under the Tool\'s key at the end of <fg=cyan>resources/js/martis-extensions/index.ts</>:');
+                $this->line("    import { componentRegistry } from '@martis/runtime'");
+                $this->line("    import {$shortName}Tool from './tools/{$shortName}'");
+                $this->line("    componentRegistry.register('{$componentKey}', {$shortName}Tool)");
+            }
             $this->line("  Run <fg=cyan>npm run build:extensions</> to compile the component (key <fg=yellow>{$componentKey}</>),");
             $this->line('  or just deploy — the build step also runs in <fg=cyan>deploy.sh</>.');
         } else {

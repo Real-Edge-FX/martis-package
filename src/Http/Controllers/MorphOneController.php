@@ -2,7 +2,6 @@
 
 namespace Martis\Http\Controllers;
 
-use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany as EloquentMorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne as EloquentMorphOne;
@@ -16,7 +15,9 @@ use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\MorphOne;
 use Martis\Fields\MorphOneOfMany;
+use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
+use Martis\Http\Controllers\Concerns\SyncsDeferredWrites;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Resource;
@@ -33,7 +34,9 @@ use Martis\ResourceRegistry;
  */
 class MorphOneController extends MartisController
 {
+    use BuildsFieldRules;
     use DecodesStructuredValues;
+    use SyncsDeferredWrites;
 
     /** Create the controller and inject the resource registry. */
     public function __construct(
@@ -151,14 +154,21 @@ class MorphOneController extends MartisController
         }
 
         $relatedInstance = new $relatedResourceClass;
-        $fields = Field::filterForContext($relatedInstance->fieldsForCreate($request), FieldContext::CREATE);
+        $relatedModel = $relatedResourceClass::newModel();
+        // A field hidden for the new record (canSeeForModel(), decided on the
+        // unsaved model before any value is written) is neither validated
+        // nor written, as on the resource's own create.
+        $fields = Field::filterForModel(
+            Field::filterForContext($relatedInstance->fieldsForCreate($request), FieldContext::CREATE),
+            $request,
+            $relatedModel,
+        );
 
         $validationError = $this->validateRequest($request, $fields);
         if ($validationError !== null) {
             return $validationError;
         }
 
-        $relatedModel = $relatedResourceClass::newModel();
         $this->fillFields($request, $fields, $relatedModel);
 
         // Set the polymorphic type and id columns
@@ -170,6 +180,7 @@ class MorphOneController extends MartisController
             $relatedInstance->beforeSave($relatedModel, $request, creating: true);
             $relatedModel->save();
             $relatedInstance->afterSave($relatedModel, $request, creating: true);
+            $this->syncDeferredWrites($relatedModel);
         } catch (QueryException $e) {
             Log::error('Martis: MorphOne store error', [
                 'resource' => $resource,
@@ -224,7 +235,13 @@ class MorphOneController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $fields = Field::filterForContext($relatedInstance->fieldsForUpdate($request), FieldContext::UPDATE);
+        // A field hidden for the related record (canSeeForModel()) is neither
+        // validated nor written, as on the resource's own update.
+        $fields = Field::filterForModel(
+            Field::filterForContext($relatedInstance->fieldsForUpdate($request), FieldContext::UPDATE),
+            $request,
+            $relatedModel,
+        );
 
         foreach ($fields as $field) {
             if (method_exists($field, 'setUniqueIgnoreId')) {
@@ -232,7 +249,7 @@ class MorphOneController extends MartisController
             }
         }
 
-        $validationError = $this->validateRequest($request, $fields, isUpdate: true);
+        $validationError = $this->validateRequest($request, $fields, isUpdate: true, model: $relatedModel);
         if ($validationError !== null) {
             return $validationError;
         }
@@ -243,6 +260,7 @@ class MorphOneController extends MartisController
             $relatedInstance->beforeSave($relatedModel, $request, creating: false);
             $relatedModel->save();
             $relatedInstance->afterSave($relatedModel, $request, creating: false);
+            $this->syncDeferredWrites($relatedModel);
         } catch (QueryException $e) {
             Log::error('Martis: MorphOne update error', [
                 'resource' => $resource,
@@ -361,7 +379,13 @@ class MorphOneController extends MartisController
 
         // filterForContext flattens layout containers (Section/Panel/TabGroup)
         // so a relation nested in one still resolves — a raw scan would 404 it.
-        $fields = Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL);
+        // A relationship field hidden for the parent record (canSeeForModel())
+        // is not on its detail page, so it answers like an undeclared one.
+        $fields = Field::filterForModel(
+            Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL),
+            $request,
+            $parentModel,
+        );
         $morphOneField = null;
 
         foreach ($fields as $field) {
@@ -431,55 +455,34 @@ class MorphOneController extends MartisController
         ];
         $data['_authorization'] = $resource->authorizationMetadata(request());
 
-        foreach ($fields as $field) {
+        // A field hidden for this record (canSeeForModel()) is left out, as
+        // on every read of a record, and listed under `_hidden`.
+        $visible = Field::filterForModel($fields, request(), $model);
+        foreach ($visible as $field) {
             $data[$field->attribute()] = $field->resolve($model);
         }
+        $data += $this->hiddenFieldsEntry($fields, $visible);
 
         return $data;
     }
 
     /**
-     * Validate request against field rules.
+     * Validate request against field rules (see
+     * `BuildsFieldRules::buildWriteValidation()`), the fields inside a
+     * Repeater's rows included. `$model` is the related record an update
+     * writes, whose stored Repeater rows the rows sent continue.
      *
      * @param  list<FieldContract>  $fields
      */
-    private function validateRequest(Request $request, array $fields, bool $isUpdate = false): ?IlluminateJsonResponse
+    private function validateRequest(Request $request, array $fields, bool $isUpdate = false, ?Model $model = null): ?IlluminateJsonResponse
     {
         // Multipart requests carry list / map values as JSON strings; give
         // the rules below and the fill that follows the decoded structure.
-        $this->decodeStructuredValues($request, $fields);
+        $undecodable = $this->decodeStructuredValues($request, $fields);
 
-        $rules = [];
-        $attributes = [];
+        $validation = $this->buildWriteValidation($fields, $request->all(), $isUpdate, $undecodable, $model);
 
-        foreach ($fields as $field) {
-            $fieldRules = $field->buildRules();
-
-            if ($isUpdate) {
-                $fieldRules = array_values(array_filter($fieldRules, fn (string|Rule|\Closure $r): bool => is_string($r) && $r !== 'required'));
-                if (empty($fieldRules)) {
-                    $fieldRules = ['sometimes'];
-                } elseif (! in_array('sometimes', $fieldRules, true)) {
-                    array_unshift($fieldRules, 'sometimes');
-                }
-            }
-
-            $rules[$field->attribute()] = $fieldRules;
-
-            // Register per-item rules for multiple-file fields (e.g. MIME type, max size).
-            if (method_exists($field, 'buildItemRules')) {
-                $itemRules = $field->buildItemRules();
-                if (! empty($itemRules)) {
-                    $rules[$field->attribute().'.*'] = $itemRules;
-                }
-            }
-
-            if ($field instanceof Field) {
-                $attributes[$field->attribute()] = $field->label();
-            }
-        }
-
-        $validator = Validator::make($request->all(), $rules, [], $attributes);
+        $validator = Validator::make($request->all(), $validation['rules'], $validation['messages'], $validation['attributes']);
 
         if ($validator->fails()) {
             return JsonErrorResponse::validation(
@@ -498,8 +501,17 @@ class MorphOneController extends MartisController
      */
     private function fillFields(Request $request, array $fields, Model $model): void
     {
+        // The related record exists on update and is a fresh model on create.
+        $isUpdate = $model->exists;
+
         foreach ($fields as $field) {
             $attr = $field->attribute();
+
+            // Immutable fields are writable on create and silently skipped
+            // on update, as ResourceController::fillFields() does.
+            if ($isUpdate && $field instanceof Field && $field->isImmutable()) {
+                continue;
+            }
 
             if ($request->hasFile($attr)) {
                 $field->fill($model, $request->file($attr));

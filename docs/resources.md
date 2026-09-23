@@ -121,6 +121,8 @@ public function fieldsForDetail(Request $request): array
 
 Useful when the listing wants only a few summary columns while the detail page renders the full editor.
 
+A field can live on a form override alone. The endpoints that answer for one field of a form (the `BelongsTo` / `MorphTo` / `Tag` pickers, the Slug check, the `dependsOn` sync and the server-side `Select` search) read it from the form it renders on: `fieldsForUpdate()` on the edit form, `fieldsForCreate()` and `fieldsForInlineCreate()` on the create forms. See [Relationships → Relation fields declared on one form only](relationships.md#relation-fields-declared-on-one-form-only).
+
 ### filters() / lenses() / cards() / dashboards()
 
 Resources opt into the four extension subsystems by overriding these methods on the Resource class. Each returns a list of objects of the matching type.
@@ -205,6 +207,14 @@ public function belongsToSystemSection(): bool { return true; }
 A System-section resource keeps `group() === null` — the sidebar buckets it under the **System** header, not a `group()` bucket. The command palette (⌘K) mirrors this: since **v1.29.3** it tags such resources with the same "System" label the sidebar uses, so the two surfaces agree (previously the palette showed no group tag for them).
 
 Tools have the same opt-in since **v1.35.0**: `Tool::withSystemSection()` docks a Tool in the same section, after the resources and before the Cache admin link. See [Tools → Place a Tool under "System"](tools.md#place-a-tool-under-system--withsystemsection-v1350).
+
+Since **v1.38.0** the section is ordered by a weight. Override `systemSectionOrder(): int` (default `100`) to move the resource: a lower weight lists it earlier, and entries with equal weights keep the natural order (resources in registration order, then Tools, then the cache link at `1000`). See [Menus → Order inside the System section](menus.md#order-inside-the-system-section-v1380).
+
+```php
+public function belongsToSystemSection(): bool { return true; }
+
+public function systemSectionOrder(): int { return 10; } // first in the System section
+```
 
 ### Claim a record for reverse-mapping — `matchesRecord()`
 
@@ -574,6 +584,8 @@ Source: `src/Resource.php::resolvedPerPage()`.
 
 Sets the initial sort column and direction on the index page. Returns `null` (default) for no default sorting.
 
+The default sort follows the rule of every `?sort=` (v1.38.0): it orders the index only when it names a `sortable()` field the user can see (`canSee()`). For a user who cannot see that field the index keeps the order its query gives (`indexQuery()`), as for a default sort that names no sortable field. Before v1.38.0 a default sort by a field the user cannot see ordered the index by that field.
+
 ```php
 public static function defaultSort(): ?string
 {
@@ -702,6 +714,8 @@ See [Default Row Actions — Row-click redundancy](default_row_actions.md#row-cl
 
 Martis differential. Opts the create/update surfaces — both drawer overrides and full-page create/update routes — into the **UnsavedChangesDialog**. When the user tries to discard changes (close the drawer, navigate away, click Cancel), the dialog asks for confirmation.
 
+On the full-page routes the browser back button is held only while the form has unsaved changes (v1.38.0+); a clean form leaves Back and Forward working as on any other page. Before v1.38.0 opening a create or edit page erased the Forward history, and Back could skip the previous page. See [Overrides → Unsaved changes guard](overrides.md#unsaved-changes-guard).
+
 ```php
 // Enable with package defaults (generic copy).
 public static function confirmUnsavedChanges(): bool
@@ -761,10 +775,10 @@ Both the create and update forms ship with three submit buttons each, covering t
 | Page | Button | Post-save destination |
 |---|---|---|
 | Create | `Create {Resource}` (primary) | Detail page of the new record |
-| Create | `Create & add another` | Same `/create` page with a freshly cleared form |
+| Create | `Create & add another` | Same `/create` page with a freshly cleared form, whose fields mount again so none keeps the previous record's state (v1.38.0+) |
 | Create | `Create & view list` | Resource index |
 | Update | `Save changes` (primary) | Detail page of the record |
-| Update | `Save & continue editing` | Same `/edit` page (baseline refreshed so the unsaved-changes guard does NOT re-trigger) |
+| Update | `Save & continue editing` | Same `/edit` page (baseline refreshed to the values saved, so the unsaved-changes guard does NOT re-trigger for them; anything typed while the save ran still counts as unsaved, v1.38.0+) |
 | Update | `Save & view list` | Resource index |
 
 The two extra buttons are **hidden when the form is launched from a nested relation** (i.e. `?viaResource=…&viaResourceId=…`). Nested flows already manage their own post-save redirect to the parent surface, and a "view list" jump from inside a relation panel would be confusing.
@@ -805,6 +819,8 @@ public function redirectAfterUpdate(Model $model, Request $request): ?string
 Return `null` (the default) to keep the standard behaviour. The two extra save variants — "Create & add another" / "Create & view list" / "Save & continue editing" / "Save & view list" — always win because they encode an explicit user intent. The hook is only consulted for the primary submit button.
 
 The string travels back to the SPA in the create/update response under `meta.redirectTo`.
+
+Since v1.38.0 a destination on another record's edit page opens that record's form from scratch; the page used to keep the form it had just saved, so the next save sent those values to the new record. A destination on the same record's edit page keeps the saved values, which no longer count as unsaved changes; what was typed while the save ran still does (before v1.38.0 it counted as saved too, and leaving the page dropped it without asking). A destination on another resource's create page, another parent's nested create or another record to replicate opens a fresh create form the same way.
 
 ## Index toolbar resets
 
@@ -911,7 +927,7 @@ Override the default notification messages and confirm dialogs shown after CRUD 
 | `deletedMessage()` | Toast after `DELETE /resources/:key/:id` succeeds. | `martis::messages.record_deleted` |
 | `restoredMessage()` | Toast after a soft-deleted record is restored. | `martis::messages.record_restored` |
 | `forceDeletedMessage()` | Toast after a soft-deleted record is permanently deleted. | `martis::messages.record_force_deleted` |
-| `replicatedMessage()` | Toast after a record is duplicated via the Replicate action. | `martis::messages.record_replicated` |
+| `replicatedMessage()` | Toast after a record is duplicated via the Replicate action (v1.38.0+; before, the create after a Replicate showed `createdMessage()`). | `martis::messages.record_replicated` |
 | `deleteConfirmMessage()` | Body of the destructive-delete confirm dialog. | `martis::messages.delete_confirm` |
 | `archiveConfirmMessage()` | Body of the soft-delete (archive) confirm dialog. | `martis::messages.archive_confirm` |
 | `forceDeleteConfirmMessage()` | Body of the force-delete confirm dialog (trashed records only). | `martis::messages.force_delete_confirm` |
@@ -1077,7 +1093,7 @@ Override these directly on a Resource to hardcode behaviour without writing a Po
 |---------|----------|-------------------|
 | `add{Model}` | Inline create related record | allowed |
 | `attach{Model}` | Attach specific related record | allowed |
-| `attachAny{Model}` | Show attach button | allowed |
+| `attachAny{Model}` | Attach at all: the list of records to attach, the attach and the attach modal's pivot pickers answer 403 when it denies (v1.38.0+) | allowed |
 | `detach{Model}` | Detach related record | allowed |
 
 ### Authorization Metadata

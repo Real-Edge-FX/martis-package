@@ -74,7 +74,9 @@ command fails with `A user with email [...] already exists.`
 
 | Flag | Effect |
 |------|--------|
-| `--force` | Overwrite previously published config, migrations, and translations |
+| `--force` | Overwrite previously published migrations, translations and the extension scaffold (Vite config, both tsconfig files, `index.ts`, the shims and their declarations); `config/martis.php` and the host provider stay unless you add `--force-config` / `--force-provider` |
+| `--force-config` | Republish `config/martis.php`, overwriting your changes to it |
+| `--force-provider` | Republish `app/Providers/MartisServiceProvider.php`, overwriting your changes to it |
 | `--with-profile` | Publish the optional Martis profile migration for avatar + 2FA columns |
 | `--with-2fa` | Publish only the 2FA columns migration (subset of `--with-profile`) |
 | `--avatar-column=<column>` | Customize which `users` table column Martis should use for avatar paths |
@@ -345,29 +347,32 @@ Once you run `php artisan martis:install`, the consumer app gets the entire exte
 ```
 your-app/
 ├── vite.extensions.config.ts                  # Vite library mode, react externalised
-├── tsconfig.extensions.json                   # TS config for the bundle
+├── tsconfig.extensions.json                   # TS config for the extension sources: npx tsc -p tsconfig.extensions.json
 ├── package.json                               # gains: "build:extensions": "vite build --config vite.extensions.config.ts"
 ├── .env                                       # gains: MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js
 └── resources/js/martis-extensions/
     ├── index.ts                               # auto-discovery entry — picks up everything below
+    ├── .shims/                                # the host modules the build imports (*.mjs) and their types (*.d.mts)
+    ├── tsconfig.json                          # points editors at tsconfig.extensions.json
     ├── tools/                                 # martis:tool --with-component drops files here
     ├── fields/                                # martis:field drops files here
     ├── cards/                                 # martis:card drops files here
     └── overrides/                             # martis:component drops files here
 ```
 
-The published `index.ts` uses `import.meta.glob` to register every `.tsx` under the four buckets against `window.Martis.componentRegistry`. The component key is derived from the filename:
+The published `index.ts` uses `import.meta.glob` to register every `.tsx` under the four buckets against `window.Martis.componentRegistry`. The component key is derived from the filename, in kebab case with an acronym kept whole:
 
 | File path                             | Registered key       |
 |---------------------------------------|----------------------|
 | `tools/Charts.tsx`                    | `tool:charts`        |
 | `tools/SystemHealth.tsx`              | `tool:system-health` |
+| `tools/SEOReport.tsx`                 | `tool:seo-report`    |
 | `cards/RevenueGauge.tsx`              | `card:revenue-gauge` |
-| `fields/PriceTag.tsx` (`Display`/`Input` named exports) | `field:price-tag`    |
+| `fields/PriceTag.tsx` (`Display`/`Input` named exports) | the `price-tag` field type: `field:display:price-tag` and `field:input:price-tag` |
 | `overrides/Sidebar.tsx`               | `layout:sidebar`     |
 | `overrides/LoginPage.tsx`             | `auth:login`         |
 
-The PHP side binds to the same key via `withComponent('tool:charts')` etc., so filename and key stay in lock-step. **No manual `componentRegistry.register(...)` calls** — drop the file in the right bucket, run `npm run build:extensions`, and the component is live.
+The PHP classes the generators write bind to the same keys: a Tool with `withComponent('tool:charts')`, a card with `componentKey('card:revenue-gauge')`, a field whose `type()` returns `price-tag`. Filename and key stay in lock-step. **No manual `componentRegistry.register(...)` calls**: drop the file in the right bucket, run `npm run build:extensions`, and the component is live. A Tool bound to another key (`martis:tool --component-key`) is the exception: the command prints the `register()` call to add to `index.ts`.
 
 ### Vite + `@vitejs/plugin-react` compatibility (v1.12.1+)
 
@@ -412,18 +417,20 @@ Each generator (`martis:tool`, `martis:field`, `martis:card`, `martis:component`
 
 ### How the registry is exposed
 
-At SPA boot, `app.tsx` writes:
+At SPA boot, before it loads the extension bundles, the SPA fills `window.Martis`:
 
 ```js
 window.Martis = {
-  componentRegistry,   // import('@/lib/componentRegistry') equivalent
+  componentRegistry,   // the registry the SPA resolves from (also `componentRegistry` on @martis/runtime)
   react,               // the React module instance bundled with Martis
+  reactJsxRuntime,     // react/jsx-runtime, read by the JSX shim
+  runtime,             // the @martis/runtime surface the shims re-export
   version,             // "1.9.0" etc.
-  shortcuts,           // global keyboard-shortcut helpers
+  shortcuts,           // the keyboard-shortcut helpers as add, remove, list (addShortcut, disableShortcut, listShortcuts on @martis/runtime)
 }
 ```
 
-A consumer extension reads this global to register components without bundling its own copy of `componentRegistry` or React.
+The shims and the scaffold's `index.ts` read this global, so a consumer extension registers components and shortcuts without bundling its own copy of `componentRegistry`, the shortcut registry or React. In your own code, import them from `@martis/runtime`, which is typed: `window.Martis` is typed in an extension only as far as the `declare global` in `index.ts` goes (`componentRegistry.register`).
 
 ### Configuring multiple bundle URLs
 
@@ -434,6 +441,85 @@ MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js,/vendor/another/lib.js
 ```
 
 The blade view emits the resolved array as `window.MartisConfig.extensions`. The SPA loops over it and dynamic-imports each via `import(url)`. Failures are isolated — one broken extension can't take down the whole panel; the error is logged with the URL.
+
+### Type-checking your extensions
+
+`tsconfig.extensions.json` covers the sources under `resources/js/martis-extensions/`. Check them with:
+
+```bash
+npx tsc -p tsconfig.extensions.json
+```
+
+Your app installs none of `@martis/runtime`, `react-router-dom`, `react-i18next` or `@tanstack/react-query`: the Vite config sends each to a shim under `.shims/` that re-exports the host's copy. It sends `react-dom` to a shim too (v1.38.0), which carries `createPortal`, the part of `react-dom` the runtime serves, so a portal renders with the host's React DOM. Each of those shims has its TypeScript declarations next to it (`runtime.d.mts`, `react-dom.d.mts`, `react-router-dom.d.mts`, `react-i18next.d.mts`, `tanstack-react-query.d.mts`, since v1.38.0), and the tsconfig `paths` sends the same specifiers to them, the legacy paths included, so `tsc` checks your code against the modules the build uses: a name a shim does not export fails `tsc` as it fails the build. The declarations carry the Martis types and those of the host's copy of each library, and export each library's own types (its interfaces and type aliases, such as `import type { UseQueryResult } from '@tanstack/react-query'`), so a type your code took from a copy of the library in `node_modules` still resolves once the `paths` send the specifier to the declarations. A class or enum the shim does not export (`QueryCache`, `NavigationType`) is not declared, since the build has no value for it; the default export, the host's module, holds it (`import type ReactRouterDom from 'react-router-dom'`, then `ReactRouterDom.NavigationType`). `react` and `@phosphor-icons/react` come from your own `node_modules`, where `martis:install` adds them.
+
+`react` itself is typed by your own `@types/react`, but an extension runs on the host's React, which is React 18: the Vite config sends `react` to a shim of it. `martis:install` adds `@types/react` and `@types/react-dom` at `^18` (v1.38.0; before, `^18 || ^19` installed the React 19 types). With the React 19 types an app may keep for its own code, `use`, `useActionState` and `useOptimistic` type-check and build, then are `undefined` in the extension.
+
+Editors type a file with the nearest `tsconfig.json`, so the scaffold also puts one in `resources/js/martis-extensions/` that extends `tsconfig.extensions.json` (v1.38.0): VS Code and other tsserver clients resolve `@martis/runtime` the same way `tsc` does, and `npx tsc -p resources/js/martis-extensions` is equivalent to the command above.
+
+The tsconfig is browser-only (`"types": ["vite/client"]`, no `@types/node`) and does not cover `vite.extensions.config.ts`. If your app has its own `tsconfig.json` that includes `resources/js` (the Laravel React starter kit does), exclude `resources/js/martis-extensions` from it: that config does not know the aliases, so it reports `Cannot find module '@martis/runtime'`.
+
+### Refreshing the extension scaffold after an upgrade
+
+The scaffold files (`vite.extensions.config.ts`, `tsconfig.extensions.json`, `resources/js/martis-extensions/index.ts`, `resources/js/martis-extensions/tsconfig.json` and the shims under `resources/js/martis-extensions/.shims/` with their declarations) are copied into your app once. `composer update` does not touch them, and `martis:install` skips every file that already exists unless you pass `--force`, which rewrites all of them (the files in the four buckets are never touched).
+
+Your extension build resolves `@martis/runtime` to `.shims/runtime.mjs`, which re-exports the members of `window.Martis.runtime` by name. A name the runtime gains in a later Martis version can be imported by name only once your copy of that file exports it. Until then the build stops with:
+
+```
+"Dropdown" is not exported by "resources/js/martis-extensions/.shims/runtime.mjs"
+```
+
+| Named export | In the shim since |
+|---|---|
+| `useAuth`, `useToast`, `useToastSafe`, `useIsMobile`, `TwoFactorRequiredError`, `EmailVerificationRequiredError`, `AuthProvider`, `api`, `ApiError`, `config`, `AuthFrame`, `Sidebar`, `Topbar`, `Footer`, and the `react-router-dom`, `react-i18next` and `@tanstack/react-query` re-exports (`Link`, `useNavigate`, `useTranslation`, `useQuery`, …) | v1.10.0 |
+| `FieldInput`, `FieldDisplay`, `DrawerShell`, `Tooltip` | v1.19.0 |
+| `useMartisForm`, `FieldsForm`, `useToolFields` | v1.20.0 |
+| `martisEventBus` | v1.21.0 |
+| `useRevalidateOnFocus` | v1.22.0 |
+| `NestedParentProvider`, `Dropdown`, `MultiSelect`, `createPortal`, the registries (`componentRegistry`, `iconRegistry`, `layoutRegistry`), `usePageTitle`, `useModalHistoryLock`, `OverridePropsProvider`, `useOverrideProps`, `useOverridePropsOptional`, `useUnsavedChangesGuard`, `useError`, `cssVar`, `accentColor`, `mutedTextColor`, `chartPalette`, `resolveColor`, `avatarColorForSeed`, `Sparkline`, `ClearButton`, `MartisLoader`, `usePreferences`, `usePreferencesOptional`, `loadLocale`, `applyDocumentDirection`, `usePrefersReducedMotion`, `addShortcut`, `disableShortcut`, `listShortcuts` | v1.38.0 |
+
+Three ways to get a missing name, from the narrowest:
+
+1. **Republish the shims.** They hold no app code, so replacing them is safe. The `martis-extension-shims` tag rewrites every shim and its declarations together, and leaves the Vite config, both tsconfig files and `index.ts` alone:
+
+   ```bash
+   php artisan vendor:publish --tag=martis-extension-shims --force
+   npm run build:extensions
+   ```
+
+2. **Refresh the whole scaffold** with `php artisan martis:install --force`. It rewrites the Vite config, `tsconfig.extensions.json`, `index.ts`, `resources/js/martis-extensions/tsconfig.json` and every shim with its declarations, so review the diff if you edited any of them.
+3. **Read the name off the default export**, which every shim since v1.10.0 provides and which is the host's runtime object itself: `import runtime from '@martis/runtime'`, then `const { Dropdown } = runtime`. A misspelt name is then `undefined` at render time instead of a build error.
+
+**Type declarations (v1.38.0).** Scaffolds published before v1.38.0 have no declarations, so `tsc -p tsconfig.extensions.json` reports `Cannot find module '@martis/runtime'` for every runtime import, and TypeScript 6 (what `martis:install` installs today) stops earlier on the deprecated `baseUrl` (TS5101). Republish the shims (option 1), then bring `tsconfig.extensions.json` in line with `vendor/martis/martis/stubs/extensions/tsconfig.extensions.json.stub`: copy it over (re-applying your own edits), or remove `baseUrl` and the `@ext/*` path (the Vite config never resolved it), set `"types": ["vite/client"]`, set `"include"` to `["resources/js/martis-extensions/**/*"]`, and use these `paths`:
+
+```json
+"paths": {
+  "@martis/runtime": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+  "react-dom": ["./resources/js/martis-extensions/.shims/react-dom.d.mts"],
+  "react-router-dom": ["./resources/js/martis-extensions/.shims/react-router-dom.d.mts"],
+  "react-i18next": ["./resources/js/martis-extensions/.shims/react-i18next.d.mts"],
+  "@tanstack/react-query": ["./resources/js/martis-extensions/.shims/tanstack-react-query.d.mts"],
+  "@/contexts/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+  "@/lib/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+  "@/components/auth/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+  "@martis/martis/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+  "@/components/fields/types": ["./resources/js/martis-extensions/.shims/runtime.d.mts"]
+}
+```
+
+For your editor, add `resources/js/martis-extensions/tsconfig.json` (or copy `vendor/martis/martis/stubs/extensions/martis-extensions-tsconfig.json.stub` there):
+
+```json
+{
+  "extends": "../../../tsconfig.extensions.json",
+  "include": ["./**/*"]
+}
+```
+
+**`react-dom` (fixed in v1.38.0).** Scaffolds published before v1.38.0 send `react-dom` to the React shim, which exports React core only: `import { createPortal } from 'react-dom'` passes `tsc`, which reads `@types/react-dom`, and then stops the build with `"createPortal" is not exported by ".shims/react.mjs"`. Import `createPortal` from `@martis/runtime` instead (republishing the shims, option 1 above, is enough for that), or send `react-dom` to its own shim: republish the shims, then in `vite.extensions.config.ts` add `const reactDomShim = path.join(shimsDir, 'react-dom.mjs')` and point the `/^react-dom$/` alias at `reactDomShim`, and add the `react-dom` line of the `paths` above to `tsconfig.extensions.json` (or copy both stubs over, re-applying your own edits).
+
+**Generated cards and fields (fixed in v1.38.0).** A card `martis:card` wrote before v1.38.0 binds `componentKey('revenue-gauge')`, but the dashboard resolves a card by its exact key and the entry registers `cards/RevenueGauge.tsx` as `card:revenue-gauge`: change the call to `componentKey('card:revenue-gauge')`. The entry registered a `fields/` file as `field:price-tag`, a key the field renderer never reads, so a field `martis:field` generated rendered as plain text: refresh `index.ts` (`php artisan martis:install --force`, then re-add any registration of your own) or replace its fields loop with the one in `vendor/martis/martis/stubs/extensions/index.ts.stub`. The generators also split an acronym letter by letter (`SEOReport` became `s-e-o-report`) where the entry keeps it whole (`seo-report`): fix the key in such a class by hand.
+
+**Legacy import paths (fixed in v1.38.0).** The Vite config also sends the paths that override files published by older versions import to the runtime shim, so those files keep building: `@/contexts/*`, `@/lib/*`, `@/components/auth/*`, `@martis/martis/*` and `@/components/fields/types` (the type module the v1.9.3 field override imports its props from). From v1.10.0 to v1.37.x the config matched only the start of the first four, and the alias replaces only what it matches, so every import through them failed (`Could not load .../.shims/runtime.mjsapi` for `@/lib/api`). If your extension imports through them, copy `vendor/martis/martis/stubs/extensions/vite.extensions.config.ts.stub` over `vite.extensions.config.ts` (re-applying your own edits), or make each pattern match the whole path (`/^@\/lib\/.*$/`). These paths reach only the names the runtime shim exports; new code imports from `@martis/runtime`. `tsc` resolves them too, through the tsconfig `paths` above. On the sidebar override the v1.9.3 generator wrote, it then reports what that file does wrong: it draws a nested menu group (`type: 'group'`) as a link. Regenerate it with `php artisan martis:component --type=sidebar --force`, whose output lists a nested group's items under its label.
 
 ### Upgrading from v1.8.18 or earlier
 
@@ -480,7 +566,8 @@ your-laravel-app/
     └── js/
         └── martis-extensions/                            # Consumer React extensions (v1.9+)
             ├── index.ts                                  # Auto-discovery entry — ships with martis:install
-            ├── .shims/                                   # Vite alias shims (react, runtime, etc.)
+            ├── tsconfig.json                             # Editor tsconfig, extends tsconfig.extensions.json (v1.38.0)
+            ├── .shims/                                   # Vite alias shims (react, runtime, etc.) and their declarations
             ├── tools/                                    # `martis:tool --with-component` outputs land here
             ├── fields/                                   # `martis:field` outputs
             ├── cards/                                    # `martis:card` outputs
@@ -515,6 +602,8 @@ Use the asset-only command if you only want to refresh static files. Use the ins
 php artisan martis:install --force
 ```
 
+`--force` also rewrites the extension scaffold (Vite config, `tsconfig.extensions.json`, shims and their declarations, `index.ts`, `resources/js/martis-extensions/tsconfig.json`), which is how an existing extension picks up the runtime names added since it was scaffolded. See [Refreshing the extension scaffold after an upgrade](#refreshing-the-extension-scaffold-after-an-upgrade) for the narrower options.
+
 If your application uses the optional profile migration, re-run the install command with the same profile options after upgrading:
 
 ```bash
@@ -533,6 +622,7 @@ The package exposes the following `--tag` values for `vendor:publish`:
 | `martis-assets` | Precompiled React frontend | `public/vendor/martis/` |
 | `martis-views` | Blade SPA shell template | `resources/views/vendor/martis/` |
 | `martis-lang` | Translation files (en, pt_BR, pt_PT) | `lang/vendor/martis/` |
+| `martis-extension-shims` | Consumer-extension shims and their TypeScript declarations (v1.38.0) | `resources/js/martis-extensions/.shims/` |
 | `martis-migrations` | Action-events audit log table | `database/migrations/*_create_martis_action_events_table.php` |
 | `martis-preferences-migration` | User preferences table | `database/migrations/*_create_martis_user_preferences_table.php` |
 | `martis-2fa-migration` | 2FA columns on `users` | `database/migrations/*_add_two_factor_columns.php` |
@@ -552,7 +642,7 @@ The package ships 28 commands. The full list:
 | `martis:user` | Create an admin user (`--if-missing` / `--update` for idempotent bootstrap scripts) |
 | `martis:vendor-publish` | Wrapper around `vendor:publish` with Martis-aware defaults and prompts |
 | `martis:stubs` | List or scaffold the customizable stubs used by the make commands |
-| `martis:list-overrides` | Print every component / layout / field override active in the current install |
+| `martis:list-overrides` | Print the component keys the PHP layer declares (Tools, Actions with a custom component, resources); `--frontend` checks that your extension registers them |
 
 ### Cache control
 

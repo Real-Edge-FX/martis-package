@@ -54,6 +54,8 @@ export function LoginPage() {
   // confuse browser automation (CDP-based extensions report a
   // "frame detached" the moment `replaceState` lands in the same tick
   // as a portal mount), and the user-visible behaviour is identical.
+  // The toast consumes the URL flag, so a re-run (a language switch hands
+  // a new `t`) shows nothing twice: it only reschedules a pending toast.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('expired') !== '1') return
@@ -66,7 +68,7 @@ export function LoginPage() {
     }, 0)
 
     return () => window.clearTimeout(handle)
-  }, [])
+  }, [addToast, t])
 
   // Detect arrival from the verification-link controller (v1.8.16). Same
   // deferred-toast pattern as the session-expired branch above so the
@@ -86,7 +88,7 @@ export function LoginPage() {
     }, 0)
 
     return () => window.clearTimeout(handle)
-  }, [])
+  }, [addToast, t])
 
   // Redirect already-authenticated users out of the login page via an
   // effect rather than a render-time `<Navigate>` so the navigation

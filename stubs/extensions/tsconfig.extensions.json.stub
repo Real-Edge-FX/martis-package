@@ -1,5 +1,5 @@
 {
-  "//": "TypeScript config for the Martis consumer-extension bundle (v1.9.0+). Used by vite.extensions.config.ts. The generators drop TSX into the four buckets under resources/js/martis-extensions/.",
+  "//": "TypeScript config for the Martis consumer-extension sources (resources/js/martis-extensions/). Check them with `npx tsc -p tsconfig.extensions.json`. `paths` mirrors the aliases in vite.extensions.config.ts: each specifier the build sends to a shim resolves to the declarations published next to that shim in .shims/ (react and react/jsx-runtime come from @types/react).",
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
@@ -12,14 +12,19 @@
     "resolveJsonModule": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
-      "@ext/*": ["resources/js/martis-extensions/*"]
+      "@martis/runtime": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+      "react-dom": ["./resources/js/martis-extensions/.shims/react-dom.d.mts"],
+      "react-router-dom": ["./resources/js/martis-extensions/.shims/react-router-dom.d.mts"],
+      "react-i18next": ["./resources/js/martis-extensions/.shims/react-i18next.d.mts"],
+      "@tanstack/react-query": ["./resources/js/martis-extensions/.shims/tanstack-react-query.d.mts"],
+      "@/contexts/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+      "@/lib/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+      "@/components/auth/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+      "@martis/martis/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
+      "@/components/fields/types": ["./resources/js/martis-extensions/.shims/runtime.d.mts"]
     },
-    "types": ["vite/client", "node"]
+    "types": ["vite/client"]
   },
-  "include": [
-    "resources/js/martis-extensions/**/*",
-    "vite.extensions.config.ts"
-  ]
+  "include": ["resources/js/martis-extensions/**/*"]
 }

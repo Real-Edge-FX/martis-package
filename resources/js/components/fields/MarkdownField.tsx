@@ -38,14 +38,19 @@ export function renderMarkdown(content: string, preset: string): string {
 
 export function MarkdownFieldDisplay({ field, value }: FieldDisplayProps) {
   const { t } = useTranslation('messages')
-  if (value === null || value === undefined || value === '') {
-    return <span className="martis-text-muted">—</span>
-  }
+  const isEmpty = value === null || value === undefined || value === ''
 
+  // Every hook runs before the empty-value return below: the same element
+  // renders a value that is set or cleared later (a refetch, polling, an
+  // inline edit), and React requires the same hooks on every render.
   const alwaysShow = (field as Record<string, unknown>).alwaysShow as boolean ?? false
   const preset = (field as Record<string, unknown>).preset as string ?? 'default'
   const [expanded, setExpanded] = useState(alwaysShow)
-  const html = useMemo(() => renderMarkdown(String(value), preset), [value, preset])
+  const html = useMemo(() => (isEmpty ? '' : renderMarkdown(String(value), preset)), [isEmpty, value, preset])
+
+  if (isEmpty) {
+    return <span className="martis-text-muted">—</span>
+  }
 
   if (!expanded) {
     return (

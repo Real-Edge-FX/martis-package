@@ -33,7 +33,7 @@ abstract class Filter implements FilterContract
 
     protected ?string $component = null;
 
-    /** Grid span in 12-column system (default: auto). Martis extension. */
+    /** Grid span in the 12-column filter panel; null = 3, or 6 for a date range. Martis extension. */
     protected ?int $span = null;
 
     /**
@@ -100,7 +100,9 @@ abstract class Filter implements FilterContract
      * Set the filter width in a 12-column grid.
      *
      * Martis extension: controls how much horizontal space the filter
-     * occupies in the filter panel. Default is auto (flex-1).
+     * occupies in the filter panel from the md breakpoint (768px); below it
+     * every filter takes the full row. Unset, the panel gives the filter 3
+     * columns, 6 for a date range.
      *
      * Common values: 3 (quarter), 4 (third), 6 (half), 8 (two-thirds), 12 (full).
      */
