@@ -8,6 +8,7 @@ import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { DrawerShell } from './DrawerShell'
 import { recordHref } from '@/lib/recordHref'
 import { NestedParentProvider } from '@/components/fields/NestedParentContext'
+import { hiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
 
 /**
  * Quick-look drawer override.
@@ -46,9 +47,13 @@ export function DrawerQuick(props: OverrideProps) {
   // Pull leaf fields from `fieldsForPreview` (or fall back to detail
   // when the resource hasn't customised it). The quick drawer is
   // intentionally flat — nested Panel / Tab / Section wrappers are
-  // dropped so the surface stays scannable.
-  const previewFields = ((schema.fieldsForPreview ?? schema.fieldsForDetail ?? []) as Array<FieldDefinition | { type: string }>)
-    .filter((f): f is FieldDefinition => 'attribute' in f)
+  // dropped so the surface stays scannable. The fields the record hides
+  // (`_hidden`) are left out, as on the detail page.
+  const previewFields = withoutHiddenFields(
+    ((schema.fieldsForPreview ?? schema.fieldsForDetail ?? []) as Array<FieldDefinition | { type: string }>)
+      .filter((f): f is FieldDefinition => 'attribute' in f),
+    hiddenAttributes(activeRecord),
+  )
 
   // The page behind the drawer may not name this record, so the relationship
   // panels inside are told which record they belong to.
