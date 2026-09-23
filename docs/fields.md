@@ -694,12 +694,15 @@ ResourceUpdate) **and** on detail labels rendered inside Sections/TabGroups.
 
 ### HTML support
 
-The frontend opts in via the `data-pr-tooltip-html="true"` attribute, so only
-field tooltips render as HTML — every other `data-pr-tooltip` trigger in the
-app keeps the default plain-text escape. Allowed markup: any inline HTML
-(`<br />`, `<strong>`, `<em>`, `<ul>`/`<li>`, `<code>`, `<a>`). The author is
-responsible for producing safe markup; prefer localised strings from
-`__()` / i18n dictionaries to keep content reviewable.
+The label renderer opts in with the `data-pr-tooltip-html="true"` attribute,
+which makes the global `MartisTooltip` provider render the text as HTML; a
+`data-pr-tooltip` trigger without it keeps the default plain-text escape (the
+metric `help()` tooltip and an extension's own triggers can opt in the same
+way, see [Tooltip Standard](components.md#tooltip-standard-primereact)).
+Allowed markup: any inline HTML (`<br />`, `<strong>`, `<em>`, `<ul>`/`<li>`,
+`<code>`, `<a>`). The markup is not sanitised: the author is responsible for
+producing safe markup and never puts user or record data in it; prefer
+localised strings from `__()` / i18n dictionaries to keep content reviewable.
 
 ### When to use `tooltip()` vs `help()`
 

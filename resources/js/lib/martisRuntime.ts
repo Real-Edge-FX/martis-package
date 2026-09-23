@@ -230,11 +230,13 @@ export const martisRuntime = {
   // shell. Pair with the DrawerShellProps type re-exported below.
   DrawerShell,
 
-  // PrimeReact Tooltip. The global `[data-pr-tooltip]` provider renders
-  // plain text, so rich tooltip content must use this ref-based component
-  // with JSX `content` (see docs/components.md "Tooltip Standard").
-  // Consumer Tools can't import `primereact/tooltip` (the extension build
-  // doesn't alias `primereact`), so it is exposed here.
+  // PrimeReact Tooltip, the ref-based component for React content (JSX
+  // `content`: components, or values JSX escapes). Plain text, and markup
+  // the extension writes, go through the global `[data-pr-tooltip]`
+  // provider instead, the markup with `data-pr-tooltip-html="true"` on the
+  // trigger (rendered as HTML, unsanitised). See docs/components.md
+  // "Tooltip Standard". Consumer Tools can't import `primereact/tooltip`
+  // (the extension build doesn't alias `primereact`), so it is exposed here.
   Tooltip,
 
   // PrimeReact filter controls + a portal primitive (since v1.29.0). A

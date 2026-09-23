@@ -830,7 +830,7 @@ Prefer CSS media queries when the layout swap is purely visual; reach for this h
 
 All tooltips in Martis **must** use [`primereact/tooltip`](https://primereact.org/tooltip/). Native HTML `title=` attributes and custom tooltip implementations are prohibited.
 
-A global Tooltip provider is registered in the layout targeting `[data-pr-tooltip]`, so any element with `data-pr-tooltip` automatically gets a tooltip.
+A global tooltip provider (`MartisTooltip`) is registered in the layout targeting `[data-pr-tooltip]`, so any element with `data-pr-tooltip` automatically gets a tooltip.
 
 ### Simple tooltip (recommended)
 
@@ -843,28 +843,46 @@ A global Tooltip provider is registered in the layout targeting `[data-pr-toolti
 </button>
 ```
 
-### Ref-based tooltip (for complex / HTML content)
+### Rich content: markup or React
 
-```tsx
-// Package-internal: an extension imports Tooltip from '@martis/runtime' (see below).
-import { Tooltip } from 'primereact/tooltip'
-import { useRef } from 'react'
+The global provider renders `data-pr-tooltip` as plain text, so markup in it
+shows literally. Rich content takes one of two routes, depending on what it
+is made of:
 
-const btnRef = useRef(null)
+- **Markup you write: add `data-pr-tooltip-html="true"`.** The global provider
+  then renders the attribute as HTML (line breaks, bold, lists) in the same
+  bubble, with the same placement and delay as a plain tooltip and a roomier
+  layout for paragraphs. The field label tooltips (`->tooltip()`), the metric
+  help and the cache page use it. The markup goes into the page as is, without
+  sanitising: use it for markup you control (your own strings, translations),
+  never for text that comes from users or records.
 
-<button ref={btnRef}>Save</button>
-<Tooltip target={btnRef} content="Save record" position="top" />
-```
+  ```tsx
+  <span
+    data-pr-tooltip="<strong>Re-index</strong><br/>Rebuilds the search index."
+    data-pr-tooltip-html="true"
+    data-pr-position="top"
+  >
+    <InfoIcon size={14} />
+  </span>
+  ```
 
-> **Rich / HTML content:** the global `[data-pr-tooltip]` provider inserts the
-> attribute as plain text, so `data-pr-tooltip="<b>…</b>"` renders the literal
-> markup. Rich content therefore **must** use the ref-based component with JSX
-> `content` (PrimeReact's `Tooltip` has no `escape` prop; a string `content` is
-> plain text too):
->
-> ```tsx
-> <Tooltip target={ref} position="top" content={<div><b>Re-index</b><br/>…</div>} />
-> ```
+- **React content: the ref-based `Tooltip` with JSX `content`.** For content
+  made of components (an icon, a formatted value, a small table), content
+  built from data (JSX escapes it), or PrimeReact options such as
+  `autoHide={false}` for a tooltip the pointer can move into. PrimeReact's
+  `Tooltip` has no `escape` prop, and a string `content` is plain text:
+
+  ```tsx
+  // Package-internal: an extension imports Tooltip from '@martis/runtime' (see below).
+  import { Tooltip } from 'primereact/tooltip'
+  import { useRef } from 'react'
+
+  const btnRef = useRef(null)
+
+  <button ref={btnRef}>Re-index</button>
+  <Tooltip target={btnRef} position="top" content={<div><b>Re-index</b><br/>Rebuilds the index.</div>} />
+  ```
 
 ### From a consumer Tool / extension
 
@@ -907,7 +925,8 @@ No escaping workaround is needed for a long plain-text tooltip: keep it on
 | ❌ Never use `title=` | Native browser tooltips are inconsistent across themes |
 | ❌ Never build custom tooltip divs | Breaks dark/light mode consistency |
 | ✅ Always use `data-pr-tooltip` for simple text | Covered by global provider |
-| ✅ Use ref-based `<Tooltip>` for complex/HTML tooltips | Full PrimeReact API available |
+| ✅ Add `data-pr-tooltip-html="true"` for markup you write | Same bubble and placement; not sanitised, so never for user or record data |
+| ✅ Use the ref-based `<Tooltip>` for React content | JSX `content` (escaped), full PrimeReact API |
 | ✅ Use `data-pr-position` to control placement | `"top"` \| `"bottom"` \| `"left"` \| `"right"` |
 
 

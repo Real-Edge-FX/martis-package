@@ -374,11 +374,13 @@ uniformly to every field via the base class — Panel, Section, TabGroup,
 ResourceCreate, ResourceUpdate, and detail labels rendered inside
 Sections/TabGroups.
 
-Only field tooltips render as HTML. Every other `data-pr-tooltip`
-trigger keeps the default plain-text escape via an explicit
-`data-pr-tooltip-html="true"` opt-in set only by the label renderer.
-Authors are responsible for producing safe markup, the same way they
-are for `help()`.
+The label renderer sets `data-pr-tooltip-html="true"` on the `(?)`
+icon, and the global `MartisTooltip` provider renders any trigger with
+that attribute as HTML: a field tooltip, a metric's `help()`, or a
+trigger of your own. A trigger without it keeps the plain-text escape.
+The markup is not sanitised, so it must be trusted: authors are
+responsible for producing safe markup, and user or record data never
+goes into it.
 
 A `Tooltip` field class was deliberately rejected — a `Field`
 represents a value, not a decoration. See

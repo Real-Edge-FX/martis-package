@@ -585,7 +585,7 @@ Since v1.14.0, `@martis/runtime` exposes:
 | `FieldDisplayProps`, `FieldInputProps` (types) | Re-exported for the same reason. |
 | `DrawerShell` | Generic slide-over drawer shell. Host edit/add/detail forms (composed from `FieldInput`) in a native drawer; you control open/close from your own state, like a modal. |
 | `DrawerShellProps` (type) | Props for `DrawerShell`: `title`, `subtitle?`, `icon?`, `onClose`, `children`, … |
-| `Tooltip` | The PrimeReact `Tooltip` component. Needed for rich tooltip content (JSX `content`; the global `[data-pr-tooltip]` provider renders plain text) since the extension build doesn't alias `primereact`. |
+| `Tooltip` | The PrimeReact `Tooltip` component, for React content in a tooltip (JSX `content`), since the extension build doesn't alias `primereact`. The global `[data-pr-tooltip]` provider renders plain text, or markup you write when the trigger sets `data-pr-tooltip-html="true"` (unsanitised): see [Tooltip Standard](components.md#tooltip-standard-primereact). |
 | `Dropdown`, `MultiSelect` (v1.29.0) | The exact PrimeReact controls Martis's own filters use. Apply the `martis-filter-dropdown` class for the compact filter look. Lets a Tool render pixel-identical single/multi filters without bundling a second copy of PrimeReact. |
 | `createPortal` (v1.29.0) | `react-dom`'s `createPortal`, for overlays: the host's, so the portal renders with the host's React DOM. Since v1.38.0 `import { createPortal } from 'react-dom'` reaches the same function: the extension build sends `react-dom` to a shim that carries it and nothing else of `react-dom`. |
 | `DropdownProps`, `MultiSelectProps` (types) | Re-exported so you can type the controls above without reaching into `primereact/*`. |
