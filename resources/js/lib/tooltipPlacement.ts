@@ -7,7 +7,8 @@
  *
  *   1. keeps the requested side when the bubble fits there, flips to the
  *      opposite side when only that one has room, and otherwise keeps
- *      whichever of the two has more room;
+ *      whichever of the two has more room (a left / right bubble with room
+ *      on neither side goes above or below the trigger instead);
  *   2. centres the bubble on the trigger along the other axis and clamps
  *      it inside the viewport, `TOOLTIP_MARGIN` px from every edge;
  *   3. reports where the arrow meets the bubble edge so it keeps pointing
@@ -92,6 +93,13 @@ export function computeTooltipPlacement(
     if (room[opposite] >= needs(opposite) || room[opposite] > room[preferred]) {
       side = opposite
     }
+  }
+
+  // A side bubble with room on neither side (a narrow screen) goes above or
+  // below the trigger instead of being clamped over it.
+  if ((side === 'left' || side === 'right') && room[side] < needs(side)) {
+    const vertical = (['top', 'bottom'] as const).find((alt) => room[alt] >= needs(alt))
+    if (vertical) side = vertical
   }
 
   let x: number

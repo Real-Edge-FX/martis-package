@@ -699,7 +699,8 @@ Both can coexist on the same field: `->help('Must be unique')->tooltip('<strong>
   `data-pr-tooltip-html="true"` only for content that needs markup.
 - Position respects the trigger's `data-pr-position` (defaults to `top`). The
   bubble is measured first, flips to the opposite side when the requested one
-  has no room for it, and is kept inside the viewport with an 8 px margin; the
+  has no room for it (a `left` / `right` bubble with room on neither side goes
+  above or below), and is kept inside the viewport with an 8 px margin; the
   arrow moves along the edge so it keeps pointing at the trigger. While it is
   open the bubble follows its trigger when the page or a container scrolls,
   and closes once the trigger leaves the viewport (v1.38.0+).

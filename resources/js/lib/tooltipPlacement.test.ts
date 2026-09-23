@@ -98,6 +98,15 @@ describe('computeTooltipPlacement', () => {
     expect(right.x).toBe(1400 - TOOLTIP_GAP - 150)
   })
 
+  it('goes above or below when neither horizontal side has room for a side bubble', () => {
+    // A phone: 151 px left of the trigger, 152 px right of it, bubble 300 px.
+    const placement = computeTooltipPlacement(rect(167, 400), { width: 300, height: 40 }, phone, 'left')
+
+    expect(placement.side).toBe('top')
+    expect(placement.y).toBe(400 - TOOLTIP_GAP - 40)
+    expect(placement.x + placement.arrow).toBe(187)
+  })
+
   it('clamps a side bubble vertically and keeps its arrow on the trigger', () => {
     const placement = computeTooltipPlacement(rect(700, 5, 40, 10), { width: 150, height: 60 }, desktop, 'right')
 

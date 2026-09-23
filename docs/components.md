@@ -854,7 +854,8 @@ before placing it, so any trigger can carry a sentence (v1.38.0+):
 - The bubble stays inside the viewport with an 8 px margin. A trigger near an
   edge keeps the full-width bubble, shifted inward, with the arrow still on
   the trigger; when the requested side (`data-pr-position`) has no room the
-  bubble flips to the opposite side.
+  bubble flips to the opposite side, and a `left` / `right` bubble with room
+  on neither side goes above or below the trigger.
 - While open it follows its trigger through page and container scrolls and
   closes when the trigger scrolls out of view.
 

@@ -198,6 +198,10 @@ export function MartisTooltip() {
     position: 'fixed',
     left: 0,
     top: 0,
+    // A percentage on a fixed box resolves against the viewport without its
+    // scrollbar, the same width the placement clamps against (`100vw`
+    // would count a classic scrollbar).
+    maxWidth: `calc(100% - ${2 * TOOLTIP_MARGIN}px)`,
     zIndex: 99999,
     pointerEvents: 'none',
     ...(placement
@@ -247,9 +251,6 @@ export function MartisTooltip() {
     }),
   }
 
-  // Never wider than the viewport minus the placement margin on each side.
-  const viewportCap = `calc(100vw - ${2 * TOOLTIP_MARGIN}px)`
-
   return createPortal(
     <div ref={bubbleRef} style={style} role="tooltip" data-side={side}>
       <div
@@ -268,13 +269,14 @@ export function MartisTooltip() {
           lineHeight: isHtml ? 1.45 : 1.2,
           borderRadius: '0.375rem',
           // Both variants wrap: the box is shrink-to-fit, so a short label
-          // stays on one line and a sentence breaks at the max width
-          // instead of running out of the bubble. `anywhere` also breaks a
-          // long unbroken token (a URL, an id) inside the box.
+          // stays on one line and a sentence breaks at the max width (360 px
+          // here, the viewport minus the margins on the wrapper) instead of
+          // running out of the bubble. `anywhere` also breaks a long
+          // unbroken token (a URL, an id) inside the box.
           whiteSpace: 'normal',
           overflowWrap: 'anywhere',
-          maxWidth: `min(360px, ${viewportCap})`,
-          minWidth: isHtml ? `min(220px, ${viewportCap})` : undefined,
+          maxWidth: 360,
+          minWidth: isHtml ? `min(220px, calc(100vw - ${2 * TOOLTIP_MARGIN}px))` : undefined,
           position: 'relative',
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.12), 0 2px 4px -2px rgba(0, 0, 0, 0.08)',
         }}
