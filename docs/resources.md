@@ -206,6 +206,14 @@ A System-section resource keeps `group() === null` — the sidebar buckets it un
 
 Tools have the same opt-in since **v1.35.0**: `Tool::withSystemSection()` docks a Tool in the same section, after the resources and before the Cache admin link. See [Tools → Place a Tool under "System"](tools.md#place-a-tool-under-system--withsystemsection-v1350).
 
+Since **v1.38.0** the section is ordered by a weight. Override `systemSectionOrder(): int` (default `100`) to move the resource: a lower weight lists it earlier, and entries with equal weights keep the natural order (resources in registration order, then Tools, then the cache link at `1000`). See [Menus → Order inside the System section](menus.md#order-inside-the-system-section-v1380).
+
+```php
+public function belongsToSystemSection(): bool { return true; }
+
+public function systemSectionOrder(): int { return 10; } // first in the System section
+```
+
 ### Claim a record for reverse-mapping — `matchesRecord()`
 
 When **several resources share one Eloquent model** — e.g. an Approval-Queue resource scoped to `pending` records and a Processed resource scoped to `approved`/`indexed`, both on `App\Models\Candidate` — Martis sometimes needs to turn a model instance back into the resource surface it belongs to. The clearest case is the command palette's **Recent activity** deep-links: an event only carries `model_type` + `model_id`, so the palette must decide *which* of the sharing resources a record opens.

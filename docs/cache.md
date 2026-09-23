@@ -26,7 +26,7 @@ The sidebar that surfaces "Sistema → Cache" — and every other navigation ent
 | **Resource entries** (Clients, Projects, Action Events, …) | The user must pass `Resource::authorizedToViewAny($request)`. Internally that calls the policy's `viewAny` ability. Resources without `viewAny` are silently hidden. |
 | **Resource that opts out** | Set `public static function displayInNavigation(): bool { return false; }` on the resource class. Always hidden. |
 | **Custom links injected via `Martis::mainMenu(...)`** | Each `MenuItem` honours `->canSee(Closure|bool)`. The closure receives the `Request` and decides per-user. |
-| **System → Cache (built-in by Martis)** | Gated by Laravel's Gate `manage-martis-cache`. **The default DENIES everyone** — flushing/disabling the cache is destructive and privileged, so you must grant the ability explicitly (see below). The entry also disappears wholesale when `cache.admin_ui = false`. |
+| **System → Cache (built-in by Martis)** | Gated by Laravel's Gate `manage-martis-cache`. **The default DENIES everyone** — flushing/disabling the cache is destructive and privileged, so you must grant the ability explicitly (see below). The entry also disappears wholesale when `cache.admin_ui = false`, and is not appended when your own `Martis::mainMenu(...)` already links to `/system/cache` (v1.38.0+). Its position inside the System section is `cache.admin_ui_order` (default `1000`, last); see [Menus → Order inside the System section](menus.md#order-inside-the-system-section-v1380). |
 
 In short: **if a user lacks the policy, the sidebar entry never renders, the route returns 403, and the API endpoint behind it returns 403 too.** The three layers are checked independently.
 
@@ -87,6 +87,7 @@ Hover any column header in the admin UI for the same explanation as a tooltip.
     'schema'     => ['enabled' => true, 'ttl' => null],
 
     'admin_ui'   => true,
+    'admin_ui_order' => 1000,   // position of the "System cache" link in the System section (v1.38.0+)
 ],
 ```
 

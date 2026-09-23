@@ -76,6 +76,15 @@ interface ResourceContract
     public function belongsToSystemSection(): bool;
 
     /**
+     * Position of this resource inside the bundled "System" section. The
+     * section sorts its resources, Tools and the Cache admin link by this
+     * weight, lowest first; entries with the same weight keep their
+     * natural order (resources in registration order, then Tools). Only
+     * read when `belongsToSystemSection()` is true. Default: 100.
+     */
+    public function systemSectionOrder(): int;
+
+    /**
      * Whether this resource "owns" the given record for reverse-mapping — i.e.
      * turning a model instance back into the resource surface it belongs to
      * (used by the command palette's Recent deep-links).

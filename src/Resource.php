@@ -1078,6 +1078,12 @@ abstract class Resource implements ResourceContract
     }
 
     /** {@inheritdoc} */
+    public function systemSectionOrder(): int
+    {
+        return 100;
+    }
+
+    /** {@inheritdoc} */
     public function matchesRecord(Model $model): bool
     {
         return true;

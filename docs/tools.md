@@ -108,13 +108,14 @@ Tool::make(__('Finance Imports'))
 | `component()` | Registered React component key, or `null` (config-only tools). |
 | `menuSection()` | Active menu section label, or `null`. |
 | `belongsToSystemSection()` | `true` when the Tool is docked in the bundled "System" sidebar section. Defaults to `false`. v1.35.0+. |
+| `systemSectionOrder()` | Weight of the Tool inside the "System" section, lowest first. Defaults to `100`. v1.38.0+. |
 | `menuCount(Request)` | Sidebar count badge for this tool. Returns `null` (no badge) by default. Override to return a count. v1.29.0+. |
 | `showMenuCount()` | Whether the count badge renders. Defaults to `true`; the badge only appears when `menuCount()` also returns non-null. v1.29.0+. |
 | `meta()` | The accumulated metadata array (mirrors what `withMeta()` set). |
 | `withIcon(string)` | Phosphor icon for the menu entry. Chainable. |
 | `withComponent(string)` | React component key. The frontend looks this up in `componentRegistry`. Chainable. |
 | `withMenuSection(?string)` | Optional menu section label. Chainable. |
-| `withSystemSection(bool $value = true)` | Dock the Tool in the bundled "System" section (with the audit log, the System-section resources and the Cache admin link). Wins over `withMenuSection()`. Chainable. v1.35.0+. |
+| `withSystemSection(bool $value = true, ?int $order = null)` | Dock the Tool in the bundled "System" section (with the audit log, the System-section resources and the Cache admin link). Wins over `withMenuSection()`. `order:` sets `systemSectionOrder()` (v1.38.0+); `null` keeps the current weight. Chainable. v1.35.0+. |
 | `withMeta(array)` | Merge arbitrary descriptor data; surfaced verbatim to the React component. Chainable. |
 | `breadcrumb()` | Breadcrumb override getter. Returns `null` when the breadcrumb tracks `name()` (default). v1.10.3+. |
 | `withBreadcrumb(?string)` | Override the breadcrumb label without touching `name()`. Pass `null` to clear. Chainable. v1.10.3+. |
@@ -142,6 +143,7 @@ Subclasses may override the getter instead (`public function belongsToSystemSect
 What changes for an opted-in Tool:
 
 - It renders inside the **single** bundled System section, after the System-section resources and before the "System cache" link. No section of its own is created, and `/api/navigation` carries one section labelled "System".
+- Its place in that section is a weight: `withSystemSection(order: 10)` lists it before every entry that keeps the default `100` (the resources included), a weight above `1000` after the cache link. Equal weights keep the natural order. See [Menus → Order inside the System section](menus.md#order-inside-the-system-section-v1380) (v1.38.0+).
 - `menuSection()` / `withMenuSection()` are ignored for it (the opt-in wins).
 - The command palette (⌘K) tags it "System", the same label the sidebar uses.
 - Its `menuCount()` badge keeps working, including the `/api/navigation/badges` poll (`tool:{uriKey}` key).
