@@ -789,8 +789,9 @@ class ResourceController extends MartisController
             return $error;
         }
 
-        $attribute = (string) $request->input('field', '');
-        if ($attribute === '') {
+        // A `field` that is not a string (`field[]=`) names no attribute.
+        $attribute = $request->input('field');
+        if (! is_string($attribute) || $attribute === '') {
             return JsonErrorResponse::validation(['field' => ['Field attribute is required.']])->toResponse();
         }
 
