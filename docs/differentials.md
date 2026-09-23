@@ -630,6 +630,7 @@ Tooltip limitations:
 - No tooltip "skip" when hovering quickly between adjacent items (e.g. sidebar menu).
 - Instant switch between targets without delay when moving between tooltip elements.
 - First hover uses a 500 ms delay; subsequent hovers between targets are immediate.
+- Long text wraps inside the bubble, up to 360 px wide (or the viewport width minus 16 px), and a long unbroken token such as a URL breaks inside it. The ref-based PrimeReact `<Tooltip>` wraps the same way and keeps explicit line breaks (v1.38.0+; before, it kept `white-space: nowrap`, so a sentence ran out of its 300 px bubble).
 
 All elements use `data-pr-tooltip` and `data-pr-position` attributes:
 

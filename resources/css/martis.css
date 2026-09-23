@@ -4933,13 +4933,21 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
 
 /* ── PrimeReact Tooltip overlay z-index + max width.
    Visual styling (font / padding / border / arrow / duration) lives in
-   the F7-38 spec block further down. */
+   the F7-38 spec block further down.
+   The text wraps like the global [data-pr-tooltip] provider
+   (MartisTooltip): the box is shrink-to-fit, so a short label stays on
+   one line and a sentence breaks at the max width (360px, or the
+   viewport minus an 8px margin on each side) instead of running out of
+   the bubble. `pre-line` keeps the explicit line breaks PrimeReact's own
+   stylesheet keeps, and `anywhere` breaks a long unbroken token (a URL,
+   an id) inside the box. */
 .p-tooltip {
   z-index: 99999 !important;
 }
 .p-tooltip .p-tooltip-text {
-  white-space: nowrap;
-  max-width: 300px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  max-width: min(360px, calc(100vw - 16px));
 }
 
 /* ── Fix: Inline action icons — larger hit target (REA-1102) ── */
