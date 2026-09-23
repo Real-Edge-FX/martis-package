@@ -1546,6 +1546,11 @@ class ResourceController extends MartisController
         ['parentResource' => $parentResource, 'field' => $field, 'relation' => $relation] = $context;
         $related = $relation->getRelated();
 
+        // The pivot row the pivot fields' canSeeForModel() decides on: a new
+        // row in the attach modal, the attached record's row in its pivot edit
+        // modal (as the attach and the pivot update decide).
+        $pivotRow = $relation->newPivot();
+
         if ($relatedId === null) {
             $authorized = $parentResource->authorizedToAttachAny($request, $related::class);
         } else {
@@ -1563,6 +1568,7 @@ class ResourceController extends MartisController
             }
 
             $authorized = $parentResource->authorizedToUpdatePivot($request, $relatedModel);
+            $pivotRow = $this->storedPivotRow($relation, $relatedId) ?? $pivotRow;
         }
 
         if (! $authorized) {
@@ -1574,6 +1580,7 @@ class ResourceController extends MartisController
             [fn (): array => $field->getPivotFields()],
             $fieldAttr,
             $resourceClass,
+            $pivotRow,
         );
     }
 
@@ -1581,7 +1588,9 @@ class ResourceController extends MartisController
      * The options of a relationship field found in `$sets` (an Action's
      * fields, a relationship's pivot fields), once the endpoint ran its
      * gates. A picker in a Repeater row is read from the row the request
-     * names.
+     * names. A field the user cannot see answers like an undeclared one
+     * (see findDeclaredField()); `$model` is the record the fields of
+     * `$sets` belong to (the pivot row of pivot fields), if any.
      *
      * @param  list<\Closure(): iterable<mixed>>  $sets
      * @param  class-string<\Martis\Resource>  $resourceClass  The source of the relatable hooks
@@ -1591,11 +1600,15 @@ class ResourceController extends MartisController
         array $sets,
         string $fieldAttr,
         string $resourceClass,
+        ?Model $model = null,
     ): IlluminateJsonResponse {
-        $relationField = $this->findField(
-            $this->inRepeaterRow($sets, $this->repeaterRowOf($request), $request),
+        $relationField = $this->findDeclaredField(
+            $sets,
             $fieldAttr,
+            $request,
             [BelongsTo::class, MorphTo::class, TagField::class],
+            $model,
+            $this->repeaterRowOf($request),
         );
 
         if ($relationField === null) {

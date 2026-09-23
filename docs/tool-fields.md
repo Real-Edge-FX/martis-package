@@ -134,7 +134,7 @@ With `context: 'update'`, `form.resolvedFields` (and so `FieldsForm`) carries an
 
 ### Server-side option search
 
-A `Select` declared in `Tool::fields()` with `searchOptionsUsing(...)` searches its options on the server through `GET /api/tools/{uriKey}/fields/{attribute}/options?search=...` (same `canSee()` gate as `/fields`: 404 when denied). The form only needs to know which Tool owns the fields:
+A `Select` declared in `Tool::fields()` with `searchOptionsUsing(...)` searches its options on the server through `GET /api/tools/{uriKey}/fields/{attribute}/options?search=...` (same `canSee()` gate as `/fields`: 404 when denied). A select the user cannot see (the field's own `canSee()`) answers 422 exactly like an undeclared one (v1.38.0). The form only needs to know which Tool owns the fields:
 
 ```tsx
 const { fields } = useToolFields('settings')

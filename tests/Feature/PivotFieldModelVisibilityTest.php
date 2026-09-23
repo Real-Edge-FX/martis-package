@@ -251,6 +251,20 @@ it('lists the attached records without the values hidden for their pivot row or 
         ->and($rows['Bob']['salary'])->toBe('200');
 })->with($endpoints);
 
+it('answers the picker of a pivot field hidden for the pivot row like an undeclared one', function (string $endpoint, string $relation) {
+    $shared = PMVPerson::create(['name' => 'Bob']);
+    $this->project->{$relation}()->attach($this->person->id, ['shared' => false]);
+    $this->project->{$relation}()->attach($shared->id, ['shared' => true]);
+    $base = "/martis/api/resources/pmv-projects/{$this->project->id}/{$endpoint}/{$relation}/pivot-fields";
+
+    // The attach modal: a new pivot row, which the field is hidden for.
+    $this->getJson("{$base}/relatable/approver_id")->assertNotFound();
+    $this->getJson("{$base}/relatable/mentor_id")->assertOk();
+    // The pivot edit modal of each attached record.
+    $this->getJson("{$base}/{$this->person->id}/relatable/approver_id")->assertNotFound();
+    expect($this->getJson("{$base}/{$shared->id}/relatable/approver_id")->assertOk()->json('data.*.name'))->toBe(['Ann', 'Bob']);
+})->with($endpoints);
+
 it('answers 404 for a many-to-many relationship field hidden for the parent record', function (string $endpoint, string $relation) {
     $this->project->update(['locked' => true]);
     $this->project->{$relation}()->attach($this->person->id, ['role' => 'Dev']);

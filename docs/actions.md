@@ -522,7 +522,7 @@ public function fields(Request $request): array
 }
 ```
 
-The endpoint is gated like running the Action (403 without `viewAny` on the resource, or when the Action's `canSee()` denies), then like every picker (403 without `viewAny` on the related resource), and answers 404 for an attribute the Action does not declare as a `BelongsTo`, `MorphTo` or `Tag`. The scope decides what the picker lists; `handle()` receives the submitted value under the field's attribute (`$fields->assignee_id` for the `BelongsTo` above) and should check it like any other input.
+The endpoint is gated like running the Action (403 without `viewAny` on the resource, or when the Action's `canSee()` denies), then like every picker (403 without `viewAny` on the related resource), and answers 404 for an attribute the Action does not declare as a `BelongsTo`, `MorphTo` or `Tag`, and for one the user cannot see (the field's `canSee()`, v1.38.0+). The scope decides what the picker lists; `handle()` receives the submitted value under the field's attribute (`$fields->assignee_id` for the `BelongsTo` above) and should check it like any other input.
 
 The modal of a [pivot action](#pivot-actions) asks the relationship panel instead, `GET /api/resources/{resource}/{id}/{belongs-to-many|morph-to-many}/{relationship}/actions/{action}/relatable/{attribute}`: it finds the action where the panel's fields endpoint finds it (the field's `->actions()`, then the resource's `->pivotAction()` ones), behind the same gates, and reads the action's declaration of the field with the parent resource as the source of the relatable hooks.
 

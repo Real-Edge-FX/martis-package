@@ -156,6 +156,12 @@ abstract class MartisController extends Controller
      * (see repeaterRowOf()) the field is one of that Repeater row's instead,
      * found in the same sets (see inRepeaterRow()).
      *
+     * A field the user cannot see is not on the form, so it is not found:
+     * one `canSee()` hides, and one `canSeeForModel()` hides for the record
+     * the update form edits (the resource's model) or, on a create form, for
+     * the new model a create fills. The endpoint answers for it exactly as
+     * for an attribute no form declares.
+     *
      * @param  'create'|'update'  $context
      * @param  list<class-string<FieldContract>>  $types
      * @param  array{repeater: string, repeatable: string}|null  $repeaterRow
@@ -180,7 +186,39 @@ abstract class MartisController extends Controller
             $sets[] = fn (): array => $resource->fields($request);
         }
 
-        return $this->findField($this->inRepeaterRow($sets, $repeaterRow, $request), $attribute, $types);
+        // The record the form writes: the one an update form edits, or the
+        // new model a create fills (see Field::filterForModel()).
+        $model = $resource->getModel() ?? $resource::newModel();
+
+        return $this->findDeclaredField($sets, $attribute, $request, $types, $model, $repeaterRow);
+    }
+
+    /**
+     * Find the field a per-field endpoint answers for in the field sets
+     * `$sets` (see findField()), or, with `$repeaterRow`, in that Repeater
+     * row (see inRepeaterRow()). `$model` is the record the fields of
+     * `$sets` belong to, if any: the field, or the Repeater, is found only
+     * when the user may see it on that record. A row field is found when
+     * the user may see it (`canSee()`): the fields of a row are not decided
+     * on a record.
+     *
+     * @param  iterable<\Closure(): iterable<mixed>>  $sets
+     * @param  list<class-string<FieldContract>>  $types
+     * @param  array{repeater: string, repeatable: string}|null  $repeaterRow
+     */
+    protected function findDeclaredField(
+        iterable $sets,
+        string $attribute,
+        Request $request,
+        array $types = [FieldContract::class],
+        ?Model $model = null,
+        ?array $repeaterRow = null,
+    ): ?FieldContract {
+        if ($repeaterRow !== null) {
+            return $this->findField($this->inRepeaterRow($sets, $repeaterRow, $request, $model), $attribute, $request, $types);
+        }
+
+        return $this->findField($sets, $attribute, $request, $types, $model);
     }
 
     /**
@@ -216,11 +254,15 @@ abstract class MartisController extends Controller
      * Repeater no such row type. A set is only built when the sets before
      * it do not declare the field, as in findField().
      *
+     * A Repeater the user cannot see (see findField(); `$model` is the
+     * record its form writes, if any) declares no row there, so none of its
+     * row fields is found.
+     *
      * @param  iterable<\Closure(): iterable<mixed>>  $sets
      * @param  array{repeater: string, repeatable: string}|null  $row
      * @return iterable<\Closure(): iterable<mixed>>
      */
-    protected function inRepeaterRow(iterable $sets, ?array $row, Request $request): iterable
+    protected function inRepeaterRow(iterable $sets, ?array $row, Request $request, ?Model $model = null): iterable
     {
         if ($row === null) {
             return $sets;
@@ -228,9 +270,11 @@ abstract class MartisController extends Controller
 
         $rowSets = [];
         foreach ($sets as $set) {
-            $rowSets[] = function () use ($set, $row, $request): array {
+            $rowSets[] = function () use ($set, $row, $request, $model): array {
                 foreach ($this->flattenFormItems($set()) as $field) {
-                    if ($field instanceof Repeater && $field->attribute() === $row['repeater']) {
+                    if ($field instanceof Repeater
+                        && $field->attribute() === $row['repeater']
+                        && $this->userMaySee($field, $request, $model)) {
                         return $field->findRepeatable($row['repeatable'])?->fields($request) ?? [];
                     }
                 }
@@ -244,17 +288,29 @@ abstract class MartisController extends Controller
 
     /**
      * The first field with this attribute that is an instance of one of
-     * `$types`, searching the field sets in order. A set is only built when
-     * the sets before it do not declare the field.
+     * `$types` and that the user may see, searching the field sets in
+     * order. A set is only built when the sets before it do not declare the
+     * field.
+     *
+     * A field the user cannot see is skipped as if the set did not declare
+     * it: one `canSee()` hides, and, when `$model` is given (the record the
+     * fields belong to), one `canSeeForModel()` hides for that record. So a
+     * per-field endpoint answers for a hidden field exactly as for an
+     * undeclared attribute, and derives nothing from its declaration.
      *
      * @param  iterable<\Closure(): iterable<mixed>>  $sets
      * @param  list<class-string<FieldContract>>  $types
      */
-    protected function findField(iterable $sets, string $attribute, array $types = [FieldContract::class]): ?FieldContract
-    {
+    protected function findField(
+        iterable $sets,
+        string $attribute,
+        Request $request,
+        array $types = [FieldContract::class],
+        ?Model $model = null,
+    ): ?FieldContract {
         foreach ($sets as $set) {
             foreach ($this->flattenFormItems($set()) as $field) {
-                if ($field->attribute() !== $attribute) {
+                if ($field->attribute() !== $attribute || ! $this->userMaySee($field, $request, $model)) {
                     continue;
                 }
 
@@ -267,6 +323,19 @@ abstract class MartisController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Whether the user may see `$field`: `canSee()` allows it and, when
+     * `$model` is given, `canSeeForModel()` allows it for that record.
+     */
+    private function userMaySee(FieldContract $field, Request $request, ?Model $model): bool
+    {
+        if (! $field->isAuthorizedToSee($request)) {
+            return false;
+        }
+
+        return $model === null || Field::filterForModel([$field], $request, $model) !== [];
     }
 
     /**

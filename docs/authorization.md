@@ -184,6 +184,10 @@ Every dashboard primitive supports a `canSee(Closure)` callback.
   run does not validate it, and `handle()` receives its `default()` or
   nothing, whatever the request sends. See
   [Actions → Fields the request cannot set](actions.md#fields-the-request-cannot-set).
+  The endpoints a form field asks on its own (the options of a relation
+  picker, the option search of a `Select`, the Slug check, the `dependsOn`
+  sync) answer for a hidden field exactly as for an undeclared one
+  (v1.38.0+).
 - `Field::canSeeForModel(Closure)` / `canSeeUsingPolicy(ability)`: hides a
   field on the records the callback denies, on every read and every write
   of those records (v1.38.0+ for the writes). See
@@ -290,6 +294,7 @@ A field the callback hides for a record is hidden for that record on the server,
 - **A create** decides on the new, unsaved model before any value of the request is written to it, as Nova resolves the fields of a create on a fresh model: a callback that grants on stored values (an owner column, `$model->exists`, a policy that reads them, as `viewEmail` above may for a user not created yet) denies, and the create does not write the field. Grant on `! $model->exists` when a create should write it.
 - **A pivot field** decides on the pivot row (the relationship's pivot class; `pivotParent` is the parent record): the attached row when the pivot values are read or updated, a new row on attach.
 - **A relationship field** (`HasMany`, `HasOne`, `MorphMany`, `MorphOne`, `BelongsToMany`, `MorphToMany`) the callback hides for the parent record answers 404 on every endpoint of its panel, as an undeclared relationship.
+- **The endpoints a form field asks on its own** (relation picker options, `Select` search, Slug check, `dependsOn` sync) answer for a field hidden for the record the update form edits, or for the new model of a create form, exactly as for an undeclared field.
 
 The schema describes the resource, not a record, so a form still lists a field the callback hides for the record it shows: its value is empty, and the save ignores it. See [Fields → Field authorization](fields.md#field-authorization-cansee-and-canseeformodel).
 

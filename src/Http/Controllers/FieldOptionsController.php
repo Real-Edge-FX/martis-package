@@ -89,14 +89,12 @@ class FieldOptionsController extends MartisController
             return JsonErrorResponse::notFound("Tool [{$uriKey}] not found.")->toResponse();
         }
 
-        $select = $this->findField(
-            $this->inRepeaterRow(
-                [fn (): array => $tool instanceof ProvidesFields ? $tool->fields($request) : []],
-                $this->repeaterRowOf($request),
-                $request,
-            ),
+        $select = $this->findDeclaredField(
+            [fn (): array => $tool instanceof ProvidesFields ? $tool->fields($request) : []],
             $field,
+            $request,
             [Select::class],
+            repeaterRow: $this->repeaterRowOf($request),
         );
 
         return $this->respond($request, $select instanceof Select ? $select : null, $field);
