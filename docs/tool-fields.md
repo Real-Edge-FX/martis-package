@@ -97,6 +97,19 @@ export function CreateProjectTool() {
 
 `useToolFields('create-project')` issues `GET /api/tools/create-project/fields`, which serializes `Tool::fields()` through the same `Field::toArray()` serializer the Resource and Action forms already consume — so the returned shape is identical.
 
+A field the user cannot see (its own `canSee()`) is left out, as the Resource schema leaves it out (v1.38.0): at every depth of the layout containers, a `Section`, `Panel`, `TabGroup` or `Tab` left without fields goes with them, and a `Repeater`'s row types list only the row fields the user can see. The form never renders such a field, and its option search answers like an undeclared field's (see [Server-side option search](#server-side-option-search)). Before v1.38.0 the endpoint served every field of `fields()`, hidden ones included.
+
+```php
+public function fields(Request $request): array
+{
+    return [
+        Text::make('Title'),
+        // Served, and rendered, for an admin only.
+        Text::make('Internal note')->canSee(fn (Request $request) => $request->user()?->isAdmin() ?? false),
+    ];
+}
+```
+
 Tools that don't `use ProvidesToolFields` (the default) return no fields; the endpoint responds with `{ "fields": [] }`.
 
 ### Mode C — bound to an existing Resource

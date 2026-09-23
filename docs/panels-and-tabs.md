@@ -304,6 +304,16 @@ To reach the showcase, navigate to `/showcase/layout-showcase/create` and `/show
 The backend serialises Panels and TabGroups as part of the resource's field schema.
 The format is stable and can be inspected via `GET /api/{resource}/schema`.
 
+A field the user cannot see (`canSee()`) is left out of every serialised
+layout, and a container (a Panel, a Section, a Tab or a TabGroup) left
+without fields is left out with it: the schema's field lists, and since
+v1.38.0 the fields of a Tool (`GET /api/tools/{uriKey}/fields`). The
+built-in containers rebuild themselves with the fields they keep through
+`Martis\Contracts\FiltersFields` (`filterFields(\Closure $keep): ?static`,
+see `Field::filterLayoutFields()`); a custom container implementing
+`LayoutContract` keeps its place when it implements `FiltersFields` too,
+and otherwise gives way to the fields it keeps.
+
 ### Panel
 
 ```json

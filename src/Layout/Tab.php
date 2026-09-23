@@ -3,6 +3,7 @@
 namespace Martis\Layout;
 
 use Martis\Contracts\FieldContract;
+use Martis\Contracts\FiltersFields;
 use Martis\Contracts\LayoutContract;
 use Martis\FieldContext;
 use Martis\Fields\Field;
@@ -17,7 +18,7 @@ use Martis\Fields\Field;
  *
  * @phpstan-consistent-constructor
  */
-class Tab
+class Tab implements FiltersFields
 {
     protected string $title;
 
@@ -77,6 +78,28 @@ class Tab
 
         $clone = clone $this;
         $clone->content = $filtered;
+
+        return $clone;
+    }
+
+    /**
+     * Return a new Tab holding only the fields `$keep` accepts, in the
+     * panels it holds too, or null when it accepts none (see
+     * `Field::filterLayoutFields()`).
+     *
+     * @param  \Closure(FieldContract): bool  $keep
+     */
+    public function filterFields(\Closure $keep): ?static
+    {
+        /** @var list<FieldContract|Panel> $content A Panel rebuilds itself as a Panel. */
+        $content = Field::filterLayoutFields($this->content, $keep);
+
+        if ($content === []) {
+            return null;
+        }
+
+        $clone = clone $this;
+        $clone->content = $content;
 
         return $clone;
     }

@@ -303,7 +303,8 @@ Surface for the [Custom Tools](../tools.md) primitive.
 ```
 GET  /martis/api/tools                  List every authorised tool.
 GET  /martis/api/tools/{uriKey}         Single tool metadata, or 404 (also when canSee denies).
-GET  /martis/api/tools/{uriKey}/fields  Serialized field definitions of a Tool implementing ProvidesFields.
+GET  /martis/api/tools/{uriKey}/fields  Serialized field definitions of a Tool implementing ProvidesFields,
+                                        without the fields the user cannot see (canSee(); v1.38.0).
 GET  /martis/api/tools/{uriKey}/fields/{field}/options?search=
                                         Server-side option search for a Tool select (v1.37.0); 422 when the field has no resolver.
                                         A select in a Repeater row adds &repeater=&repeatable= (v1.38.0).

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Contracts\FieldContract;
+use Martis\Contracts\FiltersFields;
 use Martis\Contracts\LayoutContract;
 use Martis\Contracts\OverrideContract;
 use Martis\FieldContext;
@@ -1211,6 +1212,53 @@ abstract class Field implements FieldContract
             }
 
             $result[] = $item;
+        }
+
+        return $result;
+    }
+
+    /**
+     * `$items` without the fields `$keep` rejects, the layout structure
+     * kept: a container (Panel, Section, TabGroup and its Tabs) holds only
+     * the fields it keeps, at every depth, and is left out when it keeps
+     * none. A custom container that cannot rebuild itself (it does not
+     * implement `FiltersFields`) gives way to the fields it keeps.
+     *
+     * No context rule applies, unlike filterLayoutForContext(): the Tool
+     * fields endpoint drops the fields the user cannot see with it, and the
+     * schema drops from the create form the fields hidden for the new model.
+     *
+     * @param  list<FieldContract|LayoutContract>  $items
+     * @param  \Closure(FieldContract): bool  $keep
+     * @return list<FieldContract|LayoutContract>
+     */
+    public static function filterLayoutFields(array $items, \Closure $keep): array
+    {
+        $result = [];
+
+        foreach ($items as $item) {
+            if ($item instanceof FiltersFields) {
+                $filtered = $item->filterFields($keep);
+                if ($filtered !== null) {
+                    $result[] = $filtered;
+                }
+
+                continue;
+            }
+
+            if ($item instanceof LayoutContract) {
+                foreach ($item->flattenFields() as $field) {
+                    if ($keep($field)) {
+                        $result[] = $field;
+                    }
+                }
+
+                continue;
+            }
+
+            if ($keep($item)) {
+                $result[] = $item;
+            }
         }
 
         return $result;
