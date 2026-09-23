@@ -18,6 +18,18 @@ import { recordHref } from '@/lib/recordHref'
 
 export function ResourceCreatePage() {
   const { resource } = useParams<{ resource: string }>()
+  const [searchParams] = useSearchParams()
+  // The router keeps this element when the URL moves to another resource's
+  // create page, another parent's nested create or another record to
+  // replicate, so the page is keyed by what the form starts from: nothing
+  // typed or prefilled for the previous target (values, parent, replica,
+  // dirty baseline) carries over.
+  const target = [resource, ...['viaResource', 'viaResourceId', 'viaRelationship', 'fromResourceId'].map((key) => searchParams.get(key))]
+  return <CreateTargetPage key={JSON.stringify(target)} />
+}
+
+function CreateTargetPage() {
+  const { resource } = useParams<{ resource: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { addToast } = useToast()
