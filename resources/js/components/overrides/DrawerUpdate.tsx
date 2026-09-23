@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { DrawerShell } from './DrawerShell'
 import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 import { updatePayload } from '@/lib/updatePayload'
+import { lockImmutableFields } from '@/lib/lockImmutableFields'
 
 /** Recursively extract scalar fields from layout containers (Panel, Section, TabGroup) */
 function extractScalarFields(items: Array<Record<string, unknown>>): FieldDefinition[] {
@@ -69,7 +70,8 @@ export function DrawerUpdate(props: OverrideProps) {
   })
 
   const activeRecord = record ?? recordQuery.data?.data
-  const allFormFields = useMemo(() => schema.fieldsForUpdate ?? [], [schema])
+  // An `immutable()` field renders read-only here: every update endpoint skips it.
+  const allFormFields = useMemo(() => lockImmutableFields(schema.fieldsForUpdate ?? []), [schema])
   const scalarFields = useMemo(
     () => extractScalarFields(allFormFields as unknown as Array<Record<string, unknown>>),
     [allFormFields],

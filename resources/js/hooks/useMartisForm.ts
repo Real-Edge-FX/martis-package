@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FieldDefinition } from '@/types'
 import { useDependsOnSync } from '@/hooks/useDependsOnSync'
+import { lockImmutableFields } from '@/lib/lockImmutableFields'
 
 export interface MartisFormOptions {
   fields: FieldDefinition[]
@@ -13,6 +14,7 @@ export interface MartisFormOptions {
    * still needs a `resourceKey`.
    */
   toolKey?: string
+  /** Defaults to `'create'`. On `'update'`, `resolvedFields` carries `immutable()` fields as `readonly`. */
   context?: 'create' | 'update'
   /**
    * Id of the record this form edits, when bound to one. Threaded to fields so
@@ -135,10 +137,13 @@ export function useMartisForm(options: MartisFormOptions): MartisForm {
     disabled: !resourceKey || Boolean(syncDisabled),
   })
 
+  // An update form renders an `immutable()` field read-only (every update
+  // endpoint skips it). Applied after the dependsOn overrides, which carry
+  // the flag the way the schema does.
   const resolvedFields = useMemo(() => {
-    if (overrides.size === 0) return fields
-    return applyOverrides(fields, overrides) as FieldDefinition[]
-  }, [fields, overrides])
+    const resolved = overrides.size === 0 ? fields : (applyOverrides(fields, overrides) as FieldDefinition[])
+    return context === 'update' ? lockImmutableFields(resolved) : resolved
+  }, [fields, overrides, context])
 
   const setValue = (attribute: string, value: unknown) => {
     setValues((prev) => ({ ...prev, [attribute]: value }))

@@ -242,6 +242,8 @@ Pivot values are written as the request sends them, except where a record field 
 - an `immutable()` pivot field is written on attach and skipped on the pivot update;
 - a `readonly()` pivot field never takes its value from the request: the attach stores its `default()` when it has one, and the pivot update leaves the column alone.
 
+The forms match: the attach form keeps an immutable pivot field editable, and the form that edits a pivot row renders it read-only, like a readonly one.
+
 The attach stores the `default()` of every pivot field it does not take from the request (one the request omits, or a readonly one), so a readonly pivot field with a default stamps the row with a value the client cannot change:
 
 ```php

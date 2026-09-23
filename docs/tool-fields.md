@@ -134,6 +134,8 @@ const form = useMartisForm({
 })
 ```
 
+With `context: 'update'`, `form.resolvedFields` (and so `FieldsForm`) carries an `immutable()` field as `readonly`, so its input renders read-only as on the Resource update page. See [Fields → Immutable fields](fields.md#immutable-fields).
+
 ### Server-side option search
 
 A `Select` declared in `Tool::fields()` with `searchOptionsUsing(...)` searches its options on the server through `GET /api/tools/{uriKey}/fields/{attribute}/options?search=...` (same `canSee()` gate as `/fields`: 404 when denied). The form only needs to know which Tool owns the fields:

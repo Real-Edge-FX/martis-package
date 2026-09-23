@@ -338,7 +338,9 @@ Text::make('slug')->immutable()->required();
 
 Common cases: slugs, account numbers, document references.
 
-The schema exposes the flag as `immutable`, but the bundled field components do not read it yet: the edit form still renders an editable input, and the update ignores the value it sends.
+The forms follow the same split. The update forms render an immutable field read-only, exactly as they render a `readonly()` field, and still submit its stored value: the update page (also when a relation panel opens the record to edit it), the update drawer (`DrawerOverride::update()`) and the form that edits a pivot row. The create page, the create drawer, the inline create and the attach keep the input editable. The schema serialises the flag as `immutable`; a form built with `useMartisForm({ context: 'update' })` (see [Tool fields](tool-fields.md)) resolves it the same way, and a custom input registered for the field type receives the field with `readonly: true`. A field inside a `Repeater` row is not affected: the Repeater writes its rows as one value, so only an immutable `Repeater` as a whole is skipped on update. Up to v1.37.3 every form rendered an immutable field as an editable input, and the update dropped the new value silently.
+
+The input locks only as far as it honours `readonly`. The `Avatar`, `BooleanGroup` and `Repeater` inputs ignore it, and the `File` / `Image` inputs keep their remove button and drop zone, so on those types an update form still accepts a change that the update then ignores.
 
 The pivot endpoints write the pivot row without going through `fill()`, so they apply `readonly()` themselves as well: a readonly pivot field (in the `fields()` of a `BelongsToMany` / `MorphToMany`) never takes its value from the request. The attach stores its `default()` instead, as it does for any pivot field the request omits, and the pivot update leaves the column alone. See [Relationships → With Pivot Fields](relationships.md#with-pivot-fields).
 

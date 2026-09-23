@@ -57,3 +57,29 @@ it('gates the dependsOn sync: disabled when syncDisabled or no resourceKey, enab
   renderHook(() => useMartisForm({ fields, context: 'create' }))
   expect(depsSpy.mock.calls[0][0].disabled).toBe(true)
 })
+
+it('resolves an immutable field as readonly on an update form only', () => {
+  const code = { type: 'text', attribute: 'code', label: 'Code', readonly: false, immutable: true } as unknown as FieldDefinition
+
+  const update = renderHook(() => useMartisForm({ fields: [code], context: 'update' }))
+  expect(update.result.current.resolvedFields[0]!.readonly).toBe(true)
+  expect(update.result.current.fieldProps(update.result.current.resolvedFields[0]!).field.readonly).toBe(true)
+
+  const create = renderHook(() => useMartisForm({ fields: [code], context: 'create' }))
+  expect(create.result.current.resolvedFields[0]!.readonly).toBe(false)
+})
+
+it('keeps an immutable field readonly on an update form after a dependsOn sync', () => {
+  const code = {
+    type: 'text', attribute: 'code', label: 'Code', readonly: false, immutable: true, dependsOn: { fields: ['title'] },
+  } as unknown as FieldDefinition
+  // A sync-field response carries the flags the way the schema does.
+  const overrides = new Map([['code', { ...code, placeholder: 'Synced' }]])
+  depsSpy.mockImplementation(() => overrides)
+  try {
+    const { result } = renderHook(() => useMartisForm({ fields: [code], resourceKey: 'projects', context: 'update' }))
+    expect(result.current.resolvedFields[0]).toMatchObject({ placeholder: 'Synced', readonly: true })
+  } finally {
+    depsSpy.mockImplementation(() => new Map())
+  }
+})

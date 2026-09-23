@@ -10,6 +10,7 @@ import { Pagination } from '@/components/Pagination'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
 import { recordHref } from '@/lib/recordHref'
 import { useModalHistoryLock } from '@/lib/historyLock'
+import { lockImmutableFields } from '@/lib/lockImmutableFields'
 import { pivotRowActions } from '@/lib/relationRowActions'
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@/contexts/ToastContext'
@@ -1082,6 +1083,9 @@ export function EditPivotModal({
   onCancel: () => void
 }) {
   const { t: tAct } = useTranslation('actions')
+  // The pivot update skips an `immutable()` pivot field, so it renders
+  // read-only here (the attach form keeps it editable).
+  const fields = useMemo(() => lockImmutableFields(pivotFields), [pivotFields])
 
   useModalHistoryLock(true)
 
@@ -1145,7 +1149,7 @@ export function EditPivotModal({
         </div>
 
         <div className="martis-modal-body space-y-4">
-          {pivotFields.map((pf) => {
+          {fields.map((pf) => {
             const isRequired = !!(pf as unknown as { required?: boolean }).required
             const fieldError = fieldErrors[pf.attribute]
             return (

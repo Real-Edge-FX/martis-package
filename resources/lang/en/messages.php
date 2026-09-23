@@ -51,7 +51,7 @@ return [
     'slug_taken' => 'Already taken',
     'slug_reserved_short' => 'Reserved',
     'slug_apply_suggestion' => 'Apply this suggestion',
-    'slug_locked' => 'Locked — editing disabled after publish',
+    'slug_locked' => 'Locked — editing disabled',
     // Password field + PasswordConfirmation
     'password_leave_blank_hint' => 'Leave blank to keep current',
     'password_show' => 'Show password',

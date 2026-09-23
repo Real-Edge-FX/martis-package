@@ -300,6 +300,11 @@ export interface FieldDefinition {
   type: FieldType
   nullable: boolean
   readonly: boolean
+  /**
+   * Writable on create, skipped on update (PHP `Field::immutable()`). The
+   * update forms render the field read-only, as for `readonly`.
+   */
+  immutable?: boolean
   required: boolean
   sortable: boolean
   searchable: boolean

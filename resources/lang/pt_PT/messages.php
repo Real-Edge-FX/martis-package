@@ -51,7 +51,7 @@ return [
     'slug_taken' => 'Já existe',
     'slug_reserved_short' => 'Reservado',
     'slug_apply_suggestion' => 'Usar esta sugestão',
-    'slug_locked' => 'Bloqueado — edição desativada após publicação',
+    'slug_locked' => 'Bloqueado — edição desativada',
     // Password + PasswordConfirmation
     'password_leave_blank_hint' => 'Deixe em branco para manter a actual',
     'password_show' => 'Mostrar palavra-passe',
