@@ -84,8 +84,8 @@ export const DrawerShell = R.DrawerShell
 export const Tooltip = R.Tooltip
 
 // PrimeReact filter controls + `react-dom`'s portal (on the runtime since
-// v1.29.0). The controls Martis's own filters use, and a portal for
-// overlays, since the React shim is React core only.
+// v1.29.0). The controls Martis's own filters use, and the host's portal for
+// overlays, which the `react-dom` shim (v1.38.0+) re-exports as well.
 export const Dropdown = R.Dropdown
 export const MultiSelect = R.MultiSelect
 export const createPortal = R.createPortal

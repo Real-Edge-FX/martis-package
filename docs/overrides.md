@@ -815,7 +815,7 @@ Use the `martis:component` artisan command to scaffold an override TSX (alias: `
 >
 > The PHP `Override('status-badge')` / `Override('status-badge-input')` strings match what `martis:component --type=field StatusBadge` produces. No manual `OVERRIDE_KEYS` extension required since v1.10.1.
 >
-> **Recommendation**: when you want a brand-new field type with matching PHP class, prefer `martis:field <Name>` — that generator writes the PHP Field subclass too and routes the component through the bundle's `fields/` bucket, which registers it as the display and input of the field type the PHP class declares (`field:display:{kebab}` / `field:input:{kebab}`) instead of under the bare `{kebab}`. Use `martis:component --type=field` only when you want to override the visual of an existing field (Text, Select, etc.) without introducing a new PHP field.
+> **Recommendation**: when you want a brand-new field type with matching PHP class, prefer `martis:field <Name>`: that generator writes the PHP Field subclass too and routes the component through the bundle's `fields/` bucket, which registers it as the display and input of the field type the PHP class declares (`field:display:{kebab}` / `field:input:{kebab}`) instead of under the bare `{kebab}`. Use `martis:component --type=field` only when you want to override the visual of an existing field (Text, Select, etc.) without introducing a new PHP field.
 
 | `--type` | Stub source |
 |----------|-------------|
@@ -855,7 +855,7 @@ The command:
 3. For `--type=generic` and `--type=field` the user-supplied name becomes the filename; the bundle's auto-discovery loop derives `{kebab(name)}` (and `{kebab(name)}-input` for the field-shape pair) and registers each half automatically. v1.10.1+.
 4. Shell stubs document the exact props the shell injects (collapsed state, mobile drawer callbacks, navigation payload from `/api/navigation`) so you can skip reading the source. The sidebar stub types that payload with `NavigationGroup` / `NavigationItem` from `@martis/runtime` and lists the items of a nested menu group (`type: 'group'`) under its label (v1.38.0; the v1.9.3 stub drew such a group as a link).
 
-> **`martis:component --type=field` only scaffolds TSX.** To create a brand-new field type with matching PHP class + React display/input, use `php artisan martis:field <Name>` instead — that command writes both `app/Martis/Fields/<Name>Field.php` and `resources/js/martis-extensions/fields/<Name>.tsx`. Use `martis:component --type=field` when you just want to override the *visual* of an existing field (Text, Badge, etc.) without introducing a new PHP field.
+> **`martis:component --type=field` only scaffolds TSX.** To create a brand-new field type with matching PHP class + React display/input, use `php artisan martis:field <Name>` instead: that command writes both `app/Martis/Fields/<Name>Field.php` and `resources/js/martis-extensions/fields/<Name>.tsx`. Use `martis:component --type=field` when you just want to override the *visual* of an existing field (Text, Badge, etc.) without introducing a new PHP field.
 
 **Arguments:**
 

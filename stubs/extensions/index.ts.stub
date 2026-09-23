@@ -81,7 +81,7 @@ if (registry === undefined) {
   // eslint-disable-next-line no-console
   console.error('[martis-extensions] window.Martis.componentRegistry not available — Martis app.tsx must run before this bundle.')
 } else {
-  // Tools — `tools/Charts.tsx` → "tool:charts"
+  // Tools: `tools/Charts.tsx` → "tool:charts"
   const tools = import.meta.glob<{default: unknown}>('./tools/*.tsx', {eager: true})
   for (const [path, mod] of Object.entries(tools)) {
     const name = basename(path)
@@ -89,7 +89,7 @@ if (registry === undefined) {
     if (mod.default !== undefined) registry.register(key, mod.default)
   }
 
-  // Cards — `cards/RevenueGauge.tsx` → "card:revenue-gauge"
+  // Cards: `cards/RevenueGauge.tsx` → "card:revenue-gauge"
   const cards = import.meta.glob<{default: unknown}>('./cards/*.tsx', {eager: true})
   for (const [path, mod] of Object.entries(cards)) {
     const name = basename(path)
@@ -97,7 +97,7 @@ if (registry === undefined) {
     if (mod.default !== undefined) registry.register(key, mod.default)
   }
 
-  // Fields — `fields/PriceTag.tsx` is the `price-tag` field type, the
+  // Fields: `fields/PriceTag.tsx` is the `price-tag` field type, the
   // `type()` of the PHP class `martis:field PriceTag` writes. Its `Display`
   // and `Input` named exports (or its default export, for both) are that
   // type's display and input, under the keys the field renderer resolves
@@ -115,7 +115,7 @@ if (registry === undefined) {
     if (input !== undefined) registry.register(`field:input:${type}`, input)
   }
 
-  // Overrides — two paths:
+  // Overrides, two paths:
   //
   //   (a) Layout / auth slots: filename matches a fixed entry in
   //       OVERRIDE_KEYS above and registers under the canonical key
