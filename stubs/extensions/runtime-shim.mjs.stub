@@ -89,6 +89,9 @@ export const Tooltip = R.Tooltip
 export const Dropdown = R.Dropdown
 export const MultiSelect = R.MultiSelect
 export const createPortal = R.createPortal
+// `react-dom`'s synchronous flush (v1.38.2+), which the `react-dom` shim
+// re-exports for the libraries that import it (`@tanstack/react-virtual`).
+export const flushSync = R.flushSync
 
 // Relation parent provider (v1.38.0+). Names the record whose related
 // records the relationship panels inside list, when the page URL does not

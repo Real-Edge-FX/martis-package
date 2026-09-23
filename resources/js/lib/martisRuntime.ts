@@ -63,7 +63,7 @@ import { DrawerShell } from '@/components/overrides/DrawerShell'
 import { Tooltip } from 'primereact/tooltip'
 import { Dropdown } from 'primereact/dropdown'
 import { MultiSelect } from 'primereact/multiselect'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import { useToolFields } from '@/hooks/useToolFields'
 import { useRevalidateOnFocus } from '@/hooks/useRevalidateOnFocus'
@@ -252,6 +252,11 @@ export const martisRuntime = {
   Dropdown,
   MultiSelect,
   createPortal,
+  // `react-dom`'s synchronous flush (since v1.38.2), the host's like
+  // `createPortal`: third-party libraries import it from `react-dom` (the
+  // list virtualiser `@tanstack/react-virtual` calls it while scrolling),
+  // and the consumer's `react-dom` shim re-exports it.
+  flushSync,
 
   // 3rd-party re-exports — consumers don't need to npm install these.
   // Saves ~150 KB across the typical override stub graph and lets us

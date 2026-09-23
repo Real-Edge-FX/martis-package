@@ -223,17 +223,21 @@ put(LIBRARY_TYPES_PROBE, [
 
 /**
  * What an extension can take from `react-dom`: the build sends it to a shim
- * that carries the runtime's `createPortal` only, so tsc has to refuse the
- * rest of the module (`flushSync`) instead of reading `@types/react-dom`.
+ * that carries the runtime's `createPortal` and `flushSync` only, so tsc has
+ * to take those (a library such as `@tanstack/react-virtual` imports
+ * `flushSync`) and refuse the rest of the module (`unstable_batchedUpdates`)
+ * instead of reading `@types/react-dom`.
  */
 const REACT_DOM_PROBE = `${EXT}/tools/ReactDomProbe.tsx`
 put(REACT_DOM_PROBE, [
-    "import ReactDOM, { createPortal } from 'react-dom'",
-    '// @ts-expect-error the react-dom shim carries createPortal only',
-    "import { flushSync } from 'react-dom'",
+    "import ReactDOM, { createPortal, flushSync } from 'react-dom'",
+    '// @ts-expect-error the react-dom shim carries createPortal and flushSync only',
+    "import { unstable_batchedUpdates } from 'react-dom'",
     '',
     'export default function ReactDomProbe() {',
-    '  void flushSync',
+    '  void unstable_batchedUpdates',
+    '  flushSync(() => {})',
+    '  ReactDOM.flushSync(() => {})',
     '  return ReactDOM.createPortal(createPortal(<span />, document.body), document.body)',
     '}',
     '',

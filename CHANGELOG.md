@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.38.2] — 2026-09-23
+
+### Fixed
+
+- **An extension using `@tanstack/react-virtual` (or any library that imports `flushSync` from `react-dom`) no longer built.** The `react-dom` shim of v1.38.0 re-exported the runtime's `createPortal` only, so the build stopped with `"flushSync" is not exported by ".shims/react-dom.mjs"`; `@tanstack/react-virtual`, the usual list virtualiser, imports it at the top of its entry and calls it while scrolling. With v1.37.3 `react-dom` went to the React shim, where a consumer could add a `flushSync` of its own. The runtime now carries the host's `flushSync` next to `createPortal` (`window.Martis.runtime.flushSync`), the runtime shim and the `react-dom` shim export it (named and on the default export) and the declarations type it, so a synchronous flush runs on the host's React DOM like a portal does; any other `react-dom` name still fails the build and `tsc`. Republish the shims to take it (`php artisan vendor:publish --tag=martis-extension-shims --force`). The runtime contract, shim and type-check tests cover it. See [Installation → Refreshing the extension scaffold after an upgrade](docs/installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade).
+
 ## [1.38.1] — 2026-09-23
 
 ### Changed

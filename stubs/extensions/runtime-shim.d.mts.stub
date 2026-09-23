@@ -10,8 +10,8 @@
 import * as react_jsx_runtime from 'react/jsx-runtime';
 import * as React$1 from 'react';
 import { ReactNode, JSX as JSX$1, ComponentType } from 'react';
-import { createPortal } from './react-dom.mjs';
-export { createPortal } from './react-dom.mjs';
+import { createPortal, flushSync } from './react-dom.mjs';
+export { createPortal, flushSync } from './react-dom.mjs';
 import { IconProps } from '@phosphor-icons/react';
 import * as ReactRouterDom from './react-router-dom.mjs';
 export { Link, NavLink, Navigate, Outlet, useLocation, useNavigate, useParams, useSearchParams } from './react-router-dom.mjs';
@@ -5633,6 +5633,7 @@ declare const martisRuntime: {
     readonly Dropdown: typeof Dropdown;
     readonly MultiSelect: typeof MultiSelect;
     readonly createPortal: typeof createPortal;
+    readonly flushSync: typeof flushSync;
     readonly reactRouterDom: typeof ReactRouterDom;
     readonly reactI18next: typeof ReactI18next;
     readonly tanstackReactQuery: typeof TanstackReactQuery;
