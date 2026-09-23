@@ -486,6 +486,36 @@ export function StatusSelect({ field, value, onChange, error }: FieldInputProps)
 
 If you opted out of the Tailwind preset, the same effect works with inline styles (`style={{ color: 'var(--martis-danger)' }}`) or the bundled helper classes (`.martis-text`, `.martis-border`). Either way, **don't hard-code colours like `bg-red-500`** — they don't follow the active theme.
 
+**`value` can change after the input mounts.** The edit forms (the update page and the update drawer) mount the fields once the record has filled the form, so an input gets the stored value on its first render. The value can still change under a mounted input: "Create & add another" clears the form for the next record, and a replicated record fills the create form after its fields mounted. Render from `value` where you can. An input that keeps its own state (rows, a selection, a preview) has to adopt a `value` it did not emit itself, and keep its state when the form hands back what it just emitted:
+
+```typescript
+import { useEffect, useRef, useState } from 'react'
+
+const toChips = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : [])
+
+export function ChipsInput({ value, onChange }: FieldInputProps) {
+  const [chips, setChips] = useState(() => toChips(value))
+  // The last value this input handed to `onChange`.
+  const emitted = useRef<unknown>(value)
+
+  useEffect(() => {
+    if (value === emitted.current) return // the form handing back our own value
+    emitted.current = value // a value from outside: the record, a cleared form
+    setChips(toChips(value))
+  }, [value])
+
+  function emit(next: string[]) {
+    emitted.current = next
+    setChips(next)
+    onChange(next)
+  }
+
+  // ... render `chips`, call `emit(...)` on every edit
+}
+```
+
+The bundled `KeyValue`, `Tag`, `Avatar`, `BelongsTo` and `Repeater` inputs follow this pattern, and `Slug` uses it to follow its source again once the form clears it. When the fields inside your input can emit while they mount (a slug generating itself from a default), compare during render instead of in an effect, as `Repeater` does: child effects run before the parent's.
+
 ## 5.A Composing native field components (v1.14.0+)
 
 The two sections above show how to **replace** a field renderer. The opposite direction — **composing** the canonical Martis field renderer from inside your own custom component (a custom Action component, a Tool, a Card) — is supported via the consumer-extension runtime.

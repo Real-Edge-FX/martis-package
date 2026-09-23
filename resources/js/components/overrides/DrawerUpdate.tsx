@@ -202,7 +202,9 @@ export function DrawerUpdate(props: OverrideProps) {
     updateMutation.mutate(updatePayload(values))
   }
 
-  const isLoading = !activeRecord || recordQuery.isLoading
+  // The record seeds `values` in an effect; the fields mount only after it,
+  // so every input starts from the stored value.
+  const isLoading = !activeRecord || recordQuery.isLoading || !initialized
   const title = `${tAct('edit')} ${schema.singularLabel}`
   const subtitle = (params.subtitle as string) ?? schema.subtitle ?? null
   const icon = params.showIcon ? (params.icon as string) || schema.icon || null : null

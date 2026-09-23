@@ -1366,7 +1366,7 @@ Slug::make('slug')
 - `isLockedFor(?Model $model): bool` — Query the lock condition directly.
 
 **⭐ Martis extensions (UI, automatic):**
-- **Live preview** — the React input regenerates the slug as the user types in the source field (i18n-aware transliteration).
+- **Live preview** — the React input regenerates the slug as the user types in the source field (i18n-aware transliteration), until the slug is edited by hand. On an edit form (the update page or the update drawer) a stored slug counts as set: changing the source leaves it alone, so renaming a record does not silently change its URL. Edit the slug directly, or clear it (a `nullable()` slug shows a clear button) to regenerate it from the source and follow it again.
 - **Live collision detection** — debounced probe against
   `GET /martis/api/resources/{resource}/slug-check/{field}?value=…&id=…`.
   Response envelope:

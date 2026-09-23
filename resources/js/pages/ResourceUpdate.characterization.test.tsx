@@ -20,8 +20,9 @@ import { ToastProvider } from '@/contexts/ToastContext'
  *   2. context: 'update' — the record is fetched with `?context=update` and the
  *      update source of fields (`fieldsForUpdate`) is what gets rendered.
  *   3. An immutable field (readonly on update) renders disabled and stays so.
- *   4. Slug-from-source works starting from a PRE-FILLED record: editing the
- *      source field re-generates the slug through the shared form values.
+ *   4. Slug-from-source on a PRE-FILLED record: the stored slug stays when the
+ *      source field changes (the fields mount with the record's values, so
+ *      the slug counts as set); clearing it regenerates it from the source.
  *
  * Mocks:
  *   - `@/lib/api` is partially mocked (real module + spied `get`/`put`).
@@ -50,12 +51,23 @@ vi.mock('@/lib/api', async (importOriginal) => {
   }
 })
 
+import { useState } from 'react'
 import { ResourceUpdatePage } from '@/pages/ResourceUpdate'
 import { registerDefaultFields } from '@/components/fields/FieldRenderer'
+import { componentRegistry } from '@/lib/componentRegistry'
+import type { FieldInputProps } from '@/components/fields/types'
 
 // FieldInput resolves its concrete component through the global registry, so
 // the default field components must be registered (app.tsx does this at boot).
 registerDefaultFields()
+
+// A custom input (registered the way a consumer registers one) that reads its
+// value once, at mount, the way many third-party inputs do.
+function MountValueProbe({ value }: FieldInputProps) {
+  const [mounted] = useState(() => String(value ?? ''))
+  return <span data-testid="mount-probe">{mounted}</span>
+}
+componentRegistry.registerFieldInput('mount_probe', MountValueProbe)
 
 // ---------------------------------------------------------------------------
 // Field fixtures — referentially stable (module constants), matching how the
@@ -186,9 +198,52 @@ describe('ResourceUpdatePage — pre-filled record values', () => {
 })
 
 describe('ResourceUpdatePage — inputs that keep their own state', () => {
-  // The page renders the fields before it seeds the form from the record (an
-  // effect on the next pass), so an input that copies its value into local
-  // state has to adopt the value that arrives after mount.
+  // The page mounts the fields once the record has seeded the form, so an
+  // input that copies its value into local state at mount (a custom one
+  // included) starts from the stored value.
+  it('mounts the fields with the record values', async () => {
+    mockSchemaAndRecord([baseField({ attribute: 'notes', label: 'Notes', type: 'mount_probe' })], {
+      id: 1,
+      notes: 'Stored notes',
+    } as unknown as ResourceRecord)
+
+    renderUpdatePage()
+
+    const probe = await screen.findByTestId('mount-probe')
+    expect(probe.textContent).toBe('Stored notes')
+  })
+
+  it('shows the stored tags of a Tag field and keeps them when one is added', async () => {
+    mockSchemaAndRecord([baseField({ attribute: 'tags', label: 'Tags', type: 'tag', relatedResource: 'tags' })], {
+      id: 1,
+      tags: [{ id: 1, title: 'php' }, { id: 2, title: 'laravel' }],
+    } as unknown as ResourceRecord)
+    const recordFetch = apiGetMock.getMockImplementation()!
+    apiGetMock.mockImplementation((path: string) =>
+      path.includes('/relatable/tags')
+        ? Promise.resolve({ data: [{ id: 1, _title: 'php' }, { id: 2, _title: 'laravel' }, { id: 3, _title: 'react' }] })
+        : recordFetch(path),
+    )
+    apiPutMock.mockReturnValue(new Promise(() => {}))
+
+    renderUpdatePage()
+
+    expect(await screen.findByText('php')).toBeTruthy()
+    expect(screen.getByText('laravel')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Tags' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'react' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() => expect(apiPutMock).toHaveBeenCalled())
+    const [, body] = apiPutMock.mock.calls[0] as [string, Record<string, unknown>]
+    expect(body.tags).toEqual([
+      { id: 1, title: 'php' },
+      { id: 2, title: 'laravel' },
+      { id: 3, title: 'react' },
+    ])
+  })
+
   it('shows the stored rows of a KeyValue field', async () => {
     mockSchemaAndRecord([baseField({ attribute: 'metadata', label: 'Metadata', type: 'key_value' })], {
       id: 1,
@@ -280,9 +335,8 @@ describe('ResourceUpdatePage — immutable field', () => {
 
     renderUpdatePage()
 
-    // Wait for the record pre-fill to seed the value, not merely for the input
-    // to mount — the input renders as soon as the schema loads, but its value
-    // is populated later by the record query + setValues (racy otherwise).
+    // Wait for the record pre-fill: the fields mount once both queries have
+    // resolved and the record has seeded the form.
     await waitFor(() => {
       const el = document.getElementById('uuid') as HTMLInputElement | null
       expect(el?.value).toBe('abc-123')
@@ -297,8 +351,8 @@ describe('ResourceUpdatePage — immutable field', () => {
 // ---------------------------------------------------------------------------
 
 describe('ResourceUpdatePage — slug auto-generation from a pre-filled record', () => {
-  it('re-generates the slug when the source (title) changes on an existing record', async () => {
-    mockSchemaAndRecord([titleField, slugField], {
+  async function loadTitleAndSlug(slug: FieldDefinition) {
+    mockSchemaAndRecord([titleField, slug], {
       id: 1,
       title: 'Old Title',
       slug: 'old-title',
@@ -313,12 +367,25 @@ describe('ResourceUpdatePage — slug auto-generation from a pre-filled record',
     })
     const slugInput = screen.getByTestId('slug-input-slug') as HTMLInputElement
     expect(slugInput.value).toBe('old-title')
+    return { titleInput, slugInput }
+  }
 
-    // Editing the source field re-slugifies through the shared form values.
+  it('keeps the stored slug when the source (title) changes on an existing record', async () => {
+    const { titleInput, slugInput } = await loadTitleAndSlug(slugField)
+
     fireEvent.change(titleInput, { target: { value: 'Brand New' } })
 
-    await waitFor(() => {
-      expect(slugInput.value).toBe('brand-new')
-    })
+    await waitFor(() => expect(titleInput.value).toBe('Brand New'))
+    expect(slugInput.value).toBe('old-title')
+  })
+
+  it('regenerates a cleared slug from the source and follows it again', async () => {
+    const { titleInput, slugInput } = await loadTitleAndSlug({ ...slugField, nullable: true } as FieldDefinition)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    await waitFor(() => expect(slugInput.value).toBe('old-title'))
+
+    fireEvent.change(titleInput, { target: { value: 'Brand New' } })
+    await waitFor(() => expect(slugInput.value).toBe('brand-new'))
   })
 })

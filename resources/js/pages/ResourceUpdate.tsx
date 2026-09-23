@@ -66,7 +66,8 @@ export function ResourceUpdatePage() {
   // `initialized` flips true once the record has hydrated the form. Declared
   // before useMartisForm so we can gate the server dependsOn sync on it —
   // preserving the pre-refactor `disabled: !resource || !initialized` behaviour
-  // (no sync-field round-trip with empty form data on mount).
+  // (no sync-field round-trip with empty form data on mount). The fields
+  // themselves only mount once it is true (see the render below).
   const [initialized, setInitialized] = useState(false)
   const form = useMartisForm({
     fields: allFormFields,
@@ -275,6 +276,11 @@ export function ResourceUpdatePage() {
       return <C {...overrideProps} />
     }
   }
+
+  // The record seeds the form in an effect after the queries resolve. Mount
+  // the fields only then, so every input starts from the stored value (an
+  // input that reads its value at mount would otherwise see an empty form).
+  if (!initialized) return <FormSkeleton />
 
   // Back link: go to parent detail when via HasMany, otherwise to record detail
   const backLink = isViaHasMany
