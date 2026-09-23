@@ -330,13 +330,17 @@ Up to v1.37.3 the relationship endpoints validated less. The pivot update kept s
 
 ### Immutable fields
 
-`immutable()` flags a field as **writable on create, readonly on update**. The controller silently skips the fill on update (the request is accepted, the column is not mutated). The schema also exposes the flag so the frontend can render the input as disabled on the edit page.
+`immutable()` flags a field as **writable on create, readonly on update**. On update the field is skipped silently: the request is accepted, the other fields are written and the column keeps its stored value. This holds on every endpoint that updates a record through its resource's fields: the resource's own PUT and the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne` from the parent's detail page. The resource's own POST and the inline creates write the value. A value the update sends still runs the field's rules, like any other field (see [What an update validates](#what-an-update-validates)).
 
 ```php
 Text::make('slug')->immutable()->required();
 ```
 
 Common cases: slugs, account numbers, document references.
+
+The schema exposes the flag as `immutable`, but the bundled field components do not read it yet: the edit form still renders an editable input, and the update ignores the value it sends. Pivot fields (the `fields()` of a `BelongsToMany` / `MorphToMany`) do not honour `immutable()`: the pivot update writes every pivot value the request sends.
+
+Up to v1.37.3 only the resource's own update skipped an immutable field: the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne` wrote it like any other field.
 
 ### Reactive fields — `dependsOn(['field'], Closure)`
 

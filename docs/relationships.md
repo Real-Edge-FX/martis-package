@@ -237,6 +237,8 @@ BelongsToMany::make('Tags', 'tags')
 
 Pivot fields validate with their own rules, like any field: the attach runs `rules()` plus `creationRules()`, and the pivot update runs `rules()` plus `updateRules()` with the literal `required` dropped and `sometimes` first, so a pivot field the update does not send is left alone. Rule objects (`Rule::in()`, `Rule::unique()`), `ValidationRule` instances and closures run on both. See [Fields → What an update validates](fields.md#what-an-update-validates).
 
+Pivot values are written as the request sends them: a pivot field does not honour `immutable()`, so the pivot update overwrites it. See [Fields → Immutable fields](fields.md#immutable-fields).
+
 ### Full Configuration
 
 ```php
@@ -596,6 +598,7 @@ The hardening pass codified the contract every relationship surface guarantees. 
 | 404 on unknown parent / record / relationship | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 422 on missing required input | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Field rules run as on the resource endpoint (rule objects, `ValidationRule`s, closures, `creationRules()` / `updateRules()`) | ✅ | ✅ | ✅ (pivot fields) | ✅ | ✅ | ✅ (pivot fields) |
+| `immutable()` fields written on create, skipped on update, as on the resource endpoint | ✅ | ✅ | ❌ (pivot fields) | ✅ | ✅ | ❌ (pivot fields) |
 | Pivot data round-trip on attach + index + update | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Authorization — `authorizedToCreate` / view / detach respected | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
@@ -688,6 +691,7 @@ Per-type feature tests:
 - `tests/Feature/PivotActionControllerTest.php` (8)
 - `tests/Feature/RelationshipsHardeningTest.php` (8) — multi-relation isolation, `relatableQueryUsing`, `relatable{PluralModelName}`, detach idempotency, search.
 - `tests/Feature/RelationshipFieldRulesTest.php` (61) — every kind of field rule and the context rules on each write endpoint, next to the resource endpoint they match.
+- `tests/Feature/RelationshipImmutableFieldsTest.php` (10) — `immutable()` on each inline create and update, next to the resource endpoint they match.
 
 ---
 

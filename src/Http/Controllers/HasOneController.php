@@ -555,8 +555,17 @@ class HasOneController extends MartisController
      */
     private function fillFields(Request $request, array $fields, Model $model): void
     {
+        // The related record exists on update and is a fresh model on create.
+        $isUpdate = $model->exists;
+
         foreach ($fields as $field) {
             $attr = $field->attribute();
+
+            // Immutable fields are writable on create and silently skipped
+            // on update, as ResourceController::fillFields() does.
+            if ($isUpdate && $field instanceof Field && $field->isImmutable()) {
+                continue;
+            }
 
             if ($request->hasFile($attr)) {
                 $field->fill($model, $request->file($attr));
