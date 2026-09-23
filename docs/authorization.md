@@ -173,7 +173,10 @@ Every dashboard primitive supports a `canSee(Closure)` callback.
   `authorizedToCreate` / `authorizedToViewAny` flags **derived from the
   target resource's policy**. The inline "Create Related" button is
   automatically hidden when the current user cannot create the target
-  resource, independent of the `showCreateRelationButton()` toggle.
+  resource, independent of the `showCreateRelationButton()` toggle. A
+  `MorphTo` flags each of its types, and its button follows the type the
+  operator picked (v1.38.0+; before, it showed for every type as soon as
+  one was creatable).
 - `BelongsToMany` / `MorphToMany` attach: `attachAny{Model}`
   (`authorizedToAttachAny()`) gates the attach as a whole. When it
   denies, the list of records to attach (`.../attachable`), the attach

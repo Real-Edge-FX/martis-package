@@ -23,6 +23,8 @@ interface MorphToValue {
 interface MorphTypeOption {
   value: string // resource URI key
   label: string // singular label
+  /** The related resource's policy allows the user to create a record of this type. */
+  authorizedToCreate?: boolean
 }
 
 function isMorphToValue(v: unknown): v is MorphToValue {
@@ -425,10 +427,13 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
   }
 
   const hideCreateButton = (field as unknown as Record<string, unknown>).hideCreateButton === true
-  // A readonly field (an `immutable()` one on an update form) keeps its
-  // value, so it offers no inline create either.
+  const selectedTypeOption = morphTypes?.find(t => t.value === selectedType)
+  // `showCreateRelationButton` holds when the user can create any of the
+  // types; each type carries its own flag. A readonly field (an `immutable()`
+  // one on an update form) keeps its value, so it offers no inline create.
   const canShowCreateButton = showCreateRelationButton && !!selectedType && !hideCreateButton && !field.readonly
-  const selectedTypeLabel = morphTypes?.find(t => t.value === selectedType)?.label ?? selectedType
+    && selectedTypeOption?.authorizedToCreate !== false
+  const selectedTypeLabel = selectedTypeOption?.label ?? selectedType
 
   return (
     <div ref={containerRef} className="space-y-2">

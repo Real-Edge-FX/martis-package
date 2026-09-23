@@ -2335,7 +2335,7 @@ Since v1.38.0 the update page and the update drawer send the MorphTo map as is. 
 
 **Inline create**
 
-Inline create is per-type — the create button appears only after the operator picks a type. Nesting is limited to one level (no inline create inside an inline create). A readonly MorphTo (a `readonly()` field, an `immutable()` one on an update form) offers no create button (v1.38.0+; before, the button stayed live and created a record the save then dropped). The related resource's `fieldsForInlineCreate()` controls which fields show; falls back to `fieldsForCreate()`.
+Inline create is per-type — the create button appears only after the operator picks a type. Nesting is limited to one level (no inline create inside an inline create). A readonly MorphTo (a `readonly()` field, an `immutable()` one on an update form) offers no create button (v1.38.0+; before, the button stayed live and created a record the save then dropped). The button shows only for a type the user may create: each `morphTypes` entry of the schema carries that type's `authorizedToCreate`, and `showCreateRelationButton` holds as soon as one type is creatable (v1.38.0+; before, every type showed the button, and the modal of a type the user cannot create failed with a 403 on its schema). The related resource's `fieldsForInlineCreate()` controls which fields show; falls back to `fieldsForCreate()`.
 
 **Toolbar controls (inherited)**
 
