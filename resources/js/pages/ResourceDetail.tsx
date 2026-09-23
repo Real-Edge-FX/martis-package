@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
@@ -38,6 +38,19 @@ export function ResourceDetailPage() {
   const [showRestore, setShowRestore] = useState(false)
   const [activeAction, setActiveAction] = useState<ActionMeta | null>(null)
   const [actionDrawer, setActionDrawer] = useState<{ type: "create" | "detail" | "update"; resource: string; recordId?: string | number } | null>(null)
+
+  // The router keeps this page when the URL moves to another record (the
+  // command palette opens over any confirmation). The drawers follow the
+  // record in the URL, but a confirmation or the action modal belongs to the
+  // record it was opened for: left open, confirming it would delete, restore
+  // or run the action on the new record.
+  useEffect(() => {
+    setShowDelete(false)
+    setShowForceDelete(false)
+    setShowRestore(false)
+    setActiveAction(null)
+  }, [resource, id])
+
   const { t: tAct } = useTranslation("actions")
   const { t: tMsg } = useTranslation("messages")
 
