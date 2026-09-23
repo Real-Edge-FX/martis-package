@@ -1821,7 +1821,7 @@ BelongsToMany::make('Tags', 'tags', TagResource::class)
         Date::make('expires_at', 'Expires At')->nullable(),
     ])
     ->actions(fn () => [
-        // Pivot actions defined here
+        ExtendExpiry::make(), // runs on the selected rows, see actions.md § Pivot Actions
     ])
     ->perPage(15)
     ->canAttach(true)
@@ -1833,7 +1833,7 @@ BelongsToMany::make('Tags', 'tags', TagResource::class)
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource. | inferred from relationship |
 | `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Attribute on related model for display label. | `'name'` |
 | `fields` | `fields(Closure(): list<Field>): static` | `$this` | Define pivot fields (stored on the pivot table). | `null` |
-| `actions` | `actions(Closure(): list<mixed>): static` | `$this` | Define pivot actions for attached records. | `null` |
+| `actions` | `actions(Closure(Request): list<Action>): static` | `$this` | Pivot actions for this relationship's panel only; `handle()` receives the selected attached records, each with its `pivot` row. See [Actions → Pivot Actions](actions.md#pivot-actions). | `null` |
 | `searchable` | `searchable(bool $value = true): static` | `$this` | Enable search in the attach modal. | `false` |
 | `collapsable` | `collapsable(bool $value = true): static` | `$this` | Make the panel collapsable. | `false` |
 | `collapsedByDefault` | `collapsedByDefault(bool $value = true): static` | `$this` | Start the panel collapsed. Implies `collapsable`. | `false` |
@@ -2328,8 +2328,9 @@ All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited �
 **File:** `src/Fields/MorphToMany.php`
 
 Polymorphic many-to-many relationship (`morphToMany`). Same pivot UI as
-`BelongsToMany` — DataTable, attach/detach, pivot fields, search, sort,
-per-page, pagination — via `RelationshipTableShell`. Detail-only by default.
+`BelongsToMany` — DataTable, attach/detach, pivot fields, pivot actions,
+search, sort, per-page, pagination — via `RelationshipTableShell`.
+Detail-only by default.
 
 ```php
 use Martis\Fields\MorphToMany;
@@ -2348,7 +2349,7 @@ MorphToMany::make('Tags', 'tags', TagResource::class)
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
 | `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Display attribute on the related model. | `'name'` |
 | `fields` | `fields(Closure $closure): static` | `$this` | Define pivot fields (stored on the morph-pivot table). | — |
-| `actions` | `actions(Closure $closure): static` | `$this` | Define pivot actions for attached records. | — |
+| `actions` | `actions(Closure(Request): list<Action>): static` | `$this` | Pivot actions for this relationship's panel only; `handle()` receives the selected attached records, each with its `pivot` row. See [Actions → Pivot Actions](actions.md#pivot-actions). | — |
 | `searchable` | `searchable(bool $value = true): static` | `$this` | Enable search in the attach modal. | `false` |
 | `collapsable` | `collapsable(bool $value = true): static` | `$this` | Make the panel collapsable. | `false` |
 | `collapsedByDefault` | `collapsedByDefault(bool $value = true): static` | `$this` | Start collapsed. Implies `collapsable`. | `false` |

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
@@ -8,14 +8,14 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay, FieldInput } from '@/components/fields/FieldRenderer'
 import { Pagination } from '@/components/Pagination'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
+import { PivotActionModal } from '@/components/fields/relation/PivotActionModal'
 import { recordHref } from '@/lib/recordHref'
 import { useModalHistoryLock } from '@/lib/historyLock'
 import { lockImmutableFields } from '@/lib/lockImmutableFields'
 import { pivotRowActions } from '@/lib/relationRowActions'
 import { useTranslation } from 'react-i18next'
-import { useToast } from '@/contexts/ToastContext'
 import type { ActionMeta } from '@/components/Actions/ActionModal'
-import { PlusIcon, LinkSimpleIcon, LinkBreakIcon, PencilSimpleIcon, MagnifyingGlassIcon, CaretDownIcon, XIcon, LightningIcon, FloppyDiskIcon, WarningIcon } from '@phosphor-icons/react'
+import { PlusIcon, LinkSimpleIcon, LinkBreakIcon, PencilSimpleIcon, MagnifyingGlassIcon, CaretDownIcon, XIcon, LightningIcon, FloppyDiskIcon } from '@phosphor-icons/react'
 import { DataTable } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 
@@ -106,21 +106,23 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
   const [editTarget, setEditTarget] = useState<{ id: string | number; title?: string; pivot: Record<string, unknown> } | null>(null)
   const [selectedRows, setSelectedRows] = useState<ResourceRecord[]>([])
   const [activePivotAction, setActivePivotAction] = useState<ActionMeta | null>(null)
-  const [pivotDropdownOpen, setPivotDropdownOpen] = useState(false)
-  const pivotDropdownRef = useRef<HTMLDivElement>(null)
+  // One dropdown per pivot label; only the one clicked opens.
+  const [openPivotGroup, setOpenPivotGroup] = useState<string | null>(null)
+  const pivotGroupRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   // Clear selection when parent record changes — stale IDs would confuse pivot actions.
   useEffect(() => {
     setSelectedRows([])
   }, [parentId, parentResource])
 
+  // Listed here; PivotActionModal reads each action's fields and runs it
+  // under the same endpoint, so actions declared on the field resolve too.
+  const pivotActionsUrl = `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/actions`
+
   const pivotActionsQuery = useQuery({
     queryKey: ['pivot-actions', parentResource, parentId, relationship],
     queryFn: ({ signal }) =>
-      api.get<{ data: { actions: ActionMeta[] } }>(
-        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/actions?context=detail`,
-        signal
-      ),
+      api.get<{ data: { actions: ActionMeta[] } }>(`${pivotActionsUrl}?context=detail`, signal),
     enabled: !readOnly && !!parentResource && !!parentId && !!relationship,
   })
 
@@ -129,15 +131,16 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (pivotDropdownRef.current && !pivotDropdownRef.current.contains(e.target as Node)) {
-        setPivotDropdownOpen(false)
+      const openGroup = openPivotGroup === null ? null : pivotGroupRefs.current[openPivotGroup]
+      if (openGroup && !openGroup.contains(e.target as Node)) {
+        setOpenPivotGroup(null)
       }
     }
-    if (pivotDropdownOpen) {
+    if (openPivotGroup !== null) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [pivotDropdownOpen])
+  }, [openPivotGroup])
 
   const detachMutation = useMutation({
     mutationFn: (relatedId: string | number) =>
@@ -196,10 +199,10 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
           <>
             {/* Pivot action dropdowns — one per label group */}
             {hasPivotActions && Object.entries(pivotActionGroups).map(([label, actions]) => (
-              <div key={label} className="relative flex-shrink-0" ref={pivotDropdownRef}>
+              <div key={label} className="relative flex-shrink-0" ref={(el) => { pivotGroupRefs.current[label] = el }}>
                 <button
                   type="button"
-                  onClick={() => setPivotDropdownOpen((o) => !o)}
+                  onClick={() => setOpenPivotGroup((open) => (open === label ? null : label))}
                   className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium flex-shrink-0"
                   style={{
                     backgroundColor: selected.length > 0 ? 'var(--martis-accent)' : 'var(--martis-surface)',
@@ -220,7 +223,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
                   )}
                   <CaretDownIcon size={12} />
                 </button>
-                {pivotDropdownOpen && (
+                {openPivotGroup === label && (
                   <div
                     className="absolute left-0 top-full z-50 mt-1 min-w-[180px] overflow-hidden rounded-lg shadow-lg"
                     style={{
@@ -234,7 +237,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
                         type="button"
                         disabled={selected.length === 0 && !action.standalone}
                         onClick={() => {
-                          setPivotDropdownOpen(false)
+                          setOpenPivotGroup(null)
                           setActivePivotAction(action)
                         }}
                         className="flex w-full items-center gap-2 px-4 py-2.5 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -347,9 +350,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
       {/* Pivot action modal */}
       {activePivotAction && (
         <PivotActionModal
-          parentResource={parentResource}
-          parentId={parentId}
-          relationship={relationship}
+          actionsUrl={pivotActionsUrl}
           action={activePivotAction}
           selectedIds={selectedRows.map((r) => r.id as string | number)}
           onSuccess={() => {
@@ -386,215 +387,6 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
   )
 }
 
-
-// -------------------------------------------------------------------------
-// Pivot Action Modal
-// -------------------------------------------------------------------------
-
-function PivotActionModal({
-  parentResource,
-  parentId,
-  relationship,
-  action,
-  selectedIds,
-  onSuccess,
-  onClose,
-}: {
-  parentResource: string
-  parentId: string
-  relationship: string
-  action: ActionMeta
-  selectedIds: Array<string | number>
-  onSuccess: () => void
-  onClose: () => void
-}) {
-  const { t } = useTranslation('actions')
-  const { addToast } = useToast()
-
-  useModalHistoryLock(true)
-
-  const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({})
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [animVisible, setAnimVisible] = useState(false)
-  const autoExecuted = useRef(false)
-
-  useEffect(() => {
-    requestAnimationFrame(() => setAnimVisible(true))
-    autoExecuted.current = false
-  }, [])
-
-  const handleBackdropClose = useCallback(() => {
-    setAnimVisible(false)
-    setTimeout(onClose, 200)
-  }, [onClose])
-
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [onClose])
-
-  const fieldsQuery = useQuery({
-    queryKey: ['action-fields', parentResource, action.uriKey],
-    queryFn: ({ signal }) =>
-      api.get<{ data: { fields: FieldDefinition[] } }>(
-        `/api/resources/${parentResource}/actions/${action.uriKey}/fields`,
-        signal
-      ),
-    enabled: !!action,
-  })
-
-  const fields = fieldsQuery.data?.data?.fields ?? []
-
-  const executeMutation = useMutation({
-    mutationFn: () =>
-      api.post<{ data: { type: string; data: Record<string, unknown> } }>(
-        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/actions/${action.uriKey}`,
-        {
-          resources: selectedIds,
-          fields: fieldValues,
-        }
-      ),
-    onSuccess: (res) => {
-      const responseData = res?.data
-      if (responseData) {
-        const data = responseData.data
-        switch (responseData.type) {
-          case 'message':
-            addToast('success', (data?.message as string) ?? t('action_success'))
-            break
-          case 'danger':
-            addToast('error', (data?.message as string) ?? t('action_failed'))
-            break
-          default:
-            addToast('success', t('action_success'))
-        }
-      } else {
-        addToast('success', t('action_success'))
-      }
-      onSuccess()
-    },
-    onError: (err: Error) => {
-      if (err instanceof ApiError && err.errors && err.errors.length > 0) {
-        const mapped: Record<string, string> = {}
-        for (const e of err.errors) {
-          const fieldKey = e.field.replace(/^fields\./, '')
-          if (!mapped[fieldKey]) mapped[fieldKey] = e.message
-        }
-        if (Object.keys(mapped).length > 0) {
-          setFieldErrors(mapped)
-          addToast('error', err.message || t('action_failed'))
-          return
-        }
-      }
-      addToast('error', (err instanceof ApiError ? err.message : err.message) ?? t('action_failed'))
-    },
-  })
-
-  const hasFields = fields.length > 0
-  const needsConfirmation = action.withConfirmation || hasFields
-
-  // Auto-execute if no confirmation or fields needed (only once)
-  if (!needsConfirmation && !autoExecuted.current && !executeMutation.isPending) {
-    autoExecuted.current = true
-    setTimeout(() => executeMutation.mutate(), 0)
-    return null
-  }
-
-  if (!needsConfirmation) return null
-
-  const modalWidth = MODAL_SIZE_MAP[action.modalSize ?? 'md'] ?? MODAL_SIZE_MAP['md']
-
-  return createPortal((
-    <div
-      className="martis-modal-scrim"
-      style={{ opacity: animVisible ? 1 : 0, transition: 'opacity 200ms ease' }}
-      onClick={handleBackdropClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="martis-modal-surface"
-        style={{
-          maxWidth: modalWidth,
-          transform: animVisible ? 'scale(1)' : 'scale(0.95)',
-          transition: 'transform 200ms ease',
-          borderTop: action.destructive ? '3px solid var(--martis-danger)' : undefined,
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="martis-modal-head">
-          <div className="flex items-center gap-3">
-            {action.destructive
-              ? <WarningIcon size={18} weight="fill" style={{ color: 'var(--martis-danger)' }} />
-              : <LightningIcon size={18} weight="fill" style={{ color: 'var(--martis-accent)' }} />}
-            <h3 className="martis-modal-head-title">{action.name}</h3>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="martis-modal-close"
-            aria-label={action.cancelButtonText ?? t('cancel')}
-          >
-            <XIcon size={16} />
-          </button>
-        </div>
-
-        <div className="martis-modal-body">
-          {action.confirmText && (
-            <p className="mb-4">{action.confirmText}</p>
-          )}
-          {hasFields && (
-            <div className="space-y-4">
-              {fields.map((f) => (
-                <div key={f.attribute}>
-                  <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--martis-text)' }}>
-                    {f.label}
-                    {f.required && <span className="ml-1" style={{ color: 'var(--martis-danger)' }}>*</span>}
-                  </label>
-                  <FieldInput
-                    field={f}
-                    value={fieldValues[f.attribute] ?? ''}
-                    onChange={(val: unknown) =>
-                      setFieldValues((prev) => ({ ...prev, [f.attribute]: val }))
-                    }
-                    error={fieldErrors[f.attribute]}
-                    context="create"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="martis-modal-foot">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={executeMutation.isPending}
-            className="martis-btn-secondary"
-          >
-            <XIcon size={14} />
-            {action.cancelButtonText ?? t('cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={() => executeMutation.mutate()}
-            disabled={executeMutation.isPending}
-            className={action.destructive ? 'martis-btn-danger' : 'martis-btn-primary'}
-          >
-            <LightningIcon size={14} />
-            {executeMutation.isPending
-              ? t('please_wait')
-              : (action.confirmButtonText ?? t('run_action'))}
-          </button>
-        </div>
-      </div>
-    </div>
-  ), document.body)
-}
 
 // -------------------------------------------------------------------------
 // Detach confirmation modal

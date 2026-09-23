@@ -1209,14 +1209,73 @@ Register the component in the frontend registry. The component receives `action`
 
 ## Pivot Actions
 
-Actions can run on BelongsToMany pivot rows instead of the primary model:
+A pivot action runs on records attached through a `BelongsToMany` or `MorphToMany` relationship, from that relationship's panel on the detail page: select rows, then pick the action from the panel's dropdown. `handle()` receives the related models loaded through the relationship, so each one carries its pivot row, including the pivot fields the relationship field declares:
 
 ```php
-RemoveTag::make()
-    ->pivotAction()
-    ->referToPivotAs('tag assignment')
-    ->icon('tag')
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Martis\Actions\Action;
+use Martis\Actions\ActionFields;
+use Martis\Actions\ActionResponse;
+use Martis\Fields\Select;
+
+class SetTagPriority extends Action
+{
+    public function handle(ActionFields $fields, Collection $models): ActionResponse
+    {
+        foreach ($models as $tag) {
+            $tag->pivot->priority = $fields->get('priority');
+            $tag->pivot->save();
+        }
+
+        return ActionResponse::message('Priority updated.');
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Select::make('priority', 'Priority')
+                ->optionsFromMap(['low' => 'Low', 'normal' => 'Normal', 'high' => 'High'])
+                ->required(),
+        ];
+    }
+}
 ```
+
+Declare it on the relationship field to show it on that relationship's panel only, as Nova's `->actions()` does:
+
+```php
+MorphToMany::make('Tags', 'tags', TagResource::class)
+    ->fields(fn () => [
+        Select::make('priority', 'Priority')
+            ->optionsFromMap(['low' => 'Low', 'normal' => 'Normal', 'high' => 'High']),
+    ])
+    ->actions(fn (Request $request) => [
+        SetTagPriority::make(),
+    ])
+```
+
+`BelongsToMany` takes the same `->actions()`. The closure receives the current request, and an action declared there does not need `->pivotAction()`.
+
+A resource action flagged `->pivotAction()` shows on **every** `BelongsToMany` and `MorphToMany` panel of the resource instead, after the actions the field declares. When a field action and a resource pivot action share a URI key, the field's action wins on that panel.
+
+```php
+public function actions(Request $request): array
+{
+    return [
+        RemoveTag::make()
+            ->pivotAction()
+            ->referToPivotAs('tag assignment')
+            ->icon('tag'),
+    ];
+}
+```
+
+`referToPivotAs()` labels the panel's dropdown (**Actions** by default); actions with different labels get one dropdown each. `canSee()`, `canRun()`, `sole()`, `standalone()` and the validation of the action's `fields()` apply as they do on the resource. Pivot actions run synchronously: `queued()`, dry runs and the action event log are resource-action features only.
+
+The pivot action routes (see the [API Reference](#api-reference)) resolve `{relationship}` only to a relationship field the resource declares with the route's type (`BelongsToMany` on `belongs-to-many`, `MorphToMany` on `morph-to-many`, nested layouts included). Any other name answers 404 without calling a model method.
+
+> Before v1.38.0 a `MorphToMany` panel requested pivot action endpoints that did not exist (a 404 on every render), so its pivot actions never showed or ran; the `->actions()` closure of both fields was stored and never read; and the `belongs-to-many` routes called whatever parent model method `{relationship}` named, so a user who could view the parent and see one pivot action could run its `delete()`.
 
 ---
 
@@ -1229,6 +1288,9 @@ RemoveTag::make()
 | `GET` | `/api/resources/{resource}/actions/{action}/relatable/{attribute}` | Options of a `BelongsTo` / `MorphTo` / `Tag` the action declares (see [Relation fields](#relation-fields)) |
 | `POST` | `/api/resources/{resource}/actions/{action}` | Execute action (bulk) |
 | `POST` | `/api/resources/{resource}/{id}/actions/{action}` | Execute action (single record) |
+| `GET` | `/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions` | List the pivot actions of a relationship panel (see [Pivot Actions](#pivot-actions)) |
+| `GET` | `/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions/{action}/fields` | Get pivot action fields |
+| `POST` | `/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{relationship}/actions/{action}` | Execute a pivot action on attached records (`resources` holds related ids) |
 
 ### Execute request body
 

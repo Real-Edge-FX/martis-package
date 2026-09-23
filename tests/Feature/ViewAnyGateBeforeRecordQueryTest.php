@@ -223,7 +223,11 @@ dataset('per-id endpoints', function () {
         'GET morph-many index' => ['getJson', fn (int $id) => $base($id).'/morph-many/children'],
         'GET morph-one show' => ['getJson', fn (int $id) => $base($id).'/morph-one/children'],
         'GET pivot actions' => ['getJson', fn (int $id) => $base($id).'/belongs-to-many/children/actions'],
+        'GET pivot action fields' => ['getJson', fn (int $id) => $base($id).'/belongs-to-many/children/actions/vag-ping-action/fields'],
         'POST pivot action' => ['postJson', fn (int $id) => $base($id).'/belongs-to-many/children/actions/vag-ping-action'],
+        'GET morph-to-many pivot actions' => ['getJson', fn (int $id) => $base($id).'/morph-to-many/children/actions'],
+        'GET morph-to-many pivot action fields' => ['getJson', fn (int $id) => $base($id).'/morph-to-many/children/actions/vag-ping-action/fields'],
+        'POST morph-to-many pivot action' => ['postJson', fn (int $id) => $base($id).'/morph-to-many/children/actions/vag-ping-action'],
     ];
 });
 

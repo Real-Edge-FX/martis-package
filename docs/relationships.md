@@ -257,6 +257,21 @@ A value the request sends for a skipped field still runs the field's rules. A pi
 
 Up to v1.37.3 the attach and the pivot update wrote every pivot value the request sent, readonly and immutable fields included, and a pivot update with nothing to write answered 500 (an `UPDATE` with an empty `SET`) unless the relation declared `withTimestamps()` or `using()`.
 
+### Pivot Actions
+
+Actions declared on the field with `->actions()` run on the rows selected in this relationship's panel, and `handle()` receives each related model with its `pivot` row (the pivot fields above included). A resource action flagged `->pivotAction()` shows on every `BelongsToMany` and `MorphToMany` panel of the resource. See [Actions → Pivot Actions](actions.md#pivot-actions).
+
+```php
+BelongsToMany::make('Tags', 'tags')
+    ->relatedResource('tags')
+    ->fields(fn () => [
+        Text::make('notes', 'Notes')->nullable(),
+    ])
+    ->actions(fn (Request $request) => [
+        ClearTagNotes::make(),
+    ])
+```
+
 ### Full Configuration
 
 ```php
@@ -563,7 +578,7 @@ See [fields.md § MorphMany](fields.md#morphmany) for the full API.
 
 ## MorphToMany
 
-A polymorphic many-to-many relationship. Behaves like `BelongsToMany` (DataTable UI, attach/detach, pivot fields, search) but for `morphToMany` Eloquent relationships.
+A polymorphic many-to-many relationship. Behaves like `BelongsToMany` (DataTable UI, attach/detach, pivot fields, pivot actions, search) but for `morphToMany` Eloquent relationships. Pivot actions come from the field's `->actions()` and from the resource actions flagged `->pivotAction()`, as on `BelongsToMany` (see [Actions → Pivot Actions](actions.md#pivot-actions)); up to v1.37.3 the panel asked for pivot action endpoints that did not exist, so none showed.
 
 **Detail-only by default.**
 
@@ -619,6 +634,7 @@ The hardening pass codified the contract every relationship surface guarantees. 
 | `immutable()` fields written on create, skipped on update, as on the resource endpoint | ✅ | ✅ | ✅ (pivot fields) | ✅ | ✅ | ✅ (pivot fields) |
 | `readonly()` pivot fields never written from the request (the attach stores their `default()`) | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Pivot data round-trip on attach + index + update | n/a | n/a | ✅ | n/a | n/a | ✅ |
+| Pivot actions listed, described and run per panel; `{relationship}` resolves only to a declared field of the route's type | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Authorization — `authorizedToCreate` / view / detach respected | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ### Pivot data API (BelongsToMany & MorphToMany)
@@ -744,7 +760,7 @@ Per-type feature tests:
 - `tests/Feature/MorphManyControllerTest.php` (17)
 - `tests/Feature/MorphOneControllerTest.php` (13)
 - `tests/Feature/MorphToManyControllerTest.php` (16)
-- `tests/Feature/PivotActionControllerTest.php` (8)
+- `tests/Feature/PivotActionControllerTest.php` (27) — pivot actions on `BelongsToMany` and `MorphToMany` panels: listing, fields and run, the field's `actions()` against the resource's `pivotAction()`, `{relationship}` resolved only to a declared field of the route's type, and the view / `canSee()` / `canRun()` gates.
 - `tests/Feature/RelationshipsHardeningTest.php` (8) — multi-relation isolation, `relatableQueryUsing`, `relatable{PluralModelName}`, detach idempotency, search.
 - `tests/Feature/RelationshipFieldRulesTest.php` (61) — every kind of field rule and the context rules on each write endpoint, next to the resource endpoint they match.
 - `tests/Feature/RelationshipImmutableFieldsTest.php` (10) — `immutable()` on each inline create and update, next to the resource endpoint they match.

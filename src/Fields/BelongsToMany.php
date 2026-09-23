@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Enums\ModalSize;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
+use Martis\Fields\Concerns\HasPivotActions;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -22,6 +23,7 @@ use Martis\ResourceRegistry;
  *   BelongsToMany::make('Tags')
  *   BelongsToMany::make('Tags', 'tags', TagResource::class)
  *   BelongsToMany::make('Tags')->fields(fn() => [Text::make('notes', 'Notes')])
+ *   BelongsToMany::make('Tags')->actions(fn() => [MarkAsPrimary::make()])
  *   BelongsToMany::make('Tags')->searchable()->collapsable()->allowDuplicateRelations()
  *   BelongsToMany::make('Tags')->showCreateRelationButton()->modalSize(ModalSize::Large)
  *   BelongsToMany::make('Tags')->relatableQueryUsing(fn($request, $q) => $q->where('active', 1))
@@ -31,6 +33,7 @@ use Martis\ResourceRegistry;
 class BelongsToMany extends Field
 {
     use ControlsRelationshipToolbar;
+    use HasPivotActions;
 
     /** Eloquent relationship method name on the parent model. */
     protected string $relationship;
@@ -43,9 +46,6 @@ class BelongsToMany extends Field
 
     /** Closure that returns extra pivot field definitions. */
     protected ?\Closure $pivotFieldsClosure = null;
-
-    /** Closure that returns pivot action definitions. */
-    protected ?\Closure $pivotActionsClosure = null;
 
     /** Whether the inline list supports search on attachable records. */
     protected bool $relationSearchable = true;
@@ -173,18 +173,6 @@ class BelongsToMany extends Field
     public function fields(\Closure $closure): static
     {
         $this->pivotFieldsClosure = $closure;
-
-        return $this;
-    }
-
-    /**
-     * Define pivot actions for attached records.
-     *
-     * @param  \Closure(): list<mixed>  $closure
-     */
-    public function actions(\Closure $closure): static
-    {
-        $this->pivotActionsClosure = $closure;
 
         return $this;
     }

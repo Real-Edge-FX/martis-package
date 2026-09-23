@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Enums\ModalSize;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
+use Martis\Fields\Concerns\HasPivotActions;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -27,6 +28,7 @@ use Martis\ResourceRegistry;
  *   MorphToMany::make('Tags')
  *   MorphToMany::make('Tags', 'tags', TagResource::class)
  *   MorphToMany::make('Tags')->fields(fn() => [Text::make('notes', 'Notes')])
+ *   MorphToMany::make('Tags')->actions(fn() => [MarkAsFeatured::make()])
  *   MorphToMany::make('Tags')->searchable()->allowDuplicateRelations()
  *   MorphToMany::make('Tags')->relatableQueryUsing(fn($request, $q) => $q->where('active', 1))
  *   MorphToMany::make('Tags')->showCreateRelationButton()->modalSize(ModalSize::Large)
@@ -36,6 +38,7 @@ use Martis\ResourceRegistry;
 class MorphToMany extends Field
 {
     use ControlsRelationshipToolbar;
+    use HasPivotActions;
 
     /** Eloquent relationship method name on the parent model. */
     protected string $relationship;
@@ -48,9 +51,6 @@ class MorphToMany extends Field
 
     /** Closure that returns extra pivot field definitions. */
     protected ?\Closure $pivotFieldsClosure = null;
-
-    /** Closure that returns pivot action definitions. */
-    protected ?\Closure $pivotActionsClosure = null;
 
     /** Whether the inline list supports search on attachable records. */
     protected bool $relationSearchable = true;
@@ -175,18 +175,6 @@ class MorphToMany extends Field
     public function fields(\Closure $closure): static
     {
         $this->pivotFieldsClosure = $closure;
-
-        return $this;
-    }
-
-    /**
-     * Define pivot actions for selected rows in the panel.
-     *
-     * @param  \Closure(): list<mixed>  $closure
-     */
-    public function actions(\Closure $closure): static
-    {
-        $this->pivotActionsClosure = $closure;
 
         return $this;
     }

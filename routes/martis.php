@@ -404,9 +404,11 @@ Route::middleware(config('martis.middleware', ['web']))
                                     ->name('resources.belongs-to-many.detach');
                                 Route::put('/resources/{resource}/{id}/belongs-to-many/{relationship}/{relatedId}/pivot', [BelongsToManyController::class, 'updatePivot'])
                                     ->name('resources.belongs-to-many.pivot');
-                                // Pivot action execution
+                                // Pivot actions
                                 Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions', [ActionController::class, 'pivotIndex'])
                                     ->name('resources.belongs-to-many.actions.index');
+                                Route::get('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}/fields', [ActionController::class, 'pivotFields'])
+                                    ->name('resources.belongs-to-many.actions.fields');
                                 Route::post('/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}', [ActionController::class, 'executePivot'])
                                     ->name('resources.belongs-to-many.actions.execute');
 
@@ -421,6 +423,13 @@ Route::middleware(config('martis.middleware', ['web']))
                                     ->name('resources.morph-to-many.detach');
                                 Route::put('/resources/{resource}/{id}/morph-to-many/{relationship}/{relatedId}/pivot', [MorphToManyController::class, 'updatePivot'])
                                     ->name('resources.morph-to-many.pivot');
+                                // Pivot actions
+                                Route::get('/resources/{resource}/{id}/morph-to-many/{relationship}/actions', [ActionController::class, 'morphToManyPivotIndex'])
+                                    ->name('resources.morph-to-many.actions.index');
+                                Route::get('/resources/{resource}/{id}/morph-to-many/{relationship}/actions/{action}/fields', [ActionController::class, 'morphToManyPivotFields'])
+                                    ->name('resources.morph-to-many.actions.fields');
+                                Route::post('/resources/{resource}/{id}/morph-to-many/{relationship}/actions/{action}', [ActionController::class, 'executeMorphToManyPivot'])
+                                    ->name('resources.morph-to-many.actions.execute');
 
                                 // MorphMany polymorphic one-to-many
                                 Route::get('/resources/{resource}/{id}/morph-many/{relationship}', [MorphManyController::class, 'index'])
