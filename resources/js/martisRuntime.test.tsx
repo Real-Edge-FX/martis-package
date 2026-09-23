@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { martisRuntime } from '@/lib/martisRuntime'
+import runtimeShim from '../../stubs/extensions/runtime-shim.mjs.stub?raw'
 import type { FieldDefinition } from '@/types'
 
 /**
@@ -42,6 +43,9 @@ describe('martisRuntime', () => {
         expect(martisRuntime.FieldInput).toBeTypeOf('function')
         expect(martisRuntime.FieldDisplay).toBeTypeOf('function')
 
+        // Relation parent provider (v1.38.0)
+        expect(martisRuntime.NestedParentProvider).toBeTypeOf('function')
+
         // Composition components
         expect(martisRuntime.DrawerShell).toBeTypeOf('function')
         // PrimeReact Tooltip is a forwardRef object, not a plain function.
@@ -62,6 +66,20 @@ describe('martisRuntime', () => {
         expect(martisRuntime.reactRouterDom).toBeTypeOf('object')
         expect(martisRuntime.reactI18next).toBeTypeOf('object')
         expect(martisRuntime.tanstackReactQuery).toBeTypeOf('object')
+    })
+
+    it('the consumer-extension shim re-exports runtime names only, the relation parent provider included', () => {
+        // `@martis/runtime` resolves to the published shim in a consumer build,
+        // and the shim reads each named export off `window.Martis.runtime`: a
+        // name the shim lacks fails the consumer's build, and a name the
+        // runtime lacks imports `undefined`.
+        const reexported = [...runtimeShim.matchAll(/^export const (\w+) = R\.(\w+)$/gm)]
+
+        for (const [, name, key] of reexported) {
+            expect(key).toBe(name)
+            expect(martisRuntime).toHaveProperty(key)
+        }
+        expect(reexported.map(([, name]) => name)).toContain('NestedParentProvider')
     })
 
     it('FieldInput renders a text input for type=text and threads onChange', () => {

@@ -145,6 +145,8 @@ it: the list, the pivot actions, the attach picker, Create / Edit links
 | Top level of a detail page, or an edit form (`BelongsToMany` / `MorphToMany`) | The record in the URL (`/resources/{resource}/{id}`). |
 | Among the fields of a `HasOne` / `MorphOne` card (`*OfMany`, `HasOneThrough`) | The card's related record. |
 | Inside a bundled record drawer (`DrawerDetail`, `DrawerUpdate`, `DrawerQuick`) | The record the drawer shows, which the page URL may not name (a lens row, an index row or an action response opens it). |
+| On a create surface (the create page, `DrawerCreate`, the inline-create modal) | None: the record does not exist yet, whatever page or drawer the surface opens over. The schema keeps `BelongsToMany` / `MorphToMany` off every create form, like Nova, and a pivot panel with no record renders nothing and asks nothing. |
+| Inside a custom override, Tool or card | The record it names with `NestedParentProvider` from `@martis/runtime` (`id: null` on a create form), else the record in the URL. See [overrides.md § Naming the record of the relationship panels](overrides.md#naming-the-record-of-the-relationship-panels-v1380). |
 
 On `team-members/2`, a `HasOneThrough` card showing project 3 renders the
 project's `HasMany` tasks from `/api/resources/projects/3/has-many/tasks`, and
@@ -152,7 +154,12 @@ its Create button opens `/resources/tasks/create?viaResource=projects&viaResourc
 Since **v1.38.0**: before it, only the `HasOne` / `MorphOne` cards honoured the
 enclosing card, so a `HasMany`, `MorphMany`, `BelongsToMany` or `MorphToMany`
 nested in a card or rendered in a drawer asked the page's record (404, or the
-page record's rows when it declares the same relationship).
+page record's rows when it declares the same relationship). A `BelongsToMany` /
+`MorphToMany` declared with `showOnCreating()` also rendered on the create
+forms and read the page: `/api/resources/{resource}//belongs-to-many/...` (404)
+on the create page, and the page's record in a create drawer or modal opened
+over another record, so a Replicate drawer listed, and attached to, the record
+it copies.
 
 ---
 
@@ -211,7 +218,7 @@ See [fields.md — HasMany](fields.md) for full API reference.
 
 ## BelongsToMany
 
-A many-to-many pivot relationship field. Renders as a DataTable panel on the detail page with attach/detach, pivot field editing, search, and pagination.
+A many-to-many pivot relationship field. Renders as a DataTable panel on the detail page and the update form with attach/detach, pivot field editing, search, and pagination. It never renders on a create form (the create page, the create drawer, the inline-create modal), like Nova: a pivot row needs the record's key, so no visibility call brings the field there (since v1.38.0). Attach once the record exists, or use [`Tag`](#tag-belongstomany-chip-ui) to pick related records while creating.
 
 ### Basic Usage
 
@@ -602,7 +609,7 @@ See [fields.md § MorphMany](fields.md#morphmany) for the full API.
 
 A polymorphic many-to-many relationship. Behaves like `BelongsToMany` (DataTable UI, attach/detach, pivot fields, pivot actions, search) but for `morphToMany` Eloquent relationships. Pivot actions come from the field's `->actions()` and from the resource actions flagged `->pivotAction()`, as on `BelongsToMany` (see [Actions → Pivot Actions](actions.md#pivot-actions)); up to v1.37.3 the panel asked for pivot action endpoints that did not exist, so none showed.
 
-**Detail-only by default.**
+**On the detail page and the update form; never on a create form**, like `BelongsToMany` above.
 
 ```php
 use Martis\Fields\MorphToMany;

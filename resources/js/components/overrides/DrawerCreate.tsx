@@ -10,6 +10,7 @@ import { TabsInput } from '@/components/fields/TabsRenderer'
 import { useTranslation } from 'react-i18next'
 import { DrawerShell } from './DrawerShell'
 import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
+import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 
 
 
@@ -152,99 +153,106 @@ export function DrawerCreate(props: OverrideProps) {
   const icon = params.showIcon ? (params.icon as string) || schema.icon || null : null
   const iconColor = (params.iconColor as string) || null
 
-  return (
-    <DrawerShell
-      title={title}
-      subtitle={subtitle}
-      icon={icon}
-      iconColor={iconColor}
-      width={params.width as string}
-      expandedWidth={params.expandedWidth as string}
-      allowExpand={params.allowExpand as boolean}
-      allowFullscreen={params.allowFullscreen as boolean}
-      showCloseButton={params.showCloseButton as boolean}
-      position={params.position as 'right' | 'left'}
-      backdrop={params.backdrop as boolean}
-      onClose={onClose}
-      beforeClose={beforeClose}
-      footer={
-        <>
-          <button
-            type="button"
-            onClick={() => {
-              void (async () => {
-                const ok = await beforeClose()
-                if (ok) onClose()
-              })()
-            }}
-            className="martis-btn-secondary"
-          >
-            {tAct('cancel')}
-          </button>
-          <button
-            type="submit"
-            form="martis-drawer-create-form"
-            disabled={createMutation.isPending}
-            className="martis-btn-primary"
-          >
-            {createMutation.isPending ? tAct('saving') : `${tAct('create')} ${schema.singularLabel}`}
-          </button>
-        </>
-      }
-    >
-      <form id="martis-drawer-create-form" onSubmit={handleSubmit} noValidate className="martis-form-body martis-form-stack">
-        {allFormFields.map((item, idx) => {
-          if (item.type === 'tab_group') {
-            const tg = item as TabGroupDefinition
-            return <TabsInput key={tg.tabs.map((t) => t.title).join('|') || `tab_group-${idx}`} tabGroup={tg} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
-          }
-          if (item.type === 'section') {
-            const sec = item as SectionDefinition
-            return <SectionInput key={sec.title ?? `section-${idx}`} section={sec} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
-          }
-          if (item.type === 'panel') {
-            const panel = item as PanelDefinition
-            return <PanelInput key={panel.title ?? `panel-${idx}`} panel={panel} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
-          }
-          const field = item as FieldDefinition
-          return (
-            <div key={field.attribute} style={colSpanStyle(field)}>
-              <FieldWrapper
-                htmlFor={field.attribute}
-                label={field.label}
-                required={field.required}
-                tooltip={field.tooltip}
-                help={field.helpText}
-              >
-                <FieldInput
-                  field={field}
-                  value={values[field.attribute] ?? null}
-                  onChange={(v) => handleChange(field.attribute, v)}
-                  error={errors[field.attribute]}
-                  resourceKey={resource}
-                  context="create"
-                  formValues={values}
-                />
-              </FieldWrapper>
-            </div>
-          )
-        })}
-      </form>
+  // The record does not exist yet, whatever page the drawer opens over (the
+  // record a Replicate copies, another record an action runs on), so no
+  // relationship panel inside reads that page's record.
+  const relationParent = { resource, id: null }
 
-      <UnsavedChangesDialog
-        open={dirtyPrompt !== null}
-        config={confirmConfig}
-        onCancel={() => {
-          const prompt = dirtyPrompt
-          setDirtyPrompt(null)
-          prompt?.cancel()
-        }}
-        onConfirm={() => {
-          const prompt = dirtyPrompt
-          setDirtyPrompt(null)
-          prompt?.confirm()
-        }}
-      />
-    </DrawerShell>
+  return (
+    <NestedParentProvider value={relationParent}>
+      <DrawerShell
+        title={title}
+        subtitle={subtitle}
+        icon={icon}
+        iconColor={iconColor}
+        width={params.width as string}
+        expandedWidth={params.expandedWidth as string}
+        allowExpand={params.allowExpand as boolean}
+        allowFullscreen={params.allowFullscreen as boolean}
+        showCloseButton={params.showCloseButton as boolean}
+        position={params.position as 'right' | 'left'}
+        backdrop={params.backdrop as boolean}
+        onClose={onClose}
+        beforeClose={beforeClose}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                void (async () => {
+                  const ok = await beforeClose()
+                  if (ok) onClose()
+                })()
+              }}
+              className="martis-btn-secondary"
+            >
+              {tAct('cancel')}
+            </button>
+            <button
+              type="submit"
+              form="martis-drawer-create-form"
+              disabled={createMutation.isPending}
+              className="martis-btn-primary"
+            >
+              {createMutation.isPending ? tAct('saving') : `${tAct('create')} ${schema.singularLabel}`}
+            </button>
+          </>
+        }
+      >
+        <form id="martis-drawer-create-form" onSubmit={handleSubmit} noValidate className="martis-form-body martis-form-stack">
+          {allFormFields.map((item, idx) => {
+            if (item.type === 'tab_group') {
+              const tg = item as TabGroupDefinition
+              return <TabsInput key={tg.tabs.map((t) => t.title).join('|') || `tab_group-${idx}`} tabGroup={tg} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+            }
+            if (item.type === 'section') {
+              const sec = item as SectionDefinition
+              return <SectionInput key={sec.title ?? `section-${idx}`} section={sec} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+            }
+            if (item.type === 'panel') {
+              const panel = item as PanelDefinition
+              return <PanelInput key={panel.title ?? `panel-${idx}`} panel={panel} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
+            }
+            const field = item as FieldDefinition
+            return (
+              <div key={field.attribute} style={colSpanStyle(field)}>
+                <FieldWrapper
+                  htmlFor={field.attribute}
+                  label={field.label}
+                  required={field.required}
+                  tooltip={field.tooltip}
+                  help={field.helpText}
+                >
+                  <FieldInput
+                    field={field}
+                    value={values[field.attribute] ?? null}
+                    onChange={(v) => handleChange(field.attribute, v)}
+                    error={errors[field.attribute]}
+                    resourceKey={resource}
+                    context="create"
+                    formValues={values}
+                  />
+                </FieldWrapper>
+              </div>
+            )
+          })}
+        </form>
+
+        <UnsavedChangesDialog
+          open={dirtyPrompt !== null}
+          config={confirmConfig}
+          onCancel={() => {
+            const prompt = dirtyPrompt
+            setDirtyPrompt(null)
+            prompt?.cancel()
+          }}
+          onConfirm={() => {
+            const prompt = dirtyPrompt
+            setDirtyPrompt(null)
+            prompt?.confirm()
+          }}
+        />
+      </DrawerShell>
+    </NestedParentProvider>
   )
 }

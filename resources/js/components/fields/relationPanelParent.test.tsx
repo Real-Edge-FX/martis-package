@@ -118,6 +118,23 @@ describe.each(PANELS.filter((panel) => panel.creates))('$type panel Create butto
   })
 })
 
+describe.each(PANELS.filter((panel) => panel.pivot))('$type panel with no record to belong to', (panel) => {
+  it('renders nothing and asks nothing on a page that names no record', async () => {
+    // A Tool page: no route record and no provided one. Like Nova, no attach
+    // panel before there is a record to attach to.
+    const { container } = renderOnPage('/tools/reports', '/tools/:uriKey', (
+      <FieldDisplay field={fieldFor(panel)} value={null} resourceKey="projects" context="detail" />
+    ))
+
+    await import(panel.type === 'belongs_to_many' ? './BelongsToManyField' : './MorphToManyField')
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    expect(requestedUrls().filter((url) => url.includes(`/${panel.segment}/`))).toEqual([])
+    // The lazy chunk's fallback (<div />) is gone and nothing replaced it.
+    expect(container.innerHTML).toBe('')
+  })
+})
+
 describe.each(PANELS.filter((panel) => panel.pivot))('$type form input', (panel) => {
   it('reads the related records of the record under edit', async () => {
     renderOnPage('/resources/projects/3/edit', '/resources/:resource/:id/edit', (

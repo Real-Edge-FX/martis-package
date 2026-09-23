@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Martis\Enums\ModalSize;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Fields\Concerns\HasPivotActions;
+use Martis\Fields\Concerns\StaysOffCreateForms;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -39,6 +40,7 @@ class MorphToMany extends Field
 {
     use ControlsRelationshipToolbar;
     use HasPivotActions;
+    use StaysOffCreateForms;
 
     /** Eloquent relationship method name on the parent model. */
     protected string $relationship;
@@ -113,15 +115,10 @@ class MorphToMany extends Field
         parent::__construct($attribute, $label);
         $this->relationship = $relationship ?: Str::camel($attribute);
 
-        // MorphToMany is hidden from index by default (shown on detail page)
+        // MorphToMany is hidden from index by default and shown on the detail
+        // page and the update form; StaysOffCreateForms keeps it off every
+        // create form.
         $this->hideFromIndex();
-
-        // v1.8.4 — Same logic as BelongsToMany: pivot rows need both
-        // `(parent_id, related_id)` and the parent doesn't exist yet
-        // when the create form is rendered. Picker only makes sense
-        // after the parent has been saved. Override with
-        // `->showOnCreating()` if you have a custom afterSave hook.
-        $this->showOnCreate = false;
     }
 
     /** {@inheritdoc} */

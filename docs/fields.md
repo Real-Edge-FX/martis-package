@@ -245,7 +245,7 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 |--------|-----------|---------|-------------|
 | `hideWhenCreating` | `hideWhenCreating(): static` | `$this` | Hide on create form only. |
 | `hideWhenUpdating` | `hideWhenUpdating(): static` | `$this` | Hide on update form only. |
-| `showOnCreating` | `showOnCreating(): static` | `$this` | Show on create form. **v1.8.4**: required to opt back in for relationship fields whose persistence requires a saved parent — `BelongsToMany` and `MorphToMany` are hidden on create by default; `HasOne`, `HasMany`, `HasManyThrough`, `HasOneThrough`, `HasOneOfMany`, `MorphOne`, `MorphMany`, `MorphOneOfMany` stay detail-only as before. |
+| `showOnCreating` | `showOnCreating(): static` | `$this` | Show on create form. Relationship fields whose persistence requires a saved parent stay off the create form: `HasOne`, `HasMany`, `HasManyThrough`, `HasOneThrough`, `HasOneOfMany`, `MorphOne`, `MorphMany`, `MorphOneOfMany` are detail-only by default, and **`BelongsToMany` / `MorphToMany` never render on a create form** (since **v1.38.0**, like Nova): no visibility call brings them there, since a pivot row needs the record's key. Attach once the record exists, or use [`Tag`](#tag) to pick related records while creating. |
 | `showOnUpdating` | `showOnUpdating(): static` | `$this` | Show on update form. |
 
 ### Convenience Visibility Presets
@@ -1798,7 +1798,9 @@ dropdown.
 
 Full many-to-many pivot relationship field. Renders as a DataTable panel on the detail page with attach/detach, pivot field editing, search, sort, and pagination. On the index page, shows a count badge.
 
-> **Detail-only by default** — BelongsToMany is hidden from index and forms automatically. Use `->showOnIndex()` to display the count badge.
+> **Where it shows** — the detail page and the update form; hidden from index (`->showOnIndex()` displays the count badge). Never on a create form (the create page, the create drawer, the inline-create modal): a pivot row needs the key of the record, which does not exist yet, so, like Nova, no visibility call (`showOnCreating()`, `showOnForms()`, `onlyOnForms()`) brings the field there. Attach once the record exists, or use [`Tag`](#tag) to pick related records while creating.
+>
+> Since **v1.38.0**. Before it, `showOnCreating()` put the panel on the create forms, where it asked `/api/resources/{resource}//belongs-to-many/{relationship}` (404) on the create page, and listed, and attached to, the page's record in a create drawer or an inline-create modal opened over another record (a Replicate drawer, for instance, attached to the record it copies).
 
 ```php
 // Minimal usage
@@ -2330,7 +2332,8 @@ All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited �
 Polymorphic many-to-many relationship (`morphToMany`). Same pivot UI as
 `BelongsToMany` — DataTable, attach/detach, pivot fields, pivot actions,
 search, sort, per-page, pagination — via `RelationshipTableShell`.
-Detail-only by default.
+Shown where `BelongsToMany` shows: the detail page and the update form,
+never a create form (see the note under [BelongsToMany](#belongstomany)).
 
 ```php
 use Martis\Fields\MorphToMany;

@@ -46,6 +46,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { Topbar } from '@/components/Topbar'
 import { Footer } from '@/components/Footer'
 import { FieldInput, FieldDisplay } from '@/components/fields/FieldRenderer'
+import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 import { FieldsForm } from '@/components/fields/FieldsForm'
 import { DrawerShell } from '@/components/overrides/DrawerShell'
 import { Tooltip } from 'primereact/tooltip'
@@ -103,6 +104,16 @@ export const martisRuntime = {
   // shell must also load the published martis.css stylesheet.
   FieldInput,
   FieldDisplay,
+
+  // Relation parent provider (since v1.38.0). The relationship panels a
+  // FieldDisplay / FieldInput renders list the related records of the
+  // nearest provided record, else of the record in the page URL. A custom
+  // override that shows a record the URL may not name (a drawer an action or
+  // a lens row opens, a card of another record) wraps its fields in it; a
+  // custom create override passes `id: null`, since its record does not
+  // exist yet. See docs/overrides.md "Naming the record of the relationship
+  // panels". Pair with the NestedParent type re-exported below.
+  NestedParentProvider,
 
   // Shared field-form harness (since v1.20.0). `useMartisForm` owns the
   // form state (values, dependsOn override resolution, errors) and yields
@@ -171,6 +182,7 @@ export type MartisRuntime = typeof martisRuntime
  */
 export type { FieldDefinition } from '@/types'
 export type { FieldDisplayProps, FieldInputProps } from '@/components/fields/types'
+export type { NestedParent } from '@/components/fields/NestedParentContext'
 export type { DrawerShellProps } from '@/components/overrides/DrawerShell'
 export type { TooltipProps } from 'primereact/tooltip'
 export type { DropdownProps } from 'primereact/dropdown'

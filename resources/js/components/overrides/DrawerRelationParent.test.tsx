@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import type { OverrideProps, ResourceRecord, ResourceSchema, TabGroupDefinition } from '@/types'
+import type { FieldDefinition, OverrideProps, ResourceRecord, ResourceSchema, TabGroupDefinition } from '@/types'
 import {
   answerRelationRequests,
   relationField,
@@ -37,6 +37,7 @@ vi.mock('./DrawerShell', () => ({
 import { DrawerDetail } from './DrawerDetail'
 import { DrawerQuick } from './DrawerQuick'
 import { DrawerUpdate } from './DrawerUpdate'
+import { martisRuntime } from '@/lib/martisRuntime'
 
 const tasks = relationField('has_many', 'tasks', 'tasks', 'hasManyMeta')
 const members = relationField('belongs_to_many', 'members', 'team-members', 'belongsToManyMeta')
@@ -122,5 +123,29 @@ describe('relationship panels inside a record drawer', () => {
     renderOnTeamMemberPage(<DrawerQuick {...drawerProps({ fieldsForPreview: [tasks] })} />)
 
     await expectPanelOfProject('has-many', 'tasks')
+  })
+})
+
+describe('relationship panels inside a custom override', () => {
+  // A consumer's detail override, as an extension bundle writes it: it shows
+  // the record it is handed, which the page URL may not name, through the
+  // runtime's field renderer, and names that record through the runtime.
+  function CustomProjectDetail({ schema, resource, recordId }: OverrideProps) {
+    const { NestedParentProvider, FieldDisplay } = martisRuntime
+    const fields = (schema.fieldsForDetail ?? []) as FieldDefinition[]
+    return (
+      <NestedParentProvider value={{ resource, id: recordId ?? null }}>
+        {fields.map((field) => (
+          <FieldDisplay key={field.attribute} field={field} value={null} resourceKey={resource} context="detail" />
+        ))}
+      </NestedParentProvider>
+    )
+  }
+
+  it('list the related records of the record the override names through the runtime', async () => {
+    renderOnTeamMemberPage(<CustomProjectDetail {...drawerProps({ fieldsForDetail: [tasks, members] })} />)
+
+    await expectPanelOfProject('has-many', 'tasks')
+    await expectPanelOfProject('belongs-to-many', 'members')
   })
 })

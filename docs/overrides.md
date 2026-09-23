@@ -233,7 +233,7 @@ A host can hand a mounted override another `record` / `recordId`, or another res
 | DrawerDetail | `martis:drawer-detail` | Slide-in detail view |
 | DrawerQuick | `martis:drawer-quick` | ⭐ Lightweight read-only quick-look (narrower, no actions). Distinct from the BelongsTo / MorphTo hover **peek** popover, which surfaces *related-record* metadata; `DrawerQuick` is for the current row. |
 
-`DrawerDetail`, `DrawerUpdate` and `DrawerQuick` tell the relationship panels inside them which record they belong to, since the page behind the drawer may not name it (see [relationships.md § Which record a panel belongs to](relationships.md#which-record-a-panel-belongs-to)).
+`DrawerDetail`, `DrawerUpdate` and `DrawerQuick` tell the relationship panels inside them which record they belong to, since the page behind the drawer may not name it, and `DrawerCreate` tells them its record does not exist yet (see [relationships.md § Which record a panel belongs to](relationships.md#which-record-a-panel-belongs-to)). A custom override does the same through `@martis/runtime`: see [Naming the record of the relationship panels](#naming-the-record-of-the-relationship-panels-v1380).
 
 ### ⭐ Reading override props from nested components — `useOverrideProps()`
 
@@ -563,6 +563,8 @@ Since v1.14.0, `@martis/runtime` exposes:
 | `Dropdown`, `MultiSelect` (v1.29.0) | The exact PrimeReact controls Martis's own filters use. Apply the `martis-filter-dropdown` class for the compact filter look. Lets a Tool render pixel-identical single/multi filters without bundling a second copy of PrimeReact. |
 | `createPortal` (v1.29.0) | `react-dom`'s `createPortal`, for overlays. The extension's React shim is React-core-only (no `react-dom`), so it is exposed here. |
 | `DropdownProps`, `MultiSelectProps` (types) | Re-exported so you can type the controls above without reaching into `primereact/*`. |
+| `NestedParentProvider` (v1.38.0) | Names the record whose related records the relationship panels inside list, when the page URL does not name it; `id: null` on a create form. See [Naming the record of the relationship panels](#naming-the-record-of-the-relationship-panels-v1380). |
+| `NestedParent` (type) | The provider's `value`: `{ resource: string; id: string \| number \| null }`. |
 
 ### Example — Select inside a custom Action component
 
@@ -665,6 +667,70 @@ export function StatusFilter() {
 `createPortal` (also on `martisRuntime`) is available for overlays that must
 escape a clipped/overflow-hidden container — the extension's React shim is
 React-core-only, so `react-dom`'s portal is exposed through the runtime.
+
+### Naming the record of the relationship panels (v1.38.0)
+
+A relationship field rendered through `FieldDisplay` or `FieldInput` (a
+`HasMany`, `MorphMany`, `BelongsToMany` or `MorphToMany` panel, a `HasOne` /
+`MorphOne` card) lists the related records of the record it belongs to: the
+nearest record named with `NestedParentProvider`, else the record in the page
+URL (`/resources/{resource}/{id}`). The bundled drawers and cards name theirs
+(see [relationships.md § Which record a panel belongs to](relationships.md#which-record-a-panel-belongs-to)).
+A custom override that shows a record the URL may not name (a drawer an
+action, a lens row or an index row opens, a card of another record) names it
+the same way:
+
+```tsx
+import { FieldDisplay, NestedParentProvider } from '@martis/runtime'
+import type { FieldDefinition } from '@martis/runtime'
+
+export function ProjectSummaryDrawer({ schema, resource, record, recordId }: OverrideProps) {
+    const fields = (schema.fieldsForDetail ?? []) as FieldDefinition[]
+    return (
+        <NestedParentProvider value={{ resource, id: recordId ?? null }}>
+            {fields.map((field) => (
+                <FieldDisplay
+                    key={field.attribute}
+                    field={field}
+                    value={record?.[field.attribute] ?? null}
+                    resourceKey={resource}
+                    context="detail"
+                />
+            ))}
+        </NestedParentProvider>
+    )
+}
+```
+
+Without the provider the panels read the page's record: on
+`/resources/team-members/2`, a drawer showing project 3 would ask
+`/api/resources/team-members/2/has-many/tasks` for the project's tasks (404,
+or team member 2's own rows when team members declare the same relationship).
+
+A custom create override names no record, since it does not exist yet: pass
+`id: null`. A `BelongsToMany` / `MorphToMany` panel with no record renders
+nothing and asks nothing (the schema keeps both fields off create forms
+anyway, like Nova). Without the provider, a create override opened over a
+record's page (a Replicate, an action response) would hand its panels that
+record.
+
+```tsx
+<NestedParentProvider value={{ resource, id: null }}>
+    {/* the create form */}
+</NestedParentProvider>
+```
+
+The nearest provider wins, so a provider inside another one (a create modal
+opened from a record drawer) names the record of its own subtree. Type the
+`value` with the re-exported `NestedParent`.
+
+An extension scaffolded before v1.38.0 has a `.shims/runtime.mjs` without the
+named export. Read it off the default export (`import runtime from
+'@martis/runtime'`, then `runtime.NestedParentProvider`), which every shim
+since v1.10.0 provides, or copy the `NestedParentProvider` line from the
+package's `stubs/extensions/runtime-shim.mjs.stub` into your shim
+(`martis:install --force` rewrites every scaffold file, your vite config and
+`index.ts` included).
 
 ### Caveats
 

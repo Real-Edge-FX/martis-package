@@ -9,6 +9,7 @@ import { XIcon, PlusIcon } from "@phosphor-icons/react"
 import type { FieldDefinition } from "@/types"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { useModalHistoryLock } from "@/lib/historyLock"
+import { NestedParentProvider } from "@/components/fields/NestedParentContext"
 
 /** Modal size — maps to a max-width in pixels so the panel scales
  *  beyond the 480px default of `.martis-modal-surface`. */
@@ -177,139 +178,143 @@ export function InlineCreateModal({
   const maxWidth = MODAL_MAX_WIDTH[modalSize] ?? MODAL_MAX_WIDTH["2xl"]
 
   return createPortal(
-    <div
-      className="martis-modal-scrim"
-      style={{ zIndex: 9999 }}
-      onKeyDown={(e) => { if (e.key === "Enter") e.stopPropagation() }}
-      onClick={onClose}
-    >
+    // The record does not exist yet, whatever page or drawer the modal opens
+    // over, so no relationship panel inside reads that page's record.
+    <NestedParentProvider value={{ resource: relatedResource, id: null }}>
       <div
-        role="dialog"
-        aria-modal="true"
-        className="martis-modal-surface"
-        style={{ maxWidth }}
-        onClick={(e) => e.stopPropagation()}
+        className="martis-modal-scrim"
+        style={{ zIndex: 9999 }}
+        onKeyDown={(e) => { if (e.key === "Enter") e.stopPropagation() }}
+        onClick={onClose}
       >
-        <div className="martis-modal-head">
-          <div className="flex items-center gap-3">
-            {showResourceIcon && (
-              <ResourceIcon
-                iconName={resourceIconOverride ?? schema?.icon ?? "database"}
-                size={22}
-                color={resourceIconColor ?? "var(--martis-accent)"}
-              />
-            )}
-            <div className="flex flex-col">
-              <h3 className="martis-modal-head-title">
-                {tAct("create")} {schema?.singularLabel ?? relatedResource}
-              </h3>
-              {resourceSubtitle && (
-                <span
-                  className="text-sm"
-                  style={{ color: "var(--martis-text-muted)" }}
-                >
-                  {typeof resourceSubtitle === "string" ? resourceSubtitle : schema?.subtitle}
-                </span>
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="martis-modal-surface"
+          style={{ maxWidth }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="martis-modal-head">
+            <div className="flex items-center gap-3">
+              {showResourceIcon && (
+                <ResourceIcon
+                  iconName={resourceIconOverride ?? schema?.icon ?? "database"}
+                  size={22}
+                  color={resourceIconColor ?? "var(--martis-accent)"}
+                />
               )}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="martis-modal-close"
-            aria-label={tAct("cancel")}
-          >
-            <XIcon size={16} />
-          </button>
-        </div>
-
-        <div className="martis-modal-body">
-          {schemaQuery.isLoading ? (
-            <div className="space-y-4 animate-pulse">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="grid grid-cols-3 gap-4">
-                  <div
-                    className="h-4 w-24 rounded"
-                    style={{ backgroundColor: "var(--martis-surface)" }}
-                  />
-                  <div
-                    className="col-span-2 h-10 rounded"
-                    style={{ backgroundColor: "var(--martis-surface)" }}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : schema ? (
-            <form id="inline-create-form" onSubmit={handleSubmit} noValidate>
-
-              <div
-                className="divide-y"
-                style={{ borderColor: "var(--martis-border)" }}
-              >
-                {schema.fields.map((field) => (
-                  <div
-                    key={field.attribute}
-                    className="grid grid-cols-3 gap-4 py-3"
-                    style={{ borderColor: "var(--martis-border)" }}
+              <div className="flex flex-col">
+                <h3 className="martis-modal-head-title">
+                  {tAct("create")} {schema?.singularLabel ?? relatedResource}
+                </h3>
+                {resourceSubtitle && (
+                  <span
+                    className="text-sm"
+                    style={{ color: "var(--martis-text-muted)" }}
                   >
-                    <div>
-                      <label
-                        htmlFor={field.attribute}
-                        className="block text-sm font-medium"
-                        style={{ color: "var(--martis-text-muted)" }}
-                      >
-                        {field.label}
-                        {field.required && (
-                          <span className="ml-1" aria-hidden="true" style={{ color: "var(--martis-danger)" }}>
-                            *
-                          </span>
-                        )}
-                      </label>
-                    </div>
-                    <div className="col-span-2">
-                      <FieldInput
-                        field={field}
-                        value={values[field.attribute] ?? null}
-                        onChange={(v) => handleChange(field.attribute, v)}
-                        error={errors[field.attribute]}
-                        resourceKey={relatedResource}
-                        context="create"
-                      />
-                    </div>
-                  </div>
-                ))}
-                {errors._general && (
-                  <div className="py-3">
-                    <small style={{ color: "var(--martis-danger)" }}>{errors._general}</small>
-                  </div>
+                    {typeof resourceSubtitle === "string" ? resourceSubtitle : schema?.subtitle}
+                  </span>
                 )}
               </div>
-            </form>
-          ) : (
-            <div style={{ color: "var(--martis-text-muted)" }}>
-              {tMsg("error_schema", "Failed to load schema.")}
             </div>
-          )}
-        </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="martis-modal-close"
+              aria-label={tAct("cancel")}
+            >
+              <XIcon size={16} />
+            </button>
+          </div>
 
-        <div className="martis-modal-foot">
-          <button type="button" onClick={onClose} className="martis-btn-secondary">
-            {tAct("cancel")}
-          </button>
-          <button
-            type="submit"
-            form="inline-create-form"
-            disabled={createMutation.isPending || schemaQuery.isLoading}
-            className="martis-btn-primary"
-          >
-            <PlusIcon size={14} />
-            {createMutation.isPending
-              ? tAct("saving")
-              : `${tAct("create")} ${schema?.singularLabel ?? ""}`}
-          </button>
+          <div className="martis-modal-body">
+            {schemaQuery.isLoading ? (
+              <div className="space-y-4 animate-pulse">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="grid grid-cols-3 gap-4">
+                    <div
+                      className="h-4 w-24 rounded"
+                      style={{ backgroundColor: "var(--martis-surface)" }}
+                    />
+                    <div
+                      className="col-span-2 h-10 rounded"
+                      style={{ backgroundColor: "var(--martis-surface)" }}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : schema ? (
+              <form id="inline-create-form" onSubmit={handleSubmit} noValidate>
+
+                <div
+                  className="divide-y"
+                  style={{ borderColor: "var(--martis-border)" }}
+                >
+                  {schema.fields.map((field) => (
+                    <div
+                      key={field.attribute}
+                      className="grid grid-cols-3 gap-4 py-3"
+                      style={{ borderColor: "var(--martis-border)" }}
+                    >
+                      <div>
+                        <label
+                          htmlFor={field.attribute}
+                          className="block text-sm font-medium"
+                          style={{ color: "var(--martis-text-muted)" }}
+                        >
+                          {field.label}
+                          {field.required && (
+                            <span className="ml-1" aria-hidden="true" style={{ color: "var(--martis-danger)" }}>
+                              *
+                            </span>
+                          )}
+                        </label>
+                      </div>
+                      <div className="col-span-2">
+                        <FieldInput
+                          field={field}
+                          value={values[field.attribute] ?? null}
+                          onChange={(v) => handleChange(field.attribute, v)}
+                          error={errors[field.attribute]}
+                          resourceKey={relatedResource}
+                          context="create"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  {errors._general && (
+                    <div className="py-3">
+                      <small style={{ color: "var(--martis-danger)" }}>{errors._general}</small>
+                    </div>
+                  )}
+                </div>
+              </form>
+            ) : (
+              <div style={{ color: "var(--martis-text-muted)" }}>
+                {tMsg("error_schema", "Failed to load schema.")}
+              </div>
+            )}
+          </div>
+
+          <div className="martis-modal-foot">
+            <button type="button" onClick={onClose} className="martis-btn-secondary">
+              {tAct("cancel")}
+            </button>
+            <button
+              type="submit"
+              form="inline-create-form"
+              disabled={createMutation.isPending || schemaQuery.isLoading}
+              className="martis-btn-primary"
+            >
+              <PlusIcon size={14} />
+              {createMutation.isPending
+                ? tAct("saving")
+                : `${tAct("create")} ${schema?.singularLabel ?? ""}`}
+            </button>
+          </div>
         </div>
       </div>
-    </div>,
+    </NestedParentProvider>,
     document.body,
   )
 }

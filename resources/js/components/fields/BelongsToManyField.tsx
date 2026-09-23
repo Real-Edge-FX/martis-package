@@ -41,9 +41,14 @@ const MODAL_SIZE_MAP: Record<string, string> = {
 // -------------------------------------------------------------------------
 
 export function BelongsToManyFieldDisplay({ field, value }: FieldDisplayProps) {
+  const { id: parentId } = useRelationParent()
+
   if (typeof value === 'number') {
     return <BelongsToManyCountBadge count={value} />
   }
+
+  // No record to attach to yet: like Nova, no panel.
+  if (!parentId) return null
 
   // Detail page — render the full panel with attach/detach/pivot actions.
   // Programmers hide individual actions via ->hideCreateButton()
@@ -852,6 +857,11 @@ function AttachModal({
 // -------------------------------------------------------------------------
 
 export function BelongsToManyFieldInput({ field, formValues }: FieldInputProps) {
+  // A create surface names no record (the schema keeps this field off its
+  // forms, like Nova): the panel would read another record, or none.
+  const { id: parentId } = useRelationParent()
+  if (!parentId) return null
+
   return <BelongsToManyDetailPanel field={field} formValues={formValues} />
 }
 

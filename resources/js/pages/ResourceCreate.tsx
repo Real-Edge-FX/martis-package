@@ -15,6 +15,7 @@ import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import { recordHref } from '@/lib/recordHref'
+import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 
 export function ResourceCreatePage() {
   const { resource } = useParams<{ resource: string }>()
@@ -373,81 +374,85 @@ function CreateTargetPage() {
         {tAct('create')} {schema.singularLabel}
       </h1>
 
-      <form onSubmit={handleSubmit} noValidate>
-        <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
-          {/* Fields rendered in declaration order — layout containers and
-              scalar fields interleaved. The render loop (including dependsOn
-              override resolution) is now owned by <FieldsForm>, driven by
-              useMartisForm's resolvedFields + fieldProps. */}
-          <FieldsForm form={form} context="create" />
+      {/* The record does not exist yet: no relationship panel in the form
+          reads another one (see NestedParentContext). */}
+      <NestedParentProvider value={{ resource: resource!, id: null }}>
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
+            {/* Fields rendered in declaration order — layout containers and
+                scalar fields interleaved. The render loop (including dependsOn
+                override resolution) is now owned by <FieldsForm>, driven by
+                useMartisForm's resolvedFields + fieldProps. */}
+            <FieldsForm form={form} context="create" />
 
-          {/* Footer */}
-          <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface-alt)' }}>
-            <button
-              type="button"
-              onClick={() => {
-                // Nested create/edit screens pass a `from` query param with
-                // the exact URL the user clicked from. Using that beats
-                // navigate(-1): it survives hard reloads and respects the
-                // click origin even when the immediate parent differs from
-                // the page the user was actually viewing (e.g. a task
-                // created from a team-member's nested HasOneThrough panel
-                // has viaResource=projects but the return target is the
-                // team-member page).
-                const fromParam = searchParams.get('from')
-                if (fromParam) {
-                  navigate(fromParam)
-                } else if (window.history.length > 1) {
-                  navigate(-1)
-                } else if (isViaRelation) {
-                  navigate(recordHref(viaResource!, viaResourceId!))
-                } else {
-                  navigate(`/resources/${resource}`)
-                }
-              }}
-              className="martis-btn-secondary"
-            >
-              {tAct('cancel')}
-            </button>
-            {/*
-              Save variants — Nova-parity. The default Create button
-              navigates to the new record's detail page; the secondary
-              buttons stay on the create page (add another) or jump to
-              the list. Hidden in nested-relation flows because those
-              are launched from a parent surface that already manages
-              the post-save redirect.
-            */}
-            {!isViaRelation && (
-              <>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="martis-btn-secondary"
-                  onClick={() => { submitModeRef.current = 'add_another' }}
-                >
-                  {tAct('create_and_add_another')}
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="martis-btn-secondary"
-                  onClick={() => { submitModeRef.current = 'list' }}
-                >
-                  {tAct('create_and_view_list')}
-                </button>
-              </>
-            )}
-            <button
-              type="submit"
-              disabled={createMutation.isPending}
-              className="martis-btn-primary"
-              onClick={() => { submitModeRef.current = 'detail' }}
-            >
-              {createMutation.isPending ? tAct('saving') : `${tAct('create')} ${schema.singularLabel}`}
-            </button>
+            {/* Footer */}
+            <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface-alt)' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  // Nested create/edit screens pass a `from` query param with
+                  // the exact URL the user clicked from. Using that beats
+                  // navigate(-1): it survives hard reloads and respects the
+                  // click origin even when the immediate parent differs from
+                  // the page the user was actually viewing (e.g. a task
+                  // created from a team-member's nested HasOneThrough panel
+                  // has viaResource=projects but the return target is the
+                  // team-member page).
+                  const fromParam = searchParams.get('from')
+                  if (fromParam) {
+                    navigate(fromParam)
+                  } else if (window.history.length > 1) {
+                    navigate(-1)
+                  } else if (isViaRelation) {
+                    navigate(recordHref(viaResource!, viaResourceId!))
+                  } else {
+                    navigate(`/resources/${resource}`)
+                  }
+                }}
+                className="martis-btn-secondary"
+              >
+                {tAct('cancel')}
+              </button>
+              {/*
+                Save variants — Nova-parity. The default Create button
+                navigates to the new record's detail page; the secondary
+                buttons stay on the create page (add another) or jump to
+                the list. Hidden in nested-relation flows because those
+                are launched from a parent surface that already manages
+                the post-save redirect.
+              */}
+              {!isViaRelation && (
+                <>
+                  <button
+                    type="submit"
+                    disabled={createMutation.isPending}
+                    className="martis-btn-secondary"
+                    onClick={() => { submitModeRef.current = 'add_another' }}
+                  >
+                    {tAct('create_and_add_another')}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createMutation.isPending}
+                    className="martis-btn-secondary"
+                    onClick={() => { submitModeRef.current = 'list' }}
+                  >
+                    {tAct('create_and_view_list')}
+                  </button>
+                </>
+              )}
+              <button
+                type="submit"
+                disabled={createMutation.isPending}
+                className="martis-btn-primary"
+                onClick={() => { submitModeRef.current = 'detail' }}
+              >
+                {createMutation.isPending ? tAct('saving') : `${tAct('create')} ${schema.singularLabel}`}
+              </button>
+            </div>
           </div>
-        </div>
-      </form>
+        </form>
+      </NestedParentProvider>
       {unsavedGuardDialog}
     </div>
   )

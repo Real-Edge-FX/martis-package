@@ -41,9 +41,14 @@ const MODAL_SIZE_MAP: Record<string, string> = {
 // -------------------------------------------------------------------------
 
 export function MorphToManyFieldDisplay({ field, value }: FieldDisplayProps) {
+  const { id: parentId } = useRelationParent()
+
   if (typeof value === 'number') {
     return <MorphToManyCountBadge count={value} />
   }
+
+  // No record to attach to yet: like Nova, no panel.
+  if (!parentId) return null
 
   // Detail page — render the full panel in read-only mode (no attach/detach/pivot actions)
   return <MorphToManyDetailPanel field={field} />
@@ -796,9 +801,14 @@ function AttachModal({
 }
 
 // -------------------------------------------------------------------------
-// Forms — no-op (MorphToMany only on detail page)
+// Forms — the panel on the update form; none before the record exists
 // -------------------------------------------------------------------------
 
 export function MorphToManyFieldInput({ field }: FieldInputProps) {
+  // A create surface names no record (the schema keeps this field off its
+  // forms, like Nova): the panel would read another record, or none.
+  const { id: parentId } = useRelationParent()
+  if (!parentId) return null
+
   return <MorphToManyDetailPanel field={field} />
 }
