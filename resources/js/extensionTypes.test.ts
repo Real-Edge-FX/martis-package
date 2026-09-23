@@ -41,7 +41,7 @@ const RUNTIME_OBJECTS: Record<string, Record<string, unknown>> = {
     RR: martisRuntime.reactRouterDom as unknown as Record<string, unknown>,
     I: martisRuntime.reactI18next as unknown as Record<string, unknown>,
     Q: martisRuntime.tanstackReactQuery as unknown as Record<string, unknown>,
-    ReactDOM: { createPortal: martisRuntime.createPortal },
+    ReactDOM: { createPortal: martisRuntime.createPortal, flushSync: martisRuntime.flushSync },
 }
 
 const SHIMS = [

@@ -1,3 +1,4 @@
+import { flushSync } from 'react-dom'
 import { describe, expect, it } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { martisRuntime } from '@/lib/martisRuntime'
@@ -116,6 +117,9 @@ describe('martisRuntime', () => {
         expect(martisRuntime.Dropdown).toBeDefined()
         expect(martisRuntime.MultiSelect).toBeDefined()
         expect(martisRuntime.createPortal).toBeTypeOf('function')
+        // The host's synchronous flush (v1.38.2), which the react-dom shim
+        // re-exports for libraries such as @tanstack/react-virtual.
+        expect(martisRuntime.flushSync).toBe(flushSync)
 
         // Shared field-form harness (v1.20.0)
         expect(martisRuntime.useMartisForm).toBeTypeOf('function')

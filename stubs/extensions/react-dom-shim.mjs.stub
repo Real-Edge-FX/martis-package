@@ -3,17 +3,21 @@
  *
  * The consumer's `vite.extensions.config.ts` aliases bare `react-dom`
  * imports to this file. It re-exports the part of `react-dom` the Martis
- * runtime carries, `createPortal` (on `window.Martis.runtime` since
+ * runtime carries: `createPortal` (on `window.Martis.runtime` since
  * v1.29.0), so a portal an extension opens renders with the host's React
- * DOM instead of a second copy. Nothing else of `react-dom` reaches an
+ * DOM instead of a second copy, and `flushSync` (since v1.38.2), which
+ * third-party libraries import (`@tanstack/react-virtual` calls it while
+ * scrolling a virtualised list). Nothing else of `react-dom` reaches an
  * extension: an import of any other name stops the build with
- * `"flushSync" is not exported by ".shims/react-dom.mjs"`, and `tsc` reports
- * it too, since `tsconfig.extensions.json` maps `react-dom` to the
- * declarations next to this file (`react-dom.d.mts`).
+ * `"unstable_batchedUpdates" is not exported by ".shims/react-dom.mjs"`, and
+ * `tsc` reports it too, since `tsconfig.extensions.json` maps `react-dom` to
+ * the declarations next to this file (`react-dom.d.mts`).
  *
  * Before v1.38.0 the config sent `react-dom` to the React shim, which
- * exports React core only. `createPortal` is also a named export of
- * `@martis/runtime`.
+ * exports React core only. `createPortal` and `flushSync` are also named
+ * exports of `@martis/runtime`. In v1.38.0 and v1.38.1 this shim carried
+ * `createPortal` only, and a library that imports `flushSync` stopped the
+ * build.
  */
 
 const R =
@@ -28,9 +32,10 @@ if (R === null) {
 }
 
 export const createPortal = R.createPortal
+export const flushSync = R.flushSync
 
 // The default export, for `import ReactDOM from 'react-dom'`: the same
 // members as the named exports.
-const ReactDOM = { createPortal }
+const ReactDOM = { createPortal, flushSync }
 
 export default ReactDOM

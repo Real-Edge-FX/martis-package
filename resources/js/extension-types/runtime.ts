@@ -35,7 +35,7 @@ export { DrawerShell } from '@/components/overrides/DrawerShell'
 export { Tooltip } from 'primereact/tooltip'
 export { Dropdown } from 'primereact/dropdown'
 export { MultiSelect } from 'primereact/multiselect'
-export { createPortal } from 'react-dom'
+export { createPortal, flushSync } from 'react-dom'
 export { NestedParentProvider } from '@/components/fields/NestedParentContext'
 
 // Shared field-form harness
