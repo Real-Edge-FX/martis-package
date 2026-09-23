@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { MagnifyingGlassIcon, XIcon, PlusIcon, CheckIcon } from '@phosphor-icons/react'
+import { MagnifyingGlassIcon, XIcon, PlusIcon, PlusCircleIcon, CheckIcon } from '@phosphor-icons/react'
 import { api } from '@/lib/api'
+import { InlineCreateModal } from '@/components/InlineCreateModal'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
 import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
@@ -84,9 +85,14 @@ export function TagFieldDisplay({ field, value }: FieldDisplayProps) {
 
 export function TagFieldInput({ field, value, onChange, error, resourceKey, recordId, context, actionEndpoint, pivotEndpoint, repeaterRow }: FieldInputProps) {
   const { t: tMsg } = useTranslation('messages')
+  const { t: tAct } = useTranslation('actions')
   const relatedResource = (field as Record<string, unknown>).relatedResource as string | undefined
   const titleAttribute = (field as Record<string, unknown>).titleAttribute as string | undefined
   const preload = (field as Record<string, unknown>).preload as boolean | undefined
+  const showCreateRelationButton = (field as Record<string, unknown>).showCreateRelationButton === true
+  const fieldModalSize = ((field as Record<string, unknown>).modalSize as string) || '2xl'
+  // A readonly field keeps its tags, so it offers no inline create either.
+  const canCreate = showCreateRelationButton && !!relatedResource && !field.readonly
 
   const [selected, setSelected] = useState<TagValue[]>(() => toTagArray(value))
 
@@ -106,6 +112,7 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
   const [search, setSearch] = useState('')
   const [options, setOptions] = useState<RelatedRecord[]>([])
   const [loading, setLoading] = useState(false)
+  const [showInlineCreate, setShowInlineCreate] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -203,6 +210,29 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
   function removeTag(id: number | string) {
     if (field.readonly) return
     emitChange(selected.filter((t) => String(t.id) !== String(id)))
+  }
+
+  // The inline-create modal reports the record it created from the render
+  // that submitted it, so the selection and the readonly flag are read live
+  // when it settles.
+  const liveRef = useRef({ selected, readonly: field.readonly })
+  liveRef.current = { selected, readonly: field.readonly }
+
+  function openInlineCreate() {
+    setOpen(false)
+    setSearch('')
+    setShowInlineCreate(true)
+  }
+
+  function handleInlineCreated(record: { id: string | number; title: string | null }) {
+    setShowInlineCreate(false)
+    // Preloaded options are fetched once; the others on every open.
+    if (preload) void fetchOptions('')
+    // A field that turned readonly while the record was being created keeps
+    // its tags: the save would drop the new one.
+    const { selected: current, readonly } = liveRef.current
+    if (readonly || current.some((t) => String(t.id) === String(record.id))) return
+    emitChange([...current, { id: record.id, title: record.title ?? String(record.id) }])
   }
 
   return (
@@ -342,10 +372,38 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
               })
             )}
           </div>
+
+          {canCreate && (
+            <button
+              type="button"
+              onClick={openInlineCreate}
+              className="w-full text-left flex items-center gap-1.5 text-xs font-medium transition-colors"
+              style={{
+                padding: '0.5rem 0.75rem',
+                color: 'var(--martis-accent)',
+                borderTop: '1px solid var(--martis-border)',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--martis-hover)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+            >
+              <PlusCircleIcon size={14} weight="bold" />
+              {tAct('create')}
+            </button>
+          )}
         </div>
       )}
 
       {error && <small className="text-red-500">{error}</small>}
+
+      {canCreate && relatedResource && (
+        <InlineCreateModal
+          relatedResource={relatedResource}
+          open={showInlineCreate}
+          onClose={() => setShowInlineCreate(false)}
+          onCreated={handleInlineCreated}
+          modalSize={fieldModalSize}
+        />
+      )}
     </div>
   )
 }

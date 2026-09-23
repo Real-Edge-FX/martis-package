@@ -1790,6 +1790,8 @@ Tag::make('tags', 'Tags')
 | `getModalSize` | `getModalSize(): string` | `string` | Get modal size. | — |
 | `isPreload` | `isPreload(): bool` | `bool` | Check if preloading. | — |
 
+**Inline create** (v1.38.0+): with `showCreateRelationButton()` the picker's dropdown ends with a *Create* entry that opens the related resource's inline-create modal (its `fieldsForInlineCreate()`, sized by `modalSize()`), and the record it creates joins the selection. The entry follows the related resource's policy (the schema serialises `showCreateRelationButton: false` when the user may not create a record there), is absent on a readonly field, and never shows on a `Tag` inside another inline-create form. Before v1.38.0 the method only serialised the flag: the picker offered no way to create a tag.
+
 **Overrides:**
 - `resolve()` loads related models, returns `[{id, title}]`.
 - `fill()` registers deferred pivot sync via `DeferredRelationSync`.
@@ -2989,7 +2991,7 @@ Override `fieldsForCreate()` on your resource to control which fields appear in 
 
 ## Inline Create
 
-BelongsTo fields can display a "+" button that opens a modal for creating a related record inline, without leaving the current form. This is controlled by `showCreateRelationButton()` on the BelongsTo field.
+BelongsTo fields can display a "+" button that opens a modal for creating a related record inline, without leaving the current form. This is controlled by `showCreateRelationButton()` on the BelongsTo field. `MorphTo` offers the same per type, and `Tag` from its picker's dropdown (v1.38.0+); see their sections.
 
 ### How It Works
 
@@ -2997,7 +2999,7 @@ BelongsTo fields can display a "+" button that opens a modal for creating a rela
 2. Clicking "+" opens a modal with the related resource's inline create fields
 3. The related resource defines `fieldsForInlineCreate()` for a reduced field set
 4. On submit, the new record is created and automatically selected in the BelongsTo dropdown
-5. Nesting is limited to 1 level (no inline create inside an inline create)
+5. Nesting is limited to 1 level (no inline create inside an inline create): the inline-create schema turns `showCreateRelationButton` off for its `BelongsTo`, `MorphTo` and `Tag` fields (`Tag` since v1.38.0)
 6. A readonly field offers no "+" (v1.38.0+): a `readonly()` field, an `immutable()` one on an update form, and the `BelongsTo` a nested create locks to its parent. Before v1.38.0 the "+" stayed live there and created a record the save then dropped.
 
 Closing the modal discards what was typed in it, so it opens on an empty form every time (v1.38.0+). Before v1.38.0 the modal emptied its form one render after it opened again, so an input that reads its value when it mounts kept the text typed the previous time.

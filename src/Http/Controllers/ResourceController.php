@@ -723,14 +723,14 @@ class ResourceController extends MartisController
         // Use fieldsForInlineCreate (falls back to fieldsForCreate -> fields)
         $fields = Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE);
 
-        // Depth enforcement: strip showCreateRelationButton from belongs_to/morph_to fields.
+        // Depth enforcement: strip showCreateRelationButton from belongs_to/morph_to/tag fields.
         // This is the canonical server-side guard that prevents nested inline creates —
-        // BelongsToField.tsx gates both the button and the InlineCreateModal on
-        // showCreateRelationButton === true, so the nested create UI is never rendered
-        // inside an inline create modal.
+        // the BelongsTo, MorphTo and Tag inputs gate both the button and the
+        // InlineCreateModal on showCreateRelationButton === true, so the nested create UI
+        // is never rendered inside an inline create modal.
         $fieldData = array_map(function (FieldContract $f): array {
             $arr = $f->toArray();
-            if (($arr['type'] ?? '') === 'belongs_to' || ($arr['type'] ?? '') === 'morph_to') {
+            if (in_array($arr['type'] ?? '', ['belongs_to', 'morph_to', 'tag'], true)) {
                 $arr['showCreateRelationButton'] = false;
             }
 

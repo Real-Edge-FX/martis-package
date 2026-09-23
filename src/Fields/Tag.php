@@ -198,11 +198,19 @@ class Tag extends Field
     }
 
     /**
-     * Is show create relation button.
+     * Whether the picker offers the inline create button: it is declared
+     * and the related resource's policy lets the user create a record
+     * there, as for BelongsTo.
      */
     public function isShowCreateRelationButton(): bool
     {
-        return $this->showCreateRelationButton;
+        if (! $this->showCreateRelationButton) {
+            return false;
+        }
+
+        $auth = $this->relatedResourceAuthorizations($this->relatedUriKey);
+
+        return (bool) ($auth['authorizedToCreate'] ?? true);
     }
 
     /**
@@ -321,7 +329,7 @@ class Tag extends Field
             'relatedResource' => $this->relatedUriKey,
             'withPreview' => $this->withPreview,
             'displayAsList' => $this->displayAsList,
-            'showCreateRelationButton' => $this->showCreateRelationButton,
+            'showCreateRelationButton' => $this->isShowCreateRelationButton(),
             'modalSize' => $this->modalSize->value,
             'preload' => $this->preload,
             'relationSearchable' => $this->relationSearchable,

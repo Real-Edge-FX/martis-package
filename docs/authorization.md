@@ -176,7 +176,8 @@ Every dashboard primitive supports a `canSee(Closure)` callback.
   resource, independent of the `showCreateRelationButton()` toggle. A
   `MorphTo` flags each of its types, and its button follows the type the
   operator picked (v1.38.0+; before, it showed for every type as soon as
-  one was creatable).
+  one was creatable). `Tag` applies the same rule to its inline create
+  (v1.38.0+).
 - `BelongsToMany` / `MorphToMany` attach: `attachAny{Model}`
   (`authorizedToAttachAny()`) gates the attach as a whole. When it
   denies, the list of records to attach (`.../attachable`), the attach
