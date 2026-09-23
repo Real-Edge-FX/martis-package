@@ -155,6 +155,27 @@ Before v1.38.0 `withOrdering()` ordered the lens by whatever column
 ordered the rows by values the user may not read, and a column that does
 not exist answered 500 on MySQL / PostgreSQL.
 
+#### Searching a lens
+
+The lens's search box sends `?search=`, which reaches the lens as
+`$request->search`; Martis does not match it on anything itself, so the
+lens decides which columns it searches. Search the columns the user may
+see: a term matched on a column a field hides from the user (`canSee()`)
+tells which records hold it. The resource index, by contrast, matches only
+the `searchable()` fields the user can see (see
+[Fields → Field authorization](fields.md#field-authorization-cansee-and-canseeformodel)).
+
+```php
+public function query(LensRequest $request, Builder $query): Builder
+{
+    if ($request->search !== '') {
+        $query->where('name', 'like', '%'.$request->search.'%');
+    }
+
+    return $request->withOrdering($request->withFilters($query), fn (Builder $q) => $q->latest());
+}
+```
+
 ### Inheritance from the parent resource
 
 When the lens does not declare its own override, it inherits the value
