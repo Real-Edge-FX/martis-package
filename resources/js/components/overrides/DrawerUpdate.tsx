@@ -79,7 +79,13 @@ export function DrawerUpdate(props: OverrideProps) {
 
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [initialized, setInitialized] = useState(false)
+  // The record the form was seeded from. A host can hand the open drawer
+  // another record, or another resource's, without remounting it; the form
+  // is initialized only once that record has seeded it, so nothing from the
+  // previous one (values, edits, errors, dirty baseline) carries over.
+  const recordKey = `${resource}/${recordId ?? ''}`
+  const [seededKey, setSeededKey] = useState<string | null>(null)
+  const initialized = seededKey === recordKey
 
   // ⭐ Camada B — snapshot of the values the record loaded with, used to
   // detect dirty state and warn before discarding edits. We keep a live
@@ -94,7 +100,8 @@ export function DrawerUpdate(props: OverrideProps) {
   // the beforeClose Promise instead of leaving it dangling.
   const [dirtyPrompt, setDirtyPrompt] = useState<null | { confirm: () => void; cancel: () => void }>(null)
 
-  // Pre-populate form when record loads
+  // Pre-populate form when record loads, and again when the host hands the
+  // drawer another record.
   useEffect(() => {
     if (activeRecord && !initialized) {
       const initial: Record<string, unknown> = {}
@@ -107,9 +114,10 @@ export function DrawerUpdate(props: OverrideProps) {
       valuesRef.current = initial
       initialSnapshot.current = JSON.stringify(initial)
       setValues(initial)
-      setInitialized(true)
+      setErrors({})
+      setSeededKey(recordKey)
     }
-  }, [activeRecord, scalarFields, initialized])
+  }, [activeRecord, scalarFields, initialized, recordKey])
 
   // Some fields (BelongsTo, Icon, Timezone, …) normalise their value on
   // mount via onChange, which would otherwise spuriously mark the drawer
@@ -136,7 +144,8 @@ export function DrawerUpdate(props: OverrideProps) {
     confirmRaw && typeof confirmRaw === 'object' ? confirmRaw : null
 
   const isDirty = useCallback(() => {
-    if (initialSnapshot.current === null) return false
+    // Nothing to lose while the record the host handed over is still loading.
+    if (!initialized || initialSnapshot.current === null) return false
     // Compare only the scalar fields captured in the baseline — fields
     // that manage their own state outside `values` (e.g. Trix, tag
     // widgets) may write back after mount without representing a user
@@ -146,7 +155,7 @@ export function DrawerUpdate(props: OverrideProps) {
       current[field.attribute] = valuesRef.current[field.attribute] ?? null
     })
     return JSON.stringify(current) !== initialSnapshot.current
-  }, [scalarFields])
+  }, [initialized, scalarFields])
   const beforeClose = useCallback(async (): Promise<boolean> => {
     if (!confirmEnabled || !isDirty()) return true
     return new Promise<boolean>((resolve) => {

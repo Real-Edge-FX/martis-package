@@ -222,6 +222,8 @@ interface OverrideProps {
 }
 ```
 
+A host can hand a mounted override another `record` / `recordId`, or another resource's `schema` and `resource`, without remounting it: `ActionDrawer` does when Edit on another index row or an action response opens another record while its drawer is open, and the detail page does when its route moves to another record behind an open update drawer. An override that keeps form state has to seed it again for the record it now receives, or render its body with a `key` built from `resource` and `recordId`. Since v1.38.0 the bundled `DrawerUpdate` seeds its values, validation errors and dirty baseline again when the resource or the record changes; a fresh copy of the same record keeps the edits.
+
 ### Built-in Drawer Components
 
 | Component | Key | Description |
@@ -486,7 +488,7 @@ export function StatusSelect({ field, value, onChange, error }: FieldInputProps)
 
 If you opted out of the Tailwind preset, the same effect works with inline styles (`style={{ color: 'var(--martis-danger)' }}`) or the bundled helper classes (`.martis-text`, `.martis-border`). Either way, **don't hard-code colours like `bg-red-500`** — they don't follow the active theme.
 
-**`value` can change after the input mounts.** The edit forms (the update page and the update drawer) mount the fields once the record has filled the form, so an input gets the stored value on its first render. The value can still change under a mounted input: "Create & add another" clears the form for the next record, and a replicated record fills the create form after its fields mounted. Render from `value` where you can. An input that keeps its own state (rows, a selection, a preview) has to adopt a `value` it did not emit itself, and keep its state when the form hands back what it just emitted:
+**`value` can change after the input mounts.** The edit forms (the update page and the update drawer) mount the fields once the record has filled the form, so an input gets the stored value on its first render. When the form moves to another record (the update page follows the record in the URL, the update drawer the record its host hands it), the fields mount again with that record's values, so no input state carries from one record to the next. The value can still change under a mounted input: "Create & add another" clears the form for the next record, and a replicated record fills the create form after its fields mounted. Render from `value` where you can. An input that keeps its own state (rows, a selection, a preview) has to adopt a `value` it did not emit itself, and keep its state when the form hands back what it just emitted:
 
 ```typescript
 import { useEffect, useRef, useState } from 'react'

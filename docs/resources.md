@@ -816,6 +816,8 @@ Return `null` (the default) to keep the standard behaviour. The two extra save v
 
 The string travels back to the SPA in the create/update response under `meta.redirectTo`.
 
+Since v1.38.0 a destination on another record's edit page opens that record's form from scratch; the page used to keep the form it had just saved, so the next save sent those values to the new record. A destination on the same record's edit page keeps the saved values, which no longer count as unsaved changes.
+
 ## Index toolbar resets
 
 The index toolbar surfaces two reset affordances:

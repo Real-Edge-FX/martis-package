@@ -20,6 +20,16 @@ import { updatePayload } from '@/lib/updatePayload'
 
 export function ResourceUpdatePage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
+  // The router keeps this element when the URL moves to another record's
+  // edit page (a link in the form, back/forward, a redirect after saving), so
+  // the page is keyed by the record it edits: nothing from the previous
+  // record (seeded values, dirty baseline, dependsOn overrides, field state)
+  // carries over.
+  return <RecordUpdatePage key={`${resource}/${id}`} />
+}
+
+function RecordUpdatePage() {
+  const { resource, id } = useParams<{ resource: string; id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { addToast } = useToast()
@@ -138,6 +148,10 @@ export function ResourceUpdatePage() {
       addToast('success', res.meta?.message ?? tMsg('record_updated'))
       // Suppress the unsaved-changes guard for the post-save redirect.
       markSaved()
+      // The saved values are the new baseline, so a redirect that keeps this
+      // page ("Save & continue editing", a redirectAfterUpdate() to this
+      // record's edit page) does not count them as unsaved.
+      baselineRef.current = JSON.stringify(form.values)
       // Navigate back to parent resource detail if editing via a
       // relationship, otherwise to record detail. Invalidate the matching
       // query (has-many or has-one depending on viaRelationshipType),
@@ -152,13 +166,11 @@ export function ResourceUpdatePage() {
       }
 
       const mode = submitModeRef.current
-      // "Save & continue editing" stays on the edit page. We refresh the
-      // baseline so the unsaved-changes guard does not re-trigger on the
-      // values we just persisted, and reset the mode so the next submit
-      // defaults back to "detail".
+      // "Save & continue editing" stays on the edit page (the baseline was
+      // refreshed above) and resets the mode so the next submit defaults back
+      // to "detail".
       if (mode === 'continue_editing') {
         submitModeRef.current = 'detail'
-        baselineRef.current = JSON.stringify(form.values)
         return
       }
 
