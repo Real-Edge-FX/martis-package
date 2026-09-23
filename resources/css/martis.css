@@ -74,7 +74,7 @@
   --martis-leading-normal: 1.5;
   --martis-leading-relaxed: 1.75;
 
-  /* Retrocompat aliases (v0.6) — todos os ficheiros existentes referenciam estes */
+  /* Backward-compatible aliases (v0.6): existing stylesheets still reference these */
   --martis-font-size-xs: var(--martis-text-xs);
   --martis-font-size-sm: var(--martis-text-sm);
   --martis-font-size-base: var(--martis-text-base);
@@ -253,7 +253,11 @@
 
   color-scheme: dark;
 
-  /* ▸ PrimeReact bridge — todas as PrimeReact vars apontam para os tokens Martis */
+  /* ▸ PrimeReact bridge: every PrimeReact variable points at a Martis token.
+     The bundled lara theme paints with literal colours and reads only
+     --maskbg of these, so the component overrides further down do the
+     restyling; the bridge serves the modal mask and code that reads the
+     variables (see docs/theming.md, "Some colors don't change"). */
   --primary-color: var(--martis-accent);
   --primary-color-text: var(--martis-accent-contrast, #ffffff);
   --primary-50: var(--martis-accent-bg-light);
@@ -1327,10 +1331,10 @@ html[data-mobile="true"] { --sidebar-width: 0px; }
 
 /* ============================================================
    REDUCED MOTION (⭐ D3)
-   Quando o user prefere reduced motion (OS setting OU preference
-   explícita `html[data-reduced-motion="true"]`), clampamos toda
-   a duração a 1ms. Não removemos as transições — os estados
-   ainda resolvem, apenas instantaneamente. Acessibilidade-first.
+   When the user prefers reduced motion (the OS setting, or the
+   explicit preference `html[data-reduced-motion="true"]`), every
+   duration is clamped to 1ms. The transitions are not removed: the
+   states still resolve, only instantly. Accessibility first.
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   :root {
