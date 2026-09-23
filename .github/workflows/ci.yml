@@ -139,6 +139,9 @@ jobs:
       - name: Run Vitest
         run: npm run test
 
+      - name: Lint (ESLint)
+        run: npm run lint -- --max-warnings=0
+
       - name: Check the extension declarations are current
         run: npm run build:types -- --check
 

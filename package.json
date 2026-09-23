@@ -9,7 +9,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint resources/js --ext .ts,.tsx"
+    "lint": "eslint resources/js"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",

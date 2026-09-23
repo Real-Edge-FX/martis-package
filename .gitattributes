@@ -18,6 +18,7 @@
 /.eslintrc             export-ignore
 /.eslintrc.json        export-ignore
 /.eslintrc.cjs         export-ignore
+/eslint.config.mjs     export-ignore
 /tests                 export-ignore
 /test-results          export-ignore
 /playwright.config.ts  export-ignore
