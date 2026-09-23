@@ -187,7 +187,15 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
   const { t: tAct } = useTranslation('actions')
 
   const meta = field as unknown as RepeaterMeta
-  const repeatables = meta.repeatables ?? []
+  // `fill()` skips a readonly Repeater whole (an `immutable()` one on update
+  // arrives as readonly too), so its row fields render read-only and no
+  // control below changes the rows.
+  const repeatables = useMemo(() => {
+    const defs = meta.repeatables ?? []
+    if (!field.readonly) return defs
+    return defs.map((rep) => ({ ...rep, fields: rep.fields.map((f) => ({ ...f, readonly: true })) }))
+  }, [meta.repeatables, field.readonly])
+  const canReorder = meta.reorderable === true && !field.readonly
   const isMultiType = repeatables.length > 1
   const primaryType = repeatables[0]?.shortName ?? ''
 
@@ -254,6 +262,8 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
   }, [repeatables])
 
   const commit = (next: RepeaterRow[]) => {
+    // Also holds back a row input that ignores `readonly` (a custom one).
+    if (field.readonly) return
     emittedFrom.current = value
     emitted.current = next
     onChange(next)
@@ -328,20 +338,20 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
 
   // Drag & drop (native HTML5 — no external lib required)
   const onDragStart = (index: number) => (e: DragEvent<HTMLDivElement>) => {
-    if (!meta.reorderable) return
+    if (!canReorder) return
     setDraggingIndex(index)
     e.dataTransfer.effectAllowed = 'move'
   }
 
   const onDragOver = (index: number) => (e: DragEvent<HTMLDivElement>) => {
-    if (!meta.reorderable || draggingIndex === null) return
+    if (!canReorder || draggingIndex === null) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     if (draggingIndex === index) return
   }
 
   const onDrop = (index: number) => (e: DragEvent<HTMLDivElement>) => {
-    if (!meta.reorderable || draggingIndex === null) return
+    if (!canReorder || draggingIndex === null) return
     e.preventDefault()
     const next = latestRows()
     const [moved] = next.splice(draggingIndex, 1)
@@ -370,7 +380,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
         return (
           <div
             key={rowKey}
-            draggable={meta.reorderable === true}
+            draggable={canReorder}
             onDragStart={onDragStart(index)}
             onDragOver={onDragOver(index)}
             onDrop={onDrop(index)}
@@ -388,7 +398,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
               className="flex items-center gap-2 border-b px-3 py-2"
               style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface-alt)' }}
             >
-              {meta.reorderable && (
+              {canReorder && (
                 <span
                   className="flex cursor-grab items-center active:cursor-grabbing"
                   style={{ color: 'var(--martis-text-muted)' }}
@@ -429,7 +439,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                   {isCollapsed ? <CaretDownIcon size={14} /> : <CaretUpIcon size={14} />}
                 </button>
               )}
-              {!meta.hideDuplicate && (
+              {!meta.hideDuplicate && !field.readonly && (
                 <button
                   type="button"
                   onClick={() => duplicateRow(index)}
@@ -442,16 +452,18 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
                   <CopyIcon size={14} />
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => removeRow(index)}
-                className="rounded p-1 hover:bg-[color:var(--martis-hover)]"
-                style={{ color: 'var(--martis-danger)' }}
-                data-pr-tooltip={tAct('remove', 'Remove')}
-                data-pr-position="top"
-              >
-                <TrashIcon size={14} />
-              </button>
+              {!field.readonly && (
+                <button
+                  type="button"
+                  onClick={() => removeRow(index)}
+                  className="rounded p-1 hover:bg-[color:var(--martis-hover)]"
+                  style={{ color: 'var(--martis-danger)' }}
+                  data-pr-tooltip={tAct('remove', 'Remove')}
+                  data-pr-position="top"
+                >
+                  <TrashIcon size={14} />
+                </button>
+              )}
             </div>
 
             {/* Body */}
@@ -523,113 +535,115 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {!meta.hideBulkPaste && (
-            <button
-              type="button"
-              onClick={() => {
-                setBulkPasteType(repeatables[0]?.shortName ?? '')
-                setBulkPasteText('')
-                setBulkPasteError(null)
-                setBulkPasteOpen(true)
-              }}
-              disabled={atMax || repeatables.length === 0}
-              className="martis-btn-secondary inline-flex items-center gap-1.5"
-              data-pr-tooltip={tAct('paste_rows', 'Paste rows (CSV/TSV/JSON)')}
-              data-pr-position="top"
-            >
-              <ClipboardIcon size={14} />
-              {tAct('paste_rows', 'Paste rows')}
-            </button>
-          )}
-          <div className="relative" ref={addMenuRef}>
-            {isMultiType || (meta.rowTemplates && meta.rowTemplates.length > 0) ? (
-              <>
+        {!field.readonly && (
+          <div className="flex items-center gap-2">
+            {!meta.hideBulkPaste && (
+              <button
+                type="button"
+                onClick={() => {
+                  setBulkPasteType(repeatables[0]?.shortName ?? '')
+                  setBulkPasteText('')
+                  setBulkPasteError(null)
+                  setBulkPasteOpen(true)
+                }}
+                disabled={atMax || repeatables.length === 0}
+                className="martis-btn-secondary inline-flex items-center gap-1.5"
+                data-pr-tooltip={tAct('paste_rows', 'Paste rows (CSV/TSV/JSON)')}
+                data-pr-position="top"
+              >
+                <ClipboardIcon size={14} />
+                {tAct('paste_rows', 'Paste rows')}
+              </button>
+            )}
+            <div className="relative" ref={addMenuRef}>
+              {isMultiType || (meta.rowTemplates && meta.rowTemplates.length > 0) ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={atMax}
+                    onClick={() => setShowAddMenu((s) => !s)}
+                    className="martis-btn-secondary inline-flex items-center gap-1.5"
+                  >
+                    <PlusIcon size={14} />
+                    {tAct('add_row', 'Add row')}
+                  </button>
+                  {showAddMenu && (
+                    <div
+                      className="absolute right-0 z-10 mt-1 min-w-[220px] overflow-hidden rounded-md border shadow-lg"
+                      style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}
+                    >
+                      {isMultiType && repeatables.map((rep) => (
+                        <button
+                          key={rep.shortName}
+                          type="button"
+                          onClick={() => addRow(rep.shortName)}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[color:var(--martis-hover)]"
+                          style={{ color: 'var(--martis-text)' }}
+                        >
+                          {rep.icon && (
+                            <span style={{ color: tokenColor(rep.color) ?? 'var(--martis-accent)' }}>
+                              <ResourceIcon iconName={rep.icon} size={14} />
+                            </span>
+                          )}
+                          {rep.label}
+                        </button>
+                      ))}
+                      {meta.rowTemplates && meta.rowTemplates.length > 0 && (
+                        <>
+                          {isMultiType && (
+                            <div
+                              className="px-3 py-1 text-[10px] uppercase tracking-wide"
+                              style={{ borderTop: '1px solid var(--martis-border)', color: 'var(--martis-text-muted)' }}
+                            >
+                              {t('repeater_templates', 'Templates')}
+                            </div>
+                          )}
+                          {meta.rowTemplates.map((tpl, tIdx) => (
+                            <button
+                              key={`tpl-${tIdx}`}
+                              type="button"
+                              onClick={() => addFromTemplate(tpl)}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[color:var(--martis-hover)]"
+                              style={{ color: 'var(--martis-text)' }}
+                            >
+                              {tpl.icon && (
+                                <span style={{ color: tokenColor(tpl.color ?? null) ?? 'var(--martis-accent)' }}>
+                                  <ResourceIcon iconName={tpl.icon} size={14} />
+                                </span>
+                              )}
+                              <span>{tpl.label}</span>
+                              <span
+                                className="ml-auto rounded px-1.5 py-0.5 text-[10px]"
+                                style={{
+                                  backgroundColor: 'color-mix(in oklab, var(--martis-text-muted) 12%, transparent)',
+                                  color: 'var(--martis-text-muted)',
+                                }}
+                              >
+                                {repeatableFor(tpl.type)?.label ?? tpl.type}
+                              </span>
+                            </button>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
                 <button
                   type="button"
                   disabled={atMax}
-                  onClick={() => setShowAddMenu((s) => !s)}
+                  onClick={() => addRow(primaryType)}
                   className="martis-btn-secondary inline-flex items-center gap-1.5"
                 >
                   <PlusIcon size={14} />
-                  {tAct('add_row', 'Add row')}
+                  {repeatables[0]?.label
+                    ? t('repeater_add_named', { label: repeatables[0].label, defaultValue: `Add ${repeatables[0].label}` })
+                    : tAct('add_row', 'Add row')}
                 </button>
-                {showAddMenu && (
-                  <div
-                    className="absolute right-0 z-10 mt-1 min-w-[220px] overflow-hidden rounded-md border shadow-lg"
-                    style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}
-                  >
-                    {isMultiType && repeatables.map((rep) => (
-                      <button
-                        key={rep.shortName}
-                        type="button"
-                        onClick={() => addRow(rep.shortName)}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[color:var(--martis-hover)]"
-                        style={{ color: 'var(--martis-text)' }}
-                      >
-                        {rep.icon && (
-                          <span style={{ color: tokenColor(rep.color) ?? 'var(--martis-accent)' }}>
-                            <ResourceIcon iconName={rep.icon} size={14} />
-                          </span>
-                        )}
-                        {rep.label}
-                      </button>
-                    ))}
-                    {meta.rowTemplates && meta.rowTemplates.length > 0 && (
-                      <>
-                        {isMultiType && (
-                          <div
-                            className="px-3 py-1 text-[10px] uppercase tracking-wide"
-                            style={{ borderTop: '1px solid var(--martis-border)', color: 'var(--martis-text-muted)' }}
-                          >
-                            {t('repeater_templates', 'Templates')}
-                          </div>
-                        )}
-                        {meta.rowTemplates.map((tpl, tIdx) => (
-                          <button
-                            key={`tpl-${tIdx}`}
-                            type="button"
-                            onClick={() => addFromTemplate(tpl)}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[color:var(--martis-hover)]"
-                            style={{ color: 'var(--martis-text)' }}
-                          >
-                            {tpl.icon && (
-                              <span style={{ color: tokenColor(tpl.color ?? null) ?? 'var(--martis-accent)' }}>
-                                <ResourceIcon iconName={tpl.icon} size={14} />
-                              </span>
-                            )}
-                            <span>{tpl.label}</span>
-                            <span
-                              className="ml-auto rounded px-1.5 py-0.5 text-[10px]"
-                              style={{
-                                backgroundColor: 'color-mix(in oklab, var(--martis-text-muted) 12%, transparent)',
-                                color: 'var(--martis-text-muted)',
-                              }}
-                            >
-                              {repeatableFor(tpl.type)?.label ?? tpl.type}
-                            </span>
-                          </button>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : (
-              <button
-                type="button"
-                disabled={atMax}
-                onClick={() => addRow(primaryType)}
-                className="martis-btn-secondary inline-flex items-center gap-1.5"
-              >
-                <PlusIcon size={14} />
-                {repeatables[0]?.label
-                  ? t('repeater_add_named', { label: repeatables[0].label, defaultValue: `Add ${repeatables[0].label}` })
-                  : tAct('add_row', 'Add row')}
-              </button>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Bulk-paste modal — parses TSV / CSV / JSON into rows */}

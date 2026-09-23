@@ -135,8 +135,10 @@ export function BooleanGroupFieldInput({ field, value, onChange, error }: FieldI
             <div className="martis-boolgroup-options">
               {section.keys.map((key) => {
                 const on = !!v[key]
+                // `fill()` skips a readonly field (an `immutable()` one on
+                // update arrives as readonly too): every flag keeps its state.
                 const disabled =
-                  !on && maxChecked !== undefined && checked >= maxChecked
+                  field.readonly || (!on && maxChecked !== undefined && checked >= maxChecked)
                 const inputId = `mbg-${key.replace(/[^a-z0-9]/gi, '-')}`
                 return (
                   <label

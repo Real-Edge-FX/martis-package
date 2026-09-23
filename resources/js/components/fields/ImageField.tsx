@@ -111,6 +111,9 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
   }
 
   function handleFile(file: globalThis.File) {
+    // `fill()` skips a readonly field (an `immutable()` one on update arrives
+    // as readonly too): a dropped image is ignored.
+    if (field.readonly) return
     if (acceptedTypes && acceptedTypes.length > 0) {
       const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
       if (!acceptedTypes.includes(ext)) {
@@ -145,11 +148,12 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
       <div
         className={[
           'martis-dropzone',
+          field.readonly ? 'is-readonly' : '',
           dragOver ? 'is-drag-over' : '',
           error ? 'has-error' : '',
         ].filter(Boolean).join(' ')}
         style={{ padding: 0 }}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragOver={(e) => { e.preventDefault(); if (!field.readonly) setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
       >
@@ -167,29 +171,32 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
               <span className="truncate text-sm" style={{ color: 'var(--martis-text)' }}>
                 {currentFile ? currentFile.name : existingImage?.name}
               </span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => inputRef.current?.click()}
-                  className="text-xs hover:underline"
-                  style={{ color: 'var(--martis-accent)' }}
-                >
-                  {tRes('change')}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClear}
-                  className="text-xs text-red-500 hover:underline"
-                >
-                  {tRes('remove')}
-                </button>
-              </div>
+              {!field.readonly && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => inputRef.current?.click()}
+                    className="text-xs hover:underline"
+                    style={{ color: 'var(--martis-accent)' }}
+                  >
+                    {tRes('change')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClear}
+                    className="text-xs text-red-500 hover:underline"
+                  >
+                    {tRes('remove')}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ) : (
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
+            disabled={field.readonly}
             className="flex w-full flex-col items-center gap-2 px-4 py-6 text-sm"
             style={{ color: 'var(--martis-text-muted)' }}
           >
@@ -287,6 +294,9 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
   }, [onChange])
 
   function handleFiles(files: FileList | globalThis.File[]) {
+    // `fill()` skips a readonly field (an `immutable()` one on update arrives
+    // as readonly too): dropped images are ignored.
+    if (field.readonly) return
     const newItems = [...items]
     for (const file of Array.from(files)) {
       if (acceptedTypes && acceptedTypes.length > 0) {
@@ -344,13 +354,15 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
                 alt={item.file?.name ?? item.existing?.name ?? ''}
                 className="h-full w-full object-cover"
               />
-              <button
-                type="button"
-                onClick={() => handleRemove(item.id)}
-                className="absolute right-1 top-1 rounded-full bg-black/60 p-1 opacity-0 transition-opacity group-hover:opacity-100"
-              >
-                <TrashIcon size={12} className="text-white" />
-              </button>
+              {!field.readonly && (
+                <button
+                  type="button"
+                  onClick={() => handleRemove(item.id)}
+                  className="absolute right-1 top-1 rounded-full bg-black/60 p-1 opacity-0 transition-opacity group-hover:opacity-100"
+                >
+                  <TrashIcon size={12} className="text-white" />
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -360,17 +372,19 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
       <div
         className={[
           'martis-dropzone',
+          field.readonly ? 'is-readonly' : '',
           dragOver ? 'is-drag-over' : '',
           error ? 'has-error' : '',
         ].filter(Boolean).join(' ')}
         style={{ padding: 0 }}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragOver={(e) => { e.preventDefault(); if (!field.readonly) setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
       >
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
+          disabled={field.readonly}
           className="flex w-full flex-col items-center gap-2 px-4 py-4 text-sm"
           style={{ color: 'var(--martis-text-muted)' }}
         >

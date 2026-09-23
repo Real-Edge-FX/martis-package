@@ -174,6 +174,9 @@ export function AvatarFieldInput({ field, value, onChange, error }: FieldInputPr
   }, [value])
 
   const handleFile = (file: File | null) => {
+    // `fill()` skips a readonly field (an `immutable()` one on update arrives
+    // as readonly too), so the input keeps the stored avatar.
+    if (field.readonly) return
     emitted.current = file
     onChange(file)
     setPreview(file ? URL.createObjectURL(file) : null)
@@ -188,6 +191,7 @@ export function AvatarFieldInput({ field, value, onChange, error }: FieldInputPr
         type="button"
         className={`martis-avatar ${shapeClass} is-interactive${preview || showInitialsFallback ? ' has-image' : ''}`}
         onClick={() => inputRef.current?.click()}
+        disabled={field.readonly}
         aria-label="Upload avatar"
         style={
           showInitialsFallback
@@ -207,20 +211,23 @@ export function AvatarFieldInput({ field, value, onChange, error }: FieldInputPr
           <span className="martis-avatar-placeholder">＋</span>
         )}
       </button>
-      <div className="martis-avatar-input-meta">
-        <button type="button" className="martis-btn-secondary" onClick={() => inputRef.current?.click()}>
-          {t('avatar_choose_file', 'Choose file')}
-        </button>
-        {preview && (
-          <button type="button" className="martis-btn-secondary" onClick={() => handleFile(null)}>
-            {t('avatar_remove', 'Remove')}
+      {!field.readonly && (
+        <div className="martis-avatar-input-meta">
+          <button type="button" className="martis-btn-secondary" onClick={() => inputRef.current?.click()}>
+            {t('avatar_choose_file', 'Choose file')}
           </button>
-        )}
-      </div>
+          {preview && (
+            <button type="button" className="martis-btn-secondary" onClick={() => handleFile(null)}>
+              {t('avatar_remove', 'Remove')}
+            </button>
+          )}
+        </div>
+      )}
       <input
         ref={inputRef}
         type="file"
         accept={accepted}
+        disabled={field.readonly}
         style={{ display: 'none' }}
         onChange={(e) => {
           handleFile(e.target.files?.[0] ?? null)

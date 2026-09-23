@@ -1144,6 +1144,7 @@ Public file-upload surface used by `FileField`, `ImageField`, and any consumer t
 | `martis-dropzone.is-zone` | Dashed border, centred icon + CTA. Use for empty states. |
 | `martis-dropzone.is-drag-over` | Accent border + tinted bg while a file is hovering. |
 | `martis-dropzone.has-error` | Danger border. |
+| `martis-dropzone.is-readonly` | 0.6 opacity, `not-allowed` cursor, no accent on hover. `FileField` / `ImageField` set it on a readonly field, which ignores dropped files. |
 | `martis-dropzone-icon` / `-title` / `-hint` / `-cta` | Children of the `is-zone` variant. |
 
 ### Card chrome

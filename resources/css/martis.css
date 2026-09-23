@@ -6128,9 +6128,14 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   background-color: var(--martis-surface-alt);
   transition: background-color 150ms ease, border-color 150ms ease;
 }
-.martis-avatar.is-interactive:hover {
+.martis-avatar.is-interactive:hover:not(:disabled) {
   background-color: var(--martis-hover);
   border-color: var(--martis-text-muted);
+}
+/* A readonly Avatar keeps its preview but cannot be picked. */
+.martis-avatar.is-interactive:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 .martis-avatar-placeholder {
   font-size: 1.75rem;
