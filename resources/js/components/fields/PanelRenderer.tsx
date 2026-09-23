@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import type { PanelDefinition, FieldDefinition } from '@/types'
+import { fieldGridSpanStyle, fieldGridStyle } from '@/lib/fieldGridSpan'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
 import { FieldWrapper } from './FieldWrapper'
 
@@ -84,6 +85,15 @@ function PanelContainer({ panel, children }: PanelContainerProps) {
 }
 
 // -------------------------------------------------------------------------
+// Grid placement
+// -------------------------------------------------------------------------
+//
+// The panel body is a 12-track `.martis-field-grid`. Each field only carries
+// its colSpan / colSpanMd / colSpanLg cascade as custom properties
+// (lib/fieldGridSpan.ts); martis.css owns `grid-column` per breakpoint, full
+// row below md.
+
+// -------------------------------------------------------------------------
 // Display mode (detail / index)
 // -------------------------------------------------------------------------
 
@@ -99,15 +109,9 @@ export function PanelDisplay({
   return (
     <PanelContainer panel={panel}>
       {(fields) => (
-        <dl className="martis-form-grid grid grid-cols-12">
+        <dl className="martis-field-grid martis-form-grid" style={fieldGridStyle()}>
           {fields.map((field) => (
-            <div
-              key={field.attribute}
-              className="col-span-12"
-              style={{
-                gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12',
-              }}
-            >
+            <div key={field.attribute} style={fieldGridSpanStyle(field)}>
               <dt className="martis-detail-label mb-1">{field.label}</dt>
               <dd>
                 <FieldDisplay
@@ -151,15 +155,9 @@ export function PanelInput({
   return (
     <PanelContainer panel={panel}>
       {(fields) => (
-        <div className="martis-form-grid grid grid-cols-12">
+        <div className="martis-field-grid martis-form-grid" style={fieldGridStyle()}>
           {fields.map((field) => (
-            <div
-              key={field.attribute}
-              className="col-span-12"
-              style={{
-                gridColumn: field.colSpan ? `span ${field.colSpan}` : 'span 12',
-              }}
-            >
+            <div key={field.attribute} style={fieldGridSpanStyle(field)}>
               <FieldWrapper
                 htmlFor={field.attribute}
                 label={field.label}

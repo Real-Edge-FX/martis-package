@@ -510,8 +510,10 @@ Section::make('Details', [
 ])->columns(12)
 ```
 
-Supports responsive breakpoints: `colSpan()`, `colSpanMd()`,
-`colSpanLg()`.
+Supports responsive breakpoints (`md` = 768px, `lg` = 1024px) as a
+mobile-first cascade: `colSpan()`, `colSpanMd()`, `colSpanLg()`. Below `md`
+every field takes the full row. The same grid lays out Panel and Tab bodies.
+See [Grid Layout → Responsiveness](grid-layout.md#responsiveness).
 
 ---
 
@@ -674,7 +676,8 @@ StatusFilter::make('Status')->span(4)          // 1/3 width
 DateRangeFilter::make('Period')->span(8)       // 2/3 width
 ```
 
-Filters layout in the same 12-column grid as the metric cards.
+Filters sit on a 12-column grid with the same breakpoint as the metric
+cards: full row below `md` (768px), their span from there.
 
 ### `ActivityFeedMetric`
 

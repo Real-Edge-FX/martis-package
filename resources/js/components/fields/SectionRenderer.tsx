@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import type { SectionDefinition, FieldDefinition } from '@/types'
+import { fieldGridSpanStyle, fieldGridStyle } from '@/lib/fieldGridSpan'
 import { FieldDisplay, FieldInput } from './FieldRenderer'
 import { FieldLabelTooltip } from './FieldLabelTooltip'
 import { FieldWrapper } from './FieldWrapper'
@@ -89,19 +90,14 @@ function SectionContainer({ section, children }: SectionContainerProps) {
 }
 
 // -------------------------------------------------------------------------
-// Span resolution helper
+// Grid placement
 // -------------------------------------------------------------------------
-
-/**
- * Computes inline gridColumn style for a field inside a Section.
- *
- * Breakpoint handling is done by .martis-section-grid in martis.css:
- * on mobile (< md) the CSS rule `grid-column: 1 / -1` overrides all spans.
- */
-function fieldGridColumn(field: FieldDefinition, sectionColumns: number): string {
-  const span = field.colSpan ?? sectionColumns
-  return `span ${span}`
-}
+//
+// The section body is a `.martis-field-grid` with `Section::columns()` tracks.
+// Each field only carries its colSpan / colSpanMd / colSpanLg cascade,
+// resolved against those tracks, as custom properties (lib/fieldGridSpan.ts);
+// martis.css owns `grid-column` per breakpoint, full row below md (REA-1292).
+// `.martis-section-grid` stays on the grid as a hook for themes.
 
 // -------------------------------------------------------------------------
 // Input mode (create / update) — primary use-case for Section
@@ -130,13 +126,13 @@ export function SectionInput({
     <SectionContainer section={section}>
       {(fields) => (
         <div
-          className="martis-section-grid martis-form-grid grid"
-          style={{ gridTemplateColumns: `repeat(${section.columns}, minmax(0, 1fr))` }}
+          className="martis-field-grid martis-section-grid martis-form-grid"
+          style={fieldGridStyle(section.columns)}
         >
           {fields.map((field) => (
             <div
               key={field.attribute}
-              style={{ gridColumn: fieldGridColumn(field, section.columns) }}
+              style={fieldGridSpanStyle(field, section.columns)}
             >
               <FieldWrapper
                 htmlFor={field.attribute}
@@ -182,13 +178,13 @@ export function SectionDisplay({
     <SectionContainer section={section}>
       {(fields) => (
         <dl
-          className="martis-section-grid martis-form-grid grid"
-          style={{ gridTemplateColumns: `repeat(${section.columns}, minmax(0, 1fr))` }}
+          className="martis-field-grid martis-section-grid martis-form-grid"
+          style={fieldGridStyle(section.columns)}
         >
           {fields.map((field) => (
             <div
               key={field.attribute}
-              style={{ gridColumn: fieldGridColumn(field, section.columns) }}
+              style={fieldGridSpanStyle(field, section.columns)}
             >
               <dt className="martis-detail-label mb-1">{field.label}<FieldLabelTooltip text={field.tooltip} /></dt>
               <dd>

@@ -5163,15 +5163,37 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 }
 
 
-/* ── Section grid layout — responsive spans (REA-1292) ───── */
-/* Prevents grid blowout on narrow content */
-.martis-section-grid > * {
-  min-width: 0;
+/* ── Field grid — responsive spans (v1.38.0) ─────────────── */
+/* Every form and detail field grid (the body of a Section, a Panel or a
+   Tab) carries this class. The grid writes its track count as
+   `--martis-field-columns` (`Section::columns()`, 12 for a Panel or a Tab)
+   and each field its resolved spans as `--martis-field-span` = `colSpan()`,
+   `--martis-field-span-md` = `colSpanMd()` falling back to `colSpan()` and
+   `--martis-field-span-lg` = `colSpanLg()` falling back to the md value,
+   each clamped to the grid (see lib/fieldGridSpan.ts). The SPA never sets
+   `grid-column` inline, so the breakpoints live here only, the same as the
+   dashboard grid: md = 768px, lg = 1024px. `.martis-form-grid` sets the gap
+   (density aware); a Section grid also carries `.martis-section-grid`. */
+.martis-field-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--martis-field-columns, 12), minmax(0, 1fr));
 }
-/* Mobile: all fields expand to full row, overriding developer-set spans */
-@media (max-width: 767px) {
-  .martis-section-grid > * {
-    grid-column: 1 / -1 !important;
+/* Prevents grid blowout on narrow content */
+.martis-field-grid > * {
+  min-width: 0;
+  /* Mobile (REA-1292): every field takes the full row, whatever its
+     declared spans. A theme that wants `colSpan()` honoured on phones can
+     override this with `grid-column: span var(--martis-field-span)`. */
+  grid-column: 1 / -1;
+}
+@media (min-width: 768px) {
+  .martis-field-grid > * {
+    grid-column: span var(--martis-field-span-md, var(--martis-field-columns, 12));
+  }
+}
+@media (min-width: 1024px) {
+  .martis-field-grid > * {
+    grid-column: span var(--martis-field-span-lg, var(--martis-field-span-md, var(--martis-field-columns, 12)));
   }
 }
 
@@ -5191,7 +5213,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-dashboard-grid > * {
   min-width: 0;
   /* Mobile: every card takes the full row, whatever the declared widths
-     (same rule as .martis-section-grid). A theme that wants `width()`
+     (same rule as .martis-field-grid). A theme that wants `width()`
      honoured on phones can override this with
      `grid-column: span var(--martis-card-span)`. */
   grid-column: 1 / -1;
@@ -5204,6 +5226,28 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 @media (min-width: 1024px) {
   .martis-dashboard-grid > * {
     grid-column: span var(--martis-card-span-lg, var(--martis-card-span-md, 12));
+  }
+}
+
+/* ── Filter panel grid — responsive spans (v1.38.0) ───────── */
+/* FilterPanel writes each filter's span as `--martis-filter-span`
+   (`Filter::span()`, else 3, or 6 for a date range; see
+   lib/filterGridSpan.ts) and never sets `grid-column` inline. Below md
+   every filter takes the full row; from md its span on the 12 tracks. */
+.martis-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+}
+.martis-filter-grid > * {
+  min-width: 0;
+  /* A theme that wants the spans on phones too can override this with
+     `grid-column: span var(--martis-filter-span)`. */
+  grid-column: 1 / -1;
+}
+@media (min-width: 768px) {
+  .martis-filter-grid > * {
+    grid-column: span var(--martis-filter-span, 3);
   }
 }
 

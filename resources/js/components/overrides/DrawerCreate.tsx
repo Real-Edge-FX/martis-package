@@ -14,18 +14,6 @@ import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 
 
 
-/** Resolve the effective column span for a field. */
-function resolveColSpan(field: { colSpan?: number; colSpanMd?: number | null; colSpanLg?: number | null }): { base: number; md?: number; lg?: number } {
-  const base = field.colSpan ?? 12
-  return { base, md: field.colSpanMd ?? undefined, lg: field.colSpanLg ?? undefined }
-}
-
-/** Build inline gridColumn style with responsive media handled via CSS custom properties. */
-function colSpanStyle(field: { colSpan?: number; colSpanMd?: number | null; colSpanLg?: number | null }): React.CSSProperties {
-  const span = resolveColSpan(field)
-  return { gridColumn: `span ${span.base} / span ${span.base}` } as React.CSSProperties
-}
-
 /**
  * Built-in drawer override for the CREATE context.
  *
@@ -213,9 +201,11 @@ export function DrawerCreate(props: OverrideProps) {
               const panel = item as PanelDefinition
               return <PanelInput key={panel.title ?? `panel-${idx}`} panel={panel} values={values} onChange={handleChange} errors={errors} resourceKey={resource} context="create" />
             }
+            // A loose field is a full-width row of the form stack: spans only
+            // place fields inside the Section, Panel and Tab grids.
             const field = item as FieldDefinition
             return (
-              <div key={field.attribute} style={colSpanStyle(field)}>
+              <div key={field.attribute}>
                 <FieldWrapper
                   htmlFor={field.attribute}
                   label={field.label}

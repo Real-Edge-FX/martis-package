@@ -51,7 +51,7 @@ Form for creating a new record.
 - Inline validation errors per field
 - Via-relationship support (create child from parent's HasMany)
 - Custom create override support (drawer mode)
-- Responsive grid layout with `colSpan` support
+- Responsive field grids (Section, Panel, Tab) with `colSpan` / `colSpanMd` / `colSpanLg` support
 
 ### ResourceUpdate
 
@@ -420,7 +420,7 @@ Reusable container for all drawer overrides.
 
 ### DrawerCreate
 
-Wraps the create form inside a `DrawerShell`. Fields are rendered in a responsive grid layout respecting `colSpan` settings.
+Wraps the create form inside a `DrawerShell`. Sections, Panels and Tabs lay their fields out on the responsive field grid (`colSpan` / `colSpanMd` / `colSpanLg`, see [Grid Layout](grid-layout.md#responsiveness)); a field outside any layout container is a full-width row.
 
 ### DrawerUpdate
 
@@ -1116,7 +1116,8 @@ Wrap form bodies in these classes so the create / update pages and drawer forms 
 |-------|--------|
 | `martis-form-body` | Padded form container. Tightens on `[data-density="dense"]`. |
 | `martis-form-stack` | Vertical flex stack of fields with token-driven gap. |
-| `martis-form-grid` | 12-column form grid container; pair with `martis-input-wrap` per field. |
+| `martis-form-grid` | Grid gap of a form or detail field grid (16px, 10px dense); pair with `martis-input-wrap` per field. |
+| `martis-field-grid` | Responsive field grid: tracks from `--martis-field-columns` (12 by default), each child placed from its `--martis-field-span` / `-md` / `-lg` custom properties, full row below 768px. See [Grid Layout](grid-layout.md#responsiveness). |
 
 ### Tabs / Segmented / Skeleton
 

@@ -12,7 +12,7 @@ import type { CSSProperties } from 'react'
  * `.martis-dashboard-grid` in martis.css owns `grid-column` per media
  * query, so the SPA never writes an inline `grid-column` that a stylesheet
  * could not override. Below `md` that stylesheet forces every card to the
- * full row, the same rule `.martis-section-grid` applies to field spans.
+ * full row, the same rule `.martis-field-grid` applies to field spans.
  */
 export interface CardGridSpanSource {
   width?: number | null

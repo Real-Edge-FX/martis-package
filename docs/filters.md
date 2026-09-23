@@ -355,6 +355,18 @@ public function filters(Request $request): array
 
 Default spans: select/boolean = 3 columns, date-range = 6 columns. Override with `->span()`.
 
+**Responsive (v1.38.0+).** The span applies from the `md` breakpoint (768px); below it every filter takes the full row, one per row, the same rule as the form grid and the dashboard grid. The panel never writes `grid-column` inline: each filter carries its span as the custom property `--martis-filter-span` and `.martis-filter-grid` in `martis.css` owns the placement per media query. A theme that wants the spans on phones too can override the mobile rule:
+
+```css
+@media (max-width: 767px) {
+  .martis-filter-grid > * {
+    grid-column: span var(--martis-filter-span);
+  }
+}
+```
+
+Before v1.38.0 the panel stayed 12 columns at every viewport, so a `span(3)` filter was a quarter of a phone screen.
+
 ## Placeholder
 
 > **Martis extension** — placeholder distinct from the filter name.

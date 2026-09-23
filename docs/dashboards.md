@@ -148,7 +148,7 @@ class SalesDashboard extends Dashboard
 }
 ```
 
-Filters support `->span()` for layout control (1-12 column grid). Default spans: select = 3, date-range = 6.
+Filters support `->span()` for layout control (1-12 column grid, from 768px; below it every filter takes the full row). Default spans: select = 3, date-range = 6. See [Filters → Filter Grid Layout](filters.md#filter-grid-layout-span).
 
 Filter values are passed to each card's compute endpoint and automatically applied to all built-in query helpers (count, sum, average, etc.).
 
