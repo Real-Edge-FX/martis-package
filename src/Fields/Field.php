@@ -1468,6 +1468,28 @@ abstract class Field implements FieldContract
         return $this->searchable;
     }
 
+    /**
+     * The fields of `$items` (layout containers opened) a search matches
+     * its term on: the `searchable()` fields the user may see (`canSee()`).
+     * A field the user cannot see is not searched for them, since the rows
+     * a term returns would tell which records hold it in that field: a
+     * `field:value` token naming it is dropped like one naming an unknown
+     * field.
+     *
+     * `canSeeForModel()` is not asked: a search spans many records, and a
+     * field it hides on some of them is still searched.
+     *
+     * @param  list<FieldContract|LayoutContract>  $items
+     * @return list<FieldContract>
+     */
+    public static function searchableFields(array $items, Request $request): array
+    {
+        return array_values(array_filter(
+            self::flattenLayoutFields($items),
+            static fn (FieldContract $field): bool => $field->isSearchable() && $field->isAuthorizedToSee($request),
+        ));
+    }
+
     // -------------------------------------------------------------------------
     // Validation
     // -------------------------------------------------------------------------

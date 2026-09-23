@@ -1678,16 +1678,13 @@ class ResourceController extends MartisController
 
         if ($search !== '') {
             $relatedInstance = new $relatedResourceClass;
-            // Flatten Section / Panel / TabGroup before filtering so
-            // searchable fields nested inside layouts are visible to
-            // the relatable search. The previous top-level `instanceof`
-            // guard avoided a crash but silently dropped every nested
-            // searchable, which made the BelongsTo / MorphTo dropdown
-            // search return the unfiltered set.
-            $searchableFields = array_filter(
-                Field::flattenLayoutFields($relatedInstance->fields($request)),
-                fn (FieldContract $field): bool => $field->isSearchable(),
-            );
+            // The searchable fields of the related resource the user can
+            // see (canSee()), nested ones included: a field inside a
+            // Section / Panel / TabGroup is searched like a top-level one.
+            // A field the user cannot see is not searched, as the options a
+            // term returns would tell which records hold it there; without
+            // any field left the picker searches the title it shows.
+            $searchableFields = Field::searchableFields($relatedInstance->fields($request), $request);
 
             // Case-insensitive on PostgreSQL (ilike) too — same rule and
             // single source of truth as the global-search pipeline.

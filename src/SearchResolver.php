@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Martis\Contracts\FieldContract;
 use Martis\Fields\Field;
 
 /**
@@ -151,13 +150,17 @@ class SearchResolver
     /**
      * Execute search via database LIKE queries on searchable fields.
      *
+     * The fields searched are the `searchable()` fields the user can see
+     * (`Field::searchableFields()`); the `searchableRelations()` paths are
+     * the resource's own declaration and are searched as declared.
+     *
      * Three pipeline stages:
      *   1. Parse `field:value` tokens out of the query and turn each
      *      into a `where(attribute, like, %value%)` constraint scoped
      *      to a single matching field. This trims them from the free
      *      text so the rest of the resolver only sees what's left.
-     *   2. Run the remaining free-text against every `searchable()`
-     *      field on the resource (LIKE %term%), plus optionally any
+     *   2. Run the remaining free-text against every searched field
+     *      on the resource (LIKE %term%), plus optionally any
      *      attribute reachable via a `searchableRelations()` dot
      *      path (`whereHas` against the related model).
      *   3. Rank by `searchPriority()` so high-weight field hits
@@ -186,18 +189,13 @@ class SearchResolver
             method_exists($connection, 'getDriverName') ? $connection->getDriverName() : null
         );
 
-        // `fields()` may return Section / Panel / TabGroup layout
-        // wrappers alongside real FieldContract instances. Flatten the
-        // tree FIRST so searchable fields nested inside a layout are
-        // discoverable. Iterating the raw array with a top-level
-        // `instanceof` guard would silently drop every nested field,
-        // turning the resource's full-text search into a no-op (the
-        // exact bug reported on the Tasks index, where `title` lives
-        // inside a `Section::make('Linkage', [...])`).
-        $searchableFields = array_filter(
-            Field::flattenLayoutFields($instance->fields($request)),
-            fn (FieldContract $field): bool => $field->isSearchable(),
-        );
+        // The searchable fields the user can see (canSee()), nested ones
+        // included: `fields()` may return Section / Panel / TabGroup layout
+        // wrappers, and a field inside one (the Tasks index keeps `title`
+        // in a `Section::make('Linkage', [...])`) is searched like a
+        // top-level one. A field the user cannot see is not searched: the
+        // rows a term returns would tell which records hold it there.
+        $searchableFields = Field::searchableFields($instance->fields($request), $request);
 
         // Stage 1 — extract `field:value` tokens. Anything that survives
         // the regex is the free-text term.
@@ -211,9 +209,9 @@ class SearchResolver
         $appliedTokens = 0;
         foreach ($tokens as $token) {
             // Only apply the token when the resource declares the
-            // attribute as searchable; unknown field:value pairs are
-            // silently dropped (we'd rather return "no matches" than
-            // accidentally match everything from a typo).
+            // attribute as searchable and the user can see it; unknown
+            // field:value pairs are silently dropped (we'd rather return
+            // "no matches" than accidentally match everything from a typo).
             if (! isset($byAttribute[$token['field']])) {
                 continue;
             }

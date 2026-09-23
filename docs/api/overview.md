@@ -100,7 +100,7 @@ GET /martis/api/resources/{resource}
 
 | Parameter | Example | Description |
 |---|---|---|
-| `search` | `?search=john` | Full-text search across `searchable()` fields |
+| `search` | `?search=john` | Full-text search across the `searchable()` fields the user can see (`canSee()`; v1.38.0: the hidden ones were searched too) |
 | `sort` | `?sort=name` | Sort attribute: a `sortable()` field the user can see (`canSee()`). Any other value (an unknown attribute, a field that is not sortable, one the user cannot see) is ignored and the list keeps its default order (v1.38.0: a sortable field the user could not see ordered the list). |
 | `direction` | `?direction=desc` | `asc` (default) or `desc`; any other value, a non-string one included, means `asc` (v1.38.0: `?direction[]=` answered 500) |
 | `per_page` | `?per_page=25` | Records per page |
@@ -276,7 +276,7 @@ GET /martis/api/navigation/badges    # v1.8.8
 GET /martis/api/search?q=...
 ```
 
-Cross-resource record search. Powers the topbar search input. See [Global Search](../global-search.md).
+Cross-resource record search. Powers the topbar search input. Each resource is matched on the `searchable()` fields the user can see (v1.38.0). See [Global Search](../global-search.md).
 
 ## Command Palette
 
