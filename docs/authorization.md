@@ -166,8 +166,15 @@ Every dashboard primitive supports a `canSee(Closure)` callback.
 
 ## Fields and relations
 
-- `Field::canSee(Closure)` — hides a field from every context.
-- `Field::readonly(bool|Closure)` — renders the field without an editor.
+- `Field::canSee(Closure)`: hides a field from every context. Inside a
+  `Repeater` row too (v1.38.0+): the field is left out of the row type's
+  schema and of every row's values, is not validated, and a row never takes
+  its value from the request (a stored row keeps it, a new row stores the
+  field's `default()`). See
+  [Repeater → Readonly, computed, hidden and immutable row fields](repeater.md#readonly-computed-hidden-and-immutable-row-fields).
+- `Field::readonly(bool|Closure)`: renders the field without an editor, and
+  the save never takes its value from the request, inside a `Repeater` row
+  included (v1.38.0+).
 - Relation fields (`BelongsTo`, `HasMany`, `BelongsToMany`,
   `MorphTo`, `MorphToMany`, `MorphMany`, `MorphOne`, `HasOne`) emit
   `authorizedToCreate` / `authorizedToViewAny` flags **derived from the

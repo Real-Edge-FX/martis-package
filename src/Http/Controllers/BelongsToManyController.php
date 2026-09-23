@@ -107,7 +107,7 @@ class BelongsToManyController extends MartisController
                     foreach ($pivotColumns as $col) {
                         $pivotData[$col] = $model->pivot->{$col} ?? null;
                     }
-                    $row['_pivot'] = $pivotData;
+                    $row['_pivot'] = $this->presentPivotValues($field->getPivotFields(), $pivotData);
                 }
 
                 return $row;
@@ -527,8 +527,9 @@ class BelongsToManyController extends MartisController
             return JsonErrorResponse::forbidden('Not authorized to update pivot data for this relation.')->toResponse();
         }
 
-        // Readonly and immutable pivot fields keep their stored value.
-        $pivotData = $this->collectPivotData($request, $pivotFields, isUpdate: true, relation: $relation);
+        // Readonly and immutable pivot fields keep their stored value, and so
+        // do the row fields of a pivot Repeater that a row cannot write.
+        $pivotData = $this->collectPivotData($request, $pivotFields, isUpdate: true, relation: $relation, relatedId: $relatedModel->getKey());
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }
@@ -551,7 +552,7 @@ class BelongsToManyController extends MartisController
         }
 
         return JsonResponse::make(
-            ['id' => $relatedId, 'pivot' => $pivotData],
+            ['id' => $relatedId, 'pivot' => $this->presentPivotValues($pivotFields, $pivotData)],
             meta: ['message' => 'Pivot updated successfully.'],
         )->toResponse();
     }

@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Martis\Fields\Field;
+use Martis\Fields\Repeater;
 use Martis\Http\Resources\JsonErrorResponse;
 
 /**
@@ -36,6 +37,12 @@ use Martis\Http\Resources\JsonErrorResponse;
  * immutable field on the resource endpoint. The rules come from the same
  * `buildWriteValidation()` the record endpoints use, so a pivot `Repeater`
  * validates the fields inside its rows and a field's custom messages apply.
+ *
+ * A pivot `Repeater` writes its rows as on a record: a row keeps the stored
+ * value of a field it cannot write (readonly, computed, hidden from the user,
+ * immutable on a stored row), so the pivot update reads the stored rows of
+ * the pivot row first, and `presentPivotValues()` gives its rows without the
+ * fields the user cannot see wherever the pivot values are sent back.
  */
 trait CollectsPivotData
 {
@@ -43,17 +50,28 @@ trait CollectsPivotData
 
     /**
      * Validate the pivot fields and return the values to write, or the 422
-     * response of a failed validation.
+     * response of a failed validation. `$relatedId` names the attached
+     * record a pivot update writes.
      *
      * @param  list<mixed>  $pivotFields
      * @param  EloquentBelongsToMany<Model, Model, covariant Pivot, covariant string>  $relation
      * @return array<string, mixed>|IlluminateJsonResponse
      */
-    protected function collectPivotData(Request $request, array $pivotFields, bool $isUpdate, EloquentBelongsToMany $relation): array|IlluminateJsonResponse
+    protected function collectPivotData(Request $request, array $pivotFields, bool $isUpdate, EloquentBelongsToMany $relation, int|string|null $relatedId = null): array|IlluminateJsonResponse
     {
         $fields = array_values(array_filter($pivotFields, static fn (mixed $field): bool => $field instanceof Field));
 
-        $validation = $this->buildWriteValidation($fields, $request->all(), $isUpdate);
+        // A blank pivot of the relationship's own class (pivot values and
+        // the morph type already set), so each field sees the casts it will
+        // be stored through. On a pivot update it holds the stored rows of
+        // the pivot Repeaters, which the rows sent continue.
+        $pivot = $relation->newPivot();
+        if ($isUpdate && $relatedId !== null) {
+            $this->withStoredRepeaterRows($pivot, $fields, $relation, $relatedId);
+        }
+        $preset = $pivot->getAttributes();
+
+        $validation = $this->buildWriteValidation($fields, $request->all(), $isUpdate, [], $pivot);
 
         if ($validation['rules'] !== []) {
             $validator = Validator::make($request->all(), $validation['rules'], $validation['messages'], $validation['attributes']);
@@ -64,12 +82,6 @@ trait CollectsPivotData
                 )->toResponse();
             }
         }
-
-        // A blank pivot of the relationship's own class (pivot values and
-        // the morph type already set), so each field sees the casts it will
-        // be stored through.
-        $pivot = $relation->newPivot();
-        $preset = $pivot->getAttributes();
 
         foreach ($fields as $field) {
             $attribute = $field->attribute();
@@ -97,6 +109,54 @@ trait CollectsPivotData
         }
 
         return $this->pivotWriteValues($relation, $pivot, $preset);
+    }
+
+    /**
+     * Put on `$pivot` the stored value of each pivot Repeater among
+     * `$fields`, read from the pivot row of the attached record `$relatedId`,
+     * so the rows a pivot update sends continue the stored ones.
+     *
+     * @param  list<Field>  $fields
+     * @param  EloquentBelongsToMany<Model, Model, covariant Pivot, covariant string>  $relation
+     */
+    private function withStoredRepeaterRows(Pivot $pivot, array $fields, EloquentBelongsToMany $relation, int|string $relatedId): void
+    {
+        $columns = [];
+        foreach ($fields as $field) {
+            if ($field instanceof Repeater) {
+                $columns[] = $field->attribute();
+            }
+        }
+
+        if ($columns === []) {
+            return;
+        }
+
+        $stored = $relation->newPivotStatementForId($relatedId)->first($columns);
+
+        if ($stored !== null) {
+            $pivot->setRawAttributes(array_merge($pivot->getAttributes(), (array) $stored), true);
+        }
+    }
+
+    /**
+     * Pivot values as they are sent back: the rows of each pivot Repeater
+     * among `$pivotFields` as its read gives them (without the fields the
+     * user cannot see), the other values as they are.
+     *
+     * @param  list<mixed>  $pivotFields
+     * @param  array<string, mixed>  $values
+     * @return array<string, mixed>
+     */
+    protected function presentPivotValues(array $pivotFields, array $values): array
+    {
+        foreach ($pivotFields as $field) {
+            if ($field instanceof Repeater && array_key_exists($field->attribute(), $values)) {
+                $values[$field->attribute()] = $field->resolveRows($values[$field->attribute()]);
+            }
+        }
+
+        return $values;
     }
 
     /**

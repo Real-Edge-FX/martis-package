@@ -236,7 +236,7 @@ class MorphOneController extends MartisController
             }
         }
 
-        $validationError = $this->validateRequest($request, $fields, isUpdate: true);
+        $validationError = $this->validateRequest($request, $fields, isUpdate: true, model: $relatedModel);
         if ($validationError !== null) {
             return $validationError;
         }
@@ -446,17 +446,18 @@ class MorphOneController extends MartisController
     /**
      * Validate request against field rules (see
      * `BuildsFieldRules::buildWriteValidation()`), the fields inside a
-     * Repeater's rows included.
+     * Repeater's rows included. `$model` is the related record an update
+     * writes, whose stored Repeater rows the rows sent continue.
      *
      * @param  list<FieldContract>  $fields
      */
-    private function validateRequest(Request $request, array $fields, bool $isUpdate = false): ?IlluminateJsonResponse
+    private function validateRequest(Request $request, array $fields, bool $isUpdate = false, ?Model $model = null): ?IlluminateJsonResponse
     {
         // Multipart requests carry list / map values as JSON strings; give
         // the rules below and the fill that follows the decoded structure.
         $undecodable = $this->decodeStructuredValues($request, $fields);
 
-        $validation = $this->buildWriteValidation($fields, $request->all(), $isUpdate, $undecodable);
+        $validation = $this->buildWriteValidation($fields, $request->all(), $isUpdate, $undecodable, $model);
 
         $validator = Validator::make($request->all(), $validation['rules'], $validation['messages'], $validation['attributes']);
 

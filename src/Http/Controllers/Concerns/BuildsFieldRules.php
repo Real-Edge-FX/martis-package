@@ -4,6 +4,7 @@ namespace Martis\Http\Controllers\Concerns;
 
 use Closure;
 use Illuminate\Contracts\Validation\Rule;
+use Illuminate\Database\Eloquent\Model;
 use Martis\Contracts\FieldContract;
 use Martis\Fields\Field;
 use Martis\Fields\Repeater;
@@ -62,14 +63,16 @@ trait BuildsFieldRules
      * map (`$undecodable`, see `DecodesStructuredValues`) also fails `array`,
      * a multiple `File` / `Image` checks each upload with its item rules, the
      * fields' custom messages (a `unique()` message) apply, and a `Repeater`
-     * validates the fields inside every row it receives.
+     * validates the fields inside every row it receives. `$model` is the
+     * record an update writes: a Repeater tells the rows it stores from new
+     * ones by it.
      *
      * @param  list<FieldContract>  $fields
      * @param  array<array-key, mixed>  $data  The input the validator runs on.
      * @param  list<string>  $undecodable
      * @return array{rules: array<string, list<mixed>>, messages: array<string, string>, attributes: array<string, string>}
      */
-    protected function buildWriteValidation(array $fields, array $data, bool $isUpdate, array $undecodable = []): array
+    protected function buildWriteValidation(array $fields, array $data, bool $isUpdate, array $undecodable = [], ?Model $model = null): array
     {
         $rules = [];
         $messages = [];
@@ -102,7 +105,7 @@ trait BuildsFieldRules
             }
         }
 
-        $nested = $this->buildNestedFieldValidation($fields, $data, $isUpdate ? 'update' : 'create');
+        $nested = $this->buildNestedFieldValidation($fields, $data, $isUpdate ? 'update' : 'create', $model);
 
         return [
             'rules' => $rules + $nested['rules'],
@@ -115,14 +118,15 @@ trait BuildsFieldRules
      * The validation of the values inside the fields' values: the fields of
      * every row a `Repeater` receives, under
      * `{attribute}.{index}.fields.{field}` (see
-     * `Repeater::buildRowValidation()`).
+     * `Repeater::buildRowValidation()`), `$model` being the record an update
+     * writes.
      *
      * @param  iterable<mixed>  $fields
      * @param  array<array-key, mixed>  $data  The input the validator runs on.
      * @param  'create'|'update'|null  $context
      * @return array{rules: array<string, list<mixed>>, messages: array<string, string>, attributes: array<string, string>}
      */
-    protected function buildNestedFieldValidation(iterable $fields, array $data, ?string $context): array
+    protected function buildNestedFieldValidation(iterable $fields, array $data, ?string $context, ?Model $model = null): array
     {
         $validation = ['rules' => [], 'messages' => [], 'attributes' => []];
 
@@ -131,7 +135,7 @@ trait BuildsFieldRules
                 continue;
             }
 
-            $rows = $field->buildRowValidation($data, $context);
+            $rows = $field->buildRowValidation($data, $context, $model);
             $validation['rules'] += $rows['rules'];
             $validation['messages'] += $rows['messages'];
             $validation['attributes'] += $rows['attributes'];

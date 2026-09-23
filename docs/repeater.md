@@ -15,6 +15,7 @@ page-builder-style layouts.
 - [Core API](#core-api)
 - [⭐ Martis differentials](#-martis-differentials)
 - [Validation](#validation)
+- [Readonly, computed, hidden and immutable row fields](#readonly-computed-hidden-and-immutable-row-fields)
 - [Relation pickers and remote selects in rows](#relation-pickers-and-remote-selects-in-rows)
 - [Payload format](#payload-format)
 
@@ -74,17 +75,19 @@ Repeater::make('milestones')
 
 ### HasMany mode (`->asHasMany()`)
 
-Rows live in a dedicated child table. Saving performs a 3-way upsert
-against `uniqueField` so FKs downstream stay stable:
+Rows live in a dedicated child table. Saving performs a 3-way upsert so FKs
+downstream stay stable:
 
-1. Match existing rows by `uniqueField` → update in place
+1. Match each row to the child whose id it carries (the `uniqueField`
+   column, or the child's primary key when the Repeater has none) → update
+   in place
 2. Insert rows without a match
 3. Delete rows that disappeared on the client
 
 ```php
 Repeater::make('line_items')
     ->asHasMany()
-    ->uniqueField('uuid')              // required for upsert
+    ->uniqueField('uuid')              // rows match by this column (by primary key without one)
     ->reorderable(true, 'position')    // auto-managed position column
     ->repeatables([LineItem::make()]);
 ```
@@ -95,8 +98,14 @@ model for its type.
 A row writes the attributes of its Repeatable's fields (computed ones
 excepted) to its child model and nothing else: a key the row sends for another
 column, such as the foreign key or the primary key, is ignored, so a row
-cannot move itself to another parent. Up to v1.37.3 every key of a row's
-`fields` was written to the child model.
+cannot move itself to another parent. A field the row cannot write (readonly,
+hidden from the user, immutable on a stored row) keeps its column, see
+[Readonly, computed, hidden and immutable row fields](#readonly-computed-hidden-and-immutable-row-fields).
+The unique column of a new child is the id the row sends in it, or a new
+UUID. Up to v1.37.3 every key of a row's `fields` was written to the child
+model, and a row was matched only by a unique field sent at the top of the
+row, which the form never sends: every save deleted the children and created
+them again.
 
 In this mode and in the polymorphic one, the rows are written right after the
 parent is saved, by every form that saves it: the resource's create and update
@@ -255,7 +264,7 @@ Declared on the `Repeatable` itself; surfaces real row context beyond the class 
 | `->icon('flag-banner')` | Phosphor icon rendered next to the title |
 | `->color('success')` | Semantic color token painted as a 3-px left accent and icon tint |
 | `->title('{name} — {due_date}')` | Template evaluated live on the client from the row's current field values |
-| `->title(fn (array $row, int $i): ?string => "…")` | Closure resolved per row on the server: `$row` is the row's field map, `$i` its 1-based position |
+| `->title(fn (array $row, int $i): ?string => "…")` | Closure resolved per row on the server: `$row` is the row's field map (the fields the user can see), `$i` its 1-based position |
 | `->badgeCount()` | Show "#N" on the header (auto-numbered); only next to a static label, since both dynamic forms fall back to "Label #N" themselves |
 
 The two `title()` forms differ in *when* they run:
@@ -311,6 +320,13 @@ The "Paste rows" footer button opens a modal that parses TSV/CSV/JSON into rows,
 detecting a header row automatically when column names match the Repeatable's
 field attributes.
 
+A template row, a duplicated row and a pasted row are new rows: the save
+stores the `default()` of a readonly field, not the value the row sends for
+it (see
+[Readonly, computed, hidden and immutable row fields](#readonly-computed-hidden-and-immutable-row-fields)).
+To have a template stamp a value the user cannot change, give the readonly
+field that `default()`.
+
 ### Polymorphic storage
 
 See [Polymorphic mode](#polymorphic-mode--aspolymorphic-). One table holds
@@ -365,8 +381,11 @@ envelope, the same one every field error uses:
   every field, an empty one as `null`, so an optional field with a rule that
   rejects `null` (the `email` rule of `Email`, a `min:N`) needs `nullable()`,
   as it does on a record's update form, which sends every field too.
-- **Skipped fields.** Readonly and computed row fields are not validated: the
-  row form cannot change them. Neither are file fields (`File`, `Image`,
+- **Skipped fields.** A row field the save does not take from the request is
+  not validated: a readonly or computed one, one the user cannot see
+  (`canSee()`), and an immutable one on a stored row (see
+  [Readonly, computed, hidden and immutable row fields](#readonly-computed-hidden-and-immutable-row-fields)).
+  Neither are file fields (`File`, `Image`,
   `Avatar`, `Audio`): a row does not upload files, so what it sends for one is
   the stored path, which their file rules would reject. The `unique()` helper
   is left out too: it excludes the record an update writes, and a row has no
@@ -413,9 +432,10 @@ Repeater::make('milestones')
 ```
 
 To validate a Repeater's value in a controller of your own,
-`buildRowValidation($data, $context)` returns the `rules`, `messages` and
-`attributes` of its rows for the validator (`$context` is `'create'`,
-`'update'` or `null`):
+`buildRowValidation($data, $context, $model)` returns the `rules`, `messages`
+and `attributes` of its rows for the validator (`$context` is `'create'`,
+`'update'` or `null`; `$model`, optional, is the record an update writes,
+whose stored rows keep an immutable row field out of the rules):
 
 ```php
 $field = Repeater::make('milestones', 'Milestones')->repeatables([Milestone::make()]);
@@ -434,6 +454,93 @@ Repeatable never ran on the server, so a row with a missing or invalid value
 was stored as sent, and the form could not show a row error either (it handed
 the Repeater its own error only, which the Repeater did not show). This
 section described per-row validation that did not exist.
+
+## Readonly, computed, hidden and immutable row fields
+
+A field inside a Repeatable follows the write rules of a field of the record,
+row by row, on every storage mode (JSON, HasMany, polymorphic) and on every
+endpoint that writes a Repeater: the resource create and update, the inline
+forms of a relationship panel, and a pivot Repeater on attach and on pivot
+update (v1.38.0+).
+
+| Row field | On a stored row | On a new row | Validated | In the schema and the rows a read gives |
+|---|---|---|---|---|
+| `readonly()` | keeps the stored value | takes its `default()`, or nothing | no | yes, rendered read-only |
+| `computed()` | keeps the stored value (a HasMany child has no column for it) | nothing | no | yes (a HasMany child resolves it) |
+| hidden by `canSee()` / `canSeeWhen()` | keeps the stored value | takes its `default()`, or nothing | no | no |
+| `immutable()` | keeps the stored value | takes the value the row sends | on a new row only | yes |
+
+The value a request sends for such a field is ignored: it cannot set a
+readonly or hidden field, and leaving the field out of a stored row does not
+clear it.
+
+**Stored rows and new rows.** A row the form sends back continues the stored
+row whose id it carries, the `id` a read gives each row (see
+[Payload format](#payload-format)): the `uniqueField()` of a JSON row (`id`
+by default), the unique column of a HasMany or polymorphic child, or its
+primary key when the Repeater declares no unique field or the column is
+empty. A row that carries no stored row's id is new: an added, duplicated,
+pasted or template row, and every row of a record being created. A row that
+carries the id of a stored row of another row type replaces that row and
+continues nothing of it. A JSON row stored without an id (written outside
+Martis) gets one from its position on every read, so the form sends it back
+as the row it continues, and the next save stores that id.
+
+**Defaults.** A new row stores the `default()` of each readonly or hidden
+field that declares one (a Closure default receives the request), and
+nothing for a computed field, which stores nothing.
+
+```php
+class Milestone extends Repeatable
+{
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('name', 'Name')->required(),
+            Text::make('reference', 'Reference')->immutable(),
+            Text::make('status', 'Status')->readonly()->default('planned'),
+            Text::make('margin', 'Margin')->canSee(fn (Request $request) => $request->user()?->isAdmin() ?? false),
+        ];
+    }
+}
+```
+
+A new milestone stores `status` `planned` whatever the request sends, keeps the
+`reference` it was created with, and keeps its `margin` when a user who cannot
+see it saves the record.
+
+**Hidden fields.** A field the user cannot see is left out of the row type in
+the schema, of the `fields` of every row a read gives (the record's detail,
+index and forms, the `_pivot` values of a pivot Repeater and the response of
+its pivot update), of the row templates and of the Repeater's `default()`
+rows, and of the values a Closure `title()` receives. A key of a JSON or
+polymorphic row that names no field of its row type is kept and read as it
+is: to hide a value from some users, declare its field with `canSee()` rather
+than leaving the field out of `fields()` for them.
+
+**Immutable fields.** `immutable()` on a row field means what it means on a
+record, row by row: a new row writes and validates the value it sends, and a
+stored row keeps its value without validating the one it sends back. An
+immutable Repeater as a whole is skipped on every update, as any immutable
+field (see [Fields → Immutable fields](fields.md#immutable-fields)).
+
+A Repeater inside a row applies the same rules to its own rows, continued from
+the rows the stored row holds. A Repeater with a `fillUsing()` callback hands
+the callback the rows with these fields already set (the stored values of a
+stored row, the defaults of a new one), read from the rows the Repeater stores
+on the record. A Repeater among an Action's fields has no stored rows: every
+row is a new one, and `handle()` receives the rows as the modal sends them,
+like every Action field value.
+
+Before v1.38.0 `readonly()` on a row field only reached the form, and
+`computed()`, `canSee()` and `immutable()` had no effect there: every storage
+mode wrote each value a row sent, so any request could set a readonly or
+computed row field and change an immutable one, and the row type serialised
+every field with each row carrying the value of every field, so a field hidden
+with `canSee()` showed in every row. A HasMany or polymorphic row was matched
+only by a unique field sent at the top of the row, which the form never sends,
+so every save deleted the children and created them again, and a JSON Repeater
+whose `uniqueField()` is not `id` gave every row a new id on each save.
 
 ## Relation pickers and remote selects in rows
 
@@ -475,8 +582,13 @@ All storage modes ship rows to the frontend in the same shape:
 ]
 ```
 
-In polymorphic mode the `id` comes from `uniqueField` (typically a UUID
-column), `type` matches `Repeatable::shortName()`, and `fields` is the
+`id` is the id the form sends back to continue the row (see
+[Readonly, computed, hidden and immutable row fields](#readonly-computed-hidden-and-immutable-row-fields)):
+the `uniqueField()` of a JSON row (`id` by default), or one derived from its
+position for a row stored without it; the unique column of a HasMany or
+polymorphic child, or its primary key when the Repeater has no unique field or
+the column is empty. `fields` holds the values of the fields the user can see.
+In polymorphic mode `type` matches `Repeatable::shortName()` and `fields` is the
 deserialised `payload` column.
 
 Rows of a Repeatable whose `title()` is a **Closure** carry one more key,
@@ -491,3 +603,7 @@ when it returned `null`):
 as received and `Repeater::fill()` drops it before writing JSON rows (the
 HasMany and polymorphic writers only read `id`, `type` and `fields`). Rows
 of a template-titled or untitled Repeatable keep the three-key shape.
+
+`Repeater::resolveRows($value)` gives the rows of a JSON value (a list of rows
+or its JSON) in this shape: the pivot endpoints read a pivot Repeater's value
+through it.
