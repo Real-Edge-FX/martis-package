@@ -978,8 +978,14 @@ class ResourceController extends MartisController
 
             return $out;
         };
-        $fields = $flattenFields($instance->fields($request));
-        $fieldData = array_map(fn (FieldContract $field): array => $field->toArray(), $fields);
+        // The catalogue of every field the user can see, whatever the
+        // context: a field hidden by canSee() is left out, as it is from the
+        // contextual arrays below.
+        $fields = array_filter(
+            $flattenFields($instance->fields($request)),
+            fn (FieldContract $field): bool => $field->isAuthorizedToSee($request),
+        );
+        $fieldData = array_values(array_map(fn (FieldContract $field): array => $field->toArray(), $fields));
 
         // Context-specific field arrays — resolved then filtered by visibility
         $fieldsForIndex = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForContext($instance->fieldsForIndex($request), FieldContext::INDEX));

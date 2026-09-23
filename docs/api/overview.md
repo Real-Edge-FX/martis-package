@@ -150,6 +150,8 @@ GET /martis/api/resources/{resource}/schema
 
 Returns the field structure and metadata for the resource — `fields`, `fieldsForIndex`, `fieldsForDetail`, `fieldsForCreate`, `fieldsForUpdate`, `accentColor`, `loaderConfig`, `tableStriped`, `perPageOptions`, `overrides`, etc. The React shell hits this endpoint on every navigation to a resource page.
 
+Every field list leaves out a field the user cannot see (`canSee()`): the contextual arrays, and since v1.38.0 `fields` too (it listed every field of `fields()`), as well as the row fields of a Repeater's row types and the pivot fields of a `BelongsToMany` / `MorphToMany`.
+
 ### Inline create
 
 ```
