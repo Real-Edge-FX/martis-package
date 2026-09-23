@@ -843,6 +843,24 @@ import { Tooltip } from '@martis/runtime' // shim → window.Martis.runtime.Tool
   content={<div className="martis-…"><b>Re-index</b><br/>Rebuilds the index.</div>} />
 ```
 
+### Long text and viewport edges
+
+The global `[data-pr-tooltip]` provider (`MartisTooltip`) lays the bubble out
+before placing it, so any trigger can carry a sentence (v1.38.0+):
+
+- The text wraps inside a shrink-to-fit bubble of at most 360 px (or the
+  viewport width minus 16 px on a narrow screen); a one-word label keeps its
+  single-line pill, and a long unbroken token breaks inside the bubble.
+- The bubble stays inside the viewport with an 8 px margin. A trigger near an
+  edge keeps the full-width bubble, shifted inward, with the arrow still on
+  the trigger; when the requested side (`data-pr-position`) has no room the
+  bubble flips to the opposite side.
+- While open it follows its trigger through page and container scrolls and
+  closes when the trigger scrolls out of view.
+
+No escaping workaround is needed for a long plain-text tooltip: keep it on
+`data-pr-tooltip` and reserve `data-pr-tooltip-html="true"` for real markup.
+
 ### Rules
 
 | Rule | Detail |

@@ -685,9 +685,23 @@ Both can coexist on the same field: `->help('Must be unique')->tooltip('<strong>
 - The `(?)` icon uses the muted text colour so it reads as a quiet affordance.
 - Hover delay is **500 ms** — long enough that a cursor skimming the form
   doesn't flash tooltips, short enough that intentional hover feels responsive.
-- Tooltip content falls back to `white-space: nowrap` for plain text and
-  `white-space: normal` for HTML content so `<br />` and wrapping actually work.
-- Position respects the trigger's `data-pr-position` (defaults to `top`).
+- Both channels wrap. The bubble is shrink-to-fit up to 360 px (never wider
+  than the viewport minus 16 px): a short label stays on one line, a sentence
+  wraps inside the bubble, and a long unbroken token (a URL, an id) breaks
+  inside it (`overflow-wrap: anywhere`) instead of running past its edge.
+  Plain text renders at 11 px with a tight padding; HTML content at 12 px with
+  a 220 px minimum width so paragraphs read as prose. Since v1.38.0; before,
+  a plain tooltip was pinned to one line in a 300 px box and a long one spilled
+  out of the bubble.
+- Plain text stays plain whatever its length: a sentence in `data-pr-tooltip`
+  wraps without the HTML opt-in, and markup in it renders literally. Use
+  `data-pr-tooltip-html="true"` only for content that needs markup.
+- Position respects the trigger's `data-pr-position` (defaults to `top`). The
+  bubble is measured first, flips to the opposite side when the requested one
+  has no room for it, and is kept inside the viewport with an 8 px margin; the
+  arrow moves along the edge so it keeps pointing at the trigger. While it is
+  open the bubble follows its trigger when the page or a container scrolls,
+  and closes once the trigger leaves the viewport (v1.38.0+).
 
 ### Why NOT a `Tooltip` field class
 

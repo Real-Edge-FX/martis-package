@@ -1,5 +1,28 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import {
+  computeTooltipPlacement,
+  isTooltipSide,
+  TOOLTIP_MARGIN,
+  type TooltipPlacement,
+  type TooltipSide,
+} from '@/lib/tooltipPlacement'
+
+interface ActiveTooltip {
+  text: string
+  // When the trigger sets `data-pr-tooltip-html="true"` the content is
+  // rendered via dangerouslySetInnerHTML so authors can use line breaks,
+  // bold, lists, etc. Plain-text triggers stay safely escaped.
+  isHtml: boolean
+  preferred: TooltipSide
+}
+
+function viewportSize() {
+  return {
+    width: document.documentElement.clientWidth || window.innerWidth,
+    height: document.documentElement.clientHeight || window.innerHeight,
+  }
+}
 
 /**
  * Global tooltip provider using event delegation.
@@ -12,14 +35,11 @@ import { createPortal } from 'react-dom'
  * Renders a lightweight tooltip div styled to match the Martis design system.
  */
 export function MartisTooltip() {
-  const [visible, setVisible] = useState(false)
-  const [text, setText] = useState('')
-  // When the trigger sets `data-pr-tooltip-html="true"` the content is rendered
-  // via dangerouslySetInnerHTML so authors can use line breaks, bold, lists,
-  // etc. Kept as a separate state so plain-text triggers stay safely escaped.
-  const [isHtml, setIsHtml] = useState(false)
-  const [position, setPosition] = useState<'top' | 'bottom' | 'left' | 'right'>('top')
-  const [coords, setCoords] = useState({ x: 0, y: 0 })
+  const [tip, setTip] = useState<ActiveTooltip | null>(null)
+  // Null while the bubble is laid out but not yet measured (it renders
+  // hidden at the viewport origin for that one pass).
+  const [placement, setPlacement] = useState<TooltipPlacement | null>(null)
+  const bubbleRef = useRef<HTMLDivElement>(null)
   const showTimer = useRef<ReturnType<typeof setTimeout>>()
   const currentTarget = useRef<HTMLElement | null>(null)
 
@@ -28,56 +48,85 @@ export function MartisTooltip() {
     if (!tooltipText) return
 
     currentTarget.current = target
-    let pos = (target.getAttribute('data-pr-position') as 'top' | 'bottom' | 'left' | 'right') || 'top'
-    const htmlOptIn = target.getAttribute('data-pr-tooltip-html') === 'true'
+    const requested = target.getAttribute('data-pr-position')
 
-    const rect = target.getBoundingClientRect()
-
-    // Smart fallback (v1.8.1): if the requested position would push the
-    // bubble off-screen, flip to the opposite side. ~32 px is the
-    // tooltip's typical height plus the 8 px gap; the viewport edge
-    // check uses that as a heuristic clearance. Solves the auth-strip
-    // case (top: rect.top is ~14 → 14 - 8 = 6, bubble extends to ~-26
-    // and clips). Same logic mirrors for `bottom`/`left`/`right`.
-    const TOOLTIP_CLEARANCE = 36
-    if (pos === 'top' && rect.top < TOOLTIP_CLEARANCE) pos = 'bottom'
-    else if (pos === 'bottom' && window.innerHeight - rect.bottom < TOOLTIP_CLEARANCE) pos = 'top'
-    else if (pos === 'left' && rect.left < TOOLTIP_CLEARANCE) pos = 'right'
-    else if (pos === 'right' && window.innerWidth - rect.right < TOOLTIP_CLEARANCE) pos = 'left'
-
-    let x: number, y: number
-
-    switch (pos) {
-      case 'top':
-        x = rect.left + rect.width / 2
-        y = rect.top - 8
-        break
-      case 'bottom':
-        x = rect.left + rect.width / 2
-        y = rect.bottom + 8
-        break
-      case 'left':
-        x = rect.left - 8
-        y = rect.top + rect.height / 2
-        break
-      case 'right':
-        x = rect.right + 8
-        y = rect.top + rect.height / 2
-        break
-    }
-
-    setText(tooltipText)
-    setIsHtml(htmlOptIn)
-    setPosition(pos)
-    setCoords({ x, y })
-    setVisible(true)
+    setTip({
+      text: tooltipText,
+      isHtml: target.getAttribute('data-pr-tooltip-html') === 'true',
+      preferred: isTooltipSide(requested) ? requested : 'top',
+    })
+    setPlacement(null)
   }, [])
 
   const hide = useCallback(() => {
     clearTimeout(showTimer.current)
     currentTarget.current = null
-    setVisible(false)
+    setTip(null)
+    setPlacement(null)
   }, [])
+
+  // Measure the laid-out bubble and move it next to its trigger. The
+  // bubble sits at the viewport origin (left/top 0) and is positioned by
+  // a transform, so layout always gives it the full viewport width to
+  // shrink-to-fit against: its width no longer depends on how close the
+  // trigger is to an edge. `computeTooltipPlacement()` flips the side
+  // when the requested one has no room and clamps the bubble inside the
+  // viewport.
+  const place = useCallback(() => {
+    const target = currentTarget.current
+    const bubble = bubbleRef.current
+    if (!tip || !target || !bubble) return
+
+    const anchor = target.getBoundingClientRect()
+    const viewport = viewportSize()
+
+    // The trigger scrolled out of view: nothing left to point at.
+    if (anchor.bottom < 0 || anchor.top > viewport.height || anchor.right < 0 || anchor.left > viewport.width) {
+      hide()
+      return
+    }
+
+    const size = bubble.getBoundingClientRect()
+    const next = computeTooltipPlacement(anchor, { width: size.width, height: size.height }, viewport, tip.preferred)
+    // Scroll and resize re-place on every frame; skip the render when
+    // nothing moved.
+    setPlacement((current) =>
+      current
+      && current.side === next.side
+      && current.x === next.x
+      && current.y === next.y
+      && current.arrow === next.arrow
+        ? current
+        : next,
+    )
+  }, [tip, hide])
+
+  // Runs before paint, so the measuring pass is never visible.
+  useLayoutEffect(() => {
+    place()
+  }, [place])
+
+  // Follow the trigger while the tooltip is open: any scroll (captured,
+  // so scrolling containers count too) or resize re-places the bubble on
+  // the next frame instead of leaving it where the trigger used to be.
+  useEffect(() => {
+    if (!tip) return
+
+    let frame = 0
+    const schedule = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(place)
+    }
+
+    window.addEventListener('scroll', schedule, true)
+    window.addEventListener('resize', schedule)
+
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', schedule, true)
+      window.removeEventListener('resize', schedule)
+    }
+  }, [tip, place])
 
   useEffect(() => {
     const handleMouseEnter = (e: MouseEvent) => {
@@ -139,66 +188,58 @@ export function MartisTooltip() {
     }
   }, [show, hide])
 
-  if (!visible || !text) return null
+  if (!tip) return null
 
+  const { text, isHtml } = tip
+  const side = placement?.side ?? tip.preferred
   const arrowSize = 4
+
   const style: React.CSSProperties = {
     position: 'fixed',
+    left: 0,
+    top: 0,
     zIndex: 99999,
     pointerEvents: 'none',
-    ...(position === 'top' && {
-      left: coords.x,
-      top: coords.y,
-      transform: 'translate(-50%, -100%)',
-    }),
-    ...(position === 'bottom' && {
-      left: coords.x,
-      top: coords.y,
-      transform: 'translate(-50%, 0)',
-    }),
-    ...(position === 'left' && {
-      left: coords.x,
-      top: coords.y,
-      transform: 'translate(-100%, -50%)',
-    }),
-    ...(position === 'right' && {
-      left: coords.x,
-      top: coords.y,
-      transform: 'translate(0, -50%)',
-    }),
+    ...(placement
+      ? { transform: `translate3d(${placement.x}px, ${placement.y}px, 0)` }
+      : { visibility: 'hidden' }),
   }
+
+  // The arrow sits where the trigger's centre meets the bubble edge, which
+  // is off-centre once the bubble was clamped against a viewport edge.
+  const arrowOffset = placement ? `${placement.arrow}px` : '50%'
 
   const arrowStyle: React.CSSProperties = {
     position: 'absolute',
     width: 0,
     height: 0,
-    ...(position === 'top' && {
+    ...(side === 'top' && {
       bottom: -arrowSize,
-      left: '50%',
+      left: arrowOffset,
       transform: 'translateX(-50%)',
       borderLeft: `${arrowSize}px solid transparent`,
       borderRight: `${arrowSize}px solid transparent`,
       borderTop: `${arrowSize}px solid var(--martis-tooltip-bg, var(--martis-text))`,
     }),
-    ...(position === 'bottom' && {
+    ...(side === 'bottom' && {
       top: -arrowSize,
-      left: '50%',
+      left: arrowOffset,
       transform: 'translateX(-50%)',
       borderLeft: `${arrowSize}px solid transparent`,
       borderRight: `${arrowSize}px solid transparent`,
       borderBottom: `${arrowSize}px solid var(--martis-tooltip-bg, var(--martis-text))`,
     }),
-    ...(position === 'left' && {
+    ...(side === 'left' && {
       right: -arrowSize,
-      top: '50%',
+      top: arrowOffset,
       transform: 'translateY(-50%)',
       borderTop: `${arrowSize}px solid transparent`,
       borderBottom: `${arrowSize}px solid transparent`,
       borderLeft: `${arrowSize}px solid var(--martis-tooltip-bg, var(--martis-text))`,
     }),
-    ...(position === 'right' && {
+    ...(side === 'right' && {
       left: -arrowSize,
-      top: '50%',
+      top: arrowOffset,
       transform: 'translateY(-50%)',
       borderTop: `${arrowSize}px solid transparent`,
       borderBottom: `${arrowSize}px solid transparent`,
@@ -206,8 +247,11 @@ export function MartisTooltip() {
     }),
   }
 
+  // Never wider than the viewport minus the placement margin on each side.
+  const viewportCap = `calc(100vw - ${2 * TOOLTIP_MARGIN}px)`
+
   return createPortal(
-    <div style={style} role="tooltip">
+    <div ref={bubbleRef} style={style} role="tooltip" data-side={side}>
       <div
         className="martis-tooltip-content"
         style={{
@@ -217,16 +261,20 @@ export function MartisTooltip() {
           // HTML tooltips need more breathing room — bigger box, slightly
           // larger font, generous line-height — so multi-line explanations
           // read like a paragraph instead of a stacked column. Plain
-          // tooltips stay tight (single line label, 11px).
+          // tooltips stay tight (11px) and read as a one-line label while
+          // they fit.
           fontSize: isHtml ? '12px' : '11px',
           padding: isHtml ? '8px 12px' : '4px 8px',
           lineHeight: isHtml ? 1.45 : 1.2,
           borderRadius: '0.375rem',
-          whiteSpace: isHtml ? 'normal' : 'nowrap',
-          // The HTML variant typically wraps two or three lines of prose;
-          // 360 keeps it readable without becoming a banner.
-          maxWidth: isHtml ? 360 : 300,
-          minWidth: isHtml ? 220 : undefined,
+          // Both variants wrap: the box is shrink-to-fit, so a short label
+          // stays on one line and a sentence breaks at the max width
+          // instead of running out of the bubble. `anywhere` also breaks a
+          // long unbroken token (a URL, an id) inside the box.
+          whiteSpace: 'normal',
+          overflowWrap: 'anywhere',
+          maxWidth: `min(360px, ${viewportCap})`,
+          minWidth: isHtml ? `min(220px, ${viewportCap})` : undefined,
           position: 'relative',
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.12), 0 2px 4px -2px rgba(0, 0, 0, 0.08)',
         }}
