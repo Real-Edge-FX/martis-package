@@ -244,11 +244,12 @@ export const martisRuntime = {
   // consumer Tool can't `import { Dropdown } from 'primereact/dropdown'`
   // (the extension build doesn't alias `primereact`, and bundling a second
   // copy risks version skew). `createPortal` is the host's; the consumer's
-  // `react-dom` shim (v1.38.0+) re-exports it, the only part of react-dom it
-  // carries. Exposing the exact controls Martis's own filters use (with
-  // the `martis-filter-dropdown` styling available via CSS) lets Tools render
-  // pixel-identical single/multi filters and portal overlays without
-  // hand-replicating PrimeReact's internal DOM. See docs/overrides.md (5.A).
+  // `react-dom` shim (v1.38.0+) re-exports it, and `flushSync` below, the
+  // only parts of react-dom it carries. Exposing the exact controls
+  // Martis's own filters use (with the `martis-filter-dropdown` styling
+  // available via CSS) lets Tools render pixel-identical single/multi
+  // filters and portal overlays without hand-replicating PrimeReact's
+  // internal DOM. See docs/overrides.md (5.A).
   Dropdown,
   MultiSelect,
   createPortal,

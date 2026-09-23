@@ -33,9 +33,9 @@
  * | `@tanstack/react-query`     | `.shims/tanstack-react-query.mjs`      |
  * | `@martis/runtime`           | `.shims/runtime.mjs`                   |
  *
- * The `react-dom` shim (v1.38.0+) carries `createPortal`, the part of
- * `react-dom` the runtime serves; before, `react-dom` went to the React
- * shim, which has no `createPortal`.
+ * The `react-dom` shim (v1.38.0+) carries `createPortal` and, since
+ * v1.38.2, `flushSync`, the parts of `react-dom` the runtime serves;
+ * before, `react-dom` went to the React shim, which has neither.
  *
  * Plus five legacy-path aliases (also pointing at the runtime shim)
  * so override stubs published by older Martis versions keep building:
