@@ -4,7 +4,8 @@
  * Auto-discovery convention (v1.9.0+): this file lives at
  * `resources/js/martis-extensions/cards/{{ class }}.tsx` and the
  * bundle entry registers it under `card:{{ kebab }}`. The PHP Card
- * binds to the same key implicitly.
+ * `martis:card` writes binds the same key
+ * (`componentKey('card:{{ kebab }}')`), which the dashboard resolves.
  */
 
 interface {{ class }}Props {

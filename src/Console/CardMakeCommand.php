@@ -4,6 +4,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
+use Martis\Stubs\ExtensionKey;
 use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
@@ -46,7 +47,8 @@ class CardMakeCommand extends GeneratorCommand
     {
         $name = $this->getNameInput();
         $className = Str::studly($name);
-        $kebabName = Str::kebab($name);
+        // The key the extension entry derives from `cards/{$className}.tsx`.
+        $kebabName = ExtensionKey::kebab($className);
 
         // 1. Generate the PHP class via GeneratorCommand
         $result = parent::handle();
@@ -91,11 +93,13 @@ class CardMakeCommand extends GeneratorCommand
         $stub = parent::replaceClass($stub, $name);
 
         $className = class_basename($name);
-        $kebabName = Str::kebab($className);
 
+        // The dashboard resolves a card's component by its exact key, and
+        // the extension entry registers `cards/{$className}.tsx` under
+        // `card:` and the name it derives.
         return str_replace(
             ['{{ label }}', '{{ key }}'],
-            [$className, $kebabName],
+            [$className, 'card:'.ExtensionKey::kebab($className)],
             $stub,
         );
     }

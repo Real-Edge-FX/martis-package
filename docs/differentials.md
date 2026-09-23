@@ -803,8 +803,8 @@ same breakpoint.
 
 ### Custom dashboard cards (with scaffolding)
 
-A single command scaffolds the PHP class, the React component, and
-the boot-file registration:
+A single command scaffolds the PHP class and the React component,
+bound to each other by the key the extension entry registers:
 
 ```bash
 php artisan martis:card RevenueChart
@@ -812,9 +812,8 @@ php artisan martis:card RevenueChart
 
 Creates:
 
-1. `app/Martis/Cards/RevenueChart.php` — with `componentKey()` pre-configured.
-2. `resources/js/martis-extensions/overrides/RevenueChart.tsx` — starter React component.
-3. Auto-registers via `resources/js/martis-extensions/cards/{Name}.tsx` filename auto-discovery.
+1. `app/Martis/Cards/RevenueChart.php`, with `componentKey('card:revenue-chart')`.
+2. `resources/js/martis-extensions/cards/RevenueChart.tsx`, the starter React component, which the extension entry registers under `card:revenue-chart` (filename auto-discovery, no registration call).
 
 Usage in a Dashboard:
 

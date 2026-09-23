@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Martis\Contracts\ToolContract;
 use Martis\MartisManager;
 use Martis\ResourceRegistry;
+use Martis\Stubs\ExtensionKey;
 
 /**
  * `martis:list-overrides`: print the component keys the PHP layer
@@ -235,12 +236,7 @@ class ListOverridesCommand extends Command
     {
         $keys = [];
 
-        $kebab = static function (string $pascal): string {
-            $stage1 = preg_replace('/([a-z0-9])([A-Z])/', '$1-$2', $pascal) ?? $pascal;
-            $stage2 = preg_replace('/([A-Z]+)([A-Z][a-z])/', '$1-$2', $stage1) ?? $stage1;
-
-            return strtolower($stage2);
-        };
+        $kebab = static fn (string $pascal): string => ExtensionKey::kebab($pascal);
 
         $simpleBuckets = [
             'tools' => 'tool',

@@ -48,7 +48,7 @@ function generatorOutputs(): Record<string, string> {
         const kebab = stub.replace(/\.tsx\.stub$/, '')
         const name = pascal(kebab)
         let output = source
-        for (const [token, value] of [['{{ class }}', name], ['{{ kebab }}', kebab], ['{{ display_name }}', name], ['{{ class_short }}', name], ['{{ component_key }}', `tool:${kebab}`], ['{{ component_name }}', name]]) {
+        for (const [token, value] of [['{{ class }}', name], ['{{ kebab }}', kebab], ['{{ display_name }}', name], ['{{ class_short }}', name], ['{{ component_key }}', `tool:${kebab}`], ['{{ component_name }}', name], ['{{ type }}', kebab]]) {
             output = fill(output, token, value)
         }
         outputs[`${EXT}/overrides/${name}.tsx`] = output

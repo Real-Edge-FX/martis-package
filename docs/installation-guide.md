@@ -360,18 +360,19 @@ your-app/
     └── overrides/                             # martis:component drops files here
 ```
 
-The published `index.ts` uses `import.meta.glob` to register every `.tsx` under the four buckets against `window.Martis.componentRegistry`. The component key is derived from the filename:
+The published `index.ts` uses `import.meta.glob` to register every `.tsx` under the four buckets against `window.Martis.componentRegistry`. The component key is derived from the filename, in kebab case with an acronym kept whole:
 
 | File path                             | Registered key       |
 |---------------------------------------|----------------------|
 | `tools/Charts.tsx`                    | `tool:charts`        |
 | `tools/SystemHealth.tsx`              | `tool:system-health` |
+| `tools/SEOReport.tsx`                 | `tool:seo-report`    |
 | `cards/RevenueGauge.tsx`              | `card:revenue-gauge` |
-| `fields/PriceTag.tsx` (`Display`/`Input` named exports) | `field:price-tag`    |
+| `fields/PriceTag.tsx` (`Display`/`Input` named exports) | the `price-tag` field type: `field:display:price-tag` and `field:input:price-tag` |
 | `overrides/Sidebar.tsx`               | `layout:sidebar`     |
 | `overrides/LoginPage.tsx`             | `auth:login`         |
 
-The PHP side binds to the same key via `withComponent('tool:charts')` etc., so filename and key stay in lock-step. **No manual `componentRegistry.register(...)` calls** — drop the file in the right bucket, run `npm run build:extensions`, and the component is live.
+The PHP classes the generators write bind to the same keys: a Tool with `withComponent('tool:charts')`, a card with `componentKey('card:revenue-gauge')`, a field whose `type()` returns `price-tag`. Filename and key stay in lock-step. **No manual `componentRegistry.register(...)` calls**: drop the file in the right bucket, run `npm run build:extensions`, and the component is live. A Tool bound to another key (`martis:tool --component-key`) is the exception: the command prints the `register()` call to add to `index.ts`.
 
 ### Vite + `@vitejs/plugin-react` compatibility (v1.12.1+)
 
@@ -515,6 +516,8 @@ For your editor, add `resources/js/martis-extensions/tsconfig.json` (or copy `ve
 ```
 
 **`react-dom` (fixed in v1.38.0).** Scaffolds published before v1.38.0 send `react-dom` to the React shim, which exports React core only: `import { createPortal } from 'react-dom'` passes `tsc`, which reads `@types/react-dom`, and then stops the build with `"createPortal" is not exported by ".shims/react.mjs"`. Import `createPortal` from `@martis/runtime` instead (republishing the shims, option 1 above, is enough for that), or send `react-dom` to its own shim: republish the shims, then in `vite.extensions.config.ts` add `const reactDomShim = path.join(shimsDir, 'react-dom.mjs')` and point the `/^react-dom$/` alias at `reactDomShim`, and add the `react-dom` line of the `paths` above to `tsconfig.extensions.json` (or copy both stubs over, re-applying your own edits).
+
+**Generated cards and fields (fixed in v1.38.0).** A card `martis:card` wrote before v1.38.0 binds `componentKey('revenue-gauge')`, but the dashboard resolves a card by its exact key and the entry registers `cards/RevenueGauge.tsx` as `card:revenue-gauge`: change the call to `componentKey('card:revenue-gauge')`. The entry registered a `fields/` file as `field:price-tag`, a key the field renderer never reads, so a field `martis:field` generated rendered as plain text: refresh `index.ts` (`php artisan martis:install --force`, then re-add any registration of your own) or replace its fields loop with the one in `vendor/martis/martis/stubs/extensions/index.ts.stub`. The generators also split an acronym letter by letter (`SEOReport` became `s-e-o-report`) where the entry keeps it whole (`seo-report`): fix the key in such a class by hand.
 
 **Legacy import paths (fixed in v1.38.0).** The Vite config also sends the paths that override files published by older versions import to the runtime shim, so those files keep building: `@/contexts/*`, `@/lib/*`, `@/components/auth/*`, `@martis/martis/*` and `@/components/fields/types` (the type module the v1.9.3 field override imports its props from). From v1.10.0 to v1.37.x the config matched only the start of the first four, and the alias replaces only what it matches, so every import through them failed (`Could not load .../.shims/runtime.mjsapi` for `@/lib/api`). If your extension imports through them, copy `vendor/martis/martis/stubs/extensions/vite.extensions.config.ts.stub` over `vite.extensions.config.ts` (re-applying your own edits), or make each pattern match the whole path (`/^@\/lib\/.*$/`). These paths reach only the names the runtime shim exports; new code imports from `@martis/runtime`. `tsc` resolves them too, through the tsconfig `paths` above. On the sidebar override the v1.9.3 generator wrote, it then reports what that file does wrong: it draws a nested menu group (`type: 'group'`) as a link. Regenerate it with `php artisan martis:component --type=sidebar --force`, whose output lists a nested group's items under its label.
 

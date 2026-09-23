@@ -4,6 +4,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use Martis\Stubs\ExtensionKey;
 use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 
@@ -121,7 +122,7 @@ class ComponentMakeCommand extends Command
 
         $this->writeStub($piece['stub'], $absolutePath, [
             '{{ class }}' => $filename,
-            '{{ kebab }}' => Str::kebab($filename),
+            '{{ kebab }}' => ExtensionKey::kebab($filename),
         ]);
 
         $this->info("Component created: {$relative}");
@@ -160,7 +161,8 @@ class ComponentMakeCommand extends Command
     protected function generateUserNamed(string $type, string $name): int
     {
         $className = Str::studly($name);
-        $kebabName = Str::kebab($className);
+        // The key the extension entry derives from `overrides/{$className}.tsx`.
+        $kebabName = ExtensionKey::kebab($className);
 
         $relative = "resources/js/martis-extensions/overrides/{$className}.tsx";
         $absolutePath = base_path($relative);
@@ -226,7 +228,7 @@ class ComponentMakeCommand extends Command
 
             $this->writeStub($piece['stub'], $absolutePath, [
                 '{{ class }}' => $piece['filename'],
-                '{{ kebab }}' => Str::kebab($piece['filename']),
+                '{{ kebab }}' => ExtensionKey::kebab($piece['filename']),
             ]);
 
             $created[] = [$piece['filename'], $piece['key'], $relative];

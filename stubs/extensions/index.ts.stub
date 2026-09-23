@@ -10,23 +10,30 @@
  *
  *   tools/Charts.tsx        → "tool:charts"
  *   tools/SystemHealth.tsx  → "tool:system-health"
+ *   tools/SEOReport.tsx     → "tool:seo-report"   (an acronym stays whole)
  *   cards/RevenueGauge.tsx  → "card:revenue-gauge"
- *   fields/PriceTag.tsx     → "field:price-tag"   (display + input via named exports)
+ *   fields/PriceTag.tsx     → the "price-tag" field type: its `Display` and
+ *                             `Input` named exports under "field:display:price-tag"
+ *                             and "field:input:price-tag"
  *   overrides/Sidebar.tsx   → "layout:sidebar"    (mapped via OVERRIDE_KEYS below)
  *   overrides/LoginPage.tsx → "auth:login"
  *
- * The PHP side binds Tools/Fields/Cards to these keys via
- * `withComponent('tool:charts')` etc., so filename and key stay in
- * lock-step. No manual `componentRegistry.register(...)` calls — the
- * generator drops the `.tsx` in the right bucket and the loop below
- * picks it up at the next `npm run build:extensions`.
+ * The PHP side binds to these keys: a Tool with
+ * `withComponent('tool:charts')`, a card with
+ * `componentKey('card:revenue-gauge')`, a field whose `type()` is
+ * `price-tag`, which is what the generators write, so filename and key
+ * stay in lock-step. No manual `componentRegistry.register(...)` calls:
+ * the generator drops the `.tsx` in the right bucket and the loop below
+ * picks it up at the next `npm run build:extensions`. A component bound to
+ * a key its file name does not derive is registered by hand at the end of
+ * this file.
  */
 
 declare global {
   interface Window {
     Martis?: {
       componentRegistry?: {
-        register: (key: string, component: unknown, secondary?: unknown) => void
+        register: (key: string, component: unknown) => void
       }
     }
   }
@@ -90,14 +97,22 @@ if (registry === undefined) {
     if (mod.default !== undefined) registry.register(key, mod.default)
   }
 
-  // Fields — `fields/PriceTag.tsx` → "field:price-tag" with optional Display/Input named exports.
+  // Fields — `fields/PriceTag.tsx` is the `price-tag` field type, the
+  // `type()` of the PHP class `martis:field PriceTag` writes. Its `Display`
+  // and `Input` named exports (or its default export, for both) are that
+  // type's display and input, under the keys the field renderer resolves
+  // a type by. `field:price-tag` also holds the display, for a PHP
+  // `->component('field:price-tag')`.
   const fields = import.meta.glob<FieldModule>('./fields/*.tsx', {eager: true})
   for (const [path, mod] of Object.entries(fields)) {
-    const name = basename(path)
-    const key = `field:${pascalToKebab(name)}`
+    const type = pascalToKebab(basename(path))
     const display = mod.Display ?? mod.default
     const input = mod.Input ?? mod.default
-    if (display !== undefined) registry.register(key, display, input)
+    if (display !== undefined) {
+      registry.register(`field:display:${type}`, display)
+      registry.register(`field:${type}`, display)
+    }
+    if (input !== undefined) registry.register(`field:input:${type}`, input)
   }
 
   // Overrides — two paths:

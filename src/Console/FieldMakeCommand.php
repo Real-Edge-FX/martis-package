@@ -5,6 +5,7 @@ namespace Martis\Console;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
+use Martis\Stubs\ExtensionKey;
 use Martis\Stubs\StubResolver;
 
 class FieldMakeCommand extends Command
@@ -26,10 +27,12 @@ class FieldMakeCommand extends Command
      *
      * The TSX lives at `resources/js/martis-extensions/fields/{Name}.tsx`
      * (v1.9.0+ auto-discovery convention). The bundle's entry index
-     * derives the registry key from the filename via PascalCase →
-     * kebab: `Rating.tsx` → `field:rating`. The PHP class binds to the
-     * same key implicitly because `Field::component()` defaults to
-     * `Str::kebab($name)`. No manual registration anywhere.
+     * derives the field type from the filename via PascalCase → kebab
+     * (`Rating.tsx` is the `rating` type, `SEOScore.tsx` the `seo-score`
+     * type) and registers the `Display` / `Input` exports as that type's
+     * display and input (`field:display:rating`, `field:input:rating`),
+     * which the field renderer resolves by the field's `type()`: the PHP
+     * class returns the same type. No manual registration anywhere.
      */
     public function handle(): int
     {
@@ -45,7 +48,7 @@ class FieldMakeCommand extends Command
         // auto-discovery filename uses, so the derived registry key
         // matches what `Field::component()` produces by default.
         $tsxBaseName = Str::before($name, 'Field') !== '' ? Str::before($name, 'Field') : $name;
-        $typeKey = Str::kebab($tsxBaseName);
+        $typeKey = ExtensionKey::kebab($tsxBaseName);
 
         $this->generatePhpClass($name, $typeKey);
 

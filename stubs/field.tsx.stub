@@ -2,14 +2,15 @@
  * {{ class }} — Martis custom field component.
  *
  * Auto-discovery convention (v1.9.0+): this file lives at
- * `resources/js/martis-extensions/fields/{ClassBase}.tsx` and the
- * bundle's entry index registers it under the key derived from the
- * filename: `{ClassBase}.tsx` → `field:{ClassBase as kebab}`.
+ * `resources/js/martis-extensions/fields/{ClassBase}.tsx`, and the
+ * bundle's entry index derives a field type from the filename:
+ * `{ClassBase}.tsx` is the `{{ type }}` type, which the PHP class's
+ * `type()` returns.
  *
  * Two named exports are required: `Display` (rendered on index and
  * detail views) and `Input` (rendered on create and edit forms). The
- * auto-discovery loop wires both into the registry as the display
- * and input pair for the same key.
+ * auto-discovery loop registers them as that type's display and input,
+ * the components the field renderer picks for a field of the type.
  */
 
 interface FieldProps {
