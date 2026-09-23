@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
-import type { ResourceSchema, OverrideProps, FieldDefinition } from '@/types'
+import type { ResourceSchema, OverrideProps, FieldDefinition, DetailItem } from '@/types'
 import { FieldsForm } from '@/components/fields/FieldsForm'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
@@ -16,6 +16,10 @@ import { usePageTitle } from '@/hooks/usePageTitle'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import { recordHref } from '@/lib/recordHref'
 import { NestedParentProvider } from '@/components/fields/NestedParentContext'
+
+/** Shared fallback while the schema loads: a stable reference keeps the form
+ *  fields memo (and the form built on it) from recomputing on every render. */
+const NO_FIELDS: DetailItem[] = []
 
 export function ResourceCreatePage() {
   const { resource } = useParams<{ resource: string }>()
@@ -64,7 +68,7 @@ function CreateTargetPage() {
   const schema = schemaQuery.data?.data
   const { t: tNav } = useTranslation('navigation')
   usePageTitle(schema ? `${tNav('create', { defaultValue: 'Create' })} ${schema.singularLabel}` : null)
-  const rawFormFields = (schema?.fieldsForCreate ?? [])
+  const rawFormFields = schema?.fieldsForCreate ?? NO_FIELDS
 
   // Marca a FK do pai como readonly quando criamos via rela\u00e7\u00e3o
   // aninhada: o utilizador n\u00e3o deve poder mudar o pai —
@@ -91,7 +95,6 @@ function CreateTargetPage() {
         return f
       })
     return walk(rawFormFields)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawFormFields, isViaRelation, viaResource])
 
   const form = useMartisForm({ fields: allFormFields as FieldDefinition[], resourceKey: resource, context: 'create' })

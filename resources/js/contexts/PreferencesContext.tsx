@@ -252,7 +252,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   // Navigate, no hard reload): the SSR payload injected during the login
   // page had the guest defaults, so without a refetch the saved theme/locale
   // from the authenticated user would never load. Keyed on user.id so it
-  // also re-runs after account switching.
+  // also re-runs after account switching, and not on the user object, which
+  // a profile edit (`updateUser`) replaces.
+  const signedIn = !!user
+  const userId = user?.id
   useEffect(() => {
     if (!enabled) return
     // Skip the refetch for guests (v1.7.6). The /api/preferences
@@ -265,7 +268,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     // saved accent, etc) and the post-login refetch is needed to
     // reconcile. Guests have nothing extra on the server to load —
     // the SSR payload + localStorage are already authoritative.
-    if (!user) return
+    if (!signedIn) return
     let active = true
 
     // v1.8.5 — If the user explicitly tweaked theme / locale / etc on
@@ -319,7 +322,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         /* offline or preferences disabled — keep local state */
       })
     return () => { active = false }
-  }, [enabled, user?.id])
+  }, [enabled, signedIn, userId])
 
   // Re-apply when the OS theme changes, but only if user picked "system".
   useEffect(() => {

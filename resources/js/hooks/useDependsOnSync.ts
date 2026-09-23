@@ -127,11 +127,14 @@ export function useDependsOnSync({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedSnapshot, disabled, resource, context, recordId])
 
-  // Cancel everything on unmount so requests do not leak past the page.
+  // Cancel everything on unmount so requests do not leak past the page. The
+  // map is created once and only ever mutated, so the cleanup holds the same
+  // map the requests are registered in.
   useEffect(() => {
+    const controllers = inflight.current
     return () => {
-      for (const ac of inflight.current.values()) ac.abort()
-      inflight.current.clear()
+      for (const ac of controllers.values()) ac.abort()
+      controllers.clear()
     }
   }, [])
 

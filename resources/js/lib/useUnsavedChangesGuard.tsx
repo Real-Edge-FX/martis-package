@@ -155,14 +155,17 @@ export function useUnsavedChangesGuard({
   const pendingConfirmRef = useRef<(() => void) | null>(null)
   const pendingCancelRef = useRef<(() => void) | null>(null)
 
-  // Pipe blocker state changes into the unified dialog.
+  // Pipe blocker state changes into the unified dialog. The router hands a
+  // new blocker object on every change of the blocker (and the same one on
+  // any other render), so the pending actions always belong to the latest
+  // blocked navigation, including one blocked while the dialog is open.
   useEffect(() => {
     if (blocker.state === 'blocked') {
       pendingConfirmRef.current = () => blocker.proceed?.()
       pendingCancelRef.current = () => blocker.reset?.()
       setDialogOpen(true)
     }
-  }, [blocker.state])
+  }, [blocker])
 
   // ── Browser back / forward ────────────────────────────────────────
   // Whether the guard's sentinel is on the stack, and the page entry it

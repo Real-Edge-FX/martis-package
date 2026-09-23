@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from 'primereact/badge'
 import { DesktopIcon, DeviceMobileIcon, MonitorIcon, SignOutIcon, TrashIcon } from '@phosphor-icons/react'
@@ -77,22 +77,29 @@ export function BrowserSessionsSection(): JSX.Element {
   const [revokingAll, setRevokingAll] = useState(false)
   const [revokingId, setRevokingId] = useState<string | null>(null)
 
-  async function load(): Promise<void> {
+  // `load` reports a failure with the `t` / `addToast` of the latest render,
+  // read from here, so it stays the same function and the list loads once
+  // on mount instead of again whenever a callback changes identity.
+  const latestRef = useRef({ addToast, t })
+  latestRef.current = { addToast, t }
+
+  const load = useCallback(async (): Promise<void> => {
     setLoading(true)
     try {
       const res = await api.get<SessionsResponse>('/api/profile/sessions')
       setSessions(res.sessions ?? [])
       setSupported(res.supported)
     } catch {
+      const { addToast, t } = latestRef.current
       addToast('error', t('error', { defaultValue: 'Could not load sessions.' }))
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     void load()
-  }, [])
+  }, [load])
 
   async function handleRevokeOthers(): Promise<void> {
     if (!confirm(t('sessions_revoke_others_confirm', {

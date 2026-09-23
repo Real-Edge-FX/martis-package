@@ -7,6 +7,10 @@ import { dropdownClearIconPt } from './dropdownHelpers'
 
 type GroupedZones = Record<string, string[]>
 
+/** Shared fallback for a field without zones: a stable reference keeps the
+ *  options memo from recomputing on every render. */
+const NO_ZONES: GroupedZones = {}
+
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
@@ -82,17 +86,16 @@ export function TimezoneFieldDisplay({ value }: FieldDisplayProps) {
 
 export function TimezoneFieldInput({ field, value, onChange, error }: FieldInputProps) {
   const { t } = useTranslation('messages')
-  const grouped = ((field as unknown as { options?: GroupedZones }).options ?? {}) as GroupedZones
+  const grouped = (field as unknown as { options?: GroupedZones }).options ?? NO_ZONES
 
-  // ⭐ D1 — Tick once a minute so the current-time label next to each option
-  // stays accurate while the dropdown is open.
-  const [tick, setTick] = useState(0)
+  // ⭐ D1: Move the clock on once a minute so the current-time label next to
+  // each option stays accurate while the dropdown is open. The time itself is
+  // the state, so every option label is rebuilt from the new one.
+  const [now, setNow] = useState(() => new Date())
   useEffect(() => {
-    const id = setInterval(() => setTick((x) => x + 1), 60_000)
+    const id = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(id)
   }, [])
-
-  const now = useMemo(() => new Date(), [tick])
 
   // ⭐ D3 — Grouped options structured for PrimeReact Dropdown
   // (`optionGroupLabel="groupLabel"` + `optionGroupChildren="items"`).

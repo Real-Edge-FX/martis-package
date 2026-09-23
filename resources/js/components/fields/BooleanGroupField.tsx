@@ -15,6 +15,10 @@ interface BooleanGroupSchema {
 
 type Value = Record<string, boolean> | null | undefined
 
+/** Shared fallback for a field without options: a stable reference keeps the
+ *  input's value memo from recomputing on every render. */
+const NO_OPTIONS: Record<string, string> = {}
+
 function labelFor(schema: BooleanGroupSchema, key: string): string {
   return schema.labels?.[key] ?? schema.options?.[key] ?? key
 }
@@ -68,7 +72,7 @@ export function BooleanGroupFieldDisplay({ field, value }: FieldDisplayProps) {
 // ─────────────────────────────────────────────────────────────────────
 export function BooleanGroupFieldInput({ field, value, onChange, error }: FieldInputProps) {
   const schema = field as unknown as BooleanGroupSchema
-  const options = schema.options ?? {}
+  const options = schema.options ?? NO_OPTIONS
   const groups = schema.groups
 
   const v = useMemo<Record<string, boolean>>(() => {

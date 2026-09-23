@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { UserCircleIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { api } from '@/lib/api'
@@ -33,6 +33,12 @@ export function ProfilePage() {
   const twoFactorEnabled = config.profile?.two_factor?.enabled !== false
   const sections = config.profile?.sections ?? ['avatar', 'account', 'password', 'security', 'sessions']
 
+  // The profile loads once, on mount (`updateUser` is stable). A failed load
+  // falls back to the auth user as it is when the request fails, read from
+  // here: an edit to the user must not load the profile again.
+  const userRef = useRef(user)
+  userRef.current = user
+
   useEffect(() => {
     api
       .get<ProfileData>('/api/profile')
@@ -43,6 +49,7 @@ export function ProfilePage() {
       })
       .catch(() => {
         // Use auth user data as fallback while backend is not ready
+        const user = userRef.current
         setProfile({
           name: user?.name ?? '',
           email: user?.email ?? '',
@@ -51,7 +58,7 @@ export function ProfilePage() {
         })
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [updateUser])
 
   if (loading) {
     return (
