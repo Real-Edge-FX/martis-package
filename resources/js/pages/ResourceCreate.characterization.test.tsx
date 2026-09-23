@@ -22,7 +22,8 @@ import { ToastProvider } from '@/contexts/ToastContext'
  *      (verified both directly and through a layout container).
  *   3. Container items (tab_group / section / panel) render their child fields.
  *   4. "Create & add another" clears the form for the next record, including
- *      the inputs that keep their own state (a Tag field).
+ *      the inputs that keep their own state (a Tag field, a Repeater, a
+ *      custom input that reads its value when it mounts).
  *
  * -------------------------------------------------------------------------
  * Harness note (IMPORTANT — read before editing):
@@ -80,10 +81,29 @@ vi.mock('@/lib/api', async (importOriginal) => {
 
 import { ResourceCreatePage } from '@/pages/ResourceCreate'
 import { registerDefaultFields, FieldInput } from '@/components/fields/FieldRenderer'
+import { componentRegistry } from '@/lib/componentRegistry'
+import type { FieldInputProps } from '@/components/fields/types'
 
 // FieldInput resolves its concrete component through the global registry, so
 // the default field components must be registered (app.tsx does this at boot).
 registerDefaultFields()
+
+// A custom input (registered the way a consumer registers one) that keeps
+// what the user types in its own state, read from `value` once, at mount.
+function MountDraftInput({ field, value, onChange }: FieldInputProps) {
+  const [draft, setDraft] = useState(() => String(value ?? ''))
+  return (
+    <input
+      id={field.attribute}
+      value={draft}
+      onChange={(e) => {
+        setDraft(e.target.value)
+        onChange(e.target.value)
+      }}
+    />
+  )
+}
+componentRegistry.registerFieldInput('mount_draft', MountDraftInput)
 
 // ---------------------------------------------------------------------------
 // Field fixtures — referentially stable (module constants), matching how the
@@ -504,5 +524,51 @@ describe('ResourceCreatePage — Create & add another', () => {
     expect((apiPostMock.mock.calls[0] as [string, Record<string, unknown>])[1].author_id).toBe(7)
 
     await waitFor(() => expect(triggerLabel()).toBe('select_field'))
+  })
+
+  it('starts the next record with a fresh Repeater row', async () => {
+    mockSchema([
+      baseField({
+        attribute: 'lines', label: 'Lines', type: 'repeater', storage: 'json',
+        repeatables: [
+          {
+            shortName: 'line', uniqueKey: 'line', label: 'Line',
+            fields: [{ attribute: 'name', label: 'Name', type: 'text', rules: [] }],
+          },
+        ],
+      }),
+    ])
+    apiPostMock.mockResolvedValue({ data: { id: 99 } })
+
+    renderCreatePage()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add Line' }))
+    fireEvent.click(screen.getByRole('button', { name: 'create_and_add_another' }))
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(1))
+    const [previous] = (apiPostMock.mock.calls[0] as [string, Record<string, unknown>])[1].lines as Array<{ id: string }>
+    await waitFor(() => expect(screen.queryByText('Name')).toBeNull())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Line' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create Post' }))
+
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(2))
+    const lines = (apiPostMock.mock.calls[1] as [string, Record<string, unknown>])[1].lines as Array<{ id: string }>
+    expect(lines).toHaveLength(1)
+    expect(lines[0].id).not.toBe(previous.id)
+  })
+
+  it('starts a custom input that reads its value at mount from the next record\'s empty value', async () => {
+    mockSchema([baseField({ attribute: 'code', label: 'Code', type: 'mount_draft' })])
+    apiPostMock.mockResolvedValue({ data: { id: 99 } })
+
+    renderCreatePage()
+
+    const code = () => document.getElementById('code') as HTMLInputElement
+    await waitFor(() => expect(code()).not.toBeNull())
+    fireEvent.change(code(), { target: { value: 'FIRST-01' } })
+    fireEvent.click(screen.getByRole('button', { name: 'create_and_add_another' }))
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(1))
+
+    await waitFor(() => expect(code().value).toBe(''))
   })
 })

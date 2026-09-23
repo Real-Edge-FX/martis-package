@@ -210,4 +210,18 @@ describe('ResourceCreatePage — the route stays on the same target', () => {
     expect(path).toBe('/api/resources/posts')
     expect(body).toEqual({ title: 'Draft post' })
   })
+
+  it('leaves the empty form "Create & add another" starts from a replicated record without a prompt', async () => {
+    const router = renderAt('/resources/posts/create?fromResourceId=1')
+    await waitForValue('title', 'First post (copy)')
+    apiPostMock.mockResolvedValueOnce({ data: { id: 9 } })
+    // No `create_and_add_another` translation in the test i18n bundle.
+    await create('create_and_add_another')
+    await waitForValue('title', '')
+
+    await act(() => router.navigate('/resources/pages/create'))
+
+    await waitForLocation(router, '/resources/pages/create')
+    expect(screen.queryByTestId('unsaved-changes-dialog')).toBeNull()
+  })
 })

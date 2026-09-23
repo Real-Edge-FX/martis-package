@@ -773,7 +773,7 @@ Both the create and update forms ship with three submit buttons each, covering t
 | Page | Button | Post-save destination |
 |---|---|---|
 | Create | `Create {Resource}` (primary) | Detail page of the new record |
-| Create | `Create & add another` | Same `/create` page with a freshly cleared form |
+| Create | `Create & add another` | Same `/create` page with a freshly cleared form, whose fields mount again so none keeps the previous record's state (v1.38.0+) |
 | Create | `Create & view list` | Resource index |
 | Update | `Save changes` (primary) | Detail page of the record |
 | Update | `Save & continue editing` | Same `/edit` page (baseline refreshed to the values saved, so the unsaved-changes guard does NOT re-trigger for them; anything typed while the save ran still counts as unsaved, v1.38.0+) |

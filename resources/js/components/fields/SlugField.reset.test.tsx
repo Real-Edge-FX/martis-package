@@ -10,7 +10,12 @@ import { SlugFieldInput } from './SlugField'
  * the previous record kept the input in its hand-edited state, so the next
  * record's slug stayed empty while its title was typed. A slug the form
  * clears from outside follows its source again; a slug the user clears by
- * deleting its text stays hand-edited.
+ * deleting its text stays hand-edited while its source has text.
+ *
+ * A slug the user had emptied by hand is `null` before and after the form is
+ * cleared, so its value cannot tell that the form was cleared. The source
+ * can: once it is empty too, nothing is left to keep, and the slug follows it
+ * again.
  */
 
 const slugField = {
@@ -56,6 +61,29 @@ describe('SlugFieldInput after the form is cleared', () => {
     fireEvent.change(title(), { target: { value: 'Second post' } })
 
     expect(slug().value).toBe('second-post')
+  })
+
+  it('follows the source again after the form clears a slug the user had emptied by hand', () => {
+    render(<CreateForm />)
+    fireEvent.change(title(), { target: { value: 'First post' } })
+    fireEvent.change(slug(), { target: { value: 'custom' } })
+    fireEvent.change(slug(), { target: { value: '' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create & add another' }))
+    fireEvent.change(title(), { target: { value: 'Second post' } })
+
+    expect(slug().value).toBe('second-post')
+  })
+
+  it('follows the source again once the user empties both the slug and the source', () => {
+    render(<CreateForm />)
+    fireEvent.change(title(), { target: { value: 'First post' } })
+    fireEvent.change(slug(), { target: { value: '' } })
+
+    fireEvent.change(title(), { target: { value: '' } })
+    fireEvent.change(title(), { target: { value: 'Another title' } })
+
+    expect(slug().value).toBe('another-title')
   })
 
   it('stays hand-edited when the user deletes the slug text', () => {

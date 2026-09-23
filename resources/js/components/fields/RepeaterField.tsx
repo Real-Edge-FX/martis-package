@@ -217,14 +217,19 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
     if (value !== emitted.current) setCollapsed(defaultCollapsed(rows, meta))
   }
 
-  // The `value` the last emission started from. Several row fields can emit
-  // before the form hands the rows back (every stored row whose slug
+  // Which `value` the last emission started from. Several row fields can
+  // emit before the form hands the rows back (every stored row whose slug
   // generates itself while it mounts), and each of their handlers still sees
   // the `rows` of the last render. While the input sees that same `value`,
   // the emitted rows are the latest ones and the next update builds on them;
   // once another value reaches it (the rows handed back, a reset), it builds
-  // on that value's rows.
-  const emittedFrom = useRef<unknown>(value)
+  // on that value's rows. Each value the input receives gets its own token,
+  // compared instead of the value: a form cleared back to `null` after an
+  // emission that started from `null` ("Create & add another") hands in a
+  // value equal to the one the emission started from, and the rows of the
+  // previous record would come back.
+  const valueToken = useMemo(() => ({ value }), [value])
+  const emittedFrom = useRef<object | null>(null)
 
   const [pendingRemoval, setPendingRemoval] = useState<{ index: number; label: string } | null>(null)
   const [showAddMenu, setShowAddMenu] = useState(false)
@@ -264,7 +269,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
   const commit = (next: RepeaterRow[]) => {
     // Also holds back a row input that ignores `readonly` (a custom one).
     if (field.readonly) return
-    emittedFrom.current = value
+    emittedFrom.current = valueToken
     emitted.current = next
     onChange(next)
   }
@@ -272,7 +277,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, resourceKey,
   // A fresh copy of the rows every update builds on, so updates emitted
   // before the form hands the rows back add up instead of the last one
   // replacing the others.
-  const latestRows = (): RepeaterRow[] => (value === emittedFrom.current ? normalizeRows(emitted.current) : rows.slice())
+  const latestRows = (): RepeaterRow[] => (valueToken === emittedFrom.current ? normalizeRows(emitted.current) : rows.slice())
 
   const addRow = (type: string, seedFields?: Record<string, unknown>) => {
     const rep = repeatableFor(type)

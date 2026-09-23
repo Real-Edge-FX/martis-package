@@ -505,7 +505,7 @@ export function StatusSelect({ field, value, onChange, error }: FieldInputProps)
 
 If you opted out of the Tailwind preset, the same effect works with inline styles (`style={{ color: 'var(--martis-danger)' }}`) or the bundled helper classes (`.martis-text`, `.martis-border`). Either way, **don't hard-code colours like `bg-red-500`** — they don't follow the active theme.
 
-**`value` can change after the input mounts.** The edit forms (the update page and the update drawer) mount the fields once the record has filled the form, so an input gets the stored value on its first render. When the form moves to another record (the update page follows the record in the URL, the update drawer the record its host hands it), the fields mount again with that record's values, and the create page does the same when it moves to another resource, parent or record to replicate, so no input state carries from one form to the next. The value can still change under a mounted input: "Create & add another" clears the form for the next record, and a replicated record fills the create form after its fields mounted. Render from `value` where you can. An input that keeps its own state (rows, a selection, a preview) has to adopt a `value` it did not emit itself, and keep its state when the form hands back what it just emitted:
+**`value` can change after the input mounts.** The edit forms (the update page and the update drawer) mount the fields once the record has filled the form, so an input gets the stored value on its first render. When the form moves to another record (the update page follows the record in the URL, the update drawer the record its host hands it), the fields mount again with that record's values, and the create page does the same when it moves to another resource, parent or record to replicate, so no input state carries from one form to the next. "Create & add another" mounts the fields again as well, with the empty values of the next record (v1.38.0+; before v1.38.0 it cleared the values under the mounted inputs, and an input that could not tell the cleared value from its own last one carried the previous record's state over). The value can still change under a mounted input: a replicated record fills the create form after its fields mounted, and a Tool form can replace its values with `setValues()`. Render from `value` where you can. An input that keeps its own state (rows, a selection, a preview) has to adopt a `value` it did not emit itself, and keep its state when the form hands back what it just emitted:
 
 ```typescript
 import { useEffect, useRef, useState } from 'react'
@@ -533,25 +533,31 @@ export function ChipsInput({ value, onChange }: FieldInputProps) {
 }
 ```
 
-The bundled `KeyValue`, `Tag`, `Avatar`, `BelongsTo` and `Repeater` inputs follow this pattern, and `Slug` uses it to follow its source again once the form clears it. When the fields inside your input can emit while they mount (a slug generating itself from a default), compare during render instead of in an effect, as `Repeater` does: child effects run before the parent's.
+The bundled `KeyValue`, `Tag`, `Avatar`, `BelongsTo`, `Repeater` and (v1.38.0+) `Sparkline` inputs follow this pattern, and `Slug` uses it to follow its source again once the form clears it. When the fields inside your input can emit while they mount (a slug generating itself from a default), compare during render instead of in an effect, as `Repeater` does: child effects run before the parent's.
 
-Several of those fields can also emit before the form hands your value back (on an edit form, every stored row whose slug generates itself from its source), and each of their handlers still sees the `value` of your last render, so an update built on that `value` drops the updates before it. Build each update on the value you emitted last, until the form hands you a new one, as `Repeater` does since v1.38.0:
+The comparison only sees a value that changes. A form cleared back to the very value your input emitted last (`null` after its own Clear button) hands it nothing new, so keep no state that `value` does not carry, or that the rest of the form can tell you about: a slug the user emptied by hand is `null` before and after the form is cleared, and `Slug` follows its source again once the source is empty too (v1.38.0+).
+
+Several of those fields can also emit before the form hands your value back (on an edit form, every stored row whose slug generates itself from its source), and each of their handlers still sees the `value` of your last render, so an update built on that `value` drops the updates before it. Build each update on the value you emitted last, until the form hands you a new one, as `Repeater` does since v1.38.0. Tell the two apart with a token for each `value` your input receives, not with the value itself: a form cleared back to `null` hands an input that started empty the very value its first emission started from, and the comparison would take the cleared form for one that has not handed anything back yet. Before v1.38.0 this snippet compared the value, and so did `Repeater`, which brought the previous record's rows back into the next one after "Create & add another":
 
 ```typescript
+import { useMemo, useRef } from 'react'
+
 type Row = Record<string, unknown>
 const toRows = (v: unknown): Row[] => (Array.isArray(v) ? v.map((row) => ({ ...row })) : [])
 
-// Next to `emitted`: the `value` the last emission started from.
-const emittedFrom = useRef<unknown>(value)
+// Next to `emitted`: a token for each `value` the form hands in, and the
+// token of the value the last emission started from.
+const valueToken = useMemo(() => ({ value }), [value])
+const emittedFrom = useRef<object | null>(null)
 
 function emit(next: Row[]) {
-  emittedFrom.current = value
+  emittedFrom.current = valueToken
   emitted.current = next
   onChange(next)
 }
 
 // A fresh copy of the rows the next update builds on.
-const latestRows = () => toRows(value === emittedFrom.current ? emitted.current : value)
+const latestRows = () => toRows(valueToken === emittedFrom.current ? emitted.current : value)
 
 function setRowField(index: number, attribute: string, fieldValue: unknown) {
   const next = latestRows()

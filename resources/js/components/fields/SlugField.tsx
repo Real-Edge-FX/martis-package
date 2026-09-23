@@ -180,6 +180,17 @@ export function SlugFieldInput({
     if (value === null || value === undefined || value === '') setManuallyEdited(false)
   }, [value])
 
+  // A slug the user empties by hand is `null` before and after the form is
+  // cleared for the next record, so the value above cannot tell that the
+  // form was cleared. Its source can: once the source is empty as well,
+  // nothing typed by hand is left to keep, and the slug follows the source
+  // again.
+  const source = sourceAttribute ? formValues?.[sourceAttribute] : undefined
+  const sourceEmpty = source === undefined || source === null || source === ''
+  useEffect(() => {
+    if (manuallyEdited && stringValue === '' && sourceEmpty) setManuallyEdited(false)
+  }, [manuallyEdited, stringValue, sourceEmpty])
+
   const emit = (next: string | null) => {
     emitted.current = next
     onChange(next)

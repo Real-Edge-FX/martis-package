@@ -288,6 +288,8 @@ Internally `useMartisForm` runs the **same** `useDependsOnSync` the Resource pag
 
 Renders `form.resolvedFields` in declaration order — scalar fields wrapped in the standard `FieldWrapper` (label, required marker, tooltip, help text) and the `tab_group` / `section` / `panel` containers via their canonical renderers. This is the exact loop the Resource create/update pages use; they now consume this same component, so there is no duplication and no drift.
 
+To start the form over for another entry, clear it with `setValues({})` and render `<FieldsForm>` under a `key` you change at the same time, so every input mounts again with the empty values, as the create page does for "Create & add another" (v1.38.0+). An input that keeps state of its own cannot always tell a cleared value from its own last one: a slug the user had emptied by hand is `null` before and after the form is cleared, and a custom input that reads its value once, when it mounts, never sees the clear at all.
+
 ### `useToolFields(toolKey): UseToolFieldsResult`
 
 `resources/js/hooks/useToolFields.ts`.

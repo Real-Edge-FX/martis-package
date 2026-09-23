@@ -97,6 +97,10 @@ function CreateTargetPage() {
   const form = useMartisForm({ fields: allFormFields as FieldDefinition[], resourceKey: resource, context: 'create' })
   const [replicateApplied, setReplicateApplied] = useState(false)
   const baselineRef = useRef<string | null>(null)
+  // Bumped by "Create & add another" to mount the fields again for the next
+  // record, so no input keeps state from the record just created (an input
+  // cannot always tell the cleared form from its own last value).
+  const [fieldsKey, setFieldsKey] = useState(0)
 
   /**
    * Controls the post-save redirect on the create form.
@@ -181,16 +185,13 @@ function CreateTargetPage() {
   // The dirty guard compares against this baseline; capturing too early
   // means the pre-fill itself counts as "dirty", triggering the unsaved
   // dialog on a pristine form the user never touched.
-  const initialSnapshot = useMemo(() => {
-    if (!schema) return null
-    if (isReplicate && !replicateApplied) return null
-    if (isViaRelation && !viaFkApplied) return null
-    if (baselineRef.current === null) {
-      baselineRef.current = JSON.stringify(form.values)
-    }
-    return baselineRef.current
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema, isReplicate, replicateApplied, isViaRelation, viaFkApplied])
+  const baselineReady = !!schema && (!isReplicate || replicateApplied) && (!isViaRelation || viaFkApplied)
+  if (baselineReady && baselineRef.current === null) {
+    baselineRef.current = JSON.stringify(form.values)
+  }
+  // Read on every render: "Create & add another" moves the baseline to the
+  // empty form it starts the next record from.
+  const initialSnapshot = baselineReady ? baselineRef.current : null
 
   const { dialog: unsavedGuardDialog, markSaved } = useUnsavedChangesGuard({
     values: form.values,
@@ -228,7 +229,12 @@ function CreateTargetPage() {
       // again.
       if (mode === 'add_another') {
         submitModeRef.current = 'detail'
-        // The form is already cleared above; nothing to navigate.
+        // The form is already cleared above; nothing to navigate. The next
+        // record starts from that empty form, which is therefore its
+        // baseline (a replicated form's was the copy), with its fields
+        // mounted again.
+        baselineRef.current = JSON.stringify({})
+        setFieldsKey((key) => key + 1)
         return
       }
 
@@ -383,7 +389,7 @@ function CreateTargetPage() {
                 scalar fields interleaved. The render loop (including dependsOn
                 override resolution) is now owned by <FieldsForm>, driven by
                 useMartisForm's resolvedFields + fieldProps. */}
-            <FieldsForm form={form} context="create" />
+            <FieldsForm key={fieldsKey} form={form} context="create" />
 
             {/* Footer */}
             <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface-alt)' }}>
