@@ -89,7 +89,17 @@ const identityPanel = {
   fields: [codeField],
 }
 
-const record = { title: 'Launch', code: 'INV-001', slug: 'launch' }
+// The inline-create "+" would create a record the update then drops.
+const authorField = baseField({
+  attribute: 'author',
+  label: 'Author',
+  type: 'belongs_to',
+  relatedResource: 'users',
+  showCreateRelationButton: true,
+  immutable: true,
+})
+
+const record = { title: 'Launch', code: 'INV-001', slug: 'launch', author: { id: 3, title: 'Ann' } }
 
 function input(id: string): HTMLInputElement {
   return document.getElementById(id) as HTMLInputElement
@@ -205,6 +215,14 @@ describe('immutable fields on the update page', () => {
     expect(screen.getByTestId('slug-locked-slug')).toBeTruthy()
   })
 
+  it('offers no inline create on an immutable BelongsTo', async () => {
+    renderUpdatePage([titleField, authorField])
+
+    await waitFor(() => expect(document.querySelector('.martis-belongs-to-trigger-label')?.textContent).toBe('Ann'))
+    expect(document.querySelector<HTMLButtonElement>('.martis-belongs-to-trigger')?.disabled).toBe(true)
+    expect(document.querySelector('.martis-create-related-btn')).toBeNull()
+  })
+
   it('renders an immutable field read-only when a relation panel opens the record', async () => {
     renderUpdatePage(
       [titleField, codeField],
@@ -257,6 +275,14 @@ describe('immutable fields on the create surfaces', () => {
     await waitFor(() => expect(input('code')).toBeTruthy())
     expect(input('code').disabled).toBe(false)
     expect((screen.getByTestId('slug-input-slug') as HTMLInputElement).disabled).toBe(false)
+  })
+
+  it('keeps the inline create of an immutable BelongsTo on the create page', async () => {
+    mockApi([titleField, authorField])
+    renderPage('/resources/:resource/create', '/resources/posts/create', <ResourceCreatePage />)
+
+    await waitFor(() => expect(document.querySelector('.martis-create-related-btn')).toBeTruthy())
+    expect(document.querySelector<HTMLButtonElement>('.martis-belongs-to-trigger')?.disabled).toBe(false)
   })
 
   it('keeps an immutable field editable in the create drawer', () => {

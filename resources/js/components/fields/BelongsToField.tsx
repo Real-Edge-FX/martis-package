@@ -375,7 +375,9 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   const showCreateRelationButton = (field as unknown as Record<string, unknown>).showCreateRelationButton === true
   const fieldModalSize = ((field as unknown as Record<string, unknown>).modalSize as string) || '2xl'
   const hideCreateButton = (field as unknown as Record<string, unknown>).hideCreateButton === true
-  const canShowCreateButton = showCreateRelationButton && !!relatedResource && !hideCreateButton
+  // A readonly field (an `immutable()` one on an update form, the parent of a
+  // nested create) keeps its value, so it offers no inline create either.
+  const canShowCreateButton = showCreateRelationButton && !!relatedResource && !hideCreateButton && !field.readonly
   const withSubtitles = (field as unknown as Record<string, unknown>).withSubtitles === true
   const subtitleAttribute = ((field as unknown as Record<string, unknown>).subtitleAttribute as string) || 'subtitle'
   const showResourceIcon = (field as unknown as Record<string, unknown>).showResourceIcon === true
@@ -435,6 +437,11 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     emitted.current = next
     onChange(next)
   }
+
+  // The inline-create modal reports the record it created from the render
+  // that submitted it, so the readonly flag is read live when it settles.
+  const readonlyRef = useRef(field.readonly)
+  readonlyRef.current = field.readonly
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -529,10 +536,13 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   }
 
   function handleInlineCreated(record: { id: string | number; title: string | null }) {
-    emit(record.id)
-    setSelectedLabel(record.title ?? String(record.id))
     setShowInlineCreate(false)
     void qc.invalidateQueries({ queryKey: ["relatable"] })
+    // A field that turned readonly while the record was being created keeps
+    // its value: the save would drop the new one.
+    if (readonlyRef.current) return
+    emit(record.id)
+    setSelectedLabel(record.title ?? String(record.id))
   }
 
   function handleSelect(record: RelatedRecord) {

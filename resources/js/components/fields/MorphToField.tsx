@@ -408,16 +408,26 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     onChange(null)
   }
 
+  // The inline-create modal reports the record it created from the render
+  // that submitted it, so the readonly flag is read live when it settles.
+  const readonlyRef = useRef(field.readonly)
+  readonlyRef.current = field.readonly
+
   function handleInlineCreated(record: { id: string | number; title: string | null }) {
+    setShowInlineCreate(false)
+    void qc.invalidateQueries({ queryKey: ['relatable'] })
+    // A field that turned readonly while the record was being created keeps
+    // its value: the save would drop the new one.
+    if (readonlyRef.current) return
     setSelectedId(record.id)
     setSelectedLabel(record.title ?? String(record.id))
-    setShowInlineCreate(false)
     onChange({ resourceType: selectedType, id: record.id, title: record.title })
-    void qc.invalidateQueries({ queryKey: ['relatable'] })
   }
 
   const hideCreateButton = (field as unknown as Record<string, unknown>).hideCreateButton === true
-  const canShowCreateButton = showCreateRelationButton && !!selectedType && !hideCreateButton
+  // A readonly field (an `immutable()` one on an update form) keeps its
+  // value, so it offers no inline create either.
+  const canShowCreateButton = showCreateRelationButton && !!selectedType && !hideCreateButton && !field.readonly
   const selectedTypeLabel = morphTypes?.find(t => t.value === selectedType)?.label ?? selectedType
 
   return (
