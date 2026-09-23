@@ -137,6 +137,10 @@ for (const [file, source] of Object.entries(docsBlocks())) put(file, source)
 put('tsconfig.docs.json', JSON.stringify({ extends: './tsconfig.extensions.json', compilerOptions: { noImplicitAny: false } }))
 
 const underConsumer = (directory: string): boolean => [...files.keys()].some((file) => file.startsWith(`${directory}/`))
+// Every program below reads the same files (the DOM lib, @types/react, the
+// declarations): parse each once. A worker kept busy parsing them for each
+// program in turn could not answer Vitest's RPC in time on a loaded machine.
+const parsed = new Map<string, ts.SourceFile>()
 const host: ts.CompilerHost = {
     ...ts.createCompilerHost({}),
     fileExists: (file) => files.has(file) || ts.sys.fileExists(file),
@@ -144,9 +148,15 @@ const host: ts.CompilerHost = {
     directoryExists: (directory) => underConsumer(directory) || (ts.sys.directoryExists?.(directory) ?? false),
     realpath: (file) => (files.has(file) || underConsumer(file) ? file : (ts.sys.realpath?.(file) ?? file)),
     getSourceFile: (file, languageVersion) => {
+        const key = `${file}|${typeof languageVersion === 'object' ? JSON.stringify(languageVersion) : languageVersion}`
+        const cached = parsed.get(key)
+        if (cached !== undefined) return cached
         const text = files.get(file) ?? ts.sys.readFile(file)
+        if (text === undefined) return undefined
+        const source = ts.createSourceFile(file, text, languageVersion)
+        parsed.set(key, source)
 
-        return text === undefined ? undefined : ts.createSourceFile(file, text, languageVersion)
+        return source
     },
 }
 

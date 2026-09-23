@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import ts from 'typescript'
 import { martisRuntime } from '@/lib/martisRuntime'
 import * as runtimeEntry from '@/extension-types/runtime'
@@ -142,6 +142,12 @@ function libraryTypeExports(specifiers: string[]): Record<string, string[]> {
 }
 
 describe('the extension shim declarations', () => {
+    // One program reads the four libraries: seconds on a loaded machine.
+    let libraryTypes: Record<string, string[]> = {}
+    beforeAll(() => {
+        libraryTypes = libraryTypeExports(SHIMS.filter(({ shim }) => shim !== 'runtime').map(({ specifier }) => specifier))
+    }, 120_000)
+
     it('ship for exactly the shims that have a type entry', () => {
         const declared = Object.keys(stubs)
             .map((path) => /\/([\w-]+)-shim\.d\.mts\.stub$/.exec(path)?.[1])
@@ -156,7 +162,7 @@ describe('the extension shim declarations', () => {
 
         expect(declaration.values).toEqual([...named.keys(), 'default'].sort())
         // The runtime's own types, or every type of the library.
-        const types = shim === 'runtime' ? typeExports(runtimeSource) : (libraryTypeExports([specifier])[specifier] ?? [])
+        const types = shim === 'runtime' ? typeExports(runtimeSource) : (libraryTypes[specifier] ?? [])
         expect(declaration.types).toEqual(types)
         // `martis:install` adds react, react-dom and @phosphor-icons/react to the
         // consumer; the runtime reaches the third-party types through the
