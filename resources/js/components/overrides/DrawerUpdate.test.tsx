@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useState } from 'react'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { act, render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import type { FieldDefinition, OverrideProps, ResourceRecord, ResourceSchema } from '@/types'
@@ -314,5 +314,93 @@ describe('DrawerUpdate — the host hands it another record', () => {
     const [path, body] = await save()
     expect(path).toBe('/api/resources/posts/1')
     expect(body.title).toBe('First post, edited')
+  })
+})
+
+/*
+ * A host can keep the drawer open after a save (a `redirectAfter('stay')`
+ * override, or one whose target is the page behind it). The values just
+ * saved must then count as clean, and what was typed while the request ran
+ * must not.
+ */
+describe('DrawerUpdate — the unsaved-changes baseline after a save', () => {
+  const summaryField = baseField({ attribute: 'summary', label: 'Summary', type: 'text' })
+  const record = { id: 1, title: 'First post', summary: 'About the first post' }
+
+  function renderStaying() {
+    const props: OverrideProps = {
+      schema: {
+        uriKey: 'posts', label: 'Posts', singularLabel: 'Post', fields: [],
+        fieldsForUpdate: [titleField, summaryField], errorDisplay: 'inline', confirmUnsavedChanges: true,
+      } as unknown as ResourceSchema,
+      resource: 'posts',
+      params: {},
+      record: { ...record } as unknown as ResourceRecord,
+      recordId: '1',
+      navigate: vi.fn(),
+      onClose: vi.fn(),
+      onCreated: vi.fn(),
+      // Stays open, as a `redirectAfter('stay')` host does.
+      onUpdated: vi.fn(),
+      onDeleted: vi.fn(),
+      onEdit: vi.fn(),
+      onView: vi.fn(),
+      addToast: vi.fn(),
+    }
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter>
+          <DrawerUpdate {...props} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+    return props
+  }
+
+  const input = (attribute: string) => document.getElementById(attribute) as HTMLInputElement | null
+  const type = (attribute: string, value: string) => fireEvent.change(input(attribute)!, { target: { value } })
+
+  async function openAndSettle() {
+    await waitFor(() => expect(input('title')?.value).toBe('First post'))
+    // The drawer takes its baseline again 250 ms after it opens, once the
+    // inputs that normalise their value on mount have done so.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 300)))
+  }
+
+  afterEach(() => {
+    vi.mocked(api.put).mockImplementation((() => new Promise(() => {})) as unknown as typeof api.put)
+  })
+
+  it('closes without an unsaved-changes prompt after its changes are saved', async () => {
+    const props = renderStaying()
+    await openAndSettle()
+    type('title', 'First post, renamed')
+    vi.mocked(api.put).mockResolvedValueOnce({ data: { ...record, title: 'First post, renamed' } } as never)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(props.onUpdated).toHaveBeenCalled())
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    await waitFor(() => expect(props.onClose).toHaveBeenCalled())
+    expect(screen.queryByTestId('unsaved-changes-dialog')).toBeNull()
+  })
+
+  it('asks before closing when something was typed while the save ran', async () => {
+    const props = renderStaying()
+    await openAndSettle()
+    type('title', 'First post, renamed')
+    let settle: (response: unknown) => void = () => {}
+    vi.mocked(api.put).mockReturnValueOnce(new Promise((resolve) => { settle = resolve }) as never)
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(api.put).toHaveBeenCalled())
+
+    type('title', 'First post, renamed again')
+    await act(async () => settle({ data: { ...record, title: 'First post, renamed' } }))
+    await waitFor(() => expect(props.onUpdated).toHaveBeenCalled())
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(await screen.findByTestId('unsaved-changes-dialog')).toBeTruthy()
+    expect(props.onClose).not.toHaveBeenCalled()
   })
 })

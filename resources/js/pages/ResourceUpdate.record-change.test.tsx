@@ -270,6 +270,50 @@ describe('ResourceUpdatePage — the route stays on the same record', () => {
     await waitForLocation(router, '/resources/posts/2/edit')
   })
 
+  it('counts what is typed while "Save & continue editing" runs as unsaved', async () => {
+    const { router } = renderAt(['/resources/posts/1/edit'])
+    await waitForValue('title', 'First post')
+    type('title', 'First post, renamed')
+    let settle: (response: unknown) => void = () => {}
+    apiPutMock.mockReturnValueOnce(new Promise((resolve) => { settle = resolve }))
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }))
+    await waitFor(() => expect(apiPutMock).toHaveBeenCalledTimes(1))
+    expect((apiPutMock.mock.calls[0] as [string, Record<string, unknown>])[1].title).toBe('First post, renamed')
+
+    type('title', 'First post, renamed again')
+    await act(async () => settle({ data: { id: 1, title: 'First post, renamed', summary: 'About the first post' } }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save changes' })).toHaveProperty('disabled', false))
+
+    await act(() => router.navigate('/resources/posts/2/edit'))
+
+    expect(await screen.findByTestId('unsaved-changes-dialog')).toBeTruthy()
+    expect(router.state.location.pathname).toBe('/resources/posts/1/edit')
+    expect(input('title')?.value).toBe('First post, renamed again')
+  })
+
+  it("counts what is typed while a save that redirects to the record's own edit page runs as unsaved", async () => {
+    const { router } = renderAt(['/resources/posts/1/edit'])
+    await waitForValue('title', 'First post')
+    type('title', 'First post, renamed')
+    let settle: (response: unknown) => void = () => {}
+    apiPutMock.mockReturnValueOnce(new Promise((resolve) => { settle = resolve }))
+    await save()
+
+    type('title', 'First post, renamed again')
+    await act(async () =>
+      settle({
+        data: { id: 1, title: 'First post, renamed', summary: 'About the first post' },
+        meta: { redirectTo: '/resources/posts/1/edit' },
+      }),
+    )
+    await waitFor(() => expect(router.state.historyAction).toBe('PUSH'))
+
+    await act(() => router.navigate('/resources/posts/2/edit'))
+
+    expect(await screen.findByTestId('unsaved-changes-dialog')).toBeTruthy()
+    expect(router.state.location.pathname).toBe('/resources/posts/1/edit')
+  })
+
   it('keeps the edits on a navigation within the same edit page', async () => {
     const { router } = renderAt(['/resources/posts/1/edit'])
     await waitForValue('title', 'First post')

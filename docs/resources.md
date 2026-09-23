@@ -776,7 +776,7 @@ Both the create and update forms ship with three submit buttons each, covering t
 | Create | `Create & add another` | Same `/create` page with a freshly cleared form |
 | Create | `Create & view list` | Resource index |
 | Update | `Save changes` (primary) | Detail page of the record |
-| Update | `Save & continue editing` | Same `/edit` page (baseline refreshed so the unsaved-changes guard does NOT re-trigger) |
+| Update | `Save & continue editing` | Same `/edit` page (baseline refreshed to the values saved, so the unsaved-changes guard does NOT re-trigger for them; anything typed while the save ran still counts as unsaved, v1.38.0+) |
 | Update | `Save & view list` | Resource index |
 
 The two extra buttons are **hidden when the form is launched from a nested relation** (i.e. `?viaResource=…&viaResourceId=…`). Nested flows already manage their own post-save redirect to the parent surface, and a "view list" jump from inside a relation panel would be confusing.
@@ -818,7 +818,7 @@ Return `null` (the default) to keep the standard behaviour. The two extra save v
 
 The string travels back to the SPA in the create/update response under `meta.redirectTo`.
 
-Since v1.38.0 a destination on another record's edit page opens that record's form from scratch; the page used to keep the form it had just saved, so the next save sent those values to the new record. A destination on the same record's edit page keeps the saved values, which no longer count as unsaved changes. A destination on another resource's create page, another parent's nested create or another record to replicate opens a fresh create form the same way.
+Since v1.38.0 a destination on another record's edit page opens that record's form from scratch; the page used to keep the form it had just saved, so the next save sent those values to the new record. A destination on the same record's edit page keeps the saved values, which no longer count as unsaved changes; what was typed while the save ran still does (before v1.38.0 it counted as saved too, and leaving the page dropped it without asking). A destination on another resource's create page, another parent's nested create or another record to replicate opens a fresh create form the same way.
 
 ## Index toolbar resets
 

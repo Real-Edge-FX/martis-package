@@ -37,6 +37,20 @@ function extractScalarFields(items: Array<Record<string, unknown>>): FieldDefini
 }
 
 
+
+/**
+ * The values of the scalar fields, the part of the form the dirty check
+ * compares: fields that manage their own state outside `values` (e.g. Trix,
+ * tag widgets) may write back after mount without a user edit.
+ */
+function scalarSnapshot(fields: FieldDefinition[], values: Record<string, unknown>): string {
+  const scalar: Record<string, unknown> = {}
+  fields.forEach((field) => {
+    scalar[field.attribute] = values[field.attribute] ?? null
+  })
+  return JSON.stringify(scalar)
+}
+
 /**
  * Built-in drawer override for the UPDATE context.
  *
@@ -82,6 +96,13 @@ export function DrawerUpdate(props: OverrideProps) {
   // and the next render, and a stale-closure comparison would show a
   // spurious diff right as the drawer opens.
   const initialSnapshot = useRef<string | null>(null)
+  // The values the save under way sent, and the record they belong to: its
+  // success makes them the baseline. The inputs stay editable while the
+  // request runs, so what is typed meanwhile still counts as unsaved when
+  // the drawer stays open.
+  const submittedSnapshot = useRef<{ recordKey: string; snapshot: string } | null>(null)
+  const recordKeyRef = useRef(recordKey)
+  recordKeyRef.current = recordKey
   const valuesRef = useRef<Record<string, unknown>>(values)
   valuesRef.current = values
   // Pending prompt holds BOTH resolvers so cancel explicitly rejects
@@ -115,11 +136,7 @@ export function DrawerUpdate(props: OverrideProps) {
   useEffect(() => {
     if (!initialized) return
     const rebase = window.setTimeout(() => {
-      const settled: Record<string, unknown> = {}
-      scalarFields.forEach((field) => {
-        settled[field.attribute] = valuesRef.current[field.attribute] ?? null
-      })
-      initialSnapshot.current = JSON.stringify(settled)
+      initialSnapshot.current = scalarSnapshot(scalarFields, valuesRef.current)
     }, 250)
     return () => window.clearTimeout(rebase)
   }, [initialized, scalarFields])
@@ -134,15 +151,7 @@ export function DrawerUpdate(props: OverrideProps) {
   const isDirty = useCallback(() => {
     // Nothing to lose while the record the host handed over is still loading.
     if (!initialized || initialSnapshot.current === null) return false
-    // Compare only the scalar fields captured in the baseline — fields
-    // that manage their own state outside `values` (e.g. Trix, tag
-    // widgets) may write back after mount without representing a user
-    // edit, and would otherwise flip the drawer into a false-dirty state.
-    const current: Record<string, unknown> = {}
-    scalarFields.forEach((field) => {
-      current[field.attribute] = valuesRef.current[field.attribute] ?? null
-    })
-    return JSON.stringify(current) !== initialSnapshot.current
+    return scalarSnapshot(scalarFields, valuesRef.current) !== initialSnapshot.current
   }, [initialized, scalarFields])
   const beforeClose = useCallback(async (): Promise<boolean> => {
     if (!confirmEnabled || !isDirty()) return true
@@ -168,6 +177,13 @@ export function DrawerUpdate(props: OverrideProps) {
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       void qc.invalidateQueries({ queryKey: ['resource', resource, recordId] })
+      // A host can keep the drawer open after the save (`redirectAfter`
+      // 'stay'): the saved values must not count as unsaved there, unless
+      // the host has handed the drawer another record meanwhile.
+      const submitted = submittedSnapshot.current
+      if (submitted && submitted.recordKey === recordKeyRef.current) {
+        initialSnapshot.current = submitted.snapshot
+      }
       onUpdated(res.data)
     },
     onError: (err) => {
@@ -197,6 +213,7 @@ export function DrawerUpdate(props: OverrideProps) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErrors({})
+    submittedSnapshot.current = { recordKey, snapshot: scalarSnapshot(scalarFields, values) }
     // Unchanged files left out, BelongsTo reduced to its id, MorphTo kept whole.
     updateMutation.mutate(updatePayload(values))
   }

@@ -87,6 +87,10 @@ function RecordUpdatePage() {
     syncDisabled: !initialized,
   })
   const baselineRef = useRef<string | null>(null)
+  // The values the save under way sent. The inputs stay editable while the
+  // request runs, so the form's values when it succeeds may hold more than
+  // what was saved.
+  const submittedRef = useRef<string | null>(null)
 
   /**
    * Controls the post-save redirect on the update form.
@@ -150,8 +154,9 @@ function RecordUpdatePage() {
       markSaved()
       // The saved values are the new baseline, so a redirect that keeps this
       // page ("Save & continue editing", a redirectAfterUpdate() to this
-      // record's edit page) does not count them as unsaved.
-      baselineRef.current = JSON.stringify(form.values)
+      // record's edit page) does not count them as unsaved. What was typed
+      // while the request ran still does.
+      baselineRef.current = submittedRef.current
       // Navigate back to parent resource detail if editing via a
       // relationship, otherwise to record detail. Invalidate the matching
       // query (has-many or has-one depending on viaRelationshipType),
@@ -225,6 +230,7 @@ function RecordUpdatePage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     form.setErrors({})
+    submittedRef.current = JSON.stringify(form.values)
     // Unchanged files left out, BelongsTo reduced to its id, MorphTo kept whole.
     updateMutation.mutate(updatePayload(form.values))
   }

@@ -182,7 +182,7 @@ public function overrides(): array
 }
 ```
 
-`RedirectAfter` enum cases: `DETAIL` · `INDEX` · `EDIT` · `CREATE` · `DASHBOARD` · `STAY`. A literal string (`'detail'`, `'index'`, …) is accepted as a fallback for the same values. `STAY` keeps the drawer / page open after save — useful for "save and continue editing" workflows.
+`RedirectAfter` enum cases: `DETAIL` · `INDEX` · `EDIT` · `CREATE` · `DASHBOARD` · `STAY`. A literal string (`'detail'`, `'index'`, …) is accepted as a fallback for the same values. `STAY` keeps the drawer / page open after save — useful for "save and continue editing" workflows. With `confirmUnsavedChanges()` on, the update drawer then counts the values it saved as clean, and what was typed while the save ran as unsaved (v1.38.0+; before v1.38.0 closing it after the save asked to discard the changes just saved).
 
 ### `DrawerSlot` enum (typed slot keys)
 

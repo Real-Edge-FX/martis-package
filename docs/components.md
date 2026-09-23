@@ -726,6 +726,8 @@ function MyForm({ schema, initialValues }) {
 
 The hook integrates with `react-router-dom`'s `useBlocker`, so navigation via `<Link>` or `useNavigate()` triggers the dialog. It holds the browser back button only while the form is dirty (v1.38.0+): the first render where `values` differ from `initialSnapshot` pushes a copy of the page's history entry, and the Back press that removes it opens the dialog. A clean form leaves the history alone, so Back and Forward work as on any other page. It also integrates with the modal-history lock primitives in `resources/js/lib/historyLock.ts`: a modal open over the form keeps the back button, and a form that turns dirty while a modal holds the top history entry is guarded once the modal closes. Before v1.38.0 the hook pushed its history entry on mount, which erased the Forward history and could make Back skip a page.
 
+If the form stays on the page after a save, pass the values the save sent as the new `initialSnapshot`, not the values the form holds when the request returns: the inputs stay editable while it runs, and what the user typed meanwhile is still unsaved.
+
 ## useError Hook
 
 Centralised error state management for the forms and pages of an extension (on `@martis/runtime` since v1.38.0).
