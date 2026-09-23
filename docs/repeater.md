@@ -293,7 +293,9 @@ Before v1.37.3 the Closure form was serialised as `hasTitleCallback: true` but n
 
 ### Templates, duplicate, bulk paste
 
-Pre-filled templates surface in the Add menu alongside the raw types.
+Pre-filled templates surface in the Add menu alongside the raw types (a
+Repeater with a single row type lists it too, so a blank row can still be
+added; before v1.38.0 its menu listed the templates only).
 
 | Method | Effect |
 |---|---|
@@ -320,9 +322,10 @@ The "Paste rows" footer button opens a modal that parses TSV/CSV/JSON into rows,
 detecting a header row automatically when column names match the Repeatable's
 field attributes.
 
-A template row, a duplicated row and a pasted row are new rows: the save
-stores the `default()` of a readonly field, not the value the row sends for
-it (see
+A template row, a duplicated row and a pasted row are new rows: each field the
+row writes takes the value the template, the source row or the paste gives
+it, and a readonly field starts at its `default()`, which is what the save
+stores for it (see
 [Readonly, computed, hidden and immutable row fields](#readonly-computed-hidden-and-immutable-row-fields)).
 To have a template stamp a value the user cannot change, give the readonly
 field that `default()`.
@@ -468,7 +471,7 @@ update (v1.38.0+).
 | `readonly()` | keeps the stored value | takes its `default()`, or nothing | no | yes, rendered read-only |
 | `computed()` | keeps the stored value (a HasMany child has no column for it) | nothing | no | yes (a HasMany child resolves it) |
 | hidden by `canSee()` / `canSeeWhen()` | keeps the stored value | takes its `default()`, or nothing | no | no |
-| `immutable()` | keeps the stored value | takes the value the row sends | on a new row only | yes |
+| `immutable()` | keeps the stored value | takes the value the row sends | on a new row only | yes, read-only on a stored row of an update form |
 
 The value a request sends for such a field is ignored: it cannot set a
 readonly or hidden field, and leaving the field out of a stored row does not
@@ -488,7 +491,9 @@ as the row it continues, and the next save stores that id.
 
 **Defaults.** A new row stores the `default()` of each readonly or hidden
 field that declares one (a Closure default receives the request), and
-nothing for a computed field, which stores nothing.
+nothing for a computed field, which stores nothing. A row template, a
+duplicated row and pasted rows are new rows: the form starts their readonly
+fields at the default, the value the save keeps.
 
 ```php
 class Milestone extends Repeatable
@@ -520,7 +525,9 @@ than leaving the field out of `fields()` for them.
 
 **Immutable fields.** `immutable()` on a row field means what it means on a
 record, row by row: a new row writes and validates the value it sends, and a
-stored row keeps its value without validating the one it sends back. An
+stored row keeps its value without validating the one it sends back. An update
+form renders the field read-only on the rows the record stores and editable on
+the rows added since; a create form keeps it editable on every row. An
 immutable Repeater as a whole is skipped on every update, as any immutable
 field (see [Fields → Immutable fields](fields.md#immutable-fields)).
 

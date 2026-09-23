@@ -64,8 +64,9 @@ describe('lockImmutableFields', () => {
   })
 
   it('locks an immutable Repeater as a whole and leaves the fields of its rows alone', () => {
-    // The Repeater writes its rows as one value: the server skips an
-    // immutable Repeater on update, but no field inside a row.
+    // The server skips an immutable Repeater on update. An immutable field
+    // inside a row is written on a new row and kept on a stored one, so the
+    // Repeater locks it itself, row by row (RepeaterField.row-access.test).
     const repeatables = [{ shortName: 'line', fields: [field('sku', { immutable: true })] }]
     const rows = field('lines', { type: 'repeater', repeatables })
     const frozen = field('history', { type: 'repeater', immutable: true, repeatables })

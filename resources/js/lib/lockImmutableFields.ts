@@ -4,10 +4,11 @@
  * as `readonly` and its input disables itself exactly as for `readonly()`.
  *
  * Walks the layout containers (`panel`, `section`, `tab_group` and a panel
- * inside a tab). A field inside a Repeater row is left alone: the Repeater
- * writes its rows as one value, so only an immutable Repeater as a whole is
- * locked. Items with nothing to lock keep their identity, and so does the
- * list when no field is immutable.
+ * inside a tab). A field inside a Repeater row is left alone here: a row
+ * writes an immutable field when it is new and keeps it once stored, so the
+ * Repeater locks it itself, on the rows the record stores (see
+ * `RepeaterField`). Items with nothing to lock keep their identity, and so
+ * does the list when no field is immutable.
  */
 export function lockImmutableFields<T>(items: T[]): T[] {
   return lockList(items as unknown[]) as T[]

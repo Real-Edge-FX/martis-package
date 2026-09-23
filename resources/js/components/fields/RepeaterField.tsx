@@ -107,6 +107,34 @@ function rowKeyOf(row: RepeaterRow, index: number): string {
   return String(row.id ?? index)
 }
 
+/** The ids of the rows that carry one. */
+function rowIdsOf(rows: RepeaterRow[]): Set<string> {
+  const ids = new Set<string>()
+  rows.forEach((row) => {
+    if (row.id !== null) ids.add(String(row.id))
+  })
+  return ids
+}
+
+/**
+ * The values a new row starts with: each field's default, and the value
+ * `seed` holds for a field the row writes (a row template's, a duplicated
+ * row's, a pasted one's). A readonly field keeps its default: the save takes
+ * no value of it from a new row. A key of `seed` that names no field of the
+ * row type is kept.
+ */
+function newRowFields(rep: RepeatableDef, seed: Record<string, unknown> = {}): Record<string, unknown> {
+  const fields: Record<string, unknown> = {}
+  rep.fields.forEach((f) => {
+    const seeded = !f.readonly && Object.prototype.hasOwnProperty.call(seed, f.attribute)
+    fields[f.attribute] = seeded ? seed[f.attribute] : (f.defaultValue ?? null)
+  })
+  Object.entries(seed).forEach(([attribute, value]) => {
+    if (!(attribute in fields)) fields[attribute] = value
+  })
+  return fields
+}
+
 /**
  * The server errors of the rows, bound to the key of the row each one was
  * reported for. The server keys them by the position the row had in the
@@ -236,8 +264,19 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
     if (!field.readonly) return defs
     return defs.map((rep) => ({ ...rep, fields: rep.fields.map((f) => ({ ...f, readonly: true })) }))
   }, [meta.repeatables, field.readonly])
+  // The row fields of a row the record stores: the save keeps an immutable
+  // field of such a row (it writes one on a new row only), so it renders
+  // read-only there, as an update form renders an immutable field.
+  const storedRowFields = useMemo(() => {
+    const byType = new Map<string, FieldDefinition[]>()
+    repeatables.forEach((rep) => {
+      byType.set(rep.shortName, rep.fields.map((f) => (f.immutable && !f.readonly ? { ...f, readonly: true } : f)))
+    })
+    return byType
+  }, [repeatables])
   const canReorder = meta.reorderable === true && !field.readonly
   const isMultiType = repeatables.length > 1
+  const hasTemplates = (meta.rowTemplates?.length ?? 0) > 0
   const primaryType = repeatables[0]?.shortName ?? ''
 
   const rows = useMemo(() => normalizeRows(value), [value])
@@ -256,6 +295,11 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => openRowsWithErrors(defaultCollapsed(rows, meta), rowErrors))
 
+  // The ids of the rows the record stores, on an update form: the rows of the
+  // value the form hands in (the record it edits), as opposed to the rows
+  // added, duplicated or pasted since, which are new.
+  const [storedRowIds, setStoredRowIds] = useState<Set<string>>(() => rowIdsOf(rows))
+
   // The last value this input handed to `onChange`. A `value` prop that
   // differs from it came from outside (the edit form seeding the stored rows
   // after mount, "Create & add another" clearing the form), so its rows start
@@ -267,7 +311,10 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
   const [renderedValue, setRenderedValue] = useState<unknown>(value)
   if (value !== renderedValue) {
     setRenderedValue(value)
-    if (value !== emitted.current) setCollapsed(defaultCollapsed(rows, meta))
+    if (value !== emitted.current) {
+      setCollapsed(defaultCollapsed(rows, meta))
+      setStoredRowIds(rowIdsOf(rows))
+    }
   }
 
   if (errorsSignature !== adoptedErrors) {
@@ -342,12 +389,10 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
   const addRow = (type: string, seedFields?: Record<string, unknown>) => {
     const rep = repeatableFor(type)
     if (!rep) return
-    const blankFields: Record<string, unknown> = {}
-    rep.fields.forEach((f) => { blankFields[f.attribute] = f.defaultValue ?? null })
     const row: RepeaterRow = {
       id: randomId(),
       type: rep.shortName,
-      fields: { ...blankFields, ...(seedFields ?? {}) },
+      fields: newRowFields(rep, seedFields),
     }
     commit([...latestRows(), row])
     setShowAddMenu(false)
@@ -361,10 +406,13 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
     const next = latestRows()
     const source = next[index]
     if (!source) return
+    const rep = repeatableFor(source.type)
+    // The copy is a new row: a readonly field takes its default, not the
+    // stored row's value.
     const copy: RepeaterRow = {
       id: randomId(),
       type: source.type,
-      fields: { ...source.fields },
+      fields: rep ? newRowFields(rep, source.fields) : { ...source.fields },
     }
     next.splice(index + 1, 0, copy)
     commit(next)
@@ -438,6 +486,8 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
         const rowKey = rowKeyOf(row, index)
         const isCollapsed = meta.collapsible === true && !!collapsed[rowKey]
         const errorsOfRow = rowErrors[rowKey]
+        const isStoredRow = context === 'update' && row.id !== null && storedRowIds.has(String(row.id))
+        const rowFields = isStoredRow ? (storedRowFields.get(rep.shortName) ?? rep.fields) : rep.fields
 
         // The "#N" badge below already renders the row number for a static
         // label, so the text carries it only inside a dynamic title's fallback.
@@ -546,7 +596,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
             {/* Body */}
             {!isCollapsed && (
               <div className="space-y-3 p-4">
-                {rep.fields.map((childField, fieldIndex) => {
+                {rowFields.map((childField, fieldIndex) => {
                   return (
                     <div key={`${childField.attribute}-${fieldIndex}`} className="grid grid-cols-3 gap-4">
                       <div>
@@ -640,7 +690,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
               </button>
             )}
             <div className="relative" ref={addMenuRef}>
-              {isMultiType || (meta.rowTemplates && meta.rowTemplates.length > 0) ? (
+              {isMultiType || hasTemplates ? (
                 <>
                   <button
                     type="button"
@@ -656,7 +706,8 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
                       className="absolute right-0 z-10 mt-1 min-w-[220px] overflow-hidden rounded-md border shadow-lg"
                       style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}
                     >
-                      {isMultiType && repeatables.map((rep) => (
+                      {/* The row types come first, so a blank row can be added next to the templates. */}
+                      {repeatables.map((rep) => (
                         <button
                           key={rep.shortName}
                           type="button"
@@ -674,14 +725,12 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
                       ))}
                       {meta.rowTemplates && meta.rowTemplates.length > 0 && (
                         <>
-                          {isMultiType && (
-                            <div
-                              className="px-3 py-1 text-[10px] uppercase tracking-wide"
-                              style={{ borderTop: '1px solid var(--martis-border)', color: 'var(--martis-text-muted)' }}
-                            >
-                              {t('repeater_templates', 'Templates')}
-                            </div>
-                          )}
+                          <div
+                            className="px-3 py-1 text-[10px] uppercase tracking-wide"
+                            style={{ borderTop: '1px solid var(--martis-border)', color: 'var(--martis-text-muted)' }}
+                          >
+                            {t('repeater_templates', 'Templates')}
+                          </div>
                           {meta.rowTemplates.map((tpl, tIdx) => (
                             <button
                               key={`tpl-${tIdx}`}
@@ -822,12 +871,10 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
                   const current = latestRows()
                   const remaining = meta.maxRows != null ? meta.maxRows - current.length : Infinity
                   const slice = parsed.slice(0, remaining)
-                  const blankFields: Record<string, unknown> = {}
-                  rep.fields.forEach((f) => { blankFields[f.attribute] = f.defaultValue ?? null })
                   const toInsert: RepeaterRow[] = slice.map((fields) => ({
                     id: randomId(),
                     type: rep.shortName,
-                    fields: { ...blankFields, ...fields },
+                    fields: newRowFields(rep, fields),
                   }))
                   commit([...current, ...toInsert])
                   setBulkPasteOpen(false)
