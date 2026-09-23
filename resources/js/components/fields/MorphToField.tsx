@@ -345,12 +345,13 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     }
   }, [selectedType, scopedUrl, field.attribute, perPage])
 
-  // Load options when dropdown opens
+  // Load the options of the picked type while the dropdown is open: when it
+  // opens, and again if the type or the scope changes under it.
   useEffect(() => {
     if (open && selectedType) {
       void fetchOptions('')
     }
-  }, [open, selectedType])
+  }, [open, selectedType, fetchOptions])
 
   // Debounced search
   function handleSearchChange(query: string) {

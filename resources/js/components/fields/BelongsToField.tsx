@@ -434,12 +434,13 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     }
   }, [relatedResource, scopedUrl, field.attribute, perPage])
 
-  // Load initial options when dropdown opens
+  // Load the options of the current scope while the dropdown is open: when
+  // it opens, and again if the scope changes under it.
   useEffect(() => {
     if (open) {
       void fetchOptions("")
     }
-  }, [open])
+  }, [open, fetchOptions])
 
   // Debounced search
   function handleSearchChange(query: string) {
