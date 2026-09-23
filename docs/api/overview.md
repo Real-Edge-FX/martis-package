@@ -407,12 +407,39 @@ Returns the URL the editor inserts inline. See [Fields § Trix](../fields.md).
 
 ### Validation Error (422)
 
+The resource, relationship, pivot and Action endpoints answer a failed
+validation with the Martis envelope: `errors` is a list with one entry per
+message, and `field` is the path of the value that failed.
+
 ```json
 {
   "message": "The given data was invalid.",
+  "errors": [
+    { "field": "title", "message": "The Title field is required.", "code": "required" },
+    { "field": "sections.1.fields.key", "message": "The Key field is required.", "code": "required" }
+  ]
+}
+```
+
+`field` is the field's attribute for the field's own error, and the dotted path
+of the value for an error inside a field's value: `sections.1.fields.key` is the
+`key` field of row 1 of the `sections` Repeater (see
+[Repeater § Validation](../repeater.md#validation)). `code` is a best-effort
+hint derived from the message (`required`, `unique`, `email`, `min`, `max`,
+otherwise `invalid`). The top-level `message` is the resource's
+`validationMessage()` on the resource endpoints, "Validation failed." on the
+relationship and pivot endpoints, and "The given data was invalid." on the
+Action endpoints.
+
+The endpoints that validate with Laravel's `$request->validate()` (login,
+registration, password reset, profile, two-factor, magic link) answer with
+Laravel's own shape instead, a map of messages per field:
+
+```json
+{
+  "message": "The email field is required.",
   "errors": {
-    "title": ["The title field is required."],
-    "email": ["The email field must be a valid email address."]
+    "email": ["The email field is required."]
   }
 }
 ```

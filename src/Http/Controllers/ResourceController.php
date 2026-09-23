@@ -21,8 +21,6 @@ use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\BelongsToMany as BelongsToManyField;
-use Martis\Fields\DeferredRelationSync;
-use Martis\Fields\DeferredRepeaterSync;
 use Martis\Fields\Field;
 use Martis\Fields\File;
 use Martis\Fields\MorphTo;
@@ -32,6 +30,7 @@ use Martis\Filters\Filter;
 use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
 use Martis\Http\Controllers\Concerns\ResolvesPivotActions;
+use Martis\Http\Controllers\Concerns\SyncsDeferredWrites;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -59,6 +58,7 @@ class ResourceController extends MartisController
     use BuildsFieldRules;
     use DecodesStructuredValues;
     use ResolvesPivotActions;
+    use SyncsDeferredWrites;
 
     /** Create the controller and inject the resource registry. */
     public function __construct(
@@ -306,7 +306,7 @@ class ResourceController extends MartisController
             $res->beforeSave($model, $request, creating: true);
             $model->save();
             $res->afterSave($model, $request, creating: true);
-            $this->syncDeferredRelations($model);
+            $this->syncDeferredWrites($model);
         } catch (QueryException $e) {
             Log::error('Martis: database error on store', [
                 'resource' => $resource,
@@ -398,7 +398,7 @@ class ResourceController extends MartisController
             $res->beforeSave($model, $request, creating: false);
             $model->save();
             $res->afterSave($model, $request, creating: false);
-            $this->syncDeferredRelations($model);
+            $this->syncDeferredWrites($model);
         } catch (QueryException $e) {
             Log::error('Martis: database error on update', [
                 'resource' => $resource,
@@ -865,7 +865,7 @@ class ResourceController extends MartisController
             $res->beforeSave($model, $request, creating: true);
             $model->save();
             $res->afterSave($model, $request, creating: true);
-            $this->syncDeferredRelations($model);
+            $this->syncDeferredWrites($model);
         } catch (QueryException $e) {
             Log::error('Martis: database error on inline create', [
                 'resource' => $resource,
@@ -2057,7 +2057,9 @@ class ResourceController extends MartisController
     }
 
     /**
-     * Validate the incoming request against field rules.
+     * Validate the incoming request against field rules (see
+     * `BuildsFieldRules::buildWriteValidation()`), the fields inside a
+     * Repeater's rows included.
      *
      * @param  list<FieldContract>  $fields
      */
@@ -2067,46 +2069,13 @@ class ResourceController extends MartisController
         // the rules below and the fill that follows the decoded structure.
         $undecodable = $this->decodeStructuredValues($request, $fields);
 
-        $rules = [];
-        $attributes = [];
+        $validation = $this->buildWriteValidation($fields, $request->all(), $isUpdate, $undecodable);
 
-        foreach ($fields as $field) {
-            $fieldRules = $this->buildFieldRules($field, $isUpdate);
-
-            // A structured value that arrived as a string which is not JSON
-            // for a list or map fails here instead of reaching fill().
-            if (in_array($field->attribute(), $undecodable, true)) {
-                $fieldRules[] = 'array';
-            }
-
-            $rules[$field->attribute()] = $fieldRules;
-
-            if ($field instanceof Field) {
-                $attributes[$field->attribute()] = $field->label();
-            }
-
-            // Add item-level validation rules for multiple file fields
-            if (method_exists($field, 'buildItemRules')) {
-                $itemRules = $field->buildItemRules();
-                if (! empty($itemRules)) {
-                    $rules[$field->attribute().'.*'] = $itemRules;
-                }
-            }
-        }
-
-        if (empty($rules)) {
+        if ($validation['rules'] === []) {
             return null;
         }
 
-        // Collect custom validation messages from fields
-        $customMessages = [];
-        foreach ($fields as $field) {
-            if (method_exists($field, 'validationMessages')) {
-                $customMessages = array_merge($customMessages, $field->validationMessages());
-            }
-        }
-
-        $validator = Validator::make($request->all(), $rules, $customMessages, $attributes);
+        $validator = Validator::make($request->all(), $validation['rules'], $validation['messages'], $validation['attributes']);
 
         if ($validator->fails()) {
             $msg = $validationMessage ?? 'The given data was invalid.';
@@ -2177,20 +2146,6 @@ class ResourceController extends MartisController
             'title' => $res->title(),
             'attributes' => $attributes,
         ])->toResponse();
-    }
-
-    /**
-     * Run the relationship writes that wait for the saved model's key.
-     *
-     * During fill() a `Tag` field registers its pivot sync
-     * (DeferredRelationSync) and a `Repeater` its HasMany rows
-     * (DeferredRepeaterSync): both need the parent's primary key, which a
-     * record being created only has once it is saved.
-     */
-    private function syncDeferredRelations(Model $model): void
-    {
-        DeferredRelationSync::sync($model);
-        DeferredRepeaterSync::sync($model);
     }
 
     /**

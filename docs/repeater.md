@@ -92,6 +92,18 @@ Repeater::make('line_items')
 Each `Repeatable` must set `public static ?string $model` to the Eloquent
 model for its type.
 
+A row writes the attributes of its Repeatable's fields (computed ones
+excepted) to its child model and nothing else: a key the row sends for another
+column, such as the foreign key or the primary key, is ignored, so a row
+cannot move itself to another parent. Up to v1.37.3 every key of a row's
+`fields` was written to the child model.
+
+In this mode and in the polymorphic one, the rows are written right after the
+parent is saved, by every form that saves it: the resource's create and update
+and, since v1.38.0, the HasMany / HasOne / MorphMany / MorphOne inline forms.
+Up to v1.37.3 a record created or updated through one of those inline forms
+was saved without its rows.
+
 ### Polymorphic mode (`->asPolymorphic()`) ⭐
 
 **Martis-only.** Every row type shares a single child table discriminated
@@ -177,8 +189,8 @@ at runtime. The defaults are usually sufficient.
 | `collapsible` | `->collapsible(bool $enabled = true)` | Toggle per-row collapse affordance |
 | `collapsedByDefault` | `->collapsedByDefault(bool $enabled = true)` | Start every row collapsed |
 | `reorderable` | `->reorderable(bool $enabled = true, ?string $orderColumn = null)` | Drag-and-drop reorder; `$orderColumn` is the position column in HasMany/Polymorphic |
-| `minRows` | `->minRows(int $n)` | Minimum row count enforced client-side |
-| `maxRows` | `->maxRows(int $n)` | Maximum row count enforced client-side |
+| `minRows` | `->minRows(int $n)` | Minimum row count, shown as a notice in the form; add `rules(['array', 'min:N'])` to enforce it on the server (see [Validation](#validation)) |
+| `maxRows` | `->maxRows(int $n)` | Maximum row count, the Add button disables at it; add `rules(['array', 'max:N'])` to enforce it on the server |
 | `confirmRemoval` | `->confirmRemoval(bool $confirm = true)` | Show a confirm dialog before removing a row |
 | `rowTemplate` | `->rowTemplate(string $label, string $type, array $fields, array $options = [])` | Register one pre-filled template |
 | `rowTemplates` | `->rowTemplates(array $templates)` | Register multiple templates in one call |
@@ -306,21 +318,122 @@ every row type — ideal for page-builder-style layouts.
 
 ## Validation
 
-`rules()` declared on each field inside a `Repeatable` is executed for
-every row. Errors are formatted as `attribute.index.field`:
+The server validates the fields inside every row a save sends. Each row checks
+the fields of its Repeatable (the one its `type` names) under the row's path in
+the request, so the rules declared on a Repeatable's fields hold for every row:
 
-```json
+```php
+class Milestone extends Repeatable
 {
-  "errors": {
-    "milestones.0.due_date": ["The due_date field must be a valid date."]
-  }
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('name', 'Name')->required()->rules(['max:120']),
+            Date::make('due_date', 'Due date')->nullable()->rules(['date']),
+        ];
+    }
 }
 ```
 
-`minRows()` / `maxRows()` cardinality is enforced on the client
-immediately (Add button disables, footer banner shows the minimum). A
-server-side cardinality validator can be added via the Resource's
-`validationMessage()` hook if stricter guarantees are required.
+A save whose second row has no name answers 422 with the Martis error
+envelope, the same one every field error uses:
+
+```json
+{
+  "message": "The given data was invalid.",
+  "errors": [
+    { "field": "milestones.1.fields.name", "message": "The Name field is required.", "code": "required" }
+  ]
+}
+```
+
+- **Keys.** The error of a row field sits under the path of its value in the
+  request, `{attribute}.{row}.fields.{field}`, rows counted from 0. A
+  Repeater inside a row nests the same way (`sections.0.fields.links.2.fields.url`).
+  A legacy flat row of the JSON mode (no `type` and no `fields` key, read as
+  the first Repeatable's fields) is checked under `{attribute}.{row}.{field}`.
+- **Messages.** The path is named by the field's label, so the message reads
+  "The Name field is required." rather than "The milestones.1.fields.name
+  field is required.". A custom message a row field declares
+  (`validationMessages()`) applies in every row.
+- **Rules.** A row field validates with the rules it has on a form:
+  `required()`, `nullable()`, `rules()`, plus `creationRules()` when the
+  record is created and `updateRules()` when it is updated. Unlike a field of
+  the record, a row field keeps `required` on an update: every save replaces
+  the stored rows with the rows it sends, so a row always arrives whole and a
+  row without a required value would be stored without it. A row also sends
+  every field, an empty one as `null`, so an optional field with a rule that
+  rejects `null` (the `email` rule of `Email`, a `min:N`) needs `nullable()`,
+  as it does on a record's update form, which sends every field too.
+- **Skipped fields.** Readonly and computed row fields are not validated: the
+  row form cannot change them. Neither are file fields (`File`, `Image`,
+  `Avatar`, `Audio`): a row does not upload files, so what it sends for one is
+  the stored path, which their file rules would reject. The `unique()` helper
+  is left out too: it excludes the record an update writes, and a row has no
+  record of its own, so it would reject every stored row sent back unchanged.
+  A unique rule given to `rules()` (a `Rule::unique(...)` with the `ignore()`
+  your storage needs) still applies.
+- **Row types.** A row whose `type` names none of the Repeater's
+  repeatables fails under `{attribute}.{row}.type` ("The selected Row type is
+  invalid.") instead of being stored under a type no form can edit. A row
+  with no `type` is checked as the first repeatable, which is how every
+  storage mode reads it. When you rename a Repeatable class, pin its previous
+  `shortName()` so the rows stored under it keep validating.
+- **Where.** The rows are validated wherever a Repeater is written: the
+  resource create and update (JSON and multipart requests), the inline
+  create, the HasMany / HasOne / MorphMany / MorphOne inline forms, a pivot
+  Repeater on attach and on pivot update, and a Repeater among an Action's
+  fields. They are not validated when the save stores no rows from the value:
+  a readonly Repeater, an immutable one on update, and a computed one without
+  a `fillUsing()` callback. A Repeater with a `fillUsing()` callback is
+  validated, since the callback receives the rows the form sent.
+- **In the form.** Each error shows under the field of the row it belongs to
+  and stays with that row when rows are removed, reordered or added before
+  the next save; editing the field clears it. A row type error shows at the
+  top of its row, a collapsed row with an error opens, and an error of the
+  Repeater itself ("The Milestones field must be an array.") shows below the
+  rows. Every bundled form does this (the create and update pages and
+  drawers, the inline create, the Action modals and the pivot forms), and so
+  does a Tool form built on `useMartisForm()`. A custom input receives the
+  errors inside its value in its `nestedErrors` prop (see
+  [Overrides](overrides.md)).
+
+`minRows()` / `maxRows()` drive the form only: the Add button disables at the
+maximum and a notice shows below the minimum. To reject a save with too few or
+too many rows on the server, add the count rules to the Repeater itself, with
+`array` so that Laravel counts rows ("The Milestones field must have at least 1
+items.") rather than characters:
+
+```php
+Repeater::make('milestones')
+    ->minRows(1)
+    ->maxRows(10)
+    ->rules(['array', 'min:1', 'max:10'])
+    ->repeatables([Milestone::make()]);
+```
+
+To validate a Repeater's value in a controller of your own,
+`buildRowValidation($data, $context)` returns the `rules`, `messages` and
+`attributes` of its rows for the validator (`$context` is `'create'`,
+`'update'` or `null`):
+
+```php
+$field = Repeater::make('milestones', 'Milestones')->repeatables([Milestone::make()]);
+$rows = $field->buildRowValidation($request->all(), 'create');
+
+Validator::make(
+    $request->all(),
+    ['milestones' => ['array'], ...$rows['rules']],
+    $rows['messages'],
+    $rows['attributes'],
+)->validate();
+```
+
+Before v1.38.0 none of this happened: the rules of the fields inside a
+Repeatable never ran on the server, so a row with a missing or invalid value
+was stored as sent, and the form could not show a row error either (it handed
+the Repeater its own error only, which the Repeater did not show). This
+section described per-row validation that did not exist.
 
 ## Relation pickers and remote selects in rows
 

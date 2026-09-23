@@ -5,6 +5,8 @@ namespace Martis\Http\Controllers\Concerns;
 use Closure;
 use Illuminate\Contracts\Validation\Rule;
 use Martis\Contracts\FieldContract;
+use Martis\Fields\Field;
+use Martis\Fields\Repeater;
 
 /**
  * Build the validation rules of a field for a create or an update.
@@ -24,6 +26,10 @@ use Martis\Contracts\FieldContract;
  * `ValidationRule` instances and closures. The filter does not type the
  * rule: several of those objects implement neither the `Rule` contract nor
  * `Closure`, so a typed callback throws a `TypeError` on them.
+ *
+ * `buildWriteValidation()` assembles everything those endpoints hand the
+ * validator, including the fields inside the rows of a `Repeater`
+ * (`buildNestedFieldValidation()`, which an Action's fields use too).
  */
 trait BuildsFieldRules
 {
@@ -45,5 +51,92 @@ trait BuildsFieldRules
         }
 
         return $rules;
+    }
+
+    /**
+     * Everything the validator needs to check a write of `$fields`: the
+     * rules, the custom messages and the attribute names.
+     *
+     * Each field validates with `buildFieldRules()` under its attribute and
+     * is named by its label. A structured value that is neither a list nor a
+     * map (`$undecodable`, see `DecodesStructuredValues`) also fails `array`,
+     * a multiple `File` / `Image` checks each upload with its item rules, the
+     * fields' custom messages (a `unique()` message) apply, and a `Repeater`
+     * validates the fields inside every row it receives.
+     *
+     * @param  list<FieldContract>  $fields
+     * @param  array<array-key, mixed>  $data  The input the validator runs on.
+     * @param  list<string>  $undecodable
+     * @return array{rules: array<string, list<mixed>>, messages: array<string, string>, attributes: array<string, string>}
+     */
+    protected function buildWriteValidation(array $fields, array $data, bool $isUpdate, array $undecodable = []): array
+    {
+        $rules = [];
+        $messages = [];
+        $attributes = [];
+
+        foreach ($fields as $field) {
+            $attribute = $field->attribute();
+
+            $fieldRules = $this->buildFieldRules($field, $isUpdate);
+
+            // A structured value that arrived as a string which is not JSON
+            // for a list or map fails here instead of reaching fill().
+            if (in_array($attribute, $undecodable, true)) {
+                $fieldRules[] = 'array';
+            }
+
+            $rules[$attribute] = $fieldRules;
+
+            // Per-item rules of a multiple-file field (MIME type, max size).
+            if (method_exists($field, 'buildItemRules')) {
+                $itemRules = $field->buildItemRules();
+                if ($itemRules !== []) {
+                    $rules[$attribute.'.*'] = $itemRules;
+                }
+            }
+
+            if ($field instanceof Field) {
+                $attributes[$attribute] = $field->label();
+                $messages = array_merge($messages, $field->validationMessages());
+            }
+        }
+
+        $nested = $this->buildNestedFieldValidation($fields, $data, $isUpdate ? 'update' : 'create');
+
+        return [
+            'rules' => $rules + $nested['rules'],
+            'messages' => $messages + $nested['messages'],
+            'attributes' => $attributes + $nested['attributes'],
+        ];
+    }
+
+    /**
+     * The validation of the values inside the fields' values: the fields of
+     * every row a `Repeater` receives, under
+     * `{attribute}.{index}.fields.{field}` (see
+     * `Repeater::buildRowValidation()`).
+     *
+     * @param  iterable<mixed>  $fields
+     * @param  array<array-key, mixed>  $data  The input the validator runs on.
+     * @param  'create'|'update'|null  $context
+     * @return array{rules: array<string, list<mixed>>, messages: array<string, string>, attributes: array<string, string>}
+     */
+    protected function buildNestedFieldValidation(iterable $fields, array $data, ?string $context): array
+    {
+        $validation = ['rules' => [], 'messages' => [], 'attributes' => []];
+
+        foreach ($fields as $field) {
+            if (! $field instanceof Repeater) {
+                continue;
+            }
+
+            $rows = $field->buildRowValidation($data, $context);
+            $validation['rules'] += $rows['rules'];
+            $validation['messages'] += $rows['messages'];
+            $validation['attributes'] += $rows['attributes'];
+        }
+
+        return $validation;
     }
 }

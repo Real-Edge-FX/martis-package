@@ -198,6 +198,7 @@ return [
     'repeater_paste_unknown_type' => 'Tipo desconhecido.',
     'repeater_paste_empty' => 'Nada detectado para importar.',
     'repeater_paste_submit' => 'Importar',
+    'repeater_row_type' => 'Tipo de linha',
     'fullscreen' => 'Tela cheia',
     'exit_fullscreen' => 'Sair de tela cheia',
     'close' => 'Fechar',

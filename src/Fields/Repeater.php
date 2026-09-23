@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Martis\Contracts\FieldContract;
 use Martis\Enums\RepeaterStorage;
 
@@ -21,9 +22,12 @@ use Martis\Enums\RepeaterStorage;
  *    by `uniqueField`, insert new, delete missing) so FKs downstream stay
  *    stable.
  *
+ * The fields inside the rows are validated on the server by every endpoint
+ * that writes the Repeater (see `buildRowValidation()`).
+ *
  * ⭐ Martis differentials:
- *  - `minRows(int)` / `maxRows(int)` — hard cardinality enforced in the
- *    frontend (disable add button at max, require at least min to submit).
+ *  - `minRows(int)` / `maxRows(int)`: cardinality shown in the frontend
+ *    (the add button disables at max, a notice shows below min).
  *  - `collapsible()` / `collapsedByDefault()` / `reorderable()` —
  *    collapse/expand chevron on each row header and drag handle to
  *    reorder (persists as the array position for JSON, as an auto-managed
@@ -173,7 +177,11 @@ class Repeater extends Field
     // ⭐ Martis differentials
     // -------------------------------------------------------------------------
 
-    /** Hard minimum number of rows required before the form is valid. */
+    /**
+     * Minimum number of rows: the form shows a notice while the Repeater has
+     * fewer. Add `->rules(['array', 'min:N'])` to reject fewer rows on the
+     * server (`array` makes the message count items, not characters).
+     */
     public function minRows(int $min): static
     {
         $this->minRows = max(0, $min);
@@ -181,7 +189,10 @@ class Repeater extends Field
         return $this;
     }
 
-    /** Hard maximum number of rows allowed. Disables the Add button at limit. */
+    /**
+     * Maximum number of rows: the Add button disables at the limit. Add
+     * `->rules(['array', 'max:N'])` to reject more rows on the server.
+     */
     public function maxRows(int $max): static
     {
         $this->maxRows = max(0, $max);
@@ -304,6 +315,200 @@ class Repeater extends Field
         }
 
         return $this;
+    }
+
+    // -------------------------------------------------------------------------
+    // Validation
+    // -------------------------------------------------------------------------
+
+    /**
+     * The validation of the fields inside the rows a write sends: the rules,
+     * the custom messages and the attribute names to give the validator next
+     * to the Repeater's own rules.
+     *
+     * Each row validates the fields of its Repeatable (the one its `type`
+     * names, or the first one when it names none, which is how every storage
+     * mode reads such a row) under the row's path in `$data`: the `key` field
+     * of row 1 of `sections` is `sections.1.fields.key`, named by the field's
+     * label, so its error reads "The Key field is required.". A legacy flat
+     * row of the JSON mode (no `type` and no `fields` key: the JSON mode
+     * stores it as sent and reads the whole row as the first Repeatable's
+     * fields) is checked under `sections.1.key`. A row whose `type` names no
+     * Repeatable fails on `sections.1.type` instead of being stored with a
+     * type no form can edit. A Repeater inside a row validates its own rows
+     * the same way, under its path in the row.
+     *
+     * A row field validates with its `buildRules()` for the context of the
+     * write, so `required()`, `nullable()`, `rules()` and `creationRules()`
+     * (the record is created) / `updateRules()` (the record is updated) all
+     * apply. Unlike a field of the record, a row field keeps `required` on
+     * an update: every write replaces the stored rows with the rows it sends,
+     * so a row always arrives whole, and a row without a required value would
+     * be stored without it. Readonly and computed row fields are skipped: the
+     * row form cannot change them. So are file fields (`File`, `Image`,
+     * `Avatar`, `Audio`): a row does not upload files, so what it sends for
+     * one is the stored path, which their file rules would reject. So is the
+     * `unique()` helper, which excludes the record an update writes: a row has
+     * no record of its own, so it would reject every stored row sent back
+     * unchanged (a unique rule given to `rules()` still applies). A field's
+     * custom messages follow it into every row.
+     *
+     * Nothing is validated when the write stores no rows from the value: a
+     * readonly Repeater, an immutable one on update, a computed one without a
+     * `fillUsing()` callback, and a value that is not a list or a map (the
+     * Repeater's own rules reject it). A `fillUsing()` callback receives the
+     * rows the form sent, so its rows are validated.
+     *
+     * Every endpoint that writes a Repeater runs this; call it to validate a
+     * Repeater's value the same way in a controller of your own.
+     *
+     * @param  array<array-key, mixed>  $data  The input the validator runs on.
+     * @param  'create'|'update'|null  $context  The write: a create, an update, or neither (an Action's fields).
+     * @return array{rules: array<string, list<mixed>>, messages: array<string, string>, attributes: array<string, string>}
+     */
+    public function buildRowValidation(array $data, ?string $context = null): array
+    {
+        $validation = ['rules' => [], 'messages' => [], 'attributes' => []];
+
+        if ($this->writesRows($context)) {
+            $request = $this->safeRequest() ?? Request::create('/');
+            $this->collectRowValidation($validation, $this->attribute(), data_get($data, $this->attribute()), $context, $request);
+        }
+
+        return $validation;
+    }
+
+    /**
+     * Add the validation of the rows found at `$path` (their value is
+     * `$rows`) to `$validation`.
+     *
+     * @param  array{rules: array<string, list<mixed>>, messages: array<string, string>, attributes: array<string, string>}  $validation
+     * @param  'create'|'update'|null  $context
+     */
+    protected function collectRowValidation(array &$validation, string $path, mixed $rows, ?string $context, Request $request): void
+    {
+        if (! is_array($rows)) {
+            return;
+        }
+
+        foreach ($rows as $index => $row) {
+            // fill() drops an entry that is not a row.
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $rowPath = "{$path}.{$index}";
+            $repeatable = $this->repeatableForIncomingRow($row);
+
+            if ($repeatable === null) {
+                $shortNames = array_map(static fn (Repeatable $r): string => $r->shortName(), $this->repeatables);
+                $validation['rules']["{$rowPath}.type"] = [Rule::in($shortNames)];
+                $validation['attributes']["{$rowPath}.type"] = $this->rowTypeLabel();
+
+                continue;
+            }
+
+            $flat = $this->isLegacyFlatRow($row);
+            $fieldsPath = $flat ? $rowPath : "{$rowPath}.fields";
+            $values = $flat ? $row : ($row['fields'] ?? null);
+
+            foreach ($repeatable->fields($request) as $field) {
+                // A file field (File, Image, Avatar, Audio) is skipped too: a
+                // row does not upload files, so what it sends for one is the
+                // stored path, which the field's file rules would reject.
+                if (! $field instanceof Field || $field instanceof File || $field->isReadonly() || $field->isComputed()) {
+                    continue;
+                }
+
+                // unique() excludes the record an update writes (the
+                // controllers give it that record's key), and a row has none:
+                // it would reject every stored row sent back unchanged, so it
+                // is left out here. A rule given to rules() still applies.
+                if ($field->uniqueConfig !== null) {
+                    $field = clone $field;
+                    $field->uniqueConfig = null;
+                    $field->uniqueMessage = null;
+                }
+
+                $attribute = $field->attribute();
+                $fieldPath = "{$fieldsPath}.{$attribute}";
+
+                $validation['rules'][$fieldPath] = $field->buildRules($context);
+                $validation['attributes'][$fieldPath] = $field->label();
+
+                // A custom message is keyed `{attribute}.{rule}` (a unique()
+                // message): move it to the field's path in the row.
+                foreach ($field->validationMessages() as $key => $message) {
+                    if (str_starts_with($key, $attribute.'.')) {
+                        $validation['messages'][$fieldPath.substr($key, strlen($attribute))] = $message;
+                    }
+                }
+
+                if ($field instanceof self) {
+                    $inner = is_array($values) ? ($values[$attribute] ?? null) : null;
+                    $field->collectRowValidation($validation, $fieldPath, $inner, $context, $request);
+                }
+            }
+        }
+    }
+
+    /**
+     * Whether a write stores the rows it sends for this Repeater: not for a
+     * readonly Repeater, an immutable one on update (every update skips it),
+     * or a computed one without a `fillUsing()` callback.
+     *
+     * @param  'create'|'update'|null  $context
+     */
+    protected function writesRows(?string $context): bool
+    {
+        if ($this->isReadonly() || ($context === 'update' && $this->isImmutable())) {
+            return false;
+        }
+
+        return $this->fillCallback !== null || ! $this->computed;
+    }
+
+    /**
+     * The Repeatable an incoming row belongs to: the one its `type` names, or
+     * the first one when the row names none (no `type`, `null` or an empty
+     * string), which is how every storage mode reads it. `null` when the type
+     * names no Repeatable.
+     *
+     * @param  array<array-key, mixed>  $row
+     */
+    protected function repeatableForIncomingRow(array $row): ?Repeatable
+    {
+        $type = $row['type'] ?? null;
+
+        if ($type === null || $type === '') {
+            return $this->repeatables[0] ?? null;
+        }
+
+        return is_string($type) || is_int($type) ? $this->findRepeatableByShortName((string) $type) : null;
+    }
+
+    /**
+     * Whether an incoming row is a legacy flat row: no `type` and no `fields`
+     * key. Only the JSON mode keeps one (it stores the row as sent and reads
+     * the whole row as the first Repeatable's fields); the child-table modes
+     * write a row's `fields` only, so there such a row is a row with no
+     * values.
+     *
+     * @param  array<array-key, mixed>  $row
+     */
+    protected function isLegacyFlatRow(array $row): bool
+    {
+        return $this->storage === RepeaterStorage::Json
+            && ! array_key_exists('type', $row)
+            && ! array_key_exists('fields', $row);
+    }
+
+    /** The name a row type error uses ("The selected Row type is invalid."). */
+    protected function rowTypeLabel(): string
+    {
+        $label = __('martis::messages.repeater_row_type');
+
+        return is_string($label) ? $label : 'Row type';
     }
 
     // -------------------------------------------------------------------------
@@ -436,6 +641,8 @@ class Repeater extends Field
 
         $keptKeys = [];
         $order = 0;
+        /** @var array<string, list<string>> $columns */
+        $columns = [];
         foreach ($rows as $row) {
             if (! is_array($row)) {
                 continue;
@@ -487,8 +694,15 @@ class Repeater extends Field
                 $child->{$this->typeColumn} = $repeatable->shortName();
                 $child->{$this->payloadColumn} = $fields;
             } else {
-                foreach ($fields as $attr => $val) {
-                    $child->{$attr} = $val;
+                // Only the row's own fields reach the child's columns: any
+                // other key a row sends (the foreign key, the primary key,
+                // another column) is ignored, so a row cannot move itself to
+                // another parent or write a column its form does not show.
+                $columns[$repeatable->shortName()] ??= $this->rowColumns($repeatable);
+                foreach ($columns[$repeatable->shortName()] as $attr) {
+                    if (array_key_exists($attr, $fields)) {
+                        $child->{$attr} = $fields[$attr];
+                    }
                 }
             }
 
@@ -511,6 +725,25 @@ class Repeater extends Field
         foreach ($toDelete as $row) {
             $row->delete();
         }
+    }
+
+    /**
+     * The columns a HasMany row of `$repeatable` writes: the attributes of its
+     * fields, except computed ones (a computed field has no column).
+     *
+     * @return list<string>
+     */
+    protected function rowColumns(Repeatable $repeatable): array
+    {
+        $columns = [];
+        foreach ($repeatable->fields($this->safeRequest() ?? Request::create('/')) as $field) {
+            if ($field instanceof Field && $field->isComputed()) {
+                continue;
+            }
+            $columns[] = $field->attribute();
+        }
+
+        return $columns;
     }
 
     protected function orderColumnName(): ?string

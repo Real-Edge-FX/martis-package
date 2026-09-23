@@ -19,6 +19,7 @@ use Martis\Fields\HasOneOfMany;
 use Martis\Fields\HasOneThrough as HasOneThroughField;
 use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
+use Martis\Http\Controllers\Concerns\SyncsDeferredWrites;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Resource;
@@ -37,6 +38,7 @@ class HasOneController extends MartisController
 {
     use BuildsFieldRules;
     use DecodesStructuredValues;
+    use SyncsDeferredWrites;
 
     /** Create the controller and inject the resource registry. */
     public function __construct(
@@ -210,6 +212,7 @@ class HasOneController extends MartisController
             $relatedInstance->beforeSave($relatedModel, $request, creating: true);
             $relatedModel->save();
             $relatedInstance->afterSave($relatedModel, $request, creating: true);
+            $this->syncDeferredWrites($relatedModel);
         } catch (QueryException $e) {
             Log::error('Martis: HasOne store error', [
                 'resource' => $resource,
@@ -284,6 +287,7 @@ class HasOneController extends MartisController
             $relatedInstance->beforeSave($relatedModel, $request, creating: false);
             $relatedModel->save();
             $relatedInstance->afterSave($relatedModel, $request, creating: false);
+            $this->syncDeferredWrites($relatedModel);
         } catch (QueryException $e) {
             Log::error('Martis: HasOne update error', [
                 'resource' => $resource,
@@ -499,7 +503,9 @@ class HasOneController extends MartisController
     }
 
     /**
-     * Validate request against field rules.
+     * Validate request against field rules (see
+     * `BuildsFieldRules::buildWriteValidation()`), the fields inside a
+     * Repeater's rows included.
      *
      * @param  list<FieldContract>  $fields
      */
@@ -509,34 +515,9 @@ class HasOneController extends MartisController
         // the rules below and the fill that follows the decoded structure.
         $undecodable = $this->decodeStructuredValues($request, $fields);
 
-        $rules = [];
-        $attributes = [];
+        $validation = $this->buildWriteValidation($fields, $request->all(), $isUpdate, $undecodable);
 
-        foreach ($fields as $field) {
-            $fieldRules = $this->buildFieldRules($field, $isUpdate);
-
-            // A structured value that arrived as a string which is not JSON
-            // for a list or map fails here instead of reaching fill().
-            if (in_array($field->attribute(), $undecodable, true)) {
-                $fieldRules[] = 'array';
-            }
-
-            $rules[$field->attribute()] = $fieldRules;
-
-            // Register per-item rules for multiple-file fields (e.g. MIME type, max size).
-            if (method_exists($field, 'buildItemRules')) {
-                $itemRules = $field->buildItemRules();
-                if (! empty($itemRules)) {
-                    $rules[$field->attribute().'.*'] = $itemRules;
-                }
-            }
-
-            if ($field instanceof Field) {
-                $attributes[$field->attribute()] = $field->label();
-            }
-        }
-
-        $validator = Validator::make($request->all(), $rules, [], $attributes);
+        $validator = Validator::make($request->all(), $validation['rules'], $validation['messages'], $validation['attributes']);
 
         if ($validator->fails()) {
             return JsonErrorResponse::validation(

@@ -200,6 +200,7 @@ return [
     'repeater_paste_unknown_type' => 'Unknown row type.',
     'repeater_paste_empty' => 'Nothing detected to import.',
     'repeater_paste_submit' => 'Import',
+    'repeater_row_type' => 'Row type',
     'fullscreen' => 'Fullscreen',
     'exit_fullscreen' => 'Exit fullscreen',
     'close' => 'Close',

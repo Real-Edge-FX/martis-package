@@ -2897,7 +2897,7 @@ full API. Highlights:
 | `asPolymorphic` ⭐ | `asPolymorphic(string $type = 'type', string $payload = 'payload')` | One child table for every row type |
 | `uniqueField` | `uniqueField(string)` | Column used to identify rows across saves |
 | `confirmRemoval` | `confirmRemoval(bool = true)` | Open a confirmation modal on remove |
-| `minRows` / `maxRows` ⭐ | `minRows(int)` / `maxRows(int)` | Cardinality limits enforced in the UI |
+| `minRows` / `maxRows` ⭐ | `minRows(int)` / `maxRows(int)` | Cardinality shown in the form (Add disables at the max, a notice shows below the min); add `rules(['array', 'min:N', 'max:N'])` to enforce it on the server |
 | `collapsible` ⭐ | `collapsible(bool = true)` | Add collapse chevron to every row |
 | `collapsedByDefault` ⭐ | `collapsedByDefault(bool = true)` | Start collapsed |
 | `reorderable` ⭐ | `reorderable(bool = true, ?string $column = null)` | Drag-and-drop reorder |
@@ -2911,6 +2911,10 @@ parses TSV/CSV/JSON.
 A `BelongsTo`, `MorphTo` or `Tag` in a row type lists its options, and a `Select`
 with `searchOptionsUsing()` searches them, from the row (v1.38.0+): see
 [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows).
+
+The fields inside the rows are validated on the server with their own rules, under
+`{attribute}.{row}.fields.{field}`, and each error shows under its row field (since
+v1.38.0): see [Repeater § Validation](repeater.md#validation).
 
 ---
 
@@ -2927,7 +2931,7 @@ Static registry for deferred many-to-many relationship syncs. Used by `Tag`, who
 | `register` | `static register(Model $model, string $relationship, array $ids): void` | Register a relationship sync to be executed after save. |
 | `sync` | `static sync(Model $model): void` | Execute all pending syncs for a model, then clear them. |
 
-Uses `WeakMap` keyed by model instances for automatic garbage collection. The `ResourceController` calls `sync()` after the model is saved.
+Uses `WeakMap` keyed by model instances for automatic garbage collection. Every controller that saves a record through its fields calls `sync()` right after the save: the resource's own create and update and, since v1.38.0, the HasMany / HasOne / MorphMany / MorphOne inline forms (up to v1.37.3 those saved the record and dropped the `Tag` values, and the rows of a HasMany or polymorphic `Repeater`, queued for it).
 
 ### FieldContext (Enum)
 

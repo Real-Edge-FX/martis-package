@@ -2,6 +2,7 @@
 
 namespace Martis\Http\Controllers;
 
+use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
@@ -23,6 +24,7 @@ use Martis\Exceptions\MartisException;
 use Martis\Fields\BelongsToMany as BelongsToManyField;
 use Martis\Fields\Field as MartisField;
 use Martis\Fields\MorphToMany as MorphToManyField;
+use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\ResolvesPivotActions;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -41,6 +43,7 @@ use Martis\ResourceRegistry;
  */
 class ActionController extends MartisController
 {
+    use BuildsFieldRules;
     use ResolvesPivotActions;
 
     /** Create the controller and inject the resource registry. */
@@ -190,10 +193,9 @@ class ActionController extends MartisController
 
         $actionFields = $actionInstance->fields($request);
         if (! empty($actionFields)) {
-            $rules = $this->buildFieldValidationRules($actionFields);
             /** @var array<string, mixed> $fieldData */
             $fieldData = $request->input('fields', []);
-            $validator = Validator::make($fieldData, $rules, [], $this->buildFieldAttributeMap($actionFields));
+            $validator = $this->actionFieldsValidator($actionFields, $fieldData);
 
             if ($validator->fails()) {
                 return JsonErrorResponse::validation($validator->errors()->toArray())->toResponse();
@@ -332,6 +334,27 @@ class ActionController extends MartisController
         )->get();
 
         return $result;
+    }
+
+    /**
+     * The validator of an Action's fields: each field's rules under its
+     * attribute, named by its label, and the fields inside every row a
+     * Repeater among them receives (see
+     * `BuildsFieldRules::buildNestedFieldValidation()`).
+     *
+     * @param  list<FieldContract>  $fields
+     * @param  array<string, mixed>  $fieldData
+     */
+    private function actionFieldsValidator(array $fields, array $fieldData): ValidatorContract
+    {
+        $nested = $this->buildNestedFieldValidation($fields, $fieldData, null);
+
+        return Validator::make(
+            $fieldData,
+            $this->buildFieldValidationRules($fields) + $nested['rules'],
+            $nested['messages'],
+            $this->buildFieldAttributeMap($fields) + $nested['attributes'],
+        );
     }
 
     /**
@@ -736,10 +759,9 @@ class ActionController extends MartisController
 
         $actionFields = $actionInstance->fields($request);
         if (! empty($actionFields)) {
-            $rules = $this->buildFieldValidationRules($actionFields);
             /** @var array<string, mixed> $fieldData */
             $fieldData = $request->input('fields', []);
-            $validator = Validator::make($fieldData, $rules, [], $this->buildFieldAttributeMap($actionFields));
+            $validator = $this->actionFieldsValidator($actionFields, $fieldData);
             if ($validator->fails()) {
                 return JsonErrorResponse::validation($validator->errors()->toArray())->toResponse();
             }
