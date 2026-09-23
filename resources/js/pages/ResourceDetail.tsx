@@ -477,12 +477,14 @@ export function ResourceDetailPage() {
           params: schema.overrides.create.params ?? {},
           record,
           recordId: null,
+          // The create override opens here for the Replicate action only.
+          fromResourceId: id ?? null,
           navigate: (to: string) => navigate(to),
           onClose: () => setShowCreateOverride(false),
           onCreated: (rec) => {
             setShowCreateOverride(false)
             void qc.invalidateQueries({ queryKey: ["resources", resource] })
-            addToast("success", schema.messages?.created ?? "Record created successfully.")
+            addToast("success", schema.messages?.replicated ?? schema.messages?.created ?? "Record created successfully.")
             const target = resolveRedirect(schema.overrides?.create?.redirectAfter, resource!, rec.id)
             if (target) navigate(target)
           },

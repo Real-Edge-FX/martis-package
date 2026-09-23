@@ -15,17 +15,33 @@ import type { FieldInputProps } from '@/components/fields/types'
  * copy of a record.
  */
 
+// The replicate endpoint answers with the values of the record the drawer
+// copies, as the server does (`GET /api/resources/{resource}/{id}/replicate`).
+const { replicas } = vi.hoisted(() => ({ replicas: new Map<string, Record<string, unknown>>() }))
+
 vi.mock('@/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api')>()
   return {
     ...actual,
     api: {
       ...actual.api,
-      get: vi.fn(() => new Promise(() => {})),
+      get: vi.fn((url: string) => {
+        const copy = /^\/api\/resources\/([^/]+)\/([^/]+)\/replicate$/.exec(url)
+        if (copy) {
+          return Promise.resolve({ data: { values: replicas.get(`${copy[1]}/${copy[2]}`) ?? {}, fromResourceId: copy[2] } })
+        }
+        return new Promise(() => {})
+      }),
       post: vi.fn(() => new Promise(() => {})),
     },
   }
 })
+
+/** The values the replicate endpoint answers for a record: all but its id. */
+function copyOf(resource: string, record: Record<string, unknown>): void {
+  const { id, ...values } = record
+  replicas.set(`${resource}/${String(id)}`, values)
+}
 
 // DrawerShell renders children + footer into the DOM so assertions work.
 vi.mock('./DrawerShell', () => ({
@@ -71,6 +87,7 @@ function field(attribute: string, label: string, type: string): FieldDefinition 
 }
 
 function renderStaying(fieldsForCreate: FieldDefinition[], record: Record<string, unknown> | null = null) {
+  if (record) copyOf('posts', record)
   const props: OverrideProps = {
     schema: {
       uriKey: 'posts', label: 'Posts', singularLabel: 'Post', fields: [],
@@ -125,7 +142,7 @@ describe('DrawerCreate — a host keeps it open for the next record', () => {
 
   it('closes the emptied form without a prompt after creating from a copy', async () => {
     const props = renderStaying([field('title', 'Title', 'text')], { id: 3, title: 'First post' } as Record<string, unknown>)
-    expect(input('title').value).toBe('First post')
+    await waitFor(() => expect(input('title').value).toBe('First post'))
 
     await create(props)
     await waitFor(() => expect(input('title').value).toBe(''))

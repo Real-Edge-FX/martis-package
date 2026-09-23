@@ -2964,10 +2964,10 @@ Martis supports resource replication. When a user clicks "Replicate" on a detail
 ### How It Works
 
 1. User clicks "Replicate" on `ResourceDetail`
-2. Frontend navigates to `/resources/{resource}/create?fromResourceId={id}`
-3. `ResourceCreate` fetches pre-fill data from `GET /api/resources/{resource}/{id}/replicate`
+2. Frontend navigates to `/resources/{resource}/create?fromResourceId={id}` (a resource with a create override opens that override instead, with `fromResourceId`; see [Overrides → Override Props](overrides.md#override-props))
+3. `ResourceCreate` (or the create drawer) fetches pre-fill data from `GET /api/resources/{resource}/{id}/replicate`
 4. Form is pre-filled with source record values (File fields excluded)
-5. User can modify values and submit to create the new record
+5. User can modify values and submit to create the new record; the create carries `fromResourceId`, and the success toast reads the resource's `replicatedMessage()` (v1.38.0+; before, it always read `createdMessage()`)
 
 The form keeps its loading skeleton until the copied values have filled it, then mounts the fields, as Nova's Replicate view does, so every input starts from the copy (v1.38.0+). A response without `values` opens an empty form, and a failed request shows the error page. A copied `Slug` stays as copied until the title changes, and then follows it (see [Slug](#slug)). Before v1.38.0 the fields mounted empty and received the copy one render later: an input that reads its value when it mounts showed nothing of it, and the copied slug was replaced at once by one made from the copied title.
 

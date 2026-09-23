@@ -326,11 +326,12 @@ function CreateTargetPage() {
         params: schema.overrides.create.params ?? {},
         record: null,
         recordId: null,
+        fromResourceId: isReplicate ? fromResourceId : null,
         navigate: (to: string) => navigate(to),
         onClose: () => navigate(`/resources/${resource}`),
         onCreated: (rec) => {
           void qc.invalidateQueries({ queryKey: ['resources', resource] })
-          addToast('success', schema.messages?.created ?? 'Record created successfully.')
+          addToast('success', (isReplicate ? schema.messages?.replicated : undefined) ?? schema.messages?.created ?? 'Record created successfully.')
           const target = resolveRedirect(schema.overrides?.create?.redirectAfter, resource!, rec.id)
           if (target) navigate(target)
         },

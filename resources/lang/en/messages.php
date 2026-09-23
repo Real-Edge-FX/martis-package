@@ -13,6 +13,7 @@ return [
     'error_create' => 'Error creating record.',
     'error_delete' => 'Error deleting record.',
     'error_restore' => 'Error restoring record.',
+    'error_replicate' => 'The record to replicate could not be loaded.',
     'error_forbidden' => 'You are not authorized to perform this action.',
     'error_throttled' => 'Too many attempts. Please try again in a moment.',
     // Toast severity titles

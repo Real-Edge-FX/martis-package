@@ -13,6 +13,7 @@ return [
     'error_create' => 'Erro ao criar registo.',
     'error_delete' => 'Erro ao apagar registo.',
     'error_restore' => 'Erro ao restaurar registo.',
+    'error_replicate' => 'Não foi possível carregar o registo a duplicar.',
     'error_forbidden' => 'Não tem permissão para executar esta acção.',
     'error_throttled' => 'Demasiadas tentativas. Tente novamente num momento.',
     // Títulos de severidade dos toasts

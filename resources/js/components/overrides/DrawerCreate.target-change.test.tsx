@@ -15,17 +15,33 @@ import type { FieldDefinition, OverrideProps, ResourceRecord, ResourceSchema } f
  * baseline), and a fresh copy of the same record keeps the edits.
  */
 
+// The replicate endpoint answers with the values of the record the drawer
+// copies, as the server does (`GET /api/resources/{resource}/{id}/replicate`).
+const { replicas } = vi.hoisted(() => ({ replicas: new Map<string, Record<string, unknown>>() }))
+
 vi.mock('@/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api')>()
   return {
     ...actual,
     api: {
       ...actual.api,
-      get: vi.fn(() => new Promise(() => {})),
+      get: vi.fn((url: string) => {
+        const copy = /^\/api\/resources\/([^/]+)\/([^/]+)\/replicate$/.exec(url)
+        if (copy) {
+          return Promise.resolve({ data: { values: replicas.get(`${copy[1]}/${copy[2]}`) ?? {}, fromResourceId: copy[2] } })
+        }
+        return new Promise(() => {})
+      }),
       post: vi.fn(() => new Promise(() => {})),
     },
   }
 })
+
+/** The values the replicate endpoint answers for a record: all but its id. */
+function copyOf(resource: string, record: Record<string, unknown>): void {
+  const { id, ...values } = record
+  replicas.set(`${resource}/${String(id)}`, values)
+}
 
 // DrawerShell renders children + footer into the DOM so assertions work.
 vi.mock('./DrawerShell', () => ({
@@ -65,6 +81,7 @@ const posts = schemaFor('posts', 'Post', postFields)
 const pages = schemaFor('pages', 'Page', pageFields)
 
 function propsFor(schema: ResourceSchema, record: Record<string, unknown> | null = null): OverrideProps {
+  if (record) copyOf(schema.uriKey, record)
   return {
     schema,
     resource: schema.uriKey,
@@ -191,6 +208,6 @@ describe('DrawerCreate — the host hands it another record to replicate', () =>
     expect(input('title')?.value).toBe('Third post (copy)')
     const [path, body] = await create('Create Post')
     expect(path).toBe('/api/resources/posts')
-    expect(body).toEqual({ title: 'Third post (copy)', summary: 'About the third post' })
+    expect(body).toEqual({ title: 'Third post (copy)', summary: 'About the third post', fromResourceId: 3 })
   })
 })

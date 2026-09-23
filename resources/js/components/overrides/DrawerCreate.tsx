@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
 import type { OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
 import { FieldInput } from '@/components/fields/FieldRenderer'
@@ -21,39 +21,35 @@ import { NestedParentProvider } from '@/components/fields/NestedParentContext'
  * Registered as 'martis:drawer-create' in the component registry.
  */
 export function DrawerCreate(props: OverrideProps) {
-  const { schema, resource, params, record, onCreated, onClose, addToast } = props
+  const { schema, resource, params, record, fromResourceId, onCreated, onClose, addToast } = props
   const qc = useQueryClient()
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
 
   const allFormFields = useMemo(() => schema.fieldsForCreate ?? [], [schema])
 
-  // If a record is passed (replicate flow), prefill values from it
-  const initialValues = useMemo(() => {
-    if (!record) return {}
-    const init: Record<string, unknown> = {}
-    const walk = (items: Array<Record<string, unknown>>) => {
-      for (const item of items) {
-        if (item.type === 'panel' || item.type === 'section') {
-          const children = item.fields as Array<Record<string, unknown>> | undefined
-          if (children) walk(children)
-        } else if (item.type === 'tab_group') {
-          const tabs = item.tabs as Array<Record<string, unknown>> | undefined
-          if (tabs) for (const tab of tabs) {
-            const tf = tab.fields as Array<Record<string, unknown>> | undefined
-            if (tf) walk(tf)
-          }
-        } else {
-          const attr = item.attribute as string | undefined
-          if (attr && record[attr] !== undefined) init[attr] = record[attr]
-        }
-      }
-    }
-    walk(allFormFields as Array<Record<string, unknown>>)
-    return init
-  }, [record, allFormFields])
+  // The record this drawer replicates: `fromResourceId`, or the record a host
+  // passes (the create override's replicate contract before v1.38.0). Its
+  // values come from the replicate endpoint, as on the create page: the
+  // server checks `authorizedToReplicate()`, leaves File fields out and
+  // hides the fields the user may not see for that record.
+  const replicateId = fromResourceId ?? record?.id ?? null
+  const replicateQuery = useQuery({
+    queryKey: ['replicate', resource, replicateId],
+    queryFn: () => api.get<{ data: { values?: Record<string, unknown> } }>(
+      `/api/resources/${resource}/${replicateId}/replicate`,
+    ),
+    enabled: replicateId !== null,
+    retry: false,
+  })
+  const initialValues = useMemo<Record<string, unknown>>(
+    () => (replicateId === null ? {} : replicateQuery.data?.data?.values ?? {}),
+    [replicateId, replicateQuery.data],
+  )
+  // A copy is ready once its values have arrived; a plain create at once.
+  const ready = replicateId === null || replicateQuery.isSuccess
 
-  const [values, setValues] = useState<Record<string, unknown>>(initialValues)
+  const [values, setValues] = useState<Record<string, unknown>>(ready ? initialValues : {})
   const [errors, setErrors] = useState<Record<string, string>>({})
   // Bumped once a record is created, to mount the fields again for the next
   // one when the host keeps the drawer open (`redirectAfter` 'stay'): an
@@ -65,9 +61,13 @@ export function DrawerCreate(props: OverrideProps) {
   // replicate, without remounting it; the form is seeded again for it, so
   // nothing from the previous target (values, errors, dirty baseline)
   // carries over. A fresh copy of the same record keeps the edits.
-  const targetKey = `${resource}/${record?.id ?? ''}`
-  const [seededKey, setSeededKey] = useState(targetKey)
+  const targetKey = `${resource}/${replicateId ?? ''}`
+  const [seededKey, setSeededKey] = useState<string | null>(ready ? targetKey : null)
   const seeded = seededKey === targetKey
+  // The record the next save copies: sent as `fromResourceId`, so the server
+  // answers with the resource's replicated message. Cleared once the copy is
+  // created, so a drawer its host keeps open creates plain records next.
+  const [copyOf, setCopyOf] = useState<string | number | null>(replicateId)
 
   // ⭐ Camada B — track dirty state against the initial values so the
   // drawer can warn before discarding. A live ref for `values` avoids a
@@ -86,13 +86,14 @@ export function DrawerCreate(props: OverrideProps) {
   // fields render only once it is seeded, so every input mounts afresh with
   // the new target's values.
   useEffect(() => {
-    if (seeded) return
+    if (seeded || !ready) return
     valuesRef.current = initialValues
     initialSnapshot.current = JSON.stringify(initialValues)
     setValues(initialValues)
     setErrors({})
+    setCopyOf(replicateId)
     setSeededKey(targetKey)
-  }, [seeded, initialValues, targetKey])
+  }, [seeded, ready, initialValues, targetKey, replicateId])
   // `confirmUnsavedChanges` can be `true` (default config), `false`
   // (disabled), or a full UnsavedChangesConfig object.
   const confirmRaw = schema.confirmUnsavedChanges
@@ -113,7 +114,8 @@ export function DrawerCreate(props: OverrideProps) {
   }, [confirmEnabled, isDirty])
 
   const createMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => {
+    mutationFn: (values: Record<string, unknown>) => {
+      const data = copyOf !== null ? { ...values, fromResourceId: copyOf } : values
       if (hasFileValues(data)) {
         return api.upload<{ data: { id: string | number }; meta?: { message?: string } }>(
           'POST',
@@ -134,6 +136,7 @@ export function DrawerCreate(props: OverrideProps) {
       // baseline (a drawer opened on a copy had the copy).
       initialSnapshot.current = JSON.stringify({})
       setFieldsKey((key) => key + 1)
+      setCopyOf(null)
       onCreated(res.data)
     },
     onError: (err) => {
@@ -217,7 +220,13 @@ export function DrawerCreate(props: OverrideProps) {
           </>
         }
       >
-        {!seeded ? (
+        {replicateQuery.isError ? (
+          <div role="alert" className="p-6 text-sm" style={{ color: 'var(--martis-danger)' }}>
+            {replicateQuery.error instanceof ApiError && replicateQuery.error.message
+              ? replicateQuery.error.message
+              : tMsg('error_replicate', 'The record to replicate could not be loaded.')}
+          </div>
+        ) : !seeded ? (
           <div className="flex items-center justify-center p-12">
             <div
               className="h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent"

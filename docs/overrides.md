@@ -215,6 +215,7 @@ interface OverrideProps {
   params: Record<string, unknown>  // Custom parameters from Override()
   record?: ResourceRecord | null   // Current record (detail/update) or null (create)
   recordId?: string | null     // Record ID
+  fromResourceId?: string | number | null  // Create only: the record a Replicate copies (v1.38.0+)
   navigate: (to: string) => void   // Navigation function
   onClose: () => void          // Close the drawer/panel
   onCreated: (record: { id: string | number }) => void
@@ -225,6 +226,8 @@ interface OverrideProps {
   addToast: (type: string, message: string) => void
 }
 ```
+
+On a create override, `fromResourceId` names the record the form replicates: the detail page opens its create override with it for the Replicate action (together with that `record`), and `/create?fromResourceId={id}` passes it too. A custom create override reads the copy's values from `GET /api/resources/{resource}/{id}/replicate`, which applies `authorizedToReplicate()`, leaves File fields out and hides the fields the user may not see for the record, and sends the id back as `fromResourceId` with the create, so the server answers with `replicatedMessage()`. The bundled `DrawerCreate` does exactly that (v1.38.0+): it mounts its fields once the copy has arrived, shows the endpoint's error instead of a form when the record cannot be replicated, and sends `fromResourceId` with the first create only. Before v1.38.0 it copied the record's detail payload into the form (File paths and fields the replicate endpoint leaves out included, with no `authorizedToReplicate()` check), and a create override opened by `/create?fromResourceId={id}` got no copy at all.
 
 A host can hand a mounted override another `record` / `recordId`, or another resource's `schema` and `resource`, without remounting it: `ActionDrawer` does when Edit on another index row or an action response opens another record while its drawer is open, and the detail page does when its route moves to another record behind an open update drawer. An override that keeps form state has to seed it again for the record it now receives, or render its body with a `key` built from `resource` and `recordId`. Since v1.38.0 the bundled `DrawerUpdate` seeds its values, validation errors and dirty baseline again when the resource or the record changes; a fresh copy of the same record keeps the edits. The bundled `DrawerCreate` does the same since v1.38.0 when the resource or the record it replicates changes (an action response that opens another resource's create drawer while one is open, the detail page moving to another record behind an open Replicate drawer); before, it kept what was typed for the first target and created it in the second. The index page, for its part, closes its create drawer, the drawers opened from its rows or by an action, and its confirmations when its route moves to another resource's index (v1.38.0+); before, they stayed open, and the delete confirmation of a row then deleted the record with the same id in the new resource. The detail page keeps its drawers on the record in the URL but closes its delete, force-delete and restore confirmations and its action modal when that record changes, and a lens page starts over for each lens (v1.38.0+); before, confirming the delete opened for one record deleted the record the page had moved to.
 

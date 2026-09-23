@@ -466,6 +466,12 @@ export interface ResourceMessages {
   restored: string
   deleteConfirm: string
   archiveConfirm: string
+  /** `Resource::forceDeletedMessage()`. */
+  forceDeleted?: string
+  /** `Resource::replicatedMessage()`: the toast after a Replicate creates the copy. */
+  replicated?: string
+  /** `Resource::forceDeleteConfirmMessage()`. */
+  forceDeleteConfirm?: string
 }
 
 
@@ -644,6 +650,13 @@ export interface OverrideProps {
   record?: ResourceRecord | null
   /** The record ID (populated on detail/update contexts, null on create/index). */
   recordId?: string | null
+  /**
+   * Create context only: the id of the record the form replicates (the
+   * Replicate action), or null for a plain create. Fetch its values from
+   * `GET /api/resources/{resource}/{id}/replicate` and send the id back as
+   * `fromResourceId` with the create, as the bundled create drawer does.
+   */
+  fromResourceId?: string | number | null
 
   // Navigation
   /** React Router navigate function for arbitrary navigation. */

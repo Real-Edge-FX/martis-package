@@ -13,6 +13,7 @@ return [
     'error_create' => 'Erro ao criar registro.',
     'error_delete' => 'Erro ao excluir registro.',
     'error_restore' => 'Erro ao restaurar registro.',
+    'error_replicate' => 'Não foi possível carregar o registro a duplicar.',
     'error_forbidden' => 'Você não tem permissão para executar esta ação.',
     'error_throttled' => 'Muitas tentativas. Tente novamente em instantes.',
     // Títulos de severidade dos toasts

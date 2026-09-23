@@ -925,7 +925,7 @@ Override the default notification messages and confirm dialogs shown after CRUD 
 | `deletedMessage()` | Toast after `DELETE /resources/:key/:id` succeeds. | `martis::messages.record_deleted` |
 | `restoredMessage()` | Toast after a soft-deleted record is restored. | `martis::messages.record_restored` |
 | `forceDeletedMessage()` | Toast after a soft-deleted record is permanently deleted. | `martis::messages.record_force_deleted` |
-| `replicatedMessage()` | Toast after a record is duplicated via the Replicate action. | `martis::messages.record_replicated` |
+| `replicatedMessage()` | Toast after a record is duplicated via the Replicate action (v1.38.0+; before, the create after a Replicate showed `createdMessage()`). | `martis::messages.record_replicated` |
 | `deleteConfirmMessage()` | Body of the destructive-delete confirm dialog. | `martis::messages.delete_confirm` |
 | `archiveConfirmMessage()` | Body of the soft-delete (archive) confirm dialog. | `martis::messages.archive_confirm` |
 | `forceDeleteConfirmMessage()` | Body of the force-delete confirm dialog (trashed records only). | `martis::messages.force_delete_confirm` |
