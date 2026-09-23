@@ -1790,6 +1790,8 @@ Tag::make('tags', 'Tags')
 | `getModalSize` | `getModalSize(): string` | `string` | Get modal size. | — |
 | `isPreload` | `isPreload(): bool` | `bool` | Check if preloading. | — |
 
+**Preview** (v1.38.0+): with `withPreview()` a tag on the index and detail pages opens the peek card of its record after a short hover: the related resource's `fieldsForPreview()`, the card a `BelongsTo` shows (see [Peek / Preview](#peek--preview)). Before v1.38.0 the method only serialised the flag and nothing opened.
+
 **Inline create** (v1.38.0+): with `showCreateRelationButton()` the picker's dropdown ends with a *Create* entry that opens the related resource's inline-create modal (its `fieldsForInlineCreate()`, sized by `modalSize()`), and the record it creates joins the selection. The entry follows the related resource's policy (the schema serialises `showCreateRelationButton: false` when the user may not create a record there), is absent on a readonly field, and never shows on a `Tag` inside another inline-create form. Before v1.38.0 the method only serialised the flag: the picker offered no way to create a tag.
 
 **Overrides:**

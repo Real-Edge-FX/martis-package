@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { MagnifyingGlassIcon, XIcon, PlusIcon, PlusCircleIcon, CheckIcon } from '@phosphor-icons/react'
 import { api } from '@/lib/api'
 import { InlineCreateModal } from '@/components/InlineCreateModal'
+import { PeekCard } from './BelongsToField'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
 import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
@@ -36,12 +37,52 @@ function toTagArray(value: unknown): TagValue[] {
 // Display
 // ---------------------------------------------------------------------------
 
+/**
+ * A tag that opens the peek card of its record (the related resource's
+ * `fieldsForPreview()`) after a short hover, for `withPreview()`.
+ */
+function PreviewableTag({ resourceKey, recordId, children }: { resourceKey: string; recordId: number | string; children: React.ReactNode }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [triggerRect, setTriggerRect] = useState<{ top: number; bottom: number; left: number } | null>(null)
+
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
+
+  function handleMouseEnter() {
+    timer.current = setTimeout(() => {
+      const rect = ref.current?.getBoundingClientRect()
+      if (rect) setTriggerRect({ top: rect.top, bottom: rect.bottom, left: rect.left })
+    }, 300)
+  }
+
+  function handleMouseLeave() {
+    if (timer.current) clearTimeout(timer.current)
+    setTriggerRect(null)
+  }
+
+  return (
+    <span ref={ref} className="inline-flex" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+      {children}
+      {triggerRect && <PeekCard resourceKey={resourceKey} recordId={recordId} triggerRect={triggerRect} />}
+    </span>
+  )
+}
+
 export function TagFieldDisplay({ field, value }: FieldDisplayProps) {
   const tags = toTagArray(value)
   const displayAsList = (field as Record<string, unknown>).displayAsList as boolean | undefined
+  const relatedResource = (field as Record<string, unknown>).relatedResource as string | undefined
+  const withPreview = (field as Record<string, unknown>).withPreview === true && !!relatedResource
 
   if (tags.length === 0) {
     return <span className="martis-text-muted">—</span>
+  }
+
+  const label = (tag: TagValue) => {
+    const text = tag.title ?? String(tag.id)
+    return withPreview && relatedResource
+      ? <PreviewableTag resourceKey={relatedResource} recordId={tag.id}>{text}</PreviewableTag>
+      : text
   }
 
   if (displayAsList) {
@@ -53,7 +94,7 @@ export function TagFieldDisplay({ field, value }: FieldDisplayProps) {
               className="w-1.5 h-1.5 rounded-full shrink-0"
               style={{ backgroundColor: 'var(--martis-accent)' }}
             />
-            {tag.title ?? String(tag.id)}
+            {label(tag)}
           </li>
         ))}
       </ul>
@@ -72,7 +113,7 @@ export function TagFieldDisplay({ field, value }: FieldDisplayProps) {
             border: '1px solid var(--martis-badge-info-border)',
           }}
         >
-          {tag.title ?? String(tag.id)}
+          {label(tag)}
         </span>
       ))}
     </div>

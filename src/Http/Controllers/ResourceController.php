@@ -2125,7 +2125,8 @@ class ResourceController extends MartisController
      * Return a compact peek card payload for the given resource record.
      *
      * Used by BelongsTo and MorphTo frontend components to load peek content
-     * lazily when the user hovers the preview icon. Content is derived from
+     * lazily when the user hovers the preview icon, and by a Tag with
+     * withPreview() when the user hovers a tag. Content is derived from
      * fieldsForPreview() on the related resource — aligned with the resource's
      * own field definitions, not a custom column list on the field.
      *

@@ -27,7 +27,8 @@ function isBelongsToValue(v: unknown): v is BelongsToValue {
 // ---------------------------------------------------------------------------
 // PeekCard — hover preview card fetching content from the resource's
 // fieldsForPreview() via the /peek endpoint.
-// The card is triggered exclusively by the preview icon, never by hover on the link.
+// Here the card is triggered exclusively by the preview icon, never by hover
+// on the link; the Tag display (`withPreview()`) opens it on its chips.
 // ---------------------------------------------------------------------------
 
 interface PeekAttribute {
@@ -80,7 +81,7 @@ function renderPeekValue(value: unknown): React.ReactNode {
   return str === '' ? '—' : str
 }
 
-function PeekCard({ resourceKey, recordId, triggerRect, onFlipChange }: PeekCardProps) {
+export function PeekCard({ resourceKey, recordId, triggerRect, onFlipChange }: PeekCardProps) {
   const { t } = useTranslation('messages')
   const [data, setData] = useState<PeekData | null>(null)
   const [loading, setLoading] = useState(true)
