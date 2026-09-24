@@ -99,6 +99,11 @@ export default defineConfig({
         },
     },
     test: {
+        // Only the package's own tests. Vitest's default include globs the
+        // whole root with dotfiles allowed, so it also collected the copies
+        // in git worktrees under `.claude/worktrees/` (doubling the count and
+        // mixing source trees through the `@` alias).
+        include: ['resources/js/**/*.test.{ts,tsx}'],
         setupFiles: ['resources/js/test-setup.ts'],
         globals: true,
         environment: 'jsdom',
