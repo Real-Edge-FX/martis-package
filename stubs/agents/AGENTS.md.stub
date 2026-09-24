@@ -76,7 +76,7 @@ When unsure which generator to call, run `php artisan list martis` and read the 
 
 ## 7. Plan resolver
 
-- Wire the resolver in `config/martis.php` under `gates.plan_resolver`. The value MUST be a `var_export`-safe callable: a class-method-array (`[App\Martis\Gates\MyResolver::class, 'resolve']`) or a static method reference. Never a `Closure`.
+- Wire the resolver in `config/martis.php` under `gates.plan_resolver`. The value MUST survive `var_export`: the name of an invokable class (`App\Martis\Gates\MyResolver::class`, built through the container) or an array naming a public static method (`[App\Martis\Gates\MyResolver::class, 'resolve']`). Never a `Closure` or an object instance (`new MyResolver`). A value that is not a callable throws an `InvalidArgumentException` naming the key.
 - Closures break `php artisan config:cache` because `var_export()` cannot serialise them. Setting the closure in a service provider's `boot()` does **not** rescue you — `config:cache` boots providers before snapshotting.
 - The resolver returns the user's tier as a string from the configured `gates.plan_rank` table. Return `null` only if the user has no tier at all; the gate ranker treats `null` as below-free.
 

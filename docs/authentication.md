@@ -757,7 +757,7 @@ The profile page is accessible at `/{martis-path}/profile` and provides:
         'path' => 'avatars',             // Sub-directory
         'max_size_kb' => 2048,           // Max upload size (2MB)
         'column' => 'profile_picture',   // DB column for avatar path
-        'url_resolver' => null,          // Custom URL generator
+        'url_resolver' => null,          // Custom URL generator (see below)
     ],
     'two_factor' => [
         'enabled' => true,
@@ -771,6 +771,18 @@ The profile page is accessible at `/{martis-path}/profile` and provides:
     'sections' => ['account', 'password', 'avatar', 'security', 'sessions'],
 ],
 ```
+
+#### Custom avatar URLs
+
+By default the avatar URL comes from the disk (`Storage::disk($disk)->url($path)`). To serve avatars from a CDN or through signed URLs, set `avatar.url_resolver` to the name of an invokable class or a `[Class::class, 'staticMethod']` array. It receives the stored path and returns the public URL, for the upload response and the profile payload alike:
+
+```php
+'avatar' => [
+    'url_resolver' => \App\Martis\AvatarUrl::class, // __invoke(string $storedPath): string
+],
+```
+
+Both forms survive `php artisan config:cache`; a closure does not. A value that resolves to no callable throws an `InvalidArgumentException` naming the key. See [Configuration → Config keys that take a callable](configuration.md#config-keys-that-take-a-callable).
 
 #### Locking the e-mail field
 

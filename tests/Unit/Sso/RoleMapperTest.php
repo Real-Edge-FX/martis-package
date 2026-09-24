@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Martis\Sso\RoleMapper;
+use Martis\Tests\Fixtures\ConfigCallables\SsoRoles;
 use Martis\Tests\TestCase;
 
 uses(TestCase::class);
@@ -94,6 +96,42 @@ it('callable strategy delegates to the host-app closure', function () {
     $result = $mapper->map(['anything'], null, 'testdriver');
 
     expect($result->pluck('name')->all())->toBe(['guest']);
+});
+
+it('callable strategy maps through role_callable in each callable form', function (mixed $callable, array $expected) {
+    config()->set('martis.auth.sso.providers.testdriver', [
+        'role_strategy' => 'callable',
+        'role_callable' => $callable,
+    ]);
+
+    $result = (new RoleMapper)->map(['PMI ADMIN'], null, 'testdriver');
+
+    expect($result->all())->toBe($expected);
+})->with([
+    'invokable class name' => [SsoRoles::class, ['invokable:testdriver:PMI ADMIN']],
+    'static method array' => [[SsoRoles::class, 'resolve'], ['static:testdriver:PMI ADMIN']],
+    'closure' => [
+        fn (array $externalRoles, $user, string $provider) => new Collection(array_map(fn (string $role) => "closure:{$provider}:{$role}", $externalRoles)),
+        ['closure:testdriver:PMI ADMIN'],
+    ],
+]);
+
+it('callable strategy maps no roles when role_callable is unset', function () {
+    config()->set('martis.auth.sso.providers.testdriver', ['role_strategy' => 'callable']);
+
+    expect((new RoleMapper)->map(['PMI ADMIN'], null, 'testdriver')->all())->toBe([]);
+});
+
+it('callable strategy rejects a role_callable that is not a callable', function () {
+    config()->set('martis.auth.sso.providers.testdriver', [
+        'role_strategy' => 'callable',
+        'role_callable' => SsoRoles::class.'::handle',
+    ]);
+
+    expect(fn () => (new RoleMapper)->map(['PMI ADMIN'], null, 'testdriver'))->toThrow(
+        InvalidArgumentException::class,
+        'The [martis.auth.sso.providers.testdriver.role_callable] config value is not a callable: '.SsoRoles::class.'::handle() is not a public static method.',
+    );
 });
 
 it('global resolver override beats every config strategy', function () {

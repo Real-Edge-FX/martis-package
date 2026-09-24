@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.39.1] — 2026-09-24
+
+### Fixed
+
+- **A callable config key set to the name of an invokable class did nothing.** `brand.page_title`, `gates.plan_resolver`, `profile.avatar.url_resolver` and an SSO provider's `role_source_callable` and `role_callable` tested their value with `is_callable()`, which is false for a class name. The invokable class name, one of the two forms that survive `php artisan config:cache` and the one the config comments recommended, was therefore ignored: `page_title` rendered the class name as the tab title, `plan_resolver` resolved no plan and locked every `requirePlan()` entity for every user, `url_resolver` fell back to the disk URL, and the SSO callables read no roles (with `on_no_role_match => 'guest'` and `sync_roles`, the login then synced the user's local roles away). All five now resolve through `Martis\Support\ConfigCallable`: an invokable class name is built through the container (constructor injection works), and a `[Class::class, 'staticMethod']` array or any other PHP callable is called as it is. `page_title` still renders a string that names no invokable class as the title, and never calls a string that names a PHP function (`Mail`, `Date`, `Link`). +67 Pest, among them a round trip of the documented forms through `var_export()` and `require`, as `config:cache` does it. See [Configuration → Config keys that take a callable](docs/configuration.md#config-keys-that-take-a-callable).
+
+### Changed
+
+- **A callable config key set to something that is not a callable throws.** A misspelt class name, a class without `__invoke()`, an instance method in the `[Class::class, 'method']` form or Laravel's `Class@method` string throws an `InvalidArgumentException` naming the key and the reason, where the key used to fall back silently (the locked plan gate, the disk URL, no SSO roles). `null`, `false` and an empty string still leave the key unset. From `role_source_callable` the exception fails the SSO callback like any provider error: it is logged and the login page shows the callback error.
+
+### Docs
+
+- The soft-gates page recommended an invokable instance (`new PlanResolver`) and a closure set from a service provider's `boot()`, and its example put a closure in `config/martis.php`; `config:cache` fails on all three, since it boots every provider before it writes the cache. The soft-gates, configuration, SSO and authentication pages, the `config/martis.php` comments and the `martis:agents` primer now name the two forms that survive it, the name of an invokable class and a static-method array, and the configuration page lists the five keys with their arguments. The `config/martis.php` example for `role_source_callable` took an `SsoIdentity`; it is called with `(string $externalId, string $accessToken)`. The `gates` comments and the `requirePlan()` docblock called `requirePlan()` without a resolver a no-op; it locks every user from a tier `plan_rank` declares.
+
 ## [1.39.0] — 2026-09-23
 
 ### Security

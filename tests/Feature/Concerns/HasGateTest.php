@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use Illuminate\Auth\GenericUser;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use Martis\Dashboards\Dashboard;
+use Martis\Tests\Fixtures\ConfigCallables\PlanResolver;
 use Martis\Tools\Tool;
 
 beforeEach(function () {
@@ -79,7 +81,7 @@ it('lockPreset for an unknown name is a no-op', function () {
         ->and($dashboard->lockPayloadFor(new Request))->toBeNull();
 });
 
-it('requirePlan is a no-op when no plan_resolver is configured', function () {
+it('requirePlan locks every user when no plan_resolver is configured', function () {
     config()->set('martis.gates.plan_resolver', null);
 
     $dashboard = (new Dashboard('Sales'))->requirePlan('pro');
@@ -113,37 +115,40 @@ it('requirePlan with an undeclared tier fails open (not locked)', function () {
     expect($dashboard->isLockedFor(new Request))->toBeFalse();
 });
 
-it('plan_resolver accepts a callable that is not a Closure (v1.11.2+)', function () {
-    // Static-method-array form survives `php artisan config:cache`,
-    // unlike a closure. The PlanRanker must accept any callable.
-    config()->set('martis.gates.plan_resolver', [HasGateTestResolver::class, 'resolve']);
-
-    $dashboard = (new Dashboard('Sales'))->requirePlan('pro');
-    expect($dashboard->isLockedFor(new Request))->toBeTrue();   // resolver returns 'starter'
-});
-
-it('plan_resolver accepts an invokable class', function () {
-    config()->set('martis.gates.plan_resolver', new HasGateTestInvokableResolver);
-
-    $dashboard = (new Dashboard('Sales'))->requirePlan('pro');
-    expect($dashboard->isLockedFor(new Request))->toBeTrue();   // resolver returns 'free'
-});
-
-class HasGateTestResolver
+function hasGateRequestFor(int $id): Request
 {
-    public static function resolve(?Authenticatable $user): ?string
-    {
-        return 'starter';
-    }
+    $request = new Request;
+    $request->setUserResolver(fn () => new GenericUser(['id' => $id]));
+
+    return $request;
 }
 
-class HasGateTestInvokableResolver
-{
-    public function __invoke(?Authenticatable $user): ?string
-    {
-        return 'free';
-    }
-}
+it('resolves plan_resolver in each callable form', function (mixed $resolver) {
+    config()->set('martis.gates.plan_resolver', $resolver);
+
+    $dashboard = (new Dashboard('Sales'))->requirePlan('pro');
+
+    // The resolver hands the pro user 'pro' and anyone else 'free'; a
+    // resolver that never ran would lock both (fail-closed null).
+    expect($dashboard->isLockedFor(hasGateRequestFor(PlanResolver::PRO_USER_ID)))->toBeFalse()
+        ->and($dashboard->isLockedFor(hasGateRequestFor(8)))->toBeTrue();
+})->with([
+    'invokable class name' => [PlanResolver::class],
+    'static method array' => [[PlanResolver::class, 'resolve']],
+    // Pest calls a closure dataset entry; this one hands back the resolver.
+    'closure' => [fn () => fn (?Authenticatable $user): ?string => $user?->getAuthIdentifier() === PlanResolver::PRO_USER_ID ? 'pro' : 'free'],
+]);
+
+it('rejects a plan_resolver that is not a callable', function () {
+    config()->set('martis.gates.plan_resolver', [PlanResolver::class, 'handle']);
+
+    $dashboard = (new Dashboard('Sales'))->requirePlan('pro');
+
+    expect(fn () => $dashboard->isLockedFor(hasGateRequestFor(PlanResolver::PRO_USER_ID)))->toThrow(
+        InvalidArgumentException::class,
+        'The [martis.gates.plan_resolver] config value is not a callable: '.PlanResolver::class.'::handle() is not a public static method.',
+    );
+});
 
 it('Tool also emits lock in toArray when locked', function () {
     $tool = (new Tool('Charts', 'charts'))->lockedFor(fn () => true);

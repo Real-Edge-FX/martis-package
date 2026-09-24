@@ -110,28 +110,8 @@ When you want to use it, declare the resolver and the rank table:
 'gates' => [
     // The plan resolver is the only integration point with the host
     // app's billing layer. The package never imports Spatie / Cashier /
-    // any specific package — the closure below is what bridges them.
-    //
-    // Examples for each common stack:
-    //
-    //   Spatie roles (simplest; conflates RBAC with billing):
-    //   fn ($u) => $u?->roles->pluck('name')->intersect(['admin','pro','starter','free'])->first()
-    //
-    //   Cashier subscription (Stripe-driven; richer state):
-    //   fn ($u) => $u?->subscribed('default')
-    //                  ? config('billing.price_to_plan')[$u->subscription('default')->stripe_price]
-    //                  : 'free'
-    //
-    //   Custom column on the user (cheapest read):
-    //   fn ($u) => $u?->plan_name ?? 'free'
-    //
-    //   Multi-tenant (plan lives on the tenant, not the user):
-    //   fn ($u) => $u?->currentTeam?->plan_name ?? 'free'
-    //
-    'plan_resolver' => fn (?Authenticatable $user): ?string =>
-        $user?->roles->pluck('name')
-            ->intersect(['admin', 'pro', 'starter', 'free'])
-            ->first(),
+    // any specific package: the class below is what bridges them.
+    'plan_resolver' => \App\Martis\PlanResolver::class,
 
     // Hierarquia. `requirePlan('pro')` locks every user whose resolved
     // plan ranks below the 'pro' entry. Higher rank = higher tier.
@@ -147,6 +127,35 @@ When you want to use it, declare the resolver and the rank table:
 ```
 
 ```php
+// app/Martis/PlanResolver.php
+namespace App\Martis;
+
+use Illuminate\Contracts\Auth\Authenticatable;
+
+class PlanResolver
+{
+    public function __invoke(?Authenticatable $user): ?string
+    {
+        // Spatie roles (simplest; conflates RBAC with billing):
+        return $user?->roles->pluck('name')
+            ->intersect(['admin', 'pro', 'starter', 'free'])
+            ->first();
+
+        // Cashier subscription (Stripe-driven; richer state):
+        //   return $user?->subscribed('default')
+        //       ? config('billing.price_to_plan')[$user->subscription('default')->stripe_price]
+        //       : 'free';
+        //
+        // Custom column on the user (cheapest read):
+        //   return $user?->plan_name ?? 'free';
+        //
+        // Multi-tenant (plan lives on the tenant, not the user):
+        //   return $user?->currentTeam?->plan_name ?? 'free';
+    }
+}
+```
+
+```php
 // In the entity class:
 $this->withBadge('Pro', 'accent')
      ->requirePlan('pro')
@@ -155,25 +164,22 @@ $this->withBadge('Pro', 'accent')
 
 `requirePlan` evaluates `current_rank < required_rank → locked`. **Without a resolver configured, every user is treated as having no plan (rank −1) and is locked from every declared tier** — fail-closed, intentional. Hosts that call `requirePlan` without configuring the resolver get a permanently locked panel until they wire it up.
 
-#### `config:cache` and the resolver shape (v1.11.2+)
+#### `config:cache` and the resolver shape
 
-`php artisan config:cache` serialises `config/martis.php` via `var_export`, which **cannot serialise closures** (`Closure::__set_state()` does not exist). Hosts that put a closure directly in the cached config see the deploy fail at `optimize`.
-
-Three shapes survive the cache (v1.11.2+):
+`php artisan config:cache` serialises the config with `var_export()`, which keeps only strings, numbers, booleans and arrays. Two shapes of resolver survive it:
 
 ```php
-// 1. Static-method array — recommended, plain PHP, var_export-safe.
-'plan_resolver' => [\App\Gates\PlanResolver::class, 'resolve'],
+// 1. The name of an invokable class. Martis builds it through the
+//    container, so its constructor can take dependencies.
+'plan_resolver' => \App\Martis\PlanResolver::class,
 
-// 2. Invokable class instance.
-'plan_resolver' => new \App\Gates\PlanResolver,
-
-// 3. Closure wired from a service provider's boot() (NOT in the cached array).
-//    In your AppServiceProvider:
-//    config()->set('martis.gates.plan_resolver', fn ($u) => ...);
+// 2. A [Class::class, 'method'] array naming a public static method.
+'plan_resolver' => [\App\Martis\PlanResolver::class, 'resolve'],
 ```
 
-Closures inline in `config/martis.php` only work without `config:cache`. Production deploys typically run it, so prefer (1) or (2).
+A closure, or an instance such as `new PlanResolver`, fails the cache: `config:cache` stops with `Your configuration files could not be serialized because the value at "martis.gates.plan_resolver" is non-serializable`. Setting the closure from a service provider's `boot()` with `config()->set()` fails the same way, because `config:cache` boots every provider before it writes the cache. A closure inline in `config/martis.php` therefore only works while the config is not cached, and production deploys typically cache it.
+
+A resolver that resolves to no callable (a misspelt class name, a class without `__invoke()`, an instance method in the array form) throws an `InvalidArgumentException` naming `martis.gates.plan_resolver`, instead of locking every user the way a missing resolver does. [Config keys that take a callable](configuration.md#config-keys-that-take-a-callable) lists the rules every callable key shares.
 
 ### When NOT to use `requirePlan`
 

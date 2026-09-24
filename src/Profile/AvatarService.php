@@ -6,6 +6,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Martis\Support\ConfigCallable;
 
 /**
  * Handles avatar upload, removal, and URL resolution for the profile page.
@@ -61,12 +62,14 @@ class AvatarService
     }
 
     /**
-     * Resolve the public URL for a stored avatar path.
+     * Resolve the public URL for a stored avatar path: through the
+     * `profile.avatar.url_resolver` callable when one is set, from the
+     * disk otherwise.
      */
     public function resolveUrl(string $storedPath, string $disk): string
     {
-        $resolver = config('martis.profile.avatar.url_resolver');
-        if (is_callable($resolver)) {
+        $resolver = ConfigCallable::resolve(config('martis.profile.avatar.url_resolver'), 'martis.profile.avatar.url_resolver');
+        if ($resolver !== null) {
             return (string) $resolver($storedPath);
         }
 

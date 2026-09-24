@@ -44,7 +44,7 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
     'icon' => env('MARTIS_BRAND_ICON'),
     'icon_dark' => env('MARTIS_BRAND_ICON_DARK'),       // v1.7.0
     'favicon' => env('MARTIS_FAVICON', null),
-    'page_title' => env('MARTIS_PAGE_TITLE'),           // null | string | callable
+    'page_title' => env('MARTIS_PAGE_TITLE'),           // null | title | resolver class
     'version' => env('MARTIS_BRAND_VERSION'),
     'docs_url' => env('MARTIS_BRAND_DOCS_URL'),
     'logo_height' => [                                  // v1.7.0
@@ -60,7 +60,7 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
 | `logo` | `?string` | `null` | **Full horizontal lockup** (icon + wordmark in one asset). When set, the SPA renders the lockup alone — the separate `brand.name` text next to it is hidden in the sidebar / topbar / auth frame to avoid a duplicated wordmark. Relative paths resolve against `public/` (`/img/logo.svg`); full URLs pass through unchanged. |
 | `icon` | `?string` | `null` | **Small square brand icon** (replaces just the bundled cube next to `brand.name`). Use this when you want to keep the brand text rendered by Martis but swap the mark. Independent from `logo` — Martis prefers `logo` when both are set. |
 | `favicon` | `?string` | `null` | Path to a custom favicon (relative to `public/`). When `null`, Martis serves its own default favicon from the package — no `vendor:publish` step required. |
-| `page_title` | `string \| callable \| null` | `null` | Browser tab title shown in `<title>`. `null` uses the bundled translation (e.g. "Acme — Admin Control"). A plain string overrides it. A callable (invokable class or array callable) receives the current `Request` and returns the title. |
+| `page_title` | `string \| array \| null` | `null` | Browser tab title shown in `<title>`. `null` uses the bundled translation (e.g. "Acme — Admin Control"). A string is the title itself, unless it names an invokable class: that class, or a `[Class::class, 'staticMethod']` array, receives the current `Request` and returns the title. See [Config keys that take a callable](#config-keys-that-take-a-callable). |
 | `version` | `?string` | `null` | Optional version string printed in the sidebar footer (e.g. `v1.5.2`, `2026.04.29`). |
 | `docs_url` | `?string` | `null` | Optional docs link rendered on the right-hand side of the sidebar footer. |
 
@@ -198,7 +198,7 @@ When the sidebar collapses (240 px → 64 px rail) **and** `brand.icon` is set, 
 
 ### Customising the page title
 
-Three levels of control:
+Four levels of control:
 
 **1. Bundled translation (no configuration).** The default title uses `martis::navigation.page_title_default` interpolated with `brand.name`:
 
@@ -220,6 +220,16 @@ MARTIS_PAGE_TITLE="Acme Back Office"
 ],
 ```
 
+The same key also takes a resolver: the name of an invokable class or a `[Class::class, 'staticMethod']` array. Both survive `php artisan config:cache`. The resolver receives the current `Request` and returns the title; an empty string or `null` falls through to the inference below.
+
+```php
+'brand' => [
+    'page_title' => \App\Martis\PageTitle::class, // __invoke(Request $request): ?string
+],
+```
+
+A string that names no invokable class is always the literal title. Martis never calls it, even when it names a PHP function (`Mail`, `Date`, `Link`). See [Config keys that take a callable](#config-keys-that-take-a-callable).
+
 **3. Dynamic per-route title** — register a closure in your `AppServiceProvider::boot()`:
 
 ```php
@@ -238,7 +248,7 @@ public function boot(): void
 }
 ```
 
-> Closures cannot live directly in `config/martis.php` because `php artisan config:cache` fails to serialise them. Use the facade/manager from a service provider instead.
+> A closure cannot live in `config/martis.php`: `php artisan config:cache` fails to serialise it, even when a service provider sets it with `config()->set()`. Register it with `Martis::pageTitleUsing()` as above, or put a resolver class in the config.
 
 **4. Automatic per-route inference (no configuration)** — Martis looks at the current request path and inserts the matching resource label, dashboard name, or section, e.g.:
 
@@ -258,7 +268,7 @@ For **client-side navigation** inside the SPA (react-router), each page uses the
 Resolution precedence (highest first):
 
 1. `Martis::pageTitleUsing(Closure)` — registered at runtime.
-2. `config('martis.brand.page_title')` — string or `is_callable`.
+2. `config('martis.brand.page_title')` — literal string, invokable class name or `[Class::class, 'staticMethod']` array.
 3. Automatic inference from the request path (resource label, dashboard name, profile).
 4. `__('martis::navigation.page_title_default', ['brand' => config('martis.brand.name')])` — bundled fallback.
 
@@ -760,6 +770,52 @@ Why a dedicated provider instead of `AppServiceProvider`?
 
 To republish the stub manually (e.g. after package upgrade adds a new section): `php artisan vendor:publish --tag=martis-provider --force`.
 
+### Config keys that take a callable
+
+Five keys in `config/martis.php` take a callable instead of a value:
+
+| Key | Called with | Returns |
+|---|---|---|
+| `brand.page_title` | `Request $request` | The `<title>` (`?string`). A plain string is the title itself. |
+| `gates.plan_resolver` | `?Authenticatable $user` | The user's plan (`?string`). See [Soft-gates](gates.md#plan-rank-shortcut--for-linear-tier-saas). |
+| `profile.avatar.url_resolver` | `string $storedPath` | The avatar's public URL (`string`). |
+| `auth.sso.providers.{provider}.role_source_callable` | `string $externalId, string $accessToken` | The external role names (`array<int, string>`). See [SSO](sso.md#role_source--where-external-role-names-come-from). |
+| `auth.sso.providers.{provider}.role_callable` | `array $externalRoles, ?User $user, string $provider` | The local roles (`Collection`). See [SSO](sso.md#role_strategy--how-to-map-external-names-to-local-roles). |
+
+`php artisan config:cache` writes the merged config with `var_export()`, so only strings, numbers, booleans and arrays survive it. Two forms of callable do, so use one of them:
+
+```php
+// The name of an invokable class. Martis builds it through the
+// container, so its constructor can take dependencies.
+'plan_resolver' => \App\Martis\PlanResolver::class,
+
+// A [Class::class, 'method'] array naming a public static method.
+'plan_resolver' => [\App\Martis\PlanResolver::class, 'resolve'],
+```
+
+```php
+namespace App\Martis;
+
+use Illuminate\Contracts\Auth\Authenticatable;
+
+class PlanResolver
+{
+    public function __invoke(?Authenticatable $user): ?string
+    {
+        return $user?->plan_name;
+    }
+
+    public static function resolve(?Authenticatable $user): ?string
+    {
+        return $user?->plan_name;
+    }
+}
+```
+
+A closure or an object (`new PlanResolver`) works only while the config is not cached. `config:cache` fails on it with `Your configuration files could not be serialized because the value at "martis.gates.plan_resolver" is non-serializable`. Setting it from a service provider's `boot()` with `config()->set()` does not help: `config:cache` boots every provider before it writes the cache, so the value set there is exported too.
+
+A key set to anything that does not resolve to a callable throws an `InvalidArgumentException` naming the key and the reason, instead of silently falling back (a locked plan gate for every user, the disk URL, no SSO roles). That covers a class that does not exist, a class without a public `__invoke()`, a method that is not public and static (`[PlanResolver::class, 'handle']` when `handle()` is an instance method), and Laravel's `Class@method` string. `null`, `false` and an empty string leave the key unset. `brand.page_title` is the exception for strings: a string that names no invokable class is the literal title.
+
 ## Preferences (v1.7.0 defaults)
 
 The preferences subsystem has been env-driven since v0.10. v1.7.0 surfaces three more knobs so a host can pick the look-and-feel that every brand-new user sees on first sign-in.
@@ -857,6 +913,8 @@ Per-subsystem cache layer with three control planes (config / env / runtime), by
         'path' => 'avatars',
         'max_size_kb' => 2048,
         'column' => 'profile_picture',
+        // Invokable class name or [Class::class, 'staticMethod'] array:
+        // (string $storedPath) => public URL. Null uses the disk's URL.
         'url_resolver' => null,
     ],
     'two_factor' => [

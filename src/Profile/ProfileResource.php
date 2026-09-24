@@ -4,7 +4,6 @@ namespace Martis\Profile;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Martis\Contracts\ProfileResourceContract;
 
@@ -31,13 +30,8 @@ class ProfileResource implements ProfileResourceContract
         ];
 
         if ($avatarEnabled && isset($user->{$avatarColumn}) && $user->{$avatarColumn}) {
-            $resolver = config('martis.profile.avatar.url_resolver');
-            if (is_callable($resolver)) {
-                $data['avatar_url'] = (string) $resolver($user->{$avatarColumn});
-            } else {
-                $disk = (string) config('martis.profile.avatar.disk', 'public');
-                $data['avatar_url'] = Storage::disk($disk)->url((string) $user->{$avatarColumn}); // @phpstan-ignore-line method.notFound
-            }
+            $disk = (string) config('martis.profile.avatar.disk', 'public');
+            $data['avatar_url'] = app(AvatarService::class)->resolveUrl((string) $user->{$avatarColumn}, $disk);
         }
 
         if ($twoFactorEnabled) {

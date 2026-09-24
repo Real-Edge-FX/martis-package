@@ -340,14 +340,14 @@ The **Continue with Microsoft** button is there. Click → Azure consent screen 
                 // Where the external role list comes from.
                 // 'app_role_assignments' → /users/{id}/appRoleAssignments
                 // 'groups'               → /users/{id}/memberOf
-                // 'callable'             → role_source_callable closure
+                // 'callable'             → role_source_callable
                 'role_source' => 'app_role_assignments',
                 'resource_id' => env('AZURE_RESOURCE_ID'),
 
                 // How to map external names to local roles.
                 // 'column'   → Role::whereIn(role_column, $externalRoles)
                 // 'config'   → role_map array (slug => env_value)
-                // 'callable' → role_callable closure
+                // 'callable' → role_callable
                 'role_strategy' => 'column',
                 'role_column'   => 'azure_group_name',
                 'role_model'    => null, // null = auto-detect Spatie/App\Models\Role
@@ -385,7 +385,7 @@ The three knobs (`role_source`, `role_strategy`, `permission_adapter`) compose f
 |---|---|
 | `groups` | Calls `GET /v1.0/users/{id}/memberOf?$select=displayName` on Microsoft Graph. Returns each group's `displayName`. Coarser-grained but doesn't require defining App Roles in the Azure portal. |
 | `app_role_assignments` | Calls `GET /v1.0/users/{id}/appRoleAssignments?$filter=resourceId eq {resource_id}`. Returns each assignment's `principalDisplayName`. Recommended — gives you per-app role granularity. |
-| `callable` | Defers to the closure declared at `role_source_callable` in the provider config. Use for non-Microsoft IdPs or for custom Graph queries. |
+| `callable` | Defers to `role_source_callable` in the provider config, called with `(string $externalId, string $accessToken)` and returning the external role names (`array<int, string>`). Use for non-Microsoft IdPs or for custom Graph queries. |
 
 ### `role_strategy` — how to map external names to local roles
 
@@ -393,7 +393,19 @@ The three knobs (`role_source`, `role_strategy`, `permission_adapter`) compose f
 |---|---|
 | `column` (default) | `Role::query()->whereIn($role_column, $externalRoles)->get()`. The host app stores the IdP group/app-role name on the roles table. Most flexible — each role row decides whether and how it's mapped, without code changes. |
 | `config` | `role_map` array in config maps `local_slug => env_value`. The mapper finds local roles whose `name` equals the slug for each `env_value` present in the external list. Useful when you can't add columns to `roles`. |
-| `callable` | Defers entirely to the provider-config closure `role_callable(array $externalRoles, ?User $user, string $provider)`. Returns a Collection of role models. Use for arbitrarily complex business rules. |
+| `callable` | Defers entirely to `role_callable` in the provider config, called with `(array $externalRoles, ?User $user, string $provider)`. Returns a Collection of role models. Use for arbitrarily complex business rules. |
+
+`role_source_callable` and `role_callable` take the name of an invokable class (built through the container) or a `[Class::class, 'staticMethod']` array. Both forms survive `php artisan config:cache`; a closure does not.
+
+```php
+'role_source' => 'callable',
+'role_source_callable' => \App\Martis\AzureRoles::class,        // __invoke(string $externalId, string $accessToken): array
+
+'role_strategy' => 'callable',
+'role_callable' => [\App\Martis\SsoRoleMapper::class, 'map'],   // public static function map(array $externalRoles, ?User $user, string $provider): Collection
+```
+
+A value that resolves to no callable throws an `InvalidArgumentException` naming the key, rather than reading no roles: with `on_no_role_match => 'guest'` and `sync_roles`, an empty role list logs the user in and syncs their local roles away. From `role_source_callable` the exception fails the callback (logged as `SSO callback failed`, and the login page shows the callback error); from `role_callable` it fails the request. See [Config keys that take a callable](configuration.md#config-keys-that-take-a-callable).
 
 ### `permission_adapter` — how resolved roles get written onto the user
 

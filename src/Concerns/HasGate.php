@@ -155,13 +155,14 @@ trait HasGate
     /**
      * Shortcut that combines `requirePlan` with the matching preset.
      * The host declares plan tiers via `config('martis.gates.plan_rank')`
-     * and a `plan_resolver` closure; the {@see PlanRanker} compares
-     * the user's resolved plan against `$tier` and locks when the
-     * user sits below the required rank.
+     * and a `plan_resolver`; the {@see PlanRanker} compares the user's
+     * resolved plan against `$tier` and locks when the user sits below
+     * the required rank.
      *
-     * Calling `requirePlan('pro')` without configuring the resolver
-     * is a no-op — the trait stays inert, the entity unlocks for
-     * everyone. Hosts that wire the resolver get the gate for free.
+     * Without a resolver every user counts as having no plan and is
+     * locked from every tier `plan_rank` declares (fail-closed). A tier
+     * `plan_rank` does not declare never locks, so a typo does not hide
+     * a feature.
      */
     public function requirePlan(string $tier): static
     {

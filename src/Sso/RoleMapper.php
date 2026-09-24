@@ -8,6 +8,7 @@ use Closure;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
+use Martis\Support\ConfigCallable;
 
 /**
  * Translates a list of external IdP group / role names into a
@@ -22,8 +23,11 @@ use Illuminate\Foundation\Auth\User;
  *                 declared in config. Maps the env-resolved group
  *                 identifier to a local role looked up by name.
  *
- *  • `callable` — defers entirely to a host-app closure registered via
- *                 `MartisSso::resolveRolesUsing(fn ($externalRoles, $user, $provider) => ...)`.
+ *  • `callable` — defers entirely to the provider config's `role_callable`
+ *                 (see {@see mapByCallable()}).
+ *
+ * `MartisSso::resolveRolesUsing(fn ($externalRoles, $user, $provider) => ...)`
+ * overrides every strategy.
  *
  * The mapper does NOT touch the user's pivot table — that's the
  * `PermissionAdapter`'s job.
@@ -137,7 +141,8 @@ class RoleMapper
      * Callable strategy declared INSIDE the provider config (separate
      * from the global `MartisSso::resolveRolesUsing`). Useful for the
      * common case of "I just want to wrap one provider" without
-     * registering a global hook.
+     * registering a global hook. {@see ConfigCallable} resolves
+     * `role_callable`.
      *
      * @param  array<int, string>  $externalRoles
      * @param  array<string, mixed>  $cfg
@@ -145,8 +150,11 @@ class RoleMapper
      */
     protected function mapByCallable(array $externalRoles, array $cfg, ?User $user, string $provider): Collection
     {
-        $callable = $cfg['role_callable'] ?? null;
-        if (! is_callable($callable)) {
+        $callable = ConfigCallable::resolve(
+            $cfg['role_callable'] ?? null,
+            "martis.auth.sso.providers.{$provider}.role_callable",
+        );
+        if ($callable === null) {
             return new Collection;
         }
 
