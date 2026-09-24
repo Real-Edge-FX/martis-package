@@ -73,12 +73,19 @@ trait HasChoiceOptions
 
         if (is_string($options)) {
             if (! enum_exists($options)) {
+                // A Collection passed straight to options() reaches this branch
+                // as a string too: PHP coerces it through its implicit
+                // __toString() (Collection::toJson()) before the match against
+                // array|string|\Closure. Only that shape earns the ->all() hint;
+                // a misspelt enum class name is not a Collection, so it does not.
+                $looksLikeCollection = str_starts_with(ltrim($options), '{') || str_starts_with(ltrim($options), '[');
+
                 throw new \InvalidArgumentException(sprintf(
-                    '%s [%s]: options() received [%s], which is neither an array, a Closure nor an enum class. '
-                    .'Pass an array: call ->all() on a Collection.',
+                    '%s [%s]: options() received [%s], which is neither an array, a Closure nor an enum class.%s',
                     class_basename(static::class),
                     $this->attribute,
                     $options,
+                    $looksLikeCollection ? ' Pass an array: call ->all() on a Collection.' : '',
                 ));
             }
 

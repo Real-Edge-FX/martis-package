@@ -118,6 +118,15 @@ it('rejects a string that is not an enum class', function () {
     Select::make('status')->options('NotAnEnum');
 })->throws(InvalidArgumentException::class, 'Select [status]: options() received [NotAnEnum], which is neither an array, a Closure nor an enum class.');
 
+it('rejects a misspelt enum class name without hinting at ->all(), since it is not a Collection', function () {
+    try {
+        Select::make('status')->options('App\Enums\Stauts');
+        expect(false)->toBeTrue();
+    } catch (InvalidArgumentException $e) {
+        expect($e->getMessage())->not->toContain('->all()');
+    }
+});
+
 it('fails loudly when optionsFromMap() is called, since options() replaced it', function () {
     Select::make('plan')->optionsFromMap(['free' => 'Free']);
 })->throws(Error::class, 'Call to undefined method Martis\Fields\Select::optionsFromMap()');
