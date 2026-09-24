@@ -7,11 +7,12 @@
 #   * missing `gd`  -> UploadedFile::fake()->image() tests fail
 #   * missing `pcntl` -> the mcp:serve SIGTERM test fails
 #   * host session driver -> ~16 CookieSessionHandler "cookies on null" errors
-#   * mount at /app -> StubResolver path assertions (expect "martis-package/")
 #
-# This script fixes all four: it builds an image with gd + pcntl (cached
+# This script fixes all three: it builds an image with gd + pcntl (cached
 # after the first run), mounts at /martis-package, and pins the array
 # session/cache drivers CI resolves. Match it to CI, get CI's result.
+# (The mount path no longer matters: StubResolverTest compares the stub path
+# with the checkout itself since d534e0973.)
 #
 # Usage:
 #   scripts/test.sh                          # full suite

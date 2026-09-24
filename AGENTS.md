@@ -4,7 +4,9 @@
 
 Before making any changes, read:
 
-- `docs/PROJECT_CONTEXT.md`
+- `docs/README.md` (documentation index)
+- `CONTRIBUTING.md` (release, pre-tag check and smoke test)
+- in the full workspace, also `../AGENTS.md` and `../MARTIS_CONTROL_CENTER.md`
 
 ## Repository purpose
 
@@ -70,12 +72,16 @@ Rebuild assets in this package and republish them in the Playground:
 npm run build
 
 cd ../martis-playground
-make command CMD="artisan vendor:publish --tag=martis-assets --force"
+make republish
 ```
+
+`make republish` runs `artisan martis:publish-assets` and then `artisan optimize:clear`. `martis:publish-assets` wipes `public/vendor/martis/` before copying and verifies the published set against the manifest. Do not use `vendor:publish --tag=martis-assets --force`: it only merges, so stale Vite chunks pile up across builds.
 
 Run the full install flow in the Playground:
 
 ```bash
 cd ../martis-playground
-make command CMD="artisan martis:install --force --with-profile"
+make command CMD="artisan martis:install --force --with-profile --with-2fa"
 ```
+
+Pass both feature flags: without a TTY (agents, CI, `docker compose exec -T`) every optional feature resolves to `false` and is written to `.env`, and a later `--with-*` flag cannot override a `false` already in `.env`. `--force` also republishes `lang/vendor/martis`, rewrites the Martis migrations and the extension scaffold, and the installer always runs `migrate --force`.

@@ -7,8 +7,8 @@ import { configure } from '@testing-library/react'
 // import of one can take longer than Testing Library's 1 s default when the
 // whole suite runs in parallel (a CI runner, a full `vitest run`): a
 // `findBy*` / `waitFor` gave up and failed a test that passes on its own.
-// 3 s stays under Vitest's 5 s test timeout, so a real failure still reports
-// the assertion rather than the timeout.
+// 3 s stays well under the 10 s test timeout (`testTimeout` in vite.config.ts),
+// so a real failure still reports the assertion rather than the timeout.
 configure({ asyncUtilTimeout: 3000 })
 
 // Initialize i18n with English translations for tests

@@ -429,8 +429,11 @@ return [
     |--------------------------------------------------------------------------
     | Localisation
     |--------------------------------------------------------------------------
-    | Default locale for the Martis admin panel.
-    | Override per user by setting locale dynamically or publish lang files.
+    | Locale the blade shell uses only when `preferences.enabled` is false.
+    | With preferences enabled (the default), the panel language is the
+    | user's saved preference, else `preferences.defaults.locale`
+    | (MARTIS_DEFAULT_LOCALE), applied by the `martis.locale` middleware on
+    | every authenticated Martis route.
     */
     'locale' => env('MARTIS_LOCALE', env('APP_LOCALE', 'en')),
 

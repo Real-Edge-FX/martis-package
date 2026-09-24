@@ -204,15 +204,10 @@ MARTIS_AUTH_REGISTRATION_URL=https://app.example.com/signup
 Use the Martis component override system to swap any of the auth pages. The artisan generator scaffolds a TSX file, registers it under a fixed key under `resources/js/martis-extensions/overrides/`, and the SPA router (`router.tsx`) resolves the override before the bundled default — exactly the same mechanism that already works for `--type=shell` / `--type=topbar` / etc.
 
 ```bash
-php artisan martis:component MyLogin --type=login-page
+php artisan martis:component LoginPage --type=login-page
 ```
 
-Generates `resources/js/martis-extensions/overrides/MyLogin.tsx` (a working starting point that calls `useAuth().login()` and renders inside `AuthFrame`), and adds these two lines to `resources/js/martis-extensions/index.ts`:
-
-```typescript
-import { MyLogin } from './components/MyLogin'
-componentRegistry.register('auth:login', MyLogin as never)
-```
+Generates `resources/js/martis-extensions/overrides/LoginPage.tsx` (a working starting point that calls `useAuth().login()` and renders inside `AuthFrame`). The auth-page types always write this fixed file name, whatever name you pass, because the auto-discovery entry (`resources/js/martis-extensions/index.ts`) maps the file name to the registry key through its `OVERRIDE_KEYS` table (`LoginPage` → `auth:login`). No `register()` call is needed. If you register a component by hand instead, use the exact key: `componentRegistry.register('auth:login', MyLogin)`.
 
 Same notation extends to every auth surface:
 
@@ -224,14 +219,13 @@ Same notation extends to every auth surface:
 | `reset-password-page` | `auth:reset-password` | `pages/ResetPassword.tsx` |
 | `email-verify-notice-page` | `auth:email-verify-notice` | `pages/EmailVerifyNotice.tsx` |
 
-After generating the override, rebuild assets so the bundle picks up the new component:
+After generating the override, build your extension bundle **in your application root** (never inside `vendor/martis/martis`, whose precompiled SPA does not include consumer code since v1.8.19):
 
 ```bash
-cd vendor/martis/martis
 npm run build:extensions
 ```
 
-The build copies the rebuilt `public/` back to your app via `php artisan martis:publish-assets` (or your existing deploy pipeline). Visit `/{martis-path}/login` and the override renders instead of the bundled page.
+The bundle lands in `public/vendor/martis-user/extensions.js`, which the SPA loads at runtime from the URLs in `MARTIS_EXTENSIONS` (`martis:install` sets `/vendor/martis-user/extensions.js`). Visit `/{martis-path}/login` and the override renders instead of the bundled page. To check the registration, run `window.Martis.componentRegistry.has('auth:login')` in the browser console.
 
 Reference impls live under `vendor/martis/martis/resources/js/pages/` — the stub starts as a working copy of the bundled default so you can edit incrementally rather than rewrite from scratch.
 

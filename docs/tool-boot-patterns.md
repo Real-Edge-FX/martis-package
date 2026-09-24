@@ -107,23 +107,35 @@ public function boot(): void
 ### Pattern 3 — Scheduled tasks
 
 ```php
+use Illuminate\Console\Scheduling\Schedule;
+
 public function boot(): void
 {
-    if (! app()->bound(Schedule::class)) {
+    // The scheduler only runs from the console.
+    if (! app()->runningInConsole()) {
         return;
     }
 
-    app(Schedule::class)
-        ->call(function (): void {
-            cache()->put(
-                'system-status:snapshot',
-                app(SystemStatusController::class)->computeSnapshot(),
-                now()->addMinutes(5),
-            );
-        })
-        ->everyFiveMinutes()
-        ->name('martis-playground:system-status:refresh-snapshot')
-        ->withoutOverlapping();
+    $register = function (Schedule $schedule): void {
+        $schedule
+            ->call(function (): void {
+                cache()->put(
+                    'system-status:snapshot',
+                    app(SystemStatusController::class)->computeSnapshot(),
+                    now()->addMinutes(5),
+                );
+            })
+            ->everyFiveMinutes()
+            ->name('martis-playground:system-status:refresh-snapshot')
+            ->withoutOverlapping();
+    };
+
+    // Register when the scheduler builds its Schedule, or now if it already has.
+    app()->afterResolving(Schedule::class, $register);
+
+    if (app()->resolved(Schedule::class)) {
+        $register(app(Schedule::class));
+    }
 }
 ```
 
@@ -132,7 +144,9 @@ public function boot(): void
 - Removing the Tool removes the schedule.
 - Multiple Tools each ship their own schedule without anyone editing `Console\Kernel`.
 
-**The `if (! app()->bound(Schedule::class))` guard** prevents `php artisan` invocations that don't touch the scheduler from blowing up. The Schedule is only bound during `schedule:run` and `schedule:list`.
+**Why `afterResolving()` and not `app()->bound(Schedule::class)`.** Since Laravel 11, `FoundationServiceProvider` binds `Schedule` as a singleton on every boot, web requests included, so `app()->bound(Schedule::class)` is always `true` and never short-circuits: a Tool guarded that way builds the console schedule on every HTTP request. `boot()` runs on every request and every artisan command, so the pattern above does what Laravel's own `withSchedule()` does: it hooks the registration to the moment the scheduler resolves `Schedule` (`schedule:run`, `schedule:work`, `schedule:list`), and registers immediately when it has already been resolved. The `runningInConsole()` check keeps web requests out entirely.
+
+`MartisManager::bootTools()` catches an exception thrown by a Tool's `boot()` and only logs it (`[martis] Tool boot() threw — registration kept, hook skipped.`), so a failing boot leaves the Tool in the sidebar with its routes, gates or schedule missing. Check `laravel.log` for that line, and `php artisan schedule:list` for the task.
 
 ### Pattern 4 — Event listeners
 

@@ -890,14 +890,14 @@ The command:
 | `topbar` | Top bar only | `layout:topbar` |
 | `footer` | Page footer only | `layout:footer` |
 | `complete-layout` | All four shell pieces at once (shell + sidebar + topbar + footer), each under its default key | `layout:shell`, `layout:sidebar`, `layout:topbar`, `layout:footer` |
-| `login-page` | Custom login page (replaces the bundled one) | `auth:login-page` |
-| `register-page` | Custom registration page | `auth:register-page` |
-| `forgot-password-page` | Custom "forgot password" page | `auth:forgot-password-page` |
-| `reset-password-page` | Custom "reset password" page | `auth:reset-password-page` |
-| `email-verify-notice-page` | Custom email verification notice page | `auth:email-verify-notice-page` |
+| `login-page` | Custom login page (replaces the bundled one) | `auth:login` |
+| `register-page` | Custom registration page | `auth:register` |
+| `forgot-password-page` | Custom "forgot password" page | `auth:forgot-password` |
+| `reset-password-page` | Custom "reset password" page | `auth:reset-password` |
+| `email-verify-notice-page` | Custom email verification notice page | `auth:email-verify-notice` |
 | `generic` | Free-form component | `{kebab-name}` |
 
-The five auth-page types follow the same wiring as the shell pieces — generate the TSX, build, and the bundled login / register / password-reset / email-verify pages are automatically replaced. See [authentication.md](authentication.md) for the broader auth customisation surface (backend handlers, blade templates, OAuth providers).
+The five auth-page types follow the same wiring as the shell pieces — generate the TSX, build, and the bundled login / register / password-reset / email-verify pages are automatically replaced. The router resolves exactly the keys in the table (`auth:login`, `auth:register`, `auth:forgot-password`, `auth:reset-password`, `auth:email-verify-notice`, plus `auth:invitation-accept` for the invitation page), so a hand-written `register()` call must use them as they are. Each type writes a fixed file name (`overrides/LoginPage.tsx`, ...), whatever name you pass. See [authentication.md](authentication.md) for the broader auth customisation surface (backend handlers, blade templates, OAuth providers).
 
 After creating a component, rebuild the consumer extension bundle:
 
@@ -1054,7 +1054,7 @@ Any Tool or Action key that appears in `martis:list-overrides` but not in `compo
 A developer-only page mounted at `/martis/dev/components` (alongside the regular admin routes) that lets you preview any registered component in isolation, fed by an editable JSON payload. The intended workflow:
 
 1. Scaffold an override (`php artisan martis:component StatusBadge --type=field`).
-2. Build the bundle (`npm run build`).
+2. Build the extension bundle in your app root (`npm run build:extensions`).
 3. Open `/martis/dev/components`, pick `status-badge` from the list on the left.
 4. Tweak the JSON payload (`{ field: {...}, value: 'draft' }`) and watch the component re-render on the right.
 5. Iterate until the design is right — *then* go test through a real Resource page.

@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Republishing the assets deleted custom themes.** `martis:theme` writes the theme source to `resources/css/martis/<name>.css` and a copy to `public/vendor/martis/themes/<name>.css`, the file the panel loads. Since v1.8.8 `martis:publish-assets` wipes `public/vendor/martis/` before copying the package assets, and `martis:vendor-publish --assets` and `martis:install` run it, so every asset publish (each upgrade requires one) deleted the copy: the theme stylesheet returned 404 and the panel fell back to the default tokens with no error, and `martis:theme:diff` failed with "Consumer theme not found". After the package assets, `martis:publish-assets` now publishes every `.css` file directly inside `resources/css/martis/` to `public/vendor/martis/themes/`, and skips with a warning a file whose name the panel would not load, so the published themes always match their sources and a deploy that publishes restores them. +18 Pest. See [Theming → Theme files](docs/theming.md#theme-files).
+- **Two native `title=` tooltips left.** The top-nav search button and the OfMany aggregate tile on a `HasOne` card still used the browser tooltip, which ignores the theme and competes with the global one. Both use `data-pr-tooltip` now, like the rest of the SPA.
+- **`.tooling/pre-tag.sh` now checks the test count.** It had drifted from the workspace `pre-tag-check.sh`: a landing `TESTS_PASSING` that disagreed with the README total, or a landing component with a hardcoded count, passed the package copy. Both scripts run the same four checks again.
 
 ### Changed
 
@@ -19,6 +21,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Docs
 
 - The troubleshooting guide told you to refresh a theme's published file by running `martis:theme` again, which fails without `--force` and, with it, replaces your theme with the scaffold. It now says to run `martis:publish-assets`. The `theme.name` row of the configuration reference describes the key the panel reads.
+
+Documentation and code comments that disagreed with the code:
+
+- **Install flags.** `--with-profile` and `--with-2fa` are independent switches (the docs said `--with-profile` also publishes the 2FA migration and called `--with-2fa` a subset). `--force` also republishes `lang/vendor/martis` and rewrites the Martis migrations, and publishes no generator stubs (the option help said it did). The installer always ends with `migrate --force`, and without a TTY it writes disabled features to `.env`. The install options table lists `--no-profile`, `--no-2fa`, `--with-sessions` and `--no-sessions`.
+- **Installation guide.** Core migrations list, the publish tags table (four tags were missing; `martis-migrations` bundles four stubs; no tag publishes the notifications table or the morph id conversions), the 2FA migration file name, the command list (34 commands, not 28), `martis:vendor-publish` and `martis:stubs` descriptions, npm instead of pnpm.
+- **Default locale.** The panel language for users without a saved preference is `MARTIS_DEFAULT_LOCALE`, not `APP_LOCALE` / `MARTIS_LOCALE` (installation guide, configuration, i18n, troubleshooting, the config comment).
+- **i18n.** A new locale's Martis strings go in `lang/vendor/martis/<locale>/`; `app_namespaces` merge per key; the translations endpoint converts `:name` placeholders to `{{name}}`.
+- **Troubleshooting.** Metrics are cached by default through the `metrics` layer; `MARTIS_EXTENSIONS` has an empty config default; registry keys are colon-separated; new nested config keys need adding by hand (`mergeConfigFrom()` is shallow).
+- **Authorization.** The "At a glance" defaults column (a policy without the method denies `view` / `create` / `update` / `delete`); Resource checks call the policy directly, so `Gate::before()`, the denial audit and the per-request Gate cache do not apply to them, and the per-request cache only records results.
+- **Overrides and authentication.** The auth page keys are `auth:login`, `auth:register`, … (not `auth:*-page`); an auth override is built with `npm run build:extensions` in the app root.
+- **Tool boot patterns.** `Schedule` is bound on every boot since Laravel 11, so the `app()->bound(Schedule::class)` guard never short-circuits; the pattern registers through `afterResolving()` like Laravel's `withSchedule()`.
+- Smaller fixes: `loader.md` (`indexQuery()` signature), `cache.md` (the cache service is scoped), `customizing-generators.md` (`martis:roles`, the full stub list, the extension scaffold is not override-aware), `components.md` (the tooltip provider), `AGENTS.md` (asset republish command, a missing read-first file), `CONTRIBUTING.md` (pre-tag checks, smoke recipe), README (install flags, `--force`, npm), and code comments in `InstallCommand`, `ComponentMakeCommand`, `Sidebar.tsx`, `test-setup.ts`, `scripts/test.sh`, `vite.config.ts` and `phpstan.neon`.
 
 ### Internal
 

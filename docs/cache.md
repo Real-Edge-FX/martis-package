@@ -338,7 +338,7 @@ MartisCache::types();               // list<string>
 MartisCache::extend(string $name, bool $enabled = true, ?int $ttl = null);
 MartisCache::forgetExtension(string $name);
 
-// Service (resolved from container as a singleton).
+// Service (resolved from the container, bound with scoped(): one instance per request / job).
 $cache->masterEnabled(): bool;                  // master switch state
 $cache->enabled(string $type): bool;            // effective state
 $cache->ttl(string $type): ?int;                // minutes, null = no expiration
