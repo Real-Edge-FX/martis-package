@@ -27,7 +27,8 @@ use Illuminate\Support\Carbon;
  * Columns:
  *   - `type`       : layer name (primary key, string).
  *   - `version`    : per-layer version counter; bumping invalidates
- *                    every entry keyed `martis:cache:{type}:v{N}:...`.
+ *                    every entry keyed `martis:cache:{type}@{installed}:v{N}:...`
+ *                    (see `MartisCache::buildKey()`).
  *   - `cleared_at` : timestamp of the last `clear()` call.
  *   - `override`   : `null` = inherit config / `true` = forced ON /
  *                    `false` = forced OFF.

@@ -255,7 +255,9 @@ afterEach(fn () => MartisCache::forgetExtension('reports'));
 
 ## Invalidation
 
-Per-layer **version key**: `martis:cache:version:{type}`. Every cached entry is keyed by `martis:cache:{type}:v{version}:{rest}`. Clearing a layer just increments the counter — every old key becomes orphaned and the next request recomputes. O(1) on every cache backend (no tagging support required).
+Per-layer **version key**: `martis:cache:version:{type}`. Every cached entry is keyed by `martis:cache:{type}@{installed}:v{version}:{rest}`. Clearing a layer just increments the counter — every old key becomes orphaned and the next request recomputes. O(1) on every cache backend (no tagging support required).
+
+`{installed}` is the `martis/martis` version Composer installed (what `composer show martis/martis` reports, e.g. `v2.0.0`), so **an upgrade rebuilds every layer** on its own, `schema` included: it has no expiry and would otherwise keep serving the previous version's payload. On a **path repository** (a local checkout linked with `"type": "path"`, like the Playground) Composer keeps the version of the last `composer install` / `update`, so editing the linked package does not change the key: run `php artisan martis:cache:clear` after pulling changes there. When Composer has no record of the package the segment is left out (`martis:cache:{type}:v{version}:{rest}`).
 
 ```bash
 # Atomic invalidation, no traversal of the cache store needed
@@ -319,7 +321,7 @@ Custom layers registered via `extend()` are valid `type` values for every endpoi
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Schema changes don't show up | `schema` cache hit | Clear it: `php artisan martis:cache:clear schema` |
+| Schema changes don't show up | `schema` cache hit (after an upgrade only on a path repository, whose installed version does not change) | Clear it: `php artisan martis:cache:clear schema` |
 | Slow first navigation render after deploy | `navigation` recomputed cold | Warm with a request, or pre-fetch on deploy |
 | Stale metric values after data write | `metrics` TTL not elapsed | Clear metrics or call `MartisCache::clear('metrics')` from your write path |
 | User A sees user B's nav | Cache key did not include the auth identifier | Confirm the controller (or your custom layer) prepends `$userKey` to the cache key, like `NavigationController` does |

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Composer\InstalledVersions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
@@ -21,6 +22,45 @@ beforeEach(function () {
     config()->set('martis.cache.schema', ['enabled' => true, 'ttl' => null]);
 
     $this->cache = new MartisCache(Cache::store('array'));
+});
+
+// The installed Martis version is part of every key, so an upgrade (a new
+// Composer version) rebuilds every layer; the `schema` layer has no expiry
+// and would otherwise keep serving the previous version's payload. Without
+// a known version the key keeps the per-type counter only.
+
+it('puts the installed Martis version in every key', function () {
+    $cache = new MartisCache(Cache::store('array'), 'v2.0.0');
+
+    expect($cache->buildKey('schema', 'posts'))->toBe('martis:cache:schema@v2.0.0:v1:posts');
+});
+
+it('rebuilds a cached entry once the installed version changes', function () {
+    $hits = 0;
+    $cb = function () use (&$hits) {
+        $hits++;
+
+        return $hits;
+    };
+
+    $before = new MartisCache(Cache::store('array'), 'v1.39.1');
+    $after = new MartisCache(Cache::store('array'), 'v2.0.0');
+
+    expect($before->remember('schema', 'posts', $cb))->toBe(1)
+        ->and($before->remember('schema', 'posts', $cb))->toBe(1)
+        ->and($after->remember('schema', 'posts', $cb))->toBe(2)
+        ->and($after->remember('schema', 'posts', $cb))->toBe(2);
+});
+
+it('keeps the key without a version when the installed version is unknown', function () {
+    expect($this->cache->buildKey('schema', 'posts'))->toBe('martis:cache:schema:v1:posts');
+});
+
+it('binds the cache service with the version Composer installed', function () {
+    $installed = InstalledVersions::getPrettyVersion('martis/martis');
+
+    expect($installed)->toBeString()->not->toBe('')
+        ->and(app(MartisCache::class)->buildKey('schema', 'posts'))->toBe("martis:cache:schema@{$installed}:v1:posts");
 });
 
 it('caches the callback result and returns it on subsequent calls', function () {

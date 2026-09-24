@@ -92,6 +92,7 @@ use Martis\Profile\ProfileResource;
 use Martis\Profile\TwoFactorService;
 use Martis\Resources\ActionEventResource;
 use Martis\Sso\SsoManager;
+use Martis\Support\InstalledVersion;
 use Spatie\Permission\Events\PermissionAttachedEvent;
 use Spatie\Permission\Events\PermissionDetachedEvent;
 use Spatie\Permission\Events\RoleAttachedEvent;
@@ -133,7 +134,7 @@ class MartisServiceProvider extends ServiceProvider
         // requests — operational metadata read from `martis_cache_state`
         // stays at most one request stale.
         $this->app->scoped(MartisCache::class, function (): MartisCache {
-            return new MartisCache(Cache::store());
+            return new MartisCache(Cache::store(), InstalledVersion::of('martis/martis'));
         });
 
         // The PSR-4 map does not change during a process; read it once

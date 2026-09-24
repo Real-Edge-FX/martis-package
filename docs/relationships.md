@@ -672,8 +672,9 @@ resource's policies allow.
 
 What to do:
 
-- Clear the schema cache after upgrading (`php artisan martis:cache:clear
-  schema`): it has no expiration by default, and until it is rebuilt a panel
+- The upgrade rebuilds the schema cache, whose keys carry the installed
+  Martis version. On a path repository, whose version does not change, clear
+  it (`php artisan martis:cache:clear schema`): until it is rebuilt a panel
   keeps the actions it offered in 1.x.
 - To keep the 1.x panel, hide the row actions on the field:
   `->canUpdate(false)->canDelete(false)`, plus

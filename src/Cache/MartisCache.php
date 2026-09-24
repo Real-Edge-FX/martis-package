@@ -27,10 +27,17 @@ use Martis\Models\CacheState;
  *
  * Invalidation uses a per-type version counter stored in the
  * `martis_cache_state` table. Bumping the counter makes every key
- * `martis:cache:{type}:v{N}:...` orphaned at once, which works on every
- * cache backend (file, array, redis, memcached, db) without needing
- * tagging support. Old entries linger until natural expiration or
+ * `martis:cache:{type}@{installed}:v{N}:...` orphaned at once, which works
+ * on every cache backend (file, array, redis, memcached, db) without
+ * needing tagging support. Old entries linger until natural expiration or
  * eviction; that's fine because the version is part of the key.
+ *
+ * `{installed}` is the martis/martis version Composer installed, so an
+ * upgrade orphans every entry too (the `schema` layer has no expiry and
+ * would otherwise keep serving the previous version's payload). A path
+ * repository keeps the version of its last `composer install` / `update`,
+ * so there only `martis:cache:clear` rebuilds the layers. Without a known
+ * version the segment is left out: `martis:cache:{type}:v{N}:...`.
  *
  * **Why DB-backed metadata?** v1.8.7 and earlier stored the version
  * counter, `cleared_at` stamp and runtime override flag in the cache
@@ -80,7 +87,16 @@ class MartisCache
      */
     protected ?array $states = null;
 
-    public function __construct(private readonly Repository $store) {}
+    /**
+     * @param  string|null  $installedVersion  The installed martis/martis
+     *                                         version (the container passes
+     *                                         `InstalledVersion::of()`); null
+     *                                         leaves it out of the keys.
+     */
+    public function __construct(
+        private readonly Repository $store,
+        private readonly ?string $installedVersion = null,
+    ) {}
 
     /**
      * Register a custom cache layer. Call this from a service
@@ -358,12 +374,15 @@ class MartisCache
     // -------------------------------------------------------------------------
 
     /**
-     * Build the final cache key including the per-type version so a
-     * single `clear()` invalidates everything derived from it.
+     * Build the final cache key including the installed Martis version and
+     * the per-type version, so an upgrade or a single `clear()` invalidates
+     * everything derived from them.
      */
     public function buildKey(string $type, string $key): string
     {
-        return 'martis:cache:'.$type.':v'.$this->state($type)['version'].':'.$key;
+        $installed = $this->installedVersion === null ? '' : '@'.$this->installedVersion;
+
+        return 'martis:cache:'.$type.$installed.':v'.$this->state($type)['version'].':'.$key;
     }
 
     /**
