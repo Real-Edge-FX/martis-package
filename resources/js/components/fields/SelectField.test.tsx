@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, fireEvent, screen, waitFor } from '@testing-library/react'
+import { useState } from 'react'
 import type { FieldDefinition } from '@/types'
 
 const apiGetMock = vi.fn()
@@ -315,6 +316,36 @@ describe('SelectFieldInput — remote option search', () => {
     fireEvent.click(document.querySelectorAll('.p-dropdown-item')[0])
 
     expect(onChange).toHaveBeenCalledWith('')
+  })
+
+  // A controlled harness: the form keeps the picked value, as a real form does.
+  function RemoteHarness({ initial }: { initial: string }) {
+    const [value, setValue] = useState<unknown>(initial)
+    return <SelectFieldInput field={remoteField()} value={value} onChange={setValue} error={undefined} toolKey="settings" />
+  }
+
+  it("keeps showing a remote-only '' option once it is picked, with its clear icon", async () => {
+    apiGetMock.mockResolvedValue({ data: { options: [{ label: 'None', value: '' }, { label: 'Claude Opus 5', value: 'claude-opus-5' }] } })
+    const { container } = render(<RemoteHarness initial="gpt-4o" />)
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+    await screen.findByText('None')
+
+    fireEvent.click(document.querySelectorAll('.p-dropdown-item')[0])
+
+    await waitFor(() => expect(container.querySelector('.p-dropdown-label')?.textContent).toBe('None'))
+    expect(container.querySelector('.p-dropdown-label')?.classList.contains('p-placeholder')).toBe(false)
+    expect(container.querySelector('.p-dropdown-clear-icon')).not.toBeNull()
+  })
+
+  it('shows the label of a picked remote-only option, not its raw value', async () => {
+    apiGetMock.mockResolvedValue({ data: { options: [{ label: 'Claude Opus 5', value: 'claude-opus-5' }] } })
+    const { container } = render(<RemoteHarness initial="gpt-4o" />)
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+    await screen.findByText('Claude Opus 5')
+
+    fireEvent.click(document.querySelectorAll('.p-dropdown-item')[0])
+
+    await waitFor(() => expect(container.querySelector('.p-dropdown-label')?.textContent).toBe('Claude Opus 5'))
   })
 
   it('shows a stored value that is not in the initial list instead of the placeholder', () => {

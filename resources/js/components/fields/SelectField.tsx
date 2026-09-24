@@ -116,20 +116,31 @@ export function SelectFieldInput({ field, value, onChange, error, resourceKey, r
     value: toSentinelValue(String(o.value)),
     ...(o.group ? { group: o.group } : {}),
   })) ?? []
+  // The option last picked from the server's results. Once the panel closes
+  // those results are gone, so a value that only they carried (a remote ''
+  // "None" choice included) would lose its label and, for '', read as "no
+  // value" below. Only used while it is not a static option.
+  const [picked, setPicked] = useState<DropdownOption | null>(null)
+  const pickedOption = picked !== null && !staticOptions.some((o) => o.value === picked.value) ? picked : null
   // Pass `null` (not '') when empty so PrimeReact's own `value != null` guard
   // hides the clear (X) icon on an empty select — an empty select has nothing
   // to clear. Coercing to '' made `showClear` fire on the placeholder state.
   // Guard the rare case of a real option whose value is literally '': only
-  // treat '' as "empty" when no such option exists, so a genuinely-selected
-  // empty-string option still highlights (via the sentinel above).
+  // treat '' as "empty" when no such option exists (static, or picked from
+  // the server's results), so a genuinely-selected empty-string option still
+  // highlights (via the sentinel above).
   const hasEmptyOption = staticOptions.some((o) => o.value === EMPTY_VALUE_SENTINEL)
+    || pickedOption?.value === EMPTY_VALUE_SENTINEL
   const isEmpty = value === null || value === undefined || (value === '' && !hasEmptyOption)
   const currentValue = isEmpty ? null : value === '' ? EMPTY_VALUE_SENTINEL : String(value)
   // The sentinel must never reach anything a person can read: resolve it
   // back to the real option's label (or '' when none matches) for display.
-  const currentValueLabel = currentValue === EMPTY_VALUE_SENTINEL
-    ? (staticOptions.find((o) => o.value === EMPTY_VALUE_SENTINEL)?.label ?? '')
-    : currentValue
+  // A value picked from the server's results keeps the label it had there.
+  const currentValueLabel = currentValue !== null && pickedOption?.value === currentValue
+    ? pickedOption.label
+    : currentValue === EMPTY_VALUE_SENTINEL
+      ? (staticOptions.find((o) => o.value === EMPTY_VALUE_SENTINEL)?.label ?? '')
+      : currentValue
   const clearTip = t('clear', { defaultValue: 'Clear' })
   const selectPlaceholder = field.placeholder ?? t('select', { defaultValue: 'Select…' })
   // PHP `Select::searchableOptions()` / `allowCustomValues()` /
@@ -251,6 +262,10 @@ export function SelectFieldInput({ field, value, onChange, error, resourceKey, r
         onChange={(e) => {
           if (typeof e.value !== 'string' && e.value != null) return
           const next = e.value as string
+          if (remote) {
+            const fromResults = next == null ? undefined : options.find((o) => o.value === next)
+            setPicked(fromResults ? { label: fromResults.label, value: fromResults.value } : null)
+          }
           onChange(next === EMPTY_VALUE_SENTINEL ? '' : next)
         }}
         disabled={field.readonly}
