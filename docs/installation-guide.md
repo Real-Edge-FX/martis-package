@@ -616,6 +616,12 @@ Why this second step exists:
 
 If your app has a custom theme and you are coming from 1.x, follow [Theming → Upgrading from 1.x](theming.md#upgrading-from-1x) before you publish: the publish now writes `public/vendor/martis/themes/` from `resources/css/martis/`, so edits made to the published copy have to move to the source first.
 
+Coming from 1.x, also check:
+
+- **`profile.resource`** must be `null` or name a class that implements `Martis\Contracts\ProfileResourceContract`. Any other value, such as a misspelt class, now throws an `InvalidArgumentException` naming the key; 1.x fell back to the default resource without a word. When you set it, `/martis/api/auth/user` and the login response take the Topbar avatar from your resource's `toArray()`, as the profile page does. See [Authentication → Custom Profile Resource](authentication.md#custom-profile-resource).
+- **Avatar colours** come from the theme's `--martis-avatar-1..16` tokens. The Topbar shows two initials on a palette colour instead of one letter on the accent colour, the profile avatar is no longer indigo, and the initials of an `Avatar` or `UiAvatar` field can change colour. To keep a fixed colour per record, use `colorFrom()`; to change the colours, redefine the tokens in your theme. A subclass of `Avatar` or `UiAvatar` that calls or overrides the trait's `resolveInitialsColor()`, `deterministicInitialsColor()` or `$initialsPalette` has to move to `Martis\Support\Initials` (`paletteSlot()`, `defaultColor()`), or override `customInitialsColor()` to give its own colour.
+- **Metric results are cached per user.** No action is needed, but the metric cache holds one entry per user and metric where 1.x held one per metric. See [Cache → The four built-in layers](cache.md#the-four-built-in-layers).
+
 Use the asset-only command if you only want to refresh static files. Use the install command with `--force` if you want the full recommended refresh:
 
 ```bash
