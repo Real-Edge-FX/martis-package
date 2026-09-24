@@ -678,7 +678,7 @@ The package ships 34 commands (plus the aliases `martis:override` → `martis:co
 |---|---|
 | `martis:install` | Full installation (directories, config, provider, assets, core migrations, translations, auto-migrate) |
 | `martis:user` | Create an admin user (`--if-missing` / `--update` for idempotent bootstrap scripts) |
-| `martis:publish-assets` | Republish the frontend assets: wipes `public/vendor/martis/`, copies the package build and verifies it against the manifest (`--no-wipe` for the legacy merge copy) |
+| `martis:publish-assets` | Republish the frontend assets: wipes `public/vendor/martis/`, copies the package build, verifies it against the manifest (`--no-wipe` for the legacy merge copy), then publishes the app themes from `resources/css/martis/` |
 | `martis:vendor-publish` | Publish Martis package files by flag (`--config`, `--assets`, `--views`, `--lang`, `--force`); `--assets` goes through `martis:publish-assets` |
 | `martis:stubs` | Publish all generator stubs into `stubs/martis/` for customisation (`--force` overwrites existing ones) |
 | `martis:list-overrides` | Print the component keys the PHP layer declares (Tools, Actions with a custom component, resources); `--frontend` checks that your extension registers them |
@@ -727,7 +727,7 @@ The package ships 34 commands (plus the aliases `martis:override` → `martis:co
 | Command | Description |
 |---|---|
 | `martis:component` | Scaffold a React override (TSX) under `resources/js/martis-extensions/overrides/`. Every `--type` auto-registers on the next `npm run build:extensions`. See [Overrides](overrides.md#6-creating-custom-components-artisan) for the filename → key table |
-| `martis:theme` | Scaffold a custom theme override |
+| `martis:theme` | Scaffold a custom theme in `resources/css/martis/<name>.css`, publish it and set `theme.name` in a published `config/martis.php` |
 | `martis:theme:diff` | Compare a consumer theme against the bundled package tokens (exit `0` aligned, `2` drift) |
 | `martis:sso` | Scaffold an SSO provider end to end (composer deps, config, env, listener, migrations); pass `--no-composer --no-migrate` in CI or agent shells |
 
