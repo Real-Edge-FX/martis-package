@@ -14,7 +14,7 @@ vi.mock('react-i18next', () => ({
 }))
 
 // Imported AFTER the mocks are registered.
-const { SelectFieldInput } = await import('./SelectField')
+const { SelectFieldInput, SelectFieldDisplay } = await import('./SelectField')
 
 beforeEach(() => {
   apiGetMock.mockReset()
@@ -70,6 +70,50 @@ describe('SelectFieldInput — clear icon + filter variant', () => {
       <SelectFieldInput field={makeField({ className: 'my-custom' })} value="" onChange={vi.fn()} error={undefined} />,
     )
     expect(container.querySelector('.p-dropdown.my-custom')).not.toBeNull()
+  })
+})
+
+describe('SelectFieldInput — empty-string option value', () => {
+  // PrimeReact 10.9.9 treats an empty string as "no value" in several
+  // internal checks (`ObjectUtils.isNotEmpty('')` is false), so a real
+  // option whose value IS '' (a "None" choice) used to be indistinguishable
+  // from no selection at all: picking it never reached onChange, and a
+  // stored '' rendered the placeholder with no clear icon.
+  const emptyOptionField = () => makeField({
+    options: [{ label: 'None', value: '' }, { label: 'Active', value: 'active' }],
+  })
+
+  it("calls onChange('') when the empty-string option is picked", () => {
+    const onChange = vi.fn()
+    const { container } = render(
+      <SelectFieldInput field={emptyOptionField()} value="active" onChange={onChange} error={undefined} />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+    fireEvent.click(document.querySelectorAll('.p-dropdown-item')[0])
+
+    expect(onChange).toHaveBeenCalledWith('')
+  })
+
+  it("shows the empty-string option's label (not the placeholder) for a stored ''", () => {
+    const { container } = render(
+      <SelectFieldInput field={emptyOptionField()} value="" onChange={vi.fn()} error={undefined} />,
+    )
+    expect(container.querySelector('.p-dropdown-label')?.textContent).toBe('None')
+    expect(container.querySelector('.p-dropdown-clear-icon')).not.toBeNull()
+  })
+})
+
+describe('SelectFieldDisplay — empty-string option value', () => {
+  it("renders the label of a '' option for a stored ''", () => {
+    render(<SelectFieldDisplay field={makeField({ options: [{ label: 'None', value: '' }] })} value="" />)
+
+    expect(screen.getByText('None')).toBeTruthy()
+  })
+
+  it("still renders the dash for a stored '' with no matching option", () => {
+    const { container } = render(<SelectFieldDisplay field={makeField()} value="" />)
+
+    expect(container.textContent).toBe('—')
   })
 })
 

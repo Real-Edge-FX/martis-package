@@ -9,10 +9,16 @@ import { dropdownClearIconPt } from './dropdownHelpers'
 import { remoteOptionsEndpoint, useRemoteSelectOptions } from '@/hooks/useRemoteSelectOptions'
 
 export function SelectFieldDisplay({ field, value }: FieldDisplayProps) {
-  if (value === null || value === undefined || value === '') {
+  if (value === null || value === undefined) {
     return <span className="text-gray-400 dark:text-gray-500">—</span>
   }
   const opt = field.options?.find((o) => String(o.value) === String(value))
+  // A stored '' is normally "nothing selected" (the dash), but a real
+  // option whose value IS '' (a "None" choice) must render its label
+  // instead: only fall back to the dash when no option matches.
+  if (value === '' && !opt) {
+    return <span className="text-gray-400 dark:text-gray-500">—</span>
+  }
   // PHP `Select::displayUsingLabels()` (default `true`) controls whether
   // the index/detail cell renders the option label or the raw stored
   // value. Falling back to the original label-resolution path when the
@@ -85,9 +91,20 @@ function groupDropdownOptions(options: DropdownOption[]): DropdownOptionGroup[] 
 
 export function SelectFieldInput({ field, value, onChange, error, resourceKey, recordId, toolKey, context, repeaterRow }: FieldInputProps) {
   const { t } = useTranslation('messages')
+  // A real option whose value IS '' (a "None" choice) must stay selectable
+  // and shown, but PrimeReact 10.9.9 treats an empty string as "no value" in
+  // several of its own internal checks (`ObjectUtils.isNotEmpty('')` is
+  // false): its `getOptionValue()` falls back to handing back the WHOLE
+  // option object instead of `''` on select, and the closed control hides
+  // the label and the clear icon exactly as it does for no selection at
+  // all. We swap '' for this sentinel only inside the Dropdown's own option
+  // list and current value, and swap it back to '' the moment a value
+  // leaves the Dropdown (onChange); nothing outside this component ever
+  // sees it.
+  const EMPTY_VALUE_SENTINEL = '\u0000__martis_empty_select_option__'
   const staticOptions: DropdownOption[] = field.options?.map((o) => ({
     label: o.label,
-    value: String(o.value),
+    value: String(o.value) === '' ? EMPTY_VALUE_SENTINEL : String(o.value),
     ...(o.group ? { group: o.group } : {}),
   })) ?? []
   // Pass `null` (not '') when empty so PrimeReact's own `value != null` guard
@@ -95,10 +112,15 @@ export function SelectFieldInput({ field, value, onChange, error, resourceKey, r
   // to clear. Coercing to '' made `showClear` fire on the placeholder state.
   // Guard the rare case of a real option whose value is literally '': only
   // treat '' as "empty" when no such option exists, so a genuinely-selected
-  // empty-string option still highlights.
-  const hasEmptyOption = staticOptions.some((o) => o.value === '')
+  // empty-string option still highlights (via the sentinel above).
+  const hasEmptyOption = staticOptions.some((o) => o.value === EMPTY_VALUE_SENTINEL)
   const isEmpty = value === null || value === undefined || (value === '' && !hasEmptyOption)
-  const currentValue = isEmpty ? null : String(value)
+  const currentValue = isEmpty ? null : value === '' ? EMPTY_VALUE_SENTINEL : String(value)
+  // The sentinel must never reach anything a person can read: resolve it
+  // back to the real option's label (or '' when none matches) for display.
+  const currentValueLabel = currentValue === EMPTY_VALUE_SENTINEL
+    ? (staticOptions.find((o) => o.value === EMPTY_VALUE_SENTINEL)?.label ?? '')
+    : currentValue
   const clearTip = t('clear', { defaultValue: 'Clear' })
   const selectPlaceholder = field.placeholder ?? t('select', { defaultValue: 'Select…' })
   // PHP `Select::searchableOptions()` / `allowCustomValues()` /
@@ -120,7 +142,7 @@ export function SelectFieldInput({ field, value, onChange, error, resourceKey, r
   // the clear icon (and resolves no label) when `options` lacks the value or
   // is empty. Open: exactly what the server returned.
   const remoteClosedOptions = remote && currentValue !== null && !staticOptions.some((o) => o.value === currentValue)
-    ? [{ label: currentValue, value: currentValue }, ...staticOptions]
+    ? [{ label: currentValueLabel ?? currentValue, value: currentValue }, ...staticOptions]
     : staticOptions
   const options = remote && open && remoteState.options !== null ? remoteState.options : remoteClosedOptions
 
@@ -169,9 +191,11 @@ export function SelectFieldInput({ field, value, onChange, error, resourceKey, r
   )
 
   // A stored value that is not in the (partial) remote list would otherwise
-  // render as the placeholder, as if nothing were selected.
+  // render as the placeholder, as if nothing were selected. Fall back to
+  // `currentValueLabel`, never the raw `currentValue`, so the sentinel for
+  // an empty-string option is never the text shown to a person.
   const remoteValueTemplate = (option: { label: string } | null) =>
-    option ? option.label : (currentValue ?? selectPlaceholder)
+    option ? option.label : (currentValueLabel ?? selectPlaceholder)
 
   const remoteEmptyMessage = remoteState.error
     ? t('options_load_error')
@@ -205,10 +229,13 @@ export function SelectFieldInput({ field, value, onChange, error, resourceKey, r
         // because a heading carries no `value`. A real option's value, a
         // typed custom value, and the clear action only ever produce a
         // string, null, or undefined here, so drop anything else instead
-        // of handing a heading object to the form.
+        // of handing a heading object to the form. Map the empty-string
+        // sentinel back to '' here too, the only place it may leave the
+        // Dropdown.
         onChange={(e) => {
           if (typeof e.value !== 'string' && e.value != null) return
-          onChange(e.value as string)
+          const next = e.value as string
+          onChange(next === EMPTY_VALUE_SENTINEL ? '' : next)
         }}
         disabled={field.readonly}
         invalid={!!error}
