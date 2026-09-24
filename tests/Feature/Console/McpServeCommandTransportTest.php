@@ -21,6 +21,12 @@ use Symfony\Component\Process\Process;
  *   The testbench CLI binary is at vendor/bin/testbench relative to that.
  *   TESTBENCH_WORKING_PATH must point at the same root so the testbench
  *   bootstrap can locate vendor/autoload.php and load the package providers.
+ *   APP_BASE_PATH is the skeleton the test application runs in, so the
+ *   subprocess boots there too: a parallel worker has a copy of its own
+ *   (TestCase::applicationBasePath()), and the afterEach hook looks there
+ *   for the `.env` a killed subprocess leaves. Testbench reads APP_BASE_PATH
+ *   from $_ENV, which PHP fills from the environment only when
+ *   variables_order has an E.
  */
 function pickPort(): int
 {
@@ -63,14 +69,21 @@ function artisanPath(): string
  */
 $GLOBALS['__martis_serve_processes'] = [];
 
-function spawnServe(array $extraArgs = [], array $extraEnv = []): Process
+function mcpServeProcess(array $extraArgs = [], array $extraEnv = []): Process
 {
     $root = artisanPath();
-    $cmd = ['php', 'vendor/bin/testbench', 'martis:mcp-serve', ...$extraArgs];
+    $cmd = ['php', '-d', 'variables_order=EGPCS', 'vendor/bin/testbench', 'martis:mcp-serve', ...$extraArgs];
     $env = array_merge($_SERVER, $_ENV, $extraEnv, [
         'TESTBENCH_WORKING_PATH' => $root,
+        'APP_BASE_PATH' => base_path(),
     ]);
-    $process = new Process($cmd, $root, $env);
+
+    return new Process($cmd, $root, $env);
+}
+
+function spawnServe(array $extraArgs = [], array $extraEnv = []): Process
+{
+    $process = mcpServeProcess($extraArgs, $extraEnv);
     $process->start();
     $GLOBALS['__martis_serve_processes'][] = $process;
 
@@ -286,12 +299,7 @@ it('warns about the health endpoint on 0.0.0.0 even when a token is set', functi
 });
 
 it('stdio default keeps producing the three tools (regression guard)', function () {
-    $root = artisanPath();
-    $process = new Process(
-        ['php', 'vendor/bin/testbench', 'martis:mcp-serve'],
-        $root,
-        array_merge($_SERVER, $_ENV, ['TESTBENCH_WORKING_PATH' => $root]),
-    );
+    $process = mcpServeProcess();
     $process->setInput(
         '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"smoke","version":"1.0"}}}'."\n".
         '{"jsonrpc":"2.0","method":"notifications/initialized"}'."\n".
