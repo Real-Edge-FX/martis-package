@@ -93,3 +93,43 @@ it('checks the new options after options() replaces them', function () {
 
     Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message): bool => str_contains($message, '#2 stores "draft"'));
 });
+
+// ---------------------------------------------------------------------------
+// Numeric lists: v1.x stored the numbers themselves, v2.0 stores positions
+// ---------------------------------------------------------------------------
+
+it('warns when a list of numbers holds a record whose stored number is the label of another position', function () {
+    // v1.x stored 1, 2, 3; v2.0 reads the list as 0 => "1", 1 => "2", 2 => "3".
+    // The stored 1 is also a valid value (it now shows "2"), so only the list
+    // check sees it.
+    $field = Select::make('rating')->options([1, 2, 3]);
+
+    $field->resolve(choiceOrderModel(['rating' => 1], 4));
+
+    Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message, array $context): bool => str_contains($message, '#4 stores "1" in Select [rating]')
+        && str_contains($message, 'the label of another option of a list, so it shows as "2"')
+        && $context['value'] === '1');
+});
+
+it('warns for range(1, 12) and for a MultiSelect list of numbers', function () {
+    Select::make('month')->options(range(1, 12))->resolve(choiceOrderModel(['month' => 5], 1));
+    MultiSelect::make('ratings')->options([1, 2, 3])->resolve(choiceOrderModel(['ratings' => '[2]'], 2));
+
+    Log::shouldHaveReceived('warning')->twice();
+});
+
+it('stays silent for a list of words and for range(0, n), whose labels equal their own values', function () {
+    Select::make('size')->options(['Small', 'Large'])->resolve(choiceOrderModel(['size' => 0], 1));
+    Select::make('size')->options(['Small', 'Large'])->resolve(choiceOrderModel(['size' => 1], 2));
+    Select::make('slot')->options(range(0, 5))->resolve(choiceOrderModel(['slot' => 3], 3));
+    MultiSelect::make('slots')->options(range(0, 5))->resolve(choiceOrderModel(['slots' => '[0, 4]'], 4));
+
+    Log::shouldNotHaveReceived('warning');
+});
+
+it('stays silent for a map whose key differs from a numeric label, since only lists shifted', function () {
+    // [value => label] written on purpose: 10 shows "1", stored 1 is not an option.
+    Select::make('code')->options([10 => '1', 1 => 'One'])->resolve(choiceOrderModel(['code' => 1], 1));
+
+    Log::shouldNotHaveReceived('warning');
+});

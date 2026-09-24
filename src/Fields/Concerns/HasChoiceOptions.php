@@ -41,6 +41,14 @@ trait HasChoiceOptions
      */
     private ?array $optionsIndex = null;
 
+    /**
+     * Whether the static options came from a list (`array_is_list()`), keyed
+     * 0, 1, 2... v1.x stored a list's items themselves, so a list of numbers
+     * (`[1, 2, 3]`, `range(1, 12)`) shifted by one position with no error:
+     * warnIfStoredAsLabel() checks such lists harder.
+     */
+    private bool $optionsFromList = false;
+
     /** Whether this field already warned, when no request can remember it. */
     private bool $optionsOrderWarned = false;
 
@@ -64,6 +72,7 @@ trait HasChoiceOptions
     public function options(iterable|Arrayable|string|\Closure $options): static
     {
         $this->optionsIndex = null;
+        $this->optionsFromList = false;
 
         if ($options instanceof \Closure) {
             $this->optionsResolver = $options;
@@ -89,7 +98,9 @@ trait HasChoiceOptions
             return $this;
         }
 
-        $this->options = $this->normalizeOptions($this->resolvedOptionsToArray($options));
+        $raw = $this->resolvedOptionsToArray($options);
+        $this->optionsFromList = $raw !== [] && array_is_list($raw);
+        $this->options = $this->normalizeOptions($raw);
 
         return $this;
     }
@@ -187,6 +198,13 @@ trait HasChoiceOptions
      * record again would store the wrong value, so the warning is logged in
      * production too, once per model class and field per request. Only
      * static options are checked: a closure never runs just for this.
+     *
+     * Static options from a list are checked harder: v1.x stored the items of
+     * `[1, 2, 3]` themselves, v2.0 stores their positions, so a stored 1 is
+     * still a valid value (it now shows "2"). A stored value that is the
+     * label of an option whose own value differs warns too; a list whose
+     * labels equal their positions (`range(0, n)`) or are not numbers
+     * (`['Small', 'Large']`) never matches.
      */
     protected function warnIfStoredAsLabel(Model $model, mixed $value): void
     {
@@ -211,8 +229,21 @@ trait HasChoiceOptions
         foreach ($stored as $item) {
             $item = (string) $item;
 
-            if (! isset($this->optionsIndex['values'][$item]) && isset($this->optionsIndex['labels'][$item])) {
-                $this->logStoredAsLabel($model, $item);
+            if (! isset($this->optionsIndex['labels'][$item])) {
+                continue;
+            }
+
+            if (! isset($this->optionsIndex['values'][$item])) {
+                $this->logStoredAsLabel($model, $item, null);
+
+                return;
+            }
+
+            $labelled = $this->options[$this->optionsIndex['labels'][$item]];
+
+            if ($this->optionsFromList && (string) $labelled['value'] !== $item) {
+                $shown = $this->options[$this->optionsIndex['values'][$item]]['label'];
+                $this->logStoredAsLabel($model, $item, $shown);
 
                 return;
             }
@@ -267,7 +298,11 @@ trait HasChoiceOptions
         ));
     }
 
-    private function logStoredAsLabel(Model $model, string $value): void
+    /**
+     * @param  string|null  $shownAs  the label the value shows as now, when it
+     *                                is also a valid position in a list
+     */
+    private function logStoredAsLabel(Model $model, string $value, ?string $shownAs): void
     {
         // Without an application (unit tests, raw scripts) there is no log.
         if (! app()->bound('log')) {
@@ -294,17 +329,32 @@ trait HasChoiceOptions
         $this->optionsOrderWarned = true;
         $id = $model->getKey();
 
-        Log::warning(sprintf(
-            'Martis: %s #%s stores "%s" in %s [%s], which matches an option label and no option value. '
-            .'Since v2.0.0 options() reads [value => label], as Nova does: flip the options array, '
-            .'or fix the stored value if the record was saved while the array listed the label first. '
-            .'See docs/upgrading.md.',
-            $model::class,
-            is_scalar($id) ? (string) $id : '?',
-            $value,
-            class_basename(static::class),
-            $this->attribute,
-        ), [
+        $message = $shownAs === null
+            ? sprintf(
+                'Martis: %s #%s stores "%s" in %s [%s], which matches an option label and no option value. '
+                .'Since v2.0.0 options() reads [value => label], as Nova does: flip the options array, '
+                .'or fix the stored value if the record was saved while the array listed the label first. '
+                .'See docs/upgrading.md.',
+                $model::class,
+                is_scalar($id) ? (string) $id : '?',
+                $value,
+                class_basename(static::class),
+                $this->attribute,
+            )
+            : sprintf(
+                'Martis: %s #%s stores "%s" in %s [%s], which is the label of another option of a list, so it shows as "%s". '
+                .'Since v2.0.0 a list is keyed 0, 1, 2..., as in Nova, and v1.x stored the items themselves: '
+                .'pass array_combine($values, $values) to keep storing them, or fix the stored value. '
+                .'See docs/upgrading.md.',
+                $model::class,
+                is_scalar($id) ? (string) $id : '?',
+                $value,
+                class_basename(static::class),
+                $this->attribute,
+                $shownAs,
+            );
+
+        Log::warning($message, [
             'model' => $model::class,
             'key' => is_scalar($id) ? $id : null,
             'field' => static::class,
