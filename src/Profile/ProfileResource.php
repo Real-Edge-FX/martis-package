@@ -10,7 +10,7 @@ use Martis\Contracts\ProfileResourceContract;
 /**
  * Default profile resource implementation.
  *
- * Publish and extend via `config(martis.profile.resource)` to customise.
+ * To customise it, extend it and name the subclass in `profile.resource`.
  */
 class ProfileResource implements ProfileResourceContract
 {

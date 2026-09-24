@@ -12,11 +12,11 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
+use Martis\Contracts\ProfileResourceContract;
 use Martis\Contracts\RegistersUsers;
 use Martis\Contracts\ResetsUserPasswords;
 use Martis\Contracts\SendsPasswordResetLinks;
 use Martis\Http\Controllers\Concerns\AuthenticatesWithRememberMe;
-use Martis\Profile\ProfileResource;
 use Martis\Profile\TwoFactorService;
 
 class AuthController extends MartisController
@@ -77,17 +77,11 @@ class AuthController extends MartisController
             ]);
         }
 
-        // Include avatar_url so the Topbar can show the profile picture on initial load.
-        // The raw Eloquent model only contains the storage path (profile_picture);
-        // ProfileResource resolves it to a full public URL.
+        // Include the avatar so the Topbar can show it on initial load.
         /** @var Model&Authenticatable $userModel */
         $userModel = $user;
-        $profileResource = app(ProfileResource::class);
-        $profileData = $profileResource->toArray($userModel);
 
-        return response()->json(array_merge($this->safeUserArray($userModel), [
-            'avatar_url' => $profileData['avatar_url'],
-        ]));
+        return response()->json(array_merge($this->safeUserArray($userModel), $this->avatarPayload($userModel)));
     }
 
     /**
@@ -157,12 +151,8 @@ class AuthController extends MartisController
 
         /** @var Model&Authenticatable $loginUser */
         $loginUser = $user;
-        $profileResource = app(ProfileResource::class);
-        $profileData = $profileResource->toArray($loginUser);
 
-        return response()->json(array_merge($this->safeUserArray($loginUser), [
-            'avatar_url' => $profileData['avatar_url'],
-        ]));
+        return response()->json(array_merge($this->safeUserArray($loginUser), $this->avatarPayload($loginUser)));
     }
 
     /**
@@ -420,5 +410,20 @@ class AuthController extends MartisController
             $user->toArray(),
             array_flip(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])
         );
+    }
+
+    /**
+     * The avatar keys of the user payload, read from the profile resource
+     * the profile page serves (`profile.resource`), so the Topbar shows the
+     * avatar the profile page shows. The raw model only holds the stored
+     * path; the resource resolves the public URL.
+     *
+     * @return array{avatar_url: mixed}
+     */
+    private function avatarPayload(Model&Authenticatable $user): array
+    {
+        $profile = app(ProfileResourceContract::class)->toArray($user);
+
+        return ['avatar_url' => $profile['avatar_url'] ?? null];
     }
 }

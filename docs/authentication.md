@@ -64,6 +64,8 @@ GET /martis/api/auth/user
 
 Public route (deliberately unprotected) so the Login page can probe the active session without a noisy `401` in the console. Returns the user object when a session cookie is present, or `null` when the visitor is a guest.
 
+The user object, here and in the login response, is the user model's attributes without the password, the remember token and the 2FA secret and recovery codes, plus `avatar_url` from the profile resource (see [Custom Profile Resource](#custom-profile-resource)), which the Topbar shows.
+
 ## Auth UI shell
 
 All unauthenticated pages (Login, Register, 2FA challenge, 404 / 403 / 500) share a single shell component:
@@ -786,8 +788,8 @@ and password editable while the e-mail stays fixed. Set
 and the built-in Account section renders the e-mail field read-only.
 
 This flag is the **UI half only**. Pair it with a custom `ProfileResource` that
-also rejects e-mail changes server-side, so a hand-crafted `PATCH /martis/api/profile`
-request cannot bypass the locked field.
+also rejects e-mail changes server-side (see [Custom Profile Resource](#custom-profile-resource)),
+so a hand-crafted `PATCH /martis/api/profile` request cannot bypass the locked field.
 
 ### Profile API Endpoints
 
@@ -801,20 +803,36 @@ request cannot bypass the locked field.
 
 ### Custom Profile Resource
 
-Override the default profile resource by extending `ProfileResource`:
+The profile resource is the class behind the profile page. `Martis\Contracts\ProfileResourceContract` has three methods:
+
+| Method | Role |
+|--------|------|
+| `toArray(Authenticatable $user): array` | The profile data of `GET` and `PATCH /martis/api/profile`: the page reads `name`, `email`, `avatar_url` and `two_factor_enabled`. `/martis/api/auth/user` and the login response take `avatar_url` from it too, so the Topbar shows the avatar the profile page shows. |
+| `updateRules(Authenticatable $user): array` | The validation rules of `PATCH /martis/api/profile`. |
+| `applyUpdate(Authenticatable $user, array $data): void` | Saves the validated data. |
+
+Extend the default `Martis\Profile\ProfileResource` and override what you need, then name the class in `profile.resource`. This one keeps the e-mail fixed server-side, the other half of [Locking the e-mail field](#locking-the-e-mail-field):
 
 ```php
 namespace App\Martis;
 
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Model;
 use Martis\Profile\ProfileResource;
 
 class CustomProfileResource extends ProfileResource
 {
-    public function fields(Request $request): array
+    public function updateRules(Authenticatable $user): array
     {
         return [
-            // Add custom fields to the profile page
+            'name' => ['required', 'string', 'max:255'],
         ];
+    }
+
+    public function applyUpdate(Authenticatable $user, array $data): void
+    {
+        /** @var Model&Authenticatable $user */
+        $user->forceFill(['name' => $data['name']])->save();
     }
 }
 
@@ -823,6 +841,10 @@ class CustomProfileResource extends ProfileResource
     'resource' => \App\Martis\CustomProfileResource::class,
 ],
 ```
+
+The request is validated against `updateRules()` and only the validated keys reach `applyUpdate()`, so an `email` sent to this resource is dropped.
+
+`profile.resource` must name a class that implements the contract. Any other value (a misspelt class, a class that does not implement it) throws an `InvalidArgumentException` naming the key; `null` keeps the default. Up to v1.39.1, a class that did not exist fell back to the default without a word, and `/martis/api/auth/user` always used the default resource, so the Topbar could show another avatar than the profile page.
 
 ## Two-Factor Authentication (2FA)
 

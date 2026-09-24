@@ -11,7 +11,6 @@ use Illuminate\Validation\Rules\Password;
 use Martis\Contracts\ProfileResourceContract;
 use Martis\Profile\AvatarService;
 use Martis\Profile\BrowserSessionsService;
-use Martis\Profile\ProfileResource;
 use Martis\Profile\TwoFactorService;
 
 class ProfileController extends MartisController
@@ -269,13 +268,6 @@ class ProfileController extends MartisController
 
     private function resolveResource(): ProfileResourceContract
     {
-        /** @var class-string<ProfileResourceContract>|null $class */
-        $class = config('martis.profile.resource');
-
-        if ($class && class_exists($class)) {
-            return app($class);
-        }
-
-        return app(ProfileResource::class);
+        return app(ProfileResourceContract::class);
     }
 }
