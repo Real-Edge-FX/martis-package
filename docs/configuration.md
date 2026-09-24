@@ -490,9 +490,9 @@ Shipped locales: `en` (English), `pt_BR` (Brazilian Portuguese), `pt_PT` (Europe
 |-----|------|---------|-------------|
 | `default` | `string` | `'dark'` | Default theme: `'dark'` or `'light'`. |
 | `allowToggle` | `bool` | `true` | When `false`, the theme picker is hidden everywhere — the Theme section disappears from the preferences overlay and the theme cycle button is suppressed on every pre-login surface (login, register, 2FA, password reset). Use this to lock the entire shell to a single theme without removing the rest of the preferences. |
-| `name` | `?string` | `null` | Custom theme name for the `martis:theme` artisan command. |
+| `name` | `?string` | `null` | Active custom theme. The panel loads `public/vendor/martis/themes/<name>.css`, which `martis:publish-assets` publishes from `resources/css/martis/<name>.css`. `null` keeps the built-in theme. |
 
-Custom themes are scaffolded via `php artisan martis:theme`. See [Theming](components.md#theming).
+Custom themes are scaffolded via `php artisan martis:theme`, which writes the source and sets `name`. See [Theming → Theme files](theming.md#theme-files).
 
 ## Keyboard Shortcuts
 

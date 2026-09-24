@@ -4,17 +4,20 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
+use Martis\Support\ThemeFiles;
 
 /**
  * martis:theme:diff
  *
- * Compare a consumer's published theme CSS against the bundled package
- * tokens and report any `--martis-*` variables the consumer has not
- * defined. Useful after upgrading martis/martis when the new release
- * introduces tokens the consumer's custom theme didn't know about: the
- * fallback to the package default keeps the panel functional, but a
- * brand-conscious team usually wants to declare the new tokens
- * explicitly.
+ * Compare a consumer theme's source (`resources/css/martis/<name>.css`)
+ * against the bundled package tokens and report any `--martis-*`
+ * variables the consumer has not defined. The published copy under
+ * `public/vendor/martis/themes/` is generated from that source by
+ * `martis:publish-assets`, so it is never compared. Useful after
+ * upgrading martis/martis when the new release introduces tokens the
+ * consumer's custom theme didn't know about: the fallback to the package
+ * default keeps the panel functional, but a brand-conscious team usually
+ * wants to declare the new tokens explicitly.
  *
  * Reports three sets:
  *
@@ -53,12 +56,19 @@ class ThemeDiffCommand extends Command
             return self::FAILURE;
         }
 
-        $consumerPath = public_path('vendor/martis/themes/'.$themeName.'.css');
+        $consumerPath = ThemeFiles::sourcePath($themeName);
         $packagePath = __DIR__.'/../../resources/css/martis.css';
 
         if (! $filesystem->exists($consumerPath)) {
-            $this->components->error("Consumer theme not found: {$consumerPath}");
-            $this->line('  Did you forget to <fg=cyan>php artisan martis:theme '.$themeName.'</>?');
+            $this->components->error("Theme source not found: resources/css/martis/{$themeName}.css");
+
+            if ($filesystem->exists(ThemeFiles::publishedPath($themeName))) {
+                $this->line("  Only the published copy <fg=cyan>public/vendor/martis/themes/{$themeName}.css</> exists, and the next");
+                $this->line('  <fg=cyan>php artisan martis:publish-assets</> deletes it: published themes are generated from resources/css/martis/.');
+                $this->line("  Move it to <fg=cyan>resources/css/martis/{$themeName}.css</> to keep the theme.");
+            } else {
+                $this->line('  Did you forget to <fg=cyan>php artisan martis:theme '.$themeName.'</>?');
+            }
 
             return self::FAILURE;
         }
@@ -96,6 +106,7 @@ class ThemeDiffCommand extends Command
 
         $this->newLine();
         $this->components->twoColumnDetail('Theme', "<fg=cyan>{$themeName}</>");
+        $this->components->twoColumnDetail('Source', "resources/css/martis/{$themeName}.css");
         $this->components->twoColumnDetail('Package tokens (declared)', (string) count($packageDeclared));
         if ($referencedOnly !== []) {
             $this->components->twoColumnDetail(

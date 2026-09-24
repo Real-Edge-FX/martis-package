@@ -211,13 +211,14 @@ See [Global Search → Searchable detail relations](global-search.md#-searchable
 
 ### Theme tokens not applied
 
-Theme tokens live under the `theme` block in `config/martis.php` (there is no separate `config/martis-theme.php`). After editing tokens, clear the config cache:
+A custom theme is the stylesheet `resources/css/martis/<name>.css`, activated by `theme.name` in the `theme` block of `config/martis.php` (there is no separate `config/martis-theme.php`). The browser loads the published copy, `public/vendor/martis/themes/<name>.css`, which `martis:publish-assets` writes from the source. After editing the theme or the config, publish and clear the config cache:
 
 ```bash
+php artisan martis:publish-assets
 php artisan config:clear
 ```
 
-If you scaffolded a custom theme via `php artisan martis:theme`, regenerate the published file by running the generator again.
+Do not run `php artisan martis:theme` again to refresh the published file: it refuses to overwrite the source without `--force`, and with `--force` it replaces your theme with the scaffold. Up to v1.39.1 every asset publish deleted the published copy without writing it again; see [Theming → Theme not loading](theming.md#theme-not-loading).
 
 ### Custom override not picked up
 

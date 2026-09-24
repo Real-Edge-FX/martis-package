@@ -21,6 +21,16 @@ it('generates the theme file in resources and public', function () {
     expect(file_exists(public_path('vendor/martis/themes/test-theme.css')))->toBeTrue();
 });
 
+it('tells the user to edit the source and publish it', function () {
+    // The published copy is regenerated from the source on every
+    // martis:publish-assets, so the hint must never point at the copy.
+    $this->artisan('martis:theme', ['name' => 'test-theme'])
+        ->expectsOutputToContain('Edit CSS variables in resources/css/martis/test-theme.css')
+        ->expectsOutputToContain('php artisan martis:publish-assets')
+        ->doesntExpectOutputToContain('Edit CSS variables in public/vendor/martis/themes/test-theme.css')
+        ->assertSuccessful();
+});
+
 it('fills the {{ name }} placeholder in the stub header', function () {
     $this->artisan('martis:theme', ['name' => 'brand-x'])->assertSuccessful();
 
