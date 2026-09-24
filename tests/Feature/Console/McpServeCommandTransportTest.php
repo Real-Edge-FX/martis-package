@@ -97,6 +97,17 @@ function waitForServeReady(Process $process, float $timeoutSec = 8.0): bool
     return false;
 }
 
+beforeEach(function () {
+    // `vendor/bin/testbench` copies the skeleton's `.env.example` to `.env`
+    // when it boots and deletes the copy only when it exits cleanly or
+    // traps the signal. A subprocess killed with SIGKILL (the stop()
+    // fallback below), or sent SIGTERM before it registers its handlers,
+    // leaves the copy in the testbench skeleton under vendor/, where every
+    // later `vendor/bin/testbench` run finds it. Remember whether a `.env`
+    // was there, so the afterEach hook removes only a copy this test left.
+    $this->skeletonEnvExisted = is_file(base_path('.env'));
+});
+
 afterEach(function () {
     foreach ($GLOBALS['__martis_serve_processes'] as $p) {
         if ($p instanceof Process && $p->isRunning()) {
@@ -108,6 +119,10 @@ afterEach(function () {
         }
     }
     $GLOBALS['__martis_serve_processes'] = [];
+
+    if (! $this->skeletonEnvExisted && is_file(base_path('.env'))) {
+        @unlink(base_path('.env'));
+    }
 });
 
 it('http transport responds to tools/list on /mcp', function () {
