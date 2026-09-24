@@ -370,7 +370,7 @@ class HasManyController extends MartisController
     /**
      * Resolve all context needed for a HasMany operation.
      *
-     * @return array{parentModel: Model, parentResourceClass: class-string<resource>, relatedResourceClass: class-string<resource>, hasManyField: HasMany, relation: EloquentHasMany<Model, Model>}|IlluminateJsonResponse
+     * @return array{parentModel: Model, parentResourceClass: class-string<resource>, relatedResourceClass: class-string<resource>, hasManyField: HasMany, relation: EloquentHasMany<Model, Model>|EloquentHasManyThrough<Model, Model, Model>}|IlluminateJsonResponse
      */
     private function resolveContext(
         Request $request,

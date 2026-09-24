@@ -441,7 +441,7 @@ class HasOneController extends MartisController
     /**
      * Resolve all context needed for a HasOne operation.
      *
-     * @return array{parentModel: Model, parentResourceClass: class-string<resource>, relatedResourceClass: class-string<resource>, hasOneField: HasOne, relation: EloquentHasOne<Model, Model>}|IlluminateJsonResponse
+     * @return array{parentModel: Model, parentResourceClass: class-string<resource>, relatedResourceClass: class-string<resource>, hasOneField: HasOne, relation: EloquentHasOne<Model, Model>|EloquentHasOneThrough<Model, Model, Model>|EloquentHasMany<Model, Model>}|IlluminateJsonResponse
      */
     private function resolveContext(
         Request $request,
