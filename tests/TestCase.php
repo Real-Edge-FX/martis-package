@@ -12,6 +12,25 @@ abstract class TestCase extends OrchestraTestCase
 {
     use RefreshDatabase;
 
+    /**
+     * Do not load the `.env` of the testbench skeleton the tests run in.
+     *
+     * The skeleton lives under vendor/ and every test process shares it.
+     * `vendor/bin/testbench` (spawned by McpServeCommandTransportTest)
+     * copies the skeleton's `.env.example` to `.env` while it runs and
+     * deletes the copy only when it exits cleanly, so a killed subprocess
+     * leaves it behind. Loaded into the test application, its
+     * `CACHE_STORE=database` and `SESSION_DRIVER=cookie` break every test
+     * that touches the cache or the session (the test database has no
+     * `cache` table, see migrateFreshUsing()). CI installs a fresh vendor/
+     * on every run and never has the file, so the tests run on the
+     * skeleton's config defaults there; ignoring the file does the same
+     * locally.
+     *
+     * @var bool
+     */
+    protected $loadEnvironmentVariables = false;
+
     protected function getPackageProviders($app): array
     {
         return [MartisServiceProvider::class];
