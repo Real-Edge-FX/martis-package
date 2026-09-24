@@ -278,7 +278,7 @@ Metric results are cached by default through the Martis `metrics` cache layer (`
 MARTIS_CACHE_METRICS_TTL=15
 ```
 
-Overriding `cacheFor()` to return a date caches the metric with `Cache::remember()` directly, outside the Martis layer, so the kill-switch, the `?nocache` bypass and `martis:cache:clear` no longer apply to it. Neither cache path puts the user in the key: do not cache a metric whose result depends on the authenticated user or tenant (disable the layer for it instead).
+Overriding `cacheFor()` to return a date caches the metric with `Cache::remember()` directly, outside the Martis layer, so the kill-switch, the `?nocache` bypass and `martis:cache:clear` no longer apply to it. Both cache paths key the result on the authenticated user (v2.0.0+), so a metric whose result depends on the user or their tenant is safe to cache; before v2.0.0 the first user's value was served to everyone for the TTL.
 
 See [Metrics](metrics.md) and [Cache](cache.md) for the cache keys and ranges.
 
