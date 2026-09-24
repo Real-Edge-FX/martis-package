@@ -9,6 +9,7 @@ use Martis\Contracts\DashboardContract;
 use Martis\Contracts\ToolContract;
 use Martis\Menu\Menu;
 use Martis\Menu\MenuSection;
+use Martis\Support\ConfigCallable;
 use Throwable;
 
 class MartisManager
@@ -299,7 +300,8 @@ class MartisManager
      *
      * Resolution order (highest priority first):
      *   1. Closure registered via `Martis::pageTitleUsing(...)`
-     *   2. `config('martis.brand.page_title')` — static string or callable class
+     *   2. `config('martis.brand.page_title')` — literal string, invokable class
+     *      name or `[Class::class, 'staticMethod']` array (see {@see ConfigCallable})
      *   3. Automatic inference from the request path (resource label, profile, etc.)
      *   4. `__('martis::navigation.page_title_default', ['brand' => ...])` — i18n fallback
      */
@@ -312,12 +314,17 @@ class MartisManager
             }
         }
 
+        // A string is the literal title unless it names an invokable
+        // class. It is never tried as a callable: "Mail", "Date" or "Link"
+        // name PHP functions.
         $configured = config('martis.brand.page_title');
-        if (is_string($configured) && $configured !== '') {
+        if (is_string($configured) && $configured !== '' && ! ConfigCallable::isInvokableClass($configured)) {
             return $configured;
         }
-        if (is_callable($configured)) {
-            $resolved = $configured($request);
+
+        $resolver = ConfigCallable::resolve($configured, 'martis.brand.page_title');
+        if ($resolver !== null) {
+            $resolved = $resolver($request);
             if (is_string($resolved) && $resolved !== '') {
                 return $resolved;
             }

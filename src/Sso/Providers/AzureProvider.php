@@ -10,6 +10,7 @@ use Laravel\Socialite\Contracts\Provider;
 use Laravel\Socialite\Contracts\User;
 use Laravel\Socialite\Facades\Socialite;
 use Martis\Sso\SsoIdentity;
+use Martis\Support\ConfigCallable;
 use RuntimeException;
 
 /**
@@ -28,9 +29,9 @@ use RuntimeException;
  *     `displayName`s. Coarser-grained but doesn't require app role
  *     definitions in the Azure portal.
  *
- *   • `callable` — defers entirely to a host-app closure registered on
- *     the provider config (`role_callable`). Use when neither built-in
- *     endpoint shape fits.
+ *   • `callable` — defers entirely to the provider config's
+ *     `role_source_callable` (see {@see fetchViaCallable()}). Use when
+ *     neither built-in endpoint shape fits.
  */
 class AzureProvider extends AbstractSsoProvider
 {
@@ -146,12 +147,19 @@ class AzureProvider extends AbstractSsoProvider
     }
 
     /**
+     * The `role_source_callable` of the provider config, called with
+     * `(string $externalId, string $accessToken)` and returning the
+     * external role names. {@see ConfigCallable} resolves it.
+     *
      * @return array<int, string>
      */
     protected function fetchViaCallable(string $externalId, string $accessToken): array
     {
-        $callable = $this->config('role_source_callable');
-        if (! is_callable($callable)) {
+        $callable = ConfigCallable::resolve(
+            $this->config('role_source_callable'),
+            "martis.auth.sso.providers.{$this->name()}.role_source_callable",
+        );
+        if ($callable === null) {
             return [];
         }
 

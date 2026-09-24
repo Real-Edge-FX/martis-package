@@ -6,6 +6,7 @@ namespace Martis\Gates;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
+use Martis\Support\ConfigCallable;
 
 /**
  * Optional plan-rank helper for the soft-gate trait.
@@ -17,10 +18,8 @@ use Illuminate\Http\Request;
  * `config/martis.php`:
  *
  *     'gates' => [
- *         'plan_resolver' => fn (?Authenticatable $user) =>
- *             $user?->hasRole('admin') ? 'admin'
- *             : ($user?->hasRole('pro') ? 'pro'
- *             : ($user?->hasRole('starter') ? 'starter' : 'free')),
+ *         // An invokable class: __invoke(?Authenticatable $user): ?string
+ *         'plan_resolver' => \App\Martis\PlanResolver::class,
  *
  *         'plan_rank' => [
  *             'free'    => 0,
@@ -40,6 +39,9 @@ use Illuminate\Http\Request;
  *   - **Resolver not configured or returns null**: fails **closed** —
  *     the user is treated as having no plan (rank -1) and is locked
  *     below every declared tier.
+ *   - **Resolver set to something that is not a callable** (a typo in
+ *     the class name, a method that is not static): throws an
+ *     `InvalidArgumentException` naming the key.
  *   - **User's resolved plan not in the rank table**: also fails
  *     **closed** — the unknown plan receives implicit rank -1, which
  *     is less than every declared rank (minimum 0), so the user is
@@ -81,18 +83,16 @@ class PlanRanker
      * Plan tier currently held by the user, as resolved by the
      * `gates.plan_resolver` callable in `config/martis.php`.
      *
-     * v1.11.2: accepts any PHP callable, not only `Closure`. Closures
-     * cannot survive `php artisan config:cache` (the cache uses
-     * `var_export` and chokes on `Closure::__set_state()`); a
-     * `[Class::class, 'method']` array or a class name with `__invoke`
-     * does survive, so consumers that cache config can express the
-     * resolver as a static method or invokable class instead of a
-     * closure.
+     * `php artisan config:cache` keeps two forms of the resolver: a
+     * `[Class::class, 'staticMethod']` array and the name of an invokable
+     * class, built through the container. A closure or an object instance
+     * breaks the cache. {@see ConfigCallable} resolves the value and throws
+     * when it is set but is not a callable.
      */
     protected function resolveCurrentPlan(?Authenticatable $user): ?string
     {
-        $resolver = config('martis.gates.plan_resolver');
-        if (! is_callable($resolver)) {
+        $resolver = ConfigCallable::resolve(config('martis.gates.plan_resolver'), 'martis.gates.plan_resolver');
+        if ($resolver === null) {
             return null;
         }
 
