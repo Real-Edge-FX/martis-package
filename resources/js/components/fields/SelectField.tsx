@@ -25,6 +25,11 @@ export function SelectFieldDisplay({ field, value }: FieldDisplayProps) {
   // flag is missing keeps prior payloads working.
   const displayLabels = (field as Record<string, unknown>).displayLabels !== false
   const rendered = displayLabels && opt ? opt.label : String(value)
+  // displayUsingValues() on a '' option (or any other empty text to render)
+  // has nothing to show: the dash, not an empty badge.
+  if (rendered === '') {
+    return <span className="text-gray-400 dark:text-gray-500">—</span>
+  }
   return (
     <span className="martis-badge martis-badge-neutral">
       {rendered}
@@ -99,12 +104,16 @@ export function SelectFieldInput({ field, value, onChange, error, resourceKey, r
   // the label and the clear icon exactly as it does for no selection at
   // all. We swap '' for this sentinel only inside the Dropdown's own option
   // list and current value, and swap it back to '' the moment a value
-  // leaves the Dropdown (onChange); nothing outside this component ever
-  // sees it.
-  const EMPTY_VALUE_SENTINEL = '\u0000__martis_empty_select_option__'
+  // leaves the Dropdown (onChange), so nothing outside this component ever
+  // receives it. PrimeReact itself DOES see the sentinel (it is the
+  // option's `value` and the control's `value` prop), including its own
+  // local filter (`filterBy="label,value"`): '\u0000' alone, not readable
+  // text, so no term a person types can ever match it.
+  const EMPTY_VALUE_SENTINEL = '\u0000'
+  const toSentinelValue = (value: string): string => (value === '' ? EMPTY_VALUE_SENTINEL : value)
   const staticOptions: DropdownOption[] = field.options?.map((o) => ({
     label: o.label,
-    value: String(o.value) === '' ? EMPTY_VALUE_SENTINEL : String(o.value),
+    value: toSentinelValue(String(o.value)),
     ...(o.group ? { group: o.group } : {}),
   })) ?? []
   // Pass `null` (not '') when empty so PrimeReact's own `value != null` guard
@@ -144,7 +153,14 @@ export function SelectFieldInput({ field, value, onChange, error, resourceKey, r
   const remoteClosedOptions = remote && currentValue !== null && !staticOptions.some((o) => o.value === currentValue)
     ? [{ label: currentValueLabel ?? currentValue, value: currentValue }, ...staticOptions]
     : staticOptions
-  const options = remote && open && remoteState.options !== null ? remoteState.options : remoteClosedOptions
+  // A remote result whose value IS '' (a "None" choice) needs the same
+  // sentinel swap as the static options, or it is just as unpickable.
+  const remoteOptions: DropdownOption[] | null = remoteState.options?.map((o) => ({
+    label: o.label,
+    value: toSentinelValue(o.value),
+    ...(o.group ? { group: o.group } : {}),
+  })) ?? null
+  const options = remote && open && remoteOptions !== null ? remoteOptions : remoteClosedOptions
 
   const optionGroups = groupDropdownOptions(options)
   const optionProps = optionGroups

@@ -101,6 +101,29 @@ describe('SelectFieldInput — empty-string option value', () => {
     expect(container.querySelector('.p-dropdown-label')?.textContent).toBe('None')
     expect(container.querySelector('.p-dropdown-clear-icon')).not.toBeNull()
   })
+
+  it('does not let the empty-value sentinel leak into the local search match', async () => {
+    // The sentinel that stands in for a '' option's value inside the
+    // Dropdown must be unreadable text: PrimeReact's own local filter
+    // (`filterBy="label,value"`) matches a typed term against it too, so a
+    // readable sentinel let an unrelated word ("select", "option", "mart")
+    // keep the "None" option visible.
+    const field = makeField({
+      searchableOptions: true,
+      options: [{ label: 'None', value: '' }, { label: 'Active', value: 'active' }],
+    })
+    const { container } = render(
+      <SelectFieldInput field={field} value="active" onChange={vi.fn()} error={undefined} />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+    fireEvent.change(document.querySelector('.p-dropdown-filter')!, { target: { value: 'mart' } })
+
+    // Neither label matches "mart": before the fix the sentinel's own
+    // readable text ("...martis_empty_select_option...") kept "None"
+    // showing anyway; now the panel narrows to no matches at all.
+    await waitFor(() => expect(screen.queryByText('None')).toBeNull())
+    expect(screen.getByText('no_results_found')).toBeTruthy()
+  })
 })
 
 describe('SelectFieldDisplay — empty-string option value', () => {
@@ -112,6 +135,13 @@ describe('SelectFieldDisplay — empty-string option value', () => {
 
   it("still renders the dash for a stored '' with no matching option", () => {
     const { container } = render(<SelectFieldDisplay field={makeField()} value="" />)
+
+    expect(container.textContent).toBe('—')
+  })
+
+  it("renders the dash, not an empty badge, for a stored '' option under displayUsingValues()", () => {
+    const field = makeField({ options: [{ label: 'None', value: '' }], displayLabels: false })
+    const { container } = render(<SelectFieldDisplay field={field} value="" />)
 
     expect(container.textContent).toBe('—')
   })
@@ -270,6 +300,21 @@ describe('SelectFieldInput — remote option search', () => {
     await waitFor(() => expect(apiGetMock).toHaveBeenCalledTimes(2))
 
     expect(await screen.findByText('João')).toBeTruthy()
+  })
+
+  it("maps a remote '' option through the same sentinel, so it can be picked", async () => {
+    apiGetMock.mockResolvedValue({ data: { options: [{ label: 'None', value: '' }, { label: 'Claude Opus 5', value: 'claude-opus-5' }] } })
+    const onChange = vi.fn()
+    const { container } = render(
+      <SelectFieldInput field={remoteField()} value="claude-opus-5" onChange={onChange} error={undefined} toolKey="settings" />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+    await waitFor(() => expect(apiGetMock).toHaveBeenCalledTimes(1))
+    await screen.findByText('None')
+
+    fireEvent.click(document.querySelectorAll('.p-dropdown-item')[0])
+
+    expect(onChange).toHaveBeenCalledWith('')
   })
 
   it('shows a stored value that is not in the initial list instead of the placeholder', () => {
