@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.39.1] — 2026-09-24
+
 ### Fixed
 
 - **A callable config key set to the name of an invokable class did nothing.** `brand.page_title`, `gates.plan_resolver`, `profile.avatar.url_resolver` and an SSO provider's `role_source_callable` and `role_callable` tested their value with `is_callable()`, which is false for a class name. The invokable class name, one of the two forms that survive `php artisan config:cache` and the one the config comments recommended, was therefore ignored: `page_title` rendered the class name as the tab title, `plan_resolver` resolved no plan and locked every `requirePlan()` entity for every user, `url_resolver` fell back to the disk URL, and the SSO callables read no roles (with `on_no_role_match => 'guest'` and `sync_roles`, the login then synced the user's local roles away). All five now resolve through `Martis\Support\ConfigCallable`: an invokable class name is built through the container (constructor injection works), and a `[Class::class, 'staticMethod']` array or any other PHP callable is called as it is. `page_title` still renders a string that names no invokable class as the title, and never calls a string that names a PHP function (`Mail`, `Date`, `Link`). +67 Pest, among them a round trip of the documented forms through `var_export()` and `require`, as `config:cache` does it. See [Configuration → Config keys that take a callable](docs/configuration.md#config-keys-that-take-a-callable).
