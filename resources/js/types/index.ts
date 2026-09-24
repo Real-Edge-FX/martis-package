@@ -6,6 +6,17 @@ export interface User {
   [key: string]: unknown
 }
 
+/**
+ * The profile payload of `GET` / `PATCH /api/profile`: the `toArray()` of
+ * the profile resource. A custom resource may leave keys out.
+ */
+export interface ProfileData {
+  name: string
+  email: string
+  avatar_url: string | null
+  two_factor_enabled: boolean
+}
+
 export interface ResourceMeta {
   uriKey: string
   label: string

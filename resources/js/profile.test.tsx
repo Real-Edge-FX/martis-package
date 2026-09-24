@@ -3,6 +3,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 // --- Mocks ---
+// One spy for every render: the profile page loads once per `updateUser`.
+const { updateUser } = vi.hoisted(() => ({ updateUser: vi.fn() }))
+
 vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn(),
@@ -27,7 +30,7 @@ vi.mock('@/contexts/ToastContext', () => ({
 }))
 
 vi.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({ user: { id: 1, name: 'Test User', email: 'test@example.com' } }),
+  useAuth: () => ({ user: { id: 1, name: 'Test User', email: 'test@example.com' }, updateUser }),
   TwoFactorRequiredError: class TwoFactorRequiredError extends Error {
     constructor() { super('two_factor_required'); this.name = 'TwoFactorRequiredError' }
   },
@@ -79,6 +82,22 @@ describe('AccountSection', () => {
     fireEvent.click(btn)
     await waitFor(() => {
       expect(api.patch).toHaveBeenCalledWith('/api/profile', expect.any(Object))
+    })
+  })
+
+  it('passes the profile the server saved to onUpdate, not the form values', async () => {
+    // A resource may drop or normalise a key: this one keeps the e-mail.
+    const saved = { name: 'Alice Smith', email: 'alice@example.com', avatar_url: null, two_factor_enabled: false }
+    vi.mocked(api.patch).mockResolvedValue(saved)
+    const onUpdate = vi.fn()
+    wrap(<AccountSection name="Alice" email="alice@example.com" onUpdate={onUpdate} />)
+
+    fireEvent.change(screen.getByDisplayValue('Alice'), { target: { value: 'Alice Smith' } })
+    fireEvent.change(screen.getByDisplayValue('alice@example.com'), { target: { value: 'other@example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith(saved)
     })
   })
 })
@@ -174,11 +193,38 @@ describe('SecuritySection', () => {
 // --- ProfilePage tests ---
 describe('ProfilePage', () => {
   beforeEach(() => {
+    updateUser.mockClear()
     vi.mocked(api.get).mockResolvedValue({
       name: 'Test User',
       email: 'test@example.com',
       avatar_url: null,
       two_factor_enabled: false,
+    })
+  })
+
+  it('gives the Topbar the loaded profile', async () => {
+    wrap(<ProfilePage />)
+    await waitFor(() => {
+      expect(updateUser).toHaveBeenCalledWith({ name: 'Test User', email: 'test@example.com', avatar_url: null })
+    })
+  })
+
+  it('gives the Topbar the saved name after an account update', async () => {
+    vi.mocked(api.patch).mockResolvedValue({
+      name: 'Renamed User',
+      email: 'test@example.com',
+      avatar_url: null,
+      two_factor_enabled: false,
+    })
+    wrap(<ProfilePage />)
+    const nameInput = await screen.findByDisplayValue('Test User')
+    updateUser.mockClear()
+
+    fireEvent.change(nameInput, { target: { value: 'Renamed User' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => {
+      expect(updateUser).toHaveBeenCalledWith({ name: 'Renamed User', email: 'test@example.com', avatar_url: null })
     })
   })
 
