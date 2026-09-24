@@ -175,3 +175,30 @@ it('never checks a Select that accepts custom values, where a typed label is a l
 
     Log::shouldNotHaveReceived('warning');
 });
+
+// ---------------------------------------------------------------------------
+// searchOptionsUsing() returning a list stores positions in the results
+// ---------------------------------------------------------------------------
+
+it('warns once per field in a request when searchOptionsUsing() returns a non-empty list', function () {
+    $field = Select::make('model')->searchOptionsUsing(fn (string $term) => ['gpt-4o', 'gpt-4.1']);
+
+    expect($field->searchOptions('gpt'))->toBe([
+        ['label' => 'gpt-4o', 'value' => 0],
+        ['label' => 'gpt-4.1', 'value' => 1],
+    ]);
+    $field->searchOptions('gpt-4');
+    Select::make('model')->searchOptionsUsing(fn (string $term) => ['gpt-4o'])->searchOptions('');
+
+    Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message, array $context): bool => str_contains($message, 'Select [model]: searchOptionsUsing() returned a list')
+        && str_contains($message, 'See docs/upgrading.md.')
+        && $context === ['field' => Select::class, 'attribute' => 'model']);
+});
+
+it('stays silent when searchOptionsUsing() returns a map or no results', function () {
+    Select::make('model')->searchOptionsUsing(fn (string $term) => ['gpt-4o' => 'GPT-4o'])->searchOptions('gpt');
+    Select::make('model')->searchOptionsUsing(fn (string $term) => collect())->searchOptions('zzz');
+    Select::make('owner_id')->searchOptionsUsing(fn (string $term) => [7 => 'Ana', 9 => 'Rui'])->searchOptions('a');
+
+    Log::shouldNotHaveReceived('warning');
+});

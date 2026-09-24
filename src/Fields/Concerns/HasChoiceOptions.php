@@ -49,8 +49,13 @@ trait HasChoiceOptions
      */
     private bool $optionsFromList = false;
 
-    /** Whether this field already warned, when no request can remember it. */
-    private bool $optionsOrderWarned = false;
+    /**
+     * The warnings this field already logged, when no request can remember
+     * them (see warnOncePerRequest()).
+     *
+     * @var array<string, true>
+     */
+    private array $optionsOrderWarned = [];
 
     /**
      * Set the options, in Nova's order.
@@ -306,29 +311,10 @@ trait HasChoiceOptions
      */
     private function logStoredAsLabel(Model $model, string $value, ?string $shownAs): void
     {
-        // Without an application (unit tests, raw scripts) there is no log.
-        if (! app()->bound('log')) {
+        if (! $this->warnOncePerRequest($model::class.'|'.static::class.'::'.$this->attribute)) {
             return;
         }
 
-        $key = $model::class.'|'.static::class.'::'.$this->attribute;
-        $request = $this->safeRequest();
-
-        if ($request !== null) {
-            /** @var array<string, true> $warned */
-            $warned = $request->attributes->get('martis.options_order_warned', []);
-
-            if (isset($warned[$key])) {
-                return;
-            }
-
-            $warned[$key] = true;
-            $request->attributes->set('martis.options_order_warned', $warned);
-        } elseif ($this->optionsOrderWarned) {
-            return;
-        }
-
-        $this->optionsOrderWarned = true;
         $id = $model->getKey();
 
         $message = $shownAs === null
@@ -363,5 +349,43 @@ trait HasChoiceOptions
             'attribute' => $this->attribute,
             'value' => $value,
         ]);
+    }
+
+    /**
+     * Whether the warning under `$key` is the first one in this request, and
+     * record it. The request remembers it, so every field instance built in
+     * the request shares it and a fresh request (Octane) warns again; with
+     * no request (a queue job, a raw script) this field instance does.
+     */
+    protected function warnOncePerRequest(string $key): bool
+    {
+        // Without an application (unit tests, raw scripts) there is no log.
+        if (! app()->bound('log')) {
+            return false;
+        }
+
+        $request = $this->safeRequest();
+
+        if ($request === null) {
+            if (isset($this->optionsOrderWarned[$key])) {
+                return false;
+            }
+
+            $this->optionsOrderWarned[$key] = true;
+
+            return true;
+        }
+
+        /** @var array<string, true> $warned */
+        $warned = $request->attributes->get('martis.options_order_warned', []);
+
+        if (isset($warned[$key])) {
+            return false;
+        }
+
+        $warned[$key] = true;
+        $request->attributes->set('martis.options_order_warned', $warned);
+
+        return true;
     }
 }

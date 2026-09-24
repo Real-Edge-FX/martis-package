@@ -4,6 +4,7 @@ namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Martis\Fields\Concerns\HasChoiceOptions;
 
 /**
@@ -199,6 +200,10 @@ class Select extends Field
      * other Traversable, exactly as `getOptions()` reads an `options()`
      * closure.
      *
+     * A non-empty list is keyed 0, 1, 2..., so the field would store a
+     * position in this search's results, which changes with the term: that
+     * logs a warning, once per field per request.
+     *
      * @return list<array{label: string, value: int|string, group?: string}>
      */
     public function searchOptions(string $term, ?Request $request = null): array
@@ -207,9 +212,33 @@ class Select extends Field
             return [];
         }
 
-        $resolved = ($this->searchOptionsResolver)($term, $request ?? $this->safeRequest());
+        $resolved = $this->resolvedOptionsToArray(
+            ($this->searchOptionsResolver)($term, $request ?? $this->safeRequest()),
+        );
 
-        return $this->normalizeOptions($this->resolvedOptionsToArray($resolved));
+        if ($resolved !== [] && array_is_list($resolved)) {
+            $this->warnSearchedList();
+        }
+
+        return $this->normalizeOptions($resolved);
+    }
+
+    private function warnSearchedList(): void
+    {
+        if (! $this->warnOncePerRequest('search|'.static::class.'::'.$this->attribute)) {
+            return;
+        }
+
+        Log::warning(sprintf(
+            'Martis: %s [%s]: searchOptionsUsing() returned a list, so the field stores the position of the '
+            .'picked option in that search\'s results, which changes with the term. Return [value => label], '
+            .'for example ->pluck(\'name\', \'id\'), or array_combine($values, $values). See docs/upgrading.md.',
+            class_basename(static::class),
+            $this->attribute,
+        ), [
+            'field' => static::class,
+            'attribute' => $this->attribute,
+        ]);
     }
 
     /**
