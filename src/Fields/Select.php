@@ -65,16 +65,24 @@ class Select extends Field
     /**
      * {@inheritdoc}
      *
-     * The value is checked against static options, see
-     * HasChoiceOptions::warnIfStoredAsLabel().
+     * The stored value, before `resolveUsing()`, is checked against static
+     * options (see HasChoiceOptions::warnIfStoredAsLabel()), unless the field
+     * accepts custom values, where a typed label is a legitimate value.
      */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
-        $value = parent::resolve($model, $attribute);
+        $attr = $attribute ?? $this->attribute;
+        $stored = $this->resolveAttribute($model, $attr);
 
-        $this->warnIfStoredAsLabel($model, $value);
+        if (! $this->allowCustomValues) {
+            $this->warnIfStoredAsLabel($model, $stored);
+        }
 
-        return $value;
+        if ($this->resolveCallback !== null) {
+            return ($this->resolveCallback)($stored, $model, $attr, $this->safeRequest());
+        }
+
+        return $stored;
     }
 
     /**

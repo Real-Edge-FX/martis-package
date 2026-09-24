@@ -133,3 +133,45 @@ it('stays silent for a map whose key differs from a numeric label, since only li
 
     Log::shouldNotHaveReceived('warning');
 });
+
+// ---------------------------------------------------------------------------
+// The stored value is checked, not what resolveUsing() or computed() yields
+// ---------------------------------------------------------------------------
+
+it('checks the stored value, not the one resolveUsing() turns into a label', function () {
+    $field = Select::make('status')->options(['draft' => 'Draft'])->resolveUsing(fn ($value) => ucfirst((string) $value));
+
+    expect($field->resolve(choiceOrderModel(['status' => 'draft'])))->toBe('Draft');
+    Log::shouldNotHaveReceived('warning');
+});
+
+it('still warns on a stored label that resolveUsing() hides', function () {
+    Select::make('status')->options(['Draft' => 'draft'])->resolveUsing(fn ($value) => strtoupper((string) $value))
+        ->resolve(choiceOrderModel(['status' => 'draft'], 3));
+
+    Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message): bool => str_contains($message, '#3 stores "draft"'));
+});
+
+it('checks the stored MultiSelect values, not the ones resolveUsing() returns', function () {
+    MultiSelect::make('tags')->options(['php' => 'PHP'])
+        ->resolveUsing(fn ($value) => array_map('strtoupper', json_decode((string) $value, true)))
+        ->resolve(choiceOrderModel(['tags' => '["php"]']));
+
+    Log::shouldNotHaveReceived('warning');
+});
+
+it('never checks a computed field, which stores nothing', function () {
+    Select::make('status')->options(['draft' => 'Draft'])->computed(fn () => 'Draft')
+        ->resolve(choiceOrderModel([]));
+    MultiSelect::make('tags')->options(['php' => 'PHP'])->computed(fn () => ['PHP'])
+        ->resolve(choiceOrderModel([]));
+
+    Log::shouldNotHaveReceived('warning');
+});
+
+it('never checks a Select that accepts custom values, where a typed label is a legitimate value', function () {
+    Select::make('status')->options(['draft' => 'Draft'])->allowCustomValues()
+        ->resolve(choiceOrderModel(['status' => 'Draft']));
+
+    Log::shouldNotHaveReceived('warning');
+});

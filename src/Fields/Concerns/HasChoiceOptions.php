@@ -197,7 +197,8 @@ trait HasChoiceOptions
      * order before v2.0.0), or of a record saved while it was. Saving such a
      * record again would store the wrong value, so the warning is logged in
      * production too, once per model class and field per request. Only
-     * static options are checked: a closure never runs just for this.
+     * static options are checked: a closure never runs just for this. The
+     * caller passes the stored value, never what `resolveUsing()` made of it.
      *
      * Static options from a list are checked harder: v1.x stored the items of
      * `[1, 2, 3]` themselves, v2.0 stores their positions, so a stored 1 is
@@ -208,7 +209,8 @@ trait HasChoiceOptions
      */
     protected function warnIfStoredAsLabel(Model $model, mixed $value): void
     {
-        if ($this->optionsResolver !== null || $this->options === []) {
+        // A computed field stores nothing, so its value cannot be stale.
+        if ($this->computed || $this->optionsResolver !== null || $this->options === []) {
             return;
         }
 
