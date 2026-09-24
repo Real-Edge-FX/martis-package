@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Martis\Fields\MultiSelect;
 use Martis\Fields\Select;
@@ -227,11 +228,11 @@ it('warns once per field instance when no request is bound', function () {
 it('warns again in a fresh request, for the same field instance (Octane)', function () {
     $field = Select::make('status')->options(['Draft' => 'draft']);
 
-    app()->instance('request', Illuminate\Http\Request::create('/first'));
+    app()->instance('request', Request::create('/first'));
     $field->resolve(choiceOrderModel(['status' => 'draft'], 1));
     $field->resolve(choiceOrderModel(['status' => 'draft'], 2));
 
-    app()->instance('request', Illuminate\Http\Request::create('/second'));
+    app()->instance('request', Request::create('/second'));
     $field->resolve(choiceOrderModel(['status' => 'draft'], 3));
 
     Log::shouldHaveReceived('warning')->twice();
