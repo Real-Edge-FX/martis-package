@@ -11,18 +11,18 @@ use Illuminate\Database\Eloquent\Relations\HasOneThrough as EloquentHasOneThroug
  *
  * The relationship on the parent model is defined as
  *   `hasOneThrough(Owner::class, Car::class)`
- * and the field renders visually like `HasOne` — without a Create
+ * and the field renders visually like `HasOne`, without a Create
  * button, because the traversal goes through an intermediate the UI
  * cannot create.
  *
  * ⭐ Martis differentials:
- *  - **No create through the relationship, enforced** — as in Nova, a
+ *  - **No create through the relationship, enforced**: as in Nova, a
  *    Through record cannot be created from the parent resource and
  *    `canCreate()` has no effect, because the traversal goes through an
  *    intermediate model the UI cannot populate; the has-one endpoints
  *    also refuse a create through the relationship with a 403. Edit and
  *    Delete work as on `HasOne`, under the related resource's policies.
- *  - **`throughBreadcrumb(bool $enabled = true)`** — ships a tooltip
+ *  - **`throughBreadcrumb(bool $enabled = true)`**: ships a tooltip
  *    describing the intermediate hop (e.g. `Project → Client →
  *    Account Manager`), resolved from the relation's intermediate
  *    table name.
@@ -38,8 +38,8 @@ class HasOneThrough extends HasOne
         parent::__construct($attribute, $label, $relationship);
 
         // No create through a Through relationship, as in Nova: it is a
-        // traversal — there is no direct FK to populate (the intermediate
-        // model is ambiguous) — and HasOneController refuses one (403).
+        // traversal with no direct FK to populate (the intermediate model
+        // is ambiguous), and HasOneController refuses one (403).
         $this->canCreateRelated = false;
     }
 

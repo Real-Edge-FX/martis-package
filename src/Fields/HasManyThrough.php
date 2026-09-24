@@ -11,20 +11,20 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough as EloquentHasManyThro
  *
  * The relationship on the parent model is defined as
  *   `hasManyThrough(Invoice::class, Project::class)`
- * and the field renders visually like `HasMany` — inline DataTable —
+ * and the field renders visually like `HasMany` (an inline DataTable),
  * without a Create button, because the traversal goes through an
  * intermediate.
  *
  * ⭐ Martis differentials:
- *  - **No create through the relationship, enforced** — as in Nova, the
+ *  - **No create through the relationship, enforced**: as in Nova, the
  *    panel offers no Create and `canCreate()` has no effect, because the
  *    traversal goes through an intermediate model the UI cannot
  *    populate; the has-many endpoints also refuse a create through the
  *    relationship with a 403. Edit / Delete / Restore / Force delete
  *    work as on `HasMany`, under the related resource's policies.
- *  - **`throughBreadcrumb(bool $enabled = true)`** — tooltip describing
+ *  - **`throughBreadcrumb(bool $enabled = true)`**: tooltip describing
  *    the intermediate hop (e.g. `Client → Projects → Invoices`).
- *  - **`countBadge(bool $enabled = true)`** — shows a count pill on
+ *  - **`countBadge(bool $enabled = true)`**: shows a count pill on
  *    the parent's index cell, matching the `showRelationCount` API
  *    already available on `HasMany`. Default: on for Through.
  */
@@ -41,8 +41,8 @@ class HasManyThrough extends HasMany
         parent::__construct($attribute, $label, $relationship);
 
         // No create through a Through relationship, as in Nova: it is a
-        // traversal — there is no direct FK to populate (the intermediate
-        // model is ambiguous) — and HasManyController refuses one (403).
+        // traversal with no direct FK to populate (the intermediate model
+        // is ambiguous), and HasManyController refuses one (403).
         $this->canCreateRelated = false;
     }
 

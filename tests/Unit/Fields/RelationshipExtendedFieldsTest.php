@@ -68,7 +68,7 @@ it('MorphOneOfMany latestByTimestamp + aggregateVia pipe through', function () {
         ->and($field->getAggregateFunction())->toBe(AggregateFunction::Count);
 });
 
-// ── HasOneThrough — no create, as in Nova ─────────────────────────────
+// ── HasOneThrough: no create, as in Nova ──────────────────────────────
 
 it('HasOneThrough offers no Create and keeps the HasOne Update / Delete defaults', function () {
     $schema = HasOneThrough::make('Manager', 'manager')->toArray();
@@ -91,7 +91,7 @@ it('HasOneThrough throughBreadcrumb flag round-trips', function () {
         ->and($field->toArray()['throughBreadcrumb'])->toBeTrue();
 });
 
-// ── HasManyThrough — no create, as in Nova + count badge ──────────────
+// ── HasManyThrough: no create, as in Nova + count badge ───────────────
 
 it('HasManyThrough offers no Create and keeps the HasMany row action defaults', function () {
     $schema = HasManyThrough::make('Projects', 'managedProjects')->toArray();

@@ -135,7 +135,7 @@ beforeEach(() => {
   apiGetMock.mockReset()
 })
 
-describe('Through panels — no Create, as in Nova', () => {
+describe('Through panels: no Create, as in Nova', () => {
   it('offers no Create on a has_many_through panel, and its row actions', async () => {
     answerWith([
       { id: 1, title: 'Active project', _title: 'Active project', _authorization: ALLOWED },
@@ -163,7 +163,7 @@ describe('Through panels — no Create, as in Nova', () => {
 describe.each([
   ['has_many', HAS_MANY_META],
   ['has_many_through', HAS_MANY_THROUGH_META],
-])('%s panel — row actions follow each record\'s policy', (type, meta) => {
+])('%s panel: row actions follow each record\'s policy', (type, meta) => {
   it('leaves out, per row, the actions the policy denies', async () => {
     answerWith([
       { id: 1, title: 'Open project', _title: 'Open project', _authorization: ALLOWED },
@@ -199,7 +199,7 @@ describe.each([
   ['has_one', 'hasOneMeta'],
   ['has_one_through', 'hasOneMeta'],
   ['morph_one', 'morphOneMeta'],
-])('%s card — Edit and Delete follow the record\'s policy', (type, metaKey) => {
+])('%s card: Edit and Delete follow the record\'s policy', (type, metaKey) => {
   const meta = { canCreate: type !== 'has_one_through', canUpdate: true, canDelete: true }
 
   it('leaves out Edit and Delete when the policy denies them', async () => {
