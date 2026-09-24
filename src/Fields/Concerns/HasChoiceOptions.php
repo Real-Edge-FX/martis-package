@@ -2,7 +2,9 @@
 
 namespace Martis\Fields\Concerns;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -30,6 +32,17 @@ trait HasChoiceOptions
     protected ?\Closure $optionsResolver = null;
 
     /**
+     * The values and labels of the static options, flipped for lookups and
+     * built once for warnIfStoredAsLabel(); `options()` clears it.
+     *
+     * @var array{values: array<array-key, int>, labels: array<array-key, int>}|null
+     */
+    private ?array $optionsIndex = null;
+
+    /** Whether this field already warned, when no request can remember it. */
+    private bool $optionsOrderWarned = false;
+
+    /**
      * Set the options, in Nova's order.
      *
      *   - Map:     ['draft' => 'Draft', 'live' => 'Live']   value => label
@@ -45,6 +58,8 @@ trait HasChoiceOptions
      */
     public function options(array|string|\Closure $options): static
     {
+        $this->optionsIndex = null;
+
         if ($options instanceof \Closure) {
             $this->optionsResolver = $options;
             $this->options = [];
@@ -138,6 +153,45 @@ trait HasChoiceOptions
     }
 
     /**
+     * Warn when a stored value matches the label of an option and the value
+     * of none: the sign of an options array still written label first (the
+     * order before v2.0.0), or of a record saved while it was. Saving such a
+     * record again would store the wrong value, so the warning is logged in
+     * production too, once per model class and field per request. Only
+     * static options are checked: a closure never runs just for this.
+     */
+    protected function warnIfStoredAsLabel(Model $model, mixed $value): void
+    {
+        if ($this->optionsResolver !== null || $this->options === []) {
+            return;
+        }
+
+        $stored = array_filter(
+            is_array($value) ? $value : [$value],
+            static fn (mixed $item): bool => is_scalar($item) && $item !== '',
+        );
+
+        if ($stored === []) {
+            return;
+        }
+
+        $this->optionsIndex ??= [
+            'values' => array_flip(array_map(static fn (array $option): string => (string) $option['value'], $this->options)),
+            'labels' => array_flip(array_column($this->options, 'label')),
+        ];
+
+        foreach ($stored as $item) {
+            $item = (string) $item;
+
+            if (! isset($this->optionsIndex['values'][$item]) && isset($this->optionsIndex['labels'][$item])) {
+                $this->logStoredAsLabel($model, $item);
+
+                return;
+            }
+        }
+    }
+
+    /**
      * One grouped option in Nova's format. Any other array is rejected:
      * before v2.0.0 a MultiSelect group was `['Group' => ['Label' => 'value']]`,
      * which Nova's order reads as an option whose value is the group name.
@@ -182,6 +236,46 @@ trait HasChoiceOptions
             $what,
             $value,
             get_debug_type($text),
+        ));
+    }
+
+    private function logStoredAsLabel(Model $model, string $value): void
+    {
+        // Without an application (unit tests, raw scripts) there is no log.
+        if (! app()->bound('log')) {
+            return;
+        }
+
+        $key = $model::class.'|'.static::class.'::'.$this->attribute;
+        $request = $this->safeRequest();
+
+        if ($request !== null) {
+            /** @var array<string, true> $warned */
+            $warned = $request->attributes->get('martis.options_order_warned', []);
+
+            if (isset($warned[$key])) {
+                return;
+            }
+
+            $warned[$key] = true;
+            $request->attributes->set('martis.options_order_warned', $warned);
+        } elseif ($this->optionsOrderWarned) {
+            return;
+        }
+
+        $this->optionsOrderWarned = true;
+        $id = $model->getKey();
+
+        Log::warning(sprintf(
+            'Martis: %s #%s stores "%s" in %s [%s], which matches an option label and no option value. '
+            .'Since v2.0.0 options() reads [value => label], as Nova does: flip the options array, '
+            .'or fix the stored value if the record was saved while the array listed the label first. '
+            .'See docs/upgrading.md.',
+            $model::class,
+            is_scalar($id) ? (string) $id : '?',
+            $value,
+            class_basename(static::class),
+            $this->attribute,
         ));
     }
 }

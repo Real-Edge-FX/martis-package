@@ -93,11 +93,14 @@ class MultiSelect extends Field
         $attr = $attribute ?? $this->attribute;
         $raw = $this->resolveAttribute($model, $attr);
 
-        if ($this->resolveCallback !== null) {
-            return ($this->resolveCallback)($raw, $model, $attr, $this->safeRequest());
-        }
+        $value = $this->resolveCallback !== null
+            ? ($this->resolveCallback)($raw, $model, $attr, $this->safeRequest())
+            : $this->decodeToArray($raw);
 
-        return $this->decodeToArray($raw);
+        // Checked against static options, see HasChoiceOptions::warnIfStoredAsLabel().
+        $this->warnIfStoredAsLabel($model, $value);
+
+        return $value;
     }
 
     /** {@inheritdoc} */

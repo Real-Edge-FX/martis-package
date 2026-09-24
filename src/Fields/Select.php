@@ -2,6 +2,7 @@
 
 namespace Martis\Fields;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Martis\Fields\Concerns\HasChoiceOptions;
 
@@ -59,6 +60,21 @@ class Select extends Field
     public function type(): string
     {
         return 'select';
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * The value is checked against static options, see
+     * HasChoiceOptions::warnIfStoredAsLabel().
+     */
+    public function resolve(Model $model, ?string $attribute = null): mixed
+    {
+        $value = parent::resolve($model, $attribute);
+
+        $this->warnIfStoredAsLabel($model, $value);
+
+        return $value;
     }
 
     /**
