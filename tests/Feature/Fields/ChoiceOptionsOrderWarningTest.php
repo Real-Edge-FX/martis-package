@@ -202,3 +202,38 @@ it('stays silent when searchOptionsUsing() returns a map or no results', functio
 
     Log::shouldNotHaveReceived('warning');
 });
+
+// ---------------------------------------------------------------------------
+// Dedupe: per request, per field instance without one
+// ---------------------------------------------------------------------------
+
+it('warns once per field instance when no request is bound', function () {
+    // A queue job or a raw script: the container holds no Request.
+    $request = app('request');
+    app()->offsetUnset('request');
+
+    try {
+        $field = Select::make('status')->options(['Draft' => 'draft']);
+        $field->resolve(choiceOrderModel(['status' => 'draft'], 1));
+        $field->resolve(choiceOrderModel(['status' => 'draft'], 2));
+        Select::make('status')->options(['Draft' => 'draft'])->resolve(choiceOrderModel(['status' => 'draft'], 3));
+    } finally {
+        app()->instance('request', $request);
+    }
+
+    Log::shouldHaveReceived('warning')->twice();
+});
+
+it('warns again in a fresh request, for the same field instance (Octane)', function () {
+    $field = Select::make('status')->options(['Draft' => 'draft']);
+
+    app()->instance('request', Illuminate\Http\Request::create('/first'));
+    $field->resolve(choiceOrderModel(['status' => 'draft'], 1));
+    $field->resolve(choiceOrderModel(['status' => 'draft'], 2));
+
+    app()->instance('request', Illuminate\Http\Request::create('/second'));
+    $field->resolve(choiceOrderModel(['status' => 'draft'], 3));
+
+    Log::shouldHaveReceived('warning')->twice();
+    Log::shouldHaveReceived('warning')->withArgs(fn (string $message): bool => str_contains($message, '#3 stores "draft"'));
+});

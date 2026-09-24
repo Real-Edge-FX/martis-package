@@ -366,3 +366,12 @@ it('is idempotent — re-running without --force skips existing files', function
     expect($hashAfterRerun)->toBe($mutatedHash);
     expect($hashAfterRerun)->not->toBe($hash);
 });
+
+it('builds the BulkAssignRole role picker in Nova order, so it stores the role id', function () {
+    // Read the stub itself: the scaffold test above is skipped without Spatie,
+    // and a revert to pluck('id', 'name') would hand the action a role name.
+    $stub = (string) file_get_contents(__DIR__.'/../../stubs/roles-bulk-assign-role-action.stub');
+
+    expect($stub)->toContain("->pluck('name', 'id')")
+        ->and($stub)->not->toContain("pluck('id', 'name')");
+});

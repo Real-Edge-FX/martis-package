@@ -103,6 +103,30 @@ it('keeps non-sequential integer keys as the stored values', function () {
     ]);
 });
 
+it('stores a numeric-string key as the integer PHP makes of it', function () {
+    $field = Select::make('code')->options(['1' => 'One', '02' => 'Two']);
+
+    expect($field->getOptions())->toBe([
+        ['label' => 'One', 'value' => 1],
+        ['label' => 'Two', 'value' => '02'],
+    ]);
+});
+
+it('keeps an empty-string key as a real option whose value is the empty string', function () {
+    $field = Select::make('tier')->options(['' => 'None', 'pro' => 'Pro']);
+
+    expect($field->getOptions())->toBe([
+        ['label' => 'None', 'value' => ''],
+        ['label' => 'Pro', 'value' => 'pro'],
+    ]);
+});
+
+it('reads a null label as an empty label', function () {
+    expect(Select::make('status')->options(['draft' => null])->getOptions())->toBe([
+        ['label' => '', 'value' => 'draft'],
+    ]);
+});
+
 it('reads Nova grouped options and carries the group in the payload', function () {
     $field = Select::make('size')->options([
         'MS' => ['label' => 'Small', 'group' => 'Men Sizes'],

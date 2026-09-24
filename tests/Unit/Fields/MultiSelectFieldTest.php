@@ -10,6 +10,12 @@ enum MultiSelectFieldTag: string
     case Go = 'go';
 }
 
+enum MultiSelectFieldPureTag
+{
+    case Backend;
+    case FrontEnd;
+}
+
 // ---------------------------------------------------------------------------
 // Test model fixture
 // ---------------------------------------------------------------------------
@@ -95,6 +101,15 @@ it('MultiSelect options() accepts a backed enum class', function () {
     expect($field->getOptions())->toBe([
         ['label' => 'Php', 'value' => 'php'],
         ['label' => 'Go', 'value' => 'go'],
+    ]);
+});
+
+it('MultiSelect options() accepts a pure enum class, storing the case name', function () {
+    $field = MultiSelect::make('labels')->options(MultiSelectFieldPureTag::class);
+
+    expect($field->getOptions())->toBe([
+        ['label' => 'Backend', 'value' => 'Backend'],
+        ['label' => 'Front End', 'value' => 'FrontEnd'],
     ]);
 });
 
