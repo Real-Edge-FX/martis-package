@@ -125,6 +125,8 @@ type FieldType = 'audio' | 'avatar' | 'badge' | 'belongs_to' | 'belongs_to_many'
 interface SelectOption {
     value: string | number;
     label: string;
+    /** Group heading (Nova's grouped options, v2.0.0). */
+    group?: string;
 }
 /**
  * A field as the forms, displays and tables render it. The server sends

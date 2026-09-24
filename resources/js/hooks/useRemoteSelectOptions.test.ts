@@ -151,4 +151,18 @@ describe('useRemoteSelectOptions', () => {
     rerender({ open: false })
     expect(result.current.options).toBeNull()
   })
+
+  it('keeps the group of a grouped option and adds none to an ungrouped one', async () => {
+    apiGetMock.mockResolvedValue({ data: { options: [
+      { label: 'Small', value: 'MS', group: 'Men Sizes' },
+      { label: 'Extra large', value: 7 },
+    ] } })
+    const { result } = renderHook(() => useRemoteSelectOptions({ endpoint: '/api/tools/t/fields/m/options', open: true, term: '' }))
+    await act(async () => { vi.runAllTimers() })
+
+    expect(result.current.options).toStrictEqual([
+      { label: 'Small', value: 'MS', group: 'Men Sizes' },
+      { label: 'Extra large', value: '7' },
+    ])
+  })
 })

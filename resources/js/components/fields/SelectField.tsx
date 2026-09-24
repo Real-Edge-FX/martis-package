@@ -37,9 +37,59 @@ interface DropdownFilterTemplateOptions {
   filterInputKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void
 }
 
+/** An option as the Dropdown receives it: the value as a string, the group kept. */
+interface DropdownOption {
+  label: string
+  value: string
+  group?: string
+}
+
+/** A group of options, the shape PrimeReact's Dropdown renders under a heading. */
+interface DropdownOptionGroup {
+  label: string
+  items: DropdownOption[]
+}
+
+/**
+ * PrimeReact's Dropdown groups only when every entry is a group. Options
+ * that name a group (Nova's grouped options, v2.0.0) gather under it, in
+ * the order the groups first appear; options without one form a leading
+ * group whose empty heading `martis.css` hides. `null` when no option names
+ * a group, so an ungrouped select renders exactly as before.
+ *
+ * A bucketed item drops the `group` it carried: PrimeReact renders ANY
+ * entry whose own `.group` is truthy as a heading row
+ * (`option.group && props.optionGroupLabel` in `createItem`), so leaving it
+ * on the item itself would render every option as a second, phantom
+ * heading alongside its real one.
+ */
+function groupDropdownOptions(options: DropdownOption[]): DropdownOptionGroup[] | null {
+  if (!options.some((o) => o.group)) return null
+  const ungrouped: DropdownOptionGroup = { label: '', items: [] }
+  const groups: DropdownOptionGroup[] = []
+  for (const option of options) {
+    const item: DropdownOption = { label: option.label, value: option.value }
+    if (!option.group) {
+      ungrouped.items.push(item)
+      continue
+    }
+    let group = groups.find((g) => g.label === option.group)
+    if (!group) {
+      group = { label: option.group, items: [] }
+      groups.push(group)
+    }
+    group.items.push(item)
+  }
+  return ungrouped.items.length > 0 ? [ungrouped, ...groups] : groups
+}
+
 export function SelectFieldInput({ field, value, onChange, error, resourceKey, recordId, toolKey, context, repeaterRow }: FieldInputProps) {
   const { t } = useTranslation('messages')
-  const staticOptions = field.options?.map((o) => ({ label: o.label, value: String(o.value) })) ?? []
+  const staticOptions: DropdownOption[] = field.options?.map((o) => ({
+    label: o.label,
+    value: String(o.value),
+    ...(o.group ? { group: o.group } : {}),
+  })) ?? []
   // Pass `null` (not '') when empty so PrimeReact's own `value != null` guard
   // hides the clear (X) icon on an empty select — an empty select has nothing
   // to clear. Coercing to '' made `showClear` fire on the placeholder state.
@@ -73,6 +123,16 @@ export function SelectFieldInput({ field, value, onChange, error, resourceKey, r
     ? [{ label: currentValue, value: currentValue }, ...staticOptions]
     : staticOptions
   const options = remote && open && remoteState.options !== null ? remoteState.options : remoteClosedOptions
+
+  const optionGroups = groupDropdownOptions(options)
+  const optionProps = optionGroups
+    ? {
+        options: optionGroups,
+        optionGroupLabel: 'label',
+        optionGroupChildren: 'items',
+        optionGroupTemplate: (group: DropdownOptionGroup) => group.label || null,
+      }
+    : { options }
 
   // Opt into the compact filter-dropdown look (used by native resource filters)
   // via `field.variant === 'filter'`, and allow an extra passthrough className.
@@ -134,7 +194,7 @@ export function SelectFieldInput({ field, value, onChange, error, resourceKey, r
         inputId={field.attribute}
         name={field.attribute}
         value={currentValue}
-        options={options}
+        {...optionProps}
         onChange={(e) => onChange(e.value as string)}
         disabled={field.readonly}
         invalid={!!error}

@@ -255,3 +255,76 @@ describe('SelectFieldInput — remote option search', () => {
     expect(await screen.findByText('options_load_error')).toBeTruthy()
   })
 })
+
+describe('SelectFieldInput — option groups (v2.0.0)', () => {
+  const groupedField = () => makeField({
+    attribute: 'size',
+    options: [
+      { label: 'Small', value: 'MS', group: 'Men Sizes' },
+      { label: 'Medium', value: 'MM', group: 'Men Sizes' },
+      { label: 'Small', value: 'WS', group: 'Women Sizes' },
+    ],
+  })
+
+  it('renders a heading per group, in the order the groups first appear', () => {
+    const { container } = render(
+      <SelectFieldInput field={groupedField()} value="" onChange={vi.fn()} error={undefined} />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+
+    const headings = Array.from(document.querySelectorAll('.p-dropdown-item-group')).map((h) => h.textContent)
+    expect(headings).toEqual(['Men Sizes', 'Women Sizes'])
+    expect(document.querySelectorAll('.p-dropdown-item')).toHaveLength(3)
+  })
+
+  it('hands the value of an option inside a group to onChange', () => {
+    const onChange = vi.fn()
+    const { container } = render(
+      <SelectFieldInput field={groupedField()} value="" onChange={onChange} error={undefined} />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+    fireEvent.click(document.querySelectorAll('.p-dropdown-item')[2])
+
+    expect(onChange).toHaveBeenCalledWith('WS')
+  })
+
+  it('keeps the list flat when no option names a group', () => {
+    const { container } = render(
+      <SelectFieldInput field={makeField()} value="" onChange={vi.fn()} error={undefined} />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+
+    expect(document.querySelector('.p-dropdown-item-group')).toBeNull()
+    expect(screen.getByText('Active')).toBeTruthy()
+  })
+
+  it('puts ungrouped options in a leading group with an empty heading', () => {
+    const field = makeField({
+      attribute: 'size',
+      options: [
+        { label: 'One size', value: 'OS' },
+        { label: 'Small', value: 'MS', group: 'Men Sizes' },
+      ],
+    })
+    const { container } = render(<SelectFieldInput field={field} value="" onChange={vi.fn()} error={undefined} />)
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+
+    const headings = Array.from(document.querySelectorAll('.p-dropdown-item-group-label')).map((h) => h.textContent)
+    expect(headings).toEqual(['', 'Men Sizes'])
+    expect(screen.getByText('One size')).toBeTruthy()
+  })
+
+  it('groups the options the server returns', async () => {
+    apiGetMock.mockResolvedValue({ data: { options: [
+      { label: 'Small', value: 'MS', group: 'Men Sizes' },
+      { label: 'Small', value: 'WS', group: 'Women Sizes' },
+    ] } })
+    const field = makeField({ attribute: 'size', searchableOptions: true, remoteOptionsSearch: true, options: [] })
+    const { container } = render(
+      <SelectFieldInput field={field} value="" onChange={vi.fn()} error={undefined} resourceKey="clients" />,
+    )
+    fireEvent.click(container.querySelector('.p-dropdown')!)
+
+    await waitFor(() => expect(document.querySelectorAll('.p-dropdown-item-group')).toHaveLength(2))
+  })
+})
