@@ -129,10 +129,8 @@ it('keeps a theme scaffolded by martis:theme across a publish', function () {
     // then every asset publish wiped public/vendor/martis/ with the copy in
     // it, so the panel 404'd the stylesheet and martis:theme:diff found no
     // theme.
-    // martis:theme also sets theme.name in a published config/martis.php,
-    // which a warm testbench app may hold: restore it afterwards.
-    $configPath = config_path('martis.php');
-    $previousConfig = is_file($configPath) ? (string) file_get_contents($configPath) : null;
+    // martis:theme also writes theme.name into a published config/martis.php.
+    $restoreMartisConfig = preservePublishedMartisConfig();
 
     try {
         $this->artisan('martis:theme', ['name' => 'survivor'])->assertSuccessful();
@@ -145,9 +143,7 @@ it('keeps a theme scaffolded by martis:theme across a publish', function () {
 
         $this->artisan('martis:theme:diff', ['theme' => 'survivor'])->assertExitCode(0);
     } finally {
-        if ($previousConfig !== null) {
-            file_put_contents($configPath, $previousConfig);
-        }
+        $restoreMartisConfig();
     }
 });
 

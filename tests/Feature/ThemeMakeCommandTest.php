@@ -11,8 +11,19 @@ function cleanupThemeArtifacts(string $name = 'test-theme'): void
     $fs->deleteDirectory(public_path('vendor/martis/themes'));
 }
 
-beforeEach(fn () => cleanupThemeArtifacts());
-afterEach(fn () => cleanupThemeArtifacts());
+beforeEach(function () {
+    cleanupThemeArtifacts();
+
+    // Every martis:theme run writes theme.name into a published
+    // config/martis.php; the config specs below write a fixture there.
+    $this->restoreMartisConfig = preservePublishedMartisConfig();
+});
+
+afterEach(function () {
+    cleanupThemeArtifacts();
+
+    ($this->restoreMartisConfig)();
+});
 
 it('generates the theme file in resources and public', function () {
     $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
@@ -158,30 +169,21 @@ return [
 ];
 PHP;
 
-    $configPath = config_path('martis.php');
-    // Restore whatever was published before (or nothing): leaving this
-    // minimal fixture behind poisons every later test that reads
+    // afterEach restores whatever was published before (or removes this
+    // fixture): leaving it behind poisons every later test that reads
     // config('martis.brand') in the same environment.
-    $previous = file_exists($configPath) ? (string) file_get_contents($configPath) : null;
+    $configPath = config_path('martis.php');
     file_put_contents($configPath, $original);
 
-    try {
-        $this->artisan('martis:theme', ['name' => 'nested-test'])->assertSuccessful();
+    $this->artisan('martis:theme', ['name' => 'nested-test'])->assertSuccessful();
 
-        $after = (string) file_get_contents($configPath);
+    $after = (string) file_get_contents($configPath);
 
-        // theme.name must be inserted despite the nested array.
-        expect($after)->toContain("'name' => 'nested-test'");
+    // theme.name must be inserted despite the nested array.
+    expect($after)->toContain("'name' => 'nested-test'");
 
-        // brand.name must be untouched.
-        expect($after)->toContain("'name' => env('MARTIS_BRAND_NAME', 'Martis')");
-    } finally {
-        if ($previous === null) {
-            @unlink($configPath);
-        } else {
-            file_put_contents($configPath, $previous);
-        }
-    }
+    // brand.name must be untouched.
+    expect($after)->toContain("'name' => env('MARTIS_BRAND_NAME', 'Martis')");
 });
 
 it('updates theme.name without touching brand.name in config/martis.php', function () {
@@ -199,28 +201,19 @@ return [
 ];
 PHP;
 
-    $configPath = config_path('martis.php');
-    // Restore whatever was published before (or nothing): leaving this
-    // minimal fixture behind poisons every later test that reads
+    // afterEach restores whatever was published before (or removes this
+    // fixture): leaving it behind poisons every later test that reads
     // config('martis.brand') in the same environment.
-    $previous = file_exists($configPath) ? (string) file_get_contents($configPath) : null;
+    $configPath = config_path('martis.php');
     file_put_contents($configPath, $original);
 
-    try {
-        $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
+    $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
 
-        $after = (string) file_get_contents($configPath);
+    $after = (string) file_get_contents($configPath);
 
-        // theme.name should be inserted / updated …
-        expect($after)->toContain("'name' => 'test-theme'");
+    // theme.name should be inserted / updated …
+    expect($after)->toContain("'name' => 'test-theme'");
 
-        // … and brand.name must be left intact.
-        expect($after)->toContain("'name' => env('MARTIS_BRAND_NAME', 'Martis')");
-    } finally {
-        if ($previous === null) {
-            @unlink($configPath);
-        } else {
-            file_put_contents($configPath, $previous);
-        }
-    }
+    // … and brand.name must be left intact.
+    expect($after)->toContain("'name' => env('MARTIS_BRAND_NAME', 'Martis')");
 });

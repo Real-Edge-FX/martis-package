@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **A theme is edited in its source, then published.** The `martis:theme` hint and the theming guide said to edit `public/vendor/martis/themes/<name>.css`, and every publish deleted those edits. `resources/css/martis/<name>.css` is now the only place a theme lives: edit it, then run `php artisan martis:publish-assets`. A publish replaces the published copy with its source, also with `--no-wipe`, which used to leave the copy alone. `martis:theme:diff` compares the source, and for a theme that only has a published copy it fails and says to move the file there. If you edited a published copy on 1.x, copy it over the source and commit the source before you upgrade: see [Theming → Upgrading from 1.x](docs/theming.md#upgrading-from-1x).
+- **Test hygiene for the theme specs.** The `martis:theme` specs rewrote `theme.name` in the testbench app's published `config/martis.php` (the `martis:install` specs publish one) and left it there, so every later spec of the run read a scaffolded theme name. `ThemeMakeCommandTest`, `ThemeScaffoldDiffTest` and the publish spec that scaffolds a theme restore the file through a shared `preservePublishedMartisConfig()` helper in `tests/Pest.php`.
 
 ### Docs
 

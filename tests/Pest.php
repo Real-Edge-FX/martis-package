@@ -29,3 +29,26 @@ if (! function_exists('rmtree')) {
         rmdir($path);
     }
 }
+
+if (! function_exists('preservePublishedMartisConfig')) {
+    /**
+     * Snapshot the testbench app's config/martis.php and return a callback
+     * that puts it back, or removes it when there was none. martis:theme
+     * writes theme.name into a published config, and a testbench app that
+     * already ran martis:install holds one: without the restore, every
+     * later spec reads the scaffolded theme name.
+     */
+    function preservePublishedMartisConfig(): Closure
+    {
+        $path = config_path('martis.php');
+        $contents = is_file($path) ? (string) file_get_contents($path) : null;
+
+        return function () use ($path, $contents): void {
+            if ($contents !== null) {
+                file_put_contents($path, $contents);
+            } elseif (is_file($path)) {
+                unlink($path);
+            }
+        };
+    }
+}
