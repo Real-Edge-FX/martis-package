@@ -13,7 +13,7 @@
  * lands on the same slot on either side.
  */
 
-export const AVATAR_PALETTE_SIZE = 16
+const AVATAR_PALETTE_SIZE = 16
 
 /** The neutral slot (slate), for an empty seed or an unknown slot. */
 const NEUTRAL_SLOT = AVATAR_PALETTE_SIZE
@@ -49,8 +49,12 @@ export function avatarPaletteColor(slot: number | null | undefined): string {
 
 /**
  * Map a seed (name, email, slug, anything) to one of the 16 avatar
- * hues. Returns the CSS `var(--martis-avatar-N)` reference so callers
- * can drop it directly into a `style.backgroundColor`.
+ * hues, `--martis-avatar-1..16`: the same seed always gets the same hue,
+ * identical in light and dark mode, and a theme can redefine the hues.
+ * Returns the CSS `var(--martis-avatar-N)` reference so callers can drop
+ * it directly into a `style.backgroundColor`. The server picks the avatar
+ * slots with the same hash, so a user's name gets the colour of their
+ * Topbar avatar.
  */
 export function avatarColorForSeed(seed: string | null | undefined): string {
   return avatarPaletteColor(avatarPaletteSlot(seed))
