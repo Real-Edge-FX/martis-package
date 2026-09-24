@@ -45,6 +45,27 @@ it('stores the id of a pluck(name, id) closure, keeps duplicate names apart and 
         ->and($field->toArray()['options'])->toBe($expected);
 });
 
+it('reads a Collection returned from an options() closure, as Nova does with collect()', function () {
+    $field = Select::make('owner_id')->options(fn () => collect([7 => 'Ana', 9 => 'Rui']));
+
+    expect($field->getOptions())->toBe([
+        ['label' => 'Ana', 'value' => 7],
+        ['label' => 'Rui', 'value' => 9],
+    ]);
+});
+
+it('normalises a Collection returned from searchOptionsUsing()', function () {
+    $field = Select::make('model')->searchOptionsUsing(fn (string $term) => collect(['gpt-4o' => 'GPT-4o']));
+
+    expect($field->searchOptions('gpt'))->toBe([
+        ['label' => 'GPT-4o', 'value' => 'gpt-4o'],
+    ]);
+});
+
+it('rejects a Collection passed straight to options(), and names ->all() as the fix', function () {
+    Select::make('status')->options(collect(['a' => 'A']));
+})->throws(InvalidArgumentException::class, 'Pass an array: call ->all() on a Collection.');
+
 it('reads a list as values 0, 1, 2 like Nova does', function () {
     $field = Select::make('size')->options(['Small', 'Large']);
 

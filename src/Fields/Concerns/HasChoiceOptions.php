@@ -2,10 +2,12 @@
 
 namespace Martis\Fields\Concerns;
 
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Traversable;
 
 /**
  * The option list of a choice field (Select, MultiSelect), in Nova's order.
@@ -72,7 +74,8 @@ trait HasChoiceOptions
         if (is_string($options)) {
             if (! enum_exists($options)) {
                 throw new \InvalidArgumentException(sprintf(
-                    '%s [%s]: options() received [%s], which is neither an array, a Closure nor an enum class.',
+                    '%s [%s]: options() received [%s], which is neither an array, a Closure nor an enum class. '
+                    .'Pass an array: call ->all() on a Collection.',
                     class_basename(static::class),
                     $this->attribute,
                     $options,
@@ -91,7 +94,9 @@ trait HasChoiceOptions
 
     /**
      * The normalised options, running the lazy resolver when one is set. A
-     * resolver that returns anything but an array yields no options.
+     * resolver may return an array, an Arrayable (a Collection) or any other
+     * Traversable, exactly as Nova reads a closure through `collect()`; a
+     * resolver returning anything else yields no options.
      *
      * @return list<array{label: string, value: int|string, group?: string}>
      */
@@ -103,12 +108,33 @@ trait HasChoiceOptions
 
         $resolved = ($this->optionsResolver)($this->safeRequest());
 
-        if (! is_array($resolved)) {
-            return [];
+        return $this->normalizeOptions($this->resolvedOptionsToArray($resolved));
+    }
+
+    /**
+     * Turn whatever a resolver closure returned into a plain array, the way
+     * Nova's `collect()` reads a closure's result: an array as-is, an
+     * Arrayable (a Collection) through `->toArray()`, any other Traversable
+     * through `iterator_to_array()` (keys kept), and anything else as no
+     * options at all.
+     *
+     * @return array<int|string, mixed>
+     */
+    private function resolvedOptionsToArray(mixed $resolved): array
+    {
+        if (is_array($resolved)) {
+            return $resolved;
         }
 
-        /** @var array<int|string, mixed> $resolved */
-        return $this->normalizeOptions($resolved);
+        if ($resolved instanceof Arrayable) {
+            return $resolved->toArray();
+        }
+
+        if ($resolved instanceof Traversable) {
+            return iterator_to_array($resolved);
+        }
+
+        return [];
     }
 
     /**
@@ -276,6 +302,12 @@ trait HasChoiceOptions
             $value,
             class_basename(static::class),
             $this->attribute,
-        ));
+        ), [
+            'model' => $model::class,
+            'key' => is_scalar($id) ? $id : null,
+            'field' => static::class,
+            'attribute' => $this->attribute,
+            'value' => $value,
+        ]);
     }
 }

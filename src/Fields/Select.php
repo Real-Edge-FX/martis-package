@@ -187,7 +187,9 @@ class Select extends Field
 
     /**
      * Run the server-side resolver for a search term and normalise the
-     * result like `options()`.
+     * result like `options()`: an array, an Arrayable (a Collection) or any
+     * other Traversable, exactly as `getOptions()` reads an `options()`
+     * closure.
      *
      * @return list<array{label: string, value: int|string, group?: string}>
      */
@@ -199,12 +201,7 @@ class Select extends Field
 
         $resolved = ($this->searchOptionsResolver)($term, $request ?? $this->safeRequest());
 
-        if (! is_array($resolved)) {
-            return [];
-        }
-
-        /** @var array<int|string, mixed> $resolved */
-        return $this->normalizeOptions($resolved);
+        return $this->normalizeOptions($this->resolvedOptionsToArray($resolved));
     }
 
     /**
