@@ -22,4 +22,9 @@
             <html outputDirectory="build/coverage"/>
         </report>
     </coverage>
+    <php>
+        <!-- One process runs the whole suite and needs more than the 128M of a
+             stock php.ini; CI's PHP (setup-php) runs with no limit at all. -->
+        <ini name="memory_limit" value="1G"/>
+    </php>
 </phpunit>
