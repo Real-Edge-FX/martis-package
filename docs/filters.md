@@ -55,7 +55,7 @@ class StatusFilter extends SelectFilter
 }
 ```
 
-**Options format:** keys are display labels, values are passed to `apply()`.
+**Options format:** keys are display labels, values are passed to `apply()`. This is Nova's filter order, the reverse of a field's `options()`, which reads `[value => label]` as Nova's fields do (see [Fields → Option order](fields.md#option-order)).
 
 **Grouped options:** organize large option lists into visual groups:
 

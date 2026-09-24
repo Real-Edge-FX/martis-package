@@ -77,9 +77,9 @@ class ClientResource extends Resource
             // index column because the Badge below already covers it.
             Select::make('status')
                 ->options([
-                    'Active'   => 'active',
-                    'Paused'   => 'paused',
-                    'Archived' => 'archived',
+                    'active'   => 'Active',
+                    'paused'   => 'Paused',
+                    'archived' => 'Archived',
                 ])
                 ->displayUsingLabels()
                 ->hideFromIndex(),

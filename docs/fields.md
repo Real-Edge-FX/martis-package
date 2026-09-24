@@ -457,8 +457,8 @@ The closure receives the active `Request` (or `null` when called outside an HTTP
 | `tooltip` | `tooltip(string\|Closure\|null $text): static` | `getTooltip(): ?string` |
 | `withLabel` | `withLabel(string\|Closure $value): static` | `label(): string` |
 | `rules` | `rules(array\|Closure $rules): static` | `buildRules(): array` |
-| `Select::options` | `options(array\|Closure $options): static` | `getOptions(): list` |
-| `MultiSelect::options` | `options(array\|Closure $options): static` | `getOptions(): list` |
+| `Select::options` | `options(array\|string\|Closure $options): static` | `getOptions(): list` |
+| `MultiSelect::options` | `options(array\|string\|Closure $options): static` | `getOptions(): list` |
 | `BooleanGroup::options` | `options(array\|Closure $options): static` | `getOptions(): array` |
 
 Examples:
@@ -485,16 +485,19 @@ Text::make('greeting')
 Text::make('quota')
     ->help(fn ($request) => "Quota left: {$request?->user()?->quota()}");
 
-// Options pulled from the database — Select / MultiSelect / BooleanGroup
+// Options pulled from the database: Select / MultiSelect / BooleanGroup.
+// All three read [value => label], as in Nova, so pluck('name', 'id') stores the id.
 Select::make('owner_id')
     ->options(fn () => User::query()->pluck('name', 'id')->all());
 
 MultiSelect::make('skills')
     ->options(fn () => [
-        'Backend'  => ['PHP' => 'php', 'Go' => 'go'],
-        'Frontend' => ['React' => 'react'],
+        'php'   => ['label' => 'PHP', 'group' => 'Backend'],
+        'go'    => ['label' => 'Go', 'group' => 'Backend'],
+        'react' => ['label' => 'React', 'group' => 'Frontend'],
     ]);
 
+// BooleanGroup reads [flag key => label]: availablePermissions() returns that map.
 BooleanGroup::make('permissions')
     ->options(fn ($request) => $request?->user()?->availablePermissions()->all() ?? []);
 
@@ -1099,54 +1102,73 @@ Audio::make('intro_audio_path')
 **Extends:** `Field`
 **File:** `src/Fields/Select.php`
 
+> **Version note.** Martis v2.0 and later read `options()` as `[value => label]`, Nova's order; Martis v1.x read `[label => value]`. On v1.x, flip the arrays in the examples below, or upgrade: see [Upgrading](upgrading.md).
+
 Dropdown select with predefined options.
 
 ```php
 Select::make('status')
     ->options([
-        'Draft'     => 'draft',
-        'Published' => 'published',
-        'Archived'  => 'archived',
+        'draft'     => 'Draft',
+        'published' => 'Published',
+        'archived'  => 'Archived',
     ])
     ->nullable()
 ```
 
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
-| `options` | `options(array\|Closure $options): static` | `$this` | Set options. Accepts associative `['Label' => 'value']`, sequential `['value1', 'value2']`, or a closure that resolves at render time (perfect for DB-backed lists). See [Closure-aware setters](#closure-aware-setters). |
-| `optionsFromMap` | `optionsFromMap(array $map): static` | `$this` | Set options from a `[value => label]` map. More ergonomic than `options()` when labels come from i18n: the value (what's persisted) stays unchanged while the label can be translated. |
+| `options` | `options(array\|string\|Closure $options): static` | `$this` | Set options in Nova's order, `[value => label]`: the key is stored, the value is shown. Also takes a list (stores 0, 1, 2…, as in Nova), grouped options (`[value => ['label' => ..., 'group' => ...]]`), an enum class (Martis extension), or a closure that resolves at render time (perfect for DB-backed lists). See [Option order](#option-order) and [Closure-aware setters](#closure-aware-setters). |
 | `displayUsingLabels` | `displayUsingLabels(): static` | `$this` | Render the option label on index and detail (default behaviour). Symmetric with `MultiSelect::displayUsingLabels()` for code that handles both fields generically. |
 | `displayUsingValues` | `displayUsingValues(): static` | `$this` | Render the raw stored value on index and detail. Useful when the value is itself meaningful (ISO codes, slugs) and the label is just a humanised alias. |
 | `isDisplayingLabels` | `isDisplayingLabels(): bool` | `bool` | Whether the field currently renders labels (true) or raw values (false). |
-| `getOptions` | `getOptions(): array` | `array` | Get normalized options `[{label, value}]` (resolves the closure if one was set). |
+| `getOptions` | `getOptions(): array` | `array` | Get normalized options `[{label, value, group?}]` (resolves the closure if one was set). |
 | `searchableOptions` | `searchableOptions(bool $value = true): static` | `$this` | Render a search box above the option list so the user can narrow it by label or value (v1.37.0). Not the same as `searchable()`, which makes the column part of the resource search. |
 | `hasSearchableOptions` | `hasSearchableOptions(): bool` | `bool` | Whether the option list renders with a search box. |
 | `allowCustomValues` | `allowCustomValues(bool $value = true): static` | `$this` | Accept a typed value that is not one of the options (v1.37.0). The stored value may then fall outside `getOptions()`; index and detail render it raw. Validation against the list stays yours (`Rule::in`). |
 | `allowsCustomValues` | `allowsCustomValues(): bool` | `bool` | Whether the control accepts values outside the option list. |
 | `searchOptionsUsing` | `searchOptionsUsing(Closure $resolver): static` | `$this` | Search the options on the server as the user types (v1.37.0). The closure receives `(string $term, ?Request $request)` and returns the same shapes `options()` accepts. Implies `searchableOptions()`. Resource forms and Tools implementing `ProvidesFields` only; see below. |
 | `hasRemoteOptionsSearch` | `hasRemoteOptionsSearch(): bool` | `bool` | Whether a server-side resolver is registered. |
-| `searchOptions` | `searchOptions(string $term, ?Request $request = null): array` | `array` | Run the server-side resolver and normalise the result to `[{label, value}]`. Empty list without a resolver. |
+| `searchOptions` | `searchOptions(string $term, ?Request $request = null): array` | `array` | Run the server-side resolver and normalise the result to `[{label, value, group?}]`. Empty list without a resolver. |
 
 **Extra attributes:** `options`, `displayLabels`, `searchableOptions`, `allowCustomValues`, `remoteOptionsSearch`
 
 ```php
-// Static options
-Select::make('status')->options(['Draft' => 'draft', 'Published' => 'published']);
+// Static options: [value => label]
+Select::make('status')->options(['draft' => 'Draft', 'published' => 'Published']);
 
-// value => label map — keeps stored value stable when translating
-Select::make('plan')->optionsFromMap([
+// Translated labels: the stored value stays fixed while the label is translated
+Select::make('plan')->options([
     'free' => __('plans.free'),
     'pro'  => __('plans.pro'),
 ]);
 
-// Database-backed options resolved at render time
+// Database-backed options resolved at render time: stores the id
 Select::make('owner_id')->options(fn () => User::query()->pluck('name', 'id')->all());
+
+// Grouped options, in Nova's format
+Select::make('size')->options([
+    'MS' => ['label' => 'Small', 'group' => 'Men Sizes'],
+    'WS' => ['label' => 'Small', 'group' => 'Women Sizes'],
+]);
 
 // Show the raw ISO code on the index column instead of the country name
 Select::make('country_code')
-    ->options(['Portugal' => 'PT', 'United Kingdom' => 'GB'])
+    ->options(['PT' => 'Portugal', 'GB' => 'United Kingdom'])
     ->displayUsingValues();
 ```
+
+#### Option order
+
+`options()` reads `[value => label]`, the order Nova uses for `Select`, `MultiSelect` and `BooleanGroup`: the key is what the field stores, the value is what the user sees. So `pluck('name', 'id')` stores the id, and two records with the same name stay two options. Before v2.0.0 Martis read the array label first; see [Upgrading](upgrading.md).
+
+- **A list is a map keyed 0, 1, 2…**, so `options(['Small', 'Large'])` stores `0` and `1`, as in Nova. When each value is its own label, pass `array_combine($values, $values)`.
+- **Grouped options** map a value to `['label' => ..., 'group' => ...]`. Any other array value throws an `InvalidArgumentException` that names the field and the option (the pre-v2 `['Group' => ['Label' => 'value']]` format included). The dropdown shows each group under its heading, in the order the groups first appear; ungrouped options sit on top.
+- **An enum class** (`options(Status::class)`, Martis extension) stores the case value of a backed enum, or the case name of a pure one, labelled with the headline of the case name.
+- **`searchOptionsUsing()`** returns the same shapes, in the same order.
+- **Filters are the exception, as in Nova:** a filter's `options(Request $request)` returns `[label => value]`. See [Filters](filters.md).
+
+**Stored labels (Martis extension).** Reading a record whose stored value matches the label of a static option and the value of none logs a warning, in production too, once per field per request: the options array is still written label first, or the record was saved while it was, and saving it again would store the wrong value. Options from a closure are not checked, so the check never runs a query of its own.
 
 **Clear (X) icon.** On a `nullable()` select, the clear icon appears only once a value is selected — an empty select has nothing to clear, so no X shows on the placeholder state.
 
@@ -1229,13 +1251,17 @@ The list is fetched lazily at schema-render time so `config()` is read after the
 **Extends:** `Field`
 **File:** `src/Fields/MultiSelect.php`
 
+> **Version note.** Martis v2.0 and later read `options()` as `[value => label]`, Nova's order; Martis v1.x read `[label => value]`. On v1.x, flip the arrays in the examples below, or upgrade: see [Upgrading](upgrading.md).
+
 Multi-value select with chips/tags UI. Stores as JSON array.
 
 ```php
 MultiSelect::make('technologies')
     ->options([
-        'Backend' => ['PHP' => 'php', 'Python' => 'python'],
-        'Frontend' => ['React' => 'react', 'Vue' => 'vue'],
+        'php'    => ['label' => 'PHP', 'group' => 'Backend'],
+        'python' => ['label' => 'Python', 'group' => 'Backend'],
+        'react'  => ['label' => 'React', 'group' => 'Frontend'],
+        'vue'    => ['label' => 'Vue', 'group' => 'Frontend'],
     ])
     ->displayUsingLabels()
     ->required()
@@ -1243,7 +1269,7 @@ MultiSelect::make('technologies')
 
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
-| `options` | `options(array\|Closure $options): static` | `$this` | Set options. Supports sequential, associative, and **grouped** formats, or a closure that resolves at render time. See [Closure-aware setters](#closure-aware-setters). |
+| `options` | `options(array\|string\|Closure $options): static` | `$this` | Set options in Nova's order, `[value => label]`, with the same forms as `Select::options()`: a list (0, 1, 2…), **grouped** options (`[value => ['label' => ..., 'group' => ...]]`), an enum class (Martis extension), or a closure that resolves at render time. See [Option order](#option-order) and [Closure-aware setters](#closure-aware-setters). |
 | `displayUsingLabels` | `displayUsingLabels(): static` | `$this` | Show labels instead of raw values on index/detail. |
 | `getOptions` | `getOptions(): array` | `array` | Get normalized options `[{label, value, group?}]` (resolves the closure if one was set). |
 | `isDisplayingLabels` | `isDisplayingLabels(): bool` | `bool` | Check if displaying labels. |
