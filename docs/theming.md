@@ -15,11 +15,17 @@ php artisan martis:theme MyTheme
 ```
 
 This creates:
-- `resources/css/martis/mytheme.css` — editable source
-- `public/vendor/martis/themes/mytheme.css` — published copy
+- `resources/css/martis/mytheme.css`: the theme source, the file you edit and commit
+- `public/vendor/martis/themes/mytheme.css`: the published copy the browser loads
 - Updates `config/martis.php` to activate the theme
 
-Edit the CSS file (no rebuild needed) and refresh the browser. Changes are immediate.
+Edit the source, publish it and refresh the browser. No Vite rebuild is needed:
+
+```bash
+php artisan martis:publish-assets
+```
+
+Never edit the published copy: every publish replaces it with the source (see [Theme files](#theme-files)).
 
 ---
 
@@ -33,6 +39,34 @@ Edit the CSS file (no rebuild needed) and refresh the browser. Changes are immed
 ```
 
 Themes load **after** the package CSS, so any variable you redefine wins. You only need to declare variables you want to change — others fall back to defaults.
+
+### Theme files
+
+`resources/css/martis/<name>.css` is the theme: commit it with your app. The browser loads a copy, `public/vendor/martis/themes/<name>.css`, and that copy is generated. `php artisan martis:publish-assets` wipes `public/vendor/martis/`, copies the package assets, then publishes every `.css` file directly inside `resources/css/martis/` to `public/vendor/martis/themes/`. `martis:vendor-publish --assets` and `martis:install` run the same command. So:
+
+- The published themes always match their sources. An edit made to a copy is replaced, and a copy whose source you deleted is gone after the next publish.
+- A deploy that runs `martis:publish-assets`, as the [upgrade steps](installation-guide.md#upgrading) require, restores the published themes from the committed sources, also when `public/vendor/martis/` is not in version control.
+- `--no-wipe` still publishes the sources over the copies; only a copy without a source stays, like any other stale file.
+- A file whose name is not made of letters, digits, dashes and underscores is skipped with a warning: the panel only loads a `theme.name` of that form.
+
+#### Upgrading from 1.x
+
+Up to v1.39.1 the `martis:theme` hint told you to edit the published copy, and every asset publish then deleted it without writing it again: the theme stylesheet returned 404 and the panel fell back to the default tokens, with no error. What changes for an app with a custom theme:
+
+| | 1.x | Now |
+|---|---|---|
+| File you edit | `public/vendor/martis/themes/<name>.css` (as the `martis:theme` hint said) | `resources/css/martis/<name>.css` |
+| After an edit | Refresh the browser | Run `php artisan martis:publish-assets`, then refresh |
+| `martis:publish-assets` | Deletes the published copy | Writes it again from the source |
+| `martis:publish-assets --no-wipe` | Leaves the published copy alone | Writes it again from the source |
+| `martis:theme:diff` | Compares the published copy | Compares the source |
+
+Before you upgrade:
+
+1. Find the file that holds your edits: `diff resources/css/martis/<name>.css public/vendor/martis/themes/<name>.css`. If the published copy has them, copy it over the source: `cp public/vendor/martis/themes/<name>.css resources/css/martis/<name>.css`. If a publish already deleted it, restore your edits into the source from version control or a backup.
+2. Commit `resources/css/martis/<name>.css`. `public/vendor/martis/` can stay out of version control: every publish writes it again.
+3. Upgrade as usual (`composer update martis/martis`, then `php artisan martis:publish-assets` or `php artisan martis:install --force`). The publish writes your theme to `public/vendor/martis/themes/<name>.css`.
+4. Point any script that edits or copies the published copy at the source, and run a `martis:theme:diff` CI gate against the source.
 
 ### PrimeReact components (v1.39.0)
 
@@ -51,7 +85,7 @@ A theme only sets the Martis tokens; it never needs to restyle PrimeReact select
 'theme' => [
     'default' => 'dark',           // Initial mode: 'dark' or 'light'
     'allowToggle' => true,         // Show light/dark toggle in user menu
-    'name' => 'mytheme',           // Theme CSS file name (null = default)
+    'name' => 'mytheme',           // resources/css/martis/mytheme.css (null = default)
 ],
 ```
 
@@ -586,6 +620,8 @@ php artisan martis:theme:diff mytheme       # explicit theme name
 php artisan martis:theme:diff --show-match  # also list tokens both files declare
 ```
 
+The command compares the theme source, `resources/css/martis/<name>.css`. When only the published copy exists, it fails and tells you to move the copy there, since the next publish deletes it.
+
 Output is split into three groups:
 
 - **Missing in consumer** — tokens the package defines that your theme does not. Add a value for each one.
@@ -600,9 +636,11 @@ Exit codes: `0` (everything aligned), `2` (drift detected — useful for CI gate
 
 ### Theme not loading
 1. Verify `config('martis.theme.name')` returns your theme name
-2. Check `public/vendor/martis/themes/{name}.css` exists
+2. Check `resources/css/martis/{name}.css` exists, then run `php artisan martis:publish-assets`: it publishes the file to `public/vendor/martis/themes/{name}.css`, the stylesheet the browser loads
 3. Run `php artisan view:clear` and `php artisan config:clear`
-4. Inspect HTML `<head>` — theme `<link>` must appear AFTER app CSS
+4. Inspect HTML `<head>`: the theme `<link>` must appear AFTER app CSS and return 200
+
+On martis/martis up to v1.39.1, every asset publish (`martis:publish-assets`, `martis:vendor-publish --assets`, `martis:install`) deleted the published copy without writing it again. Upgrade (see [Upgrading from 1.x](#upgrading-from-1x)), or copy the source over the published copy after each publish.
 
 ### Some colors don't change
 Every PrimeReact component reads the `--martis-*` tokens (see [PrimeReact components](#primereact-components-v1390)). When a colour does not follow your theme:

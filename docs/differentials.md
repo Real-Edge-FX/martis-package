@@ -994,7 +994,9 @@ php artisan martis:theme MyTheme
 
 The generated stub includes all 94 variables in both dark mode
 (`:root`) and light mode (`html:not(.dark)`), with comments and
-grouping. Edit any value, refresh the browser — no rebuild needed.
+grouping. Edit any value in `resources/css/martis/mytheme.css`, publish
+it with `php artisan martis:publish-assets` and refresh the browser: no
+Vite rebuild needed.
 
 See [Theming Guide](theming.md) for the complete variable reference.
 

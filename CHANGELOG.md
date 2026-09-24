@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Republishing the assets deleted custom themes.** `martis:theme` writes the theme source to `resources/css/martis/<name>.css` and a copy to `public/vendor/martis/themes/<name>.css`, the file the panel loads. Since v1.8.8 `martis:publish-assets` wipes `public/vendor/martis/` before copying the package assets, and `martis:vendor-publish --assets` and `martis:install` run it, so every asset publish (each upgrade requires one) deleted the copy: the theme stylesheet returned 404 and the panel fell back to the default tokens with no error, and `martis:theme:diff` failed with "Consumer theme not found". After the package assets, `martis:publish-assets` now publishes every `.css` file directly inside `resources/css/martis/` to `public/vendor/martis/themes/`, and skips with a warning a file whose name the panel would not load, so the published themes always match their sources and a deploy that publishes restores them. +18 Pest. See [Theming → Theme files](docs/theming.md#theme-files).
+
+### Changed
+
+- **A theme is edited in its source, then published.** The `martis:theme` hint and the theming guide said to edit `public/vendor/martis/themes/<name>.css`, and every publish deleted those edits. `resources/css/martis/<name>.css` is now the only place a theme lives: edit it, then run `php artisan martis:publish-assets`. A publish replaces the published copy with its source, also with `--no-wipe`, which used to leave the copy alone. `martis:theme:diff` compares the source, and for a theme that only has a published copy it fails and says to move the file there. If you edited a published copy on 1.x, copy it over the source and commit the source before you upgrade: see [Theming → Upgrading from 1.x](docs/theming.md#upgrading-from-1x).
+- **Test hygiene for the theme specs.** The `martis:theme` specs rewrote `theme.name` in the testbench app's published `config/martis.php` (the `martis:install` specs publish one) and left it there, so every later spec of the run read a scaffolded theme name. `ThemeMakeCommandTest`, `ThemeScaffoldDiffTest` and the publish spec that scaffolds a theme restore the file through a shared `preservePublishedMartisConfig()` helper in `tests/Pest.php`.
+
+### Docs
+
+- The troubleshooting guide told you to refresh a theme's published file by running `martis:theme` again, which fails without `--force` and, with it, replaces your theme with the scaffold. It now says to run `martis:publish-assets`. The `theme.name` row of the configuration reference describes the key the panel reads.
+
 ## [1.39.1] — 2026-09-24
 
 ### Fixed

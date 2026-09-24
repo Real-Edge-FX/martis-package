@@ -7,14 +7,22 @@
 // (--martis-text-faint) still emitted. This test fails if the stub and the
 // package's declared token set diverge again.
 
+beforeEach(function () {
+    // martis:theme writes theme.name into a published config/martis.php.
+    $this->restoreMartisConfig = preservePublishedMartisConfig();
+});
+
 afterEach(function () {
     @unlink(resource_path('css/martis/diffscaffold.css'));
     @unlink(public_path('vendor/martis/themes/diffscaffold.css'));
+
+    ($this->restoreMartisConfig)();
 });
 
 it('a freshly scaffolded theme passes theme:diff with exit 0', function () {
-    // Scaffold writes resources/css/martis/<name>.css and publishes a copy to
-    // public/vendor/martis/themes/<name>.css (which theme:diff reads).
+    // Scaffold writes resources/css/martis/<name>.css (the source, which
+    // theme:diff reads) and publishes a copy to
+    // public/vendor/martis/themes/<name>.css.
     $this->artisan('martis:theme', ['name' => 'DiffScaffold'])->assertExitCode(0);
 
     $this->artisan('martis:theme:diff', ['theme' => 'diffscaffold'])

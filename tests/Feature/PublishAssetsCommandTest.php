@@ -36,6 +36,14 @@ class IncompletePublishProbe extends PublishAssetsCommand
     }
 }
 
+beforeEach(function () {
+    // Theme sources left in the shared testbench app by other specs would be
+    // published too; each test here starts without any.
+    $fs = new Filesystem;
+    $fs->deleteDirectory(resource_path('css/martis'));
+    $fs->deleteDirectory(public_path('vendor/martis/themes'));
+});
+
 afterEach(function () {
     // Remove synthetic destinations created by the probe tests.
     $fs = new Filesystem;
@@ -44,6 +52,10 @@ afterEach(function () {
             $fs->deleteDirectory($dir);
         }
     }
+
+    // Remove the theme sources and published copies the theme tests create.
+    $fs->deleteDirectory(resource_path('css/martis'));
+    $fs->deleteDirectory(public_path('vendor/martis/themes'));
 });
 
 it('martis:publish-assets is registered in the service provider', function () {
@@ -110,6 +122,118 @@ it('martis:vendor-publish --assets --no-wipe preserves stale files', function ()
         ->assertSuccessful();
 
     expect($fs->exists($stale))->toBeTrue();
+});
+
+it('keeps a theme scaffolded by martis:theme across a publish', function () {
+    // The reported bug: martis:theme writes the source and a published copy,
+    // then every asset publish wiped public/vendor/martis/ with the copy in
+    // it, so the panel 404'd the stylesheet and martis:theme:diff found no
+    // theme.
+    // martis:theme also writes theme.name into a published config/martis.php.
+    $restoreMartisConfig = preservePublishedMartisConfig();
+
+    try {
+        $this->artisan('martis:theme', ['name' => 'survivor'])->assertSuccessful();
+
+        $this->artisan('martis:publish-assets')->assertSuccessful();
+
+        $published = public_path('vendor/martis/themes/survivor.css');
+        expect($published)->toBeFile();
+        expect(file_get_contents($published))->toBe(file_get_contents(resource_path('css/martis/survivor.css')));
+
+        $this->artisan('martis:theme:diff', ['theme' => 'survivor'])->assertExitCode(0);
+    } finally {
+        $restoreMartisConfig();
+    }
+});
+
+it('publishes every theme source in resources/css/martis', function () {
+    // An app whose published copies are already gone (every publish before
+    // the fix deleted them) gets them back on the next publish.
+    $fs = new Filesystem;
+    $fs->ensureDirectoryExists(resource_path('css/martis/partials'));
+    $fs->put(resource_path('css/martis/alpha.css'), ':root { --martis-accent: #ff0000; }');
+    $fs->put(resource_path('css/martis/beta.css'), ':root { --martis-accent: #00ff00; }');
+    // Not themes: another extension, and a stylesheet in a subdirectory.
+    $fs->put(resource_path('css/martis/notes.md'), '# Notes');
+    $fs->put(resource_path('css/martis/partials/colors.css'), ':root {}');
+
+    $this->artisan('martis:publish-assets')->assertSuccessful();
+
+    $published = public_path('vendor/martis/themes');
+    expect($published.'/alpha.css')->toBeFile();
+    expect($published.'/beta.css')->toBeFile();
+    expect(file_get_contents($published.'/alpha.css'))->toBe(':root { --martis-accent: #ff0000; }');
+    expect(file_get_contents($published.'/beta.css'))->toBe(':root { --martis-accent: #00ff00; }');
+    expect(array_map(fn ($file) => $file->getRelativePathname(), $fs->allFiles($published)))
+        ->toEqualCanonicalizing(['alpha.css', 'beta.css']);
+});
+
+it('replaces a published copy edited in place with its source', function () {
+    // resources/css/martis/ holds the theme source. The published copy is
+    // generated from it, so edits made to the copy do not survive a publish.
+    $fs = new Filesystem;
+    $fs->ensureDirectoryExists(resource_path('css/martis'));
+    $fs->put(resource_path('css/martis/brand.css'), ':root { --martis-accent: #123456; }');
+    $fs->ensureDirectoryExists(public_path('vendor/martis/themes'));
+    $fs->put(public_path('vendor/martis/themes/brand.css'), ':root { --martis-accent: #abcdef; }');
+
+    $this->artisan('martis:publish-assets')->assertSuccessful();
+
+    $published = public_path('vendor/martis/themes/brand.css');
+    expect($published)->toBeFile();
+    expect(file_get_contents($published))->toBe(':root { --martis-accent: #123456; }');
+});
+
+it('drops a published theme whose source is gone', function () {
+    $fs = new Filesystem;
+    $fs->ensureDirectoryExists(public_path('vendor/martis/themes'));
+    $fs->put(public_path('vendor/martis/themes/orphan.css'), ':root { --martis-accent: #abcdef; }');
+
+    $this->artisan('martis:publish-assets')->assertSuccessful();
+
+    expect(public_path('vendor/martis/themes/orphan.css'))->not->toBeFile();
+});
+
+it('republishes the theme sources with --no-wipe too', function () {
+    $fs = new Filesystem;
+    $fs->ensureDirectoryExists(resource_path('css/martis'));
+    $fs->put(resource_path('css/martis/brand.css'), ':root { --martis-accent: #123456; }');
+    $fs->ensureDirectoryExists(public_path('vendor/martis/themes'));
+    $fs->put(public_path('vendor/martis/themes/brand.css'), ':root { --martis-accent: #abcdef; }');
+
+    $this->artisan('martis:publish-assets', ['--no-wipe' => true])->assertSuccessful();
+
+    expect(file_get_contents(public_path('vendor/martis/themes/brand.css')))
+        ->toBe(':root { --martis-accent: #123456; }');
+});
+
+it('martis:vendor-publish --assets republishes the theme sources too', function () {
+    // martis:vendor-publish --assets and martis:install wipe through
+    // martis:publish-assets, so a theme has to survive them the same way.
+    $fs = new Filesystem;
+    $fs->ensureDirectoryExists(resource_path('css/martis'));
+    $fs->put(resource_path('css/martis/brand.css'), ':root { --martis-accent: #123456; }');
+
+    $this->artisan('martis:vendor-publish', ['--assets' => true])->assertSuccessful();
+
+    $published = public_path('vendor/martis/themes/brand.css');
+    expect($published)->toBeFile();
+    expect(file_get_contents($published))->toBe(':root { --martis-accent: #123456; }');
+});
+
+it('skips a theme source whose name the panel does not load', function () {
+    // app.blade.php only links a theme named with letters, digits, dashes and
+    // underscores, so publishing any other file would never reach the panel.
+    $fs = new Filesystem;
+    $fs->ensureDirectoryExists(resource_path('css/martis'));
+    $fs->put(resource_path('css/martis/my theme.css'), ':root {}');
+
+    $this->artisan('martis:publish-assets')
+        ->expectsOutputToContain('Skipped resources/css/martis/my theme.css')
+        ->assertSuccessful();
+
+    expect(public_path('vendor/martis/themes/my theme.css'))->not->toBeFile();
 });
 
 it('publishes the COMPLETE asset set — app entry bundle + every package file', function () {

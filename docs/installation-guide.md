@@ -176,6 +176,8 @@ The command **wipes `public/vendor/martis/` first** so stale Vite-hashed chunks 
 
 Since **v1.29.1** the command also **verifies completeness**: after copying it checks that every file the published `manifest.json` references (the app entry bundle, its CSS, every chunk) exists in the destination, and exits non-zero with the missing count if any are absent — so a partial publish is caught here rather than surfacing as a black-screen admin at runtime.
 
+Last, it publishes your custom themes: every `resources/css/martis/<name>.css` is copied to `public/vendor/martis/themes/`, where the panel loads it. Commit the sources; the published copies are written again on every run, so edit the source, never the copy. See [Theming → Theme files](theming.md#theme-files).
+
 Equivalent: `php artisan martis:vendor-publish --assets` performs the same wipe-then-publish flow, as does `martis:install` — all three share this single hardened path.
 
 Important:
@@ -596,6 +598,8 @@ Why this second step exists:
 - Composer updates package files inside `vendor/martis/martis`
 - Martis serves published files from `public/vendor/martis`
 - The host app keeps using the old published files until you publish again
+
+If your app has a custom theme and you are coming from 1.x, follow [Theming → Upgrading from 1.x](theming.md#upgrading-from-1x) before you publish: the publish now writes `public/vendor/martis/themes/` from `resources/css/martis/`, so edits made to the published copy have to move to the source first.
 
 Use the asset-only command if you only want to refresh static files. Use the install command with `--force` if you want the full recommended refresh:
 

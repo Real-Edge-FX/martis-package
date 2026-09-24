@@ -4,6 +4,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Martis\Stubs\StubResolver;
+use Martis\Support\ThemeFiles;
 use RuntimeException;
 
 class ThemeMakeCommand extends Command
@@ -20,9 +21,10 @@ class ThemeMakeCommand extends Command
         $name = $this->argument('name') ?? 'custom';
         $name = strtolower((string) preg_replace('/[^a-zA-Z0-9_-]/', '-', $name));
 
-        // 1. Create source CSS in resources/ (editable copy the app owns).
-        $dir = resource_path('css/martis');
-        $path = $dir.'/'.$name.'.css';
+        // 1. Create the theme source in resources/: the file the app owns,
+        // edits and commits.
+        $dir = ThemeFiles::sourceDirectory();
+        $path = ThemeFiles::sourcePath($name);
 
         if (! is_dir($dir)) {
             mkdir($dir, 0755, true);
@@ -48,13 +50,14 @@ class ThemeMakeCommand extends Command
         file_put_contents($path, $contents);
         $this->components->info("Theme created: resources/css/martis/{$name}.css");
 
-        // 2. Publish to public/vendor/martis/themes/ so the blade stylesheet tag
-        // can pick it up without a Vite rebuild.
-        $publicDir = public_path('vendor/martis/themes');
+        // 2. Publish a copy to public/vendor/martis/themes/ so the blade
+        // stylesheet tag can pick it up without a Vite rebuild. The copy is
+        // generated: martis:publish-assets rewrites it from the source.
+        $publicDir = ThemeFiles::publishedDirectory();
         if (! is_dir($publicDir)) {
             mkdir($publicDir, 0755, true);
         }
-        copy($path, $publicDir.'/'.$name.'.css');
+        copy($path, ThemeFiles::publishedPath($name));
         $this->components->info("Published to: public/vendor/martis/themes/{$name}.css");
 
         // 3. Update config/martis.php theme.name — scoped to the 'theme'
@@ -79,8 +82,10 @@ class ThemeMakeCommand extends Command
         $this->newLine();
         $this->components->twoColumnDetail('<fg=green>Done</>');
         $this->newLine();
-        $this->line('  1. Edit CSS variables in <comment>public/vendor/martis/themes/'.$name.'.css</comment>');
-        $this->line('  2. Changes take effect immediately (plain CSS, no rebuild needed).');
+        $this->line('  1. Edit CSS variables in <comment>resources/css/martis/'.$name.'.css</comment>');
+        $this->line('  2. Publish your changes with <comment>php artisan martis:publish-assets</comment> (no Vite rebuild).');
+        $this->line('     It copies every theme in resources/css/martis/ to public/vendor/martis/themes/,');
+        $this->line('     replacing the copies there: edit the source, never the copy.');
         $this->line('  3. Switch theme in <comment>config/martis.php</comment>:');
         $this->newLine();
         $this->line("     <comment>'theme' => ['name' => '{$name}']</comment>");

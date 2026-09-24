@@ -4,6 +4,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
+use Martis\Support\ThemeFiles;
 
 /**
  * Republish Martis frontend assets cleanly.
@@ -33,13 +34,18 @@ use Illuminate\Filesystem\Filesystem;
  * resolve it, and the SPA never mounts). Expectations are derived from
  * the SOURCE manifest, so a missing or corrupt destination manifest fails
  * closed rather than passing silently.
+ *
+ * Last, it publishes the app's themes: every `resources/css/martis/<name>.css`
+ * is copied to `public/vendor/martis/themes/`, where the panel loads it. The
+ * wipe deletes the previous copies with everything else, so the published
+ * themes always match their sources (see `Martis\Support\ThemeFiles`).
  */
 class PublishAssetsCommand extends Command
 {
     protected $signature = 'martis:publish-assets
                             {--no-wipe : Skip the destination wipe (legacy merge-style behaviour)}';
 
-    protected $description = 'Republish Martis frontend assets, wiping public/vendor/martis first';
+    protected $description = 'Republish Martis frontend assets and the app themes, wiping public/vendor/martis first';
 
     public function handle(Filesystem $filesystem): int
     {
@@ -97,6 +103,8 @@ class PublishAssetsCommand extends Command
             '<fg=green>Published</> martis-assets',
             $this->relativePath($destination),
         );
+
+        $this->publishThemes($filesystem);
 
         $this->newLine();
         $this->components->info('Martis assets published successfully.');
@@ -170,6 +178,36 @@ class PublishAssetsCommand extends Command
         }
 
         return $missing;
+    }
+
+    /**
+     * Copy every theme source to `public/vendor/martis/themes/`.
+     *
+     * The source is the theme. After the wipe a copy edited in place is
+     * replaced and one whose source is gone is not published again; with
+     * `--no-wipe` a stale copy is overwritten from its source, and one
+     * without a source stays, like any other stale file.
+     */
+    protected function publishThemes(Filesystem $filesystem): void
+    {
+        foreach (ThemeFiles::sources($filesystem) as $name => $source) {
+            if (! ThemeFiles::isValidName($name)) {
+                $this->components->warn(
+                    'Skipped '.$this->relativePath($source).': the panel only loads a theme named with letters, digits, dashes and underscores.'
+                );
+
+                continue;
+            }
+
+            $target = ThemeFiles::publishedPath($name);
+            $filesystem->ensureDirectoryExists(dirname($target));
+            $filesystem->copy($source, $target);
+
+            $this->components->twoColumnDetail(
+                '<fg=green>Published</> theme '.$name,
+                $this->relativePath($target),
+            );
+        }
     }
 
     protected function relativePath(string $absolute): string
