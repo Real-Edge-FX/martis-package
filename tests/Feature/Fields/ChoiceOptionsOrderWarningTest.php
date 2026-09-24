@@ -34,8 +34,17 @@ it('warns once when a stored value matches an option label and no option value, 
     $field->resolve(choiceOrderModel(['status' => 'draft'], 12));
     $field->resolve(choiceOrderModel(['status' => 'published'], 13));
 
-    Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message): bool => str_contains($message, 'ChoiceOrderWarningModel #12 stores "draft" in Select [status], which matches an option label and no option value.')
-        && str_contains($message, 'See docs/upgrading.md.'));
+    Log::shouldHaveReceived('warning')->once()->withArgs(function (string $message, array $context): bool {
+        return str_contains($message, 'ChoiceOrderWarningModel #12 stores "draft" in Select [status], which matches an option label and no option value.')
+            && str_contains($message, 'See docs/upgrading.md.')
+            && $context === [
+                'model' => ChoiceOrderWarningModel::class,
+                'key' => 12,
+                'field' => Select::class,
+                'attribute' => 'status',
+                'value' => 'draft',
+            ];
+    });
 });
 
 it('stays silent when the stored value is an option value', function () {
