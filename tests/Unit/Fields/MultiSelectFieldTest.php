@@ -4,6 +4,12 @@ use Illuminate\Database\Eloquent\Model;
 use Martis\FieldContext;
 use Martis\Fields\MultiSelect;
 
+enum MultiSelectFieldTag: string
+{
+    case Php = 'php';
+    case Go = 'go';
+}
+
 // ---------------------------------------------------------------------------
 // Test model fixture
 // ---------------------------------------------------------------------------
@@ -48,17 +54,17 @@ it('MultiSelect is visible in all contexts by default', function () {
 // Options — simple formats
 // ---------------------------------------------------------------------------
 
-it('MultiSelect options() accepts sequential array', function () {
+it('MultiSelect options() reads a list as values 0, 1, 2 like Nova does', function () {
     $field = MultiSelect::make('labels')->options(['php', 'laravel', 'react']);
 
     $opts = $field->getOptions();
     expect($opts)->toHaveCount(3)
-        ->and($opts[0])->toBe(['label' => 'php', 'value' => 'php'])
-        ->and($opts[1])->toBe(['label' => 'laravel', 'value' => 'laravel']);
+        ->and($opts[0])->toBe(['label' => 'php', 'value' => 0])
+        ->and($opts[1])->toBe(['label' => 'laravel', 'value' => 1]);
 });
 
-it('MultiSelect options() accepts associative array', function () {
-    $field = MultiSelect::make('labels')->options(['PHP' => 'php', 'Laravel' => 'laravel']);
+it('MultiSelect options() reads [value => label]', function () {
+    $field = MultiSelect::make('labels')->options(['php' => 'PHP', 'laravel' => 'Laravel']);
 
     $opts = $field->getOptions();
     expect($opts)->toHaveCount(2)
@@ -66,16 +72,30 @@ it('MultiSelect options() accepts associative array', function () {
         ->and($opts[1])->toBe(['label' => 'Laravel', 'value' => 'laravel']);
 });
 
-it('MultiSelect options() accepts grouped array', function () {
+it('MultiSelect options() reads Nova grouped options', function () {
     $field = MultiSelect::make('labels')->options([
-        'Backend' => ['PHP' => 'php', 'Go' => 'go'],
-        'Frontend' => ['React' => 'react'],
+        'php' => ['label' => 'PHP', 'group' => 'Backend'],
+        'go' => ['label' => 'Go', 'group' => 'Backend'],
+        'react' => ['label' => 'React', 'group' => 'Frontend'],
     ]);
 
     $opts = $field->getOptions();
     expect($opts)->toHaveCount(3)
         ->and($opts[0])->toBe(['label' => 'PHP', 'value' => 'php', 'group' => 'Backend'])
         ->and($opts[2])->toBe(['label' => 'React', 'value' => 'react', 'group' => 'Frontend']);
+});
+
+it('MultiSelect options() rejects the pre-v2 nested group format', function () {
+    MultiSelect::make('labels')->options(['Backend' => ['PHP' => 'php']]);
+})->throws(InvalidArgumentException::class, 'MultiSelect [labels]: the option [Backend] maps to an array that is not a grouped option.');
+
+it('MultiSelect options() accepts a backed enum class', function () {
+    $field = MultiSelect::make('labels')->options(MultiSelectFieldTag::class);
+
+    expect($field->getOptions())->toBe([
+        ['label' => 'Php', 'value' => 'php'],
+        ['label' => 'Go', 'value' => 'go'],
+    ]);
 });
 
 it('MultiSelect displayUsingLabels() enables label display', function () {
@@ -184,7 +204,7 @@ it('MultiSelect preserves multiple values correctly', function () {
 
 it('MultiSelect toArray contains options and displayLabels', function () {
     $field = MultiSelect::make('labels')
-        ->options(['PHP' => 'php', 'Go' => 'go'])
+        ->options(['php' => 'PHP', 'go' => 'Go'])
         ->displayUsingLabels();
 
     $arr = $field->toArray();

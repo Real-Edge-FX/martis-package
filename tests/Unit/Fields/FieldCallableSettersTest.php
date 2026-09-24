@@ -32,7 +32,7 @@ class FieldCallableSettersTest extends TestCase
         $field = Select::make('plan')->options(function () use (&$invocations) {
             $invocations++;
 
-            return ['Free' => 'free', 'Pro' => 'pro'];
+            return ['free' => 'Free', 'pro' => 'Pro'];
         });
 
         // Closure should not have run yet.
@@ -57,8 +57,8 @@ class FieldCallableSettersTest extends TestCase
     public function test_select_options_static_array_replaces_resolver(): void
     {
         $field = Select::make('plan')
-            ->options(fn () => ['Pro' => 'pro'])
-            ->options(['Free' => 'free']);
+            ->options(fn () => ['pro' => 'Pro'])
+            ->options(['free' => 'Free']);
 
         $this->assertSame(
             [['label' => 'Free', 'value' => 'free']],
@@ -66,11 +66,24 @@ class FieldCallableSettersTest extends TestCase
         );
     }
 
+    public function test_select_closure_replaces_static_options(): void
+    {
+        $field = Select::make('plan')
+            ->options(['free' => 'Free'])
+            ->options(fn () => ['pro' => 'Pro']);
+
+        $this->assertSame(
+            [['label' => 'Pro', 'value' => 'pro']],
+            $field->getOptions(),
+        );
+    }
+
     public function test_multi_select_options_accepts_closure_with_grouped_payload(): void
     {
         $field = MultiSelect::make('skills')->options(fn () => [
-            'Backend' => ['PHP' => 'php', 'Go' => 'go'],
-            'Frontend' => ['React' => 'react'],
+            'php' => ['label' => 'PHP', 'group' => 'Backend'],
+            'go' => ['label' => 'Go', 'group' => 'Backend'],
+            'react' => ['label' => 'React', 'group' => 'Frontend'],
         ]);
 
         $this->assertSame([

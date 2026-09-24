@@ -3,7 +3,7 @@
 namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Http\Request;
+use Martis\Fields\Concerns\HasChoiceOptions;
 
 /**
  * MultiSelect field — select multiple values from a predefined option list.
@@ -18,25 +18,16 @@ use Illuminate\Http\Request;
  *  - index: yes (renders summarised representation)
  *
  * API:
- *  - options(['Label' => 'value']) ou options(['value1', 'value2'])
- *  - displayUsingLabels()   — displays labels instead of raw values in detail/index
+ *  - options(['php' => 'PHP', 'go' => 'Go'])   [value => label], as in Nova
+ *  - options(['php' => ['label' => 'PHP', 'group' => 'Backend']])   grouped, as in Nova
+ *  - options(Tag::class) or options(fn (Request|null $r) => [...])   enum class, closure
+ *  - displayUsingLabels()   displays labels instead of raw values in detail/index
  *
  * Storage format: JSON array of values, e.g. ["php","laravel","react"]
- * Supports groups: options(['Group' => ['Label' => 'value']])
  */
 class MultiSelect extends Field
 {
-    /**
-     * @var list<array{label: string, value: scalar, group?: string}>
-     */
-    protected array $options = [];
-
-    /**
-     * Lazy resolver — set when `options()` was called with a Closure
-     * instead of an array. The closure runs at schema-render time so
-     * options can pull from the DB / config / current user.
-     */
-    protected ?\Closure $optionsResolver = null;
+    use HasChoiceOptions;
 
     protected bool $displayLabels = false;
 
@@ -52,73 +43,6 @@ class MultiSelect extends Field
     public function type(): string
     {
         return 'multi_select';
-    }
-
-    /**
-     * Set the available options.
-     *
-     * Accepts four formats:
-     *   - Sequential: ['php', 'laravel']          (value used as label)
-     *   - Associative: ['PHP' => 'php']            (label => value)
-     *   - Grouped: ['Backend' => ['PHP' => 'php']] (group => [label => value])
-     *   - Closure: fn (Request|null $r) => [...]   (any of the above shapes)
-     *
-     * The closure form is evaluated lazily via `getOptions()` — perfect
-     * for options that come from the database, depend on the active
-     * user, or change per locale.
-     *
-     * @param  array<string, scalar|array<string, scalar>>|list<scalar>|\Closure(Request|null): array  $options
-     */
-    public function options(array|\Closure $options): static
-    {
-        if ($options instanceof \Closure) {
-            $this->optionsResolver = $options;
-            $this->options = [];
-
-            return $this;
-        }
-
-        $this->optionsResolver = null;
-        $this->options = $this->normalizeOptions($options);
-
-        return $this;
-    }
-
-    /**
-     * Normalize a raw options array into the internal label/value/group
-     * shape. Extracted so the Closure path can reuse it.
-     *
-     * @param  array<int|string, scalar|array<string, scalar>>  $raw
-     * @return list<array{label: string, value: scalar, group?: string}>
-     */
-    protected function normalizeOptions(array $raw): array
-    {
-        $out = [];
-
-        foreach ($raw as $key => $value) {
-            // Sequential
-            if (is_int($key) && ! is_array($value)) {
-                $out[] = ['label' => (string) $value, 'value' => $value];
-
-                continue;
-            }
-
-            // Grouped: key is group label, value is nested array
-            if (is_string($key) && is_array($value)) {
-                foreach ($value as $label => $val) {
-                    $out[] = ['label' => (string) $label, 'value' => $val, 'group' => $key];
-                }
-
-                continue;
-            }
-
-            // Associative: key is label, value is stored value
-            if (is_string($key)) {
-                $out[] = ['label' => $key, 'value' => $value];
-            }
-        }
-
-        return $out;
     }
 
     /**
@@ -147,21 +71,6 @@ class MultiSelect extends Field
         );
 
         return $this;
-    }
-
-    /**
-     * @return list<array{label: string, value: scalar, group?: string}>
-     */
-    public function getOptions(): array
-    {
-        if ($this->optionsResolver !== null) {
-            $request = $this->safeRequest();
-            $resolved = ($this->optionsResolver)($request);
-
-            return is_array($resolved) ? $this->normalizeOptions($resolved) : [];
-        }
-
-        return $this->options;
     }
 
     /**

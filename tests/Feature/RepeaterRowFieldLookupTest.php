@@ -65,10 +65,12 @@ class RrlTag extends Model
 // Fixtures: Repeatables
 // ---------------------------------------------------------------------------
 
-/** @return list<string> */
+/** @return array<string, string> value => label */
 function rrlUnits(string $term): array
 {
-    return array_values(array_filter(['box', 'crate', 'pallet'], fn (string $unit) => $term === '' || str_contains($unit, $term)));
+    $matches = array_values(array_filter(['box', 'crate', 'pallet'], fn (string $unit) => $term === '' || str_contains($unit, $term)));
+
+    return array_combine($matches, $matches);
 }
 
 /** A row type with every server-backed picker. */
