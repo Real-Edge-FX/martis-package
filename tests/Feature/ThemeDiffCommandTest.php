@@ -103,6 +103,14 @@ it('fails with a hint when only a published copy exists', function () {
         ->assertExitCode(1);
 });
 
+it('reports a theme source it cannot read instead of crashing', function () {
+    symlink(resource_path('css/martis/missing-target.css'), resource_path('css/martis/diff-broken.css'));
+
+    $this->artisan('martis:theme:diff', ['theme' => 'diff-broken'])
+        ->expectsOutputToContain('Could not read resources/css/martis/diff-broken.css: it is a broken symlink')
+        ->assertExitCode(1);
+});
+
 it('rejects a theme name the panel does not load', function (string $name) {
     $this->artisan('martis:theme:diff', ['theme' => $name])
         ->expectsOutputToContain('is not a theme name the panel loads')

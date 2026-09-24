@@ -233,7 +233,16 @@ php artisan martis:publish-assets --themes-only
 php artisan config:clear
 ```
 
-The publish warns when `martis.theme.name` has no source, when it skips a source, and when it backs up a published copy it replaces or removes (to `storage/app/martis/theme-backups/`).
+The publish warns when `martis.theme.name` has no source, when it skips a source, and when it backs up a published copy it replaces or removes (to `storage/app/martis/theme-backups/`). It stops instead in the cases below.
+
+### `martis:publish-assets` or `martis:install` stops on a theme
+
+The asset publish checks the themes before it deletes anything, and stops with exit code 1, changing nothing, in two cases:
+
+- `Could not read resources/css/martis/<file>`: a theme source is a broken symlink or does not open. Fix or remove the file.
+- `martis.theme.name is "<name>", but ...`: the publish would take away the theme the panel loads, because its source is skipped (for example a `.CSS` extension) or missing while its published copy exists. Move the published copy to `resources/css/martis/<name>.css` (see [Theming → Upgrading from 1.x](theming.md#upgrading-from-1x)), or set `martis.theme.name` to another theme or `null`.
+
+Then run the command again. A failed backup stops it the same way: make `storage/app/martis/theme-backups/` writable.
 
 Do not run `php artisan martis:theme` again to refresh the published file: it asks before it overwrites the source (and refuses in a non-interactive run), and if you confirm, or pass `--force`, it replaces your theme with the scaffold. Up to v1.39.1 asset publishes deleted the published copy without writing it again; see [Theming → Theme not loading](theming.md#theme-not-loading).
 

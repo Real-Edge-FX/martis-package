@@ -9,7 +9,7 @@ function cleanupThemeArtifacts(string $name = 'test-theme'): void
     $fs->delete(public_path("vendor/martis/themes/{$name}.css"));
     $fs->deleteDirectory(resource_path('css/martis'));
     $fs->deleteDirectory(public_path('vendor/martis/themes'));
-    removeThemeBackups();
+    removeThemeState();
 }
 
 beforeEach(function () {
@@ -76,11 +76,43 @@ it('backs up a published theme without a source before scaffolding over it', fun
     expect(array_values(themeBackups()))->toBe([':root { --martis-accent: #abcdef; }']);
 });
 
-it('warns, and still succeeds, when the publish record cannot be written', function () {
-    (new Filesystem)->ensureDirectoryExists(public_path('vendor/martis/themes/.published.json'));
+it('backs up the published copy when its source is gone, even if the record matches it', function () {
+    // After a publish the record holds the copy's hash; once the source is
+    // deleted, that copy is the only one left of the theme.
+    $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
+    file_put_contents(resource_path('css/martis/test-theme.css'), ':root { --martis-accent: #abcdef; }');
+    $this->artisan('martis:publish-assets', ['--themes-only' => true])->assertSuccessful();
+    unlink(resource_path('css/martis/test-theme.css'));
 
     $this->artisan('martis:theme', ['name' => 'test-theme'])
-        ->expectsOutputToContain('Could not write public/vendor/martis/themes/.published.json')
+        ->expectsOutputToContain('public/vendor/martis/themes/test-theme.css has no source in resources/css/martis/')
+        ->assertSuccessful();
+
+    expect(array_values(themeBackups()))->toBe([':root { --martis-accent: #abcdef; }']);
+});
+
+it('backs up the source it overwrites with --force', function () {
+    // After the edit-and-publish loop the source holds the edits and the
+    // published copy matches it: --force would leave no copy of them.
+    $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
+    file_put_contents(resource_path('css/martis/test-theme.css'), ':root { --martis-accent: #abcdef; }');
+    $this->artisan('martis:publish-assets', ['--themes-only' => true])->assertSuccessful();
+
+    $this->artisan('martis:theme', ['name' => 'test-theme', '--force' => true])
+        ->expectsOutputToContain('resources/css/martis/test-theme.css differs from the scaffold')
+        ->assertSuccessful();
+
+    $backups = themeBackups();
+    expect($backups)->toHaveCount(1)
+        ->and((string) array_key_first($backups))->toEndWith('/resources/css/martis/test-theme.css')
+        ->and(array_values($backups))->toBe([':root { --martis-accent: #abcdef; }']);
+});
+
+it('warns, and still succeeds, when the publish record cannot be written', function () {
+    (new Filesystem)->ensureDirectoryExists(storage_path('app/martis/published-themes.json'));
+
+    $this->artisan('martis:theme', ['name' => 'test-theme'])
+        ->expectsOutputToContain('Could not write storage/app/martis/published-themes.json')
         ->assertSuccessful();
 
     expect(public_path('vendor/martis/themes/test-theme.css'))->toBeFile();

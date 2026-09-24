@@ -49,33 +49,53 @@ class ThemeMakeCommand extends Command
             }
         }
 
-        // 2. The published copy is overwritten below. Back it up first when it
-        // holds content neither the publish record nor the current source has:
-        // a copy edited in place (the 1.x hint said to edit it) or a theme
-        // with no source. Nothing is written when the backup fails.
+        // 2. The source and the published copy are overwritten below. Back up
+        // each one that holds content the scaffold and the publish record do
+        // not: the source after the edit-and-publish loop, a copy edited in
+        // place (the 1.x hint said to edit it) or a copy with no source. All
+        // backups are made before any warning, and nothing is written when
+        // one fails.
+        $contents = $this->renderStub($name);
         $publisher = new ThemePublisher(new Filesystem);
         $previousSource = is_file($path) ? $path : null;
+        $published = ThemeFiles::publishedPath($name);
 
+        $atRisk = [];
+        // A source that does not open hashes to false: it counts as edited,
+        // and its backup fails, so it is never overwritten unseen.
+        if ($previousSource !== null && @sha1_file($previousSource) !== sha1($contents)) {
+            $atRisk[$previousSource] = "resources/css/martis/{$name}.css differs from the scaffold, and martis:theme replaces it.";
+        }
         if (! $publisher->isReproducible($name, $previousSource)) {
-            $published = "public/vendor/martis/themes/{$name}.css";
+            $atRisk[$published] = $previousSource === null
+                ? "public/vendor/martis/themes/{$name}.css has no source in resources/css/martis/, and martis:theme replaces it with the scaffold."
+                : "public/vendor/martis/themes/{$name}.css differs from its source, and martis:theme replaces it with the scaffold.";
+        }
 
+        $backups = [];
+        foreach (array_keys($atRisk) as $file) {
             try {
-                $backup = $this->relativePath($publisher->backUp($name.'.css'));
+                $backups[$file] = $publisher->backUp($file);
             } catch (Throwable $e) {
-                $this->components->error("Could not back up {$published}: ".$e->getMessage());
+                $this->components->error('Could not back up '.$this->relativePath($file).': '.$e->getMessage());
                 $this->line('  Nothing was written. Make the file readable and <fg=cyan>storage/app/martis/theme-backups/</> writable,');
                 $this->line('  then run the command again.');
 
                 return self::FAILURE;
             }
+        }
+        $publisher->pruneRuns();
 
-            $this->components->warn($previousSource === null
-                ? "{$published} has no source in resources/css/martis/, and martis:theme replaces it with the scaffold."
-                : "{$published} differs from its source, and martis:theme replaces it with the scaffold.");
-            $this->line("  Backed up to <fg=cyan>{$backup}</>. If it holds edits you want, copy them into resources/css/martis/{$name}.css.");
+        foreach ($backups as $file => $backup) {
+            $this->components->warn($atRisk[$file]);
+            $this->line('  '.($backup['reused'] ? 'Already backed up to' : 'Backed up to').' <fg=cyan>'.$this->relativePath($backup['path'])."</>. If it holds edits you want, copy them into resources/css/martis/{$name}.css.");
         }
 
-        $contents = $this->renderStub($name);
+        // Never write through a symlink left where the source goes.
+        if (is_link($path)) {
+            unlink($path);
+        }
+
         file_put_contents($path, $contents);
         $this->components->info("Theme created: resources/css/martis/{$name}.css");
 
@@ -96,7 +116,7 @@ class ThemeMakeCommand extends Command
         } catch (Throwable $e) {
             // Only costs a backup: without the record, the next publish
             // treats this copy as edited in place once the source changes.
-            $this->components->warn('Could not write public/vendor/martis/themes/'.ThemePublisher::RECORD.': '.$e->getMessage());
+            $this->components->warn('Could not write '.$this->relativePath(ThemeFiles::recordPath()).': '.$e->getMessage());
         }
 
         // 4. Update config/martis.php theme.name — scoped to the 'theme'

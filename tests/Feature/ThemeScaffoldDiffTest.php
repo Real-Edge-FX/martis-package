@@ -15,6 +15,7 @@ beforeEach(function () {
 afterEach(function () {
     @unlink(resource_path('css/martis/diffscaffold.css'));
     @unlink(public_path('vendor/martis/themes/diffscaffold.css'));
+    removeThemeState();
 
     ($this->restoreMartisConfig)();
 });

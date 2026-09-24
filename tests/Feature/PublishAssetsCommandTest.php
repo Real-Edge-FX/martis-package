@@ -56,6 +56,7 @@ beforeEach(function () {
     $fs = new Filesystem;
     $fs->deleteDirectory(resource_path('css/martis'));
     $fs->deleteDirectory(public_path('vendor/martis/themes'));
+    removeThemeState();
 });
 
 afterEach(function () {
@@ -67,9 +68,11 @@ afterEach(function () {
     }
     $GLOBALS['__martis_publish_probe_dirs'] = [];
 
-    // Remove the theme sources and published copies the theme tests create.
+    // Remove the theme sources, published copies, backups and publish
+    // record the theme tests create.
     $fs->deleteDirectory(resource_path('css/martis'));
     $fs->deleteDirectory(public_path('vendor/martis/themes'));
+    removeThemeState();
 });
 
 it('martis:publish-assets is registered in the service provider', function () {

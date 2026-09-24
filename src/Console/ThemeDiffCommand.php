@@ -65,17 +65,24 @@ class ThemeDiffCommand extends Command
         $consumerPath = ThemeFiles::sourcePath($themeName);
         $packagePath = __DIR__.'/../../resources/css/martis.css';
 
-        if (! $filesystem->exists($consumerPath)) {
+        if (! is_link($consumerPath) && ! $filesystem->exists($consumerPath)) {
             $this->components->error("Theme source not found: resources/css/martis/{$themeName}.css");
 
             if ($filesystem->exists(ThemeFiles::publishedPath($themeName))) {
                 $this->line("  Only the published copy <fg=cyan>public/vendor/martis/themes/{$themeName}.css</> exists. <fg=cyan>php artisan martis:publish-assets</>");
                 $this->line('  publishes the themes from resources/css/martis/ and removes a copy that has no source, after');
-                $this->line('  backing it up to storage/app/martis/theme-backups/ (a run with --no-wipe leaves it).');
+                $this->line('  backing it up to storage/app/martis/theme-backups/ (it stops instead when the copy is the theme');
+                $this->line('  martis.theme.name names, and a run with --no-wipe leaves it).');
                 $this->line("  Move it to <fg=cyan>resources/css/martis/{$themeName}.css</> to keep the theme.");
             } else {
                 $this->line('  Did you forget to <fg=cyan>php artisan martis:theme '.$themeName.'</>?');
             }
+
+            return self::FAILURE;
+        }
+
+        if (($reason = ThemeFiles::unreadableReason($consumerPath)) !== null) {
+            $this->components->error("Could not read resources/css/martis/{$themeName}.css: {$reason}.");
 
             return self::FAILURE;
         }

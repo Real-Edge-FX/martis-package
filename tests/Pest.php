@@ -56,16 +56,26 @@ if (! function_exists('themeBackups')) {
     }
 }
 
-if (! function_exists('removeThemeBackups')) {
+if (! function_exists('removeThemeState')) {
     /**
-     * Remove storage/app/martis/theme-backups from the testbench app, whether
-     * a spec left it as a directory or as a file.
+     * Remove what the theme commands keep in the testbench app's
+     * storage/app/martis/ (the backups and the publish record, whether a
+     * spec left each as a file or a directory), then the directory itself
+     * when nothing else is in it.
      */
-    function removeThemeBackups(): void
+    function removeThemeState(): void
     {
-        $path = storage_path('app/martis/theme-backups');
         $files = new Filesystem;
-        $files->isDirectory($path) ? $files->deleteDirectory($path) : $files->delete($path);
+
+        foreach (['app/martis/theme-backups', 'app/martis/published-themes.json'] as $relative) {
+            $path = storage_path($relative);
+            $files->isDirectory($path) ? $files->deleteDirectory($path) : $files->delete($path);
+        }
+
+        $directory = storage_path('app/martis');
+        if ($files->isDirectory($directory) && $files->files($directory, true) === [] && $files->directories($directory) === []) {
+            $files->deleteDirectory($directory);
+        }
     }
 }
 
