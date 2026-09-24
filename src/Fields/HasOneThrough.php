@@ -11,13 +11,17 @@ use Illuminate\Database\Eloquent\Relations\HasOneThrough as EloquentHasOneThroug
  *
  * The relationship on the parent model is defined as
  *   `hasOneThrough(Owner::class, Car::class)`
- * and the field renders visually like `HasOne` — read-only, because
- * the traversal goes through an intermediate the UI cannot create.
+ * and the field renders visually like `HasOne` — without a Create
+ * button, because the traversal goes through an intermediate the UI
+ * cannot create.
  *
  * ⭐ Martis differentials:
- *  - **Read-only by default** — Through records cannot be created,
- *    edited or deleted from the parent resource because the traversal
- *    goes through an intermediate model the UI cannot populate.
+ *  - **No create through the relationship, enforced** — as in Nova, a
+ *    Through record cannot be created from the parent resource and
+ *    `canCreate()` has no effect, because the traversal goes through an
+ *    intermediate model the UI cannot populate; the has-one endpoints
+ *    also refuse a create through the relationship with a 403. Edit and
+ *    Delete work as on `HasOne`, under the related resource's policies.
  *  - **`throughBreadcrumb(bool $enabled = true)`** — ships a tooltip
  *    describing the intermediate hop (e.g. `Project → Client →
  *    Account Manager`), resolved from the relation's intermediate
@@ -33,18 +37,24 @@ class HasOneThrough extends HasOne
     {
         parent::__construct($attribute, $label, $relationship);
 
-        // Read-only by default: a Through relationship is a traversal —
-        // there is no direct FK to populate on create (the intermediate
-        // model is ambiguous). Callers can re-enable mutations explicitly
-        // via ->canCreate(true) etc. when they have custom logic.
+        // No create through a Through relationship, as in Nova: it is a
+        // traversal — there is no direct FK to populate (the intermediate
+        // model is ambiguous) — and HasOneController refuses one (403).
         $this->canCreateRelated = false;
-        $this->canUpdateRelated = false;
-        $this->canDeleteRelated = false;
     }
 
     public function type(): string
     {
         return 'has_one_through';
+    }
+
+    /**
+     * No effect: the panel of a Through relationship never offers Create.
+     * Kept callable so a resource that calls it still loads.
+     */
+    public function canCreate(bool $value = true): static
+    {
+        return $this;
     }
 
     /**

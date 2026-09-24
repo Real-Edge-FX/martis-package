@@ -68,14 +68,16 @@ it('MorphOneOfMany latestByTimestamp + aggregateVia pipe through', function () {
         ->and($field->getAggregateFunction())->toBe(AggregateFunction::Count);
 });
 
-// ── HasOneThrough — read-only defaults ────────────────────────────────
+// ── HasOneThrough — no create, as in Nova ─────────────────────────────
 
-it('HasOneThrough defaults Create/Update/Delete to false (read-only traversal)', function () {
+it('HasOneThrough offers no Create and keeps the HasOne Update / Delete defaults', function () {
     $schema = HasOneThrough::make('Manager', 'manager')->toArray();
 
-    expect($schema['hasOneMeta']['canCreate'])->toBeFalse()
-        ->and($schema['hasOneMeta']['canUpdate'])->toBeFalse()
-        ->and($schema['hasOneMeta']['canDelete'])->toBeFalse();
+    expect($schema['hasOneMeta'])->toMatchArray([
+        'canCreate' => false,
+        'canUpdate' => true,
+        'canDelete' => true,
+    ]);
 });
 
 it('HasOneThrough type is has_one_through', function () {
@@ -89,14 +91,63 @@ it('HasOneThrough throughBreadcrumb flag round-trips', function () {
         ->and($field->toArray()['throughBreadcrumb'])->toBeTrue();
 });
 
-// ── HasManyThrough — read-only + count badge ──────────────────────────
+// ── HasManyThrough — no create, as in Nova + count badge ──────────────
 
-it('HasManyThrough defaults Create/Update/Delete to false', function () {
+it('HasManyThrough offers no Create and keeps the HasMany row action defaults', function () {
     $schema = HasManyThrough::make('Projects', 'managedProjects')->toArray();
 
-    expect($schema['hasManyMeta']['canCreate'])->toBeFalse()
-        ->and($schema['hasManyMeta']['canUpdate'])->toBeFalse()
-        ->and($schema['hasManyMeta']['canDelete'])->toBeFalse();
+    expect($schema['hasManyMeta'])->toMatchArray([
+        'canCreate' => false,
+        'canUpdate' => true,
+        'canDelete' => true,
+        'hideRestoreAction' => false,
+        'hideForceDeleteAction' => false,
+    ]);
+});
+
+// Nova's Through panels offer no create, and the relationship endpoints
+// refuse one, so canCreate() cannot bring it back. It stays callable: a
+// resource that calls it keeps loading. The other setters work as on the
+// base field.
+
+it('canCreate() does not bring Create back on a Through field', function () {
+    expect(HasManyThrough::make('Projects', 'managedProjects')->canCreate()->toArray()['hasManyMeta']['canCreate'])->toBeFalse()
+        ->and(HasOneThrough::make('Manager', 'manager')->canCreate()->toArray()['hasOneMeta']['canCreate'])->toBeFalse();
+});
+
+it('the row action setters work on a Through field as on its base field', function () {
+    $many = HasManyThrough::make('Projects', 'managedProjects')
+        ->canUpdate(false)
+        ->canDelete(false)
+        ->hideRestoreAction()
+        ->hideForceDeleteAction()
+        ->toArray()['hasManyMeta'];
+    $one = HasOneThrough::make('Manager', 'manager')
+        ->canUpdate(false)
+        ->canDelete(false)
+        ->toArray()['hasOneMeta'];
+
+    expect($many)->toMatchArray([
+        'canUpdate' => false,
+        'canDelete' => false,
+        'hideRestoreAction' => true,
+        'hideForceDeleteAction' => true,
+    ])->and($one)->toMatchArray([
+        'canUpdate' => false,
+        'canDelete' => false,
+    ]);
+});
+
+it('HasOneOfMany, the other HasOne variant, keeps honouring canCreate / canUpdate / canDelete', function () {
+    $default = HasOneOfMany::make('Latest Invoice', 'latestInvoice')->toArray()['hasOneMeta'];
+    $disabled = HasOneOfMany::make('Latest Invoice', 'latestInvoice')
+        ->canCreate(false)
+        ->canUpdate(false)
+        ->canDelete(false)
+        ->toArray()['hasOneMeta'];
+
+    expect($default)->toMatchArray(['canCreate' => true, 'canUpdate' => true, 'canDelete' => true])
+        ->and($disabled)->toMatchArray(['canCreate' => false, 'canUpdate' => false, 'canDelete' => false]);
 });
 
 it('HasManyThrough countBadge defaults to true', function () {

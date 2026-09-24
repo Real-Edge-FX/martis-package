@@ -531,12 +531,15 @@ class HasOneController extends MartisController
         /** @var class-string<resource> $relatedResourceClass */
         $relatedResourceClass = $this->registry->get($relatedResourceKey);
 
-        // Block mutations on HasOneThrough — the relationship is a traversal,
-        // there is no direct FK for Eloquent to create/update/delete on.
+        // No create through a HasOneThrough relationship, as in Nova: it is a
+        // traversal, there is no direct FK for Eloquent to create on.
         // Defence in depth: even if someone bypasses the UI, the backend
-        // refuses.
-        if ($action !== null && $hasOneField instanceof HasOneThroughField) {
-            return JsonErrorResponse::forbidden('hasOneThrough relationships are read-only.')->toResponse();
+        // refuses. A plain HasOne field declared on a hasOneThrough
+        // relationship is refused too. An update or a delete reaches the
+        // record the relationship holds, under the related resource's
+        // policies.
+        if ($action === 'create' && ($hasOneField instanceof HasOneThroughField || $relation instanceof EloquentHasOneThrough)) {
+            return JsonErrorResponse::forbidden('Records cannot be created through a hasOneThrough relationship.')->toResponse();
         }
 
         // Check authorization for the action

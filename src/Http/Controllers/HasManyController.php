@@ -18,6 +18,7 @@ use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\File;
 use Martis\Fields\HasMany;
+use Martis\Fields\HasManyThrough as HasManyThroughField;
 use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
 use Martis\Http\Controllers\Concerns\SyncsDeferredWrites;
@@ -451,6 +452,17 @@ class HasManyController extends MartisController
 
         /** @var class-string<resource> $relatedResourceClass */
         $relatedResourceClass = $this->registry->get($relatedResourceKey);
+
+        // No create through a HasManyThrough relationship, as in Nova: it is
+        // a traversal with no foreign key of its own, so a create would write
+        // the parent's key into the related record's key to the intermediate
+        // model, filing the record under whichever intermediate has that id.
+        // A plain HasMany field declared on a hasManyThrough relationship is
+        // refused too. An update or a delete reaches a record the
+        // relationship holds, under the related resource's policies.
+        if ($action === 'create' && ($hasManyField instanceof HasManyThroughField || $relation instanceof EloquentHasManyThrough)) {
+            return JsonErrorResponse::forbidden('Records cannot be created through a hasManyThrough relationship.')->toResponse();
+        }
 
         // Check authorization for the action
         if ($action === 'create') {

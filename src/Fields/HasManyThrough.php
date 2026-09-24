@@ -12,12 +12,16 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough as EloquentHasManyThro
  * The relationship on the parent model is defined as
  *   `hasManyThrough(Invoice::class, Project::class)`
  * and the field renders visually like `HasMany` — inline DataTable —
- * read-only because the traversal goes through an intermediate.
+ * without a Create button, because the traversal goes through an
+ * intermediate.
  *
  * ⭐ Martis differentials:
- *  - **Read-only by default** — no Create/Edit/Delete buttons because
- *    the traversal goes through an intermediate model the UI cannot
- *    populate.
+ *  - **No create through the relationship, enforced** — as in Nova, the
+ *    panel offers no Create and `canCreate()` has no effect, because the
+ *    traversal goes through an intermediate model the UI cannot
+ *    populate; the has-many endpoints also refuse a create through the
+ *    relationship with a 403. Edit / Delete / Restore / Force delete
+ *    work as on `HasMany`, under the related resource's policies.
  *  - **`throughBreadcrumb(bool $enabled = true)`** — tooltip describing
  *    the intermediate hop (e.g. `Client → Projects → Invoices`).
  *  - **`countBadge(bool $enabled = true)`** — shows a count pill on
@@ -36,18 +40,24 @@ class HasManyThrough extends HasMany
     {
         parent::__construct($attribute, $label, $relationship);
 
-        // Read-only by default: a Through relationship is a traversal —
-        // there is no direct FK to populate on create (the intermediate
-        // model is ambiguous). Callers can re-enable mutations explicitly
-        // via ->canCreate(true) etc. when they have custom logic.
+        // No create through a Through relationship, as in Nova: it is a
+        // traversal — there is no direct FK to populate (the intermediate
+        // model is ambiguous) — and HasManyController refuses one (403).
         $this->canCreateRelated = false;
-        $this->canUpdateRelated = false;
-        $this->canDeleteRelated = false;
     }
 
     public function type(): string
     {
         return 'has_many_through';
+    }
+
+    /**
+     * No effect: the panel of a Through relationship never offers Create.
+     * Kept callable so a resource that calls it still loads.
+     */
+    public function canCreate(bool $value = true): static
+    {
+        return $this;
     }
 
     /**
