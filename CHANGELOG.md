@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The troubleshooting guide told you to refresh a theme's published file by running `martis:theme` again, which fails without `--force` and, with it, replaces your theme with the scaffold. It now says to run `martis:publish-assets`. The `theme.name` row of the configuration reference describes the key the panel reads.
 
+### Internal
+
+- **`tests/TestCase.php` no longer loads Laravel's migrations before `RefreshDatabase`.** `migrate:fresh` runs on an empty folder (`tests/migrations-empty`, so it never runs the migrations `martis:install` publishes into the skeleton that parallel workers share) and dropped their tables before every test, in CI too; the `users` columns `afterRefreshingDatabase()` added never ran either. Both are gone, and the comments now describe what the suite does: each test starts from an empty in-memory database (`migrations` and `martis_cache_state`) and creates the tables it needs. No test changes outcome.
+
 ## [1.39.1] — 2026-09-24
 
 ### Fixed

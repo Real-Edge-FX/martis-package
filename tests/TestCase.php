@@ -36,23 +36,19 @@ abstract class TestCase extends OrchestraTestCase
         ]);
     }
 
-    protected function defineDatabaseMigrations(): void
-    {
-        $this->loadLaravelMigrations();
-    }
-
     /**
-     * Override RefreshDatabase's `migrate:fresh` so it does NOT scan the
-     * shared testbench `database/migrations/` folder. In parallel mode,
-     * `martis:install` from another worker leaves published Martis
-     * migrations in that folder; if `migrate:fresh` runs them before
-     * the testbench's bundled `users` migration (loaded via
-     * `loadLaravelMigrations`), they crash with "no such table users".
+     * Point RefreshDatabase's `migrate:fresh` at an empty folder, so it
+     * never scans the skeleton's `database/migrations/`. Every test
+     * process shares that folder and `martis:install` publishes Martis
+     * migrations into it: in parallel mode, `migrate:fresh` in one worker
+     * ran the migrations another worker had just published and crashed
+     * with "no such table users".
      *
-     * This override switches the migrator to a directory that does
-     * not exist, leaving testbench's bundled migrations as the sole
-     * source. Each test run is therefore isolated from artefacts of
-     * any other parallel worker.
+     * Each test therefore starts from an empty in-memory database: the
+     * `migrations` table plus the `martis_cache_state` table that
+     * afterRefreshingDatabase() adds. A test creates the tables it needs.
+     * Loading Laravel's migrations before the refresh does not provide
+     * them: `migrate:fresh` drops every table first.
      */
     protected function migrateFreshUsing(): array
     {
@@ -66,17 +62,13 @@ abstract class TestCase extends OrchestraTestCase
     }
 
     /**
-     * Add profile-related columns to the users table after all migrations run.
-     *
-     * This allows profile feature tests to work without publishing migrations.
+     * Add the table every test's database starts with.
      */
     protected function afterRefreshingDatabase(): void
     {
         // v1.8.8 — operational metadata for the cache subsystem. Every
         // suite that exercises MartisCache writes to this table, so it
-        // is part of the standard fixture. Lives outside the
-        // `users` guard below because cache tests do not depend on
-        // the users table.
+        // is part of the standard fixture.
         if (! Schema::hasTable('martis_cache_state')) {
             Schema::create('martis_cache_state', function (Blueprint $table) {
                 $table->string('type')->primary();
@@ -86,24 +78,5 @@ abstract class TestCase extends OrchestraTestCase
                 $table->timestamps();
             });
         }
-
-        if (! Schema::hasTable('users')) {
-            return;
-        }
-
-        Schema::table('users', function (Blueprint $table) {
-            if (! Schema::hasColumn('users', 'profile_picture')) {
-                $table->string('profile_picture')->nullable();
-            }
-            if (! Schema::hasColumn('users', 'two_factor_secret')) {
-                $table->text('two_factor_secret')->nullable();
-            }
-            if (! Schema::hasColumn('users', 'two_factor_recovery_codes')) {
-                $table->text('two_factor_recovery_codes')->nullable();
-            }
-            if (! Schema::hasColumn('users', 'two_factor_confirmed_at')) {
-                $table->timestamp('two_factor_confirmed_at')->nullable();
-            }
-        });
     }
 }
