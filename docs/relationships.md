@@ -33,7 +33,13 @@ the panel's UI. Visibility composes with authorization as:
     visible = authorized AND NOT hidden
 
 Authorization is always the source of truth — the setters cannot *force*
-something to appear. Unauthorized actions are never shown.
+something to appear. Unauthorized actions are never shown. An action is
+authorized when the field allows it (`canCreate()` / `canUpdate()` /
+`canDelete()`) and, for an action on a listed record (View, Edit, Delete,
+Restore, Force delete on a row, Edit and Delete on a `HasOne` / `MorphOne`
+card), when the related resource's policy allows it for that record: each
+record carries those answers under `_authorization`, and a record without them
+keeps the action, as on the resource index.
 
 | Setter | Hides |
 |--------|-------|
@@ -506,7 +512,7 @@ See [fields.md § HasOneOfMany](fields.md#hasoneofmany) for the full API.
 
 ## HasOneThrough
 
-Shows a single distant record reached through an intermediate model. Rendered visually like `HasOne`, but **read-only** (Create/Edit/Delete default to `false`; the UI hides those buttons).
+Shows a single distant record reached through an intermediate model. Rendered visually like `HasOne`, but, as in Nova, **without Create**: a record cannot be created through the relationship. Edit and Delete work as on `HasOne`.
 
 ```php
 use Martis\Fields\HasOneThrough;
@@ -530,13 +536,23 @@ public function accountManager(): HasOneThrough
 ```
 
 See [fields.md § HasOneThrough](fields.md#hasonethrough) for the full API.
-All `HasOne` methods are inherited; `canCreate/canUpdate/canDelete` default to
-`false`. `throughBreadcrumb(bool)` ⭐ adds a "through" hint next to the
-section heading.
+All `HasOne` methods are inherited, except that `canCreate()` has no effect.
+`throughBreadcrumb(bool)` ⭐ adds a "through" hint next to the section heading.
+
+The relationship has no foreign key of its own to write, so the `has-one`
+endpoints refuse a create through it: `POST
+/api/resources/{resource}/{id}/has-one/{relationship}` answers 403 (`Records
+cannot be created through a hasOneThrough relationship.`), also when the
+relationship is declared with a plain `HasOne` (or `HasOneOfMany`) field.
+Create the record from its own resource. `PUT` and `DELETE` on the same URL
+work as on `HasOne`: they reach the record the relationship holds, under the
+related resource's `update` / `delete` policies, and the card leaves out the
+Edit or Delete a policy denies for that record. Coming from 1.x, see
+[Upgrading the Through fields from 1.x](#upgrading-the-through-fields-from-1x).
 
 **⭐ Martis differentials:**
 
-- Read-only defaults prevent misleading Create/Edit/Delete UI on traversal relationships.
+- No create through the relationship, as in Nova, and enforced: the `has-one` endpoints refuse one (403).
 - `throughBreadcrumb()` hint describes the intermediate hop without a custom tooltip.
 
 ---
@@ -586,7 +602,7 @@ Inherits every `MorphOne` method plus the OfMany extras (`latestByTimestamp` / `
 
 ## HasManyThrough
 
-Inline DataTable of many records reached through an intermediate. Read-only (Create/Edit/Delete default to `false`).
+Inline DataTable of many records reached through an intermediate. As in Nova, **without Create**: a record cannot be created through the relationship. The rows keep View, Edit, Delete, Restore and Force delete, as on `HasMany`.
 
 ```php
 use Martis\Fields\HasManyThrough;
@@ -614,13 +630,69 @@ public function managedProjects(): HasManyThrough
 ```
 
 See [fields.md § HasManyThrough](fields.md#hasmanythrough) for the full API.
-All `HasMany` methods are inherited; `canCreate/canUpdate/canDelete` default
-to `false`. Adds `throughBreadcrumb(bool)` ⭐ and `countBadge(bool)` ⭐.
+All `HasMany` methods are inherited, except that `canCreate()` has no effect.
+Adds `throughBreadcrumb(bool)` ⭐ and `countBadge(bool)` ⭐.
+
+The relationship has no foreign key of its own to write: a create through it
+would put the parent's key in the related record's key to the intermediate
+model (`client_id` above), filing the project under whichever client has that
+id. The `has-many` endpoints therefore refuse a create through it: `POST
+/api/resources/{resource}/{id}/has-many/{relationship}` answers 403 (`Records
+cannot be created through a hasManyThrough relationship.`), also when the
+relationship is declared with a plain `HasMany` field. Create the projects from
+their own resource. `PUT` and `DELETE …/has-many/{relationship}/{relatedId}`
+work as on `HasMany`: they reach a project the relationship holds (404 for any
+other), under the related resource's `update` / `delete` policies, and a row
+leaves out the actions a policy denies for its record.
 
 **⭐ Martis differentials:**
 
-- Read-only defaults.
+- No create through the relationship, as in Nova, and enforced: the `has-many` endpoints refuse one (403).
 - `countBadge` brings the count affordance to Through fields (in addition to `showRelationCount` on `HasMany`).
+
+### Upgrading the Through fields from 1.x
+
+Martis 2.0 aligns `HasOneThrough` and `HasManyThrough` with Nova. In 1.x:
+
+- the `has-many` endpoints took a create through a `hasManyThrough`
+  relationship and filed the new record under whichever intermediate had the
+  parent's id, and so did the `has-one` endpoints when a plain `HasOne` field
+  declared a `hasOneThrough` one;
+- `canCreate()` brought the Create button back on a Through panel, and a plain
+  `HasMany` / `HasOne` field declaring a Through relationship showed it by
+  default;
+- the Through panels hid Edit and Delete by default (`canUpdate` /
+  `canDelete` started as `false`), and the `has-one` endpoints refused an
+  update or a delete through a `HasOneThrough` field (403).
+
+In 2.0 a create through a Through relationship answers 403 and the panels never
+offer Create, while Edit and Delete (plus Restore and Force delete on
+`HasManyThrough`) show as on `HasOne` / `HasMany`, for the records the related
+resource's policies allow.
+
+What to do:
+
+- Clear the schema cache after upgrading (`php artisan martis:cache:clear
+  schema`): it has no expiration by default, and until it is rebuilt a panel
+  keeps the actions it offered in 1.x.
+- To keep the 1.x panel, hide the row actions on the field:
+  `->canUpdate(false)->canDelete(false)`, plus
+  `->hideRestoreAction()->hideForceDeleteAction()` on `HasManyThrough`. The
+  endpoints still follow the policies: deny `update` / `delete` there to
+  refuse those writes.
+- Create the related records from their own resource (its create page, or
+  `POST /api/resources/{related}`). An API client that created them through
+  `…/has-many/{relationship}` or `…/has-one/{relationship}` of a Through
+  relationship now gets a 403 there.
+- Declare a Through relationship with `HasOneThrough` / `HasManyThrough`. A
+  plain `HasMany` / `HasOne` field on one still shows Create, and its request
+  now answers 403.
+- Drop `canCreate()` from Through fields. It no longer does anything, and it
+  stays callable, so a resource that still calls it keeps loading.
+- If a panel offered Create on a Through relationship in your app, check the
+  records created from it: the create wrote the parent's id into the
+  relationship's second key (for `TeamMember::managedProjects()` above, the
+  project's `client_id`).
 
 ---
 
