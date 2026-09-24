@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Filesystem\Filesystem;
 use Martis\Tests\TestCase;
 
 pest()->extend(TestCase::class)->in('Feature');
@@ -27,6 +28,44 @@ if (! function_exists('rmtree')) {
             is_dir($full) ? rmtree($full) : unlink($full);
         }
         rmdir($path);
+    }
+}
+
+if (! function_exists('themeBackups')) {
+    /**
+     * The files martis:publish-assets and martis:theme backed up in the
+     * testbench app, keyed by their path under
+     * storage/app/martis/theme-backups/ (sorted), with their contents.
+     *
+     * @return array<string, string>
+     */
+    function themeBackups(): array
+    {
+        $root = storage_path('app/martis/theme-backups');
+        if (! is_dir($root)) {
+            return [];
+        }
+
+        $backups = [];
+        foreach ((new Filesystem)->allFiles($root, true) as $file) {
+            $backups[str_replace(DIRECTORY_SEPARATOR, '/', $file->getRelativePathname())] = $file->getContents();
+        }
+        ksort($backups);
+
+        return $backups;
+    }
+}
+
+if (! function_exists('removeThemeBackups')) {
+    /**
+     * Remove storage/app/martis/theme-backups from the testbench app, whether
+     * a spec left it as a directory or as a file.
+     */
+    function removeThemeBackups(): void
+    {
+        $path = storage_path('app/martis/theme-backups');
+        $files = new Filesystem;
+        $files->isDirectory($path) ? $files->deleteDirectory($path) : $files->delete($path);
     }
 }
 

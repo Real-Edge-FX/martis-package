@@ -9,6 +9,7 @@ function cleanupThemeArtifacts(string $name = 'test-theme'): void
     $fs->delete(public_path("vendor/martis/themes/{$name}.css"));
     $fs->deleteDirectory(resource_path('css/martis'));
     $fs->deleteDirectory(public_path('vendor/martis/themes'));
+    removeThemeBackups();
 }
 
 beforeEach(function () {
@@ -37,9 +38,62 @@ it('tells the user to edit the source and publish it', function () {
     // martis:publish-assets, so the hint must never point at the copy.
     $this->artisan('martis:theme', ['name' => 'test-theme'])
         ->expectsOutputToContain('Edit CSS variables in resources/css/martis/test-theme.css')
-        ->expectsOutputToContain('php artisan martis:publish-assets')
+        ->expectsOutputToContain('php artisan martis:publish-assets --themes-only')
         ->doesntExpectOutputToContain('Edit CSS variables in public/vendor/martis/themes/test-theme.css')
         ->assertSuccessful();
+});
+
+it('writes a source whose header says to publish it after editing', function () {
+    $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
+
+    $contents = (string) file_get_contents(resource_path('css/martis/test-theme.css'));
+
+    expect($contents)->toContain('php artisan martis:publish-assets --themes-only');
+    expect($contents)->not->toContain('no rebuild required');
+});
+
+it('backs up a published copy edited in place before --force overwrites it', function () {
+    $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
+    file_put_contents(public_path('vendor/martis/themes/test-theme.css'), ':root { --martis-accent: #abcdef; }');
+
+    $this->artisan('martis:theme', ['name' => 'test-theme', '--force' => true])
+        ->expectsOutputToContain('public/vendor/martis/themes/test-theme.css differs from its source')
+        ->expectsOutputToContain('Backed up to storage/app/martis/theme-backups/')
+        ->assertSuccessful();
+
+    expect(array_values(themeBackups()))->toBe([':root { --martis-accent: #abcdef; }']);
+});
+
+it('backs up a published theme without a source before scaffolding over it', function () {
+    $fs = new Filesystem;
+    $fs->ensureDirectoryExists(public_path('vendor/martis/themes'));
+    $fs->put(public_path('vendor/martis/themes/test-theme.css'), ':root { --martis-accent: #abcdef; }');
+
+    $this->artisan('martis:theme', ['name' => 'test-theme'])
+        ->expectsOutputToContain('public/vendor/martis/themes/test-theme.css has no source in resources/css/martis/')
+        ->assertSuccessful();
+
+    expect(array_values(themeBackups()))->toBe([':root { --martis-accent: #abcdef; }']);
+});
+
+it('warns, and still succeeds, when the publish record cannot be written', function () {
+    (new Filesystem)->ensureDirectoryExists(public_path('vendor/martis/themes/.published.json'));
+
+    $this->artisan('martis:theme', ['name' => 'test-theme'])
+        ->expectsOutputToContain('Could not write public/vendor/martis/themes/.published.json')
+        ->assertSuccessful();
+
+    expect(public_path('vendor/martis/themes/test-theme.css'))->toBeFile();
+});
+
+it('makes no backup when --force overwrites a published copy nobody edited', function () {
+    $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
+
+    $this->artisan('martis:theme', ['name' => 'test-theme', '--force' => true])
+        ->doesntExpectOutputToContain('Backed up')
+        ->assertSuccessful();
+
+    expect(themeBackups())->toBe([]);
 });
 
 it('fills the {{ name }} placeholder in the stub header', function () {

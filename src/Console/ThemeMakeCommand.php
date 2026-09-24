@@ -3,9 +3,12 @@
 namespace Martis\Console;
 
 use Illuminate\Console\Command;
+use Illuminate\Filesystem\Filesystem;
 use Martis\Stubs\StubResolver;
 use Martis\Support\ThemeFiles;
+use Martis\Support\ThemePublisher;
 use RuntimeException;
+use Throwable;
 
 class ThemeMakeCommand extends Command
 {
@@ -46,21 +49,57 @@ class ThemeMakeCommand extends Command
             }
         }
 
+        // 2. The published copy is overwritten below. Back it up first when it
+        // holds content neither the publish record nor the current source has:
+        // a copy edited in place (the 1.x hint said to edit it) or a theme
+        // with no source. Nothing is written when the backup fails.
+        $publisher = new ThemePublisher(new Filesystem);
+        $previousSource = is_file($path) ? $path : null;
+
+        if (! $publisher->isReproducible($name, $previousSource)) {
+            $published = "public/vendor/martis/themes/{$name}.css";
+
+            try {
+                $backup = $this->relativePath($publisher->backUp($name.'.css'));
+            } catch (Throwable $e) {
+                $this->components->error("Could not back up {$published}: ".$e->getMessage());
+                $this->line('  Nothing was written. Make the file readable and <fg=cyan>storage/app/martis/theme-backups/</> writable,');
+                $this->line('  then run the command again.');
+
+                return self::FAILURE;
+            }
+
+            $this->components->warn($previousSource === null
+                ? "{$published} has no source in resources/css/martis/, and martis:theme replaces it with the scaffold."
+                : "{$published} differs from its source, and martis:theme replaces it with the scaffold.");
+            $this->line("  Backed up to <fg=cyan>{$backup}</>. If it holds edits you want, copy them into resources/css/martis/{$name}.css.");
+        }
+
         $contents = $this->renderStub($name);
         file_put_contents($path, $contents);
         $this->components->info("Theme created: resources/css/martis/{$name}.css");
 
-        // 2. Publish a copy to public/vendor/martis/themes/ so the blade
+        // 3. Publish a copy to public/vendor/martis/themes/ so the blade
         // stylesheet tag can pick it up without a Vite rebuild. The copy is
         // generated: martis:publish-assets rewrites it from the source.
-        $publicDir = ThemeFiles::publishedDirectory();
-        if (! is_dir($publicDir)) {
-            mkdir($publicDir, 0755, true);
+        try {
+            $publisher->publish($name, $path);
+        } catch (Throwable $e) {
+            $this->components->error("Could not publish resources/css/martis/{$name}.css: ".$e->getMessage());
+
+            return self::FAILURE;
         }
-        copy($path, ThemeFiles::publishedPath($name));
         $this->components->info("Published to: public/vendor/martis/themes/{$name}.css");
 
-        // 3. Update config/martis.php theme.name — scoped to the 'theme'
+        try {
+            $publisher->saveRecord();
+        } catch (Throwable $e) {
+            // Only costs a backup: without the record, the next publish
+            // treats this copy as edited in place once the source changes.
+            $this->components->warn('Could not write public/vendor/martis/themes/'.ThemePublisher::RECORD.': '.$e->getMessage());
+        }
+
+        // 4. Update config/martis.php theme.name — scoped to the 'theme'
         // block only, so we don't accidentally rewrite 'name' inside 'brand'
         // or any other sibling config section.
         $configPath = config_path('martis.php');
@@ -83,7 +122,7 @@ class ThemeMakeCommand extends Command
         $this->components->twoColumnDetail('<fg=green>Done</>');
         $this->newLine();
         $this->line('  1. Edit CSS variables in <comment>resources/css/martis/'.$name.'.css</comment>');
-        $this->line('  2. Publish your changes with <comment>php artisan martis:publish-assets</comment> (no Vite rebuild).');
+        $this->line('  2. Publish your changes with <comment>php artisan martis:publish-assets --themes-only</comment> (no Vite rebuild).');
         $this->line('     It copies every theme in resources/css/martis/ to public/vendor/martis/themes/,');
         $this->line('     replacing the copies there: edit the source, never the copy.');
         $this->line('  3. Switch theme in <comment>config/martis.php</comment>:');
@@ -94,6 +133,16 @@ class ThemeMakeCommand extends Command
         $this->newLine();
 
         return self::SUCCESS;
+    }
+
+    protected function relativePath(string $absolute): string
+    {
+        $base = base_path();
+        if (str_starts_with($absolute, $base)) {
+            return ltrim(substr($absolute, strlen($base)), DIRECTORY_SEPARATOR);
+        }
+
+        return $absolute;
     }
 
     protected function stubPath(): string

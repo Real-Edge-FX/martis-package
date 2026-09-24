@@ -5,6 +5,8 @@ namespace Martis\Console;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 use Martis\Support\ThemeFiles;
+use Martis\Support\ThemePublisher;
+use Throwable;
 
 /**
  * Republish Martis frontend assets cleanly.
@@ -39,17 +41,27 @@ use Martis\Support\ThemeFiles;
  * is copied to `public/vendor/martis/themes/`, where the panel loads it. The
  * wipe deletes the previous copies with everything else, so the published
  * themes always match their sources (see `Martis\Support\ThemeFiles`).
+ * Before it deletes or overwrites anything, it backs up every file under
+ * `public/vendor/martis/themes/` it cannot write back (a copy edited in
+ * place, a theme without a source, a font next to a theme) to
+ * `storage/app/martis/theme-backups/<run>/` and says so; if a backup fails,
+ * it stops with nothing deleted (see `Martis\Support\ThemePublisher`).
+ * `--themes-only` runs that theme step alone, for the edit-and-publish loop.
  */
 class PublishAssetsCommand extends Command
 {
     protected $signature = 'martis:publish-assets
-                            {--no-wipe : Skip the destination wipe (legacy merge-style behaviour)}';
+                            {--no-wipe : Skip the destination wipe (legacy merge-style behaviour); published themes without a source stay}
+                            {--themes-only : Only publish the app themes from resources/css/martis/, without the package assets}';
 
     protected $description = 'Republish Martis frontend assets and the app themes, wiping public/vendor/martis first';
 
     public function handle(Filesystem $filesystem): int
     {
-        if (! $this->compiledAssetsAreAvailable()) {
+        $themesOnly = (bool) $this->option('themes-only');
+        $wipe = ! (bool) $this->option('no-wipe');
+
+        if (! $themesOnly && ! $this->compiledAssetsAreAvailable()) {
             $this->components->error('Martis frontend assets are missing from this package release.');
             $this->line('  Expected: <fg=cyan>public/manifest.json</>');
             $this->line('  Fix the package release by running <fg=cyan>npm install && npm run build</> before publishing.');
@@ -57,57 +69,74 @@ class PublishAssetsCommand extends Command
             return self::FAILURE;
         }
 
-        $source = $this->packagePublicPath();
-        $destination = public_path('vendor/martis');
-        $wipe = ! (bool) $this->option('no-wipe');
+        // Before anything is deleted or overwritten, back up every file under
+        // public/vendor/martis/themes/ this run destroys and cannot write back.
+        // Without --no-wipe, files there without a source go too: the wipe
+        // deletes them, and --themes-only removes them to match the sources.
+        $publisher = new ThemePublisher($filesystem);
+        $themes = ThemeFiles::scanSources($filesystem);
+        $atRisk = $publisher->filesAtRisk($themes['sources'], removesOthers: $wipe);
 
-        if ($wipe && $filesystem->exists($destination)) {
-            $this->components->task(
-                'Wiping <fg=cyan>'.$this->relativePath($destination).'</>',
-                fn () => $filesystem->deleteDirectory($destination),
-            );
-        }
-
-        // Deterministic full-tree copy — copies every file under the package's
-        // public/ (assets + manifest.json), not a subset.
-        $this->components->task(
-            'Copying assets to <fg=cyan>'.$this->relativePath($destination).'</>',
-            fn () => $filesystem->copyDirectory($source, $destination),
-        );
-
-        // Verify the published set is complete: every file the package's
-        // (known-good) manifest references — plus the manifest itself — must
-        // exist and be readable in the destination. Catches a partial copy
-        // (interrupted/constrained environment) before it becomes a black
-        // screen at runtime. Expectations come from the SOURCE manifest, so
-        // a missing/corrupt destination manifest fails closed.
-        $missing = $this->missingPublishedFiles($source, $destination);
-
-        if ($missing !== []) {
-            $this->newLine();
-            $this->components->error(
-                'Published asset set is INCOMPLETE — '.count($missing).' file(s) are missing or unreadable.'
-            );
-            foreach (array_slice($missing, 0, 5) as $file) {
-                $this->line('  <fg=red>missing:</> '.$file);
-            }
-            if (count($missing) > 5) {
-                $this->line('  <fg=red>… and '.(count($missing) - 5).' more.</>');
-            }
-            $this->line('  The admin would render a black screen. Re-run <fg=cyan>php artisan martis:publish-assets</> (check disk space / permissions).');
-
+        if (! $this->backUpThemeFiles($publisher, $atRisk)) {
             return self::FAILURE;
         }
 
-        $this->components->twoColumnDetail(
-            '<fg=green>Published</> martis-assets',
-            $this->relativePath($destination),
-        );
+        if (! $themesOnly) {
+            $source = $this->packagePublicPath();
+            $destination = public_path('vendor/martis');
 
-        $this->publishThemes($filesystem);
+            if ($wipe && $filesystem->exists($destination)) {
+                $this->components->task(
+                    'Wiping <fg=cyan>'.$this->relativePath($destination).'</>',
+                    fn () => $filesystem->deleteDirectory($destination),
+                );
+            }
+
+            // Deterministic full-tree copy — copies every file under the package's
+            // public/ (assets + manifest.json), not a subset.
+            $this->components->task(
+                'Copying assets to <fg=cyan>'.$this->relativePath($destination).'</>',
+                fn () => $filesystem->copyDirectory($source, $destination),
+            );
+
+            // Verify the published set is complete: every file the package's
+            // (known-good) manifest references — plus the manifest itself — must
+            // exist and be readable in the destination. Catches a partial copy
+            // (interrupted/constrained environment) before it becomes a black
+            // screen at runtime. Expectations come from the SOURCE manifest, so
+            // a missing/corrupt destination manifest fails closed.
+            $missing = $this->missingPublishedFiles($source, $destination);
+
+            if ($missing !== []) {
+                $this->newLine();
+                $this->components->error(
+                    'Published asset set is INCOMPLETE — '.count($missing).' file(s) are missing or unreadable.'
+                );
+                foreach (array_slice($missing, 0, 5) as $file) {
+                    $this->line('  <fg=red>missing:</> '.$file);
+                }
+                if (count($missing) > 5) {
+                    $this->line('  <fg=red>… and '.(count($missing) - 5).' more.</>');
+                }
+                $this->line('  The admin would render a black screen. Re-run <fg=cyan>php artisan martis:publish-assets</> (check disk space / permissions).');
+
+                return self::FAILURE;
+            }
+
+            $this->components->twoColumnDetail(
+                '<fg=green>Published</> martis-assets',
+                $this->relativePath($destination),
+            );
+        }
+
+        // The wipe already removed the files at risk; --themes-only removes
+        // the ones a source does not replace itself.
+        if (! $this->publishThemes($publisher, $themes, $themesOnly && $wipe ? $atRisk : [])) {
+            return self::FAILURE;
+        }
 
         $this->newLine();
-        $this->components->info('Martis assets published successfully.');
+        $this->components->info($themesOnly ? 'Martis themes published successfully.' : 'Martis assets published successfully.');
 
         return self::SUCCESS;
     }
@@ -188,25 +217,136 @@ class PublishAssetsCommand extends Command
      * `--no-wipe` a stale copy is overwritten from its source, and one
      * without a source stays, like any other stale file.
      */
-    protected function publishThemes(Filesystem $filesystem): void
+    /**
+     * Publish every usable theme source, warn about the skipped ones, remove
+     * `$toRemove` (backed up already) and save the publish record. Returns
+     * false, after an error, when a copy cannot be written.
+     *
+     * @param  array{sources: array<string, string>, skipped: array<string, string>}  $themes
+     * @param  array<string, string>  $toRemove  path under public/vendor/martis/themes/ => reason
+     */
+    protected function publishThemes(ThemePublisher $publisher, array $themes, array $toRemove): bool
     {
-        foreach (ThemeFiles::sources($filesystem) as $name => $source) {
-            if (! ThemeFiles::isValidName($name)) {
-                $this->components->warn(
-                    'Skipped '.$this->relativePath($source).': the panel only loads a theme named with letters, digits, dashes and underscores.'
-                );
+        foreach ($themes['skipped'] as $path => $reason) {
+            $this->components->warn('Skipped '.$this->relativePath($path).": {$reason}.");
+        }
 
-                continue;
+        foreach ($themes['sources'] as $name => $source) {
+            try {
+                $publisher->publish($name, $source);
+            } catch (Throwable $e) {
+                $this->components->error('Could not publish '.$this->relativePath($source).': '.$e->getMessage());
+                $this->saveThemeRecord($publisher);
+
+                return false;
             }
-
-            $target = ThemeFiles::publishedPath($name);
-            $filesystem->ensureDirectoryExists(dirname($target));
-            $filesystem->copy($source, $target);
 
             $this->components->twoColumnDetail(
                 '<fg=green>Published</> theme '.$name,
-                $this->relativePath($target),
+                $this->relativePath(ThemeFiles::publishedPath($name)),
             );
+        }
+
+        foreach ($toRemove as $relative => $reason) {
+            if ($reason !== ThemePublisher::EDITED) {
+                $publisher->remove($relative);
+            }
+        }
+
+        $this->saveThemeRecord($publisher);
+        $this->warnAboutActiveTheme($themes['sources']);
+
+        return true;
+    }
+
+    /**
+     * A missing record only makes the next publish back up the copies again,
+     * so a failure to write it is a warning, not a failed run.
+     */
+    protected function saveThemeRecord(ThemePublisher $publisher): void
+    {
+        try {
+            $publisher->saveRecord();
+        } catch (Throwable $e) {
+            $this->components->warn('Could not write public/vendor/martis/themes/'.ThemePublisher::RECORD.': '.$e->getMessage());
+            $this->line('  Without it, the next publish backs up a copy that differs from its source, as if it had been edited in place.');
+        }
+    }
+
+    /**
+     * Back up each file at risk and say what happens to it. Returns false,
+     * after an error, as soon as a backup fails: the caller stops before
+     * anything is deleted or overwritten.
+     *
+     * @param  array<string, string>  $atRisk  path under public/vendor/martis/themes/ => reason
+     */
+    protected function backUpThemeFiles(ThemePublisher $publisher, array $atRisk): bool
+    {
+        foreach ($atRisk as $relative => $reason) {
+            $published = 'public/vendor/martis/themes/'.$relative;
+
+            try {
+                $backup = $this->relativePath($publisher->backUp($relative));
+            } catch (Throwable $e) {
+                $this->components->error("Could not back up {$published}: ".$e->getMessage());
+                $this->line('  Nothing was deleted or overwritten. Make the file readable and <fg=cyan>storage/app/martis/theme-backups/</> writable,');
+                $this->line('  then run the command again.');
+
+                return false;
+            }
+
+            $name = basename($relative, '.css');
+            [$warning, $advice] = match ($reason) {
+                ThemePublisher::EDITED => [
+                    "{$published} differs from its source, resources/css/martis/{$name}.css, and this publish replaces it.",
+                    "If it holds edits you want, copy them into resources/css/martis/{$name}.css and publish again.",
+                ],
+                ThemePublisher::NO_SOURCE => [
+                    "{$published} has no source in resources/css/martis/, so this publish removes it.",
+                    "To keep the theme, copy it to resources/css/martis/{$name}.css and publish again.",
+                ],
+                default => [
+                    "{$published} is not generated from resources/css/martis/, so this publish removes it.",
+                    'Keep the files a theme uses outside public/vendor/martis/, for example in public/fonts/.',
+                ],
+            };
+
+            $this->components->warn($warning);
+            $this->line("  Backed up to <fg=cyan>{$backup}</>. {$advice}");
+        }
+
+        return true;
+    }
+
+    /**
+     * Warn when `martis.theme.name` names a theme the panel cannot load.
+     *
+     * @param  array<string, string>  $sources
+     */
+    protected function warnAboutActiveTheme(array $sources): void
+    {
+        $name = config('martis.theme.name');
+
+        if (! is_string($name) || $name === '') {
+            return;
+        }
+
+        if (! ThemeFiles::isValidName($name)) {
+            $this->components->warn("martis.theme.name \"{$name}\" is not a theme name the panel loads (letters, digits, dashes and underscores), so the panel ignores it.");
+
+            return;
+        }
+
+        if (isset($sources[$name])) {
+            return;
+        }
+
+        $this->components->warn("martis.theme.name is \"{$name}\", but resources/css/martis/{$name}.css is not a theme source.");
+
+        if (is_file(ThemeFiles::publishedPath($name))) {
+            $this->line("  The panel still loads the published copy, which a publish without --no-wipe removes. Move it to <fg=cyan>resources/css/martis/{$name}.css</>.");
+        } else {
+            $this->line("  The panel will not find its stylesheet. Put the theme in <fg=cyan>resources/css/martis/{$name}.css</> and publish again, or set martis.theme.name to null.");
         }
     }
 
