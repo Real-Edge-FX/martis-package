@@ -129,9 +129,9 @@ function LeafItem({
   // Tooltip surfaces the full label in two cases: when the sidebar
   // is collapsed (icon-only mode, no label visible at all) and when
   // the label is CSS-truncated with an ellipsis. Both share the same
-  // PrimeReact tooltip plumbing (data-pr-tooltip + the global
-  // <Tooltip selector="[data-pr-tooltip]" /> instance mounted in
-  // app.tsx). Native `title=` is forbidden by the workspace rule.
+  // tooltip plumbing: `data-pr-tooltip`, rendered by the global
+  // `MartisTooltip` provider that `Layout` mounts. Native `title=` is
+  // forbidden by the workspace rule.
   const showTooltip = !ctx.isMobile && (ctx.collapsed || labelOverflows) ? item.label : undefined
   const count = getItemCount(item)
   const showLabel = ctx.isMobile || !ctx.collapsed

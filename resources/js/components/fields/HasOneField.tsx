@@ -240,12 +240,13 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
        *  (it was redundant with the outer wrapper). */}
       <div className="p-4 space-y-3">
         {/* ⭐ Martis differential — aggregate tile (OfMany).
-         *  The aggregated column name goes in the hover title rather than
+         *  The aggregated column name goes in the hover tooltip rather than
          *  a sub-line, keeping the tile clean. */}
         {record !== null && ofMany?.aggregate && ofMany.aggregate.value !== null && (
           <div
             className="martis-ofmany-tile"
-            title={ofMany.aggregate.column === '*' ? undefined : tMsg('ofmany_aggregate_column', { column: ofMany.aggregate.column, defaultValue: `Aggregated column: ${ofMany.aggregate.column}` })}
+            data-pr-tooltip={ofMany.aggregate.column === '*' ? undefined : tMsg('ofmany_aggregate_column', { column: ofMany.aggregate.column, defaultValue: `Aggregated column: ${ofMany.aggregate.column}` })}
+            data-pr-position="top"
           >
             <span className="martis-ofmany-tile-label">{fnLabel(ofMany.aggregate.fn)}</span>
             <span className="martis-ofmany-tile-value">{formatAggregate(ofMany.aggregate)}</span>

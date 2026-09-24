@@ -828,7 +828,7 @@ Prefer CSS media queries when the layout swap is purely visual; reach for this h
 
 ## Tooltip Standard (PrimeReact)
 
-All tooltips in Martis **must** use [`primereact/tooltip`](https://primereact.org/tooltip/). Native HTML `title=` attributes and custom tooltip implementations are prohibited.
+All tooltips in Martis **must** go through the global `data-pr-tooltip` pattern (the PrimeReact attribute convention), rendered by the bundled `MartisTooltip` provider, or through the ref-based `Tooltip` export for JSX content. Native HTML `title=` attributes and ad-hoc tooltip implementations are prohibited. Extensions cannot import `primereact/tooltip` directly (the extension build does not alias `primereact`): use `data-pr-tooltip`, or `Tooltip` from `@martis/runtime`.
 
 A global tooltip provider (`MartisTooltip`) is registered in the layout targeting `[data-pr-tooltip]`, so any element with `data-pr-tooltip` automatically gets a tooltip.
 

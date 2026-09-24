@@ -343,7 +343,8 @@ export function TopnavLayout() {
               className="martis-tb-icon-btn"
               onClick={() => setSearchOpen(true)}
               aria-label="Search"
-              title={t("search_placeholder", "Search")}
+              data-pr-tooltip={t("search_placeholder", "Search")}
+              data-pr-position="bottom"
             >
               <MagnifyingGlassIcon size={16} />
             </button>
