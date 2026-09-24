@@ -1,3 +1,6 @@
+// The PrimeReact theme (lara, compiled with the Martis tokens) loads first so
+// the Martis stylesheet can refine it.
+import '../sass/primereact/theme.scss'
 import '../css/martis.css'
 import * as React from 'react'
 import { StrictMode } from 'react'

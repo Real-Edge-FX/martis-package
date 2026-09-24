@@ -34,6 +34,16 @@ Edit the CSS file (no rebuild needed) and refresh the browser. Changes are immed
 
 Themes load **after** the package CSS, so any variable you redefine wins. You only need to declare variables you want to change — others fall back to defaults.
 
+### PrimeReact components (v1.39.0)
+
+Martis renders its controls (inputs, dropdowns, tables, calendars, tooltips, toasts) with PrimeReact 10. The PrimeReact theme ships inside the package CSS, compiled from the lara theme's SASS source with every colour variable pointed at a `--martis-*` token. Every PrimeReact component therefore follows the active palette: light and dark mode, the accent presets and your theme. That includes components Martis never renders itself, such as a `Slider` or a `TabView` in a Tool page or an extension bundle.
+
+- Severity fills (`severity="success"` buttons, for example) use the matching token (`--martis-success`) with white text, like the Martis buttons.
+- `<Badge severity="…">` matches the `.martis-badge-*` pills (`--martis-badge-*` tokens). The default badge is a solid `--martis-accent` counter.
+- The PrimeReact CSS variables (`--primary-color`, `--surface-ground`, `--surface-card`, `--surface-0` to `--surface-900`, `--text-color`, `--highlight-bg`, `--maskbg`, …) point at the same tokens, for code that reads them.
+
+A theme only sets the Martis tokens; it never needs to restyle PrimeReact selectors to change colours.
+
 ### Configuration
 
 ```php
@@ -474,7 +484,7 @@ RevenueMetric::make()->color('var(--martis-success)');
 
 ### Placeholder text in custom controls (v1.37.1)
 
-A bare `<input placeholder="…">`, `<textarea>` or `<select>` rendered by a Tool page or an extension bundle gets a theme-aware placeholder without any Martis class: the package CSS declares a global `::placeholder { color: var(--martis-text-muted); opacity: 1 }` right after the PrimeReact theme import, so the theme's own placeholder colour (white at 60 %, which is invisible on the light theme) never reaches consumer markup. The rule follows the active mode through `--martis-text-muted`, and a theme that redefines that token re-colours bare placeholders too.
+A bare `<input placeholder="…">`, `<textarea>` or `<select>` rendered by a Tool page or an extension bundle gets a theme-aware placeholder without any Martis class: the package CSS declares a global `::placeholder { color: var(--martis-text-muted); opacity: 1 }`, loaded after the PrimeReact theme and outside its cascade layer. Up to v1.38 that theme painted every placeholder white at 60 %, invisible on the light theme; since v1.39.0 it reads the same token, and the global rule keeps bare controls on it whatever else they match. The rule follows the active mode through `--martis-text-muted`, and a theme that redefines that token re-colours bare placeholders too.
 
 Martis controls (`.p-inputtext`, `.martis-input`, `.martis-search-input`, the ⌘K search, the resource search) keep their own `::placeholder` rules, which win by specificity, so their placeholders are unchanged. A custom control that wants a different placeholder colour declares its own class-scoped rule the same way:
 
@@ -595,17 +605,21 @@ Exit codes: `0` (everything aligned), `2` (drift detected — useful for CI gate
 4. Inspect HTML `<head>` — theme `<link>` must appear AFTER app CSS
 
 ### Some colors don't change
-The bundled PrimeReact theme (`lara-dark-indigo`, imported by `martis.css`) paints its components with literal colours: of the PrimeReact variables it reads only `--font-family`, `--font-feature-settings` and `--maskbg`. Martis restyles the PrimeReact components it renders with selector overrides in `martis.css` that read the `--martis-*` tokens, so a theme that sets the Martis tokens reaches them.
+Every PrimeReact component reads the `--martis-*` tokens (see [PrimeReact components](#primereact-components-v1390)). When a colour does not follow your theme:
 
-Since v0.6.0 `martis.css` also maps the PrimeReact variables (`--primary-color`, `--surface-card`, `--surface-border`, `--text-color`, `--text-color-secondary`, `--highlight-bg`, `--highlight-text-color`, `--focus-ring`, `--border-radius` and `--maskbg`) to the matching `--martis-*` tokens. Only the modal mask and code that reads those variables follow that bridge: setting `--primary-color` alone restyles no PrimeReact component.
+1. Check that the variable is a Martis token: `php artisan martis:theme:diff` lists the ones your theme declares that the package does not know.
+2. Declare it for both modes (`:root` and `html:not(.dark)`), as the defaults do.
+3. Look for a literal colour in your own CSS or in an extension bundle: it wins over the token. Use `var(--martis-…)` there too.
 
-A PrimeReact element Martis does not restyle keeps the stock colour, for example a `Slider` in a custom component. Override its selector in your theme file with the Martis tokens:
+Setting a PrimeReact variable such as `--primary-color` restyles nothing: the components read the Martis tokens, and the PrimeReact variables only mirror them. To give one PrimeReact component a colour of its own, override its selector in your theme file:
 
 ```css
 .p-slider .p-slider-range {
-  background: var(--martis-accent);
+  background: var(--martis-success);
 }
 ```
+
+On martis/martis < 1.39.0 the bundled `lara-dark-indigo` theme painted with literal colours, and only the components Martis restyled in `martis.css` followed the tokens (a `Slider` in an extension stayed indigo, and dark in light mode). Upgrade, or override those selectors as above.
 
 ### Chart colors don't update
 Chart.js receives resolved color strings, not CSS variables. The theme system already resolves `--martis-chart-*` at runtime. If you provide `var(--my-custom-var)` directly to a chart prop without using the helper, it won't work.

@@ -1,5 +1,6 @@
-/* PrimeReact dark theme + components */
-@import "primereact/resources/themes/lara-dark-indigo/theme.css";
+/* PrimeReact component structure. The theme itself is compiled from its
+   SASS source with the Martis tokens (resources/sass/primereact/theme.scss,
+   imported by app.tsx before this file). */
 @import "primereact/resources/primereact.min.css";
 @import "primeicons/primeicons.css";
 
@@ -254,10 +255,22 @@
   color-scheme: dark;
 
   /* ▸ PrimeReact bridge: every PrimeReact variable points at a Martis token.
-     The bundled lara theme paints with literal colours and reads only
-     --maskbg of these, so the component overrides further down do the
-     restyling; the bridge serves the modal mask and code that reads the
-     variables (see docs/theming.md, "Some colors don't change"). */
+     The PrimeReact components already paint with the tokens (their theme is
+     compiled from resources/sass/primereact); the bridge keeps the
+     variables that theme publishes on :root in step, for code that reads
+     them (extensions, utility classes). The --surface-0..900 scale runs
+     from the page background to the text colour, as the lara palettes do. */
+  --surface-0: var(--martis-bg);
+  --surface-50: color-mix(in srgb, var(--martis-text) 8%, var(--martis-bg));
+  --surface-100: color-mix(in srgb, var(--martis-text) 16%, var(--martis-bg));
+  --surface-200: color-mix(in srgb, var(--martis-text) 28%, var(--martis-bg));
+  --surface-300: color-mix(in srgb, var(--martis-text) 42%, var(--martis-bg));
+  --surface-400: color-mix(in srgb, var(--martis-text) 58%, var(--martis-bg));
+  --surface-500: color-mix(in srgb, var(--martis-text) 74%, var(--martis-bg));
+  --surface-600: color-mix(in srgb, var(--martis-text) 84%, var(--martis-bg));
+  --surface-700: color-mix(in srgb, var(--martis-text) 91%, var(--martis-bg));
+  --surface-800: color-mix(in srgb, var(--martis-text) 96%, var(--martis-bg));
+  --surface-900: var(--martis-text);
   --primary-color: var(--martis-accent);
   --primary-color-text: var(--martis-accent-contrast, #ffffff);
   --primary-50: var(--martis-accent-bg-light);
@@ -2406,9 +2419,6 @@ html.dark body {
 .p-datatable .p-datatable-tbody > tr:hover {
   background-color: var(--martis-row-hover) !important;
 }
-.p-datatable .p-datatable-tbody > tr.bg-indigo-50 {
-  background-color: rgba(99, 102, 241, 0.1) !important;
-}
 .p-datatable .p-datatable-emptymessage td {
   background-color: var(--martis-sidebar);
   border-color: var(--martis-border);
@@ -2436,10 +2446,6 @@ html.dark body {
 }
 
 /* ── Checkbox ──────────────────────────────────────────────────── */
-.p-checkbox .p-checkbox-box {
-  background-color: var(--martis-surface);
-  border-color: var(--martis-border);
-}
 .p-checkbox .p-checkbox-box.p-highlight {
   background-color: var(--martis-accent);
   border-color: var(--martis-accent);
@@ -2451,9 +2457,6 @@ html.dark body {
   color: var(--martis-text);
   box-shadow: none;
   border: 1px solid var(--martis-border);
-}
-.p-card .p-card-body {
-  color: var(--martis-text);
 }
 .p-card:hover {
   border-color: var(--martis-accent);
@@ -2495,32 +2498,32 @@ html.dark body {
   color: var(--martis-accent);
 }
 .p-button.p-button-outlined:not(.p-button-danger):hover {
-  background-color: rgba(99, 102, 241, 0.08);
+  background-color: var(--martis-accent-bg-light);
   border-color: var(--martis-accent);
   color: var(--martis-accent);
 }
 
 /* Danger filled button */
 .p-button.p-button-danger:not(.p-button-outlined):not(.p-button-text) {
-  background-color: #ef4444;
-  border-color: #ef4444;
+  background-color: var(--martis-danger);
+  border-color: var(--martis-danger);
   color: #ffffff;
 }
 .p-button.p-button-danger:not(.p-button-outlined):not(.p-button-text):hover {
-  background-color: #dc2626;
-  border-color: #dc2626;
+  background-color: var(--martis-danger-hover);
+  border-color: var(--martis-danger-hover);
 }
 
 /* Danger outlined button */
 .p-button.p-button-danger.p-button-outlined {
   background: transparent;
-  border-color: #ef4444;
-  color: #ef4444;
+  border-color: var(--martis-danger);
+  color: var(--martis-danger);
 }
 .p-button.p-button-danger.p-button-outlined:hover {
-  background-color: rgba(239, 68, 68, 0.08);
-  border-color: #ef4444;
-  color: #ef4444;
+  background-color: var(--martis-danger-bg);
+  border-color: var(--martis-danger);
+  color: var(--martis-danger);
 }
 
 /* Button text variant */
@@ -2571,32 +2574,10 @@ html.dark body {
   background-color: var(--martis-sidebar);
 }
 
-/* ── Paginator ─────────────────────────────────────────────────── */
-.p-paginator {
-  background-color: transparent;
-  color: var(--martis-text-muted);
-  border-color: var(--martis-border);
-}
-.p-paginator .p-paginator-page {
-  color: var(--martis-text-muted);
-}
-.p-paginator .p-paginator-page.p-highlight {
-  background-color: var(--martis-accent);
-  color: var(--martis-accent-contrast, #ffffff);
-}
-
 /* ── Dropdown ──────────────────────────────────────────────────── */
-.p-dropdown {
-  background-color: var(--martis-input-bg);
-  color: var(--martis-text);
-  border-color: var(--martis-border);
-}
 .p-dropdown-panel {
   background-color: var(--martis-sidebar);
   border-color: var(--martis-border);
-}
-.p-dropdown-panel .p-dropdown-items .p-dropdown-item {
-  color: var(--martis-text-muted);
 }
 .p-dropdown-panel .p-dropdown-items .p-dropdown-item:hover {
   background-color: var(--martis-surface);
@@ -2976,56 +2957,36 @@ html:not(.dark),
 html:not(.dark) body {
   color-scheme: light;
 }
-html:not(.dark) .p-inputtext {
-  background-color: var(--martis-input-bg);
-  color: var(--martis-text);
-  border-color: var(--martis-border);
-}
-html:not(.dark) .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link):not(.p-button-danger) {
-  background-color: var(--martis-accent);
-  border-color: var(--martis-accent);
-  color: var(--martis-accent-contrast, #ffffff);
-}
 html:not(.dark) .p-button.p-button-outlined:not(.p-button-danger) {
   background: transparent;
   border-color: var(--martis-accent);
   color: var(--martis-accent);
 }
 html:not(.dark) .p-button.p-button-outlined:not(.p-button-danger):hover {
-  background-color: rgba(99, 102, 241, 0.08);
+  background-color: var(--martis-accent-bg-light);
 }
 html:not(.dark) .p-button.p-button-danger:not(.p-button-outlined):not(.p-button-text) {
-  background-color: #ef4444;
-  border-color: #ef4444;
+  background-color: var(--martis-danger);
+  border-color: var(--martis-danger);
   color: #ffffff;
 }
 html:not(.dark) .p-button.p-button-danger.p-button-outlined {
   background: transparent;
-  border-color: #ef4444;
-  color: #ef4444;
+  border-color: var(--martis-danger);
+  color: var(--martis-danger);
 }
 html:not(.dark) .p-button.p-button-danger.p-button-outlined:hover {
-  background-color: rgba(239, 68, 68, 0.08);
+  background-color: var(--martis-danger-bg);
 }
 html:not(.dark) .p-button.p-button-text {
   background: transparent;
   border-color: transparent;
   color: var(--martis-text-muted);
 }
-html:not(.dark) .p-datatable .p-datatable-thead > tr > th {
-  background-color: var(--martis-table-header-bg);
-  color: var(--martis-table-header-text);
-  border-color: var(--martis-border);
-}
 html:not(.dark) .p-datatable .p-datatable-tbody > tr {
   background-color: var(--martis-surface);
   color: var(--martis-text);
   border-color: var(--martis-border);
-}
-html:not(.dark) .p-card {
-  background-color: var(--martis-card);
-  border-color: var(--martis-border);
-  color: var(--martis-text);
 }
 
 /* Light theme menu — ensure text is dark and visible */
@@ -3083,19 +3044,19 @@ html:not(.dark) .p-menu .p-menu-separator {
 
 /* Light theme — InputSwitch (toggle) */
 html:not(.dark) .p-inputswitch .p-inputswitch-slider {
-  background: #d1d5db;
+  background: color-mix(in srgb, var(--martis-text-muted) 25%, var(--martis-border));
 }
 html:not(.dark) .p-inputswitch .p-inputswitch-slider:before {
-  background: #ffffff;
+  background: var(--martis-surface);
 }
 html:not(.dark) .p-inputswitch.p-highlight .p-inputswitch-slider {
   background: var(--martis-accent);
 }
 html:not(.dark) .p-inputswitch.p-highlight .p-inputswitch-slider:before {
-  background: #ffffff;
+  background: var(--martis-accent-contrast);
 }
 html:not(.dark) .p-inputswitch:not(.p-disabled):has(.p-inputswitch-input:hover) .p-inputswitch-slider {
-  background: #b7bcc5;
+  background: color-mix(in srgb, var(--martis-text-muted) 45%, var(--martis-border));
 }
 html:not(.dark) .p-inputswitch:not(.p-disabled):has(.p-inputswitch-input:hover).p-highlight .p-inputswitch-slider {
   background: var(--martis-accent-hover);
@@ -3116,37 +3077,13 @@ html:not(.dark) .p-dialog .p-dialog-content {
 }
 
 /* Light theme — Dropdown panel */
-html:not(.dark) .p-dropdown {
-  background-color: var(--martis-input-bg);
-  border-color: var(--martis-border);
-}
-html:not(.dark) .p-dropdown-panel {
-  background-color: var(--martis-surface);
-  border-color: var(--martis-border);
-}
-html:not(.dark) .p-dropdown-panel .p-dropdown-items .p-dropdown-item {
-  color: var(--martis-text);
-}
 html:not(.dark) .p-dropdown-panel .p-dropdown-items .p-dropdown-item:hover,
 html:not(.dark) .p-dropdown-panel .p-dropdown-items .p-dropdown-item.p-focus {
   background-color: var(--martis-hover) !important;
   color: var(--martis-text) !important;
 }
 
-/* Light theme — Paginator */
-html:not(.dark) .p-paginator {
-  background-color: transparent;
-}
-html:not(.dark) .p-paginator .p-paginator-page {
-  color: var(--martis-text-muted);
-}
-
 /* Light theme — InputText */
-html:not(.dark) .p-inputtext {
-  background-color: var(--martis-input-bg);
-  color: var(--martis-text);
-  border-color: var(--martis-border);
-}
 html:not(.dark) .p-inputtext::placeholder {
   color: var(--martis-text-muted);
 }
@@ -3156,10 +3093,10 @@ html:not(.dark) .p-inputtext::placeholder {
 .p-button.p-button-raised {
   font-weight: 700;
   letter-spacing: 0.025em;
-  box-shadow: 0 4px 14px -2px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 4px 14px -2px color-mix(in srgb, var(--martis-accent) 40%, transparent);
 }
 .p-button.p-button-raised:hover {
-  box-shadow: 0 6px 20px -2px rgba(99, 102, 241, 0.5);
+  box-shadow: 0 6px 20px -2px color-mix(in srgb, var(--martis-accent) 50%, transparent);
   transform: translateY(-1px);
 }
 .p-button.p-button-lg,
@@ -3183,36 +3120,9 @@ html:not(.dark) .p-inputtext::placeholder {
   gap: 0.625rem;
 }
 
-/* ── Fix #1: Light Theme — InputIcon visibility (REA-1140) ─────── */
-/* PrimeReact dark theme sets icon color to light grey/white.
-   In light mode these are invisible on white input backgrounds.  */
-html:not(.dark) .p-inputicon,
-html:not(.dark) .p-input-icon {
-  color: var(--martis-text-muted) !important;
-}
-html:not(.dark) .p-icon-field .p-inputicon svg,
-html:not(.dark) .p-icon-field .p-input-icon svg {
-  color: var(--martis-text-muted);
-}
-
-/* ── Fix #2: Light Theme — Calendar / DatePicker (REA-1140) ────── */
-/* PrimeReact Calendar popup inherits dark theme — override all
-   surfaces, text, and interactive states for light mode.          */
-html:not(.dark) .p-datepicker {
-  background-color: var(--martis-surface);
-  color: var(--martis-text);
-  border-color: var(--martis-border);
-}
-html:not(.dark) .p-datepicker .p-datepicker-header {
-  background-color: var(--martis-surface);
-  color: var(--martis-text);
-  border-bottom-color: var(--martis-border);
-}
-html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-title .p-datepicker-month,
-html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-title .p-datepicker-year,
-html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-title button {
-  color: var(--martis-text);
-}
+/* ── Light Theme — Calendar / DatePicker (REA-1140) ────────────── */
+/* The popup surfaces and text come from the token theme; these rules
+   keep the Martis navigation, hover and time-picker states.        */
 html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-prev,
 html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-next {
   color: var(--martis-text-muted);
@@ -3221,12 +3131,6 @@ html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-next {
 html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-prev:hover,
 html:not(.dark) .p-datepicker .p-datepicker-header .p-datepicker-next:hover {
   background-color: var(--martis-hover);
-  color: var(--martis-text);
-}
-html:not(.dark) .p-datepicker table th > span {
-  color: var(--martis-text-muted);
-}
-html:not(.dark) .p-datepicker table td > span {
   color: var(--martis-text);
 }
 html:not(.dark) .p-datepicker table td > span:hover {
@@ -3259,11 +3163,6 @@ html:not(.dark) .p-datepicker .p-timepicker button:hover {
   color: var(--martis-text);
 }
 /* Calendar trigger button icon */
-html:not(.dark) .p-calendar .p-datepicker-trigger {
-  background-color: var(--martis-accent);
-  border-color: var(--martis-accent);
-  color: var(--martis-accent-contrast, #ffffff);
-}
 html:not(.dark) .p-calendar .p-datepicker-trigger:hover {
   background-color: var(--martis-accent-hover);
   border-color: var(--martis-accent-hover);
@@ -3755,13 +3654,10 @@ html:not(.dark) .martis-dropzone {
 .p-checkbox:not(.p-disabled):hover .p-checkbox-box:not(.p-highlight) {
   border-color: var(--martis-accent) !important;
 }
-/* Light theme checkbox — aligns with the spec: 1px `--martis-border`
-   on `--martis-input-bg`. Defer accent colours to the base `.p-highlight`
-   rule so themes that redefine accent tokens flow through. */
-html:not(.dark) .p-checkbox .p-checkbox-box {
-  background-color: var(--martis-input-bg);
-  border-color: var(--martis-border);
-}
+/* Light theme checkbox — the box takes `--martis-input-bg` and
+   `--martis-border` from the token theme. Defer accent colours to the
+   base `.p-highlight` rule so themes that redefine accent tokens flow
+   through. */
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight svg,
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-icon {
@@ -3794,10 +3690,6 @@ html:not(.dark) .martis-datatable tbody tr {
   font-weight: var(--martis-weight-semibold) !important;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-}
-html:not(.dark) .martis-datatable .p-datatable-thead > tr > th {
-  background-color: var(--martis-table-header-bg) !important;
-  color: var(--martis-table-header-text) !important;
 }
 
 /* Row separator lives on the TD (mirrors design-system `.table tbody td`)
@@ -3884,10 +3776,6 @@ html:not(.dark) .p-paginator .p-paginator-last:hover {
 /* Striping lives on the TD per Shell spec (see `.martis-datatable tbody
    tr:nth-child(even) td` rule above). Older TR-level overrides caused
    the zebra to disappear because the TR stayed transparent. */
-html:not(.dark) .martis-datatable-striped .p-datatable-tbody > tr:nth-child(even) > td,
-html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even) > td {
-  background-color: var(--martis-row-even) !important;
-}
 html:not(.dark) .martis-datatable-striped .p-datatable-tbody > tr:nth-child(even):hover > td,
 html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even):hover > td {
   background-color: var(--martis-row-hover) !important;
@@ -4426,14 +4314,6 @@ html:not(.dark) .p-dropdown-panel .p-dropdown-header .p-dropdown-filter::placeho
   color: var(--martis-text-muted);
 }
 
-html:not(.dark) .p-dropdown .p-dropdown-label {
-  color: var(--martis-text);
-}
-
-html:not(.dark) .p-dropdown .p-dropdown-trigger {
-  color: var(--martis-text-muted);
-}
-
 /* Dropdown overlay — ensure it uses z-index above other elements */
 .p-dropdown-panel {
   z-index: 1100 !important;
@@ -4803,17 +4683,14 @@ html:not(.dark) .p-dropdown-panel .p-dropdown-empty-message {
 }
 
 /* -- Light theme overrides ---------------------------------------------- */
-html:not(.dark) .p-dropdown .p-dropdown-trigger {
-  color: var(--martis-text-muted) !important;
-}
 html:not(.dark) .p-dropdown .p-dropdown-trigger .p-dropdown-trigger-icon {
   color: var(--martis-text-muted) !important;
 }
 html:not(.dark) .p-dropdown .p-dropdown-clear-icon {
-  color: #ef4444 !important;
+  color: var(--martis-danger) !important;
 }
 html:not(.dark) .p-dropdown .p-dropdown-clear-icon:hover {
-  color: #dc2626 !important;
+  color: var(--martis-danger-hover) !important;
   background-color: transparent !important;
 }
 html:not(.dark) .p-dropdown .p-dropdown-label.p-placeholder {
@@ -4851,15 +4728,15 @@ html:not(.dark) .p-dropdown-panel .p-dropdown-empty-message {
    High-specificity selectors to override html:not(.dark) rules above */
 html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon,
 html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon svg {
-  color: #ef4444 !important;
-  fill: #ef4444 !important;
+  color: var(--martis-danger) !important;
+  fill: var(--martis-danger) !important;
   width: 0.75rem !important;
   height: 0.75rem !important;
 }
 html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover,
 html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
-  color: #dc2626 !important;
-  fill: #dc2626 !important;
+  color: var(--martis-danger-hover) !important;
+  fill: var(--martis-danger-hover) !important;
 }
 
 /* Dark theme checkbox — keep the white tick colour, defer every other
@@ -4994,12 +4871,6 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
 html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon {
   color: var(--martis-accent-contrast, #ffffff) !important;
 }
-/* Ensure header checkbox in DataTable is visible */
-.p-datatable .p-datatable-thead .p-checkbox .p-checkbox-box {
-  background-color: var(--martis-surface);
-  border-color: var(--martis-border);
-}
-
 /* ── Selected row — checkbox-only indicator ─────────────────────
    The checked checkbox is the sole affordance for selection; we
    deliberately do NOT tint the row background. A full-row accent
@@ -5092,10 +4963,6 @@ html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon {
 }
 .p-toast .p-toast-message.p-toast-message-info .p-toast-message-icon {
   background: var(--martis-info);
-}
-html:not(.dark) .p-toast .p-toast-message {
-  background-color: #ffffff;
-  color: #1e293b;
 }
 
 /* Light-theme checkbox — honours the base spec (1px, `--martis-border`,
@@ -5556,6 +5423,35 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   background: var(--martis-badge-danger-bg);
   color: var(--martis-badge-danger-text);
   border-color: var(--martis-badge-danger-border);
+}
+/* The PrimeReact <Badge> severities (the profile page's session and 2FA
+   badges, or one in an extension) read the same tokens as the pills above,
+   so they match them. The inset shadow draws the pill border without
+   changing the badge size. The default badge stays a solid accent counter. */
+.p-badge.p-badge-secondary {
+  background: var(--martis-surface-alt, var(--martis-hover));
+  color: var(--martis-text-muted);
+  box-shadow: inset 0 0 0 1px var(--martis-border);
+}
+.p-badge.p-badge-info {
+  background: var(--martis-badge-info-bg);
+  color: var(--martis-badge-info-text);
+  box-shadow: inset 0 0 0 1px var(--martis-badge-info-border);
+}
+.p-badge.p-badge-success {
+  background: var(--martis-badge-success-bg);
+  color: var(--martis-badge-success-text);
+  box-shadow: inset 0 0 0 1px var(--martis-badge-success-border);
+}
+.p-badge.p-badge-warning {
+  background: var(--martis-badge-warning-bg);
+  color: var(--martis-badge-warning-text);
+  box-shadow: inset 0 0 0 1px var(--martis-badge-warning-border);
+}
+.p-badge.p-badge-danger {
+  background: var(--martis-badge-danger-bg);
+  color: var(--martis-badge-danger-text);
+  box-shadow: inset 0 0 0 1px var(--martis-badge-danger-border);
 }
 /* Optional leading dot, used to mark "live" / connection states. */
 .martis-badge-dot::before {
