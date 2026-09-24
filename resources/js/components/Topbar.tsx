@@ -9,6 +9,7 @@ import { GlobalSearch } from "@/components/GlobalSearch"
 import { isMacPlatform } from "@/lib/platform"
 import { addShortcut } from "@/lib/keyboardShortcuts"
 import { NotificationBell } from "@/components/NotificationBell"
+import { UserAvatar } from "@/components/UserAvatar"
 import { PreferencesMenu, type PreferencesMenuHandle } from "@/components/PreferencesMenu"
 import { Menu } from "primereact/menu"
 import type { MenuItem } from "primereact/menuitem"
@@ -187,8 +188,6 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
     },
   ]
 
-  const hasAvatar = !!user?.avatar_url?.trim()
-  const avatarInitial = (user?.name ?? user?.email ?? '?')[0].toUpperCase()
 
   return (
     <header className="martis-tb" data-mobile={onToggleSidebar ? "true" : undefined}>
@@ -293,25 +292,7 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
               menuRef.current?.toggle(e as unknown as React.SyntheticEvent)
           }}
         >
-          <div
-            className="martis-tb-user-avatar"
-            style={{
-              backgroundColor: hasAvatar ? "transparent" : "var(--martis-accent)",
-            }}
-          >
-            {hasAvatar ? (
-              <img
-                src={user!.avatar_url!}
-                alt={user?.name ?? ""}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                onError={(e) => {
-                  ;(e.target as HTMLImageElement).style.display = "none"
-                }}
-              />
-            ) : (
-              avatarInitial
-            )}
-          </div>
+          <UserAvatar user={user} />
           <span className="martis-tb-user-name">
             {user?.name ?? user?.email}
           </span>

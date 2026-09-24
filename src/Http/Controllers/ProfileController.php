@@ -12,6 +12,7 @@ use Martis\Contracts\ProfileResourceContract;
 use Martis\Profile\AvatarService;
 use Martis\Profile\BrowserSessionsService;
 use Martis\Profile\TwoFactorService;
+use Martis\Support\Initials;
 
 class ProfileController extends MartisController
 {
@@ -25,7 +26,7 @@ class ProfileController extends MartisController
         $user = $this->resolveUser($request);
         $resource = $this->resolveResource();
 
-        return response()->json($resource->toArray($user));
+        return response()->json($this->profilePayload($resource, $user));
     }
 
     /**
@@ -44,7 +45,7 @@ class ProfileController extends MartisController
         $data = $request->validate($resource->updateRules($user));
         $resource->applyUpdate($user, $data);
 
-        return response()->json($resource->toArray($user));
+        return response()->json($this->profilePayload($resource, $user));
     }
 
     /**
@@ -269,5 +270,18 @@ class ProfileController extends MartisController
     private function resolveResource(): ProfileResourceContract
     {
         return app(ProfileResourceContract::class);
+    }
+
+    /**
+     * The resource's profile data, with the avatar initials and palette slot
+     * of the user's name when the resource gives none, so the profile page
+     * always has them (a resource that implements the contract directly may
+     * not know the keys).
+     *
+     * @return array<string, mixed>
+     */
+    private function profilePayload(ProfileResourceContract $resource, Authenticatable $user): array
+    {
+        return $resource->toArray($user) + Initials::forUser($user);
     }
 }

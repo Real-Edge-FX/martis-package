@@ -68,9 +68,12 @@ it('Avatar without upload or explicit fallback emits an initials payload', funct
 
     $resolved = $field->resolve($model);
 
+    // "Jane Doe" is slot 6 of the theme avatar tokens on the server and in
+    // the browser; `color` is that slot's colour in the built-in theme.
     expect($resolved['isInitialsFallback'])->toBeTrue()
         ->and($resolved['initials'])->toBe('JD')
-        ->and($resolved['color'])->toStartWith('#')
+        ->and($resolved['palette'])->toBe(6)
+        ->and($resolved['color'])->toBe('#0891b2')
         ->and($resolved['seed'])->toBe('Jane Doe')
         ->and($resolved['url'])->toBeNull();
 });
@@ -95,7 +98,8 @@ it('Avatar colorFrom() pulls the initials background from a model attribute', fu
     $model = new AvatarTestModel(['name' => 'Jane', 'brand_color' => '#ec4899']);
     $field = Avatar::make('avatar_path')->colorFrom('brand_color');
 
-    expect($field->resolve($model)['color'])->toBe('#ec4899');
+    expect($field->resolve($model)['color'])->toBe('#ec4899')
+        ->and($field->resolve($model)['palette'])->toBeNull();
 });
 
 it('Avatar initials fallback uses a deterministic palette when no colorFrom is set', function () {

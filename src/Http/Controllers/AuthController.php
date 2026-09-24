@@ -18,6 +18,7 @@ use Martis\Contracts\ResetsUserPasswords;
 use Martis\Contracts\SendsPasswordResetLinks;
 use Martis\Http\Controllers\Concerns\AuthenticatesWithRememberMe;
 use Martis\Profile\TwoFactorService;
+use Martis\Support\Initials;
 
 class AuthController extends MartisController
 {
@@ -416,14 +417,20 @@ class AuthController extends MartisController
      * The avatar keys of the user payload, read from the profile resource
      * the profile page serves (`profile.resource`), so the Topbar shows the
      * avatar the profile page shows. The raw model only holds the stored
-     * path; the resource resolves the public URL.
+     * path; the resource resolves the public URL. The initials and palette
+     * slot the avatar falls back to are the user's name's
+     * ({@see Initials::forUser()}) when the resource gives none.
      *
-     * @return array{avatar_url: mixed}
+     * @return array{avatar_url: mixed, avatar_initials: mixed, avatar_palette: mixed}
      */
     private function avatarPayload(Model&Authenticatable $user): array
     {
-        $profile = app(ProfileResourceContract::class)->toArray($user);
+        $profile = app(ProfileResourceContract::class)->toArray($user) + Initials::forUser($user);
 
-        return ['avatar_url' => $profile['avatar_url'] ?? null];
+        return [
+            'avatar_url' => $profile['avatar_url'] ?? null,
+            'avatar_initials' => $profile['avatar_initials'],
+            'avatar_palette' => $profile['avatar_palette'],
+        ];
     }
 }

@@ -3,6 +3,10 @@ export interface User {
   name: string
   email: string
   avatar_url?: string | null
+  /** Initials of the name (or e-mail), shown when there is no picture. */
+  avatar_initials?: string
+  /** Slot (1..16) of the theme's `--martis-avatar-N` tokens behind the initials. */
+  avatar_palette?: number
   [key: string]: unknown
 }
 
@@ -15,6 +19,8 @@ export interface ProfileData {
   email: string
   avatar_url: string | null
   two_factor_enabled: boolean
+  avatar_initials?: string
+  avatar_palette?: number
 }
 
 export interface ResourceMeta {

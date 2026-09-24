@@ -15,6 +15,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { GlobalSearch } from "@/components/GlobalSearch"
 import { PreferencesMenu, type PreferencesMenuHandle } from "@/components/PreferencesMenu"
 import { Footer } from "@/components/Footer"
+import { UserAvatar } from "@/components/UserAvatar"
 import { Menu } from "primereact/menu"
 import { OverlayPanel } from "primereact/overlaypanel"
 import type { MenuItem } from "primereact/menuitem"
@@ -184,8 +185,6 @@ export function TopnavLayout() {
     },
   ]
 
-  const hasAvatar = !!user?.avatar_url?.trim()
-  const avatarInitial = (user?.name ?? user?.email ?? "?")[0].toUpperCase()
 
   return (
     <div className="martis-bg flex h-screen flex-col overflow-hidden">
@@ -368,25 +367,7 @@ export function TopnavLayout() {
                 menuRef.current?.toggle(e as unknown as React.SyntheticEvent)
             }}
           >
-            <div
-              className="martis-tb-user-avatar"
-              style={{
-                backgroundColor: hasAvatar ? "transparent" : "var(--martis-accent)",
-              }}
-            >
-              {hasAvatar ? (
-                <img
-                  src={user!.avatar_url!}
-                  alt={user?.name ?? ""}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  onError={(e) => {
-                    ;(e.target as HTMLImageElement).style.display = "none"
-                  }}
-                />
-              ) : (
-                avatarInitial
-              )}
-            </div>
+            <UserAvatar user={user} />
             <span className="martis-tb-user-name">
               {user?.name ?? user?.email}
             </span>

@@ -133,18 +133,6 @@ parameters:
 			path: src/Facades/Martis.php
 
 		-
-			message: '#^Method Martis\\Fields\\Avatar\:\:resolve\(\) should return array\<''name''\|''path''\|''thumbnailUrl''\|''url''\|int\<0, max\>, array\{path\: string, url\: string, name\: string, thumbnailUrl\: string\}\|string\>\|null but returns array\{url\: null, name\: null, path\: null, thumbnailUrl\: null, isInitialsFallback\: true, initials\: string, color\: string, seed\: string\}\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Fields/Avatar.php
-
-		-
-			message: '#^Method Martis\\Fields\\Avatar\:\:resolve\(\) should return array\<''name''\|''path''\|''thumbnailUrl''\|''url''\|int\<0, max\>, array\{path\: string, url\: string, name\: string, thumbnailUrl\: string\}\|string\>\|null but returns array\{url\: string, name\: null, path\: null, thumbnailUrl\: string, isFallback\: true\}\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Fields/Avatar.php
-
-		-
 			message: '#^Strict comparison using \!\=\= between array\{path\: string, url\: string, name\: string, thumbnailUrl\: string\}\|string and null will always evaluate to true\.$#'
 			identifier: notIdentical.alwaysTrue
 			count: 1

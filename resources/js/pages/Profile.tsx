@@ -23,6 +23,8 @@ function topbarIdentity(data: Partial<ProfileData>): Partial<User> {
   if (typeof data.name === 'string') identity.name = data.name
   if (typeof data.email === 'string') identity.email = data.email
   if (data.avatar_url !== undefined) identity.avatar_url = data.avatar_url
+  if (typeof data.avatar_initials === 'string') identity.avatar_initials = data.avatar_initials
+  if (typeof data.avatar_palette === 'number') identity.avatar_palette = data.avatar_palette
   return identity
 }
 
@@ -60,6 +62,8 @@ export function ProfilePage() {
           email: user?.email ?? '',
           avatar_url: null,
           two_factor_enabled: false,
+          avatar_initials: user?.avatar_initials,
+          avatar_palette: user?.avatar_palette,
         })
       })
       .finally(() => setLoading(false))
@@ -92,6 +96,8 @@ export function ProfilePage() {
                   key="avatar"
                   avatarUrl={profile.avatar_url}
                   name={profile.name}
+                  initials={profile.avatar_initials ?? ''}
+                  palette={profile.avatar_palette}
                   onUpdate={(url) => {
                     setProfile((p) => p ? { ...p, avatar_url: url } : p)
                     updateUser({ avatar_url: url })

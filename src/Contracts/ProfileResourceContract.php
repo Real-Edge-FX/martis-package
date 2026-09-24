@@ -4,6 +4,7 @@ namespace Martis\Contracts;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Martis\Profile\ProfileResource;
+use Martis\Support\Initials;
 
 /**
  * Contract for the Martis profile resource, the class `profile.resource`
@@ -12,14 +13,17 @@ use Martis\Profile\ProfileResource;
  * It serialises the authenticated user for the profile page (`GET` and
  * `PATCH /api/profile`), validates and applies the account update, and
  * gives the Topbar its avatar: `/api/auth/user` and the login response
- * take `avatar_url` from `toArray()`. Extend the default resource to
- * change one of them.
+ * take `avatar_url`, `avatar_initials` and `avatar_palette` from
+ * `toArray()`. Extend the default resource to change one of them.
  */
 interface ProfileResourceContract
 {
     /**
      * Return the profile data array for the given user. The profile page
-     * reads `name`, `email`, `avatar_url` and `two_factor_enabled`.
+     * reads `name`, `email`, `avatar_url` and `two_factor_enabled`, and the
+     * avatar's `avatar_initials` and `avatar_palette` (a slot of the theme's
+     * `--martis-avatar-N` tokens). Martis adds those two from the user's
+     * name, or e-mail, when the array has none ({@see Initials::forUser()}).
      *
      * @return array<string, mixed>
      */

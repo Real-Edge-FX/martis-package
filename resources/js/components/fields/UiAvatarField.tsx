@@ -1,10 +1,12 @@
 import { UserIcon } from '@phosphor-icons/react'
-import { avatarColorForSeed, avatarHexForSeed } from '@/lib/avatarPalette'
+import { initialsAvatarStyle } from '@/lib/avatarPalette'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 
 interface UiAvatarValue {
   initials: string
   color: string
+  /** Slot of the theme's `--martis-avatar-N` tokens; null when `colorFrom()` gave `color`. */
+  palette?: number | null
   seed: string
   shape: 'circle' | 'rounded' | 'squared'
 }
@@ -21,22 +23,6 @@ function resolveShapeClass(shape: string | undefined): string {
   }
 }
 
-/**
- * Pick a legible text colour (black or white) for the given hex bg using
- * the WCAG luminance approximation. Avoids hard-coding white on every
- * swatch so light brand colours (yellow, cyan) remain readable.
- */
-function readableTextColor(hex: string | null): string {
-  if (!hex) return '#fff'
-  const h = hex.replace('#', '')
-  if (h.length !== 6) return '#fff'
-  const r = parseInt(h.substring(0, 2), 16)
-  const g = parseInt(h.substring(2, 4), 16)
-  const b = parseInt(h.substring(4, 6), 16)
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-  return luminance > 0.6 ? '#0f172a' : '#ffffff'
-}
-
 function isUiAvatarValue(v: unknown): v is UiAvatarValue {
   return typeof v === 'object' && v !== null && 'initials' in (v as object) && 'color' in (v as object)
 }
@@ -46,17 +32,14 @@ export function UiAvatarFieldDisplay({ value }: FieldDisplayProps) {
     return <span className="martis-text-muted">—</span>
   }
   const shapeClass = resolveShapeClass(value.shape)
-  // F7-35 — backend may omit `color` (or pass an empty string); fall back
-  // to the deterministic 16-hue palette so two users never clash.
-  const seed = value.seed || value.initials || ''
-  const bg = value.color && value.color.length > 0
-    ? value.color
-    : avatarColorForSeed(seed)
-  // Resolve to hex for the readable-text-colour computation when we
-  // picked the CSS-var fallback path (readableTextColor needs a hex).
-  const textColor = value.color && value.color.length > 0
-    ? readableTextColor(value.color)
-    : readableTextColor(avatarHexForSeed(seed))
+  // The server's palette slot paints the circle with the theme token; a
+  // `color` without a slot comes from `colorFrom()`. F7-35 — a payload
+  // with neither falls back to the seed's slot so two users never clash.
+  const { backgroundColor, color } = initialsAvatarStyle({
+    palette: value.palette,
+    color: value.color,
+    seed: value.seed || value.initials || '',
+  })
 
   // F7-36 — empty initials → neutral user glyph instead of '?'.
   if (!value.initials) {
@@ -73,10 +56,7 @@ export function UiAvatarFieldDisplay({ value }: FieldDisplayProps) {
   return (
     <span
       className={`martis-avatar ${shapeClass} martis-ui-avatar`}
-      style={{
-        backgroundColor: bg,
-        color: textColor,
-      }}
+      style={{ backgroundColor, color }}
       aria-label={value.seed}
     >
       {value.initials}

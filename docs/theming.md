@@ -255,7 +255,7 @@ Used automatically by `PartitionCard` (donut/pie) when no custom colors provided
 
 ### 12. Avatar Palette (16 variables)
 
-16 deterministic hues used by `AvatarField` and `UiAvatarField` when the backend doesn't supply an explicit colour. The `lib/avatarPalette.ts` helper picks one of `--martis-avatar-1..16` from a stable hash of the seed (name, email, slug), so two users with the same name always get the same colour.
+16 deterministic hues for every initials avatar: the `Avatar` and `UiAvatar` fields, the Topbar and the profile page. The server (`Martis\Support\Initials`) picks one of `--martis-avatar-1..16` from a stable hash of the seed (the user's name, or e-mail when the name is blank; a field's seed attribute) and the frontend paints `var(--martis-avatar-N)`, so redefining these tokens in a theme recolours every avatar. Two people with the same name always get the same colour. A field with `colorFrom()` paints that attribute's colour instead. For a custom component, `avatarColorForSeed()` on `@martis/runtime` uses the same hash.
 
 ```css
 --martis-avatar-1 ... --martis-avatar-16

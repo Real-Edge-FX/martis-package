@@ -144,25 +144,34 @@ describe('PasswordSection', () => {
 
 // --- AvatarSection tests ---
 describe('AvatarSection', () => {
-  it('renders initials when no avatar url', () => {
-    wrap(<AvatarSection avatarUrl={null} name="Alice Bob" onUpdate={vi.fn()} />)
-    expect(screen.getByText('AB')).toBeDefined()
+  it('renders the server initials on their palette token when no avatar url', () => {
+    wrap(<AvatarSection avatarUrl={null} name="Alice Bob" initials="AB" palette={3} onUpdate={vi.fn()} />)
+    const circle = screen.getByText('AB')
+    expect(circle.style.backgroundColor).toBe('var(--martis-avatar-3)')
+  })
+
+  it('renders the user glyph when the server sends no initials', () => {
+    const { container } = wrap(<AvatarSection avatarUrl={null} name="" initials="" palette={16} onUpdate={vi.fn()} />)
+    const circle = container.querySelector('.rounded-full.h-20') as HTMLElement
+    expect(circle.textContent).toBe('')
+    expect(circle.querySelector('svg')).not.toBeNull()
+    expect(circle.style.backgroundColor).toBe('var(--martis-avatar-16)')
   })
 
   it('renders avatar image when url provided', () => {
-    wrap(<AvatarSection avatarUrl="https://example.com/avatar.jpg" name="Alice" onUpdate={vi.fn()} />)
+    wrap(<AvatarSection avatarUrl="https://example.com/avatar.jpg" name="Alice" initials="A" palette={7} onUpdate={vi.fn()} />)
     const img = screen.getByRole('img', { name: 'Alice' })
     expect(img).toBeDefined()
     expect(img.getAttribute('src')).toBe('https://example.com/avatar.jpg')
   })
 
   it('shows remove button when avatar url provided', () => {
-    wrap(<AvatarSection avatarUrl="https://example.com/avatar.jpg" name="Alice" onUpdate={vi.fn()} />)
+    wrap(<AvatarSection avatarUrl="https://example.com/avatar.jpg" name="Alice" initials="A" palette={7} onUpdate={vi.fn()} />)
     expect(screen.getByRole('button', { name: /remove photo/i })).toBeDefined()
   })
 
   it('does not show remove button when no avatar', () => {
-    wrap(<AvatarSection avatarUrl={null} name="Alice" onUpdate={vi.fn()} />)
+    wrap(<AvatarSection avatarUrl={null} name="Alice" initials="A" palette={7} onUpdate={vi.fn()} />)
     expect(screen.queryByRole('button', { name: /remove/i })).toBeNull()
   })
 })
@@ -199,14 +208,28 @@ describe('ProfilePage', () => {
       email: 'test@example.com',
       avatar_url: null,
       two_factor_enabled: false,
+      avatar_initials: 'TU',
+      avatar_palette: 4,
     })
   })
 
   it('gives the Topbar the loaded profile', async () => {
     wrap(<ProfilePage />)
     await waitFor(() => {
-      expect(updateUser).toHaveBeenCalledWith({ name: 'Test User', email: 'test@example.com', avatar_url: null })
+      expect(updateUser).toHaveBeenCalledWith({
+        name: 'Test User',
+        email: 'test@example.com',
+        avatar_url: null,
+        avatar_initials: 'TU',
+        avatar_palette: 4,
+      })
     })
+  })
+
+  it('paints the avatar with the loaded initials and palette slot', async () => {
+    wrap(<ProfilePage />)
+    const circle = await screen.findByText('TU')
+    expect(circle.style.backgroundColor).toBe('var(--martis-avatar-4)')
   })
 
   it('gives the Topbar the saved name after an account update', async () => {
@@ -215,6 +238,8 @@ describe('ProfilePage', () => {
       email: 'test@example.com',
       avatar_url: null,
       two_factor_enabled: false,
+      avatar_initials: 'RU',
+      avatar_palette: 9,
     })
     wrap(<ProfilePage />)
     const nameInput = await screen.findByDisplayValue('Test User')
@@ -224,8 +249,16 @@ describe('ProfilePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     await waitFor(() => {
-      expect(updateUser).toHaveBeenCalledWith({ name: 'Renamed User', email: 'test@example.com', avatar_url: null })
+      expect(updateUser).toHaveBeenCalledWith({
+        name: 'Renamed User',
+        email: 'test@example.com',
+        avatar_url: null,
+        avatar_initials: 'RU',
+        avatar_palette: 9,
+      })
     })
+    // The page's own avatar follows the new name too.
+    expect(await screen.findByText('RU')).toBeDefined()
   })
 
   it('renders profile page with all sections after loading', async () => {

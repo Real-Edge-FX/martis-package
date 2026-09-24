@@ -64,7 +64,7 @@ GET /martis/api/auth/user
 
 Public route (deliberately unprotected) so the Login page can probe the active session without a noisy `401` in the console. Returns the user object when a session cookie is present, or `null` when the visitor is a guest.
 
-The user object, here and in the login response, is the user model's attributes without the password, the remember token and the 2FA secret and recovery codes, plus `avatar_url` from the profile resource (see [Custom Profile Resource](#custom-profile-resource)), which the Topbar shows.
+The user object, here and in the login response, is the user model's attributes without the password, the remember token and the 2FA secret and recovery codes, plus the avatar the Topbar shows, from the profile resource (see [Custom Profile Resource](#custom-profile-resource)): `avatar_url`, and the `avatar_initials` and `avatar_palette` (a slot of the theme's `--martis-avatar-N` tokens) it falls back to without a picture.
 
 ## Auth UI shell
 
@@ -807,7 +807,7 @@ The profile resource is the class behind the profile page. `Martis\Contracts\Pro
 
 | Method | Role |
 |--------|------|
-| `toArray(Authenticatable $user): array` | The profile data of `GET` and `PATCH /martis/api/profile`: the page reads `name`, `email`, `avatar_url` and `two_factor_enabled`. `/martis/api/auth/user` and the login response take `avatar_url` from it too, so the Topbar shows the avatar the profile page shows. |
+| `toArray(Authenticatable $user): array` | The profile data of `GET` and `PATCH /martis/api/profile`: the page reads `name`, `email`, `avatar_url` and `two_factor_enabled`, and the avatar's `avatar_initials` and `avatar_palette`. `/martis/api/auth/user` and the login response take the three avatar keys from it too, so the Topbar shows the avatar the profile page shows. When the array has no `avatar_initials` or `avatar_palette`, Martis adds the initials and palette slot of the user's name (or e-mail), as the `Avatar` and `UiAvatar` fields compute them. |
 | `updateRules(Authenticatable $user): array` | The validation rules of `PATCH /martis/api/profile`. |
 | `applyUpdate(Authenticatable $user, array $data): void` | Saves the validated data. |
 

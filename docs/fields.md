@@ -973,7 +973,7 @@ BooleanGroup::make('permissions')
 
 Image upload specialised for profile pictures. Inherits every upload helper from `Image` (`disk`, `storagePath`, `maxSize`, `thumbnail`, …).
 
-**Zero configuration needed for the empty state** — when a record has no upload AND the developer didn't declare an explicit `fallback()`, the field renders coloured initials inline using a deterministic 16-slot palette (same look as the topbar user pill). No external service call, no extra DB column, no boilerplate closure.
+**Zero configuration needed for the empty state** — when a record has no upload AND the developer didn't declare an explicit `fallback()`, the field renders coloured initials inline on one of the theme's 16 avatar tokens: the same letters and colour as the Topbar and profile avatars of a user with that name. No external service call, no extra DB column, no boilerplate closure.
 
 ```php
 // One-liner: uploaded photo when present, coloured initials inline otherwise.
@@ -1004,13 +1004,24 @@ Avatar::make('avatar_path')
 | `colorFrom(string)` ⭐ | Pull the initials background from a model attribute (e.g. `brand_color`) |
 | `initials(Closure)` ⭐ | Custom initials computation. Closure receives `($seed, $model)` |
 
+**Initials payload.** When the field falls back to initials, its value carries `isInitialsFallback: true` and:
+
+| Key | Value |
+|---|---|
+| `initials` | The letters: the first letter of the seed's first and last words, or your `initials()` closure's result. |
+| `palette` | The slot (1 to 16) of the theme's `--martis-avatar-N` tokens the circle is painted with, or `null` when `colorFrom()` gave the colour. |
+| `color` | The literal colour: the `colorFrom()` value, or the slot's colour in the built-in theme. |
+| `seed` | The seed attribute's value. |
+
+A custom component that reads the payload paints `var(--martis-avatar-{palette})` when `palette` is set, so it follows the theme like the built-in circle, and `color` otherwise.
+
 **⭐ Martis differentials:**
 - **Zero-config inline initials fallback** — no external service, no extra closures, works out of the box.
-- **Deterministic 16-hue palette** declared as `--martis-avatar-1..16` tokens, stable across light/dark themes. The `lib/avatarPalette.ts` helper picks one from a hash of the seed (`name`, `email`, `slug`) — two users with the same name always get the same colour.
+- **Deterministic 16-hue palette** declared as `--martis-avatar-1..16` tokens, stable across light/dark themes and redefinable by a theme. The server picks one from a hash of the seed (`name`, `email`, `slug`) — two users with the same name always get the same colour.
 - **Empty-seed glyph** — when the record has no name/initials, the field renders a muted user icon inside `.martis-avatar-fallback` instead of a bare em-dash.
 - Per-row Closure-aware `fallback()` when you *do* want a custom URL.
 - Typed `AvatarShape` enum instead of a boolean `rounded()`.
-- Deterministic palette shared with `UiAvatar`, login, topbar and profile surfaces via the [`ResolvesInitialsPayload`](../src/Fields/Concerns/ResolvesInitialsPayload.php) trait.
+- Initials and palette shared with `UiAvatar`, the Topbar and the profile page through `Martis\Support\Initials` (the fields reach it via the [`ResolvesInitialsPayload`](../src/Fields/Concerns/ResolvesInitialsPayload.php) trait).
 
 ---
 
@@ -1044,7 +1055,9 @@ UiAvatar::make('avatar_initials')
 | `colorFrom(string)` ⭐ | Pull background colour from a model attribute (brand colour) |
 | `initials(Closure)` ⭐ | Custom initials computation. Closure receives `($seed, $model)` |
 
-**⭐ Martis differentials:** **deterministic 16-slot palette from seed hash** (same name → same colour, zero DB), `colorFrom('attribute')` override, custom-initials closure, decoupled seed via `from()`. Runs entirely client-side with no network call.
+The value has the same `initials`, `palette`, `color` and `seed` keys as the [Avatar initials payload](#avatar), plus `shape`.
+
+**⭐ Martis differentials:** **deterministic 16-slot palette from seed hash** (same name → same colour, zero DB; a theme recolours it through the `--martis-avatar-N` tokens), `colorFrom('attribute')` override, custom-initials closure, decoupled seed via `from()`. Computed with the record, painted inline: no external service call.
 
 ---
 
