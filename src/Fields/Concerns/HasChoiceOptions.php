@@ -47,18 +47,21 @@ trait HasChoiceOptions
     /**
      * Set the options, in Nova's order.
      *
-     *   - Map:     ['draft' => 'Draft', 'live' => 'Live']   value => label
-     *   - List:    ['Small', 'Large']                       stores 0 and 1
-     *   - Grouped: ['MS' => ['label' => 'Small', 'group' => 'Men Sizes']]
-     *   - Enum:    Status::class                            a backed case stores its value
-     *   - Closure: fn (Request|null $r) => User::query()->pluck('name', 'id')->all()
+     *   - Map:        ['draft' => 'Draft', 'live' => 'Live']   value => label
+     *   - List:       ['Small', 'Large']                       stores 0 and 1
+     *   - Grouped:    ['MS' => ['label' => 'Small', 'group' => 'Men Sizes']]
+     *   - Collection: User::query()->pluck('name', 'id')       any iterable or Arrayable, keys kept
+     *   - Enum:       Status::class                            a backed case stores its value
+     *   - Closure:    fn (Request|null $r) => User::query()->pluck('name', 'id')
      *
-     * The closure runs lazily in `getOptions()`. When each value is its own
+     * Nova 5 takes `iterable|callable|string` and reads it through
+     * `collect()`; this takes the same iterables, plus any Arrayable. The
+     * closure runs lazily in `getOptions()`. When each value is its own
      * label, pass `array_combine($values, $values)`.
      *
-     * @param  array<int|string, mixed>|class-string<\UnitEnum>|\Closure(Request|null): mixed  $options
+     * @param  iterable<int|string, mixed>|Arrayable<int|string, mixed>|class-string<\UnitEnum>|\Closure(Request|null): mixed  $options
      */
-    public function options(array|string|\Closure $options): static
+    public function options(iterable|Arrayable|string|\Closure $options): static
     {
         $this->optionsIndex = null;
 
@@ -73,19 +76,11 @@ trait HasChoiceOptions
 
         if (is_string($options)) {
             if (! enum_exists($options)) {
-                // A Collection passed straight to options() reaches this branch
-                // as a string too: PHP coerces it through its implicit
-                // __toString() (Collection::toJson()) before the match against
-                // array|string|\Closure. Only that shape earns the ->all() hint;
-                // a misspelt enum class name is not a Collection, so it does not.
-                $looksLikeCollection = str_starts_with(ltrim($options), '{') || str_starts_with(ltrim($options), '[');
-
                 throw new \InvalidArgumentException(sprintf(
-                    '%s [%s]: options() received [%s], which is neither an array, a Closure nor an enum class.%s',
+                    '%s [%s]: options() received [%s], which is neither an iterable, a Closure nor an enum class.',
                     class_basename(static::class),
                     $this->attribute,
                     $options,
-                    $looksLikeCollection ? ' Pass an array: call ->all() on a Collection.' : '',
                 ));
             }
 
@@ -94,7 +89,7 @@ trait HasChoiceOptions
             return $this;
         }
 
-        $this->options = $this->normalizeOptions($options);
+        $this->options = $this->normalizeOptions($this->resolvedOptionsToArray($options));
 
         return $this;
     }
@@ -119,11 +114,11 @@ trait HasChoiceOptions
     }
 
     /**
-     * Turn whatever a resolver closure returned into a plain array, the way
-     * Nova's `collect()` reads a closure's result: an array as-is, an
-     * Arrayable (a Collection) through `->toArray()`, any other Traversable
-     * through `iterator_to_array()` (keys kept), and anything else as no
-     * options at all.
+     * Turn the options handed to `options()`, or returned by a resolver
+     * closure, into a plain array, the way Nova reads them through
+     * `collect()`: an array as-is, an Arrayable (a Collection) through
+     * `->toArray()`, any other Traversable through `iterator_to_array()`
+     * (keys kept), and anything else as no options at all.
      *
      * @return array<int|string, mixed>
      */

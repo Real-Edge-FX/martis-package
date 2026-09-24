@@ -98,6 +98,15 @@ it('MultiSelect options() accepts a backed enum class', function () {
     ]);
 });
 
+it('MultiSelect options() accepts a Collection passed straight in, as Nova does', function () {
+    $field = MultiSelect::make('labels')->options(collect(['php' => 'PHP', 'go' => 'Go']));
+
+    expect($field->getOptions())->toBe([
+        ['label' => 'PHP', 'value' => 'php'],
+        ['label' => 'Go', 'value' => 'go'],
+    ]);
+});
+
 it('MultiSelect displayUsingLabels() enables label display', function () {
     $field = MultiSelect::make('labels')->displayUsingLabels();
 

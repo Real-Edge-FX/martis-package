@@ -62,9 +62,28 @@ it('normalises a Collection returned from searchOptionsUsing()', function () {
     ]);
 });
 
-it('rejects a Collection passed straight to options(), and names ->all() as the fix', function () {
-    Select::make('status')->options(collect(['a' => 'A']));
-})->throws(InvalidArgumentException::class, 'Pass an array: call ->all() on a Collection.');
+it('accepts a Collection passed straight to options(), as Nova does', function () {
+    $field = Select::make('owner_id')->options(collect([7 => 'Ana', 9 => 'Rui']));
+
+    expect($field->getOptions())->toBe([
+        ['label' => 'Ana', 'value' => 7],
+        ['label' => 'Rui', 'value' => 9],
+    ]);
+});
+
+it('accepts any iterable passed to options(), keys kept', function () {
+    $generator = (function () {
+        yield 'draft' => 'Draft';
+        yield 'live' => 'Live';
+    })();
+
+    expect(Select::make('status')->options($generator)->getOptions())->toBe([
+        ['label' => 'Draft', 'value' => 'draft'],
+        ['label' => 'Live', 'value' => 'live'],
+    ])->and(Select::make('status')->options(new ArrayIterator([3 => 'Three']))->getOptions())->toBe([
+        ['label' => 'Three', 'value' => 3],
+    ]);
+});
 
 it('reads a list as values 0, 1, 2 like Nova does', function () {
     $field = Select::make('size')->options(['Small', 'Large']);
@@ -116,16 +135,7 @@ it('rejects a label that cannot be a string', function () {
 
 it('rejects a string that is not an enum class', function () {
     Select::make('status')->options('NotAnEnum');
-})->throws(InvalidArgumentException::class, 'Select [status]: options() received [NotAnEnum], which is neither an array, a Closure nor an enum class.');
-
-it('rejects a misspelt enum class name without hinting at ->all(), since it is not a Collection', function () {
-    try {
-        Select::make('status')->options('App\Enums\Stauts');
-        expect(false)->toBeTrue();
-    } catch (InvalidArgumentException $e) {
-        expect($e->getMessage())->not->toContain('->all()');
-    }
-});
+})->throws(InvalidArgumentException::class, 'Select [status]: options() received [NotAnEnum], which is neither an iterable, a Closure nor an enum class.');
 
 it('fails loudly when optionsFromMap() is called, since options() replaced it', function () {
     Select::make('plan')->optionsFromMap(['free' => 'Free']);
