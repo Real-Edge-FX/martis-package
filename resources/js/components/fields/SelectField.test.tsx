@@ -327,4 +327,62 @@ describe('SelectFieldInput — option groups (v2.0.0)', () => {
 
     await waitFor(() => expect(document.querySelectorAll('.p-dropdown-item-group')).toHaveLength(2))
   })
+
+  it('never hands a group heading object to onChange in editable mode', () => {
+    // PrimeReact's editable-input path (`onEditableInputChange` /
+    // `findInArray` in dropdown.esm.js) searches ALL visible rows,
+    // including the synthesized group-heading rows, unlike the keyboard
+    // navigation paths which skip them via `isOptionGroup`. Typing a
+    // heading's prefix ("Men" for "Men Sizes") focuses that heading; Enter
+    // then resolves its value via `getOptionValue`, which falls back to
+    // the heading object itself because a heading has no `value` field.
+    const onChange = vi.fn()
+    const field = makeField({
+      attribute: 'size',
+      allowCustomValues: true,
+      options: [
+        { label: 'Small', value: 'MS', group: 'Men Sizes' },
+        { label: 'Small', value: 'WS', group: 'Women Sizes' },
+      ],
+    })
+    const { container } = render(
+      <SelectFieldInput field={field} value="" onChange={onChange} error={undefined} />,
+    )
+    const input = container.querySelector('input.p-dropdown-label') as HTMLInputElement
+    expect(input).not.toBeNull()
+
+    fireEvent.input(input, { target: { value: 'Men' } })
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
+
+    for (const call of onChange.mock.calls) {
+      expect(typeof call[0] === 'string' || call[0] === null).toBe(true)
+    }
+  })
+
+  it('never hands a group heading object to onChange when Tab commits the match', () => {
+    // Same underlying bug, a different key: PrimeReact's `onTabKey` also
+    // calls `onOptionSelect(visibleOptions[focusedOptionIndex])` once a
+    // heading is focused by the editable-input text match, with no
+    // `isOptionGroup` guard, exactly like `onEnterKey`.
+    const onChange = vi.fn()
+    const field = makeField({
+      attribute: 'size',
+      allowCustomValues: true,
+      options: [
+        { label: 'Small', value: 'MS', group: 'Men Sizes' },
+        { label: 'Small', value: 'WS', group: 'Women Sizes' },
+      ],
+    })
+    const { container } = render(
+      <SelectFieldInput field={field} value="" onChange={onChange} error={undefined} />,
+    )
+    const input = container.querySelector('input.p-dropdown-label') as HTMLInputElement
+
+    fireEvent.input(input, { target: { value: 'Men' } })
+    fireEvent.keyDown(input, { key: 'Tab', code: 'Tab' })
+
+    for (const call of onChange.mock.calls) {
+      expect(typeof call[0] === 'string' || call[0] === null).toBe(true)
+    }
+  })
 })

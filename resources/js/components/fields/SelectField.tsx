@@ -195,7 +195,21 @@ export function SelectFieldInput({ field, value, onChange, error, resourceKey, r
         name={field.attribute}
         value={currentValue}
         {...optionProps}
-        onChange={(e) => onChange(e.value as string)}
+        // Guard the boundary: in editable mode, PrimeReact's
+        // `onEditableInputChange` matches the typed text against every
+        // visible row, including the synthesized group-heading rows
+        // `groupDropdownOptions()` builds, unlike the keyboard-navigation
+        // paths which skip them via `isOptionGroup`. Both `onEnterKey` and
+        // `onTabKey` can then resolve a focused heading through
+        // `getOptionValue`, which falls back to the heading object itself
+        // because a heading carries no `value`. A real option's value, a
+        // typed custom value, and the clear action only ever produce a
+        // string, null, or undefined here, so drop anything else instead
+        // of handing a heading object to the form.
+        onChange={(e) => {
+          if (typeof e.value !== 'string' && e.value != null) return
+          onChange(e.value as string)
+        }}
         disabled={field.readonly}
         invalid={!!error}
         placeholder={selectPlaceholder}
