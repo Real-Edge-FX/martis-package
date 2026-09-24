@@ -2,16 +2,17 @@
 #
 # Run the Pest suite in a container that matches CI's PHP setup, so the
 # result is 0-failure. A raw `docker run php:8.3-cli … pest` under-provisions
-# the environment and reports ~29 phantom failures that are NOT real:
+# the environment and reports phantom failures that are NOT real:
 #
 #   * missing `gd`  -> UploadedFile::fake()->image() tests fail
 #   * missing `pcntl` -> the mcp:serve SIGTERM test fails
-#   * host session driver -> ~16 CookieSessionHandler "cookies on null" errors
 #   * mount at /app -> StubResolver path assertions (expect "martis-package/")
 #
-# This script fixes all four: it builds an image with gd + pcntl (cached
-# after the first run), mounts at /martis-package, and pins the array
-# session/cache drivers CI resolves. Match it to CI, get CI's result.
+# This script fixes all three: it builds an image with gd + pcntl (cached
+# after the first run) and mounts at /martis-package. Match it to CI, get
+# CI's result. No session or cache driver needs pinning: the tests ignore the
+# `.env` a killed `vendor/bin/testbench` leaves in the testbench skeleton
+# under vendor/ (tests/TestCase.php), and phpunit.xml sets the memory limit.
 #
 # Usage:
 #   scripts/test.sh                          # full suite
@@ -27,6 +28,5 @@ docker build -q -t "$IMAGE" -f "$ROOT/.docker/pest.Dockerfile" "$ROOT/.docker" >
 
 exec docker run --rm \
   -v "$ROOT":/martis-package -w /martis-package \
-  -e CACHE_STORE=array -e SESSION_DRIVER=array \
   "$IMAGE" \
-  php -d memory_limit=1G vendor/bin/pest --no-coverage "$@"
+  php vendor/bin/pest --no-coverage "$@"
