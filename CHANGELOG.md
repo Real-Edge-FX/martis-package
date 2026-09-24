@@ -54,16 +54,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Grouped options in Nova's format on `Select` and `MultiSelect`**: `options(['MS' => ['label' => 'Small', 'group' => 'Men Sizes']])`. The `Select` dropdown shows each group under its heading (ungrouped options mixed in sit on top, with no heading); every option carries its `group` in the payload, and the remote search keeps it. +7 Vitest.
+- **Grouped options in Nova's format on `Select` and `MultiSelect`**: `options(['MS' => ['label' => 'Small', 'group' => 'Men Sizes']])`. The `Select` dropdown shows each group under its heading (ungrouped options mixed in sit on top, with no heading); every option carries its `group` in the payload, and the remote search keeps it. +8 Vitest.
 - **`MultiSelect::options(Status::class)`** takes an enum class, like `Select`.
 - **A warning for values stored in the pre-v2 order.** Reading a record whose `Select` or `MultiSelect` value matches the label of a static option and the value of none logs at most once per request for each model class and field, in production too: saving such a record again would store the wrong value. Options from a closure are not checked, so the check never runs a query of its own. +6 Pest.
 - `options()` rejects a string that is not an enum class, and a label that cannot be a string, with an `InvalidArgumentException` naming the field.
-- `options()` and `searchOptionsUsing()` closures may return a Collection (`fn () => User::pluck('name', 'id')`), as in Nova. +3 Pest.
+- `options()` and `searchOptionsUsing()` closures may return a Collection (`fn () => User::pluck('name', 'id')`), as in Nova. The "neither an array, a Closure nor an enum class" error hints at `->all()` only when the received value looks like a Collection (a JSON-ish string), not for a misspelt enum class name. +4 Pest.
 
 ### Fixed
 
 - **The `martis:roles` `BulkAssignRole` stub builds its role picker with `pluck('name', 'id')`**, the order `options()` now reads.
-- **A `Select` option whose value is the empty string can be picked and shows as selected.** PrimeReact reads an empty value as no value: picking the option handed the form the whole option object (the v2 guard then dropped it), and a stored `''` showed the placeholder. +4 Vitest.
+- **A `Select` option whose value is the empty string can be picked and shows as selected.** PrimeReact reads an empty value as no value: picking the option handed the form the whole option object (the v2 guard then dropped it), and a stored `''` showed the placeholder. The sentinel that stands in for `''` inside the control is unreadable text now (it used to contain "martis", so a search for that word kept the option showing for no reason); a `''` option returned by `searchOptionsUsing()` can be picked the same way as a static one; and `displayUsingValues()` renders the dash for a stored `''`, not an empty badge. +7 Vitest.
 - **Republishing the assets deleted custom themes.** `martis:theme` writes the theme source to `resources/css/martis/<name>.css` and a copy to `public/vendor/martis/themes/<name>.css`, the file the panel loads. Since v1.8.8 `martis:publish-assets` wipes `public/vendor/martis/` before copying the package assets, and `martis:vendor-publish --assets` and `martis:install` run it, so every asset publish (each upgrade requires one) deleted the copy: the theme stylesheet returned 404 and the panel fell back to the default tokens with no error, and `martis:theme:diff` failed with "Consumer theme not found". After the package assets, `martis:publish-assets` now publishes every `.css` file directly inside `resources/css/martis/` to `public/vendor/martis/themes/`, and skips with a warning a file whose name the panel would not load, so the published themes always match their sources and a deploy that publishes restores them. +18 Pest. See [Theming → Theme files](docs/theming.md#theme-files).
 
 ### Docs

@@ -1165,6 +1165,7 @@ Select::make('country_code')
 - **A list is a map keyed 0, 1, 2…**, so `options(['Small', 'Large'])` stores `0` and `1`, as in Nova. When each value is its own label, pass `array_combine($values, $values)`.
 - **Grouped options** map a value to `['label' => ..., 'group' => ...]`. Any other array value throws an `InvalidArgumentException` that names the field and the option (the pre-v2 `['Group' => ['Label' => 'value']]` format included). The `Select` dropdown shows each group under its heading, in the order the groups first appear, with ungrouped options on top; the `MultiSelect` list keeps groups and ungrouped options in the order they first appear.
 - **An enum class** (`options(Status::class)`, Martis extension) stores the case value of a backed enum, or the case name of a pure one, labelled with the headline of the case name.
+- **A closure** may return a Collection instead of an array, for example `fn () => User::query()->pluck('name', 'id')` without `->all()`, as in Nova; a `searchOptionsUsing()` closure may return one too.
 - **`searchOptionsUsing()`** returns the same shapes, in the same order.
 - **Filters are the exception, as in Nova:** a filter's `options(Request $request)` returns `[label => value]`. See [Filters](filters.md).
 
