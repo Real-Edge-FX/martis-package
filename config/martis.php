@@ -170,14 +170,16 @@ return [
          | The browser tab title shown in `<title>`. Accepts:
          |   - null     → use the bundled translation "{brand} — Admin Control"
          |   - string   → literal title, e.g. "Acme Back Office"
-         |   - callable → invokable class or array callable that returns a string
-         |                and receives the current Request
+         |   - resolver → the name of an invokable class (built through the
+         |                container) or a [Class::class, 'staticMethod']
+         |                array; receives the current Request and returns
+         |                the title
          |
-         | For per-route titles (callback with request inspection), register
-         | via `Martis::pageTitleUsing(fn (Request $r) => ...)` from the
-         | application's service provider instead — closures cannot live in
-         | config files because `php artisan config:cache` fails to serialise
-         | them.
+         | A string that names no invokable class is always the literal
+         | title, never called. A closure cannot live here: `php artisan
+         | config:cache` fails to serialise it. For a closure, register it
+         | with `Martis::pageTitleUsing(fn (Request $r) => ...)` from the
+         | application's service provider.
          */
         'page_title' => env('MARTIS_PAGE_TITLE'),
 
@@ -859,10 +861,19 @@ return [
                 //     // back to /martis/login).
                 //     'logout_url' => env('MARTIS_SSO_AZURE_LOGOUT_URL'),
                 //
-                //     // Defer external role-name resolution to a closure.
-                //     // Active when role_source = 'callable'. The closure
-                //     // receives the SsoIdentity and returns array<string>.
-                //     // 'role_source_callable' => fn (SsoIdentity $i) => [...],
+                //     // Defer external role-name resolution to your code.
+                //     // Active when role_source = 'callable'. Called with
+                //     // (string $externalId, string $accessToken) and
+                //     // returns array<string>. Use the name of an invokable
+                //     // class or a [Class::class, 'staticMethod'] array: a
+                //     // closure breaks `php artisan config:cache`.
+                //     // 'role_source_callable' => App\Martis\AzureRoles::class,
+                //
+                //     // Map external names to local roles in your code.
+                //     // Active when role_strategy = 'callable'. Called with
+                //     // (array $externalRoles, ?User $user, string $provider)
+                //     // and returns a Collection of role models. Same forms.
+                //     // 'role_callable' => App\Martis\SsoRoleMapper::class,
                 // ],
             ],
         ],
@@ -1295,7 +1306,9 @@ return [
     | avatar.path    - Sub-directory within the disk.
     | avatar.max_size_kb - Maximum upload size in kilobytes.
     | avatar.column  - Column on the users table that stores the avatar path.
-    | avatar.url_resolver - Optional callable to generate the public URL.
+    | avatar.url_resolver - Optional resolver of the public URL: the name of an
+    |                  invokable class or a [Class::class, 'staticMethod'] array,
+    |                  called with the stored path. Null uses the disk's URL.
     | two_factor.enabled  - Show/hide the 2FA section.
     | two_factor.recovery_codes - Number of one-time recovery codes generated.
     | sections       - Array of section keys to render (customize order/visibility).
@@ -1458,20 +1471,22 @@ return [
     |--------------------------------------------------------------------------
     |
     | Lets the host declare per-entity plan tiers and upsell modals. The
-    | feature is opt-in: with no `plan_resolver` configured, every
-    | `requirePlan(...)` call is a no-op and the entity stays unlocked.
+    | feature is opt-in: `requirePlan(...)` locks nothing until the tier
+    | is declared in `plan_rank`. Once it is, a missing `plan_resolver`
+    | locks every user from it (fail-closed).
     |
-    | `plan_resolver` is any PHP callable that maps the authenticated
-    | user (nullable) to a plan name string. Return `null` when the
-    | user has no plan assigned — that is treated as "no access".
+    | `plan_resolver` maps the authenticated user (nullable) to a plan
+    | name string. Return `null` when the user has no plan assigned;
+    | that is treated as "no access".
     |
-    | Closures DO NOT survive `php artisan config:cache` (`var_export`
-    | chokes on `Closure::__set_state()`). For sites that cache config
-    | in production, declare the resolver as either a static class
-    | method (`[App\\Gates\\PlanResolver::class, 'resolve']`) or an
-    | invokable class (`App\\Gates\\PlanResolver::class`); both forms
-    | round-trip through `var_export` cleanly. v1.11.2+ accepts any
-    | callable, not only `Closure`.
+    | `php artisan config:cache` keeps two forms of the resolver: the
+    | name of an invokable class (`App\Martis\PlanResolver::class`,
+    | built through the container) and a static-method array
+    | (`[App\Martis\PlanResolver::class, 'resolve']`). A closure or an
+    | object instance breaks the cache, even when a service provider
+    | sets it with `config()->set()`. A value that resolves to no
+    | callable throws an `InvalidArgumentException` naming this key.
+    | See docs/configuration.md, "Config keys that take a callable".
     |
     | `plan_rank` orders the declared tiers; a user is locked from a
     | tier when their current rank sits below the required rank.
@@ -1481,18 +1496,15 @@ return [
     | re-declaring the same modal copy at every call site.
     */
     'gates' => [
-        // The plan resolver is the consumer-supplied closure that maps
-        // an authenticated user (nullable) to a plan name string. The
+        // The plan resolver is the consumer-supplied class that maps an
+        // authenticated user (nullable) to a plan name string. The
         // package never reaches into Spatie, Cashier, or any other
-        // billing layer — the resolver is the only integration point.
-        // Examples:
-        //   Spatie: fn ($u) => $u?->roles->pluck('name')->first()
-        //   Cashier: fn ($u) => $u?->subscribed('default') ? 'pro' : 'free'
-        //   Custom column: fn ($u) => $u?->plan_name
-        // Closures cannot survive `config:cache`. Either keep this key
-        // out of the cached config (set via a service provider boot
-        // hook) or rely on the per-request closure resolution Laravel
-        // provides via env-driven static factories.
+        // billing layer: the resolver is the only integration point.
+        //   'plan_resolver' => App\Martis\PlanResolver::class,
+        // with __invoke(?Authenticatable $user): ?string returning, e.g.:
+        //   Spatie: $user?->roles->pluck('name')->first()
+        //   Cashier: $user?->subscribed('default') ? 'pro' : 'free'
+        //   Custom column: $user?->plan_name
         'plan_resolver' => null,
 
         // Hierarquia linear de planos. Empty by default (v1.11.1+) — the
