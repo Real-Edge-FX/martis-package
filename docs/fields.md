@@ -1163,12 +1163,12 @@ Select::make('country_code')
 `options()` reads `[value => label]`, the order Nova uses for `Select`, `MultiSelect` and `BooleanGroup`: the key is what the field stores, the value is what the user sees. So `pluck('name', 'id')` stores the id, and two records with the same name stay two options. Before v2.0.0 Martis read the array label first; see [Upgrading](upgrading.md).
 
 - **A list is a map keyed 0, 1, 2…**, so `options(['Small', 'Large'])` stores `0` and `1`, as in Nova. When each value is its own label, pass `array_combine($values, $values)`.
-- **Grouped options** map a value to `['label' => ..., 'group' => ...]`. Any other array value throws an `InvalidArgumentException` that names the field and the option (the pre-v2 `['Group' => ['Label' => 'value']]` format included). The dropdown shows each group under its heading, in the order the groups first appear; ungrouped options sit on top.
+- **Grouped options** map a value to `['label' => ..., 'group' => ...]`. Any other array value throws an `InvalidArgumentException` that names the field and the option (the pre-v2 `['Group' => ['Label' => 'value']]` format included). The `Select` dropdown shows each group under its heading, in the order the groups first appear, with ungrouped options on top; the `MultiSelect` list keeps groups and ungrouped options in the order they first appear.
 - **An enum class** (`options(Status::class)`, Martis extension) stores the case value of a backed enum, or the case name of a pure one, labelled with the headline of the case name.
 - **`searchOptionsUsing()`** returns the same shapes, in the same order.
 - **Filters are the exception, as in Nova:** a filter's `options(Request $request)` returns `[label => value]`. See [Filters](filters.md).
 
-**Stored labels (Martis extension).** Reading a record whose stored value matches the label of a static option and the value of none logs a warning, in production too, once per field per request: the options array is still written label first, or the record was saved while it was, and saving it again would store the wrong value. Options from a closure are not checked, so the check never runs a query of its own.
+**Stored labels (Martis extension).** Reading a record whose stored value matches the label of a static option and the value of none logs a warning, in production too, at most once per request for each model class and field: the options array is still written label first, or the record was saved while it was, and saving it again would store the wrong value. Options from a closure are not checked, so the check never runs a query of its own.
 
 **Clear (X) icon.** On a `nullable()` select, the clear icon appears only once a value is selected — an empty select has nothing to clear, so no X shows on the placeholder state.
 
@@ -1184,6 +1184,7 @@ Select::make('model')->options(['gpt-4o' => 'gpt-4o'])->searchableOptions()->all
 // Very long list: keep the first page in options(), search the rest on the server
 Select::make('model')
     ->options(fn () => ModelCatalog::top(50))
+    // Both closures return [value => label]; a list would store positions.
     ->searchOptionsUsing(fn (string $term, ?Request $request) => ModelCatalog::search($term, limit: 50));
 ```
 
