@@ -25,6 +25,10 @@ interface User {
     name: string;
     email: string;
     avatar_url?: string | null;
+    /** Initials of the name (or e-mail), shown when there is no picture. */
+    avatar_initials?: string;
+    /** Slot (1..16) of the theme's `--martis-avatar-N` tokens behind the initials. */
+    avatar_palette?: number;
     [key: string]: unknown;
 }
 interface ResourceMeta {
@@ -5326,18 +5330,6 @@ declare function mutedTextColor(): string;
  */
 declare function accentColor(): string;
 
-/**
- * Deterministic avatar colour lookup.
- *
- * Two users with the same name (or seed) always get the same colour.
- * The 16 hues are declared as `--martis-avatar-1..16` in `martis.css`
- * and stay identical across light/dark themes so a person's avatar
- * doesn't shift colour when the user toggles the theme.
- *
- * Used by AvatarField / UiAvatarField when no explicit `color` is
- * supplied by the backend. Backend-supplied colours still win — this
- * is the zero-config fallback.
- */
 /**
  * Map a seed (name, email, slug, anything) to one of the 16 avatar
  * hues. Returns the CSS `var(--martis-avatar-N)` reference so callers
