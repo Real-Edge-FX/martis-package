@@ -12,7 +12,7 @@ Optionally:
 
 4. **Consumer apps** bumped via `composer update martis/martis`.
 
-The release PR carries everything the tag needs: the `## [N.N.N]` section of `CHANGELOG.md`, the docs, and the rebuilt `public/` (the compiled SPA consumers publish with `martis:publish-assets`; a `resources/js` change that is not rebuilt and committed never reaches them). CI rebuilds `public/` and `stubs/extensions/` on every PR and fails when the committed output differs from the sources, so run `npm run build` and commit the result before pushing a frontend change.
+The release PR carries everything the tag needs: the `## [N.N.N]` section of `CHANGELOG.md`, the docs, and the rebuilt `public/` (the compiled SPA consumers publish with `martis:publish-assets`; a `resources/js` change that is not rebuilt and committed never reaches them). CI rebuilds `public/` and `stubs/extensions/` on every PR and fails when the committed output differs from the sources, so run `npm run build` and commit the result before pushing a frontend change. Build from a `node_modules` installed in the checkout you build (`npm ci`): in a git worktree whose `node_modules` is a symlink to another checkout, Vite resolves the real path and writes `../../../node_modules/...` keys into `public/manifest.json`, which the CI build then reports as a difference.
 
 Merge the release PR through the GitHub web UI: GitHub signs the merge commit, so the tag created on it shows as Verified. Do not merge release work locally, and do not push a tag from a local `git tag`: a local tag creates no GitHub release and sits on an unsigned commit.
 
