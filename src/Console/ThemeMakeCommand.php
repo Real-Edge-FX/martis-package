@@ -84,11 +84,18 @@ class ThemeMakeCommand extends Command
                 return self::FAILURE;
             }
         }
-        $publisher->pruneRuns();
+        $pruned = $publisher->pruneRuns();
 
         foreach ($backups as $file => $backup) {
             $this->components->warn($atRisk[$file]);
             $this->line('  '.($backup['reused'] ? 'Already backed up to' : 'Backed up to').' <fg=cyan>'.$this->relativePath($backup['path'])."</>. If it holds edits you want, copy them into resources/css/martis/{$name}.css.");
+        }
+
+        foreach ($pruned['removed'] as $directory) {
+            $this->line('  Removed the old backup <fg=cyan>'.$this->relativePath($directory).'</> (the oldest backup and the '.(ThemePublisher::KEEP_RUNS - 1).' newest are kept).');
+        }
+        foreach ($pruned['failed'] as $directory => $reason) {
+            $this->components->warn('Could not remove the old backup '.$this->relativePath($directory).": {$reason}.");
         }
 
         // Never write through a symlink left where the source goes.
@@ -101,7 +108,14 @@ class ThemeMakeCommand extends Command
 
         // 3. Publish a copy to public/vendor/martis/themes/ so the blade
         // stylesheet tag can pick it up without a Vite rebuild. The copy is
-        // generated: martis:publish-assets rewrites it from the source.
+        // generated: martis:publish-assets rewrites it from the source. A
+        // themes directory that is a symlink is replaced by a real directory
+        // first, never written through.
+        if (ThemeFiles::publishedDirectoryIsLink()) {
+            $target = (string) @readlink(ThemeFiles::publishedDirectory());
+            $this->components->warn("public/vendor/martis/themes is a symlink to {$target}: martis:theme replaces the link with a real directory holding a copy of its files, and never writes into {$target}.");
+        }
+
         try {
             $publisher->publish($name, $path);
         } catch (Throwable $e) {

@@ -51,12 +51,24 @@ final class ThemeFiles
     }
 
     /**
+     * Files in the published directory that are not theme files: the publish
+     * record, and the placeholders that keep an empty directory in version
+     * control. They are never listed, backed up or reported, and a full
+     * publish keeps the placeholders.
+     */
+    public const RECORD_FILE = '.published.json';
+
+    public const PLACEHOLDERS = ['.gitkeep', '.gitignore', '.keep'];
+
+    /**
      * The publish record: the sha1 of each copy the theme commands wrote.
-     * It lives out of the web root, so it does not list the themes publicly.
+     * It sits next to the copies, so it is written wherever they are (a
+     * read-only storage/ does not lose it), and holds hashes only, so it
+     * names no theme in the web root.
      */
     public static function recordPath(): string
     {
-        return storage_path('app/martis/published-themes.json');
+        return self::publishedDirectory().'/'.self::RECORD_FILE;
     }
 
     /** One directory per run that backed something up, named after its time. */
@@ -94,8 +106,10 @@ final class ThemeFiles
      *  - `skipped`: the ones the panel could not load (a `.CSS` extension, a
      *    name outside NAME_PATTERN), keyed by path with the reason;
      *  - `unreadable`: the ones that cannot be read (a broken symlink, a file
-     *    that does not open), keyed by path with the reason. A publish stops
-     *    on them: it cannot tell what the theme should be.
+     *    that does not open), keyed by path with the reason, or the directory
+     *    itself when it cannot be listed. A publish skips them with a warning,
+     *    and stops when one is the active theme's source or its published
+     *    copy would go.
      *
      * Hidden files, subdirectories and other extensions are not themes and
      * appear in no list.
@@ -174,9 +188,21 @@ final class ThemeFiles
     }
 
     /**
+     * Whether the published directory is itself a symlink (a deploy tool's
+     * shared directory): the theme commands replace it with a real directory
+     * rather than write into its target.
+     */
+    public static function publishedDirectoryIsLink(): bool
+    {
+        return is_link(self::publishedDirectory());
+    }
+
+    /**
      * Every entry under the published directory, relative to it and sorted:
      * files, hidden ones included, and symlinks, which are listed and never
-     * followed.
+     * followed. When the directory itself is a symlink, its target's entries
+     * are listed: they are what the panel serves. The publish record and the
+     * VCS placeholders at the top are left out.
      *
      * @return list<string>
      *
@@ -186,7 +212,7 @@ final class ThemeFiles
     {
         $root = self::publishedDirectory();
 
-        if (is_link($root) || ! is_dir($root)) {
+        if (! is_dir($root)) {
             return [];
         }
 
@@ -203,6 +229,10 @@ final class ThemeFiles
             }
 
             foreach ($entries as $entry) {
+                if ($relative === '' && self::isKept($entry)) {
+                    continue;
+                }
+
                 $child = $relative === '' ? $entry : $relative.'/'.$entry;
 
                 if (! is_link($root.'/'.$child) && is_dir($root.'/'.$child)) {
@@ -218,13 +248,19 @@ final class ThemeFiles
         return $files;
     }
 
+    /** Whether a top-level entry of the published directory is not a theme file. */
+    public static function isKept(string $entry): bool
+    {
+        return $entry === self::RECORD_FILE || in_array($entry, self::PLACEHOLDERS, true);
+    }
+
     /**
      * The names in a directory without `.` and `..`, sorted, or null when it
      * cannot be listed.
      *
      * @return list<string>|null
      */
-    private static function entries(string $directory): ?array
+    public static function entries(string $directory): ?array
     {
         try {
             $entries = @scandir($directory);

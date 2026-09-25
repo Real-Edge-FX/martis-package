@@ -59,15 +59,16 @@ if (! function_exists('themeBackups')) {
 if (! function_exists('removeThemeState')) {
     /**
      * Remove what the theme commands keep in the testbench app's
-     * storage/app/martis/ (the backups and the publish record, whether a
-     * spec left each as a file or a directory), then the directory itself
-     * when nothing else is in it.
+     * storage/app/martis/ (the backups, whether a spec left them as a file
+     * or a directory), then the directory itself when nothing else is in it.
+     * The publish record lives next to the copies, in
+     * public/vendor/martis/themes/, which the theme specs delete.
      */
     function removeThemeState(): void
     {
         $files = new Filesystem;
 
-        foreach (['app/martis/theme-backups', 'app/martis/published-themes.json'] as $relative) {
+        foreach (['app/martis/theme-backups'] as $relative) {
             $path = storage_path($relative);
             $files->isDirectory($path) ? $files->deleteDirectory($path) : $files->delete($path);
         }

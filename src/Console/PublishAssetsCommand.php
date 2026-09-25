@@ -42,13 +42,16 @@ use Throwable;
  * wipe deletes the previous copies with everything else, so the published
  * themes always match their sources (see `Martis\Support\ThemeFiles`).
  * Before it deletes or overwrites anything, it stops, changing nothing, when
- * a theme source cannot be read or the run would take away the theme
- * `martis.theme.name` names; then it backs up every file under
- * `public/vendor/martis/themes/` it cannot write back (a copy edited in
+ * the run would take away the theme `martis.theme.name` names, or remove the
+ * copy of a theme source it cannot read (a source it cannot read that
+ * nothing depends on is skipped with a warning); then it backs up every file
+ * under `public/vendor/martis/themes/` it cannot write back (a copy edited in
  * place, a theme without a source, a font next to a theme) to
  * `storage/app/martis/theme-backups/<run>/` and says so, stopping with
  * nothing deleted if a backup fails (see `Martis\Support\ThemePublisher`).
- * `--themes-only` runs that theme step alone, for the edit-and-publish loop.
+ * A themes directory that is a symlink is replaced by a real directory, and
+ * its target is never written. `--themes-only` runs that theme step alone,
+ * for the edit-and-publish loop.
  */
 class PublishAssetsCommand extends Command
 {
@@ -71,18 +74,13 @@ class PublishAssetsCommand extends Command
             return self::FAILURE;
         }
 
-        // Nothing is deleted or overwritten until the themes are safe: a theme
-        // source that cannot be read, or a run that would take away the theme
-        // martis.theme.name names, stops here. Then every file under
+        // Nothing is deleted or overwritten until the themes are safe: a run
+        // that would take away the theme martis.theme.name names, or the copy
+        // of a source it cannot read, stops here. Then every file under
         // public/vendor/martis/themes/ the run destroys and cannot write back
         // is backed up. Without --no-wipe, files there without a source go
         // too: the wipe deletes them, and --themes-only removes them.
         $themes = ThemeFiles::scanSources();
-
-        if (! $this->themeSourcesAreReadable($themes['unreadable'])) {
-            return self::FAILURE;
-        }
-
         $publisher = new ThemePublisher($filesystem);
 
         try {
@@ -95,7 +93,11 @@ class PublishAssetsCommand extends Command
             return self::FAILURE;
         }
 
-        if (! $this->activeThemeSurvives($themes, $atRisk)) {
+        if (! $this->unreadableSourcesLoseNothing($themes['unreadable'], $atRisk, $links)) {
+            return self::FAILURE;
+        }
+
+        if (! $this->activeThemeSurvives($themes, $atRisk, $links)) {
             return self::FAILURE;
         }
 
@@ -104,7 +106,28 @@ class PublishAssetsCommand extends Command
         }
 
         $this->reportLinks($links, $themes['sources']);
-        $publisher->pruneRuns();
+        $this->reportPruning($publisher->pruneRuns());
+
+        // A themes directory that is a symlink (a deploy tool's shared
+        // directory) is never written through. The wipe removes the link
+        // itself; without the wipe, the link is replaced by a real directory
+        // holding a copy of its target's files.
+        $this->reportDirectoryLink();
+        $replacesTree = ! $themesOnly && $wipe;
+
+        if (! $replacesTree) {
+            try {
+                $publisher->replaceDirectoryLink();
+            } catch (Throwable $e) {
+                $this->components->error('Could not replace the symlink public/vendor/martis/themes with a directory: '.$e->getMessage());
+                $this->line('  Nothing was written into its target. Replace the link with a directory, then run the command again.');
+
+                return self::FAILURE;
+            }
+        }
+
+        // The wipe takes the VCS placeholders of the themes directory with it.
+        $placeholders = $replacesTree ? $publisher->placeholders() : [];
 
         if (! $themesOnly) {
             $source = $this->packagePublicPath();
@@ -154,12 +177,23 @@ class PublishAssetsCommand extends Command
             );
         }
 
+        try {
+            $publisher->restorePlaceholders($placeholders);
+        } catch (Throwable $e) {
+            $this->components->warn('Could not put back a placeholder in public/vendor/martis/themes/: '.$e->getMessage());
+        }
+
         // The wipe already removed what the run takes away; --themes-only
         // removes it here, except the copies a source replaces.
         $toRemove = [];
         if ($themesOnly && $wipe) {
-            foreach ($atRisk + $links as $relative => $fate) {
-                if ($fate !== ThemePublisher::EDITED && $fate !== 'replaced') {
+            foreach ($atRisk as $relative => $file) {
+                if ($file['reason'] !== ThemePublisher::EDITED) {
+                    $toRemove[] = $relative;
+                }
+            }
+            foreach ($links as $relative => $link) {
+                if ($link['fate'] === ThemePublisher::LINK_REMOVED) {
                     $toRemove[] = $relative;
                 }
             }
@@ -244,34 +278,58 @@ class PublishAssetsCommand extends Command
     }
 
     /**
-     * A theme source that cannot be read stops the run: it cannot tell what
-     * that theme should be, and publishing the rest would remove its copy.
+     * A theme source that cannot be read stops the run when something
+     * depends on it: it is the source of the theme `martis.theme.name`
+     * names, or the run would remove its published copy, which may be the
+     * only readable version left. A source directory that cannot be listed
+     * stops it too. Any other unreadable source (a broken symlink nothing
+     * uses) is skipped with a warning when the themes are published.
      *
      * @param  array<string, string>  $unreadable  path => reason
+     * @param  array<string, array{reason: string, source: string|null}>  $atRisk
+     * @param  array<string, array{fate: string, source: string|null}>  $links
      */
-    protected function themeSourcesAreReadable(array $unreadable): bool
+    protected function unreadableSourcesLoseNothing(array $unreadable, array $atRisk, array $links): bool
     {
-        if ($unreadable === []) {
-            return true;
-        }
+        $active = config('martis.theme.name');
+        $stops = false;
 
         foreach ($unreadable as $path => $reason) {
-            $this->components->error('Could not read '.$this->relativePath($path).": {$reason}.");
-        }
-        $this->line('  Nothing was deleted or overwritten. Fix or remove the file, then run the command again.');
+            $name = ThemeFiles::nameOf($path);
+            $copy = $name.'.css';
+            $source = $this->relativePath($path);
 
-        return false;
+            if ($path === ThemeFiles::sourceDirectory()) {
+                $this->components->error("Could not read {$source}: {$reason}.");
+            } elseif ($active === $name) {
+                $this->components->error("Could not read {$source}, the source of the active theme: {$reason}.");
+            } elseif (isset($atRisk[$copy]) || ($links[$copy]['fate'] ?? null) === ThemePublisher::LINK_REMOVED) {
+                $this->components->error("Could not read {$source}: {$reason}, and this publish would remove public/vendor/martis/themes/{$copy}.");
+            } else {
+                continue;
+            }
+
+            $stops = true;
+        }
+
+        if ($stops) {
+            $this->line('  Nothing was deleted or overwritten. Fix or remove the file, then run the command again.');
+        }
+
+        return ! $stops;
     }
 
     /**
      * The run stops when it would leave the panel without the theme
      * `martis.theme.name` names: that theme's source was skipped, or its
-     * published copy has no source and the run removes it.
+     * published copy (a file, or a symlink that resolves) has no source and
+     * the run removes it.
      *
      * @param  array{sources: array<string, string>, skipped: array<string, string>, unreadable: array<string, string>}  $themes
-     * @param  array<string, string>  $atRisk
+     * @param  array<string, array{reason: string, source: string|null}>  $atRisk
+     * @param  array<string, array{fate: string, source: string|null}>  $links
      */
-    protected function activeThemeSurvives(array $themes, array $atRisk): bool
+    protected function activeThemeSurvives(array $themes, array $atRisk, array $links): bool
     {
         $name = config('martis.theme.name');
 
@@ -288,7 +346,11 @@ class PublishAssetsCommand extends Command
             }
         }
 
-        if (($atRisk[$name.'.css'] ?? null) === ThemePublisher::NO_SOURCE) {
+        $removesFile = ($atRisk[$name.'.css']['reason'] ?? null) === ThemePublisher::NO_SOURCE;
+        $removesLink = ($links[$name.'.css']['fate'] ?? null) === ThemePublisher::LINK_REMOVED
+            && file_exists(ThemeFiles::publishedPath($name));
+
+        if ($removesFile || $removesLink) {
             $this->components->error("martis.theme.name is \"{$name}\", but resources/css/martis/{$name}.css does not exist, and this publish would remove public/vendor/martis/themes/{$name}.css, the copy the panel loads.");
             $this->line("  Nothing was deleted or overwritten. Move that copy to <fg=cyan>resources/css/martis/{$name}.css</> (see \"Upgrading from 1.x\" in the theming guide),");
             $this->line('  or set martis.theme.name to null, then run the command again.');
@@ -305,7 +367,7 @@ class PublishAssetsCommand extends Command
      * follows a warning that a file is being removed. Returns false, after
      * an error, when a backup fails: the caller stops with nothing deleted.
      *
-     * @param  array<string, string>  $atRisk  path under public/vendor/martis/themes/ => reason
+     * @param  array<string, array{reason: string, source: string|null}>  $atRisk  path under public/vendor/martis/themes/ => reason and source
      */
     protected function backUpThemeFiles(ThemePublisher $publisher, array $atRisk): bool
     {
@@ -325,9 +387,11 @@ class PublishAssetsCommand extends Command
 
         foreach ($backups as $relative => $backup) {
             $published = 'public/vendor/martis/themes/'.$relative;
-            $name = basename($relative, '.css');
+            // A copy matched by inode names its real source, `brand` for a
+            // `Brand.css`; NO_SOURCE is only given to a valid theme name.
+            $name = $atRisk[$relative]['source'] ?? basename($relative, '.css');
 
-            [$warning, $advice] = match ($atRisk[$relative]) {
+            [$warning, $advice] = match ($atRisk[$relative]['reason']) {
                 ThemePublisher::EDITED => [
                     "{$published} differs from its source, resources/css/martis/{$name}.css, and this publish replaces it.",
                     "If it holds edits you want, copy them into resources/css/martis/{$name}.css and publish again.",
@@ -353,17 +417,48 @@ class PublishAssetsCommand extends Command
      * Say which symlinks the run replaces or removes: their targets stay,
      * so there is nothing to back up.
      *
-     * @param  array<string, string>  $links  path under public/vendor/martis/themes/ => 'replaced' | 'removed'
+     * @param  array<string, array{fate: string, source: string|null}>  $links  path under public/vendor/martis/themes/ => fate and replacing theme
      * @param  array<string, string>  $sources
      */
     protected function reportLinks(array $links, array $sources): void
     {
-        foreach ($links as $relative => $fate) {
+        foreach ($links as $relative => $link) {
             $published = 'public/vendor/martis/themes/'.$relative;
 
-            $this->components->warn($fate === 'replaced'
-                ? "{$published} is a symlink: this publish replaces the link with a copy of ".$this->relativePath($sources[basename($relative, '.css')]).'.'
+            $this->components->warn($link['source'] !== null
+                ? "{$published} is a symlink: this publish replaces the link with a copy of ".$this->relativePath($sources[$link['source']]).'.'
                 : "{$published} is a symlink: this publish removes the link, not its target.");
+        }
+    }
+
+    /** Say that the themes directory is a symlink, and what the run does with it. */
+    protected function reportDirectoryLink(): void
+    {
+        if (! ThemeFiles::publishedDirectoryIsLink()) {
+            return;
+        }
+
+        $target = (string) @readlink(ThemeFiles::publishedDirectory());
+
+        $this->components->warn(is_dir(ThemeFiles::publishedDirectory())
+            ? "public/vendor/martis/themes is a symlink to {$target}: this publish replaces the link with a real directory and never writes into {$target}."
+            : "public/vendor/martis/themes is a broken symlink (to {$target}): this publish replaces it with a real directory.");
+    }
+
+    /**
+     * Say which old backup runs were deleted, and warn about the ones that
+     * could not be: pruning never fails the run.
+     *
+     * @param  array{removed: list<string>, failed: array<string, string>}  $pruned
+     */
+    protected function reportPruning(array $pruned): void
+    {
+        foreach ($pruned['removed'] as $directory) {
+            $this->line('  Removed the old backup <fg=cyan>'.$this->relativePath($directory).'</> (the oldest backup and the '.(ThemePublisher::KEEP_RUNS - 1).' newest are kept).');
+        }
+
+        foreach ($pruned['failed'] as $directory => $reason) {
+            $this->components->warn('Could not remove the old backup '.$this->relativePath($directory).": {$reason}.");
         }
     }
 
@@ -378,7 +473,9 @@ class PublishAssetsCommand extends Command
      */
     protected function publishThemes(ThemePublisher $publisher, array $themes, array $toRemove): bool
     {
-        foreach ($themes['skipped'] as $path => $reason) {
+        // The unreadable sources that reach this point are the ones nothing
+        // depends on: the others stopped the run.
+        foreach ($themes['skipped'] + $themes['unreadable'] as $path => $reason) {
             $this->components->warn('Skipped '.$this->relativePath($path).": {$reason}.");
         }
 

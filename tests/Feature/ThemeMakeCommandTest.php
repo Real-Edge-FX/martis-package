@@ -109,10 +109,11 @@ it('backs up the source it overwrites with --force', function () {
 });
 
 it('warns, and still succeeds, when the publish record cannot be written', function () {
-    (new Filesystem)->ensureDirectoryExists(storage_path('app/martis/published-themes.json'));
+    // A directory where the record goes.
+    (new Filesystem)->ensureDirectoryExists(public_path('vendor/martis/themes/.published.json'));
 
     $this->artisan('martis:theme', ['name' => 'test-theme'])
-        ->expectsOutputToContain('Could not write storage/app/martis/published-themes.json')
+        ->expectsOutputToContain('Could not write public/vendor/martis/themes/.published.json')
         ->assertSuccessful();
 
     expect(public_path('vendor/martis/themes/test-theme.css'))->toBeFile();

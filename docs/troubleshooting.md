@@ -237,10 +237,12 @@ The publish warns when `martis.theme.name` has no source, when it skips a source
 
 ### `martis:publish-assets` or `martis:install` stops on a theme
 
-The asset publish checks the themes before it deletes anything, and stops with exit code 1, changing nothing, in two cases:
+The asset publish checks the themes before it deletes anything, and stops with exit code 1, changing nothing, in these cases:
 
-- `Could not read resources/css/martis/<file>`: a theme source is a broken symlink or does not open. Fix or remove the file.
-- `martis.theme.name is "<name>", but ...`: the publish would take away the theme the panel loads, because its source is skipped (for example a `.CSS` extension) or missing while its published copy exists. Move the published copy to `resources/css/martis/<name>.css` (see [Theming → Upgrading from 1.x](theming.md#upgrading-from-1x)), or set `martis.theme.name` to another theme or `null`.
+- `Could not read resources/css/martis/<file>, the source of the active theme` or `Could not read resources/css/martis/<file>: ..., and this publish would remove public/vendor/martis/themes/<file>`: a theme source is a broken symlink or does not open, and the panel's theme or a published copy depends on it. Fix or remove the file. A source nothing depends on is only skipped, with a `Skipped resources/css/martis/<file>` warning.
+- `Could not read resources/css/martis: the directory cannot be listed`: fix its permissions.
+- `martis.theme.name is "<name>", but ...`: the publish would take away the theme the panel loads, because its source is skipped (for example a `.CSS` extension) or missing while its published copy (a file, or a symlink) exists. Move the published copy to `resources/css/martis/<name>.css` (see [Theming → Upgrading from 1.x](theming.md#upgrading-from-1x)), or set `martis.theme.name` to another theme or `null`.
+- `Could not replace the symlink public/vendor/martis/themes with a directory`: the themes directory is a symlink, and `public/vendor/martis/` does not let the publish create the directory that replaces it. Replace the link with a directory yourself, or make `public/vendor/martis/` writable.
 
 Then run the command again. A failed backup stops it the same way: make `storage/app/martis/theme-backups/` writable.
 
