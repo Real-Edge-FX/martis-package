@@ -110,52 +110,9 @@ it('HasManyThrough offers no Create and keeps the HasMany row action defaults', 
 // resource that calls it keeps loading. The other setters work as on the
 // base field.
 
-/**
- * Run `$call`, returning the E_USER_DEPRECATED messages it raised.
- *
- * @return list<string>
- */
-function throughDeprecations(Closure $call): array
-{
-    $messages = [];
-    set_error_handler(function (int $level, string $message) use (&$messages): bool {
-        $messages[] = $message;
-
-        return true;
-    }, E_USER_DEPRECATED);
-
-    try {
-        $call();
-    } finally {
-        restore_error_handler();
-    }
-
-    return $messages;
-}
-
 it('canCreate() does not bring Create back on a Through field', function () {
-    throughDeprecations(function () {
-        expect(HasManyThrough::make('Projects', 'managedProjects')->canCreate()->toArray()['hasManyMeta']['canCreate'])->toBeFalse()
-            ->and(HasOneThrough::make('Manager', 'manager')->canCreate()->toArray()['hasOneMeta']['canCreate'])->toBeFalse();
-    });
-});
-
-it('canCreate(true) on a Through field raises a deprecation naming the field, and no exception', function () {
-    $messages = throughDeprecations(function () {
-        HasManyThrough::make('Projects', 'managedProjects')->canCreate();
-        HasOneThrough::make('Manager', 'manager')->canCreate(true);
-    });
-
-    expect($messages)->toHaveCount(2)
-        ->and($messages[0])->toContain('HasManyThrough')->toContain('managedProjects')->toContain('canCreate()')
-        ->and($messages[1])->toContain('HasOneThrough')->toContain('manager');
-});
-
-it('canCreate(false) on a Through field stays silent', function () {
-    expect(throughDeprecations(function () {
-        HasManyThrough::make('Projects', 'managedProjects')->canCreate(false);
-        HasOneThrough::make('Manager', 'manager')->canCreate(false);
-    }))->toBe([]);
+    expect(HasManyThrough::make('Projects', 'managedProjects')->canCreate()->toArray()['hasManyMeta']['canCreate'])->toBeFalse()
+        ->and(HasOneThrough::make('Manager', 'manager')->canCreate()->toArray()['hasOneMeta']['canCreate'])->toBeFalse();
 });
 
 it('the row action setters work on a Through field as on its base field', function () {

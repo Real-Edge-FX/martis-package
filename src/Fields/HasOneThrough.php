@@ -4,6 +4,7 @@ namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough as EloquentHasOneThrough;
+use Martis\Fields\Concerns\IgnoresCreateThrough;
 
 /**
  * HasOneThrough — reaches a single distant record through an
@@ -18,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasOneThrough as EloquentHasOneThroug
  * ⭐ Martis differentials:
  *  - **No create through the relationship, enforced**: as in Nova, a
  *    Through record cannot be created from the parent resource and
- *    `canCreate()` has no effect, because the traversal goes through an
+ *    `canCreate()` has no effect (it logs a warning), because the traversal goes through an
  *    intermediate model the UI cannot populate; the has-one endpoints
  *    also refuse a create through the relationship with a 403. Edit and
  *    Delete work as on `HasOne`, under the related resource's policies.
@@ -29,6 +30,8 @@ use Illuminate\Database\Eloquent\Relations\HasOneThrough as EloquentHasOneThroug
  */
 class HasOneThrough extends HasOne
 {
+    use IgnoresCreateThrough;
+
     protected bool $showThroughBreadcrumb = false;
 
     protected ?string $throughBreadcrumbText = null;
@@ -46,24 +49,6 @@ class HasOneThrough extends HasOne
     public function type(): string
     {
         return 'has_one_through';
-    }
-
-    /**
-     * No effect: the panel of a Through relationship never offers Create.
-     * Kept callable so a resource that calls it still loads; asking for
-     * Create raises an E_USER_DEPRECATED notice (logged by Laravel on the
-     * deprecations channel) instead of failing silently.
-     */
-    public function canCreate(bool $value = true): static
-    {
-        if ($value) {
-            trigger_error(sprintf(
-                'HasOneThrough::canCreate() on "%s" has no effect: records cannot be created through a Through relationship, as in Nova. Remove the call.',
-                $this->relationship,
-            ), E_USER_DEPRECATED);
-        }
-
-        return $this;
     }
 
     /**
