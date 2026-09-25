@@ -56,7 +56,7 @@ class HasManyController extends MartisController
      * and search pipeline (including Scout when applicable).
      */
     #[QueryParameter('search', description: 'Filter related records by free text, on the searchable fields of the related resource the user can see.', required: false, type: 'string')]
-    #[QueryParameter('per_page', description: 'Records per page. Default: 10, max: 100.', required: false, type: 'integer')]
+    #[QueryParameter('per_page', description: 'Records per page, from 1 to 100. Default: 10.', required: false, type: 'integer')]
     #[QueryParameter('sort', description: 'Attribute to sort by: a sortable field of the related resource the user can see; any other value is ignored.', required: false, type: 'string')]
     #[QueryParameter('direction', description: 'Sort direction: asc or desc (asc for any other value).', required: false, type: 'string')]
     #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only); any other value means active only.', required: false, type: 'string')]
@@ -105,10 +105,7 @@ class HasManyController extends MartisController
         $this->applyRequestedSort($request, $query, $relatedResourceClass);
 
         // Pagination
-        $perPage = min(
-            (int) ($request->query('per_page', '10')),
-            100,
-        );
+        $perPage = $this->requestedPerPage($request, 10);
 
         // Paginate through the relation, not its bare query: a hasManyThrough
         // selects only the related table's columns (plus its through key)

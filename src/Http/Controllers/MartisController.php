@@ -549,4 +549,17 @@ abstract class MartisController extends Controller
         // (hasManyThrough, a pivot) that has a column of the same name.
         $query->orderBy($query->qualifyColumn($sort), SortDirection::fromQuery($request->query('direction'))->value);
     }
+
+    /**
+     * The page size a relationship panel's list or attach search asks for
+     * with `?per_page=`, clamped between 1 and 100 (`$default` when the
+     * request sends none). The lower bound matters: Laravel ignores a
+     * negative limit, so an unclamped `?per_page=-1` returned every row of
+     * the relation (every attachable record, on an attach search) in one
+     * response.
+     */
+    protected function requestedPerPage(Request $request, int $default): int
+    {
+        return max(1, min((int) $request->query('per_page', (string) $default), 100));
+    }
 }

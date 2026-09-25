@@ -82,7 +82,7 @@ class MorphToManyController extends MartisController
         // see orders the rows.
         $this->applyRequestedSort($request, $query, $relatedResourceClass);
 
-        $perPage = min((int) ($request->query('per_page', '10')), 100);
+        $perPage = $this->requestedPerPage($request, 10);
         $paginator = $relation->paginate($perPage);
 
         $data = array_values(
@@ -206,7 +206,7 @@ class MorphToManyController extends MartisController
             SearchResolver::apply($request, $query, $relatedResourceClass, $search);
         }
 
-        $perPage = min((int) ($request->query('per_page', '20')), 100);
+        $perPage = $this->requestedPerPage($request, 20);
         $paginator = $query->paginate($perPage);
 
         $data = array_values(

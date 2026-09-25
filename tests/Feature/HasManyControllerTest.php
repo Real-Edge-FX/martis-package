@@ -235,6 +235,22 @@ it('navigates to second page', function () {
     expect(count($response->json('data')))->toBe(2);
 });
 
+it('clamps a negative per_page to one row', function () {
+    // Laravel ignores a negative limit: ?per_page=-1 returned every
+    // related row in one response.
+    $parent = HMParentModel::create(['name' => 'Parent']);
+    for ($i = 1; $i <= 3; $i++) {
+        HMChildModel::create(['title' => "Child {$i}", 'parent_id' => $parent->id]);
+    }
+
+    $response = $this->getJson("/martis/api/resources/h-m-parent-models/{$parent->id}/has-many/children?per_page=-1");
+
+    $response->assertStatus(200);
+    $response->assertJsonPath('meta.per_page', 1);
+    $response->assertJsonPath('meta.total', 3);
+    expect(count($response->json('data')))->toBe(1);
+});
+
 // ---------------------------------------------------------------------------
 // Search
 // ---------------------------------------------------------------------------
