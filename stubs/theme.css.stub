@@ -223,8 +223,9 @@ html[data-theme="dark"] {
   --maskbg:                var(--martis-overlay);
 
   /* Avatar palette — deterministic per-user colour of every initials
-     avatar (Avatar and UiAvatar fields, Topbar, profile page). Identical
-     across dark & light, so it lives once on the default (:root) surface. */
+     avatar (Avatar and UiAvatar fields, Topbar, profile page). Declared
+     here and again in the light block with the same values, so a user's
+     colour does not change with the mode: recolour both blocks. */
   --martis-avatar-1:  #2563EB;
   --martis-avatar-2:  #059669;
   --martis-avatar-3:  #DB2777;
@@ -362,7 +363,7 @@ html[data-theme="light"] {
   --martis-badge-danger-text:   #B91C1C;
   --martis-badge-danger-border: #FECACA;
 
-  /* Brand surface (light variant). Avatar palette is shared from :root. */
+  /* Brand surface (light variant). */
   --martis-brand-gradient:     linear-gradient(135deg, #1F2566 0%, #2E2173 45%, #4324A0 100%);
   --martis-brand-aurora-cyan:  rgba(56, 189, 248, 0.45);
   --martis-brand-aurora-pink:  rgba(236, 72, 153, 0.38);
@@ -377,7 +378,8 @@ html[data-theme="light"] {
 
   color-scheme: light;
 
-  /* Avatar palette (initials backgrounds) */
+  /* Avatar palette (initials backgrounds): the same values as the dark
+     block, declared here too; change both to recolour the avatars. */
   --martis-avatar-1:       #2563EB;
   --martis-avatar-2:       #059669;
   --martis-avatar-3:       #DB2777;

@@ -54,8 +54,9 @@ function themeDriftDeclared(string $relativePath): array
 }
 
 /**
- * The values the top-level rules named `$selectors` declare, later rules
- * winning, as the cascade reads them.
+ * The values the rules named `$selectors` declare, later rules winning, as
+ * the cascade reads them. A nested rule is named by its selectors from the
+ * outside in, joined with ` >> ` (`@media (prefers-reduced-motion: reduce) >> :root`).
  *
  * @param  list<string>  $selectors
  * @return array<string, string>
@@ -64,88 +65,50 @@ function themeDriftValues(string $relativePath, array $selectors): array
 {
     $css = themeDriftCss($relativePath);
     $values = [];
-    $depth = 0;
-    $selector = '';
-    $body = '';
+    $stack = [];
+    $buffer = '';
     $length = strlen($css);
 
     for ($i = 0; $i < $length; $i++) {
         $char = $css[$i];
         if ($char === '{') {
-            if ($depth === 0) {
-                $selector = trim($body);
-                $body = '';
-            }
-            $depth++;
+            $stack[] = (string) preg_replace('/\s+/', ' ', trim($buffer));
+            $buffer = '';
 
             continue;
         }
         if ($char === '}') {
-            $depth--;
-            if ($depth === 0) {
-                if (in_array(preg_replace('/\s+/', ' ', $selector), $selectors, true)) {
-                    preg_match_all('/('.THEME_DRIFT_NAME.')\s*:\s*([^;]+);/', $body, $declarations, PREG_SET_ORDER);
-                    foreach ($declarations as [, $name, $value]) {
-                        $values[$name] = (string) preg_replace('/\s+/', ' ', trim($value));
-                    }
+            if (in_array(implode(' >> ', $stack), $selectors, true)) {
+                preg_match_all('/('.THEME_DRIFT_NAME.')\s*:\s*([^;]+);/', $buffer, $declarations, PREG_SET_ORDER);
+                foreach ($declarations as [, $name, $value]) {
+                    $values[$name] = (string) preg_replace('/\s+/', ' ', trim($value));
                 }
-                $body = '';
             }
+            array_pop($stack);
+            $buffer = '';
 
             continue;
         }
-        $body .= $char;
+        $buffer .= $char;
     }
 
     return $values;
 }
 
 /**
- * `$source` without its comments, its strings left intact: a `/*` inside a
- * string (`accept="image/*"`) does not open a comment, so the reads after it
- * stay visible.
+ * Set inline by the React grid components, or optional theme hooks with a
+ * fallback; each is named in docs/theming.md ("Not counted"). Kept in step
+ * with `ALLOWED_UNDEFINED` in resources/js/themeTokenReads.test.ts.
+ *
+ * @return list<string>
  */
-function themeDriftStripComments(string $source): string
+function themeDriftAllowedUndefined(): array
 {
-    $out = '';
-    $quote = null;
-    $length = strlen($source);
-
-    for ($i = 0; $i < $length; $i++) {
-        $char = $source[$i];
-        if ($quote !== null) {
-            $out .= $char;
-            if ($char === '\\' && $i + 1 < $length) {
-                $out .= $source[++$i];
-            } elseif ($char === $quote) {
-                $quote = null;
-            }
-
-            continue;
-        }
-        if ($char === '"' || $char === "'" || $char === '`') {
-            $quote = $char;
-            $out .= $char;
-
-            continue;
-        }
-        $next = $source[$i + 1] ?? '';
-        if ($char === '/' && $next === '*') {
-            $end = strpos($source, '*/', $i + 2);
-            $i = $end === false ? $length : $end + 1;
-
-            continue;
-        }
-        if ($char === '/' && $next === '/') {
-            $end = strpos($source, "\n", $i + 2);
-            $i = $end === false ? $length : $end - 1;
-
-            continue;
-        }
-        $out .= $char;
-    }
-
-    return $out;
+    return [
+        '--martis-field-span', '--martis-field-span-md', '--martis-field-span-lg', '--martis-field-columns',
+        '--martis-card-span', '--martis-card-span-md', '--martis-card-span-lg', '--martis-filter-span',
+        '--martis-tooltip-bg', '--martis-tooltip-text',
+    ];
 }
 
 /** @return array<string, string> */
@@ -282,56 +245,20 @@ it('states the same total everywhere the docs give it', function () {
     }
 });
 
-it('reads no variable that nothing defines, other than the inline layout variables and the documented hooks', function () {
+it('reads no variable in martis.css that nothing defines, other than the inline layout variables and the documented hooks', function () {
+    // The components' reads are checked by resources/js/themeTokenReads.test.ts,
+    // with the TypeScript parser, against the same lists.
     $defined = array_merge(themeDriftDeclared('resources/css/martis.css'), THEME_DRIFT_CONFIG_VARIABLES);
-    // Set inline by the React grid components, or optional theme hooks
-    // with a fallback; each is named in docs/theming.md ("Not counted").
-    $allowed = [
-        '--martis-field-span', '--martis-field-span-md', '--martis-field-span-lg', '--martis-field-columns',
-        '--martis-card-span', '--martis-card-span-md', '--martis-card-span-lg', '--martis-filter-span',
-        '--martis-tooltip-bg', '--martis-tooltip-text',
-    ];
+    $allowed = themeDriftAllowedUndefined();
 
-    $root = dirname(__DIR__, 2);
-    $files = array_merge(
-        ['resources/css/martis.css'],
-        array_map(
-            fn (SplFileInfo $file): string => substr($file->getPathname(), strlen($root) + 1),
-            array_filter(
-                iterator_to_array(new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root.'/resources/js', FilesystemIterator::SKIP_DOTS))),
-                fn (SplFileInfo $file): bool => (bool) preg_match('/\.tsx?$/', $file->getFilename()) && ! str_contains($file->getFilename(), '.test.'),
-            ),
-        ),
-    );
+    preg_match_all('/var\(\s*('.THEME_DRIFT_NAME.')(?![$\w{-])/', themeDriftCss('resources/css/martis.css'), $matches);
 
-    $undefined = [];
-    foreach ($files as $file) {
-        // Comments (block, and line comments in a component) name
-        // variables in prose.
-        $source = str_ends_with($file, '.css')
-            ? themeDriftCss($file)
-            : themeDriftStripComments(themeDriftRead($file));
-        // A name completed at runtime (`--martis-avatar-${n}`) is not a read.
-        preg_match_all('/var\(\s*('.THEME_DRIFT_NAME.')(?![$\w{-])/', $source, $matches);
-        foreach (array_diff($matches[1], $defined, $allowed) as $name) {
-            $undefined[] = "{$name} in {$file}";
-        }
-    }
-
-    expect(array_values(array_unique($undefined)))->toBe([]);
+    expect(array_values(array_unique(array_diff($matches[1], $defined, $allowed))))->toBe([]);
 
     $doc = themeDriftRead('docs/theming.md');
     foreach ($allowed as $name) {
         expect($doc)->toContain("`{$name}`");
     }
-});
-
-it('keeps the strings when it strips the comments of a component', function () {
-    $source = "<input accept=\"image/*\" />\nconst read = 'var(--martis-read-after-a-glob)' // var(--martis-in-a-line-comment)\n/* var(--martis-in-a-block-comment) */";
-
-    expect(themeDriftStripComments($source))->toContain('var(--martis-read-after-a-glob)')
-        ->not->toContain('--martis-in-a-line-comment')
-        ->not->toContain('--martis-in-a-block-comment');
 });
 
 it('scaffolds each variable with the values martis.css gives it, per mode, accent, density and motion', function () {
@@ -340,6 +267,7 @@ it('scaffolds each variable with the values martis.css gives it, per mode, accen
         'light' => [['html:not(.dark)'], ['html:not(.dark), html[data-theme="light"]']],
         'dense' => [['html[data-density="dense"], [data-density="dense"]'], ['html[data-density="dense"], [data-density="dense"]']],
         'reduced motion' => [['html[data-reduced-motion="true"]'], ['html[data-reduced-motion="true"]']],
+        'prefers-reduced-motion' => [['@media (prefers-reduced-motion: reduce) >> :root'], ['@media (prefers-reduced-motion: reduce) >> :root']],
     ];
     foreach (['blue', 'teal', 'violet', 'amber'] as $accent) {
         $contexts["{$accent} dark"] = [["html.dark[data-accent=\"{$accent}\"]"], ["html.dark[data-accent=\"{$accent}\"], html[data-theme=\"dark\"][data-accent=\"{$accent}\"]"]];
