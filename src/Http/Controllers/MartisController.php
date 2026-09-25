@@ -23,6 +23,7 @@ use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\Support\RelationScope;
+use Martis\Support\TranslatedLine;
 
 abstract class MartisController extends Controller
 {
@@ -224,7 +225,7 @@ abstract class MartisController extends Controller
         $shown = $request->query('relatedId');
 
         if (is_scalar($shown) && (string) $shown !== '' && (string) $current->getKey() !== (string) $shown) {
-            return JsonErrorResponse::conflict($this->translatedMessage('martis::messages.card_record_changed'))->toResponse();
+            return JsonErrorResponse::conflict(TranslatedLine::get('martis::messages.card_record_changed'))->toResponse();
         }
 
         return null;
@@ -240,20 +241,12 @@ abstract class MartisController extends Controller
         $shown = $request->query('relatedId');
 
         if (! is_scalar($shown) || (string) $shown === '') {
-            $message = $this->translatedMessage('martis::messages.card_related_id_required');
+            $message = TranslatedLine::get('martis::messages.card_related_id_required');
 
             return JsonErrorResponse::validation(['relatedId' => [$message]], $message)->toResponse();
         }
 
         return null;
-    }
-
-    /** A translation line as a string (`__()` returns an array for a group key). */
-    private function translatedMessage(string $key): string
-    {
-        $line = __($key);
-
-        return is_string($line) ? $line : $key;
     }
 
     /**

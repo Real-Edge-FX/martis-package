@@ -7,6 +7,7 @@ namespace Martis\Auth;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Martis\Support\TranslatedLine;
 
 /**
  * Notification that delivers the magic-link email. Consumers can
@@ -34,14 +35,14 @@ class MagicLinkNotification extends Notification
     public function toMail(mixed $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject(__('martis::auth.magic_link_subject', [
+            ->subject(TranslatedLine::get('martis::auth.magic_link_subject', [
                 'app' => (string) config('app.name', 'Martis'),
             ]))
-            ->greeting(__('martis::auth.magic_link_greeting'))
+            ->greeting(TranslatedLine::get('martis::auth.magic_link_greeting'))
             ->line(__('martis::auth.magic_link_intro', [
                 'minutes' => $this->ttlMinutes,
             ]))
-            ->action(__('martis::auth.magic_link_cta'), $this->url)
+            ->action(TranslatedLine::get('martis::auth.magic_link_cta'), $this->url)
             ->line(__('martis::auth.magic_link_outro'));
     }
 }

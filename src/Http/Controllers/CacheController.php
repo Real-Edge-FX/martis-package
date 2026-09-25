@@ -10,6 +10,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Gate;
 use Martis\Cache\MartisCache;
 use Martis\Http\Resources\JsonErrorResponse;
+use Martis\Support\TranslatedLine;
 
 /**
  * REST endpoints powering the "Sistema → Cache" admin page.
@@ -29,7 +30,7 @@ class CacheController extends Controller
     public function status(Request $request): JsonResponse
     {
         if (! $this->authorized($request)) {
-            return JsonErrorResponse::forbidden(__('martis::messages.unauthorized'))->toResponse();
+            return JsonErrorResponse::forbidden(TranslatedLine::get('martis::messages.unauthorized'))->toResponse();
         }
 
         return new JsonResponse([
@@ -45,7 +46,7 @@ class CacheController extends Controller
     public function clear(Request $request): JsonResponse
     {
         if (! $this->authorized($request)) {
-            return JsonErrorResponse::forbidden(__('martis::messages.unauthorized'))->toResponse();
+            return JsonErrorResponse::forbidden(TranslatedLine::get('martis::messages.unauthorized'))->toResponse();
         }
 
         $type = $request->input('type');
@@ -62,7 +63,7 @@ class CacheController extends Controller
     public function disable(Request $request): JsonResponse
     {
         if (! $this->authorized($request)) {
-            return JsonErrorResponse::forbidden(__('martis::messages.unauthorized'))->toResponse();
+            return JsonErrorResponse::forbidden(TranslatedLine::get('martis::messages.unauthorized'))->toResponse();
         }
 
         $type = $request->input('type', '');
@@ -80,7 +81,7 @@ class CacheController extends Controller
     public function enable(Request $request): JsonResponse
     {
         if (! $this->authorized($request)) {
-            return JsonErrorResponse::forbidden(__('martis::messages.unauthorized'))->toResponse();
+            return JsonErrorResponse::forbidden(TranslatedLine::get('martis::messages.unauthorized'))->toResponse();
         }
 
         $type = $request->input('type', '');
@@ -98,7 +99,7 @@ class CacheController extends Controller
     public function resetOverride(Request $request): JsonResponse
     {
         if (! $this->authorized($request)) {
-            return JsonErrorResponse::forbidden(__('martis::messages.unauthorized'))->toResponse();
+            return JsonErrorResponse::forbidden(TranslatedLine::get('martis::messages.unauthorized'))->toResponse();
         }
 
         $type = $request->input('type', '');
