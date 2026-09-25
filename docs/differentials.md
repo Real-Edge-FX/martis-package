@@ -1006,9 +1006,11 @@ A single theme file controls the entire admin panel:
 php artisan martis:theme MyTheme
 ```
 
-The generated stub includes all 162 variables in both dark mode
-(`:root`) and light mode (`html:not(.dark)`), with comments and
-grouping. Edit any value in `resources/css/martis/mytheme.css`, publish
+The generated stub declares the 160 variables `martis.css` gives a
+value, on `:root` (dark, and the ones that do not depend on the mode) and
+on `html:not(.dark)` for the 86 it gives a light value, with comments
+and grouping; the two brand logo heights, set from `.env`, come commented
+out. Edit any value in `resources/css/martis/mytheme.css`, publish
 it with `php artisan martis:publish-assets` and refresh the browser: no
 Vite rebuild needed.
 

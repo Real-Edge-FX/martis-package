@@ -127,7 +127,7 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
         <>
           <div
             className="flex justify-center p-4 rounded-lg border martis-border"
-            style={{ backgroundColor: 'var(--martis-card-bg)' }}
+            style={{ backgroundColor: 'var(--martis-card)' }}
             dangerouslySetInnerHTML={{ __html: setupData.qr_code_svg }}
             aria-label={t('2fa_scan_qr')}
           />

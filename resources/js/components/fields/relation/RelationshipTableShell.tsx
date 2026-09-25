@@ -438,7 +438,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                       <Link
                         to={viewUrl ? viewUrl(row.id as string | number) : recordHref(relatedResource, row.id)}
                         className="font-medium no-underline"
-                        style={{ color: 'var(--martis-primary)' }}
+                        style={{ color: 'var(--martis-accent)' }}
                       >
                         <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} />
                       </Link>
@@ -502,7 +502,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                             style={{ color: 'var(--martis-text-muted)' }}
                             data-pr-tooltip={tAct('edit', 'Edit')}
                             data-pr-position="top"
-                            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-primary)')}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-accent)')}
                             onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
                           >
                             <PencilSimpleIcon size={16} />

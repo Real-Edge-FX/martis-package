@@ -104,7 +104,7 @@ A theme only sets the Martis tokens; it never needs to restyle PrimeReact select
 
 ## Variable Reference
 
-Martis themes are built from **162 CSS variables** in **19 groups**. The bundled `martis.css` defines 160 of them for both dark mode (`:root`) and light mode (`html:not(.dark)`); the scaffolded theme (`stubs/theme.css.stub`, written by `martis:theme`) defines all 162, adding the two brand logo heights. The **Light** column shows "same" when light mode keeps the dark value.
+A theme can define **162 CSS variables** in **19 groups**. The bundled `martis.css` gives 160 of them a value, once on `:root` (the dark theme, and every variable that does not depend on the mode) and again on `html:not(.dark)` for 102 of them; the scaffolded theme (`stubs/theme.css.stub`, written by `martis:theme`) declares the same 160 on `:root`, and on `html:not(.dark)` the 86 it gives a light value. The other two, the brand logo heights, come from the config (`MARTIS_BRAND_LOGO_HEIGHT_MENU` / `MARTIS_BRAND_LOGO_HEIGHT_AUTH`, written on `:root` by the panel's layout); the stub carries them commented out, to uncomment only to override those knobs. The **Light** column shows "same" when light mode keeps the dark value.
 
 ### 1. Background Layers (7 variables)
 
@@ -213,7 +213,7 @@ Used for badges, alerts, status indicators (alpha tints in dark, solid pastels i
 
 ### 10. Typography (31 variables)
 
-Font families, the modular size scale, weights and line heights. Sizes, weights and line heights ship with **two names** each: the short form (`--martis-text-*`, `--martis-weight-*`, `--martis-leading-*`), used pervasively in package CSS, and the verbose alias (`--martis-font-size-*`, `--martis-font-weight-*`, `--martis-line-height-*`). A pair always resolves to the same value; prefer the short form in new code. Both names are counted below, since a theme can set either.
+Font families, the modular size scale, weights and line heights. Sizes, weights and line heights ship with **two names** each: the short form (`--martis-text-*`, `--martis-weight-*`, `--martis-leading-*`), used pervasively in package CSS, and the verbose alias (`--martis-font-size-*`, `--martis-font-weight-*`, `--martis-line-height-*`), defined as `var()` of the short one. **A theme sets the short name**: the package CSS reads it (only `body` and the password checklist read an alias), so a theme that sets only `--martis-font-size-sm` changes almost nothing. Both names are counted below, since both are defined.
 
 | Variable | Dark | Light | Purpose |
 |----------|------|-------|---------|
@@ -291,7 +291,7 @@ Font families, the modular size scale, weights and line heights. Sizes, weights 
 
 ### 13. Brand Gradient (12 variables)
 
-Tokens for hero / welcome / marquee surfaces (currently the dashboard `WelcomeCard`) and brand-bearing surfaces like the auth screen. Override these in your theme CSS to reskin the brand without touching React. Hero surfaces stay dark by design in both themes (white type on a saturated gradient reads better than the inverse), so the difference between themes is mostly trimmed opacity on the auroras. The two logo heights are defined by the scaffolded theme (`martis:theme`), not by the bundled `martis.css`, whose components fall back to the same values.
+Tokens for hero / welcome / marquee surfaces (currently the dashboard `WelcomeCard`) and brand-bearing surfaces like the auth screen. Override these in your theme CSS to reskin the brand without touching React. Hero surfaces stay dark by design in both themes (white type on a saturated gradient reads better than the inverse), so the difference between themes is mostly trimmed opacity on the auroras. The two logo heights come from the config, not from `martis.css`: the panel's layout writes `MARTIS_BRAND_LOGO_HEIGHT_MENU` (default `40`, clamped to 20–56) and `MARTIS_BRAND_LOGO_HEIGHT_AUTH` (default `48`, clamped to 24–80) on `:root`, and the **Dark** / **Light** columns show those defaults. A theme that defines them overrides the `.env` knobs, so the scaffolded theme carries them commented out.
 
 | Variable | Dark | Light | Purpose |
 |----------|------|-------|---------|
@@ -305,8 +305,8 @@ Tokens for hero / welcome / marquee surfaces (currently the dashboard `WelcomeCa
 | `--martis-brand-badge-bg` | `linear-gradient(110deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%)` | same | Glass fill of the version badge on the hero (default: a 12 % → 6 % white gradient). |
 | `--martis-brand-badge-border` | `rgba(255, 255, 255, 0.22)` | same | Border of the version badge (default `rgba(255, 255, 255, 0.22)`). |
 | `--martis-brand-shimmer` | `rgba(255, 255, 255, 0.28)` | same | Colour of the bright band that sweeps across the version badge every 3.5 s (default `rgba(255, 255, 255, 0.28)`). On a bright gradient the band can push the badge text below WCAG AA for a slice of every cycle: lower the alpha, or set `transparent` to remove the sweep. The band also stops under `prefers-reduced-motion` and `html[data-reduced-motion="true"]` (the aurora blobs keep drifting; they sit below the vestibular threshold, a bright highlight moving over text does not). |
-| `--martis-brand-logo-height-auth` | `48px` | same | Logo height (px) on the auth screen lockup. |
-| `--martis-brand-logo-height-menu` | `28px` | same | Logo height (px) in the user dropdown menu. |
+| `--martis-brand-logo-height-auth` | `48px` | same | Logo height on the auth screen lockup (`MARTIS_BRAND_LOGO_HEIGHT_AUTH`). |
+| `--martis-brand-logo-height-menu` | `40px` | same | Logo height of the brand in the sidebar and the top navigation, in logo-only mode (`MARTIS_BRAND_LOGO_HEIGHT_MENU`). |
 
 ### 14. File Icon Colors (6 variables)
 
@@ -512,7 +512,7 @@ Hide additional surfaces by attribute: `<div data-print-hide="true">…` is not 
   backgroundColor: 'var(--martis-surface)',
   color: 'var(--martis-text)',
   borderRadius: 'var(--martis-radius-lg)',
-  fontSize: 'var(--martis-font-size-sm)',
+  fontSize: 'var(--martis-text-sm)',
   boxShadow: 'var(--martis-shadow-md)',
 }}>
   Themed content
@@ -635,9 +635,9 @@ Before v1.37.1 the workaround was to add `className="martis-input"` (or `p-input
 | Rich Text Editor | 1 |
 | **Total** | **162** |
 
-Each alias pair (`--martis-text-*` / `--martis-font-size-*`, `--martis-weight-*` / `--martis-font-weight-*`, `--martis-leading-*` / `--martis-line-height-*`) is counted as two variables: both names are defined, and a theme can set either.
+Each alias pair (`--martis-text-*` / `--martis-font-size-*`, `--martis-weight-*` / `--martis-font-weight-*`, `--martis-leading-*` / `--martis-line-height-*`) is counted as two variables, since both names are defined. The package CSS reads the short name, though: only `body` and the password checklist read an alias, so **set the short name in a theme** (`--martis-text-sm`, not `--martis-font-size-sm`).
 
-Not counted: the per-element layout variables the React components set inline (`--martis-field-span-md`, `--martis-field-span-lg`, `--martis-field-columns`, `--martis-card-span-md`, `--martis-card-span-lg`, `--martis-filter-span`), which are not theme tokens. `tests/Unit/ThemeTokenDriftTest.php` fails when `martis.css` defines a variable that the stub or this reference does not list.
+Not counted: the per-element layout variables the React components set inline (`--martis-field-span`, `--martis-field-span-md`, `--martis-field-span-lg`, `--martis-field-columns`, `--martis-card-span`, `--martis-card-span-md`, `--martis-card-span-lg`, `--martis-filter-span`), which are not theme tokens, and two optional hooks no stylesheet defines: `--martis-tooltip-bg` and `--martis-tooltip-text` color the tooltips when a theme sets them (they fall back to `--martis-text` on `--martis-bg`, inverted). `tests/Unit/ThemeTokenDriftTest.php` fails when these lists drift: a variable `martis.css` defines that the stub or this reference does not list, a value or a count that does not match, a stale total elsewhere in the docs, or a `var(--martis-*)` read in the package CSS or components that nothing defines and this paragraph does not name.
 
 ---
 
@@ -665,7 +665,7 @@ That's it — buttons, links, focus rings, selected items all turn pink instantl
 :root {
   --martis-font-sans: 'Roboto', sans-serif;
   --martis-font-heading: 'Playfair Display', serif;
-  --martis-font-size-base: 0.9375rem;  /* 15px instead of 16px */
+  --martis-text-base: 0.9375rem;  /* 15px instead of 16px */
 }
 ```
 

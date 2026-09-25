@@ -3293,10 +3293,10 @@ html:not(.dark) .martis-dropzone {
   background-color: var(--martis-hover);
 }
 .martis-belongs-to-option--selected {
-  background-color: rgba(99, 102, 241, 0.1);
+  background-color: color-mix(in srgb, var(--martis-accent) 10%, transparent);
 }
 .martis-belongs-to-option--selected:hover {
-  background-color: rgba(99, 102, 241, 0.15);
+  background-color: color-mix(in srgb, var(--martis-accent) 15%, transparent);
 }
 .martis-belongs-to-option-label {
   flex: 1;
@@ -4094,7 +4094,7 @@ html[data-density="dense"] .martis-index-toolbar {
 .martis-trix-wrapper trix-toolbar .trix-dialog input[type="url"]:focus,
 .martis-trix-wrapper trix-toolbar .trix-dialog input[type="text"]:focus {
   border-color: var(--martis-accent);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 0 2px var(--martis-focus-ring);
 }
 
 .martis-trix-wrapper trix-toolbar .trix-dialog input[type="url"].martis-invalid,
@@ -4236,9 +4236,6 @@ html:not(.dark) .martis-trix-wrapper trix-editor {
   color: var(--martis-accent-hover, #4f46e5);
 }
 
-html:not(.dark) .martis-trix-detail a {
-  color: #4f46e5;
-}
 
 html:not(.dark) .martis-trix-detail a:hover {
   color: #4338ca;

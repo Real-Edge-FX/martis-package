@@ -82,6 +82,16 @@ The `schema` cache layer now expires after a day by default (`MARTIS_CACHE_SCHEM
 
 See [Cache → Invalidation](cache.md#invalidation).
 
+### Custom themes
+
+A theme generated with `martis:theme` before v2.0 may need three edits:
+
+1. **`--martis-dur-sm` and `--martis-brand-500` do nothing any more.** No stylesheet defined them; the package now reads `--martis-dur-fast` and `--martis-accent` where it read them, and `martis:theme:diff` lists them as *Unknown to package* (exit 2). Set `--martis-dur-fast` and `--martis-accent` instead.
+2. **Delete the two logo heights**, `--martis-brand-logo-height-auth` and `--martis-brand-logo-height-menu`, unless you mean to override `MARTIS_BRAND_LOGO_HEIGHT_AUTH` / `_MENU`: the old stub declared them on `:root` (the menu one at 28px), which silenced those `.env` knobs.
+3. **Set the short typography names.** The package CSS reads `--martis-text-*`, `--martis-weight-*` and `--martis-leading-*`; a theme that sets only `--martis-font-size-*`, `--martis-font-weight-*` or `--martis-line-height-*` changes almost nothing.
+
+See [Theming](theming.md#variable-reference).
+
 ### Deploying the upgrade
 
 Run these in each environment, after the code with the flipped arrays is deployed there, in this order:

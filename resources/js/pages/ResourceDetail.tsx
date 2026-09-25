@@ -290,7 +290,7 @@ export function ResourceDetailPage() {
           to={`/resources/${resource}`}
           className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-medium transition-colors no-underline"
           style={{
-            color: "var(--martis-primary)",
+            color: "var(--martis-accent)",
             backgroundColor: "transparent",
           }}
           onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
