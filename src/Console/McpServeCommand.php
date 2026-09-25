@@ -8,10 +8,10 @@ use Illuminate\Console\Command;
 use Martis\Mcp\DocLookup;
 use Martis\Mcp\Tools;
 use Martis\Mcp\Transport\AuthenticatedStreamableHttpTransport;
+use Martis\Mcp\Transport\FlushingStdioServerTransport;
 use Martis\Mcp\Transport\HealthServer;
 use PhpMcp\Server\Defaults\BasicContainer;
 use PhpMcp\Server\Server;
-use PhpMcp\Server\Transports\StdioServerTransport;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LoggerInterface;
 use React\EventLoop\Loop;
@@ -81,11 +81,15 @@ class McpServeCommand extends Command
                 $this->registerSignalHandlers($health);
                 $server->listen($this->buildHttpTransport());
             } else {
-                $server->listen(new StdioServerTransport);
+                $server->listen(new FlushingStdioServerTransport);
             }
 
             return self::SUCCESS;
         } catch (\Throwable $e) {
+            // ReactPHP runs a loop that never ran when PHP shuts down, and the
+            // signal listeners registered above would keep it waiting
+            // forever (a port already in use left the process hanging).
+            Loop::stop();
             fwrite(STDERR, '[martis:mcp-serve] critical: '.$e->getMessage()."\n");
 
             return self::FAILURE;
@@ -176,6 +180,10 @@ class McpServeCommand extends Command
         $shutdown = function () use ($health): void {
             $health?->stop();
             Loop::get()->stop();
+            // A signal handled before `run()` starts (the server logs "up and
+            // listening" before it runs the loop) is undone by `run()`, which
+            // resets the stop: stop again on the loop's first tick.
+            Loop::get()->futureTick(static fn () => Loop::get()->stop());
         };
 
         $loop = Loop::get();

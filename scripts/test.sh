@@ -30,5 +30,6 @@ docker build -q -t "$IMAGE" -f "$ROOT/.docker/pest.Dockerfile" "$ROOT/.docker" >
 
 exec docker run --rm \
   -v "$ROOT":/martis-package -w /martis-package \
+  -e MARTIS_TEST_PROCESS_TIMEOUT \
   "$IMAGE" \
   php vendor/bin/pest --no-coverage "$@"
