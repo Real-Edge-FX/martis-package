@@ -1,6 +1,6 @@
 # Relationships
 
-This guide covers all relationship field types in Martis and how to use them.
+Martis has a field for every Eloquent relationship, from `BelongsTo` and `HasMany` to the polymorphic `MorphTo` and `MorphToMany`. This guide covers how each one is declared, how it renders (a picker, a card or an inline panel) and how it is authorized.
 
 ## Overview
 
@@ -187,6 +187,22 @@ on the create page, and the page's record in a create drawer or modal opened
 over another record, so a Replicate drawer listed, and attached to, the record
 it copies.
 
+### How a panel finds its parent record
+
+Every panel endpoint checks the resource's `viewAny`, finds the record in the
+URL (`{resource}/{id}`), then checks `view` on it. The lookup differs by panel:
+
+| Endpoints | The parent is found |
+|-----------|---------------------|
+| The `BelongsToMany` panel: its list, attachable list, attach, detach and pivot update | Through the resource's `scopes()` and `indexQuery()`, as its index lists it: a parent they hide answers `404`, like a missing one, even for a resource with no policy. |
+| The pivot routes of the `BelongsToMany` and `MorphToMany` panels: the pivot actions, their fields and pickers, and the pickers of the pivot fields | The same way. |
+| The `HasMany`, `HasOne`, `MorphMany` and `MorphOne` panels, and the list, attachable list, attach, detach and pivot update of the `MorphToMany` panel | By its key alone, as its detail page finds it: the parent's `view` policy decides, as in Nova's model, so a record the index hides is reachable there when the policy allows it. |
+
+A resource that confines its records with `scopes()` or `indexQuery()`
+confines these parents with its `view` policy too. `scopes()` joined the first
+two rows in v2.0 (they ran `indexQuery()` alone). See [Authorization →
+Declarative query scopes](authorization.md#declarative-query-scopes).
+
 ---
 
 ## Soft-delete filter
@@ -346,7 +362,7 @@ BelongsToMany::make('Members', 'members')
     ])
 ```
 
-The field is looked up in the relationship's `fields()` only (a `Repeater` row among them included, see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)), so its related resource, `relatableQueryUsing()` and `withoutTrashed()` apply, and the parent resource is the source of the `relatable{PluralModelName}()` hook, as for the panel's pivot actions. The two routes are gated like the panel: `viewAny` on the resource, the parent record found through its `indexQuery()`, `view` on it, and `{relationship}` resolved only to a relationship field of the route's type the resource declares. Then like the operation the modal performs:
+The field is looked up in the relationship's `fields()` only (a `Repeater` row among them included, see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)), so its related resource, `relatableQueryUsing()` and `withoutTrashed()` apply, and the parent resource is the source of the `relatable{PluralModelName}()` hook, as for the panel's pivot actions. The two routes are gated like the panel: `viewAny` on the resource, the parent record found through its `scopes()` and `indexQuery()` (a parent they hide answers 404), `view` on it, and `{relationship}` resolved only to a relationship field of the route's type the resource declares. Then like the operation the modal performs:
 
 - the attach modal needs `authorizedToAttachAny()` for the related model (the `attachAny{Model}` policy ability), as the list of records to attach and the attach itself do: no record is picked yet, and the attach then checks `attach{Model}` for each one;
 - the pivot edit modal needs `authorizedToUpdatePivot()` for that record (`updatePivot{Model}`, falling back to `update`), as the pivot update does.
@@ -514,6 +530,36 @@ no heading, no Create (which would add a second record to a `HasOne`), no
 Edit, no count. The card's endpoint answers `data: null` with
 `meta.hidden: true` then (a card with no record answers `data: null` alone),
 and its Edit and Delete answer 404.
+
+**A write names the record the card shows (v2.0).** `PUT` and `DELETE` on
+`/api/resources/{resource}/{id}/has-one/{relationship}` (and `morph-one`)
+take the id of the record the card displays as `?relatedId=`, which the card
+sends. When the relationship holds another record by then (a newer
+one-of-many record, a `HasOne` replaced, another record through a
+`HasOneThrough`) the write answers `409` (`The record changed since the card
+loaded; reload to see it.`) and touches nothing; the card reloads and shows
+the message. Without the id the write answers `422`. The checks run in this
+order: `404` when the user may not view the record the relationship holds
+(whatever id is sent), `409` when the id names another record (before the
+policy, which is the current record's: the request was for the other one),
+`403` when the policy denies the write, then `422` when the id is missing
+(so a denied user gets the `403` either way). The
+card keeps the id it showed when Delete was clicked: a reload while the
+confirmation is open (the window regaining focus) does not change which
+record the confirm names. Before v2.0 the write went to whatever record the
+relationship held at that moment, so a Delete could remove a record the user
+had not seen.
+
+Nova's `HasOne` panel is the related resource's detail component
+([nova-dusk-suite `tests/Browser/HasOneAuthorizationTest.php`](https://github.com/laravel/nova-dusk-suite/blob/10.4/tests/Browser/HasOneAuthorizationTest.php)).
+Its delete endpoint deletes the ids it receives
+(`DELETE /nova-api/{resource}?resources[]={id}`, sent with `viaResource`,
+`viaResourceId` and `viaRelationship`) without comparing them with the
+relationship
+([laravel/nova-issues#6364](https://github.com/laravel/nova-issues/issues/6364)).
+Martis compares them and answers `409` when the record is no longer the one
+the relationship holds: the record is not the one the card stands for any
+more, and the user sees the current one before deciding.
 
 **A `HasOne` or `MorphOne` takes one record.** Creating a second one through
 the card's endpoint answers `422` (`The HasOne relationship has already been
@@ -857,6 +903,7 @@ The hardening pass codified the contract every relationship surface guarantees. 
 | Pivot actions listed, described and run per panel; `{relationship}` resolves only to a declared field of the route's type | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Authorization — `authorizedToCreate` / view / detach respected | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `attachAny{Model}` gates the list of records to attach, the attach and the attach modal's pivot pickers; `attach{Model}` then decides per record | n/a | n/a | ✅ | n/a | n/a | ✅ |
+| Parent record found through the resource's `scopes()` + `indexQuery()` (else by key, the `view` policy deciding; see [How a panel finds its parent record](#how-a-panel-finds-its-parent-record)) | policy | policy | ✅ | policy | policy | pivot routes only |
 
 ### Pivot data API (BelongsToMany & MorphToMany)
 

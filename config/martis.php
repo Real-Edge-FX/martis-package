@@ -1437,7 +1437,8 @@ return [
 
     'impersonation' => [
         'enabled' => env('MARTIS_IMPERSONATION_ENABLED', false),
-        'guard' => env('MARTIS_IMPERSONATION_GUARD', 'web'),
+        // Null: the Martis guard (MARTIS_GUARD, else the app's default).
+        'guard' => env('MARTIS_IMPERSONATION_GUARD'),
         'session_key' => env('MARTIS_IMPERSONATION_SESSION_KEY', 'martis.impersonation'),
         // Auto-stop after N minutes of impersonation (prevents
         // forgotten sessions from leaking access). 0 / null disables

@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -14,12 +15,16 @@ use Illuminate\Support\Facades\Schema;
  * not exist — apps that skip this migration degrade to a stateless
  * experience without errors.
  *
- * The `user_id` column matches whichever primary-key shape the host
- * `users` table uses. Auto-detection inspects the configured user
- * model (`auth.providers.{provider}.model`) for `HasUuids` / `HasUlids`
- * traits and reads `$keyType` / `$incrementing`. Operators can force
- * a specific shape via `MARTIS_USER_ID_COLUMN_TYPE` (accepted values:
- * `bigint`, `uuid`, `ulid`, `string`). See `docs/installation-guide.md`.
+ * The panel stores the preferences of the users the Martis guard signs
+ * in, so `user_id` references the table of that guard's model
+ * (`auth.guards.{MARTIS_GUARD, else the default guard}.provider` →
+ * `auth.providers.{provider}.model`): `users` on a default install, the
+ * guard's own table (`admins`) when MARTIS_GUARD names a guard with its
+ * own model. The column matches that model's primary-key shape:
+ * auto-detection looks for the `HasUuids` / `HasUlids` traits and reads
+ * `$keyType` / `$incrementing`. Operators can force a specific shape via
+ * `MARTIS_USER_ID_COLUMN_TYPE` (accepted values: `bigint`, `uuid`,
+ * `ulid`, `string`). See `docs/installation-guide.md`.
  */
 return new class extends Migration
 {
@@ -30,15 +35,16 @@ return new class extends Migration
         }
 
         $userKey = $this->resolveUserKey();
+        [$userTable, $userKeyName] = $this->userTable();
 
-        Schema::create('martis_user_preferences', function (Blueprint $table) use ($userKey) {
+        Schema::create('martis_user_preferences', function (Blueprint $table) use ($userKey, $userTable, $userKeyName) {
             $table->id();
 
             match ($userKey) {
-                'uuid' => $table->foreignUuid('user_id')->unique()->constrained()->cascadeOnDelete(),
-                'ulid' => $table->foreignUlid('user_id')->unique()->constrained()->cascadeOnDelete(),
-                'string' => $this->addStringUserFk($table),
-                default => $table->foreignId('user_id')->unique()->constrained()->cascadeOnDelete(),
+                'uuid' => $table->foreignUuid('user_id')->unique()->constrained($userTable, $userKeyName)->cascadeOnDelete(),
+                'ulid' => $table->foreignUlid('user_id')->unique()->constrained($userTable, $userKeyName)->cascadeOnDelete(),
+                'string' => $this->addStringUserFk($table, $userTable, $userKeyName),
+                default => $table->foreignId('user_id')->unique()->constrained($userTable, $userKeyName)->cascadeOnDelete(),
             };
 
             $table->string('theme', 16)->default('dark');     // ThemeMode enum
@@ -73,14 +79,11 @@ return new class extends Migration
             }
         }
 
-        $guard = config('martis.guard') ?: config('auth.defaults.guard');
-        $provider = config("auth.guards.{$guard}.provider", config('auth.defaults.provider'));
-        $userClass = config("auth.providers.{$provider}.model");
-        if (! is_string($userClass) || ! class_exists($userClass)) {
+        $model = $this->resolveUserModel();
+        if ($model === null) {
             return 'bigint';
         }
 
-        $model = new $userClass;
         $traits = class_uses_recursive($model);
         if (in_array(\Illuminate\Database\Eloquent\Concerns\HasUuids::class, $traits, true)) {
             return 'uuid';
@@ -89,8 +92,8 @@ return new class extends Migration
             return 'ulid';
         }
 
-        $keyType = method_exists($model, 'getKeyType') ? $model->getKeyType() : 'int';
-        $incrementing = method_exists($model, 'getIncrementing') ? $model->getIncrementing() : true;
+        $keyType = $model->getKeyType();
+        $incrementing = $model->getIncrementing();
         if ($incrementing && $keyType === 'int') {
             return 'bigint';
         }
@@ -102,13 +105,46 @@ return new class extends Migration
     }
 
     /**
-     * Emit a string-typed `user_id` plus an explicit FK to `users.id`.
-     * Used when the host's user PK is a generic string (not UUID, not
-     * ULID, not an auto-incrementing integer).
+     * The model of the users the Martis guard signs in: its provider's
+     * (`auth.guards.{MARTIS_GUARD, else the default guard}.provider`, the
+     * `users` provider when the guard names none). Mirrors
+     * `Martis\Auth\GuardCatalog::martisUserModel()`, inlined for the same
+     * reason as resolveUserKey(). Null when that provider names no model.
      */
-    private function addStringUserFk(Blueprint $table): void
+    private function resolveUserModel(): ?Model
+    {
+        $guard = config('martis.guard') ?: (config('auth.defaults.guard') ?: 'web');
+        $provider = config("auth.guards.{$guard}.provider") ?: 'users';
+        $userClass = config("auth.providers.{$provider}.model");
+
+        if (! is_string($userClass) || ! is_subclass_of($userClass, Model::class)) {
+            return null;
+        }
+
+        return new $userClass;
+    }
+
+    /**
+     * The table and key column `user_id` references: those of the Martis
+     * guard's model, `users.id` when none resolves.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function userTable(): array
+    {
+        $model = $this->resolveUserModel();
+
+        return $model === null ? ['users', 'id'] : [$model->getTable(), $model->getKeyName()];
+    }
+
+    /**
+     * Emit a string-typed `user_id` plus an explicit FK to the Martis
+     * guard's user table. Used when that model's PK is a generic string
+     * (not UUID, not ULID, not an auto-incrementing integer).
+     */
+    private function addStringUserFk(Blueprint $table, string $userTable, string $userKeyName): void
     {
         $table->string('user_id')->unique();
-        $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
+        $table->foreign('user_id')->references($userKeyName)->on($userTable)->cascadeOnDelete();
     }
 };

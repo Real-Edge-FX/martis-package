@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { consumeSuppressFlag, getModalLockCount } from '@/lib/historyLock'
+import { hasOpenLayer } from '@/lib/escapeLayers'
 import { config } from '@/lib/config'
 
 export interface DrawerShellProps {
@@ -229,13 +230,25 @@ export function DrawerShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Keyboard shortcuts
+  // Escape closes the top layer only: the drawer closes on an Escape
+  // nothing else took. A layer takes it while it is open: a modal (its
+  // history lock), a Martis popup (useEscapeLayer) or a PrimeReact overlay
+  // (escapeLayers.ts). The drawer decides in the capture phase, before the
+  // layers' own (bubble) listeners run: a key press from the user runs the
+  // microtasks between listeners, where React applies a layer's close and
+  // its effect cleanups (the lock drops to 0, the popup leaves the
+  // registry), so a listener that ran after a layer's would find nothing
+  // open. An Escape a capture listener already handled (the keyboard
+  // shortcuts help, a Trix image) arrives `defaultPrevented`, which every
+  // Martis layer also sets on the Escape it takes.
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') void handleClose()
+      if (e.key !== 'Escape') return
+      if (e.defaultPrevented || getModalLockCount() > 0 || hasOpenLayer()) return
+      void handleClose()
     }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
+    document.addEventListener('keydown', handleKey, true)
+    return () => document.removeEventListener('keydown', handleKey, true)
   }, [handleClose])
 
   function toggleExpand() {

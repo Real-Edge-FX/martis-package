@@ -210,6 +210,53 @@ abstract class MartisController extends Controller
     }
 
     /**
+     * The 409 for a write on a one-record card (`has-one`, `morph-one`)
+     * that names (`?relatedId=`) another record than `$current`, the one
+     * the relationship holds now, or `null`. The card sends the id of the
+     * record it shows, as a write on the record's own page does: a record
+     * created or replaced after the card loaded (a newer one-of-many
+     * record, a swapped `HasOne`) is never the one written instead. It runs
+     * before the policy, which is `$current`'s: the request was for
+     * another record, so a 403 would be about the wrong one.
+     */
+    protected function oneRecordTargetConflict(Request $request, Model $current): ?IlluminateJsonResponse
+    {
+        $shown = $request->query('relatedId');
+
+        if (is_scalar($shown) && (string) $shown !== '' && (string) $current->getKey() !== (string) $shown) {
+            return JsonErrorResponse::conflict($this->translatedMessage('martis::messages.card_record_changed'))->toResponse();
+        }
+
+        return null;
+    }
+
+    /**
+     * The 422 for a write on a one-record card that names no record, or
+     * `null`. It runs after the policy: a user who may not write the
+     * record gets the 403 whether or not the id is there.
+     */
+    protected function oneRecordTargetMissing(Request $request): ?IlluminateJsonResponse
+    {
+        $shown = $request->query('relatedId');
+
+        if (! is_scalar($shown) || (string) $shown === '') {
+            $message = $this->translatedMessage('martis::messages.card_related_id_required');
+
+            return JsonErrorResponse::validation(['relatedId' => [$message]], $message)->toResponse();
+        }
+
+        return null;
+    }
+
+    /** A translation line as a string (`__()` returns an array for a group key). */
+    private function translatedMessage(string $key): string
+    {
+        $line = __($key);
+
+        return is_string($line) ? $line : $key;
+    }
+
+    /**
      * Consult the collection-level gate before any record query on a per-id
      * endpoint.
      *

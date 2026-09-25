@@ -23,6 +23,8 @@ node_modules
 .phpunit.result.cache
 /coverage/
 /coverage-*/
+# phpunit.xml writes the coverage report under build/.
+/build/
 test-results/
 
 # Vite / logs

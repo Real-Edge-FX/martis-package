@@ -81,7 +81,7 @@ Run the full install flow in the Playground:
 
 ```bash
 cd ../martis-playground
-make command CMD="artisan martis:install --force --with-profile --with-2fa"
+make command CMD="artisan martis:install --force --no-interaction --with-profile --with-2fa"
 ```
 
-Pass both feature flags: without a TTY (agents, CI, `docker compose exec -T`) every optional feature resolves to `false` and is written to `.env`, and a later `--with-*` flag cannot override a `false` already in `.env`. `--force` also republishes `lang/vendor/martis`, rewrites the Martis migrations and the extension scaffold, and the installer always runs `migrate --force`.
+Pass both feature flags (and `--avatar-column=<column>` when it is not `profile_picture`): without a TTY (agents, CI, `docker compose exec -T`) nothing is asked, every optional feature resolves to `false` and is written to `.env`, and a later `--with-*` flag cannot override a `false` already in `.env`. `--force` also republishes `lang/vendor/martis`, rewrites the migrations Martis published (not an application's own notifications or sessions migration) and the extension scaffold, and the installer always runs `migrate --force`.

@@ -923,6 +923,12 @@ ActionController::execute()
      relationship's rows (the global scopes it removes stay removed), the
      resource's scopes() and indexQuery() by key, trashed records when the
      panel offers its trashed filter.
+
+  4. Load Eloquent models by the IDs in "resources", through the
+     resource's scopes() and indexQuery(), grouped so an orWhere() in
+     them cannot widen the selection (trashed records included when the resource
+     soft-deletes) and, with viaResource / viaResourceId /
+     viaRelationship, only among the records that relationship reaches.
      The action runs on the IDs that resolve, as in Nova; 404 when none
      does, rather than running on nothing, and 422 when "resources" is
      empty. A standalone() action loads no model (the relationship it

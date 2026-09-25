@@ -45,8 +45,12 @@ php artisan martis:user
 # Visit http://your-app.test/martis
 ```
 
-The command prompts for the email, name and password it does not receive as
-options (`--email`, `--name`, `--password`). By default it is **create-only**:
+On a terminal the command prompts for the email, name and password it does
+not receive as options (`--email`, `--name`, `--password`). Without one (CI, a
+container entrypoint, a pipe, `--no-interaction`) it asks nothing: `--email`
+and `--password` are required (a missing one is named, the command exits 1 and
+no user is created or changed) and the name defaults to `Martis Admin`, since
+v2.0.0. By default it is **create-only**:
 when a user with that email already exists it prints an error and exits with a
 non-zero status, so a script cannot accidentally overwrite an account.
 
@@ -77,7 +81,7 @@ command fails with `A user with email [...] already exists.`
 | `--force` | Overwrite previously published migrations, translations and the extension scaffold (Vite config, both tsconfig files, `index.ts`, the shims and their declarations); `config/martis.php` and the host provider stay unless you add `--force-config` / `--force-provider` |
 | `--force-config` | Republish `config/martis.php`, overwriting your changes to it |
 | `--force-provider` | Republish `app/Providers/MartisServiceProvider.php`, overwriting your changes to it |
-| `--with-profile` | Enable profile support and publish the avatar column migration (`add_profile_picture_column`); when the `sessions` profile section is active it also publishes the sessions table migration |
+| `--with-profile` | Enable profile support and publish the avatar column migration (`*_add_martis_profile_picture_column_to_users_table.php`); when the `sessions` profile section is active it also publishes the sessions table migration |
 | `--no-profile` | Disable profile support, even when running interactively; wins over `--with-profile` |
 | `--with-2fa` | Enable two-factor support and publish the 2FA columns migration (`*_add_martis_two_factor_columns_to_users_table.php`); independent of `--with-profile` |
 | `--no-2fa` | Disable two-factor support; wins over `--with-2fa` |
@@ -96,7 +100,7 @@ To install Martis with profile and two-factor support:
 php artisan martis:install --with-profile --with-2fa
 ```
 
-The two flags are independent switches: `--with-profile` publishes the avatar column migration (`add_profile_picture_column`), and `--with-2fa` publishes the two-factor columns migration (`*_add_martis_two_factor_columns_to_users_table.php`). Each stub is idempotent:
+The two flags are independent switches: `--with-profile` publishes the avatar column migration (`*_add_martis_profile_picture_column_to_users_table.php`), and `--with-2fa` publishes the two-factor columns migration (`*_add_martis_two_factor_columns_to_users_table.php`). Each stub is idempotent:
 
 - the avatar column is added only if it does not already exist
 - the 2FA columns are added only if they do not already exist
@@ -122,7 +126,7 @@ If the column already exists on `users` and you do **not** want a migration:
 php artisan martis:install --with-profile --existing-avatar-column --avatar-column=avatar_path
 ```
 
-The installer only prompts when it runs interactively **and** STDIN is a real TTY. In CI, Docker setup scripts (`docker compose exec -T`), deployment hooks or an AI agent's shell there is no prompt: every optional feature you do not pass a flag for resolves to disabled. The resolved values are also written to `.env` (`MARTIS_PROFILE_ENABLED`, `MARTIS_AVATAR_ENABLED`, `MARTIS_2FA_ENABLED`, `MARTIS_SHOW_PROFILE_MENU`) on every run, and a disabled value in the config wins over `--with-*` on the next run. Pass the flags explicitly:
+The installer only prompts when it runs interactively **and** STDIN is a real TTY, the avatar column question included. In CI, Docker setup scripts (`docker compose exec -T`), deployment hooks, a piped stdin (`yes | php artisan martis:install`) or an AI agent's shell there is no prompt: every optional feature you do not pass a flag for resolves to disabled, the avatar column is `profile_picture` unless you pass `--avatar-column`, and `--existing-avatar-column` needs `--avatar-column`. Before v2.0 the avatar column question read a piped answer (`yes |` created a column named `y`) or waited forever. The resolved values are also written to `.env` (`MARTIS_PROFILE_ENABLED`, `MARTIS_AVATAR_ENABLED`, `MARTIS_AVATAR_COLUMN`, `MARTIS_2FA_ENABLED`, `MARTIS_SHOW_PROFILE_MENU`) on every run, and a disabled value in the config wins over `--with-*` on the next run. Pass the flags explicitly:
 
 ```bash
 php artisan martis:install --force --no-interaction --with-profile --with-2fa
@@ -214,7 +218,6 @@ Recommended sequence for a manual install:
 
 ```bash
 php artisan vendor:publish --tag=martis-migrations
-php artisan vendor:publish --tag=martis-preferences-migration
 php artisan migrate
 ```
 
@@ -228,17 +231,19 @@ php artisan vendor:publish --tag=martis-avatar-migration
 php artisan migrate
 ```
 
-`martis:install` publishes the core migrations on every run, the avatar migration with `--with-profile` (as `add_profile_picture_column`) and the two-factor migration with `--with-2fa` (as `*_add_martis_two_factor_columns_to_users_table.php`).
+`martis:install` publishes the core migrations on every run, the avatar migration with `--with-profile` (as `*_add_martis_profile_picture_column_to_users_table.php`) and the two-factor migration with `--with-2fa` (as `*_add_martis_two_factor_columns_to_users_table.php`).
+
+`martis:install` publishes the core migrations on every run, the avatar migration with `--with-profile` (as `add_profile_picture_column`) and the two-factor migration with `--with-2fa` (as `*_add_martis_two_factor_columns_to_users_table.php`). Both add their columns to the table of the Martis guard's users: `users`, unless `MARTIS_GUARD` names a guard whose model has its own table.
 
 #### UUID / ULID / custom user PKs (v1.12.2+)
 
-The published migrations adapt the `user_id` column (and the polymorphic `notifiable_id` on the notifications table) to whichever primary-key shape your host `users` table uses. The adaptation happens at migration time — each stub introspects the configured user model (`auth.providers.{provider}.model`) and picks the matching column helper:
+The published migrations adapt the `user_id` column (and the polymorphic `notifiable_id` on the notifications table) to the primary-key shape of the Martis guard's users. The adaptation happens at migration time: each stub introspects the model of the Martis guard's provider (`auth.guards.{MARTIS_GUARD, else the default guard}.provider` → `auth.providers.{provider}.model`, the `users` model on a default install) and picks the matching column helper. The foreign keys (`martis_user_preferences.user_id`, `invitations.invited_by` / `accepted_user_id`) reference that model's table and key, and the two-factor and avatar migrations add their columns to that table (v2.0.0+; before, always `users`):
 
 | User model | `user_id` column |
 |---|---|
-| Default Laravel (auto-incrementing `bigint`) | `foreignId('user_id')->constrained()` |
-| `use Illuminate\Database\Eloquent\Concerns\HasUuids;` | `foreignUuid('user_id')->constrained()` |
-| `use Illuminate\Database\Eloquent\Concerns\HasUlids;` | `foreignUlid('user_id')->constrained()` |
+| Default Laravel (auto-incrementing `bigint`) | `foreignId('user_id')->constrained($table, $key)` |
+| `use Illuminate\Database\Eloquent\Concerns\HasUuids;` | `foreignUuid('user_id')->constrained($table, $key)` |
+| `use Illuminate\Database\Eloquent\Concerns\HasUlids;` | `foreignUlid('user_id')->constrained($table, $key)` |
 | `$keyType = 'string'` without `HasUuids` / `HasUlids` | `string('user_id')` + explicit `foreign()` |
 
 The polymorphic columns on `notifications` follow the same rule (`morphs` / `uuidMorphs` / `ulidMorphs`).
@@ -428,7 +433,7 @@ That's it. The Tool is auto-registered (since v1.8.20), the React component is a
 
 ### Collision detection
 
-Each generator (`martis:tool`, `martis:field`, `martis:card`, `martis:component`) checks for both the destination PHP file AND the destination TSX file before writing. When either exists, the command lists the conflicting paths and asks `[y/N]` whether to overwrite. `--force` skips the prompt. In a non-interactive shell (e.g. CI) the command aborts with an error code unless `--force` was passed.
+Each generator (`martis:tool`, `martis:field`, `martis:card`, `martis:component`) checks for both the destination PHP file AND the destination TSX file before writing. When either exists, the command lists the conflicting paths and asks `[y/N]` whether to overwrite. `--force` skips the prompt. Without a terminal (CI, a pipe, `--no-interaction`) nothing is asked: the command prints that the file already exists, writes nothing and exits 0 unless `--force` was passed, as Laravel's own `make:*` generators do. `martis:theme` behaves the same for an existing theme.
 
 ### How the registry is exposed
 
@@ -570,7 +575,7 @@ your-laravel-app/
 │       ├── *_create_notifications_table.php          # In-app notifications
 │       ├── *_create_martis_cache_state_table.php     # Cache versions and kill-switches
 │       ├── *_add_martis_two_factor_columns_to_users_table.php # 2FA (with --with-2fa)
-│       └── *_add_profile_picture_column.php          # Avatar (with --with-profile)
+│       └── *_add_martis_profile_picture_column_to_users_table.php  # Avatar (with --with-profile)
 ├── lang/
 │   └── vendor/
 │       └── martis/                                   # Published translations (martis-lang)
@@ -621,6 +626,7 @@ Coming from 1.x, also check:
 - **`profile.resource`** must be `null` or name a class that implements `Martis\Contracts\ProfileResourceContract`. Any other value, such as a misspelt class, now throws an `InvalidArgumentException` naming the key; 1.x fell back to the default resource without a word. When you set it, `/martis/api/auth/user` and the login response take the Topbar avatar from your resource's `toArray()`, as the profile page does. See [Authentication → Custom Profile Resource](authentication.md#custom-profile-resource).
 - **Avatar colours** come from the theme's `--martis-avatar-1..16` tokens. The Topbar shows two initials on a palette colour instead of one letter on the accent colour, the profile avatar is no longer indigo, and the initials of an `Avatar` or `UiAvatar` field can change colour. To keep a fixed colour per record, use `colorFrom()`; to change the colours, redefine the tokens in your theme. A subclass of `Avatar` or `UiAvatar` that calls or overrides the trait's `resolveInitialsColor()`, `deterministicInitialsColor()` or `$initialsPalette` has to move to `Martis\Support\Initials` (`paletteSlot()`, `defaultColor()`), or override `customInitialsColor()` to give its own colour.
 - **Metric results are cached per user.** No action is needed, but the metric cache holds one entry per user and metric where 1.x held one per metric. See [Cache → The four built-in layers](cache.md#the-four-built-in-layers).
+- **A custom `MARTIS_GUARD`** now signs in the panel's user everywhere, policies and gates included: see [Upgrading → A custom Martis guard](upgrading.md#a-custom-martis-guard) before you upgrade an app that sets one.
 
 Use the asset-only command if you only want to refresh static files. Use the install command with `--force` if you want the full recommended refresh:
 
@@ -633,7 +639,7 @@ php artisan martis:install --force
 Know what else the installer changes before you use it on an app with customisations. With `--force`:
 
 - it republishes `lang/vendor/martis`, overwriting customised strings
-- it rewrites the published Martis migrations in place
+- it rewrites the migrations Martis published in place; an application's own `*_create_notifications_table.php` or `*_create_sessions_table.php` (from `make:notifications-table` / `make:session-table`) is left alone: a file counts as Martis's only when it holds a sentence of the Martis stub's header, not because it mentions Martis
 - it rewrites `resources/js/martis-extensions/index.ts`, manual `register()` calls included
 
 On every run, with or without `--force`:

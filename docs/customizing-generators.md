@@ -1,6 +1,8 @@
 # Customising Martis Generators
 
-Every Martis make-command (e.g. `martis:resource`, `martis:action`, `martis:lens`, `martis:trend`, `martis:tool`) renders a class from a `.stub` template shipped inside the package. The defaults aim for "drop-in" with sane Laravel-style headers and docblocks. Once a project has its own conventions (custom file headers, opinionated docblocks, organisation imports, project-specific traits) the default stubs become a friction point.
+Every Martis make-command (`martis:resource`, `martis:action`, `martis:lens`, `martis:tool` and the rest) renders a class from a `.stub` template in the package. This page shows how a project overrides those templates in `stubs/martis/`.
+
+The defaults aim for "drop-in" with sane Laravel-style headers and docblocks. Once a project has its own conventions (custom file headers, opinionated docblocks, organisation imports, project-specific traits) the default stubs become a friction point.
 
 `martis:stubs` publishes every template into `stubs/martis/` so consumers can edit them in place.
 

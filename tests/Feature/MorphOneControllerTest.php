@@ -224,8 +224,7 @@ it('updates the existing morph-one model', function () {
         'imageable_id' => $user->id,
     ]);
 
-    $response = $this->putJson(
-        "/martis/api/resources/m-o-user-models/{$user->id}/morph-one/avatar",
+    $response = $this->putJson(cardWriteUrl("/martis/api/resources/m-o-user-models/{$user->id}/morph-one/avatar"),
         ['url' => 'https://cdn.example/new.png'],
     );
 
@@ -241,8 +240,7 @@ it('updates the existing morph-one model', function () {
 it('returns 404 when updating a morph-one that has not been created yet', function () {
     $user = MOUserModel::create(['name' => 'Empty']);
 
-    $response = $this->putJson(
-        "/martis/api/resources/m-o-user-models/{$user->id}/morph-one/avatar",
+    $response = $this->putJson(cardWriteUrl("/martis/api/resources/m-o-user-models/{$user->id}/morph-one/avatar"),
         ['url' => 'https://cdn.example/ghost.png'],
     );
 
@@ -261,7 +259,7 @@ it('deletes the existing morph-one model', function () {
         'imageable_id' => $user->id,
     ]);
 
-    $response = $this->deleteJson("/martis/api/resources/m-o-user-models/{$user->id}/morph-one/avatar");
+    $response = $this->deleteJson(cardWriteUrl("/martis/api/resources/m-o-user-models/{$user->id}/morph-one/avatar"));
 
     $response->assertOk();
     expect(MOAvatarModel::where('imageable_id', $user->id)
@@ -279,7 +277,7 @@ it('does not delete a morph-one belonging to another morph type', function () {
     ]);
 
     // Calling delete from the User side must not touch the Team's avatar.
-    $response = $this->deleteJson("/martis/api/resources/m-o-user-models/{$user->id}/morph-one/avatar");
+    $response = $this->deleteJson(cardWriteUrl("/martis/api/resources/m-o-user-models/{$user->id}/morph-one/avatar"));
 
     expect($response->status())->toBeIn([200, 404]);
     expect(MOAvatarModel::where('imageable_type', MOTeamModel::class)

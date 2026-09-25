@@ -5186,6 +5186,12 @@ declare function usePageTitle(segment: string | null | undefined): void;
  */
 declare function useModalHistoryLock(open: boolean): void;
 
+/**
+ * Register a popup as a layer while `open` is true: Escape calls `close`
+ * when this popup is the top layer, and a drawer underneath stays open.
+ */
+declare function useEscapeLayer(open: boolean, close: () => void): void;
+
 declare const OverridePropsProvider: React$1.Provider<OverrideProps | null>;
 /**
  * Read the override payload from context. Throws when called outside
@@ -5604,6 +5610,7 @@ declare const martisRuntime: {
     readonly layoutRegistry: LayoutRegistry;
     readonly usePageTitle: typeof usePageTitle;
     readonly useModalHistoryLock: typeof useModalHistoryLock;
+    readonly useEscapeLayer: typeof useEscapeLayer;
     readonly OverridePropsProvider: React$1.Provider<OverrideProps | null>;
     readonly useOverrideProps: typeof useOverrideProps;
     readonly useOverridePropsOptional: typeof useOverridePropsOptional;
@@ -5642,5 +5649,5 @@ declare const martisRuntime: {
  */
 type MartisRuntime = typeof martisRuntime;
 
-export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, MartisLoader, MultiSelect, NestedParentProvider, OverridePropsProvider, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, resolveColor, useAuth, useError, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard };
+export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, MartisLoader, MultiSelect, NestedParentProvider, OverridePropsProvider, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, resolveColor, useAuth, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard };
 export type { DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, Shortcut, ShortcutOptions, TooltipProps, UseToolFieldsResult };

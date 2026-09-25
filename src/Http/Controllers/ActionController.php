@@ -41,6 +41,7 @@ use Martis\Http\Resources\JsonResponse;
 use Martis\Models\ActionEvent;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\IndexScope;
 use Martis\Support\RelationScope;
 
 /**
@@ -374,7 +375,9 @@ class ActionController extends MartisController
         /** @var Model $modelInstance */
         $modelInstance = new $modelClass;
 
-        $query = $resource::indexQuery($request, $resource::applyScopes($request, $modelInstance->newQuery()));
+        // Grouped, so the ids bind to all of it: after an ungrouped `orWhere()`
+        // they would bind to its last clause only.
+        $query = IndexScope::apply($request, $resource::class, $modelInstance->newQuery());
 
         if ($resource::softDeletes()) {
             $query->withoutGlobalScope(SoftDeletingScope::class);

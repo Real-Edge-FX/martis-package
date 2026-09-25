@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { LightningIcon, CaretDownIcon, CaretRightIcon, WarningIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import type { ActionMeta } from "./ActionModal"
+import { useEscapeLayer } from "@/lib/escapeLayers"
 
 interface ActionDropdownProps {
   actions: ActionMeta[]
@@ -286,16 +287,14 @@ export function ActionDropdown({ actions, onSelect, disabled, label, disabledAct
       if (target.closest("[data-action-submenu]")) return
       setOpen(false)
     }
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false)
-    }
     document.addEventListener("mousedown", handleClick)
-    document.addEventListener("keydown", handleKey)
     return () => {
       document.removeEventListener("mousedown", handleClick)
-      document.removeEventListener("keydown", handleKey)
     }
   }, [open, updatePosition])
+
+  // Escape closes the menu only, not a drawer it opened in.
+  useEscapeLayer(open, () => setOpen(false))
 
   if (actions.length === 0) return null
 

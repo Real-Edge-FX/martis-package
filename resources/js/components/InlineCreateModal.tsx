@@ -164,6 +164,8 @@ export function InlineCreateModal({
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape" && open) {
+        // Taken: a drawer underneath leaves a handled Escape alone.
+        e.preventDefault()
         onClose()
       }
     },

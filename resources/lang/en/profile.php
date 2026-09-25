@@ -95,6 +95,7 @@ return [
     'sessions_loading' => 'Loading…',
     'sessions_empty' => 'No active sessions found.',
     'sessions_unsupported' => 'Browser-session management requires the Laravel database session driver. Run `php artisan session:table` and `php artisan migrate` to enable it.',
+    'sessions_unsupported_guards' => 'Browser sessions are not available here: the app signs in users of more than one table (this panel\'s and another guard\'s), and Laravel stores the user id of a session without its table, so this list could show or sign out another person\'s sessions.',
     'sessions_current_badge' => 'This device',
     'sessions_unknown_ip' => 'Unknown IP',
     'sessions_revoke' => 'Revoke session',

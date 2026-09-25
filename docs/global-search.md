@@ -41,6 +41,16 @@ public static function globallySearchable(): bool|array
 
 ---
 
+## Which records are searched
+
+A resource is searched for a user who passes its `viewAny` (`authorizedToViewAny()`), among the records its index lists: the query goes through the resource's declarative `scopes()`, then `indexQuery()`, in the index's order, before the term is matched. What they add is grouped first, so the term narrows all of it: an `orWhere()` in a hook cannot bring in records that do not match. The `total` of a group counts the same records. A tenant scope therefore confines the palette as it confines the index: another tenant's records are neither listed nor counted, so their titles, subtitles, images and links never reach the palette.
+
+On the Scout path the engine returns the matching ids (narrow what it searches with `scoutQuery()`), and those ids are then read through the same scoped query, so a hit the index hides is dropped from the results and from `total`.
+
+Before v2.0 the search ran `indexQuery()` alone: a resource that confined its records with `scopes()` (see [Authorization → Declarative query scopes](authorization.md#declarative-query-scopes)) listed, linked and counted the records the scopes hide.
+
+---
+
 ## ⭐ Per-resource search config
 
 `globallySearchable()` accepts an array shape so a single resource can override the global defaults without changing every other resource:

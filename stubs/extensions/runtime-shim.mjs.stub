@@ -124,6 +124,7 @@ export const layoutRegistry = R.layoutRegistry
 // unsaved-changes guard and the error state. See docs/components.md.
 export const usePageTitle = R.usePageTitle
 export const useModalHistoryLock = R.useModalHistoryLock
+export const useEscapeLayer = R.useEscapeLayer
 export const OverridePropsProvider = R.OverridePropsProvider
 export const useOverrideProps = R.useOverrideProps
 export const useOverridePropsOptional = R.useOverridePropsOptional

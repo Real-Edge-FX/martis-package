@@ -2,6 +2,7 @@
 
 namespace Martis\Http\Controllers;
 
+use Dedoc\Scramble\Attributes\QueryParameter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
@@ -283,6 +284,7 @@ class HasOneController extends MartisController
     /**
      * Update the existing related record.
      */
+    #[QueryParameter('relatedId', description: 'The id of the record the card shows. Required: 422 without it, 409 when the relationship now holds another record (a newer one-of-many record, a replaced HasOne), so a write never lands on a record the user did not see.', required: true, type: 'string')]
     public function update(
         Request $request,
         string $resource,
@@ -308,10 +310,21 @@ class HasOneController extends MartisController
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
         }
 
+        // A write named for another record than the one the relationship
+        // holds now answers 409 before the policy, which is that record's.
+        if ($conflict = $this->oneRecordTargetConflict($request, $relatedModel)) {
+            return $conflict;
+        }
+
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToUpdate($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        // The id is required, after the policy: a denied user gets the 403.
+        if ($missing = $this->oneRecordTargetMissing($request)) {
+            return $missing;
         }
 
         // A field hidden for the related record (canSeeForModel()) is neither
@@ -366,6 +379,7 @@ class HasOneController extends MartisController
     /**
      * Delete the related record.
      */
+    #[QueryParameter('relatedId', description: 'The id of the record the card shows. Required: 422 without it, 409 when the relationship now holds another record (a newer one-of-many record, a replaced HasOne), so a write never lands on a record the user did not see.', required: true, type: 'string')]
     public function destroy(
         Request $request,
         string $resource,
@@ -391,10 +405,21 @@ class HasOneController extends MartisController
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
         }
 
+        // A write named for another record than the one the relationship
+        // holds now answers 409 before the policy, which is that record's.
+        if ($conflict = $this->oneRecordTargetConflict($request, $relatedModel)) {
+            return $conflict;
+        }
+
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToDelete($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        // The id is required, after the policy: a denied user gets the 403.
+        if ($missing = $this->oneRecordTargetMissing($request)) {
+            return $missing;
         }
 
         try {

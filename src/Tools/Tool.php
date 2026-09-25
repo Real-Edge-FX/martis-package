@@ -65,6 +65,16 @@ class Tool implements ToolContract
     use HasGate;
     use HasPolicy;
 
+    /**
+     * The default `$middleware` of `loadRoutes()`: stands for
+     * `ToolRoutes::middleware()`, which depends on the tool and on the
+     * config, so a constant cannot hold it. `martis.api` is also a middleware
+     * group holding the stack of the Martis API routes, so a subclass that
+     * forwards this default to `Route::middleware()` itself still guards
+     * its routes.
+     */
+    public const DEFAULT_ROUTE_MIDDLEWARE = ['martis.api'];
+
     protected ?string $icon = null;
 
     protected ?string $component = null;
@@ -359,30 +369,45 @@ class Tool implements ToolContract
      *
      * The file is `require`d inside a `Route::middleware([...])->prefix(...)`
      * group, so the routes inside it should be plain `Route::post(...)` /
-     * `Route::get(...)` calls without any wrapper. The default prefix is
-     * `martis/api/tools/{uriKey}` and the default middleware is the same
-     * stack the rest of the package uses (`web`, `martis.auth`).
+     * `Route::get(...)` calls without any wrapper.
+     *
+     * Without a `$middleware` list (the default, `DEFAULT_ROUTE_MIDDLEWARE`)
+     * the routes run `ToolRoutes::middleware()`: the stack of the protected
+     * Martis API routes, then the tool's own gate. A list is used exactly as
+     * given; one that leaves out the 2FA challenge or email verification
+     * while it is on, or the v1.x default `['web', 'martis.auth']`, logs a
+     * warning once per tool and process (`ToolRoutes::warnAboutMiddleware()`).
+     * The default prefix is `ToolRoutes::prefix()`,
+     * `{martis.path}/api/tools/{uriKey}`, where the SPA's `api` client
+     * calls the tool's routes.
+     *
+     * The parameter keeps its v1.x type, `array`, so a subclass that
+     * overrides this method with the v1.x signature still loads.
      *
      * Skipped silently when the file does not exist — this lets a tool
      * keep the call in place even when the consumer has not yet shipped
      * a routes file.
      *
-     * @param  list<string>  $middleware  Middleware stack. Defaults to the standard Martis admin stack.
-     * @param  string|null  $prefix  URL prefix. Defaults to `martis/api/tools/{uriKey}`.
+     * @param  list<string>  $middleware  Middleware stack. Defaults to `ToolRoutes::middleware()`.
+     * @param  string|null  $prefix  URL prefix. Defaults to `ToolRoutes::prefix()`.
      */
     public function loadRoutes(
         string $path,
-        array $middleware = ['web', 'martis.auth'],
+        array $middleware = self::DEFAULT_ROUTE_MIDDLEWARE,
         ?string $prefix = null,
     ): void {
         if (! is_file($path)) {
             return;
         }
 
-        $effectivePrefix = $prefix ?? 'martis/api/tools/'.$this->uriKey();
+        if ($middleware === self::DEFAULT_ROUTE_MIDDLEWARE) {
+            $middleware = ToolRoutes::middleware($this);
+        } else {
+            ToolRoutes::warnAboutMiddleware($this, $middleware);
+        }
 
         Route::middleware($middleware)
-            ->prefix($effectivePrefix)
+            ->prefix($prefix ?? ToolRoutes::prefix($this))
             ->group($path);
     }
 

@@ -4,7 +4,9 @@
 
 ## Why this exists
 
-Not every app wants an open `/register` page. Invite-only onboarding (agencies, internal tools, B2B admin panels, anything with a closed user base) is a different shape: a privileged operator decides who gets in, the invitee never chooses their own email, and the whole thing has to be safe against token-guessing and link-sharing. `Martis\Invitations` is that primitive — a package-owned `InvitationManager` plus a public accept screen, wired through the same `RegistersUsers` pipeline the rest of authentication uses.
+Invitations let a privileged operator bring users into an app that has no open `/register` page. The module is a package-owned `InvitationManager` plus a public accept screen, wired through the same `RegistersUsers` pipeline the rest of authentication uses.
+
+Invite-only onboarding (agencies, internal tools, B2B admin panels, anything with a closed user base) is a different shape: a privileged operator decides who gets in, the invitee never chooses their own email, and the whole thing has to be safe against token-guessing and link-sharing.
 
 ## Two-layer guard
 
@@ -274,7 +276,7 @@ Everything above ships inside the package. What cannot live there — because it
 | `InvitationPolicy` | `app/Policies/InvitationPolicy.php` | Admin-only policy, auto-registered in `AuthServiceProvider::boot()`. `create()` always returns `false` — invitations are only ever issued through `InviteUser`, never the generic resource create form. |
 | `UserInvitation` | `app/Notifications/UserInvitation.php` | The invite email, delivered via an on-demand mail route (the invitee has no account to notify yet). Built from `InvitationUrl::url()`. |
 
-It also publishes the `create_invitations_table` migration (a portable, key-type-aware stub — matches whatever primary-key shape your `users` table uses), runs it, and — if you published `config/martis.php` before the `invitations` block existed — inserts the block for you. Every step is idempotent; re-running the command is a no-op once the app is set up, and nothing is overwritten without `--force`.
+It also publishes the `create_invitations_table` migration (a portable, key-type-aware stub: `invited_by` and `accepted_user_id` reference the table of the Martis guard's users, `users` on a default install, and match its primary-key shape), runs it, and, if you published `config/martis.php` before the `invitations` block existed, inserts the block for you. Every step is idempotent; re-running the command is a no-op once the app is set up, and nothing is overwritten without `--force`.
 
 **Options:**
 

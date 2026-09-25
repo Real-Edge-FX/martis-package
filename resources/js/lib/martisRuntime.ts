@@ -72,6 +72,7 @@ import { iconRegistry } from '@/lib/iconRegistry'
 import { layoutRegistry } from '@/lib/layoutRegistry'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useModalHistoryLock } from '@/lib/historyLock'
+import { useEscapeLayer } from '@/lib/escapeLayers'
 import { OverridePropsProvider, useOverrideProps, useOverridePropsOptional } from '@/hooks/useOverrideProps'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { useError } from '@/lib/useError'
@@ -180,6 +181,7 @@ export const martisRuntime = {
   // state that parses an `ApiError`. See docs/components.md.
   usePageTitle,
   useModalHistoryLock,
+  useEscapeLayer,
   OverridePropsProvider,
   useOverrideProps,
   useOverridePropsOptional,

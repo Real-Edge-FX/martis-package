@@ -22,6 +22,7 @@ use Martis\RelationshipQueryResolver;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\SearchResolver;
+use Martis\Support\IndexScope;
 
 /**
  * Controller for BelongsToMany relationship operations.
@@ -606,11 +607,13 @@ class BelongsToManyController extends MartisController
         /** @var class-string<Model> $modelClass */
         $modelClass = $resourceClass::model();
 
-        // Resolve the parent through the resource's indexQuery scope + a key
-        // match, never a bare find(): a scoped-out id stays indistinguishable
-        // from a missing one (uniform 404) and the scope is enforced even for
-        // resources with no policy.
-        $parentModel = $resourceClass::indexQuery($request, $modelClass::query())
+        // Resolve the parent through the resource's declarative scopes(), then
+        // its indexQuery() (the index's confinement, in the index's order,
+        // grouped so the key binds to all of it) + a key match, never a bare
+        // find(): a scoped-out id stays indistinguishable from a missing one
+        // (uniform 404) and the scope is enforced even for resources with no
+        // policy.
+        $parentModel = IndexScope::apply($request, $resourceClass, $modelClass::query())
             ->whereKey($id)
             ->first();
 

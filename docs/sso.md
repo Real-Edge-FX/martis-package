@@ -2,6 +2,8 @@
 
 > Pluggable single sign-on for Laravel admin panels. Azure AD, Google Workspace, GitHub, Okta — or any custom IdP — with role mapping, Spatie/laravel-permission integration, environment-aware config, and a generator command (`php artisan martis:sso <provider>`) that scaffolds everything.
 
+Martis signs admin users in through an external identity provider. Azure AD ships built in; Google, GitHub, Okta or any other provider plugs in through `MartisSso::extend()`. Groups map to your roles (Spatie laravel-permission is detected) and `martis:sso` scaffolds the setup.
+
 This document is the long-form reference. For a 30-second TL;DR see the **Quick start** below. For step-by-step Azure setup, jump to **[Azure AD — full step-by-step](#4-azure-ad--full-step-by-step)**.
 
 ---
