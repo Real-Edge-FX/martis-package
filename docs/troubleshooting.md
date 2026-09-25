@@ -291,7 +291,7 @@ Metric results are cached by default through the Martis `metrics` cache layer (`
 MARTIS_CACHE_METRICS_TTL=15
 ```
 
-Overriding `cacheFor()` to return a date caches the metric with `Cache::remember()` directly, outside the Martis layer, so the kill-switch, the `?nocache` bypass and `martis:cache:clear` no longer apply to it. Both cache paths key the result on the user the Martis guard authenticated (v2.0.0+), so a metric whose result depends only on that user (their tenant, their permissions) is safe to cache; one that depends on something else in the request, such as a subdomain or a header choosing the tenant, has to put it in its key by overriding `resultCacheKey()` (see [Cache](cache.md)). Before v2.0.0 the first user's value was served to everyone for the TTL.
+Overriding `cacheFor()` to return a date caches the metric with `Cache::remember()` directly, outside the Martis layer, so the kill-switch, the `?nocache` bypass and `martis:cache:clear` no longer apply to it. Both cache paths key the result on the user the Martis guard authenticated (v2.0.0+), so a metric whose result depends only on that user (their tenant, their permissions) is safe to cache; one that depends on something else in the request, such as a subdomain or a header choosing the tenant, has to put it in its key by overriding `resultCacheKey()` and keeping its null (no cache) answer: `$key = parent::resultCacheKey($request); return $key === null ? null : md5($key.'|'.$tenant);` (see [Cache](cache.md)). Before v2.0.0 the first user's value was served to everyone for the TTL.
 
 See [Metrics](metrics.md) and [Cache](cache.md) for the cache keys and ranges.
 

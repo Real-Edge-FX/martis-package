@@ -10,6 +10,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\Event;
+use Martis\Auth\GuardCatalog;
 use Martis\Contracts\NotImpersonable;
 use Martis\Impersonation\Events\ImpersonationStarted;
 use Martis\Impersonation\Events\ImpersonationStopped;
@@ -217,11 +218,16 @@ class ImpersonationManager
     }
 
     /**
-     * The auth guard impersonation operates on.
+     * The auth guard impersonation operates on: MARTIS_IMPERSONATION_GUARD,
+     * else the Martis guard (MARTIS_GUARD), else the app's default. The
+     * operator is the user the Martis guard signed in, so a different guard
+     * here finds no operator.
      */
     public function guard(): string
     {
-        return (string) config('martis.impersonation.guard', 'web');
+        $guard = config('martis.impersonation.guard') ?: config('martis.guard') ?: GuardCatalog::default();
+
+        return is_string($guard) ? $guard : GuardCatalog::default();
     }
 
     /**

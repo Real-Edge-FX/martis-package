@@ -2,6 +2,8 @@
 
 namespace Martis\Auth;
 
+use Illuminate\Database\Eloquent\Model;
+
 /**
  * Helper that exposes the auth guards configured by the host app.
  *
@@ -50,5 +52,25 @@ class GuardCatalog
         $default = config('auth.defaults.guard', 'web');
 
         return is_string($default) && $default !== '' ? $default : 'web';
+    }
+
+    /**
+     * The Eloquent model of the users the Martis guard signs in: the model
+     * of its provider (`auth.guards.{MARTIS_GUARD}.provider`), the `users`
+     * provider's when the guard names none, and `$fallback` when that
+     * provider has no model. A relation to "the user" (the audit log, the
+     * preferences) points at it, so it names the person who acted in the
+     * panel whichever guard signs them in.
+     *
+     * @return class-string<Model>
+     */
+    public static function martisUserModel(string $fallback = 'App\\Models\\User'): string
+    {
+        $guard = config('martis.guard') ?: self::default();
+        $provider = config("auth.guards.{$guard}.provider") ?: 'users';
+        $model = config("auth.providers.{$provider}.model");
+
+        /** @var class-string<Model> */
+        return is_string($model) && $model !== '' ? $model : $fallback;
     }
 }

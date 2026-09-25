@@ -6,11 +6,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Martis\Cache\MartisCache;
 use Martis\Fields\Text;
+use Martis\Impersonation\ImpersonationManager;
 use Martis\Metrics\ValueMetric;
 use Martis\Metrics\ValueResult;
+use Martis\Models\ActionEvent;
+use Martis\Models\UserPreference;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -50,6 +55,15 @@ class GuardSessionUserMetric extends ValueMetric
     }
 }
 
+/** What a gate decides for the request's user: 1 when it is a Martis guard user. */
+class GuardSessionGateMetric extends ValueMetric
+{
+    public function calculate(Request $request): ValueResult
+    {
+        return $this->result(Gate::allows('guard-session-probe') ? 1 : 0);
+    }
+}
+
 class GuardSessionPostResource extends Resource
 {
     public static function model(): string
@@ -69,7 +83,7 @@ class GuardSessionPostResource extends Resource
 
     public function cards(Request $request): array
     {
-        return [GuardSessionUserMetric::make('My id', 'my-id')];
+        return [GuardSessionUserMetric::make('My id', 'my-id'), GuardSessionGateMetric::make('Gate', 'gate')];
     }
 }
 
@@ -140,5 +154,44 @@ it('resolves the Martis guard user in the request of a non-default guard', funct
         ->assertOk()
         ->assertJsonPath('data.result.value', $second->getKey());
 
-    expect(GuardSessionUserMetric::$calls)->toBe(2);
+    expect(GuardSessionUserMetric::$calls)->toBe(2)
+        ->and(auth()->getDefaultDriver())->toBe('admin');
+});
+
+it('runs the gates and policies for the Martis guard user', function () {
+    Gate::define('guard-session-probe', fn (GuardSessionAdmin $admin): bool => true);
+    $admin = guardSessionAdmin('gate');
+
+    $this->withSession([auth()->guard('admin')->getName() => $admin->getKey()])
+        ->getJson('/martis/api/resources/guard-session-posts/cards/gate')
+        ->assertOk()
+        ->assertJsonPath('data.result.value', 1);
+});
+
+it('reads the notification bell as off, and says why, for a guard model without Notifiable', function () {
+    Log::spy();
+    $admin = guardSessionAdmin('bell');
+    $session = [auth()->guard('admin')->getName() => $admin->getKey()];
+
+    $this->withSession($session)
+        ->getJson('/martis/api/notifications/unread-count')
+        ->assertOk()
+        ->assertJsonPath('unread', 0)
+        ->assertJsonPath('enabled', false)
+        ->assertJsonPath('reason', fn (string $reason): bool => str_contains($reason, GuardSessionAdmin::class) && str_contains($reason, 'Notifiable'));
+
+    $this->withSession($session)
+        ->postJson('/martis/api/notifications/read-all')
+        ->assertStatus(422)
+        ->assertJsonPath('message', fn (string $message): bool => str_contains($message, 'Notifiable'));
+
+    Log::shouldHaveReceived('warning')->once();
+});
+
+it('points the action log, the preferences and impersonation at the Martis guard', function () {
+    config()->set('martis.impersonation.guard', null);
+
+    expect((new ActionEvent)->user()->getRelated())->toBeInstanceOf(GuardSessionAdmin::class)
+        ->and((new UserPreference)->user()->getRelated())->toBeInstanceOf(GuardSessionAdmin::class)
+        ->and(app(ImpersonationManager::class)->guard())->toBe('admin');
 });

@@ -78,6 +78,13 @@ abstract class Metric implements MetricContract
     /** Optional tooltip displayed next to the metric title. */
     protected ?string $helpText = null;
 
+    /**
+     * Whether the cached result is kept per user (the default). A metric
+     * whose `calculate()` reads nothing of the user, their tenant or their
+     * permissions can set it to false to share one entry across users.
+     */
+    protected bool $cachePerUser = true;
+
     public function __construct(
         protected string $name,
         protected ?string $uriKey = null,
@@ -270,31 +277,32 @@ abstract class Metric implements MetricContract
      * summaries differ per language) and the authenticated user: a
      * `calculate()` commonly scopes its query to the user, their tenant or
      * their permissions, so a result computed for one user must never be
-     * served to another. Guests share one entry. The user is the one the
-     * Martis guard signed in (`MartisAuthenticate` makes it the request's
-     * guard). Null, so the result is computed and not cached, when the
-     * user's identifier is neither a scalar nor Stringable. A metric whose
-     * value is the same for everyone can override this to leave the user
-     * out (see docs/cache.md).
+     * served to another. The user is the one the Martis guard signed in
+     * (`MartisAuthenticate` makes it the request's guard), named by their
+     * model class and identifier; guests share one entry. The segments are
+     * JSON-encoded, so a filter string cannot run into the user. Null, so
+     * the result is computed and not cached, when the identifier is not an
+     * int, a string or Stringable. `$cachePerUser = false` leaves the user
+     * out, for a metric whose value is the same for everyone.
      */
     protected function resultCacheKey(Request $request): ?string
     {
-        $range = self::queryString($request, 'range', '30');
-        $filters = self::queryString($request, 'filters', '');
-        $userId = $request->user()?->getAuthIdentifier();
-        $userKey = match (true) {
-            $userId === null => 'guest',
-            is_int($userId), is_string($userId), $userId instanceof \Stringable => (string) $userId,
-            // An identifier the key cannot hold (neither scalar nor
-            // Stringable): no entry at all, rather than one shared with
-            // the guests.
-            default => null,
-        };
-        if ($userKey === null) {
-            return null;
+        $user = null;
+        if ($this->cachePerUser && ($authenticated = $request->user()) !== null) {
+            $id = $authenticated->getAuthIdentifier();
+            if (! is_int($id) && ! is_string($id) && ! $id instanceof \Stringable) {
+                return null;
+            }
+            $user = [$authenticated::class, (string) $id];
         }
 
-        return md5($this->uriKey().'_'.$range.'_'.$filters.'_'.app()->getLocale().'_'.$userKey);
+        return md5((string) json_encode([
+            $this->uriKey(),
+            self::queryString($request, 'range', '30'),
+            self::queryString($request, 'filters', ''),
+            app()->getLocale(),
+            $user,
+        ]));
     }
 
     /**

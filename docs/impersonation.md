@@ -24,7 +24,7 @@ When the master switch is off, every endpoint returns **503**. When the gate den
 // config/martis.php
 'impersonation' => [
     'enabled' => env('MARTIS_IMPERSONATION_ENABLED', false),
-    'guard' => env('MARTIS_IMPERSONATION_GUARD', 'web'),
+    'guard' => env('MARTIS_IMPERSONATION_GUARD'), // null: the Martis guard
     'session_key' => env('MARTIS_IMPERSONATION_SESSION_KEY', 'martis.impersonation'),
     'max_duration_minutes' => (int) env('MARTIS_IMPERSONATION_MAX_DURATION', 0),
 ],

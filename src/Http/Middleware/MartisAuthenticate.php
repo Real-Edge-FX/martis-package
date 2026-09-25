@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Http\Request;
+use Martis\Auth\GuardCatalog;
 use Symfony\Component\HttpFoundation\Response;
 
 class MartisAuthenticate
@@ -24,9 +25,7 @@ class MartisAuthenticate
             // `auth` middleware does: `$request->user()`, `auth()->user()`
             // and the policies then resolve the user this guard signed in,
             // not the app's default guard (null when MARTIS_GUARD differs).
-            if (is_string($guardName) && $guardName !== '') {
-                auth()->shouldUse($guardName);
-            }
+            auth()->shouldUse($guardName ?? GuardCatalog::default());
 
             return $next($request);
         }

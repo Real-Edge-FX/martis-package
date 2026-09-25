@@ -58,20 +58,15 @@ TTL `null` means "no expiration" — the entry stays cached until explicitly cle
 **Metric results are cached per user (v2.0.0+).** A metric's `calculate()` receives the request and commonly scopes its query to the authenticated user, their tenant or their permissions, so a result cached without the user was served to everyone who opened the same card within the TTL: the first user's revenue, counts or totals leaked to the others. Laravel Nova keys its metric cache without the user; Martis puts the user the Martis guard signed in (`MARTIS_GUARD`) in the key of both metric cache paths (the `metrics` layer and a per-class `cacheFor()`), and guests share one entry; a user whose identifier is neither a scalar nor `Stringable` gets no cached entry at all. What this means for an existing installation:
 
 - **No previous entry is reused.** Every metric key changes at the upgrade, so the first request of each user computes the metric again; the old entries expire by their TTL (or `php artisan martis:cache:clear metrics` stops serving the layer's at once, leaving them as orphans for `martis:cache:prune` on the database and file stores; `cacheFor()` entries live in Laravel's cache and expire by their own lifetime).
-- **More entries, fewer hits.** A metric whose value is the same for everyone is now computed and stored once per user instead of once in total. With many users and heavy global metrics, raise the TTL (`MARTIS_CACHE_METRICS_TTL`, or a longer `cacheFor()`), precompute the value (a scheduled job writing to a table the metric reads), or, for a metric whose result does not depend on who asks, leave the user out of its key:
+- **More entries, fewer hits.** A metric whose value is the same for everyone is now computed and stored once per user instead of once in total. With many users and heavy global metrics, raise the TTL (`MARTIS_CACHE_METRICS_TTL`, or a longer `cacheFor()`), precompute the value (a scheduled job writing to a table the metric reads), or, for a metric whose result does not depend on who asks, leave the user out of its key with `$cachePerUser`:
 
 ```php
-use Illuminate\Http\Request;
-
 class TotalRevenue extends ValueMetric
 {
     // The same value for everyone: one cached entry for all users.
     // Only for a calculate() that reads nothing of the user, their
     // tenant or their permissions.
-    protected function resultCacheKey(Request $request): ?string
-    {
-        return md5($this->uriKey().'_'.$request->query('range', '30').'_'.$request->query('filters', '').'_'.app()->getLocale());
-    }
+    protected bool $cachePerUser = false;
 }
 ```
 

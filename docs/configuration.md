@@ -1006,7 +1006,7 @@ See [Loader](loader.md) for the surface-by-surface behaviour matrix.
 ```php
 'impersonation' => [
     'enabled' => env('MARTIS_IMPERSONATION_ENABLED', false),
-    'guard' => env('MARTIS_IMPERSONATION_GUARD', 'web'),
+    'guard' => env('MARTIS_IMPERSONATION_GUARD'), // null: the Martis guard
     'session_key' => env('MARTIS_IMPERSONATION_SESSION_KEY', 'martis.impersonation'),
 ],
 ```
@@ -1166,7 +1166,7 @@ In addition to `MARTIS_IMPERSONATION_ENABLED` (covered above), the impersonation
 
 | Variable | Default | Effect |
 |---|---|---|
-| `MARTIS_IMPERSONATION_GUARD` | `web` | Auth guard the impersonation operates on. |
+| `MARTIS_IMPERSONATION_GUARD` | the Martis guard | Auth guard the impersonation operates on (v2.0.0+: unset follows `MARTIS_GUARD`, then the app's default guard; it was `web`). |
 | `MARTIS_IMPERSONATION_SESSION_KEY` | `martis.impersonation` | Session bag where the operator's id is stashed. |
 | `MARTIS_IMPERSONATION_MAX_DURATION` | `0` | Maximum session length in minutes. `0` disables the timeout. |
 | `MARTIS_IMPERSONATION_POLL_MS` | `120000` | Banner status poll interval in ms. Default 2 min — sessions change rarely. Set to `0` to disable polling (banner still mounts and reads state once per page load). v1.8.8. |
@@ -1406,7 +1406,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_FOOTER_TEXT` | `(no default)` |
 | `MARTIS_GUARD` | `null` |
 | `MARTIS_IMPERSONATION_ENABLED` | `false` |
-| `MARTIS_IMPERSONATION_GUARD` | `'web'` |
+| `MARTIS_IMPERSONATION_GUARD` | `null` (the Martis guard) |
 | `MARTIS_IMPERSONATION_MAX_DURATION` | `0` |
 | `MARTIS_IMPERSONATION_POLL_MS` | `120000` |
 | `MARTIS_IMPERSONATION_SESSION_KEY` | `'martis.impersonation'` |
