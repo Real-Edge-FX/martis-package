@@ -7,6 +7,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Martis\Auth\GuardCatalog;
 use Martis\Models\UserPreference;
 
@@ -345,12 +346,12 @@ it('stores the ids of both guards in the shared tables when their keys differ', 
         stubGuardMigration('create_sessions_table.php.stub')->up();
         stubGuardMigration('create_martis_notifications_table.php.stub')->up();
 
-        $uuid = (string) Illuminate\Support\Str::uuid();
+        $uuid = (string) Str::uuid();
         foreach (['site' => 5, 'admin' => $uuid] as $id => $userId) {
             DB::table('martis_test_stub_sessions')->insert(['id' => $id, 'user_id' => $userId, 'payload' => '', 'last_activity' => 0]);
         }
         foreach ([[StubGuardAdmin::class, 5], [StubGuardUuidAdmin::class, $uuid]] as [$type, $userId]) {
-            DB::table('notifications')->insert(['id' => (string) Illuminate\Support\Str::uuid(), 'type' => 'test', 'notifiable_type' => $type, 'notifiable_id' => $userId, 'data' => '{}']);
+            DB::table('notifications')->insert(['id' => (string) Str::uuid(), 'type' => 'test', 'notifiable_type' => $type, 'notifiable_id' => $userId, 'data' => '{}']);
         }
 
         $type = static function (string $on, string $column): string {
