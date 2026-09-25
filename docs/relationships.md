@@ -503,8 +503,7 @@ promotes a `hasMany()->latestOfMany()` relation into a
 **The card is the related record's detail view (v2.0).** As in Nova, which
 hides the panel when the related `view` policy denies the record
 ([nova-dusk-suite: HasOneAuthorizationTest](https://github.com/laravel/nova-dusk-suite/blob/10.4/tests/Browser/HasOneAuthorizationTest.php);
-Nova reads it with a detail query,
-[nova-issues#4120](https://github.com/laravel/nova-issues/discussions/4120)),
+Nova reads it with a detail query),
 a `HasOne`, `HasOneOfMany`, `HasOneThrough`, `MorphOne` or `MorphOneOfMany`
 card shows its record only when the user may `view` it. When the policy
 denies the record the card is not rendered at all, as Nova drops the panel:
@@ -515,15 +514,24 @@ and its Edit and Delete answer 404.
 
 **A `HasOne` or `MorphOne` takes one record.** Creating a second one through
 the card's endpoint answers `422` (`The HasOne relationship has already been
-filled.`, Nova's wording,
-[nova-dusk-suite lang](https://raw.githubusercontent.com/laravel/nova-dusk-suite/10.4/lang/vendor/nova/en.json)),
-whether or not the user may view the record already there; Nova hides the
+filled.`, Nova's wording for a `HasOne`,
+[nova-dusk-suite lang](https://raw.githubusercontent.com/laravel/nova-dusk-suite/10.4/lang/vendor/nova/en.json);
+a `MorphOne` answers the same sentence with its own name, which is Martis's),
+also as the response's `message`, whether or not the user may view the
+record already there, and checks again under a lock on the parent before it
+writes, so two concurrent creates cannot both succeed. Nova hides the
 Create button once a record exists
 ([HasOneRelationTest](https://github.com/laravel/nova-dusk-suite/blob/10.4/tests/Browser/HasOneRelationTest.php)).
 Before v2.0 it answered `500`. A one-of-many card sits on a many
-relationship and takes more records, as in Nova. Like the resource's own detail page, the card does not apply the related
+relationship and takes more records. Like the resource's own detail page, the card does not apply the related
 resource's `indexQuery()`; the one-of-many "1 of N" count and the
 `aggregateVia()` tile, which count a list, do (see below).
+
+**Divergence from Nova: a trashed record.** Nova reads a `HasOne` without
+global scopes, so its panel shows a soft-deleted record
+([nova-issues discussion #4120](https://github.com/laravel/nova-issues/discussions/4120));
+a Martis card reads it through the relationship, whose `SoftDeletes` scope
+leaves a trashed record out, so the card shows none.
 
 ---
 

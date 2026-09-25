@@ -96,7 +96,7 @@ class HasManyController extends MartisController
 
         // The related resource's scopes() and indexQuery() hide rows here as
         // on its index (tenancy, visibility), as Nova's relationship index.
-        $this->scopeRelationQuery($request, $query, $relatedResourceClass);
+        $this->scopeRelationQuery($request, $query, $relatedResourceClass, byKey: $relation instanceof EloquentHasManyThrough);
 
         // Apply search using the related resource's search pipeline
         $rawSearch = $request->query('search', '');

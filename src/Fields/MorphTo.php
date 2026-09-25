@@ -480,7 +480,8 @@ class MorphTo extends Field
                 'value' => $uriKey,
                 'label' => $resourceClass::singularLabel(),
                 'authorizedToViewAny' => $auth['authorizedToViewAny'] ?? true,
-                'authorizedToCreate' => $auth['authorizedToCreate'] ?? true,
+                // Inline create needs viewAny as well as create (v2.0).
+                'authorizedToCreate' => ($auth['authorizedToCreate'] ?? true) && ($auth['authorizedToViewAny'] ?? true),
             ];
         }
 

@@ -13,6 +13,7 @@ use Illuminate\Routing\Controller;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Enums\SortDirection;
+use Martis\Enums\TrashedFilter;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\Field;
 use Martis\Fields\HasMany;
@@ -137,19 +138,33 @@ abstract class MartisController extends Controller
     /**
      * Scope a relationship panel's rows as the related resource's index is
      * scoped: its declarative `scopes()`, then `indexQuery()`, in the
-     * index's order, applied to the relation's own query so the panel
-     * still paginates through the relation (a Through relation selects the
-     * related columns only there; a pivot relation hydrates `pivot`). As in
-     * Nova, whose relationship index runs the related resource's
-     * `indexQuery()` on the relationship query. A hook that returns another
-     * builder than the one it received constrains the rows by key.
+     * index's order, as Nova's relationship index runs the related
+     * resource's `indexQuery()`. The panel still paginates through the
+     * relation (a Through relation selects the related columns only there;
+     * a pivot relation hydrates `pivot`).
+     *
+     * A plain has-many / morph-many panel runs the hooks on its own query,
+     * grouped (`RelationScope::apply()`), keeping their order and aliases; a
+     * Through or pivot panel (`$byKey`), whose query joins another table,
+     * keeps the rows whose key the hooks return on a fresh query
+     * (`RelationScope::constrainByKey()`).
      *
      * @param  Builder<Model>  $query  The relation's query (`$relation->getQuery()`).
      * @param  class-string<resource>  $relatedResourceClass
      */
-    protected function scopeRelationQuery(Request $request, Builder $query, string $relatedResourceClass): void
+    protected function scopeRelationQuery(Request $request, Builder $query, string $relatedResourceClass, bool $byKey = false): void
     {
-        RelationScope::apply($request, $query, $relatedResourceClass);
+        $withTrashed = $relatedResourceClass::softDeletes()
+            && $relatedResourceClass::canViewTrashed()
+            && TrashedFilter::fromQuery($request->query('trashed')) !== TrashedFilter::Active;
+
+        if ($byKey) {
+            RelationScope::constrainByKey($request, $query, $relatedResourceClass, $withTrashed);
+
+            return;
+        }
+
+        RelationScope::apply($request, $query, $relatedResourceClass, $withTrashed);
     }
 
     /**
@@ -178,7 +193,7 @@ abstract class MartisController extends Controller
             $relatedResourceClass = $field->relatedResourceClassForCount();
             $counts[$field->getRelationship().' as '.$field->countAlias()] = function (Builder $related) use ($request, $relatedResourceClass): void {
                 if ($relatedResourceClass !== null) {
-                    RelationScope::apply($request, $related, $relatedResourceClass);
+                    RelationScope::constrainByKey($request, $related, $relatedResourceClass);
                 }
             };
         }
@@ -216,7 +231,8 @@ abstract class MartisController extends Controller
      * Resolve the resource instance a form-scoped endpoint (sync-field,
      * field-options) gates on, and run that gate.
      *
-     * Create context: a bare instance, gated on the create ability. Update
+     * Create context: a bare instance, gated on viewAny then the create
+     * ability, as the create endpoints are (v2.0). Update
      * context: the record named by `$id`, bound to the instance so the update
      * ability receives the model the way every Laravel policy expects. A bare
      * instance would call `update($user)` with no model and raise
@@ -231,6 +247,12 @@ abstract class MartisController extends Controller
     protected function resolveFormScopedResource(Request $request, string $resourceClass, string $context, int|string|null $id): array
     {
         if ($context !== 'update') {
+            // The create form needs viewAny as well as create, as the create
+            // endpoints do (v2.0).
+            if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+                return [null, $forbidden];
+            }
+
             $instance = new $resourceClass;
 
             if (! $instance->authorizedToCreate($request)) {

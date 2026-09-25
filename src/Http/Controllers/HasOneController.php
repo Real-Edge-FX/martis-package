@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
@@ -98,7 +99,7 @@ class HasOneController extends MartisController
             // or indexQuery() hide is not part of "1 of N" or the aggregate.
             $baseQuery = function () use ($request, $parentModel, $relation, $relatedResourceClass): Builder {
                 $query = $this->manyQuery($parentModel, $relation);
-                RelationScope::apply($request, $query, $relatedResourceClass);
+                RelationScope::constrainByKey($request, $query, $relatedResourceClass);
 
                 return $query;
             };
@@ -185,15 +186,14 @@ class HasOneController extends MartisController
             'hasOneField' => $hasOneField,
         ] = $context;
 
-        // A HasOne holds one record: a second one is refused with a 422, as
-        // Nova refuses it ("The HasOne relationship has already been
-        // filled.", nova-dusk-suite lang/vendor/nova/en.json), whether or not
-        // the user may view the one there. A one-of-many card sits on a many
-        // relationship, which takes more records, as in Nova.
-        if (! $hasOneField instanceof HasOneOfMany && $relation->exists()) {
-            return JsonErrorResponse::validation(
-                [$relationship => ['The HasOne relationship has already been filled.']],
-            )->toResponse();
+        // A HasOne holds one record: a second one is refused with a 422,
+        // whether or not the user may view the one there. The check runs
+        // again under a lock on the parent before the insert, so two
+        // concurrent creates cannot both pass it. A one-of-many card sits
+        // on a many relationship, which takes more records.
+        $single = ! $hasOneField instanceof HasOneOfMany;
+        if ($single && $relation->exists()) {
+            return $this->alreadyFilled($relationship, 'The HasOne relationship has already been filled.');
         }
 
         // Check parent resource authorizedToAdd for this related model class
@@ -229,11 +229,26 @@ class HasOneController extends MartisController
         );
 
         try {
-            $relatedInstance = new $relatedResourceClass($relatedModel);
-            $relatedInstance->beforeSave($relatedModel, $request, creating: true);
-            $relatedModel->save();
-            $relatedInstance->afterSave($relatedModel, $request, creating: true);
-            $this->syncDeferredWrites($relatedModel);
+            $filled = DB::transaction(function () use ($single, $parentModel, $relation, $relatedResourceClass, $relatedModel, $request): bool {
+                if ($single) {
+                    $parentModel->newQuery()->whereKey($parentModel->getKey())->lockForUpdate()->first();
+                    if ($relation->exists()) {
+                        return true;
+                    }
+                }
+
+                $relatedInstance = new $relatedResourceClass($relatedModel);
+                $relatedInstance->beforeSave($relatedModel, $request, creating: true);
+                $relatedModel->save();
+                $relatedInstance->afterSave($relatedModel, $request, creating: true);
+                $this->syncDeferredWrites($relatedModel);
+
+                return false;
+            });
+
+            if ($filled) {
+                return $this->alreadyFilled($relationship, 'The HasOne relationship has already been filled.');
+            }
         } catch (QueryException $e) {
             Log::error('Martis: HasOne store error', [
                 'resource' => $resource,
@@ -714,5 +729,15 @@ class HasOneController extends MartisController
         };
 
         return JsonErrorResponse::serverError($message)->toResponse();
+    }
+
+    /**
+     * The 422 a second record on a one-record relationship answers, with
+     * its message on the response too: the form has no input named after
+     * the relationship, so only the top-level message reaches the user.
+     */
+    private function alreadyFilled(string $relationship, string $message): IlluminateJsonResponse
+    {
+        return JsonErrorResponse::validation([$relationship => [$message]], $message)->toResponse();
     }
 }

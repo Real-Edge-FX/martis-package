@@ -407,7 +407,9 @@ class BelongsToMany extends Field
         }
 
         $relatedAuth = $this->relatedResourceAuthorizations($this->getRelatedResourceKey());
-        $authorizedToCreate = $relatedAuth['authorizedToCreate'] ?? true;
+        // The inline create endpoints need viewAny as well as create (v2.0),
+        // so the button is offered only when both allow it.
+        $authorizedToCreate = ($relatedAuth['authorizedToCreate'] ?? true) && ($relatedAuth['authorizedToViewAny'] ?? true);
 
         return [
             'relationship' => $this->relationship,

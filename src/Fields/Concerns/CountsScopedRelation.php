@@ -60,7 +60,7 @@ trait CountsScopedRelation
         $relatedResourceClass = $this->relatedResourceClassForCount();
 
         if ($relatedResourceClass !== null) {
-            RelationScope::apply(request(), $relation->getQuery(), $relatedResourceClass);
+            RelationScope::constrainByKey(request(), $relation->getQuery(), $relatedResourceClass);
         }
 
         return $relation->count();

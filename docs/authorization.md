@@ -43,7 +43,8 @@ Default behaviour:
 endpoint** as well as on the collection ones, and on the create endpoints
 (`POST /api/resources/{resource}`, the inline create form and its store,
 v2.0; Nova 2 refused every resource route the same way,
-[nova-issues#1762](https://github.com/laravel/nova-issues/issues/1762)):
+[nova-issues#1762](https://github.com/laravel/nova-issues/issues/1762), and
+no public source says whether Nova 4 or 5 still does):
 detail / show (including the
 `?context=update` form payload), update, destroy, restore, force-delete,
 replicate, peek, single and bulk actions, pivot actions, and every
