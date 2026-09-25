@@ -27,6 +27,10 @@ abstract class TestCase extends OrchestraTestCase
     {
         $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('a', 32)));
         $app['config']->set('martis.middleware', ['web']);
+        // Never let Laravel's session garbage collection run inside a test:
+        // with the database driver it deletes, on 2 requests in 100, the
+        // session fixtures whose last_activity is a small number (1970).
+        $app['config']->set('session.lottery', [0, 100]);
 
         $app['config']->set('database.default', 'sqlite');
         $app['config']->set('database.connections.sqlite', [
