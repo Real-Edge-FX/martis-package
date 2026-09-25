@@ -89,7 +89,8 @@ class MorphOneController extends MartisController
         if ($morphOneField instanceof MorphOneOfMany) {
             // A morphMany keeps its own query (and its constraints); an
             // Eloquent one-of-many morphOne is rebuilt from its own keys, so
-            // a custom local key counts this parent's rows.
+            // a custom local key counts this parent's rows, without the
+            // global scopes it removes, as its record is read.
             $related = get_class($relation->getRelated());
             $unscoped = method_exists($relation, 'isOneOfMany') && $relation->isOneOfMany()
                 ? fn () => $parentModel->morphMany(
@@ -98,7 +99,7 @@ class MorphOneController extends MartisController
                     $relation->getMorphType(),
                     $relation->getForeignKeyName(),
                     $relation->getLocalKeyName(),
-                )->getQuery()
+                )->getQuery()->withoutGlobalScopes($relation->getQuery()->removedScopes())
                 : fn () => (clone $relation)->getQuery();
 
             // Counted as the related index lists them: a record its scopes()

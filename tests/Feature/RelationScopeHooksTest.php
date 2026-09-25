@@ -21,6 +21,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany as EBelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany as EHasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough as EHasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne as EHasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough as EHasOneThrough;
+use Illuminate\Database\Eloquent\Relations\MorphOne as EMorphOne;
+use Illuminate\Database\Eloquent\Scope;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +33,7 @@ use Martis\Fields\BelongsToMany;
 use Martis\Fields\HasMany;
 use Martis\Fields\HasManyThrough;
 use Martis\Fields\HasOne;
+use Martis\Fields\MorphOne;
 use Martis\Fields\Number;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
@@ -308,7 +312,7 @@ class RSHOwnerResource extends Resource
     }
 }
 
-const RSH_TABLES = ['rsh_likes', 'rsh_owner_tag', 'rsh_tags', 'rsh_items', 'rsh_groups', 'rsh_profiles', 'rsh_owners', 'rsh_categories'];
+const RSH_TABLES = ['rsh_likes', 'rsh_owner_tag', 'rsh_tags', 'rsh_items', 'rsh_groups', 'rsh_profiles', 'rsh_images', 'rsh_owners', 'rsh_categories'];
 
 function rshSchema(): Illuminate\Database\Schema\Builder
 {
@@ -424,6 +428,13 @@ beforeEach(function () {
         $table->id();
         $table->unsignedBigInteger('owner_id');
         $table->string('bio')->nullable();
+        $table->timestamps();
+    });
+    rshSchema()->create('rsh_images', function ($table) {
+        $table->id();
+        $table->morphs('imageable');
+        $table->string('title')->nullable();
+        $table->timestamp('written_at')->nullable();
         $table->timestamps();
     });
 
@@ -1080,4 +1091,365 @@ it('P34 the one-of-many "1 of N" with a hook that groups, as the index allows', 
     RSHItem::create(['owner_id' => $this->a->id, 'title' => 'A2', 'written_at' => now()]);
 
     expect(rshPanel('has-one/items')->assertOk()->json('meta.ofMany.totalCount'))->toBe(2);
+});
+
+// ---------------------------------------------------------------------
+// Third review round: a relation that removes a global scope
+// ---------------------------------------------------------------------
+
+/** A global scope other than soft delete. */
+class RSHArchivedScope implements Scope
+{
+    public function apply(Builder $builder, Model $model): void
+    {
+        $builder->where($model->qualifyColumn('title'), '!=', 'Archived');
+    }
+}
+
+/** Hides "Archived" (RSHArchivedScope) and "Draft" (`draft`) rows. */
+trait RSHHidesArchivedAndDrafts
+{
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new RSHArchivedScope);
+        static::addGlobalScope('draft', fn (Builder $q) => $q->where($q->qualifyColumn('title'), '!=', 'Draft'));
+    }
+}
+
+class RSHScopedItem extends RSHItem
+{
+    use RSHHidesArchivedAndDrafts;
+}
+
+class RSHScopedTag extends RSHTag
+{
+    use RSHHidesArchivedAndDrafts;
+}
+
+class RSHImage extends Model
+{
+    protected $table = 'rsh_images';
+
+    protected $guarded = [];
+}
+
+class RSHScopedImage extends RSHImage
+{
+    use RSHHidesArchivedAndDrafts;
+}
+
+class RSHOwnerScopedRel extends RSHOwner
+{
+    /** The archived items belong to these relations; the drafts do not. */
+    public function allItems(): EHasMany
+    {
+        return $this->hasMany(RSHScopedItem::class, 'owner_id')->withoutGlobalScope(RSHArchivedScope::class);
+    }
+
+    public function allGroupItems(): EHasManyThrough
+    {
+        return $this->hasManyThrough(RSHScopedItem::class, RSHGroup::class, 'owner_id', 'group_id')->withoutGlobalScope(RSHArchivedScope::class);
+    }
+
+    public function allTags(): EBelongsToMany
+    {
+        return $this->belongsToMany(RSHScopedTag::class, 'rsh_owner_tag', 'owner_id', 'tag_id')->withoutGlobalScope(RSHArchivedScope::class);
+    }
+
+    /** Every item: the archived, the draft and the trashed ones. */
+    public function everyItem(): EHasMany
+    {
+        return $this->hasMany(RSHScopedItem::class, 'owner_id')->withoutGlobalScopes();
+    }
+
+    /** allItems() behind a one-of-many card (a field of its own name). */
+    public function cardItems(): EHasMany
+    {
+        return $this->allItems();
+    }
+
+    /** Eloquent one-of-many relations that keep the archived rows. */
+    public function newestItem(): EHasOne
+    {
+        return $this->hasOne(RSHScopedItem::class, 'owner_id')->withoutGlobalScope(RSHArchivedScope::class)->latestOfMany('written_at');
+    }
+
+    public function newestGroupItem(): EHasOneThrough
+    {
+        return $this->hasOneThrough(RSHScopedItem::class, RSHGroup::class, 'owner_id', 'group_id')->withoutGlobalScope(RSHArchivedScope::class)->latestOfMany('written_at');
+    }
+
+    public function newestImage(): EMorphOne
+    {
+        return $this->morphOne(RSHScopedImage::class, 'imageable')->withoutGlobalScope(RSHArchivedScope::class)->latestOfMany('written_at');
+    }
+}
+
+class RSHScopedItemResource extends RSHItemResource
+{
+    public static function model(): string
+    {
+        return RSHScopedItem::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-scoped-items';
+    }
+}
+
+class RSHScopedTagResource extends RSHTagResource
+{
+    public static function model(): string
+    {
+        return RSHScopedTag::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-scoped-tags';
+    }
+}
+
+class RSHScopedImageResource extends Resource
+{
+    public static function model(): string
+    {
+        return RSHScopedImage::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-scoped-images';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title')];
+    }
+}
+
+class RSHOwnerScopedRelResource extends Resource
+{
+    public static function model(): string
+    {
+        return RSHOwnerScopedRel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-owners-scoped';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('name'),
+            HasMany::make('All items', 'allItems')->relatedResource('rsh-scoped-items')->showOnIndex(),
+            HasManyThrough::make('All group items', 'allGroupItems')->relatedResource('rsh-scoped-items')->showOnIndex(),
+            BelongsToMany::make('All tags', 'allTags')->relatedResource('rsh-scoped-tags')->showOnIndex(),
+            HasMany::make('Every item', 'everyItem')->relatedResource('rsh-scoped-items')->showOnIndex(),
+            HasOne::ofMany('Latest item', 'cardItems', RSHScopedItemResource::class)->latestByTimestamp('written_at'),
+            HasOne::ofMany('Newest item', 'newestItem', RSHScopedItemResource::class),
+            HasOne::ofMany('Newest group item', 'newestGroupItem', RSHScopedItemResource::class),
+            MorphOne::ofMany('Newest image', 'newestImage', RSHScopedImageResource::class),
+        ];
+    }
+}
+
+/**
+ * Owner A gets an "Archived" and a "Draft" item (in its group) and tag,
+ * besides A1 and A-tag: its relations above hold A1 and "Archived".
+ */
+function rshArchivedAndDrafts(): void
+{
+    foreach ([RSHScopedItemResource::class, RSHScopedTagResource::class, RSHScopedImageResource::class, RSHOwnerScopedRelResource::class] as $class) {
+        app(ResourceRegistry::class)->register($class);
+    }
+
+    $groupId = RSHGroup::where('owner_id', test()->a->id)->value('id');
+    foreach (['Archived', 'Draft'] as $title) {
+        RSHItem::create(['owner_id' => test()->a->id, 'group_id' => $groupId, 'title' => $title, 'written_at' => now()->subDays(2)]);
+        test()->a->tags()->attach(RSHTag::create(['title' => $title])->id);
+    }
+}
+
+function rshScoped(string $path = ''): TestResponse
+{
+    return test()->getJson('/martis/api/resources/rsh-owners-scoped/'.test()->a->id.$path)->assertOk();
+}
+
+it('P35 a relation that removes a global scope keeps it removed in the index counts (no hooks)', function () {
+    rshArchivedAndDrafts();
+
+    $rows = collect($this->getJson('/martis/api/resources/rsh-owners-scoped')->assertOk()->json('data'))->keyBy('name');
+
+    expect([$rows['Owner A']['allItems'], $rows['Owner A']['allGroupItems'], $rows['Owner A']['allTags']])->toBe([2, 2, 2]);
+});
+
+it('P36 a relation that removes a global scope keeps it removed in the detail counts (no hooks)', function () {
+    rshArchivedAndDrafts();
+
+    $detail = rshScoped();
+
+    expect([$detail->json('data.allItems'), $detail->json('data.allGroupItems'), $detail->json('data.allTags')])->toBe([2, 2, 2]);
+});
+
+it('P37 a relation that removes a global scope keeps it removed on its panel and its one-of-many card (no hooks)', function (string $path, string $read) {
+    rshArchivedAndDrafts();
+
+    expect(rshScoped('/'.$path)->json($read))->toBe(2);
+})->with([
+    'has-many (control: scoped in place)' => ['has-many/allItems', 'meta.total'],
+    'has-many-through' => ['has-many/allGroupItems', 'meta.total'],
+    'belongs-to-many' => ['belongs-to-many/allTags', 'meta.total'],
+    'one-of-many "1 of N"' => ['has-one/cardItems', 'meta.ofMany.totalCount'],
+]);
+
+it('P38 an Eloquent one-of-many card counts in "1 of N" the rows its relation keeps', function (string $path) {
+    rshArchivedAndDrafts();
+    foreach (['A image' => 1, 'Archived' => 2, 'Draft' => 3] as $title => $days) {
+        RSHImage::create(['imageable_type' => (new RSHOwnerScopedRel)->getMorphClass(), 'imageable_id' => $this->a->id, 'title' => $title, 'written_at' => now()->subDays($days)]);
+    }
+
+    // The relation rebuilt for the count keeps the scope it removes out.
+    expect(rshScoped('/'.$path)->json('meta.ofMany.totalCount'))->toBe(2);
+})->with([
+    'has-one (latestOfMany)' => ['has-one/newestItem'],
+    'has-one-through (latestOfMany)' => ['has-one/newestGroupItem'],
+    'morph-one (latestOfMany)' => ['morph-one/newestImage'],
+]);
+
+it('P39 a relation that removes every global scope (withoutGlobalScopes()) keeps them all removed', function () {
+    rshArchivedAndDrafts();
+    RSHItem::create(['owner_id' => $this->a->id, 'title' => 'Trashed'])->delete();
+
+    $rows = collect($this->getJson('/martis/api/resources/rsh-owners-scoped')->assertOk()->json('data'))->keyBy('name');
+
+    expect([$rows['Owner A']['everyItem'], rshScoped()->json('data.everyItem'), rshScoped('/has-many/everyItem')->json('meta.total')])->toBe([4, 4, 4]);
+});
+
+it('P40 the scopes a relation keeps and the related hooks still filter it', function () {
+    rshArchivedAndDrafts();
+    RSHItemResource::$hook = fn (Builder $q) => $q->where($q->qualifyColumn('title'), '!=', 'A1');
+    RSHTagResource::$hook = fn (Builder $q) => $q->where($q->qualifyColumn('title'), '!=', 'A-tag');
+
+    // Left: "Archived" (the relation removes its scope). Gone: "Draft" (the
+    // `draft` scope stays) and A1 / A-tag (the hooks).
+    $rows = collect($this->getJson('/martis/api/resources/rsh-owners-scoped')->assertOk()->json('data'))->keyBy('name');
+    $detail = rshScoped();
+
+    expect([$rows['Owner A']['allItems'], $rows['Owner A']['allGroupItems'], $rows['Owner A']['allTags']])->toBe([1, 1, 1])
+        ->and([$detail->json('data.allItems'), $detail->json('data.allGroupItems'), $detail->json('data.allTags')])->toBe([1, 1, 1])
+        ->and(collect(rshScoped('/has-many/allGroupItems')->json('data'))->pluck('title')->all())->toBe(['Archived'])
+        ->and(collect(rshScoped('/belongs-to-many/allTags')->json('data'))->pluck('title')->all())->toBe(['Archived']);
+});
+
+it('P41 the hooks receive the related query without the scopes the relation removes, and with the ones it keeps', function () {
+    rshArchivedAndDrafts();
+    $seen = [];
+    RSHItemResource::$hook = function (Builder $q) use (&$seen) {
+        $seen[] = (clone $q)->orderBy($q->qualifyColumn('title'))->pluck($q->qualifyColumn('title'))->all();
+
+        return $q;
+    };
+
+    rshScoped('/has-many/allGroupItems');
+
+    expect($seen)->toBe([['A1', 'Archived', 'B-public']]);
+});
+
+it('P42 a hook that builds its own query keeps the relation\'s removed scope removed', function () {
+    rshArchivedAndDrafts();
+    RSHItemResource::$hook = fn (Builder $q) => RSHScopedItem::query()->where('title', '!=', 'nothing');
+
+    $rows = collect($this->getJson('/martis/api/resources/rsh-owners-scoped')->assertOk()->json('data'))->keyBy('name');
+
+    expect([$rows['Owner A']['allItems'], $rows['Owner A']['allGroupItems']])->toBe([2, 2])
+        ->and(rshScoped()->json('data.allGroupItems'))->toBe(2)
+        ->and(rshScoped('/has-many/allItems')->json('meta.total'))->toBe(2)
+        ->and(rshScoped('/has-many/allGroupItems')->json('meta.total'))->toBe(2);
+});
+
+/** A has-many that refuses its constraints without its parent's key. */
+class RSHKeyedHasMany extends EHasMany
+{
+    public function addConstraints()
+    {
+        if (static::$constraints && $this->getParentKey() === null) {
+            throw new LogicException('Constrained without the parent key.');
+        }
+
+        parent::addConstraints();
+    }
+}
+
+class RSHOwnerLoadedRel extends RSHOwner
+{
+    /** Needs a loaded owner: on the listing's model, which holds none, it throws. */
+    public function tenantItems(): EHasMany
+    {
+        return $this->hasMany(RSHItem::class, 'owner_id')->where('tenant', $this->tenant ?? throw new LogicException('A loaded owner is needed.'));
+    }
+
+    /** Resolves without a record when unconstrained, as withCount() resolves it. */
+    public function keyedItems(): EHasMany
+    {
+        return new RSHKeyedHasMany((new RSHItem)->newQuery(), $this, 'rsh_items.owner_id', 'id');
+    }
+}
+
+class RSHOwnerLoadedRelResource extends Resource
+{
+    public static function model(): string
+    {
+        return RSHOwnerLoadedRel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-owners-loaded';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('name'), HasMany::make('Tenant items', 'tenantItems')->relatedResource('rsh-items')->showOnIndex()];
+    }
+}
+
+class RSHOwnerKeyedRelResource extends RSHOwnerLoadedRelResource
+{
+    public static function uriKey(): string
+    {
+        return 'rsh-owners-keyed';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('name'), HasMany::make('Keyed items', 'keyedItems')->relatedResource('rsh-items')->showOnIndex()];
+    }
+}
+
+it('P43 an index count whose relation needs a loaded record is counted per row, and the index answers', function () {
+    app(ResourceRegistry::class)->register(RSHOwnerLoadedRelResource::class);
+    RSHItemResource::$hook = fn (Builder $q) => $q->where($q->qualifyColumn('title'), '!=', 'Hidden');
+    RSHItem::create(['owner_id' => $this->a->id, 'title' => 'A2']);
+    RSHItem::create(['owner_id' => $this->a->id, 'title' => 'Hidden']);
+    RSHItem::create(['owner_id' => $this->a->id, 'title' => 'Other tenant', 'tenant' => 't2']);
+
+    $rows = collect($this->getJson('/martis/api/resources/rsh-owners-loaded')->assertOk()->json('data'))->keyBy('name');
+
+    expect([$rows['Owner A']['tenantItems'], $rows['Owner B']['tenantItems']])->toBe([2, 1]);
+});
+
+it('P44 a relation is read without its constraints, as withCount() reads it, so it is still counted with the page', function () {
+    app(ResourceRegistry::class)->register(RSHOwnerKeyedRelResource::class);
+    RSHItem::create(['owner_id' => $this->a->id, 'title' => 'A2']);
+
+    DB::enableQueryLog();
+    $rows = collect($this->getJson('/martis/api/resources/rsh-owners-keyed')->assertOk()->json('data'))->keyBy('name');
+    $perRow = collect(DB::getQueryLog())->filter(fn ($q) => str_contains($q['query'], 'rsh_items') && str_starts_with(strtolower(trim($q['query'])), 'select count(*) as aggregate'));
+
+    expect([$rows['Owner A']['keyedItems'], $rows['Owner B']['keyedItems']])->toBe([2, 1])
+        ->and($perRow)->toBeEmpty();
 });

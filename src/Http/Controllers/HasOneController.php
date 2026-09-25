@@ -415,7 +415,8 @@ class HasOneController extends MartisController
      * a morphMany, a through relation) keeps its own query, and so the
      * constraints written into it (`->where('paid', true)`). An Eloquent
      * one-of-many relation is narrowed to its record, so its many relation
-     * is rebuilt from its own keys; a plain where on the foreign key with
+     * is rebuilt from its own keys, without the global scopes it removes,
+     * as its record is read; a plain where on the foreign key with
      * the parent's primary key ignored a custom local key and, on a through
      * relation, matched the intermediate table's ids, so the card counted
      * and summed another parent's rows.
@@ -430,6 +431,7 @@ class HasOneController extends MartisController
         }
 
         $related = get_class($relation->getRelated());
+        $removedScopes = $relation->getQuery()->removedScopes();
 
         if ($relation instanceof HasOneOrManyThrough) {
             return $parentModel->hasManyThrough(
@@ -439,11 +441,11 @@ class HasOneController extends MartisController
                 $relation->getForeignKeyName(),
                 $relation->getLocalKeyName(),
                 $relation->getSecondLocalKeyName(),
-            )->getQuery();
+            )->getQuery()->withoutGlobalScopes($removedScopes);
         }
 
         /** @var HasOneOrMany<Model, Model, mixed> $relation */
-        return $parentModel->hasMany($related, $relation->getForeignKeyName(), $relation->getLocalKeyName())->getQuery();
+        return $parentModel->hasMany($related, $relation->getForeignKeyName(), $relation->getLocalKeyName())->getQuery()->withoutGlobalScopes($removedScopes);
     }
 
     /**

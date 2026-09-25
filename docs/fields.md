@@ -2080,7 +2080,7 @@ HasOneOfMany::make('Latest Invoice', 'latestInvoice', InvoiceResource::class)
 | *All `HasOne` setters* | — | `$this` | Inherited. | — |
 | `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders the underlying relation by the timestamp column descending before picking the first row; a tie goes to the highest primary key. The related model's `created_at` / `updated_at` are qualified with its table; another column is used as given, so over a through relation qualify a column both tables have (`'projects.published_at'`). Show, Edit, Delete and the card's writes all target that record. | `'created_at'` |
 | `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart of `latestByTimestamp()`; a tie goes to the lowest primary key. | `'created_at'` |
-| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across this parent's full collection (count/sum/min/max/avg), through the relation's own keys (a through relation included). On an Eloquent one-of-many relation (`latestOfMany()`, `ofMany()`), the tile and the "latest of N" pill cover every related row of the parent: the constraints written into that relation do not apply. | disabled |
+| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across this parent's full collection (count/sum/min/max/avg), through the relation's own keys (a through relation included). On an Eloquent one-of-many relation (`latestOfMany()`, `ofMany()`), the tile and the "latest of N" pill cover every related row of the parent: the constraints written into that relation do not apply; the global scopes it removes stay removed. | disabled |
 
 *src/Fields/HasOneOfMany.php*
 
@@ -2150,7 +2150,12 @@ and pagination via `RelationshipTableShell`. Detail-only by default — use
 `->showOnIndex()` to display a count badge on index. The count, like the
 panel, includes only the records the related resource's index lists (its
 `scopes()` and `indexQuery()`, v2.0), and the index computes it for the whole
-page in its own query.
+page in its own query. That query resolves the relationship as Laravel's
+`withCount()` and eager loading do, on a model that holds no record: a
+relationship method that reads the parent's attributes gets `null` there.
+One that throws without its record is counted on each row instead; one
+that reads `null` counts the wrong rows, so a relationship counted on the
+index should not depend on the parent's attributes.
 
 ```php
 use Martis\Fields\HasMany;
@@ -2307,7 +2312,7 @@ MorphOneOfMany::make('Latest Note', 'latestNote', NoteResource::class)
 | *All `MorphOne` setters* | — | `$this` | Inherited. | — |
 | `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders by the timestamp descending before picking the first row; a tie goes to the highest primary key. | `'created_at'` |
 | `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart; a tie goes to the lowest primary key. | `'created_at'` |
-| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across this parent's full collection. On an Eloquent one-of-many relation (`latestOfMany()`, `ofMany()`), the tile and the "latest of N" pill cover every related row of the parent: the constraints written into that relation do not apply. | disabled |
+| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across this parent's full collection. On an Eloquent one-of-many relation (`latestOfMany()`, `ofMany()`), the tile and the "latest of N" pill cover every related row of the parent: the constraints written into that relation do not apply; the global scopes it removes stay removed. | disabled |
 
 *src/Fields/MorphOneOfMany.php*
 

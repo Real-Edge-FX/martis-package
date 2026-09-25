@@ -82,7 +82,9 @@ A `HasMany`, `HasManyThrough`, `MorphMany`, `BelongsToMany` or `MorphToMany` pan
 
 The `BelongsToMany` and `MorphToMany` panels also apply their soft-delete filter now; before, *Only trashed* listed the active records.
 
-The same hooks now shape what counts the related records: the relationship count a `HasMany`, `MorphMany`, `BelongsToMany` or `MorphToMany` field shows on the index (`showOnIndex()`), now computed with the page instead of per row, and the one-of-many "1 of N" count and `aggregateVia()` tile.
+The same hooks now shape what counts the related records: the relationship count a `HasMany`, `MorphMany`, `BelongsToMany` or `MorphToMany` field shows on the index (`showOnIndex()`), now computed with the page instead of per row, and the one-of-many "1 of N" count and `aggregateVia()` tile. The hooks narrow the relationship's own definition and nothing else: a global scope the relationship removes (`->withoutGlobalScope(...)`) stays removed, as in 1.x.
+
+The page's count resolves the relationship as Laravel's `withCount()` does, on a model that holds no record, where v1.x counted on each loaded record. A relationship method that reads the parent's attributes gets `null` there: one that throws without its record is still counted per row, as in v1.x, but one that reads `null` counts the wrong rows. **Check** that the relationships you count on the index (`showOnIndex()`) do not depend on the parent's attributes.
 
 A one-record card (`HasOne`, `HasOneOfMany`, `HasOneThrough`, `MorphOne`, `MorphOneOfMany`) now shows its record only when the user may `view` it, as Nova hides that panel; otherwise the card is not rendered at all (its endpoint answers `meta.hidden: true`) and its Edit and Delete answer 404. Grant `view` where the card should show the record. A custom card component that reads the endpoint should treat `meta.hidden` as "render nothing". Creating a second record on a `HasOne` / `MorphOne` card answers `422` with the reason as its `message` (it answered `500`); a one-of-many card now takes more records, as its many relationship does.
 
