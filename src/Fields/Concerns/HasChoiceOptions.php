@@ -58,6 +58,32 @@ trait HasChoiceOptions
     private array $optionsOrderWarned = [];
 
     /**
+     * Whether {@see self::warnIfStoredAsLabel()} is silenced for this field
+     * instance, set by {@see self::withoutOptionOrderWarnings()}.
+     */
+    private bool $optionOrderWarningsDisabled = false;
+
+    /**
+     * Turn off both option-order warnings for this field: the plain
+     * stored-label warning and the numeric-list shift warning. Both assume
+     * the stored value is stale data from before v2.0.0, but a field can
+     * legitimately store a valid 0-based position that also happens to read
+     * as another option's label, for example a Nova rating that stores
+     * `0..4` on purpose and shows `"1".."5"` (`[0 => '1', 1 => '2', ...]`,
+     * `array_combine(range(0, 4), range(1, 5))`, or `options([1, 2, 3, 4, 5])`
+     * ported straight from Nova): reading a stored `1` would otherwise log
+     * "stores 1, shows as 2, pass array_combine..." on every request, even
+     * though the data is correct. Call this once the array is confirmed
+     * right for the field.
+     */
+    public function withoutOptionOrderWarnings(): static
+    {
+        $this->optionOrderWarningsDisabled = true;
+
+        return $this;
+    }
+
+    /**
      * Set the options, in Nova's order.
      *
      *   - Map:        ['draft' => 'Draft', 'live' => 'Live']   value => label
@@ -215,7 +241,7 @@ trait HasChoiceOptions
     protected function warnIfStoredAsLabel(Model $model, mixed $value): void
     {
         // A computed field stores nothing, so its value cannot be stale.
-        if ($this->computed || $this->optionsResolver !== null || $this->options === []) {
+        if ($this->computed || $this->optionsResolver !== null || $this->options === [] || $this->optionOrderWarningsDisabled) {
             return;
         }
 
@@ -322,6 +348,7 @@ trait HasChoiceOptions
                 'Martis: %s #%s stores "%s" in %s [%s], which matches an option label and no option value. '
                 .'Since v2.0.0 options() reads [value => label], as Nova does: flip the options array, '
                 .'or fix the stored value if the record was saved while the array listed the label first. '
+                .'If the stored value is correct on purpose, call withoutOptionOrderWarnings() on this field. '
                 .'See docs/upgrading.md.',
                 $model::class,
                 is_scalar($id) ? (string) $id : '?',
@@ -333,7 +360,8 @@ trait HasChoiceOptions
                 'Martis: %s #%s stores "%s" in %s [%s], which is the label of another option of a list, so it shows as "%s". '
                 .'Since v2.0.0 a list is keyed 0, 1, 2..., as in Nova, and v1.x stored the items themselves: '
                 .'pass array_combine($values, $values) to keep storing them, or fix the stored value. '
-                .'See docs/upgrading.md.',
+                .'If the stored value is correct on purpose (e.g. a deliberate 0-based list), call '
+                .'withoutOptionOrderWarnings() on this field. See docs/upgrading.md.',
                 $model::class,
                 is_scalar($id) ? (string) $id : '?',
                 $value,

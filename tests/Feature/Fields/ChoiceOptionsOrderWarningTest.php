@@ -178,6 +178,35 @@ it('never checks a Select that accepts custom values, where a typed label is a l
 });
 
 // ---------------------------------------------------------------------------
+// withoutOptionOrderWarnings(): a deliberate 0-based list (e.g. a Nova rating
+// that stores 0-4 and shows "1".."5") must not warn on every request.
+// ---------------------------------------------------------------------------
+
+it('silences the plain stored-label warning with withoutOptionOrderWarnings()', function () {
+    Select::make('status')->options(['Draft' => 'draft'])->withoutOptionOrderWarnings()
+        ->resolve(choiceOrderModel(['status' => 'draft'], 1));
+
+    Log::shouldNotHaveReceived('warning');
+});
+
+it('silences the list-shift warning with withoutOptionOrderWarnings()', function () {
+    // A Nova rating stores 0-4 on purpose and shows "1".."5": array_combine
+    // or a plain list ported from Nova look identical to a v1.x record shifted
+    // by one, so the field itself must be able to say "this data is correct".
+    Select::make('rating')->options([1, 2, 3])->withoutOptionOrderWarnings()
+        ->resolve(choiceOrderModel(['rating' => 1], 4));
+
+    Log::shouldNotHaveReceived('warning');
+});
+
+it('still warns for both cases without withoutOptionOrderWarnings()', function () {
+    Select::make('status')->options(['Draft' => 'draft'])->resolve(choiceOrderModel(['status' => 'draft'], 1));
+    Select::make('rating')->options([1, 2, 3])->resolve(choiceOrderModel(['rating' => 1], 4));
+
+    Log::shouldHaveReceived('warning')->twice();
+});
+
+// ---------------------------------------------------------------------------
 // searchOptionsUsing() returning a list stores positions in the results
 // ---------------------------------------------------------------------------
 
