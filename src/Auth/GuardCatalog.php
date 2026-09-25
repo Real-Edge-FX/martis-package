@@ -90,6 +90,78 @@ class GuardCatalog
     }
 
     /**
+     * The password broker (`config/auth.php` → `passwords`) that resets the
+     * passwords of the Martis guard's users: the one
+     * `martis.auth.passwordReset.broker` (`MARTIS_AUTH_PASSWORD_BROKER`)
+     * names, which must exist and read the Martis guard's users; unset, the
+     * app's default broker (`auth.defaults.passwords`) when it reads them,
+     * else the first broker that does. A broker reads them when its provider
+     * is the Martis guard's provider, or signs in users of the same table.
+     *
+     * A broker of another provider would look the email up among other
+     * users (the site's, beside an `admins` guard) and reset that account,
+     * so a broker that is set but does not fit, or no fitting broker at all,
+     * is a configuration error, never a fallback.
+     *
+     * @throws PasswordBrokerConfigurationException
+     */
+    public static function martisPasswordBroker(): string
+    {
+        $key = 'martis.auth.passwordReset.broker';
+        $configured = config($key);
+        $brokers = (array) config('auth.passwords', []);
+        $guard = self::martis();
+        $provider = self::guardProvider($guard);
+
+        if ($configured !== null && $configured !== '') {
+            if (! is_string($configured) || ! is_array($brokers[$configured] ?? null)) {
+                throw new PasswordBrokerConfigurationException(sprintf(
+                    'The [%s] config value (MARTIS_AUTH_PASSWORD_BROKER) must name a password broker of config/auth.php (passwords), got %s.',
+                    $key,
+                    is_string($configured) ? "[{$configured}]" : get_debug_type($configured),
+                ));
+            }
+
+            if (! self::brokerReads($brokers[$configured], $provider)) {
+                throw new PasswordBrokerConfigurationException(sprintf(
+                    'The [%s] config value (MARTIS_AUTH_PASSWORD_BROKER) names the password broker [%s], whose provider [%s] '
+                    .'is not the provider [%s] of the Martis guard [%s]: it would reset the password of another user with that email. '
+                    .'Point it at a broker of config/auth.php (passwords) whose provider is [%s], or unset it to pick one.',
+                    $key,
+                    $configured,
+                    (string) ($brokers[$configured]['provider'] ?? ''),
+                    $provider,
+                    $guard,
+                    $provider,
+                ));
+            }
+
+            return $configured;
+        }
+
+        $default = config('auth.defaults.passwords');
+        $names = array_map(static fn ($name): string => (string) $name, array_keys($brokers));
+        if (is_string($default) && in_array($default, $names, true)) {
+            $names = [$default, ...array_values(array_diff($names, [$default]))];
+        }
+
+        foreach ($names as $name) {
+            if (is_array($brokers[$name] ?? null) && self::brokerReads($brokers[$name], $provider)) {
+                return $name;
+            }
+        }
+
+        throw new PasswordBrokerConfigurationException(sprintf(
+            'No password broker of config/auth.php (passwords) reads the users of the Martis guard [%s] (provider [%s]), '
+            .'so password reset cannot run. Add a broker whose provider is [%s] and name it in the [%s] config value (MARTIS_AUTH_PASSWORD_BROKER).',
+            $guard,
+            $provider,
+            $provider,
+            $key,
+        ));
+    }
+
+    /**
      * The user the Martis guard signed in, while that guard is the request's
      * guard: a panel request (MartisAuthenticate calls shouldUse()), or any
      * request when the Martis guard is the app's default. Null elsewhere: a
@@ -175,6 +247,31 @@ class GuardCatalog
         }
 
         return array_keys($tables);
+    }
+
+    /** The provider of a guard, the `users` provider when it names none. */
+    private static function guardProvider(string $guard): string
+    {
+        $provider = config("auth.guards.{$guard}.provider");
+
+        return is_string($provider) && $provider !== '' ? $provider : 'users';
+    }
+
+    /**
+     * Whether a password broker reads the users of this provider: it names
+     * that provider, or one of users of the same table.
+     *
+     * @param  array<mixed>  $broker
+     */
+    private static function brokerReads(array $broker, string $provider): bool
+    {
+        $brokerProvider = $broker['provider'] ?? null;
+
+        if (! is_string($brokerProvider) || $brokerProvider === '') {
+            return false;
+        }
+
+        return $brokerProvider === $provider || self::providerTable($brokerProvider) === self::providerTable($provider);
     }
 
     /** The `{connection}|{table}` of a guard's users, null when it names no provider. */

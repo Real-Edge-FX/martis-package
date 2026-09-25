@@ -6,6 +6,8 @@ The sections below list the breaking changes of each major version and what to c
 
 ## Upgrading to v2.0.1 from v2.0.0
 
+The action log, the throttle buckets, the Gate cache's `lookup()` and the Tool route warning apply to every app; the other changes concern an app with a custom `MARTIS_GUARD`.
+
 ### The action log is closed by default
 
 The Action Events resource (the `martis_action_events` audit log) was readable by every panel user, `original` and `changes` included, whatever fields those users could see on the records. From v2.0.1 it is closed until you open it, and it masks the values the viewer could not read on the record:
@@ -23,6 +25,27 @@ Gate::define('view-martis-action-events', fn ($user) => $user->is_admin);
 
 An app with an `ActionEventPolicy` that defines `viewAny` and `view` needs no change. A custom resource for the `ActionEvent` model keeps its own authorization; apply `ActionEventRedactor::redact()` to its `original` / `changes` fields to mask the same values. See [Actions → Who can read the audit log](actions.md#who-can-read-the-audit-log-v201).
 
+### Password reset picks the Martis guard's broker
+
+Password reset now runs on the password broker whose provider is the Martis guard's (`GuardCatalog::martisPasswordBroker()`): `MARTIS_AUTH_PASSWORD_BROKER` when set, else the app's default broker when it reads the Martis guard's users, else the first broker that does. v2.0.0 used `MARTIS_AUTH_PASSWORD_BROKER`, `users` by default, whatever the guard, so beside an `admins` guard the forgot-password form reset the site user with the admin's email. A broker of another provider, an unknown broker, or none that fits now throws a `Martis\Auth\PasswordBrokerConfigurationException` naming `martis.auth.passwordReset.broker` (the endpoint answers 500 and reports it).
+
+**What to change**, with an own guard and password reset on: declare a broker for the guard's provider in `config/auth.php` (`passwords`). A `config/martis.php` published before v2.0.1 holds `env('MARTIS_AUTH_PASSWORD_BROKER', 'users')`, which now throws with an own guard: change the default to `env('MARTIS_AUTH_PASSWORD_BROKER')`, or set the variable to the guard's broker. See [Authentication → Which password broker resets a password](authentication.md#which-password-broker-resets-a-password).
+
+### The Martis throttles have their own buckets
+
+The API throttle's middleware is `throttle:{max},{decay},martis-api:{guard}:` (`RouteMiddleware::throttlePrefix('api')`), the 2FA challenge's and the verification resend's carry `martis-2fa:{guard}:` and `martis-verification:{guard}:`. Laravel keys a user's bucket on `sha1()` of the identifier alone, so the Martis guard's user 5 shared a bucket with a site route throttled per user for the site user 5, and the resend and the challenge counted in the API's bucket. The counters in flight start over once, on deploy. A test that asserts the route's middleware list reads the new string.
+
+### The per-request Gate cache takes the user
+
+`RequestScopedAbilityCache::lookup()` takes the user instead of its id, and keys it by morph class and id: `lookup($user->id, ...)` throws a `TypeError`. The package does not call it.
+
+### Routes a tool registers in `boot()` log a warning
+
+A route under a tool's path (`ToolRoutes::prefix($tool)`, or the v1.x `martis/api/tools/{uriKey}`) registered with `['web', 'martis.auth']`, or with a list that leaves out the 2FA challenge or email verification while it is on, now logs a warning naming the tool and the route, once per tool and PHP process, as a `loadRoutes()` list already did in v2.0.0. The route keeps its middleware. Move it to `ToolRoutes::middleware($this)` or to `loadRoutes()` ([Tools → Routes a tool registers in `boot()`](tools.md#routes-a-tool-registers-in-boot)); a route meant to skip the challenge belongs outside the tool's path.
+
+### Shared `sessions` and `notifications` tables
+
+The Martis migrations of these tables now shape their user columns on the users of every guard that writes them, with a string column when the keys differ. They skip a table that exists, which Laravel 11+ creates with a `bigint` `user_id`: with a Martis guard keyed by UUID or ULID beside the site's bigint users, widen the columns once, as [Installation → The shared `sessions` and `notifications` tables](installation-guide.md#the-shared-sessions-and-notifications-tables) shows.
 ## Upgrading to v2.0 from v1.x
 
 Require the new major; a `^1.x` constraint never installs it:
@@ -161,7 +184,7 @@ The signature keeps its v1.x type, `array $middleware`, so a tool that overrides
 **What to change:**
 
 1. **Drop the middleware argument** of every `loadRoutes()` call that passes `['web', 'martis.auth']` (or forwards it from an override): that list keeps the v1.x stack, without the 2FA challenge, and logs the warning. Pass a list only for another stack: `[...ToolRoutes::middleware($this), 'can:imports.run']` adds an ability, and a route that must answer before the 2FA challenge or to users the tool is hidden from keeps its own list, which is used exactly as given.
-2. **Routes a tool registers in `boot()` with `Route::middleware(['web', 'martis.auth'])->prefix('martis/api/tools/...')`**, the pattern these docs showed, keep that weaker stack and that path, and Martis does not warn about them: switch them to `Route::middleware(ToolRoutes::middleware($this))->prefix(ToolRoutes::prefix($this))`. A route of your own that `martis.auth` alone guards skips the 2FA challenge the same way: use the `martis.api` middleware group.
+2. **Routes a tool registers in `boot()` with `Route::middleware(['web', 'martis.auth'])->prefix('martis/api/tools/...')`**, the pattern these docs showed, keep that weaker stack and that path (from v2.0.1 they log a warning naming the tool and the route): switch them to `Route::middleware(ToolRoutes::middleware($this))->prefix(ToolRoutes::prefix($this))`, or move them to a routes file loaded by `$this->loadRoutes()`, as [Tools → Routes a tool registers in `boot()`](tools.md#routes-a-tool-registers-in-boot) shows. A route of your own that `martis.auth` alone guards skips the 2FA challenge the same way: use the `martis.api` middleware group.
 3. **A client that calls a tool route by a hard-coded `/martis/api/tools/...` URL** with a custom `MARTIS_PATH` follows the new path, or goes through the SPA's `api` client (`api.get('/api/tools/...')`). To keep the old URL, pass `prefix: 'martis/api/tools/{uriKey}'`.
 4. **A tool that polls** raises `MARTIS_THROTTLE_MAX`, or passes a list without the throttle.
 
@@ -247,7 +270,7 @@ Checklist for an app with `MARTIS_GUARD` set to its own guard:
 - Leave `MARTIS_IMPERSONATION_GUARD` unset (it follows `MARTIS_GUARD`), or set it to the same guard; a config file published before v2.0.0 has `'web'` as its default, so republish it or set the variable. An operator signed in by a guard of other users is recorded in the audit row's `fields.operator_type` / `operator_id`, with no `user_id`.
 - Rows the action log wrote before the upgrade with the default guard's ids now resolve through the Martis guard's model. From v2.0.0 an event caused by another guard's user records no actor: a role change or an invitation event outside the panel (in a site request, even from a browser that also holds a panel session, in a job, in a command) records none (or the inviter), and an authorization denial is recorded only while the Martis guard is the request's guard.
 - Impersonation now acts on the Martis guard's users: the operator and the target are both, for instance, admins. To impersonate the site's users, set `MARTIS_IMPERSONATION_GUARD` to the site's guard, on which the operator must then be signed in too.
-- With password reset enabled, set `MARTIS_AUTH_PASSWORD_BROKER` to a password broker (`config/auth.php` → `passwords`) whose provider is the Martis guard's: the default, `users`, resets the site's accounts.
+- With password reset enabled, declare a password broker (`config/auth.php` → `passwords`) whose provider is the Martis guard's. From v2.0.1 Martis picks it when `MARTIS_AUTH_PASSWORD_BROKER` is unset, and throws when that variable, or the `'users'` default of a `config/martis.php` published before v2.0.1, names a broker of another provider (see [Password reset picks the Martis guard's broker](#password-reset-picks-the-martis-guards-broker)).
 - If a boot script runs `php artisan martis:user --if-missing`, it now checks and creates the Martis guard's user.
 - When the guard's model has its own table, run this migration once (with your table in place of `admins`):
 

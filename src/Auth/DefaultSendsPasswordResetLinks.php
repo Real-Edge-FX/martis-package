@@ -10,8 +10,9 @@ use Martis\Contracts\SendsPasswordResetLinks;
  * Default "email me a reset link" handler.
  *
  * Delegates to Laravel's `Password::sendResetLink()` against the broker
- * named in `config('martis.auth.passwordReset.broker', 'users')`. The
- * broker is responsible for hashing the token and dispatching the
+ * of the Martis guard's users, `GuardCatalog::martisPasswordBroker()`
+ * (`martis.auth.passwordReset.broker` when set). The broker is
+ * responsible for hashing the token and dispatching the
  * notification through whichever mailer the host app has configured.
  */
 class DefaultSendsPasswordResetLinks implements SendsPasswordResetLinks
@@ -22,7 +23,7 @@ class DefaultSendsPasswordResetLinks implements SendsPasswordResetLinks
             'email' => ['required', 'email'],
         ]);
 
-        $broker = (string) config('martis.auth.passwordReset.broker', 'users');
+        $broker = GuardCatalog::martisPasswordBroker();
 
         return Password::broker($broker)->sendResetLink($request->only('email'));
     }

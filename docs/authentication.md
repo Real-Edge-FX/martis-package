@@ -132,7 +132,8 @@ The four surfaces:
         // Set    → "Forgot?" link redirects off-platform.
         'url'     => env('MARTIS_AUTH_PASSWORD_RESET_URL'),
         // Laravel password broker name (config/auth.php → passwords.*).
-        'broker'  => env('MARTIS_AUTH_PASSWORD_BROKER', 'users'),
+        // Unset: the broker whose provider is the Martis guard's.
+        'broker'  => env('MARTIS_AUTH_PASSWORD_BROKER'),
     ],
     'registration' => [
         'enabled'      => env('MARTIS_AUTH_REGISTRATION_ENABLED', false),
@@ -153,7 +154,7 @@ All flags default to `false`. A fresh `composer require martis/martis` install s
 | Block | Shape | Purpose |
 |---|---|---|
 | `sso` | `enabled` + `providers` map | Renders one button per enabled provider. Martis owns the OAuth dance end-to-end. See [`sso.md`](sso.md). |
-| `passwordReset` | `enabled` + `url` + `broker` | Renders the "Forgot?" link, hosts `/forgot-password` and `/reset-password/{token}` pages, and POST endpoints. `url` redirects off-platform. `broker` selects the Laravel password broker. |
+| `passwordReset` | `enabled` + `url` + `broker` | Renders the "Forgot?" link, hosts `/forgot-password` and `/reset-password/{token}` pages, and POST endpoints. `url` redirects off-platform. `broker` selects the Laravel password broker; unset, Martis picks the one whose provider is the Martis guard's (see [Which password broker resets a password](#which-password-broker-resets-a-password)). |
 | `registration` | `enabled` + `url` + `default_role` | Renders the "Create an account" link, hosts `/register` page and POST endpoint. `default_role` is auto-assigned via `assignRole()` when set. |
 | `controls` | `theme` + `locale` | Top-right widget visibility on every auth surface. |
 
@@ -175,6 +176,25 @@ When `auth.passwordReset.enabled=true` and `url` is empty:
 6. Client toasts success and redirects to `/login`.
 
 When the user account is SSO-only (no password hash), Laravel's broker rejects with `Password::INVALID_USER` — Martis surfaces the localized message under the email field. To avoid account enumeration in production, override the binding (see "Customising auth surfaces" below) and force a generic "if an account exists, an email is on its way" response.
+
+### Which password broker resets a password
+
+The forgot-password and reset endpoints run on a Laravel password broker (`config/auth.php` → `passwords`), which finds the account by email through its provider. Martis uses the broker of the Martis guard's users (`Martis\Auth\GuardCatalog::martisPasswordBroker()`):
+
+- `MARTIS_AUTH_PASSWORD_BROKER` unset: the app's default broker (`auth.defaults.passwords`) when its provider is the Martis guard's provider, else the first broker whose provider is. A default install (`web` guard, `users` provider, `users` broker) resolves `users`.
+- `MARTIS_AUTH_PASSWORD_BROKER` set: that broker, which must exist and whose provider must be the Martis guard's (or sign in users of the same table).
+
+Anything else throws a `Martis\Auth\PasswordBrokerConfigurationException` (an `InvalidArgumentException`) naming `martis.auth.passwordReset.broker`, and the endpoint answers 500 with it reported: a broker of another provider would look the email up among other users (the site's `users` beside an `admins` guard) and mail or reset that account. For an `admins` guard, declare its broker:
+
+```php
+// config/auth.php
+'passwords' => [
+    'users' => ['provider' => 'users', 'table' => 'password_reset_tokens', 'expire' => 60, 'throttle' => 60],
+    'admins' => ['provider' => 'admins', 'table' => 'password_reset_tokens', 'expire' => 60, 'throttle' => 60],
+],
+```
+
+Nova reads one broker too (`NOVA_PASSWORDS`, `config('nova.passwords')`, the app's default broker when null) and does not check its provider against `NOVA_GUARD`, which [nova-issues#1989](https://github.com/laravel/nova-issues/issues/1989) reports as resetting the wrong users. Martis picks the broker from the guard and refuses a mismatch instead (v2.0.1).
 
 ## Registration
 
@@ -731,7 +751,7 @@ To use a separate guard for Martis:
 
 The panel then runs as that guard: `MartisAuthenticate` makes it the request's guard (v2.0.0+), so `$request->user()`, `auth()->user()`, the gates, the policies and the protected routes' throttle see the user it signed in, an instance of its provider's model. Type policies and gate closures for that model (or `Authenticatable`), give the model `Illuminate\Notifications\Notifiable` for the notification bell, and see [Upgrading → A custom Martis guard](upgrading.md#a-custom-martis-guard).
 
-The auth flows use that guard's provider: the login, the magic link, the registration and invitation accept (the email is unique among that guard's users), the email verification link, SSO and `php artisan martis:user`. Password reset uses the broker `MARTIS_AUTH_PASSWORD_BROKER` names (`users` by default): point it at a broker of `config/auth.php` whose provider is the Martis guard's. When that provider's model has its own table (`admins`), the Martis migrations reference it (the preferences and invitations foreign keys) and add the two-factor and avatar columns to it, and the Browser sessions section reads as unsupported, since the `sessions` table cannot tell an admin's id from a site user's (see [Browser sessions](#browser-sessions)).
+The auth flows use that guard's provider: the login, the magic link, the registration and invitation accept (the email is unique among that guard's users), the email verification link, SSO and `php artisan martis:user`. Password reset uses the password broker of that guard's users (see [Which password broker resets a password](#which-password-broker-resets-a-password)). When that provider's model has its own table (`admins`), the Martis migrations reference it (the preferences and invitations foreign keys) and add the two-factor and avatar columns to it, and the Browser sessions section reads as unsupported, since the `sessions` table cannot tell an admin's id from a site user's (see [Browser sessions](#browser-sessions)).
 
 ## User Profile
 

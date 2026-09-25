@@ -890,8 +890,11 @@ return [
             // competing pages live at once).
             'url' => env('MARTIS_AUTH_PASSWORD_RESET_URL'),
             // Laravel password broker name (config/auth.php → passwords.*).
-            // Most apps stay with the default 'users' broker.
-            'broker' => env('MARTIS_AUTH_PASSWORD_BROKER', 'users'),
+            // Unset: the app's default broker when its provider is the
+            // Martis guard's, else the first broker whose provider is.
+            // A broker of another provider throws: it would reset the
+            // password of another user (a site user) with that email.
+            'broker' => env('MARTIS_AUTH_PASSWORD_BROKER'),
         ],
         'registration' => [
             'enabled' => env('MARTIS_AUTH_REGISTRATION_ENABLED', false),

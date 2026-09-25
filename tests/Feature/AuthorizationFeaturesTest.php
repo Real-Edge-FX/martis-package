@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Auth\Access\Events\GateEvaluated;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -177,7 +178,7 @@ it('request-scoped ability cache memoises Gate decisions when feature flag is on
         [$post],
     ));
 
-    expect($cache->lookup($user->id, 'view-test-post', $post))->toBeTrue();
+    expect($cache->lookup($user, 'view-test-post', $post))->toBeTrue();
 });
 
 it('request-scoped ability cache short-circuits when feature flag is off', function () {
@@ -190,7 +191,57 @@ it('request-scoped ability cache short-circuits when feature flag is off', funct
 
     /** @var RequestScopedAbilityCache $cache */
     $cache = app(RequestScopedAbilityCache::class);
-    expect($cache->lookup($user->id, 'view-test-post', $post))->toBeNull();
+    expect($cache->lookup($user, 'view-test-post', $post))->toBeNull();
+});
+
+it('request-scoped ability cache keeps the answers of two user classes with the same id apart', function () {
+    config()->set('martis.authz.request_cache', true);
+
+    $post = AuthzTestPost::create(['title' => 'public']);
+    $admin = new class extends User
+    {
+        protected $table = 'martis_test_authz_admins';
+    };
+    $admin->forceFill(['id' => 5]);
+    $site = new AuthzTestUser;
+    $site->forceFill(['id' => 5]);
+
+    /** @var RequestScopedAbilityCache $cache */
+    $cache = app(RequestScopedAbilityCache::class);
+    $cache->clear();
+    $cache->handle(new GateEvaluated($admin, 'view-test-post', true, [$post]));
+
+    // Keyed on the id alone, the site user 5 read the admin 5's answer.
+    expect($cache->lookup($admin, 'view-test-post', $post))->toBeTrue()
+        ->and($cache->lookup($site, 'view-test-post', $post))->toBeNull();
+
+    $cache->handle(new GateEvaluated($site, 'view-test-post', false, [$post]));
+
+    expect($cache->lookup($site, 'view-test-post', $post))->toBeFalse()
+        ->and($cache->lookup($admin, 'view-test-post', $post))->toBeTrue()
+        ->and($cache->lookup(null, 'view-test-post', $post))->toBeNull();
+});
+
+it('request-scoped ability cache keys a user by its morph class', function () {
+    config()->set('martis.authz.request_cache', true);
+    $previous = Relation::$morphMap;
+    Relation::morphMap(['authz-user' => AuthzTestUser::class]);
+
+    try {
+        $post = AuthzTestPost::create(['title' => 'public']);
+        $user = AuthzTestUser::create(['email' => 'morph@example.com']);
+
+        /** @var RequestScopedAbilityCache $cache */
+        $cache = app(RequestScopedAbilityCache::class);
+        $cache->clear();
+        $cache->handle(new GateEvaluated($user, 'view-test-post', true, [$post]));
+
+        $keys = array_keys((fn (): array => $this->cache)->call($cache));
+        expect($keys)->toHaveCount(1)
+            ->and($keys[0])->toStartWith('10:authz-user|'.strlen((string) $user->id).':'.$user->id.'|view-test-post|');
+    } finally {
+        Relation::$morphMap = $previous;
+    }
 });
 
 // -----------------------------------------------------------------------------

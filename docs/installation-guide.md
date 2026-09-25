@@ -231,8 +231,6 @@ php artisan vendor:publish --tag=martis-avatar-migration
 php artisan migrate
 ```
 
-`martis:install` publishes the core migrations on every run, the avatar migration with `--with-profile` (as `*_add_martis_profile_picture_column_to_users_table.php`) and the two-factor migration with `--with-2fa` (as `*_add_martis_two_factor_columns_to_users_table.php`).
-
 `martis:install` publishes the core migrations on every run, the avatar migration with `--with-profile` (as `add_profile_picture_column`) and the two-factor migration with `--with-2fa` (as `*_add_martis_two_factor_columns_to_users_table.php`). Both add their columns to the table of the Martis guard's users: `users`, unless `MARTIS_GUARD` names a guard whose model has its own table.
 
 #### UUID / ULID / custom user PKs (v1.12.2+)
@@ -246,7 +244,30 @@ The published migrations adapt the `user_id` column (and the polymorphic `notifi
 | `use Illuminate\Database\Eloquent\Concerns\HasUlids;` | `foreignUlid('user_id')->constrained($table, $key)` |
 | `$keyType = 'string'` without `HasUuids` / `HasUlids` | `string('user_id')` + explicit `foreign()` |
 
-The polymorphic columns on `notifications` follow the same rule (`morphs` / `uuidMorphs` / `ulidMorphs`).
+#### The shared `sessions` and `notifications` tables
+
+`sessions` and `notifications` belong to the whole app, not to the panel: every `session` guard writes `sessions.user_id` (Laravel's database session handler stores the id of the request's guard), and the site's database notifications land in `notifications`. Their migrations (v2.0.1+) read the models of the Martis guard, the app's default guard and every `session` guard, and pick:
+
+| Those models' keys | `sessions.user_id` | `notifications.notifiable_*` |
+|---|---|---|
+| All auto-incrementing `bigint` | `foreignId()` (no constraint) | `morphs()` |
+| All `HasUuids` / all `HasUlids` | `uuid()` / `ulid()` | `uuidMorphs()` / `ulidMorphs()` |
+| `$keyType = 'string'`, or keys that differ (an `admins` guard keyed by UUID beside the site's bigint `users`) | `string()` | string `notifiable_type` / `notifiable_id` and their index |
+
+A string column holds an integer, a UUID and a ULID id alike; a typed one rejects the other guard's ids (PostgreSQL and MySQL answer `invalid input syntax for type bigint` / `Incorrect integer value` on every request that writes the session). Both migrations are skipped when the table exists, which is the common case: Laravel 11+'s `create_users_table` migration creates `sessions` with a `bigint` `user_id`, and `php artisan make:notifications-table` creates `morphs()`.
+
+**Symptom and fix when the table already exists.** With a Martis guard whose users are keyed by UUID or ULID (or a string) beside the site's bigint `users`, or the other way round, every panel request that writes the session (PostgreSQL: `SQLSTATE[22P02]: Invalid text representation: invalid input syntax for type bigint`; MySQL: `SQLSTATE[HY000]: General error: 1366 Incorrect integer value` for `user_id`), or every notification to the other guard's users, fails. Widen the column once, in a migration of your own (`doctrine/dbal` is not needed on Laravel 11+):
+
+```php
+Schema::table('sessions', function (Blueprint $table) {
+    $table->string('user_id')->nullable()->change();
+});
+Schema::table('notifications', function (Blueprint $table) {
+    $table->string('notifiable_id')->change();
+});
+```
+
+Keep the existing indexes (`change()` keeps them). An app that queries these columns itself with an integer (Jetstream's browser sessions, for instance) keeps working on MySQL and SQLite; on PostgreSQL compare with a string (`(string) $user->getAuthIdentifier()`) if a query joins `sessions.user_id` to an integer column.
 
 If your project uses a non-standard combination — for example, a custom string PK that does not register either canonical trait — set the `MARTIS_USER_ID_COLUMN_TYPE` env var to force the resolver. Accepted values: `bigint`, `uuid`, `ulid`, `string`.
 

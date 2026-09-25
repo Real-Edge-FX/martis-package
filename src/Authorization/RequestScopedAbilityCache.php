@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace Martis\Authorization;
 
 use Illuminate\Auth\Access\Events\GateEvaluated;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
+use Stringable;
 
 /**
  * Per-request memoisation of `$user->can(ability, $model)` results.
  *
- * Listens to `GateEvaluated` and caches `(user_id, ability, model_class, model_id)
- * → bool` for the duration of the current request. A subsequent
+ * Listens to `GateEvaluated` and caches `(user_class, user_id, ability,
+ * model_class, model_id) → bool` for the duration of the current request.
+ * The user is keyed by class (its morph class) as well as by id: the users
+ * of two guards (an admin and a site user) can share an id, and must not
+ * share each other's answers. A subsequent
  * lookup with the same inputs returns the cached value without
  * re-running the policy method.
  *
@@ -46,7 +51,7 @@ use Illuminate\Database\Eloquent\Model;
  * authorization block, action visibility) to short-circuit redundant
  * `$user->can()` calls within the same request. The package does not
  * yet call `lookup()` internally; when wiring it in, call
- * `app(RequestScopedAbilityCache::class)->lookup($userId, $ability, $model)`
+ * `app(RequestScopedAbilityCache::class)->lookup($user, $ability, $model)`
  * before any redundant `can()` check and skip the check when the
  * returned value is non-null.
  *
@@ -61,13 +66,14 @@ class RequestScopedAbilityCache
      * @return bool|null `null` when the call was not cacheable;
      *                   otherwise the cached or fresh result.
      */
-    public function lookup(int|string|null $userId, string $ability, mixed ...$arguments): ?bool
+    public function lookup(?Authenticatable $user, string $ability, mixed ...$arguments): ?bool
     {
-        if ($userId === null) {
+        $userKey = $user === null ? null : $this->userKey($user);
+        if ($userKey === null) {
             return null;
         }
 
-        $key = $this->makeKey($userId, $ability, $arguments);
+        $key = $this->makeKey($userKey, $ability, $arguments);
         if ($key === null) {
             return null;
         }
@@ -85,12 +91,12 @@ class RequestScopedAbilityCache
             return; // policy not registered — fall through to defaults
         }
 
-        $userId = $event->user?->getAuthIdentifier();
-        if ($userId === null) {
+        $userKey = $event->user === null ? null : $this->userKey($event->user);
+        if ($userKey === null) {
             return;
         }
 
-        $key = $this->makeKey($userId, $event->ability, $event->arguments ?? []);
+        $key = $this->makeKey($userKey, $event->ability, $event->arguments ?? []);
         if ($key === null) {
             return;
         }
@@ -104,9 +110,30 @@ class RequestScopedAbilityCache
     }
 
     /**
+     * The user's part of the key: its class (the morph class of a model) and
+     * its identifier, so an admin and a site user with the same id never
+     * share an entry. Null when the identifier cannot be keyed.
+     */
+    protected function userKey(Authenticatable $user): ?string
+    {
+        $id = $user->getAuthIdentifier();
+        if ($id instanceof Stringable) {
+            $id = (string) $id;
+        }
+        if (! is_int($id) && ! is_string($id)) {
+            return null;
+        }
+
+        $id = (string) $id;
+        $class = $user instanceof Model ? $user->getMorphClass() : $user::class;
+
+        return strlen($class).':'.$class.'|'.strlen($id).':'.$id;
+    }
+
+    /**
      * @param  array<int, mixed>  $arguments
      */
-    protected function makeKey(int|string $userId, string $ability, array $arguments): ?string
+    protected function makeKey(string $userKey, string $ability, array $arguments): ?string
     {
         $modelClass = null;
         $modelId = null;
@@ -132,6 +159,6 @@ class RequestScopedAbilityCache
             return null;
         }
 
-        return sprintf('%s|%s|%s|%s', (string) $userId, $ability, $modelClass, (string) ($modelId ?? ''));
+        return sprintf('%s|%s|%s|%s', $userKey, $ability, $modelClass, (string) ($modelId ?? ''));
     }
 }

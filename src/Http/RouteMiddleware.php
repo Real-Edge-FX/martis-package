@@ -3,6 +3,7 @@
 namespace Martis\Http;
 
 use InvalidArgumentException;
+use Martis\Auth\GuardCatalog;
 
 /**
  * The middleware of the Martis routes, in one place.
@@ -52,7 +53,8 @@ final class RouteMiddleware
     /**
      * The API rate limit (`martis.throttle.max_attempts` per
      * `martis.throttle.decay_minutes`, per user), or none when
-     * `martis.throttle.enabled` is false.
+     * `martis.throttle.enabled` is false. Its bucket carries the prefix
+     * `throttlePrefix('api')`.
      *
      * @return list<string>
      */
@@ -62,7 +64,24 @@ final class RouteMiddleware
             return [];
         }
 
-        return ['throttle:'.self::limit('martis.throttle.max_attempts', 120).','.self::limit('martis.throttle.decay_minutes', 1)];
+        return ['throttle:'.self::limit('martis.throttle.max_attempts', 120).','.self::limit('martis.throttle.decay_minutes', 1).','.self::throttlePrefix('api')];
+    }
+
+    /**
+     * The key prefix of a Martis `throttle:` bucket, the middleware's third
+     * parameter: `martis-{scope}:{Martis guard}:`.
+     *
+     * Laravel's `throttle:{max},{decay}` keys its bucket on `sha1()` of the
+     * user's identifier alone, so without a prefix the admin 5 of an
+     * `admins` guard and the site user 5 counted in one bucket whenever a
+     * site route used a plain `throttle` too, and two Martis throttles of
+     * different limits on one request (the API's and the 2FA challenge's)
+     * shared one counter. The scope keeps the Martis throttles apart, and
+     * the guard names the users the bucket counts.
+     */
+    public static function throttlePrefix(string $scope): string
+    {
+        return 'martis-'.$scope.':'.GuardCatalog::martis().':';
     }
 
     /**
