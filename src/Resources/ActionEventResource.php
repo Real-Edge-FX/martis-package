@@ -329,11 +329,9 @@ class ActionEventResource extends Resource
      * The target of the event, as the `MorphTo` display reads it.
      *
      * Nova's `MorphToActionTarget`: the target record's resource label
-     * and title, linked to its detail page when the viewer may view it.
-     * Martis shows the title only then: for a record the viewer may not
-     * view (or a record gone, or a model no resource exposes) it shows
-     * the label and the stored id, unlinked, so the log does not tell
-     * more about the record than its detail page would.
+     * and title, linked to its detail page only when the viewer may view
+     * it. A record gone, or a model no resource exposes, shows the label
+     * and the stored id.
      *
      * @return array{type: string, id: string, title: string, resourceType: string|null, resourceLabel?: string}|null
      */
@@ -371,18 +369,16 @@ class ActionEventResource extends Resource
         }
 
         $resource = new $resourceClass($record);
-
-        if (! $resource->authorizedToViewAny($request) || ! $resource->authorizedToView($request)) {
-            return $fallback;
-        }
-
         $title = $resource->title();
+        // As Nova's MorphToActionTarget: the title always, the link only
+        // when the viewer may view the record.
+        $viewable = $resource->authorizedToViewAny($request) && $resource->authorizedToView($request);
 
         return [
             'type' => $type,
             'id' => $id,
             'title' => $title !== '' ? $title : $id,
-            'resourceType' => $resourceClass::uriKey(),
+            'resourceType' => $viewable ? $resourceClass::uriKey() : null,
             'resourceLabel' => $label,
         ];
     }

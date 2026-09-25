@@ -252,13 +252,13 @@ it('shows the target as the resource title, linked, when the viewer may view it'
     ]);
 });
 
-it('shows only the label and the id, unlinked, for a target the viewer may not view', function () {
+it('shows the title, unlinked, for a target the viewer may not view, as Nova does', function () {
     $id = (string) $this->secret->getKey();
     $row = aerRow(aerEvent(['target_id' => $id]));
 
-    expect($row['target']['title'])->toBe('Project: '.$id)
+    expect($row['target']['title'])->toContain('Secret')
         ->and($row['target']['resourceType'])->toBeNull()
-        ->and(json_encode($row['target']))->not->toContain('Secret');
+        ->and($row['target']['resourceLabel'])->toBe('Project');
 });
 
 it('shows the label and the id for a target record that is gone or has no resource', function () {
