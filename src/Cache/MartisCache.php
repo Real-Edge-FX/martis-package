@@ -458,6 +458,12 @@ class MartisCache
         $stale = [];
         foreach ($store->getConnection()->table($table)->where('key', 'like', $prefix.'martis:cache:%')->select(['key', 'expiration'])->cursor() as $row) {
             $key = (string) $row->key;
+            // LIKE reads a `_` or `%` of the store prefix as a wildcard, so the
+            // query also returns the keys of another prefix sharing the table
+            // (`appXcache_` for `app_cache_`): only this store's keys are pruned.
+            if (! str_starts_with($key, $prefix.'martis:cache:')) {
+                continue;
+            }
             $expired = (int) $row->expiration <= $now;
             $hashed = (bool) preg_match('/^'.preg_quote($prefix, '/').'martis:cache:[^:@]+:h:/', $key);
             $current = array_filter($live, fn (string $p): bool => str_starts_with($key, $p)) !== [];

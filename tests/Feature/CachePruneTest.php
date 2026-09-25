@@ -55,6 +55,30 @@ it('deletes the database entries of an older version, an older counter and expir
         ->and($current->remember('schema', 'posts', fn () => 'recomputed'))->toBe('current');
 });
 
+it('leaves the keys of another store prefix that the LIKE wildcard matches', function () {
+    pruneDatabaseStore();
+    config()->set('cache.prefix', 'app_cache_');
+    Cache::forgetDriver('prune_db');
+    $store = Cache::store('prune_db');
+    // Another app sharing the table with the prefix `appXcache_`: it differs
+    // only where ours has a `_`, which LIKE reads as any character.
+    DB::table('prune_cache')->insert([
+        'key' => 'appXcache_martis:cache:schema@v9.9.9:v1:theirs',
+        'value' => serialize('theirs'),
+        'expiration' => time() + 3600,
+    ]);
+    $current = new MartisCache($store, 'v2.0.0');
+    $current->remember('schema', 'posts', fn () => 'current');
+
+    $result = $current->prune();
+
+    expect($result)->toMatchArray(['driver' => 'database', 'supported' => true, 'deleted' => 0])
+        ->and(DB::table('prune_cache')->orderBy('key')->pluck('key')->all())->toBe([
+            'appXcache_martis:cache:schema@v9.9.9:v1:theirs',
+            'app_cache_'.$current->buildKey('schema', 'posts'),
+        ]);
+});
+
 it('deletes the expired files of the file store and keeps the live ones', function () {
     $dir = sys_get_temp_dir().'/martis-prune-'.uniqid();
     config()->set('cache.stores.prune_file', ['driver' => 'file', 'path' => $dir]);

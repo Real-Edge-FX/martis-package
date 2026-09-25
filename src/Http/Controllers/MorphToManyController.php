@@ -99,7 +99,7 @@ class MorphToManyController extends MartisController
 
         // Sort: only a sortable field of the related resource the user can
         // see orders the rows.
-        $this->applyRequestedSort($request, $query, $relatedResourceClass);
+        $this->applyRequestedSort($request, $query, $relatedResourceClass, qualifyJsonPaths: true);
 
         // The relationship counts of the related rows' index columns, scoped
         // and aggregated in this query.
