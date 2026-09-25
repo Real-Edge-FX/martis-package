@@ -315,7 +315,7 @@ public function cacheFor(): ?\DateTimeInterface
 }
 ```
 
-A metric that overrides `cacheFor()` is cached with Laravel's `Cache::remember()` directly, outside the Martis layer, so the `metrics` kill-switch, the `?nocache` bypass and `martis:cache:clear` do not apply to it. Both paths key the result on the authenticated user (`$request->user()`, by model class and identifier; guests share one entry), the locale, the range and the filters, so a `calculate()` scoped to the user, their tenant or their permissions is never served to another user (v1.39.3+; before, the first user's value was served to everyone for the TTL). A user whose identifier is not an int, a string or `Stringable` gets no cached entry, and a metric whose value is the same for everyone can share one entry across users:
+A metric that overrides `cacheFor()` is cached with Laravel's `Cache::remember()` directly, outside the Martis layer, so the `metrics` kill-switch, the `?nocache` bypass and `martis:cache:clear` do not apply to it. Both paths key the result on the authenticated user (`$request->user()`, the user the Martis guard signed in, by model class and identifier; guests share one entry), the locale, the range and the filters, so a `calculate()` scoped to the user, their tenant or their permissions is never served to another user (v1.39.3+; before, the first user's value was served to everyone for the TTL). A user whose identifier is not an int, a string or `Stringable` gets no cached entry, and a metric whose value is the same for everyone can share one entry across users:
 
 ```php
 class TotalRevenue extends ValueMetric

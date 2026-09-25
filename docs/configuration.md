@@ -30,9 +30,9 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `guard` | `?string` | `null` | Authentication guard. `null` uses Laravel's default guard. |
+| `guard` | `?string` | `null` | Authentication guard. `null` uses Laravel's default guard. The panel's requests run as that guard (it becomes the request's guard), and the auth flows, the Martis migrations and `martis:user` use its provider: see [Upgrading → A custom Martis guard](upgrading.md#a-custom-martis-guard). |
 | `middleware` | `array` | `['web']` | Applied to all Martis routes (public and protected). |
-| `auth_middleware` | `array` | `['martis.auth']` | Applied to protected routes only. |
+| `auth_middleware` | `array` | `['martis.auth']` | Applied to protected routes only. `martis.auth` implements Laravel's `AuthenticatesRequests`, so the router's middleware priority runs it where it runs Laravel's `auth`: before the throttle, the route bindings and any middleware outside the priority list (v1.39.3+). |
 
 ## Brand
 
@@ -473,7 +473,7 @@ Shipped locales: `en` (English), `pt_BR` (Brazilian Portuguese), `pt_PT` (Europe
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `enabled` | `bool` | `true` | Set `false` to disable API rate limiting. |
-| `max_attempts` | `int` | `120` | Maximum requests per window. |
+| `max_attempts` | `int` | `120` | Maximum requests per window, per signed-in user of the Martis guard. |
 | `decay_minutes` | `int` | `1` | Rate limit window in minutes. |
 
 ## Theme
@@ -1004,7 +1004,7 @@ See [Loader](loader.md) for the surface-by-surface behaviour matrix.
 ```php
 'impersonation' => [
     'enabled' => env('MARTIS_IMPERSONATION_ENABLED', false),
-    'guard' => env('MARTIS_IMPERSONATION_GUARD', 'web'),
+    'guard' => env('MARTIS_IMPERSONATION_GUARD'), // null: the Martis guard
     'session_key' => env('MARTIS_IMPERSONATION_SESSION_KEY', 'martis.impersonation'),
 ],
 ```
@@ -1034,7 +1034,7 @@ The package can record three categories of administrative events into the `marti
 |---|---|---|
 | `role_changes` | `true` | Logs `role.attached` / `role.detached` rows whenever Spatie attaches or detaches a role. |
 | `impersonation` | `true` | Logs `impersonation.started` / `impersonation.stopped`. |
-| `authz_denials` | `false` | Records denied gate decisions as `authz.denied`. Off by default — turning it on can be noisy on a busy app. |
+| `authz_denials` | `false` | Records denied gate decisions as `authz.denied`, while the Martis guard is the request's guard. Off by default: turning it on can be noisy on a busy app. |
 | `authz_denials_include_viewany` | `false` | When `authz_denials` is on, also record `viewAny` denials. Off by default because index pages probe `viewAny` on every request. |
 
 The denial listener dedupes the same `(ability, model_class, model_id)` tuple within one request, so a sidebar that probes the same gate three times only emits one row.
@@ -1051,7 +1051,7 @@ The denial listener dedupes the same `(ability, model_class, model_id)` tuple wi
 | Key | Default | Effect |
 |---|---|---|
 | `request_cache` | `false` | Memoises `(user, ability, model)` gate results for the current request. Wins when a single request evaluates the same gate from many surfaces (sidebar, schema authorization block, action visibility). Per-request only — never crosses request boundaries. Closure gates with non-Model arguments are skipped. |
-| `revoke_sessions_on_demote` | `false` | When a role is detached from a user, force-logs out their existing browser sessions. Useful when promoting/demoting between admin tiers. |
+| `revoke_sessions_on_demote` | `false` | When a role is detached from a user, force-logs out their existing browser sessions. Useful when promoting/demoting between admin tiers. Skipped, with a warning, when the session guards sign in users of more than one table (a custom `MARTIS_GUARD` with its own model): the session rows cannot be told apart by id. |
 
 ## Magic-link sign-in (v1.8.8)
 
@@ -1164,7 +1164,7 @@ In addition to `MARTIS_IMPERSONATION_ENABLED` (covered above), the impersonation
 
 | Variable | Default | Effect |
 |---|---|---|
-| `MARTIS_IMPERSONATION_GUARD` | `web` | Auth guard the impersonation operates on. |
+| `MARTIS_IMPERSONATION_GUARD` | the Martis guard | Auth guard the impersonation operates on (v1.39.3+: unset follows `MARTIS_GUARD`, then the app's default guard; it was `web`). |
 | `MARTIS_IMPERSONATION_SESSION_KEY` | `martis.impersonation` | Session bag where the operator's id is stashed. |
 | `MARTIS_IMPERSONATION_MAX_DURATION` | `0` | Maximum session length in minutes. `0` disables the timeout. |
 | `MARTIS_IMPERSONATION_POLL_MS` | `120000` | Banner status poll interval in ms. Default 2 min — sessions change rarely. Set to `0` to disable polling (banner still mounts and reads state once per page load). v1.8.8. |
@@ -1404,7 +1404,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_FOOTER_TEXT` | `(no default)` |
 | `MARTIS_GUARD` | `null` |
 | `MARTIS_IMPERSONATION_ENABLED` | `false` |
-| `MARTIS_IMPERSONATION_GUARD` | `'web'` |
+| `MARTIS_IMPERSONATION_GUARD` | `null` (the Martis guard) |
 | `MARTIS_IMPERSONATION_MAX_DURATION` | `0` |
 | `MARTIS_IMPERSONATION_POLL_MS` | `120000` |
 | `MARTIS_IMPERSONATION_SESSION_KEY` | `'martis.impersonation'` |

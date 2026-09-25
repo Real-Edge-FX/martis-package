@@ -5,6 +5,7 @@ namespace Martis\Console;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
+use Martis\Auth\GuardCatalog;
 use Martis\Console\Concerns\AsksOnlyOnATerminal;
 
 class UserCommand extends Command
@@ -36,8 +37,9 @@ class UserCommand extends Command
             $email = (string) $this->ask('Email', 'admin@example.com');
         }
 
-        /** @var class-string<Model> $modelClass */
-        $modelClass = (string) config('auth.providers.users.model', 'App\\Models\\User');
+        // The users the Martis guard signs in (MARTIS_GUARD's provider, else
+        // the default guard's), as Nova's nova:user creates the Nova guard's.
+        $modelClass = GuardCatalog::martisUserModel();
 
         /** @var Model|null $existing */
         $existing = $modelClass::query()->where('email', $email)->first();
@@ -74,7 +76,10 @@ class UserCommand extends Command
         $user->setAttribute('name', $name);
         $user->setAttribute('email', $email);
         $user->setAttribute('password', Hash::make($password));
-        $user->setAttribute('email_verified_at', now());
+        // A Martis guard's own table may have no verification column.
+        if ($user->getConnection()->getSchemaBuilder()->hasColumn($user->getTable(), 'email_verified_at')) {
+            $user->setAttribute('email_verified_at', now());
+        }
         $user->save();
 
         $this->newLine();

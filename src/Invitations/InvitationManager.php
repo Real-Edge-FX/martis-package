@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Martis\Auth\DefaultRegistersUsers;
+use Martis\Auth\GuardCatalog;
 use Martis\Contracts\RegistersUsers;
 use Martis\Invitations\Events\InvitationAccepted;
 use Martis\Invitations\Events\InvitationCreated;
@@ -214,10 +215,10 @@ class InvitationManager
      * Resolve the Eloquent user model via the same GUARD -> PROVIDER -> model
      * chain as {@see DefaultRegistersUsers::userModel()}, so the
      * anti-takeover guard in {@see emailExists()} always checks the same
-     * table that {@see createUser()} (via `RegistersUsers`) writes to. Under
+     * table that {@see createUser()} (via `RegistersUsers`) writes to: the
+     * Martis guard's (MARTIS_GUARD, else the app's default guard). Under
      * the default setup (no `martis.guard` configured, `web` guard's
-     * provider is `users`) this resolves to `auth.providers.users.model`,
-     * matching the previous hardcoded lookup exactly.
+     * provider is `users`) this resolves to `auth.providers.users.model`.
      *
      * Unlike `DefaultRegistersUsers::userModel()`, this returns null instead
      * of throwing when no model is configured for the resolved provider —
@@ -229,7 +230,7 @@ class InvitationManager
      */
     private function userModel(): ?string
     {
-        $provider = config('auth.guards.'.config('martis.guard', 'web').'.provider', 'users');
+        $provider = config('auth.guards.'.GuardCatalog::martis().'.provider') ?: 'users';
 
         /** @var class-string<Model>|null $modelClass */
         $modelClass = config("auth.providers.{$provider}.model");

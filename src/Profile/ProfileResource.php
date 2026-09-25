@@ -5,7 +5,9 @@ namespace Martis\Profile;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rule;
+use Martis\Auth\GuardCatalog;
 use Martis\Contracts\ProfileResourceContract;
+use Martis\Support\ModelUniqueRule;
 
 /**
  * Default profile resource implementation.
@@ -41,12 +43,23 @@ class ProfileResource implements ProfileResourceContract
         return $data;
     }
 
-    /** {@inheritdoc} */
+    /**
+     * {@inheritdoc}
+     *
+     * The email is unique among the users of the signed-in user's own table
+     * (the Martis guard's model), not the app's `users`: with a custom
+     * MARTIS_GUARD, a site account's email is no conflict and another
+     * admin's is.
+     */
     public function updateRules(Authenticatable $user): array
     {
+        $unique = $user instanceof Model
+            ? ModelUniqueRule::make($user, 'email')->ignoreModel($user)
+            : Rule::unique(GuardCatalog::martisUserModel(), 'email')->ignore($user->getAuthIdentifier());
+
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique(config('auth.providers.users.model', 'App\\Models\\User'))->ignore($user->getAuthIdentifier())],
+            'email' => ['required', 'email', 'max:255', $unique],
         ];
     }
 
