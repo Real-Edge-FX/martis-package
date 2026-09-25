@@ -2,9 +2,10 @@
 
 Martis uses the standard Laravel policy system. Every write-side
 endpoint consults a Laravel policy; the frontend receives the resolved
-booleans and hides or disables controls accordingly. The backend remains
-the source of truth — every request is re-authorized server-side even if
-the UI was already hidden.
+booleans and hides or disables controls accordingly.
+
+The backend remains the source of truth: every request is re-authorized
+server-side even if the UI was already hidden.
 
 ## At a glance
 

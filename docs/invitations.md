@@ -4,7 +4,9 @@
 
 ## Why this exists
 
-Not every app wants an open `/register` page. Invite-only onboarding (agencies, internal tools, B2B admin panels, anything with a closed user base) is a different shape: a privileged operator decides who gets in, the invitee never chooses their own email, and the whole thing has to be safe against token-guessing and link-sharing. `Martis\Invitations` is that primitive — a package-owned `InvitationManager` plus a public accept screen, wired through the same `RegistersUsers` pipeline the rest of authentication uses.
+Not every app wants an open `/register` page. `Martis\Invitations` is the invite-only primitive: a package-owned `InvitationManager` plus a public accept screen, wired through the same `RegistersUsers` pipeline the rest of authentication uses.
+
+Invite-only onboarding (agencies, internal tools, B2B admin panels, anything with a closed user base) is a different shape: a privileged operator decides who gets in, the invitee never chooses their own email, and the whole thing has to be safe against token-guessing and link-sharing.
 
 ## Two-layer guard
 

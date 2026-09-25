@@ -1,40 +1,34 @@
 <?php
 
+use Martis\Support\DocDescription;
+
 /*
- * The docs site (martis-docs) takes each page's description, its search
- * excerpt and meta description, from the first paragraph after the title
- * that is not a blockquote, heading, list item, code fence or HTML
- * (deriveTitleAndDescription() in its scripts/sync-docs.mjs). A table or a
- * line of navigation there makes a poor description.
+ * The docs site takes each page's description, its search excerpt and meta
+ * description, from the first paragraph after the title that is not a
+ * blockquote, heading, list item, code fence or HTML, as plain text, and
+ * keeps its first 280 characters (deriveTitleAndDescription() in martis-docs
+ * scripts/sync-docs.mjs; DocDescription mirrors it). A table, a line of
+ * navigation or a paragraph the site cuts mid-word makes a poor description.
  */
 
+it('derives a description the way the docs site does', function () {
+    $markdown = "# Title\n\n> A summary line the site skips.\n\n## A heading\n\n- a list item\n\nThe **first** paragraph, with [a link](https://example.com)\nand `inline code`.\n\nThe second paragraph.";
+
+    expect(DocDescription::fromMarkdown($markdown))->toBe('The first paragraph, with a link and inline code.');
+});
+
 it('opens every docs page with a paragraph that describes it', function () {
-    $pages = glob(dirname(__DIR__, 2).'/docs/*.md') ?: [];
+    $root = dirname(__DIR__, 2).'/docs';
+    $pages = array_merge(glob($root.'/*.md') ?: [], glob($root.'/*/*.md') ?: []);
     expect($pages)->not->toBeEmpty();
 
     $weak = [];
     foreach ($pages as $page) {
-        $markdown = (string) file_get_contents($page);
-        if (preg_match('/^#\s+.+$/m', $markdown, $title, PREG_OFFSET_CAPTURE) !== 1) {
-            $weak[basename($page)] = 'no title';
+        $description = DocDescription::fromMarkdown((string) file_get_contents($page));
+        $length = mb_strlen($description);
 
-            continue;
-        }
-
-        $description = '';
-        $afterTitle = ltrim(substr($markdown, $title[0][1] + strlen($title[0][0])));
-        foreach (preg_split('/\n\s*\n/', $afterTitle) ?: [] as $paragraph) {
-            $paragraph = trim($paragraph);
-            if ($paragraph === '' || preg_match('/^[>#\-*]/', $paragraph) === 1 || str_starts_with($paragraph, '```') || str_starts_with($paragraph, '<')) {
-                continue;
-            }
-            $description = $paragraph;
-
-            break;
-        }
-
-        if (strlen($description) < 60 || str_starts_with($description, '|') || preg_match('/^(This (document|page|guide)|For |See )/', $description) === 1) {
-            $weak[basename($page)] = substr($description, 0, 80);
+        if ($length < 60 || $length > DocDescription::MAX_LENGTH || str_starts_with($description, '|') || preg_match('/^(This (document|page|guide)|For |See )/', $description) === 1) {
+            $weak[substr($page, strlen($root) + 1)] = "{$length} chars: ".mb_substr($description, 0, 80);
         }
     }
 

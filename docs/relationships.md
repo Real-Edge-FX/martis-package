@@ -1,6 +1,6 @@
 # Relationships
 
-Martis has a field for each Eloquent relationship: `BelongsTo`, `HasOne` and `HasMany` with their Through and one-of-many variants, `BelongsToMany`, and the polymorphic `MorphTo`, `MorphOne` (and `MorphOneOfMany`), `MorphMany` and `MorphToMany`. This guide covers how each one is declared, how it renders (a picker, a card or an inline panel) and how it is authorized.
+Martis has a field for every Eloquent relationship, from `BelongsTo` and `HasMany` to the polymorphic `MorphTo` and `MorphToMany`. This guide covers how each one is declared, how it renders (a picker, a card or an inline panel) and how it is authorized.
 
 ## Overview
 

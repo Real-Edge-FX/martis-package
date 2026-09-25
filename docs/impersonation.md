@@ -5,7 +5,9 @@
 
 ## Why this exists
 
-Support, debugging, and customer-success workflows often need an operator to see exactly what another user sees. The two alternatives — copying production data into staging or stashing magic links — are slow and lossy. Impersonation is the right primitive when you trust the operator and audit-log every session.
+Support, debugging, and customer-success workflows often need an operator to see exactly what another user sees. Impersonation is the right primitive when you trust the operator and audit-log every session.
+
+The two alternatives, copying production data into staging or stashing magic links, are slow and lossy.
 
 ## Two-layer guard
 
