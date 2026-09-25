@@ -154,6 +154,12 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
     relationshipType: 'has-one',
   })
 
+  // The relationship holds a record the user may not view: as Nova drops
+  // the panel, the card is not rendered at all (no Create, Edit or count).
+  if ((recordQuery.data as { meta?: { hidden?: boolean } } | undefined)?.meta?.hidden === true) {
+    return null
+  }
+
   if (recordQuery.isLoading) {
     return (
       <div className="py-4 text-sm" style={{ color: 'var(--martis-text-muted)' }}>

@@ -68,10 +68,17 @@ class MorphOneController extends MartisController
             'morphOneField' => $morphOneField,
         ] = $context;
 
-        $relatedModel = $this->viewableRelatedRecord($request, $relatedResourceClass, $morphOneField, $relation);
+        $relatedModel = $this->relatedRecord($morphOneField, $relation);
 
         if ($relatedModel === null) {
             return new IlluminateJsonResponse(['data' => null, 'meta' => [], 'links' => []], 200);
+        }
+
+        // A record the user may not view: as Nova, which drops the whole
+        // panel, the card is hidden (`meta.hidden`), with no Create, Edit or
+        // count, so it neither shows the record nor offers a second one.
+        if (! (new $relatedResourceClass($relatedModel))->authorizedToView($request)) {
+            return new IlluminateJsonResponse(['data' => null, 'meta' => ['hidden' => true], 'links' => []], 200);
         }
 
         $resInstance = new $relatedResourceClass($relatedModel);
@@ -154,10 +161,18 @@ class MorphOneController extends MartisController
             'parentResourceClass' => $resourceClass,
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
+            'morphOneField' => $morphOneField,
         ] = $context;
 
-        if ($relation->exists()) {
-            return JsonErrorResponse::serverError('A related record already exists for this relationship.')->toResponse();
+        // A MorphOne holds one record: a second one is refused with a 422, as
+        // Nova refuses a second HasOne ("The HasOne relationship has already
+        // been filled.", nova-dusk-suite lang/vendor/nova/en.json), whether or not
+        // the user may view the one there. A one-of-many card sits on a many
+        // relationship, which takes more records, as in Nova.
+        if (! $morphOneField instanceof MorphOneOfMany && $relation->exists()) {
+            return JsonErrorResponse::validation(
+                [$relationship => ['The MorphOne relationship has already been filled.']],
+            )->toResponse();
         }
 
         $parentInstance = new $resourceClass($parentModel);

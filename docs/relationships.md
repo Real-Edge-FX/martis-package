@@ -506,9 +506,22 @@ hides the panel when the related `view` policy denies the record
 Nova reads it with a detail query,
 [nova-issues#4120](https://github.com/laravel/nova-issues/discussions/4120)),
 a `HasOne`, `HasOneOfMany`, `HasOneThrough`, `MorphOne` or `MorphOneOfMany`
-card shows its record only when the user may `view` it. A record the policy
-denies reads as no record: the card is empty and its Edit and Delete answer
-404. Like the resource's own detail page, the card does not apply the related
+card shows its record only when the user may `view` it. When the policy
+denies the record the card is not rendered at all, as Nova drops the panel:
+no heading, no Create (which would add a second record to a `HasOne`), no
+Edit, no count. The card's endpoint answers `data: null` with
+`meta.hidden: true` then (a card with no record answers `data: null` alone),
+and its Edit and Delete answer 404.
+
+**A `HasOne` or `MorphOne` takes one record.** Creating a second one through
+the card's endpoint answers `422` (`The HasOne relationship has already been
+filled.`, Nova's wording,
+[nova-dusk-suite lang](https://raw.githubusercontent.com/laravel/nova-dusk-suite/10.4/lang/vendor/nova/en.json)),
+whether or not the user may view the record already there; Nova hides the
+Create button once a record exists
+([HasOneRelationTest](https://github.com/laravel/nova-dusk-suite/blob/10.4/tests/Browser/HasOneRelationTest.php)).
+Before v2.0 it answered `500`. A one-of-many card sits on a many
+relationship and takes more records, as in Nova. Like the resource's own detail page, the card does not apply the related
 resource's `indexQuery()`; the one-of-many "1 of N" count and the
 `aggregateVia()` tile, which count a list, do (see below).
 

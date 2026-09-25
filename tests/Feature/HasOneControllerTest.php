@@ -185,7 +185,9 @@ it('has-one store rejects creation when related already exists', function () {
         ['bio' => 'Duplicate']
     );
 
-    $response->assertStatus(500);
+    // As Nova: a validation error, not a server error.
+    $response->assertStatus(422);
+    expect(HOChildModel::where('parent_id', $parent->id)->count())->toBe(1);
 });
 
 // ---------------------------------------------------------------------------

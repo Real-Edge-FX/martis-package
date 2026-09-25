@@ -72,10 +72,17 @@ class HasOneController extends MartisController
             'hasOneField' => $hasOneField,
         ] = $context;
 
-        $relatedModel = $this->viewableRelatedRecord($request, $relatedResourceClass, $hasOneField, $relation);
+        $relatedModel = $this->relatedRecord($hasOneField, $relation);
 
         if ($relatedModel === null) {
             return new IlluminateJsonResponse(['data' => null, 'meta' => [], 'links' => []], 200);
+        }
+
+        // A record the user may not view: as Nova, which drops the whole
+        // panel, the card is hidden (`meta.hidden`), with no Create, Edit or
+        // count, so it neither shows the record nor offers a second one.
+        if (! (new $relatedResourceClass($relatedModel))->authorizedToView($request)) {
+            return new IlluminateJsonResponse(['data' => null, 'meta' => ['hidden' => true], 'links' => []], 200);
         }
 
         $resInstance = new $relatedResourceClass($relatedModel);
@@ -175,11 +182,18 @@ class HasOneController extends MartisController
             'parentResourceClass' => $resourceClass,
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
+            'hasOneField' => $hasOneField,
         ] = $context;
 
-        // Guard: cannot create if one already exists
-        if ($relation->exists()) {
-            return JsonErrorResponse::serverError('A related record already exists for this relationship.')->toResponse();
+        // A HasOne holds one record: a second one is refused with a 422, as
+        // Nova refuses it ("The HasOne relationship has already been
+        // filled.", nova-dusk-suite lang/vendor/nova/en.json), whether or not
+        // the user may view the one there. A one-of-many card sits on a many
+        // relationship, which takes more records, as in Nova.
+        if (! $hasOneField instanceof HasOneOfMany && $relation->exists()) {
+            return JsonErrorResponse::validation(
+                [$relationship => ['The HasOne relationship has already been filled.']],
+            )->toResponse();
         }
 
         // Check parent resource authorizedToAdd for this related model class

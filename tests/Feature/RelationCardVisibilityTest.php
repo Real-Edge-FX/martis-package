@@ -4,12 +4,14 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne as EloquentHasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough as EloquentHasOneThrough;
 use Illuminate\Database\Eloquent\Relations\MorphMany as EloquentMorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne as EloquentMorphOne;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Martis\Enums\AggregateFunction;
 use Martis\Fields\HasOne;
+use Martis\Fields\HasOneThrough;
 use Martis\Fields\MorphOne;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
@@ -42,6 +44,16 @@ class RCVParentModel extends Model
         return $this->hasMany(RCVNoteModel::class, 'parent_id');
     }
 
+    public function newestNote(): EloquentHasOne
+    {
+        return $this->hasOne(RCVNoteModel::class, 'parent_id')->latestOfMany('written_at');
+    }
+
+    public function project(): EloquentHasOneThrough
+    {
+        return $this->hasOneThrough(RCVProjectModel::class, RCVTeamModel::class, 'parent_id', 'team_id');
+    }
+
     public function comment(): EloquentMorphOne
     {
         return $this->morphOne(RCVCommentModel::class, 'commentable');
@@ -65,6 +77,20 @@ class RCVCommentModel extends Model
     protected $table = 'rcv_comments';
 
     protected $fillable = ['title', 'amount', 'written_at', 'commentable_type', 'commentable_id'];
+}
+
+class RCVTeamModel extends Model
+{
+    protected $table = 'rcv_teams';
+
+    protected $fillable = ['parent_id', 'title'];
+}
+
+class RCVProjectModel extends Model
+{
+    protected $table = 'rcv_projects';
+
+    protected $fillable = ['title', 'team_id'];
 }
 
 /** Hides "By index" from the index; the "Private" record may not be viewed. */
@@ -117,6 +143,19 @@ class RCVCommentResource extends RCVRelatedResource
     }
 }
 
+class RCVProjectResource extends RCVRelatedResource
+{
+    public static function model(): string
+    {
+        return RCVProjectModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rcv-projects';
+    }
+}
+
 class RCVParentResource extends Resource
 {
     public static function model(): string
@@ -137,16 +176,32 @@ class RCVParentResource extends Resource
             MorphOne::make('Comment', 'comment')->relatedResource('rcv-comments'),
             HasOne::ofMany('Latest note', 'notes', RCVNoteResource::class)->latestByTimestamp('written_at')->aggregateVia(AggregateFunction::Sum, 'amount'),
             MorphOne::ofMany('Latest comment', 'comments', RCVCommentResource::class)->latestByTimestamp('written_at')->aggregateVia(AggregateFunction::Sum, 'amount'),
+            HasOne::ofMany('Newest note', 'newestNote', RCVNoteResource::class)->aggregateVia(AggregateFunction::Sum, 'amount'),
+            HasOneThrough::make('Project', 'project')->relatedResource('rcv-projects'),
         ];
     }
 }
 
+const RCV_TABLES = ['rcv_projects', 'rcv_teams', 'rcv_comments', 'rcv_notes', 'rcv_parents'];
+
 beforeEach(function () {
     $this->withoutMiddleware(MartisAuthenticate::class);
 
-    foreach (['rcv_comments', 'rcv_notes', 'rcv_parents'] as $table) {
+    foreach (RCV_TABLES as $table) {
         Schema::dropIfExists($table);
     }
+    Schema::create('rcv_teams', function ($table) {
+        $table->id();
+        $table->unsignedBigInteger('parent_id');
+        $table->string('title')->default('Team');
+        $table->timestamps();
+    });
+    Schema::create('rcv_projects', function ($table) {
+        $table->id();
+        $table->unsignedBigInteger('team_id');
+        $table->string('title');
+        $table->timestamps();
+    });
     Schema::create('rcv_parents', function ($table) {
         $table->id();
         $table->string('name');
@@ -171,7 +226,7 @@ beforeEach(function () {
 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
-    foreach ([RCVNoteResource::class, RCVCommentResource::class, RCVParentResource::class] as $class) {
+    foreach ([RCVNoteResource::class, RCVCommentResource::class, RCVProjectResource::class, RCVParentResource::class] as $class) {
         $registry->register($class);
     }
 
@@ -179,7 +234,7 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    foreach (['rcv_comments', 'rcv_notes', 'rcv_parents'] as $table) {
+    foreach (RCV_TABLES as $table) {
         Schema::dropIfExists($table);
     }
     app(ResourceRegistry::class)->flush();
@@ -196,12 +251,16 @@ dataset('rcv cards', [
     'morph-one' => ['morph-one/comment', 'comments'],
     'has-one of many' => ['has-one/notes', 'notes'],
     'morph-one of many' => ['morph-one/comments', 'comments'],
+    'has-one of many, Eloquent latestOfMany()' => ['has-one/newestNote', 'notes'],
 ]);
 
-it('shows an empty card for a record the user may not view, and refuses to write it', function (string $path, string $relation) {
+it('hides the card of a record the user may not view, and refuses to write it', function (string $path, string $relation) {
     $record = $this->parent->{$relation}()->create(['title' => 'Private', 'written_at' => now()]);
 
-    $this->getJson(rcvCard($path))->assertOk()->assertJsonPath('data', null);
+    $this->getJson(rcvCard($path))->assertOk()
+        ->assertJsonPath('data', null)
+        ->assertJsonPath('meta.hidden', true)
+        ->assertJsonMissingPath('meta.ofMany');
     $this->putJson(rcvCard($path), ['title' => 'Renamed'])->assertStatus(404);
     $this->deleteJson(rcvCard($path))->assertStatus(404);
 
@@ -211,7 +270,9 @@ it('shows an empty card for a record the user may not view, and refuses to write
 it('shows and writes a record the user may view (control)', function (string $path, string $relation) {
     $record = $this->parent->{$relation}()->create(['title' => 'Visible', 'written_at' => now()]);
 
-    $this->getJson(rcvCard($path))->assertOk()->assertJsonPath('data.id', $record->id);
+    $this->getJson(rcvCard($path))->assertOk()
+        ->assertJsonPath('data.id', $record->id)
+        ->assertJsonMissingPath('meta.hidden');
     $this->putJson(rcvCard($path), ['title' => 'Renamed'])->assertOk();
 
     expect($record->fresh()->title)->toBe('Renamed');
@@ -226,6 +287,49 @@ it('counts in "1 of N" and the aggregate only the records the related index list
 
     expect($meta['totalCount'])->toBe(1)
         ->and((int) $meta['aggregate']['value'])->toBe(1);
+})->with([
+    'has-one of many' => ['has-one/notes', 'notes'],
+    'morph-one of many' => ['morph-one/comments', 'comments'],
+    'has-one of many, Eloquent latestOfMany()' => ['has-one/newestNote', 'notes'],
+]);
+
+it('reports no hidden record on a card that has none', function (string $path) {
+    $this->getJson(rcvCard($path))->assertOk()
+        ->assertJsonPath('data', null)
+        ->assertJsonMissingPath('meta.hidden');
+})->with(['has-one' => ['has-one/profile'], 'morph-one' => ['morph-one/comment']]);
+
+it('hides a has-one-through card whose record the user may not view, and shows a viewable one', function () {
+    $team = RCVTeamModel::create(['parent_id' => $this->parent->id]);
+    $project = RCVProjectModel::create(['title' => 'Private', 'team_id' => $team->id]);
+
+    $this->getJson(rcvCard('has-one/project'))->assertOk()->assertJsonPath('meta.hidden', true);
+    $this->deleteJson(rcvCard('has-one/project'))->assertStatus(404);
+    expect($project->fresh())->not->toBeNull();
+
+    $project->update(['title' => 'Visible']);
+    $this->getJson(rcvCard('has-one/project'))->assertOk()->assertJsonPath('data.id', $project->id);
+});
+
+it('refuses a second record on a has-one or morph-one card, even when the one there is hidden from the user', function (string $path, string $relation, string $kind) {
+    $this->parent->{$relation}()->create(['title' => 'Private']);
+
+    $this->postJson(rcvCard($path), ['title' => 'Second'])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.message', "The {$kind} relationship has already been filled.");
+
+    expect($this->parent->{$relation}()->count())->toBe(1);
+})->with([
+    'has-one' => ['has-one/profile', 'notes', 'HasOne'],
+    'morph-one' => ['morph-one/comment', 'comments', 'MorphOne'],
+]);
+
+it('takes another record on a one-of-many card, which sits on a many relationship, as in Nova', function (string $path, string $relation) {
+    $this->parent->{$relation}()->create(['title' => 'First', 'written_at' => now()->subDay()]);
+
+    $this->postJson(rcvCard($path), ['title' => 'Second'])->assertStatus(201);
+
+    expect($this->parent->{$relation}()->count())->toBe(2);
 })->with([
     'has-one of many' => ['has-one/notes', 'notes'],
     'morph-one of many' => ['morph-one/comments', 'comments'],
