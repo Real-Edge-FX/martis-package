@@ -217,7 +217,7 @@ class SearchResolver
             }
             $value = $token['value'];
             $query->where(function (Builder $q) use ($byAttribute, $token, $value, $likeOp): void {
-                $q->where($byAttribute[$token['field']]->attribute(), $likeOp, "%{$value}%");
+                $q->where($q->qualifyColumn($byAttribute[$token['field']]->attribute()), $likeOp, "%{$value}%");
             });
             $appliedTokens++;
         }
@@ -252,7 +252,9 @@ class SearchResolver
         if ($freeText !== '' && ($searchableFields !== [] || $relations !== [])) {
             $query->where(function (Builder $q) use ($searchableFields, $relations, $freeText, $likeOp): void {
                 foreach ($searchableFields as $field) {
-                    $q->orWhere($field->attribute(), $likeOp, "%{$freeText}%");
+                    // Qualified: the query may join a table with the same column
+                    // (a hasManyThrough panel lists its records through one).
+                    $q->orWhere($q->qualifyColumn($field->attribute()), $likeOp, "%{$freeText}%");
                 }
 
                 foreach ($relations as $path) {
@@ -286,7 +288,7 @@ class SearchResolver
                 $bindings = [];
                 $like = '%'.$freeText.'%';
                 foreach ($searchableFields as $field) {
-                    $cases[] = 'WHEN '.$connection->getQueryGrammar()->wrap($field->attribute()).' LIKE ? THEN '.((int) $field->getSearchPriority());
+                    $cases[] = 'WHEN '.$connection->getQueryGrammar()->wrap($query->qualifyColumn($field->attribute())).' LIKE ? THEN '.((int) $field->getSearchPriority());
                     $bindings[] = $like;
                 }
                 if ($cases !== []) {

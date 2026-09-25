@@ -110,7 +110,11 @@ class HasManyController extends MartisController
             100,
         );
 
-        $paginator = $query->paginate($perPage);
+        // Paginate through the relation, not its bare query: a hasManyThrough
+        // selects only the related table's columns (plus its through key)
+        // there. The bare query selected both tables of the join, so the
+        // intermediate's id, timestamps and deleted_at overwrote the record's.
+        $paginator = $relation->paginate($perPage);
 
         /** @var list<array<string, mixed>> $data */
         $data = array_values(
