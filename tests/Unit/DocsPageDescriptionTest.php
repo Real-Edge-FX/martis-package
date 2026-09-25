@@ -16,13 +16,16 @@ use Martis\Support\DocDescription;
 /** The text up to the first `.`, `!` or `?` followed by a space, or all of it. */
 function docFirstSentence(string $description): string
 {
-    return preg_split('/(?<=[.!?])\s+/u', $description, 2)[0];
+    // A full stop after "e.g.", "i.e." or an ellipsis does not end the sentence.
+    return preg_split('/(?<!\be\.g\.)(?<!\bi\.e\.)(?<!\.\.\.)(?<=[.!?])\s+/u', $description, 2)[0];
 }
 
 it('takes a description\'s first sentence up to the first full stop followed by a space', function () {
     expect(docFirstSentence('Martis reads `config/martis.php`. Publish it first.'))->toBe('Martis reads `config/martis.php`.')
         ->and(docFirstSentence('One sentence without a break'))->toBe('One sentence without a break')
-        ->and(docFirstSentence('Is it here? Yes.'))->toBe('Is it here?');
+        ->and(docFirstSentence('Is it here? Yes.'))->toBe('Is it here?')
+        ->and(docFirstSentence('A field, e.g. a date, i.e. a value... Then more.'))->toBe('A field, e.g. a date, i.e. a value... Then more.')
+        ->and(docFirstSentence('Ends here. e.g. not a sentence.'))->toBe('Ends here.');
 });
 
 it('derives a description the way the docs site does', function () {
@@ -54,6 +57,14 @@ it('opens every docs page with a paragraph that describes it', function () {
         // invalid escape and breaks the sync.
         if (str_contains($description, '\\')) {
             $weak[$name] = 'backslash: '.mb_substr($description, 0, 80);
+
+            continue;
+        }
+
+        // The site shows the description as the page's excerpt; the docs
+        // write no em dash there.
+        if (str_contains($description, '—')) {
+            $weak[$name] = 'em dash: '.mb_substr($description, 0, 80);
 
             continue;
         }

@@ -1,6 +1,6 @@
 # Quick Start
 
-Build your first Martis resource in five minutes, from a fresh install to a working admin page for a `Client` model. By the end you will have a fully working CRUD surface with a searchable name, a sortable creation date, a coloured status badge, and one bulk action.
+Build your first Martis resource in five minutes, from `make:model` to a working admin page for a `Client` model. By the end you will have a fully working CRUD surface with a searchable name, a sortable creation date, a coloured status badge, and one bulk action.
 
 This guide assumes Martis is already installed. If not, see [Installation](installation-guide.md).
 

@@ -1,6 +1,6 @@
 # Resources — Complete Reference
 
-The `Resource` class is the core building block of Martis, one class per Eloquent model you administer. Each resource defines its model's CRUD interface, fields, authorization, and behavior.
+The `Resource` class is the core building block of Martis, and each resource maps to the Eloquent model you administer through it. It defines the model's CRUD interface, fields, authorization, and behavior.
 
 ## Creating a Resource
 
