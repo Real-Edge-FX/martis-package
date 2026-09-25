@@ -249,7 +249,7 @@ class ToolMakeCommand extends GeneratorCommand
         }
 
         if (! $this->canPrompt()) {
-            $this->components->error('Aborting (non-interactive). Pass --force to overwrite.');
+            $this->components->error('The React component already exists. Pass --force to overwrite.');
 
             return false;
         }

@@ -112,7 +112,7 @@ class FieldMakeCommand extends Command
         if ($this->files->exists($path)) {
             if ($this->option('force') !== true) {
                 if (! $this->canPrompt()) {
-                    $this->components->warn("TSX component already exists: {$relative}");
+                    $this->components->error("TSX component already exists: {$relative}");
                     $this->line('  Pass <fg=cyan>--force</> to overwrite.');
 
                     return false;

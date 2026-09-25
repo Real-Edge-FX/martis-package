@@ -119,8 +119,10 @@ class ComponentMakeCommand extends Command
         $relative = "resources/js/martis-extensions/overrides/{$filename}.tsx";
         $absolutePath = base_path($relative);
 
+        // A file that exists is left alone with an error line and exit 0,
+        // as Laravel's GeneratorCommand (and Nova's generators) do.
         if (! $this->confirmCollision($relative, $absolutePath)) {
-            return self::FAILURE;
+            return self::SUCCESS;
         }
 
         $this->writeStub($piece['stub'], $absolutePath, [
@@ -170,8 +172,10 @@ class ComponentMakeCommand extends Command
         $relative = "resources/js/martis-extensions/overrides/{$className}.tsx";
         $absolutePath = base_path($relative);
 
+        // A file that exists is left alone with an error line and exit 0,
+        // as Laravel's GeneratorCommand (and Nova's generators) do.
         if (! $this->confirmCollision($relative, $absolutePath)) {
-            return self::FAILURE;
+            return self::SUCCESS;
         }
 
         $this->writeStub("component-{$type}.tsx.stub", $absolutePath, [
@@ -269,7 +273,7 @@ class ComponentMakeCommand extends Command
             return true;
         }
         if (! $this->canPrompt()) {
-            $this->error("Component already exists: {$relative}  (re-run with --force to overwrite)");
+            $this->components->error("Component already exists: {$relative}. Pass --force to overwrite.");
 
             return false;
         }

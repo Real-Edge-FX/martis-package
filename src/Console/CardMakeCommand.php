@@ -120,7 +120,7 @@ class CardMakeCommand extends GeneratorCommand
         if (file_exists($componentPath)) {
             if ($this->option('force') !== true) {
                 if (! $this->canPrompt()) {
-                    $this->components->warn("React component already exists: {$relative}");
+                    $this->components->error("React component already exists: {$relative}");
                     $this->line('  Pass <fg=cyan>--force</> to overwrite.');
 
                     return false;

@@ -38,18 +38,19 @@ class ThemeMakeCommand extends Command
         }
 
         if (file_exists($path) && ! $this->option('force')) {
-            // Without a terminal (CI, pipes, unit tests) prompting is not
-            // possible: fail explicitly so automation knows to pass --force.
+            // Without a terminal (CI, pipes, unit tests) nothing is asked:
+            // the theme is left alone with an error line and exit 0, as
+            // Laravel's GeneratorCommand (and Nova's generators) do.
             if (! $this->canPrompt()) {
-                $this->components->error("Theme '{$name}.css' already exists. Use --force to overwrite.");
+                $this->components->error("Theme '{$name}.css' already exists. Pass --force to overwrite.");
 
-                return self::FAILURE;
+                return self::SUCCESS;
             }
 
             if (! $this->confirm("Theme '{$name}.css' already exists. Overwrite?")) {
                 $this->components->warn('Aborted.');
 
-                return self::FAILURE;
+                return self::SUCCESS;
             }
         }
 

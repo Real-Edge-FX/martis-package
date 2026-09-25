@@ -45,8 +45,12 @@ php artisan martis:user
 # Visit http://your-app.test/martis
 ```
 
-The command prompts for the email, name and password it does not receive as
-options (`--email`, `--name`, `--password`). By default it is **create-only**:
+On a terminal the command prompts for the email, name and password it does
+not receive as options (`--email`, `--name`, `--password`). Without one (CI, a
+container entrypoint, a pipe, `--no-interaction`) it asks nothing: `--email`
+and `--password` are required (a missing one is named, the command exits 1 and
+no user is created or changed) and the name defaults to `Martis Admin`, since
+v2.0.0. By default it is **create-only**:
 when a user with that email already exists it prints an error and exits with a
 non-zero status, so a script cannot accidentally overwrite an account.
 
@@ -427,7 +431,7 @@ That's it. The Tool is auto-registered (since v1.8.20), the React component is a
 
 ### Collision detection
 
-Each generator (`martis:tool`, `martis:field`, `martis:card`, `martis:component`) checks for both the destination PHP file AND the destination TSX file before writing. When either exists, the command lists the conflicting paths and asks `[y/N]` whether to overwrite. `--force` skips the prompt. In a non-interactive shell (e.g. CI) the command aborts with an error code unless `--force` was passed.
+Each generator (`martis:tool`, `martis:field`, `martis:card`, `martis:component`) checks for both the destination PHP file AND the destination TSX file before writing. When either exists, the command lists the conflicting paths and asks `[y/N]` whether to overwrite. `--force` skips the prompt. Without a terminal (CI, a pipe, `--no-interaction`) nothing is asked: the command prints that the file already exists, writes nothing and exits 0 unless `--force` was passed, as Laravel's own `make:*` generators do. `martis:theme` behaves the same for an existing theme.
 
 ### How the registry is exposed
 
