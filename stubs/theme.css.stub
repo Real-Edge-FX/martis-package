@@ -1,9 +1,11 @@
 /*
  * Martis Theme: {{ name }}
  *
- * Full design-token scaffold. Every CSS variable consumed by Martis
- * is declared here in both dark and light modes, with accent variants,
- * density tokens, and motion tokens. Override any value in this file,
+ * Full design-token scaffold. Every CSS variable martis.css defines is
+ * declared here: the mode-dependent ones in both the dark (:root) and the
+ * light (html:not(.dark)) block, the others once in :root, with accent
+ * variants, density tokens and motion tokens. The two brand logo heights
+ * are commented out: they come from MARTIS_BRAND_LOGO_HEIGHT_*. Override any value in this file,
  * resources/css/martis/{{ name }}.css, then publish it and reload the
  * panel (no Vite rebuild):
  *
@@ -32,9 +34,9 @@
   --martis-radius-full: 9999px;
 
   /* Typography */
-  --martis-font-sans:    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --martis-font-sans:    'Inter var', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --martis-font-mono:    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --martis-font-heading: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --martis-font-heading: 'Inter var', 'Inter', ui-sans-serif, system-ui, sans-serif;
 
   --martis-text-xs:   12px;
   --martis-text-sm:   14px;
@@ -195,7 +197,7 @@ html[data-theme="dark"] {
 
   /* PrimeReact bridge — map PrimeReact tokens to the Martis palette. */
   --primary-color:         var(--martis-accent);
-  --primary-color-text:    #ffffff;
+  --primary-color-text:    var(--martis-accent-contrast, #ffffff);
   --primary-50:            var(--martis-accent-bg-light);
   --primary-100:           var(--martis-accent-bg);
   --surface-a:             var(--martis-surface);
@@ -374,6 +376,24 @@ html[data-theme="light"] {
   --martis-trix-icon-filter:   none;
 
   color-scheme: light;
+
+  /* Avatar palette (initials backgrounds) */
+  --martis-avatar-1:       #2563EB;
+  --martis-avatar-2:       #059669;
+  --martis-avatar-3:       #DB2777;
+  --martis-avatar-4:       #D97706;
+  --martis-avatar-5:       #7C3AED;
+  --martis-avatar-6:       #0891B2;
+  --martis-avatar-7:       #EA580C;
+  --martis-avatar-8:       #DC2626;
+  --martis-avatar-9:       #16A34A;
+  --martis-avatar-10:      #9333EA;
+  --martis-avatar-11:      #4F46E5;
+  --martis-avatar-12:      #0D9488;
+  --martis-avatar-13:      #C026D3;
+  --martis-avatar-14:      #65A30D;
+  --martis-avatar-15:      #BE185D;
+  --martis-avatar-16:      #475569;
 }
 
 /* ============================================================
@@ -517,14 +537,19 @@ html[data-reduced-motion="true"] {
 
 /* ============================================================
    BRAND LOGO HEIGHTS
-   Optional override for the bundled logo lockup heights. Useful
-   when the consumer ships a wider/taller mark and wants to
-   harmonise vertical rhythm without forking the React layout.
+   Set from .env by default: MARTIS_BRAND_LOGO_HEIGHT_MENU (40px,
+   the sidebar and top navigation brand) and
+   MARTIS_BRAND_LOGO_HEIGHT_AUTH (48px, the auth screen lockup),
+   written on :root by the panel's layout. Uncomment and define them
+   here only to override those knobs for this theme: a value here
+   wins over the .env one.
    ============================================================ */
+/*
 :root {
-  --martis-brand-logo-height-auth: 48px;  /* auth screen lockup */
-  --martis-brand-logo-height-menu: 28px;  /* user dropdown menu */
+  --martis-brand-logo-height-auth: 48px;
+  --martis-brand-logo-height-menu: 40px;
 }
+*/
 
 /* ============================================================
    PRINT MODE
@@ -533,7 +558,7 @@ html[data-reduced-motion="true"] {
    tokens to keep the print mode on-brand.
    ============================================================ */
 :root {
-  --martis-print-bg:         #FFFFFF;
+  --martis-print-bg:         #ffffff;
   --martis-print-text:       #000000;
   --martis-print-border:     #000000;
   --martis-print-link-color: #000000;

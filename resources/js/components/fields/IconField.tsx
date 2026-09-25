@@ -174,7 +174,7 @@ export function IconFieldInput({ field, value, onChange, error }: FieldInputProp
         disabled={field.readonly}
         className="flex items-center justify-between gap-2 rounded-md border transition-colors focus:outline-none focus-visible:ring-2"
         style={{
-          height: 'var(--martis-input-height, 2.25rem)',
+          height: 'var(--martis-input-h, 2.25rem)',
           paddingLeft: '0.625rem',
           paddingRight: '0.5rem',
           borderColor: error ? 'var(--martis-danger)' : open ? 'var(--martis-accent)' : 'var(--martis-border)',

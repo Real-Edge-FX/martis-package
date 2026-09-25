@@ -121,13 +121,13 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
 
       {loadingSetup ? (
         <div className="flex items-center justify-center h-40">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-500 border-t-transparent" />
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-current border-t-transparent" style={{ color: 'var(--martis-accent)' }} />
         </div>
       ) : setupData ? (
         <>
           <div
             className="flex justify-center p-4 rounded-lg border martis-border"
-            style={{ backgroundColor: 'var(--martis-card-bg)' }}
+            style={{ backgroundColor: 'var(--martis-card)' }}
             dangerouslySetInnerHTML={{ __html: setupData.qr_code_svg }}
             aria-label={t('2fa_scan_qr')}
           />
