@@ -212,6 +212,26 @@ it('paginates the morph-many index', function () {
     expect(count($response->json('data')))->toBe(5);
 });
 
+it('clamps a negative per_page to one row on the morph-many index', function () {
+    // Laravel ignores a negative limit: ?per_page=-1 returned every
+    // related row in one response.
+    $post = MMPostModel::create(['title' => 'Post']);
+    for ($i = 1; $i <= 3; $i++) {
+        MMCommentModel::create([
+            'body' => "Comment {$i}",
+            'commentable_type' => MMPostModel::class,
+            'commentable_id' => $post->id,
+        ]);
+    }
+
+    $response = $this->getJson("/martis/api/resources/m-m-post-models/{$post->id}/morph-many/comments?per_page=-1");
+
+    $response->assertOk();
+    expect($response->json('meta.per_page'))->toBe(1);
+    expect($response->json('meta.total'))->toBe(3);
+    expect(count($response->json('data')))->toBe(1);
+});
+
 // ---------------------------------------------------------------------------
 // Search
 // ---------------------------------------------------------------------------

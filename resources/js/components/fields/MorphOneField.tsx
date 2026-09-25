@@ -136,7 +136,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
         </h3>
         <div className="flex flex-wrap items-center gap-2">
           {/* Create is only rendered in the empty-state card to avoid duplication */}
-          {record !== null && showEdit && viaParams !== null && (
+          {record !== null && showEdit && record._authorization?.authorizedToUpdate !== false && viaParams !== null && (
             <button
               type="button"
               onClick={() =>
@@ -150,7 +150,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
               {tAct('edit', 'Edit')}
             </button>
           )}
-          {record !== null && showDelete && (
+          {record !== null && showDelete && record._authorization?.authorizedToDelete !== false && (
             <button
               type="button"
               onClick={() => setDeleteOpen(true)}

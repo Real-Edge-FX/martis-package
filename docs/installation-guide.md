@@ -649,7 +649,7 @@ composer update martis/martis
 php artisan martis:install --force --with-profile --with-2fa --avatar-column=avatar_path
 ```
 
-The resource schema cache has no expiry by default, so clear it after an upgrade that changes fields, actions or filters: `php artisan martis:cache:clear`.
+Since v2.0 every Martis cache key carries the installed version, so an upgrade rebuilds the caches on its own (on a path repository, whose version does not change, run `php artisan martis:cache:clear`). On the `database` or `file` cache store, run `php artisan martis:cache:prune` after an upgrade to delete the entries the previous version left behind; see [Cache → Invalidation](cache.md#invalidation).
 
 ## Vendor Publish Tags Reference
 
@@ -676,7 +676,7 @@ The package exposes the following `--tag` values for `vendor:publish`:
 
 ## Available Artisan Commands
 
-The package ships 34 commands (plus the aliases `martis:override` → `martis:component` and `martis:make-policy` → `martis:policy`). The full list:
+The package ships 35 commands (plus the aliases `martis:override` → `martis:component` and `martis:make-policy` → `martis:policy`). The full list:
 
 ### Setup & maintenance
 
@@ -699,6 +699,7 @@ The package ships 34 commands (plus the aliases `martis:override` → `martis:co
 |---|---|
 | `martis:cache:status` | Show enabled / disabled state for each Martis cache subsystem |
 | `martis:cache:clear` | Flush every Martis cache subsystem |
+| `martis:cache:prune` | Delete the cache entries earlier versions and clears left behind (database and file stores; v2.0) |
 | `martis:cache:enable` | Enable a Martis cache subsystem at runtime (survives until disabled) |
 | `martis:cache:disable` | Disable a Martis cache subsystem at runtime |
 

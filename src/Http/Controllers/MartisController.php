@@ -536,8 +536,11 @@ abstract class MartisController extends Controller
      *
      * @param  class-string<\Martis\Resource>  $resourceClass
      * @param  Builder<Model>  $query
+     * @param  bool  $qualifyJsonPaths  Qualify a JSON path (`meta->code`) with the
+     *                                  related table: a panel whose relation joins a table by
+     *                                  nature (hasManyThrough, a pivot) sets it.
      */
-    protected function applyRequestedSort(Request $request, Builder $query, string $resourceClass): void
+    protected function applyRequestedSort(Request $request, Builder $query, string $resourceClass, bool $qualifyJsonPaths = false): void
     {
         $sort = $request->query('sort');
 
@@ -545,6 +548,28 @@ abstract class MartisController extends Controller
             return;
         }
 
-        $query->orderBy($sort, SortDirection::fromQuery($request->query('direction'))->value);
+        // As written, not qualified: the column may be an alias the related
+        // model selects (withCount, addSelect), which no table has. A column a
+        // joined table shares (a hasManyThrough's intermediate, a pivot) is
+        // not ambiguous here: the panels paginate through the relation, which
+        // selects the related table's columns, and ORDER BY resolves a bare
+        // name against the select list first. A JSON path compiles to an
+        // expression, which ORDER BY does not resolve that way, so over a
+        // joining relation it is qualified.
+        $column = $qualifyJsonPaths && str_contains($sort, '->') ? $query->qualifyColumn($sort) : $sort;
+        $query->orderBy($column, SortDirection::fromQuery($request->query('direction'))->value);
+    }
+
+    /**
+     * The page size a relationship panel's list or attach search asks for
+     * with `?per_page=`, clamped between 1 and 100 (`$default` when the
+     * request sends none). The lower bound matters: Laravel ignores a
+     * negative limit, so an unclamped `?per_page=-1` returned every row of
+     * the relation (every attachable record, on an attach search) in one
+     * response.
+     */
+    protected function requestedPerPage(Request $request, int $default): int
+    {
+        return max(1, min((int) $request->query('per_page', (string) $default), 100));
     }
 }

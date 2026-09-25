@@ -3,13 +3,13 @@
 namespace Martis;
 
 use Closure;
-use Composer\InstalledVersions;
 use Illuminate\Http\Request;
 use Martis\Contracts\DashboardContract;
 use Martis\Contracts\ToolContract;
 use Martis\Menu\Menu;
 use Martis\Menu\MenuSection;
 use Martis\Support\ConfigCallable;
+use Martis\Support\InstalledVersion;
 use Throwable;
 
 class MartisManager
@@ -448,9 +448,10 @@ class MartisManager
      *
      * Resolution (highest priority first):
      *   1. `config('martis.brand.version')` — consumer override.
-     *   2. `Composer\InstalledVersions` — the version Composer resolved at
-     *      install time (git tag, branch name, or `dev-*` alias). This is
-     *      what `composer show martis/martis` reports.
+     *   2. The version Composer resolved at install time
+     *      (`InstalledVersion::of()`: git tag, branch name, or `dev-*`
+     *      alias), without its leading `v`. This is what
+     *      `composer show martis/martis` reports.
      *   3. null when the package isn't installed via Composer (rare — only
      *      in ad-hoc autoloader setups) and no override is set.
      */
@@ -461,21 +462,11 @@ class MartisManager
             return $configured;
         }
 
-        try {
-            if (class_exists(InstalledVersions::class)
-                && InstalledVersions::isInstalled('martis/martis')) {
-                $pretty = InstalledVersions::getPrettyVersion('martis/martis');
-                if (is_string($pretty) && $pretty !== '') {
-                    return ltrim($pretty, 'v');
-                }
-            }
-        } catch (Throwable) {
-            // InstalledVersions may throw when the package metadata is
-            // incomplete (e.g. path repositories without a git tag). Fall
-            // through to null so the footer simply hides the version chip.
-        }
+        // Null (no Composer record, or unreadable metadata) simply hides
+        // the version chip in the footer.
+        $installed = InstalledVersion::of('martis/martis');
 
-        return null;
+        return $installed === null ? null : ltrim($installed, 'v');
     }
 
     // -------------------------------------------------------------------------

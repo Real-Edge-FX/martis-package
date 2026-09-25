@@ -1209,7 +1209,7 @@ Beyond the global `MARTIS_CACHE_ENABLED` master switch, every surface that cache
 | `MARTIS_CACHE_NAVIGATION_ENABLED` | `true` | Sidebar navigation tree |
 | `MARTIS_CACHE_NAVIGATION` / `MARTIS_CACHE_NAVIGATION_TTL` | `1` | Navigation TTL |
 | `MARTIS_CACHE_SCHEMA_ENABLED` | `true` | Resource schema payload |
-| `MARTIS_CACHE_SCHEMA` / `MARTIS_CACHE_SCHEMA_TTL` | `null` | Schema TTL |
+| `MARTIS_CACHE_SCHEMA` / `MARTIS_CACHE_SCHEMA_TTL` | `1440` | Schema TTL in minutes (one day since v2.0; `null` before, see [Cache → Invalidation](cache.md#invalidation)) |
 | `MARTIS_CACHE_ADMIN_UI` | `true` | Cache admin UI in the System sidebar group |
 
 The shorter names (`MARTIS_CACHE_DASHBOARDS`, etc.) and the explicit `_TTL` variants resolve to the same value — the `_TTL` form just makes intent unambiguous. Pick whichever reads better in your `.env`.
@@ -1386,7 +1386,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_CACHE_NAVIGATION_TTL` | `env('MARTIS_CACHE_NAVIGATION', 1)` |
 | `MARTIS_CACHE_SCHEMA` | `null` |
 | `MARTIS_CACHE_SCHEMA_ENABLED` | `true` |
-| `MARTIS_CACHE_SCHEMA_TTL` | `env('MARTIS_CACHE_SCHEMA', null)` |
+| `MARTIS_CACHE_SCHEMA_TTL` | `env('MARTIS_CACHE_SCHEMA', 1440)` |
 | `MARTIS_CUSTOM_ACCENTS` | `(no default)` |
 | `MARTIS_DASHBOARD_SHOW_GREETING` | `true` |
 | `MARTIS_DASHBOARD_SHOW_WELCOME` | `true` |

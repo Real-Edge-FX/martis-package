@@ -29,7 +29,9 @@ import { isHiddenOn } from '@/lib/hiddenFields'
  *
  * Authorization gates (`canCreate`/`canUpdate`/`canDelete`) AND programmer
  * hide flags (`hideXxx`) compose: an action appears only when authorized AND
- * not explicitly hidden. Unauthorized actions never render.
+ * not explicitly hidden. Unauthorized actions never render, per row too: a
+ * row leaves out the actions its record's `_authorization` denies (a record
+ * without it keeps them, as on the resource index).
  */
 export interface RelationshipTableShellProps {
   title: string
@@ -430,8 +432,9 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                     )
                   }
                   body={(row: ResourceRecord) => (
-                    // A field the related record hides (`_hidden`) leaves its cell empty.
-                    isHiddenOn(row, f.attribute) ? null : f.attribute === 'id' ? (
+                    // A field the related record hides (`_hidden`) leaves its cell empty;
+                    // the id links to the record only when its policy lets the user view it.
+                    isHiddenOn(row, f.attribute) ? null : f.attribute === 'id' && row._authorization?.authorizedToView !== false ? (
                       <Link
                         to={viewUrl ? viewUrl(row.id as string | number) : recordHref(relatedResource, row.id)}
                         className="font-medium no-underline"
@@ -474,9 +477,12 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                   }
                   body={(row: ResourceRecord) => {
                     const isTrashed = row.deleted_at != null
+                    // The related resource's policy answers for this record;
+                    // a missing answer is not a denial.
+                    const auth = row._authorization
                     return (
                       <div className="flex items-center justify-end gap-1">
-                        {showView && (
+                        {showView && auth?.authorizedToView !== false && (
                           <Link
                             to={viewUrl ? viewUrl(row.id as string | number) : recordHref(relatedResource, row.id)}
                             className="rounded p-1.5 transition-colors no-underline"
@@ -489,7 +495,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                             <EyeIcon size={16} />
                           </Link>
                         )}
-                        {!isTrashed && showEdit && (
+                        {!isTrashed && showEdit && auth?.authorizedToUpdate !== false && (
                           <Link
                             to={editUrl!(row.id as string | number)}
                             className="rounded p-1.5 transition-colors no-underline"
@@ -502,7 +508,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                             <PencilSimpleIcon size={16} />
                           </Link>
                         )}
-                        {!isTrashed && showDelete && (
+                        {!isTrashed && showDelete && auth?.authorizedToDelete !== false && (
                           <button
                             type="button"
                             onClick={() => setDeleteTarget({ id: row.id as string | number })}
@@ -516,7 +522,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                             <TrashIcon size={16} />
                           </button>
                         )}
-                        {isTrashed && showRestore && (
+                        {isTrashed && showRestore && auth?.authorizedToRestore !== false && (
                           <button
                             type="button"
                             onClick={() => setRestoreTarget({ id: row.id as string | number })}
@@ -530,7 +536,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                             <ArrowCounterClockwiseIcon size={16} />
                           </button>
                         )}
-                        {isTrashed && showForceDelete && (
+                        {isTrashed && showForceDelete && auth?.authorizedToForceDelete !== false && (
                           <button
                             type="button"
                             onClick={() => setForceDeleteTarget({ id: row.id as string | number })}

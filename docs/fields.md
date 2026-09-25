@@ -2080,7 +2080,7 @@ HasOneOfMany::make('Latest Invoice', 'latestInvoice', InvoiceResource::class)
 | *All `HasOne` setters* | — | `$this` | Inherited. | — |
 | `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders the underlying relation by the timestamp column descending before picking the first row; a tie goes to the highest primary key. The related model's `created_at` / `updated_at` are qualified with its table; another column is used as given, so over a through relation qualify a column both tables have (`'projects.published_at'`). Show, Edit, Delete and the card's writes all target that record. | `'created_at'` |
 | `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart of `latestByTimestamp()`; a tie goes to the lowest primary key. | `'created_at'` |
-| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across this parent's full collection (count/sum/min/max/avg), through the relation's own keys (a through relation included). | disabled |
+| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across this parent's full collection (count/sum/min/max/avg), through the relation's own keys (a through relation included). On an Eloquent one-of-many relation (`latestOfMany()`, `ofMany()`), the tile and the "latest of N" pill cover every related row of the parent: the constraints written into that relation do not apply. | disabled |
 
 *src/Fields/HasOneOfMany.php*
 
@@ -2105,8 +2105,10 @@ full guide.
 **File:** `src/Fields/HasOneThrough.php`
 
 Shows a single distant record reached through an intermediate model
-(`hasOneThrough`). Read-only by default: `canCreate` / `canUpdate` /
-`canDelete` start as `false`.
+(`hasOneThrough`). As in Nova, no Create: `canCreate()` has no effect and the
+`has-one` endpoints refuse a create through a `hasOneThrough` relationship with
+a 403, whichever field declares it. Edit and Delete work as on `HasOne` (see
+[relationships.md § HasOneThrough](relationships.md#hasonethrough)).
 
 ```php
 use Martis\Fields\HasOneThrough;
@@ -2117,7 +2119,7 @@ HasOneThrough::make('Account Manager', 'accountManager', TeamMemberResource::cla
 
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
-| *All `HasOne` setters* | — | `$this` | Inherited. `canCreate` / `canUpdate` / `canDelete` default to `false`. | — |
+| *All `HasOne` setters* | — | `$this` | Inherited, except `canCreate`, which has no effect (always `false`; `canCreate(true)` logs a warning naming the field). | — |
 | `throughBreadcrumb` | `throughBreadcrumb(bool $enabled = true, ?string $text = null): static` | `$this` | Adds a "through" hint next to the section heading. Pass a custom `$text` to override the default label. | `false` |
 
 *src/Fields/HasOneThrough.php*
@@ -2126,9 +2128,8 @@ HasOneThrough::make('Account Manager', 'accountManager', TeamMemberResource::cla
 
 All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
 — see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
-Because Through fields are read-only by default, the `canCreate` /
-`canUpdate` / `canDelete` defaults already hide those buttons; the
-`hideXxx()` setters are mostly redundant but available for symmetry.
+Because a Through field never offers Create, `hideCreateButton()` is
+redundant; the other `hideXxx()` setters work as on `HasOne`.
 Remember: visible = authorized AND NOT hidden. Authorization is always the
 source of truth; the hide flags can only hide, never force-visible.
 
@@ -2204,8 +2205,11 @@ for the shared shell layout.
 **File:** `src/Fields/HasManyThrough.php`
 
 Inline DataTable of many records reached through an intermediate
-(`hasManyThrough`). Read-only by default: `canCreate` / `canUpdate` /
-`canDelete` start as `false`.
+(`hasManyThrough`). As in Nova, no Create: `canCreate()` has no effect and the
+`has-many` endpoints refuse a create through a `hasManyThrough` relationship
+with a 403, whichever field declares it. The rows keep View / Edit / Delete /
+Restore / Force delete as on `HasMany` (see
+[relationships.md § HasManyThrough](relationships.md#hasmanythrough)).
 
 ```php
 use Martis\Fields\HasManyThrough;
@@ -2217,7 +2221,7 @@ HasManyThrough::make('Managed Projects', 'managedProjects', ProjectResource::cla
 
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
-| *All `HasMany` setters* | — | `$this` | Inherited. `canCreate` / `canUpdate` / `canDelete` default to `false`. | — |
+| *All `HasMany` setters* | — | `$this` | Inherited, except `canCreate`, which has no effect (always `false`; `canCreate(true)` logs a warning naming the field). | — |
 | `throughBreadcrumb` | `throughBreadcrumb(bool $enabled = true, ?string $text = null): static` | `$this` | Adds a "through" hint next to the section heading. | `false` |
 | `countBadge` | `countBadge(bool $enabled = true): static` | `$this` | Renders a count pill on the parent resource's index cell. | `true` |
 
@@ -2227,8 +2231,9 @@ HasManyThrough::make('Managed Projects', 'managedProjects', ProjectResource::cla
 
 All nine `hideXxx()` setters from `ControlsRelationshipToolbar` are inherited
 (via `HasMany`) — see [relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
-Since the field is read-only by default, Edit / Delete / Restore /
-Force-delete are already hidden via `canUpdate(false)` / `canDelete(false)`.
+Since the field never offers Create, `hideCreateButton()` is redundant; the
+other `hideXxx()` setters work as on `HasMany` (search / per-page /
+soft-delete dropdown + view / edit / delete / restore / force-delete).
 Remember: visible = authorized AND NOT hidden. Authorization is always the
 source of truth; the hide flags can only hide, never force-visible.
 
@@ -2299,7 +2304,7 @@ MorphOneOfMany::make('Latest Note', 'latestNote', NoteResource::class)
 | *All `MorphOne` setters* | — | `$this` | Inherited. | — |
 | `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders by the timestamp descending before picking the first row; a tie goes to the highest primary key. | `'created_at'` |
 | `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart; a tie goes to the lowest primary key. | `'created_at'` |
-| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across the full collection. | disabled |
+| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across this parent's full collection. On an Eloquent one-of-many relation (`latestOfMany()`, `ofMany()`), the tile and the "latest of N" pill cover every related row of the parent: the constraints written into that relation do not apply. | disabled |
 
 *src/Fields/MorphOneOfMany.php*
 

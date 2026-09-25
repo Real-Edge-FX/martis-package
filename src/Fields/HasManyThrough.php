@@ -4,6 +4,7 @@ namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough as EloquentHasManyThrough;
+use Martis\Fields\Concerns\IgnoresCreateThrough;
 
 /**
  * HasManyThrough — reaches many distant records through an
@@ -11,21 +12,27 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough as EloquentHasManyThro
  *
  * The relationship on the parent model is defined as
  *   `hasManyThrough(Invoice::class, Project::class)`
- * and the field renders visually like `HasMany` — inline DataTable —
- * read-only because the traversal goes through an intermediate.
+ * and the field renders visually like `HasMany` (an inline DataTable),
+ * without a Create button, because the traversal goes through an
+ * intermediate.
  *
  * ⭐ Martis differentials:
- *  - **Read-only by default** — no Create/Edit/Delete buttons because
- *    the traversal goes through an intermediate model the UI cannot
- *    populate.
- *  - **`throughBreadcrumb(bool $enabled = true)`** — tooltip describing
+ *  - **No create through the relationship, enforced**: as in Nova, the
+ *    panel offers no Create and `canCreate()` has no effect (it logs a warning), because the
+ *    traversal goes through an intermediate model the UI cannot
+ *    populate; the has-many endpoints also refuse a create through the
+ *    relationship with a 403. Edit / Delete / Restore / Force delete
+ *    work as on `HasMany`, under the related resource's policies.
+ *  - **`throughBreadcrumb(bool $enabled = true)`**: tooltip describing
  *    the intermediate hop (e.g. `Client → Projects → Invoices`).
- *  - **`countBadge(bool $enabled = true)`** — shows a count pill on
+ *  - **`countBadge(bool $enabled = true)`**: shows a count pill on
  *    the parent's index cell, matching the `showRelationCount` API
  *    already available on `HasMany`. Default: on for Through.
  */
 class HasManyThrough extends HasMany
 {
+    use IgnoresCreateThrough;
+
     protected bool $showThroughBreadcrumb = false;
 
     protected ?string $throughBreadcrumbText = null;
@@ -36,13 +43,10 @@ class HasManyThrough extends HasMany
     {
         parent::__construct($attribute, $label, $relationship);
 
-        // Read-only by default: a Through relationship is a traversal —
-        // there is no direct FK to populate on create (the intermediate
-        // model is ambiguous). Callers can re-enable mutations explicitly
-        // via ->canCreate(true) etc. when they have custom logic.
+        // No create through a Through relationship, as in Nova: it is a
+        // traversal with no direct FK to populate (the intermediate model
+        // is ambiguous), and HasManyController refuses one (403).
         $this->canCreateRelated = false;
-        $this->canUpdateRelated = false;
-        $this->canDeleteRelated = false;
     }
 
     public function type(): string
