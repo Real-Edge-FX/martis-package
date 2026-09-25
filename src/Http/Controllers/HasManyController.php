@@ -118,16 +118,27 @@ class HasManyController extends MartisController
         // intermediate's id, timestamps and deleted_at overwrote the record's.
         $paginator = $relation->paginate($perPage);
 
+        // The panel offers the related resource's inline row actions, as
+        // the resource index does, so each row carries whether each may run
+        // on it (its inline actions).
+        $actionAuthorization = $this->rowActionAuthorizer($request, $relatedResourceClass, inlineOnly: true);
+
         /** @var list<array<string, mixed>> $data */
         $data = array_values(
-            collect($paginator->items())->map(function (Model $model) use ($relatedResourceClass, $request): array {
+            collect($paginator->items())->map(function (Model $model) use ($relatedResourceClass, $request, $actionAuthorization): array {
                 $res = new $relatedResourceClass($model);
 
-                return $this->serializeModel(
+                $row = $this->serializeModel(
                     $res,
                     Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX),
                     $model,
                 );
+
+                if ($actionAuthorization !== null) {
+                    $row['_actionAuthorization'] = $actionAuthorization($model, is_array($row['_authorization'] ?? null) ? $row['_authorization'] : []);
+                }
+
+                return $row;
             })->all()
         );
 

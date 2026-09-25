@@ -247,10 +247,22 @@ class Publish extends Action
 }
 ```
 
-Fallback order when executing an action: `canRun()` closure →
-`Policy::runAction` (or `runDestructiveAction` for destructive ones) →
-`Policy::update` (or `delete`). Teams that prefer a pure-policy story
-can omit the closures entirely.
+⭐ **Security differential: `canRun()` and the policy must both allow a
+run.** When an action runs on a record, Martis checks the action's
+`canRun()` **and** the resource's policy: `runAction` (or
+`runDestructiveAction` for a destructive action), falling back to
+`update` (or `delete`). In Nova 5 a `canRun()`, when defined, replaces
+the policy ("Authorization via Resource Policy"). Coming from Nova, a
+`canRun()` alone grants nothing: the user also needs `runAction` /
+`update` (or `runDestructiveAction` / `delete`). A `standalone()` action
+runs on no record, so only its `canRun()` / `canSee()` apply. Teams that
+prefer a pure-policy story can omit the closures entirely.
+
+⭐ **An action that cannot run on a row stays visible, disabled.** The
+row buttons and the row menu of the index and of the relationship panels
+show every inline action and disable the ones the record may not run
+(the same check the run applies). Nova hides them on the row and
+disables them only in the bulk selector and on the detail page.
 
 ### `updatePivot{Model}` policy ability
 
