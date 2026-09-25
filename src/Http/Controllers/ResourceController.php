@@ -136,6 +136,10 @@ class ResourceController extends MartisController
         SearchResolver::apply($request, $query, $resourceClass, $search);
         $this->applySorting($request, $query, $resourceClass);
 
+        // The relationship counts of the index columns, scoped as the related
+        // index is, in this query (one per page, not one per row).
+        $this->withScopedRelationCounts($request, $query, Field::filterForContext($instance->fieldsForIndex($request), FieldContext::INDEX));
+
         $perPage = max(
             1,
             min(
@@ -279,6 +283,13 @@ class ResourceController extends MartisController
         }
 
         /** @var class-string<resource> $resourceClass */
+        // viewAny is the entry gate to a resource, as on its show, update and
+        // destroy endpoints (v1.34.0): a user who cannot list it cannot
+        // create one either.
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToCreate($request)) {
@@ -723,6 +734,11 @@ class ResourceController extends MartisController
         }
 
         /** @var class-string<resource> $resourceClass */
+        // The same viewAny entry gate as store().
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToCreate($request)) {
@@ -857,6 +873,11 @@ class ResourceController extends MartisController
         }
 
         /** @var class-string<resource> $resourceClass */
+        // The same viewAny entry gate as store().
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToCreate($request)) {

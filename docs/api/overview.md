@@ -219,8 +219,8 @@ Each relation type has a full sub-tree under the parent's URL. The shape mirrors
 | `DELETE` | `/{r}/{id}/has-many/{rel}/{relatedId}` | Delete a child. |
 | `GET` | `/{r}/{id}/has-one/{rel}` | Show. |
 | `POST` | `/{r}/{id}/has-one/{rel}` | Create. |
-| `PUT` | `/{r}/{id}/has-one/{rel}` | Update. |
-| `DELETE` | `/{r}/{id}/has-one/{rel}` | Delete. |
+| `PUT` | `/{r}/{id}/has-one/{rel}?relatedId={id}` | Update the record the card shows. `relatedId` (required, v2.0.0) is the id the client read from the `GET`: `422` without it, `409` when the relationship holds another record by then (see [Conflict (409)](#conflict-409)). A stale id answers `409` before the policy (the policy is the current record's); the policy's `403` comes before the `422` of a missing id. |
+| `DELETE` | `/{r}/{id}/has-one/{rel}?relatedId={id}` | Delete the record the card shows, under the same rules. |
 | `GET` | `/{r}/{id}/belongs-to-many/{rel}` | List with pivot data. |
 | `GET` | `/{r}/{id}/belongs-to-many/{rel}/attachable` | Options available to attach. `meta.hiddenPivotFields` lists the attributes of the pivot fields a new row hides (`canSeeForModel()` on the row the attach writes), which the attach modal leaves out (v1.38.0). |
 | `POST` | `/{r}/{id}/belongs-to-many/{rel}/attach` | Attach with optional pivot fields. |
@@ -229,7 +229,7 @@ Each relation type has a full sub-tree under the parent's URL. The shape mirrors
 | `GET` | `/{r}/{id}/belongs-to-many/{rel}/pivot-fields/relatable/{field}` | Options of a `BelongsTo` / `MorphTo` / `Tag` pivot field in the attach modal: read from the relationship's `fields()`, gated like the panel and on `attachAny{Model}`, with the parent resource as the source of the relatable hooks (v1.38.0). |
 | `GET` | `/{r}/{id}/belongs-to-many/{rel}/pivot-fields/{relatedId}/relatable/{field}` | The same in the pivot edit modal of an attached record, gated on its `updatePivot{Model}` (v1.38.0). |
 
-(`/{r}` is shorthand for `/martis/api/resources/{resource}`.) MorphMany / MorphOne / MorphToMany follow the same shape under `/morph-many/`, `/morph-one/`, `/morph-to-many/`.
+(`/{r}` is shorthand for `/martis/api/resources/{resource}`.) MorphMany / MorphOne / MorphToMany follow the same shape under `/morph-many/`, `/morph-one/`, `/morph-to-many/`. The `morph-one` `PUT` and `DELETE` take the same required `?relatedId=`.
 
 The lists (`GET` on `has-many`, `morph-many`, `belongs-to-many` and `morph-to-many`) take the `search`, `sort`, `direction` and `per_page` parameters of the resource index, applied with the related resource's fields: `sort` names a `sortable()` field of the related resource the user can see, and anything else is ignored (v1.38.0).
 
@@ -474,6 +474,14 @@ Laravel's own shape instead, a map of messages per field:
 ```
 
 The `errors` array is intentionally empty so the SPA can route the same envelope through its generic 422-style error renderer; consumer overrides can populate it for richer messaging.
+
+### Conflict (409)
+
+```json
+{ "message": "The record changed since the card loaded; reload to see it.", "errors": [] }
+```
+
+A `PUT` or `DELETE` on a one-record card (`…/has-one/{rel}`, `…/morph-one/{rel}`) whose `?relatedId=` is not the record the relationship holds now: a newer one-of-many record, a replaced `HasOne` / `MorphOne`, or another record through a `HasOneThrough` (the shown one or its intermediate record trashed, for instance). Nothing is written; reload the card (its `GET`) and retry on the record it returns. The message is translated (`martis::messages.card_record_changed`).
 
 ### Service Unavailable (503)
 

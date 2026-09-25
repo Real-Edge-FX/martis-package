@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useToastSafe } from '@/contexts/ToastContext'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/lib/api'
 import type { ResourceRecord, FieldDefinition } from '@/types'
@@ -33,6 +34,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
   const { t: tMsg } = useTranslation('messages')
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { addToast } = useToastSafe()
 
   const meta = field.morphOneMeta as {
     canCreate: boolean
@@ -54,7 +56,16 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
   // when nested, else the one in the URL.
   const { resource: parentResource, id: parentId } = useRelationParent()
 
-  const [deleteOpen, setDeleteOpen] = useState(false)
+  // The id of the record shown when Delete was clicked: a refetch while the
+  // modal is open (window focus, another card's write) may swap the record
+  // under it, and the confirm must still name the one the user saw.
+  const [deleteTarget, setDeleteTarget] = useState<string | number | null>(null)
+  // After a delete, the Delete button that opened the modal is gone once
+  // the card reloads: the focus goes to the empty state's Create button,
+  // else the card's title, instead of falling to the page body.
+  const focusAfterDelete = useRef(false)
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const createRef = useRef<HTMLButtonElement>(null)
 
   // Fetch related resource schema for field definitions
   const schemaQuery = useQuery({
@@ -73,19 +84,38 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
     enabled: !!parentResource && !!parentId && !!relationship,
   })
 
+  // The delete names the record the card shows: a record that took its
+  // place since the card loaded answers 409 instead of being deleted.
   const deleteMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (shownId: string | number) =>
       api.delete(
-        `/api/resources/${parentResource}/${parentId}/morph-one/${relationship}`
+        `/api/resources/${parentResource}/${parentId}/morph-one/${relationship}?relatedId=${encodeURIComponent(String(shownId))}`
       ),
     onSuccess: () => {
+      focusAfterDelete.current = true
       void qc.invalidateQueries({ queryKey: ['morph-one', parentResource, parentId, relationship] })
-      setDeleteOpen(false)
+      setDeleteTarget(null)
+    },
+    onError: (error: Error) => {
+      // A 409 (the record changed) or any other refusal: reload the card so
+      // it shows the record the relationship holds now, and say why.
+      void qc.invalidateQueries({ queryKey: ['morph-one', parentResource, parentId, relationship] })
+      setDeleteTarget(null)
+      addToast('error', error.message)
     },
   })
 
   const schema = schemaQuery.data?.data
   const record = recordQuery.data?.data ?? null
+
+  useEffect(() => {
+    if (!focusAfterDelete.current || recordQuery.isFetching) return
+    focusAfterDelete.current = false
+    const active = document.activeElement
+    if (active instanceof HTMLElement && active !== document.body && active.isConnected) return
+    const target = createRef.current ?? titleRef.current
+    target?.focus()
+  }, [record, recordQuery.isFetching])
   // Flatten panels/sections/tabs so nested fields render flat in the
   // card (same logic as HasOneField). Without this, Panels would render
   // as "—".
@@ -113,6 +143,12 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
     relationshipType: 'morph-one',
   })
 
+  // The relationship holds a record the user may not view: as Nova drops
+  // the panel, the card is not rendered at all (no Create, Edit or count).
+  if ((recordQuery.data as { meta?: { hidden?: boolean } } | undefined)?.meta?.hidden === true) {
+    return null
+  }
+
   if (recordQuery.isLoading) {
     return (
       <div className="py-4 text-sm" style={{ color: 'var(--martis-text-muted)' }}>
@@ -131,7 +167,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
         className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
         style={{ borderBottom: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-hover)' }}
       >
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--martis-text)' }}>
+        <h3 ref={titleRef} tabIndex={-1} className="text-sm font-semibold" style={{ color: 'var(--martis-text)' }}>
           {field.label}
         </h3>
         <div className="flex flex-wrap items-center gap-2">
@@ -153,7 +189,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
           {record !== null && showDelete && record._authorization?.authorizedToDelete !== false && (
             <button
               type="button"
-              onClick={() => setDeleteOpen(true)}
+              onClick={() => setDeleteTarget(record.id as string | number)}
               className="martis-btn-danger"
             >
               <TrashIcon size={14} />
@@ -177,6 +213,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
             {showCreate && viaParams !== null && (
               <div className="mt-3">
                 <button
+                  ref={createRef}
                   type="button"
                   onClick={() =>
                     navigate(`/resources/${relatedResource}/create${viaParams}`)
@@ -242,13 +279,15 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
 
       {/* Delete confirmation modal */}
       <DeleteModal
-        open={deleteOpen}
+        open={deleteTarget !== null}
         resourceLabel={schema?.singularLabel ?? ''}
         isSoftDelete={schema?.softDeletes ?? false}
         onConfirm={async () => {
-          await deleteMutation.mutateAsync()
+          if (deleteTarget === null) return
+          // The error is shown by onError; the modal only needs it settled.
+          await deleteMutation.mutateAsync(deleteTarget).catch(() => undefined)
         }}
-        onCancel={() => setDeleteOpen(false)}
+        onCancel={() => setDeleteTarget(null)}
       />
     </div>
   )

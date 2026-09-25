@@ -284,7 +284,7 @@ function rwvUrl(string $resource, RWVParentModel $parent, string $path): string
 it('refuses a write through a relationship when the related resource denies viewAny', function (string $method, string $parent, string $path) {
     $before = rwvRows();
 
-    $this->{$method}(rwvUrl('rwv-hidden-parents', $this->{$parent}, $path), ['title' => 'Written'])
+    $this->{$method}(cardWriteUrl(rwvUrl('rwv-hidden-parents', $this->{$parent}, $path)), ['title' => 'Written'])
         ->assertStatus(403)
         ->assertJsonPath('message', 'This action is unauthorized.');
 
@@ -292,7 +292,7 @@ it('refuses a write through a relationship when the related resource denies view
 })->with('rwv relationship writes');
 
 it('writes through a relationship to a related resource that is not routable', function (string $method, string $parent, string $path) {
-    $response = $this->{$method}(rwvUrl('rwv-headless-parents', $this->{$parent}, $path), ['title' => 'Written']);
+    $response = $this->{$method}(cardWriteUrl(rwvUrl('rwv-headless-parents', $this->{$parent}, $path)), ['title' => 'Written']);
 
     expect($response->status())->toBeIn([200, 201])
         ->and(rwvRows())->not->toBe([]);

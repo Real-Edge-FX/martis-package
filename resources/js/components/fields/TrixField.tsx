@@ -14,8 +14,9 @@ function ImageModal({ src, onClose }: { src: string; onClose: () => void }) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key !== 'Escape') return
-      // Stop the keystroke here so the enclosing drawer's own Escape handler
-      // (DrawerShell) doesn't also fire and close the whole drawer.
+      // The drawer underneath leaves this Escape alone (the modal history
+      // lock below counts as a modal); stopping it also keeps any other
+      // document listener from acting on it.
       e.stopImmediatePropagation()
       e.preventDefault()
       onClose()

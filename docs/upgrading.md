@@ -71,6 +71,35 @@ A user whose policy denies `viewAny` on the related resource gets a 403 on those
 
 `HasOneThrough` and `HasManyThrough` never offer Create, as in Nova, and a create through a Through relationship answers 403. Edit and Delete now show by default, under the related resource's policies. `canCreate()` has no effect; `canCreate(true)` logs a warning naming the field. See [Relationships → Upgrading the Through fields from 1.x](relationships.md#upgrading-the-through-fields-from-1x).
 
+### Relationship panels list what the related index lists
+
+A `HasMany`, `HasManyThrough`, `MorphMany`, `BelongsToMany` or `MorphToMany` panel now applies the related resource's `scopes()` and `indexQuery()`, as its index does and as Nova's relationship index does. v1.x listed every record of the relationship, including the ones those hooks hide (another tenant's, archived ones).
+
+**What to change:**
+
+1. **Check hooks that should not apply to panels.** An `indexQuery()` meant for the index page only (an order, a default filter) now also shapes the panels; test `$request->route('relationship')` to tell a panel apart (it is not set on the counts a parent's index computes).
+2. **Know what reaches a panel.** On a plain `HasMany` / `MorphMany` panel the hooks run grouped on the panel's query: an `orWhere()` stays inside the group, their order comes before the panel's `?sort=` (as on the index), and a hook that joins must select its table's columns, as the index needs (a search there, as on the index, fails when the joined table has a column of the same name). On a Through or pivot panel, and for every count, they run on a fresh query and the panel keeps the keys they return: their order and aliases do not reach the rows (a panel cannot sort by an alias only the hook adds), the key subquery costs little: a 100-row page of a parent index counting 100,000 related rows ran 2 queries in 20-40 ms on MySQL and 9-10 ms on PostgreSQL, where the per-row counts before v2.0 ran 302 queries in 240-370 ms and 560-980 ms. Columns need no qualifying there.
+
+The `BelongsToMany` and `MorphToMany` panels also apply their soft-delete filter now; before, *Only trashed* listed the active records.
+
+The same hooks now shape what counts the related records: the relationship count a `HasMany`, `MorphMany`, `BelongsToMany` or `MorphToMany` field shows on the index (`showOnIndex()`), now computed with the page instead of per row, and the one-of-many "1 of N" count and `aggregateVia()` tile.
+
+A one-record card (`HasOne`, `HasOneOfMany`, `HasOneThrough`, `MorphOne`, `MorphOneOfMany`) now shows its record only when the user may `view` it, as Nova hides that panel; otherwise the card is not rendered at all (its endpoint answers `meta.hidden: true`) and its Edit and Delete answer 404. Grant `view` where the card should show the record. A custom card component that reads the endpoint should treat `meta.hidden` as "render nothing". Creating a second record on a `HasOne` / `MorphOne` card answers `422` with the reason as its `message` (it answered `500`); a one-of-many card now takes more records, as its many relationship does.
+
+### A one-record card write names its record
+
+`PUT` and `DELETE` on `…/has-one/{relationship}` and `…/morph-one/{relationship}` need `?relatedId=` with the id of the record the client read from the card's `GET`: `422` without it, `409` when the relationship holds another record by then (nothing is written). A stale id answers `409` before the policy is checked; a missing id answers `422` after it, so a denied user gets `403`. The Martis card sends it.
+
+**What to change:** an API client that calls those endpoints adds the id it read. A custom card component (one registered in place of the `HasOne` / `MorphOne` card) that edits or deletes through them sends `?relatedId=` with the id it showed, keeps that id from the click to the confirm (a refetch may swap the record meanwhile), and on a `409` reloads the card and shows the response's `message`.
+
+### Creating a record needs `viewAny`
+
+`POST /api/resources/{resource}` and the inline create (its form and its store) answer `403` when the user may not list the resource, as its show, update and destroy endpoints do since v1.34.0. v1.x checked `create` only.
+
+The create form's own endpoints (`sync-field` and `fields/{field}/options` in the create context) need it too, and the inline create buttons of `BelongsTo`, `MorphTo`, `Tag`, `BelongsToMany` and `MorphToMany` are offered only when the related resource allows both `create` and `viewAny`.
+
+**What to change:** grant `viewAny` to a user who should create records, and confine what they see with `indexQuery()` if needed.
+
 ### Actions: who may run them, and on which records
 
 An action run on records changed in v2.0:

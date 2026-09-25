@@ -319,4 +319,9 @@ return [
     'errors_payload_too_large' => 'O arquivo enviado é grande demais para o servidor aceitar. Tente uma imagem menor.',
     'errors_session_expired' => 'Sua sessão expirou. Faça login novamente.',
     'errors_server_unavailable' => 'O servidor está temporariamente indisponível. Tente novamente em instantes.',
+
+    // A write on a one-record card (has-one, morph-one) names the record
+    // it shows: missing (422), or another record took its place (409).
+    'card_related_id_required' => 'O id do registro que o card mostra é obrigatório (relatedId).',
+    'card_record_changed' => 'O registro mudou desde que o card carregou; recarregue para vê-lo.',
 ];

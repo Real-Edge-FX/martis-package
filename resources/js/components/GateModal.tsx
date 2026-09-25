@@ -42,7 +42,11 @@ export function GateModal() {
   useEffect(() => {
     if (!isOpen) return
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') close()
+      if (e.key === 'Escape') {
+        // Taken: a drawer underneath leaves a handled Escape alone.
+        e.preventDefault()
+        close()
+      }
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)

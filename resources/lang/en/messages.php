@@ -333,4 +333,9 @@ return [
     'errors_payload_too_large' => 'The file you uploaded is too large for the server to accept. Try a smaller image.',
     'errors_session_expired' => 'Your session expired. Please sign in again.',
     'errors_server_unavailable' => 'The server is temporarily unavailable. Please retry in a moment.',
+
+    // A write on a one-record card (has-one, morph-one) names the record
+    // it shows: missing (422), or another record took its place (409).
+    'card_related_id_required' => 'The id of the record the card shows is required (relatedId).',
+    'card_record_changed' => 'The record changed since the card loaded; reload to see it.',
 ];

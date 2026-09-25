@@ -268,7 +268,7 @@ it('stores an immutable field on create', function (string $endpoint) {
 it('skips an immutable field on update and still writes the other fields', function (string $endpoint) {
     [$url, $record] = rifUpdateTarget($endpoint, ['slug' => 'frozen', 'title' => 'Before']);
 
-    $this->putJson($url, ['slug' => 'tampered', 'title' => 'After'])
+    $this->putJson(cardWriteUrl($url), ['slug' => 'tampered', 'title' => 'After'])
         ->assertStatus(200);
 
     expect($record->fresh()->only(['slug', 'title']))

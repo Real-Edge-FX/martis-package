@@ -8,6 +8,7 @@ import { nestedErrorsOf, rowErrorsByIndex } from '@/lib/fieldErrors'
 import type { FormErrors, RowErrors } from '@/lib/fieldErrors'
 import type { FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
+import { useEscapeLayer } from '@/lib/escapeLayers'
 
 /**
  * Row payload shape used in the React layer — mirrors the PHP payload:
@@ -355,16 +356,14 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
         setShowAddMenu(false)
       }
     }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setShowAddMenu(false)
-    }
     document.addEventListener('mousedown', onPointer)
-    document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('mousedown', onPointer)
-      document.removeEventListener('keydown', onKey)
     }
   }, [showAddMenu])
+
+  // Escape closes the menu only, not a drawer the form is in.
+  useEscapeLayer(showAddMenu, () => setShowAddMenu(false))
 
   const atMax = meta.maxRows != null && rows.length >= meta.maxRows
   const belowMin = meta.minRows != null && rows.length < meta.minRows

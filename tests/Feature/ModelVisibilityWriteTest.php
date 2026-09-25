@@ -211,7 +211,7 @@ it('neither validates nor writes a field hidden for the record the update writes
 
     // `salary` would fail max:5; `open` becomes true, but the field is
     // decided on the stored record, before the request's values are written.
-    $this->putJson("/martis/api/resources/mvw-members/{$member->id}", [
+    $this->putJson(cardWriteUrl("/martis/api/resources/mvw-members/{$member->id}"), [
         'name' => 'Anne',
         'salary' => 'far too long',
         'open' => true,
@@ -224,7 +224,7 @@ it('keeps the value of a field hidden for the record when the update form sends 
     $member = MVWMember::create(['name' => 'Ann', 'salary' => '100', 'open' => false]);
 
     // The update form sends every field of its schema, an empty one as null.
-    $this->putJson("/martis/api/resources/mvw-members/{$member->id}", [
+    $this->putJson(cardWriteUrl("/martis/api/resources/mvw-members/{$member->id}"), [
         'name' => 'Anne',
         'salary' => null,
         'bonus' => null,
@@ -237,13 +237,13 @@ it('keeps the value of a field hidden for the record when the update form sends 
 it('validates and writes the field on a record it is seen on', function () {
     $member = MVWMember::create(['name' => 'Ann', 'salary' => '100', 'open' => true]);
 
-    $invalid = $this->putJson("/martis/api/resources/mvw-members/{$member->id}", ['salary' => 'far too long']);
+    $invalid = $this->putJson(cardWriteUrl("/martis/api/resources/mvw-members/{$member->id}"), ['salary' => 'far too long']);
 
     $invalid->assertStatus(422);
     expect(collect($invalid->json('errors'))->pluck('field')->all())->toBe(['salary']);
 
     // `bonus` is seen on the record being created only.
-    $this->putJson("/martis/api/resources/mvw-members/{$member->id}", ['salary' => '200', 'bonus' => 'forged'])->assertOk();
+    $this->putJson(cardWriteUrl("/martis/api/resources/mvw-members/{$member->id}"), ['salary' => '200', 'bonus' => 'forged'])->assertOk();
 
     expect(mvwStored($member))->toBe(['name' => 'Ann', 'salary' => '200', 'bonus' => null, 'open' => true]);
 });
@@ -254,8 +254,8 @@ it('decides canSeeUsingPolicy() on the record the update writes', function () {
     $closed = MVWMember::create(['name' => 'Closed', 'grade' => 'A', 'open' => false]);
     $open = MVWMember::create(['name' => 'Open', 'grade' => 'A', 'salary' => '1', 'open' => true]);
 
-    $this->putJson("/martis/api/resources/mvw-members/{$closed->id}", ['grade' => 'F'])->assertOk();
-    $this->putJson("/martis/api/resources/mvw-members/{$open->id}", ['grade' => 'B'])->assertOk();
+    $this->putJson(cardWriteUrl("/martis/api/resources/mvw-members/{$closed->id}"), ['grade' => 'F'])->assertOk();
+    $this->putJson(cardWriteUrl("/martis/api/resources/mvw-members/{$open->id}"), ['grade' => 'B'])->assertOk();
 
     expect($closed->fresh()->grade)->toBe('A')
         ->and($open->fresh()->grade)->toBe('B');
@@ -298,7 +298,7 @@ it('neither validates nor writes a field hidden for the related record an inline
 
     $uri = "/martis/api/resources/mvw-teams/{$team->id}/{$path}".($many ? "/{$member->id}" : '');
 
-    $this->putJson($uri, ['name' => 'Anne', 'salary' => 'far too long', 'bonus' => 'forged', 'open' => true])->assertOk();
+    $this->putJson(cardWriteUrl($uri), ['name' => 'Anne', 'salary' => 'far too long', 'bonus' => 'forged', 'open' => true])->assertOk();
 
     expect(mvwStored($member))->toBe(['name' => 'Anne', 'salary' => '100', 'bonus' => null, 'open' => true]);
 })->with($relationships);

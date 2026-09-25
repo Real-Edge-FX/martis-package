@@ -7,6 +7,7 @@ import { api } from '@/lib/api'
 import { config } from '@/lib/config'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { martisEventBus, type EventPayload } from '@/lib/eventBus'
+import { useEscapeLayer } from '@/lib/escapeLayers'
 
 interface NotificationItem {
   id: string
@@ -60,6 +61,8 @@ export function NotificationBell() {
     document.addEventListener('mousedown', onMouseDown)
     return () => document.removeEventListener('mousedown', onMouseDown)
   }, [open])
+
+  useEscapeLayer(open, () => setOpen(false))
 
   // Cheap badge polling — single COUNT query on the server.
   const unreadQuery = useQuery({

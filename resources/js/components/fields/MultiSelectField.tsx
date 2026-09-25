@@ -4,6 +4,7 @@ import { CaretDownIcon, XIcon, CheckIcon, MagnifyingGlassIcon } from '@phosphor-
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { ClearButton } from '@/components/ClearButton'
 import { resolveBadgeStyle } from './badgeStyles'
+import { useEscapeLayer } from '@/lib/escapeLayers'
 
 interface SelectOpt {
   label: string
@@ -131,6 +132,13 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
     document.addEventListener('mousedown', handleOutside)
     return () => document.removeEventListener('mousedown', handleOutside)
   }, [])
+
+  // Escape closes the picker only, not a drawer the form is in.
+  useEscapeLayer(open, () => {
+    setOpen(false)
+    setSearch('')
+    setDebouncedSearch('')
+  })
 
   // Cleanup debounce on unmount
   useEffect(() => {

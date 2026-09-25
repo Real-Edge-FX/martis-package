@@ -9,6 +9,7 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
 import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
 import { relatableUrl, withQuery } from '@/lib/relatableEndpoint'
+import { useEscapeLayer } from '@/lib/escapeLayers'
 
 interface TagValue {
   id: number | string
@@ -173,6 +174,12 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
     document.addEventListener('mousedown', handleOutside)
     return () => document.removeEventListener('mousedown', handleOutside)
   }, [])
+
+  // Escape closes the picker only, not a drawer the form is in.
+  useEscapeLayer(open, () => {
+    setOpen(false)
+    setSearch('')
+  })
 
   // Cleanup debounce timer on unmount
   useEffect(() => {

@@ -41,7 +41,12 @@ Default behaviour:
 ### `viewAny` is the entry gate
 
 `viewAny` is consulted **before the record query on every per-record
-endpoint** as well as on the collection ones: detail / show (including the
+endpoint** as well as on the collection ones, and on the create endpoints
+(`POST /api/resources/{resource}`, the inline create form and its store,
+v2.0; Nova 2 refused every resource route the same way,
+[nova-issues#1762](https://github.com/laravel/nova-issues/issues/1762), and
+no public source says whether Nova 4 or 5 still does):
+detail / show (including the
 `?context=update` form payload), update, destroy, restore, force-delete,
 replicate, peek, single and bulk actions, pivot actions, and every
 relationship endpoint that resolves a parent record (`has-many`, `has-one`,
@@ -336,6 +341,8 @@ public static function scopes(Request $request): array
 ```
 
 The labels are informational (used by future debug overlays). The order is iteration order — the array key declares a stable apply order across reloads. The controller calls `applyScopes()` BEFORE `indexQuery()` so the manual hook can override scope-applied predicates when really needed. Both surfaces feed the same Builder.
+
+Both also apply, in that order, to every relationship panel that lists the resource (`HasMany`, `HasManyThrough`, `MorphMany`, `BelongsToMany`, `MorphToMany`, v2.0) and to the records an action run resolves, so a tenant scope declared here hides the other tenants' rows on another resource's detail page too. Before v2.0 a panel listed them. See [Resources → indexQuery()](resources.md#indexquery).
 
 The count badge on the sidebar uses the same code path, so the scoped count always agrees with the row count on the index page.
 
