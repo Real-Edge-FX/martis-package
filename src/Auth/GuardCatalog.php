@@ -2,12 +2,15 @@
 
 namespace Martis\Auth;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Helper that exposes the auth guards configured by the host app, and the
- * Martis guard among them: its name, its user model, and whether the
- * session table can tell its users apart from the other guards'.
+ * Martis guard among them: its name, its user model, its user in a panel
+ * request, and whether the session table can tell its users apart from the
+ * other guards'.
  *
  * The guard list is used by:
  *   - `Martis\Fields\GuardSelect` — populates its options at schema-render
@@ -87,6 +90,46 @@ class GuardCatalog
     }
 
     /**
+     * The user the Martis guard signed in, while that guard is the request's
+     * guard: a panel request (MartisAuthenticate calls shouldUse()), or any
+     * request when the Martis guard is the app's default. Null elsewhere: a
+     * request of another guard (the site's), a job, a command. The audit
+     * log's `user()` resolves the Martis guard's model, so a writer records
+     * this user as the actor and never the user of another guard, whose id
+     * the log would resolve to someone else.
+     */
+    public static function panelUser(): ?Authenticatable
+    {
+        return self::requestUsesMartisGuard() ? Auth::guard(self::martis())->user() : null;
+    }
+
+    /**
+     * Whether the Martis guard is the request's guard: in a panel request
+     * (MartisAuthenticate calls shouldUse()), and in every request when the
+     * Martis guard is the app's default.
+     */
+    public static function requestUsesMartisGuard(): bool
+    {
+        return Auth::getDefaultDriver() === self::martis();
+    }
+
+    /**
+     * Whether two guards sign in users of the same table (their providers
+     * name one connection and table), so that an id of one names the same
+     * person in the other.
+     */
+    public static function sameUsers(string $guard, string $other): bool
+    {
+        if ($guard === $other) {
+            return true;
+        }
+
+        $table = self::guardTable($guard);
+
+        return $table !== null && $table === self::guardTable($other);
+    }
+
+    /**
      * Whether an id in Laravel's `sessions.user_id` can name users of more
      * than one table. The database session handler writes that column with
      * the id of the request's guard and no table or model: a panel request
@@ -132,6 +175,14 @@ class GuardCatalog
         }
 
         return array_keys($tables);
+    }
+
+    /** The `{connection}|{table}` of a guard's users, null when it names no provider. */
+    private static function guardTable(string $guard): ?string
+    {
+        $provider = config("auth.guards.{$guard}.provider");
+
+        return is_string($provider) && $provider !== '' ? self::providerTable($provider) : null;
     }
 
     /**

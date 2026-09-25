@@ -6,7 +6,6 @@ namespace Martis\Auth\Listeners;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -63,8 +62,7 @@ class RecordRoleChange
         // elsewhere (a site request, even from a browser that also holds a
         // panel session, a job, a command) records no actor rather than
         // another account's id.
-        $martisGuard = config('martis.guard') ?: GuardCatalog::default();
-        $authUser = Auth::getDefaultDriver() === $martisGuard ? Auth::guard($martisGuard)->user() : null;
+        $authUser = GuardCatalog::panelUser();
 
         ActionEvent::create([
             'batch_id' => (string) Str::uuid(),
