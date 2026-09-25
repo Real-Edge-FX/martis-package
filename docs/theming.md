@@ -579,7 +579,7 @@ The bundled CSS is built with Tailwind's preflight turned off (`corePlugins.pref
 - An inline shorthand names the style too: `border: '1px solid var(--martis-border)'`. `border: '1px var(--martis-border)'` resets the style to `none`, and nothing is drawn.
 - Native `<input>` and `<textarea>` elements keep the browser's own border (inset on a text input) until a class replaces it: a width utility alone keeps the browser's inset style, and `border-0` removes the border.
 
-`resources/js/themeTokenReads.test.ts` checks the components and the React stubs against these rules (utilities, class constants and inline styles), and `tests/Unit/BorderStyleCssTest.php` checks the border shorthands of `martis.css`.
+`resources/js/themeTokenReads.test.ts` checks the components and the React stubs against these rules (utilities, class constants, concatenations, `clsx` / `cn` / `classNames` / `twMerge` calls and inline styles; a class name built at runtime such as `border-${side}` is not followed, so keep its style utility in the same string), and `tests/Unit/BorderStyleCssTest.php` checks the border shorthands of `martis.css`.
 
 ### In TSX (canvas/Chart.js — runtime resolution)
 

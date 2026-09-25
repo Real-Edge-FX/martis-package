@@ -28,8 +28,11 @@ import themingDoc from '../../docs/theming.md?raw'
  * same for extension authors.
  *
  * The check reads an element's class attribute through literals, templates,
- * conditions, `[...].join(' ')` and the constants and lookup tables of the
- * same file, and its inline `style`. What it cannot follow (a class string
+ * concatenations (`+`, and `+=` on a variable, whose appended pieces count as
+ * conditional), conditions, `[...].join(' ')`, the class helpers (`clsx`,
+ * `cn`, `classNames`, `twMerge`: their arguments, nested arrays and object
+ * keys) and the constants and lookup tables of the same file, and its inline
+ * `style`. What it cannot follow (a class string
  * from a prop or another module, a name built at runtime such as
  * `border-${side}`) is checked where the string is written, on its own: keep
  * the style utility in the same string as the width.
@@ -118,6 +121,8 @@ const DIVIDE_WIDTH = /^divide-([xy])(?:-(\d+|\[[^\]]+\]))?$/
 const DIVIDE_STYLE = /^divide-(solid|dashed|dotted|double|none)$/
 const DRAWS = /^(solid|dashed|dotted|double)$/
 const ZERO = /^(0|\[(length:)?0(px)?\])$/
+/** The class-name helpers whose arguments are all applied (an object key only when its value holds). */
+const CLASS_HELPER = /^(clsx|cn|cx|classNames|classnames|twMerge|twJoin)$/
 const INLINE_STYLE_WORD = /\b(solid|dashed|dotted|double|groove|ridge|inset|outset|none|hidden)\b/
 
 /** What one class string sets. `covered` and `axes` count only the utilities without a variant. */
@@ -239,13 +244,35 @@ function sourceBorderProblems(fileName: string, source: string): string[] {
   const file = parse(fileName, source)
   const line = (node: ts.Node) => file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1
   const constants = new Map<string, ts.Expression>()
+  const appended = new Map<string, ts.Expression[]>()
   const collect = (node: ts.Node): void => {
     if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) constants.set(node.name.text, node.initializer)
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusEqualsToken && ts.isIdentifier(node.left)) {
+      appended.set(node.left.text, [...(appended.get(node.left.text) ?? []), node.right])
+    }
     ts.forEachChild(node, collect)
   }
   collect(file)
 
   const consumed = new Set<ts.Node>()
+  const isClassHelperCall = (node: ts.Node): node is ts.CallExpression =>
+    ts.isCallExpression(node) && ts.isIdentifier(node.expression) && CLASS_HELPER.test(node.expression.text)
+  // A class helper's argument: a nested array is flattened, an object's keys are classes applied while their value holds.
+  const helperPieces = (expr: ts.Expression, always: boolean, seen: Set<string>, out: Array<{ text: string; always: boolean }>): void => {
+    if (ts.isArrayLiteralExpression(expr)) {
+      expr.elements.forEach((element) => helperPieces(ts.isSpreadElement(element) ? element.expression : element, always && !ts.isSpreadElement(element), seen, out))
+    } else if (ts.isObjectLiteralExpression(expr)) {
+      for (const property of expr.properties) {
+        if (!ts.isPropertyAssignment(property)) continue
+        const key = ts.isComputedPropertyName(property.name) ? property.name.expression : property.name
+        const kept = always && property.initializer.kind === ts.SyntaxKind.TrueKeyword
+        if (ts.isIdentifier(key)) out.push({ text: key.text, always: kept })
+        else if (ts.isExpression(key)) piecesOf(key, kept, seen, out)
+      }
+    } else {
+      piecesOf(expr, always, seen, out)
+    }
+  }
   const piecesOf = (expr: ts.Expression | undefined, always: boolean, seen: Set<string>, out: Array<{ text: string; always: boolean }>): void => {
     if (!expr) return
     if (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) {
@@ -273,6 +300,9 @@ function sourceBorderProblems(fileName: string, source: string): string[] {
       piecesOf(expr.expression, always, seen, out)
     } else if (ts.isArrayLiteralExpression(expr)) {
       expr.elements.forEach((element) => piecesOf(ts.isSpreadElement(element) ? element.expression : element, always && !ts.isSpreadElement(element), seen, out))
+    } else if (isClassHelperCall(expr)) {
+      consumed.add(expr)
+      expr.arguments.forEach((argument) => helperPieces(argument, always, seen, out))
     } else if (ts.isCallExpression(expr)) {
       // `[...].join(' ')`, `.filter(Boolean)`, `.trim()`: the receiver's pieces; a helper's arguments may be dropped.
       if (ts.isPropertyAccessExpression(expr.expression)) piecesOf(expr.expression.expression, always, seen, out)
@@ -282,7 +312,10 @@ function sourceBorderProblems(fileName: string, source: string): string[] {
     } else if (ts.isObjectLiteralExpression(expr)) {
       expr.properties.forEach((property) => { if (ts.isPropertyAssignment(property)) piecesOf(property.initializer, false, seen, out) })
     } else if (ts.isIdentifier(expr) && constants.has(expr.text) && !seen.has(expr.text)) {
-      piecesOf(constants.get(expr.text), always, new Set([...seen, expr.text]), out)
+      const inner = new Set([...seen, expr.text])
+      piecesOf(constants.get(expr.text), always, inner, out)
+      // `classes += ' border-solid'` may sit under a condition: an appended piece is never taken as always applied.
+      appended.get(expr.text)?.forEach((piece) => piecesOf(piece, false, inner, out))
     }
   }
 
@@ -310,7 +343,12 @@ function sourceBorderProblems(fileName: string, source: string): string[] {
 
   // Class strings no attribute above reached: constants passed as props, lookup tables, returns.
   const visitStrings = (node: ts.Node): void => {
-    if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateExpression(node)) && !consumed.has(node) && !notAClassString(node)) {
+    if (isClassHelperCall(node) && !consumed.has(node)) {
+      // A helper call no element reached is checked whole, so its arguments complete each other.
+      const pieces: Array<{ text: string; always: boolean }> = []
+      piecesOf(node, true, new Set(), pieces)
+      borderProblems(pieces).forEach((problem) => problems.push(`${fileName}:${line(node)} ${problem}`))
+    } else if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateExpression(node)) && !consumed.has(node) && !notAClassString(node)) {
       const text = ts.isTemplateExpression(node) ? [node.head.text, ...node.templateSpans.map((span) => span.literal.text)].join('\u0000') : node.text
       borderProblems([{ text, always: true }]).forEach((problem) => problems.push(`${fileName}:${line(node)} ${problem}`))
     }
@@ -374,6 +412,13 @@ describe('the border check', () => {
     'an inline width with no style': '<div style={{ borderWidth: 1 }} />',
     'a class width whose inline style covers one side only': "<div className=\"rounded-lg border\" style={{ borderLeft: '3px solid red' }} />",
     'a stub component': '<input className="w-full rounded-md border px-3 py-2 text-sm" />',
+    'a width concatenated with a style only under a condition': "<div className={'rounded border' + (open ? ' border-solid' : '')} />",
+    'a width whose style is appended under a condition': "let look = 'rounded border'\nif (open) look += ' border-solid'\nconst el = <div className={look} />",
+    'a width in a template whose style is conditional': '<div className={`rounded ${open ? "border border-solid" : "border"}`} />',
+    'a clsx width with a conditional style': "<div className={clsx('rounded border', open && 'border-solid')} />",
+    'a clsx array width with a conditional style': "<div className={clsx(['rounded', ['border']], { 'border-solid': open })} />",
+    'a clsx object key width': "<div className={cn('rounded', { border: open })} />",
+    'a clsx call passed as a prop': "const card = clsx('rounded-lg', 'border')",
   }
   // The nearest cases on the other side of the rule; each must pass.
   const accepted: Record<string, string> = {
@@ -400,6 +445,13 @@ describe('the border check', () => {
     ].join('\n'),
     'inline shorthands with a style, or none': "<div className=\"rounded-lg border border-solid\" style={{ borderLeft: `3px solid ${accent}`, borderTop: 'none', borderBottom: 0 }} />",
     'an inline width with a class style': '<div className="border-solid" style={{ borderWidth: 1 }} />',
+    'a width concatenated with its style': "<div className={'rounded border' + ' border-solid'} />",
+    'a width and its style split over a template and a constant': "const solid = 'border-solid'\nconst el = <div className={`rounded border ${solid}`} />",
+    'a style appended to a width that already has one': "let look = 'rounded border border-solid'\nif (open) look += ' border-dashed'\nconst el = <div className={look} />",
+    'a clsx width and style in separate arguments': "<div className={clsx('rounded border', 'border-solid', open && 'shadow')} />",
+    'a clsx width and style in a nested array and a kept key': "<div className={cn(['rounded', ['border']], { 'border-solid': true, 'shadow': open })} />",
+    'a clsx width and style under the same key': "<div className={clsx('rounded', { 'border border-solid': open })} />",
+    'a clsx call passed as a prop, complete': "const card = clsx('rounded-lg border', 'border-solid')",
   }
 
   it('refuses every route to an undrawn or 3px border', () => {
