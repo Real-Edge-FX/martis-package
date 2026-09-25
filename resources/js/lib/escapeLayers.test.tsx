@@ -11,6 +11,7 @@ import { getOpenLayerCount, hasOpenLayer, useEscapeLayer } from './escapeLayers'
  */
 
 const sources = import.meta.glob('../components/**/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+const pageSources = import.meta.glob('../pages/**/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
 
 // Popups that close on an outside click without joining the registry,
 // each for a reason the DrawerShell already covers.
@@ -65,6 +66,20 @@ describe('escape layers', () => {
     expect(closed).toEqual(['b'])
     act(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })) })
     expect(closed).toEqual(['b', 'a'])
+  })
+
+  it('marks every Escape a Martis modal or popup takes as handled', () => {
+    // A document keydown listener that closes on Escape calls
+    // preventDefault(), so any listener after it (a drawer's, an app's)
+    // knows the key was taken.
+    const unmarked = Object.entries({ ...sources, ...pageSources })
+      .filter(([path]) => !path.includes('.test.'))
+      .filter(([path]) => !path.endsWith('overrides/DrawerShell.tsx'))
+      .filter(([, source]) => /addEventListener\(\s*['"]keydown['"]/.test(source) && /['"]Escape['"]/.test(source))
+      .filter(([, source]) => !source.includes('preventDefault()'))
+      .map(([path]) => path)
+
+    expect(unmarked).toEqual([])
   })
 
   it('registers every Martis popup that closes on an outside click', () => {

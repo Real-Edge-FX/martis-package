@@ -230,23 +230,25 @@ export function DrawerShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Escape closes the top layer only. When an Escape arrives while a layer
-  // is open over the drawer, a modal (its history lock), a Martis popup or
-  // a PrimeReact overlay (escapeLayers.ts), the layer takes it and the
-  // drawer, with the form in it, stays; the next Escape reaches the drawer.
-  // React applies the state a layer's own Escape handler sets only after
-  // the event has been dispatched, so this listener still sees the layer
-  // open. `defaultPrevented` is not the signal: a PrimeReact Dropdown
-  // prevents every Escape its input receives, open or not, so it would
-  // keep the drawer from ever closing from there.
+  // Escape closes the top layer only: the drawer closes on an Escape
+  // nothing else took. A layer takes it while it is open: a modal (its
+  // history lock), a Martis popup (useEscapeLayer) or a PrimeReact overlay
+  // (escapeLayers.ts). The drawer decides in the capture phase, before the
+  // layers' own (bubble) listeners run: a key press from the user runs the
+  // microtasks between listeners, where React applies a layer's close and
+  // its effect cleanups (the lock drops to 0, the popup leaves the
+  // registry), so a listener that ran after a layer's would find nothing
+  // open. An Escape a capture listener already handled (the keyboard
+  // shortcuts help, a Trix image) arrives `defaultPrevented`, which every
+  // Martis layer also sets on the Escape it takes.
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key !== 'Escape') return
-      if (getModalLockCount() > 0 || hasOpenLayer()) return
+      if (e.defaultPrevented || getModalLockCount() > 0 || hasOpenLayer()) return
       void handleClose()
     }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
+    document.addEventListener('keydown', handleKey, true)
+    return () => document.removeEventListener('keydown', handleKey, true)
   }, [handleClose])
 
   function toggleExpand() {

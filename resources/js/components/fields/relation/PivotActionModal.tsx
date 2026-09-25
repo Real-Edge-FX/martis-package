@@ -79,7 +79,11 @@ export function PivotActionModal({
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        // Taken: a drawer underneath leaves a handled Escape alone.
+        e.preventDefault()
+        onClose()
+      }
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)

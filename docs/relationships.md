@@ -531,17 +531,16 @@ record the confirm names. Before v2.0 the write went to whatever record the
 relationship held at that moment, so a Delete could remove a record the user
 had not seen.
 
-Nova names the record too. Its `HasOne` panel is the related resource's
-detail component (the nova-dusk-suite `HasOneAuthorizationTest` drives the
-panel as that resource's detail view,
-[laravel/nova-dusk-suite](https://github.com/laravel/nova-dusk-suite)), and
-its delete request names the record alone, not the relationship
-(`DELETE /nova-api/{resource}?resources[]={id}`,
-[laravel/nova-issues#6364](https://github.com/laravel/nova-issues/issues/6364)),
-so the server has no relationship to compare it with. Martis's request names
-the relationship and the record, and answers `409` when they no longer
-match: the record is not the one the card stands for any more, and the user
-sees the current one before deciding.
+Nova's `HasOne` panel is the related resource's detail component
+([nova-dusk-suite `tests/Browser/HasOneAuthorizationTest.php`](https://github.com/laravel/nova-dusk-suite/blob/10.4/tests/Browser/HasOneAuthorizationTest.php)).
+Its delete endpoint deletes the ids it receives
+(`DELETE /nova-api/{resource}?resources[]={id}`, sent with `viaResource`,
+`viaResourceId` and `viaRelationship`) without comparing them with the
+relationship
+([laravel/nova-issues#6364](https://github.com/laravel/nova-issues/issues/6364)).
+Martis compares them and answers `409` when the record is no longer the one
+the relationship holds: the record is not the one the card stands for any
+more, and the user sees the current one before deciding.
 
 **A `HasOne` or `MorphOne` takes one record.** Creating a second one through
 the card's endpoint answers `422` (`The HasOne relationship has already been

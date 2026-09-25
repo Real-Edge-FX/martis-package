@@ -70,6 +70,8 @@ export function useEscapeLayer(open: boolean, close: () => void): void {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== 'Escape') return
       if (openLayers[openLayers.length - 1] !== id) return
+      // Taken: a drawer underneath leaves a handled Escape alone.
+      e.preventDefault()
       closeRef.current()
     }
     document.addEventListener('keydown', onKeyDown)

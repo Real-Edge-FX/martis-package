@@ -46,7 +46,11 @@ function DefaultDeleteModal({
   useEffect(() => {
     if (!open) return
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onCancel()
+      if (e.key === 'Escape') {
+        // Taken: a drawer underneath leaves a handled Escape alone.
+        e.preventDefault()
+        onCancel()
+      }
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)

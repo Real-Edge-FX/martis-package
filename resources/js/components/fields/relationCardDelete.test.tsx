@@ -158,6 +158,28 @@ describe.each([
     })
   })
 
+  it('leaves the focus on the Delete button when another record takes the deleted one\'s place', async () => {
+    // A one-of-many card shows the next record after a delete: the Delete
+    // button stays, the confirmation hands the focus back to it, and the
+    // card does not pull it to its title.
+    answerWithRecord(7, 'Shown profile')
+    apiDeleteMock.mockImplementation(async () => {
+      answerWithRecord(8, 'Next profile')
+      return { data: null }
+    })
+    renderCard(card(type, metaKey))
+    await screen.findByText('Shown profile')
+
+    const opener = await screen.findByRole('button', { name: 'Delete' })
+    opener.focus()
+    await confirmDelete()
+
+    await screen.findByText('Next profile')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Delete' }))
+  })
+
   it('names the record shown when Delete was clicked, even if a refetch swapped it while the modal was open', async () => {
     answerWithRecord(7, 'Shown profile')
     apiDeleteMock.mockResolvedValue({ data: null })

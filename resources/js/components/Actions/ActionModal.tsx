@@ -115,7 +115,11 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   useEffect(() => {
     if (!visible) return
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onHide()
+      if (e.key === 'Escape') {
+        // Taken: a drawer underneath leaves a handled Escape alone.
+        e.preventDefault()
+        onHide()
+      }
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
