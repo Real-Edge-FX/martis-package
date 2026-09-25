@@ -79,9 +79,7 @@ class InstallCommand extends Command
         // as truly interactive only when BOTH Symfony agrees AND stdin
         // is an actual TTY. Tests stay in non-interactive land via the
         // runningUnitTests() escape hatch.
-        $interactive = $this->input->isInteractive()
-            && ! app()->runningUnitTests()
-            && $this->stdinIsTty();
+        $interactive = $this->canPrompt();
 
         // Explicit flags win over everything. --no-* trumps --with-* so
         // automation that previously set --with-profile to opt-in can
@@ -195,6 +193,25 @@ class InstallCommand extends Command
      * `posix_isatty()` when `stream_isatty()` is unavailable keeps the
      * detection working on older or non-POSIX runtimes.
      */
+    /**
+     * Whether the command may ask a question: Symfony says the input is
+     * interactive AND stdin is a real TTY, outside the unit tests. A piped
+     * stdin (`yes | php artisan martis:install`, `docker compose exec -T`)
+     * is not a TTY: asking there reads the pipe (`y` became the avatar
+     * column) or waits forever, so every prompt takes its default instead.
+     */
+    protected function canPrompt(): bool
+    {
+        return $this->input->isInteractive()
+            && ! $this->insideUnitTests()
+            && $this->stdinIsTty();
+    }
+
+    protected function insideUnitTests(): bool
+    {
+        return app()->runningUnitTests();
+    }
+
     protected function stdinIsTty(): bool
     {
         if (! defined('STDIN')) {
@@ -494,7 +511,7 @@ class InstallCommand extends Command
             return $this->sanitizeColumnName($optionValue);
         }
 
-        if ($this->input->isInteractive() && ! app()->runningUnitTests()) {
+        if ($this->canPrompt()) {
             $value = $this->ask('Which users table column should Martis use for avatar paths?', $default);
 
             return $this->sanitizeColumnName((string) $value);
@@ -509,7 +526,7 @@ class InstallCommand extends Command
             return $this->sanitizeColumnName($optionValue);
         }
 
-        if ($this->input->isInteractive() && ! app()->runningUnitTests()) {
+        if ($this->canPrompt()) {
             $value = $this->ask('Which existing users table column should Martis use for avatar paths?', 'profile_picture');
 
             return $this->sanitizeColumnName((string) $value);
@@ -622,6 +639,13 @@ class InstallCommand extends Command
         }
     }
 
+    /**
+     * Migration names Laravel's own generators also use
+     * (`make:notifications-table`, `make:session-table`): an existing file
+     * under one of them may be the application's, not Martis's.
+     */
+    private const SHARED_MIGRATION_NAMES = ['create_notifications_table', 'create_sessions_table'];
+
     protected function publishMigrationStub(string $stubPath, string $migrationName, ?callable $transform = null): void
     {
         if (! file_exists($stubPath)) {
@@ -635,6 +659,17 @@ class InstallCommand extends Command
 
         if ($existing !== [] && ! $force) {
             $this->components->twoColumnDetail('<fg=yellow>Skipping</> migration', "{$migrationName} already published");
+
+            return;
+        }
+
+        // --force rewrites only a migration Martis published: under a name
+        // Laravel's generators share, a file that is not Martis's (its stubs
+        // say "Martis" in their header since v1.30) is the application's,
+        // and stays as it is.
+        if ($existing !== [] && in_array($migrationName, self::SHARED_MIGRATION_NAMES, true)
+            && ! str_contains((string) file_get_contents($existing[0]), 'Martis')) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipping</> migration', "{$migrationName} belongs to the application (not published by Martis)");
 
             return;
         }

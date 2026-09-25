@@ -173,13 +173,25 @@ export function Layout() {
   // Whole-shell override — honours both the PHP config key and the
   // default `layout:shell` registry entry.
   const shellConfigKey = config.layout?.components?.shell
+  // The global tooltip is mounted above the shell switch, so a custom
+  // shell's `data-pr-tooltip` attributes show tooltips as the presets' do.
   if (shellConfigKey && componentRegistry.has(shellConfigKey)) {
     const CustomShell = componentRegistry.resolve(shellConfigKey) as ComponentType
-    return <CustomShell />
+    return (
+      <>
+        <MartisTooltip />
+        <CustomShell />
+      </>
+    )
   }
   if (componentRegistry.has("layout:shell")) {
     const CustomShell = componentRegistry.resolve("layout:shell") as ComponentType
-    return <CustomShell />
+    return (
+      <>
+        <MartisTooltip />
+        <CustomShell />
+      </>
+    )
   }
 
   // Resolve layout preset from config. `custom` means the app promises

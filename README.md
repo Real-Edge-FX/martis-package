@@ -58,7 +58,7 @@ php artisan martis:install --force
 
 This is the recommended upgrade flow because Composer updates the package inside `vendor/`, while Martis publishes static assets into `public/vendor/martis/`. Those published files must be refreshed after package updates.
 
-`--force` rewrites more than the assets: it also republishes `lang/vendor/martis` (overwriting customised strings), rewrites the published Martis migrations in place, and rewrites the extension scaffold (`vite.extensions.config.ts`, both extension tsconfig files, `resources/js/martis-extensions/index.ts` and the shims). `config/martis.php` and `app/Providers/MartisServiceProvider.php` are only rewritten with `--force-config` / `--force-provider`. The installer always runs `migrate --force`. Commit first and review the diff. When only the frontend assets need refreshing, `php artisan martis:publish-assets` is enough.
+`--force` rewrites more than the assets: it also republishes `lang/vendor/martis` (overwriting customised strings), rewrites the migrations Martis published in place (an application's own `create_notifications_table` / `create_sessions_table` migration is left alone), and rewrites the extension scaffold (`vite.extensions.config.ts`, both extension tsconfig files, `resources/js/martis-extensions/index.ts` and the shims). `config/martis.php` and `app/Providers/MartisServiceProvider.php` are only rewritten with `--force-config` / `--force-provider`. The installer always runs `migrate --force`. Commit first and review the diff. When only the frontend assets need refreshing, `php artisan martis:publish-assets` is enough.
 
 If you also use the optional profile and two-factor migrations, re-run the install command with the same flags you used originally:
 

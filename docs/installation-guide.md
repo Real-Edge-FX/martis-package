@@ -77,7 +77,7 @@ command fails with `A user with email [...] already exists.`
 | `--force` | Overwrite previously published migrations, translations and the extension scaffold (Vite config, both tsconfig files, `index.ts`, the shims and their declarations); `config/martis.php` and the host provider stay unless you add `--force-config` / `--force-provider` |
 | `--force-config` | Republish `config/martis.php`, overwriting your changes to it |
 | `--force-provider` | Republish `app/Providers/MartisServiceProvider.php`, overwriting your changes to it |
-| `--with-profile` | Enable profile support and publish the avatar column migration (`add_profile_picture_column`); when the `sessions` profile section is active it also publishes the sessions table migration |
+| `--with-profile` | Enable profile support and publish the avatar column migration (`*_add_martis_profile_picture_column_to_users_table.php`); when the `sessions` profile section is active it also publishes the sessions table migration |
 | `--no-profile` | Disable profile support, even when running interactively; wins over `--with-profile` |
 | `--with-2fa` | Enable two-factor support and publish the 2FA columns migration (`*_add_martis_two_factor_columns_to_users_table.php`); independent of `--with-profile` |
 | `--no-2fa` | Disable two-factor support; wins over `--with-2fa` |
@@ -96,7 +96,7 @@ To install Martis with profile and two-factor support:
 php artisan martis:install --with-profile --with-2fa
 ```
 
-The two flags are independent switches: `--with-profile` publishes the avatar column migration (`add_profile_picture_column`), and `--with-2fa` publishes the two-factor columns migration (`*_add_martis_two_factor_columns_to_users_table.php`). Each stub is idempotent:
+The two flags are independent switches: `--with-profile` publishes the avatar column migration (`*_add_martis_profile_picture_column_to_users_table.php`), and `--with-2fa` publishes the two-factor columns migration (`*_add_martis_two_factor_columns_to_users_table.php`). Each stub is idempotent:
 
 - the avatar column is added only if it does not already exist
 - the 2FA columns are added only if they do not already exist
@@ -122,7 +122,7 @@ If the column already exists on `users` and you do **not** want a migration:
 php artisan martis:install --with-profile --existing-avatar-column --avatar-column=avatar_path
 ```
 
-The installer only prompts when it runs interactively **and** STDIN is a real TTY. In CI, Docker setup scripts (`docker compose exec -T`), deployment hooks or an AI agent's shell there is no prompt: every optional feature you do not pass a flag for resolves to disabled. The resolved values are also written to `.env` (`MARTIS_PROFILE_ENABLED`, `MARTIS_AVATAR_ENABLED`, `MARTIS_2FA_ENABLED`, `MARTIS_SHOW_PROFILE_MENU`) on every run, and a disabled value in the config wins over `--with-*` on the next run. Pass the flags explicitly:
+The installer only prompts when it runs interactively **and** STDIN is a real TTY, the avatar column question included. In CI, Docker setup scripts (`docker compose exec -T`), deployment hooks, a piped stdin (`yes | php artisan martis:install`) or an AI agent's shell there is no prompt: every optional feature you do not pass a flag for resolves to disabled, the avatar column is `profile_picture` unless you pass `--avatar-column`, and `--existing-avatar-column` needs `--avatar-column`. Before v2.0 the avatar column question read a piped answer (`yes |` created a column named `y`) or waited forever. The resolved values are also written to `.env` (`MARTIS_PROFILE_ENABLED`, `MARTIS_AVATAR_ENABLED`, `MARTIS_2FA_ENABLED`, `MARTIS_SHOW_PROFILE_MENU`) on every run, and a disabled value in the config wins over `--with-*` on the next run. Pass the flags explicitly:
 
 ```bash
 php artisan martis:install --force --no-interaction --with-profile --with-2fa
@@ -214,7 +214,6 @@ Recommended sequence for a manual install:
 
 ```bash
 php artisan vendor:publish --tag=martis-migrations
-php artisan vendor:publish --tag=martis-preferences-migration
 php artisan migrate
 ```
 
@@ -228,7 +227,7 @@ php artisan vendor:publish --tag=martis-avatar-migration
 php artisan migrate
 ```
 
-`martis:install` publishes the core migrations on every run, the avatar migration with `--with-profile` (as `add_profile_picture_column`) and the two-factor migration with `--with-2fa` (as `*_add_martis_two_factor_columns_to_users_table.php`).
+`martis:install` publishes the core migrations on every run, the avatar migration with `--with-profile` (as `*_add_martis_profile_picture_column_to_users_table.php`) and the two-factor migration with `--with-2fa` (as `*_add_martis_two_factor_columns_to_users_table.php`).
 
 #### UUID / ULID / custom user PKs (v1.12.2+)
 
@@ -570,7 +569,7 @@ your-laravel-app/
 │       ├── *_create_notifications_table.php          # In-app notifications
 │       ├── *_create_martis_cache_state_table.php     # Cache versions and kill-switches
 │       ├── *_add_martis_two_factor_columns_to_users_table.php # 2FA (with --with-2fa)
-│       └── *_add_profile_picture_column.php          # Avatar (with --with-profile)
+│       └── *_add_martis_profile_picture_column_to_users_table.php  # Avatar (with --with-profile)
 ├── lang/
 │   └── vendor/
 │       └── martis/                                   # Published translations (martis-lang)
@@ -633,7 +632,7 @@ php artisan martis:install --force
 Know what else the installer changes before you use it on an app with customisations. With `--force`:
 
 - it republishes `lang/vendor/martis`, overwriting customised strings
-- it rewrites the published Martis migrations in place
+- it rewrites the migrations Martis published in place; an application's own `*_create_notifications_table.php` or `*_create_sessions_table.php` (from `make:notifications-table` / `make:session-table`) is left alone
 - it rewrites `resources/js/martis-extensions/index.ts`, manual `register()` calls included
 
 On every run, with or without `--force`:

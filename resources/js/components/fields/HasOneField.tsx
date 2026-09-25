@@ -250,6 +250,12 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
           >
             <span className="martis-ofmany-tile-label">{fnLabel(ofMany.aggregate.fn)}</span>
             <span className="martis-ofmany-tile-value">{formatAggregate(ofMany.aggregate)}</span>
+            {/* The column is in the tooltip only; screen readers get it here. */}
+            {ofMany.aggregate.column !== '*' && (
+              <span className="sr-only">
+                {tMsg('ofmany_aggregate_column', { column: ofMany.aggregate.column, defaultValue: `Aggregated column: ${ofMany.aggregate.column}` })}
+              </span>
+            )}
           </div>
         )}
 
