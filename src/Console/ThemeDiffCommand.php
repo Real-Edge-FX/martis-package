@@ -58,7 +58,15 @@ class ThemeDiffCommand extends Command
 
         if (! $filesystem->exists($consumerPath)) {
             $this->components->error("Consumer theme not found: {$consumerPath}");
-            $this->line('  Did you forget to <fg=cyan>php artisan martis:theme '.$themeName.'</>?');
+
+            // With a source, publishing restores the copy. Running
+            // martis:theme again would replace that source with the
+            // scaffold, so it is suggested only when there is none.
+            if ($filesystem->exists(resource_path('css/martis/'.$themeName.'.css'))) {
+                $this->line('  Publish it from <fg=cyan>resources/css/martis/'.$themeName.'.css</> with <fg=cyan>php artisan martis:publish-assets</>.');
+            } else {
+                $this->line('  Did you forget to <fg=cyan>php artisan martis:theme '.$themeName.'</>?');
+            }
 
             return self::FAILURE;
         }

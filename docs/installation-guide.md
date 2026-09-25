@@ -172,11 +172,13 @@ php artisan martis:publish-assets
 
 This copies the precompiled React application to `public/vendor/martis/`. End users do not need to run Vite in the consuming Laravel app.
 
-The command **wipes `public/vendor/martis/` first** so stale Vite-hashed chunks from previous package versions never accumulate, then does a deterministic full-tree copy. Laravel's stock `vendor:publish --tag=martis-assets --force` is a merge-style copy and would otherwise pile up tens of thousands of orphan files across upgrades — enough on macOS Docker bind mounts to slow every PHP-FPM request to several seconds. Pass `--no-wipe` to opt back into the legacy merge behaviour if you have a specific reason to.
+The command **first deletes what the package published before** (`assets/`, `manifest.json` and a Vite `hot` file under `public/vendor/martis/`) so stale Vite-hashed chunks from previous package versions never accumulate, then does a deterministic full-tree copy. Laravel's stock `vendor:publish --tag=martis-assets --force` is a merge-style copy and would otherwise pile up tens of thousands of orphan files across upgrades, enough on macOS Docker bind mounts to slow every PHP-FPM request to several seconds. Pass `--no-wipe` to opt back into the legacy merge behaviour if you have a specific reason to.
+
+Since **v1.39.3** the rest of `public/vendor/martis/` stays: your themes under `themes/` (see [Theming → Theme files and asset publishes](theming.md#theme-files-and-asset-publishes)) and anything else you put there. A symlinked `public/vendor/martis/` is replaced by a real directory (its target keeps its files), and one that is the package's own `public/` is left as it is. Up to v1.39.2 the command deleted the whole directory, themes included, and emptied a symlink's target.
 
 Since **v1.29.1** the command also **verifies completeness**: after copying it checks that every file the published `manifest.json` references (the app entry bundle, its CSS, every chunk) exists in the destination, and exits non-zero with the missing count if any are absent — so a partial publish is caught here rather than surfacing as a black-screen admin at runtime.
 
-Equivalent: `php artisan martis:vendor-publish --assets` performs the same wipe-then-publish flow, as does `martis:install` — all three share this single hardened path.
+Equivalent: `php artisan martis:vendor-publish --assets` performs the same delete-then-publish flow, as does `martis:install`: all three share this single hardened path.
 
 Important:
 

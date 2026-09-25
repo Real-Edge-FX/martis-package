@@ -107,6 +107,20 @@ it('martis:install publishes the frontend manifest', function () {
     }
 });
 
+it('martis:install --force keeps an edited theme under public/vendor/martis/themes', function () {
+    // The upgrade path the README gives (martis:install --force) republishes
+    // the assets; up to v1.39.2 that deleted the theme martis:theme writes.
+    $filesystem = new Filesystem;
+    $theme = public_path('vendor/martis/themes/install-kept.css');
+    $filesystem->ensureDirectoryExists(dirname($theme));
+    $filesystem->put($theme, ':root { --martis-accent: #123456; } /* edited */');
+
+    $this->artisan('martis:install', ['--force' => true, '--no-interaction' => true])->assertSuccessful();
+
+    expect($filesystem->get($theme))->toBe(':root { --martis-accent: #123456; } /* edited */')
+        ->and(file_exists(public_path('vendor/martis/manifest.json')))->toBeTrue();
+});
+
 it('martis:install publishes the action events migration once', function () {
     $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
     $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();

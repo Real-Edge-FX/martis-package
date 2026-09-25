@@ -81,6 +81,8 @@ class ThemeMakeCommand extends Command
         $this->newLine();
         $this->line('  1. Edit CSS variables in <comment>public/vendor/martis/themes/'.$name.'.css</comment>');
         $this->line('  2. Changes take effect immediately (plain CSS, no rebuild needed).');
+        $this->line('     Asset publishes keep that file. Copy your edits to <comment>resources/css/martis/'.$name.'.css</comment>');
+        $this->line('     and commit it: <comment>php artisan martis:publish-assets</comment> restores a missing copy from there.');
         $this->line('  3. Switch theme in <comment>config/martis.php</comment>:');
         $this->newLine();
         $this->line("     <comment>'theme' => ['name' => '{$name}']</comment>");
