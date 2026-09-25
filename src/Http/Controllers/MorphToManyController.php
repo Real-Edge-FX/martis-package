@@ -75,7 +75,7 @@ class MorphToManyController extends MartisController
         $rawSearch = $request->query('search', '');
         $search = trim(is_string($rawSearch) ? $rawSearch : '');
         if ($search !== '') {
-            SearchResolver::apply($request, $query, $relatedResourceClass, $search);
+            SearchResolver::apply($request, $query, $relatedResourceClass, $search, qualifyColumns: true);
         }
 
         // Sort: only a sortable field of the related resource the user can

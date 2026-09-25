@@ -40,6 +40,12 @@ class SearchResolver
      * @param  Builder<Model>  $query  The Eloquent query (already has indexQuery applied)
      * @param  class-string<\Martis\Resource>  $resourceClass
      * @param  string  $search  The trimmed search term
+     * @param  bool  $qualifyColumns  Qualify the searched columns with the
+     *                                model's table. A relationship panel sets it: its relation
+     *                                can join a table with the same column (a hasManyThrough's
+     *                                intermediate, a pivot). The resource index leaves the
+     *                                columns as written, since its `indexQuery()` may join a
+     *                                table whose column a searchable field reads.
      * @return Builder<Model> The modified query
      */
     public static function apply(
@@ -47,6 +53,7 @@ class SearchResolver
         Builder $query,
         string $resourceClass,
         string $search,
+        bool $qualifyColumns = false,
     ): Builder {
         if ($search === '') {
             return $query;
@@ -82,7 +89,7 @@ class SearchResolver
             return $query;
         }
 
-        return static::applyDatabaseSearch($request, $query, $resourceClass, $search);
+        return static::applyDatabaseSearch($request, $query, $resourceClass, $search, $qualifyColumns);
     }
 
     /**
@@ -176,8 +183,12 @@ class SearchResolver
         Builder $query,
         string $resourceClass,
         string $search,
+        bool $qualifyColumns = false,
     ): Builder {
         $instance = new $resourceClass;
+
+        // See apply(): only a relationship panel qualifies the columns.
+        $column = static fn (Builder $q, string $attribute): string => $qualifyColumns ? $q->qualifyColumn($attribute) : $attribute;
 
         // Case-insensitive matching across every driver: PostgreSQL's `LIKE`
         // is case-sensitive, so we emit `ILIKE` there (mirroring Laravel's
@@ -216,8 +227,8 @@ class SearchResolver
                 continue;
             }
             $value = $token['value'];
-            $query->where(function (Builder $q) use ($byAttribute, $token, $value, $likeOp): void {
-                $q->where($q->qualifyColumn($byAttribute[$token['field']]->attribute()), $likeOp, "%{$value}%");
+            $query->where(function (Builder $q) use ($byAttribute, $token, $value, $likeOp, $column): void {
+                $q->where($column($q, $byAttribute[$token['field']]->attribute()), $likeOp, "%{$value}%");
             });
             $appliedTokens++;
         }
@@ -250,11 +261,9 @@ class SearchResolver
         // sits inside one `where(Closure)` so it composes correctly with
         // any AND filters already on the builder.
         if ($freeText !== '' && ($searchableFields !== [] || $relations !== [])) {
-            $query->where(function (Builder $q) use ($searchableFields, $relations, $freeText, $likeOp): void {
+            $query->where(function (Builder $q) use ($searchableFields, $relations, $freeText, $likeOp, $column): void {
                 foreach ($searchableFields as $field) {
-                    // Qualified: the query may join a table with the same column
-                    // (a hasManyThrough panel lists its records through one).
-                    $q->orWhere($q->qualifyColumn($field->attribute()), $likeOp, "%{$freeText}%");
+                    $q->orWhere($column($q, $field->attribute()), $likeOp, "%{$freeText}%");
                 }
 
                 foreach ($relations as $path) {
@@ -288,7 +297,7 @@ class SearchResolver
                 $bindings = [];
                 $like = '%'.$freeText.'%';
                 foreach ($searchableFields as $field) {
-                    $cases[] = 'WHEN '.$connection->getQueryGrammar()->wrap($query->qualifyColumn($field->attribute())).' LIKE ? THEN '.((int) $field->getSearchPriority());
+                    $cases[] = 'WHEN '.$connection->getQueryGrammar()->wrap($column($query, $field->attribute())).' LIKE ? THEN '.((int) $field->getSearchPriority());
                     $bindings[] = $like;
                 }
                 if ($cases !== []) {

@@ -97,7 +97,7 @@ class HasManyController extends MartisController
         $search = trim(is_string($rawSearch) ? $rawSearch : '');
 
         if ($search !== '') {
-            SearchResolver::apply($request, $query, $relatedResourceClass, $search);
+            SearchResolver::apply($request, $query, $relatedResourceClass, $search, qualifyColumns: true);
         }
 
         // Only a sortable field of the related resource the user can see
