@@ -35,6 +35,7 @@ use Martis\Console\AgentsCommand;
 use Martis\Console\CacheClearCommand;
 use Martis\Console\CacheDisableCommand;
 use Martis\Console\CacheEnableCommand;
+use Martis\Console\CachePruneCommand;
 use Martis\Console\CacheStatusCommand;
 use Martis\Console\CardMakeCommand;
 use Martis\Console\ComponentMakeCommand;
@@ -273,6 +274,7 @@ class MartisServiceProvider extends ServiceProvider
                 ToolMakeCommand::class,
                 CacheStatusCommand::class,
                 CacheClearCommand::class,
+                CachePruneCommand::class,
                 CacheDisableCommand::class,
                 CacheEnableCommand::class,
                 ListOverridesCommand::class,

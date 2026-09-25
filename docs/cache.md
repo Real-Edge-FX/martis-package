@@ -141,6 +141,7 @@ The cache entries themselves still live in `Cache::store()` — only the operati
 php artisan martis:cache:status                  # table view of every layer
 php artisan martis:cache:clear                    # clear every layer
 php artisan martis:cache:clear metrics            # clear one layer only
+php artisan martis:cache:prune                    # delete the entries older versions left behind (v2.0)
 php artisan martis:cache:disable navigation       # runtime kill-switch
 php artisan martis:cache:enable navigation        # runtime force-on
 ```
@@ -268,9 +269,19 @@ The button in the admin panel does the same.
 
 Old keys linger until natural expiration (or until the store evicts them under pressure). On Redis with `maxmemory-policy: allkeys-lru` they get evicted quickly; on the file driver they sit on disk until expired. Functionally the cache is invalidated immediately; physically the orphans go away later.
 
-**Orphans after an upgrade.** Each upgrade (or `martis:cache:clear`) leaves the previous keys behind. A layer with a TTL drops them when it expires, which is why the `schema` layer ships a one-day TTL since v2.0 (it had none before). A layer set to `'ttl' => null` keeps them until the store evicts them, and the file and database stores never do: a `config/martis.php` published before v2.0 still reads `env('MARTIS_CACHE_SCHEMA_TTL', env('MARTIS_CACHE_SCHEMA', null))`, so set `MARTIS_CACHE_SCHEMA_TTL=1440` there. To remove orphans already on disk, point Martis at a **dedicated store** (a `CACHE_STORE` connection used by nothing else) so `php artisan cache:clear` on it removes Martis entries only; on a shared store, `cache:clear` also wipes the application's own cache.
+**Orphans after an upgrade.** Each upgrade (or `martis:cache:clear`) leaves the previous keys behind, in every layer. What removes them depends on the store:
 
-**Long keys.** A key over 191 characters (the length a database cache column indexed under `utf8mb4` holds; memcached stops at 250 bytes) is hashed whole: `martis:cache:{type}:h:{sha256}`. The hash covers the installed version and the counter, so upgrades and `clear()` still invalidate it.
+| Store | An expired orphan | What to do |
+|-------|-------------------|------------|
+| `redis`, `memcached` | Dropped by the server on its own | Nothing, as long as the layer has a TTL; a layer set to `null` keeps its orphans until the server evicts them under memory pressure. |
+| `database` (Laravel's default store since 11), `file` | **Never dropped**: Laravel deletes an expired entry only when that same key is read again, which an orphan never is | Run `php artisan martis:cache:prune` after an upgrade (or schedule it daily). |
+| `array` | Gone at the end of the process | Nothing. |
+
+`martis:cache:prune` (v2.0) deletes, on the database store, every `martis:cache:*` row that is expired or whose key no longer carries a live `{type}@{installed}:v{N}:` prefix (a hashed long key is kept until it expires), and on the file store every expired entry (the file names are hashes of the keys, so Martis entries cannot be told apart; an expired entry is dead for everyone). On any other store it reports that there is nothing to prune.
+
+The `schema` layer ships a one-day TTL since v2.0 (`MARTIS_CACHE_SCHEMA_TTL=1440`), so its orphans are at least expired, which is what `martis:cache:prune` and Redis act on; it had none before. An empty value (`MARTIS_CACHE_SCHEMA_TTL=`, the `.env` block these docs showed up to 1.x) still means **no expiration**, and a `config/martis.php` published before v2.0 still reads `env('MARTIS_CACHE_SCHEMA_TTL', env('MARTIS_CACHE_SCHEMA', null))`: set `MARTIS_CACHE_SCHEMA_TTL=1440` to get the new default there.
+
+**Long keys.** A key that would pass 191 characters once the store adds its own prefix (`CACHE_PREFIX`; the length a database cache column indexed under `utf8mb4` holds; memcached stops at 250 bytes) is hashed whole: `martis:cache:{type}:h:{sha256}`. The hash covers the installed version and the counter, so upgrades and `clear()` still invalidate it.
 
 ## Cache store
 
