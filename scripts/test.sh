@@ -28,5 +28,6 @@ docker build -q -t "$IMAGE" -f "$ROOT/.docker/pest.Dockerfile" "$ROOT/.docker" >
 exec docker run --rm \
   -v "$ROOT":/martis-package -w /martis-package \
   -e CACHE_STORE=array -e SESSION_DRIVER=array \
+  -e MARTIS_TEST_PROCESS_TIMEOUT \
   "$IMAGE" \
   php -d memory_limit=1G vendor/bin/pest --no-coverage "$@"
