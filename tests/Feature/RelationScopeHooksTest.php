@@ -363,6 +363,7 @@ class RSHOwnerResource extends Resource
                 ->fields(fn () => [Text::make('note', 'Note')]),
             HasOne::ofMany('Latest item', 'items', RSHItemResource::class)->latestByTimestamp('written_at'),
             HasOne::make('Profile', 'profile')->relatedResource('rsh-profiles'),
+            MorphOne::make('Image', 'image')->relatedResource('rsh-images'),
         ];
     }
 }
@@ -944,30 +945,59 @@ it('P26 a relation defined withTrashed(): index count, has-many panel and pivot 
     expect([$rows['Owner A']['allItems'], $rows['Owner A']['allTags']])->toBe([$hasMany->json('meta.total'), $pivot->json('meta.total')]);
 });
 
-it('P27 two concurrent creates on a has-one: the parent lock serializes them', function () {
+/**
+ * A one-record card of owner `$ownerId` (an `$ownerClass`) the race tests
+ * create on: its endpoint, a payload, the record's table, the SQL that
+ * selects the owner's record there and the insert a concurrent request runs.
+ *
+ * @return array{path: string, payload: array<string, string>, table: string, where: string, insert: string}
+ */
+function rshOneRecordCard(string $kind, int $ownerId, string $ownerClass): array
+{
+    if ($kind === 'has-one') {
+        return [
+            'path' => 'has-one/profile',
+            'payload' => ['bio' => 'mine'],
+            'table' => 'rsh_profiles',
+            'where' => "owner_id = {$ownerId}",
+            'insert' => "insert into rsh_profiles (owner_id, bio) values ({$ownerId}, 'concurrent')",
+        ];
+    }
+
+    $type = (new $ownerClass)->getMorphClass();
+
+    return [
+        'path' => 'morph-one/image',
+        'payload' => ['title' => 'mine'],
+        'table' => 'rsh_images',
+        'where' => "imageable_type = '{$type}' and imageable_id = {$ownerId}",
+        'insert' => "insert into rsh_images (imageable_type, imageable_id, title) values ('{$type}', {$ownerId}, 'concurrent')",
+    ];
+}
+
+it('P27 two concurrent creates on a one-record card: the parent lock serializes them', function (string $kind) {
     $driver = getenv('MARTIS_TEST_DB') ?: 'sqlite';
     if ($driver === 'sqlite' || ! function_exists('pcntl_fork')) {
         $this->markTestSkipped('Needs a second database connection: MARTIS_TEST_DB=mysql|pgsql and pcntl.');
     }
     $ownerId = $this->a->id;
+    $card = rshOneRecordCard($kind, $ownerId, RSHOwner::class);
     $pid = pcntl_fork();
     if ($pid === 0) {
         $pdo = rshPdo($driver);
         $pdo->beginTransaction();
         $pdo->query("select * from rsh_owners where id = {$ownerId} for update")->fetchAll();
-        $pdo->exec("insert into rsh_profiles (owner_id, bio) values ({$ownerId}, 'concurrent')");
+        $pdo->exec($card['insert']);
         usleep(1500000);
         $pdo->commit();
         posix_kill(posix_getpid(), SIGKILL);
     }
     usleep(500000);
-    $t0 = microtime(true);
-    $r = $this->postJson('/martis/api/resources/rsh-owners/'.$ownerId.'/has-one/profile', ['bio' => 'mine']);
-    $waited = (microtime(true) - $t0) * 1000;
+    $r = $this->postJson('/martis/api/resources/rsh-owners/'.$ownerId.'/'.$card['path'], $card['payload']);
     pcntl_waitpid($pid, $status);
-    $count = RSHProfile::where('owner_id', $ownerId)->count();
+    $count = DB::table($card['table'])->whereRaw($card['where'])->count();
     expect($count)->toBe(1);
-});
+})->with(['has-one', 'morph-one']);
 
 class RSHOwnerOnProbe extends RSHOwner
 {
@@ -977,9 +1007,19 @@ class RSHOwnerOnProbe extends RSHOwner
     {
         return $this->hasOne(RSHProfileOnProbe::class, 'owner_id');
     }
+
+    public function image(): EMorphOne
+    {
+        return $this->morphOne(RSHImageOnProbe::class, 'imageable');
+    }
 }
 
 class RSHProfileOnProbe extends RSHProfile
+{
+    protected $connection = 'probe';
+}
+
+class RSHImageOnProbe extends RSHImage
 {
     protected $connection = 'probe';
 }
@@ -998,7 +1038,11 @@ class RSHOwnerOnProbeResource extends RSHOwnerTrashedRelResource
 
     public function fields(Request $request): array
     {
-        return [Text::make('name'), HasOne::make('Profile', 'profile')->relatedResource('rsh-profiles-on-probe')];
+        return [
+            Text::make('name'),
+            HasOne::make('Profile', 'profile')->relatedResource('rsh-profiles-on-probe'),
+            MorphOne::make('Image', 'image')->relatedResource('rsh-images-on-probe'),
+        ];
     }
 }
 
@@ -1015,20 +1059,41 @@ class RSHProfileOnProbeResource extends RSHProfileResource
     }
 }
 
-it('P28 the lock when the models use a connection other than the default one', function () {
+class RSHImageOnProbeResource extends RSHImageResource
+{
+    public static function model(): string
+    {
+        return RSHImageOnProbe::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-images-on-probe';
+    }
+}
+
+/** The owner and record resources on the `probe` connection. */
+function rshRegisterOnProbe(): void
+{
+    foreach ([RSHOwnerOnProbeResource::class, RSHProfileOnProbeResource::class, RSHImageOnProbeResource::class] as $class) {
+        app(ResourceRegistry::class)->register($class);
+    }
+}
+
+it('P28 the lock when the models use a connection other than the default one', function (string $kind) {
     $driver = getenv('MARTIS_TEST_DB') ?: 'sqlite';
     if ($driver === 'sqlite' || ! function_exists('pcntl_fork')) {
         $this->markTestSkipped('Needs a second database connection: MARTIS_TEST_DB=mysql|pgsql and pcntl.');
     }
-    app(ResourceRegistry::class)->register(RSHOwnerOnProbeResource::class);
-    app(ResourceRegistry::class)->register(RSHProfileOnProbeResource::class);
+    rshRegisterOnProbe();
     $ownerId = $this->a->id;
+    $card = rshOneRecordCard($kind, $ownerId, RSHOwnerOnProbe::class);
     $pid = pcntl_fork();
     if ($pid === 0) {
         $pdo = rshPdo($driver);
         $pdo->beginTransaction();
         $pdo->query("select * from rsh_owners where id = {$ownerId} for update")->fetchAll();
-        $pdo->exec("insert into rsh_profiles (owner_id, bio) values ({$ownerId}, 'concurrent')");
+        $pdo->exec($card['insert']);
         usleep(1500000);
         $pdo->commit();
         posix_kill(posix_getpid(), SIGKILL);
@@ -1037,19 +1102,21 @@ it('P28 the lock when the models use a connection other than the default one', f
     // The app's default connection is another database (sqlite here), as in
     // a landlord/tenant setup; the models name their own connection.
     DB::setDefaultConnection('sqlite');
-    $r = $this->postJson('/martis/api/resources/rsh-owners-on-probe/'.$ownerId.'/has-one/profile', ['bio' => 'mine']);
+    $r = $this->postJson('/martis/api/resources/rsh-owners-on-probe/'.$ownerId.'/'.$card['path'], $card['payload']);
     DB::setDefaultConnection('probe');
     pcntl_waitpid($pid, $status);
-    $count = RSHProfile::where('owner_id', $ownerId)->count();
+    $count = DB::table($card['table'])->whereRaw($card['where'])->count();
     expect($count)->toBe(1);
-});
+})->with(['has-one', 'morph-one']);
 
 /**
  * A second request that runs the same steps as the controller (lock the
  * parent, check, insert) exactly between the first request's in-transaction
- * check and its insert.
+ * check and its insert, on the card `$card` (rshOneRecordCard()).
+ *
+ * @param  array{path: string, payload: array<string, string>, table: string, where: string, insert: string}  $card
  */
-function rshRaceBetweenCheckAndInsert(string $driver, int $ownerId, string $url): array
+function rshRaceBetweenCheckAndInsert(string $driver, int $ownerId, array $card, string $url): array
 {
     $dir = sys_get_temp_dir().'/rsh-race-'.getmypid().'-'.uniqid();
     @mkdir($dir);
@@ -1062,9 +1129,9 @@ function rshRaceBetweenCheckAndInsert(string $driver, int $ownerId, string $url)
         $pdo = rshPdo($driver);
         $pdo->beginTransaction();
         $pdo->query("select * from rsh_owners where id = {$ownerId} for update")->fetchAll();
-        $exists = (int) $pdo->query("select count(*) from rsh_profiles where owner_id = {$ownerId}")->fetchColumn();
+        $exists = (int) $pdo->query("select count(*) from {$card['table']} where {$card['where']}")->fetchColumn();
         if ($exists === 0) {
-            $pdo->exec("insert into rsh_profiles (owner_id, bio) values ({$ownerId}, 'concurrent')");
+            $pdo->exec($card['insert']);
         }
         $pdo->commit();
         touch("$dir/done");
@@ -1072,8 +1139,8 @@ function rshRaceBetweenCheckAndInsert(string $driver, int $ownerId, string $url)
     }
 
     $seen = 0;
-    DB::listen(function ($query) use (&$seen, $dir) {
-        if ($query->connectionName === 'probe' && str_contains(strtolower($query->sql), 'exists') && str_contains($query->sql, 'rsh_profiles')) {
+    DB::listen(function ($query) use (&$seen, $dir, $card) {
+        if ($query->connectionName === 'probe' && str_contains(strtolower($query->sql), 'exists') && str_contains($query->sql, $card['table'])) {
             $seen++;
             if ($seen === 2) {
                 touch("$dir/go");
@@ -1085,36 +1152,37 @@ function rshRaceBetweenCheckAndInsert(string $driver, int $ownerId, string $url)
         }
     });
 
-    $r = test()->postJson($url, ['bio' => 'mine']);
+    $r = test()->postJson($url, $card['payload']);
     pcntl_waitpid($pid, $status);
     @unlink("$dir/go");
     @unlink("$dir/done");
     @rmdir($dir);
 
-    return [$r->status(), DB::connection('probe')->table('rsh_profiles')->where('owner_id', $ownerId)->count(), $seen];
+    return [$r->status(), DB::connection('probe')->table($card['table'])->whereRaw($card['where'])->count(), $seen];
 }
 
-it('P29 race between the check and the insert, models on the default connection (control)', function () {
+it('P29 race between the check and the insert, models on the default connection (control)', function (string $kind) {
     $driver = getenv('MARTIS_TEST_DB') ?: 'sqlite';
     if ($driver === 'sqlite' || ! function_exists('pcntl_fork')) {
         $this->markTestSkipped('Needs a second database connection: MARTIS_TEST_DB=mysql|pgsql and pcntl.');
     }
-    [$status, $count, $seen] = rshRaceBetweenCheckAndInsert($driver, $this->a->id, '/martis/api/resources/rsh-owners/'.$this->a->id.'/has-one/profile');
+    $card = rshOneRecordCard($kind, $this->a->id, RSHOwner::class);
+    [$status, $count, $seen] = rshRaceBetweenCheckAndInsert($driver, $this->a->id, $card, '/martis/api/resources/rsh-owners/'.$this->a->id.'/'.$card['path']);
     expect($count)->toBe(1);
-});
+})->with(['has-one', 'morph-one']);
 
-it('P30 race between the check and the insert, models on a connection other than the default', function () {
+it('P30 race between the check and the insert, models on a connection other than the default', function (string $kind) {
     $driver = getenv('MARTIS_TEST_DB') ?: 'sqlite';
     if ($driver === 'sqlite' || ! function_exists('pcntl_fork')) {
         $this->markTestSkipped('Needs a second database connection: MARTIS_TEST_DB=mysql|pgsql and pcntl.');
     }
-    app(ResourceRegistry::class)->register(RSHOwnerOnProbeResource::class);
-    app(ResourceRegistry::class)->register(RSHProfileOnProbeResource::class);
+    rshRegisterOnProbe();
+    $card = rshOneRecordCard($kind, $this->a->id, RSHOwnerOnProbe::class);
     DB::setDefaultConnection('sqlite');
-    [$status, $count, $seen] = rshRaceBetweenCheckAndInsert($driver, $this->a->id, '/martis/api/resources/rsh-owners-on-probe/'.$this->a->id.'/has-one/profile');
+    [$status, $count, $seen] = rshRaceBetweenCheckAndInsert($driver, $this->a->id, $card, '/martis/api/resources/rsh-owners-on-probe/'.$this->a->id.'/'.$card['path']);
     DB::setDefaultConnection('probe');
     expect($count)->toBe(1);
-});
+})->with(['has-one', 'morph-one']);
 
 it('P31 detail page: a count through a Through relation with the documented unqualified tenant scope', function () {
     // Counted by key on a fresh query: an unqualified column the joined
@@ -1602,4 +1670,29 @@ it('P45 a card create holds the parent lock for the check and the insert only: a
     'morph-one' => ['morph-one/image', ['title' => 'Mine'], RSHImage::class, 1],
     'has-one of many' => ['has-one/items', ['title' => 'Mine'], RSHItem::class, 0],
     'morph-one of many' => ['morph-one/images', ['title' => 'Mine'], RSHImage::class, 0],
+]);
+
+// ---------------------------------------------------------------------
+// Third review round: a hook that orders by an alias it selects
+// ---------------------------------------------------------------------
+
+it('P46 the keys drop a hook\'s order by an alias it selects (withCount then orderBy)', function (Closure $hook) {
+    RSHItemResource::$hook = $hook;
+    RSHItem::create(['owner_id' => $this->a->id, 'group_id' => RSHGroup::where('owner_id', $this->a->id)->value('id'), 'title' => 'A2']);
+
+    // The index sorts by the alias, which its own select holds.
+    $index = $this->getJson('/martis/api/resources/rsh-items')->assertOk();
+    $rows = collect($this->getJson('/martis/api/resources/rsh-owners')->assertOk()->json('data'))->keyBy('name');
+
+    expect(collect($index->json('data'))->pluck('title')->first())->toBe('A1')
+        ->and(rshPanel('has-many/groupItems')->assertOk()->json('meta.total'))->toBe(2)
+        ->and(rshPanel('has-one/items')->assertOk()->json('meta.ofMany.totalCount'))->toBe(2)
+        ->and([$rows['Owner A']['items'], $rows['Owner A']['groupItems']])->toBe([2, 2]);
+})->with([
+    // Kept in the key subquery, the order by an alias it no longer selects
+    // fails on MySQL and PostgreSQL (MARTIS_TEST_DB); SQLite reads the
+    // quoted name as a string there and accepts it.
+    'orderByDesc()' => [fn (Builder $q) => $q->withCount('likes')->orderByDesc('likes_count')],
+    // The unquoted name fails on SQLite too.
+    'orderByRaw()' => [fn (Builder $q) => $q->withCount('likes')->orderByRaw('likes_count desc')],
 ]);
