@@ -30,9 +30,9 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `guard` | `?string` | `null` | Authentication guard. `null` uses Laravel's default guard. |
+| `guard` | `?string` | `null` | Authentication guard. `null` uses Laravel's default guard. The panel's requests run as that guard (it becomes the request's guard), and the auth flows, the Martis migrations and `martis:user` use its provider: see [Upgrading → A custom Martis guard](upgrading.md#a-custom-martis-guard). |
 | `middleware` | `array` | `['web']` | Applied to all Martis routes (public and protected). |
-| `auth_middleware` | `array` | `['martis.auth']` | Applied to protected routes only. |
+| `auth_middleware` | `array` | `['martis.auth']` | Applied to protected routes only. `martis.auth` implements Laravel's `AuthenticatesRequests`, so the router's middleware priority runs it where it runs Laravel's `auth`: before the throttle, the route bindings and any middleware outside the priority list (v2.0.0+). |
 
 ## Brand
 
@@ -475,7 +475,7 @@ Shipped locales: `en` (English), `pt_BR` (Brazilian Portuguese), `pt_PT` (Europe
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `enabled` | `bool` | `true` | Set `false` to disable API rate limiting. |
-| `max_attempts` | `int` | `120` | Maximum requests per window. |
+| `max_attempts` | `int` | `120` | Maximum requests per window, per signed-in user of the Martis guard. |
 | `decay_minutes` | `int` | `1` | Rate limit window in minutes. |
 
 ## Theme
@@ -1036,7 +1036,7 @@ The package can record three categories of administrative events into the `marti
 |---|---|---|
 | `role_changes` | `true` | Logs `role.attached` / `role.detached` rows whenever Spatie attaches or detaches a role. |
 | `impersonation` | `true` | Logs `impersonation.started` / `impersonation.stopped`. |
-| `authz_denials` | `false` | Records denied gate decisions as `authz.denied`. Off by default — turning it on can be noisy on a busy app. |
+| `authz_denials` | `false` | Records denied gate decisions as `authz.denied`, while the Martis guard is the request's guard. Off by default: turning it on can be noisy on a busy app. |
 | `authz_denials_include_viewany` | `false` | When `authz_denials` is on, also record `viewAny` denials. Off by default because index pages probe `viewAny` on every request. |
 
 The denial listener dedupes the same `(ability, model_class, model_id)` tuple within one request, so a sidebar that probes the same gate three times only emits one row.
@@ -1053,7 +1053,7 @@ The denial listener dedupes the same `(ability, model_class, model_id)` tuple wi
 | Key | Default | Effect |
 |---|---|---|
 | `request_cache` | `false` | Memoises `(user, ability, model)` gate results for the current request. Wins when a single request evaluates the same gate from many surfaces (sidebar, schema authorization block, action visibility). Per-request only — never crosses request boundaries. Closure gates with non-Model arguments are skipped. |
-| `revoke_sessions_on_demote` | `false` | When a role is detached from a user, force-logs out their existing browser sessions. Useful when promoting/demoting between admin tiers. |
+| `revoke_sessions_on_demote` | `false` | When a role is detached from a user, force-logs out their existing browser sessions. Useful when promoting/demoting between admin tiers. Skipped, with a warning, when the session guards sign in users of more than one table (a custom `MARTIS_GUARD` with its own model): the session rows cannot be told apart by id. |
 
 ## Magic-link sign-in (v1.8.8)
 

@@ -151,9 +151,9 @@ Since v1.8.8 every successful `start()` / `stop()` is recorded into the `martis_
 
 Each row carries:
 
-- `user_id` — the operator (the user issuing the impersonation, even after the auth guard switched to the target).
-- `model_id` / `target_id` — the target user.
-- `fields.target_label` — the target's `name`, falling back to `email` (mirrors the snapshot label).
+- `user_id`: the operator (the user issuing the impersonation, even after the auth guard switched to the target), when the impersonation guard signs in the Martis guard's users (the default). When `guard` names a guard of other users (the site's), the log's `user()`, which resolves the Martis guard's model, would name someone else: `user_id` is null and the operator goes to `fields.operator_type` / `fields.operator_id` (v2.0.0+).
+- `model_id` / `target_id`: the target user.
+- `fields.target_label`: the target's `name`, falling back to `email` (mirrors the snapshot label).
 
 Browse them under `/martis/system/action-events` (or whatever URL the bundled `ActionEventResource` lives at). Toggle the audit-row write per-environment via `MARTIS_AUDIT_IMPERSONATION=false` — the events still fire so any custom listeners you attach keep firing; only the Martis row is suppressed.
 

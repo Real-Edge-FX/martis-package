@@ -228,17 +228,17 @@ php artisan vendor:publish --tag=martis-avatar-migration
 php artisan migrate
 ```
 
-`martis:install` publishes the core migrations on every run, the avatar migration with `--with-profile` (as `add_profile_picture_column`) and the two-factor migration with `--with-2fa` (as `*_add_martis_two_factor_columns_to_users_table.php`).
+`martis:install` publishes the core migrations on every run, the avatar migration with `--with-profile` (as `add_profile_picture_column`) and the two-factor migration with `--with-2fa` (as `*_add_martis_two_factor_columns_to_users_table.php`). Both add their columns to the table of the Martis guard's users: `users`, unless `MARTIS_GUARD` names a guard whose model has its own table.
 
 #### UUID / ULID / custom user PKs (v1.12.2+)
 
-The published migrations adapt the `user_id` column (and the polymorphic `notifiable_id` on the notifications table) to whichever primary-key shape your host `users` table uses. The adaptation happens at migration time — each stub introspects the configured user model (`auth.providers.{provider}.model`) and picks the matching column helper:
+The published migrations adapt the `user_id` column (and the polymorphic `notifiable_id` on the notifications table) to the primary-key shape of the Martis guard's users. The adaptation happens at migration time: each stub introspects the model of the Martis guard's provider (`auth.guards.{MARTIS_GUARD, else the default guard}.provider` → `auth.providers.{provider}.model`, the `users` model on a default install) and picks the matching column helper. The foreign keys (`martis_user_preferences.user_id`, `invitations.invited_by` / `accepted_user_id`) reference that model's table and key, and the two-factor and avatar migrations add their columns to that table (v2.0.0+; before, always `users`):
 
 | User model | `user_id` column |
 |---|---|
-| Default Laravel (auto-incrementing `bigint`) | `foreignId('user_id')->constrained()` |
-| `use Illuminate\Database\Eloquent\Concerns\HasUuids;` | `foreignUuid('user_id')->constrained()` |
-| `use Illuminate\Database\Eloquent\Concerns\HasUlids;` | `foreignUlid('user_id')->constrained()` |
+| Default Laravel (auto-incrementing `bigint`) | `foreignId('user_id')->constrained($table, $key)` |
+| `use Illuminate\Database\Eloquent\Concerns\HasUuids;` | `foreignUuid('user_id')->constrained($table, $key)` |
+| `use Illuminate\Database\Eloquent\Concerns\HasUlids;` | `foreignUlid('user_id')->constrained($table, $key)` |
 | `$keyType = 'string'` without `HasUuids` / `HasUlids` | `string('user_id')` + explicit `foreign()` |
 
 The polymorphic columns on `notifications` follow the same rule (`morphs` / `uuidMorphs` / `ulidMorphs`).
