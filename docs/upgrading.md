@@ -13,6 +13,41 @@ php artisan martis:cache:clear
 
 `martis:cache:clear` matters on 1.x: the cache keys carry no package version and the `schema` layer keeps its entries with no expiration by default, so without it the cached resource schemas keep the relationship panel flags of the previous version (see [A write through a relationship needs the related `viewAny`](#a-write-through-a-relationship-needs-the-related-viewany)).
 
+Then read the sections below that apply to your app: most are security fixes that refuse something a user could do before. Two things this release does not fix are in [Known issues](#known-issues-in-v1393).
+
+### Metric results are cached per user
+
+Both metric cache paths (the `metrics` layer and a per-class `cacheFor()`) keyed the entry without the user, so a `calculate()` scoped to the user, their tenant or their permissions served the first user's value to everyone for the TTL. The key now carries the authenticated user (the Martis guard's), by model class and identifier; guests share one entry.
+
+- Every key changes: no previous entry is reused, and each user's first request computes the metric again.
+- A metric that is the same for everyone is now computed and stored once per user. Raise `MARTIS_CACHE_METRICS_TTL` or its `cacheFor()` lifetime, or set `protected bool $cachePerUser = false;` on it (only when its `calculate()` reads nothing of the user). See [Cache](cache.md#the-four-built-in-layers).
+
+### Actions run only on the records the index lists
+
+An action run (bulk, single record, inline, lens or queued) looks its selected ids up through the resource's `scopes()`, then `indexQuery()`, as the index lists them, with an `orWhere()` in them grouped before the ids are added.
+
+- A record `scopes()` keeps out is no longer processed; a run none of whose ids resolve answers `404` (`One or more selected resources could not be found.`) instead of running `handle()` on nothing, pivot actions included.
+- An action that is not `standalone()` posted without `resources` answers `422` (`resources`): send the ids, or declare the action `standalone()`.
+- A `standalone()` action receives an empty collection whatever ids the request names: query the records it needs itself.
+
+See [Actions → Execution Modes](actions.md#execution-modes).
+
+### A write through a relationship needs the related `viewAny`
+
+`POST`, `PUT` and `DELETE` on the `has-many`, `has-one`, `morph-many` and `morph-one` endpoints now require the related resource's `viewAny`, as its own endpoints and Nova do, and answer `403` without it; the `HasMany`, `HasOne`, `MorphMany` and `MorphOne` panels no longer offer Create, Edit, Delete, Restore or Force delete to that user (they still list the records). If that user should write those records, grant `viewAny` on the related resource and confine what they see with `indexQuery()`. The panel flags live in the cached schema: run `php artisan martis:cache:clear schema` (or `martis:cache:clear`) after upgrading. See [Authorization → `viewAny` is the entry gate](authorization.md#viewany-is-the-entry-gate).
+
+### A publish keeps your themes
+
+`martis:publish-assets` (and `martis:install`, `martis:vendor-publish --assets`, which run it) deleted the whole `public/vendor/martis/` since v1.8.8, `themes/<name>.css` included, so each upgrade took a custom theme away. It now deletes only what the package publishes, and copies `resources/css/martis/<name>.css` to `public/vendor/martis/themes/` when that copy is missing (never over an existing one). A symlinked `public/vendor/martis` becomes a real directory at the next publish.
+
+**A theme an earlier publish deleted does not come back by itself.** To recover it:
+
+1. Restore `public/vendor/martis/themes/<name>.css` from version control or a backup (the edited copy, if you edited the published file).
+2. Copy it to `resources/css/martis/<name>.css` as well (create the folder if needed), and make your edits there from now on: that source is what a publish restores a missing copy from.
+3. Run `php artisan martis:publish-assets`, and check that `config('martis.theme.name')` (`MARTIS_THEME_NAME`) still names it.
+
+If neither version control nor a backup has it, `php artisan martis:theme <name>` scaffolds a new theme to redo the edits in (with `--force` it overwrites an existing one). See [Theming → Theme files and asset publishes](theming.md#theme-files-and-asset-publishes).
+
 ### Commands ask only on a terminal
 
 `martis:install`, and every other Martis command that asks (the generators' "Overwrite?", `martis:user`, `martis:agents`, `martis:sso`'s role mapping, the "Run pending migrations now?" of `martis:invitations`, `martis:roles` and `martis:sso`), asks a question only when the input is interactive **and** stdin is a real TTY. Through a pipe or `docker compose exec -T` every command does what it does with `--no-interaction`:
@@ -156,3 +191,45 @@ return new class extends Migration
 ```
 
 When the model's key type differs from `users.id` (a UUID model beside bigint users), change the two invitation columns' type (`$table->uuid('invited_by')->nullable()->change()`) before adding their foreign keys. If you use two-factor authentication or the avatar, add their columns to the Martis guard's table too: copy `vendor/martis/martis/stubs/add_two_factor_columns.php.stub` (and `add_profile_picture_column.php.stub`, with your avatar column in place of `profile_picture`) to a new file in `database/migrations/` and run `php artisan migrate`; both add only the columns the table lacks, to the Martis guard's table.
+
+### Actions only a lens declares
+
+The lens page runs its actions through new lens action routes (`/martis/api/resources/{resource}/lenses/{lens}/actions/...`), resolved from the lens as in Nova, so an action only the lens declares now works there and a resource action the lens leaves out no longer runs from it; those routes answer `403` when the lens's `canSee()` denies it. Republish the assets (`php artisan martis:publish-assets`). See [Lenses → Actions only the lens declares](lenses.md#actions-only-the-lens-declares).
+
+## Known issues in v1.39.3
+
+### The audit log has no policy
+
+The built-in audit log resource (`Martis\Resources\ActionEventResource`, **System → Action Events**, `/martis/api/resources/action-events`) ships no policy on 1.x, and a resource without a policy is readable by every panel user: any signed-in user can list and open the audit rows (who did what, the changed attributes, impersonations, role changes). v2.0.1 gives it one. On 1.x, register a policy for its model in the app, for instance in `App\Providers\AppServiceProvider::boot()`:
+
+```php
+use Illuminate\Support\Facades\Gate;
+use Martis\Models\ActionEvent;
+
+Gate::policy(ActionEvent::class, \App\Policies\ActionEventPolicy::class);
+```
+
+```php
+<?php
+
+namespace App\Policies;
+
+use Illuminate\Contracts\Auth\Authenticatable;
+use Martis\Models\ActionEvent;
+
+class ActionEventPolicy
+{
+    // Replace the check with your own rule (a role, a permission, a gate).
+    public function viewAny(Authenticatable $user): bool
+    {
+        return method_exists($user, 'hasRole') && $user->hasRole('admin');
+    }
+
+    public function view(Authenticatable $user, ActionEvent $event): bool
+    {
+        return $this->viewAny($user);
+    }
+}
+```
+
+`ActionEventResource` finds it through the Gate (the model's policy), so the index, the detail page, the navigation entry, its badge and the command palette's "Recent" block all follow it; the resource already refuses create, update and delete. A policy at `App\Martis\Policies\ActionEventPolicy` (the `martis.policy_namespace` convention) is found without the `Gate::policy()` line. To hide the audit log from everyone instead, set `MARTIS_ACTION_EVENTS_RESOURCE=false`: the rows are still written (`MARTIS_ACTION_EVENTS_ENABLED`), only the resource is not registered.
