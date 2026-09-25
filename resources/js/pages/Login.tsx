@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent, type KeyboardEvent } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router"
 import { useAuth, TwoFactorRequiredError, EmailVerificationRequiredError } from "@/contexts/AuthContext"
 import { useToast } from "@/contexts/ToastContext"
 import { api, ApiError } from "@/lib/api"

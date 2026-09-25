@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams } from 'react-router'
 
 /**
  * Context pointing to the "real parent" of the relationship panels rendered

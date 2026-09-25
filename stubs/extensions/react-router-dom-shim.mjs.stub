@@ -7,6 +7,13 @@
  * without the consumer running `npm install react-router-dom`. The
  * package's host SPA already bundles react-router-dom; this shim
  * just re-exports the surface from `window.Martis.runtime.reactRouterDom`.
+ *
+ * Since v2.0.1 the host runs React Router 7, where `react-router-dom`
+ * is a re-export of `react-router`. The runtime serves that module
+ * (every `react-router` export, with the DOM `RouterProvider`), and the
+ * consumer's Vite config can send `react-router` here as well. The names
+ * below exist in both majors, so a bundle built against an older Martis
+ * keeps working on a v2.0.1+ host.
  */
 
 const RR =

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { ArrowRightIcon, EyeIcon, EyeSlashIcon } from '@phosphor-icons/react'
 import { useToast } from '@/contexts/ToastContext'

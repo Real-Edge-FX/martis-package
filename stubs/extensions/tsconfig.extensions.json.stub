@@ -16,6 +16,7 @@
       "@martis/runtime": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
       "react-dom": ["./resources/js/martis-extensions/.shims/react-dom.d.mts"],
       "react-router-dom": ["./resources/js/martis-extensions/.shims/react-router-dom.d.mts"],
+      "react-router": ["./resources/js/martis-extensions/.shims/react-router-dom.d.mts"],
       "react-i18next": ["./resources/js/martis-extensions/.shims/react-i18next.d.mts"],
       "@tanstack/react-query": ["./resources/js/martis-extensions/.shims/tanstack-react-query.d.mts"],
       "@/contexts/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],

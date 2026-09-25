@@ -20,7 +20,7 @@ vi.mock('react-i18next', () => ({
 // from the route; each test names the page it runs on.
 const page = { params: { resource: 'users', id: '7' } }
 
-vi.mock('react-router-dom', () => ({
+vi.mock('react-router', () => ({
   useParams: () => page.params,
   Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
 }))

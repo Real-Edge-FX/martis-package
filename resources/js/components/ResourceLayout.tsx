@@ -1,4 +1,4 @@
-import { Outlet, useParams } from 'react-router-dom'
+import { Outlet, useParams } from 'react-router'
 import { layoutRegistry, type LayoutProps } from '@/lib/layoutRegistry'
 
 function DefaultResourceLayout({ children }: LayoutProps) {

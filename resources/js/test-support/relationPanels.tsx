@@ -1,7 +1,7 @@
 import { expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import type { ReactNode } from 'react'
 import { api } from '@/lib/api'
 import type { FieldDefinition, FieldType } from '@/types'

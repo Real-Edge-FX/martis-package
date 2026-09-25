@@ -22,8 +22,8 @@ vi.mock('react-i18next', () => ({
   }),
 }))
 
-// Mock react-router-dom
-vi.mock('react-router-dom', () => ({
+// Mock react-router
+vi.mock('react-router', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={to}>{children}</a>
   ),

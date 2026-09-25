@@ -1,4 +1,6 @@
 import { flushSync } from 'react-dom'
+import * as ReactRouter from 'react-router'
+import { RouterProvider as DomRouterProvider } from 'react-router/dom'
 import { describe, expect, it } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { martisRuntime } from '@/lib/martisRuntime'
@@ -176,6 +178,19 @@ describe('martisRuntime', () => {
         expect(martisRuntime.tanstackReactQuery).toBeTypeOf('object')
     })
 
+    it('serves React Router 7 as the react-router-dom module: every react-router export, with the DOM RouterProvider', () => {
+        // React Router 7's `react-router-dom` package is `export * from
+        // 'react-router'` plus `RouterProvider` from `react-router/dom`.
+        // Extensions built against the v6 shim read these names off it.
+        const served = martisRuntime.reactRouterDom as unknown as Record<string, unknown>
+        expect(Object.keys(served).sort()).toEqual(Object.keys(ReactRouter).sort())
+        for (const name of Object.keys(ReactRouter)) {
+            if (name !== 'RouterProvider') expect(served[name], name).toBe((ReactRouter as Record<string, unknown>)[name])
+        }
+        expect(served.RouterProvider).toBe(DomRouterProvider)
+        expect(served.RouterProvider).not.toBe(ReactRouter.RouterProvider)
+    })
+
     it('the consumer-extension shim re-exports every runtime member under its own name, and nothing else', () => {
         // `@martis/runtime` resolves to the published shim in a consumer build,
         // and the shim reads each named export off `window.Martis.runtime`: a
@@ -256,6 +271,7 @@ describe('martisRuntime', () => {
             'react-dom': 'reactDomShim',
             'react/jsx-runtime': 'jsxRuntimeShim',
             'react-router-dom': 'routerShim',
+            'react-router': 'routerShim',
             'react-i18next': 'i18nextShim',
             '@tanstack/react-query': 'queryShim',
             '@martis/runtime': 'runtimeShim',

@@ -6,7 +6,7 @@ The sections below list the breaking changes of each major version and what to c
 
 ## Upgrading to v2.0.1 from v2.0.0
 
-The action log, the throttle buckets, the Gate cache's `lookup()` the Tool route warning, the grouped user hooks and the relatable checks on writes apply to every app; the other changes concern an app with a custom `MARTIS_GUARD`.
+The action log, the throttle buckets, the Gate cache's `lookup()` the Tool route warning, the grouped user hooks, the relatable checks on writes and React Router 7 apply to every app; the other changes concern an app with a custom `MARTIS_GUARD`.
 
 ### Relationship writes follow the pickers
 
@@ -58,6 +58,17 @@ The Martis migrations of these tables now shape their user columns on the users 
 ### User hooks run grouped
 
 No code change is needed. A user hook written with a top-level `orWhere()` now runs grouped everywhere Martis composes it with something else, as Eloquent runs a local scope: the resource's `scopes()` and `indexQuery()` on the index page and its count badge, each index filter's `apply()`, the resource's `searchQuery()`, each filter a lens's `withFilters()` applies, and the pickers' `relatableQuery()`, `relatable{PluralModelName}()` and `relatableQueryUsing()`. v2.0.0 appended the filters, the search term and the lower picker layers to the hook's last `or` clause only, so `where('tenant_id', 1)->orWhere('shared', true)` listed every record of the tenant whatever the filters and the search said, and a filter or a picker closure written with `orWhere()` could list another tenant's records. A list that relied on that precedence now shows fewer records; wrap the hook's clauses in `where(fn ($q) => ...)` yourself only if you meant the looser reading. Hooks that add only `and` clauses produce the same SQL.
+
+### The panel runs on React Router 7
+
+The SPA moved from React Router 6 to React Router 7 (library mode, `createBrowserRouter` as before), which closes GHSA-wrjc-x8rr-h8h6 and GHSA-337j-9hxr-rhxg. It needs Node 20 or later to build (only for building the package itself: an app installs the prebuilt assets). URLs and pages are unchanged.
+
+**Extensions** (custom tools, fields, cards and overrides built with `npm run build:extensions`) keep working without a rebuild. They never bundle React Router: their Vite config sends `react-router-dom` to a shim that reads the host's copy off `window.Martis.runtime.reactRouterDom`, and every name that shim exports (`Link`, `NavLink`, `Outlet`, `Navigate`, `Route`, `Routes`, the routers, `useNavigate`, `useParams`, `useSearchParams`, `useLocation`, `useMatch`, `useResolvedPath`, `useNavigationType`, `generatePath`, `matchPath`, `matchRoutes`) exists in React Router 7. What changes for extension code:
+
+- **`window.Martis.runtime.reactRouterDom` is React Router 7's `react-router-dom` module**: every export of `react-router`, with the DOM `RouterProvider`. Names React Router 7 removed are gone from it (`json`, `defer`, `AbortedDeferredError`, the `UNSAFE_` internals of v6), so code that read one off the shim's default export gets `undefined`.
+- **Behaviour of the v7 future flags** now applies to the host's router: navigations run in `React.startTransition`, and a relative link inside a splat route resolves from the splat's own path. An extension that navigates with absolute paths (`navigate('/resources/users')`, `<Link to="/tools/deployments">`) sees no difference. `navigate()` may return a promise; there is nothing to await for a plain navigation.
+- **Type declarations.** After you republish the shims (`php artisan vendor:publish --tag=martis-extension-shims --force`), `react-router-dom.d.mts` carries the React Router 7 types. Six type names React Router 7 no longer exports are gone: `FutureConfig`, `Hash`, `JsonFunction`, `Pathname`, `Search` and `V7_FormMethod` (use `string` or `Path['pathname']` for the path parts).
+- **`import ... from 'react-router'`** also works in a scaffold published from v2.0.1 (`martis:install --force`): its Vite config and `tsconfig.extensions.json` send `react-router` to the same shim. An older scaffold keeps importing from `react-router-dom`, or adds the two lines by hand (see [Installation → Extensions and React Router 7](installation-guide.md#extensions-and-react-router-7-v201)).
 
 ## Upgrading to v2.0 from v1.x
 

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from "react"
 import { createPortal } from "react-dom"
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { useTranslation } from "react-i18next"

@@ -37,7 +37,9 @@ const CONSUMER_PACKAGES = /^(?:react|react-dom|@phosphor-icons\/react)(?:\/|$)/
 
 const SIBLINGS = {
   'react-dom': './react-dom.mjs',
-  'react-router-dom': './react-router-dom.mjs',
+  // The SPA imports React Router 7 as `react-router`; the runtime entry's
+  // re-exports point at the `react-router-dom` shim's declarations.
+  'react-router': './react-router-dom.mjs',
   'react-i18next': './react-i18next.mjs',
   '@tanstack/react-query': './tanstack-react-query.mjs',
 }

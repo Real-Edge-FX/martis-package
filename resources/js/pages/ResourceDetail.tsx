@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useParams, useNavigate, Link } from "react-router-dom"
+import { useParams, useNavigate, Link } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import type { ResourceRecord, ResourceSchema, OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from "@/types"

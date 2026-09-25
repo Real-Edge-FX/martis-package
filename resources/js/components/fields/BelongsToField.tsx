@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router'
 import { api } from '@/lib/api'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'

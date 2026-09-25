@@ -43,7 +43,7 @@
  *      ("Refreshing the extension scaffold after an upgrade")
  */
 
-import * as ReactRouterDom from 'react-router-dom'
+import * as ReactRouterDom from '@/lib/reactRouterDom'
 import * as ReactI18next from 'react-i18next'
 import * as TanstackReactQuery from '@tanstack/react-query'
 import { useAuth, AuthProvider, TwoFactorRequiredError, EmailVerificationRequiredError } from '@/contexts/AuthContext'
