@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.39.3] — 2026-09-25
+
 Security release: read [Upgrading → v1.39.3](docs/upgrading.md#upgrading-to-v1393) before updating, since several fixes refuse what a user could do before (each entry below says what changes). After `composer update`, run `php artisan martis:publish-assets` (the lens page's action fix and the browser sessions notice are in the assets) and **`php artisan martis:cache:clear`**: 1.x cache keys carry no package version and the `schema` layer never expires by default, so without it the cached schemas keep the previous relationship panel flags. A custom theme an earlier `martis:publish-assets` deleted does not come back by itself: restore `public/vendor/martis/themes/<name>.css` from version control or a backup, copy it to `resources/css/martis/<name>.css` too (the source a publish now restores a missing copy from), and publish again (see [A publish keeps your themes](docs/upgrading.md#a-publish-keeps-your-themes)). **Known issue:** the audit log (`ActionEventResource`, System → Action Events) has no policy on 1.x, so every panel user can read it; v2.0.1 gives it one. Until then register a policy for `Martis\Models\ActionEvent` (`Gate::policy(ActionEvent::class, ActionEventPolicy::class)` with `viewAny` / `view`), or hide the resource with `MARTIS_ACTION_EVENTS_RESOURCE=false`: see [Known issues → The audit log has no policy](docs/upgrading.md#the-audit-log-has-no-policy), whose snippet `ActionEventResourcePolicyWorkaroundTest` pins (+2 Pest).
 
 ### Security
