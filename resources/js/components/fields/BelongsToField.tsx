@@ -569,7 +569,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
           style={{
             borderColor: 'var(--martis-border)',
             backgroundColor: 'var(--martis-surface)',
-            color: createButtonColorField ?? 'var(--martis-primary)',
+            color: createButtonColorField ?? 'var(--martis-accent)',
             height: '38px',
             width: '38px',
             flexShrink: 0,

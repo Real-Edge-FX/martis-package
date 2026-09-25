@@ -95,6 +95,16 @@ The `schema` cache layer now expires after a day by default (`MARTIS_CACHE_SCHEM
 
 See [Cache → Invalidation](cache.md#invalidation).
 
+### Custom themes
+
+A theme generated with `martis:theme` before v2.0 may need three edits:
+
+1. **`--martis-dur-sm` and `--martis-brand-500` do nothing any more.** No stylesheet defined them; the package now reads `--martis-dur-fast` and `--martis-accent` where it read them, and `martis:theme:diff` lists them as *Unknown to package* (exit 2). Set `--martis-dur-fast` and `--martis-accent` instead.
+2. **Delete the two logo heights**, `--martis-brand-logo-height-auth` and `--martis-brand-logo-height-menu`, unless you mean to override `MARTIS_BRAND_LOGO_HEIGHT_AUTH` / `_MENU`: the old stub declared them on `:root` (the menu one at 28px), which silenced those `.env` knobs.
+3. **Set the short typography names.** The package CSS reads `--martis-text-*`, `--martis-weight-*` and `--martis-leading-*`; a theme that sets only `--martis-font-size-*`, `--martis-font-weight-*` or `--martis-line-height-*` changes almost nothing.
+
+See [Theming](theming.md#variable-reference).
+
 ### `martis.auth` runs where Laravel's `auth` runs
 
 `MartisAuthenticate`, the `martis.auth` middleware, implements Laravel's `AuthenticatesRequests`, as Laravel's and Nova's `Authenticate` do, so the router's middleware priority now runs it right after the session starts: before the throttle, the route bindings (`SubstituteBindings`) and any middleware that is not in the priority list, including one appended to the `web` group or listed in `martis.middleware`. v1.x ran it after them. The protected routes' throttle therefore counts per signed-in user (with a custom `MARTIS_GUARD` it counted per IP, see [A custom Martis guard](#a-custom-martis-guard)), and an unauthenticated request to a protected route is answered before the throttle counts it, as with Laravel's `auth` and `throttle`.
