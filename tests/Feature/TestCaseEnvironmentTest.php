@@ -153,3 +153,77 @@ it('gives a parallel worker a copy of the testbench skeleton of its own', functi
         @unlink($script);
     }
 });
+
+// After a Ctrl+C in a parallel run every new worker finds the same orphan
+// copies on its first test. They used to delete them all at once, and the
+// ones that lost the race threw from applicationBasePath() (a directory
+// another worker had just removed), failing every test of that worker.
+it('lets concurrent workers sweep the same orphan copies', function () {
+    $script = tempnam(sys_get_temp_dir(), 'martis-skeleton-sweep-');
+    file_put_contents($script, <<<'PHP'
+        <?php
+        require $argv[1].'/vendor/autoload.php';
+
+        echo Martis\Tests\TestCase::applicationBasePath(), "\n";
+        fflush(STDOUT);
+
+        if ($argv[2] === 'held') {
+            // Alive until the test SIGKILLs it, like a worker hit by Ctrl+C.
+            sleep(60);
+        }
+        PHP);
+
+    $run = fn (string $mode): Process => new Process(
+        [PHP_BINARY, $script, dirname(__DIR__, 2), $mode],
+        null,
+        ['TEST_TOKEN' => '98'],
+    );
+
+    try {
+        // Three workers alive at once (a live copy is never swept), then
+        // killed before their shutdown functions run.
+        $held = array_map(fn (): Process => $run('held'), range(1, 3));
+
+        foreach ($held as $process) {
+            $process->start();
+        }
+
+        $orphans = [];
+
+        foreach ($held as $process) {
+            $deadline = microtime(true) + 30;
+
+            while (! str_contains($process->getOutput(), "\n") && $process->isRunning() && microtime(true) < $deadline) {
+                usleep(20_000);
+            }
+
+            $orphans[] = trim($process->getOutput());
+        }
+
+        foreach ($held as $process) {
+            $process->signal(9);
+            $process->wait();
+        }
+
+        expect(array_filter($orphans, 'is_dir'))->toHaveCount(3);
+
+        $workers = array_map(fn (): Process => $run('worker'), range(1, 4));
+
+        foreach ($workers as $worker) {
+            $worker->start();
+        }
+
+        foreach ($workers as $worker) {
+            $worker->wait();
+
+            expect($worker->isSuccessful())->toBeTrue($worker->getErrorOutput())
+                ->and(trim($worker->getOutput()))->not->toBe('');
+        }
+
+        expect(array_filter($orphans, 'is_dir'))->toBe([])
+            // Nor a claimed orphan left half-deleted.
+            ->and(glob(dirname($orphans[0]).'/.*.claimed-*') ?: [])->toBe([]);
+    } finally {
+        @unlink($script);
+    }
+});

@@ -71,18 +71,7 @@ abstract class TestCase extends OrchestraTestCase
         $copy = $root.'/'.getmypid().'-'.$token;
         $filesystem = new Filesystem;
 
-        // A copy whose process is gone was left by a worker killed before its
-        // shutdown function ran; one named after this process can only be a
-        // leftover of an earlier process with the same pid. A live copy, a
-        // sibling worker's or that of the process this one was started from,
-        // is left alone.
-        foreach (glob($root.'/*-*', GLOB_ONLYDIR) ?: [] as $sibling) {
-            $pid = (int) strtok(basename($sibling), '-');
-
-            if ($pid > 0 && ($pid === getmypid() || ! self::processIsRunning($pid))) {
-                $filesystem->deleteDirectory($sibling);
-            }
-        }
+        self::sweepOrphanCopies($root, $filesystem);
 
         // `vendor` is the symlink `vendor/bin/testbench` creates, `.env` a
         // copy it can leave behind, and the log only grows run after run.
@@ -96,7 +85,7 @@ abstract class TestCase extends OrchestraTestCase
 
         register_shutdown_function(static function () use ($filesystem, $copy, $owner): void {
             if (getmypid() === $owner) {
-                $filesystem->deleteDirectory($copy);
+                self::deleteQuietly($filesystem, $copy);
                 @rmdir(dirname($copy));
             }
         });
@@ -108,6 +97,56 @@ abstract class TestCase extends OrchestraTestCase
         }
 
         return $path;
+    }
+
+    /**
+     * Remove the copies whose process is gone: a worker killed before its
+     * shutdown function ran (Ctrl+C, SIGKILL) leaves one, and after such a
+     * run every new worker finds the same orphans at the same time. Each
+     * orphan is first claimed with an atomic rename to a hidden name
+     * carrying this process's pid, so exactly one worker deletes it; a
+     * claim whose claimer died mid-delete is claimed again. A copy named
+     * after this process can only be a leftover of an earlier process with
+     * the same pid. A live copy, a sibling worker's or that of the process
+     * this one was started from, is left alone.
+     */
+    private static function sweepOrphanCopies(string $root, Filesystem $filesystem): void
+    {
+        $orphans = [];
+
+        foreach (glob($root.'/*-*', GLOB_ONLYDIR) ?: [] as $copy) {
+            $orphans[] = [$copy, (int) strtok(basename($copy), '-')];
+        }
+
+        foreach (glob($root.'/.*.claimed-*', GLOB_ONLYDIR) ?: [] as $claim) {
+            $orphans[] = [$claim, (int) substr((string) strrchr($claim, '-'), 1)];
+        }
+
+        foreach ($orphans as [$path, $pid]) {
+            if ($pid <= 0 || ($pid !== getmypid() && self::processIsRunning($pid))) {
+                continue;
+            }
+
+            $claim = $root.'/.'.ltrim(strtok(basename($path), '.'), '.').'.claimed-'.getmypid();
+
+            // Another worker won the rename: the orphan is its to delete.
+            if (@rename($path, $claim)) {
+                self::deleteQuietly($filesystem, $claim);
+            }
+        }
+    }
+
+    /**
+     * Delete a directory this process owns, never failing the test run over
+     * it: a copy left half-deleted is claimed and removed by a later sweep.
+     */
+    private static function deleteQuietly(Filesystem $filesystem, string $directory): void
+    {
+        try {
+            $filesystem->deleteDirectory($directory);
+        } catch (\Throwable) {
+            // Left for the next sweep.
+        }
     }
 
     /**
