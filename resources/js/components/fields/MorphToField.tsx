@@ -19,6 +19,12 @@ interface MorphToValue {
   id: number | string
   title?: string | null
   resourceType?: string | null
+  /**
+   * The target resource's singular label, when the server resolved it
+   * (the action log's Target column). Preferred over the field's
+   * `morphTypes`, which such a field does not list.
+   */
+  resourceLabel?: string | null
 }
 
 interface MorphTypeOption {
@@ -195,7 +201,7 @@ export function MorphToFieldDisplay({ value, field }: FieldDisplayProps) {
     const resourceType = value.resourceType
     const peekable = (field as unknown as Record<string, unknown>).peekable !== false
     const morphTypes = (field as unknown as Record<string, unknown>).morphTypes as MorphTypeOption[] | undefined
-    const typeLabel = morphTypes?.find(t => t.value === resourceType)?.label ?? resourceType
+    const typeLabel = value.resourceLabel ?? morphTypes?.find(t => t.value === resourceType)?.label ?? resourceType
 
     if (resourceType) {
       return (

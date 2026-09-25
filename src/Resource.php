@@ -36,6 +36,7 @@ use Martis\Menu\MenuItem;
 use Martis\Models\ActionEvent;
 use Martis\Resources\ActionEventResource;
 use Martis\Support\IndexScope;
+use Martis\Support\TranslatedLine;
 
 /**
  * Base class for all Martis admin resources.
@@ -439,7 +440,8 @@ abstract class Resource implements ResourceContract
         /** @var class-string<self> $actionResource */
         $actionResource = static::actionEventResourceClass() ?? ActionEventResource::class;
 
-        return MorphMany::make('Action Events', 'actions', $actionResource)
+        // Nova labels the panel "Action Events" (`Nova::__('Action Events')`).
+        return MorphMany::make(TranslatedLine::get('martis::action_events.label'), 'actions', $actionResource)
             ->collapsable();
     }
 

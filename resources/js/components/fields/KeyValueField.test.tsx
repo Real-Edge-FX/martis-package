@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, fireEvent, screen } from '@testing-library/react'
 import type { FieldDefinition } from '@/types'
-import { KeyValueFieldInput } from './KeyValueField'
+import { KeyValueFieldDisplay, KeyValueFieldInput } from './KeyValueField'
 
 /*
  * KeyValue row controls. `disableEditingKeys()` + `disableAddingRows()`
@@ -115,5 +115,17 @@ describe('KeyValueFieldInput row deletion', () => {
     const headerCells = (root: HTMLElement) => root.firstElementChild?.firstElementChild?.children.length
     expect(headerCells(fixed)).toBe(2)
     expect(headerCells(open)).toBe(3)
+  })
+})
+
+// An action event diff (`original` / `changes`) arrives as an object whose
+// values can be JSON columns: they read as JSON, not "[object Object]".
+describe('KeyValueFieldDisplay value rendering', () => {
+  it('renders nested values as JSON and scalars as text', () => {
+    const { container } = render(
+      <KeyValueFieldDisplay field={makeField()} value={{ meta: { a: 1 }, tags: ['x'], title: 'Old', count: 3 }} />,
+    )
+    const cells = [...container.querySelectorAll('tbody td')].map((td) => td.textContent)
+    expect(cells).toEqual(['meta', '{"a":1}', 'tags', '["x"]', 'title', 'Old', 'count', '3'])
   })
 })

@@ -16,9 +16,11 @@ function toRows(v: unknown): KeyValueRow[] {
   if (!v) return []
   if (isKeyValueRows(v)) return v
   if (typeof v === 'object' && !Array.isArray(v)) {
+    // A nested value (a JSON column in an action event diff) reads as
+    // JSON, not "[object Object]".
     return Object.entries(v as Record<string, unknown>).map(([key, value]) => ({
       key,
-      value: String(value ?? ''),
+      value: typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value ?? ''),
     }))
   }
   return []
