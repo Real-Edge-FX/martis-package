@@ -5,6 +5,7 @@ namespace Martis\Http\Controllers;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany as EloquentMorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne as EloquentMorphOne;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
@@ -65,14 +66,7 @@ class MorphOneController extends MartisController
             'morphOneField' => $morphOneField,
         ] = $context;
 
-        if ($morphOneField instanceof MorphOneOfMany) {
-            $scope = $morphOneField->getRuntimeScope();
-            $relatedModel = $scope !== null
-                ? $scope(clone $relation->getQuery())->first()
-                : $relation->first();
-        } else {
-            $relatedModel = $relation->first();
-        }
+        $relatedModel = $this->relatedRecord($morphOneField, $relation);
 
         if ($relatedModel === null) {
             return new IlluminateJsonResponse(['data' => null, 'meta' => [], 'links' => []], 200);
@@ -221,9 +215,11 @@ class MorphOneController extends MartisController
         [
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
+            'morphOneField' => $morphOneField,
         ] = $context;
 
-        $relatedModel = $relation->first();
+        // The record the card shows, so Edit / Delete write that one.
+        $relatedModel = $this->relatedRecord($morphOneField, $relation);
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
@@ -301,9 +297,11 @@ class MorphOneController extends MartisController
         [
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
+            'morphOneField' => $morphOneField,
         ] = $context;
 
-        $relatedModel = $relation->first();
+        // The record the card shows, so Edit / Delete write that one.
+        $relatedModel = $this->relatedRecord($morphOneField, $relation);
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
@@ -333,6 +331,23 @@ class MorphOneController extends MartisController
             ['data' => [], 'meta' => ['message' => $relatedResourceClass::deletedMessage()], 'links' => []],
             200,
         );
+    }
+
+    /**
+     * The related record the card shows. A MorphOneOfMany with a runtime
+     * scope (latestByTimestamp() / oldestByTimestamp()) picks it from its
+     * many relation with that order; any other relation holds one record.
+     * show(), update() and destroy() all read it here, so Edit and Delete
+     * write the record on screen.
+     *
+     * @param  Relation<Model, Model, mixed>  $relation
+     */
+    private function relatedRecord(MorphOne $morphOneField, Relation $relation): ?Model
+    {
+        $scope = $morphOneField instanceof MorphOneOfMany ? $morphOneField->getRuntimeScope() : null;
+
+        /** @var Model|null */
+        return $scope !== null ? $scope(clone $relation->getQuery())->first() : $relation->first();
     }
 
     /**
