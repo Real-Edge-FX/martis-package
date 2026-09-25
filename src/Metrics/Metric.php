@@ -78,6 +78,13 @@ abstract class Metric implements MetricContract
     /** Optional tooltip displayed next to the metric title. */
     protected ?string $helpText = null;
 
+    /**
+     * Whether the cached result is kept per user (the default). A metric
+     * whose `calculate()` reads nothing of the user, their tenant or their
+     * permissions can set it to false to share one entry across users.
+     */
+    protected bool $cachePerUser = true;
+
     public function __construct(
         protected string $name,
         protected ?string $uriKey = null,
@@ -236,11 +243,12 @@ abstract class Metric implements MetricContract
         // honour it directly and skip the centralized layer so users
         // overriding the method retain full control.
         if ($cacheFor !== null) {
-            $range = self::queryString($request, 'range', '30');
-            $filters = self::queryString($request, 'filters', '');
-            $cacheKey = 'martis_metric_'.md5($this->uriKey().'_'.$range.'_'.$filters.'_'.app()->getLocale());
+            $key = $this->resultCacheKey($request);
 
-            return Cache::remember($cacheKey, $cacheFor, fn () => $this->resolveResult($request));
+            // A user this key cannot name is never served a cached result.
+            return $key === null
+                ? $this->resolveResult($request)
+                : Cache::remember('martis_metric_'.$key, $cacheFor, fn () => $this->resolveResult($request));
         }
 
         // Fall through to the central MartisCache so the runtime kill-
@@ -253,15 +261,49 @@ abstract class Metric implements MetricContract
             return $this->resolveResult($request);
         }
 
-        $range = self::queryString($request, 'range', '30');
-        $filters = self::queryString($request, 'filters', '');
-        // Include the current locale so `__()`-derived labels (trend buckets,
-        // partition slice names, progress summaries) stay in sync when the
-        // user switches language — otherwise a cached payload keeps serving
-        // the previous locale until the TTL expires.
-        $key = md5($this->uriKey().'_'.$range.'_'.$filters.'_'.app()->getLocale());
+        $key = $this->resultCacheKey($request);
 
-        return $cache->remember('metrics', $key, fn () => $this->resolveResult($request));
+        return $key === null
+            ? $this->resolveResult($request)
+            : $cache->remember('metrics', $key, fn () => $this->resolveResult($request));
+    }
+
+    /**
+     * The cache key of this metric's result for the request, shared by both
+     * cache paths of `resolve()`, which compute it once they know they cache
+     * (so a metric resolved outside Laravel still computes).
+     *
+     * It carries the range and filters, the current locale (`__()`-derived
+     * labels such as trend buckets, partition slice names and progress
+     * summaries differ per language) and the authenticated user
+     * (`$request->user()`): a `calculate()` commonly scopes its query to the
+     * user, their tenant or their permissions, so a result computed for one
+     * user must never be served to another. The user is named by their model
+     * class and identifier; guests share one entry. The segments are
+     * serialized (length-prefixed, any bytes), so a filter string cannot run
+     * into the user and a binary identifier keeps its own entry. Null, so
+     * the result is computed and not cached, when the identifier is not an
+     * int, a string or Stringable. `$cachePerUser = false` leaves the user
+     * out, for a metric whose value is the same for everyone.
+     */
+    protected function resultCacheKey(Request $request): ?string
+    {
+        $user = null;
+        if ($this->cachePerUser && ($authenticated = $request->user()) !== null) {
+            $id = $authenticated->getAuthIdentifier();
+            if (! is_int($id) && ! is_string($id) && ! $id instanceof \Stringable) {
+                return null;
+            }
+            $user = [$authenticated::class, (string) $id];
+        }
+
+        return md5(serialize([
+            $this->uriKey(),
+            self::queryString($request, 'range', '30'),
+            self::queryString($request, 'filters', ''),
+            app()->getLocale(),
+            $user,
+        ]));
     }
 
     /**

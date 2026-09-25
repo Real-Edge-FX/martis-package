@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **A metric's cached result was served to every user.** Both cache paths of `Metric::resolve()` (the `metrics` layer, on by default with a 5-minute TTL, and a per-class `cacheFor()`) keyed the entry on the metric, range, filters and locale only, so a `calculate()` scoped to the user, their tenant or their permissions served the first user's value to everyone who opened the same card within the TTL. The key now carries the authenticated user (`$request->user()`, by model class and identifier, see `Metric::resultCacheKey()`); guests share one entry, and a user whose identifier is not an int, a string or `Stringable` gets no cached entry rather than the guests' one. `protected bool $cachePerUser = false;` on a metric whose value does not depend on who asks keeps one entry for all users. **Upgrading:** every metric key changes, so no previous entry is reused and each user's first request computes the metric again (the old entries expire by their TTL), and a metric that is the same for everyone is now computed and stored once per user: raise `MARTIS_CACHE_METRICS_TTL` or the `cacheFor()` lifetime for heavy global metrics, or set `$cachePerUser = false` on them. See [Cache](docs/cache.md#the-four-built-in-layers) and [Metrics → Caching](docs/metrics.md#caching). +14 Pest.
+
 ## [1.39.2] — 2026-09-25
 
 ### Security

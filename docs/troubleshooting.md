@@ -256,7 +256,13 @@ Without this, every row triggers N+1 queries when a field accessor traverses the
 
 ### Metric card is slow
 
-Metrics do **not** cache by default. The base `Metric::cacheFor()` returns `null`, so the metric re-queries on every page load. Override it on the metric class:
+Metric results are cached by default through the Martis `metrics` cache layer (`MARTIS_CACHE_METRICS_ENABLED`, TTL `MARTIS_CACHE_METRICS_TTL`, default 5 minutes). When the base `Metric::cacheFor()` returns `null` (the default), the result goes through that layer, which honours the master switch, `php artisan martis:cache:disable metrics`, `?nocache=1` and `martis:cache:clear metrics`. Check `php artisan martis:cache:status`: if the layer is disabled, every page load re-queries. Raise the TTL for heavy metrics:
+
+```env
+MARTIS_CACHE_METRICS_TTL=15
+```
+
+Or give one metric its own lifetime by overriding `cacheFor()`, which caches it with `Cache::remember()` directly, outside the Martis layer (the kill-switch, the `?nocache` bypass and `martis:cache:clear` no longer apply to it):
 
 ```php
 use DateTimeInterface;
@@ -267,7 +273,7 @@ public function cacheFor(): ?DateTimeInterface
 }
 ```
 
-See [Metrics](metrics.md) for the cache key and ranges.
+Both paths keep one entry per user since v1.39.3, so a metric that is the same for everyone is computed once per user; set `protected bool $cachePerUser = false;` on it to share one entry. See [Metrics](metrics.md#caching) and [Cache](cache.md) for the cache keys and ranges.
 
 ### Cache subsystem disabled at runtime
 
