@@ -84,6 +84,16 @@ An action run on records changed in v2.0:
 
 **What to change:** a client that posts to `/actions/{action}` without `resources` for an action that is not standalone must send the ids, or declare the action `standalone()`.
 
+### The global search and the pivot routes apply `scopes()`
+
+The global search (`/api/search`, the Cmd+K palette) and the parent lookup of a `BelongsToMany` panel and of the pivot routes (pivot actions, their fields and pickers, the pickers of the pivot fields, on `belongs-to-many` and `morph-to-many`) now run the resource's declarative `scopes()` before `indexQuery()`, as the index does. v1.x ran `indexQuery()` alone there, so a resource that confined its tenants with `scopes()` showed another tenant's records in the palette.
+
+- A record the scopes hide no longer shows in the palette, and the `total` of its group no longer counts it.
+- A `BelongsToMany` panel, a pivot action or a pivot field picker whose parent record the scopes hide answers `404`, as it already did for a parent `indexQuery()` hides.
+- On those surfaces and on an action run, an `orWhere()` in `scopes()` or `indexQuery()` is grouped before the term, the key or the selected ids are added. v1.x appended them to its last clause only, so a hook such as `where('tenant_id', 1)->orWhere('shared', true)` made the palette list the tenant's records whatever the term, a panel resolve the first record of the tenant instead of the one it names, and an action on one selected record run on every record of the tenant.
+
+**What to change:** nothing when `scopes()` holds tenancy or visibility rules: they now apply where the docs said they would. A scope meant to trim the index page only (an `archived = false` default that users should still reach from the palette) belongs in a [filter](filters.md) instead. See [Authorization → Declarative query scopes](authorization.md#declarative-query-scopes).
+
 ### The schema cache expires after a day
 
 The `schema` cache layer now expires after a day by default (`MARTIS_CACHE_SCHEMA_TTL=1440`); v1.x kept it with no expiration. Every cache key also carries the installed `martis/martis` version, so an upgrade of the package rebuilds every layer on its own and leaves the previous version's entries behind.
