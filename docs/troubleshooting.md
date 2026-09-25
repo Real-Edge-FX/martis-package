@@ -47,9 +47,7 @@ To re-run the full installer including the optional avatar and 2FA migrations:
 php artisan martis:install --force --with-profile --with-2fa
 ```
 
-`--with-profile` does **not** create a `Profile` model or an admin user. It publishes the avatar column migration (`*_add_martis_profile_picture_column_to_users_table.php`); `--with-2fa` independently publishes the two-factor columns migration (`*_add_martis_two_factor_columns_to_users_table.php`). Use `php artisan martis:user` afterwards to create an admin account.
-
-`--with-profile` does **not** create a `Profile` model or an admin user. It publishes the avatar column migration (`add_profile_picture_column`); `--with-2fa` independently publishes the two-factor columns migration (`*_add_martis_two_factor_columns_to_users_table.php`, which alters the Martis guard's user table, `users` by default). Use `php artisan martis:user` afterwards to create an admin account (a user of the Martis guard).
+`--with-profile` does **not** create a `Profile` model or an admin user. It publishes the avatar column migration (`*_add_martis_profile_picture_column_to_users_table.php`); `--with-2fa` independently publishes the two-factor columns migration (`*_add_martis_two_factor_columns_to_users_table.php`, which alters the Martis guard's user table, `users` by default). Use `php artisan martis:user` afterwards to create an admin account (a user of the Martis guard).
 
 ### Profile or 2FA stays disabled after `--with-profile` / `--with-2fa`
 
