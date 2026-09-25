@@ -236,11 +236,7 @@ abstract class Metric implements MetricContract
         // honour it directly and skip the centralized layer so users
         // overriding the method retain full control.
         if ($cacheFor !== null) {
-            $range = self::queryString($request, 'range', '30');
-            $filters = self::queryString($request, 'filters', '');
-            $cacheKey = 'martis_metric_'.md5($this->uriKey().'_'.$range.'_'.$filters.'_'.app()->getLocale());
-
-            return Cache::remember($cacheKey, $cacheFor, fn () => $this->resolveResult($request));
+            return Cache::remember('martis_metric_'.$this->resultCacheKey($request), $cacheFor, fn () => $this->resolveResult($request));
         }
 
         // Fall through to the central MartisCache so the runtime kill-
@@ -253,15 +249,28 @@ abstract class Metric implements MetricContract
             return $this->resolveResult($request);
         }
 
+        return $cache->remember('metrics', $this->resultCacheKey($request), fn () => $this->resolveResult($request));
+    }
+
+    /**
+     * The cache key of this metric's result for the request, shared by both
+     * cache paths of `resolve()`.
+     *
+     * It carries the range and filters, the current locale (`__()`-derived
+     * labels such as trend buckets, partition slice names and progress
+     * summaries differ per language) and the authenticated user: a
+     * `calculate()` commonly scopes its query to the user, their tenant or
+     * their permissions, so a result computed for one user must never be
+     * served to another. Guests share one entry.
+     */
+    protected function resultCacheKey(Request $request): string
+    {
         $range = self::queryString($request, 'range', '30');
         $filters = self::queryString($request, 'filters', '');
-        // Include the current locale so `__()`-derived labels (trend buckets,
-        // partition slice names, progress summaries) stay in sync when the
-        // user switches language — otherwise a cached payload keeps serving
-        // the previous locale until the TTL expires.
-        $key = md5($this->uriKey().'_'.$range.'_'.$filters.'_'.app()->getLocale());
+        $userId = $request->user()?->getAuthIdentifier();
+        $userKey = is_int($userId) || is_string($userId) ? (string) $userId : 'guest';
 
-        return $cache->remember('metrics', $key, fn () => $this->resolveResult($request));
+        return md5($this->uriKey().'_'.$range.'_'.$filters.'_'.app()->getLocale().'_'.$userKey);
     }
 
     /**

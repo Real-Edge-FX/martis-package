@@ -419,8 +419,9 @@ BooleanGroup::make('permissions')
 
 Both fields share the same palette + initials logic through the
 [`ResolvesInitialsPayload`](../src/Fields/Concerns/ResolvesInitialsPayload.php)
-trait, keeping the topbar pill, login view, profile page, `Avatar`
-empty state and `UiAvatar` all visually consistent.
+trait, backed by `Martis\Support\Initials`, which also gives the Topbar
+and the profile page their avatar: a person gets the same letters on the
+same `--martis-avatar-N` token everywhere, and a theme recolours them all.
 
 **`Avatar` — upload field with a zero-config empty state:**
 
@@ -432,7 +433,7 @@ empty state and `UiAvatar` all visually consistent.
 **`UiAvatar` — always initials, never uploads:**
 
 - Display-only (`hideFromForms()` locked), computed from the model — no DB column.
-- Same deterministic 16-slot palette hash. Shipped client-side with no external service call.
+- Same deterministic 16-slot palette hash. Computed with the record and painted inline, with no external service call.
 - Same `colorFrom()` / `initials(Closure)` / `from('other_attr')` knobs as `Avatar`.
 
 ```php

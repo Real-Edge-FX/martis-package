@@ -14,11 +14,12 @@ use Martis\Fields\Concerns\ResolvesInitialsPayload;
  * The value is computed from the model, never stored. Rendering happens
  * entirely on the client — no external service call, no DB column. The
  * same colour palette + initials logic backs {@see Avatar}'s default
- * fallback and the login / topbar / profile surfaces (via the
- * {@see ResolvesInitialsPayload} trait).
+ * fallback (via the {@see ResolvesInitialsPayload} trait) and the Topbar
+ * and profile avatars.
  *
  * ⭐ Martis differentials:
- *  - **Deterministic seed-based colour** from a 16-slot palette hash.
+ *  - **Deterministic seed-based colour**: a hash of the seed picks one of
+ *    the theme's 16 avatar tokens (`--martis-avatar-1..16`).
  *  - `colorFrom('brand_color')` — per-row brand colour override.
  *  - `initials(Closure)` — custom initials computation.
  *  - Decoupled seed via `from('other_attr')`.

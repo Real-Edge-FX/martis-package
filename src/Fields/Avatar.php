@@ -19,7 +19,8 @@ use Martis\Fields\Concerns\ResolvesInitialsPayload;
  *    the field renders coloured initials inline (same deterministic
  *    palette + logic as {@see UiAvatar}, shared via the
  *    {@see ResolvesInitialsPayload} trait). No external service call,
- *    no DB column — matches the look of the topbar / profile surfaces.
+ *    no DB column — the same letters and colour as the Topbar and profile
+ *    avatars.
  *  - `fallback($url | Closure)` — override the default inline initials
  *    with a custom URL (static or per-row).
  *  - `shape(AvatarShape)` — typed enum (Circle / Rounded / Squared).
@@ -105,6 +106,13 @@ class Avatar extends Image
         return $this;
     }
 
+    /**
+     * The stored image, else the `fallback()` URL, else the initials the
+     * frontend paints inline. The stored image is what {@see Image::resolve()}
+     * returned (a `resolveUsing()` callback can shape it), when it has a URL.
+     *
+     * @return array{url: string, name: null, path: null, thumbnailUrl: string, isFallback: true}|array{url: null, name: null, path: null, thumbnailUrl: null, isInitialsFallback: true, initials: string, color: string, palette: int|null, seed: string}|non-empty-array<array-key, mixed>
+     */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $value = parent::resolve($model, $attribute);
@@ -142,6 +150,7 @@ class Avatar extends Image
             'isInitialsFallback' => true,
             'initials' => $payload['initials'],
             'color' => $payload['color'],
+            'palette' => $payload['palette'],
             'seed' => $payload['seed'],
         ];
     }

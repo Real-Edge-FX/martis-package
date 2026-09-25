@@ -8,23 +8,25 @@ the UI was already hidden.
 
 ## At a glance
 
-| Concern | Method on `Resource` | Policy ability | Default when policy/method absent |
+When **no policy** resolves for the resource, every row below permits. When a policy exists but does not define the method, the last column applies (`Resource::defaultForMissingAbility()` and the fallbacks):
+
+| Concern | Method on `Resource` | Policy ability | Policy exists, method missing |
 |---|---|---|---|
 | List / index | `authorizedToViewAny` | `viewAny` | permit |
-| Detail / show | `authorizedToView` | `view` | permit |
-| Create form & store | `authorizedToCreate` | `create` | permit |
-| Edit form & update | `authorizedToUpdate` | `update` | permit |
-| Delete / soft-delete | `authorizedToDelete` | `delete` | permit |
+| Detail / show | `authorizedToView` | `view` | deny |
+| Create form & store | `authorizedToCreate` | `create` | deny |
+| Edit form & update | `authorizedToUpdate` | `update` | deny |
+| Delete / soft-delete | `authorizedToDelete` | `delete` | deny |
 | Restore | `authorizedToRestore` | `restore` | deny |
 | Force delete | `authorizedToForceDelete` | `forceDelete` | deny |
-| Replicate | `authorizedToReplicate` | `replicate` (fallback: `create` AND `update`) | permit |
-| Run action | `authorizedToRunAction` | `runAction` (fallback: `update`) | permit |
-| Run destructive action | `authorizedToRunDestructiveAction` | `runDestructiveAction` (fallback: `delete`) | permit |
+| Replicate | `authorizedToReplicate` | `replicate` | falls back to `create` AND `update` |
+| Run action | `authorizedToRunAction` | `runAction` | falls back to `update` |
+| Run destructive action | `authorizedToRunDestructiveAction` | `runDestructiveAction` | falls back to `delete` |
 | Attach related | `authorizedToAttach` | `attach{Model}` | permit |
 | Detach related | `authorizedToDetach` | `detach{Model}` | permit |
 | Attach any (parent check) | `authorizedToAttachAny` | `attachAny{Model}` | permit |
 | Add related (HasMany inline create) | `authorizedToAdd` | `add{Model}` | permit |
-| Update pivot row | `authorizedToUpdatePivot` | `updatePivot{Model}` (fallback: `update`) | permit |
+| Update pivot row | `authorizedToUpdatePivot` | `updatePivot{Model}` | falls back to `update` |
 
 Default behaviour:
 
@@ -320,7 +322,7 @@ The count badge on the sidebar uses the same code path, so the scoped count alwa
 
 ## Audit log of denied authorizations
 
-Off by default. Flip `MARTIS_AUDIT_AUTHZ_DENIALS=true` to record every Gate denial for an authenticated user into the `martis_action_events` audit table. Each row carries:
+Off by default. Flip `MARTIS_AUDIT_AUTHZ_DENIALS=true` to record every Gate denial for an authenticated user into the `martis_action_events` audit table. The recorder listens to Laravel's `GateEvaluated` event, so it sees checks that go through the Gate (Tools, Dashboards, your own `$user->can()` calls) but **not** Resource checks, which call the policy methods directly (see [How policy instances are resolved](#how-policy-instances-are-resolved)). Each row carries:
 
 - `name = authz.denied`
 - `user_id` — the user the check ran for.
@@ -353,7 +355,15 @@ Since v1.36.0 the **outcome of that walk** (the policy class) is memoised per en
 
 ## Per-request Gate cache
 
-Off by default. Flip `MARTIS_AUTHZ_REQUEST_CACHE=true` and the package memoises every Gate result keyed on `(user, ability, model_class, model_id)` for the duration of the request. Subsequent checks read from a `Map<string, bool>` instead of re-running the policy method. Useful for non-Spatie apps where the sidebar, schema authorization block, per-record `_authorization` block, and action visibility all evaluate the same gate.
+Off by default. Flip `MARTIS_AUTHZ_REQUEST_CACHE=true` and `Martis\Authorization\RequestScopedAbilityCache` records every Gate result keyed on `(user, ability, model_class, model_id)` for the duration of the request, by listening to `GateEvaluated`. It only **observes**: it does not short-circuit the Gate, and the package does not read it back yet, so enabling it does not by itself save any policy call. Resource checks (the sidebar, the schema authorization block, the per-record `_authorization` block, action visibility) call the policy directly and are not recorded at all. Host code can read the cache before a redundant check:
+
+```php
+$cached = app(\Martis\Authorization\RequestScopedAbilityCache::class)->lookup($userId, $ability, $model);
+
+if ($cached === null) {
+    // not cached yet: run the real check
+}
+```
 
 The cache is request-scoped — never spans requests, never persisted. Closure-only gates that depend on `Request` state are skipped (the cache key would be ambiguous). `null` results (no policy registered) are not cached so the next call still falls through to the default behaviour.
 
@@ -365,7 +375,7 @@ Use this in regulated apps where a demotion must take immediate effect on every 
 
 ## Testing helpers
 
-The `Martis\Testing\AssertsAuthorization` Pest / PHPUnit trait adds expressive helpers that route through the same Laravel Gate Martis uses internally:
+The `Martis\Testing\AssertsAuthorization` Pest / PHPUnit trait adds expressive helpers. They are thin wrappers over `$user->can()` / `$user->cannot()`, i.e. Laravel's Gate: that is what Tools and Dashboards use, while Resource checks call the policy directly, so for a Resource the helpers agree with the admin UI when the Gate resolves the same policy for the model and no `Gate::before()` / `after()` callback overrides it:
 
 ```php
 uses(\Martis\Testing\AssertsAuthorization::class);
@@ -390,5 +400,5 @@ Available helpers: `assertCan` / `assertCannot` (generic), plus typed shortcuts 
 ## Tips
 
 - A single `Policy::before(User $user, string $ability): ?bool` short-circuits all checks when it returns non-null. Useful for super-admin flags.
-- Every `Resource::authorizedTo*()` method delegates to Laravel's `Gate::denies()` under the hood, so consumer code that calls `$user->can('update', $post)` directly always agrees with what the admin UI hides — single source of truth, single set of policy methods.
+- `Resource::authorizedTo*()` methods call the resolved policy's methods directly (after its own `before()`), not Laravel's Gate. A host `Gate::before()` / `Gate::after()` callback (a typical super-admin shortcut) therefore does not apply to Resources: put that logic in each policy's `before()`, or in a shared base policy. The policy methods stay the single source of truth, but `$user->can('update', $post)` can differ from the admin UI when a Gate callback or a different Gate-registered policy is involved.
 - For testing, the package ships an `AssertsAuthorization` Pest trait. See [Testing helpers](#testing-helpers) below.

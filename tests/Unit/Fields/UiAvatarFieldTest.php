@@ -68,18 +68,28 @@ it('UiAvatar different seeds land on different palette slots (statistically)', f
     expect(count(array_unique($colors)))->toBeGreaterThanOrEqual(3);
 });
 
+it('UiAvatar paints the seed\'s slot of the theme avatar tokens, and sends that slot\'s built-in colour', function () {
+    // "Jane Doe" is slot 6 on the server and in the browser (InitialsTest,
+    // avatarPalette.test.ts); the frontend paints var(--martis-avatar-6).
+    $payload = UiAvatar::make('name')->resolve(new UiAvatarTestModel(['name' => 'Jane Doe']));
+
+    expect($payload)->toMatchArray(['initials' => 'JD', 'palette' => 6, 'color' => '#0891b2', 'seed' => 'Jane Doe']);
+});
+
 it('UiAvatar colorFrom(attribute) overrides the deterministic palette', function () {
     $m = new UiAvatarTestModel(['name' => 'Jane', 'brand_color' => '#ff00aa']);
     $field = UiAvatar::make('name')->colorFrom('brand_color');
 
-    expect($field->resolve($m)['color'])->toBe('#ff00aa');
+    expect($field->resolve($m)['color'])->toBe('#ff00aa')
+        ->and($field->resolve($m)['palette'])->toBeNull();
 });
 
 it('UiAvatar colorFrom falls back to deterministic when the attribute is empty', function () {
     $m = new UiAvatarTestModel(['name' => 'Jane', 'brand_color' => null]);
     $field = UiAvatar::make('name')->colorFrom('brand_color');
 
-    expect($field->resolve($m)['color'])->toStartWith('#');
+    expect($field->resolve($m)['color'])->toStartWith('#')
+        ->and($field->resolve($m)['palette'])->toBeInt();
 });
 
 it('UiAvatar initials(Closure) overrides the default computation', function () {

@@ -52,9 +52,9 @@ class ComponentMakeCommand extends Command
     /**
      * Auth-page overrides. Same fixed-filename convention as
      * SHELL_PIECES. `--type=email-verify-notice-page` writes
-     * `EmailVerifyNoticePage.tsx` under key `auth:email-verify`
-     * (the index.ts mapping uses `auth:email-verify`, matching what
-     * the SPA router resolves).
+     * `EmailVerifyNoticePage.tsx` under key `auth:email-verify-notice`
+     * (the index.ts mapping uses `auth:email-verify-notice`, matching
+     * what the SPA router resolves).
      *
      * @var array<string, array{filename: string, key: string, stub: string}>
      */

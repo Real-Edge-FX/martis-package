@@ -828,7 +828,7 @@ Prefer CSS media queries when the layout swap is purely visual; reach for this h
 
 ## Tooltip Standard (PrimeReact)
 
-All tooltips in Martis **must** use [`primereact/tooltip`](https://primereact.org/tooltip/). Native HTML `title=` attributes and custom tooltip implementations are prohibited.
+All tooltips in Martis **must** go through the global `data-pr-tooltip` pattern (the PrimeReact attribute convention), rendered by the bundled `MartisTooltip` provider, or through the ref-based `Tooltip` export for JSX content. Native HTML `title=` attributes and ad-hoc tooltip implementations are prohibited. Extensions cannot import `primereact/tooltip` directly (the extension build does not alias `primereact`): use `data-pr-tooltip`, or `Tooltip` from `@martis/runtime`.
 
 A global tooltip provider (`MartisTooltip`) is registered in the layout targeting `[data-pr-tooltip]`, so any element with `data-pr-tooltip` automatically gets a tooltip.
 
@@ -1054,7 +1054,7 @@ Use `.martis-avatar-stack` on a wrapper to overlap several avatars with a subtle
 
 `.martis-avatar-fallback` paints a muted user glyph slot for records with no image and no initials seed, keeping row layouts aligned.
 
-The `avatarColorForSeed` helper (on `@martis/runtime` since v1.38.0) returns a deterministic colour for any seed string, picking one of the 16 `--martis-avatar-1..16` token hues. Two users with the same name always get the same colour, and the colour stays stable across light/dark themes:
+The `avatarColorForSeed` helper (on `@martis/runtime` since v1.38.0) returns a deterministic colour for any seed string, picking one of the 16 `--martis-avatar-1..16` token hues. Two users with the same name always get the same colour, and the colour stays stable across light/dark themes. The server picks the avatar slots with the same hash, so for a user with a name it is the colour of their Topbar avatar:
 
 ```ts
 import { avatarColorForSeed } from '@martis/runtime'
@@ -1063,9 +1063,11 @@ import { avatarColorForSeed } from '@martis/runtime'
   className="martis-avatar martis-avatar-md martis-avatar-circle"
   style={{ backgroundColor: avatarColorForSeed(user.name) }}
 >
-  {user.initials}
+  {user.avatar_initials}
 </span>
 ```
+
+The signed-in user (`useAuth().user`) already carries both: `avatar_initials`, and `avatar_palette`, the slot to paint as `var(--martis-avatar-${user.avatar_palette})`.
 
 ### KPI typography
 

@@ -11,7 +11,7 @@ use RuntimeException;
 class InstallCommand extends Command
 {
     protected $signature = 'martis:install
-                            {--force : Overwrite existing scaffold files (vite config, both extension tsconfig files, shim files and their declarations, index entry, generator stubs). Does NOT republish config/martis.php or app/Providers/MartisServiceProvider.php: pass --force-config and --force-provider for those.}
+                            {--force : Overwrite the extension scaffold (vite config, both extension tsconfig files, shim files and their declarations, index entry), republish lang/vendor/martis and rewrite the published Martis migrations. Does NOT republish config/martis.php or app/Providers/MartisServiceProvider.php: pass --force-config and --force-provider for those.}
                             {--force-config : Republish config/martis.php, overwriting any consumer customisations. Separated from --force so refreshing the extension scaffold does not destroy the host app config.}
                             {--force-provider : Republish app/Providers/MartisServiceProvider.php, overwriting any consumer customisations (registered dashboards, menu, gates, cache layers). Separated from --force so refreshing the extension scaffold does not wipe host app dashboard wiring.}
                             {--with-profile : Enable profile support (publishes the avatar migration on the host users table)}
@@ -812,8 +812,9 @@ class InstallCommand extends Command
         // Use packagePath() directly: the extension scaffold ships
         // as a tree (vite config, tsconfig, index entry, bucket
         // .gitkeeps), and `StubResolver::path()` only resolves single
-        // files. Override individual stubs by publishing them under
-        // `stubs/martis/extensions/<file>` per consumer if needed.
+        // files. The scaffold is therefore NOT override-aware: a copy
+        // under `stubs/martis/extensions/` is ignored, and `martis:stubs`
+        // does not publish this directory.
         $stubBase = StubResolver::packagePath('extensions');
 
         $files = [

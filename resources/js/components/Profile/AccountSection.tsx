@@ -6,11 +6,14 @@ import { InputIcon } from 'primereact/inputicon'
 import { EnvelopeIcon, UserIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
+import type { ProfileData } from '@/types'
 
 interface AccountSectionProps {
   name: string
   email: string
-  onUpdate: (name: string, email: string) => void
+  /** Receives the profile as the server saved it (the `PATCH` response),
+   *  which can differ from the form: a resource may drop or normalise a key. */
+  onUpdate: (saved: Partial<ProfileData>) => void
   /** When true, the e-mail is rendered read-only (config
    *  `profile.account.email_editable = false`). The e-mail is often the acting
    *  identity, so a consumer may lock it while name/avatar/password stay editable. */
@@ -30,8 +33,8 @@ export function AccountSection({ name, email, onUpdate, emailReadOnly = false }:
     setErrors({})
     setSaving(true)
     try {
-      await api.patch('/api/profile', { name: nameVal, email: emailVal })
-      onUpdate(nameVal, emailVal)
+      const saved = await api.patch<Partial<ProfileData> | null>('/api/profile', { name: nameVal, email: emailVal })
+      onUpdate(saved ?? {})
       addToast('success', t('saved'))
     } catch (err) {
       if (err instanceof ApiError) {

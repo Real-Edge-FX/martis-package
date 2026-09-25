@@ -12,7 +12,7 @@ Optionally:
 
 4. **Consumer apps** bumped via `composer update martis/martis`.
 
-The release PR carries everything the tag needs: the `## [N.N.N]` section of `CHANGELOG.md`, the docs, and the rebuilt `public/` (the compiled SPA consumers publish with `martis:publish-assets`; a `resources/js` change that is not rebuilt and committed never reaches them). CI rebuilds `public/` and `stubs/extensions/` on every PR and fails when the committed output differs from the sources, so run `npm run build` and commit the result before pushing a frontend change.
+The release PR carries everything the tag needs: the `## [N.N.N]` section of `CHANGELOG.md`, the docs, and the rebuilt `public/` (the compiled SPA consumers publish with `martis:publish-assets`; a `resources/js` change that is not rebuilt and committed never reaches them). CI rebuilds `public/` and `stubs/extensions/` on every PR and fails when the committed output differs from the sources, so run `npm run build` and commit the result before pushing a frontend change. Build from a `node_modules` installed in the checkout you build (`npm ci`): in a git worktree whose `node_modules` is a symlink to another checkout, Vite resolves the real path and writes `../../../node_modules/...` keys into `public/manifest.json`, which the CI build then reports as a difference.
 
 Merge the release PR through the GitHub web UI: GitHub signs the merge commit, so the tag created on it shows as Verified. Do not merge release work locally, and do not push a tag from a local `git tag`: a local tag creates no GitHub release and sits on an unsigned commit.
 
@@ -23,6 +23,9 @@ Before pushing a tag, run the pre-flight checker. It aborts when:
 - The `martis-docs/src/data/landing.ts` `VERSION` pill does not match the tag.
 - `CHANGELOG.md` does not have a `[vN.N.N]` section for the tag.
 - `sync-docs.sh` reports drift between `martis-package/docs/*.md` and `martis-docs/src/content/**/*.mdx`.
+- The `martis-docs/src/data/landing.ts` `TESTS_PASSING` total differs from the README "Test coverage" total (`= **N passing**`), or a landing component hardcodes its own "N tests passing".
+
+The script mirrors the workspace copy (`pre-tag-check.sh` at the workspace root); keep the two in step. Both rely on the workspace layout: `martis-docs` and `sync-docs.sh` next to `martis-package`.
 
 ```bash
 # Run from anywhere — the script resolves the workspace root from its
@@ -55,9 +58,9 @@ gh release create v1.10.0 --target "$(git rev-parse HEAD)" --title "v1.10.0" \
 
 ## Smoke test against a fresh laravel app
 
-The `.github/workflows/smoke-fresh-laravel.yml` workflow exercises the full consumer experience: composer-creates a laravel project, requires martis via path repo, runs `martis:install`, runs every TSX-producing generator (`martis:tool`, `martis:field`, `martis:card`, `martis:component` × 9 types), runs `npm install` + `npm run build:extensions`, and asserts the bundle contains the expected register calls. CI runs it on PRs that touch the install / generator / shim path.
+The `.github/workflows/smoke-fresh-laravel.yml` workflow exercises the full consumer experience: composer-creates a laravel project, requires martis via path repo, runs `martis:install`, runs every TSX-producing generator (`martis:tool`, `martis:field`, `martis:card`, `martis:component` × 9 page/shell types plus a `field` and a `generic` override), runs `npm install` + `npm run build:extensions`, type-checks the generated sources with `npx tsc -p tsconfig.extensions.json`, and asserts the bundle contains every generated path and override key. CI runs it on pushes to `main` / `release/**` and on PRs that touch the install / generator / shim path.
 
-Run locally before opening a generator-touching PR:
+Run locally before opening a generator-touching PR (a subset of the CI job; copy the assertions from the workflow for full parity):
 
 ```bash
 # From the workspace root.
@@ -76,6 +79,9 @@ for type in shell sidebar topbar footer login-page register-page \
             forgot-password-page reset-password-page email-verify-notice-page; do
   php artisan martis:component --type=$type
 done
+php artisan martis:component StatusBadge --type=field
+php artisan martis:component InfoPanel --type=generic
 npm run build:extensions
+npx tsc -p tsconfig.extensions.json
 grep -c 'register(' public/vendor/martis-user/extensions.js  # should be ≥ 12
 ```

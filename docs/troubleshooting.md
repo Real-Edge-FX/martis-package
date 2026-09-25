@@ -15,20 +15,21 @@ grep '"laravel/framework"' composer.json
 
 If you are on Laravel 10, upgrade first or pin Martis to a compatible older release.
 
-### `php artisan martis:install` fails on `martis-config` publish
+### `php artisan martis:install` does not update `config/martis.php`
 
-Vendor publishing skips files that already exist. If a previous (incomplete) install left `config/martis.php` in place, the command exits without overwriting.
+When `config/martis.php` already exists, the installer skips it with the notice `Skipping config — already published (use --force-config to overwrite — destroys customisations)` and carries on with the other steps. A key added to the package config in a later release therefore never reaches the published copy (see [New config keys have no effect](#new-config-keys-have-no-effect-in-an-existing-app)).
 
-The `--force` flag refreshes the extension scaffold (Vite config, shim files, generator stubs) but **does not** republish `config/martis.php` or `app/Providers/MartisServiceProvider.php` — those are split behind separate flags so refreshing the scaffold cannot destroy host-app customisations:
+The `--force` flag **does not** republish `config/martis.php` or `app/Providers/MartisServiceProvider.php` — those are split behind separate flags so a `--force` run cannot destroy host-app customisations:
 
 | Flag | Republishes |
 |------|-------------|
-| `--force` | Extension scaffold (Vite config, shims, stubs, index entry) |
+| `--force` | Extension scaffold (Vite config, both tsconfig files, shims and declarations, `index.ts`), `lang/vendor/martis` and the published Martis migrations (rewritten in place) |
 | `--force-config` | `config/martis.php` |
 | `--force-provider` (v1.10.2+) | `app/Providers/MartisServiceProvider.php` |
 
 ```bash
-# Refresh just the extension scaffold (safe, default).
+# Rewrite the extension scaffold, translations and Martis migrations.
+# Overwrites index.ts register() calls and customised lang/vendor/martis strings: commit first.
 php artisan martis:install --force
 
 # Re-publish config/martis.php (destroys consumer customisations).
@@ -38,13 +39,27 @@ php artisan martis:install --force-config
 php artisan martis:install --force-provider
 ```
 
-To re-run the full installer including the optional avatar + 2FA migrations:
+Every run, with or without `--force`, also rewrites the profile / 2FA flags and `MARTIS_EXTENSIONS` in `.env` and ends with `php artisan migrate --force`.
+
+To re-run the full installer including the optional avatar and 2FA migrations:
 
 ```bash
-php artisan martis:install --force --with-profile
+php artisan martis:install --force --with-profile --with-2fa
 ```
 
-`--with-profile` does **not** create a `Profile` model or an admin user. It publishes two granular migration stubs (`add_two_factor_columns` and `add_profile_picture_column`) on top of the base install. Use `php artisan martis:user` afterwards to create an admin account.
+`--with-profile` does **not** create a `Profile` model or an admin user. It publishes the avatar column migration (`add_profile_picture_column`); `--with-2fa` independently publishes the two-factor columns migration (`*_add_martis_two_factor_columns_to_users_table.php`). Use `php artisan martis:user` afterwards to create an admin account.
+
+### Profile or 2FA stays disabled after `--with-profile` / `--with-2fa`
+
+The installer prompts only when STDIN is a real TTY. A run from CI, `docker compose exec -T` or an agent shell resolves every optional feature you did not pass a flag for to disabled and writes `MARTIS_PROFILE_ENABLED=false` (and `MARTIS_2FA_ENABLED`, `MARTIS_AVATAR_ENABLED`, `MARTIS_SHOW_PROFILE_MENU`) to `.env`. On the next run the disabled config wins over `--with-*`. Set those keys back to `true` in `.env` (or remove them), run `php artisan config:clear`, then:
+
+```bash
+php artisan martis:install --force --no-interaction --with-profile --with-2fa
+```
+
+### New config keys have no effect in an existing app
+
+The package merges its config into yours with Laravel's `mergeConfigFrom()`, which only merges top-level keys. A published `config/martis.php` keeps its whole `audit`, `search`, `profile`, ... array, so a key added to one of those arrays in a newer release is simply absent, and its env switch does nothing. Add the new key to your published config by hand (the release notes list it), or re-publish with `php artisan martis:install --force-config` (destroys your customisations), then `php artisan config:clear`.
 
 ### Assets 404 after install
 
@@ -232,10 +247,10 @@ Confirm that every Tool and Action key in the output is registered by your exten
 
 Common culprits when an override is missing:
 
-- **`MARTIS_EXTENSIONS` env var unset.** v1.8.19+ loads the consumer extension bundle dynamically from the URL listed in `MARTIS_EXTENSIONS` (defaults to `/vendor/martis-user/extensions.js`). Confirm it is set in `.env` and that the URL returns 200.
+- **`MARTIS_EXTENSIONS` env var unset.** v1.8.19+ loads the consumer extension bundle dynamically from the comma-separated URLs listed in `MARTIS_EXTENSIONS`. The config default is an empty list; `martis:install` writes `MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js` to `.env` (on every run, so re-add any extra URLs afterwards). Confirm it is set in `.env` and that the URL returns 200.
 - **Bundle not built.** Re-run `npm run build:extensions` and check `public/vendor/martis-user/extensions.js` exists. The deploy script runs this automatically; local dev iterations need it manually.
 - **TSX file in the wrong bucket.** Auto-discovery only walks `resources/js/martis-extensions/{tools,fields,cards,overrides}/`. A file in any other folder is invisible to the loop.
-- **Slug typo.** Keys are case-sensitive. `field.text` and `Field.Text` are different.
+- **Key typo.** Keys are case-sensitive and colon-separated: `tool:seo-report`, `card:revenue-gauge`, `field:display:<type>` / `field:input:<type>`, `auth:login`. The entry derives them from the file name (`tools/SEOReport.tsx` → `tool:seo-report`); on the PHP side use `Martis\Stubs\ExtensionKey::kebab()`, not `Str::kebab()` (which turns `SEOReport` into `s-e-o-report`).
 
 ## Performance
 
@@ -257,18 +272,15 @@ Without this, every row triggers N+1 queries when a field accessor traverses the
 
 ### Metric card is slow
 
-Metrics do **not** cache by default. The base `Metric::cacheFor()` returns `null`, so the metric re-queries on every page load. Override it on the metric class:
+Metric results are cached by default through the Martis `metrics` cache layer (`MARTIS_CACHE_METRICS_ENABLED`, TTL `MARTIS_CACHE_METRICS_TTL`, default 5 minutes). When the base `Metric::cacheFor()` returns `null` (the default), the result goes through that layer, which honours the master switch, `php artisan martis:cache:disable metrics`, `?nocache=1` and `martis:cache:clear metrics`. Check `php artisan martis:cache:status`: if the layer is disabled, every page load re-queries. Raise the TTL for heavy metrics:
 
-```php
-use DateTimeInterface;
-
-public function cacheFor(): ?DateTimeInterface
-{
-    return now()->addMinutes(5);
-}
+```env
+MARTIS_CACHE_METRICS_TTL=15
 ```
 
-See [Metrics](metrics.md) for the cache key and ranges.
+Overriding `cacheFor()` to return a date caches the metric with `Cache::remember()` directly, outside the Martis layer, so the kill-switch, the `?nocache` bypass and `martis:cache:clear` no longer apply to it. Both cache paths key the result on the authenticated user (v2.0.0+), so a metric whose result depends on the user or their tenant is safe to cache; before v2.0.0 the first user's value was served to everyone for the TTL.
+
+See [Metrics](metrics.md) and [Cache](cache.md) for the cache keys and ranges.
 
 ### Cache subsystem disabled at runtime
 
@@ -286,7 +298,7 @@ If a subsystem feels stale, `martis:cache:clear` is non-destructive and safe to 
 
 ### Translations fall back to English even when the locale is set
 
-Martis resolves the runtime locale through `PreferencesResolver` in this order: URL preset (`?preset=…`) > the `martis_user_preferences.locale` row of the authenticated user > `config('app.locale')`. The `ApplyUserPreferencesLocale` middleware reads the resolved value and calls `app()->setLocale($locale)` for the request.
+Martis resolves the runtime locale through `PreferencesResolver` in this order: URL preset (`?preset=…`) > the `martis_user_preferences.locale` row of the authenticated user > `config('martis.preferences.defaults.locale')` (`MARTIS_DEFAULT_LOCALE`, default `en`). `APP_LOCALE` and `MARTIS_LOCALE` are **not** part of this chain: to change the panel language for users without a saved preference, set `MARTIS_DEFAULT_LOCALE` (it must be listed in `martis.preferences.locales`). The `ApplyUserPreferencesLocale` middleware (`martis.locale`) reads the resolved value and calls `app()->setLocale($locale)` on every authenticated Martis route.
 
 If you change the locale at runtime in code, set Laravel's locale directly:
 

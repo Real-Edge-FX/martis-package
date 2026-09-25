@@ -214,8 +214,9 @@ html[data-theme="dark"] {
   --border-radius:         var(--martis-radius-md);
   --maskbg:                var(--martis-overlay);
 
-  /* Avatar palette — deterministic per-user colour. Identical across
-     dark & light, so it lives once on the default (:root) surface. */
+  /* Avatar palette — deterministic per-user colour of every initials
+     avatar (Avatar and UiAvatar fields, Topbar, profile page). Identical
+     across dark & light, so it lives once on the default (:root) surface. */
   --martis-avatar-1:  #2563EB;
   --martis-avatar-2:  #059669;
   --martis-avatar-3:  #DB2777;

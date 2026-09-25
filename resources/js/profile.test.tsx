@@ -3,6 +3,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 // --- Mocks ---
+// One spy for every render: the profile page loads once per `updateUser`.
+const { updateUser } = vi.hoisted(() => ({ updateUser: vi.fn() }))
+
 vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn(),
@@ -27,7 +30,7 @@ vi.mock('@/contexts/ToastContext', () => ({
 }))
 
 vi.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({ user: { id: 1, name: 'Test User', email: 'test@example.com' } }),
+  useAuth: () => ({ user: { id: 1, name: 'Test User', email: 'test@example.com' }, updateUser }),
   TwoFactorRequiredError: class TwoFactorRequiredError extends Error {
     constructor() { super('two_factor_required'); this.name = 'TwoFactorRequiredError' }
   },
@@ -81,6 +84,22 @@ describe('AccountSection', () => {
       expect(api.patch).toHaveBeenCalledWith('/api/profile', expect.any(Object))
     })
   })
+
+  it('passes the profile the server saved to onUpdate, not the form values', async () => {
+    // A resource may drop or normalise a key: this one keeps the e-mail.
+    const saved = { name: 'Alice Smith', email: 'alice@example.com', avatar_url: null, two_factor_enabled: false }
+    vi.mocked(api.patch).mockResolvedValue(saved)
+    const onUpdate = vi.fn()
+    wrap(<AccountSection name="Alice" email="alice@example.com" onUpdate={onUpdate} />)
+
+    fireEvent.change(screen.getByDisplayValue('Alice'), { target: { value: 'Alice Smith' } })
+    fireEvent.change(screen.getByDisplayValue('alice@example.com'), { target: { value: 'other@example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith(saved)
+    })
+  })
 })
 
 // --- PasswordSection tests ---
@@ -125,25 +144,34 @@ describe('PasswordSection', () => {
 
 // --- AvatarSection tests ---
 describe('AvatarSection', () => {
-  it('renders initials when no avatar url', () => {
-    wrap(<AvatarSection avatarUrl={null} name="Alice Bob" onUpdate={vi.fn()} />)
-    expect(screen.getByText('AB')).toBeDefined()
+  it('renders the server initials on their palette token when no avatar url', () => {
+    wrap(<AvatarSection avatarUrl={null} name="Alice Bob" initials="AB" palette={3} onUpdate={vi.fn()} />)
+    const circle = screen.getByText('AB')
+    expect(circle.style.backgroundColor).toBe('var(--martis-avatar-3)')
+  })
+
+  it('renders the user glyph when the server sends no initials', () => {
+    const { container } = wrap(<AvatarSection avatarUrl={null} name="" initials="" palette={16} onUpdate={vi.fn()} />)
+    const circle = container.querySelector('.rounded-full.h-20') as HTMLElement
+    expect(circle.textContent).toBe('')
+    expect(circle.querySelector('svg')).not.toBeNull()
+    expect(circle.style.backgroundColor).toBe('var(--martis-avatar-16)')
   })
 
   it('renders avatar image when url provided', () => {
-    wrap(<AvatarSection avatarUrl="https://example.com/avatar.jpg" name="Alice" onUpdate={vi.fn()} />)
+    wrap(<AvatarSection avatarUrl="https://example.com/avatar.jpg" name="Alice" initials="A" palette={7} onUpdate={vi.fn()} />)
     const img = screen.getByRole('img', { name: 'Alice' })
     expect(img).toBeDefined()
     expect(img.getAttribute('src')).toBe('https://example.com/avatar.jpg')
   })
 
   it('shows remove button when avatar url provided', () => {
-    wrap(<AvatarSection avatarUrl="https://example.com/avatar.jpg" name="Alice" onUpdate={vi.fn()} />)
+    wrap(<AvatarSection avatarUrl="https://example.com/avatar.jpg" name="Alice" initials="A" palette={7} onUpdate={vi.fn()} />)
     expect(screen.getByRole('button', { name: /remove photo/i })).toBeDefined()
   })
 
   it('does not show remove button when no avatar', () => {
-    wrap(<AvatarSection avatarUrl={null} name="Alice" onUpdate={vi.fn()} />)
+    wrap(<AvatarSection avatarUrl={null} name="Alice" initials="A" palette={7} onUpdate={vi.fn()} />)
     expect(screen.queryByRole('button', { name: /remove/i })).toBeNull()
   })
 })
@@ -174,12 +202,63 @@ describe('SecuritySection', () => {
 // --- ProfilePage tests ---
 describe('ProfilePage', () => {
   beforeEach(() => {
+    updateUser.mockClear()
     vi.mocked(api.get).mockResolvedValue({
       name: 'Test User',
       email: 'test@example.com',
       avatar_url: null,
       two_factor_enabled: false,
+      avatar_initials: 'TU',
+      avatar_palette: 4,
     })
+  })
+
+  it('gives the Topbar the loaded profile', async () => {
+    wrap(<ProfilePage />)
+    await waitFor(() => {
+      expect(updateUser).toHaveBeenCalledWith({
+        name: 'Test User',
+        email: 'test@example.com',
+        avatar_url: null,
+        avatar_initials: 'TU',
+        avatar_palette: 4,
+      })
+    })
+  })
+
+  it('paints the avatar with the loaded initials and palette slot', async () => {
+    wrap(<ProfilePage />)
+    const circle = await screen.findByText('TU')
+    expect(circle.style.backgroundColor).toBe('var(--martis-avatar-4)')
+  })
+
+  it('gives the Topbar the saved name after an account update', async () => {
+    vi.mocked(api.patch).mockResolvedValue({
+      name: 'Renamed User',
+      email: 'test@example.com',
+      avatar_url: null,
+      two_factor_enabled: false,
+      avatar_initials: 'RU',
+      avatar_palette: 9,
+    })
+    wrap(<ProfilePage />)
+    const nameInput = await screen.findByDisplayValue('Test User')
+    updateUser.mockClear()
+
+    fireEvent.change(nameInput, { target: { value: 'Renamed User' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => {
+      expect(updateUser).toHaveBeenCalledWith({
+        name: 'Renamed User',
+        email: 'test@example.com',
+        avatar_url: null,
+        avatar_initials: 'RU',
+        avatar_palette: 9,
+      })
+    })
+    // The page's own avatar follows the new name too.
+    expect(await screen.findByText('RU')).toBeDefined()
   })
 
   it('renders profile page with all sections after loading', async () => {

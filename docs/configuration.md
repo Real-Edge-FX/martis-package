@@ -449,10 +449,12 @@ See [menus.md](menus.md#count-badges) for the badge API (including `menuCount()`
 ## Localization
 
 ```php
-'locale' => env('MARTIS_LOCALE', 'en'),
+'locale' => env('MARTIS_LOCALE', env('APP_LOCALE', 'en')),
 ```
 
-Default locale for the admin panel. Translations are loaded from `resources/lang/{locale}/` files. Publish translations with:
+Locale the blade shell uses **only when preferences are disabled** (`preferences.enabled = false`). With preferences enabled (the default), the panel language comes from the preferences resolver: the user's saved preference, else `preferences.defaults.locale` (`MARTIS_DEFAULT_LOCALE`, default `en`, which must be listed in `preferences.locales`). The `martis.locale` middleware applies that value on every authenticated Martis route, so set `MARTIS_DEFAULT_LOCALE`, not `APP_LOCALE` / `MARTIS_LOCALE`, to change the default panel language.
+
+Martis UI strings come from the package's `resources/lang/{locale}/` files, overridden by the published copies in `lang/vendor/martis/{locale}/` (see [i18n](i18n.md)). Publish translations with:
 
 ```bash
 php artisan vendor:publish --tag=martis-lang
@@ -725,7 +727,7 @@ Individual actions can opt out via `->withoutActionEvents()`.
 | **Static config** | Paths, throttle, theme, profile, cache TTLs, drawer widths, sticky-views scope, notifications poll interval, … | `config/martis.php` |
 | **Code registrations** | Main menu resolver, dashboards, custom cache layers, gate definitions, page-title closures | `app/Providers/MartisServiceProvider.php` |
 
-`martis:install` publishes the provider stub to `app/Providers/MartisServiceProvider.php` and wires it into `bootstrap/providers.php` automatically. Re-running `martis:install` is idempotent — the file is preserved and the bootstrap entry is not duplicated. Use `--force` to refresh the stub.
+`martis:install` publishes the provider stub to `app/Providers/MartisServiceProvider.php` and wires it into `bootstrap/providers.php` automatically. Re-running `martis:install` is idempotent — the file is preserved and the bootstrap entry is not duplicated. `--force` does not touch it: use `--force-provider` to refresh the stub (this overwrites your registered dashboards, menu and gates).
 
 The stub ships every section commented-out, so an unmodified provider registers nothing and Martis runs on its built-in defaults. Uncomment what you need:
 

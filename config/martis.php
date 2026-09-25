@@ -429,8 +429,11 @@ return [
     |--------------------------------------------------------------------------
     | Localisation
     |--------------------------------------------------------------------------
-    | Default locale for the Martis admin panel.
-    | Override per user by setting locale dynamically or publish lang files.
+    | Locale the blade shell uses only when `preferences.enabled` is false.
+    | With preferences enabled (the default), the panel language is the
+    | user's saved preference, else `preferences.defaults.locale`
+    | (MARTIS_DEFAULT_LOCALE), applied by the `martis.locale` middleware on
+    | every authenticated Martis route.
     */
     'locale' => env('MARTIS_LOCALE', env('APP_LOCALE', 'en')),
 
@@ -1298,7 +1301,10 @@ return [
     | Configure the user profile page (accessible via the user menu).
     |
     | enabled        - Set false to disable the profile page entirely.
-    | resource       - FQCN of a custom ProfileResource class (null = default).
+    | resource       - Class that serves the profile page and the Topbar avatar:
+    |                  a subclass of Martis\Profile\ProfileResource, or any class
+    |                  implementing Martis\Contracts\ProfileResourceContract.
+    |                  Null uses the default. A value naming no such class throws.
     | menu.label     - Label shown in the user dropdown menu.
     | menu.icon      - Phosphor icon name for the menu item.
     | avatar.enabled - Show/hide the avatar upload section.

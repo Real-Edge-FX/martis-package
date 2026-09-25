@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CameraIcon, TrashIcon } from '@phosphor-icons/react'
+import { CameraIcon, TrashIcon, UserIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 import { config } from '@/lib/config'
+import { avatarPaletteStyle } from '@/lib/avatarPalette'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 // Server default: 2048 KB (2 MB). Read from the boot payload so client and
@@ -14,10 +15,14 @@ const MAX_SIZE_KB = config.profile?.avatar?.max_size_kb ?? 2048
 interface AvatarSectionProps {
   avatarUrl: string | null
   name: string
+  /** The server's initials (`avatar_initials`), shown without a picture. */
+  initials: string
+  /** The slot of the theme's `--martis-avatar-N` tokens behind the initials (`avatar_palette`). */
+  palette: number | undefined
   onUpdate: (url: string | null) => void
 }
 
-export function AvatarSection({ avatarUrl, name, onUpdate }: AvatarSectionProps) {
+export function AvatarSection({ avatarUrl, name, initials, palette, onUpdate }: AvatarSectionProps) {
   const { t } = useTranslation('profile')
   const { addToast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -25,13 +30,6 @@ export function AvatarSection({ avatarUrl, name, onUpdate }: AvatarSectionProps)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [removing, setRemoving] = useState(false)
-
-  const initials = (name || '?')
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -111,8 +109,11 @@ export function AvatarSection({ avatarUrl, name, onUpdate }: AvatarSectionProps)
               onError={() => setImgError(true)}
             />
           ) : (
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-indigo-600 text-white text-2xl font-bold border-2 martis-border">
-              {initials}
+            <div
+              className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold border-2 martis-border"
+              style={avatarPaletteStyle(palette)}
+            >
+              {initials || <UserIcon size={32} weight="bold" aria-hidden="true" />}
             </div>
           )}
         </div>

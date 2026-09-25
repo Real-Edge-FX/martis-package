@@ -12,12 +12,20 @@ import { BrowserSessionsSection as BundledBrowserSessionsSection } from '@/compo
 import { componentRegistry } from '@/lib/componentRegistry'
 import { MartisLoader } from '@/components/Loader'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import type { ProfileData, User } from '@/types'
 
-interface ProfileData {
-  name: string
-  email: string
-  avatar_url: string | null
-  two_factor_enabled: boolean
+/**
+ * The keys of a profile payload the Topbar shows, so it follows what this
+ * page loads and saves. Keys the payload leaves out keep their value.
+ */
+function topbarIdentity(data: Partial<ProfileData>): Partial<User> {
+  const identity: Partial<User> = {}
+  if (typeof data.name === 'string') identity.name = data.name
+  if (typeof data.email === 'string') identity.email = data.email
+  if (data.avatar_url !== undefined) identity.avatar_url = data.avatar_url
+  if (typeof data.avatar_initials === 'string') identity.avatar_initials = data.avatar_initials
+  if (typeof data.avatar_palette === 'number') identity.avatar_palette = data.avatar_palette
+  return identity
 }
 
 export function ProfilePage() {
@@ -44,8 +52,7 @@ export function ProfilePage() {
       .get<ProfileData>('/api/profile')
       .then((data) => {
         setProfile(data)
-        // Sync avatar_url to global auth context so Topbar updates
-        updateUser({ avatar_url: data.avatar_url })
+        updateUser(topbarIdentity(data))
       })
       .catch(() => {
         // Use auth user data as fallback while backend is not ready
@@ -55,6 +62,8 @@ export function ProfilePage() {
           email: user?.email ?? '',
           avatar_url: null,
           two_factor_enabled: false,
+          avatar_initials: user?.avatar_initials,
+          avatar_palette: user?.avatar_palette,
         })
       })
       .finally(() => setLoading(false))
@@ -87,6 +96,8 @@ export function ProfilePage() {
                   key="avatar"
                   avatarUrl={profile.avatar_url}
                   name={profile.name}
+                  initials={profile.avatar_initials ?? ''}
+                  palette={profile.avatar_palette}
                   onUpdate={(url) => {
                     setProfile((p) => p ? { ...p, avatar_url: url } : p)
                     updateUser({ avatar_url: url })
@@ -100,9 +111,10 @@ export function ProfilePage() {
                   name={profile.name}
                   email={profile.email}
                   emailReadOnly={config.profile?.account?.email_editable === false}
-                  onUpdate={(name, email) =>
-                    setProfile((p) => p ? { ...p, name, email } : p)
-                  }
+                  onUpdate={(saved) => {
+                    setProfile((p) => p ? { ...p, ...saved } : p)
+                    updateUser(topbarIdentity(saved))
+                  }}
                 />
               )
             case 'password':

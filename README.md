@@ -33,13 +33,13 @@ php artisan martis:install
 Visit `/martis` to log in. See the [Installation Guide](docs/installation-guide.md) for full setup.
 The install command publishes precompiled assets, configuration, and scaffolds the admin panel in your Laravel application. End users do not need to run Vite or install Node dependencies in the host app.
 
-When you want Martis to provision the optional profile support columns as well, use:
+When you want Martis to provision the optional profile and two-factor support columns as well, use:
 
 ```bash
-php artisan martis:install --with-profile
+php artisan martis:install --with-profile --with-2fa
 ```
 
-That profile migration safely adds the avatar and 2FA columns only when they are missing. If your app already stores avatar paths in a different column, pass it explicitly:
+The two flags are independent: `--with-profile` publishes the avatar column migration, and `--with-2fa` publishes the two-factor columns migration (`*_add_martis_two_factor_columns_to_users_table.php`). Both migrations only add the columns that are missing. Without a TTY (CI, `docker compose exec -T`), an optional feature you do not pass a flag for resolves to disabled and is written to `.env` as `false`. If your app already stores avatar paths in a different column, pass it explicitly:
 
 ```bash
 php artisan martis:install --with-profile --avatar-column=avatar_path
@@ -56,13 +56,13 @@ php artisan martis:install --force
 
 This is the recommended upgrade flow because Composer updates the package inside `vendor/`, while Martis publishes static assets into `public/vendor/martis/`. Those published files must be refreshed after package updates.
 
-If the release contains no frontend changes, re-running `martis:install --force` is still safe and remains the recommended command.
+`--force` rewrites more than the assets: it also republishes `lang/vendor/martis` (overwriting customised strings), rewrites the published Martis migrations in place, and rewrites the extension scaffold (`vite.extensions.config.ts`, both extension tsconfig files, `resources/js/martis-extensions/index.ts` and the shims). `config/martis.php` and `app/Providers/MartisServiceProvider.php` are only rewritten with `--force-config` / `--force-provider`. The installer always runs `migrate --force`. Commit first and review the diff. When only the frontend assets need refreshing, `php artisan martis:publish-assets` is enough.
 
-If you also use the optional profile migration, re-run the install command with the same flag you used originally:
+If you also use the optional profile and two-factor migrations, re-run the install command with the same flags you used originally:
 
 ```bash
 composer update martis/martis
-php artisan martis:install --force --with-profile --avatar-column=avatar_path
+php artisan martis:install --force --with-profile --with-2fa --avatar-column=avatar_path
 ```
 
 ## Requirements
@@ -72,7 +72,7 @@ php artisan martis:install --force --with-profile --avatar-column=avatar_path
 | PHP | 8.3+ |
 | Laravel | 12 or 13 |
 | Node.js | 20+ (contributors only) |
-| pnpm | 8+ (contributors only) |
+| npm | the version bundled with Node.js (contributors only; the repository ships `package-lock.json` and CI runs `npm ci` on Node 20) |
 
 ## Screenshots
 
@@ -193,7 +193,7 @@ Full documentation lives in the [`docs/`](docs/) directory.
 | Backend   | PHP 8.3+, Laravel 12/13 |
 | Frontend  | React 18, TypeScript, PrimeReact, Tailwind CSS |
 | Icons     | Phosphor Icons |
-| Build     | Vite, pnpm |
+| Build     | Vite, npm |
 | Testing   | Pest (PHP), Vitest (JS), PHPStan Level 8 |
 
 ## License

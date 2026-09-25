@@ -190,9 +190,11 @@
   --martis-chart-10: #C084FC;
 
   /* 3.11b Avatar palette (dark) — 16 hues for the deterministic
-     hash(seed) % 16 colour lookup used by AvatarField when no explicit
-     colour is supplied. Tuned for legibility against white text on a
-     dark canvas; readableTextColor() picks black for the lighter hues. */
+     hash(seed) % 16 colour lookup of every initials avatar: the Avatar
+     and UiAvatar fields, the Topbar and the profile page (the server
+     picks the slot, Martis\Support\Initials). Tuned for legibility
+     against white text on a dark canvas; readableTextColor() picks black
+     for the lighter hues. */
   --martis-avatar-1:  #2563EB; /* blue-600 */
   --martis-avatar-2:  #059669; /* emerald-600 */
   --martis-avatar-3:  #DB2777; /* pink-600 */
