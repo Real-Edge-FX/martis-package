@@ -81,6 +81,11 @@ class McpServeCommand extends Command
                 $this->registerSignalHandlers($health);
                 $server->listen($this->buildHttpTransport());
             } else {
+                // The stdio transport closes itself on SIGTERM / SIGINT, but
+                // a signal handled before the loop runs only stops a loop
+                // that `run()` then restarts, kept alive by the session
+                // timer: these handlers stop it again on its first tick.
+                $this->registerSignalHandlers(null);
                 $server->listen(new FlushingStdioServerTransport);
             }
 
@@ -180,9 +185,9 @@ class McpServeCommand extends Command
         $shutdown = function () use ($health): void {
             $health?->stop();
             Loop::get()->stop();
-            // A signal handled before `run()` starts (the server logs "up and
-            // listening" before it runs the loop) is undone by `run()`, which
-            // resets the stop: stop again on the loop's first tick.
+            // A signal handled before `run()` starts (both transports log "up
+            // and listening" before the loop runs) is undone by `run()`,
+            // which resets the stop: stop again on the loop's first tick.
             Loop::get()->futureTick(static fn () => Loop::get()->stop());
         };
 

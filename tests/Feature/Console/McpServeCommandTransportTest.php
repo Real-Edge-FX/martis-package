@@ -7,6 +7,7 @@ use Martis\Tests\Support\SkeletonSnapshot;
 use Martis\Tests\TestCase;
 use React\EventLoop\Loop;
 use React\EventLoop\StreamSelectLoop;
+use Symfony\Component\Process\InputStream;
 use Symfony\Component\Process\Process;
 
 /**
@@ -140,16 +141,78 @@ function artisanPath(): string
  */
 $GLOBALS['__martis_serve_processes'] = [];
 
-function mcpServeProcess(array $extraArgs = [], array $extraEnv = []): Process
+/**
+ * The server's command line: `php` with `$phpOptions`, then
+ * `vendor/bin/testbench martis:mcp-serve` with `$extraArgs`.
+ *
+ * @return list<string>
+ */
+function mcpServeCommand(array $extraArgs = [], array $phpOptions = []): array
 {
-    $root = artisanPath();
-    $cmd = ['php', '-d', 'variables_order=EGPCS', 'vendor/bin/testbench', 'martis:mcp-serve', ...$extraArgs];
-    $env = array_merge($_SERVER, $_ENV, $extraEnv, [
-        'TESTBENCH_WORKING_PATH' => $root,
+    return ['php', '-d', 'variables_order=EGPCS', ...$phpOptions, 'vendor/bin/testbench', 'martis:mcp-serve', ...$extraArgs];
+}
+
+/**
+ * The server's environment: this process's, with `$extraEnv`.
+ *
+ * @return array<string, mixed>
+ */
+function mcpServeEnvironment(array $extraEnv = []): array
+{
+    return array_merge($_SERVER, $_ENV, $extraEnv, [
+        'TESTBENCH_WORKING_PATH' => artisanPath(),
         'APP_BASE_PATH' => base_path(),
     ]);
+}
 
-    return new Process($cmd, $root, $env);
+function mcpServeProcess(array $extraArgs = [], array $extraEnv = [], array $phpOptions = []): Process
+{
+    return new Process(mcpServeCommand($extraArgs, $phpOptions), artisanPath(), mcpServeEnvironment($extraEnv));
+}
+
+/** What a stdio client sends first: `initialize` (id 1), then `notifications/initialized`. */
+function mcpHandshake(): string
+{
+    return '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"smoke","version":"1.0"}}}'."\n"
+        .'{"jsonrpc":"2.0","method":"notifications/initialized"}'."\n";
+}
+
+/** A `tools/call` request, one line. */
+function mcpToolCall(int $id, string $tool, array $arguments): string
+{
+    return json_encode(['jsonrpc' => '2.0', 'id' => $id, 'method' => 'tools/call', 'params' => ['name' => $tool, 'arguments' => $arguments]])."\n";
+}
+
+/**
+ * The answers a stdio server wrote to stdout, one JSON-RPC message per
+ * line, by id. A line that is not JSON (an answer cut short) is left out.
+ *
+ * @return array<int|string, array<string, mixed>>
+ */
+function stdioResponses(Process $process): array
+{
+    $responses = [];
+    foreach (explode("\n", $process->getOutput()) as $line) {
+        $message = json_decode($line, true);
+        if (is_array($message) && isset($message['id'])) {
+            $responses[$message['id']] = $message;
+        }
+    }
+
+    return $responses;
+}
+
+/**
+ * `docs/fields.md`, a page whose answer to `martis_doc_read` (about 190 KB
+ * as JSON) outgrows a pipe (64 KiB on Linux): the server writes it in parts,
+ * each once the client has read the one before.
+ */
+function largeDoc(): string
+{
+    $doc = (string) file_get_contents(artisanPath().'/docs/fields.md');
+    expect(strlen($doc))->toBeGreaterThan(128 * 1024, 'docs/fields.md no longer outgrows a pipe: read a larger page in this test');
+
+    return $doc;
 }
 
 function spawnServe(array $extraArgs = [], array $extraEnv = []): Process
@@ -415,11 +478,7 @@ it('warns about the health endpoint on 0.0.0.0 even when a token is set', functi
 
 it('stdio default keeps producing the three tools (regression guard)', function () {
     $process = mcpServeProcess();
-    $process->setInput(
-        '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"smoke","version":"1.0"}}}'."\n".
-        '{"jsonrpc":"2.0","method":"notifications/initialized"}'."\n".
-        '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'."\n"
-    );
+    $process->setInput(mcpHandshake().'{"jsonrpc":"2.0","id":2,"method":"tools/list"}'."\n");
     $process->setTimeout(null);
     $process->start();
     $GLOBALS['__martis_serve_processes'][] = $process;
@@ -430,11 +489,119 @@ it('stdio default keeps producing the three tools (regression guard)', function 
     // The responses reach stdout, one JSON-RPC message per line, and the
     // server exits cleanly once its input is done.
     expect($process->getExitCode())->toBe(0, describeProcess($process));
-    $responses = array_map(fn (string $line) => json_decode($line, true), array_values(array_filter(explode("\n", $process->getOutput()))));
-    $toolsList = collect($responses)->firstWhere('id', 2);
+    $toolsList = stdioResponses($process)[2] ?? null;
     expect($toolsList, describeProcess($process))->not->toBeNull()
         ->and(array_column($toolsList['result']['tools'] ?? [], 'name'))->toBe(['martis_doc_list', 'martis_doc_read', 'martis_doc_search']);
 });
+
+it('answers over stdio in full when the answer outgrows the pipe', function () {
+    // The server writes the answer in parts, each once the client has read
+    // the one before: a single write sends only what the pipe holds, and
+    // the rest of the page never reaches the client.
+    $doc = largeDoc();
+    $process = mcpServeProcess();
+    $process->setInput(mcpHandshake().mcpToolCall(2, 'martis_doc_read', ['slug' => 'fields']));
+    $process->setTimeout(null);
+    $process->start();
+    $GLOBALS['__martis_serve_processes'][] = $process;
+
+    waitUntil($process, fn (): bool => ! $process->isRunning(), 'the stdio server did not exit after its input', untilExit: true);
+
+    $text = stdioResponses($process)[2]['result']['content'][0]['text'] ?? null;
+    $page = is_string($text) ? (json_decode($text, true)['content'] ?? null) : null;
+    $stderr = trim($process->getErrorOutput()) ?: '(empty)';
+
+    expect($process->getExitCode())->toBe(0, "the stdio server exited with an error.\n--- stderr ---\n{$stderr}")
+        ->and($page === $doc)->toBeTrue(sprintf(
+            "the answer to martis_doc_read(fields) did not bring the page whole: %d bytes on stdout, the page has %d.\n--- stderr ---\n%s",
+            strlen($process->getOutput()),
+            strlen($doc),
+            $stderr,
+        ));
+});
+
+it('exits on a SIGTERM handled before its stdio loop runs', function () {
+    // The stdio transport logs "is up and listening" and opens its session
+    // before the loop runs. A SIGTERM handled in between closed the
+    // transport and stopped the loop, `run()` started it again, and the
+    // session timer kept the process alive until a SIGKILL. The spawned
+    // server's loop sends itself that SIGTERM as it starts to run
+    // (tests/Support/mcp-serve-signal-on-run.php): from outside, whether a
+    // SIGTERM sent right after the marker lands there depends on the machine.
+    $process = mcpServeProcess(phpOptions: ['-d', 'auto_prepend_file='.artisanPath().'/tests/Support/mcp-serve-signal-on-run.php']);
+    // Stdin stays open (a client that has not finished), so only the
+    // signal can end the server.
+    $process->setInput(new InputStream);
+    $process->setTimeout(null);
+    $process->start();
+    $GLOBALS['__martis_serve_processes'][] = $process;
+
+    waitUntil($process, fn (): bool => ! $process->isRunning(), 'the stdio server did not exit after a SIGTERM handled before its loop ran', untilExit: true);
+
+    expect($process->getExitCode())->toBe(0, describeProcess($process))
+        ->and($process->getErrorOutput())->toContain('Received signal '.SIGTERM.', shutting down.');
+})->skip(! function_exists('posix_kill') || ! function_exists('pcntl_signal'), 'needs ext-posix and ext-pcntl');
+
+it('exits on SIGTERM while an answer waits for a client that stopped reading', function () {
+    // The answer outgrows the stdout pipe, so a client that does not read
+    // leaves the server waiting to write it. A SIGTERM closes the
+    // transport, and the write must give up then instead of waiting for
+    // the client forever. A Process reads stdout whenever it is polled, so
+    // this server runs under proc_open(), whose stdout the test reads only
+    // up to the answer to `initialize`.
+    largeDoc();
+    $stderr = (string) tempnam(sys_get_temp_dir(), 'mcp_');
+    // proc_open() takes strings; a Process leaves out argc and argv too.
+    $environment = array_filter(
+        mcpServeEnvironment(),
+        fn (mixed $value, string|int $name): bool => is_scalar($value) && ! in_array($name, ['argc', 'argv'], true),
+        ARRAY_FILTER_USE_BOTH,
+    );
+    $server = proc_open(mcpServeCommand(), [['pipe', 'r'], ['pipe', 'w'], ['file', $stderr, 'w']], $pipes, artisanPath(), $environment);
+    expect($server)->toBeResource();
+    $state = fn (): string => sprintf(
+        "the server %s.\n--- stderr ---\n%s",
+        proc_get_status($server)['running'] ? 'was still running' : 'had exited',
+        trim((string) file_get_contents($stderr)) ?: '(empty)',
+    );
+
+    try {
+        fwrite($pipes[0], mcpHandshake());
+        stream_set_timeout($pipes[1], (int) ceil(mcpBudget()));
+        $initialized = json_decode((string) fgets($pipes[1]), true);
+        expect($initialized['id'] ?? null)->toBe(1, 'the server did not answer initialize: '.$state());
+
+        fwrite($pipes[0], mcpToolCall(2, 'martis_doc_read', ['slug' => 'fields']));
+        // The answer has started: the server writes it and cannot finish.
+        $read = [$pipes[1]];
+        $write = null;
+        $except = null;
+        expect(stream_select($read, $write, $except, (int) ceil(mcpBudget())))->toBe(1, 'the server did not start to answer: '.$state());
+
+        proc_terminate($server, SIGTERM);
+
+        $started = microtime(true);
+        while (($status = proc_get_status($server))['running'] && microtime(true) - $started < mcpBudget()) {
+            usleep(50_000);
+        }
+
+        expect($status['running'] ? null : $status['exitcode'])->toBe(0, sprintf(
+            'the server did not exit cleanly after SIGTERM while its answer waited (waited %.1fs of the %gs MARTIS_TEST_PROCESS_TIMEOUT ceiling): %s',
+            microtime(true) - $started,
+            mcpBudget(),
+            $state(),
+        ))
+            ->and((string) file_get_contents($stderr))->toContain('Stdio transport closed while writing.');
+    } finally {
+        if (proc_get_status($server)['running']) {
+            proc_terminate($server, defined('SIGKILL') ? SIGKILL : 9);
+        }
+        fclose($pipes[0]);
+        fclose($pipes[1]);
+        proc_close($server);
+        @unlink($stderr);
+    }
+})->skip(! function_exists('pcntl_signal'), 'needs ext-pcntl');
 
 it('exits cleanly on SIGTERM in http mode', function () {
     $port = pickPort();
@@ -486,15 +653,22 @@ it('refuses a MARTIS_TEST_PROCESS_TIMEOUT that is not a positive number, naming 
 
 it('stops on a signal handled before its loop runs', function () {
     // The server logs "is up and listening" before it runs the loop, and
-    // `run()` clears a stop requested before it. From outside the window is
-    // too short to hit, so the handler is driven in this process: a signal
-    // delivered between registration and `run()` must still end the loop.
+    // `run()` clears a stop requested before it: a signal delivered between
+    // the handlers' registration and `run()` must still end the loop. This
+    // drives the handler itself, in this process; the stdio test above
+    // sends that signal through the whole command.
     $previous = Loop::get();
+    $handlers = [SIGTERM => pcntl_signal_get_handler(SIGTERM), SIGINT => pcntl_signal_get_handler(SIGINT)];
     $loop = new StreamSelectLoop;
     Loop::set($loop);
     try {
         $register = new ReflectionMethod(McpServeCommand::class, 'registerSignalHandlers');
         $register->invoke(app(McpServeCommand::class), null);
+        // Without a handler of its own, the SIGTERM below would end the
+        // test run itself (exit 143, no summary) wherever Pest is not PID 1,
+        // as on CI.
+        expect(pcntl_signal_get_handler(SIGTERM))->toBeCallable('registerSignalHandlers() did not handle SIGTERM')
+            ->not->toBe($handlers[SIGTERM], 'registerSignalHandlers() left the SIGTERM handler as it was');
         posix_kill(getmypid(), SIGTERM);
         // What the signal listeners keep alive, plus a fuse if the stop was lost.
         $keepAlive = $loop->addPeriodicTimer(0.05, static fn () => null);
@@ -509,10 +683,11 @@ it('stops on a signal handled before its loop runs', function () {
         expect($fuseBlown)->toBeFalse('the loop kept running after a SIGTERM handled before run()');
         $loop->cancelTimer($keepAlive);
     } finally {
-        // The listeners stay on the discarded loop: give the signals back to
-        // PHP so a Ctrl+C still ends the test run.
-        pcntl_signal(SIGTERM, SIG_DFL);
-        pcntl_signal(SIGINT, SIG_DFL);
+        // The listeners stay on the discarded loop: put back the handlers
+        // this process had, so a Ctrl+C still does what it did before.
+        foreach ($handlers as $signal => $handler) {
+            pcntl_signal($signal, $handler);
+        }
         Loop::set($previous);
     }
 })->skip(! function_exists('posix_kill') || ! function_exists('pcntl_signal'), 'needs ext-posix and ext-pcntl');
