@@ -198,6 +198,17 @@ class McpServeCommand extends Command
         if (defined('SIGINT')) {
             $loop->addSignal(SIGINT, $shutdown);
         }
+
+        // PHP runs a signal's handler between two opcodes, and the loop
+        // sleeps in stream_select() for a timeout it worked out before: a
+        // signal that lands in between waits for the next event, which
+        // after a request is the session timer, five minutes away. Wake the
+        // loop every second to run what is pending and see the stop.
+        if (function_exists('pcntl_signal_dispatch')) {
+            $loop->addPeriodicTimer(1.0, static function (): void {
+                pcntl_signal_dispatch();
+            });
+        }
     }
 
     private function packageVersion(): string
