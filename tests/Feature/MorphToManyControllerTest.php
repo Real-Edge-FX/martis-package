@@ -252,6 +252,32 @@ it('lists attachable (not-yet-attached) tags', function () {
     expect($names)->not->toContain('attached');
 });
 
+it('clamps a negative per_page to one row on the index and the attachable search', function () {
+    // Laravel ignores a negative limit: ?per_page=-1 returned every
+    // attached tag, and every attachable one, in one response.
+    $post = MTMPostModel::create(['title' => 'Post']);
+    $post->tags()->attach([
+        MTMTagModel::create(['name' => 'php'])->id,
+        MTMTagModel::create(['name' => 'laravel'])->id,
+    ]);
+    MTMTagModel::create(['name' => 'react']);
+    MTMTagModel::create(['name' => 'vue']);
+
+    $index = $this->getJson("/martis/api/resources/m-t-m-post-models/{$post->id}/morph-to-many/tags?per_page=-1");
+
+    $index->assertOk();
+    expect($index->json('meta.per_page'))->toBe(1);
+    expect($index->json('meta.total'))->toBe(2);
+    expect($index->json('data'))->toHaveCount(1);
+
+    $attachable = $this->getJson("/martis/api/resources/m-t-m-post-models/{$post->id}/morph-to-many/tags/attachable?per_page=-1");
+
+    $attachable->assertOk();
+    expect($attachable->json('meta.per_page'))->toBe(1);
+    expect($attachable->json('meta.total'))->toBe(2);
+    expect($attachable->json('data'))->toHaveCount(1);
+});
+
 // ---------------------------------------------------------------------------
 // Attach / detach
 // ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough as EloquentHasOneThrough;
+use Martis\Fields\Concerns\IgnoresCreateThrough;
 
 /**
  * HasOneThrough — reaches a single distant record through an
@@ -11,20 +12,26 @@ use Illuminate\Database\Eloquent\Relations\HasOneThrough as EloquentHasOneThroug
  *
  * The relationship on the parent model is defined as
  *   `hasOneThrough(Owner::class, Car::class)`
- * and the field renders visually like `HasOne` — read-only, because
- * the traversal goes through an intermediate the UI cannot create.
+ * and the field renders visually like `HasOne`, without a Create
+ * button, because the traversal goes through an intermediate the UI
+ * cannot create.
  *
  * ⭐ Martis differentials:
- *  - **Read-only by default** — Through records cannot be created,
- *    edited or deleted from the parent resource because the traversal
- *    goes through an intermediate model the UI cannot populate.
- *  - **`throughBreadcrumb(bool $enabled = true)`** — ships a tooltip
+ *  - **No create through the relationship, enforced**: as in Nova, a
+ *    Through record cannot be created from the parent resource and
+ *    `canCreate()` has no effect (it logs a warning), because the traversal goes through an
+ *    intermediate model the UI cannot populate; the has-one endpoints
+ *    also refuse a create through the relationship with a 403. Edit and
+ *    Delete work as on `HasOne`, under the related resource's policies.
+ *  - **`throughBreadcrumb(bool $enabled = true)`**: ships a tooltip
  *    describing the intermediate hop (e.g. `Project → Client →
  *    Account Manager`), resolved from the relation's intermediate
  *    table name.
  */
 class HasOneThrough extends HasOne
 {
+    use IgnoresCreateThrough;
+
     protected bool $showThroughBreadcrumb = false;
 
     protected ?string $throughBreadcrumbText = null;
@@ -33,13 +40,10 @@ class HasOneThrough extends HasOne
     {
         parent::__construct($attribute, $label, $relationship);
 
-        // Read-only by default: a Through relationship is a traversal —
-        // there is no direct FK to populate on create (the intermediate
-        // model is ambiguous). Callers can re-enable mutations explicitly
-        // via ->canCreate(true) etc. when they have custom logic.
+        // No create through a Through relationship, as in Nova: it is a
+        // traversal with no direct FK to populate (the intermediate model
+        // is ambiguous), and HasOneController refuses one (403).
         $this->canCreateRelated = false;
-        $this->canUpdateRelated = false;
-        $this->canDeleteRelated = false;
     }
 
     public function type(): string

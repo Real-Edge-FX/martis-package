@@ -51,7 +51,7 @@ class MorphManyController extends MartisController
      * List related records for a MorphMany relationship.
      */
     #[QueryParameter('search', description: 'Filter related records by free text, on the searchable fields of the related resource the user can see.', required: false, type: 'string')]
-    #[QueryParameter('per_page', description: 'Records per page. Default: 10, max: 100.', required: false, type: 'integer')]
+    #[QueryParameter('per_page', description: 'Records per page, from 1 to 100. Default: 10.', required: false, type: 'integer')]
     #[QueryParameter('sort', description: 'Attribute to sort by: a sortable field of the related resource the user can see; any other value is ignored.', required: false, type: 'string')]
     #[QueryParameter('direction', description: 'Sort direction: asc or desc (asc for any other value).', required: false, type: 'string')]
     #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only); any other value means active only.', required: false, type: 'string')]
@@ -98,10 +98,7 @@ class MorphManyController extends MartisController
         // orders the rows.
         $this->applyRequestedSort($request, $query, $relatedResourceClass);
 
-        $perPage = min(
-            (int) ($request->query('per_page', '10')),
-            100,
-        );
+        $perPage = $this->requestedPerPage($request, 10);
 
         $paginator = $query->paginate($perPage);
 
@@ -434,6 +431,14 @@ class MorphManyController extends MartisController
 
         /** @var class-string<resource> $relatedResourceClass */
         $relatedResourceClass = $this->registry->get($relatedResourceKey);
+
+        // A write through the relationship writes a record of the related
+        // resource, so it needs that resource's viewAny, as its own per-id
+        // endpoints do. routable() is not required: a headless resource
+        // stays usable as a relation target.
+        if ($action !== null && ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $relatedResourceClass))) {
+            return $forbidden;
+        }
 
         if ($action === 'create') {
             $relatedCheck = new $relatedResourceClass;

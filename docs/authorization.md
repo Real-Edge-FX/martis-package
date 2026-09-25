@@ -61,6 +61,15 @@ and `view` granted therefore never reaches a record any more; if you relied
 on that combination for deep-links, grant `viewAny` and confine the
 listing with `indexQuery()` instead.
 
+A write through a relationship endpoint (`POST`, `PUT` and `DELETE` on
+`has-many`, `has-one`, `morph-many` and `morph-one`) creates, updates or
+deletes a record of the **related** resource, so it also needs that
+resource's `viewAny` (v2.0), checked before the related record query, then
+its `create` / `update` / `delete` ability as before. A user who cannot list
+`Comment` cannot write a comment through a post's panel either, as in Nova.
+`routable()` is not part of that check: a headless resource (v1.24.0, see
+[Resources → routable](resources.md)) stays usable as a relation target.
+
 ## Writing a policy
 
 Martis looks for policies in two places, in order:

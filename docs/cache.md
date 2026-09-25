@@ -51,7 +51,7 @@ Calling `Gate::define()` from the host app replaces Martis's default closure, so
 | `metrics` | Computed metric results (Value, Trend, Partition, Progress, Activity feed, Endpoint table). | 5 minutes | **Yes** — keyed on the user, the locale, the range and the filters (guests share one entry). Before v2.0.0 the key had no user, so a `calculate()` scoped to the user served the first user's value to everyone for the TTL |
 | `navigation` | Sidebar / top-nav structure. | 1 minute | **Yes** — different policies, different menus |
 | `dashboards` | Dashboard list + per-dashboard definition (cards/filters metadata). Metric values are NOT cached here — that's `metrics`. | 5 minutes | **Yes** — and the list key carries a fingerprint of the set the user is authorized to see (see below) |
-| `schema` | Resource schema payload (fields, filters, lenses, cards, actions). Heavy to compute, stable across requests. | No expiration | **Yes** |
+| `schema` | Resource schema payload (fields, filters, lenses, cards, actions). Heavy to compute, stable across requests. | 1440 min (one day, v2.0; before, no expiration) | **Yes** |
 
 TTL `null` means "no expiration" — the entry stays cached until explicitly cleared (the version key trick: see [Invalidation](#invalidation) below).
 
@@ -89,7 +89,7 @@ Hover any column header in the admin UI for the same explanation as a tooltip.
     'metrics'    => ['enabled' => true, 'ttl' => 5],     // 5 minutes
     'navigation' => ['enabled' => true, 'ttl' => 1],
     'dashboards' => ['enabled' => true, 'ttl' => 5],     // 5 minutes
-    'schema'     => ['enabled' => true, 'ttl' => null],
+    'schema'     => ['enabled' => true, 'ttl' => 1440],  // one day (v2.0)
 
     'admin_ui'   => true,
     'admin_ui_order' => 1000,   // position of the "System cache" link in the System section (v1.38.0+)
@@ -115,7 +115,7 @@ MARTIS_CACHE_DASHBOARDS_ENABLED=true
 MARTIS_CACHE_DASHBOARDS_TTL=5
 
 MARTIS_CACHE_SCHEMA_ENABLED=true
-MARTIS_CACHE_SCHEMA_TTL=
+MARTIS_CACHE_SCHEMA_TTL=1440
 
 MARTIS_CACHE_ADMIN_UI=true
 ```
@@ -141,6 +141,7 @@ The cache entries themselves still live in `Cache::store()` — only the operati
 php artisan martis:cache:status                  # table view of every layer
 php artisan martis:cache:clear                    # clear every layer
 php artisan martis:cache:clear metrics            # clear one layer only
+php artisan martis:cache:prune                    # delete the entries older versions left behind (v2.0)
 php artisan martis:cache:disable navigation       # runtime kill-switch
 php artisan martis:cache:enable navigation        # runtime force-on
 ```
@@ -255,7 +256,9 @@ afterEach(fn () => MartisCache::forgetExtension('reports'));
 
 ## Invalidation
 
-Per-layer **version key**: `martis:cache:version:{type}`. Every cached entry is keyed by `martis:cache:{type}:v{version}:{rest}`. Clearing a layer just increments the counter — every old key becomes orphaned and the next request recomputes. O(1) on every cache backend (no tagging support required).
+Per-layer **version key**: `martis:cache:version:{type}`. Every cached entry is keyed by `martis:cache:{type}@{installed}:v{version}:{rest}`. Clearing a layer just increments the counter — every old key becomes orphaned and the next request recomputes. O(1) on every cache backend (no tagging support required).
+
+`{installed}` is the `martis/martis` version Composer installed (what `composer show martis/martis` reports, e.g. `v2.0.0`; a dev version (a `dev-*` branch, or a numbered branch or alias such as `2.x-dev`) keeps its name across `composer update`, so its commit reference is appended: `dev-main@0123456789ab`, `2.x-dev@0123456789ab`), so **an upgrade rebuilds every layer** on its own, `schema` included, which would otherwise keep serving the previous version's payload until it expires. On a **path repository** (a local checkout linked with `"type": "path"`, like the Playground) Composer keeps the version of the last `composer install` / `update`, so editing the linked package does not change the key: run `php artisan martis:cache:clear` after pulling changes there. When Composer has no record of the package the segment is left out (`martis:cache:{type}:v{version}:{rest}`).
 
 ```bash
 # Atomic invalidation, no traversal of the cache store needed
@@ -265,6 +268,20 @@ php artisan martis:cache:clear schema
 The button in the admin panel does the same.
 
 Old keys linger until natural expiration (or until the store evicts them under pressure). On Redis with `maxmemory-policy: allkeys-lru` they get evicted quickly; on the file driver they sit on disk until expired. Functionally the cache is invalidated immediately; physically the orphans go away later.
+
+**Orphans after an upgrade.** Each upgrade (or `martis:cache:clear`) leaves the previous keys behind, in every layer. What removes them depends on the store:
+
+| Store | An expired orphan | What to do |
+|-------|-------------------|------------|
+| `redis`, `memcached` | Dropped by the server on its own | Nothing, as long as the layer has a TTL; a layer set to `null` keeps its orphans until the server evicts them under memory pressure. |
+| `database` (Laravel's default store since 11), `file` | **Never dropped**: Laravel deletes an expired entry only when that same key is read again, which an orphan never is | Run `php artisan martis:cache:prune` after an upgrade (or schedule it daily). |
+| `array` | Gone at the end of the process | Nothing. |
+
+`martis:cache:prune` (v2.0) deletes, on the database store, every `martis:cache:*` row that is expired or whose key no longer carries a live `{type}@{installed}:v{N}:` prefix (a hashed long key is kept until it expires), and on the file store every expired entry (the file names are hashes of the keys, so Martis entries cannot be told apart; an expired entry is dead for everyone). On any other store it reports that there is nothing to prune.
+
+The `schema` layer ships a one-day TTL since v2.0 (`MARTIS_CACHE_SCHEMA_TTL=1440`), so its orphans are at least expired, which is what `martis:cache:prune` and Redis act on; it had none before. An empty value (`MARTIS_CACHE_SCHEMA_TTL=`, the `.env` block these docs showed up to 1.x) still means **no expiration**, and a `config/martis.php` published before v2.0 still reads `env('MARTIS_CACHE_SCHEMA_TTL', env('MARTIS_CACHE_SCHEMA', null))`: set `MARTIS_CACHE_SCHEMA_TTL=1440` to get the new default there.
+
+**Long keys.** A key that would pass 191 characters once the store adds its own prefix (`CACHE_PREFIX`; the length a database cache column indexed under `utf8mb4` holds; memcached stops at 250 bytes) is hashed whole: `martis:cache:{type}:h:{sha256}`. The hash covers the installed version and the counter, so upgrades and `clear()` still invalidate it.
 
 ## Cache store
 
@@ -319,7 +336,7 @@ Custom layers registered via `extend()` are valid `type` values for every endpoi
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Schema changes don't show up | `schema` cache hit | Clear it: `php artisan martis:cache:clear schema` |
+| Schema changes don't show up | `schema` cache hit (after an upgrade only on a path repository, whose installed version does not change) | Clear it: `php artisan martis:cache:clear schema` |
 | Slow first navigation render after deploy | `navigation` recomputed cold | Warm with a request, or pre-fetch on deploy |
 | Stale metric values after data write | `metrics` TTL not elapsed | Clear metrics or call `MartisCache::clear('metrics')` from your write path |
 | User A sees user B's nav | Cache key did not include the auth identifier | Confirm the controller (or your custom layer) prepends `$userKey` to the cache key, like `NavigationController` does |

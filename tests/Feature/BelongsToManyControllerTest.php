@@ -301,6 +301,33 @@ describe('BelongsToManyController', function () {
         expect($ids)->not->toContain($child1->id);
     });
 
+    it('clamps a negative per_page to one row on the index and the attachable search', function () {
+        // Laravel ignores a negative limit: ?per_page=-1 returned every
+        // attached record, and every attachable one, in one response.
+        $parent = BTMParentModel::create(['name' => 'Parent A']);
+        $attached = [
+            BTMChildModel::create(['title' => 'Child 1'])->id,
+            BTMChildModel::create(['title' => 'Child 2'])->id,
+        ];
+        $parent->children()->attach($attached);
+        BTMChildModel::create(['title' => 'Child 3']);
+        BTMChildModel::create(['title' => 'Child 4']);
+
+        $index = $this->getJson("/martis/api/resources/b-t-m-parent-models/{$parent->id}/belongs-to-many/children?per_page=-1");
+
+        $index->assertStatus(200);
+        $index->assertJsonPath('meta.per_page', 1);
+        $index->assertJsonPath('meta.total', 2);
+        expect($index->json('data'))->toHaveCount(1);
+
+        $attachable = $this->getJson("/martis/api/resources/b-t-m-parent-models/{$parent->id}/belongs-to-many/children/attachable?per_page=-1");
+
+        $attachable->assertStatus(200);
+        $attachable->assertJsonPath('meta.per_page', 1);
+        $attachable->assertJsonPath('meta.total', 2);
+        expect($attachable->json('data'))->toHaveCount(1);
+    });
+
     it('attaches a record', function () {
         $parent = BTMParentModel::create(['name' => 'Parent A']);
         $child = BTMChildModel::create(['title' => 'Child 1']);

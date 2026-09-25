@@ -441,7 +441,7 @@ class HasOneController extends MartisController
     /**
      * Resolve all context needed for a HasOne operation.
      *
-     * @return array{parentModel: Model, parentResourceClass: class-string<resource>, relatedResourceClass: class-string<resource>, hasOneField: HasOne, relation: EloquentHasOne<Model, Model>}|IlluminateJsonResponse
+     * @return array{parentModel: Model, parentResourceClass: class-string<resource>, relatedResourceClass: class-string<resource>, hasOneField: HasOne, relation: EloquentHasOne<Model, Model>|EloquentHasOneThrough<Model, Model, Model>|EloquentHasMany<Model, Model>}|IlluminateJsonResponse
      */
     private function resolveContext(
         Request $request,
@@ -531,12 +531,23 @@ class HasOneController extends MartisController
         /** @var class-string<resource> $relatedResourceClass */
         $relatedResourceClass = $this->registry->get($relatedResourceKey);
 
-        // Block mutations on HasOneThrough — the relationship is a traversal,
-        // there is no direct FK for Eloquent to create/update/delete on.
+        // A write through the relationship writes a record of the related
+        // resource, so it needs that resource's viewAny, as its own per-id
+        // endpoints do. routable() is not required: a headless resource
+        // stays usable as a relation target.
+        if ($action !== null && ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $relatedResourceClass))) {
+            return $forbidden;
+        }
+
+        // No create through a HasOneThrough relationship, as in Nova: it is a
+        // traversal, there is no direct FK for Eloquent to create on.
         // Defence in depth: even if someone bypasses the UI, the backend
-        // refuses.
-        if ($action !== null && $hasOneField instanceof HasOneThroughField) {
-            return JsonErrorResponse::forbidden('hasOneThrough relationships are read-only.')->toResponse();
+        // refuses. A plain HasOne field declared on a hasOneThrough
+        // relationship is refused too. An update or a delete reaches the
+        // record the relationship holds, under the related resource's
+        // policies.
+        if ($action === 'create' && ($hasOneField instanceof HasOneThroughField || $relation instanceof EloquentHasOneThrough)) {
+            return JsonErrorResponse::forbidden('Records cannot be created through a hasOneThrough relationship.')->toResponse();
         }
 
         // Check authorization for the action

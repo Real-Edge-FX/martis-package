@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Martis\Cache\MartisCache;
+use Martis\Support\InstalledVersion;
 use Martis\Tests\TestCase;
 
 uses(TestCase::class);
@@ -21,6 +22,45 @@ beforeEach(function () {
     config()->set('martis.cache.schema', ['enabled' => true, 'ttl' => null]);
 
     $this->cache = new MartisCache(Cache::store('array'));
+});
+
+// The installed Martis version is part of every key, so an upgrade (a new
+// Composer version) rebuilds every layer; the `schema` layer has no expiry
+// and would otherwise keep serving the previous version's payload. Without
+// a known version the key keeps the per-type counter only.
+
+it('puts the installed Martis version in every key', function () {
+    $cache = new MartisCache(Cache::store('array'), 'v2.0.0');
+
+    expect($cache->buildKey('schema', 'posts'))->toBe('martis:cache:schema@v2.0.0:v1:posts');
+});
+
+it('rebuilds a cached entry once the installed version changes', function () {
+    $hits = 0;
+    $cb = function () use (&$hits) {
+        $hits++;
+
+        return $hits;
+    };
+
+    $before = new MartisCache(Cache::store('array'), 'v1.39.1');
+    $after = new MartisCache(Cache::store('array'), 'v2.0.0');
+
+    expect($before->remember('schema', 'posts', $cb))->toBe(1)
+        ->and($before->remember('schema', 'posts', $cb))->toBe(1)
+        ->and($after->remember('schema', 'posts', $cb))->toBe(2)
+        ->and($after->remember('schema', 'posts', $cb))->toBe(2);
+});
+
+it('keeps the key without a version when the installed version is unknown', function () {
+    expect($this->cache->buildKey('schema', 'posts'))->toBe('martis:cache:schema:v1:posts');
+});
+
+it('binds the cache service with the version Composer installed', function () {
+    $installed = InstalledVersion::fingerprint('martis/martis');
+
+    expect($installed)->toBeString()->not->toBe('')
+        ->and(app(MartisCache::class)->buildKey('schema', 'posts'))->toBe("martis:cache:schema@{$installed}:v1:posts");
 });
 
 it('caches the callback result and returns it on subsequent calls', function () {
@@ -389,4 +429,50 @@ it('clear() with no argument also clears custom layers', function () {
     } finally {
         MartisCache::forgetExtension('orders');
     }
+});
+
+// A versioned key leaves the previous version's entries behind; on a store
+// without eviction (file, database) a layer with no expiry would keep them
+// forever, so the schema layer ships a finite TTL.
+
+it('ships a finite default TTL for the schema layer', function () {
+    $shipped = require __DIR__.'/../../config/martis.php';
+
+    expect($shipped['cache']['schema']['ttl'])->toBeInt()->toBeGreaterThan(0);
+});
+
+// Cache stores bound key length (database: a 255-character column, 191 once
+// indexed under utf8mb4; memcached: 250 bytes), so a key over 191 characters
+// is hashed, whole, which keeps the version and the counter in it.
+
+it('keeps a key of 191 characters or less readable', function () {
+    $cache = new MartisCache(Cache::store('array'), 'v2.0.0');
+    $key = $cache->buildKey('schema', str_repeat('a', 191 - strlen('martis:cache:schema@v2.0.0:v1:')));
+
+    expect(strlen($key))->toBe(191)->and($key)->toStartWith('martis:cache:schema@v2.0.0:v1:');
+});
+
+it('hashes a key over 191 characters, keeping distinct keys distinct', function () {
+    $cache = new MartisCache(Cache::store('array'), 'v2.0.0');
+    $a = $cache->buildKey('schema', str_repeat('a', 300));
+    $b = $cache->buildKey('schema', str_repeat('a', 299).'b');
+
+    expect(strlen($a))->toBeLessThanOrEqual(191)
+        ->and($a)->toStartWith('martis:cache:schema:h:')
+        ->and($a)->not->toBe($b)
+        ->and((new MartisCache(Cache::store('array'), 'v2.0.1'))->buildKey('schema', str_repeat('a', 300)))->not->toBe($a);
+});
+
+it('rebuilds a long-keyed entry after clear()', function () {
+    $cache = new MartisCache(Cache::store('array'), 'v2.0.0');
+    $hits = 0;
+    $cb = function () use (&$hits) {
+        return ++$hits;
+    };
+    $key = str_repeat('k', 400);
+
+    expect($cache->remember('schema', $key, $cb))->toBe(1)
+        ->and($cache->remember('schema', $key, $cb))->toBe(1);
+    $cache->clear('schema');
+    expect($cache->remember('schema', $key, $cb))->toBe(2);
 });

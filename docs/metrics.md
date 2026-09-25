@@ -432,7 +432,7 @@ Defaults live in `config/martis.php` under the `cache` block. Each subsystem (`m
     ],
     'schema' => [
         'enabled' => env('MARTIS_CACHE_SCHEMA_ENABLED', true),
-        'ttl'     => env('MARTIS_CACHE_SCHEMA_TTL', env('MARTIS_CACHE_SCHEMA', null)),
+        'ttl'     => env('MARTIS_CACHE_SCHEMA_TTL', env('MARTIS_CACHE_SCHEMA', 1440)),
     ],
 
     'admin_ui' => env('MARTIS_CACHE_ADMIN_UI', true),    // exposes /api/cache/* + the admin page

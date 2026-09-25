@@ -208,7 +208,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
           {/* No Create button in the header while record === null: the
            *  empty-state card below carries the prominent one, and two
            *  would duplicate it. */}
-          {record !== null && showEdit && viaParams !== null && (
+          {record !== null && showEdit && record._authorization?.authorizedToUpdate !== false && viaParams !== null && (
             <button
               type="button"
               onClick={() =>
@@ -222,7 +222,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
               {tAct('edit', 'Edit')}
             </button>
           )}
-          {record !== null && showDelete && (
+          {record !== null && showDelete && record._authorization?.authorizedToDelete !== false && (
             <button
               type="button"
               onClick={() => setDeleteOpen(true)}

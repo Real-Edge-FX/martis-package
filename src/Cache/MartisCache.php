@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Martis\Cache;
 
 use Closure;
+use Illuminate\Cache\DatabaseStore;
+use Illuminate\Cache\FileStore;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -27,10 +29,18 @@ use Martis\Models\CacheState;
  *
  * Invalidation uses a per-type version counter stored in the
  * `martis_cache_state` table. Bumping the counter makes every key
- * `martis:cache:{type}:v{N}:...` orphaned at once, which works on every
- * cache backend (file, array, redis, memcached, db) without needing
- * tagging support. Old entries linger until natural expiration or
+ * `martis:cache:{type}@{installed}:v{N}:...` orphaned at once, which works
+ * on every cache backend (file, array, redis, memcached, db) without
+ * needing tagging support. Old entries linger until natural expiration or
  * eviction; that's fine because the version is part of the key.
+ *
+ * `{installed}` is the martis/martis version Composer installed (with the
+ * commit reference for a `dev-*` branch, whose name survives an update),
+ * see `InstalledVersion::fingerprint()`, so an upgrade orphans every entry too (the `schema` layer has no expiry and
+ * would otherwise keep serving the previous version's payload). A path
+ * repository keeps the version of its last `composer install` / `update`,
+ * so there only `martis:cache:clear` rebuilds the layers. Without a known
+ * version the segment is left out: `martis:cache:{type}:v{N}:...`.
  *
  * **Why DB-backed metadata?** v1.8.7 and earlier stored the version
  * counter, `cleared_at` stamp and runtime override flag in the cache
@@ -63,6 +73,9 @@ class MartisCache
      */
     public const TYPES = ['metrics', 'navigation', 'dashboards', 'schema'];
 
+    /** Longest cache key written as is; a longer one is hashed. */
+    public const MAX_KEY_LENGTH = 191;
+
     /**
      * Custom layers registered via `extend()`. Map of name => default
      * config. Built-in layers always exist regardless of this list.
@@ -80,7 +93,16 @@ class MartisCache
      */
     protected ?array $states = null;
 
-    public function __construct(private readonly Repository $store) {}
+    /**
+     * @param  string|null  $installedVersion  The installed martis/martis
+     *                                         version (the container passes
+     *                                         `InstalledVersion::fingerprint()`); null
+     *                                         leaves it out of the keys.
+     */
+    public function __construct(
+        private readonly Repository $store,
+        private readonly ?string $installedVersion = null,
+    ) {}
 
     /**
      * Register a custom cache layer. Call this from a service
@@ -358,12 +380,132 @@ class MartisCache
     // -------------------------------------------------------------------------
 
     /**
-     * Build the final cache key including the per-type version so a
-     * single `clear()` invalidates everything derived from it.
+     * Build the final cache key including the installed Martis version and
+     * the per-type version, so an upgrade or a single `clear()` invalidates
+     * everything derived from them.
      */
     public function buildKey(string $type, string $key): string
     {
-        return 'martis:cache:'.$type.':v'.$this->state($type)['version'].':'.$key;
+        $full = $this->keyPrefix($type).$key;
+
+        // Stores bound key length (a database cache column indexed under
+        // utf8mb4 holds 191 characters, memcached 250 bytes), and the store
+        // writes its own prefix in front: past that, hash the whole key, so
+        // the version and the counter still count.
+        $limit = self::MAX_KEY_LENGTH - strlen($this->storePrefix());
+
+        return strlen($full) <= $limit ? $full : 'martis:cache:'.$type.':h:'.hash('sha256', $full);
+    }
+
+    /**
+     * Delete the entries earlier Martis versions and cleared counters left
+     * behind, where the store cannot do it on its own. Redis and memcached
+     * drop an expired key themselves, so a TTL is enough there; the database
+     * and file stores only delete an expired entry when its key is read
+     * again, which an orphan never is.
+     *
+     *   - database: every `martis:cache:*` row that is expired, or whose key
+     *     no longer starts with a live `{type}@{installed}:v{N}:` prefix
+     *     (hashed long keys are kept until they expire);
+     *   - file: every expired entry (file names are hashes of the key, so
+     *     Martis entries cannot be told apart; an expired entry is dead
+     *     for everyone);
+     *   - any other store: nothing to do.
+     *
+     * @return array{driver: string, supported: bool, deleted: int}
+     */
+    public function prune(): array
+    {
+        $store = $this->store instanceof \Illuminate\Cache\Repository ? $this->store->getStore() : null;
+
+        if ($store instanceof DatabaseStore) {
+            return ['driver' => 'database', 'supported' => true, 'deleted' => $this->pruneDatabase($store)];
+        }
+
+        if ($store instanceof FileStore) {
+            return ['driver' => 'file', 'supported' => true, 'deleted' => $this->pruneFiles($store)];
+        }
+
+        $driver = $store === null ? 'unknown' : strtolower((string) preg_replace('/Store$/', '', class_basename($store)));
+
+        return ['driver' => $driver, 'supported' => false, 'deleted' => 0];
+    }
+
+    /** `martis:cache:{type}@{installed}:v{N}:`, the live prefix of a type's keys. */
+    protected function keyPrefix(string $type): string
+    {
+        $installed = $this->installedVersion === null ? '' : '@'.$this->installedVersion;
+
+        return 'martis:cache:'.$type.$installed.':v'.$this->state($type)['version'].':';
+    }
+
+    /** The prefix the underlying store writes in front of every key. */
+    protected function storePrefix(): string
+    {
+        $store = $this->store instanceof \Illuminate\Cache\Repository ? $this->store->getStore() : null;
+
+        return $store !== null ? $store->getPrefix() : '';
+    }
+
+    private function pruneDatabase(DatabaseStore $store): int
+    {
+        $prefix = $store->getPrefix();
+        /** @var string $table */
+        $table = (fn () => $this->table)->call($store);
+        $live = array_map(fn (string $type): string => $prefix.$this->keyPrefix($type), self::types());
+        $now = Date::now()->getTimestamp();
+
+        $stale = [];
+        foreach ($store->getConnection()->table($table)->where('key', 'like', $prefix.'martis:cache:%')->select(['key', 'expiration'])->cursor() as $row) {
+            $key = (string) $row->key;
+            // LIKE reads a `_` or `%` of the store prefix as a wildcard, so the
+            // query also returns the keys of another prefix sharing the table
+            // (`appXcache_` for `app_cache_`): only this store's keys are pruned.
+            if (! str_starts_with($key, $prefix.'martis:cache:')) {
+                continue;
+            }
+            $expired = (int) $row->expiration <= $now;
+            $hashed = (bool) preg_match('/^'.preg_quote($prefix, '/').'martis:cache:[^:@]+:h:/', $key);
+            $current = array_filter($live, fn (string $p): bool => str_starts_with($key, $p)) !== [];
+
+            if ($expired || (! $hashed && ! $current)) {
+                $stale[] = $key;
+            }
+        }
+
+        foreach (array_chunk($stale, 500) as $chunk) {
+            $store->getConnection()->table($table)->whereIn('key', $chunk)->delete();
+        }
+
+        return count($stale);
+    }
+
+    private function pruneFiles(FileStore $store): int
+    {
+        $directory = $store->getDirectory();
+        if (! is_dir($directory)) {
+            return 0;
+        }
+
+        $deleted = 0;
+        $now = Date::now()->getTimestamp();
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS));
+        foreach ($files as $file) {
+            if (! $file instanceof \SplFileInfo || ! $file->isFile()) {
+                continue;
+            }
+            $handle = @fopen($file->getPathname(), 'r');
+            $head = $handle === false ? false : fread($handle, 10);
+            if ($handle !== false) {
+                fclose($handle);
+            }
+            // A cache file starts with its 10-digit expiry timestamp.
+            if (is_string($head) && preg_match('/^\d{10}$/', $head) === 1 && (int) $head <= $now && @unlink($file->getPathname())) {
+                $deleted++;
+            }
+        }
+
+        return $deleted;
     }
 
     /**
