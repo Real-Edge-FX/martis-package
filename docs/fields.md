@@ -2078,9 +2078,9 @@ HasOneOfMany::make('Latest Invoice', 'latestInvoice', InvoiceResource::class)
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | *All `HasOne` setters* | — | `$this` | Inherited. | — |
-| `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders the underlying relation by the timestamp column descending before picking the first row. | `'created_at'` |
-| `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart of `latestByTimestamp()`. | `'created_at'` |
-| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across the full collection (count/sum/min/max/avg). | disabled |
+| `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders the underlying relation by the timestamp column descending before picking the first row; a tie goes to the highest primary key. The related model's `created_at` / `updated_at` are qualified with its table; another column is used as given, so over a through relation qualify a column both tables have (`'projects.published_at'`). Show, Edit, Delete and the card's writes all target that record. | `'created_at'` |
+| `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart of `latestByTimestamp()`; a tie goes to the lowest primary key. | `'created_at'` |
+| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across this parent's full collection (count/sum/min/max/avg), through the relation's own keys (a through relation included). | disabled |
 
 *src/Fields/HasOneOfMany.php*
 
@@ -2297,8 +2297,8 @@ MorphOneOfMany::make('Latest Note', 'latestNote', NoteResource::class)
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | *All `MorphOne` setters* | — | `$this` | Inherited. | — |
-| `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders by the timestamp descending before picking the first row. | `'created_at'` |
-| `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart. | `'created_at'` |
+| `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders by the timestamp descending before picking the first row; a tie goes to the highest primary key. | `'created_at'` |
+| `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart; a tie goes to the lowest primary key. | `'created_at'` |
 | `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across the full collection. | disabled |
 
 *src/Fields/MorphOneOfMany.php*
