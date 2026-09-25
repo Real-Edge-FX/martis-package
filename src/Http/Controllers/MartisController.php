@@ -168,7 +168,10 @@ abstract class MartisController extends Controller
      * (`HasMany`, `MorphMany`, `BelongsToMany`, `MorphToMany` with
      * `showOnIndex()`), scoped as the related index is: one query per page,
      * not one per row, and no hidden record counted. Each field reads its
-     * count back from the model (see `CountsScopedRelation`).
+     * count back from the model (see `CountsScopedRelation`). A relation
+     * whose method fails on the listing's model, which holds no record (it
+     * reads an attribute of a loaded record), is left out: its field counts
+     * on each loaded record instead, and the listing still answers.
      *
      * @param  Builder<Model>  $query
      * @param  list<FieldContract>  $fields
@@ -185,10 +188,18 @@ abstract class MartisController extends Controller
                 continue;
             }
 
+            // withCount() drops the global scopes the relation removes
+            // (`->withoutGlobalScope()`) only after the closure below runs,
+            // so the closure hands them to the keys itself.
+            $removedScopes = RelationScope::removedScopesOf($query->getModel(), $field->getRelationship());
+            if ($removedScopes === null) {
+                continue;
+            }
+
             $relatedResourceClass = $field->relatedResourceClassForCount();
-            $counts[$field->getRelationship().' as '.$field->countAlias()] = function (Builder $related) use ($request, $relatedResourceClass): void {
+            $counts[$field->getRelationship().' as '.$field->countAlias()] = function (Builder $related) use ($request, $relatedResourceClass, $removedScopes): void {
                 if ($relatedResourceClass !== null) {
-                    RelationScope::constrainByKey($request, $related, $relatedResourceClass);
+                    RelationScope::constrainByKey($request, $related->withoutGlobalScopes($removedScopes), $relatedResourceClass);
                 }
             };
         }

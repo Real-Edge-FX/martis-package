@@ -80,8 +80,12 @@ class ExecutePivotAction implements ShouldQueue
             $relation->withPivot($this->pivotColumns);
         }
 
+        // The rows the run resolved, through the parent's relationship (so
+        // each carries its pivot), without global scopes: the request
+        // already scoped them as the panel lists them, a trashed one
+        // included when the panel offers its trashed filter.
         /** @var Collection<int, Model> $models */
-        $models = $relation->whereIn($relation->getRelated()->getQualifiedKeyName(), $this->relatedIds)->get();
+        $models = $relation->withoutGlobalScopes()->whereIn($relation->getRelated()->getQualifiedKeyName(), $this->relatedIds)->get();
 
         $before = $this->logEvents ? PivotActionEventLog::pivotRows($relation, $models) : [];
 

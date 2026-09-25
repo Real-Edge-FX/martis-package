@@ -231,7 +231,10 @@ trashed* listed the active records). Nova's `BelongsToMany` panel has the
 same filter ([nova-dusk-suite: UpdateAttachedSoftDeletingTest](https://github.com/laravel/nova-dusk-suite/blob/10.4/tests/Browser/UpdateAttachedSoftDeletingTest.php)).
 
 Every panel also lists only the rows the related resource's index would:
-its `scopes()` and `indexQuery()` apply (v2.0). See
+its `scopes()` and `indexQuery()` apply (v2.0), within the relationship's
+own definition: a global scope the relationship removes
+(`->withoutGlobalScope(ArchivedScope::class)`, `->withoutGlobalScopes()`)
+stays removed on the panel and in its counts. See
 [Resources → indexQuery()](resources.md#indexquery).
 
 ---
@@ -565,7 +568,12 @@ filled.`, Nova's wording for a `HasOne`,
 a `MorphOne` answers the same sentence with its own name, which is Martis's),
 also as the response's `message`, whether or not the user may view the
 record already there, and checks again under a lock on the parent before it
-writes, so two concurrent creates cannot both succeed. Nova hides the
+writes, so two concurrent creates cannot both succeed. Only that check and
+the insert run in the lock's transaction (the model's own `saving` /
+`created` events fire inside it): the related resource's `afterSave()` and
+the deferred writes of the form (a `Tag`, a `Repeater`) run after the
+commit, as on every other create, so a job they dispatch finds the record.
+A one-of-many card's create opens no transaction. Nova hides the
 Create button once a record exists
 ([HasOneRelationTest](https://github.com/laravel/nova-dusk-suite/blob/10.4/tests/Browser/HasOneRelationTest.php)).
 Before v2.0 it answered `500`. A one-of-many card sits on a many
@@ -614,7 +622,7 @@ See [fields.md § HasOneOfMany](fields.md#hasoneofmany) for the full API.
 - `latestByTimestamp()` / `oldestByTimestamp()` avoid the verbose `->ofMany('created_at', 'max')` boilerplate.
 - `aggregateVia()` surfaces a metric tile with the full collection aggregate.
 
-On an Eloquent one-of-many relation (`latestOfMany()`, `ofMany()`), the pill and the tile cover every related row of the parent: the constraints written into that relation do not apply to them.
+On an Eloquent one-of-many relation (`latestOfMany()`, `ofMany()`), the pill and the tile cover every related row of the parent: the constraints written into that relation do not apply to them. The global scopes it removes (`->withoutGlobalScope(...)`) stay removed, as for its record.
 
 ---
 

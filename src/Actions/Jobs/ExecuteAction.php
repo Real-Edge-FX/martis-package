@@ -54,10 +54,13 @@ class ExecuteAction implements ShouldQueue
         /** @var Model $modelInstance */
         $modelInstance = new $this->modelClass;
 
+        // The records the run resolved, restored as Laravel restores a
+        // queued job's models: by key, without global scopes. The request
+        // already scoped them (the index, or the panel the run came from,
+        // whose relationship may keep a row a global scope hides, a trashed
+        // one included), and a worker has no user for a scope to read.
         /** @var Collection<int, Model> $models */
-        $models = $modelInstance->newQuery()
-            ->whereIn($modelInstance->getKeyName(), $this->modelIds)
-            ->get();
+        $models = $modelInstance->newQueryForRestoration($this->modelIds)->get();
 
         // Capture snapshots before execution
         $snapshots = $models->mapWithKeys(fn (Model $m) => [$m->getKey() => $m->getAttributes()]);

@@ -4,10 +4,12 @@ namespace Martis\Support;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
 use Martis\Resource;
+use Throwable;
 
 /**
  * Scope the records of a relationship as the related resource's index
@@ -33,7 +35,8 @@ use Martis\Resource;
  *    `select()`, a join (to the parent, the pivot or the intermediate
  *    table) or a column the joined table also has would break the query or
  *    its link to the parent. The hook's order and aliases do not reach the
- *    rows there.
+ *    rows there. The fresh query leaves out the global scopes the
+ *    relationship removes, so the keys never hide a row it keeps.
  */
 final class RelationScope
 {
@@ -41,7 +44,7 @@ final class RelationScope
      * Apply the hooks to `$query` in place, grouped. A hook that returns
      * another builder than the one it received constrains `$query` by key.
      * The relation's query keeps its own trashed state (the relation's
-     * definition, the panel's filter).
+     * definition, the panel's filter) and the global scopes it removes.
      *
      * @param  Builder<Model>  $query  A plain has-many / morph-many relation's query.
      * @param  class-string<resource>  $relatedResourceClass
@@ -62,8 +65,12 @@ final class RelationScope
                 $wheres[$before]['boolean'] = 'and'.substr((string) $wheres[$before]['boolean'], 2);
             }
 
+            // A builder the hook made itself carries every global scope of
+            // its model: the ones the relation removes do not filter the keys.
             if ($result !== $scoped) {
-                $scoped->whereIn(self::keyColumn($scoped), self::keys($result->withoutGlobalScope(SoftDeletingScope::class)));
+                $scoped->whereIn(self::keyColumn($scoped), self::keys(
+                    $result->withoutGlobalScope(SoftDeletingScope::class)->withoutGlobalScopes($scoped->removedScopes())
+                ));
             }
         };
 
@@ -76,21 +83,50 @@ final class RelationScope
      * Keep the rows of `$query` whose key the hooks return, run on a fresh
      * query of the related model. The keys ignore the soft-delete scope:
      * `$query` already decides which trashed records it keeps (a relation
-     * defined `withTrashed()`, the panel's `?trashed` filter).
+     * defined `withTrashed()`, the panel's `?trashed` filter). They ignore,
+     * too, every global scope `$query` removes: a relation defined
+     * `->withoutGlobalScope(Archived::class)` keeps its archived records, as
+     * it does without hooks and as Nova's relationship index, which runs the
+     * hooks on the relation's own query. The hooks receive the fresh query
+     * without those scopes, and see the rows the relation reaches.
      *
-     * @param  Builder<Model>  $query  Any query over the related model's table.
+     * @param  Builder<Model>  $query  Any query over the related model's table, carrying the relation's removed scopes.
      * @param  class-string<resource>  $relatedResourceClass
      */
     public static function constrainByKey(Request $request, Builder $query, string $relatedResourceClass): void
     {
-        $fresh = $relatedResourceClass::newModel()->newQuery();
+        $removed = $query->removedScopes();
+        $fresh = $relatedResourceClass::newModel()->newQuery()->withoutGlobalScopes($removed);
 
-        // Dropped from what the hooks return, the fresh query or one they
-        // built themselves.
+        // Dropped again from what the hooks return, the fresh query or one
+        // they built themselves, which carries every scope of its model.
         $result = $relatedResourceClass::indexQuery($request, $relatedResourceClass::applyScopes($request, $fresh))
-            ->withoutGlobalScope(SoftDeletingScope::class);
+            ->withoutGlobalScope(SoftDeletingScope::class)
+            ->withoutGlobalScopes($removed);
 
         $query->whereIn(self::keyColumn($query), self::keys($result));
+    }
+
+    /**
+     * The global scopes relation `$relationship` of `$model` removes
+     * (`->withoutGlobalScope()`, `->withTrashed()`), read from the relation
+     * as `withCount()` resolves it: on the model of the listing's query,
+     * which holds no record, without its constraints. Null when the method
+     * gives no relation there: it throws (it reads an attribute only a
+     * loaded record has) or returns something else, so it cannot be counted
+     * in the listing's query either.
+     *
+     * @return list<string>|null
+     */
+    public static function removedScopesOf(Model $model, string $relationship): ?array
+    {
+        try {
+            $relation = Relation::noConstraints(fn () => $model->{$relationship}());
+        } catch (Throwable) {
+            return null;
+        }
+
+        return $relation instanceof Relation ? array_values($relation->getQuery()->removedScopes()) : null;
     }
 
     /**

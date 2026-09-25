@@ -10,25 +10,42 @@
  * has, and one that returns its own query. Born from the review of #256.
  *
  * MARTIS_TEST_DB=mysql|pgsql runs the file against MySQL 8 on 127.0.0.1:33306
- * or PostgreSQL on 127.0.0.1:55432 (database `probe`, password `root`).
+ * or PostgreSQL on 127.0.0.1:55432 (database `probe`, password `root`);
+ * MARTIS_TEST_DB_HOST, MARTIS_TEST_DB_PORT and MARTIS_TEST_DB_PASSWORD name
+ * another server (see rshServer()).
  */
 
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EBelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany as EHasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough as EHasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne as EHasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough as EHasOneThrough;
+use Illuminate\Database\Eloquent\Relations\MorphMany as EMorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne as EMorphOne;
+use Illuminate\Database\Eloquent\Relations\MorphToMany as EMorphToMany;
+use Illuminate\Database\Eloquent\Scope;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Testing\TestResponse;
+use Martis\Actions\Action;
+use Martis\Actions\ActionFields;
+use Martis\Events\AfterSave;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\HasMany;
 use Martis\Fields\HasManyThrough;
 use Martis\Fields\HasOne;
+use Martis\Fields\MorphMany;
+use Martis\Fields\MorphOne;
+use Martis\Fields\MorphToMany;
 use Martis\Fields\Number;
+use Martis\Fields\Tag;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Resource;
@@ -60,6 +77,16 @@ class RSHOwner extends Model
         return $this->hasOne(RSHProfile::class, 'owner_id');
     }
 
+    public function image(): EMorphOne
+    {
+        return $this->morphOne(RSHImage::class, 'imageable');
+    }
+
+    public function images(): EMorphMany
+    {
+        return $this->morphMany(RSHImage::class, 'imageable');
+    }
+
     public function category()
     {
         return $this->belongsTo(RSHCategory::class, 'category_id');
@@ -86,6 +113,11 @@ class RSHItem extends Model
     public function likes(): EHasMany
     {
         return $this->hasMany(RSHLike::class, 'item_id');
+    }
+
+    public function tags(): EMorphToMany
+    {
+        return $this->morphToMany(RSHTag::class, 'taggable', 'rsh_taggables', 'taggable_id', 'tag_id');
     }
 }
 
@@ -120,6 +152,23 @@ class RSHProfile extends Model
     protected $table = 'rsh_profiles';
 
     protected $guarded = [];
+
+    public function tags(): EMorphToMany
+    {
+        return $this->morphToMany(RSHTag::class, 'taggable', 'rsh_taggables', 'taggable_id', 'tag_id');
+    }
+}
+
+class RSHImage extends Model
+{
+    protected $table = 'rsh_images';
+
+    protected $guarded = [];
+
+    public function tags(): EMorphToMany
+    {
+        return $this->morphToMany(RSHTag::class, 'taggable', 'rsh_taggables', 'taggable_id', 'tag_id');
+    }
 }
 
 class RSHCategory extends Model
@@ -251,6 +300,24 @@ class RSHProfileResource extends Resource
     }
 }
 
+class RSHImageResource extends Resource
+{
+    public static function model(): string
+    {
+        return RSHImage::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-images';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title')];
+    }
+}
+
 class RSHCategoryResource extends Resource
 {
     public static bool $viewAny = true;
@@ -302,15 +369,43 @@ class RSHOwnerResource extends Resource
                 ->fields(fn () => [Text::make('note', 'Note')]),
             HasOne::ofMany('Latest item', 'items', RSHItemResource::class)->latestByTimestamp('written_at'),
             HasOne::make('Profile', 'profile')->relatedResource('rsh-profiles'),
+            MorphOne::make('Image', 'image')->relatedResource('rsh-images'),
         ];
     }
 }
 
-const RSH_TABLES = ['rsh_likes', 'rsh_owner_tag', 'rsh_tags', 'rsh_items', 'rsh_groups', 'rsh_profiles', 'rsh_owners', 'rsh_categories'];
+const RSH_TABLES = ['rsh_likes', 'rsh_owner_tag', 'rsh_taggables', 'rsh_tags', 'rsh_items', 'rsh_groups', 'rsh_profiles', 'rsh_images', 'rsh_owners', 'rsh_categories'];
 
 function rshSchema(): Illuminate\Database\Schema\Builder
 {
     return DB::connection()->getSchemaBuilder();
+}
+
+/**
+ * The server MARTIS_TEST_DB runs the file against: 127.0.0.1 on 33306
+ * (MySQL) or 55432 (PostgreSQL), database `probe`, password `root`, unless
+ * MARTIS_TEST_DB_HOST, MARTIS_TEST_DB_PORT or MARTIS_TEST_DB_PASSWORD say
+ * otherwise.
+ *
+ * @return array{host: string, port: int, database: string, username: string, password: string}
+ */
+function rshServer(string $driver): array
+{
+    return [
+        'host' => getenv('MARTIS_TEST_DB_HOST') ?: '127.0.0.1',
+        'port' => (int) (getenv('MARTIS_TEST_DB_PORT') ?: ($driver === 'mysql' ? 33306 : 55432)),
+        'database' => 'probe',
+        'username' => $driver === 'mysql' ? 'root' : 'postgres',
+        'password' => getenv('MARTIS_TEST_DB_PASSWORD') ?: 'root',
+    ];
+}
+
+/** A second connection to that server, as a concurrent request opens. */
+function rshPdo(string $driver): PDO
+{
+    $server = rshServer($driver);
+
+    return new PDO("{$driver}:host={$server['host']};port={$server['port']};dbname={$server['database']}", $server['username'], $server['password']);
 }
 
 beforeEach(function () {
@@ -318,9 +413,9 @@ beforeEach(function () {
 
     $driver = getenv('MARTIS_TEST_DB') ?: 'sqlite';
     if ($driver !== 'sqlite') {
-        config(['database.connections.probe' => $driver === 'mysql'
-            ? ['driver' => 'mysql', 'host' => '127.0.0.1', 'port' => 33306, 'database' => 'probe', 'username' => 'root', 'password' => 'root', 'charset' => 'utf8mb4', 'collation' => 'utf8mb4_unicode_ci', 'prefix' => '', 'strict' => true, 'engine' => null]
-            : ['driver' => 'pgsql', 'host' => '127.0.0.1', 'port' => 55432, 'database' => 'probe', 'username' => 'postgres', 'password' => 'root', 'charset' => 'utf8', 'prefix' => '', 'search_path' => 'public', 'sslmode' => 'disable']]);
+        config(['database.connections.probe' => rshServer($driver) + ($driver === 'mysql'
+            ? ['driver' => 'mysql', 'charset' => 'utf8mb4', 'collation' => 'utf8mb4_unicode_ci', 'prefix' => '', 'strict' => true, 'engine' => null]
+            : ['driver' => 'pgsql', 'charset' => 'utf8', 'prefix' => '', 'search_path' => 'public', 'sslmode' => 'disable'])]);
         DB::purge('probe');
         DB::setDefaultConnection('probe');
         if (! rshSchema()->hasTable('martis_cache_state')) {
@@ -397,6 +492,17 @@ beforeEach(function () {
         $table->string('bio')->nullable();
         $table->timestamps();
     });
+    rshSchema()->create('rsh_images', function ($table) {
+        $table->id();
+        $table->morphs('imageable');
+        $table->string('title')->nullable();
+        $table->timestamp('written_at')->nullable();
+        $table->timestamps();
+    });
+    rshSchema()->create('rsh_taggables', function ($table) {
+        $table->unsignedBigInteger('tag_id');
+        $table->morphs('taggable');
+    });
 
     RSHItemResource::$hook = null;
     RSHItemResource::$scopeHooks = [];
@@ -405,10 +511,14 @@ beforeEach(function () {
     RSHTagResource::$scopeHooks = [];
     RSHLikeResource::$hook = null;
     RSHCategoryResource::$viewAny = true;
+    RSHScopedItemResource::$trashedVisible = true;
+    RSHScopedTagResource::$trashedVisible = true;
+    RSHScopedImageResource::$hook = null;
+    RSHMarkLog::$runs = [];
 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
-    foreach ([RSHOwnerResource::class, RSHItemResource::class, RSHTagResource::class, RSHLikeResource::class, RSHProfileResource::class, RSHCategoryResource::class] as $class) {
+    foreach ([RSHOwnerResource::class, RSHItemResource::class, RSHTagResource::class, RSHLikeResource::class, RSHProfileResource::class, RSHImageResource::class, RSHCategoryResource::class] as $class) {
         $registry->register($class);
     }
 
@@ -845,31 +955,59 @@ it('P26 a relation defined withTrashed(): index count, has-many panel and pivot 
     expect([$rows['Owner A']['allItems'], $rows['Owner A']['allTags']])->toBe([$hasMany->json('meta.total'), $pivot->json('meta.total')]);
 });
 
-it('P27 two concurrent creates on a has-one: the parent lock serializes them', function () {
+/**
+ * A one-record card of owner `$ownerId` (an `$ownerClass`) the race tests
+ * create on: its endpoint, a payload, the record's table, the SQL that
+ * selects the owner's record there and the insert a concurrent request runs.
+ *
+ * @return array{path: string, payload: array<string, string>, table: string, where: string, insert: string}
+ */
+function rshOneRecordCard(string $kind, int $ownerId, string $ownerClass): array
+{
+    if ($kind === 'has-one') {
+        return [
+            'path' => 'has-one/profile',
+            'payload' => ['bio' => 'mine'],
+            'table' => 'rsh_profiles',
+            'where' => "owner_id = {$ownerId}",
+            'insert' => "insert into rsh_profiles (owner_id, bio) values ({$ownerId}, 'concurrent')",
+        ];
+    }
+
+    $type = (new $ownerClass)->getMorphClass();
+
+    return [
+        'path' => 'morph-one/image',
+        'payload' => ['title' => 'mine'],
+        'table' => 'rsh_images',
+        'where' => "imageable_type = '{$type}' and imageable_id = {$ownerId}",
+        'insert' => "insert into rsh_images (imageable_type, imageable_id, title) values ('{$type}', {$ownerId}, 'concurrent')",
+    ];
+}
+
+it('P27 two concurrent creates on a one-record card: the parent lock serializes them', function (string $kind) {
     $driver = getenv('MARTIS_TEST_DB') ?: 'sqlite';
     if ($driver === 'sqlite' || ! function_exists('pcntl_fork')) {
         $this->markTestSkipped('Needs a second database connection: MARTIS_TEST_DB=mysql|pgsql and pcntl.');
     }
     $ownerId = $this->a->id;
+    $card = rshOneRecordCard($kind, $ownerId, RSHOwner::class);
     $pid = pcntl_fork();
     if ($pid === 0) {
-        $dsn = $driver === 'mysql' ? 'mysql:host=127.0.0.1;port=33306;dbname=probe' : 'pgsql:host=127.0.0.1;port=55432;dbname=probe';
-        $pdo = new PDO($dsn, $driver === 'mysql' ? 'root' : 'postgres', 'root');
+        $pdo = rshPdo($driver);
         $pdo->beginTransaction();
         $pdo->query("select * from rsh_owners where id = {$ownerId} for update")->fetchAll();
-        $pdo->exec("insert into rsh_profiles (owner_id, bio) values ({$ownerId}, 'concurrent')");
+        $pdo->exec($card['insert']);
         usleep(1500000);
         $pdo->commit();
         posix_kill(posix_getpid(), SIGKILL);
     }
     usleep(500000);
-    $t0 = microtime(true);
-    $r = $this->postJson('/martis/api/resources/rsh-owners/'.$ownerId.'/has-one/profile', ['bio' => 'mine']);
-    $waited = (microtime(true) - $t0) * 1000;
+    $r = $this->postJson('/martis/api/resources/rsh-owners/'.$ownerId.'/'.$card['path'], $card['payload']);
     pcntl_waitpid($pid, $status);
-    $count = RSHProfile::where('owner_id', $ownerId)->count();
+    $count = DB::table($card['table'])->whereRaw($card['where'])->count();
     expect($count)->toBe(1);
-});
+})->with(['has-one', 'morph-one']);
 
 class RSHOwnerOnProbe extends RSHOwner
 {
@@ -879,9 +1017,19 @@ class RSHOwnerOnProbe extends RSHOwner
     {
         return $this->hasOne(RSHProfileOnProbe::class, 'owner_id');
     }
+
+    public function image(): EMorphOne
+    {
+        return $this->morphOne(RSHImageOnProbe::class, 'imageable');
+    }
 }
 
 class RSHProfileOnProbe extends RSHProfile
+{
+    protected $connection = 'probe';
+}
+
+class RSHImageOnProbe extends RSHImage
 {
     protected $connection = 'probe';
 }
@@ -900,7 +1048,11 @@ class RSHOwnerOnProbeResource extends RSHOwnerTrashedRelResource
 
     public function fields(Request $request): array
     {
-        return [Text::make('name'), HasOne::make('Profile', 'profile')->relatedResource('rsh-profiles-on-probe')];
+        return [
+            Text::make('name'),
+            HasOne::make('Profile', 'profile')->relatedResource('rsh-profiles-on-probe'),
+            MorphOne::make('Image', 'image')->relatedResource('rsh-images-on-probe'),
+        ];
     }
 }
 
@@ -917,21 +1069,41 @@ class RSHProfileOnProbeResource extends RSHProfileResource
     }
 }
 
-it('P28 the lock when the models use a connection other than the default one', function () {
+class RSHImageOnProbeResource extends RSHImageResource
+{
+    public static function model(): string
+    {
+        return RSHImageOnProbe::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-images-on-probe';
+    }
+}
+
+/** The owner and record resources on the `probe` connection. */
+function rshRegisterOnProbe(): void
+{
+    foreach ([RSHOwnerOnProbeResource::class, RSHProfileOnProbeResource::class, RSHImageOnProbeResource::class] as $class) {
+        app(ResourceRegistry::class)->register($class);
+    }
+}
+
+it('P28 the lock when the models use a connection other than the default one', function (string $kind) {
     $driver = getenv('MARTIS_TEST_DB') ?: 'sqlite';
     if ($driver === 'sqlite' || ! function_exists('pcntl_fork')) {
         $this->markTestSkipped('Needs a second database connection: MARTIS_TEST_DB=mysql|pgsql and pcntl.');
     }
-    app(ResourceRegistry::class)->register(RSHOwnerOnProbeResource::class);
-    app(ResourceRegistry::class)->register(RSHProfileOnProbeResource::class);
+    rshRegisterOnProbe();
     $ownerId = $this->a->id;
+    $card = rshOneRecordCard($kind, $ownerId, RSHOwnerOnProbe::class);
     $pid = pcntl_fork();
     if ($pid === 0) {
-        $dsn = $driver === 'mysql' ? 'mysql:host=127.0.0.1;port=33306;dbname=probe' : 'pgsql:host=127.0.0.1;port=55432;dbname=probe';
-        $pdo = new PDO($dsn, $driver === 'mysql' ? 'root' : 'postgres', 'root');
+        $pdo = rshPdo($driver);
         $pdo->beginTransaction();
         $pdo->query("select * from rsh_owners where id = {$ownerId} for update")->fetchAll();
-        $pdo->exec("insert into rsh_profiles (owner_id, bio) values ({$ownerId}, 'concurrent')");
+        $pdo->exec($card['insert']);
         usleep(1500000);
         $pdo->commit();
         posix_kill(posix_getpid(), SIGKILL);
@@ -940,19 +1112,21 @@ it('P28 the lock when the models use a connection other than the default one', f
     // The app's default connection is another database (sqlite here), as in
     // a landlord/tenant setup; the models name their own connection.
     DB::setDefaultConnection('sqlite');
-    $r = $this->postJson('/martis/api/resources/rsh-owners-on-probe/'.$ownerId.'/has-one/profile', ['bio' => 'mine']);
+    $r = $this->postJson('/martis/api/resources/rsh-owners-on-probe/'.$ownerId.'/'.$card['path'], $card['payload']);
     DB::setDefaultConnection('probe');
     pcntl_waitpid($pid, $status);
-    $count = RSHProfile::where('owner_id', $ownerId)->count();
+    $count = DB::table($card['table'])->whereRaw($card['where'])->count();
     expect($count)->toBe(1);
-});
+})->with(['has-one', 'morph-one']);
 
 /**
  * A second request that runs the same steps as the controller (lock the
  * parent, check, insert) exactly between the first request's in-transaction
- * check and its insert.
+ * check and its insert, on the card `$card` (rshOneRecordCard()).
+ *
+ * @param  array{path: string, payload: array<string, string>, table: string, where: string, insert: string}  $card
  */
-function rshRaceBetweenCheckAndInsert(string $driver, int $ownerId, string $url): array
+function rshRaceBetweenCheckAndInsert(string $driver, int $ownerId, array $card, string $url): array
 {
     $dir = sys_get_temp_dir().'/rsh-race-'.getmypid().'-'.uniqid();
     @mkdir($dir);
@@ -962,13 +1136,12 @@ function rshRaceBetweenCheckAndInsert(string $driver, int $ownerId, string $url)
         while (! file_exists("$dir/go") && microtime(true) < $deadline) {
             usleep(10000);
         }
-        $dsn = $driver === 'mysql' ? 'mysql:host=127.0.0.1;port=33306;dbname=probe' : 'pgsql:host=127.0.0.1;port=55432;dbname=probe';
-        $pdo = new PDO($dsn, $driver === 'mysql' ? 'root' : 'postgres', 'root');
+        $pdo = rshPdo($driver);
         $pdo->beginTransaction();
         $pdo->query("select * from rsh_owners where id = {$ownerId} for update")->fetchAll();
-        $exists = (int) $pdo->query("select count(*) from rsh_profiles where owner_id = {$ownerId}")->fetchColumn();
+        $exists = (int) $pdo->query("select count(*) from {$card['table']} where {$card['where']}")->fetchColumn();
         if ($exists === 0) {
-            $pdo->exec("insert into rsh_profiles (owner_id, bio) values ({$ownerId}, 'concurrent')");
+            $pdo->exec($card['insert']);
         }
         $pdo->commit();
         touch("$dir/done");
@@ -976,8 +1149,8 @@ function rshRaceBetweenCheckAndInsert(string $driver, int $ownerId, string $url)
     }
 
     $seen = 0;
-    DB::listen(function ($query) use (&$seen, $dir) {
-        if ($query->connectionName === 'probe' && str_contains(strtolower($query->sql), 'exists') && str_contains($query->sql, 'rsh_profiles')) {
+    DB::listen(function ($query) use (&$seen, $dir, $card) {
+        if ($query->connectionName === 'probe' && str_contains(strtolower($query->sql), 'exists') && str_contains($query->sql, $card['table'])) {
             $seen++;
             if ($seen === 2) {
                 touch("$dir/go");
@@ -989,36 +1162,37 @@ function rshRaceBetweenCheckAndInsert(string $driver, int $ownerId, string $url)
         }
     });
 
-    $r = test()->postJson($url, ['bio' => 'mine']);
+    $r = test()->postJson($url, $card['payload']);
     pcntl_waitpid($pid, $status);
     @unlink("$dir/go");
     @unlink("$dir/done");
     @rmdir($dir);
 
-    return [$r->status(), DB::connection('probe')->table('rsh_profiles')->where('owner_id', $ownerId)->count(), $seen];
+    return [$r->status(), DB::connection('probe')->table($card['table'])->whereRaw($card['where'])->count(), $seen];
 }
 
-it('P29 race between the check and the insert, models on the default connection (control)', function () {
+it('P29 race between the check and the insert, models on the default connection (control)', function (string $kind) {
     $driver = getenv('MARTIS_TEST_DB') ?: 'sqlite';
     if ($driver === 'sqlite' || ! function_exists('pcntl_fork')) {
         $this->markTestSkipped('Needs a second database connection: MARTIS_TEST_DB=mysql|pgsql and pcntl.');
     }
-    [$status, $count, $seen] = rshRaceBetweenCheckAndInsert($driver, $this->a->id, '/martis/api/resources/rsh-owners/'.$this->a->id.'/has-one/profile');
+    $card = rshOneRecordCard($kind, $this->a->id, RSHOwner::class);
+    [$status, $count, $seen] = rshRaceBetweenCheckAndInsert($driver, $this->a->id, $card, '/martis/api/resources/rsh-owners/'.$this->a->id.'/'.$card['path']);
     expect($count)->toBe(1);
-});
+})->with(['has-one', 'morph-one']);
 
-it('P30 race between the check and the insert, models on a connection other than the default', function () {
+it('P30 race between the check and the insert, models on a connection other than the default', function (string $kind) {
     $driver = getenv('MARTIS_TEST_DB') ?: 'sqlite';
     if ($driver === 'sqlite' || ! function_exists('pcntl_fork')) {
         $this->markTestSkipped('Needs a second database connection: MARTIS_TEST_DB=mysql|pgsql and pcntl.');
     }
-    app(ResourceRegistry::class)->register(RSHOwnerOnProbeResource::class);
-    app(ResourceRegistry::class)->register(RSHProfileOnProbeResource::class);
+    rshRegisterOnProbe();
+    $card = rshOneRecordCard($kind, $this->a->id, RSHOwnerOnProbe::class);
     DB::setDefaultConnection('sqlite');
-    [$status, $count, $seen] = rshRaceBetweenCheckAndInsert($driver, $this->a->id, '/martis/api/resources/rsh-owners-on-probe/'.$this->a->id.'/has-one/profile');
+    [$status, $count, $seen] = rshRaceBetweenCheckAndInsert($driver, $this->a->id, $card, '/martis/api/resources/rsh-owners-on-probe/'.$this->a->id.'/'.$card['path']);
     DB::setDefaultConnection('probe');
     expect($count)->toBe(1);
-});
+})->with(['has-one', 'morph-one']);
 
 it('P31 detail page: a count through a Through relation with the documented unqualified tenant scope', function () {
     // Counted by key on a fresh query: an unqualified column the joined
@@ -1055,3 +1229,707 @@ it('P34 the one-of-many "1 of N" with a hook that groups, as the index allows', 
 
     expect(rshPanel('has-one/items')->assertOk()->json('meta.ofMany.totalCount'))->toBe(2);
 });
+
+// ---------------------------------------------------------------------
+// Third review round: a relation that removes a global scope
+// ---------------------------------------------------------------------
+
+/** A global scope other than soft delete. */
+class RSHArchivedScope implements Scope
+{
+    public function apply(Builder $builder, Model $model): void
+    {
+        $builder->where($model->qualifyColumn('title'), '!=', 'Archived');
+    }
+}
+
+/** Hides "Archived" (RSHArchivedScope) and "Draft" (`draft`) rows. */
+trait RSHHidesArchivedAndDrafts
+{
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new RSHArchivedScope);
+        static::addGlobalScope('draft', fn (Builder $q) => $q->where($q->qualifyColumn('title'), '!=', 'Draft'));
+    }
+}
+
+class RSHScopedItem extends RSHItem
+{
+    use RSHHidesArchivedAndDrafts;
+}
+
+class RSHScopedTag extends RSHTag
+{
+    use RSHHidesArchivedAndDrafts;
+}
+
+class RSHScopedImage extends RSHImage
+{
+    use RSHHidesArchivedAndDrafts;
+}
+
+class RSHOwnerScopedRel extends RSHOwner
+{
+    /** The archived items belong to these relations; the drafts do not. */
+    public function allItems(): EHasMany
+    {
+        return $this->hasMany(RSHScopedItem::class, 'owner_id')->withoutGlobalScope(RSHArchivedScope::class);
+    }
+
+    public function allGroupItems(): EHasManyThrough
+    {
+        return $this->hasManyThrough(RSHScopedItem::class, RSHGroup::class, 'owner_id', 'group_id')->withoutGlobalScope(RSHArchivedScope::class);
+    }
+
+    public function allTags(): EBelongsToMany
+    {
+        return $this->belongsToMany(RSHScopedTag::class, 'rsh_owner_tag', 'owner_id', 'tag_id')->withoutGlobalScope(RSHArchivedScope::class);
+    }
+
+    /** Every item: the archived, the draft and the trashed ones. */
+    public function everyItem(): EHasMany
+    {
+        return $this->hasMany(RSHScopedItem::class, 'owner_id')->withoutGlobalScopes();
+    }
+
+    /** allItems() behind a one-of-many card (a field of its own name). */
+    public function cardItems(): EHasMany
+    {
+        return $this->allItems();
+    }
+
+    /** Eloquent one-of-many relations that keep the archived rows. */
+    public function newestItem(): EHasOne
+    {
+        return $this->hasOne(RSHScopedItem::class, 'owner_id')->withoutGlobalScope(RSHArchivedScope::class)->latestOfMany('written_at');
+    }
+
+    public function newestGroupItem(): EHasOneThrough
+    {
+        return $this->hasOneThrough(RSHScopedItem::class, RSHGroup::class, 'owner_id', 'group_id')->withoutGlobalScope(RSHArchivedScope::class)->latestOfMany('written_at');
+    }
+
+    public function newestImage(): EMorphOne
+    {
+        return $this->morphOne(RSHScopedImage::class, 'imageable')->withoutGlobalScope(RSHArchivedScope::class)->latestOfMany('written_at');
+    }
+
+    public function allImages(): EMorphMany
+    {
+        return $this->morphMany(RSHScopedImage::class, 'imageable')->withoutGlobalScope(RSHArchivedScope::class);
+    }
+
+    public function morphTags(): EMorphToMany
+    {
+        return $this->morphToMany(RSHScopedTag::class, 'taggable', 'rsh_taggables', 'taggable_id', 'tag_id')->withoutGlobalScope(RSHArchivedScope::class);
+    }
+}
+
+/** The records each action run handled, in order. */
+class RSHMarkLog
+{
+    /** @var list<list<int>> */
+    public static array $runs = [];
+}
+
+class RSHMarkAction extends Action
+{
+    public function handle(ActionFields $fields, Collection $models): ?Action
+    {
+        RSHMarkLog::$runs[] = $models->map(fn (Model $m) => (int) $m->getKey())->sort()->values()->all();
+
+        return null;
+    }
+
+    public function uriKey(): string
+    {
+        return 'rsh-mark';
+    }
+}
+
+class RSHQueuedMarkAction extends RSHMarkAction implements ShouldQueue
+{
+    public function uriKey(): string
+    {
+        return 'rsh-queued-mark';
+    }
+}
+
+class RSHReportAction extends RSHMarkAction
+{
+    public function uriKey(): string
+    {
+        return 'rsh-report';
+    }
+}
+
+/** @return list<Action> */
+function rshMarkActions(): array
+{
+    return [(new RSHMarkAction)->showInline(), (new RSHQueuedMarkAction)->showInline(), (new RSHReportAction)->showInline()->standalone()];
+}
+
+class RSHScopedItemResource extends RSHItemResource
+{
+    public static bool $trashedVisible = true;
+
+    public static function model(): string
+    {
+        return RSHScopedItem::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-scoped-items';
+    }
+
+    public static function canViewTrashed(): bool
+    {
+        return static::$trashedVisible;
+    }
+
+    public function actions(Request $request): array
+    {
+        return rshMarkActions();
+    }
+}
+
+class RSHScopedTagResource extends RSHTagResource
+{
+    public static bool $trashedVisible = true;
+
+    public static function model(): string
+    {
+        return RSHScopedTag::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-scoped-tags';
+    }
+
+    public static function canViewTrashed(): bool
+    {
+        return static::$trashedVisible;
+    }
+}
+
+class RSHScopedImageResource extends Resource
+{
+    public static ?Closure $hook = null;
+
+    public static function model(): string
+    {
+        return RSHScopedImage::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-scoped-images';
+    }
+
+    public static function indexQuery(Request $request, Builder $query): Builder
+    {
+        return static::$hook ? (static::$hook)($query, $request) : $query;
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title')];
+    }
+
+    public function actions(Request $request): array
+    {
+        return rshMarkActions();
+    }
+}
+
+class RSHOwnerScopedRelResource extends Resource
+{
+    public static function model(): string
+    {
+        return RSHOwnerScopedRel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-owners-scoped';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('name'),
+            HasMany::make('All items', 'allItems')->relatedResource('rsh-scoped-items')->showOnIndex(),
+            HasManyThrough::make('All group items', 'allGroupItems')->relatedResource('rsh-scoped-items')->showOnIndex(),
+            BelongsToMany::make('All tags', 'allTags')->relatedResource('rsh-scoped-tags')->showOnIndex()
+                ->actions(fn () => rshMarkActions()),
+            MorphMany::make('All images', 'allImages')->relatedResource('rsh-scoped-images'),
+            MorphToMany::make('Morph tags', 'morphTags')->relatedResource('rsh-scoped-tags')->actions(fn () => rshMarkActions()),
+            HasMany::make('Every item', 'everyItem')->relatedResource('rsh-scoped-items')->showOnIndex(),
+            HasOne::ofMany('Latest item', 'cardItems', RSHScopedItemResource::class)->latestByTimestamp('written_at'),
+            HasOne::ofMany('Newest item', 'newestItem', RSHScopedItemResource::class),
+            HasOne::ofMany('Newest group item', 'newestGroupItem', RSHScopedItemResource::class),
+            MorphOne::ofMany('Newest image', 'newestImage', RSHScopedImageResource::class),
+        ];
+    }
+}
+
+/**
+ * Owner A gets an "Archived" and a "Draft" item (in its group) and tag,
+ * besides A1 and A-tag: its relations above hold A1 and "Archived".
+ */
+function rshArchivedAndDrafts(): void
+{
+    foreach ([RSHScopedItemResource::class, RSHScopedTagResource::class, RSHScopedImageResource::class, RSHOwnerScopedRelResource::class] as $class) {
+        app(ResourceRegistry::class)->register($class);
+    }
+
+    $groupId = RSHGroup::where('owner_id', test()->a->id)->value('id');
+    foreach (['Archived', 'Draft'] as $title) {
+        RSHItem::create(['owner_id' => test()->a->id, 'group_id' => $groupId, 'title' => $title, 'written_at' => now()->subDays(2)]);
+        test()->a->tags()->attach(RSHTag::create(['title' => $title])->id);
+    }
+}
+
+function rshScoped(string $path = ''): TestResponse
+{
+    return test()->getJson('/martis/api/resources/rsh-owners-scoped/'.test()->a->id.$path)->assertOk();
+}
+
+it('P35 a relation that removes a global scope keeps it removed in the index counts (no hooks)', function () {
+    rshArchivedAndDrafts();
+
+    $rows = collect($this->getJson('/martis/api/resources/rsh-owners-scoped')->assertOk()->json('data'))->keyBy('name');
+
+    expect([$rows['Owner A']['allItems'], $rows['Owner A']['allGroupItems'], $rows['Owner A']['allTags']])->toBe([2, 2, 2]);
+});
+
+it('P36 a relation that removes a global scope keeps it removed in the detail counts (no hooks)', function () {
+    rshArchivedAndDrafts();
+
+    $detail = rshScoped();
+
+    expect([$detail->json('data.allItems'), $detail->json('data.allGroupItems'), $detail->json('data.allTags')])->toBe([2, 2, 2]);
+});
+
+it('P37 a relation that removes a global scope keeps it removed on its panel and its one-of-many card (no hooks)', function (string $path, string $read) {
+    rshArchivedAndDrafts();
+
+    expect(rshScoped('/'.$path)->json($read))->toBe(2);
+})->with([
+    'has-many (control: scoped in place)' => ['has-many/allItems', 'meta.total'],
+    'has-many-through' => ['has-many/allGroupItems', 'meta.total'],
+    'belongs-to-many' => ['belongs-to-many/allTags', 'meta.total'],
+    'one-of-many "1 of N"' => ['has-one/cardItems', 'meta.ofMany.totalCount'],
+]);
+
+it('P38 an Eloquent one-of-many card counts in "1 of N" the rows its relation keeps', function (string $path) {
+    rshArchivedAndDrafts();
+    foreach (['A image' => 1, 'Archived' => 2, 'Draft' => 3] as $title => $days) {
+        RSHImage::create(['imageable_type' => (new RSHOwnerScopedRel)->getMorphClass(), 'imageable_id' => $this->a->id, 'title' => $title, 'written_at' => now()->subDays($days)]);
+    }
+
+    // The relation rebuilt for the count keeps the scope it removes out.
+    expect(rshScoped('/'.$path)->json('meta.ofMany.totalCount'))->toBe(2);
+})->with([
+    'has-one (latestOfMany)' => ['has-one/newestItem'],
+    'has-one-through (latestOfMany)' => ['has-one/newestGroupItem'],
+    'morph-one (latestOfMany)' => ['morph-one/newestImage'],
+]);
+
+it('P39 a relation that removes every global scope (withoutGlobalScopes()) keeps them all removed', function () {
+    rshArchivedAndDrafts();
+    RSHItem::create(['owner_id' => $this->a->id, 'title' => 'Trashed'])->delete();
+
+    $rows = collect($this->getJson('/martis/api/resources/rsh-owners-scoped')->assertOk()->json('data'))->keyBy('name');
+
+    expect([$rows['Owner A']['everyItem'], rshScoped()->json('data.everyItem'), rshScoped('/has-many/everyItem')->json('meta.total')])->toBe([4, 4, 4]);
+});
+
+it('P40 the scopes a relation keeps and the related hooks still filter it', function () {
+    rshArchivedAndDrafts();
+    RSHItemResource::$hook = fn (Builder $q) => $q->where($q->qualifyColumn('title'), '!=', 'A1');
+    RSHTagResource::$hook = fn (Builder $q) => $q->where($q->qualifyColumn('title'), '!=', 'A-tag');
+
+    // Left: "Archived" (the relation removes its scope). Gone: "Draft" (the
+    // `draft` scope stays) and A1 / A-tag (the hooks).
+    $rows = collect($this->getJson('/martis/api/resources/rsh-owners-scoped')->assertOk()->json('data'))->keyBy('name');
+    $detail = rshScoped();
+
+    expect([$rows['Owner A']['allItems'], $rows['Owner A']['allGroupItems'], $rows['Owner A']['allTags']])->toBe([1, 1, 1])
+        ->and([$detail->json('data.allItems'), $detail->json('data.allGroupItems'), $detail->json('data.allTags')])->toBe([1, 1, 1])
+        ->and(collect(rshScoped('/has-many/allGroupItems')->json('data'))->pluck('title')->all())->toBe(['Archived'])
+        ->and(collect(rshScoped('/belongs-to-many/allTags')->json('data'))->pluck('title')->all())->toBe(['Archived']);
+});
+
+it('P41 the hooks receive the related query without the scopes the relation removes, and with the ones it keeps', function () {
+    rshArchivedAndDrafts();
+    $seen = [];
+    RSHItemResource::$hook = function (Builder $q) use (&$seen) {
+        $seen[] = (clone $q)->orderBy($q->qualifyColumn('title'))->pluck($q->qualifyColumn('title'))->all();
+
+        return $q;
+    };
+
+    rshScoped('/has-many/allGroupItems');
+
+    expect($seen)->toBe([['A1', 'Archived', 'B-public']]);
+});
+
+it('P42 a hook that builds its own query keeps the relation\'s removed scope removed', function () {
+    rshArchivedAndDrafts();
+    RSHItemResource::$hook = fn (Builder $q) => RSHScopedItem::query()->where('title', '!=', 'nothing');
+
+    $rows = collect($this->getJson('/martis/api/resources/rsh-owners-scoped')->assertOk()->json('data'))->keyBy('name');
+
+    expect([$rows['Owner A']['allItems'], $rows['Owner A']['allGroupItems']])->toBe([2, 2])
+        ->and(rshScoped()->json('data.allGroupItems'))->toBe(2)
+        ->and(rshScoped('/has-many/allItems')->json('meta.total'))->toBe(2)
+        ->and(rshScoped('/has-many/allGroupItems')->json('meta.total'))->toBe(2);
+});
+
+/** A has-many that refuses its constraints without its parent's key. */
+class RSHKeyedHasMany extends EHasMany
+{
+    public function addConstraints()
+    {
+        if (static::$constraints && $this->getParentKey() === null) {
+            throw new LogicException('Constrained without the parent key.');
+        }
+
+        parent::addConstraints();
+    }
+}
+
+class RSHOwnerLoadedRel extends RSHOwner
+{
+    /** Needs a loaded owner: on the listing's model, which holds none, it throws. */
+    public function tenantItems(): EHasMany
+    {
+        return $this->hasMany(RSHItem::class, 'owner_id')->where('tenant', $this->tenant ?? throw new LogicException('A loaded owner is needed.'));
+    }
+
+    /** Resolves without a record when unconstrained, as withCount() resolves it. */
+    public function keyedItems(): EHasMany
+    {
+        return new RSHKeyedHasMany((new RSHItem)->newQuery(), $this, 'rsh_items.owner_id', 'id');
+    }
+}
+
+class RSHOwnerLoadedRelResource extends Resource
+{
+    public static function model(): string
+    {
+        return RSHOwnerLoadedRel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-owners-loaded';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('name'), HasMany::make('Tenant items', 'tenantItems')->relatedResource('rsh-items')->showOnIndex()];
+    }
+}
+
+class RSHOwnerKeyedRelResource extends RSHOwnerLoadedRelResource
+{
+    public static function uriKey(): string
+    {
+        return 'rsh-owners-keyed';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('name'), HasMany::make('Keyed items', 'keyedItems')->relatedResource('rsh-items')->showOnIndex()];
+    }
+}
+
+it('P43 an index count whose relation needs a loaded record is counted per row, and the index answers', function () {
+    app(ResourceRegistry::class)->register(RSHOwnerLoadedRelResource::class);
+    RSHItemResource::$hook = fn (Builder $q) => $q->where($q->qualifyColumn('title'), '!=', 'Hidden');
+    RSHItem::create(['owner_id' => $this->a->id, 'title' => 'A2']);
+    RSHItem::create(['owner_id' => $this->a->id, 'title' => 'Hidden']);
+    RSHItem::create(['owner_id' => $this->a->id, 'title' => 'Other tenant', 'tenant' => 't2']);
+
+    $rows = collect($this->getJson('/martis/api/resources/rsh-owners-loaded')->assertOk()->json('data'))->keyBy('name');
+
+    expect([$rows['Owner A']['tenantItems'], $rows['Owner B']['tenantItems']])->toBe([2, 1]);
+});
+
+it('P44 a relation is read without its constraints, as withCount() reads it, so it is still counted with the page', function () {
+    app(ResourceRegistry::class)->register(RSHOwnerKeyedRelResource::class);
+    RSHItem::create(['owner_id' => $this->a->id, 'title' => 'A2']);
+
+    DB::enableQueryLog();
+    $rows = collect($this->getJson('/martis/api/resources/rsh-owners-keyed')->assertOk()->json('data'))->keyBy('name');
+    $perRow = collect(DB::getQueryLog())->filter(fn ($q) => str_contains($q['query'], 'rsh_items') && str_starts_with(strtolower(trim($q['query'])), 'select count(*) as aggregate'));
+
+    expect([$rows['Owner A']['keyedItems'], $rows['Owner B']['keyedItems']])->toBe([2, 1])
+        ->and($perRow)->toBeEmpty();
+});
+
+// ---------------------------------------------------------------------
+// Third review round: creating the record of a one-record card
+// ---------------------------------------------------------------------
+
+/** Related resources whose create form defers a write (a Tag field). */
+class RSHProfileTaggedResource extends RSHProfileResource
+{
+    public static function uriKey(): string
+    {
+        return 'rsh-profiles-tagged';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('bio'), Tag::make('tags', 'Tags')->relatedResource('rsh-tags')->nullable()];
+    }
+}
+
+class RSHItemTaggedResource extends RSHItemResource
+{
+    public static function uriKey(): string
+    {
+        return 'rsh-items-tagged';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title'), Tag::make('tags', 'Tags')->relatedResource('rsh-tags')->nullable()];
+    }
+}
+
+class RSHImageTaggedResource extends RSHImageResource
+{
+    public static function uriKey(): string
+    {
+        return 'rsh-images-tagged';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title'), Tag::make('tags', 'Tags')->relatedResource('rsh-tags')->nullable()];
+    }
+}
+
+class RSHOwnerTaggedResource extends Resource
+{
+    public static function model(): string
+    {
+        return RSHOwner::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-owners-tagged';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('name'),
+            HasOne::make('Profile', 'profile')->relatedResource('rsh-profiles-tagged'),
+            HasOne::ofMany('Latest item', 'items', RSHItemTaggedResource::class)->latestByTimestamp('written_at'),
+            MorphOne::make('Image', 'image')->relatedResource('rsh-images-tagged'),
+            MorphOne::ofMany('Latest image', 'images', RSHImageTaggedResource::class)->latestByTimestamp('written_at'),
+        ];
+    }
+}
+
+it('P45 a card create holds the parent lock for the check and the insert only: afterSave and the deferred writes run after the commit, and a one-of-many create opens no transaction', function (string $path, array $payload, string $model, int $inTransaction) {
+    foreach ([RSHProfileTaggedResource::class, RSHItemTaggedResource::class, RSHImageTaggedResource::class, RSHOwnerTaggedResource::class] as $class) {
+        app(ResourceRegistry::class)->register($class);
+    }
+    $tag = RSHTag::create(['title' => 'Tagged']);
+    // The test's own transaction, if any (RefreshDatabase on SQLite).
+    $outside = DB::connection()->transactionLevel();
+    $levels = [];
+    $model::created(function () use (&$levels) {
+        $levels['created'] = DB::connection()->transactionLevel();
+    });
+    Event::listen(AfterSave::class, function () use (&$levels) {
+        $levels['afterSave'] = DB::connection()->transactionLevel();
+    });
+    DB::listen(function ($query) use (&$levels) {
+        if (str_starts_with(strtolower($query->sql), 'insert') && str_contains($query->sql, 'rsh_taggables')) {
+            $levels['deferred'] = $query->connection->transactionLevel();
+        }
+    });
+
+    $this->postJson('/martis/api/resources/rsh-owners-tagged/'.$this->a->id.'/'.$path, $payload + ['tags' => [$tag->id]])->assertCreated();
+
+    expect($levels)->toBe(['created' => $outside + $inTransaction, 'afterSave' => $outside, 'deferred' => $outside]);
+})->with([
+    'has-one' => ['has-one/profile', ['bio' => 'Mine'], RSHProfile::class, 1],
+    'morph-one' => ['morph-one/image', ['title' => 'Mine'], RSHImage::class, 1],
+    'has-one of many' => ['has-one/items', ['title' => 'Mine'], RSHItem::class, 0],
+    'morph-one of many' => ['morph-one/images', ['title' => 'Mine'], RSHImage::class, 0],
+]);
+
+// ---------------------------------------------------------------------
+// Third review round: a hook that orders by an alias it selects
+// ---------------------------------------------------------------------
+
+it('P46 the keys drop a hook\'s order by an alias it selects (withCount then orderBy)', function (Closure $hook) {
+    RSHItemResource::$hook = $hook;
+    RSHItem::create(['owner_id' => $this->a->id, 'group_id' => RSHGroup::where('owner_id', $this->a->id)->value('id'), 'title' => 'A2']);
+
+    // The index sorts by the alias, which its own select holds.
+    $index = $this->getJson('/martis/api/resources/rsh-items')->assertOk();
+    $rows = collect($this->getJson('/martis/api/resources/rsh-owners')->assertOk()->json('data'))->keyBy('name');
+
+    expect(collect($index->json('data'))->pluck('title')->first())->toBe('A1')
+        ->and(rshPanel('has-many/groupItems')->assertOk()->json('meta.total'))->toBe(2)
+        ->and(rshPanel('has-one/items')->assertOk()->json('meta.ofMany.totalCount'))->toBe(2)
+        ->and([$rows['Owner A']['items'], $rows['Owner A']['groupItems']])->toBe([2, 2]);
+})->with([
+    // Kept in the key subquery, the order by an alias it no longer selects
+    // fails on MySQL and PostgreSQL (MARTIS_TEST_DB); SQLite reads the
+    // quoted name as a string there and accepts it.
+    'orderByDesc()' => [fn (Builder $q) => $q->withCount('likes')->orderByDesc('likes_count')],
+    // The unquoted name fails on SQLite too.
+    'orderByRaw()' => [fn (Builder $q) => $q->withCount('likes')->orderByRaw('likes_count desc')],
+]);
+
+// ---------------------------------------------------------------------
+// Third review round: an action run from a panel resolves as the panel lists
+// ---------------------------------------------------------------------
+
+/**
+ * Owner A's (and B's) images, besides the items and tags of
+ * rshArchivedAndDrafts(): allImages() holds "A image" and "Archived".
+ */
+function rshPanelRunFixtures(): void
+{
+    rshArchivedAndDrafts();
+    $type = (new RSHOwnerScopedRel)->getMorphClass();
+    foreach (['A image' => test()->a->id, 'Archived' => test()->a->id, 'Draft' => test()->a->id, 'B image' => test()->b->id] as $title => $owner) {
+        RSHImage::create(['imageable_type' => $type, 'imageable_id' => $owner, 'title' => $title]);
+    }
+    foreach (['A-tag' => test()->a->id, 'Archived' => test()->a->id, 'Draft' => test()->a->id, 'Public-tag' => test()->b->id] as $title => $owner) {
+        DB::table('rsh_taggables')->insert(['tag_id' => RSHTag::where('title', $title)->value('id'), 'taggable_type' => $type, 'taggable_id' => $owner]);
+    }
+}
+
+/** The id of the `$kind` panel's record titled `$title`, trashed or not. */
+function rshRecordId(string $kind, string $title): int
+{
+    return (int) match ($kind) {
+        'morph-many' => RSHImage::where('title', $title)->value('id'),
+        'belongs-to-many (pivot)', 'morph-to-many (pivot)' => RSHTag::withTrashed()->where('title', $title)->value('id'),
+        default => RSHItem::withTrashed()->where('title', $title)->value('id'),
+    };
+}
+
+/** Run `$action` on `$titles` from owner A's `$kind` panel, as the panel sends it. */
+function rshRunFromPanel(string $kind, string $action, array $titles, ?string $relationship = null): TestResponse
+{
+    $ids = array_map(fn (string $title) => rshRecordId($kind, $title), $titles);
+
+    if (str_ends_with($kind, '(pivot)')) {
+        $path = $kind === 'belongs-to-many (pivot)' ? 'belongs-to-many/allTags' : 'morph-to-many/morphTags';
+
+        return test()->postJson('/martis/api/resources/rsh-owners-scoped/'.test()->a->id."/{$path}/actions/{$action}", ['resources' => $ids]);
+    }
+
+    [$resource, $default] = match ($kind) {
+        'has-many' => ['rsh-scoped-items', 'allItems'],
+        'has-many-through' => ['rsh-scoped-items', 'allGroupItems'],
+        'morph-many' => ['rsh-scoped-images', 'allImages'],
+    };
+
+    return test()->postJson("/martis/api/resources/{$resource}/actions/{$action}", [
+        'resources' => $ids,
+        'viaResource' => 'rsh-owners-scoped',
+        'viaResourceId' => test()->a->id,
+        'viaRelationship' => $relationship ?? $default,
+    ]);
+}
+
+dataset('rsh panels with actions', ['has-many', 'has-many-through', 'morph-many', 'belongs-to-many (pivot)', 'morph-to-many (pivot)']);
+
+it('P47 an action run from a panel reaches a row only the relationship keeps (a global scope it removes)', function (string $kind) {
+    rshPanelRunFixtures();
+
+    rshRunFromPanel($kind, 'rsh-mark', ['Archived'])->assertOk();
+
+    expect(RSHMarkLog::$runs)->toBe([[rshRecordId($kind, 'Archived')]]);
+})->with('rsh panels with actions');
+
+it('P48 an action run from a panel refuses a row the panel does not list: another parent\'s, or one the related hooks hide', function (string $kind, string $otherParents, string $hidden) {
+    rshPanelRunFixtures();
+    RSHItemResource::$hook = fn (Builder $q) => $q->where($q->qualifyColumn('title'), '!=', 'A1');
+    RSHTagResource::$hook = fn (Builder $q) => $q->where($q->qualifyColumn('title'), '!=', 'A-tag');
+    RSHScopedImageResource::$hook = fn (Builder $q) => $q->where($q->qualifyColumn('title'), '!=', 'A image');
+
+    rshRunFromPanel($kind, 'rsh-mark', [$otherParents])->assertNotFound();
+    rshRunFromPanel($kind, 'rsh-mark', [$hidden])->assertNotFound();
+    // The draft: a global scope the relationship keeps.
+    rshRunFromPanel($kind, 'rsh-mark', ['Draft'])->assertNotFound();
+
+    expect(RSHMarkLog::$runs)->toBe([]);
+})->with([
+    'has-many' => ['has-many', 'B-public', 'A1'],
+    'has-many-through' => ['has-many-through', 'B-public', 'A1'],
+    'morph-many' => ['morph-many', 'B image', 'A image'],
+    'belongs-to-many (pivot)' => ['belongs-to-many (pivot)', 'Public-tag', 'A-tag'],
+    'morph-to-many (pivot)' => ['morph-to-many (pivot)', 'Public-tag', 'A-tag'],
+]);
+
+it('P49 an action run on the resource itself, without a panel, still does not reach the archived row', function (string $resource, string $kind) {
+    rshPanelRunFixtures();
+
+    $this->postJson("/martis/api/resources/{$resource}/actions/rsh-mark", ['resources' => [rshRecordId($kind, 'Archived')]])->assertNotFound();
+
+    expect(RSHMarkLog::$runs)->toBe([]);
+})->with([
+    'items' => ['rsh-scoped-items', 'has-many'],
+    'images' => ['rsh-scoped-images', 'morph-many'],
+]);
+
+it('P50 a queued action handles the rows its run resolved, as the job restores them', function (Closure $run, string $kind, string $title) {
+    rshPanelRunFixtures();
+    RSHItem::create(['owner_id' => $this->a->id, 'title' => 'Trashed'])->delete();
+    RSHTag::where('title', 'A-tag')->first()->delete();
+
+    $run()->assertOk();
+
+    // The test queue is `sync`: the job ran in the request.
+    expect(RSHMarkLog::$runs)->toBe([[rshRecordId($kind, $title)]]);
+})->with([
+    'a panel run on an archived row' => [fn () => rshRunFromPanel('has-many', 'rsh-queued-mark', ['Archived']), 'has-many', 'Archived'],
+    'a pivot panel run on a trashed row' => [fn () => rshRunFromPanel('belongs-to-many (pivot)', 'rsh-queued-mark', ['A-tag']), 'belongs-to-many (pivot)', 'A-tag'],
+    'an index run on a trashed row' => [fn () => test()->postJson('/martis/api/resources/rsh-scoped-items/actions/rsh-queued-mark', ['resources' => [rshRecordId('has-many', 'Trashed')]]), 'has-many', 'Trashed'],
+]);
+
+it('P51 a standalone action checks the relationship its run names, and runs on no record', function () {
+    rshPanelRunFixtures();
+
+    rshRunFromPanel('has-many', 'rsh-report', ['A1'], relationship: 'nope')->assertNotFound();
+    rshRunFromPanel('has-many', 'rsh-report', ['A1'], relationship: 'everyItem')->assertOk();
+
+    expect(RSHMarkLog::$runs)->toBe([[]]);
+});
+
+it('P52 a panel run reaches a trashed row when the panel may list it (its trashed filter), and not otherwise', function (string $kind, string $title) {
+    rshPanelRunFixtures();
+    RSHItem::create(['owner_id' => $this->a->id, 'group_id' => RSHGroup::where('owner_id', $this->a->id)->value('id'), 'title' => 'Trashed'])->delete();
+    RSHTag::where('title', 'A-tag')->first()->delete();
+
+    rshRunFromPanel($kind, 'rsh-mark', [$title])->assertOk();
+
+    RSHScopedItemResource::$trashedVisible = false;
+    RSHScopedTagResource::$trashedVisible = false;
+    rshRunFromPanel($kind, 'rsh-mark', [$title])->assertNotFound();
+
+    expect(RSHMarkLog::$runs)->toBe([[rshRecordId($kind, $title)]]);
+})->with([
+    'has-many' => ['has-many', 'Trashed'],
+    'has-many-through' => ['has-many-through', 'Trashed'],
+    'belongs-to-many (pivot)' => ['belongs-to-many (pivot)', 'A-tag'],
+    'morph-to-many (pivot)' => ['morph-to-many (pivot)', 'A-tag'],
+]);
