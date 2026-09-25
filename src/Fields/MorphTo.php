@@ -272,12 +272,19 @@ class MorphTo extends Field
         // Resolve the resource URI key for the morph type
         $resourceType = $this->resolveResourceUriKey($morphType);
 
-        return [
+        $data = [
             'type' => $morphType,
             'id' => $morphId,
             'title' => $related?->getAttribute($this->resolvedTitleAttribute($morphType)),
             'resourceType' => $resourceType,
         ];
+
+        // A trashed target says so (see BelongsTo::resolve()).
+        if ($related instanceof Model && method_exists($related, 'trashed') && $related->trashed()) {
+            $data['trashed'] = true;
+        }
+
+        return $data;
     }
 
     /** {@inheritdoc} */

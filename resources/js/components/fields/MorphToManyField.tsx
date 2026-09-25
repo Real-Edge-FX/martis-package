@@ -14,6 +14,7 @@ import type { ActionMeta } from '@/components/Actions/ActionModal'
 import { PlusIcon, LinkSimpleIcon, LinkBreakIcon, PencilSimpleIcon, MagnifyingGlassIcon, CaretDownIcon, XIcon, LightningIcon } from '@phosphor-icons/react'
 import { EditPivotModal } from './BelongsToManyField'
 import { useRelationParent } from './NestedParentContext'
+import { useAttachFormDraft, withFormDraft } from './relation/useAttachFormDraft'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
 import { PivotActionModal } from '@/components/fields/relation/PivotActionModal'
 import { recordHref } from '@/lib/recordHref'
@@ -92,7 +93,7 @@ interface BtmMeta {
   hideForceDeleteAction?: boolean
 }
 
-function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDisplayProps['field']; readOnly?: boolean }) {
+function MorphToManyDetailPanel({ field, readOnly = false, formValues }: { field: FieldDisplayProps['field']; readOnly?: boolean; formValues?: Record<string, unknown> }) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
   const qc = useQueryClient()
@@ -399,6 +400,8 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
           modalHeight={modalHeight}
           withSubtitles={withSubtitles}
           subtitleAttribute={subtitleAttribute}
+          field={field}
+          formValues={formValues}
           onSuccess={() => {
             setShowAttachModal(false)
             void qc.invalidateQueries({ queryKey: ['morph-to-many', parentResource, parentId, relationship] })
@@ -520,6 +523,8 @@ function AttachModal({
   modalHeight,
   withSubtitles = false,
   subtitleAttribute = 'subtitle',
+  field,
+  formValues,
   onSuccess,
   onClose,
 }: {
@@ -532,6 +537,10 @@ function AttachModal({
   modalHeight?: string | null
   withSubtitles?: boolean
   subtitleAttribute?: string
+  /** The field, whose `dependsOn` meta names the form draft to forward. */
+  field?: FieldDefinition
+  /** The parent form's values, the draft a 3-argument closure filters on. */
+  formValues?: Record<string, unknown>
   onSuccess: () => void
   onClose: () => void
 }) {
@@ -565,11 +574,16 @@ function AttachModal({
     enabled: !!relatedResource,
   })
 
+  // The parent form draft (`dependsOn([...])`), sent with the attachable
+  // list and the attach, as on a BelongsToMany (see useAttachFormDraft).
+  const { snapshot: dependentFormSnapshot, appendFormDraft } = useAttachFormDraft(field, formValues)
+
   const attachableQuery = useQuery({
-    queryKey: ['mtm-attachable', parentResource, parentId, relationship, debouncedSearch, attachPage, attachPerPage],
+    queryKey: ['mtm-attachable', parentResource, parentId, relationship, debouncedSearch, attachPage, attachPerPage, dependentFormSnapshot],
     queryFn: () => {
       const params = new URLSearchParams({ per_page: String(attachPerPage), page: String(attachPage) })
       if (debouncedSearch) params.set('search', debouncedSearch)
+      appendFormDraft(params)
       return api.get<PaginatedResponse<ResourceRecord>>(
         `/api/resources/${parentResource}/${parentId}/morph-to-many/${relationship}/attachable?${params.toString()}`
       )
@@ -580,7 +594,7 @@ function AttachModal({
   const attachMutation = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
       api.post(
-        `/api/resources/${parentResource}/${parentId}/morph-to-many/${relationship}/attach`,
+        withFormDraft(`/api/resources/${parentResource}/${parentId}/morph-to-many/${relationship}/attach`, appendFormDraft),
         payload
       ),
     onSuccess: () => { onSuccess() },
@@ -843,11 +857,11 @@ function AttachModal({
 // Forms — the panel on the update form; none before the record exists
 // -------------------------------------------------------------------------
 
-export function MorphToManyFieldInput({ field }: FieldInputProps) {
+export function MorphToManyFieldInput({ field, formValues }: FieldInputProps) {
   // A create surface names no record (the schema keeps this field off its
   // forms): the panel would read another record, or none.
   const { id: parentId } = useRelationParent()
   if (!parentId) return null
 
-  return <MorphToManyDetailPanel field={field} />
+  return <MorphToManyDetailPanel field={field} formValues={formValues} />
 }

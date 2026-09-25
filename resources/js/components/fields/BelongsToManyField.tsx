@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '@/lib/api'
@@ -10,6 +10,7 @@ import { Pagination } from '@/components/Pagination'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
 import { PivotActionModal } from '@/components/fields/relation/PivotActionModal'
 import { useRelationParent } from './NestedParentContext'
+import { useAttachFormDraft, withFormDraft } from './relation/useAttachFormDraft'
 import { recordHref } from '@/lib/recordHref'
 import { useModalHistoryLock } from '@/lib/historyLock'
 import { lockImmutableFields } from '@/lib/lockImmutableFields'
@@ -578,43 +579,9 @@ function AttachModal({
     enabled: !!relatedResource,
   })
 
-  // v1.8.2 — Forward the parent form draft (sibling values the user
-  // already typed but didn't save yet) so server-side
-  // `relatableQueryUsing` closures can filter on it. The set of
-  // forwarded fields is declared via `BelongsToMany::dependsOn([...])`
-  // (or `MorphToMany::dependsOn([...])`) on the PHP side and surfaces
-  // here as `field.dependsOn.fields`. Including the values in the
-  // queryKey makes React Query refetch automatically when any of them
-  // changes, which is what makes the picker reactive in CREATE mode
-  // (where there's no parent record id to query off yet).
-  const dependentFieldNames = useMemo<string[]>(() => {
-    const meta = (field as { dependsOn?: { fields?: string[] } }).dependsOn
-    return Array.isArray(meta?.fields) ? meta!.fields! : []
-  }, [field])
-
-  const dependentFormSnapshot = useMemo(() => {
-    if (dependentFieldNames.length === 0 || !formValues) return {}
-    const out: Record<string, unknown> = {}
-    for (const name of dependentFieldNames) {
-      if (Object.prototype.hasOwnProperty.call(formValues, name)) {
-        out[name] = formValues[name]
-      }
-    }
-    return out
-  }, [dependentFieldNames, formValues])
-
-  // Append `form[attribute]=value` for each declared dependent field.
-  // The backend forwards these to the closure as a 3rd argument; closures
-  // with arity 2 ignore the extra data. The attach sends them too: it
-  // checks the picked records against the same query the picker ran.
-  const appendFormDraft = useCallback((params: URLSearchParams) => {
-    for (const [k, v] of Object.entries(dependentFormSnapshot)) {
-      if (v === null || v === undefined) continue
-      if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
-        params.set(`form[${k}]`, String(v))
-      }
-    }
-  }, [dependentFormSnapshot])
+  // The parent form draft (`dependsOn([...])`), sent with the attachable
+  // list and the attach (see useAttachFormDraft).
+  const { snapshot: dependentFormSnapshot, appendFormDraft } = useAttachFormDraft(field, formValues)
 
   const attachableQuery = useQuery({
     queryKey: ['btm-attachable', parentResource, parentId, relationship, debouncedSearch, attachPage, attachPerPage, dependentFormSnapshot],
@@ -631,15 +598,11 @@ function AttachModal({
   })
 
   const attachMutation = useMutation({
-    mutationFn: (payload: Record<string, unknown>) => {
-      const params = new URLSearchParams()
-      appendFormDraft(params)
-      const query = params.toString()
-      return api.post(
-        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/attach${query ? `?${query}` : ''}`,
+    mutationFn: (payload: Record<string, unknown>) =>
+      api.post(
+        withFormDraft(`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/attach`, appendFormDraft),
         payload
-      )
-    },
+      ),
     onSuccess: () => { onSuccess() },
     onError: (e: unknown) => {
       if (e instanceof ApiError) {

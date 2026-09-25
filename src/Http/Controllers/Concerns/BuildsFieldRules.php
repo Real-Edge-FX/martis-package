@@ -123,7 +123,7 @@ trait BuildsFieldRules
             }
         }
 
-        $nested = $this->buildNestedFieldValidation($fields, $data, $isUpdate ? 'update' : 'create', $model);
+        $nested = $this->buildNestedFieldValidation($fields, $data, $isUpdate ? 'update' : 'create', $model, $relatable);
 
         return [
             'rules' => $rules + $nested['rules'],
@@ -144,7 +144,7 @@ trait BuildsFieldRules
      * @param  'create'|'update'|null  $context
      * @return array{rules: array<string, list<mixed>>, messages: array<string, string>, attributes: array<string, string>}
      */
-    protected function buildNestedFieldValidation(iterable $fields, array $data, ?string $context, ?Model $model = null): array
+    protected function buildNestedFieldValidation(iterable $fields, array $data, ?string $context, ?Model $model = null, ?RelatableWrite $relatable = null): array
     {
         $validation = ['rules' => [], 'messages' => [], 'attributes' => []];
 
@@ -153,7 +153,7 @@ trait BuildsFieldRules
                 continue;
             }
 
-            $rows = $field->buildRowValidation($data, $context, $model);
+            $rows = $field->buildRowValidation($data, $context, $model, $relatable);
             $validation['rules'] += $rows['rules'];
             $validation['messages'] += $rows['messages'];
             $validation['attributes'] += $rows['attributes'];

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo as EloquentBelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne as EloquentHasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo as EloquentMorphTo;
 use Illuminate\Database\Eloquent\Relations\MorphToMany as EloquentMorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -22,8 +23,11 @@ use Martis\Actions\ActionResponse;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\HasMany;
+use Martis\Fields\HasOne;
 use Martis\Fields\MorphTo;
 use Martis\Fields\MorphToMany;
+use Martis\Fields\Repeatable;
+use Martis\Fields\Repeater;
 use Martis\Fields\Tag;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\ApplyUserPreferencesLocale;
@@ -55,6 +59,20 @@ class RWUser extends Model
     protected $guarded = [];
 
     public $timestamps = false;
+
+    public function profile(): EloquentHasOne
+    {
+        return $this->hasOne(RWProfile::class, 'user_id');
+    }
+}
+
+class RWProfile extends Model
+{
+    protected $table = 'rw_profiles';
+
+    protected $guarded = [];
+
+    public $timestamps = false;
 }
 
 class RWTag extends Model
@@ -73,6 +91,8 @@ class RWTask extends Model
     protected $guarded = [];
 
     public $timestamps = false;
+
+    protected $casts = ['lines' => 'array'];
 
     public function owner(): EloquentBelongsTo
     {
@@ -133,7 +153,12 @@ class RWUserResource extends Resource
 
     public function fields(Request $request): array
     {
-        return [Text::make('name')];
+        return [
+            Text::make('name'),
+            HasOne::make('Profile', 'profile', RWProfileResource::class),
+            // The same relationship, shown through the loose profile resource.
+            HasOne::make('Loose profile', 'profile', RWLooseProfileResource::class),
+        ];
     }
 
     public static function relatableQuery(Request $request, Builder $query): Builder
@@ -189,6 +214,7 @@ class RWTaskResource extends Resource
                 ->fields(fn () => [BelongsTo::make('reviewer', 'Reviewer')->relatedResource('rw-users')->nullable()]),
             MorphToMany::make('Topics', 'topics')->relatedResource('rw-tags'),
             HasMany::make('Notes', 'notes')->relatedResource('rw-notes'),
+            Repeater::make('lines', 'Lines')->repeatables([RwLine::make()])->nullable(),
         ];
     }
 
@@ -230,6 +256,50 @@ class RWStrictTaskResource extends RWTaskResource
             BelongsToMany::make('Labels', 'labels')
                 ->relatedResource('rw-tags')
                 ->relatableQueryUsing(fn (Request $request, Builder $query, array $form) => $query->where('name', $form['label'] ?? 'public')),
+        ];
+    }
+}
+
+class RWProfileResource extends Resource
+{
+    public static function model(): string
+    {
+        return RWProfile::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rw-profiles';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('bio'), BelongsTo::make('user', 'User')->relatedResource('rw-users')->nullable()];
+    }
+}
+
+// Same, naming an inverse relationship the users do not declare.
+class RWLooseProfileResource extends RWProfileResource
+{
+    public static function uriKey(): string
+    {
+        return 'rw-loose-profiles';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('bio'), BelongsTo::make('user', 'User')->relatedResource('rw-users')->inverse('avatar')->nullable()];
+    }
+}
+
+class RwLine extends Repeatable
+{
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('note'),
+            BelongsTo::make('owner', 'Owner')->relatedResource('rw-users')->nullable(),
+            Tag::make('tags', 'Tags')->relatedResource('rw-tags')->nullable(),
         ];
     }
 }
@@ -322,9 +392,14 @@ class RWTaskPolicy
     {
         return $tag->name !== 'public';
     }
+
+    public function detachRWTag(mixed $user, RWTask $task, RWTag $tag): bool
+    {
+        return $tag->name !== 'also public';
+    }
 }
 
-const RW_TABLES = ['rw_taggables', 'rw_task_label', 'rw_task_tag', 'rw_notes', 'rw_tasks', 'rw_tags', 'rw_users', 'rw_auth_users'];
+const RW_TABLES = ['rw_profiles', 'rw_taggables', 'rw_task_label', 'rw_task_tag', 'rw_notes', 'rw_tasks', 'rw_tags', 'rw_users', 'rw_auth_users'];
 
 beforeEach(function () {
     $this->withoutMiddleware(MartisAuthenticate::class);
@@ -353,6 +428,12 @@ beforeEach(function () {
         $t->string('title');
         $t->unsignedBigInteger('owner_id')->nullable();
         $t->nullableMorphs('subject');
+        $t->text('lines')->nullable();
+    });
+    Schema::create('rw_profiles', function ($t) {
+        $t->id();
+        $t->string('bio');
+        $t->unsignedBigInteger('user_id')->nullable();
     });
     Schema::create('rw_task_tag', function ($t) {
         $t->id();
@@ -391,7 +472,7 @@ beforeEach(function () {
 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
-    foreach ([RWUserResource::class, RWTagResource::class, RWTaskResource::class, RWStrictTaskResource::class, RWNoteResource::class] as $class) {
+    foreach ([RWUserResource::class, RWTagResource::class, RWTaskResource::class, RWStrictTaskResource::class, RWNoteResource::class, RWProfileResource::class, RWLooseProfileResource::class] as $class) {
         $registry->register($class);
     }
 });
@@ -461,13 +542,38 @@ it('rejects a BelongsTo id outside the picker on update', function () {
     expect($this->task->fresh()->owner_id)->toBeNull();
 });
 
-it('keeps accepting the stored BelongsTo id on update after it fell out of the picker', function () {
+it('re-checks the stored BelongsTo id on update, as Nova does', function () {
     $this->task->update(['owner_id' => 3]);
 
-    $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}", ['title' => 'Renamed', 'owner_id' => 3])
+    $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}", ['title' => 'Renamed', 'owner_id' => ['id' => 3, 'title' => 'Carla']])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.field', 'owner_id');
+
+    expect($this->task->fresh()->title)->toBe('Ship');
+});
+
+it('keeps a stored soft-deleted BelongsTo target the edit form sends back', function () {
+    $this->task->update(['owner_id' => 4]);
+
+    // The edit form sends back what the record resolved to: trashed: true
+    // is the opt-in, as Nova's form turns on "With Trashed" for it.
+    $value = $this->getJson("/martis/api/resources/rw-tasks/{$this->task->id}")->json('data.owner_id');
+    expect($value['trashed'] ?? null)->toBeTrue();
+
+    $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}", ['title' => 'Renamed', 'owner_id' => $value])
         ->assertOk();
 
-    expect($this->task->fresh()->title)->toBe('Renamed');
+    $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}", ['title' => 'Renamed', 'owner_id' => 4])
+        ->assertStatus(422);
+});
+
+it('reads a BelongsTo value map the multipart path sends as JSON', function () {
+    $this->task->update(['owner_id' => 1]);
+
+    $this->put("/martis/api/resources/rw-tasks/{$this->task->id}", ['title' => 'Renamed', 'owner_id' => json_encode(['id' => 1, 'title' => 'Ana'])], ['Accept' => 'application/json'])
+        ->assertOk();
+
+    expect($this->task->fresh()->owner_id)->toBe(1);
 });
 
 it('rejects a BelongsTo id outside the picker on inline create', function () {
@@ -551,13 +657,17 @@ it('rejects a MorphTo target outside the picker of its type', function () {
         ->assertJsonPath('errors.0.field', 'subject');
 });
 
-it('accepts a MorphTo target the picker offers, and the stored one on update', function () {
+it('accepts a MorphTo target the picker offers, and re-checks the stored one on update', function () {
     $this->postJson('/martis/api/resources/rw-tasks', ['title' => 'New', 'subject' => ['type' => RWTag::class, 'id' => 1]])
         ->assertCreated();
 
+    // Nova re-checks the stored target too.
     $this->task->update(['subject_type' => RWTag::class, 'subject_id' => 2]);
 
     $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}", ['title' => 'Ship', 'subject' => ['type' => RWTag::class, 'id' => 2]])
+        ->assertStatus(422);
+
+    $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}", ['title' => 'Ship', 'subject' => ['type' => RWTag::class, 'id' => 1]])
         ->assertOk();
 });
 
@@ -580,17 +690,44 @@ it('accepts the Tag ids the picker offers', function () {
     expect(DB::table('rw_task_tag')->pluck('tag_id')->all())->toBe([1]);
 });
 
-it('keeps a Tag already synced on update and rejects a new one outside the picker', function () {
+it('re-checks a Tag already synced on update', function () {
     $this->task->tags()->attach(2);
-
-    $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}", ['title' => 'Ship', 'tags' => [1, 2]])
-        ->assertOk();
-
-    $this->task->tags()->detach(2);
 
     $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}", ['title' => 'Ship', 'tags' => [1, 2]])
         ->assertStatus(422)
         ->assertJsonPath('errors.0.field', 'tags');
+
+    $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}", ['title' => 'Ship', 'tags' => [1]])
+        ->assertOk();
+
+    expect($this->task->tags()->pluck('rw_tags.id')->all())->toBe([1]);
+});
+
+it('checks attach only for the Tag records a sync adds and detach for the ones it removes', function () {
+    $this->actingAs((new RWAuthUser)->forceFill(['id' => 1]));
+    Gate::policy(RWTask::class, RWTaskPolicy::class);
+    RWTag::query()->insert(['id' => 3, 'name' => 'also public', 'is_public' => true]);
+    // attachRWTag refuses "public", detachRWTag refuses "also public".
+    DB::table('rw_task_tag')->insert([['task_id' => $this->task->id, 'tag_id' => 1], ['task_id' => $this->task->id, 'tag_id' => 3]]);
+
+    // Keeping "public" needs no attach.
+    $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}", ['title' => 'Ship', 'tags' => [1, 3]])
+        ->assertOk();
+
+    $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}", ['title' => 'Ship', 'tags' => [1]])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.field', 'tags')
+        ->assertJsonPath('errors.0.message', 'This Tags may not detach one of its records.');
+
+    // A null value syncs nothing, so it removes both.
+    $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}", ['title' => 'Ship', 'tags' => null])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.field', 'tags');
+
+    expect(DB::table('rw_task_tag')->count())->toBe(2);
+
+    $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}", ['title' => 'Ship', 'tags' => [3]])
+        ->assertOk();
 });
 
 it('checks the attach policy of the source resource for a Tag', function () {
@@ -720,4 +857,62 @@ it('rejects an Action BelongsTo id outside the picker', function () {
 
     $this->postJson('/martis/api/resources/rw-tasks/actions/rw-assign', ['resources' => [$this->task->id], 'fields' => ['assignee_id' => 1]])
         ->assertOk();
+});
+
+// ---------------------------------------------------------------------------
+// Repeater rows
+// ---------------------------------------------------------------------------
+
+it('checks the relation fields of a Repeater row against their pickers', function () {
+    $row = fn (array $fields) => ['lines' => [['type' => 'rw-line', 'fields' => ['note' => 'x'] + $fields]]];
+
+    $this->postJson('/martis/api/resources/rw-tasks', ['title' => 'New'] + $row(['owner_id' => 3]))
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.field', 'lines.0.fields.owner_id');
+
+    $this->postJson('/martis/api/resources/rw-tasks', ['title' => 'New'] + $row(['tags' => [2]]))
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.field', 'lines.0.fields.tags');
+
+    $this->postJson('/martis/api/resources/rw-tasks', ['title' => 'New'] + $row(['owner_id' => 1, 'tags' => [1]]))
+        ->assertCreated();
+});
+
+// ---------------------------------------------------------------------------
+// A BelongsTo whose inverse HasOne is full (Nova's relationshipIsFull)
+// ---------------------------------------------------------------------------
+
+it('rejects a BelongsTo target whose inverse HasOne already holds a record', function () {
+    RWProfile::query()->create(['bio' => 'Ana', 'user_id' => 1]);
+
+    $this->postJson('/martis/api/resources/rw-profiles', ['bio' => 'Second', 'user_id' => 1])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.field', 'user_id')
+        ->assertJsonPath('errors.0.message', 'This User may not be associated with this resource.');
+
+    $this->postJson('/martis/api/resources/rw-profiles', ['bio' => 'Bruno', 'user_id' => 2])
+        ->assertCreated();
+});
+
+it('lets an update keep the target of a full inverse HasOne, as Nova does', function () {
+    $ana = RWProfile::query()->create(['bio' => 'Ana', 'user_id' => 1]);
+    RWProfile::query()->create(['bio' => 'Bruno', 'user_id' => 2]);
+
+    $this->putJson("/martis/api/resources/rw-profiles/{$ana->id}", ['bio' => 'Ana 2', 'user_id' => 1])
+        ->assertOk();
+
+    $this->putJson("/martis/api/resources/rw-profiles/{$ana->id}", ['bio' => 'Ana 2', 'user_id' => 2])
+        ->assertStatus(422);
+
+    // Nova lets a record with no target yet take any one.
+    $loose = RWProfile::query()->create(['bio' => 'None']);
+    $this->putJson("/martis/api/resources/rw-profiles/{$loose->id}", ['bio' => 'None', 'user_id' => 2])
+        ->assertOk();
+});
+
+it('checks only the inverse relationship inverse() names', function () {
+    RWProfile::query()->create(['bio' => 'Ana', 'user_id' => 1]);
+
+    $this->postJson('/martis/api/resources/rw-loose-profiles', ['bio' => 'Second', 'user_id' => 1])
+        ->assertCreated();
 });
