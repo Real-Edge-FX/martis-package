@@ -453,6 +453,14 @@ class HasManyController extends MartisController
         /** @var class-string<resource> $relatedResourceClass */
         $relatedResourceClass = $this->registry->get($relatedResourceKey);
 
+        // A write through the relationship writes a record of the related
+        // resource, so it needs that resource's viewAny, as its own per-id
+        // endpoints do. routable() is not required: a headless resource
+        // stays usable as a relation target.
+        if ($action !== null && ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $relatedResourceClass))) {
+            return $forbidden;
+        }
+
         // No create through a HasManyThrough relationship, as in Nova: it is
         // a traversal with no foreign key of its own, so a create would write
         // the parent's key into the related record's key to the intermediate
