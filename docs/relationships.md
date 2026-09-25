@@ -42,6 +42,14 @@ record carries those answers under `_authorization`, and a record without them
 keeps the action, as on the resource index. The id column links to the record
 only when its `authorizedToView` allows it (v2.0).
 
+When the related resource denies `viewAny`, a `HasMany` / `HasOne` /
+`MorphMany` / `MorphOne` panel still lists its records but offers no Create,
+Edit, Delete, Restore or Force delete (v2.0): every one of those writes needs
+the related `viewAny` (see
+[Authorization → `viewAny` is the entry gate](authorization.md#viewany-is-the-entry-gate)).
+Nova 1 to 3 hid such a panel; Nova 4/5 does not document it, so Martis keeps
+the 1.x listing and only drops the actions that would answer 403.
+
 On `BelongsToMany` / `MorphToMany` the row's own View / Edit / Delete are
 replaced by Detach and the pivot edit (which `hideDeleteAction()` /
 `hideEditAction()` hide), so `hideViewAction()` has nothing to hide;

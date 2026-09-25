@@ -297,3 +297,33 @@ it('writes through a relationship to a related resource that is not routable', f
     expect($response->status())->toBeIn([200, 201])
         ->and(rwvRows())->not->toBe([]);
 })->with('rwv relationship writes');
+
+// Those writes now always answer 403, so the panel offers none of them:
+// Create, Edit and Delete, and Restore / Force delete (the related
+// resource's own endpoints, gated on viewAny since v1.34.0). The panel
+// still lists the records, as in 1.x.
+
+function rwvPanelMeta(string $resource): array
+{
+    return collect(test()->getJson("/martis/api/resources/{$resource}/schema")->assertStatus(200)->json('data.fieldsForDetail'))
+        ->filter(fn (array $field) => isset($field['relationship']))
+        ->mapWithKeys(fn (array $field) => [$field['relationship'] => $field['hasManyMeta'] ?? $field['hasOneMeta'] ?? $field['morphManyMeta'] ?? $field['morphOneMeta']])
+        ->all();
+}
+
+it('offers no write action on a panel whose related resource denies viewAny', function () {
+    foreach (rwvPanelMeta('rwv-hidden-parents') as $relationship => $meta) {
+        expect($meta, $relationship)->toMatchArray(['canCreate' => false, 'canUpdate' => false, 'canDelete' => false])
+            ->and($meta['hideRestoreAction'], $relationship)->toBeTrue()
+            ->and($meta['hideForceDeleteAction'], $relationship)->toBeTrue();
+    }
+});
+
+it('keeps the write actions of a panel whose related resource allows viewAny', function () {
+    $metas = rwvPanelMeta('rwv-headless-parents');
+
+    expect($metas)->toHaveCount(4);
+    foreach ($metas as $relationship => $meta) {
+        expect($meta, $relationship)->toMatchArray(['canCreate' => true, 'canUpdate' => true, 'canDelete' => true, 'hideRestoreAction' => false, 'hideForceDeleteAction' => false]);
+    }
+});
