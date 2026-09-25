@@ -246,6 +246,10 @@ Per-resource and per-row action execution.
 | `GET` | `/martis/api/resources/{resource}/actions/{action}/relatable/{field}` | Options of a `BelongsTo` / `MorphTo` / `Tag` the action declares, read from the action's `fields()` (v1.38.0). Gated on `viewAny` of the resource, the action's `canSee()` and `viewAny` of the related resource. |
 | `POST` | `/martis/api/resources/{resource}/actions/{action}` | Run a bulk / standalone action. |
 | `POST` | `/martis/api/resources/{resource}/{id}/actions/{action}` | Run an inline (per-row) action. |
+| `GET` | `/martis/api/resources/{resource}/lenses/{lens}/actions` | The actions a lens runs: its own `actions()`, or the resource's when the lens does not override it (v1.39.3). 403 on a lens the user cannot see (`canSee()`), 404 on an unknown one. |
+| `GET` | `/martis/api/resources/{resource}/lenses/{lens}/actions/{action}/fields` | Field schema of an action the lens runs (v1.39.3). |
+| `GET` | `/martis/api/resources/{resource}/lenses/{lens}/actions/{action}/relatable/{field}` | Picker options of a relation field of an action the lens runs, gated as the resource route plus the lens's `canSee()` (v1.39.3). |
+| `POST` | `/martis/api/resources/{resource}/lenses/{lens}/actions/{action}` | Run a bulk, inline or standalone action of the lens (v1.39.3), as Nova's lens action route. The selected records are resolved as on the resource route (the resource's `scopes()` and `indexQuery()`), and the action's `canSee()` / `canRun()` and the run-action policy apply. |
 | `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions` | Pivot-row actions list. |
 | `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions/{action}/fields` | Field schema of a pivot action, without the fields the user cannot see (v1.38.0). |
 | `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions/{action}/relatable/{field}` | Options of a `BelongsTo` / `MorphTo` / `Tag` a pivot action declares, behind the panel's pivot action gates, with the parent resource as the source of the relatable hooks (v1.38.0). |
@@ -278,7 +282,7 @@ GET /martis/api/navigation/badges    # v1.8.8
 GET /martis/api/search?q=...
 ```
 
-Cross-resource record search. Powers the topbar search input. Each resource is matched on the `searchable()` fields the user can see (v1.38.0), among the records its index lists: its `scopes()`, then `indexQuery()` (v2.0). See [Global Search](../global-search.md).
+Cross-resource record search. Powers the topbar search input. Each resource is matched on the `searchable()` fields the user can see (v1.38.0), among the records its index lists: its `scopes()`, then `indexQuery()` (v1.39.3). See [Global Search](../global-search.md).
 
 ## Command Palette
 
@@ -312,7 +316,7 @@ GET  /martis/api/tools/{uriKey}/fields/{field}/options?search=
                                         A select in a Repeater row adds &repeater=&repeatable= (v1.38.0).
 ```
 
-The 404-when-denied behaviour is intentional: an unauthorised user cannot probe which tools the app ships. The routes a tool adds under `/martis/api/tools/{uriKey}/...` (`/{martis.path}/...`) with `loadRoutes()` or `ToolRoutes::middleware()` run the same middleware as these endpoints and answer that user the same 404 (v2.0; see [Tools → Tool routes and their middleware](../tools.md#tool-routes-and-their-middleware)).
+The 404-when-denied behaviour is intentional: an unauthorised user cannot probe which tools the app ships. The routes a tool adds under `/martis/api/tools/{uriKey}/...` (and `/{martis.path}/api/tools/{uriKey}/...` with a custom path) with `loadRoutes()` or `ToolRoutes::middleware()` run the same middleware as these endpoints and answer that user the same 404 (v1.39.3; see [Tools → Tool routes and their middleware](../tools.md#tool-routes-and-their-middleware)).
 
 ## Preferences
 

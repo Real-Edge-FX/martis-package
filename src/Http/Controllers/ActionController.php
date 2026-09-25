@@ -29,6 +29,7 @@ use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\ResolvesPivotActions;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
+use Martis\Lenses\Lens;
 use Martis\Models\ActionEvent;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -77,6 +78,22 @@ class ActionController extends MartisController
      */
     public function index(Request $request, string $resource): IlluminateJsonResponse
     {
+        return $this->listActions($request, $resource, null);
+    }
+
+    /**
+     * List the actions a lens runs: its own `actions()`, or the resource's
+     * when it declares none.
+     *
+     * GET /api/resources/{resource}/lenses/{lens}/actions
+     */
+    public function lensIndex(Request $request, string $resource, string $lens): IlluminateJsonResponse
+    {
+        return $this->listActions($request, $resource, $lens);
+    }
+
+    private function listActions(Request $request, string $resource, ?string $lensKey): IlluminateJsonResponse
+    {
         $resourceClass = $this->resolveResource($resource);
 
         if ($resourceClass === null) {
@@ -84,7 +101,13 @@ class ActionController extends MartisController
         }
 
         $instance = new $resourceClass;
-        $actions = $this->resolveActions($instance, $request);
+        $lens = $this->lensOf($instance, $lensKey, $request);
+
+        if ($lens instanceof IlluminateJsonResponse) {
+            return $lens;
+        }
+
+        $actions = $this->resolveActions($instance, $request, $lens);
 
         $rawContext = $request->query('context', 'index');
         $context = ActionVisibility::tryFrom(is_string($rawContext) ? $rawContext : 'index');
@@ -110,6 +133,21 @@ class ActionController extends MartisController
      */
     public function fields(Request $request, string $resource, string $action): IlluminateJsonResponse
     {
+        return $this->actionFields($request, $resource, $action, null);
+    }
+
+    /**
+     * Get the fields of an action a lens runs.
+     *
+     * GET /api/resources/{resource}/lenses/{lens}/actions/{action}/fields
+     */
+    public function lensFields(Request $request, string $resource, string $lens, string $action): IlluminateJsonResponse
+    {
+        return $this->actionFields($request, $resource, $action, $lens);
+    }
+
+    private function actionFields(Request $request, string $resource, string $action, ?string $lensKey): IlluminateJsonResponse
+    {
         $resourceClass = $this->resolveResource($resource);
 
         if ($resourceClass === null) {
@@ -117,7 +155,13 @@ class ActionController extends MartisController
         }
 
         $instance = new $resourceClass;
-        $actionInstance = $this->findAction($instance, $action, $request);
+        $lens = $this->lensOf($instance, $lensKey, $request);
+
+        if ($lens instanceof IlluminateJsonResponse) {
+            return $lens;
+        }
+
+        $actionInstance = $this->findAction($instance, $action, $request, $lens);
 
         if ($actionInstance === null) {
             return JsonErrorResponse::notFound("Action [{$action}] not found.")->toResponse();
@@ -146,6 +190,25 @@ class ActionController extends MartisController
      */
     public function execute(Request $request, string $resource, string $action): IlluminateJsonResponse
     {
+        return $this->run($request, $resource, $action, null);
+    }
+
+    /**
+     * Execute an action a lens runs (its own `actions()`, or the resource's
+     * when it declares none), as Nova's `LensActionController` does. The
+     * records are resolved as on the resource's run: the resource's index
+     * scopes bound them.
+     *
+     * POST /api/resources/{resource}/lenses/{lens}/actions/{action}
+     * Body: { "resources": [1, 2, 3], "fields": { ... }, "dryRun": false }
+     */
+    public function lensExecute(Request $request, string $resource, string $lens, string $action): IlluminateJsonResponse
+    {
+        return $this->run($request, $resource, $action, $lens);
+    }
+
+    private function run(Request $request, string $resource, string $action, ?string $lensKey): IlluminateJsonResponse
+    {
         $resourceClass = $this->resolveResource($resource);
 
         if ($resourceClass === null) {
@@ -157,7 +220,13 @@ class ActionController extends MartisController
         }
 
         $instance = new $resourceClass;
-        $actionInstance = $this->findAction($instance, $action, $request);
+        $lens = $this->lensOf($instance, $lensKey, $request);
+
+        if ($lens instanceof IlluminateJsonResponse) {
+            return $lens;
+        }
+
+        $actionInstance = $this->findAction($instance, $action, $request, $lens);
 
         if ($actionInstance === null) {
             return JsonErrorResponse::notFound("Action [{$action}] not found.")->toResponse();
@@ -288,14 +357,24 @@ class ActionController extends MartisController
      *
      * @return list<ActionContract>
      */
-    private function resolveActions(Resource $resource, Request $request): array
+    private function resolveActions(Resource $resource, Request $request, ?Lens $lens = null): array
     {
-        $actions = $resource->actions($request);
+        $actions = $this->availableActions($resource, $request, $lens);
 
         return array_values(array_filter(
             $actions,
             fn (ActionContract $action) => $action->authorizedToSee($request),
         ));
+    }
+
+    /**
+     * The lens a lens route names, or `null` on a resource route; a 404 or
+     * 403 response when the resource has no such lens or the user may not
+     * see it.
+     */
+    private function lensOf(Resource $resource, ?string $lensKey, Request $request): Lens|IlluminateJsonResponse|null
+    {
+        return $lensKey === null ? null : $this->resolveLens($resource, $lensKey, $request);
     }
 
     /**

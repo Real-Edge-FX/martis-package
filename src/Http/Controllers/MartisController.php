@@ -16,6 +16,7 @@ use Martis\Enums\SortDirection;
 use Martis\Fields\Field;
 use Martis\Fields\Repeater;
 use Martis\Http\Resources\JsonErrorResponse;
+use Martis\Lenses\Lens;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -375,12 +376,49 @@ abstract class MartisController extends Controller
     }
 
     /**
-     * Find an Action a resource registers, by URI key. The caller runs the
-     * Action's gates (authorizedToSee(), authorizedToRun()).
+     * The actions a listing offers: the resource's, or on a lens the ones
+     * the lens declares in its own `actions()`, which replace the
+     * resource's (even an empty list); a lens that does not override
+     * `actions()` inherits the resource's. As in Nova, where a lens's
+     * actions are resolved from the lens (`LensActionRequest`).
+     *
+     * @return array<int, ActionContract>
      */
-    protected function findAction(Resource $resource, string $uriKey, Request $request): ?ActionContract
+    protected function availableActions(Resource $resource, Request $request, ?Lens $lens = null): array
     {
-        $actions = $resource->actions($request);
+        /** @var array<int, ActionContract> $actions */
+        $actions = $lens !== null && $lens->hasOverride('actions')
+            ? $lens->actions($request)
+            : $resource->actions($request);
+
+        return $actions;
+    }
+
+    /**
+     * The lens of `$resource` whose URI key is `$uriKey`, or a 404 when the
+     * resource declares none, or a 403 when the user may not see it.
+     */
+    protected function resolveLens(Resource $resource, string $uriKey, Request $request): Lens|IlluminateJsonResponse
+    {
+        foreach ($resource->lenses($request) as $lens) {
+            if ($lens instanceof Lens && $lens->uriKey() === $uriKey) {
+                return $lens->authorizedToSee($request)
+                    ? $lens
+                    : JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            }
+        }
+
+        return JsonErrorResponse::notFound("Lens '{$uriKey}' not found on resource.")->toResponse();
+    }
+
+    /**
+     * Find an Action a resource registers, or the lens `$lens` runs (see
+     * `availableActions()`), by URI key. The caller runs the Action's gates
+     * (authorizedToSee(), authorizedToRun()).
+     */
+    protected function findAction(Resource $resource, string $uriKey, Request $request, ?Lens $lens = null): ?ActionContract
+    {
+        $actions = $this->availableActions($resource, $request, $lens);
 
         foreach ($actions as $action) {
             if ($action->uriKey() === $uriKey) {

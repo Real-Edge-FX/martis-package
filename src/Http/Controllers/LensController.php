@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
+use Martis\Contracts\ActionContract;
 use Martis\Contracts\FilterContract;
 use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
@@ -16,7 +17,6 @@ use Martis\Fields\Field;
 use Martis\Http\Requests\LensRequest;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
-use Martis\Http\Resources\JsonResponse;
 use Martis\Lenses\Lens;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -52,13 +52,9 @@ class LensController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $lensInstance = $this->findLens($resourceInstance, $lens, $request);
+        $lensInstance = $this->resolveLens($resourceInstance, $lens, $request);
         if ($lensInstance instanceof IlluminateJsonResponse) {
             return $lensInstance;
-        }
-
-        if (! $lensInstance->authorizedToSee($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $filtersByUriKey = $this->collectAuthorizedFilters($lensInstance, $resourceInstance, $request);
@@ -125,12 +121,27 @@ class LensController extends MartisController
             $result = $this->executeLensQuery($lensInstance, $lensRequest, $baseQuery, $perPage, $page);
             [$items, $meta, $links] = $result;
 
-            $data = array_values(array_map(function (Model $model) use ($resourceClass, $fields): array {
+            // Whether each lens action may run on each row (its canRun()), as
+            // the resource index maps it: the lens's own actions when it
+            // declares them.
+            $lensActions = array_filter(
+                $this->availableActions(new $resourceClass, $request, $lensInstance),
+                fn (ActionContract $action): bool => $action->authorizedToSee($request),
+            );
+
+            $data = array_map(function (Model $model) use ($resourceClass, $fields, $lensActions, $request): array {
                 /** @var resource $res */
                 $res = new $resourceClass($model);
 
-                return $this->serializeModelForIndex($res, $fields, $model);
-            }, $items));
+                $serialized = $this->serializeModelForIndex($res, $fields, $model);
+                $actionAuth = [];
+                foreach ($lensActions as $action) {
+                    $actionAuth[$action->uriKey()] = $action->authorizedToRun($request, $model);
+                }
+                $serialized['_actionAuthorization'] = $actionAuth;
+
+                return $serialized;
+            }, $items);
 
             // Summary must aggregate over the filtered lens dataset — not
             // the base (unfiltered) query. We call lens.query() a second
@@ -184,9 +195,7 @@ class LensController extends MartisController
      */
     private function resolveLensActions(Lens $lensInstance, Resource $resourceInstance, Request $request): array
     {
-        $actions = $lensInstance->hasOverride('actions')
-            ? $lensInstance->actions($request)
-            : $resourceInstance->actions($request);
+        $actions = $this->availableActions($resourceInstance, $request, $lensInstance);
 
         return array_values(array_map(
             fn ($action): array => $action->jsonSerialize(),
@@ -325,21 +334,6 @@ class LensController extends MartisController
     private static function classHash(Lens $lens): string
     {
         return substr(sha1(get_class($lens)), 0, 10);
-    }
-
-    /**
-     * Locate a lens declared by the resource, honouring `authorizedToSee`.
-     * Returns a 404 JsonResponse when not found.
-     */
-    private function findLens(Resource $resourceInstance, string $uriKey, Request $request): Lens|IlluminateJsonResponse
-    {
-        foreach ($resourceInstance->lenses($request) as $lens) {
-            if ($lens instanceof Lens && $lens->uriKey() === $uriKey) {
-                return $lens;
-            }
-        }
-
-        return JsonErrorResponse::notFound("Lens '{$uriKey}' not found on resource.")->toResponse();
     }
 
     /**
