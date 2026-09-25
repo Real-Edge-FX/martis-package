@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Martis\Contracts\FieldContract;
+use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\Field;
@@ -21,6 +22,7 @@ use Martis\RelationshipQueryResolver;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\SearchResolver;
+use Martis\Support\IndexScope;
 
 /**
  * Controller for BelongsToMany relationship operations.
@@ -68,6 +70,24 @@ class BelongsToManyController extends MartisController
             $query = $relation->getQuery();
         }
 
+        // Soft-delete filter on the related records, as on the has-many panel
+        // and as Nova's BelongsToMany panel offers it. It used to be ignored,
+        // so "only trashed" listed the active ones.
+        if ($relatedResourceClass::softDeletes() && $relatedResourceClass::canViewTrashed()) {
+            $trashed = TrashedFilter::fromQuery($request->query('trashed'));
+            if ($trashed === TrashedFilter::With) {
+                /** @phpstan-ignore-next-line guarded by softDeletes() */
+                $query->withTrashed();
+            } elseif ($trashed === TrashedFilter::Only) {
+                /** @phpstan-ignore-next-line guarded by softDeletes() */
+                $query->onlyTrashed();
+            }
+        }
+
+        // The related resource's scopes() and indexQuery() hide rows here as
+        // on its index (tenancy, visibility), as Nova's relationship index.
+        $this->scopeRelationQuery($request, $query, $relatedResourceClass, byKey: true);
+
         // Search
         $rawSearch = $request->query('search', '');
         $search = trim(is_string($rawSearch) ? $rawSearch : '');
@@ -78,6 +98,10 @@ class BelongsToManyController extends MartisController
         // Sort: only a sortable field of the related resource the user can
         // see orders the rows.
         $this->applyRequestedSort($request, $query, $relatedResourceClass, qualifyJsonPaths: true);
+
+        // The relationship counts of the related rows' index columns, scoped
+        // and aggregated in this query.
+        $this->withScopedRelationCounts($request, $query, Field::filterForContext((new $relatedResourceClass)->fieldsForIndex($request), FieldContext::INDEX));
 
         // Pagination — use $relation->paginate() (not $query->paginate()) so Laravel
         // can hydrate the pivot accessor on each resulting Model instance.
@@ -583,11 +607,13 @@ class BelongsToManyController extends MartisController
         /** @var class-string<Model> $modelClass */
         $modelClass = $resourceClass::model();
 
-        // Resolve the parent through the resource's indexQuery scope + a key
-        // match, never a bare find(): a scoped-out id stays indistinguishable
-        // from a missing one (uniform 404) and the scope is enforced even for
-        // resources with no policy.
-        $parentModel = $resourceClass::indexQuery($request, $modelClass::query())
+        // Resolve the parent through the resource's declarative scopes(), then
+        // its indexQuery() (the index's confinement, in the index's order,
+        // grouped so the key binds to all of it) + a key match, never a bare
+        // find(): a scoped-out id stays indistinguishable from a missing one
+        // (uniform 404) and the scope is enforced even for resources with no
+        // policy.
+        $parentModel = IndexScope::apply($request, $resourceClass, $modelClass::query())
             ->whereKey($id)
             ->first();
 

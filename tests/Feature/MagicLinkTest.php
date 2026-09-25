@@ -3,11 +3,20 @@
 declare(strict_types=1);
 
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
 use Martis\Auth\MagicLinkNotification;
 use Martis\Auth\MagicLinkService;
+
+/** A user model as an app ships it: Notifiable, so the link is mailed to it. */
+class MagicLinkNotifiableUser extends User
+{
+    use Notifiable;
+
+    protected $table = 'users';
+}
 
 // -----------------------------------------------------------------------------
 // MagicLinkService — token issue + consume
@@ -106,9 +115,10 @@ it('issue() returns null when the token table is missing', function () {
 
 it('POST /api/auth/magic-link/request returns 200 + dispatches notification when email exists', function () {
     Notification::fake();
+    config()->set('auth.providers.users.model', MagicLinkNotifiableUser::class);
 
-    /** @var User $user */
-    $user = User::forceCreate([
+    /** @var MagicLinkNotifiableUser $user */
+    $user = MagicLinkNotifiableUser::forceCreate([
         'name' => 'Maria',
         'email' => 'maria@example.com',
         'password' => bcrypt('x'),

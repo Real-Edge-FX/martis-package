@@ -8,6 +8,7 @@ import {
   type Shortcut,
 } from "@/lib/keyboardShortcuts"
 import { isMacPlatform } from "@/lib/platform"
+import { useModalHistoryLock } from "@/lib/historyLock"
 
 /**
  * Help overlay listing every keyboard shortcut registered through
@@ -44,6 +45,10 @@ export function KeyboardShortcutsHelp() {
     })
     return dispose
   }, [])
+
+  // A modal like the others: the back button and a drawer underneath
+  // leave it alone while it is open (its Escape does not close the drawer).
+  useModalHistoryLock(open)
 
   // Close on Escape — mirrors the design-system Command Palette.
   useEffect(() => {

@@ -5,9 +5,13 @@ namespace Martis\Console;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
+use Martis\Auth\GuardCatalog;
+use Martis\Console\Concerns\AsksOnlyOnATerminal;
 
 class UserCommand extends Command
 {
+    use AsksOnlyOnATerminal;
+
     protected $signature = 'martis:user
                             {--name= : The full name of the admin user}
                             {--email= : The email address of the admin user}
@@ -22,10 +26,20 @@ class UserCommand extends Command
      */
     public function handle(): int
     {
-        $email = (string) ($this->option('email') ?? $this->ask('Email', 'admin@example.com'));
+        // Without a terminal nothing is asked: a pipe would answer the
+        // questions (`yes |` made an admin with email, name and password
+        // "y"), so the email and the password must come as options.
+        $email = $this->option('email');
+        if (! is_string($email) || $email === '') {
+            if (! $this->canPrompt()) {
+                return $this->missingOption('email');
+            }
+            $email = (string) $this->ask('Email', 'admin@example.com');
+        }
 
-        /** @var class-string<Model> $modelClass */
-        $modelClass = (string) config('auth.providers.users.model', 'App\\Models\\User');
+        // The users the Martis guard signs in (MARTIS_GUARD's provider, else
+        // the default guard's), as Nova's nova:user creates the Nova guard's.
+        $modelClass = GuardCatalog::martisUserModel();
 
         /** @var Model|null $existing */
         $existing = $modelClass::query()->where('email', $email)->first();
@@ -48,7 +62,10 @@ class UserCommand extends Command
 
         $this->components->info('Creating Martis admin user...');
 
-        $name = (string) ($this->option('name') ?? $this->ask('Name', 'Martis Admin'));
+        $name = $this->option('name');
+        if (! is_string($name) || $name === '') {
+            $name = $this->canPrompt() ? (string) $this->ask('Name', 'Martis Admin') : 'Martis Admin';
+        }
         $password = $this->resolvePassword();
 
         if ($password === null) {
@@ -59,7 +76,10 @@ class UserCommand extends Command
         $user->setAttribute('name', $name);
         $user->setAttribute('email', $email);
         $user->setAttribute('password', Hash::make($password));
-        $user->setAttribute('email_verified_at', now());
+        // A Martis guard's own table may have no verification column.
+        if ($user->getConnection()->getSchemaBuilder()->hasColumn($user->getTable(), 'email_verified_at')) {
+            $user->setAttribute('email_verified_at', now());
+        }
         $user->save();
 
         $this->newLine();
@@ -102,12 +122,21 @@ class UserCommand extends Command
     }
 
     /**
-     * Read the password from the option or an interactive prompt; null (with
-     * the error already printed) when it is empty.
+     * Read the password from the option, or ask for it on a terminal; null
+     * (with the error already printed) when it is empty or, without a
+     * terminal, not given.
      */
     private function resolvePassword(): ?string
     {
-        $password = (string) ($this->option('password') ?? $this->secret('Password'));
+        $password = $this->option('password');
+        if (! is_string($password)) {
+            if (! $this->canPrompt()) {
+                $this->missingOption('password');
+
+                return null;
+            }
+            $password = (string) $this->secret('Password');
+        }
 
         if ($password === '') {
             $this->components->error('Password cannot be empty.');
@@ -116,5 +145,13 @@ class UserCommand extends Command
         }
 
         return $password;
+    }
+
+    /** The error for an option a run without a terminal cannot ask for; exit 1. */
+    private function missingOption(string $option): int
+    {
+        $this->components->error("The --{$option} option is required when the command runs without a terminal (no TTY or --no-interaction). No user was created or changed.");
+
+        return self::FAILURE;
     }
 }

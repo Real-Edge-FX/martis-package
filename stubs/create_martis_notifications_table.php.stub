@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -79,14 +80,11 @@ return new class extends Migration
             }
         }
 
-        $guard = config('martis.guard') ?: config('auth.defaults.guard');
-        $provider = config("auth.guards.{$guard}.provider", config('auth.defaults.provider'));
-        $userClass = config("auth.providers.{$provider}.model");
-        if (! is_string($userClass) || ! class_exists($userClass)) {
+        $model = $this->resolveUserModel();
+        if ($model === null) {
             return 'bigint';
         }
 
-        $model = new $userClass;
         $traits = class_uses_recursive($model);
         if (in_array(\Illuminate\Database\Eloquent\Concerns\HasUuids::class, $traits, true)) {
             return 'uuid';
@@ -95,8 +93,8 @@ return new class extends Migration
             return 'ulid';
         }
 
-        $keyType = method_exists($model, 'getKeyType') ? $model->getKeyType() : 'int';
-        $incrementing = method_exists($model, 'getIncrementing') ? $model->getIncrementing() : true;
+        $keyType = $model->getKeyType();
+        $incrementing = $model->getIncrementing();
         if ($incrementing && $keyType === 'int') {
             return 'bigint';
         }
@@ -105,5 +103,25 @@ return new class extends Migration
         }
 
         return 'bigint';
+    }
+
+    /**
+     * The model of the users the Martis guard signs in: its provider's
+     * (`auth.guards.{MARTIS_GUARD, else the default guard}.provider`, the
+     * `users` provider when the guard names none). Mirrors
+     * `Martis\Auth\GuardCatalog::martisUserModel()`, inlined for the same
+     * reason as resolveUserKey(). Null when that provider names no model.
+     */
+    private function resolveUserModel(): ?Model
+    {
+        $guard = config('martis.guard') ?: (config('auth.defaults.guard') ?: 'web');
+        $provider = config("auth.guards.{$guard}.provider") ?: 'users';
+        $userClass = config("auth.providers.{$provider}.model");
+
+        if (! is_string($userClass) || ! is_subclass_of($userClass, Model::class)) {
+            return null;
+        }
+
+        return new $userClass;
     }
 };

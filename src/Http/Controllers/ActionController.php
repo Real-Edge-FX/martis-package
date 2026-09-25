@@ -40,6 +40,7 @@ use Martis\Http\Resources\JsonResponse;
 use Martis\Models\ActionEvent;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\IndexScope;
 
 /**
  * Controller for action execution on Martis resources.
@@ -344,8 +345,10 @@ class ActionController extends MartisController
         // then `indexQuery()`: tenant / ownership filters) before selecting
         // by id, in the index's order. Without this, an action could resolve
         // and act on records outside the user's visible scope just by
-        // passing their ids (IDOR).
-        $query = $resource::indexQuery($request, $resource::applyScopes($request, $modelInstance->newQuery()));
+        // passing their ids (IDOR). Grouped, so the ids below bind to all of
+        // it: after an ungrouped `orWhere()` they would bind to its last
+        // clause only and the action would run on records nobody selected.
+        $query = IndexScope::apply($request, $resource::class, $modelInstance->newQuery());
 
         if ($resource::softDeletes()) {
             $query->withoutGlobalScope(SoftDeletingScope::class);

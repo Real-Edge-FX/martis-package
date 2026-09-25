@@ -396,7 +396,7 @@ it('runs every kind of field rule on the update', function (string $endpoint, st
     [$url, $stored] = rfrUpdateTarget($endpoint);
     $before = $stored();
 
-    $response = $this->putJson($url, [$attribute => $invalid]);
+    $response = $this->putJson(cardWriteUrl($url), [$attribute => $invalid]);
 
     $response->assertStatus(422);
     expect(rfrErrorFields($response))->toBe([$attribute])
@@ -417,11 +417,11 @@ it('runs no rule for a key the update does not send and stores the values every 
     // implicit Rule::requiredIf() or context rules, and on the resource and
     // inline forms `code` is required() with a Rule::unique(). `sometimes`
     // leads each list on update, so none of them runs for a key not sent.
-    $this->putJson($url, ['status' => 'published'])->assertStatus(200);
+    $this->putJson(cardWriteUrl($url), ['status' => 'published'])->assertStatus(200);
     expect($stored())->toBe(array_replace($before, ['status' => 'published']));
 
     $values = ['title' => 'Second', 'status' => 'draft', 'kind' => 'video', 'slug' => 'second', 'owner' => 'bob', 'stage' => 'review'];
-    $this->putJson($url, $values)->assertStatus(200);
+    $this->putJson(cardWriteUrl($url), $values)->assertStatus(200);
     expect($stored())->toMatchArray($values);
 })->with($endpoints);
 
@@ -434,13 +434,13 @@ it('runs a Rule::unique() object that ignores the edited record', function (stri
         'morph-many', 'morph-one' => $other->notes()->create(['code' => 'C-2']),
     };
 
-    $taken = $this->putJson($url, ['code' => 'C-2']);
+    $taken = $this->putJson(cardWriteUrl($url), ['code' => 'C-2']);
     $taken->assertStatus(422);
     expect(rfrErrorFields($taken))->toBe(['code']);
 
     // The edited record's own code does not collide with itself.
-    $this->putJson($url, ['code' => 'C-1'])->assertStatus(200);
-    $this->putJson($url, ['code' => 'C-3'])->assertStatus(200);
+    $this->putJson(cardWriteUrl($url), ['code' => 'C-1'])->assertStatus(200);
+    $this->putJson(cardWriteUrl($url), ['code' => 'C-3'])->assertStatus(200);
     expect($stored()['code'])->toBe('C-3');
 })->with(['resource', 'has-many', 'has-one', 'morph-many', 'morph-one']);
 
@@ -461,10 +461,10 @@ it('applies creationRules and not updateRules on create', function (string $endp
 it('applies updateRules and not creationRules on update', function (string $endpoint) {
     [$url, $stored] = rfrUpdateTarget($endpoint);
 
-    $rejected = $this->putJson($url, ['stage' => 'new']);
+    $rejected = $this->putJson(cardWriteUrl($url), ['stage' => 'new']);
     $rejected->assertStatus(422);
     expect(rfrErrorFields($rejected))->toBe(['stage']);
 
-    $this->putJson($url, ['stage' => 'done'])->assertStatus(200);
+    $this->putJson(cardWriteUrl($url), ['stage' => 'done'])->assertStatus(200);
     expect($stored()['stage'])->toBe('done');
 })->with($endpoints);

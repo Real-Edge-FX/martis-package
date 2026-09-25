@@ -87,6 +87,10 @@ class MorphManyController extends MartisController
             }
         }
 
+        // The related resource's scopes() and indexQuery() hide rows here as
+        // on its index (tenancy, visibility), as Nova's relationship index.
+        $this->scopeRelationQuery($request, $query, $relatedResourceClass);
+
         $rawSearch = $request->query('search', '');
         $search = trim(is_string($rawSearch) ? $rawSearch : '');
 
@@ -97,6 +101,10 @@ class MorphManyController extends MartisController
         // Only a sortable field of the related resource the user can see
         // orders the rows.
         $this->applyRequestedSort($request, $query, $relatedResourceClass);
+
+        // The relationship counts of the related rows' index columns, scoped
+        // and aggregated in this query.
+        $this->withScopedRelationCounts($request, $query, Field::filterForContext((new $relatedResourceClass)->fieldsForIndex($request), FieldContext::INDEX));
 
         $perPage = $this->requestedPerPage($request, 10);
 

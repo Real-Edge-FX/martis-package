@@ -13,11 +13,16 @@ use Illuminate\Routing\Controller;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Enums\SortDirection;
+use Martis\Fields\BelongsToMany;
 use Martis\Fields\Field;
+use Martis\Fields\HasMany;
+use Martis\Fields\MorphMany;
+use Martis\Fields\MorphToMany;
 use Martis\Fields\Repeater;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\RelationScope;
 
 abstract class MartisController extends Controller
 {
@@ -130,6 +135,117 @@ abstract class MartisController extends Controller
     }
 
     /**
+     * Scope a relationship panel's rows as the related resource's index is
+     * scoped: its declarative `scopes()`, then `indexQuery()`, in the
+     * index's order, as Nova's relationship index runs the related
+     * resource's `indexQuery()`. The panel still paginates through the
+     * relation (a Through relation selects the related columns only there;
+     * a pivot relation hydrates `pivot`).
+     *
+     * A plain has-many / morph-many panel runs the hooks on its own query,
+     * grouped (`RelationScope::apply()`), keeping their order and aliases; a
+     * Through or pivot panel (`$byKey`), whose query joins another table,
+     * keeps the rows whose key the hooks return on a fresh query
+     * (`RelationScope::constrainByKey()`).
+     *
+     * @param  Builder<Model>  $query  The relation's query (`$relation->getQuery()`).
+     * @param  class-string<resource>  $relatedResourceClass
+     */
+    protected function scopeRelationQuery(Request $request, Builder $query, string $relatedResourceClass, bool $byKey = false): void
+    {
+        if ($byKey) {
+            RelationScope::constrainByKey($request, $query, $relatedResourceClass);
+
+            return;
+        }
+
+        RelationScope::apply($request, $query, $relatedResourceClass);
+    }
+
+    /**
+     * Count, in the listing query itself, the related records of every
+     * listed field that shows a relationship count on the index
+     * (`HasMany`, `MorphMany`, `BelongsToMany`, `MorphToMany` with
+     * `showOnIndex()`), scoped as the related index is: one query per page,
+     * not one per row, and no hidden record counted. Each field reads its
+     * count back from the model (see `CountsScopedRelation`).
+     *
+     * @param  Builder<Model>  $query
+     * @param  list<FieldContract>  $fields
+     */
+    protected function withScopedRelationCounts(Request $request, Builder $query, array $fields): void
+    {
+        $counts = [];
+        foreach ($fields as $field) {
+            if (! $field instanceof HasMany && ! $field instanceof MorphMany && ! $field instanceof BelongsToMany && ! $field instanceof MorphToMany) {
+                continue;
+            }
+
+            if (! $field->countsOnIndex() || ! method_exists($query->getModel(), $field->getRelationship())) {
+                continue;
+            }
+
+            $relatedResourceClass = $field->relatedResourceClassForCount();
+            $counts[$field->getRelationship().' as '.$field->countAlias()] = function (Builder $related) use ($request, $relatedResourceClass): void {
+                if ($relatedResourceClass !== null) {
+                    RelationScope::constrainByKey($request, $related, $relatedResourceClass);
+                }
+            };
+        }
+
+        if ($counts !== []) {
+            $query->withCount($counts);
+        }
+    }
+
+    /**
+     * The 409 for a write on a one-record card (`has-one`, `morph-one`)
+     * that names (`?relatedId=`) another record than `$current`, the one
+     * the relationship holds now, or `null`. The card sends the id of the
+     * record it shows, as a write on the record's own page does: a record
+     * created or replaced after the card loaded (a newer one-of-many
+     * record, a swapped `HasOne`) is never the one written instead. It runs
+     * before the policy, which is `$current`'s: the request was for
+     * another record, so a 403 would be about the wrong one.
+     */
+    protected function oneRecordTargetConflict(Request $request, Model $current): ?IlluminateJsonResponse
+    {
+        $shown = $request->query('relatedId');
+
+        if (is_scalar($shown) && (string) $shown !== '' && (string) $current->getKey() !== (string) $shown) {
+            return JsonErrorResponse::conflict($this->translatedMessage('martis::messages.card_record_changed'))->toResponse();
+        }
+
+        return null;
+    }
+
+    /**
+     * The 422 for a write on a one-record card that names no record, or
+     * `null`. It runs after the policy: a user who may not write the
+     * record gets the 403 whether or not the id is there.
+     */
+    protected function oneRecordTargetMissing(Request $request): ?IlluminateJsonResponse
+    {
+        $shown = $request->query('relatedId');
+
+        if (! is_scalar($shown) || (string) $shown === '') {
+            $message = $this->translatedMessage('martis::messages.card_related_id_required');
+
+            return JsonErrorResponse::validation(['relatedId' => [$message]], $message)->toResponse();
+        }
+
+        return null;
+    }
+
+    /** A translation line as a string (`__()` returns an array for a group key). */
+    private function translatedMessage(string $key): string
+    {
+        $line = __($key);
+
+        return is_string($line) ? $line : $key;
+    }
+
+    /**
      * Consult the collection-level gate before any record query on a per-id
      * endpoint.
      *
@@ -157,7 +273,8 @@ abstract class MartisController extends Controller
      * Resolve the resource instance a form-scoped endpoint (sync-field,
      * field-options) gates on, and run that gate.
      *
-     * Create context: a bare instance, gated on the create ability. Update
+     * Create context: a bare instance, gated on viewAny then the create
+     * ability, as the create endpoints are (v2.0). Update
      * context: the record named by `$id`, bound to the instance so the update
      * ability receives the model the way every Laravel policy expects. A bare
      * instance would call `update($user)` with no model and raise
@@ -172,6 +289,12 @@ abstract class MartisController extends Controller
     protected function resolveFormScopedResource(Request $request, string $resourceClass, string $context, int|string|null $id): array
     {
         if ($context !== 'update') {
+            // The create form needs viewAny as well as create, as the create
+            // endpoints do (v2.0).
+            if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+                return [null, $forbidden];
+            }
+
             $instance = new $resourceClass;
 
             if (! $instance->authorizedToCreate($request)) {

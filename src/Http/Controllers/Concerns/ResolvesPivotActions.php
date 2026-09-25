@@ -13,6 +13,7 @@ use Martis\Fields\Field;
 use Martis\Fields\MorphToMany as MorphToManyField;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Resource;
+use Martis\Support\IndexScope;
 
 /**
  * Resolve the relationship and the actions behind a pivot action route.
@@ -52,11 +53,13 @@ trait ResolvesPivotActions
         }
 
         $modelClass = $resourceClass::model();
-        // Resolve the parent through the resource's indexQuery scope (tenant /
-        // ownership filters) + a key match, never a bare find(): a scoped-out
-        // id stays indistinguishable from a missing one (uniform 404, no
-        // existence oracle), even for resources with no policy.
-        $parentModel = $resourceClass::indexQuery($request, $modelClass::query())
+        // Resolve the parent through the resource's declarative scopes(), then
+        // its indexQuery() (tenant / ownership filters, in the index's order,
+        // grouped so the key binds to all of them) + a key match, never a
+        // bare find(): a scoped-out id stays indistinguishable from a missing
+        // one (uniform 404, no existence oracle), even for resources with no
+        // policy.
+        $parentModel = IndexScope::apply($request, $resourceClass, $modelClass::query())
             ->whereKey($id)
             ->first();
         if ($parentModel === null) {

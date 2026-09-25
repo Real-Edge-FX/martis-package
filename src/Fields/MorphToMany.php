@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Enums\ModalSize;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
+use Martis\Fields\Concerns\CountsScopedRelation;
 use Martis\Fields\Concerns\HasPivotActions;
 use Martis\Fields\Concerns\StaysOffCreateForms;
 use Martis\Resource;
@@ -39,6 +40,7 @@ use Martis\ResourceRegistry;
 class MorphToMany extends Field
 {
     use ControlsRelationshipToolbar;
+    use CountsScopedRelation;
     use HasPivotActions;
     use StaysOffCreateForms;
 
@@ -396,7 +398,7 @@ class MorphToMany extends Field
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         if ($this->showOnIndex) {
-            return $model->{$this->relationship}()->count();
+            return $this->scopedRelationCount($model);
         }
 
         return null;
@@ -424,7 +426,9 @@ class MorphToMany extends Field
         }
 
         $relatedAuth = $this->relatedResourceAuthorizations($this->getRelatedResourceKey());
-        $authorizedToCreate = $relatedAuth['authorizedToCreate'] ?? true;
+        // The inline create endpoints need viewAny as well as create (v2.0),
+        // so the button is offered only when both allow it.
+        $authorizedToCreate = ($relatedAuth['authorizedToCreate'] ?? true) && ($relatedAuth['authorizedToViewAny'] ?? true);
 
         return [
             'relationship' => $this->relationship,

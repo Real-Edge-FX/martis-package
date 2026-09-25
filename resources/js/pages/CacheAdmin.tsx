@@ -45,7 +45,10 @@ function CacheConfirmDialog({
   useEffect(() => {
     if (!state) return
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onCancel()
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onCancel()
+      }
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)

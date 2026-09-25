@@ -210,7 +210,9 @@ class Tag extends Field
 
         $auth = $this->relatedResourceAuthorizations($this->relatedUriKey);
 
-        return (bool) ($auth['authorizedToCreate'] ?? true);
+        // The inline create endpoints need viewAny as well as create (v2.0),
+        // so the button is offered only when both allow it.
+        return (bool) (($auth['authorizedToCreate'] ?? true) && ($auth['authorizedToViewAny'] ?? true));
     }
 
     /**

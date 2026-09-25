@@ -6,6 +6,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
+use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\ExtensionKey;
 use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -36,6 +37,8 @@ use Symfony\Component\Console\Attribute\AsCommand;
 #[AsCommand(name: 'martis:tool')]
 class ToolMakeCommand extends GeneratorCommand
 {
+    use AsksOnlyOnATerminal;
+
     protected $signature = 'martis:tool
         {name : The Tool class name (e.g. SystemStatus)}
         {--with-component : Also scaffold a paired React component stub under resources/js/tools/}
@@ -245,8 +248,8 @@ class ToolMakeCommand extends GeneratorCommand
             return true;
         }
 
-        if (! $this->input->isInteractive() || $this->laravel->runningUnitTests()) {
-            $this->components->error('Aborting (non-interactive). Pass --force to overwrite.');
+        if (! $this->canPrompt()) {
+            $this->components->error('The React component already exists. Pass --force to overwrite.');
 
             return false;
         }

@@ -79,4 +79,16 @@ describe('runtime extension loader (v1.8.19+)', () => {
 
     expect(warn).not.toHaveBeenCalled()
   })
+
+  it('clears the timeout of a bundle whose import is rejected, so it never warns', async () => {
+    vi.useFakeTimers()
+    const importer = vi.fn((_url: string) => Promise.reject(new Error('404')))
+
+    await loadConsumerExtensions(['/vendor/missing.js'], importer)
+    expect(vi.getTimerCount()).toBe(0)
+    await vi.advanceTimersByTimeAsync(EXTENSION_LOAD_TIMEOUT_MS * 2)
+
+    expect(error).toHaveBeenCalledTimes(1)
+    expect(warn).not.toHaveBeenCalled()
+  })
 })

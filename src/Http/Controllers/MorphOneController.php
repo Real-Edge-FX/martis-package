@@ -2,6 +2,8 @@
 
 namespace Martis\Http\Controllers;
 
+use Dedoc\Scramble\Attributes\QueryParameter;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany as EloquentMorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne as EloquentMorphOne;
@@ -23,6 +25,7 @@ use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\RelationScope;
 
 /**
  * Controller for MorphOne relationship operations.
@@ -72,6 +75,13 @@ class MorphOneController extends MartisController
             return new IlluminateJsonResponse(['data' => null, 'meta' => [], 'links' => []], 200);
         }
 
+        // A record the user may not view: as Nova, which drops the whole
+        // panel, the card is hidden (`meta.hidden`), with no Create, Edit or
+        // count, so it neither shows the record nor offers a second one.
+        if (! (new $relatedResourceClass($relatedModel))->authorizedToView($request)) {
+            return new IlluminateJsonResponse(['data' => null, 'meta' => ['hidden' => true], 'links' => []], 200);
+        }
+
         $resInstance = new $relatedResourceClass($relatedModel);
 
         // Same "count the underlying morphMany, not the promoted morphOne"
@@ -82,7 +92,7 @@ class MorphOneController extends MartisController
             // Eloquent one-of-many morphOne is rebuilt from its own keys, so
             // a custom local key counts this parent's rows.
             $related = get_class($relation->getRelated());
-            $baseQuery = method_exists($relation, 'isOneOfMany') && $relation->isOneOfMany()
+            $unscoped = method_exists($relation, 'isOneOfMany') && $relation->isOneOfMany()
                 ? fn () => $parentModel->morphMany(
                     $related,
                     '',
@@ -91,6 +101,15 @@ class MorphOneController extends MartisController
                     $relation->getLocalKeyName(),
                 )->getQuery()
                 : fn () => (clone $relation)->getQuery();
+
+            // Counted as the related index lists them: a record its scopes()
+            // or indexQuery() hide is not part of "1 of N" or the aggregate.
+            $baseQuery = function () use ($request, $unscoped, $relatedResourceClass): Builder {
+                $query = $unscoped();
+                RelationScope::constrainByKey($request, $query, $relatedResourceClass);
+
+                return $query;
+            };
 
             $ofManyMeta = ['totalCount' => $baseQuery()->count()];
             $fn = $morphOneField->getAggregateFunction();
@@ -143,10 +162,17 @@ class MorphOneController extends MartisController
             'parentResourceClass' => $resourceClass,
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
+            'morphOneField' => $morphOneField,
         ] = $context;
 
-        if ($relation->exists()) {
-            return JsonErrorResponse::serverError('A related record already exists for this relationship.')->toResponse();
+        // A MorphOne holds one record: a second one is refused with a 422,
+        // whether or not the user may view the one there. The check runs
+        // again under a lock on the parent before the insert, so two
+        // concurrent creates cannot both pass it. A one-of-many card sits
+        // on a many relationship, which takes more records.
+        $single = ! $morphOneField instanceof MorphOneOfMany;
+        if ($single && $relation->exists()) {
+            return $this->alreadyFilled($relationship, 'The MorphOne relationship has already been filled.');
         }
 
         $parentInstance = new $resourceClass($parentModel);
@@ -179,11 +205,28 @@ class MorphOneController extends MartisController
         $relatedModel->setAttribute($relation->getForeignKeyName(), $parentModel->getKey());
 
         try {
-            $relatedInstance = new $relatedResourceClass($relatedModel);
-            $relatedInstance->beforeSave($relatedModel, $request, creating: true);
-            $relatedModel->save();
-            $relatedInstance->afterSave($relatedModel, $request, creating: true);
-            $this->syncDeferredWrites($relatedModel);
+            // The parent's own connection: a model on another connection than
+            // the default one would lock nothing in a default transaction.
+            $filled = $parentModel->getConnection()->transaction(function () use ($single, $parentModel, $relation, $relatedResourceClass, $relatedModel, $request): bool {
+                if ($single) {
+                    $parentModel->newQuery()->whereKey($parentModel->getKey())->lockForUpdate()->first();
+                    if ($relation->exists()) {
+                        return true;
+                    }
+                }
+
+                $relatedInstance = new $relatedResourceClass($relatedModel);
+                $relatedInstance->beforeSave($relatedModel, $request, creating: true);
+                $relatedModel->save();
+                $relatedInstance->afterSave($relatedModel, $request, creating: true);
+                $this->syncDeferredWrites($relatedModel);
+
+                return false;
+            });
+
+            if ($filled) {
+                return $this->alreadyFilled($relationship, 'The MorphOne relationship has already been filled.');
+            }
         } catch (QueryException $e) {
             Log::error('Martis: MorphOne store error', [
                 'resource' => $resource,
@@ -209,6 +252,7 @@ class MorphOneController extends MartisController
     /**
      * Update the existing polymorphically related record.
      */
+    #[QueryParameter('relatedId', description: 'The id of the record the card shows. Required: 422 without it, 409 when the relationship now holds another record (a newer one-of-many record, a replaced MorphOne), so a write never lands on a record the user did not see.', required: true, type: 'string')]
     public function update(
         Request $request,
         string $resource,
@@ -228,16 +272,27 @@ class MorphOneController extends MartisController
         ] = $context;
 
         // The record the card shows, so Edit / Delete write that one.
-        $relatedModel = $this->relatedRecord($morphOneField, $relation);
+        $relatedModel = $this->viewableRelatedRecord($request, $relatedResourceClass, $morphOneField, $relation);
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
+        }
+
+        // A write named for another record than the one the relationship
+        // holds now answers 409 before the policy, which is that record's.
+        if ($conflict = $this->oneRecordTargetConflict($request, $relatedModel)) {
+            return $conflict;
         }
 
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToUpdate($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        // The id is required, after the policy: a denied user gets the 403.
+        if ($missing = $this->oneRecordTargetMissing($request)) {
+            return $missing;
         }
 
         // A field hidden for the related record (canSeeForModel()) is neither
@@ -291,6 +346,7 @@ class MorphOneController extends MartisController
     /**
      * Delete the polymorphically related record.
      */
+    #[QueryParameter('relatedId', description: 'The id of the record the card shows. Required: 422 without it, 409 when the relationship now holds another record (a newer one-of-many record, a replaced MorphOne), so a write never lands on a record the user did not see.', required: true, type: 'string')]
     public function destroy(
         Request $request,
         string $resource,
@@ -310,16 +366,27 @@ class MorphOneController extends MartisController
         ] = $context;
 
         // The record the card shows, so Edit / Delete write that one.
-        $relatedModel = $this->relatedRecord($morphOneField, $relation);
+        $relatedModel = $this->viewableRelatedRecord($request, $relatedResourceClass, $morphOneField, $relation);
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
+        }
+
+        // A write named for another record than the one the relationship
+        // holds now answers 409 before the policy, which is that record's.
+        if ($conflict = $this->oneRecordTargetConflict($request, $relatedModel)) {
+            return $conflict;
         }
 
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToDelete($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        // The id is required, after the policy: a denied user gets the 403.
+        if ($missing = $this->oneRecordTargetMissing($request)) {
+            return $missing;
         }
 
         try {
@@ -340,6 +407,27 @@ class MorphOneController extends MartisController
             ['data' => [], 'meta' => ['message' => $relatedResourceClass::deletedMessage()], 'links' => []],
             200,
         );
+    }
+
+    /**
+     * The record the card shows and writes, when the user may view it: as
+     * in Nova, whose one-record panel is the related resource's detail view
+     * and disappears when its `view` policy denies the record (nova-dusk-suite
+     * HasOneAuthorizationTest). A record the user may not view reads as no
+     * record: the card shows empty and a write answers 404.
+     *
+     * @param  class-string<\Martis\Resource>  $relatedResourceClass
+     * @param  Relation<Model, Model, mixed>  $relation
+     */
+    private function viewableRelatedRecord(Request $request, string $relatedResourceClass, MorphOne $morphOneField, Relation $relation): ?Model
+    {
+        $model = $this->relatedRecord($morphOneField, $relation);
+
+        if ($model === null || ! (new $relatedResourceClass($model))->authorizedToView($request)) {
+            return null;
+        }
+
+        return $model;
     }
 
     /**
@@ -583,5 +671,15 @@ class MorphOneController extends MartisController
         };
 
         return JsonErrorResponse::serverError($message)->toResponse();
+    }
+
+    /**
+     * The 422 a second record on a one-record relationship answers, with
+     * its message on the response too: the form has no input named after
+     * the relationship, so only the top-level message reaches the user.
+     */
+    private function alreadyFilled(string $relationship, string $message): IlluminateJsonResponse
+    {
+        return JsonErrorResponse::validation([$relationship => [$message]], $message)->toResponse();
     }
 }

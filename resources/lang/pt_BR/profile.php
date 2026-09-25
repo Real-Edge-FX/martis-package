@@ -95,6 +95,7 @@ return [
     'sessions_loading' => 'Carregando…',
     'sessions_empty' => 'Nenhuma sessão ativa.',
     'sessions_unsupported' => 'A gestão de sessões requer o driver de sessões em banco de dados do Laravel. Rode `php artisan session:table` e `php artisan migrate` para ativar.',
+    'sessions_unsupported_guards' => 'As sessões do navegador não estão disponíveis aqui: o aplicativo autentica usuários de mais de uma tabela (os deste painel e os de outro guard), e o Laravel armazena o id do usuário de cada sessão sem a tabela, então esta lista poderia mostrar ou encerrar sessões de outra pessoa.',
     'sessions_current_badge' => 'Este dispositivo',
     'sessions_unknown_ip' => 'IP desconhecido',
     'sessions_revoke' => 'Revogar sessão',

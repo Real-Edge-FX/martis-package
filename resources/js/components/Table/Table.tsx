@@ -10,6 +10,7 @@ import { ResourceIcon } from "@/components/ResourceIcon"
 import { useTranslation } from "react-i18next"
 import { useState, useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
+import { useEscapeLayer } from "@/lib/escapeLayers"
 
 export interface TableColumn {
   field: FieldDefinition
@@ -332,13 +333,13 @@ export function InlineActionMenu({
       if (target.closest("[data-action-submenu]")) return
       setOpen(false)
     }
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") { setOpen(false); btnRef.current?.focus() }
-    }
     document.addEventListener("mousedown", handleClick)
-    document.addEventListener("keydown", handleKey)
-    return () => { document.removeEventListener("mousedown", handleClick); document.removeEventListener("keydown", handleKey) }
+    return () => { document.removeEventListener("mousedown", handleClick) }
   }, [open])
+
+  // Escape closes the menu only (not a drawer the table is in) and gives
+  // the focus back to its button.
+  useEscapeLayer(open, () => { setOpen(false); btnRef.current?.focus() })
 
   // Opening the menu moves the focus into it, on its first item.
   useEffect(() => {

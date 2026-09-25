@@ -439,7 +439,7 @@ it('updates the record the card shows', function (string $resource, string $path
     $url = "/martis/api/resources/{$resource}/{$this->parent->id}/{$path}";
 
     $this->getJson($url)->assertStatus(200)->assertJsonPath('data.title', $shown);
-    $this->putJson($url, ['title' => 'Renamed'])->assertStatus(200)->assertJsonPath('data.title', 'Renamed');
+    $this->putJson(cardWriteUrl($url), ['title' => 'Renamed'])->assertStatus(200)->assertJsonPath('data.title', 'Renamed');
 
     $expected = array_map(fn (array $row) => $row[0] === $shown ? 'Renamed' : $row[0], $rows);
     expect(omwTitles($storage))->toBe($expected);
@@ -450,7 +450,7 @@ it('deletes the record the card shows', function (string $resource, string $path
     $url = "/martis/api/resources/{$resource}/{$this->parent->id}/{$path}";
 
     $this->getJson($url)->assertStatus(200)->assertJsonPath('data.title', $shown);
-    $this->deleteJson($url)->assertStatus(200);
+    $this->deleteJson(cardWriteUrl($url))->assertStatus(200);
 
     $expected = array_values(array_filter(array_map(fn (array $row) => $row[0], $rows), fn (string $title) => $title !== $shown));
     expect(omwTitles($storage))->toBe($expected);
@@ -488,10 +488,10 @@ it('shows, updates and deletes the record of a one-of-many declared on a through
         ->assertJsonPath('data.title', 'A-New')
         ->assertJsonPath('data.id', $aNew);
 
-    $this->putJson($url, ['title' => 'Renamed'])->assertStatus(200);
+    $this->putJson(cardWriteUrl($url), ['title' => 'Renamed'])->assertStatus(200);
     expect(DB::table('omw_projects')->orderBy('id')->pluck('title')->all())->toBe(['B-One', 'B-Two', 'B-Three', 'A-Old', 'Renamed']);
 
-    $this->deleteJson($url)->assertStatus(200);
+    $this->deleteJson(cardWriteUrl($url))->assertStatus(200);
     expect(DB::table('omw_projects')->orderBy('id')->pluck('title')->all())->toBe(['B-One', 'B-Two', 'B-Three', 'A-Old']);
 });
 
@@ -501,8 +501,8 @@ it('checks the policy on the record the card shows', function () use ($older, $n
     omwSeed($this->parent, 'notes', [['Old', $older, 1], ['New', $newer, 2]]);
     $url = "/martis/api/resources/omw-latest-parents/{$this->parent->id}/has-one/notes";
 
-    $this->putJson($url, ['title' => 'Renamed'])->assertStatus(403);
-    $this->deleteJson($url)->assertStatus(403);
+    $this->putJson(cardWriteUrl($url), ['title' => 'Renamed'])->assertStatus(403);
+    $this->deleteJson(cardWriteUrl($url))->assertStatus(403);
 
     expect(omwTitles('notes'))->toBe(['Old', 'New']);
 });
@@ -512,10 +512,10 @@ it('breaks a timestamp tie on the primary key, the same way for show, update and
     $url = "/martis/api/resources/{$resource}/{$this->parent->id}/{$path}";
 
     $this->getJson($url)->assertStatus(200)->assertJsonPath('data.title', $shown);
-    $this->putJson($url, ['title' => 'Renamed'])->assertStatus(200);
+    $this->putJson(cardWriteUrl($url), ['title' => 'Renamed'])->assertStatus(200);
     expect(omwTitles($storage))->toBe(array_map(fn (string $t) => $t === $shown ? 'Renamed' : $t, ['First', 'Second']));
 
-    $this->deleteJson($url)->assertStatus(200);
+    $this->deleteJson(cardWriteUrl($url))->assertStatus(200);
     expect(omwTitles($storage))->toBe(array_values(array_filter(['First', 'Second'], fn (string $t) => $t !== $shown)));
 })->with([
     'has-one latest keeps the newest id' => ['omw-latest-parents', 'has-one/notes', 'notes', 'Second'],
@@ -530,7 +530,7 @@ it('lets a logged-in user with the policy write the record the card shows', func
     omwSeed($this->parent, 'notes', [['Old', $older, 1], ['New', $newer, 2]]);
     $url = "/martis/api/resources/omw-latest-parents/{$this->parent->id}/has-one/notes";
 
-    $this->putJson($url, ['title' => 'Renamed'])->assertStatus(200);
+    $this->putJson(cardWriteUrl($url), ['title' => 'Renamed'])->assertStatus(200);
     expect(omwTitles('notes'))->toBe(['Old', 'Renamed']);
 });
 

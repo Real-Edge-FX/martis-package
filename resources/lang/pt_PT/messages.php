@@ -154,6 +154,7 @@ return [
     'server_error' => 'Ocorreu um erro inesperado no servidor.',
     'ofmany_total_count' => ':count registos no total',
     'ofmany_n_of_total' => ':n de :total',
+    'ofmany_aggregate_column' => 'Coluna agregada: :column',
     'has_one_empty' => 'Nenhum registo relacionado existe ainda.',
     'has_one_create' => 'Criar registo relacionado',
     'has_one_edit' => 'Editar registo relacionado',
@@ -318,4 +319,9 @@ return [
     'errors_payload_too_large' => 'O ficheiro que carregou é demasiado grande para o servidor aceitar. Tente uma imagem mais pequena.',
     'errors_session_expired' => 'A sua sessão expirou. Inicie sessão novamente.',
     'errors_server_unavailable' => 'O servidor está temporariamente indisponível. Tente daqui a um instante.',
+
+    // A write on a one-record card (has-one, morph-one) names the record
+    // it shows: missing (422), or another record took its place (409).
+    'card_related_id_required' => 'O id do registo que o cartão mostra é obrigatório (relatedId).',
+    'card_record_changed' => 'O registo mudou desde que o cartão carregou; recarregue para o ver.',
 ];

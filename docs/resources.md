@@ -1,6 +1,6 @@
 # Resources — Complete Reference
 
-The `Resource` class is the core building block of Martis. Each resource maps to an Eloquent model and defines its CRUD interface, fields, authorization, and behavior.
+The `Resource` class is the core building block of Martis, and each resource maps to the Eloquent model you administer through it. It defines the model's CRUD interface, fields, authorization, and behavior.
 
 ## Creating a Resource
 
@@ -604,7 +604,7 @@ Static query hooks wrap every Eloquent query built by Martis for this resource. 
 
 ### indexQuery()
 
-Constrains every index listing query. The canonical place for multi-tenancy, ownership scoping, or any other structural filter that must apply to every listing, export, and lens built on top of this resource.
+Constrains the index listing query and the queries Martis builds like it: the count badge, the global search (its results and `total`), the records an action runs on, and the parent record of a `BelongsToMany` panel and of the pivot routes. The canonical place for multi-tenancy, ownership scoping, or any other structural filter. The declarative [`scopes()`](authorization.md#declarative-query-scopes) run first wherever it runs. A lens owns its query, as in Nova, so repeat such a filter in the lens's `query()`; the relationship pickers use `relatableQuery()` below.
 
 ```php
 public static function indexQuery(Request $request, Builder $query): Builder
@@ -615,11 +615,19 @@ public static function indexQuery(Request $request, Builder $query): Builder
 
 Override when: you need a global constraint on the index that is *not* a user-configurable filter (filters are opt-in; `indexQuery()` is always applied).
 
+**Relationship panels apply it too (v2.0).** A `HasMany`, `HasManyThrough`, `MorphMany`, `BelongsToMany` or `MorphToMany` panel that lists this resource on another resource's detail page applies its `scopes()` and `indexQuery()`, in the index's order, so a row the index hides is hidden there too (and out of the panel's count and search); so do the relationship counts (`showOnIndex()` columns, the one-of-many "1 of N"). Nova does the same: its relationship index runs the related resource's `indexQuery()` ([nova-issues#971](https://github.com/laravel/nova-issues/issues/971), [#3655](https://github.com/laravel/nova-issues/issues/3655), [#337](https://github.com/laravel/nova-issues/issues/337)), not its `relatableQuery()`, which only feeds the pickers ([docs](https://nova.laravel.com/docs/v5/resources/authorization#relatable-filtering), [#909](https://github.com/laravel/nova-issues/issues/909)).
+
+Write the hooks for this resource's own index query; Martis keeps them there:
+
+- On a plain `HasMany` / `MorphMany` panel they run on the panel's query as an Eloquent scope, so what they add is grouped, a leading `orWhere()` included (it reads as `and`, as on the index): an `orWhere()` cannot widen the panel to another parent's rows (the Nova issue #3655 describes). Their order and select aliases stay; their order comes before the panel's `?sort=`, as on the index. A hook that joins must select its table's columns (`$query->select('comments.*')->join(...)`), as the index already needs. A search on such a panel, as on the index, fails (500) when the joined table has a column of the same name as one the search reads: qualify it in the join, or select only what the index needs.
+- On a Through or pivot panel, and for every count, they run on a fresh query of this model, and the panel keeps the rows whose key they return. A `select()`, a join (to the parent, the pivot or the intermediate table) or an unqualified column works as on the index; the hooks' order and aliases do not reach those rows (a panel cannot sort by an alias only the hook adds), the key subquery costs little: a 100-row page of a parent index counting 100,000 related rows ran 2 queries in 20-40 ms on MySQL and 9-10 ms on PostgreSQL, where the per-row counts before v2.0 ran 302 queries in 240-370 ms and 560-980 ms.
+- To tell a panel from the index, read `$request->route('relationship')`: it is set on a relationship panel's own request. The counts a parent's index or detail page shows run in that page's request, where it is not set.
+
 Source: `src/Resource.php::indexQuery()`.
 
 ### relatableQuery()
 
-Constrains the query used to list candidate records in every relationship picker that targets this resource: BelongsTo dropdowns, the context-free relatable form, and the BelongsToMany / MorphToMany attach pickers. It is the resource's own fence and always applies; a source resource's `relatable{PluralModelName}()` and a field's `relatableQueryUsing()` narrow on top of it, never replace it (see [Relationships → Relatable scoping precedence](relationships.md#relatable-scoping-precedence)). A resource that confines its index with `indexQuery()` on a model that cannot carry a global scope should declare the same predicate here so the fence holds on the pickers too.
+Constrains the query used to list candidate records in every relationship picker that targets this resource: BelongsTo dropdowns, the context-free relatable form, and the BelongsToMany / MorphToMany attach pickers. It is the resource's own fence and always applies; a source resource's `relatable{PluralModelName}()` and a field's `relatableQueryUsing()` narrow on top of it, never replace it (see [Relationships → Relatable scoping precedence](relationships.md#relatable-scoping-precedence)). A resource that confines its index with `indexQuery()` or `scopes()` on a model that cannot carry a global scope should declare the same predicate here so the fence holds on the pickers too: neither hook applies to a picker.
 
 ```php
 public static function relatableQuery(Request $request, Builder $query): Builder

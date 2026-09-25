@@ -5,11 +5,14 @@ namespace Martis\Console;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
+use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\ExtensionKey;
 use Martis\Stubs\StubResolver;
 
 class FieldMakeCommand extends Command
 {
+    use AsksOnlyOnATerminal;
+
     protected $signature = 'martis:field
         {name : The field class name (e.g. Rating)}
         {--force : Overwrite the TSX component if it already exists}';
@@ -108,8 +111,8 @@ class FieldMakeCommand extends Command
 
         if ($this->files->exists($path)) {
             if ($this->option('force') !== true) {
-                if (! $this->input->isInteractive() || $this->laravel->runningUnitTests()) {
-                    $this->components->warn("TSX component already exists: {$relative}");
+                if (! $this->canPrompt()) {
+                    $this->components->error("TSX component already exists: {$relative}");
                     $this->line('  Pass <fg=cyan>--force</> to overwrite.');
 
                     return false;

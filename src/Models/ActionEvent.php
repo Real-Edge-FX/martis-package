@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
+use Martis\Auth\GuardCatalog;
 
 /**
  * Eloquent model for the martis_action_events audit log.
@@ -65,16 +66,14 @@ class ActionEvent extends Model
     /**
      * The user who triggered the action.
      *
-     * Uses the configurable auth user model from Laravel.
+     * The model of the users the Martis guard signs in (MARTIS_GUARD's
+     * provider), who are the ones who run actions in the panel.
      *
      * @return BelongsTo<Model, $this>
      */
     public function user(): BelongsTo
     {
-        /** @var class-string<Model> $userModel */
-        $userModel = config('auth.providers.users.model', 'App\Models\User');
-
-        return $this->belongsTo($userModel, 'user_id');
+        return $this->belongsTo(GuardCatalog::martisUserModel(), 'user_id');
     }
 
     /**

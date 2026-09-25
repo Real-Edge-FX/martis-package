@@ -1,6 +1,6 @@
 # Fields in Tools
 
-Reuse any Martis Field — `Slug`, `Text`, `BelongsTo`, … — inside a custom Tool and get the exact same behaviour it has in a Resource form: slugify, generate-from-source, `dependsOn`, validation display, i18n, and theming, from one shared code path.
+Reuse any Martis Field, such as `Slug`, `Text` or `BelongsTo`, inside a custom Tool with the exact behaviour it has in a Resource form. Slugify, generate-from-source, `dependsOn`, validation display, i18n and theming all come from one shared code path.
 
 > **Status:** shipped in v1.20.0. Purely additive (semver-minor) — nothing on the base `Tool` class changes, existing Tools are unaffected, and the Resource create/update pages now render through the *same* harness this page exposes, so there is a single code path and no behaviour drift.
 
