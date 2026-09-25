@@ -545,9 +545,13 @@ abstract class MartisController extends Controller
             return;
         }
 
-        // Qualified: a relationship panel's query can join another table
-        // (hasManyThrough, a pivot) that has a column of the same name.
-        $query->orderBy($query->qualifyColumn($sort), SortDirection::fromQuery($request->query('direction'))->value);
+        // As written, not qualified: the column may be an alias the related
+        // model selects (withCount, addSelect), which no table has. A column a
+        // joined table shares (a hasManyThrough's intermediate, a pivot) is
+        // not ambiguous here: the panels paginate through the relation, which
+        // selects the related table's columns, and ORDER BY resolves a bare
+        // name against the select list first.
+        $query->orderBy($sort, SortDirection::fromQuery($request->query('direction'))->value);
     }
 
     /**
