@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\StubResolver;
 use Symfony\Component\Process\Process;
 
@@ -32,6 +33,8 @@ use Symfony\Component\Process\Process;
  */
 class SsoMakeCommand extends Command
 {
+    use AsksOnlyOnATerminal;
+
     protected $signature = 'martis:sso
                             {provider : Provider name (azure, google, github, or a custom name)}
                             {--with-spatie : Default the permission adapter to "spatie" + install spatie/laravel-permission if missing}
@@ -308,14 +311,15 @@ class SsoMakeCommand extends Command
      *   - the operator passed --with-spatie (so Spatie is the target),
      *   - AND `roles` table exists with at least one row,
      *   - AND `roles.{column}` column exists (migration has run),
-     *   - AND we're in interactive mode and not --no-map.
+     *   - AND the command can ask (a terminal: AsksOnlyOnATerminal) and not --no-map.
      */
     protected function shouldOfferRoleMapping(string $providerName): bool
     {
         if ($this->option('no-map')) {
             return false;
         }
-        if (! $this->input->isInteractive() || app()->runningUnitTests()) {
+        // On a pipe the mapping questions would read it or wait forever.
+        if (! $this->canPrompt()) {
             return false;
         }
 

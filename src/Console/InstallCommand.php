@@ -5,11 +5,14 @@ namespace Martis\Console;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
+use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\StubResolver;
 use RuntimeException;
 
 class InstallCommand extends Command
 {
+    use AsksOnlyOnATerminal;
+
     protected $signature = 'martis:install
                             {--force : Overwrite the extension scaffold (vite config, both extension tsconfig files, shim files and their declarations, index entry), republish lang/vendor/martis and rewrite the published Martis migrations. Does NOT republish config/martis.php or app/Providers/MartisServiceProvider.php: pass --force-config and --force-provider for those.}
                             {--force-config : Republish config/martis.php, overwriting any consumer customisations. Separated from --force so refreshing the extension scaffold does not destroy the host app config.}
@@ -70,15 +73,9 @@ class InstallCommand extends Command
      */
     protected function resolveInstallOptions(): array
     {
-        // Two-layer interactivity gate. The Symfony default
-        // `$this->input->isInteractive()` is true unless the operator
-        // passed `--no-interaction`, but docker-compose / CI pipes
-        // routinely strip the TTY without setting that flag. When that
-        // happens, `confirm(..., true)` silently returns the destructive
-        // default ("yes, alter the host users table"). Treat the command
-        // as truly interactive only when BOTH Symfony agrees AND stdin
-        // is an actual TTY. Tests stay in non-interactive land via the
-        // runningUnitTests() escape hatch.
+        // Ask only on a terminal (AsksOnlyOnATerminal): a pipe or CI step
+        // without --no-interaction would otherwise take `confirm()`'s
+        // default ("yes, alter the host users table") or read the pipe.
         $interactive = $this->canPrompt();
 
         // Explicit flags win over everything. --no-* trumps --with-* so
@@ -183,50 +180,6 @@ class InstallCommand extends Command
             'two_factor_enabled' => $twoFactorEnabled,
             'sessions_enabled' => $sessionsEnabled,
         ];
-    }
-
-    /**
-     * True only when stdin is a real TTY. `docker compose exec -T` and
-     * piped CI invocations strip the PTY without passing
-     * `--no-interaction`, so Symfony's `$input->isInteractive()` alone
-     * is unreliable for "should I block on a prompt?". Falling back to
-     * `posix_isatty()` when `stream_isatty()` is unavailable keeps the
-     * detection working on older or non-POSIX runtimes.
-     */
-    /**
-     * Whether the command may ask a question: Symfony says the input is
-     * interactive AND stdin is a real TTY, outside the unit tests. A piped
-     * stdin (`yes | php artisan martis:install`, `docker compose exec -T`)
-     * is not a TTY: asking there reads the pipe (`y` became the avatar
-     * column) or waits forever, so every prompt takes its default instead.
-     */
-    protected function canPrompt(): bool
-    {
-        return $this->input->isInteractive()
-            && ! $this->insideUnitTests()
-            && $this->stdinIsTty();
-    }
-
-    protected function insideUnitTests(): bool
-    {
-        return app()->runningUnitTests();
-    }
-
-    protected function stdinIsTty(): bool
-    {
-        if (! defined('STDIN')) {
-            return false;
-        }
-
-        if (function_exists('stream_isatty')) {
-            return @stream_isatty(STDIN);
-        }
-
-        if (function_exists('posix_isatty')) {
-            return @posix_isatty(STDIN);
-        }
-
-        return false;
     }
 
     /**
@@ -532,7 +485,7 @@ class InstallCommand extends Command
             return $this->sanitizeColumnName((string) $value);
         }
 
-        throw new RuntimeException('The --existing-avatar-column option requires --avatar-column=<column_name> in non-interactive mode.');
+        throw new RuntimeException('The --existing-avatar-column option requires --avatar-column=<column_name> when the command runs without a terminal (no TTY or --no-interaction).');
     }
 
     /**
@@ -642,9 +595,15 @@ class InstallCommand extends Command
     /**
      * Migration names Laravel's own generators also use
      * (`make:notifications-table`, `make:session-table`): an existing file
-     * under one of them may be the application's, not Martis's.
+     * under one of them may be the application's, not Martis's. Each maps
+     * to a sentence only the Martis stub's header has.
      */
-    private const SHARED_MIGRATION_NAMES = ['create_notifications_table', 'create_sessions_table'];
+    private const SHARED_MIGRATION_MARKERS = [
+        // In the header of `create_martis_notifications_table.php.stub` since v0.8.0-beta.
+        'create_notifications_table' => 'Martis in-app notifications table.',
+        // In the header of `create_sessions_table.php.stub` since v1.30.0.
+        'create_sessions_table' => 'Martis ships a "Browser sessions" profile section',
+    ];
 
     protected function publishMigrationStub(string $stubPath, string $migrationName, ?callable $transform = null): void
     {
@@ -664,11 +623,12 @@ class InstallCommand extends Command
         }
 
         // --force rewrites only a migration Martis published: under a name
-        // Laravel's generators share, a file that is not Martis's (its stubs
-        // say "Martis" in their header since v1.30) is the application's,
-        // and stays as it is.
-        if ($existing !== [] && in_array($migrationName, self::SHARED_MIGRATION_NAMES, true)
-            && ! str_contains((string) file_get_contents($existing[0]), 'Martis')) {
+        // Laravel's generators share, a file without the sentence of the
+        // Martis stub's header is the application's (a comment that merely
+        // mentions Martis does not make it Martis's), and stays as it is.
+        $marker = self::SHARED_MIGRATION_MARKERS[$migrationName] ?? null;
+        if ($existing !== [] && $marker !== null
+            && ! str_contains((string) file_get_contents($existing[0]), $marker)) {
             $this->components->twoColumnDetail('<fg=yellow>Skipping</> migration', "{$migrationName} belongs to the application (not published by Martis)");
 
             return;

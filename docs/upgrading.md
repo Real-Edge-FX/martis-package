@@ -95,6 +95,16 @@ The `schema` cache layer now expires after a day by default (`MARTIS_CACHE_SCHEM
 
 See [Cache → Invalidation](cache.md#invalidation).
 
+### `martis:install` asks only on a terminal
+
+`martis:install` (and `martis:sso`'s role mapping) asks a question only when the input is interactive **and** stdin is a real TTY. Through a pipe or `docker compose exec -T` every question takes its default: optional features you pass no flag for stay off, the avatar column is `profile_picture`, and `--existing-avatar-column` needs `--avatar-column`. Before v2.0 the avatar column questions read the pipe, and `--force` rewrote any `*_create_notifications_table.php` / `*_create_sessions_table.php`, the application's own included.
+
+**What to check:**
+
+1. **A `users.y` column.** `yes | php artisan martis:install --with-profile` answered `y` to the avatar column question: look for a migration adding `y` to `users` in `database/migrations` and `MARTIS_AVATAR_COLUMN=y` in `.env`. Roll the migration back (or drop the column), delete it, set `MARTIS_AVATAR_COLUMN` to the column you want and run the installer again with `--avatar-column=<column>`.
+2. **Your own notifications or sessions migration.** If you ran `martis:install --force` over a migration you created with `make:notifications-table` or `make:session-table`, it now holds the Martis stub: compare it with your version control and restore it. `--force` leaves it alone from v2.0.
+3. **Scripts that relied on a prompt.** Pass the flags (`--with-profile`, `--with-2fa`, `--avatar-column=…`) instead.
+
 ### Deploying the upgrade
 
 Run these in each environment, after the code with the flipped arrays is deployed there, in this order:

@@ -156,6 +156,7 @@ return [
     'server_error' => 'An unexpected server error occurred.',
     'ofmany_total_count' => ':count records total',
     'ofmany_n_of_total' => ':n of :total',
+    'ofmany_aggregate_column' => 'Aggregated column: :column',
     'has_one_empty' => 'No related record exists yet.',
     'has_one_create' => 'Create related record',
     'has_one_edit' => 'Edit related record',

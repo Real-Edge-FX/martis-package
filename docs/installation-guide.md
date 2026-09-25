@@ -122,7 +122,7 @@ If the column already exists on `users` and you do **not** want a migration:
 php artisan martis:install --with-profile --existing-avatar-column --avatar-column=avatar_path
 ```
 
-The installer only prompts when it runs interactively **and** STDIN is a real TTY, the avatar column question included. In CI, Docker setup scripts (`docker compose exec -T`), deployment hooks, a piped stdin (`yes | php artisan martis:install`) or an AI agent's shell there is no prompt: every optional feature you do not pass a flag for resolves to disabled, the avatar column is `profile_picture` unless you pass `--avatar-column`, and `--existing-avatar-column` needs `--avatar-column`. Before v2.0 the avatar column question read a piped answer (`yes |` created a column named `y`) or waited forever. The resolved values are also written to `.env` (`MARTIS_PROFILE_ENABLED`, `MARTIS_AVATAR_ENABLED`, `MARTIS_2FA_ENABLED`, `MARTIS_SHOW_PROFILE_MENU`) on every run, and a disabled value in the config wins over `--with-*` on the next run. Pass the flags explicitly:
+The installer only prompts when it runs interactively **and** STDIN is a real TTY, the avatar column question included. In CI, Docker setup scripts (`docker compose exec -T`), deployment hooks, a piped stdin (`yes | php artisan martis:install`) or an AI agent's shell there is no prompt: every optional feature you do not pass a flag for resolves to disabled, the avatar column is `profile_picture` unless you pass `--avatar-column`, and `--existing-avatar-column` needs `--avatar-column`. Before v2.0 the avatar column question read a piped answer (`yes |` created a column named `y`) or waited forever. The resolved values are also written to `.env` (`MARTIS_PROFILE_ENABLED`, `MARTIS_AVATAR_ENABLED`, `MARTIS_AVATAR_COLUMN`, `MARTIS_2FA_ENABLED`, `MARTIS_SHOW_PROFILE_MENU`) on every run, and a disabled value in the config wins over `--with-*` on the next run. Pass the flags explicitly:
 
 ```bash
 php artisan martis:install --force --no-interaction --with-profile --with-2fa
@@ -632,7 +632,7 @@ php artisan martis:install --force
 Know what else the installer changes before you use it on an app with customisations. With `--force`:
 
 - it republishes `lang/vendor/martis`, overwriting customised strings
-- it rewrites the migrations Martis published in place; an application's own `*_create_notifications_table.php` or `*_create_sessions_table.php` (from `make:notifications-table` / `make:session-table`) is left alone
+- it rewrites the migrations Martis published in place; an application's own `*_create_notifications_table.php` or `*_create_sessions_table.php` (from `make:notifications-table` / `make:session-table`) is left alone: a file counts as Martis's only when it holds a sentence of the Martis stub's header, not because it mentions Martis
 - it rewrites `resources/js/martis-extensions/index.ts`, manual `register()` calls included
 
 On every run, with or without `--force`:

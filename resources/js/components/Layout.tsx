@@ -170,63 +170,62 @@ export function Layout() {
 
   if (!user) return <Navigate to="/login" replace />
 
-  // Whole-shell override — honours both the PHP config key and the
-  // default `layout:shell` registry entry.
-  const shellConfigKey = config.layout?.components?.shell
-  // The global tooltip is mounted above the shell switch, so a custom
-  // shell's `data-pr-tooltip` attributes show tooltips as the presets' do.
-  if (shellConfigKey && componentRegistry.has(shellConfigKey)) {
-    const CustomShell = componentRegistry.resolve(shellConfigKey) as ComponentType
-    return (
-      <>
-        <MartisTooltip />
-        <CustomShell />
-      </>
-    )
-  }
-  if (componentRegistry.has("layout:shell")) {
-    const CustomShell = componentRegistry.resolve("layout:shell") as ComponentType
-    return (
-      <>
-        <MartisTooltip />
-        <CustomShell />
-      </>
-    )
-  }
-
-  // Resolve layout preset from config. `custom` means the app promises
-  // to register its own shell via `layout:shell` — we deliberately
-  // don't silently fall back to the bundled sidebar layout so the
-  // missing registration surfaces loudly instead of being masked.
-  const preset = config.layout?.preset ?? "sidebar"
-  if (preset === "custom") {
-    return (
-      <div className="martis-bg flex min-h-screen items-center justify-center p-6">
-        <div className="max-w-md rounded-lg border p-4 text-sm" style={{
-          borderColor: "var(--martis-danger)",
-          color: "var(--martis-text)",
-          backgroundColor: "var(--martis-danger-bg)",
-        }}>
-          <strong>Layout preset is <code>custom</code></strong> but no component
-          is registered under <code>layout:shell</code>. Register one via{" "}
-          <code>componentRegistry.register('layout:shell', MyShell)</code> in{" "}
-          <code>resources/js/martis/boot.ts</code>, or set{" "}
-          <code>config('martis.layout.components.shell')</code> to the key of
-          an existing component.
-        </div>
-      </div>
-    )
-  }
-  const LayoutComponent = presets[preset] ?? SidebarLayout
-
+  // The global tooltip is mounted once, above the shell switch, so every
+  // shell (a preset, a `layout:shell` override or the one the config key
+  // names) turns its `data-pr-tooltip` attributes into tooltips.
   return (
     <>
       <MartisTooltip />
-      {/* Mounted here (not inside a preset) so every built-in layout
-          preset — sidebar / topnav / minimal — gets the in-flight
-          navigation indicator. Custom shells own their own chrome. */}
-      <NavigationProgress />
-      <LayoutComponent />
+      {renderShell()}
     </>
   )
+
+  function renderShell() {
+    // Whole-shell override — honours both the PHP config key and the
+    // default `layout:shell` registry entry.
+    const shellConfigKey = config.layout?.components?.shell
+    if (shellConfigKey && componentRegistry.has(shellConfigKey)) {
+      const CustomShell = componentRegistry.resolve(shellConfigKey) as ComponentType
+      return <CustomShell />
+    }
+    if (componentRegistry.has("layout:shell")) {
+      const CustomShell = componentRegistry.resolve("layout:shell") as ComponentType
+      return <CustomShell />
+    }
+
+    // Resolve layout preset from config. `custom` means the app promises
+    // to register its own shell via `layout:shell` — we deliberately
+    // don't silently fall back to the bundled sidebar layout so the
+    // missing registration surfaces loudly instead of being masked.
+    const preset = config.layout?.preset ?? "sidebar"
+    if (preset === "custom") {
+      return (
+        <div className="martis-bg flex min-h-screen items-center justify-center p-6">
+          <div className="max-w-md rounded-lg border p-4 text-sm" style={{
+            borderColor: "var(--martis-danger)",
+            color: "var(--martis-text)",
+            backgroundColor: "var(--martis-danger-bg)",
+          }}>
+            <strong>Layout preset is <code>custom</code></strong> but no component
+            is registered under <code>layout:shell</code>. Register one via{" "}
+            <code>componentRegistry.register('layout:shell', MyShell)</code> in{" "}
+            <code>resources/js/martis/boot.ts</code>, or set{" "}
+            <code>config('martis.layout.components.shell')</code> to the key of
+            an existing component.
+          </div>
+        </div>
+      )
+    }
+    const LayoutComponent = presets[preset] ?? SidebarLayout
+
+    return (
+      <>
+        {/* Mounted here (not inside a preset) so every built-in layout
+            preset — sidebar / topnav / minimal — gets the in-flight
+            navigation indicator. Custom shells own their own chrome. */}
+        <NavigationProgress />
+        <LayoutComponent />
+      </>
+    )
+  }
 }
