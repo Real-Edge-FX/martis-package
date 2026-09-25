@@ -64,6 +64,15 @@ function answerWithRecord(id: number, title: string) {
   })
 }
 
+function answerWithoutRecord() {
+  apiGetMock.mockImplementation((path: string) => {
+    if (path === '/api/resources/profiles/schema') {
+      return Promise.resolve({ data: { fieldsForDetail: [titleField], singularLabel: 'Profile' } })
+    }
+    return Promise.resolve({ data: null, meta: {}, links: [] })
+  })
+}
+
 function renderCard(field: FieldDefinition) {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -120,6 +129,33 @@ describe.each([
     expect(await screen.findByText('The record changed since the card loaded; reload to see it.')).toBeTruthy()
     await waitFor(() => expect(cardPaths().length).toBeGreaterThan(loadsBefore))
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it.each([
+    ['the empty state\'s Create button', false],
+    ['the card title, when the card offers no Create', true],
+  ])('gives the focus to %s once the deleted record is gone', async (_target, hideCreate) => {
+    answerWithRecord(7, 'Shown profile')
+    apiDeleteMock.mockImplementation(async () => {
+      answerWithoutRecord()
+      return { data: null }
+    })
+    const field = card(type, metaKey) as unknown as Record<string, Record<string, unknown>>
+    field[metaKey].hideCreateButton = hideCreate
+    renderCard(field as unknown as FieldDefinition)
+    await screen.findByText('Shown profile')
+
+    const opener = await screen.findByRole('button', { name: 'Delete' })
+    opener.focus()
+    await confirmDelete()
+
+    await screen.findByText(/No related record exists yet/)
+    await waitFor(() => {
+      const expected = hideCreate
+        ? screen.getByRole('heading', { name: 'Profile card' })
+        : screen.getByRole('button', { name: /Create/ })
+      expect(document.activeElement).toBe(expected)
+    })
   })
 
   it('names the record shown when Delete was clicked, even if a refetch swapped it while the modal was open', async () => {

@@ -278,16 +278,21 @@ class MorphOneController extends MartisController
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
         }
 
+        // A write named for another record than the one the relationship
+        // holds now answers 409 before the policy, which is that record's.
+        if ($conflict = $this->oneRecordTargetConflict($request, $relatedModel)) {
+            return $conflict;
+        }
+
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
-        // Authorized first, as on the record's own page: a user who may not
-        // write the record learns nothing from the id check (403, not 422/409).
         if (! $relatedInstance->authorizedToUpdate($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        if ($mismatch = $this->oneRecordTargetMismatch($request, $relatedModel)) {
-            return $mismatch;
+        // The id is required, after the policy: a denied user gets the 403.
+        if ($missing = $this->oneRecordTargetMissing($request)) {
+            return $missing;
         }
 
         // A field hidden for the related record (canSeeForModel()) is neither
@@ -367,16 +372,21 @@ class MorphOneController extends MartisController
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
         }
 
+        // A write named for another record than the one the relationship
+        // holds now answers 409 before the policy, which is that record's.
+        if ($conflict = $this->oneRecordTargetConflict($request, $relatedModel)) {
+            return $conflict;
+        }
+
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
-        // Authorized first, as on the record's own page: a user who may not
-        // write the record learns nothing from the id check (403, not 422/409).
         if (! $relatedInstance->authorizedToDelete($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        if ($mismatch = $this->oneRecordTargetMismatch($request, $relatedModel)) {
-            return $mismatch;
+        // The id is required, after the policy: a denied user gets the 403.
+        if ($missing = $this->oneRecordTargetMissing($request)) {
+            return $missing;
         }
 
         try {

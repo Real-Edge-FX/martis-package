@@ -199,15 +199,32 @@ abstract class MartisController extends Controller
     }
 
     /**
-     * The answer to a write on a one-record card (`has-one`, `morph-one`)
-     * aimed at another record than the one the relationship holds now, or
-     * `null` when it is aimed at `$current`. The card sends the id of the
-     * record it shows (`?relatedId=`), as a write on the record's own page
-     * does: a record created or replaced after the card loaded (a newer
-     * one-of-many record, a swapped `HasOne`) is never the one written
-     * instead. 422 without the id, 409 when it is not `$current`'s.
+     * The 409 for a write on a one-record card (`has-one`, `morph-one`)
+     * that names (`?relatedId=`) another record than `$current`, the one
+     * the relationship holds now, or `null`. The card sends the id of the
+     * record it shows, as a write on the record's own page does: a record
+     * created or replaced after the card loaded (a newer one-of-many
+     * record, a swapped `HasOne`) is never the one written instead. It runs
+     * before the policy, which is `$current`'s: the request was for
+     * another record, so a 403 would be about the wrong one.
      */
-    protected function oneRecordTargetMismatch(Request $request, Model $current): ?IlluminateJsonResponse
+    protected function oneRecordTargetConflict(Request $request, Model $current): ?IlluminateJsonResponse
+    {
+        $shown = $request->query('relatedId');
+
+        if (is_scalar($shown) && (string) $shown !== '' && (string) $current->getKey() !== (string) $shown) {
+            return JsonErrorResponse::conflict($this->translatedMessage('martis::messages.card_record_changed'))->toResponse();
+        }
+
+        return null;
+    }
+
+    /**
+     * The 422 for a write on a one-record card that names no record, or
+     * `null`. It runs after the policy: a user who may not write the
+     * record gets the 403 whether or not the id is there.
+     */
+    protected function oneRecordTargetMissing(Request $request): ?IlluminateJsonResponse
     {
         $shown = $request->query('relatedId');
 
@@ -215,10 +232,6 @@ abstract class MartisController extends Controller
             $message = $this->translatedMessage('martis::messages.card_related_id_required');
 
             return JsonErrorResponse::validation(['relatedId' => [$message]], $message)->toResponse();
-        }
-
-        if ((string) $current->getKey() !== (string) $shown) {
-            return JsonErrorResponse::conflict($this->translatedMessage('martis::messages.card_record_changed'))->toResponse();
         }
 
         return null;

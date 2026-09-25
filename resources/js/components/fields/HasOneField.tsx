@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToastSafe } from '@/contexts/ToastContext'
 import { NestedParentProvider, useRelationParent } from './NestedParentContext'
@@ -88,6 +88,12 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
   // modal is open (window focus, another card's write) may swap the record
   // under it, and the confirm must still name the one the user saw.
   const [deleteTarget, setDeleteTarget] = useState<string | number | null>(null)
+  // After a delete, the Delete button that opened the modal is gone once
+  // the card reloads: the focus goes to the empty state's Create button,
+  // else the card's title, instead of falling to the page body.
+  const focusAfterDelete = useRef(false)
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const createRef = useRef<HTMLButtonElement>(null)
 
   // Fetch related resource schema for field definitions
   const schemaQuery = useQuery({
@@ -123,6 +129,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
         `/api/resources/${parentResource}/${parentId}/has-one/${relationship}?relatedId=${encodeURIComponent(String(shownId))}`
       ),
     onSuccess: () => {
+      focusAfterDelete.current = true
       void qc.invalidateQueries({ queryKey: ['has-one', parentResource, parentId, relationship] })
       setDeleteTarget(null)
     },
@@ -137,6 +144,15 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
 
   const schema = schemaQuery.data?.data
   const record = recordQuery.data?.data ?? null
+
+  useEffect(() => {
+    if (!focusAfterDelete.current || recordQuery.isFetching) return
+    focusAfterDelete.current = false
+    const active = document.activeElement
+    if (active instanceof HTMLElement && active !== document.body && active.isConnected) return
+    const target = createRef.current ?? titleRef.current
+    target?.focus()
+  }, [record, recordQuery.isFetching])
   const relMeta = recordQuery.data?.meta
   const ofMany = relMeta?.ofMany
   const breadcrumb = relMeta?.throughBreadcrumb
@@ -193,7 +209,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
         style={{ borderBottom: '1px solid var(--martis-border)', backgroundColor: 'var(--martis-hover)' }}
       >
         <div className="flex items-baseline gap-2">
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--martis-text)' }}>
+          <h3 ref={titleRef} tabIndex={-1} className="text-sm font-semibold" style={{ color: 'var(--martis-text)' }}>
             {field.label}
           </h3>
           {/* ⭐ Martis differential — Latest-of-N pill on HasOne::ofMany */}
@@ -286,6 +302,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
             {showCreate && viaParams !== null && (
               <div className="mt-3">
                 <button
+                  ref={createRef}
                   type="button"
                   onClick={() =>
                     navigate(`/resources/${relatedResource}/create${viaParams}`)

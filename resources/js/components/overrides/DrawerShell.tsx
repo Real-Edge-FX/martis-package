@@ -232,7 +232,12 @@ export function DrawerShell({
   // Keyboard shortcuts
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') void handleClose()
+      if (e.key !== 'Escape') return
+      // A modal open over the drawer (a delete confirmation, an action,
+      // the unsaved-changes prompt) takes the Escape for itself: the same
+      // keystroke must not close the drawer underneath too.
+      if (getModalLockCount() > 0) return
+      void handleClose()
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)

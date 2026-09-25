@@ -88,7 +88,7 @@ A one-record card (`HasOne`, `HasOneOfMany`, `HasOneThrough`, `MorphOne`, `Morph
 
 ### A one-record card write names its record
 
-`PUT` and `DELETE` on `…/has-one/{relationship}` and `…/morph-one/{relationship}` need `?relatedId=` with the id of the record the client read from the card's `GET`: `422` without it, `409` when the relationship holds another record by then (nothing is written). The policy is checked first (`403` whatever the id). The Martis card sends it.
+`PUT` and `DELETE` on `…/has-one/{relationship}` and `…/morph-one/{relationship}` need `?relatedId=` with the id of the record the client read from the card's `GET`: `422` without it, `409` when the relationship holds another record by then (nothing is written). A stale id answers `409` before the policy is checked; a missing id answers `422` after it, so a denied user gets `403`. The Martis card sends it.
 
 **What to change:** an API client that calls those endpoints adds the id it read. A custom card component (one registered in place of the `HasOne` / `MorphOne` card) that edits or deletes through them sends `?relatedId=` with the id it showed, keeps that id from the click to the confirm (a refetch may swap the record meanwhile), and on a `409` reloads the card and shows the response's `message`.
 

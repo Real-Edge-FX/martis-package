@@ -298,17 +298,37 @@ it('answers 404, not the id check, to a write on a card whose record the user ma
     expect($record->fresh()?->title)->toBe('Private');
 })->with('rcv cards');
 
-it('authorizes a card write before it checks the id, so a denied user gets 403 first', function (string $path, string $relation) {
+it('answers 403 to a denied user whether or not the card names the record, and 409 to a stale id before the policy', function (string $path, string $relation) {
     $record = $this->parent->{$relation}()->create(['title' => 'Locked', 'written_at' => now()]);
 
-    // Without the id (422 otherwise), with another (409 otherwise), with its own.
-    foreach (['', '?relatedId=999', '?relatedId='.$record->id] as $query) {
+    // Without the id (422 otherwise) and with its own: the policy answers.
+    foreach (['', '?relatedId='.$record->id] as $query) {
         $this->putJson(rcvCard($path).$query, ['title' => 'Renamed'])->assertStatus(403);
         $this->deleteJson(rcvCard($path).$query)->assertStatus(403);
     }
+    // Another id: the request was for another record, and the policy is
+    // this one's, so the answer is the conflict.
+    $this->putJson(rcvCard($path).'?relatedId=999', ['title' => 'Renamed'])->assertStatus(409);
+    $this->deleteJson(rcvCard($path).'?relatedId=999')->assertStatus(409);
 
     expect($record->fresh()?->title)->toBe('Locked');
 })->with('rcv cards');
+
+it('answers 409, not the new record\'s 403, once a record the user may not write took the shown one\'s place', function (string $path, string $relation, string $change, string $method) {
+    $shown = $this->parent->{$relation}()->create(['title' => 'Shown', 'written_at' => now()->subHour()]);
+    $url = cardWriteUrl(rcvCard($path));
+
+    if ($change === 'replace') {
+        $shown->delete();
+    }
+    $locked = $this->parent->{$relation}()->create(['title' => 'Locked', 'written_at' => now()]);
+
+    $this->{$method}($url, ['title' => 'Written'])
+        ->assertStatus(409)
+        ->assertJsonPath('message', 'The record changed since the card loaded; reload to see it.');
+
+    expect($locked->fresh()->title)->toBe('Locked');
+})->with('rcv changed cards')->with(['putJson', 'deleteJson']);
 
 it('answers the id check in the app\'s locale', function () {
     $record = $this->parent->notes()->create(['title' => 'Shown', 'written_at' => now()]);

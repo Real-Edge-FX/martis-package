@@ -519,24 +519,29 @@ sends. When the relationship holds another record by then (a newer
 one-of-many record, a `HasOne` replaced, another record through a
 `HasOneThrough`) the write answers `409` (`The record changed since the card
 loaded; reload to see it.`) and touches nothing; the card reloads and shows
-the message. Without the id the write answers `422`. The policy is checked
-before the id, so a user who may not write the record gets `403` either way,
-and a record the user may not view answers `404` whatever id is sent. The
+the message. Without the id the write answers `422`. The checks run in this
+order: `404` when the user may not view the record the relationship holds
+(whatever id is sent), `409` when the id names another record (before the
+policy, which is the current record's: the request was for the other one),
+`403` when the policy denies the write, then `422` when the id is missing
+(so a denied user gets the `403` either way). The
 card keeps the id it showed when Delete was clicked: a reload while the
 confirmation is open (the window regaining focus) does not change which
 record the confirm names. Before v2.0 the write went to whatever record the
 relationship held at that moment, so a Delete could remove a record the user
 had not seen.
 
-Nova does the same on the request side and differs on the answer. Its
-`HasOne` panel is the related resource's detail component, and that
-component deletes through the resource endpoint, naming the id it shows
+Nova names the record too. Its `HasOne` panel is the related resource's
+detail component (the nova-dusk-suite `HasOneAuthorizationTest` drives the
+panel as that resource's detail view,
+[laravel/nova-dusk-suite](https://github.com/laravel/nova-dusk-suite)), and
+its delete request names the record alone, not the relationship
 (`DELETE /nova-api/{resource}?resources[]={id}`,
 [laravel/nova-issues#6364](https://github.com/laravel/nova-issues/issues/6364)),
-so Nova deletes the named record even when the relationship holds another one
-by then. Martis names it too, and answers `409` in that case instead: the
-record is no longer the one the card stands for, and the user sees the
-current one before deciding.
+so the server has no relationship to compare it with. Martis's request names
+the relationship and the record, and answers `409` when they no longer
+match: the record is not the one the card stands for any more, and the user
+sees the current one before deciding.
 
 **A `HasOne` or `MorphOne` takes one record.** Creating a second one through
 the card's endpoint answers `422` (`The HasOne relationship has already been
