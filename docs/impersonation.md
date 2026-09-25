@@ -33,7 +33,7 @@ When the master switch is off, every endpoint returns **503**. When the gate den
 | Key | Default | Purpose |
 |---|---|---|
 | `enabled` | `false` | Master switch. |
-| `guard` | `web` | Auth guard the impersonation operates on. Most apps stay on `web`. |
+| `guard` | `null` (the Martis guard) | Auth guard the impersonation operates on: the operator and the target are users of that guard. Unset, it follows `MARTIS_GUARD` (v2.0.0+; it was `web`). With a custom Martis guard that means another admin; to impersonate the users of the site's guard, set it to that guard, on which the operator must then be signed in too. |
 | `session_key` | `martis.impersonation` | Session bag where the operator's id is stashed. Change it for cross-tenant isolation. |
 | `max_duration_minutes` | `0` (disabled) | Auto-stop the session after N minutes of impersonation. The `martis.impersonation.duration` middleware (registered automatically on every protected Martis route) compares `started_at` against `now()` and calls `stop()` when the window has elapsed. Use it to prevent forgotten impersonations from leaking access. v1.8.8. |
 

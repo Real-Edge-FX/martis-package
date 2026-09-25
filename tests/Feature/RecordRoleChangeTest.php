@@ -205,3 +205,19 @@ it('registers itself against the four Spatie event classes when registerRoleAudi
         expect($hasRecorder)->toBeTrue("No listener registered for {$event}");
     }
 });
+
+it('records the Martis guard user as the actor, and no actor for a user of another guard', function () {
+    config()->set('auth.guards.admin', ['driver' => 'session', 'provider' => 'users']);
+    config()->set('martis.guard', 'admin');
+    $target = RoleChangeTestUser::create(['email' => 'target@example.com']);
+
+    // A site user (the default guard) changes a role: not a Martis user.
+    auth()->guard('web')->setUser((new Illuminate\Foundation\Auth\User)->forceFill(['id' => 5]));
+    (new RecordRoleChange)->record('role.attached', $target, [42]);
+
+    auth()->guard('admin')->setUser((new Illuminate\Foundation\Auth\User)->forceFill(['id' => 9]));
+    (new RecordRoleChange)->record('role.attached', $target, [43]);
+
+    expect(ActionEvent::query()->orderBy('id')->pluck('user_id')->all())->toBe([null, 9]);
+});
+

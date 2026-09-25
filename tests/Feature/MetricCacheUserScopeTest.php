@@ -155,3 +155,18 @@ it('caches nothing for an identifier the key cannot hold', function (string $met
 
     expect(UserScopedCountMetric::$calls)->toBe(2);
 })->with('metric cache paths, identifier agnostic');
+
+it('keeps a binary identifier to its user and a malformed filter off their entries', function (string $metricClass) {
+    $metric = $metricClass::make('Count');
+
+    // Bytes that are not valid UTF-8, as a BINARY(16) UUID key gives.
+    $metric->resolve(metricRequestForIdentifier("\xB1\x01"));
+    $metric->resolve(metricRequestForIdentifier("\xB1\x02"));
+
+    $forged = metricRequestForIdentifier('7');
+    $forged->query->set('filters', "\xB1");
+    $metric->resolve($forged);
+
+    expect(UserScopedCountMetric::$calls)->toBe(3);
+})->with('metric cache paths, identifier agnostic');
+

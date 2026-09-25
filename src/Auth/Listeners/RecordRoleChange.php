@@ -19,7 +19,8 @@ use Martis\Models\ActionEvent;
  * Off the shelf the Spatie events fire whenever a `HasRoles` model
  * calls `assignRole`, `removeRole`, `syncRoles`, `givePermissionTo`,
  * `revokePermissionTo`, etc. The Martis listener captures the
- * acting user (from `Auth::user()` if present), the affected target
+ * acting user (the one the Martis guard signed in, if any: the audit
+ * log's `user()` resolves that guard's model), the affected target
  * row, and the list of role / permission ids involved, and writes a
  * single `ActionEvent` row per dispatch.
  *
@@ -54,7 +55,10 @@ class RecordRoleChange
             return;
         }
 
-        $authUser = Auth::user();
+        // The Martis guard's user: ActionEvent::user() resolves that guard's
+        // model, so a change made by a user of another guard (the site's, a
+        // job's) records no actor rather than someone else's id.
+        $authUser = Auth::guard(config('martis.guard') ?: null)->user();
 
         ActionEvent::create([
             'batch_id' => (string) Str::uuid(),

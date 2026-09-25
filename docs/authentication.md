@@ -714,8 +714,6 @@ In `config/martis.php`:
 
 To use a separate guard for Martis:
 
-The panel then runs as that guard: `MartisAuthenticate` makes it the request's guard (v2.0.0+), so `$request->user()`, `auth()->user()`, the gates and the policies see the user it signed in, an instance of its provider's model. Type policies and gate closures for that model (or `Authenticatable`), give the model `Illuminate\Notifications\Notifiable` for the notification bell, and see [Upgrading → A custom Martis guard](upgrading.md#a-custom-martis-guard).
-
 ```php
 // config/auth.php
 'guards' => [
@@ -728,6 +726,8 @@ The panel then runs as that guard: `MartisAuthenticate` makes it the request's g
 // config/martis.php
 'guard' => 'martis',
 ```
+
+The panel then runs as that guard: `MartisAuthenticate` makes it the request's guard (v2.0.0+), so `$request->user()`, `auth()->user()`, the gates and the policies see the user it signed in, an instance of its provider's model. Type policies and gate closures for that model (or `Authenticatable`), give the model `Illuminate\Notifications\Notifiable` for the notification bell, and see [Upgrading → A custom Martis guard](upgrading.md#a-custom-martis-guard).
 
 ## User Profile
 

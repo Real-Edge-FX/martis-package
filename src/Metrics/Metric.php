@@ -280,7 +280,8 @@ abstract class Metric implements MetricContract
      * served to another. The user is the one the Martis guard signed in
      * (`MartisAuthenticate` makes it the request's guard), named by their
      * model class and identifier; guests share one entry. The segments are
-     * JSON-encoded, so a filter string cannot run into the user. Null, so
+     * serialized (length-prefixed, any bytes), so a filter string cannot run
+     * into the user and a binary identifier keeps its own entry. Null, so
      * the result is computed and not cached, when the identifier is not an
      * int, a string or Stringable. `$cachePerUser = false` leaves the user
      * out, for a metric whose value is the same for everyone.
@@ -296,7 +297,7 @@ abstract class Metric implements MetricContract
             $user = [$authenticated::class, (string) $id];
         }
 
-        return md5((string) json_encode([
+        return md5(serialize([
             $this->uriKey(),
             self::queryString($request, 'range', '30'),
             self::queryString($request, 'filters', ''),

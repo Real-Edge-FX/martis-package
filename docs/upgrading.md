@@ -118,4 +118,5 @@ Checklist for an app with `MARTIS_GUARD` set to its own guard:
 - Widen closures and policy methods type-hinted on the default user model, or check the instance.
 - Add `Illuminate\Notifications\Notifiable` to the Martis guard's model, or set `MARTIS_NOTIFICATIONS_ENABLED=false`.
 - Leave `MARTIS_IMPERSONATION_GUARD` unset (it follows `MARTIS_GUARD`), or set it to the same guard; a config file published before v2.0.0 has `'web'` as its default, so republish it or set the variable.
-- Rows the action log wrote before the upgrade with the default guard's ids now resolve through the Martis guard's model.
+- Rows the action log wrote before the upgrade with the default guard's ids now resolve through the Martis guard's model. From v2.0.0 a role change made outside the panel (by a site user, in a job) records no actor instead of that user's id, since the log's user is a Martis guard user.
+- Impersonation now acts on the Martis guard's users: the operator and the target are both, for instance, admins. To impersonate the site's users, set `MARTIS_IMPERSONATION_GUARD` to the site's guard, on which the operator must then be signed in too.
