@@ -36,6 +36,7 @@ use Martis\Fields\MorphToMany as MorphToManyField;
 use Martis\Fields\Repeater;
 use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\ResolvesPivotActions;
+use Martis\Http\Requests\LensRequest;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Lenses\Lens;
@@ -247,7 +248,7 @@ class ActionController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $models = $this->resolveModels($instance, $actionInstance, $request);
+        $models = $this->resolveModels($instance, $actionInstance, $request, $lens);
 
         if ($models instanceof IlluminateJsonResponse) {
             return $models;
@@ -385,7 +386,8 @@ class ActionController extends MartisController
      * An action that is not standalone and names no record is a 422.
      *
      * A standalone action runs on no record, whatever the request names. The
-     * records are looked up as the index lists them (see `indexRecords()`)
+     * records are looked up as the index lists them (see `indexRecords()`),
+     * on a lens route as the lens lists them (see `lensRecords()`),
      * or, with `viaResource`, `viaResourceId` and `viaRelationship`, as the
      * relationship panel that sends them lists them (see `panelRecords()`,
      * as Nova runs a panel's action through its relationship): an id the
@@ -393,7 +395,7 @@ class ActionController extends MartisController
      *
      * @return Collection<int, Model>|IlluminateJsonResponse
      */
-    private function resolveModels(Resource $resource, ActionContract $action, Request $request): Collection|IlluminateJsonResponse
+    private function resolveModels(Resource $resource, ActionContract $action, Request $request, ?Lens $lens = null): Collection|IlluminateJsonResponse
     {
         /** @var Collection<int, Model> $empty */
         $empty = new Collection;
@@ -401,7 +403,7 @@ class ActionController extends MartisController
         // The relationship a panel's run names is checked first, a
         // standalone action's too: it runs on no record, but may read the
         // parent the request names.
-        $via = $this->viaRelation($request, $resource);
+        $via = $lens === null ? $this->viaRelation($request, $resource) : null;
 
         if ($via instanceof IlluminateJsonResponse) {
             return $via;
@@ -429,7 +431,11 @@ class ActionController extends MartisController
         // Scoped before selecting by id: without it an action could resolve
         // and act on records outside the user's visible scope just by
         // passing their ids (IDOR).
-        $query = $via === null ? $this->indexRecords($request, $resource) : $this->panelRecords($request, $resource, $via);
+        $query = match (true) {
+            $lens !== null => $this->lensRecords($request, $resource, $lens),
+            $via === null => $this->indexRecords($request, $resource),
+            default => $this->panelRecords($request, $resource, $via),
+        };
 
         /** @var Collection<int, Model> $result */
         $result = $query->whereIn($query->getModel()->getQualifiedKeyName(), $ids)->get();
@@ -462,6 +468,48 @@ class ActionController extends MartisController
         if ($resource::softDeletes()) {
             $query->withoutGlobalScope(SoftDeletingScope::class);
         }
+
+        return $query;
+    }
+
+    /**
+     * The records a lens lists, as Nova's `LensActionRequest` reads them:
+     * the lens's `query()` run on a query of the resource's model, with the
+     * lens's filters (the ones the user may see, from the request's
+     * `?filters=`) and search. The resource's `scopes()` and `indexQuery()`
+     * do not apply, as they do not on the lens's page: the lens owns its
+     * query. The trashed records the lens lists are included, as on the
+     * index. The rows are read by key from the model's own table, so an
+     * action receives whole records even from a lens that selects
+     * aggregates or joins another table.
+     *
+     * @return Builder<Model>
+     */
+    private function lensRecords(Request $request, Resource $resource, Lens $lens): Builder
+    {
+        $modelClass = $resource::model();
+        /** @var Model $modelInstance */
+        $modelInstance = new $modelClass;
+
+        $base = $modelInstance->newQuery();
+        $query = $modelInstance->newQuery();
+
+        if ($resource::softDeletes()) {
+            $base->withoutGlobalScope(SoftDeletingScope::class);
+            $query->withoutGlobalScope(SoftDeletingScope::class);
+        }
+
+        $lensRequest = LensRequest::fromRequest($request, $this->collectAuthorizedFilters($lens, $resource, $request));
+        $listed = $lens->query($lensRequest, $base);
+
+        if (! $listed instanceof Builder) {
+            throw new \LogicException(sprintf(
+                '%s::query() must return an Eloquent query, not a paginator, for its actions to run: the records an action runs on are the ones the query lists.',
+                $lens::class,
+            ));
+        }
+
+        $query->whereIn($modelInstance->getQualifiedKeyName(), RelationScope::keys($listed));
 
         return $query;
     }
