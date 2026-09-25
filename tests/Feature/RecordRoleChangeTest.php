@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
 use Martis\Auth\Listeners\RecordRoleChange;
@@ -212,12 +213,11 @@ it('records the Martis guard user as the actor, and no actor for a user of anoth
     $target = RoleChangeTestUser::create(['email' => 'target@example.com']);
 
     // A site user (the default guard) changes a role: not a Martis user.
-    auth()->guard('web')->setUser((new Illuminate\Foundation\Auth\User)->forceFill(['id' => 5]));
+    auth()->guard('web')->setUser((new User)->forceFill(['id' => 5]));
     (new RecordRoleChange)->record('role.attached', $target, [42]);
 
-    auth()->guard('admin')->setUser((new Illuminate\Foundation\Auth\User)->forceFill(['id' => 9]));
+    auth()->guard('admin')->setUser((new User)->forceFill(['id' => 9]));
     (new RecordRoleChange)->record('role.attached', $target, [43]);
 
     expect(ActionEvent::query()->orderBy('id')->pluck('user_id')->all())->toBe([null, 9]);
 });
-

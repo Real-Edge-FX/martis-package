@@ -169,4 +169,3 @@ it('keeps a binary identifier to its user and a malformed filter off their entri
 
     expect(UserScopedCountMetric::$calls)->toBe(3);
 })->with('metric cache paths, identifier agnostic');
-
