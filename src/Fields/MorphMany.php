@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Martis\Enums\HasManyIndexDisplay;
 use Martis\Enums\HasManyRedirectMode;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
+use Martis\Fields\Concerns\CountsScopedRelation;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -30,6 +31,7 @@ use Martis\ResourceRegistry;
 class MorphMany extends Field
 {
     use ControlsRelationshipToolbar;
+    use CountsScopedRelation;
 
     /** Eloquent relationship method name on the parent model. */
     protected string $relationship;
@@ -342,7 +344,7 @@ class MorphMany extends Field
         if ($this->showOnIndex) {
             $method = $this->relationship;
             if (method_exists($model, $method)) {
-                return $model->{$method}()->count();
+                return $this->scopedRelationCount($model);
             }
         }
 

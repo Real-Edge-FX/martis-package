@@ -13,11 +13,16 @@ use Illuminate\Routing\Controller;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Enums\SortDirection;
+use Martis\Fields\BelongsToMany;
 use Martis\Fields\Field;
+use Martis\Fields\HasMany;
+use Martis\Fields\MorphMany;
+use Martis\Fields\MorphToMany;
 use Martis\Fields\Repeater;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\RelationScope;
 
 abstract class MartisController extends Controller
 {
@@ -144,17 +149,43 @@ abstract class MartisController extends Controller
      */
     protected function scopeRelationQuery(Request $request, Builder $query, string $relatedResourceClass): void
     {
-        $scoped = $relatedResourceClass::indexQuery($request, $relatedResourceClass::applyScopes($request, $query));
+        RelationScope::apply($request, $query, $relatedResourceClass);
+    }
 
-        if ($scoped === $query) {
-            return;
+    /**
+     * Count, in the listing query itself, the related records of every
+     * listed field that shows a relationship count on the index
+     * (`HasMany`, `MorphMany`, `BelongsToMany`, `MorphToMany` with
+     * `showOnIndex()`), scoped as the related index is: one query per page,
+     * not one per row, and no hidden record counted. Each field reads its
+     * count back from the model (see `CountsScopedRelation`).
+     *
+     * @param  Builder<Model>  $query
+     * @param  list<FieldContract>  $fields
+     */
+    protected function withScopedRelationCounts(Request $request, Builder $query, array $fields): void
+    {
+        $counts = [];
+        foreach ($fields as $field) {
+            if (! $field instanceof HasMany && ! $field instanceof MorphMany && ! $field instanceof BelongsToMany && ! $field instanceof MorphToMany) {
+                continue;
+            }
+
+            if (! $field->countsOnIndex() || ! method_exists($query->getModel(), $field->getRelationship())) {
+                continue;
+            }
+
+            $relatedResourceClass = $field->relatedResourceClassForCount();
+            $counts[$field->getRelationship().' as '.$field->countAlias()] = function (Builder $related) use ($request, $relatedResourceClass): void {
+                if ($relatedResourceClass !== null) {
+                    RelationScope::apply($request, $related, $relatedResourceClass);
+                }
+            };
         }
 
-        $keys = $scoped->toBase()->reorder();
-        $keys->limit = null;
-        $keys->offset = null;
-
-        $query->whereIn($query->getModel()->getQualifiedKeyName(), $keys->select($scoped->getModel()->getQualifiedKeyName()));
+        if ($counts !== []) {
+            $query->withCount($counts);
+        }
     }
 
     /**

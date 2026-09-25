@@ -2,6 +2,7 @@
 
 namespace Martis\Http\Controllers;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany as EloquentMorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne as EloquentMorphOne;
@@ -23,6 +24,7 @@ use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\RelationScope;
 
 /**
  * Controller for MorphOne relationship operations.
@@ -66,7 +68,7 @@ class MorphOneController extends MartisController
             'morphOneField' => $morphOneField,
         ] = $context;
 
-        $relatedModel = $this->relatedRecord($morphOneField, $relation);
+        $relatedModel = $this->viewableRelatedRecord($request, $relatedResourceClass, $morphOneField, $relation);
 
         if ($relatedModel === null) {
             return new IlluminateJsonResponse(['data' => null, 'meta' => [], 'links' => []], 200);
@@ -82,7 +84,7 @@ class MorphOneController extends MartisController
             // Eloquent one-of-many morphOne is rebuilt from its own keys, so
             // a custom local key counts this parent's rows.
             $related = get_class($relation->getRelated());
-            $baseQuery = method_exists($relation, 'isOneOfMany') && $relation->isOneOfMany()
+            $unscoped = method_exists($relation, 'isOneOfMany') && $relation->isOneOfMany()
                 ? fn () => $parentModel->morphMany(
                     $related,
                     '',
@@ -91,6 +93,15 @@ class MorphOneController extends MartisController
                     $relation->getLocalKeyName(),
                 )->getQuery()
                 : fn () => (clone $relation)->getQuery();
+
+            // Counted as the related index lists them: a record its scopes()
+            // or indexQuery() hide is not part of "1 of N" or the aggregate.
+            $baseQuery = function () use ($request, $unscoped, $relatedResourceClass): Builder {
+                $query = $unscoped();
+                RelationScope::apply($request, $query, $relatedResourceClass);
+
+                return $query;
+            };
 
             $ofManyMeta = ['totalCount' => $baseQuery()->count()];
             $fn = $morphOneField->getAggregateFunction();
@@ -228,7 +239,7 @@ class MorphOneController extends MartisController
         ] = $context;
 
         // The record the card shows, so Edit / Delete write that one.
-        $relatedModel = $this->relatedRecord($morphOneField, $relation);
+        $relatedModel = $this->viewableRelatedRecord($request, $relatedResourceClass, $morphOneField, $relation);
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
@@ -310,7 +321,7 @@ class MorphOneController extends MartisController
         ] = $context;
 
         // The record the card shows, so Edit / Delete write that one.
-        $relatedModel = $this->relatedRecord($morphOneField, $relation);
+        $relatedModel = $this->viewableRelatedRecord($request, $relatedResourceClass, $morphOneField, $relation);
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
@@ -340,6 +351,27 @@ class MorphOneController extends MartisController
             ['data' => [], 'meta' => ['message' => $relatedResourceClass::deletedMessage()], 'links' => []],
             200,
         );
+    }
+
+    /**
+     * The record the card shows and writes, when the user may view it: as
+     * in Nova, whose one-record panel is the related resource's detail view
+     * and disappears when its `view` policy denies the record (nova-dusk-suite
+     * HasOneAuthorizationTest). A record the user may not view reads as no
+     * record: the card shows empty and a write answers 404.
+     *
+     * @param  class-string<\Martis\Resource>  $relatedResourceClass
+     * @param  Relation<Model, Model, mixed>  $relation
+     */
+    private function viewableRelatedRecord(Request $request, string $relatedResourceClass, MorphOne $morphOneField, Relation $relation): ?Model
+    {
+        $model = $this->relatedRecord($morphOneField, $relation);
+
+        if ($model === null || ! (new $relatedResourceClass($model))->authorizedToView($request)) {
+            return null;
+        }
+
+        return $model;
     }
 
     /**

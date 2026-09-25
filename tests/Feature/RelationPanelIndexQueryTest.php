@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany as EloquentMorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany as EloquentMorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\HasMany;
@@ -196,6 +197,27 @@ class RPITeamResource extends Resource
     }
 }
 
+// The same teams, listing their relationship counts on the index.
+class RPICountedTeamResource extends RPITeamResource
+{
+    public static function uriKey(): string
+    {
+        return 'rpi-counted-teams';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('title'),
+            HasMany::make('Members', 'members')->relatedResource('rpi-members')->showOnIndex(),
+            HasManyThrough::make('Group members', 'groupMembers')->relatedResource('rpi-members')->showOnIndex(),
+            MorphMany::make('Notes', 'notes')->relatedResource('rpi-notes')->showOnIndex(),
+            BelongsToMany::make('Tags', 'tags')->relatedResource('rpi-tags')->showOnIndex(),
+            MorphToMany::make('Labels', 'labels')->relatedResource('rpi-tags')->showOnIndex(),
+        ];
+    }
+}
+
 const RPI_TABLES = ['rpi_taggables', 'rpi_team_tag', 'rpi_tags', 'rpi_notes', 'rpi_members', 'rpi_groups', 'rpi_teams'];
 
 beforeEach(function () {
@@ -247,7 +269,7 @@ beforeEach(function () {
 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
-    foreach ([RPIMemberResource::class, RPIFreshMemberResource::class, RPINoteResource::class, RPITagResource::class, RPITeamResource::class] as $class) {
+    foreach ([RPIMemberResource::class, RPIFreshMemberResource::class, RPINoteResource::class, RPITagResource::class, RPITeamResource::class, RPICountedTeamResource::class] as $class) {
         $registry->register($class);
     }
 
@@ -312,3 +334,16 @@ it('applies the trashed filter on a pivot panel, which listed the active records
     'belongs-to-many' => ['belongs-to-many/tags'],
     'morph-to-many' => ['morph-to-many/labels'],
 ]);
+
+it('counts on the index only the related records the related index lists, in the listing query', function () {
+    RPITeamModel::create(['title' => 'Empty team']);
+    DB::enableQueryLog();
+
+    $row = collect($this->getJson('/martis/api/resources/rpi-counted-teams')->assertOk()->json('data'))->firstWhere('title', 'Team');
+
+    expect([$row['members'], $row['groupMembers'], $row['notes'], $row['tags'], $row['labels']])->toBe([1, 1, 1, 1, 1]);
+
+    // No count query per row: the counts come with the page.
+    $perRow = collect(DB::getQueryLog())->filter(fn (array $q) => str_starts_with(strtolower((string) $q['query']), 'select count(*) as aggregate from') && ! str_contains((string) $q['query'], 'rpi_teams'));
+    expect($perRow)->toBeEmpty();
+});

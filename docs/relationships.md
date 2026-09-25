@@ -500,6 +500,18 @@ Note the static factory `HasOne::ofMany($name, $relationship, $resourceClass)`
 promotes a `hasMany()->latestOfMany()` relation into a
 [`HasOneOfMany`](#hasoneofmany) field.
 
+**The card is the related record's detail view (v2.0).** As in Nova, which
+hides the panel when the related `view` policy denies the record
+([nova-dusk-suite: HasOneAuthorizationTest](https://github.com/laravel/nova-dusk-suite/blob/10.4/tests/Browser/HasOneAuthorizationTest.php);
+Nova reads it with a detail query,
+[nova-issues#4120](https://github.com/laravel/nova-issues/discussions/4120)),
+a `HasOne`, `HasOneOfMany`, `HasOneThrough`, `MorphOne` or `MorphOneOfMany`
+card shows its record only when the user may `view` it. A record the policy
+denies reads as no record: the card is empty and its Edit and Delete answer
+404. Like the resource's own detail page, the card does not apply the related
+resource's `indexQuery()`; the one-of-many "1 of N" count and the
+`aggregateVia()` tile, which count a list, do (see below).
+
 ---
 
 ## HasOneOfMany
@@ -531,7 +543,7 @@ See [fields.md § HasOneOfMany](fields.md#hasoneofmany) for the full API.
 
 **⭐ Martis differentials:**
 
-- **"Latest of N" pill** appears automatically on the detail panel next to the section heading (`1 de 12`), surfacing the size of the underlying collection.
+- **"Latest of N" pill** appears automatically on the detail panel next to the section heading (`1 de 12`), surfacing the size of the underlying collection. It and the `aggregateVia()` tile count the records the related resource's index would list (its `scopes()` and `indexQuery()`, v2.0), so a hidden record is not counted.
 - `latestByTimestamp()` / `oldestByTimestamp()` avoid the verbose `->ofMany('created_at', 'max')` boilerplate.
 - `aggregateVia()` surfaces a metric tile with the full collection aggregate.
 

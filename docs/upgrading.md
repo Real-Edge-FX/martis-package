@@ -82,6 +82,10 @@ A `HasMany`, `HasManyThrough`, `MorphMany`, `BelongsToMany` or `MorphToMany` pan
 
 The `BelongsToMany` and `MorphToMany` panels also apply their soft-delete filter now; before, *Only trashed* listed the active records.
 
+The same hooks now shape what counts the related records: the relationship count a `HasMany`, `MorphMany`, `BelongsToMany` or `MorphToMany` field shows on the index (`showOnIndex()`), now computed with the page instead of per row, and the one-of-many "1 of N" count and `aggregateVia()` tile.
+
+A one-record card (`HasOne`, `HasOneOfMany`, `HasOneThrough`, `MorphOne`, `MorphOneOfMany`) now shows its record only when the user may `view` it, as Nova hides that panel; otherwise the card is empty and its Edit and Delete answer 404. Grant `view` where the card should show the record.
+
 ### Creating a record needs `viewAny`
 
 `POST /api/resources/{resource}` and the inline create (its form and its store) answer `403` when the user may not list the resource, as its show, update and destroy endpoints do since v1.34.0. v1.x checked `create` only.

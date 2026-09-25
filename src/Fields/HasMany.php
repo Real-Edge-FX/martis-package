@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Martis\Enums\HasManyIndexDisplay;
 use Martis\Enums\HasManyRedirectMode;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
+use Martis\Fields\Concerns\CountsScopedRelation;
 use Martis\Fields\Concerns\ResolvesRelatableOptions;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -36,6 +37,7 @@ use Martis\ResourceRegistry;
 class HasMany extends Field
 {
     use ControlsRelationshipToolbar;
+    use CountsScopedRelation;
     use ResolvesRelatableOptions;
 
     /** Eloquent relationship method name on the parent model. */
@@ -353,7 +355,7 @@ class HasMany extends Field
         if ($this->showOnIndex) {
             $method = $this->relationship;
             if (method_exists($model, $method)) {
-                return $model->{$method}()->count();
+                return $this->scopedRelationCount($model);
             }
         }
 

@@ -136,6 +136,10 @@ class ResourceController extends MartisController
         SearchResolver::apply($request, $query, $resourceClass, $search);
         $this->applySorting($request, $query, $resourceClass);
 
+        // The relationship counts of the index columns, scoped as the related
+        // index is, in this query (one per page, not one per row).
+        $this->withScopedRelationCounts($request, $query, Field::filterForContext($instance->fieldsForIndex($request), FieldContext::INDEX));
+
         $perPage = max(
             1,
             min(

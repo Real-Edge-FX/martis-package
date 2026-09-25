@@ -28,6 +28,7 @@ use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\RelationScope;
 
 /**
  * Controller for HasOne relationship operations.
@@ -71,7 +72,7 @@ class HasOneController extends MartisController
             'hasOneField' => $hasOneField,
         ] = $context;
 
-        $relatedModel = $this->relatedRecord($hasOneField, $relation);
+        $relatedModel = $this->viewableRelatedRecord($request, $relatedResourceClass, $hasOneField, $relation);
 
         if ($relatedModel === null) {
             return new IlluminateJsonResponse(['data' => null, 'meta' => [], 'links' => []], 200);
@@ -86,7 +87,14 @@ class HasOneController extends MartisController
         // rebuilt from the relation's own keys (see manyQuery()).
         $ofManyMeta = null;
         if ($hasOneField instanceof HasOneOfMany) {
-            $baseQuery = fn () => $this->manyQuery($parentModel, $relation);
+            // Counted as the related index lists them: a record its scopes()
+            // or indexQuery() hide is not part of "1 of N" or the aggregate.
+            $baseQuery = function () use ($request, $parentModel, $relation, $relatedResourceClass): Builder {
+                $query = $this->manyQuery($parentModel, $relation);
+                RelationScope::apply($request, $query, $relatedResourceClass);
+
+                return $query;
+            };
             $col = $hasOneField->getAggregateColumn();
             if ($col !== null && $col !== '*') {
                 $col = $relation->getRelated()->qualifyColumn($col);
@@ -256,7 +264,7 @@ class HasOneController extends MartisController
         ] = $context;
 
         // The record the card shows, so Edit / Delete write that one.
-        $relatedModel = $this->relatedRecord($hasOneField, $relation);
+        $relatedModel = $this->viewableRelatedRecord($request, $relatedResourceClass, $hasOneField, $relation);
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
@@ -339,7 +347,7 @@ class HasOneController extends MartisController
         ] = $context;
 
         // The record the card shows, so Edit / Delete write that one.
-        $relatedModel = $this->relatedRecord($hasOneField, $relation);
+        $relatedModel = $this->viewableRelatedRecord($request, $relatedResourceClass, $hasOneField, $relation);
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
@@ -406,6 +414,27 @@ class HasOneController extends MartisController
 
         /** @var HasOneOrMany<Model, Model, mixed> $relation */
         return $parentModel->hasMany($related, $relation->getForeignKeyName(), $relation->getLocalKeyName())->getQuery();
+    }
+
+    /**
+     * The record the card shows and writes, when the user may view it: as
+     * in Nova, whose one-record panel is the related resource's detail view
+     * and disappears when its `view` policy denies the record (nova-dusk-suite
+     * HasOneAuthorizationTest). A record the user may not view reads as no
+     * record: the card shows empty and a write answers 404.
+     *
+     * @param  class-string<\Martis\Resource>  $relatedResourceClass
+     * @param  Relation<Model, Model, mixed>  $relation
+     */
+    private function viewableRelatedRecord(Request $request, string $relatedResourceClass, HasOne $hasOneField, Relation $relation): ?Model
+    {
+        $model = $this->relatedRecord($hasOneField, $relation);
+
+        if ($model === null || ! (new $relatedResourceClass($model))->authorizedToView($request)) {
+            return null;
+        }
+
+        return $model;
     }
 
     /**

@@ -98,6 +98,10 @@ class BelongsToManyController extends MartisController
         // see orders the rows.
         $this->applyRequestedSort($request, $query, $relatedResourceClass);
 
+        // The relationship counts of the related rows' index columns, scoped
+        // and aggregated in this query.
+        $this->withScopedRelationCounts($request, $query, Field::filterForContext((new $relatedResourceClass)->fieldsForIndex($request), FieldContext::INDEX));
+
         // Pagination — use $relation->paginate() (not $query->paginate()) so Laravel
         // can hydrate the pivot accessor on each resulting Model instance.
         $perPage = $this->requestedPerPage($request, 10);

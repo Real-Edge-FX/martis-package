@@ -2147,7 +2147,10 @@ the full guide.
 One-to-many relationship. Renders an inline DataTable panel on the detail
 page with full inline CRUD (create, edit, delete), search, sort, per-page,
 and pagination via `RelationshipTableShell`. Detail-only by default — use
-`->showOnIndex()` to display a count badge on index.
+`->showOnIndex()` to display a count badge on index. The count, like the
+panel, includes only the records the related resource's index lists (its
+`scopes()` and `indexQuery()`, v2.0), and the index computes it for the whole
+page in its own query.
 
 ```php
 use Martis\Fields\HasMany;

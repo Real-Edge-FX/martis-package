@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Enums\ModalSize;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
+use Martis\Fields\Concerns\CountsScopedRelation;
 use Martis\Fields\Concerns\HasPivotActions;
 use Martis\Fields\Concerns\StaysOffCreateForms;
 use Martis\Resource;
@@ -34,6 +35,7 @@ use Martis\ResourceRegistry;
 class BelongsToMany extends Field
 {
     use ControlsRelationshipToolbar;
+    use CountsScopedRelation;
     use HasPivotActions;
     use StaysOffCreateForms;
 
@@ -376,7 +378,7 @@ class BelongsToMany extends Field
         if ($this->showOnIndex) {
             $method = $this->relationship;
             if (method_exists($model, $method)) {
-                return $model->{$method}()->count();
+                return $this->scopedRelationCount($model);
             }
         }
 

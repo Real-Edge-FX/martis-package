@@ -109,6 +109,10 @@ class HasManyController extends MartisController
         // orders the rows.
         $this->applyRequestedSort($request, $query, $relatedResourceClass);
 
+        // The relationship counts of the related rows' index columns, scoped
+        // and aggregated in this query.
+        $this->withScopedRelationCounts($request, $query, Field::filterForContext((new $relatedResourceClass)->fieldsForIndex($request), FieldContext::INDEX));
+
         // Pagination
         $perPage = $this->requestedPerPage($request, 10);
 
