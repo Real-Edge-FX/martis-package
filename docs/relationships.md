@@ -1020,26 +1020,29 @@ A relationship write must name a record its picker would list, as Nova's `Relata
 | Inline create and update of a `HasMany`, `HasOne`, `MorphMany`, `MorphOne` panel | `BelongsTo`, `MorphTo`, `Tag` of the related resource | The related resource |
 | Attach (one record or a batch) and pivot update of a `BelongsToMany` / `MorphToMany` panel | The attached record (`related_id`, `related_ids`, the `{relatedId}` of the pivot update) and the pivot fields' `BelongsTo`, `MorphTo`, `Tag` | The parent resource |
 | An Action or pivot action run | The Action's `BelongsTo`, `MorphTo`, `Tag` | The resource the Action runs on (the parent resource for a pivot action) |
+| Any of these with a `Repeater` | The `BelongsTo`, `MorphTo`, `Tag` of its rows (errors under `{repeater}.{index}.fields.{attribute}`) | The resource of the write |
+
+As Nova's rule, the check runs on the value the request sends, an update that sends the stored value back included: a record whose target has left the query since answers 422 until the target changes (or the hook is widened).
 
 On top of the query:
 
 - the user must be allowed to list the related resource (`viewAny`), as the picker requires;
 - a `BelongsTo` / `MorphTo` needs the `add{SourceModel}` ability of the related record's policy (Nova's `authorizedToAdd()`; allowed when the policy does not define it): a task's owner is refused when `UserPolicy::addTask($user, $owner)` returns `false`, the ability the `HasMany` panel on the user's page checks before adding a task;
-- a `Tag` needs the source resource's `attachAny{Model}` and `attach{Model}` abilities for every record it adds, as the attach endpoint (Nova's `Tag` field checks neither).
+- a `BelongsTo` / `MorphTo` fails when the picked record's inverse `HasOne` / `MorphOne` already holds another record (Nova's `relationshipIsFull()`): a profile cannot take a user whose `HasOne` profile is filled. The inverse is the related resource's `HasOne` / `MorphOne` field that points back at the resource of the write (not a one-of-many or Through field), or the one [`inverse()`](fields.md#belongsto) names. As in Nova, an update passes when the record keeps its target, and when it has no target yet (Nova's rule skips the check then). Only the record of the write is checked, not a pivot row, a Repeater row or an Action;
+- a `Tag` needs the source resource's `attachAny{Model}` and `attach{Model}` abilities for every record it adds, and `detach{Model}` for every record it removes (a `null` value removes them all), as the attach and detach endpoints; a removal the policy refuses answers 422 with `martis::validation.detachable`. Nova's `Tag` field checks none of them.
 
 What passes without a check:
 
 - an empty value (the field's own `required()` / `nullable()` decide), a readonly field, and a `MorphTo` value that names no type of `types()` (it writes nothing);
-- the value the record already holds: an update that sends back the stored `BelongsTo` / `MorphTo` target, or keeps a tag already synced, is accepted although the record left the query since; only a new target is checked, and removing tags never is;
 - the parent of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne` inline create: the store writes the parent whatever the form sends for the inverse field, so that field is not checked against its picker.
 
-**Soft-deleted records.** A soft-deleted related record fails, as the picker never lists it, unless the request sends `{attribute}_trashed=true` next to the value (Nova's opt-in, for example `owner_id_trashed=true`), the related resource lets the user see trashed records (`canViewTrashed()`) and the field is not `withoutTrashed()`. An attach never takes a trashed record.
+**Soft-deleted records.** A soft-deleted related record fails, as the picker never lists it, unless the request opts in: it sends `{attribute}_trashed=true` next to the value (Nova's opt-in, for example `owner_id_trashed=true`), or a `BelongsTo` / `MorphTo` value map with `trashed: true`. The record's value carries `trashed: true` when its target is soft-deleted, so an edit form that sends it back keeps the target, as Nova's form turns on "With Trashed" for a trashed target. Either way the related resource must let the user see trashed records (`canViewTrashed()`) and the field must not be `withoutTrashed()`. An attach never takes a trashed record.
 
-**The attach and the form draft.** A `relatableQueryUsing()` closure with a third argument receives the parent form draft the request sends in `?form[attribute]=value`. The attach modal sends the draft its picker used; an attach or a pivot update that sends none gives the closure an empty array, as the picker does.
+**The attach and the form draft.** A `relatableQueryUsing()` closure with a third argument receives the parent form draft the request sends in `?form[attribute]=value`. The attach modal of a `BelongsToMany` or `MorphToMany` panel sends the draft its picker used (the values of the fields its `dependsOn([...])` names); an attach or a pivot update that sends none gives the closure an empty array, as the picker does.
 
 **A batch attach** checks every record first: one record outside the picker fails the whole batch (422 on `related_ids`) before anything is attached. Records that do not exist, that `attach{Model}` refuses, or that are already attached keep their v2.0 handling (listed in `meta.errors`, skipped).
 
-A value the write cannot validate this way is still written as before when the field has no related resource (`relatedResource()` unset, or a resource that is not registered). The `BelongsTo`, `MorphTo` and `Tag` fields inside a `Repeater` row are not checked yet: their value is stored in the row, not as a relationship of the record.
+A value the write cannot validate this way is still written as before when the field has no related resource (`relatedResource()` unset, or a resource that is not registered). In a `Repeater` row the value is stored in the row, not as a relationship of the record: the query, `viewAny` and `add{Model}` apply, the full inverse and the `Tag` attach / detach abilities do not.
 
 ### Polymorphic cross-type isolation
 
@@ -1091,7 +1094,7 @@ Per-type feature tests:
 - `tests/Feature/ModelVisibilityReadTest.php` (15): the same fields left out of each panel's records and inline update response, of the lens rows and of the peek card, and 404 on every endpoint of a relationship field hidden for the parent record.
 - `tests/Feature/PivotFieldModelVisibilityTest.php` (14): `canSeeForModel()` on pivot fields, decided on the pivot row (a new row on attach and in the attachable list's `hiddenPivotFields`, the attached row on pivot update, in `_pivot` and in the pivot edit modal's pickers), and on a `BelongsToMany` / `MorphToMany` field hidden for the parent record.
 - `tests/Feature/HiddenFieldEndpointsTest.php` (14): the pickers of a form, an Action, a pivot action and the pivot fields, the remote `Select` search of a resource and a Tool, the Slug check and the `dependsOn` sync answer for a field the user cannot see (a Repeater row field and a hidden Repeater included) exactly as for an undeclared one.
-- `tests/Feature/RelatableWritesTest.php` (34): every write checked against its picker: the resource create, update and inline create (`BelongsTo`, `MorphTo`, `Tag`), a `HasMany` inline create (and its inverse field left alone), the attach, batch attach and pivot update of both panels, pivot fields and Action fields; the stored value kept, the trashed opt-in, the `viewAny`, `add{Model}` and `attach{Model}` policies, the attach's form draft, and the translated message.
+- `tests/Feature/RelatableWritesTest.php` (41): every write checked against its picker: the resource create, update and inline create (`BelongsTo`, `MorphTo`, `Tag`), a `HasMany` inline create (and its inverse field left alone), the attach, batch attach and pivot update of both panels, pivot fields, Action fields and Repeater rows; the stored value re-checked, the trashed opt-ins, a full inverse `HasOne` and `inverse()`, the `viewAny`, `add{Model}`, `attach{Model}` and `detach{Model}` policies, the attach's form draft, the multipart value map, and the translated message.
 - `tests/Feature/ActionFieldVisibilityTest.php` (9): the fields of a resource action and a pivot action the request cannot set (hidden, readonly, computed, and a Repeater's rows) left out of the modal or the validation, and `handle()` receiving their `default()` (the queued job too).
 
 ---
