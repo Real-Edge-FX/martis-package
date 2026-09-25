@@ -13,7 +13,8 @@
 # stub path with the checkout itself since d534e0973.) No session or cache
 # driver needs pinning: the tests ignore the `.env` a killed
 # `vendor/bin/testbench` leaves in the testbench skeleton under vendor/
-# (tests/TestCase.php), and phpunit.xml sets the memory limit.
+# (tests/TestCase.php), and tests/bootstrap.php raises a memory limit below
+# 1G.
 #
 # Usage:
 #   scripts/test.sh                          # full suite

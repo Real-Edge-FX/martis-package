@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
-         bootstrap="vendor/autoload.php"
+         bootstrap="tests/bootstrap.php"
          colors="true"
 >
     <testsuites>
@@ -22,9 +22,4 @@
             <html outputDirectory="build/coverage"/>
         </report>
     </coverage>
-    <php>
-        <!-- One process runs the whole suite and needs more than the 128M of a
-             stock php.ini; CI's PHP (setup-php) runs with no limit at all. -->
-        <ini name="memory_limit" value="1G"/>
-    </php>
 </phpunit>
