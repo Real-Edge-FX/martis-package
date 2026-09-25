@@ -83,7 +83,12 @@ class HasOneOfMany extends HasOne
     public function latestByTimestamp(string $column = 'created_at'): static
     {
         $this->runtimeScope = static function (Builder $query) use ($column): Builder {
-            return $query->orderByDesc($column);
+            // The primary key breaks a timestamp tie, as Eloquent's
+            // latestOfMany() does, so every database picks the same record
+            // for the card and for its writes; both columns are qualified
+            // because a through relation joins another table.
+            return $query->orderByDesc($query->qualifyColumn($column))
+                ->orderByDesc($query->getModel()->getQualifiedKeyName());
         };
 
         return $this;
@@ -95,7 +100,8 @@ class HasOneOfMany extends HasOne
     public function oldestByTimestamp(string $column = 'created_at'): static
     {
         $this->runtimeScope = static function (Builder $query) use ($column): Builder {
-            return $query->orderBy($column);
+            return $query->orderBy($query->qualifyColumn($column))
+                ->orderBy($query->getModel()->getQualifiedKeyName());
         };
 
         return $this;
