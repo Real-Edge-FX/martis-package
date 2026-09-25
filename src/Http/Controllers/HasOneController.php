@@ -2,10 +2,14 @@
 
 namespace Martis\Http\Controllers;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne as EloquentHasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
+use Illuminate\Database\Eloquent\Relations\HasOneOrManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough as EloquentHasOneThrough;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
@@ -67,19 +71,7 @@ class HasOneController extends MartisController
             'hasOneField' => $hasOneField,
         ] = $context;
 
-        // ⭐ OfMany runtime scope (Martis differential — latestByTimestamp / oldestByTimestamp).
-        if ($hasOneField instanceof HasOneOfMany) {
-            $scope = $hasOneField->getRuntimeScope();
-            if ($scope !== null) {
-                // Apply the scope to the relation's query and pick the first row.
-                $scopedQuery = $scope(clone $relation->getQuery());
-                $relatedModel = $scopedQuery->first();
-            } else {
-                $relatedModel = $relation->first();
-            }
-        } else {
-            $relatedModel = $relation->first();
-        }
+        $relatedModel = $this->relatedRecord($hasOneField, $relation);
 
         if ($relatedModel === null) {
             return new IlluminateJsonResponse(['data' => null, 'meta' => [], 'links' => []], 200);
@@ -90,21 +82,21 @@ class HasOneController extends MartisController
         // ⭐ Build OfMany meta bag — "Latest of N" affordance + optional aggregate tile.
         // IMPORTANT: `$relation` for a `hasOne()->latestOfMany()` relationship
         // is already narrowed to a single row — calling ->count() on it
-        // returns 1. We need the count across the UNDERLYING hasMany, so
-        // we rebuild a clean query from the related model + FK.
+        // returns 1. We need the count across the UNDERLYING many relation,
+        // rebuilt from the relation's own keys (see manyQuery()).
         $ofManyMeta = null;
         if ($hasOneField instanceof HasOneOfMany) {
-            $relatedClass = get_class($relation->getRelated());
-            $fk = $relation->getForeignKeyName();
-            $parentKey = $parentModel->getKey();
-            $baseQuery = fn () => $relatedClass::query()->where($fk, $parentKey);
+            $baseQuery = fn () => $this->manyQuery($parentModel, $relation);
+            $col = $hasOneField->getAggregateColumn();
+            if ($col !== null && $col !== '*') {
+                $col = $relation->getRelated()->qualifyColumn($col);
+            }
 
             $ofManyMeta = [
                 'totalCount' => $baseQuery()->count(),
             ];
 
             $fn = $hasOneField->getAggregateFunction();
-            $col = $hasOneField->getAggregateColumn();
             if ($fn !== null && $col !== null) {
                 $agg = match ($fn->value) {
                     'count' => (int) $baseQuery()->count($col === '*' ? '*' : $col),
@@ -116,7 +108,7 @@ class HasOneController extends MartisController
                 };
                 $ofManyMeta['aggregate'] = [
                     'fn' => $fn->value,
-                    'column' => $col,
+                    'column' => $hasOneField->getAggregateColumn(),
                     'value' => $agg,
                 ];
             }
@@ -260,9 +252,11 @@ class HasOneController extends MartisController
         [
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
+            'hasOneField' => $hasOneField,
         ] = $context;
 
-        $relatedModel = $relation->first();
+        // The record the card shows, so Edit / Delete write that one.
+        $relatedModel = $this->relatedRecord($hasOneField, $relation);
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
@@ -341,9 +335,11 @@ class HasOneController extends MartisController
         [
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
+            'hasOneField' => $hasOneField,
         ] = $context;
 
-        $relatedModel = $relation->first();
+        // The record the card shows, so Edit / Delete write that one.
+        $relatedModel = $this->relatedRecord($hasOneField, $relation);
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
@@ -373,6 +369,73 @@ class HasOneController extends MartisController
             ['data' => [], 'meta' => ['message' => $relatedResourceClass::deletedMessage()], 'links' => []],
             200,
         );
+    }
+
+    /**
+     * The rows behind a one-of-many card, for the "1 of N" count and the
+     * aggregate tile. A relation that is not narrowed to one row (a hasMany,
+     * a morphMany, a through relation) keeps its own query, and so the
+     * constraints written into it (`->where('paid', true)`). An Eloquent
+     * one-of-many relation is narrowed to its record, so its many relation
+     * is rebuilt from its own keys; a plain where on the foreign key with
+     * the parent's primary key ignored a custom local key and, on a through
+     * relation, matched the intermediate table's ids, so the card counted
+     * and summed another parent's rows.
+     *
+     * @param  Relation<Model, Model, mixed>  $relation
+     * @return Builder<Model>
+     */
+    private function manyQuery(Model $parentModel, Relation $relation): Builder
+    {
+        if (! (method_exists($relation, 'isOneOfMany') && $relation->isOneOfMany())) {
+            return (clone $relation)->getQuery();
+        }
+
+        $related = get_class($relation->getRelated());
+
+        if ($relation instanceof HasOneOrManyThrough) {
+            return $parentModel->hasManyThrough(
+                $related,
+                get_class($relation->getParent()),
+                $relation->getFirstKeyName(),
+                $relation->getForeignKeyName(),
+                $relation->getLocalKeyName(),
+                $relation->getSecondLocalKeyName(),
+            )->getQuery();
+        }
+
+        /** @var HasOneOrMany<Model, Model, mixed> $relation */
+        return $parentModel->hasMany($related, $relation->getForeignKeyName(), $relation->getLocalKeyName())->getQuery();
+    }
+
+    /**
+     * The related record the card shows. A HasOneOfMany with a runtime
+     * scope (latestByTimestamp() / oldestByTimestamp()) picks it from its
+     * many relation with that order; any other relation holds one record.
+     * show(), update() and destroy() all read it here, so Edit and Delete
+     * write the record on screen.
+     *
+     * @param  Relation<Model, Model, mixed>  $relation
+     */
+    private function relatedRecord(HasOne $hasOneField, Relation $relation): ?Model
+    {
+        $scope = $hasOneField instanceof HasOneOfMany ? $hasOneField->getRuntimeScope() : null;
+
+        if ($scope === null) {
+            /** @var Model|null */
+            return $relation->first();
+        }
+
+        // Order a clone of the relation and read through the relation's own
+        // first(): on a through relation the raw query joins the
+        // intermediate table, and a plain `select *` lets its id overwrite
+        // the related record's id, so a write would land on another
+        // parent's record.
+        $scoped = clone $relation;
+        $scope($scoped->getQuery());
+
+        /** @var Model|null */
+        return $scoped->first();
     }
 
     /**
