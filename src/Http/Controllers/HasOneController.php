@@ -133,7 +133,7 @@ class HasOneController extends MartisController
 
         $data = $this->serializeModel(
             $resInstance,
-            Field::filterForContext($resInstance->fieldsForDetail($request), FieldContext::DETAIL),
+            Field::filterForContext($resInstance->resolveDetailFields($request), FieldContext::DETAIL),
             $relatedModel,
         );
 
@@ -281,7 +281,7 @@ class HasOneController extends MartisController
         return JsonResponse::make(
             $this->serializeModel(
                 $resInstance,
-                Field::filterForContext($resInstance->fieldsForDetail($request), FieldContext::DETAIL),
+                Field::filterForContext($resInstance->resolveDetailFields($request), FieldContext::DETAIL),
                 $relatedModel,
             ),
             meta: ['message' => $relatedResourceClass::createdMessage()],
@@ -376,7 +376,7 @@ class HasOneController extends MartisController
         return JsonResponse::make(
             $this->serializeModel(
                 $resInstance,
-                Field::filterForContext($resInstance->fieldsForDetail($request), FieldContext::DETAIL),
+                Field::filterForContext($resInstance->resolveDetailFields($request), FieldContext::DETAIL),
                 $relatedModel,
             ),
             meta: ['message' => $relatedResourceClass::updatedMessage()],
@@ -587,7 +587,7 @@ class HasOneController extends MartisController
         // A relationship field hidden for the parent record (canSeeForModel())
         // is not on its detail page, so it answers like an undeclared one.
         $fields = Field::filterForModel(
-            Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL),
+            Field::filterForContext($parentInstance->resolveDetailFields($request), FieldContext::DETAIL),
             $request,
             $parentModel,
         );
@@ -601,7 +601,8 @@ class HasOneController extends MartisController
         }
 
         if ($hasOneField === null) {
-            return JsonErrorResponse::notFound("Relationship '{$relationship}' not found.")->toResponse();
+            return $this->forbiddenWhenRelatedResourceClosed($request, $parentInstance, $parentModel, HasOne::class, $relationship)
+                ?? JsonErrorResponse::notFound("Relationship '{$relationship}' not found.")->toResponse();
         }
 
         // Validate the Eloquent relationship

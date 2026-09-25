@@ -6,7 +6,7 @@ The sections below list the breaking changes of each major version and what to c
 
 ## Upgrading to v2.0.1 from v2.0.0
 
-The action log, the throttle buckets, the Gate cache's `lookup()` the Tool route warning, the grouped user hooks, the relatable checks on writes and React Router 7 apply to every app; the other changes concern an app with a custom `MARTIS_GUARD`.
+The action log, the throttle buckets, the Gate cache's `lookup()` the Tool route warning, the grouped user hooks, the relatable checks on writes, the relationship panels, the Action Events panel and React Router 7 apply to every app; the other changes concern an app with a custom `MARTIS_GUARD`.
 
 ### Relationship writes follow the pickers
 
@@ -20,8 +20,9 @@ A create, update, inline create, attach, pivot update or Action run now answers 
 
 The Action Events resource (the `martis_action_events` audit log) was readable by every panel user, `original` and `changes` included, whatever fields those users could see on the records. From v2.0.1 it is closed until you open it, and it masks the values the viewer could not read on the record:
 
-- **Access.** A deny-by-default gate, `view-martis-action-events`, decides who reads the log, unless a policy for `Martis\Models\ActionEvent` defines `viewAny` / `view` (then the policy decides, as before). Without access the index and the detail answer `403`, the sidebar entry and the command palette's *Recent activity* disappear, and a relationship panel that lists the log shows no rows.
-- **Hidden values.** A value in `original` / `changes` reads `[hidden]` unless the viewer may see that attribute on the record's own detail page (a visible field, through a resource that lets the viewer view the record). Attributes no field shows, such as `password`, are masked too. The stored rows are unchanged.
+- **Access.** A deny-by-default gate, `view-martis-action-events`, decides who reads the log, unless a policy for `Martis\Models\ActionEvent` defines `viewAny` / `view` (then the policy decides, as before). Without access the index and the detail answer `403`, the sidebar entry and the command palette's *Recent activity* disappear, and a relationship panel that lists the log leaves the detail page (see the next section).
+- **Hidden values.** A value in `original` / `changes` reads `[hidden]` unless the viewer may see that attribute on the record's own detail page (a visible field, through a resource that lets the viewer view the record). Attributes no field shows, such as `password`, are masked too, and so are the pivot columns of a pivot action whose pivot field the viewer may not see. Rows already stored are unchanged.
+- **`$hidden` attributes are stored masked.** From v2.0.1 an event stores `[hidden]` for each `$hidden` attribute of the model (or of the pivot model) an action changed, as Nova does. Code that read those values from `martis_action_events` gets the mask for new rows.
 
 **What to change:** grant the gate to the users who should read the log, in `app/Providers/MartisServiceProvider.php` (or any service provider):
 
@@ -69,6 +70,18 @@ The SPA moved from React Router 6 to React Router 7 (library mode, `createBrowse
 - **Behaviour of the v7 future flags** now applies to the host's router: navigations run in `React.startTransition`, and a relative link inside a splat route resolves from the splat's own path. An extension that navigates with absolute paths (`navigate('/resources/users')`, `<Link to="/tools/deployments">`) sees no difference. `navigate()` may return a promise; there is nothing to await for a plain navigation.
 - **Type declarations.** After you republish the shims (`php artisan vendor:publish --tag=martis-extension-shims --force`), `react-router-dom.d.mts` carries the React Router 7 types. Six type names React Router 7 no longer exports are gone: `FutureConfig`, `Hash`, `JsonFunction`, `Pathname`, `Search` and `V7_FormMethod` (use `string` or `Path['pathname']` for the path parts).
 - **`import ... from 'react-router'`** also works in a scaffold published from v2.0.1 (`martis:install --force`): its Vite config and `tsconfig.extensions.json` send `react-router` to the same shim. An older scaffold keeps importing from `react-router-dom`, or adds the two lines by hand (see [Installation → Extensions and React Router 7](installation-guide.md#extensions-and-react-router-7-v201)).
+
+### Relationship panels follow the related resource's `viewAny`
+
+A relationship panel (`HasMany`, `HasOne`, `MorphMany`, `MorphOne`, `BelongsToMany`, `MorphToMany`, and `HasManyThrough`, `HasOneThrough`, `HasOneOfMany`, `MorphOneOfMany`) was shown, and its records listed, to any user who could view the parent record. From v2.0.1 it follows Nova: a user the related resource does not let `viewAny` does not see the panel on the detail page, and its routes (the list, the card, the attachable list, attach, detach, the pivot update and the pivot actions) answer `403`. v2.0 already refused the writes.
+
+**What to change:** grant `viewAny` on the related resource to the users who should keep seeing the panel, and confine the rows they see with `indexQuery()`. See [Relationships → Panels follow the related resource's `viewAny`](relationships.md#panels-follow-the-related-resources-viewany-v201).
+
+### An Action Events panel on `Actionable` models
+
+As in Nova, the detail page of a model that uses `Martis\Concerns\Actionable` now ends with a collapsable **Action Events** panel listing its action log, for the users who may read the log (the `view-martis-action-events` gate or an `ActionEvent` policy). A resource that already declares a `MorphMany` to the action event resource keeps its own and gets no second one.
+
+**What to change:** nothing to get the panel. To leave it out of a resource, override `shouldAddActionsField()` to return `false`. A resource that overrides `fieldsForDetail()` keeps working: the panel is added after it. See [Actions → The Action Events panel](actions.md#the-action-events-panel-v201).
 
 ## Upgrading to v2.0 from v1.x
 
@@ -129,7 +142,7 @@ Both warnings can log a false positive: a field can store a valid 0-based positi
 
 Creating, editing or deleting a record through a relationship panel (`HasMany`, `HasOne`, `MorphMany`, `MorphOne`, and their endpoints) now needs the related resource's `viewAny`, as its own per-id endpoints do since v1.34.0 and as Nova does. v1.x checked only the parent's `viewAny` / `view` and the related record's `create` / `update` / `delete`.
 
-A user whose policy denies `viewAny` on the related resource gets a 403 on those writes, and the panel no longer offers Create, Edit, Delete, Restore or Force delete. It still lists the records, as in v1.x.
+A user whose policy denies `viewAny` on the related resource gets a 403 on those writes, and the panel no longer offers Create, Edit, Delete, Restore or Force delete. In v2.0.0 it still listed the records, as in v1.x; from v2.0.1 the panel is hidden too (see [Relationship panels follow the related resource's `viewAny`](#relationship-panels-follow-the-related-resources-viewany)).
 
 **What to change:** if that user should keep writing through the panel, grant `viewAny` on the related resource and confine what they see with `indexQuery()`. A resource that is not `routable()` keeps working as a relation target. See [Authorization → `viewAny` is the entry gate](authorization.md#viewany-is-the-entry-gate).
 

@@ -11,6 +11,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Martis\Actions\Action;
+use Martis\Actions\ActionEventRedactor;
 use Martis\Actions\ActionFields;
 use Martis\Models\ActionEvent;
 
@@ -113,6 +114,10 @@ class ExecuteAction implements ShouldQueue
                         $changesDiff[$attr] = $value;
                     }
                 }
+
+                // Masked like the synchronous run's event (ActionController).
+                $originalDiff = ActionEventRedactor::maskHiddenAttributes($originalDiff, $model);
+                $changesDiff = ActionEventRedactor::maskHiddenAttributes($changesDiff, $model);
 
                 ActionEvent::where('name', $actionName)
                     ->where('actionable_type', get_class($model))

@@ -516,7 +516,7 @@ class MorphToManyController extends MartisController
         // A relationship field hidden for the parent record (canSeeForModel())
         // is not on its detail page, so it answers like an undeclared one.
         $fields = Field::filterForModel(
-            Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL),
+            Field::filterForContext($parentInstance->resolveDetailFields($request), FieldContext::DETAIL),
             $request,
             $parentModel,
         );
@@ -530,7 +530,8 @@ class MorphToManyController extends MartisController
         }
 
         if ($mtmField === null) {
-            return JsonErrorResponse::notFound("Relationship '{$relationship}' not found.")->toResponse();
+            return $this->forbiddenWhenRelatedResourceClosed($request, $parentInstance, $parentModel, MorphToMany::class, $relationship)
+                ?? JsonErrorResponse::notFound("Relationship '{$relationship}' not found.")->toResponse();
         }
 
         // Validate the Eloquent relationship

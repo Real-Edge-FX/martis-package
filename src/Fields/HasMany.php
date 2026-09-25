@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Support\Str;
 use Martis\Enums\HasManyIndexDisplay;
 use Martis\Enums\HasManyRedirectMode;
+use Martis\Fields\Concerns\AuthorizesRelatedResource;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Fields\Concerns\CountsScopedRelation;
 use Martis\Fields\Concerns\ResolvesRelatableOptions;
@@ -36,6 +37,7 @@ use Martis\ResourceRegistry;
  */
 class HasMany extends Field
 {
+    use AuthorizesRelatedResource;
     use ControlsRelationshipToolbar;
     use CountsScopedRelation;
     use ResolvesRelatableOptions;

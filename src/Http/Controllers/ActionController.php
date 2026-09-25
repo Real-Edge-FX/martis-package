@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Martis\Actions\Action;
+use Martis\Actions\ActionEventRedactor;
 use Martis\Actions\ActionFields;
 use Martis\Actions\ActionResponse;
 use Martis\Actions\Jobs\ExecuteAction;
@@ -607,7 +608,7 @@ class ActionController extends MartisController
         }
 
         $fields = MartisField::filterForModel(
-            MartisField::filterForContext($parent->fieldsForDetail($request), FieldContext::DETAIL),
+            MartisField::filterForContext($parent->resolveDetailFields($request), FieldContext::DETAIL),
             $request,
             $parentModel,
         );
@@ -836,11 +837,15 @@ class ActionController extends MartisController
             $job->onQueue($action->queue);
         }
 
-        dispatch($job);
-
+        // The `queued` events are written before the job is dispatched, as
+        // a pivot action's are: the job settles them when it runs, and a job
+        // that runs at once (the `sync` connection, a fast worker) would
+        // otherwise find none, leaving the log at `queued` with no diff.
         if ($action->shouldLogEvents() && config('martis.action_events.enabled', true)) {
             $this->logActionEvent($action, $models, $request, 'queued', null, $snapshots);
         }
+
+        dispatch($job);
 
         return JsonResponse::make([
             'type' => 'message',
@@ -901,6 +906,11 @@ class ActionController extends MartisController
                         $changesDiff[$attr] = $value;
                     }
                 }
+
+                // The model's $hidden attributes are stored masked, as Nova
+                // stores them (see ActionEventRedactor::maskHiddenAttributes()).
+                $originalDiff = ActionEventRedactor::maskHiddenAttributes($originalDiff, $model);
+                $changesDiff = ActionEventRedactor::maskHiddenAttributes($changesDiff, $model);
 
                 ActionEvent::create([
                     'batch_id' => $batchId,

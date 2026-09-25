@@ -250,7 +250,7 @@ class ResourceController extends MartisController
             $fields = Field::filterForContext($res->fieldsForCreate($request), FieldContext::CREATE);
             $forDisplay = false;
         } else {
-            $fields = Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL);
+            $fields = Field::filterForContext($res->resolveDetailFields($request), FieldContext::DETAIL);
         }
 
         return JsonResponse::make(
@@ -343,7 +343,7 @@ class ResourceController extends MartisController
         }
 
         return JsonResponse::make(
-            $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model),
+            $this->serializeModel($res, Field::filterForContext($res->resolveDetailFields($request), FieldContext::DETAIL), $model),
             meta: $meta,
         )->toResponse(201);
     }
@@ -439,7 +439,7 @@ class ResourceController extends MartisController
         }
 
         return JsonResponse::make(
-            $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model),
+            $this->serializeModel($res, Field::filterForContext($res->resolveDetailFields($request), FieldContext::DETAIL), $model),
             meta: $meta,
         )->toResponse();
     }
@@ -489,7 +489,7 @@ class ResourceController extends MartisController
 
         try {
             $res->beforeDelete($model, $request);
-            $this->deleteUploadedFiles(Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model);
+            $this->deleteUploadedFiles(Field::filterForContext($res->resolveDetailFields($request), FieldContext::DETAIL), $model);
             $model->delete();
             $res->afterDelete($model, $request);
         } catch (QueryException $e) {
@@ -577,7 +577,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         return JsonResponse::make(
-            $this->serializeModel($res, Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model),
+            $this->serializeModel($res, Field::filterForContext($res->resolveDetailFields($request), FieldContext::DETAIL), $model),
             meta: ['message' => $resourceClass::restoredMessage()],
         )->toResponse();
     }
@@ -630,7 +630,7 @@ class ResourceController extends MartisController
 
         try {
             $res->beforeDelete($model, $request);
-            $this->deleteUploadedFiles(Field::filterForContext($res->fieldsForDetail($request), FieldContext::DETAIL), $model);
+            $this->deleteUploadedFiles(Field::filterForContext($res->resolveDetailFields($request), FieldContext::DETAIL), $model);
             $model->forceDelete();
             $res->afterDelete($model, $request);
         } catch (QueryException $e) {
@@ -1048,7 +1048,7 @@ class ResourceController extends MartisController
             }
             unset($field);
         }
-        $fieldsForDetail = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForDetail($request), FieldContext::DETAIL));
+        $fieldsForDetail = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->resolveDetailFields($request), FieldContext::DETAIL));
         // F7-11 Part 2 — sticky right-rail panel on the detail page. When
         // empty, ResourceDetail keeps its single-column layout. When
         // populated, it switches to the canonical 1fr 320px grid and

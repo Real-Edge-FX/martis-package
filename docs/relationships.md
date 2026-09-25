@@ -42,13 +42,11 @@ record carries those answers under `_authorization`, and a record without them
 keeps the action, as on the resource index. The id column links to the record
 only when its `authorizedToView` allows it (v2.0).
 
-When the related resource denies `viewAny`, a `HasMany` / `HasOne` /
-`MorphMany` / `MorphOne` panel still lists its records but offers no Create,
-Edit, Delete, Restore or Force delete (v2.0): every one of those writes needs
-the related `viewAny` (see
+When the related resource denies `viewAny`, the panel is not on the detail
+page at all (v2.0.1+, see below), so it offers no Create, Edit, Delete,
+Restore or Force delete either: every one of those writes needs the related
+`viewAny` (see
 [Authorization → `viewAny` is the entry gate](authorization.md#viewany-is-the-entry-gate)).
-Nova 1 to 3 hid such a panel; Nova 4/5 does not document it, so Martis keeps
-the 1.x listing and only drops the actions that would answer 403.
 
 On `BelongsToMany` / `MorphToMany` the row's own View / Edit / Delete are
 replaced by Detach and the pivot edit (which `hideDeleteAction()` /
@@ -73,6 +71,28 @@ HasMany::make('Comments', 'comments')
     ->hideSoftDeleteToggle()       // never show trashed filter
     ->hideForceDeleteAction()      // permanent deletion is never exposed
 ```
+
+### Panels follow the related resource's `viewAny` (v2.0.1+)
+
+A `HasMany`, `HasOne`, `MorphMany`, `MorphOne`, `BelongsToMany` or
+`MorphToMany` field (and `HasManyThrough`, `HasOneThrough`, `HasOneOfMany`,
+`MorphOneOfMany`, built on them) is seen only by a user whom the related
+resource lets `viewAny`, as in Nova, whose relationship fields authorize with
+`$resourceClass::authorizedToViewAny($request) && parent::authorize($request)`:
+
+- the detail page (and the schema, the drawer, a one-of-many card) leaves the
+  field out, wherever it is declared (a `Panel`, a tab);
+- its routes (the list or card, the attachable list, attach, detach, pivot
+  update, the pivot actions and their pickers, and the writes) answer `403`,
+  as Nova's relationship index (the related resource's index) does. A field
+  its own `canSee()` / `canSeeForModel()` hides keeps answering `404`;
+- the field's `canSee()` still applies on top: both must allow it.
+
+The automatic Action Events panel of an `Actionable` model follows the same
+rule (see [Actions → The Action Events panel](actions.md#the-action-events-panel-v201)).
+Before v2.0.1 the panel stayed on the page and listed the related records to
+any user who could view the parent. To show a panel to a user, grant `viewAny`
+on its related resource and confine the rows with `indexQuery()`.
 
 ---
 

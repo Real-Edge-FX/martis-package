@@ -303,12 +303,14 @@ it('lets an ActionEvent policy decide instead of the gate', function () {
     $this->getJson('/martis/api/resources/action-events')->assertForbidden();
 });
 
-it('lists no action events in a relationship panel without access, and lists them with it', function () {
+it('refuses the action events relationship panel without access, and lists them with it', function () {
     $this->actingAs($this->operator, 'web');
 
     $url = '/martis/api/resources/aea-docs/1/morph-many/actions';
 
-    $this->getJson($url)->assertOk()->assertJsonCount(0, 'data');
+    // As every relationship panel whose related resource the user may not
+    // viewAny (Nova's relationship index answers 403 there).
+    $this->getJson($url)->assertForbidden();
 
     aeaOpenLog();
 

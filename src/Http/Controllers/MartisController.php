@@ -14,7 +14,9 @@ use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\FilterContract;
 use Martis\Enums\SortDirection;
+use Martis\FieldContext;
 use Martis\Fields\BelongsToMany;
+use Martis\Fields\Concerns\AuthorizesRelatedResource;
 use Martis\Fields\Field;
 use Martis\Fields\HasMany;
 use Martis\Fields\MorphMany;
@@ -271,6 +273,48 @@ abstract class MartisController extends Controller
 
         if (! $instance->authorizedToViewAny($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        return null;
+    }
+
+    /**
+     * The 403 a relationship route answers when the parent's detail page
+     * declares the relationship field, but the user may not list its
+     * related resource (the related resource's `viewAny`).
+     *
+     * The field lookup of a relationship route leaves such a field out, as
+     * the detail page does ({@see AuthorizesRelatedResource}), so the
+     * route would answer 404 "Relationship not found". Nova answers 403
+     * there: its relationship index is the related resource's index, which
+     * aborts with 403 without `viewAny`. A field the detail page hides for
+     * another reason (`canSee()`, `canSeeForModel()`) keeps its 404.
+     *
+     * @param  class-string<FieldContract>  $fieldClass
+     */
+    protected function forbiddenWhenRelatedResourceClosed(
+        Request $request,
+        Resource $parent,
+        Model $parentModel,
+        string $fieldClass,
+        string $relationship,
+    ): ?IlluminateJsonResponse {
+        foreach (Field::flattenLayoutFields($parent->resolveDetailFields($request)) as $field) {
+            if (! $field instanceof $fieldClass
+                || ! $field instanceof Field
+                || ! method_exists($field, 'relatedResourceAuthorizedToViewAny')
+                || ! method_exists($field, 'isAuthorizedToSeeIgnoringRelatedResource')
+                || ! method_exists($field, 'getRelationship')
+                || $field->getRelationship() !== $relationship
+                || ! $field->isVisibleForContext(FieldContext::DETAIL)
+                || ! $field->isAuthorizedToSeeIgnoringRelatedResource($request)
+                || ! $field->isAuthorizedForModel($request, $parentModel)) {
+                continue;
+            }
+
+            if (! $field->relatedResourceAuthorizedToViewAny($request)) {
+                return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            }
         }
 
         return null;

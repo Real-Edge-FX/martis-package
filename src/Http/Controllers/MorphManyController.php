@@ -233,7 +233,7 @@ class MorphManyController extends MartisController
         return JsonResponse::make(
             $this->serializeModel(
                 $resInstance,
-                Field::filterForContext($resInstance->fieldsForDetail($request), FieldContext::DETAIL),
+                Field::filterForContext($resInstance->resolveDetailFields($request), FieldContext::DETAIL),
                 $relatedModel,
             ),
             meta: ['message' => $relatedResourceClass::createdMessage()],
@@ -315,7 +315,7 @@ class MorphManyController extends MartisController
         return JsonResponse::make(
             $this->serializeModel(
                 $resInstance,
-                Field::filterForContext($resInstance->fieldsForDetail($request), FieldContext::DETAIL),
+                Field::filterForContext($resInstance->resolveDetailFields($request), FieldContext::DETAIL),
                 $relatedModel,
             ),
             meta: ['message' => $relatedResourceClass::updatedMessage()],
@@ -423,7 +423,7 @@ class MorphManyController extends MartisController
         // A relationship field hidden for the parent record (canSeeForModel())
         // is not on its detail page, so it answers like an undeclared one.
         $fields = Field::filterForModel(
-            Field::filterForContext($parentInstance->fieldsForDetail($request), FieldContext::DETAIL),
+            Field::filterForContext($parentInstance->resolveDetailFields($request), FieldContext::DETAIL),
             $request,
             $parentModel,
         );
@@ -437,7 +437,8 @@ class MorphManyController extends MartisController
         }
 
         if ($morphManyField === null) {
-            return JsonErrorResponse::notFound("Relationship '{$relationship}' not found.")->toResponse();
+            return $this->forbiddenWhenRelatedResourceClosed($request, $parentInstance, $parentModel, MorphMany::class, $relationship)
+                ?? JsonErrorResponse::notFound("Relationship '{$relationship}' not found.")->toResponse();
         }
 
         if (! method_exists($parentModel, $relationship)) {
