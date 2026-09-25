@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough as EloquentHasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOneOrManyThrough;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
@@ -97,7 +98,10 @@ class HasManyController extends MartisController
         $search = trim(is_string($rawSearch) ? $rawSearch : '');
 
         if ($search !== '') {
-            SearchResolver::apply($request, $query, $relatedResourceClass, $search, qualifyColumns: true);
+            // Qualified only through a hasManyThrough, whose intermediate may
+            // share a column; a plain hasMany may search a column of a table
+            // its relation joins, which the related table does not have.
+            SearchResolver::apply($request, $query, $relatedResourceClass, $search, qualifyColumns: $relation instanceof HasOneOrManyThrough);
         }
 
         // Only a sortable field of the related resource the user can see
@@ -370,7 +374,7 @@ class HasManyController extends MartisController
     /**
      * Resolve all context needed for a HasMany operation.
      *
-     * @return array{parentModel: Model, parentResourceClass: class-string<resource>, relatedResourceClass: class-string<resource>, hasManyField: HasMany, relation: EloquentHasMany<Model, Model>}|IlluminateJsonResponse
+     * @return array{parentModel: Model, parentResourceClass: class-string<resource>, relatedResourceClass: class-string<resource>, hasManyField: HasMany, relation: EloquentHasMany<Model, Model>|EloquentHasManyThrough<Model, Model, Model>}|IlluminateJsonResponse
      */
     private function resolveContext(
         Request $request,

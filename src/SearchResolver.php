@@ -41,11 +41,11 @@ class SearchResolver
      * @param  class-string<\Martis\Resource>  $resourceClass
      * @param  string  $search  The trimmed search term
      * @param  bool  $qualifyColumns  Qualify the searched columns with the
-     *                                model's table. A relationship panel sets it: its relation
-     *                                can join a table with the same column (a hasManyThrough's
-     *                                intermediate, a pivot). The resource index leaves the
-     *                                columns as written, since its `indexQuery()` may join a
-     *                                table whose column a searchable field reads.
+     *                                model's table. A relationship panel whose relation joins
+     *                                a table by nature sets it: a hasManyThrough's intermediate
+     *                                or a pivot may share a column. Everything else leaves the
+     *                                columns as written, since an `indexQuery()` or the relation
+     *                                itself may join a table whose column a searchable field reads.
      * @return Builder<Model> The modified query
      */
     public static function apply(
@@ -187,7 +187,7 @@ class SearchResolver
     ): Builder {
         $instance = new $resourceClass;
 
-        // See apply(): only a relationship panel qualifies the columns.
+        // See apply(): only a panel over a joining relation qualifies them.
         $column = static fn (Builder $q, string $attribute): string => $qualifyColumns ? $q->qualifyColumn($attribute) : $attribute;
 
         // Case-insensitive matching across every driver: PostgreSQL's `LIKE`
