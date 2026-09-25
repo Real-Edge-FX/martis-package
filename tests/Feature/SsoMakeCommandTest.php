@@ -213,6 +213,12 @@ it('martis:sso registers the SocialiteProviders listener idempotently', function
 });
 
 it('martis:sso sanitizes a hyphenated custom provider name to a safe identifier', function () {
+    // The command writes the provider block into a published config/martis.php,
+    // as its siblings above do: publish one when this test runs first.
+    if (! file_exists(config_path('martis.php'))) {
+        $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+    }
+
     $this->artisan('martis:sso', [
         'provider' => 'my-provider',
         '--custom' => true,
