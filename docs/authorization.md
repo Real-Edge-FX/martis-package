@@ -76,6 +76,13 @@ its `create` / `update` / `delete` ability as before. A user who cannot list
 `routable()` is not part of that check: a headless resource (v1.24.0, see
 [Resources → routable](resources.md)) stays usable as a relation target.
 
+Reading through a relationship needs it too (v2.0.1): a relationship panel
+(`HasMany`, `HasOne`, `MorphMany`, `MorphOne`, `BelongsToMany`,
+`MorphToMany` and the fields built on them) is left off the detail page, and
+its routes answer `403`, for a user the related resource does not let
+`viewAny`, as in Nova. See
+[Relationships → Panels follow the related resource's `viewAny`](relationships.md#panels-follow-the-related-resources-viewany-v201).
+
 ## Writing a policy
 
 Martis looks for policies in two places, in order:

@@ -10,8 +10,9 @@ The sections below list the breaking changes of each major version and what to c
 
 The Action Events resource (the `martis_action_events` audit log) was readable by every panel user, `original` and `changes` included, whatever fields those users could see on the records. From v2.0.1 it is closed until you open it, and it masks the values the viewer could not read on the record:
 
-- **Access.** A deny-by-default gate, `view-martis-action-events`, decides who reads the log, unless a policy for `Martis\Models\ActionEvent` defines `viewAny` / `view` (then the policy decides, as before). Without access the index and the detail answer `403`, the sidebar entry and the command palette's *Recent activity* disappear, and a relationship panel that lists the log shows no rows.
-- **Hidden values.** A value in `original` / `changes` reads `[hidden]` unless the viewer may see that attribute on the record's own detail page (a visible field, through a resource that lets the viewer view the record). Attributes no field shows, such as `password`, are masked too. The stored rows are unchanged.
+- **Access.** A deny-by-default gate, `view-martis-action-events`, decides who reads the log, unless a policy for `Martis\Models\ActionEvent` defines `viewAny` / `view` (then the policy decides, as before). Without access the index and the detail answer `403`, the sidebar entry and the command palette's *Recent activity* disappear, and a relationship panel that lists the log leaves the detail page (see the next section).
+- **Hidden values.** A value in `original` / `changes` reads `[hidden]` unless the viewer may see that attribute on the record's own detail page (a visible field, through a resource that lets the viewer view the record). Attributes no field shows, such as `password`, are masked too, and so are the pivot columns of a pivot action whose pivot field the viewer may not see. Rows already stored are unchanged.
+- **`$hidden` attributes are stored masked.** From v2.0.1 an event stores `[hidden]` for each `$hidden` attribute of the model (or of the pivot model) an action changed, as Nova does. Code that read those values from `martis_action_events` gets the mask for new rows.
 
 **What to change:** grant the gate to the users who should read the log, in `app/Providers/MartisServiceProvider.php` (or any service provider):
 
@@ -22,6 +23,18 @@ Gate::define('view-martis-action-events', fn ($user) => $user->is_admin);
 ```
 
 An app with an `ActionEventPolicy` that defines `viewAny` and `view` needs no change. A custom resource for the `ActionEvent` model keeps its own authorization; apply `ActionEventRedactor::redact()` to its `original` / `changes` fields to mask the same values. See [Actions → Who can read the audit log](actions.md#who-can-read-the-audit-log-v201).
+
+### Relationship panels follow the related resource's `viewAny`
+
+A relationship panel (`HasMany`, `HasOne`, `MorphMany`, `MorphOne`, `BelongsToMany`, `MorphToMany`, and `HasManyThrough`, `HasOneThrough`, `HasOneOfMany`, `MorphOneOfMany`) was shown, and its records listed, to any user who could view the parent record. From v2.0.1 it follows Nova: a user the related resource does not let `viewAny` does not see the panel on the detail page, and its routes (the list, the card, the attachable list, attach, detach, the pivot update and the pivot actions) answer `403`. v2.0 already refused the writes.
+
+**What to change:** grant `viewAny` on the related resource to the users who should keep seeing the panel, and confine the rows they see with `indexQuery()`. See [Relationships → Panels follow the related resource's `viewAny`](relationships.md#panels-follow-the-related-resources-viewany-v201).
+
+### An Action Events panel on `Actionable` models
+
+As in Nova, the detail page of a model that uses `Martis\Concerns\Actionable` now ends with a collapsable **Action Events** panel listing its action log, for the users who may read the log (the `view-martis-action-events` gate or an `ActionEvent` policy). A resource that already declares a `MorphMany` to the action event resource keeps its own and gets no second one.
+
+**What to change:** nothing to get the panel. To leave it out of a resource, override `shouldAddActionsField()` to return `false`. A resource that overrides `fieldsForDetail()` keeps working: the panel is added after it. See [Actions → The Action Events panel](actions.md#the-action-events-panel-v201).
 
 ## Upgrading to v2.0 from v1.x
 
@@ -82,7 +95,7 @@ Both warnings can log a false positive: a field can store a valid 0-based positi
 
 Creating, editing or deleting a record through a relationship panel (`HasMany`, `HasOne`, `MorphMany`, `MorphOne`, and their endpoints) now needs the related resource's `viewAny`, as its own per-id endpoints do since v1.34.0 and as Nova does. v1.x checked only the parent's `viewAny` / `view` and the related record's `create` / `update` / `delete`.
 
-A user whose policy denies `viewAny` on the related resource gets a 403 on those writes, and the panel no longer offers Create, Edit, Delete, Restore or Force delete. It still lists the records, as in v1.x.
+A user whose policy denies `viewAny` on the related resource gets a 403 on those writes, and the panel no longer offers Create, Edit, Delete, Restore or Force delete. In v2.0.0 it still listed the records, as in v1.x; from v2.0.1 the panel is hidden too (see [Relationship panels follow the related resource's `viewAny`](#relationship-panels-follow-the-related-resources-viewany)).
 
 **What to change:** if that user should keep writing through the panel, grant `viewAny` on the related resource and confine what they see with `indexQuery()`. A resource that is not `routable()` keeps working as a relation target. See [Authorization → `viewAny` is the entry gate](authorization.md#viewany-is-the-entry-gate).
 

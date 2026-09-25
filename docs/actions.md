@@ -1164,6 +1164,28 @@ $post->actions()->where('name', 'Publish Posts')->count();
 $post->actions()->where('status', 'failed')->get();
 ```
 
+#### The Action Events panel (v2.0.1+)
+
+As in Nova, the detail page of a model that uses the `Actionable` trait ends with a collapsable **Action Events** panel: a `MorphMany` of `actions()` through the resource that exposes the `ActionEvent` model (the built-in `ActionEventResource`, or your own). Martis adds it after `fieldsForDetail()` (see `Resource::resolveDetailFields()`), unless:
+
+- the detail fields already declare a `MorphMany` to that resource (yours stays, labelled as you wrote it, in its panel or tab);
+- no resource exposes the `ActionEvent` model (`martis.action_events.resource` off and no resource of your own);
+- the resource overrides `shouldAddActionsField()`, Nova's hook, to return `false`:
+
+```php
+use Illuminate\Http\Request;
+
+class PostResource extends Resource
+{
+    protected function shouldAddActionsField(Request $request, array $fields): bool
+    {
+        return false;
+    }
+}
+```
+
+`actionEventsField()` builds the panel; override it to change its label or options. The panel follows the action event resource's `viewAny`, as every relationship panel does (see [Relationships → Panels follow the related resource's `viewAny`](relationships.md#panels-follow-the-related-resources-viewany-v201)): while the audit log is closed (below), no user sees it and its route answers `403`.
+
 ### Built-in ActionEvent Resource
 
 Martis automatically registers an `ActionEventResource` in the admin panel, providing a read-only interface for browsing the audit log. This resource:
@@ -1192,7 +1214,7 @@ Without access:
 | `GET /api/resources/action-events` and `/{id}` | `403` |
 | Sidebar, `MenuItem::resource(ActionEventResource::class)` | Hidden |
 | Command palette, *Recent activity* | Empty |
-| A relationship panel listing the log (for example `MorphMany::make('Actions', 'actions', ActionEventResource::class)` on an `Actionable` model) | Lists no rows. The panel still needs the parent record's `view`; hide the panel itself with `->canSee(fn ($request) => (new ActionEventResource)->authorizedToViewAny($request))` |
+| A relationship panel listing the log (the automatic Action Events panel of an `Actionable` model, or a `MorphMany::make('Actions', 'actions', ActionEventResource::class)` of your own) | Not on the detail page; its route answers `403`, as for every panel whose related resource denies `viewAny` |
 
 The denied gate check runs with every navigation build, so the [authorization-denial audit](authorization.md#audit-log-of-denied-authorizations) skips it like the `viewAny` cascade (unless `MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY=true`).
 
@@ -1201,7 +1223,7 @@ The denied gate check runs with every navigation build, so the [authorization-de
 `original` and `changes` store the raw attributes an action changed, whatever the record's resource shows. The detail page shows a value only when the viewer could read that attribute on the record's own detail page; any other value reads `[hidden]` (`ActionEventRedactor::MASK`), so the log still tells which attributes changed:
 
 - **The record has a resource.** A key keeps its value when it is the attribute of a detail field the viewer may see (`canSee()`, `canSeeForModel()`), or the foreign key / morph type of a visible `BelongsTo` / `MorphTo`, through a resource that lets the viewer `viewAny` and `view` the record. Attributes no field shows (`password`, `remember_token`, internal columns) are masked. A viewer who may not view the record sees every value masked, and so does one whose global scopes hide it (another tenant's record). A deleted record is judged by the field visibility alone.
-- **A pivot action's event** (`model_type` is the pivot): the values show when the viewer may view the parent record; the pivot model's `$hidden` attributes are masked.
+- **A pivot action's event** (`model_type` is the pivot): the values show when the viewer may view the parent record, but the pivot model's `$hidden` attributes and the attributes of the pivot fields the viewer may not see (`canSee()`) on the `BelongsToMany` / `MorphToMany` field that lists the row. When the parent's detail page declares such a field but the viewer may see none of them, every value is masked.
 - **No resource exposes the model** (a standalone action, a role change, a custom writer): the values show, but the model's `$hidden` attributes.
 
 A custom audit resource applies the same rule from its fields:
@@ -1214,7 +1236,11 @@ Code::make('changes')->json()->resolveUsing(
 );
 ```
 
-The stored row is unchanged: code that reads `ActionEvent` directly gets every value.
+The stored row keeps every other value: code that reads `ActionEvent` directly gets them. Only the model's `$hidden` attributes never reach it (below).
+
+#### `$hidden` attributes are stored masked (v2.0.1+)
+
+When an action changes an attribute its model hides (`$hidden`: a password hash, a token), the event stores `[hidden]` for it in `original` and `changes`, keeping the key; a pivot action does the same with the pivot model's `$hidden` columns. This applies to synchronous and queued actions and to pivot actions, and to rows written from v2.0.1 on (older rows keep their values, still masked on read). Nova does the same: its action events store their diffs through `Orchestra\Sidekick\Eloquent\model_state()`, which replaces each `$hidden` attribute with a value serialised as `******`. A custom writer masks its own diffs with `ActionEventRedactor::maskHiddenAttributes($values, $model)`.
 
 #### Hide from Navigation
 
