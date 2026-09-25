@@ -75,9 +75,19 @@ interface ActionModalProps {
   visible: boolean
   onHide: () => void
   onSuccess: () => void
+  /** The relationship a panel runs the action through, sent as Nova does,
+   *  so the run reaches only a record that relationship holds. */
+  via?: ActionVia
 }
 
-function DefaultActionModal({ resource, action, selectedIds, visible, onHide, onSuccess, onOpenCreate, onOpenDetail, onOpenUpdate }: ActionModalProps) {
+/** `viaResource` / `viaResourceId` / `viaRelationship` of a panel's run. */
+export interface ActionVia {
+  viaResource: string
+  viaResourceId: string | number
+  viaRelationship: string
+}
+
+function DefaultActionModal({ resource, action, selectedIds, visible, onHide, onSuccess, onOpenCreate, onOpenDetail, onOpenUpdate, via }: ActionModalProps) {
   const { addToast } = useToast()
   const { t } = useTranslation('actions')
   const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({})
@@ -144,6 +154,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
           resources: selectedIds,
           fields: { ...fieldValues, ...(params.extraFields ?? {}) },
           dryRun: params.dryRun ?? false,
+          ...(via ?? {}),
         },
       ),
     onSuccess: (res, params) => {

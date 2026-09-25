@@ -5,6 +5,11 @@ namespace Martis\Http\Controllers;
 use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough as EloquentHasManyThrough;
+use Illuminate\Database\Eloquent\Relations\MorphMany as EloquentMorphMany;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -21,8 +26,11 @@ use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Enums\ActionVisibility;
 use Martis\Exceptions\MartisException;
+use Martis\FieldContext;
 use Martis\Fields\BelongsToMany as BelongsToManyField;
 use Martis\Fields\Field as MartisField;
+use Martis\Fields\HasMany as HasManyField;
+use Martis\Fields\MorphMany as MorphManyField;
 use Martis\Fields\MorphToMany as MorphToManyField;
 use Martis\Fields\Repeater;
 use Martis\Http\Controllers\Concerns\BuildsFieldRules;
@@ -166,7 +174,11 @@ class ActionController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $models = $this->resolveModels($instance, $request);
+        $models = $this->resolveModels($instance, $actionInstance, $request);
+
+        if ($models instanceof IlluminateJsonResponse) {
+            return $models;
+        }
 
         if ($actionInstance->isSole() && $models->count() !== 1) {
             return JsonErrorResponse::validation(
@@ -174,22 +186,11 @@ class ActionController extends MartisController
             )->toResponse();
         }
 
-        if (! $actionInstance->isStandalone()) {
-            foreach ($models as $model) {
-                if (! $actionInstance->authorizedToRun($request, $model)) {
-                    return JsonErrorResponse::notFound('You are not authorized to run this action on one or more selected resources.')->toResponse();
-                }
-
-                $resourceForModel = new $resourceClass($model);
-                if ($actionInstance->isDestructive()) {
-                    if (! $resourceForModel->authorizedToRunDestructiveAction($request)) {
-                        return JsonErrorResponse::notFound('You are not authorized to run this destructive action.')->toResponse();
-                    }
-                } else {
-                    if (! $resourceForModel->authorizedToRunAction($request)) {
-                        return JsonErrorResponse::notFound('You are not authorized to run this action.')->toResponse();
-                    }
-                }
+        // The predicate the rows' `_actionAuthorization` map shows. A
+        // standalone action resolves no model, so nothing is checked here.
+        foreach ($models as $model) {
+            if (($denial = $this->actionRunDenial($request, $actionInstance, $model, $this->actionPolicy($request, new $resourceClass($model)))) !== null) {
+                return JsonErrorResponse::notFound($denial)->toResponse();
             }
         }
 
@@ -294,39 +295,171 @@ class ActionController extends MartisController
     }
 
     /**
-     * Resolve Eloquent models from the request.
+     * The models an action runs on: the records the request's `resources`
+     * name that resolve, as Nova runs an action on the selected records it
+     * finds, or a 404 when none does (all outside the scope, trashed out of
+     * reach or forged), so a run never handles nothing and answers "Done".
+     * An action that is not standalone and names no record is a 422.
      *
-     * @return Collection<int, Model>
+     * A standalone action runs on no record, whatever the request names. The
+     * records are looked up through the resource's `scopes()` and
+     * `indexQuery()` (its
+     * tenant / ownership scope: an id outside it does not resolve), trashed
+     * ones included when the resource soft-deletes, since the index and the
+     * panels list them. With `viaResource`, `viaResourceId` and
+     * `viaRelationship`, as a relationship panel sends them (as Nova does),
+     * only a record that relationship reaches resolves.
+     *
+     * @return Collection<int, Model>|IlluminateJsonResponse
      */
-    private function resolveModels(Resource $resource, Request $request): Collection
+    private function resolveModels(Resource $resource, ActionContract $action, Request $request): Collection|IlluminateJsonResponse
     {
-        /** @var list<int|string> $ids */
-        $ids = $request->input('resources', []);
+        /** @var Collection<int, Model> $empty */
+        $empty = new Collection;
 
-        if (empty($ids)) {
-            /** @var Collection<int, Model> $empty */
-            $empty = new Collection;
-
+        if ($action->isStandalone()) {
             return $empty;
+        }
+
+        $raw = $request->input('resources', []);
+        /** @var list<int|string> $ids */
+        $ids = array_values(array_unique(array_map(
+            static fn (mixed $id): string => is_scalar($id) ? (string) $id : '',
+            is_array($raw) ? $raw : [],
+        )));
+
+        // An action that runs on records needs at least one, as a pivot
+        // action does: an empty run would handle nothing and answer "Done".
+        if ($ids === []) {
+            return JsonErrorResponse::validation(
+                ['resources' => ['At least one resource must be selected.']],
+            )->toResponse();
         }
 
         $modelClass = $resource::model();
         /** @var Model $modelInstance */
         $modelInstance = new $modelClass;
 
-        // Apply the resource's index scoping (tenant / ownership filters)
-        // before selecting by id. Without this, an action could resolve and
-        // act on records outside the user's visible scope just by passing
-        // their ids (IDOR) — the same guard the index listing applies.
-        $query = $resource::indexQuery($request, $modelInstance->newQuery());
+        // Apply the resource's index scoping (its declarative `scopes()`,
+        // then `indexQuery()`: tenant / ownership filters) before selecting
+        // by id, in the index's order. Without this, an action could resolve
+        // and act on records outside the user's visible scope just by
+        // passing their ids (IDOR).
+        $query = $resource::indexQuery($request, $resource::applyScopes($request, $modelInstance->newQuery()));
+
+        if ($resource::softDeletes()) {
+            $query->withoutGlobalScope(SoftDeletingScope::class);
+        }
+
+        $via = $this->viaRelationKeys($request, $resource);
+
+        if ($via instanceof IlluminateJsonResponse) {
+            return $via;
+        }
+
+        if ($via !== null) {
+            $query->whereIn($modelInstance->getQualifiedKeyName(), $via);
+        }
 
         /** @var Collection<int, Model> $result */
-        $result = $query->whereIn(
-            $modelInstance->getKeyName(),
-            $ids,
-        )->get();
+        $result = $query->whereIn($modelInstance->getQualifiedKeyName(), $ids)->get();
+
+        if ($result->isEmpty()) {
+            return JsonErrorResponse::notFound('One or more selected resources could not be found.')->toResponse();
+        }
 
         return $result;
+    }
+
+    /**
+     * The keys of the records the relationship named by `viaResource`,
+     * `viaResourceId` and `viaRelationship` reaches, as a subquery, or `null`
+     * when the request names none. The parent is gated as its relationship
+     * panel is (its resource's `viewAny`, the record's `view`), and the
+     * relationship must be a `HasMany` (`HasManyThrough` included) or
+     * `MorphMany` field of the parent's detail page listing `$resource`.
+     */
+    private function viaRelationKeys(Request $request, Resource $resource): QueryBuilder|IlluminateJsonResponse|null
+    {
+        $viaResource = $request->input('viaResource');
+        $viaResourceId = $request->input('viaResourceId');
+        $viaRelationship = $request->input('viaRelationship');
+
+        if ($viaResource === null && $viaResourceId === null && $viaRelationship === null) {
+            return null;
+        }
+
+        $notFound = JsonErrorResponse::notFound('Relationship not found.')->toResponse();
+
+        if (! is_string($viaResource) || ! is_string($viaRelationship) || ! is_scalar($viaResourceId)) {
+            return $notFound;
+        }
+
+        $parentResourceClass = $this->resolveResource($viaResource);
+
+        if ($parentResourceClass === null) {
+            return $notFound;
+        }
+
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $parentResourceClass)) {
+            return $forbidden;
+        }
+
+        /** @var class-string<Model> $parentModelClass */
+        $parentModelClass = $parentResourceClass::model();
+        /** @phpstan-ignore staticMethod.notFound */
+        $parentModel = $parentModelClass::find($viaResourceId);
+
+        if (! $parentModel instanceof Model) {
+            return $notFound;
+        }
+
+        $parent = new $parentResourceClass($parentModel);
+
+        if (! $parent->authorizedToView($request)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        $fields = MartisField::filterForModel(
+            MartisField::filterForContext($parent->fieldsForDetail($request), FieldContext::DETAIL),
+            $request,
+            $parentModel,
+        );
+
+        $declared = false;
+        foreach ($fields as $field) {
+            if (($field instanceof HasManyField || $field instanceof MorphManyField)
+                && $field->getRelationship() === $viaRelationship
+                && $field->getRelatedResourceKey() === $resource::uriKey()) {
+                $declared = true;
+                break;
+            }
+        }
+
+        if (! $declared || ! method_exists($parentModel, $viaRelationship)) {
+            return $notFound;
+        }
+
+        $relation = $parentModel->{$viaRelationship}();
+
+        if (! $relation instanceof EloquentHasMany && ! $relation instanceof EloquentHasManyThrough && ! $relation instanceof EloquentMorphMany) {
+            return $notFound;
+        }
+
+        $keys = clone $relation->getQuery();
+
+        if ($resource::softDeletes()) {
+            $keys->withoutGlobalScope(SoftDeletingScope::class);
+        }
+
+        // A key subquery for `IN (...)`: a relation's own order, limit and
+        // offset (`->latest()->limit(2)`) would cut it short, and MySQL
+        // refuses a LIMIT there (SQLSTATE 1235).
+        $base = $keys->toBase()->reorder();
+        $base->limit = null;
+        $base->offset = null;
+
+        return $base->select($relation->getRelated()->getQualifiedKeyName());
     }
 
     /**
@@ -796,8 +929,14 @@ class ActionController extends MartisController
 
         ['parentModel' => $parentModel, 'parentResource' => $parentResource, 'field' => $field, 'relation' => $relation, 'action' => $actionInstance] = $resolved;
 
-        /** @var list<int|string> $relatedIds */
-        $relatedIds = $request->input('resources', []);
+        // A standalone action runs on no record, as on the resource's own
+        // endpoint; the others run on the ids sent that are attached.
+        $rawIds = $actionInstance->isStandalone() ? [] : $request->input('resources', []);
+        /** @var list<string> $relatedIds */
+        $relatedIds = array_values(array_unique(array_map(
+            static fn (mixed $id): string => is_scalar($id) ? (string) $id : '',
+            is_array($rawIds) ? $rawIds : [],
+        )));
 
         if (empty($relatedIds) && ! $actionInstance->isStandalone()) {
             return JsonErrorResponse::validation(
@@ -819,6 +958,12 @@ class ActionController extends MartisController
         // with its own `id` column would make a bare key ambiguous.
         /** @var Collection<int, Model> $models */
         $models = $relation->whereIn($relation->getRelated()->getQualifiedKeyName(), $relatedIds)->get();
+
+        // Run on the ids attached, as execute() does; none attached is a 404
+        // rather than a run on nothing.
+        if (! $actionInstance->isStandalone() && $models->isEmpty()) {
+            return JsonErrorResponse::notFound('One or more selected resources could not be found.')->toResponse();
+        }
 
         if ($actionInstance->isSole() && $models->count() !== 1) {
             return JsonErrorResponse::validation(
