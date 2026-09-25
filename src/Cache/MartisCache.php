@@ -32,8 +32,9 @@ use Martis\Models\CacheState;
  * needing tagging support. Old entries linger until natural expiration or
  * eviction; that's fine because the version is part of the key.
  *
- * `{installed}` is the martis/martis version Composer installed, so an
- * upgrade orphans every entry too (the `schema` layer has no expiry and
+ * `{installed}` is the martis/martis version Composer installed (with the
+ * commit reference for a `dev-*` branch, whose name survives an update),
+ * see `InstalledVersion::fingerprint()`, so an upgrade orphans every entry too (the `schema` layer has no expiry and
  * would otherwise keep serving the previous version's payload). A path
  * repository keeps the version of its last `composer install` / `update`,
  * so there only `martis:cache:clear` rebuilds the layers. Without a known
@@ -90,7 +91,7 @@ class MartisCache
     /**
      * @param  string|null  $installedVersion  The installed martis/martis
      *                                         version (the container passes
-     *                                         `InstalledVersion::of()`); null
+     *                                         `InstalledVersion::fingerprint()`); null
      *                                         leaves it out of the keys.
      */
     public function __construct(

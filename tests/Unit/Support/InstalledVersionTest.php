@@ -28,3 +28,29 @@ it('lets the brand.version config override the installed version on the sidebar'
 
     expect(app(MartisManager::class)->version())->toBe('9.9.9-custom');
 });
+
+// The cache keys need a value that changes on every install of new code. A
+// tagged version does; a `dev-*` branch keeps its name across
+// `composer update`, so its commit reference is appended.
+
+it('stamps a tagged version as is', function () {
+    expect(InstalledVersion::stamp('v2.0.0', '0123456789abcdef0123456789abcdef01234567'))->toBe('v2.0.0');
+});
+
+it('stamps a dev branch with its commit reference', function () {
+    expect(InstalledVersion::stamp('dev-main', '0123456789abcdef0123456789abcdef01234567'))->toBe('dev-main@0123456789ab')
+        ->and(InstalledVersion::stamp('dev-main', 'fedcba9876543210fedcba9876543210fedcba98'))->toBe('dev-main@fedcba987654');
+});
+
+it('stamps a dev branch without a reference with its name, and nothing as null', function () {
+    expect(InstalledVersion::stamp('dev-main', null))->toBe('dev-main')
+        ->and(InstalledVersion::stamp('dev-main', ''))->toBe('dev-main')
+        ->and(InstalledVersion::stamp(null, 'abc'))->toBeNull();
+});
+
+it('fingerprints the installed package with its version stamp', function () {
+    expect(InstalledVersion::fingerprint('martis/martis'))->toBe(InstalledVersion::stamp(
+        InstalledVersions::getPrettyVersion('martis/martis'),
+        InstalledVersions::getReference('martis/martis'),
+    ))->and(InstalledVersion::fingerprint('acme/not-installed'))->toBeNull();
+});

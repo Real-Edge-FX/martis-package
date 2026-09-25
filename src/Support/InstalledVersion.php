@@ -25,6 +25,13 @@ final class InstalledVersion
     private static array $versions = [];
 
     /**
+     * Resolved commit references, per package, for the life of the process.
+     *
+     * @var array<string, string|null>
+     */
+    private static array $references = [];
+
+    /**
      * The installed version of `$package`, or null when Composer has no
      * record of it (an ad-hoc autoloader) or its metadata cannot be read.
      * Never throws.
@@ -36,6 +43,54 @@ final class InstalledVersion
         }
 
         return self::$versions[$package];
+    }
+
+    /**
+     * A value that changes whenever Composer installs new code of
+     * `$package`, for cache keys: `stamp()` of its version and commit
+     * reference. Null when Composer has no record of it. Never throws.
+     */
+    public static function fingerprint(string $package): ?string
+    {
+        $version = self::of($package);
+        if ($version === null) {
+            return null;
+        }
+
+        if (! array_key_exists($package, self::$references)) {
+            self::$references[$package] = self::resolveReference($package);
+        }
+
+        return self::stamp($version, self::$references[$package]);
+    }
+
+    /**
+     * A tagged version names its code on its own. A `dev-*` branch keeps its
+     * name across `composer update`, so its commit reference (shortened to
+     * 12 characters) is appended: `dev-main@0123456789ab`.
+     */
+    public static function stamp(?string $version, ?string $reference): ?string
+    {
+        if ($version === null || $version === '') {
+            return null;
+        }
+
+        if (! str_starts_with($version, 'dev-') || $reference === null || $reference === '') {
+            return $version;
+        }
+
+        return $version.'@'.substr($reference, 0, 12);
+    }
+
+    private static function resolveReference(string $package): ?string
+    {
+        try {
+            $reference = InstalledVersions::getReference($package);
+
+            return is_string($reference) && $reference !== '' ? $reference : null;
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private static function resolve(string $package): ?string

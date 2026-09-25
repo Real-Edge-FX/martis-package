@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use Composer\InstalledVersions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Martis\Cache\MartisCache;
+use Martis\Support\InstalledVersion;
 use Martis\Tests\TestCase;
 
 uses(TestCase::class);
@@ -57,7 +57,7 @@ it('keeps the key without a version when the installed version is unknown', func
 });
 
 it('binds the cache service with the version Composer installed', function () {
-    $installed = InstalledVersions::getPrettyVersion('martis/martis');
+    $installed = InstalledVersion::fingerprint('martis/martis');
 
     expect($installed)->toBeString()->not->toBe('')
         ->and(app(MartisCache::class)->buildKey('schema', 'posts'))->toBe("martis:cache:schema@{$installed}:v1:posts");

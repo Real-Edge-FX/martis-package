@@ -134,7 +134,7 @@ class MartisServiceProvider extends ServiceProvider
         // requests — operational metadata read from `martis_cache_state`
         // stays at most one request stale.
         $this->app->scoped(MartisCache::class, function (): MartisCache {
-            return new MartisCache(Cache::store(), InstalledVersion::of('martis/martis'));
+            return new MartisCache(Cache::store(), InstalledVersion::fingerprint('martis/martis'));
         });
 
         // The PSR-4 map does not change during a process; read it once
