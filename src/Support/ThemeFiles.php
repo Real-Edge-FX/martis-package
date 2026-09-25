@@ -40,6 +40,12 @@ final class ThemeFiles
         return self::sourceDirectory().'/'.$name.'.css';
     }
 
+    /** Where the package assets are published: the directory the asset publish wipes. */
+    public static function assetsDirectory(): string
+    {
+        return public_path('vendor/martis');
+    }
+
     public static function publishedDirectory(): string
     {
         return public_path('vendor/martis/themes');
@@ -194,7 +200,7 @@ final class ThemeFiles
      */
     public static function publishedDirectoryIsLink(): bool
     {
-        return is_link(self::publishedDirectory());
+        return is_link(self::assetsDirectory()) || is_link(self::publishedDirectory());
     }
 
     /**

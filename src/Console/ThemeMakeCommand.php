@@ -5,6 +5,7 @@ namespace Martis\Console;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 use Martis\Stubs\StubResolver;
+use Martis\Support\LinkedDirectory;
 use Martis\Support\ThemeFiles;
 use Martis\Support\ThemePublisher;
 use RuntimeException;
@@ -111,9 +112,12 @@ class ThemeMakeCommand extends Command
         // generated: martis:publish-assets rewrites it from the source. A
         // themes directory that is a symlink is replaced by a real directory
         // first, never written through.
-        if (ThemeFiles::publishedDirectoryIsLink()) {
-            $target = (string) @readlink(ThemeFiles::publishedDirectory());
-            $this->components->warn("public/vendor/martis/themes is a symlink to {$target}: martis:theme replaces the link with a real directory holding a copy of its files, and never writes into {$target}.");
+        foreach ([ThemeFiles::assetsDirectory(), ThemeFiles::publishedDirectory()] as $directory) {
+            $target = LinkedDirectory::target($directory);
+
+            if ($target !== null) {
+                $this->components->warn($this->relativePath($directory)." is a symlink to {$target}: martis:theme replaces the link with a real directory holding a copy of its files, and never writes into {$target}.");
+            }
         }
 
         try {

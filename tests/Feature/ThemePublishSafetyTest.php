@@ -29,6 +29,7 @@ function themeSafetyReset(): void
     if (is_link(public_path('vendor/martis/themes'))) {
         unlink(public_path('vendor/martis/themes'));
     }
+    themeSafetyRestoreAssetsDirectory();
     $fs->deleteDirectory(public_path('vendor/martis/themes'));
     $fs->deleteDirectory(themeSafetyShared());
     $fs->delete(public_path(THEME_SAFETY_STALE_CHUNK));
@@ -69,6 +70,36 @@ function themeSafetySharedFile(string $file, string $css): string
     return $path;
 }
 
+/**
+ * Make public/vendor/martis itself a symlink to the shared directory. The
+ * real directory is moved aside and put back by the reset.
+ */
+function themeSafetyLinkAssetsDirectory(): void
+{
+    $fs = new Filesystem;
+    $assets = public_path('vendor/martis');
+    if (! is_link($assets) && is_dir($assets)) {
+        rename($assets, $assets.'.theme-safety-saved');
+    }
+    $fs->ensureDirectoryExists(themeSafetyShared());
+    $fs->ensureDirectoryExists(public_path('vendor'));
+    symlink(themeSafetyShared(), $assets);
+}
+
+function themeSafetyRestoreAssetsDirectory(): void
+{
+    $fs = new Filesystem;
+    $assets = public_path('vendor/martis');
+    $saved = $assets.'.theme-safety-saved';
+    if (is_link($assets)) {
+        unlink($assets);
+    }
+    if (is_dir($saved)) {
+        $fs->deleteDirectory($assets);
+        rename($saved, $assets);
+    }
+}
+
 /** Make public/vendor/martis/themes a symlink to the shared directory. */
 function themeSafetyLinkThemesDirectory(): void
 {
@@ -90,7 +121,19 @@ function themeSafetySharedContents(): array
     return $contents;
 }
 
-/** The publish record: the sha1 list next to the copies. */
+/**
+ * The files under the shared directory, sorted. The public/vendor/martis
+ * probes compare names, not contents: a regression writes the whole asset
+ * tree into the target, and diffing its contents stalls the failure report.
+ *
+ * @return list<string>
+ */
+function themeSafetySharedNames(): array
+{
+    return array_keys(themeSafetySharedContents());
+}
+
+/** The publish record: the keys next to the copies. */
 function themeSafetyRecordPath(): string
 {
     return public_path('vendor/martis/themes/.published.json');
@@ -438,7 +481,7 @@ it('keeps its publish record next to the copies, as hashes without theme names',
     $this->artisan('martis:publish-assets')->assertSuccessful();
 
     $record = (string) file_get_contents(themeSafetyRecordPath());
-    expect(json_decode($record, true)['sha1'] ?? null)->toBe([sha1(':root {}')])
+    expect(json_decode($record, true)['keys'] ?? null)->toBe([sha1('brand:'.sha1(':root {}'))])
         ->and($record)->not->toContain('brand');
     expect(storage_path('app/martis'))->not->toBeDirectory();
 
@@ -1002,9 +1045,17 @@ it('martis:theme replaces a symlinked themes directory instead of writing into i
 });
 
 it('stops, leaving the link, when a symlinked themes directory cannot be replaced', function () {
+    // The link is replaced before the backups: a run that cannot replace it
+    // must not have announced a removal or pruned a backup first.
     themeSafetyLinkThemesDirectory();
     themeSafetySharedFile('legacy.css', 'legacy');
     themeSafetySource('brand.css', 'source');
+    $fs = new Filesystem;
+    foreach (range(1, 11) as $run) {
+        $old = storage_path(sprintf('app/martis/theme-backups/20250101-0000%02d/old.css', $run));
+        $fs->ensureDirectoryExists(dirname($old));
+        $fs->put($old, "old {$run}");
+    }
     // The copy is made next to the link, in public/vendor/martis/.
     $parent = public_path('vendor/martis');
     chmod($parent, 0555);
@@ -1014,13 +1065,17 @@ it('stops, leaving the link, when a symlinked themes directory cannot be replace
         if ($writable) {
             // Root writes anyway: the link is replaced.
             rmdir($parent.'/.probe');
-            $this->artisan('martis:publish-assets', ['--no-wipe' => true])->assertSuccessful();
+            $this->artisan('martis:publish-assets', ['--themes-only' => true])->assertSuccessful();
             expect(is_link(public_path('vendor/martis/themes')))->toBeFalse();
         } else {
-            $this->artisan('martis:publish-assets', ['--no-wipe' => true])
-                ->expectsOutputToContain('Could not replace the symlink public/vendor/martis/themes with a directory')
+            $this->artisan('martis:publish-assets', ['--themes-only' => true])
+                ->expectsOutputToContain('Could not replace a symlinked directory under public/vendor/ with a real one')
+                ->doesntExpectOutputToContain('so this publish removes it')
+                ->doesntExpectOutputToContain('Backed up to')
+                ->doesntExpectOutputToContain('Removed the old backup')
                 ->assertFailed();
             expect(is_link(public_path('vendor/martis/themes')))->toBeTrue();
+            expect(array_keys(themeBackups()))->toHaveCount(11);
         }
     } finally {
         chmod($parent, 0755);
@@ -1043,7 +1098,9 @@ it('refuses to publish while the theme source directory cannot be listed', funct
             $this->artisan('martis:publish-assets')->assertSuccessful();
         } else {
             $this->artisan('martis:publish-assets')
-                ->expectsOutputToContain('Could not read resources/css/martis: the directory cannot be listed')
+                ->expectsOutputToContain('Could not list resources/css/martis: the directory cannot be listed')
+                ->expectsOutputToContain('permission to list')
+                ->doesntExpectOutputToContain('Fix or remove the file')
                 ->assertFailed();
             expect($stale)->toBeFile();
             expect(public_path('vendor/martis/themes/brand.css'))->toBeFile();
@@ -1051,4 +1108,107 @@ it('refuses to publish while the theme source directory cannot be listed', funct
     } finally {
         chmod($directory, 0755);
     }
+});
+
+// ---------------------------------------------------------------------------
+// The record binds a copy to its theme
+// ---------------------------------------------------------------------------
+
+it('backs up a copy that holds another theme\'s published content', function () {
+    // The record used to hold bare hashes: b's copy replaced by a byte copy
+    // of a's matched a's entry and was overwritten without a backup.
+    themeSafetySource('a.css', 'theme a');
+    themeSafetySource('b.css', 'theme b');
+    $this->artisan('martis:publish-assets', ['--themes-only' => true])->assertSuccessful();
+
+    copy(public_path('vendor/martis/themes/a.css'), public_path('vendor/martis/themes/b.css'));
+    themeSafetySource('a.css', 'theme a, edited');
+
+    $this->artisan('martis:publish-assets', ['--themes-only' => true])
+        ->expectsOutputToContain('public/vendor/martis/themes/b.css differs from its source, resources/css/martis/b.css,')
+        ->doesntExpectOutputToContain('themes/a.css differs')
+        ->assertSuccessful();
+
+    expect(array_values(themeBackups()))->toBe(['theme a']);
+    expect(file_get_contents(public_path('vendor/martis/themes/b.css')))->toBe('theme b');
+});
+
+// ---------------------------------------------------------------------------
+// public/vendor/martis itself a symlink
+// ---------------------------------------------------------------------------
+
+it('replaces a symlinked public/vendor/martis with a real directory, never writing into its target', function (array $options) {
+    // Since v1.8.8 the wipe emptied the target through the link, and the
+    // copy wrote the assets into it: a file of the app there was lost.
+    themeSafetyLinkAssetsDirectory();
+    themeSafetySharedFile('custom.txt', 'keep me');
+    themeSafetySharedFile('themes/legacy.css', 'legacy');
+    themeSafetySource('brand.css', 'source');
+
+    $this->artisan('martis:publish-assets', $options)
+        ->expectsOutputToContain('public/vendor/martis is a symlink to theme-safety-shared: ')
+        ->assertSuccessful();
+
+    expect(themeSafetySharedNames())->toBe(['custom.txt', 'themes/legacy.css'])
+        ->and(file_get_contents(themeSafetyShared('custom.txt')))->toBe('keep me')
+        ->and(file_get_contents(themeSafetyShared('themes/legacy.css')))->toBe('legacy');
+    expect(is_link(public_path('vendor/martis')))->toBeFalse()
+        ->and(file_get_contents(public_path('vendor/martis/themes/brand.css')))->toBe('source');
+    expect(array_values(themeBackups()))->toBe(['legacy']);
+})->with([
+    'full publish' => [[]],
+    '--themes-only' => [['--themes-only' => true]],
+]);
+
+it('publishes the package assets into the directory that replaces a symlinked public/vendor/martis', function () {
+    themeSafetyLinkAssetsDirectory();
+    themeSafetySharedFile('custom.txt', 'keep me');
+
+    $this->artisan('martis:publish-assets')->assertSuccessful();
+
+    expect(public_path('vendor/martis/manifest.json'))->toBeFile()
+        ->and(public_path('vendor/martis/custom.txt'))->not->toBeFile();
+    expect(themeSafetyShared('manifest.json'))->not->toBeFile();
+});
+
+it('stops, leaving the link, when a symlinked public/vendor/martis cannot be replaced', function () {
+    themeSafetyLinkAssetsDirectory();
+    themeSafetySharedFile('custom.txt', 'keep me');
+    $parent = public_path('vendor');
+    chmod($parent, 0555);
+
+    try {
+        $writable = @mkdir($parent.'/.probe');
+        if ($writable) {
+            rmdir($parent.'/.probe');
+            $this->artisan('martis:publish-assets')->assertSuccessful();
+            expect(is_link(public_path('vendor/martis')))->toBeFalse();
+        } else {
+            $this->artisan('martis:publish-assets')
+                ->expectsOutputToContain('Could not replace a symlinked directory under public/vendor/ with a real one')
+                ->doesntExpectOutputToContain('Wiping')
+                ->assertFailed();
+            expect(is_link(public_path('vendor/martis')))->toBeTrue();
+        }
+    } finally {
+        chmod($parent, 0755);
+    }
+
+    expect(themeSafetySharedNames())->toBe(['custom.txt'])
+        ->and(file_get_contents(themeSafetyShared('custom.txt')))->toBe('keep me');
+});
+
+it('martis:theme replaces a symlinked public/vendor/martis instead of writing into it', function () {
+    themeSafetyLinkAssetsDirectory();
+    themeSafetySharedFile('custom.txt', 'keep me');
+
+    $this->artisan('martis:theme', ['name' => 'brand'])
+        ->expectsOutputToContain('public/vendor/martis is a symlink to theme-safety-shared: ')
+        ->assertSuccessful();
+
+    expect(themeSafetySharedNames())->toBe(['custom.txt'])
+        ->and(file_get_contents(themeSafetyShared('custom.txt')))->toBe('keep me');
+    expect(is_link(public_path('vendor/martis')))->toBeFalse()
+        ->and(public_path('vendor/martis/custom.txt'))->toBeFile()
+        ->and(public_path('vendor/martis/themes/brand.css'))->toBeFile();
 });

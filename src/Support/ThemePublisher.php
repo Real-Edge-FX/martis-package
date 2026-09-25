@@ -12,11 +12,13 @@ use Throwable;
  * Writes the published copies of the app's themes, and backs up whatever a
  * theme command would destroy that it cannot write back.
  *
- * The sha1 of each copy it writes goes into a record next to the copies,
- * `public/vendor/martis/themes/.published.json` (hashes only, so it names no
- * theme in the web root). While the theme's source exists, a published copy
- * whose hash is in the record (the previous publish) or that matches the
- * source can be replaced without losing anything. Anything else a run would
+ * Each copy it writes goes into a record next to the copies,
+ * `public/vendor/martis/themes/.published.json`: the sha1 of the theme name
+ * joined to the sha1 of the copy, so it names no theme in the web root and
+ * a copy of theme `a` placed over theme `b` does not match. While the
+ * theme's source exists, a published copy whose key is in the record (the
+ * previous publish) or that matches the source can be replaced without
+ * losing anything. Anything else a run would
  * delete or overwrite under `public/vendor/martis/themes/` (a copy edited in
  * place, as the 1.x `martis:theme` hint said to do, a theme without a
  * source, a font placed next to a theme, a hidden file) is copied to
@@ -26,10 +28,10 @@ use Throwable;
  * away, and the newest ones, KEEP_RUNS in all.
  *
  * A symlink is never backed up and never written through: removing or
- * replacing a link loses nothing, its target stays where it is. When the
- * themes directory itself is a symlink (a deploy tool's shared directory),
- * it is replaced by a real directory holding a copy of what the target
- * holds, before anything is written.
+ * replacing a link loses nothing, its target stays where it is. When
+ * `public/vendor/martis/` or its `themes/` is itself a symlink (a deploy
+ * tool's shared directory), it is replaced by a real directory holding a
+ * copy of what the target holds, before anything is written.
  */
 final class ThemePublisher
 {
@@ -51,7 +53,7 @@ final class ThemePublisher
     /** How many backup runs are kept: the oldest one and the newest ones. */
     public const KEEP_RUNS = 10;
 
-    /** @var array<string, true> sha1 => true, from the previous publish */
+    /** @var array<string, true> record key => true, from the previous publish */
     private array $record;
 
     /** @var array<string, string> theme name => sha1 of the copy this run wrote */
@@ -182,9 +184,10 @@ final class ThemePublisher
             return false;
         }
 
-        // The record holds hashes only: a copy matching any of them is one
-        // this class wrote, and its source can write it again.
-        return isset($this->record[$hash]) || $this->hash($sourcePath) === $hash;
+        // The record holds keys of name and content: a copy matching the
+        // key of this theme is one this class wrote for it, and its source
+        // can write it again.
+        return isset($this->record[self::recordKey($name, $hash)]) || $this->hash($sourcePath) === $hash;
     }
 
     /**
@@ -280,49 +283,27 @@ final class ThemePublisher
     }
 
     /**
-     * Replace a published directory that is a symlink with a real directory
-     * holding a copy of what its target holds (files copied, symlinks
-     * recreated as symlinks), so nothing is ever written into the target. A
-     * broken link becomes an empty directory. The copy is made next to the
-     * link and renamed into place, so a failure leaves the link as it was.
+     * Replace `public/vendor/martis/` and then its `themes/` with real
+     * directories when they are symlinks, so nothing is ever written into a
+     * link's target (see LinkedDirectory). Replacing a link loses nothing:
+     * the new directory holds a copy of what the target holds.
      *
-     * @return bool whether a link was replaced
+     * @return list<string> the directories that were symlinks
      *
-     * @throws RuntimeException when the directory cannot be replaced
+     * @throws RuntimeException when a link cannot be replaced
      */
-    public function replaceDirectoryLink(): bool
+    public function replaceDirectoryLinks(): array
     {
-        $link = ThemeFiles::publishedDirectory();
+        $replaced = [];
+        $linked = new LinkedDirectory($this->files);
 
-        if (! is_link($link)) {
-            return false;
+        foreach ([ThemeFiles::assetsDirectory(), ThemeFiles::publishedDirectory()] as $directory) {
+            if ($linked->replace($directory)) {
+                $replaced[] = $directory;
+            }
         }
 
-        $temporary = dirname($link).'/.themes-'.getmypid().'-'.bin2hex(random_bytes(4));
-
-        try {
-            if (! @mkdir($temporary, 0755)) {
-                throw new RuntimeException("{$temporary} could not be created");
-            }
-
-            if (is_dir($link)) {
-                $this->copyTree($link, $temporary);
-            }
-
-            if (! @unlink($link)) {
-                throw new RuntimeException("the symlink {$link} could not be removed");
-            }
-        } catch (Throwable $e) {
-            $this->files->deleteDirectory($temporary);
-
-            throw new RuntimeException($e->getMessage(), previous: $e);
-        }
-
-        if (! @rename($temporary, $link)) {
-            throw new RuntimeException("{$temporary} could not be renamed to {$link}; it holds the themes");
-        }
-
-        return true;
+        return $replaced;
     }
 
     /**
@@ -333,7 +314,7 @@ final class ThemePublisher
      */
     public function publish(string $name, string $sourcePath): void
     {
-        $this->replaceDirectoryLink();
+        $this->replaceDirectoryLinks();
         $target = ThemeFiles::publishedPath($name);
 
         try {
@@ -361,7 +342,7 @@ final class ThemePublisher
      */
     public function remove(string $relative): void
     {
-        $this->replaceDirectoryLink();
+        $this->replaceDirectoryLinks();
         $root = ThemeFiles::publishedDirectory();
         $this->files->delete($root.'/'.$relative);
 
@@ -383,17 +364,33 @@ final class ThemePublisher
      */
     public function saveRecord(): void
     {
-        $known = $this->record + array_fill_keys(array_values($this->written), true);
-        $hashes = [];
+        $keys = [];
 
+        // The copies this run wrote, while they are as it wrote them. A
+        // copy's entry can keep another case than its theme's name (`Brand.css`
+        // for `brand`) on a filesystem that ignores case, so they are keyed
+        // by the theme name, not the file name.
+        foreach ($this->written as $name => $hash) {
+            $published = ThemeFiles::publishedPath($name);
+
+            if (! is_link($published) && $this->hash($published) === $hash) {
+                $keys[self::recordKey($name, $hash)] = true;
+            }
+        }
+
+        // The copies an earlier run wrote that are still as it wrote them.
         foreach ((array) ThemeFiles::entries(ThemeFiles::publishedDirectory()) as $entry) {
             $published = ThemeFiles::publishedDirectory().'/'.$entry;
 
-            if (self::isThemeCopyName($entry) && ! is_link($published) && ($hash = $this->hash($published)) !== null && isset($known[$hash])) {
-                $hashes[$hash] = true;
+            if (self::isThemeCopyName($entry) && ! is_link($published) && ($hash = $this->hash($published)) !== null) {
+                $key = self::recordKey(ThemeFiles::nameOf($entry), $hash);
+
+                if (isset($this->record[$key])) {
+                    $keys[$key] = true;
+                }
             }
         }
-        $hashes = array_keys($hashes);
+        $hashes = array_keys($keys);
         sort($hashes);
 
         $path = ThemeFiles::recordPath();
@@ -408,7 +405,7 @@ final class ThemePublisher
                 return;
             }
 
-            $this->replaceDirectoryLink();
+            $this->replaceDirectoryLinks();
             $this->files->ensureDirectoryExists(dirname($path));
 
             if (is_link($path)) {
@@ -416,8 +413,8 @@ final class ThemePublisher
             }
 
             $written = $this->files->put($path, json_encode([
-                'note' => 'Written by martis:publish-assets and martis:theme: the sha1 of each theme copy they published here, so the next publish replaces them without a backup.',
-                'sha1' => $hashes,
+                'note' => 'Written by martis:publish-assets and martis:theme: for each theme copy they published here, sha1(theme name + ":" + sha1 of the copy), so the next publish replaces it without a backup.',
+                'keys' => $hashes,
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n");
         } catch (Throwable $e) {
             throw new RuntimeException($e->getMessage(), previous: $e);
@@ -533,41 +530,6 @@ final class ThemePublisher
     }
 
     /**
-     * Copy a directory tree, recreating symlinks as symlinks.
-     *
-     * @throws RuntimeException when an entry cannot be copied
-     */
-    private function copyTree(string $from, string $to): void
-    {
-        $entries = ThemeFiles::entries($from);
-
-        if ($entries === null) {
-            throw new RuntimeException("{$from} cannot be listed");
-        }
-
-        foreach ($entries as $entry) {
-            $source = $from.'/'.$entry;
-            $target = $to.'/'.$entry;
-
-            if (is_link($source)) {
-                $pointsTo = @readlink($source);
-                $copied = $pointsTo !== false && @symlink($pointsTo, $target);
-            } elseif (is_dir($source)) {
-                $copied = @mkdir($target, 0755);
-                if ($copied) {
-                    $this->copyTree($source, $target);
-                }
-            } else {
-                $copied = @copy($source, $target);
-            }
-
-            if (! $copied) {
-                throw new RuntimeException("{$source} could not be copied");
-            }
-        }
-    }
-
-    /**
      * The record's hashes, or none when it is missing or unreadable:
      * without a record, only a copy identical to its source is reproducible.
      *
@@ -588,7 +550,7 @@ final class ThemePublisher
         }
 
         $record = [];
-        $hashes = is_array($data) && is_array($data['sha1'] ?? null) ? $data['sha1'] : [];
+        $hashes = is_array($data) && is_array($data['keys'] ?? null) ? $data['keys'] : [];
 
         foreach ($hashes as $hash) {
             if (is_string($hash) && preg_match('/^[0-9a-f]{40}$/', $hash) === 1) {
@@ -667,6 +629,15 @@ final class ThemePublisher
         $base = rtrim(base_path(), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
 
         return str_starts_with($path, $base) ? substr($path, strlen($base)) : ltrim($path, DIRECTORY_SEPARATOR);
+    }
+
+    /**
+     * The record key of a theme copy: it binds the content to the theme, and
+     * the name is hashed so the record lists no theme in the web root.
+     */
+    private static function recordKey(string $name, string $hash): string
+    {
+        return sha1($name.':'.$hash);
     }
 
     private function hash(string $path): ?string

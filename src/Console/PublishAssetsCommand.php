@@ -4,6 +4,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
+use Martis\Support\LinkedDirectory;
 use Martis\Support\ThemeFiles;
 use Martis\Support\ThemePublisher;
 use Throwable;
@@ -49,8 +50,8 @@ use Throwable;
  * place, a theme without a source, a font next to a theme) to
  * `storage/app/martis/theme-backups/<run>/` and says so, stopping with
  * nothing deleted if a backup fails (see `Martis\Support\ThemePublisher`).
- * A themes directory that is a symlink is replaced by a real directory, and
- * its target is never written. `--themes-only` runs that theme step alone,
+ * A `public/vendor/martis/` or `themes/` that is a symlink is replaced by a
+ * real directory first, and its target is never written. `--themes-only` runs that theme step alone,
  * for the edit-and-publish loop.
  */
 class PublishAssetsCommand extends Command
@@ -101,30 +102,31 @@ class PublishAssetsCommand extends Command
             return self::FAILURE;
         }
 
+        // public/vendor/martis/ or its themes/ as a symlink (a deploy tool's
+        // shared directory) is never written through: the wipe would empty
+        // the target and the copies would land in it. Each link is replaced
+        // by a real directory holding a copy of its target's files, before
+        // the backups, since that loses nothing; a link that cannot be
+        // replaced stops the run before any warning about a removal.
+        $this->reportDirectoryLinks();
+
+        try {
+            $publisher->replaceDirectoryLinks();
+        } catch (Throwable $e) {
+            $this->components->error('Could not replace a symlinked directory under public/vendor/ with a real one: '.$e->getMessage());
+            $this->line('  Nothing was deleted, and nothing was written into the link\'s target. Replace the link with a directory,');
+            $this->line('  or make its parent directory writable, then run the command again.');
+
+            return self::FAILURE;
+        }
+
         if (! $this->backUpThemeFiles($publisher, $atRisk)) {
             return self::FAILURE;
         }
 
         $this->reportLinks($links, $themes['sources']);
         $this->reportPruning($publisher->pruneRuns());
-
-        // A themes directory that is a symlink (a deploy tool's shared
-        // directory) is never written through. The wipe removes the link
-        // itself; without the wipe, the link is replaced by a real directory
-        // holding a copy of its target's files.
-        $this->reportDirectoryLink();
         $replacesTree = ! $themesOnly && $wipe;
-
-        if (! $replacesTree) {
-            try {
-                $publisher->replaceDirectoryLink();
-            } catch (Throwable $e) {
-                $this->components->error('Could not replace the symlink public/vendor/martis/themes with a directory: '.$e->getMessage());
-                $this->line('  Nothing was written into its target. Replace the link with a directory, then run the command again.');
-
-                return self::FAILURE;
-            }
-        }
 
         // The wipe takes the VCS placeholders of the themes directory with it.
         $placeholders = $replacesTree ? $publisher->placeholders() : [];
@@ -293,6 +295,7 @@ class PublishAssetsCommand extends Command
     {
         $active = config('martis.theme.name');
         $stops = false;
+        $unlistable = false;
 
         foreach ($unreadable as $path => $reason) {
             $name = ThemeFiles::nameOf($path);
@@ -300,7 +303,8 @@ class PublishAssetsCommand extends Command
             $source = $this->relativePath($path);
 
             if ($path === ThemeFiles::sourceDirectory()) {
-                $this->components->error("Could not read {$source}: {$reason}.");
+                $this->components->error("Could not list {$source}: {$reason}.");
+                $unlistable = true;
             } elseif ($active === $name) {
                 $this->components->error("Could not read {$source}, the source of the active theme: {$reason}.");
             } elseif (isset($atRisk[$copy]) || ($links[$copy]['fate'] ?? null) === ThemePublisher::LINK_REMOVED) {
@@ -312,7 +316,10 @@ class PublishAssetsCommand extends Command
             $stops = true;
         }
 
-        if ($stops) {
+        if ($unlistable) {
+            $this->line('  Nothing was deleted or overwritten. Give the user that runs the command permission to list');
+            $this->line('  resources/css/martis/ (the theme sources), then run the command again.');
+        } elseif ($stops) {
             $this->line('  Nothing was deleted or overwritten. Fix or remove the file, then run the command again.');
         }
 
@@ -431,18 +438,22 @@ class PublishAssetsCommand extends Command
         }
     }
 
-    /** Say that the themes directory is a symlink, and what the run does with it. */
-    protected function reportDirectoryLink(): void
+    /** Say which of public/vendor/martis/ and its themes/ are symlinks, and what the run does with them. */
+    protected function reportDirectoryLinks(): void
     {
-        if (! ThemeFiles::publishedDirectoryIsLink()) {
-            return;
+        foreach ([ThemeFiles::assetsDirectory(), ThemeFiles::publishedDirectory()] as $directory) {
+            $target = LinkedDirectory::target($directory);
+
+            if ($target === null) {
+                continue;
+            }
+
+            $relative = $this->relativePath($directory);
+
+            $this->components->warn(is_dir($directory)
+                ? "{$relative} is a symlink to {$target}: this publish replaces the link with a real directory holding a copy of its files, and never writes into {$target}."
+                : "{$relative} is a broken symlink (to {$target}): this publish replaces it with a real directory.");
         }
-
-        $target = (string) @readlink(ThemeFiles::publishedDirectory());
-
-        $this->components->warn(is_dir(ThemeFiles::publishedDirectory())
-            ? "public/vendor/martis/themes is a symlink to {$target}: this publish replaces the link with a real directory and never writes into {$target}."
-            : "public/vendor/martis/themes is a broken symlink (to {$target}): this publish replaces it with a real directory.");
     }
 
     /**
