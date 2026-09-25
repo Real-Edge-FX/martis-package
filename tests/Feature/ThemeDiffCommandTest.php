@@ -56,6 +56,17 @@ it('returns SUCCESS when consumer theme is fully aligned', function () {
         ->assertExitCode(0);
 });
 
+it('ignores a variable that only appears in a comment', function () {
+    // The package CSS plus a commented-out declaration of an unknown token,
+    // as the scaffold carries the logo heights: neither declared nor used.
+    $packageCss = file_get_contents(__DIR__.'/../../resources/css/martis.css');
+    (new Filesystem)->put(resource_path('css/martis/diff-commented.css'), $packageCss."\n/* :root { --martis-retired-token: 1px; } */\n");
+
+    $this->artisan('martis:theme:diff', ['theme' => 'diff-commented'])
+        ->doesntExpectOutputToContain('--martis-retired-token')
+        ->assertExitCode(0);
+});
+
 it('treats a referenced-only package token as known, not unknown (reaches exit 0)', function () {
     // Regression: the package uses --martis-accent-contrast via
     // `var(--martis-accent-contrast, #fff)` but never declares it. A

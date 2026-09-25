@@ -204,7 +204,7 @@ class ThemeDiffCommand extends Command
     private function extractTokens(string $css): array
     {
         $matches = [];
-        preg_match_all('/(--martis-[a-z0-9-]+)\s*:/i', $css, $matches);
+        preg_match_all('/(--martis-[a-z0-9_-]+)\s*:/i', $this->withoutComments($css), $matches);
 
         return array_values(array_unique($matches[1]));
     }
@@ -222,8 +222,18 @@ class ThemeDiffCommand extends Command
     private function extractReferencedTokens(string $css): array
     {
         $matches = [];
-        preg_match_all('/var\(\s*(--martis-[a-z0-9-]+)/i', $css, $matches);
+        preg_match_all('/var\(\s*(--martis-[a-z0-9_-]+)/i', $this->withoutComments($css), $matches);
 
         return array_values(array_unique($matches[1]));
+    }
+
+    /**
+     * The CSS without its comments: a variable named in a comment (prose, or
+     * a declaration left commented out, like the stub's logo heights) is
+     * neither declared nor used.
+     */
+    private function withoutComments(string $css): string
+    {
+        return (string) preg_replace('~/\*.*?\*/~s', '', $css);
     }
 }

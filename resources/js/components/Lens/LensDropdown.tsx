@@ -46,7 +46,7 @@ export function LensDropdown({ lenses, currentUriKey, onSelect }: LensDropdownPr
           borderColor: 'var(--martis-border)',
           backgroundColor: active ? 'var(--martis-accent-bg)' : 'var(--martis-surface)',
           color: active ? 'var(--martis-accent)' : 'var(--martis-text)',
-          height: 'var(--martis-input-height, 2.25rem)',
+          height: 'var(--martis-input-h, 2.25rem)',
         }}
         aria-haspopup="menu"
         aria-expanded={open}

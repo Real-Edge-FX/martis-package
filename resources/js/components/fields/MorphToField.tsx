@@ -521,7 +521,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
                 style={{
                   borderColor: 'var(--martis-border)',
                   backgroundColor: 'var(--martis-surface)',
-                  color: 'var(--martis-primary)',
+                  color: 'var(--martis-accent)',
                   height: '38px',
                   width: '38px',
                   flexShrink: 0,
