@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Martis\Tests\Support\SkeletonSnapshot;
+use Martis\Tests\TestCase;
 use Symfony\Component\Process\Process;
 
 /**
@@ -127,6 +129,17 @@ function waitForServeReady(Process $process, float $timeoutSec = 8.0): bool
 
     return false;
 }
+
+// `vendor/bin/testbench` also links the package's vendor/ into the skeleton
+// while it runs and removes the link only when it exits cleanly: put the
+// skeleton's `vendor` back as this file found it.
+beforeAll(function () {
+    $GLOBALS['__martis_mcp_skeleton'] = SkeletonSnapshot::take(TestCase::applicationBasePath(), ['vendor']);
+});
+
+afterAll(function () {
+    $GLOBALS['__martis_mcp_skeleton']->restore();
+});
 
 beforeEach(function () {
     // `vendor/bin/testbench` puts a `.env` in the skeleton when it boots (a

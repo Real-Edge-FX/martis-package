@@ -6,6 +6,8 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Martis\Tests\Support\SkeletonSnapshot;
+use Martis\Tests\TestCase;
 
 function cleanupMartisInstallArtifacts(): void
 {
@@ -75,6 +77,21 @@ function cleanupMartisInstallArtifacts(): void
         }
     }
 }
+
+// cleanupMartisInstallArtifacts() rewrites the skeleton's
+// bootstrap/providers.php and removes the host MartisServiceProvider stub,
+// and one test writes a providers.php of its own: put both back as this
+// file found them.
+beforeAll(function () {
+    $GLOBALS['__martis_console_skeleton'] = SkeletonSnapshot::take(TestCase::applicationBasePath(), [
+        'bootstrap/providers.php',
+        'app/Providers/MartisServiceProvider.php',
+    ]);
+});
+
+afterAll(function () {
+    $GLOBALS['__martis_console_skeleton']->restore();
+});
 
 beforeEach(function () {
     cleanupMartisInstallArtifacts();
@@ -307,12 +324,9 @@ it('martis:install --force-provider overwrites an existing host MartisServicePro
 it('martis:install registers the host MartisServiceProvider in bootstrap/providers.php', function () {
     try {
         $bootstrapPath = base_path('bootstrap/providers.php');
-        if (! file_exists($bootstrapPath)) {
-            // Some testbench setups don't have this file. Skip.
-            return;
-        }
 
-        // Reset to a clean providers.php with no Martis entry.
+        // Start from a clean providers.php with no Martis entry (afterAll
+        // puts the skeleton's own back).
         (new Filesystem)->put($bootstrapPath, "<?php\n\nreturn [\n    App\\Providers\\AppServiceProvider::class,\n];\n");
 
         $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
