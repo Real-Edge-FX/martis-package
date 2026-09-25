@@ -192,7 +192,7 @@ $this->canSee(fn (Request $request) =>
 );
 ```
 
-`canSee()` controls **both** menu visibility and route access. Tools that fail `authorizedToSee()` are silently dropped from the menu, and `GET /martis/api/tools/{uriKey}` returns **404** (not 403) — intentionally indistinguishable from "tool does not exist" so an unauthorised user cannot probe which tools the app ships.
+`canSee()` controls **both** menu visibility and route access. Tools that fail `authorizedToSee()` are silently dropped from the menu, and `GET /martis/api/tools/{uriKey}` returns **404** (not 403), intentionally indistinguishable from "tool does not exist" so an unauthorised user cannot probe which tools the app ships. The tool's own routes answer the same 404 to that user when they run [`ToolRoutes::middleware()`](#tool-routes-and-their-middleware), which `loadRoutes()` applies by default (v1.39.3).
 
 | Method | Purpose |
 |---|---|
@@ -237,9 +237,11 @@ The most powerful per-tool hook. Runs **once per request lifecycle**, lazily on 
 ```php
 public function boot(): void
 {
-    // Tool-owned routes — mounted alongside the standard Martis SPA.
-    Route::middleware(['web', 'martis.auth'])
-        ->prefix('martis/api/tools/finance-imports')
+    // Tool-owned routes, mounted alongside the standard Martis SPA,
+    // behind the middleware of the Martis API and this tool's gate
+    // (use Martis\Tools\ToolRoutes).
+    Route::middleware(ToolRoutes::middleware($this))
+        ->prefix(ToolRoutes::prefix($this))
         ->group(function () {
             Route::post('/upload', [FinanceImportsController::class, 'upload']);
             Route::get('/status/{job}', [FinanceImportsController::class, 'status']);
@@ -267,16 +269,40 @@ public function boot(): void
 - Exceptions thrown from `boot()` are **logged and swallowed** — a single broken tool cannot bring down the whole admin panel. Watch your `laravel.log` for `[martis] Tool boot() threw` entries.
 - The hook receives no arguments. Resolve dependencies via `app(...)` or facades.
 
+### Tool routes and their middleware
+
+A tool's routes run `ToolRoutes::middleware($tool)` (v1.39.3; `Martis\Tools\ToolRoutes`): the stack of every protected Martis API route, then the tool's own gate.
+
+| Middleware | From | Refuses |
+|---|---|---|
+| `martis.middleware` | config, `['web']` | (the session, CSRF and cookies every Martis route runs) |
+| `martis.auth_middleware` | config, `['martis.auth']` | a guest: `401` (JSON) or a redirect to the login page |
+| `martis.impersonation.duration` | package | (stops an impersonation that ran past `MARTIS_IMPERSONATION_MAX_DURATION` minutes) |
+| `martis.2fa` | package | a user who signed in but has not passed the 2FA challenge: `423 {"two_factor_required": true}` (JSON) or a redirect to the challenge |
+| `martis.locale` | package | (applies the user's locale, so `__()` and validation messages follow it) |
+| `martis.verified` | package | when `MARTIS_AUTH_EMAIL_VERIFICATION_ENABLED=true`, an unverified user: `409` (JSON) or a redirect to the notice |
+| `throttle:{max},{decay}` | config, `martis.throttle.*` | past `MARTIS_THROTTLE_MAX` requests per `MARTIS_THROTTLE_DECAY` minutes per user, shared with the Martis API: `429`. Left out when `MARTIS_THROTTLE_ENABLED=false` |
+| `martis.tool:{uriKey}` | package | a user this tool is hidden from (`canSee()`, its policy): `404` `{"message": "Tool not found."}`, as `GET /api/tools/{uriKey}` answers them |
+
+The first seven are built in one place, `Martis\Http\RouteMiddleware::api()`, which the package's own routes use too, so a tool's route answers a request exactly as `GET /api/tools` does. They are also a middleware group, `martis.api`, built when the application boots, for a route of your own: `Route::middleware(['martis.api', 'can:viewReports'])`.
+
+`loadRoutes()` mounts the routes where it always has, under `martis/api/tools/{uriKey}` (`ToolRoutes::legacyPrefix($tool)`), whatever `MARTIS_PATH` is, with the names the routes file gives them. When `MARTIS_PATH` is not `martis`, it also mounts a copy under `ToolRoutes::prefix($tool)`, `{martis.path}/api/tools/{uriKey}` (v1.39.3): the SPA's `api` client prefixes every path with the panel's base path (`window.MartisConfig.basePath`, `/{martis.path}`), so `api.post('/api/tools/finance-imports/upload')` reaches them whatever `MARTIS_PATH` is (before v1.39.3 it answered 404 with a custom path). The copy runs the same middleware, and a named route's copy is named `martis.tools.{uriKey}.path.{name}`, so `route('{name}')` keeps returning the `/martis/...` URL and `route:cache` finds no duplicate name. The file is required once and its routes copied, so it may declare functions. A `$prefix` passed to `loadRoutes()` is used alone, as given. From v2.0 the routes live under `{martis.path}/api/tools/{uriKey}` only.
+
+This follows Nova's model. A Nova tool's routes are guarded by the tool's `Authorize` middleware, which checks that the authenticated user can see the tool before any request runs ([Nova → Tools → Routing Authorization](https://nova.laravel.com/docs/v5/customization/tools#routing-authorization)), and Laravel's own Pennant tool for Nova runs its API routes behind Nova's API middleware, `config('nova.api_middleware')` ([laravel/nova-pennant](https://github.com/laravel/nova-pennant/blob/1.x/src/ToolServiceProvider.php)), the stack where Nova 5 enables email verification ([Nova → Authentication → Enabling Email Verification](https://nova.laravel.com/docs/v5/customization/authentication)). Two differences: Nova's tool gate answers `403` where Martis answers `404`, as Martis does for the tool itself (see [Highlights → Tool routes](differentials.md#tool-routes-run-behind-the-martis-api-middleware)); and the API routes of a tool Nova's generator scaffolds run the tool's `Authorize` but not Nova's authentication ([nova-issues#5495](https://github.com/laravel/nova-issues/issues/5495), "the current behavior" per [discussion #5496](https://github.com/laravel/nova-issues/discussions/5496)), which Martis does not copy.
+
+Before v1.39.3 the default was `['web', 'martis.auth']` under `martis/api/tools/{uriKey}`: a user who had signed in with a password but not passed the 2FA challenge, or not verified an email the app requires, reached every tool route; the locale, the impersonation expiry and the throttle did not apply; a user the tool was hidden from reached its routes; and with a `MARTIS_PATH` other than `martis` the SPA could not reach them. See [Upgrading](upgrading.md#tool-routes-run-the-martis-api-middleware).
+
 ### Loading routes from a sibling file
 
-For tools with more than two or three endpoints the inline `Route::middleware(...)->group(function () { ... })` block in `boot()` gets noisy. `loadRoutes()` is a thin wrapper that pre-applies the standard Martis prefix + middleware stack and `require`s a sibling file:
+For tools with more than two or three endpoints the inline `Route::middleware(...)->group(function () { ... })` block in `boot()` gets noisy. `loadRoutes()` is a thin wrapper that pre-applies `ToolRoutes::prefix()` and `ToolRoutes::middleware()` and `require`s a sibling file:
 
 ```php
 public function boot(): void
 {
     // Loads `app/Martis/Tools/routes/finance-imports.php` under
-    // the prefix `martis/api/tools/finance-imports` with the
-    // ['web', 'martis.auth'] middleware stack.
+    // `martis/api/tools/finance-imports` (and `{martis.path}/api/tools/
+    // finance-imports` with a custom path), behind
+    // ToolRoutes::middleware($this).
     $this->loadRoutes(__DIR__.'/routes/finance-imports.php');
 }
 ```
@@ -296,11 +322,17 @@ Signature:
 
 ```php
 $this->loadRoutes(
-    string $path,                           // path to the routes file
-    array $middleware = ['web', 'martis.auth'],
-    ?string $prefix = null,                 // defaults to 'martis/api/tools/{uriKey}'
+    string $path,                                        // path to the routes file
+    array $middleware = Tool::DEFAULT_ROUTE_MIDDLEWARE,  // the default: ToolRoutes::middleware($this)
+    ?string $prefix = null,                              // defaults to martis/api/tools/{uriKey}, mirrored under ToolRoutes::prefix($this)
 );
 ```
+
+**Do not pass a middleware list** unless the routes need another stack. Leave the argument out (skip it with a named argument, `prefix: ...`, to set only the prefix) and the routes run `ToolRoutes::middleware($this)`. A list is used exactly as given, as before v1.39.3: `[...ToolRoutes::middleware($this), 'can:imports.run']` adds an ability, `Martis\Http\RouteMiddleware::api()` keeps the API guard without the tool gate, a list without `martis.auth` keeps a route public (a webhook).
+
+A list that leaves out a guard which is on logs a warning (`Log::warning`, the default channel) naming the tool and telling it not to pass middleware: the 2FA challenge, `martis.2fa`, while `MARTIS_2FA_ENABLED` is true (the default), and `martis.verified` while email verification is on, read through the router's aliases and groups, so `martis.api` counts. The default before v1.39.3, `['web', 'martis.auth']`, always warns: the docs showed it, and a tool that passes it, or overrides `loadRoutes()` with the older signature and forwards its default, keeps that weaker stack. The warning is logged once per tool and PHP process: once per worker on Octane or a queue worker, on every request that boots the application on PHP-FPM. Routes that must answer before the 2FA challenge on purpose can be registered in `boot()` with `Route::middleware()` instead, which Martis does not check.
+
+The parameter keeps its type, `array`, so a subclass that overrides `loadRoutes()` with the signature it had before v1.39.3, `array $middleware = ['web', 'martis.auth']`, still loads. `Tool::DEFAULT_ROUTE_MIDDLEWARE` is `['martis.api']`, the group above, so an override that passes it to `Route::middleware()` itself still guards its routes (without the tool gate).
 
 Missing files are skipped silently — convenient when shipping a Composer-package tool whose routes file is optional, or when a consumer publishes a stub they have not edited yet.
 
@@ -533,8 +565,8 @@ In the Tool's `boot()`, register the upload + preview + commit endpoints:
 ```php
 public function boot(): void
 {
-    Route::middleware(['web', 'martis.auth'])
-        ->prefix('martis/api/tools/data-import')
+    Route::middleware(ToolRoutes::middleware($this))
+        ->prefix(ToolRoutes::prefix($this))
         ->group(function () {
             Route::post('/upload', [ImportController::class, 'upload']);
             Route::post('/preview/{batch}', [ImportController::class, 'preview']);
@@ -569,8 +601,10 @@ class Backups extends Tool
             __DIR__.'/../config/martis-backups.php' => config_path('martis-backups.php'),
         ], 'martis-backups-config');
 
-        Route::middleware(['web', 'martis.auth'])
-            ->prefix('martis/api/tools/backups')
+        // Behind the Martis API middleware and this tool's gate, so a
+        // user without backups.view gets a 404 on /run too.
+        Route::middleware(ToolRoutes::middleware($this))
+            ->prefix(ToolRoutes::prefix($this))
             ->group(function () {
                 Route::get('/', [BackupsController::class, 'index']);
                 Route::post('/run', [BackupsController::class, 'run']);
@@ -641,12 +675,13 @@ If you arrive at Martis Tools from Nova 5, the surface looks familiar but a few 
 | Custom menu rendering | `Tool::menu(Request)` returns a `View` so the tool can render its own menu item HTML. | The menu entry is built from `name()` / `icon()` / `uriKey()` only. | Uniform menu styling. Custom menu HTML is the surface most likely to drift visually away from the rest of the admin. |
 | In-page sub-navigation | `Tool::renderNavigation()` slot for tabs / sections. | Delegated to your React component. Build the sub-nav inline; the standard layout already provides breadcrumbs + page header. | React side has more flexibility to react to client state than a server-rendered fragment. |
 | Route file auto-discovery | Tools may ship a `routes/tool.php` that Nova auto-loads. | `Tool::loadRoutes($path)` (since v1.8.8) — explicit one-liner from `boot()`. | Auto-discovery hides where routes come from. Keeping the call site explicit makes route registration trivially `grep`-able. |
+| Tool route gate | The tool's `Authorize` middleware answers `403` to a user the tool is hidden from. | `martis.tool:{uriKey}` in `ToolRoutes::middleware()` answers `404` (v1.39.3). | The tool's page and metadata already answer `404` to that user, so the app does not reveal which tools it ships. |
 | Per-tool resource isolation | Tools can register their own Resources so two tools can ship overlapping URI keys. | `Martis::resources()` is global; tools should use their own controllers + endpoints rather than registering Resources. | Resource registration is global anyway in Laravel routing; per-tool isolation is rarely needed and adds significant indirection. |
 | Bundled webpack scaffolding | Nova ships a webpack config + `nova:tool` builds a tool package's JS. | `publishesAssets()` proxies the standard `vendor:publish` mechanism; the tool author owns the build pipeline (Vite, Webpack, anything). | Decouples tool packaging from the package's own build choices. |
 
 ## Tests
 
-Behaviour-level coverage lives in `tests/Feature/ToolsControllerTest.php` (15 Feature tests covering registration, authorisation, the boot lifecycle, exception swallowing, publishing, route loading, and menu integration). The ParitySurface tripwire (`tests/Feature/ParitySurfaceTest.php`) asserts the public surface — `Tool`, `Tool::boot()`, `Tool::publishes()`, `Tool::publishesAssets()`, `Tool::loadRoutes()`, `ToolServiceProvider`, `Martis::tools()`, `Martis::resolveTools()`, `MartisManager::bootTools()` — keeps its contract.
+Behaviour-level coverage lives in `tests/Feature/ToolsControllerTest.php` (15 Feature tests covering registration, authorisation, the boot lifecycle, exception swallowing, publishing, route loading, and menu integration) and `tests/Feature/ToolRouteMiddlewareTest.php` (the middleware and prefix of a tool's routes: the same stack as the API routes, the 2FA challenge, email verification, the throttle, the tool gate, an explicit list and its warnings, an older override, `martis.path` and the 1.x URL). The ParitySurface tripwire (`tests/Feature/ParitySurfaceTest.php`) asserts that the public surface (`Tool`, `Tool::boot()`, `Tool::publishes()`, `Tool::publishesAssets()`, `Tool::loadRoutes()`, `ToolServiceProvider`, `Martis::tools()`, `Martis::resolveTools()`, `MartisManager::bootTools()`) keeps its contract.
 
 Run the focused suites:
 

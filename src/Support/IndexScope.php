@@ -10,15 +10,16 @@ use Martis\Resource;
 /**
  * Confine a query of a resource's own model as its index confines it: the
  * resource's declarative `scopes()`, then `indexQuery()`, in the index's
- * order. The records an action runs on are looked up through it.
+ * order. The global search, the records an action runs on and the parent
+ * record of the BelongsToMany panel and of the pivot routes go through it.
  *
  * The hooks run as Eloquent runs a local scope (`callScope()`), which wraps
  * the where clauses they add in one group when one of them is an `or`. A
- * constraint the caller adds afterwards (a key, the selected ids) then binds
- * to all of them: after an ungrouped `where(A)->orWhere(B)`, a
- * `whereIn($key, $ids)` would read `A or (B and id in (...))` and run an
- * action on every record of A. A hook that only adds `and` clauses leaves
- * the SQL as it was.
+ * constraint the caller adds afterwards (a key, the selected ids, a search
+ * term) then binds to all of them: after an ungrouped
+ * `where(A)->orWhere(B)`, a `whereKey($id)` would read `A or (B and id = ?)`
+ * and resolve any record of A, or run an action on all of them. A hook that
+ * only adds `and` clauses leaves the SQL as it was.
  *
  * @internal
  */

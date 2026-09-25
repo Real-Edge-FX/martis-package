@@ -217,8 +217,10 @@ That single registration covers the index page (sidebar visibility, list endpoin
 
 ```php
 Route::get('/admin/reports', ReportController::class)
-    ->middleware(['martis.auth', 'can:reports.view']);
+    ->middleware(['martis.api', 'can:reports.view']);
 ```
+
+`martis.api` is the middleware group of the Martis API routes (`Martis\Http\RouteMiddleware::api()`): the session, authentication, the 2FA challenge, email verification when enabled, the user's locale, the impersonation expiry and the API throttle. `martis.auth` alone would let a user who has not passed the 2FA challenge through.
 
 ### Gating an Artisan command
 

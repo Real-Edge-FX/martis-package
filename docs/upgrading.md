@@ -31,6 +31,37 @@ php artisan martis:cache:clear
 3. **Your own notifications or sessions migration.** If you ran `martis:install --force` over a migration you created with `make:notifications-table` or `make:session-table`, it holds the Martis stub: compare it with your version control and restore it.
 4. **Scripts that relied on a prompt.** Pass the flags (`--with-profile`, `--with-2fa`, `--avatar-column=…`, `martis:user --email=… --password=…`, `--no-migrate`) instead.
 
+### The global search and the pivot routes apply `scopes()`
+
+The global search (`/api/search`, the Cmd+K palette) and the parent lookup of a `BelongsToMany` panel and of the pivot routes (pivot actions, their fields and pickers, the pickers of the pivot fields, on `belongs-to-many` and `morph-to-many`) now run the resource's declarative `scopes()` before `indexQuery()`, as the index does. Before v1.39.3 they ran `indexQuery()` alone, so a resource that confined its tenants with `scopes()` showed another tenant's records in the palette.
+
+- A record the scopes hide no longer shows in the palette, and the `total` of its group no longer counts it.
+- A `BelongsToMany` panel, a pivot action or a pivot field picker whose parent record the scopes hide answers `404`, as it already did for a parent `indexQuery()` hides.
+- On those surfaces and on an action run, an `orWhere()` in `scopes()` or `indexQuery()` is grouped before the term, the key or the selected ids are added. Before, they were appended to its last clause only, so a hook such as `where('tenant_id', 1)->orWhere('shared', true)` made the palette list the tenant's records whatever the term, a panel resolve the first record of the tenant instead of the one it names, and an action on one selected record run on every record of the tenant.
+
+**What to change:** nothing when `scopes()` holds tenancy or visibility rules: they now apply where the docs said they would. A scope meant to trim the index page only (an `archived = false` default that users should still reach from the palette) belongs in a [filter](filters.md) instead. See [Authorization → Declarative query scopes](authorization.md#declarative-query-scopes).
+
+### Tool routes run the Martis API middleware
+
+`Tool::loadRoutes()` called without a middleware list gives a tool's routes `ToolRoutes::middleware($tool)` (`Martis\Tools\ToolRoutes`): the middleware of the package's protected API routes (your `martis.middleware` and `martis.auth_middleware`, the impersonation expiry, the 2FA challenge, the user's locale, email verification when it is enabled, the API throttle), then `martis.tool:{uriKey}`. It defaulted to `['web', 'martis.auth']` before v1.39.3.
+
+- A user who signed in with a password but has not passed the 2FA challenge gets `423` from a tool route (a redirect to the challenge for a page request), and a user who has not verified an email the app requires gets `409` (a redirect to the notice), as from the rest of the API. Before, both got through.
+- A user the tool is hidden from (`canSee()`, its policy) gets `404` from its routes, as from the tool's page.
+- A tool's routes count toward the API throttle, `MARTIS_THROTTLE_MAX` (120) requests per `MARTIS_THROTTLE_DECAY` (1) minute per user, shared with the rest of the API. A tool that polls often answers `429` past it.
+- They run in the user's locale, and an impersonation past its limit stops before they run.
+- **Their URL does not move.** They stay under `/martis/api/tools/{uriKey}/...`, with the names the routes file gives them. With a `MARTIS_PATH` other than `martis` they are also served under `/{MARTIS_PATH}/api/tools/{uriKey}/...` (`ToolRoutes::prefix()`), where the SPA's `api` client calls them (it answered 404 before); the copy runs the same middleware, and a named route's copy is named `martis.tools.{uriKey}.path.{name}`. v2.0 serves them under `/{MARTIS_PATH}/api/tools/{uriKey}/...` only.
+
+The signature keeps its type, `array $middleware`, so a tool that overrides `loadRoutes()` with the signature it had before still loads, and a list passed explicitly is used as given, as before. A list that leaves out the 2FA challenge while `MARTIS_2FA_ENABLED` is on (the default), or email verification while it is on, and the old default `['web', 'martis.auth']` itself, log a warning that names the tool, once per tool and PHP process.
+
+**What to change:**
+
+1. **Drop the middleware argument** of every `loadRoutes()` call that passes `['web', 'martis.auth']` (or forwards it from an override): that list keeps the old stack, without the 2FA challenge, and logs the warning. Pass a list only for another stack: `[...ToolRoutes::middleware($this), 'can:imports.run']` adds an ability, and a route that must answer before the 2FA challenge or to users the tool is hidden from keeps its own list, which is used exactly as given.
+2. **Routes a tool registers in `boot()` with `Route::middleware(['web', 'martis.auth'])->prefix('martis/api/tools/...')`**, the pattern these docs showed, keep that weaker stack and that path, and Martis does not warn about them: switch them to `Route::middleware(ToolRoutes::middleware($this))->prefix(ToolRoutes::prefix($this))`. A route of your own that `martis.auth` alone guards skips the 2FA challenge the same way: use the `martis.api` middleware group.
+3. **A client that calls a tool route by a hard-coded `/martis/api/tools/...` URL** keeps working, behind the new middleware. With a custom `MARTIS_PATH`, prefer the SPA's `api` client (`api.get('/api/tools/...')`), which reaches the copy under `/{MARTIS_PATH}`: v2.0 serves only that one.
+4. **A tool that polls** raises `MARTIS_THROTTLE_MAX`, or passes a list without the throttle.
+
+See [Tools → Tool routes and their middleware](tools.md#tool-routes-and-their-middleware).
+
 ### `martis.auth` runs where Laravel's `auth` runs
 
 `MartisAuthenticate`, the `martis.auth` middleware, implements Laravel's `AuthenticatesRequests`, as Laravel's and Nova's `Authenticate` do, so the router's middleware priority now runs it right after the session starts: before the throttle, the route bindings (`SubstituteBindings`) and any middleware that is not in the priority list, including one appended to the `web` group or listed in `martis.middleware`. Before v1.39.3 it ran after them. The protected routes' throttle therefore counts per signed-in user (with a custom `MARTIS_GUARD` it counted per IP, see [A custom Martis guard](#a-custom-martis-guard)), and an unauthenticated request to a protected route is answered before the throttle counts it, as with Laravel's `auth` and `throttle`.

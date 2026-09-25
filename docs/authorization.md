@@ -317,7 +317,7 @@ Before v1.38.0 the callback only ran when the resource's own endpoints serialise
 
 ## Declarative query scopes
 
-`Resource::indexQuery()` is the imperative hook for one-off mutations. For invariants that should compose across every list endpoint (multi-tenancy, "archived = false", "subscription_active = true"), declare them with the v1.8.8 `scopes()` method:
+`Resource::indexQuery()` is the imperative hook for one-off mutations. For invariants that should hold wherever the resource is listed as its index lists it (multi-tenancy, "archived = false", "subscription_active = true"), declare them with the v1.8.8 `scopes()` method:
 
 ```php
 public static function scopes(Request $request): array
@@ -333,9 +333,17 @@ The labels are informational (used by future debug overlays). The order is itera
 
 The count badge on the sidebar uses the same code path, so the scoped count always agrees with the row count on the index page.
 
-An action run looks its selected records up through the same `scopes()`, then `indexQuery()` (v1.39.3+; before, `indexQuery()` only), so a record `scopes()` keeps out of the index is never handed to an action's `handle()`, whatever ids the request sends: the run leaves it out, and answers 404 when no selected record is left. That includes an action run from the detail page of such a record, which the detail page still shows. See [Actions → Execution Modes](actions.md#execution-modes).
+Wherever Martis runs `indexQuery()`, it runs `scopes()` first (v1.39.3+):
 
-For an action run the hooks run as Eloquent runs a local scope (v1.39.3+): what they add is wrapped in one group when it contains an `orWhere()`, so the selected ids added after it bind to all of it. After `where('tenant_id', 1)->orWhere('shared', true)` the run reads `(tenant_id = 1 or shared) and id in (...)`; ungrouped, it read `tenant_id = 1 or (shared and id in (...))` and ran the action on every record of the tenant. A hook with `and` clauses only runs the same SQL as before. The index page appends its filters and its search to the hooks ungrouped, so write an `orWhere()` inside `where(fn ($q) => ...)` when the filters must narrow it.
+- **The global search** (`/api/search`, the Cmd+K palette): its results and the `total` of each group, on the database and the Scout paths. See [Global Search → Which records are searched](global-search.md#which-records-are-searched).
+- **The records an action runs on**: a record `scopes()` keeps out of the index is never handed to an action's `handle()`, whatever ids the request sends; the run leaves it out, and answers 404 when no selected record is left, from the detail page of such a record too, which the detail page still shows (see [Actions → Execution Modes](actions.md#execution-modes)).
+- **The parent record of a `BelongsToMany` panel** (its list, attachable list, attach, detach and pivot update) **and of the pivot routes** (the pivot actions, their fields and pickers, and the pickers of the pivot fields, on `belongs-to-many` and `morph-to-many`). A parent the scopes hide answers `404`, exactly like a missing one.
+
+Before v1.39.3 the global search, an action run and those parent lookups ran `indexQuery()` alone, so a tenant confined with `scopes()` still found another tenant's records in the palette (title, subtitle, link and count) and reached the pivot panels of their records.
+
+Neither hook applies to the relationship pickers (BelongsTo dropdowns, attach pickers): they list through [`relatableQuery()`](resources.md#relatablequery), as Nova's pickers do ([Nova → Relatable Filtering](https://nova.laravel.com/docs/v5/resources/authorization#relatable-filtering)), so declare the tenant predicate there too. The detail, update and delete endpoints rely on the policies, and so does the parent record of the `HasMany`, `HasOne`, `MorphMany` and `MorphOne` panels and of the `MorphToMany` panel's own endpoints (see [Relationships → How a panel finds its parent record](relationships.md#how-a-panel-finds-its-parent-record)); a lens owns its query.
+
+On those three surfaces the hooks run as Eloquent runs a local scope (v1.39.3+): what they add is wrapped in one group when it contains an `orWhere()`, so the search term, the selected ids or the key added after it binds to all of it. After `where('tenant_id', 1)->orWhere('shared', true)` the parent lookup reads `(tenant_id = 1 or shared) and id = ?`; ungrouped, it would read `tenant_id = 1 or (shared and id = ?)` and find another record of the tenant, and an action would run on every record of the tenant. The index page appends its filters and its search to the hooks ungrouped, so write an `orWhere()` inside `where(fn ($q) => ...)` when the filters must narrow it.
 
 ## Audit log of denied authorizations
 

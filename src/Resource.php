@@ -221,8 +221,12 @@ abstract class Resource implements ResourceContract
     }
 
     /**
-     * Declarative query scopes applied to every list-side query before
-     * `indexQuery()` runs. v1.8.8.
+     * Declarative query scopes applied before `indexQuery()` wherever
+     * Martis runs it: the index, its count badge, the global search, the
+     * records an action runs on, and the parent record of a BelongsToMany
+     * panel and of the pivot routes. v1.8.8. The relationship pickers use
+     * `relatableQuery()` instead, as in Nova: declare a tenant predicate
+     * there too.
      *
      * Return an associative `[label => Closure]` map; each closure
      * receives the `Builder` (and the `Request` if it declares the
@@ -245,7 +249,7 @@ abstract class Resource implements ResourceContract
      * Default `[]` keeps the resource untouched. Use `indexQuery()` for
      * one-off mutations that don't fit the declarative shape (joins,
      * raw SQL, conditional ordering); use `scopes()` for invariants
-     * that should compose across every list endpoint.
+     * that should compose wherever the index's confinement applies.
      *
      * @return array<string, \Closure>
      */
