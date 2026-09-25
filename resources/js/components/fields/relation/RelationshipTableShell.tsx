@@ -240,8 +240,8 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
     if (!active) return <CaretUpDownIcon size={14} className="text-gray-400" />
     return dir === 'asc'
-      ? <CaretUpIcon size={14} className="text-indigo-600" />
-      : <CaretDownIcon size={14} className="text-indigo-600" />
+      ? <CaretUpIcon size={14} style={{ color: 'var(--martis-accent)' }} />
+      : <CaretDownIcon size={14} style={{ color: 'var(--martis-accent)' }} />
   }
 
   const showMeta = !isCollapsed && (showPerPage || showSoftDeleteToggle)

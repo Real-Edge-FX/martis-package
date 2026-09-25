@@ -100,6 +100,54 @@ function themeDriftValues(string $relativePath, array $selectors): array
     return $values;
 }
 
+/**
+ * `$source` without its comments, its strings left intact: a `/*` inside a
+ * string (`accept="image/*"`) does not open a comment, so the reads after it
+ * stay visible.
+ */
+function themeDriftStripComments(string $source): string
+{
+    $out = '';
+    $quote = null;
+    $length = strlen($source);
+
+    for ($i = 0; $i < $length; $i++) {
+        $char = $source[$i];
+        if ($quote !== null) {
+            $out .= $char;
+            if ($char === '\\' && $i + 1 < $length) {
+                $out .= $source[++$i];
+            } elseif ($char === $quote) {
+                $quote = null;
+            }
+
+            continue;
+        }
+        if ($char === '"' || $char === "'" || $char === '`') {
+            $quote = $char;
+            $out .= $char;
+
+            continue;
+        }
+        $next = $source[$i + 1] ?? '';
+        if ($char === '/' && $next === '*') {
+            $end = strpos($source, '*/', $i + 2);
+            $i = $end === false ? $length : $end + 1;
+
+            continue;
+        }
+        if ($char === '/' && $next === '/') {
+            $end = strpos($source, "\n", $i + 2);
+            $i = $end === false ? $length : $end - 1;
+
+            continue;
+        }
+        $out .= $char;
+    }
+
+    return $out;
+}
+
 /** @return array<string, string> */
 function themeDriftDark(): array
 {
@@ -262,7 +310,7 @@ it('reads no variable that nothing defines, other than the inline layout variabl
         // variables in prose.
         $source = str_ends_with($file, '.css')
             ? themeDriftCss($file)
-            : (string) preg_replace('~^\s*//.*$~m', '', (string) preg_replace('~/\*.*?\*/~s', '', themeDriftRead($file)));
+            : themeDriftStripComments(themeDriftRead($file));
         // A name completed at runtime (`--martis-avatar-${n}`) is not a read.
         preg_match_all('/var\(\s*('.THEME_DRIFT_NAME.')(?![$\w{-])/', $source, $matches);
         foreach (array_diff($matches[1], $defined, $allowed) as $name) {
@@ -275,5 +323,36 @@ it('reads no variable that nothing defines, other than the inline layout variabl
     $doc = themeDriftRead('docs/theming.md');
     foreach ($allowed as $name) {
         expect($doc)->toContain("`{$name}`");
+    }
+});
+
+it('keeps the strings when it strips the comments of a component', function () {
+    $source = "<input accept=\"image/*\" />\nconst read = 'var(--martis-read-after-a-glob)' // var(--martis-in-a-line-comment)\n/* var(--martis-in-a-block-comment) */";
+
+    expect(themeDriftStripComments($source))->toContain('var(--martis-read-after-a-glob)')
+        ->not->toContain('--martis-in-a-line-comment')
+        ->not->toContain('--martis-in-a-block-comment');
+});
+
+it('scaffolds each variable with the values martis.css gives it, per mode, accent, density and motion', function () {
+    $contexts = [
+        'dark' => [[':root', ':root, html[data-density="comfortable"]'], [':root', ':root, html.dark, html[data-theme="dark"]', ':root, html[data-density="comfortable"]']],
+        'light' => [['html:not(.dark)'], ['html:not(.dark), html[data-theme="light"]']],
+        'dense' => [['html[data-density="dense"], [data-density="dense"]'], ['html[data-density="dense"], [data-density="dense"]']],
+        'reduced motion' => [['html[data-reduced-motion="true"]'], ['html[data-reduced-motion="true"]']],
+    ];
+    foreach (['blue', 'teal', 'violet', 'amber'] as $accent) {
+        $contexts["{$accent} dark"] = [["html.dark[data-accent=\"{$accent}\"]"], ["html.dark[data-accent=\"{$accent}\"], html[data-theme=\"dark\"][data-accent=\"{$accent}\"]"]];
+        $contexts["{$accent} light"] = [["html:not(.dark)[data-accent=\"{$accent}\"]"], ["html:not(.dark)[data-accent=\"{$accent}\"], html[data-theme=\"light\"][data-accent=\"{$accent}\"]"]];
+    }
+
+    foreach ($contexts as $context => [$cssSelectors, $stubSelectors]) {
+        $css = themeDriftValues('resources/css/martis.css', $cssSelectors);
+        $stub = themeDriftValues('stubs/theme.css.stub', $stubSelectors);
+        ksort($css);
+        ksort($stub);
+
+        expect($css)->not->toBe([], "martis.css declares nothing for {$context}")
+            ->and($stub)->toBe($css, "the stub's {$context} values");
     }
 });

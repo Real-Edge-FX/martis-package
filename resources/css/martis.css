@@ -4237,10 +4237,6 @@ html:not(.dark) .martis-trix-wrapper trix-editor {
 }
 
 
-html:not(.dark) .martis-trix-detail a:hover {
-  color: #4338ca;
-}
-
 /* == F7-41 — CodeMirror theme aligned to Martis design tokens.
    Surface, gutter, mono font and selection rgba all resolve from
    `--martis-*` tokens so the editor follows accent / theme overrides

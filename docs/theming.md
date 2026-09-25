@@ -104,7 +104,7 @@ A theme only sets the Martis tokens; it never needs to restyle PrimeReact select
 
 ## Variable Reference
 
-A theme can define **162 CSS variables** in **19 groups**. The bundled `martis.css` gives 160 of them a value, once on `:root` (the dark theme, and every variable that does not depend on the mode) and again on `html:not(.dark)` for 102 of them; the scaffolded theme (`stubs/theme.css.stub`, written by `martis:theme`) declares the same 160 on `:root`, and on `html:not(.dark)` the 86 it gives a light value. The other two, the brand logo heights, come from the config (`MARTIS_BRAND_LOGO_HEIGHT_MENU` / `MARTIS_BRAND_LOGO_HEIGHT_AUTH`, written on `:root` by the panel's layout); the stub carries them commented out, to uncomment only to override those knobs. The **Light** column shows "same" when light mode keeps the dark value.
+A theme can define **162 CSS variables** in **19 groups**. The bundled `martis.css` gives 160 of them a value, once on `:root` (the dark theme, and every variable that does not depend on the mode) and again on `html:not(.dark)` for 102 of them; the scaffolded theme (`stubs/theme.css.stub`, written by `martis:theme`) declares the same 160 on `:root` and the same 102 on `html:not(.dark)`, with the same values (the test in `tests/Unit/ThemeTokenDriftTest.php` compares them, accents, density and motion included). The other two, the brand logo heights, come from the config (`MARTIS_BRAND_LOGO_HEIGHT_MENU` / `MARTIS_BRAND_LOGO_HEIGHT_AUTH`, written on `:root` by the panel's layout); the stub carries them commented out, to uncomment only to override those knobs. The **Light** column shows "same" when light mode keeps the dark value.
 
 ### 1. Background Layers (7 variables)
 

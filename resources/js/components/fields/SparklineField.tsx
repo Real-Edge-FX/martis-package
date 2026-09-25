@@ -16,7 +16,7 @@ function SparklineChart({ data, ext }: { data: number[]; ext: SparklineExt }) {
   const chartType = ext.chartType ?? "line"
   const height = ext.chartHeight ?? 30
   const width = ext.chartWidth ?? 120
-  const color = ext.chartColor ?? "#6366f1"
+  const color = ext.chartColor ?? "var(--martis-accent)"
 
   const normalized = useMemo(() => {
     if (data.length === 0) return []
@@ -43,7 +43,7 @@ function SparklineChart({ data, ext }: { data: number[]; ext: SparklineExt }) {
             y={height - h}
             width={barWidth}
             height={h}
-            fill={color}
+            style={{ fill: color }}
             rx={1}
           />
         ))}
@@ -59,7 +59,7 @@ function SparklineChart({ data, ext }: { data: number[]; ext: SparklineExt }) {
       <polyline
         points={points}
         fill="none"
-        stroke={color}
+        style={{ stroke: color }}
         strokeWidth={1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
