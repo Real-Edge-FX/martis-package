@@ -36,6 +36,20 @@ class IncompletePublishProbe extends PublishAssetsCommand
     }
 }
 
+/**
+ * A temporary directory for a synthetic publish source or destination,
+ * recorded so the afterEach hook removes it.
+ */
+function publishProbeDir(string $kind): string
+{
+    $dir = sys_get_temp_dir().'/martis-pub-'.$kind.'-'.uniqid('', true);
+    $GLOBALS['__martis_publish_probe_dirs'][] = $dir;
+
+    return $dir;
+}
+
+$GLOBALS['__martis_publish_probe_dirs'] = [];
+
 beforeEach(function () {
     // Theme sources left in the shared testbench app by other specs would be
     // published too; each test here starts without any.
@@ -45,13 +59,13 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    // Remove synthetic destinations created by the probe tests.
+    // Remove the synthetic sources and destinations this file's tests
+    // created, and only those: another suite on the same machine has its own.
     $fs = new Filesystem;
-    foreach ((array) glob(sys_get_temp_dir().'/martis-pub-*') as $dir) {
-        if (is_string($dir)) {
-            $fs->deleteDirectory($dir);
-        }
+    foreach ($GLOBALS['__martis_publish_probe_dirs'] as $dir) {
+        $fs->deleteDirectory($dir);
     }
+    $GLOBALS['__martis_publish_probe_dirs'] = [];
 
     // Remove the theme sources and published copies the theme tests create.
     $fs->deleteDirectory(resource_path('css/martis'));
@@ -262,8 +276,8 @@ it('publishes the COMPLETE asset set — app entry bundle + every package file',
 
 it('missingPublishedFiles() flags a manifest-referenced file absent from the destination', function () {
     $fs = new Filesystem;
-    $src = sys_get_temp_dir().'/martis-pub-src-'.uniqid();
-    $dst = sys_get_temp_dir().'/martis-pub-dst-'.uniqid();
+    $src = publishProbeDir('src');
+    $dst = publishProbeDir('dst');
     $fs->ensureDirectoryExists($src.'/assets');
     $fs->ensureDirectoryExists($dst.'/assets');
 
@@ -291,8 +305,8 @@ it('missingPublishedFiles() flags a manifest-referenced file absent from the des
 
 it('missingPublishedFiles() returns [] when the published set is complete', function () {
     $fs = new Filesystem;
-    $src = sys_get_temp_dir().'/martis-pub-src-'.uniqid();
-    $dst = sys_get_temp_dir().'/martis-pub-dst-'.uniqid();
+    $src = publishProbeDir('src');
+    $dst = publishProbeDir('dst');
     $fs->ensureDirectoryExists($src.'/assets');
     $fs->ensureDirectoryExists($dst.'/assets');
 
@@ -315,8 +329,8 @@ it('missingPublishedFiles() fails closed when the destination manifest is absent
     // The fail-open hole: a partial copy that drops manifest.json must NOT
     // read as complete — the runtime cannot resolve the entry without it.
     $fs = new Filesystem;
-    $src = sys_get_temp_dir().'/martis-pub-src-'.uniqid();
-    $dst = sys_get_temp_dir().'/martis-pub-dst-'.uniqid();
+    $src = publishProbeDir('src');
+    $dst = publishProbeDir('dst');
     $fs->ensureDirectoryExists($src.'/assets');
     $fs->ensureDirectoryExists($dst.'/assets');
 
@@ -332,8 +346,8 @@ it('missingPublishedFiles() fails closed when the destination manifest is absent
 it('missingPublishedFiles() fails closed when the destination manifest is corrupt', function () {
     // A present-but-truncated manifest is as fatal as a missing one.
     $fs = new Filesystem;
-    $src = sys_get_temp_dir().'/martis-pub-src-'.uniqid();
-    $dst = sys_get_temp_dir().'/martis-pub-dst-'.uniqid();
+    $src = publishProbeDir('src');
+    $dst = publishProbeDir('dst');
     $fs->ensureDirectoryExists($src.'/assets');
     $fs->ensureDirectoryExists($dst.'/assets');
 
@@ -352,8 +366,8 @@ it('missingPublishedFiles() fails closed when the destination manifest is empty 
     // "nothing referenced, nothing missing" check would pass with zero
     // files actually verified.
     $fs = new Filesystem;
-    $src = sys_get_temp_dir().'/martis-pub-src-'.uniqid();
-    $dst = sys_get_temp_dir().'/martis-pub-dst-'.uniqid();
+    $src = publishProbeDir('src');
+    $dst = publishProbeDir('dst');
     $fs->ensureDirectoryExists($src.'/assets');
     $fs->ensureDirectoryExists($dst.'/assets');
 
@@ -371,7 +385,7 @@ it('exits FAILURE end-to-end when the published set is incomplete', function () 
     // The synthetic source manifest references a ghost chunk that is not in
     // the source tree, so it can never land in the destination.
     $fs = new Filesystem;
-    $src = sys_get_temp_dir().'/martis-pub-src-'.uniqid();
+    $src = publishProbeDir('src');
     $fs->ensureDirectoryExists($src.'/assets');
 
     $fs->put($src.'/manifest.json', json_encode([

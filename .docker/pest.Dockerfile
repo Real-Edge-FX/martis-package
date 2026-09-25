@@ -2,7 +2,7 @@
 #
 # The bare php:8.3-cli image ships without `gd` (image-upload field tests
 # call UploadedFile::fake()->image()) or `pcntl` (the mcp:serve SIGTERM
-# test), so a raw `docker run php:8.3-cli … pest` reports ~29 phantom
+# test), so a raw `docker run php:8.3-cli … pest` reports phantom
 # failures that are purely environmental — none are real. CI (via
 # shivammathur/setup-php) has both extensions, which is why it is green.
 # This image matches CI so `scripts/test.sh` reports 0 failures.

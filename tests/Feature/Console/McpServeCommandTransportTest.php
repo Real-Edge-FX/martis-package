@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Martis\Tests\Support\SkeletonSnapshot;
+use Martis\Tests\TestCase;
 use Symfony\Component\Process\Process;
 
 /**
@@ -21,6 +23,12 @@ use Symfony\Component\Process\Process;
  *   The testbench CLI binary is at vendor/bin/testbench relative to that.
  *   TESTBENCH_WORKING_PATH must point at the same root so the testbench
  *   bootstrap can locate vendor/autoload.php and load the package providers.
+ *   APP_BASE_PATH is the skeleton the test application runs in, so the
+ *   subprocess boots there too: a parallel worker has a copy of its own
+ *   (TestCase::applicationBasePath()), and the afterEach hook looks there
+ *   for the `.env` a killed subprocess leaves. Testbench reads APP_BASE_PATH
+ *   from $_ENV, which PHP fills from the environment only when
+ *   variables_order has an E.
  */
 function pickPort(): int
 {
@@ -31,7 +39,14 @@ function pickPort(): int
     return (int) substr((string) $name, strrpos($name, ':') + 1);
 }
 
-function waitForPort(string $host, int $port, float $timeoutSec = 5.0): bool
+/**
+ * Block until the server accepts connections on the port. The subprocess
+ * boots a whole Laravel application first, which takes seconds on a loaded
+ * machine (a fixed 5s budget failed under a slow Docker VM), so the wait
+ * ends as soon as the port answers, fails at once when the process has
+ * exited, and gives up only after a generous budget.
+ */
+function waitForPort(Process $process, string $host, int $port, float $timeoutSec = 30.0): bool
 {
     $deadline = microtime(true) + $timeoutSec;
     while (microtime(true) < $deadline) {
@@ -41,10 +56,18 @@ function waitForPort(string $host, int $port, float $timeoutSec = 5.0): bool
 
             return true;
         }
+        if (! $process->isRunning()) {
+            return false;
+        }
         usleep(100_000);
     }
 
     return false;
+}
+
+function bindFailure(Process $process): string
+{
+    return 'the server did not bind; its stderr: '.$process->getErrorOutput();
 }
 
 function artisanPath(): string
@@ -63,14 +86,21 @@ function artisanPath(): string
  */
 $GLOBALS['__martis_serve_processes'] = [];
 
-function spawnServe(array $extraArgs = [], array $extraEnv = []): Process
+function mcpServeProcess(array $extraArgs = [], array $extraEnv = []): Process
 {
     $root = artisanPath();
-    $cmd = ['php', 'vendor/bin/testbench', 'martis:mcp-serve', ...$extraArgs];
+    $cmd = ['php', '-d', 'variables_order=EGPCS', 'vendor/bin/testbench', 'martis:mcp-serve', ...$extraArgs];
     $env = array_merge($_SERVER, $_ENV, $extraEnv, [
         'TESTBENCH_WORKING_PATH' => $root,
+        'APP_BASE_PATH' => base_path(),
     ]);
-    $process = new Process($cmd, $root, $env);
+
+    return new Process($cmd, $root, $env);
+}
+
+function spawnServe(array $extraArgs = [], array $extraEnv = []): Process
+{
+    $process = mcpServeProcess($extraArgs, $extraEnv);
     $process->start();
     $GLOBALS['__martis_serve_processes'][] = $process;
 
@@ -91,20 +121,36 @@ function waitForServeReady(Process $process, float $timeoutSec = 8.0): bool
         if (str_contains($process->getErrorOutput(), 'is up and listening')) {
             return true;
         }
+        if (! $process->isRunning()) {
+            return false;
+        }
         usleep(50_000);
     }
 
     return false;
 }
 
+// `vendor/bin/testbench` also links the package's vendor/ into the skeleton
+// while it runs and removes the link only when it exits cleanly: put the
+// skeleton's `vendor` back as this file found it.
+beforeAll(function () {
+    $GLOBALS['__martis_mcp_skeleton'] = SkeletonSnapshot::take(TestCase::applicationBasePath(), ['vendor']);
+});
+
+afterAll(function () {
+    $GLOBALS['__martis_mcp_skeleton']->restore();
+});
+
 beforeEach(function () {
-    // `vendor/bin/testbench` copies the skeleton's `.env.example` to `.env`
-    // when it boots and deletes the copy only when it exits cleanly or
-    // traps the signal. A subprocess killed with SIGKILL (the stop()
-    // fallback below), or sent SIGTERM before it registers its handlers,
-    // leaves the copy in the testbench skeleton under vendor/, where every
-    // later `vendor/bin/testbench` run finds it. Remember whether a `.env`
-    // was there, so the afterEach hook removes only a copy this test left.
+    // `vendor/bin/testbench` puts a `.env` in the skeleton when it boots (a
+    // copy of the package root's `.env`, `.env.example` or `.env.dist` when
+    // there is one, otherwise of the skeleton's `.env.example`) and deletes
+    // it only when it exits cleanly or traps the signal. A subprocess killed
+    // with SIGKILL (the stop() fallback below), or sent SIGTERM before it
+    // registers its handlers, leaves the copy in the testbench skeleton
+    // under vendor/, where every later `vendor/bin/testbench` run finds it.
+    // Remember whether a `.env` was there, so the afterEach hook removes
+    // only a copy this test left.
     $this->skeletonEnvExisted = is_file(base_path('.env'));
 });
 
@@ -120,7 +166,9 @@ afterEach(function () {
     }
     $GLOBALS['__martis_serve_processes'] = [];
 
-    if (! $this->skeletonEnvExisted && is_file(base_path('.env'))) {
+    // Unknown (setUp failed before beforeEach ran) counts as "was there":
+    // never delete a `.env` this test did not see appear.
+    if (! ($this->skeletonEnvExisted ?? true) && is_file(base_path('.env'))) {
         @unlink(base_path('.env'));
     }
 });
@@ -129,7 +177,7 @@ it('http transport responds to tools/list on /mcp', function () {
     $port = pickPort();
     $process = spawnServe(['--transport=http', "--port={$port}", '--no-warn-on-public']);
 
-    expect(waitForPort('127.0.0.1', $port))->toBeTrue('server did not bind in time');
+    expect(waitForPort($process, '127.0.0.1', $port))->toBeTrue(bindFailure($process));
 
     $payload = json_encode([
         'jsonrpc' => '2.0',
@@ -166,7 +214,7 @@ it('http transport with token rejects missing Authorization with 401', function 
         ['MARTIS_MCP_HTTP_TOKEN' => 'test-token-xyz'],
     );
 
-    expect(waitForPort('127.0.0.1', $port))->toBeTrue();
+    expect(waitForPort($process, '127.0.0.1', $port))->toBeTrue(bindFailure($process));
 
     $ch = curl_init("http://127.0.0.1:{$port}/mcp");
     curl_setopt($ch, CURLOPT_POST, true);
@@ -189,7 +237,7 @@ it('http transport with token accepts correct Authorization', function () {
         ['MARTIS_MCP_HTTP_TOKEN' => 'test-token-xyz'],
     );
 
-    expect(waitForPort('127.0.0.1', $port))->toBeTrue();
+    expect(waitForPort($process, '127.0.0.1', $port))->toBeTrue(bindFailure($process));
 
     $ch = curl_init("http://127.0.0.1:{$port}/mcp");
     curl_setopt($ch, CURLOPT_POST, true);
@@ -219,8 +267,8 @@ it('http transport exposes /health on the configured port when --health-port is 
         '--no-warn-on-public',
     ]);
 
-    expect(waitForPort('127.0.0.1', $mcpPort))->toBeTrue();
-    expect(waitForPort('127.0.0.1', $healthPort))->toBeTrue();
+    expect(waitForPort($process, '127.0.0.1', $mcpPort))->toBeTrue(bindFailure($process));
+    expect(waitForPort($process, '127.0.0.1', $healthPort))->toBeTrue(bindFailure($process));
 
     $ch = curl_init("http://127.0.0.1:{$healthPort}/health");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -244,7 +292,7 @@ it('warns when host=0.0.0.0 without a token (and stays silent with --no-warn-on-
     $port = pickPort();
     $process = spawnServe(['--transport=http', '--host=0.0.0.0', "--port={$port}"]);
 
-    expect(waitForPort('0.0.0.0', $port))->toBeTrue();
+    expect(waitForPort($process, '0.0.0.0', $port))->toBeTrue(bindFailure($process));
     usleep(200_000);
     $stderr = $process->getIncrementalErrorOutput();
     $process->stop(2);
@@ -254,7 +302,7 @@ it('warns when host=0.0.0.0 without a token (and stays silent with --no-warn-on-
     // No-warn flag silences it.
     $port2 = pickPort();
     $silent = spawnServe(['--transport=http', '--host=0.0.0.0', "--port={$port2}", '--no-warn-on-public']);
-    expect(waitForPort('0.0.0.0', $port2))->toBeTrue();
+    expect(waitForPort($silent, '0.0.0.0', $port2))->toBeTrue(bindFailure($silent));
     usleep(200_000);
     $silentStderr = $silent->getIncrementalErrorOutput();
     $silent->stop(2);
@@ -274,7 +322,7 @@ it('warns about the health endpoint on 0.0.0.0 even when a token is set', functi
         ['MARTIS_MCP_HTTP_TOKEN' => 'test-token-for-health-warn'],
     );
 
-    expect(waitForPort('0.0.0.0', $port))->toBeTrue();
+    expect(waitForPort($process, '0.0.0.0', $port))->toBeTrue(bindFailure($process));
     usleep(200_000);
     $stderr = $process->getIncrementalErrorOutput();
     $process->stop(2);
@@ -286,12 +334,7 @@ it('warns about the health endpoint on 0.0.0.0 even when a token is set', functi
 });
 
 it('stdio default keeps producing the three tools (regression guard)', function () {
-    $root = artisanPath();
-    $process = new Process(
-        ['php', 'vendor/bin/testbench', 'martis:mcp-serve'],
-        $root,
-        array_merge($_SERVER, $_ENV, ['TESTBENCH_WORKING_PATH' => $root]),
-    );
+    $process = mcpServeProcess();
     $process->setInput(
         '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"smoke","version":"1.0"}}}'."\n".
         '{"jsonrpc":"2.0","method":"notifications/initialized"}'."\n".
@@ -328,7 +371,7 @@ it('exits cleanly on SIGTERM in http mode', function () {
     // process never receives the SIGTERM cleanly. Previously this was
     // a "wait 5s" wall clock and flaked on slow runners; the marker
     // gate is deterministic.
-    expect(waitForPort('127.0.0.1', $port))->toBeTrue('server did not bind in time');
+    expect(waitForPort($process, '127.0.0.1', $port))->toBeTrue(bindFailure($process));
     expect(waitForServeReady($process))->toBeTrue('signal handlers were not registered in time');
 
     $pid = $process->getPid();

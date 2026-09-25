@@ -2,11 +2,14 @@
 
 namespace Martis\Tests;
 
+use FilesystemIterator;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Martis\MartisServiceProvider;
 use Orchestra\Testbench\TestCase as OrchestraTestCase;
+use RuntimeException;
 
 abstract class TestCase extends OrchestraTestCase
 {
@@ -15,21 +18,197 @@ abstract class TestCase extends OrchestraTestCase
     /**
      * Do not load the `.env` of the testbench skeleton the tests run in.
      *
-     * The skeleton lives under vendor/ and every test process shares it.
-     * `vendor/bin/testbench` (spawned by McpServeCommandTransportTest)
-     * copies the skeleton's `.env.example` to `.env` while it runs and
-     * deletes the copy only when it exits cleanly, so a killed subprocess
-     * leaves it behind. Loaded into the test application, its
+     * The skeleton lives under vendor/ and keeps what every run leaves in it.
+     * `vendor/bin/testbench` (spawned by McpServeCommandTransportTest) puts
+     * a `.env` there while it runs (a copy of the package root's `.env`,
+     * `.env.example` or `.env.dist` when there is one, otherwise of the
+     * skeleton's `.env.example`) and deletes it only when it exits cleanly,
+     * so a killed subprocess leaves it behind. Loaded into the test application, its
      * `CACHE_STORE=database` and `SESSION_DRIVER=cookie` break every test
      * that touches the cache or the session (the test database has no
      * `cache` table, see migrateFreshUsing()). CI installs a fresh vendor/
      * on every run and never has the file, so the tests run on the
      * skeleton's config defaults there; ignoring the file does the same
-     * locally.
+     * locally. The skeleton copy the tests run in (applicationBasePath())
+     * leaves the file out as well; this keeps any other `.env` off too.
      *
      * @var bool
      */
     protected $loadEnvironmentVariables = false;
+
+    /**
+     * The copy of the testbench skeleton this test process runs in.
+     */
+    private static ?string $workerSkeleton = null;
+
+    /**
+     * Run every test process in a copy of the testbench skeleton of its own.
+     *
+     * The skeleton lives under vendor/, and the suite writes into it:
+     * martis:install publishes assets, config, translations and migrations,
+     * the generators write app/Martis classes, scaffolding tests replace
+     * app/Providers and bootstrap/providers.php, and `vendor/bin/testbench`
+     * leaves a `.env`. Written in place, all of it stayed for every later
+     * run (a leftover `.env` failed about a thousand tests locally, while
+     * CI, with a fresh vendor/, passed), and under `pest --parallel` one
+     * worker read the files another was writing or deleting. The first test
+     * of a process copies the skeleton to a temporary directory named after
+     * the process and the paratest token (TEST_TOKEN, `seq` for a sequential
+     * run), and every application of that process boots there, so the
+     * skeleton under vendor/ is never written. The copy goes when the
+     * process exits; one whose process could not clean up (Ctrl+C, SIGKILL)
+     * goes when the next copy is made.
+     */
+    public static function applicationBasePath()
+    {
+        $token = getenv('TEST_TOKEN');
+
+        return self::$workerSkeleton ??= self::copySkeletonForWorker(
+            parent::applicationBasePath(),
+            is_string($token) && $token !== '' ? $token : 'seq',
+        );
+    }
+
+    private static function copySkeletonForWorker(string $skeleton, string $token): string
+    {
+        $root = sys_get_temp_dir().'/martis-testbench-'.substr(md5($skeleton), 0, 12);
+        $copy = $root.'/'.getmypid().'-'.$token;
+        $filesystem = new Filesystem;
+
+        self::sweepOrphanCopies($root, $filesystem);
+
+        // `vendor` is the symlink `vendor/bin/testbench` creates, `.env` a
+        // copy it can leave behind, and the log only grows run after run.
+        self::copyDirectory($skeleton, $copy, ['vendor', '.env', 'storage/logs/laravel.log']);
+
+        // deleteDirectory() removes a symlink without following it, so the
+        // vendor/ a testbench subprocess links in here is left alone. Only the
+        // process that made the copy removes it (a forked child inherits this
+        // function), and the parent goes once the last copy is gone.
+        $owner = getmypid();
+
+        register_shutdown_function(static function () use ($filesystem, $copy, $owner): void {
+            if (getmypid() === $owner) {
+                self::deleteQuietly($filesystem, $copy);
+                @rmdir(dirname($copy));
+            }
+        });
+
+        $path = realpath($copy);
+
+        if ($path === false) {
+            throw new RuntimeException("Cannot resolve the testbench skeleton copy {$copy}.");
+        }
+
+        return $path;
+    }
+
+    /**
+     * Remove the copies whose process is gone: a worker killed before its
+     * shutdown function ran (Ctrl+C, SIGKILL) leaves one, and after such a
+     * run every new worker finds the same orphans at the same time. Each
+     * orphan is first claimed with an atomic rename to a hidden name
+     * carrying this process's pid, so exactly one worker deletes it; a
+     * claim whose claimer died mid-delete is claimed again. A copy named
+     * after this process can only be a leftover of an earlier process with
+     * the same pid. A live copy, a sibling worker's or that of the process
+     * this one was started from, is left alone.
+     */
+    private static function sweepOrphanCopies(string $root, Filesystem $filesystem): void
+    {
+        $orphans = [];
+
+        foreach (glob($root.'/*-*', GLOB_ONLYDIR) ?: [] as $copy) {
+            $orphans[] = [$copy, (int) strtok(basename($copy), '-')];
+        }
+
+        foreach (glob($root.'/.*.claimed-*', GLOB_ONLYDIR) ?: [] as $claim) {
+            $orphans[] = [$claim, (int) substr((string) strrchr($claim, '-'), 1)];
+        }
+
+        foreach ($orphans as [$path, $pid]) {
+            if ($pid <= 0 || ($pid !== getmypid() && self::processIsRunning($pid))) {
+                continue;
+            }
+
+            $claim = $root.'/.'.ltrim(strtok(basename($path), '.'), '.').'.claimed-'.getmypid();
+
+            // Another worker won the rename: the orphan is its to delete.
+            if (@rename($path, $claim)) {
+                self::deleteQuietly($filesystem, $claim);
+            }
+        }
+    }
+
+    /**
+     * Delete a directory this process owns, never failing the test run over
+     * it: a copy left half-deleted is claimed and removed by a later sweep.
+     */
+    private static function deleteQuietly(Filesystem $filesystem, string $directory): void
+    {
+        try {
+            $filesystem->deleteDirectory($directory);
+        } catch (\Throwable) {
+            // Left for the next sweep.
+        }
+    }
+
+    /**
+     * Whether a process exists (EPERM: it does, under another user). Without
+     * the posix extension every process counts as running, so no copy is
+     * ever taken for a leftover.
+     */
+    private static function processIsRunning(int $pid): bool
+    {
+        if (! function_exists('posix_kill')) {
+            return true;
+        }
+
+        return posix_kill($pid, 0) || posix_get_last_error() === 1;
+    }
+
+    /**
+     * Copy a directory tree, recreating symlinks instead of following them
+     * and keeping each file's modification time: Blade compares a compiled
+     * view's time with its source's, so a copy stamped "now" would pass a
+     * stale compiled view off as current.
+     *
+     * @param  list<string>  $skip  Paths relative to $from.
+     */
+    private static function copyDirectory(string $from, string $to, array $skip, string $relative = ''): void
+    {
+        if (! is_dir($to) && ! @mkdir($to, 0777, true) && ! is_dir($to)) {
+            throw self::copyFailure("create {$to}");
+        }
+
+        foreach (new FilesystemIterator($from, FilesystemIterator::SKIP_DOTS) as $item) {
+            $path = ltrim($relative.'/'.$item->getFilename(), '/');
+            $source = $item->getPathname();
+            $target = $to.'/'.$item->getFilename();
+
+            if (in_array($path, $skip, true)) {
+                continue;
+            }
+
+            if ($item->isLink()) {
+                $link = @readlink($source);
+
+                if ($link === false || ! @symlink($link, $target)) {
+                    throw self::copyFailure("link {$target} like {$source}");
+                }
+            } elseif ($item->isDir()) {
+                self::copyDirectory($source, $target, $skip, $path);
+            } elseif (! @copy($source, $target) || ! @touch($target, $item->getMTime())) {
+                throw self::copyFailure("copy {$source} to {$target}");
+            }
+        }
+    }
+
+    private static function copyFailure(string $action): RuntimeException
+    {
+        return new RuntimeException("Cannot {$action} for the testbench skeleton copy: "
+            .(error_get_last()['message'] ?? 'unknown error'));
+    }
 
     protected function getPackageProviders($app): array
     {
@@ -53,15 +232,23 @@ abstract class TestCase extends OrchestraTestCase
             'database' => ':memory:',
             'prefix' => '',
         ]);
+
+        // The drivers the suite assumes. Without a `.env` they are the
+        // skeleton's config defaults, but a variable exported in the shell
+        // (APP_DEBUG, CACHE_STORE, SESSION_DRIVER, QUEUE_CONNECTION) still
+        // reaches the config.
+        $app['config']->set('app.debug', false);
+        $app['config']->set('cache.default', 'array');
+        $app['config']->set('session.driver', 'array');
+        $app['config']->set('queue.default', 'sync');
     }
 
     /**
      * Point RefreshDatabase's `migrate:fresh` at an empty folder, so it
-     * never scans the skeleton's `database/migrations/`. Every test
-     * process shares that folder and `martis:install` publishes Martis
-     * migrations into it: in parallel mode, `migrate:fresh` in one worker
-     * ran the migrations another worker had just published and crashed
-     * with "no such table users".
+     * never scans the skeleton's `database/migrations/`. `martis:install`
+     * publishes Martis migrations into that folder, and they stay there for
+     * the tests that follow (and, in the shared skeleton, for later runs):
+     * `migrate:fresh` ran them and crashed with "no such table users".
      *
      * Each test therefore starts from an empty in-memory database: the
      * `migrations` table plus the `martis_cache_state` table that

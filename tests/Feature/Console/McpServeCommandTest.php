@@ -27,7 +27,9 @@ echo json_encode([
 ]);
 PHP;
 
-    $tmp = tempnam(sys_get_temp_dir(), 'mcp_smoke_').'.php';
+    // php runs the file tempnam() created; a .php suffix would leave that
+    // empty placeholder behind in the temp directory.
+    $tmp = (string) tempnam(sys_get_temp_dir(), 'mcp_smoke_');
     file_put_contents($tmp, $script);
     try {
         $process = new Process(['php', $tmp, $packageRoot]);
@@ -60,7 +62,7 @@ $tools = new Tools(DocLookup::package());
 echo json_encode($tools->listDocs());
 PHP;
 
-    $tmp = tempnam(sys_get_temp_dir(), 'mcp_disabled_').'.php';
+    $tmp = (string) tempnam(sys_get_temp_dir(), 'mcp_disabled_');
     file_put_contents($tmp, $script);
     try {
         $process = new Process(['php', $tmp, $packageRoot]);

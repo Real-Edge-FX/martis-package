@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
+use Martis\Tests\Support\SkeletonSnapshot;
+use Martis\Tests\TestCase;
 
 /*
  * `martis:roles` — pin the contract that the command:
@@ -21,6 +23,23 @@ use Illuminate\Filesystem\Filesystem;
  * environment (CI runs `--no-install` because Spatie is dev-suggested,
  * not required, in martis-package).
  */
+
+// The hooks below clear and stub app/Models, app/Providers, app/Policies,
+// app/Martis/Resources and database/seeders in the testbench skeleton: put
+// them back as this file found them.
+beforeAll(function () {
+    $GLOBALS['__martis_roles_skeleton'] = SkeletonSnapshot::take(TestCase::applicationBasePath(), [
+        'app/Martis/Resources',
+        'app/Policies',
+        'app/Models',
+        'app/Providers',
+        'database/seeders',
+    ]);
+});
+
+afterAll(function () {
+    $GLOBALS['__martis_roles_skeleton']->restore();
+});
 
 beforeEach(function () {
     /** @var Filesystem $files */
