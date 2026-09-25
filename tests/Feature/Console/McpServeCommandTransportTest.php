@@ -40,34 +40,76 @@ function pickPort(): int
 }
 
 /**
- * Block until the server accepts connections on the port. The subprocess
- * boots a whole Laravel application first, which takes seconds on a loaded
- * machine (a fixed 5s budget failed under a slow Docker VM), so the wait
- * ends as soon as the port answers, fails at once when the process has
- * exited, and gives up only after a generous budget.
+ * The ceiling of every wait on the subprocess, in seconds:
+ * MARTIS_TEST_PROCESS_TIMEOUT, 30 by default. Each wait ends as soon as its
+ * condition holds, so a fast machine never waits for it; a loaded one
+ * (parallel suites, a Docker VM, where a fixed 5s budget failed) gets the
+ * room it needs.
  */
-function waitForPort(Process $process, string $host, int $port, float $timeoutSec = 30.0): bool
+function mcpBudget(): float
 {
-    $deadline = microtime(true) + $timeoutSec;
-    while (microtime(true) < $deadline) {
+    $raw = getenv('MARTIS_TEST_PROCESS_TIMEOUT');
+
+    return is_string($raw) && is_numeric($raw) && (float) $raw > 0 ? (float) $raw : 30.0;
+}
+
+/**
+ * Wait until `$condition` holds, and fail with why it did not: how long it
+ * waited, whether the process exited (and its exit code) or was still
+ * running, and its stderr and stdout. Stops waiting as soon as the process
+ * exits, unless `$untilExit` is what it waits for.
+ */
+function waitUntil(Process $process, callable $condition, string $what, ?float $budget = null, bool $untilExit = false): void
+{
+    $budget ??= mcpBudget();
+    $started = microtime(true);
+
+    while (true) {
+        if ($condition()) {
+            return;
+        }
+        if (! $untilExit && ! $process->isRunning()) {
+            break;
+        }
+        if (microtime(true) - $started >= $budget) {
+            break;
+        }
+        usleep(50_000);
+    }
+
+    throw new RuntimeException(processDiagnostics($process, $what, microtime(true) - $started));
+}
+
+function processDiagnostics(Process $process, string $what, float $waited): string
+{
+    $state = $process->isRunning()
+        ? 'the process was still running'
+        : 'the process had exited with code '.var_export($process->getExitCode(), true);
+
+    return sprintf(
+        "%s: gave up after %.1fs (ceiling %gs, MARTIS_TEST_PROCESS_TIMEOUT); %s.\n--- stderr ---\n%s\n--- stdout ---\n%s",
+        $what,
+        $waited,
+        mcpBudget(),
+        $state,
+        trim($process->getErrorOutput()) ?: '(empty)',
+        trim($process->getOutput()) ?: '(empty)',
+    );
+}
+
+/** Block until the server accepts connections on the port. */
+function waitForPort(Process $process, string $host, int $port): void
+{
+    waitUntil($process, function () use ($host, $port): bool {
         $fp = @fsockopen($host, $port, $errno, $errstr, 0.2);
         if ($fp) {
             fclose($fp);
 
             return true;
         }
-        if (! $process->isRunning()) {
-            return false;
-        }
-        usleep(100_000);
-    }
 
-    return false;
-}
-
-function bindFailure(Process $process): string
-{
-    return 'the server did not bind; its stderr: '.$process->getErrorOutput();
+        return false;
+    }, "the server did not bind {$host}:{$port}");
 }
 
 function artisanPath(): string
@@ -108,26 +150,40 @@ function spawnServe(array $extraArgs = [], array $extraEnv = []): Process
 }
 
 /**
- * Block until `Server is up and listening` (or any "listening" marker)
- * appears on stderr, proving the ReactPHP loop has registered its
- * signal handlers. Without this gate the SIGTERM test races the boot
- * sequence on slow CI runners and fires the signal before the handler
- * is wired, leaving the subprocess running.
+ * Stop a server the test is done with: SIGTERM, then SIGKILL after the
+ * budget, so a slow shutdown is not cut short into a SIGKILL that leaves
+ * the skeleton's `.env` behind.
  */
-function waitForServeReady(Process $process, float $timeoutSec = 8.0): bool
+function stopServe(Process $process): void
 {
-    $deadline = microtime(true) + $timeoutSec;
-    while (microtime(true) < $deadline) {
-        if (str_contains($process->getErrorOutput(), 'is up and listening')) {
-            return true;
-        }
-        if (! $process->isRunning()) {
-            return false;
-        }
-        usleep(50_000);
-    }
+    $process->stop(mcpBudget(), defined('SIGKILL') ? SIGKILL : 9);
+}
 
-    return false;
+/**
+ * Block until `Server is up and listening` appears on stderr, proving the
+ * ReactPHP loop has registered its signal handlers. Without this gate the
+ * SIGTERM test races the boot sequence on slow CI runners and fires the
+ * signal before the handler is wired, leaving the subprocess running.
+ */
+function waitForServeReady(Process $process): void
+{
+    waitUntil($process, fn (): bool => str_contains($process->getErrorOutput(), 'is up and listening'), 'the signal handlers were not registered');
+}
+
+/** A POST to the MCP endpoint: [status, body]. */
+function mcpPost(int $port, string $payload, array $headers): array
+{
+    $ch = curl_init("http://127.0.0.1:{$port}/mcp");
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, (int) ceil(mcpBudget()));
+    $body = curl_exec($ch);
+    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    return [$status, (string) $body];
 }
 
 // `vendor/bin/testbench` also links the package's vendor/ into the skeleton
@@ -157,11 +213,11 @@ beforeEach(function () {
 afterEach(function () {
     foreach ($GLOBALS['__martis_serve_processes'] as $p) {
         if ($p instanceof Process && $p->isRunning()) {
-            // SIGTERM first, then SIGKILL after the 1s grace. Symfony's
+            // SIGTERM first, then SIGKILL after a 5s grace. Symfony's
             // Process::stop() handles the escalation but we need to
             // also reap the pid so the next test file doesn't inherit
             // an orphaned listener on the bound port.
-            $p->stop(1, defined('SIGKILL') ? SIGKILL : 9);
+            $p->stop(5, defined('SIGKILL') ? SIGKILL : 9);
         }
     }
     $GLOBALS['__martis_serve_processes'] = [];
@@ -177,7 +233,7 @@ it('http transport responds to tools/list on /mcp', function () {
     $port = pickPort();
     $process = spawnServe(['--transport=http', "--port={$port}", '--no-warn-on-public']);
 
-    expect(waitForPort($process, '127.0.0.1', $port))->toBeTrue(bindFailure($process));
+    waitForPort($process, '127.0.0.1', $port);
 
     $payload = json_encode([
         'jsonrpc' => '2.0',
@@ -185,20 +241,12 @@ it('http transport responds to tools/list on /mcp', function () {
         'method' => 'tools/list',
     ]);
 
-    $ch = curl_init("http://127.0.0.1:{$port}/mcp");
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    [$status, $body] = mcpPost($port, (string) $payload, [
         'Content-Type: application/json',
         'Accept: application/json, text/event-stream',
     ]);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-    $body = curl_exec($ch);
-    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
 
-    $process->stop(2);
+    stopServe($process);
 
     expect($status)->toBe(200);
     $decoded = json_decode((string) $body, true);
@@ -214,18 +262,11 @@ it('http transport with token rejects missing Authorization with 401', function 
         ['MARTIS_MCP_HTTP_TOKEN' => 'test-token-xyz'],
     );
 
-    expect(waitForPort($process, '127.0.0.1', $port))->toBeTrue(bindFailure($process));
+    waitForPort($process, '127.0.0.1', $port);
 
-    $ch = curl_init("http://127.0.0.1:{$port}/mcp");
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, '{"jsonrpc":"2.0","id":1,"method":"tools/list"}');
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_exec($ch);
-    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    [$status] = mcpPost($port, '{"jsonrpc":"2.0","id":1,"method":"tools/list"}', ['Content-Type: application/json']);
 
-    $process->stop(2);
+    stopServe($process);
 
     expect($status)->toBe(401);
 });
@@ -237,22 +278,15 @@ it('http transport with token accepts correct Authorization', function () {
         ['MARTIS_MCP_HTTP_TOKEN' => 'test-token-xyz'],
     );
 
-    expect(waitForPort($process, '127.0.0.1', $port))->toBeTrue(bindFailure($process));
+    waitForPort($process, '127.0.0.1', $port);
 
-    $ch = curl_init("http://127.0.0.1:{$port}/mcp");
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, '{"jsonrpc":"2.0","id":1,"method":"tools/list"}');
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    [$status] = mcpPost($port, '{"jsonrpc":"2.0","id":1,"method":"tools/list"}', [
         'Content-Type: application/json',
         'Accept: application/json, text/event-stream',
         'Authorization: Bearer test-token-xyz',
     ]);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_exec($ch);
-    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
 
-    $process->stop(2);
+    stopServe($process);
 
     expect($status)->toBe(200);
 });
@@ -267,17 +301,17 @@ it('http transport exposes /health on the configured port when --health-port is 
         '--no-warn-on-public',
     ]);
 
-    expect(waitForPort($process, '127.0.0.1', $mcpPort))->toBeTrue(bindFailure($process));
-    expect(waitForPort($process, '127.0.0.1', $healthPort))->toBeTrue(bindFailure($process));
+    waitForPort($process, '127.0.0.1', $mcpPort);
+    waitForPort($process, '127.0.0.1', $healthPort);
 
     $ch = curl_init("http://127.0.0.1:{$healthPort}/health");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 2);
+    curl_setopt($ch, CURLOPT_TIMEOUT, (int) ceil(mcpBudget()));
     $body = curl_exec($ch);
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
-    $process->stop(2);
+    stopServe($process);
 
     expect($status)->toBe(200);
     $decoded = json_decode((string) $body, true);
@@ -292,20 +326,21 @@ it('warns when host=0.0.0.0 without a token (and stays silent with --no-warn-on-
     $port = pickPort();
     $process = spawnServe(['--transport=http', '--host=0.0.0.0', "--port={$port}"]);
 
-    expect(waitForPort($process, '0.0.0.0', $port))->toBeTrue(bindFailure($process));
-    usleep(200_000);
+    waitForPort($process, '0.0.0.0', $port);
+    // The warnings are written before the loop reports it is up.
+    waitForServeReady($process);
     $stderr = $process->getIncrementalErrorOutput();
-    $process->stop(2);
+    stopServe($process);
 
     expect($stderr)->toContain('0.0.0.0')->toContain('MARTIS_MCP_HTTP_TOKEN');
 
     // No-warn flag silences it.
     $port2 = pickPort();
     $silent = spawnServe(['--transport=http', '--host=0.0.0.0', "--port={$port2}", '--no-warn-on-public']);
-    expect(waitForPort($silent, '0.0.0.0', $port2))->toBeTrue(bindFailure($silent));
-    usleep(200_000);
+    waitForPort($silent, '0.0.0.0', $port2);
+    waitForServeReady($silent);
     $silentStderr = $silent->getIncrementalErrorOutput();
-    $silent->stop(2);
+    stopServe($silent);
 
     expect($silentStderr)->not->toContain('MARTIS_MCP_HTTP_TOKEN');
 });
@@ -322,10 +357,11 @@ it('warns about the health endpoint on 0.0.0.0 even when a token is set', functi
         ['MARTIS_MCP_HTTP_TOKEN' => 'test-token-for-health-warn'],
     );
 
-    expect(waitForPort($process, '0.0.0.0', $port))->toBeTrue(bindFailure($process));
-    usleep(200_000);
+    waitForPort($process, '0.0.0.0', $port);
+    // The warnings are written before the loop reports it is up.
+    waitForServeReady($process);
     $stderr = $process->getIncrementalErrorOutput();
-    $process->stop(2);
+    stopServe($process);
 
     // The MCP docs API warning must NOT fire (token is set).
     expect($stderr)->not->toContain('MARTIS_MCP_HTTP_TOKEN');
@@ -340,15 +376,12 @@ it('stdio default keeps producing the three tools (regression guard)', function 
         '{"jsonrpc":"2.0","method":"notifications/initialized"}'."\n".
         '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'."\n"
     );
-    $process->setTimeout(5);
+    $process->setTimeout(null);
     $process->start();
+    $GLOBALS['__martis_serve_processes'][] = $process;
 
-    // Wait for process to finish naturally (stdin closes after setInput is consumed).
-    $deadline = microtime(true) + 5.0;
-    while ($process->isRunning() && microtime(true) < $deadline) {
-        usleep(100_000);
-    }
-    $process->stop(2);
+    // The process ends on its own once stdin (the input above) is consumed.
+    waitUntil($process, fn (): bool => ! $process->isRunning(), 'the stdio server did not exit after its input', untilExit: true);
 
     // The MCP server logs tool registrations and dispatched responses to stderr
     // (all DEBUG/INFO lines go through the logger which writes to STDERR).
@@ -371,20 +404,15 @@ it('exits cleanly on SIGTERM in http mode', function () {
     // process never receives the SIGTERM cleanly. Previously this was
     // a "wait 5s" wall clock and flaked on slow runners; the marker
     // gate is deterministic.
-    expect(waitForPort($process, '127.0.0.1', $port))->toBeTrue(bindFailure($process));
-    expect(waitForServeReady($process))->toBeTrue('signal handlers were not registered in time');
+    waitForPort($process, '127.0.0.1', $port);
+    waitForServeReady($process);
 
     $pid = $process->getPid();
     expect($pid)->toBeInt();
     $process->signal(SIGTERM);
 
-    // Generous 10s budget for the loop to drain on slow CI. The
-    // afterEach will SIGKILL if this is still running, so a flaky
-    // failure here never leaks the subprocess into downstream tests.
-    $started = microtime(true);
-    while ($process->isRunning() && microtime(true) - $started < 10.0) {
-        usleep(50_000);
-    }
-    expect($process->isRunning())->toBeFalse('process did not exit within 10s of SIGTERM');
-    expect($process->getExitCode())->toBe(0);
+    // The loop drains and exits; the afterEach kills it if it does not,
+    // so a failure here never leaks the subprocess into later tests.
+    waitUntil($process, fn (): bool => ! $process->isRunning(), 'the server did not exit after SIGTERM', untilExit: true);
+    expect($process->getExitCode())->toBe(0, processDiagnostics($process, 'the server exited with an error after SIGTERM', 0.0));
 });
