@@ -6,7 +6,7 @@ The sections below list the breaking changes of each major version and what to c
 
 ## Upgrading to v2.0.1 from v2.0.0
 
-Nothing changes on an app whose Martis guard is the default guard, except the throttle buckets (below). With a custom `MARTIS_GUARD`:
+Most of these changes concern an app with a custom `MARTIS_GUARD`; the throttle buckets, the Gate cache's `lookup()` and the Tool route warning apply to every app.
 
 ### Password reset picks the Martis guard's broker
 
