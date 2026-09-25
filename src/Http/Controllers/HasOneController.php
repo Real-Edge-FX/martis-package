@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne as EloquentHasOne;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough as EloquentHasOneThrough;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
@@ -67,19 +68,7 @@ class HasOneController extends MartisController
             'hasOneField' => $hasOneField,
         ] = $context;
 
-        // ⭐ OfMany runtime scope (Martis differential — latestByTimestamp / oldestByTimestamp).
-        if ($hasOneField instanceof HasOneOfMany) {
-            $scope = $hasOneField->getRuntimeScope();
-            if ($scope !== null) {
-                // Apply the scope to the relation's query and pick the first row.
-                $scopedQuery = $scope(clone $relation->getQuery());
-                $relatedModel = $scopedQuery->first();
-            } else {
-                $relatedModel = $relation->first();
-            }
-        } else {
-            $relatedModel = $relation->first();
-        }
+        $relatedModel = $this->relatedRecord($hasOneField, $relation);
 
         if ($relatedModel === null) {
             return new IlluminateJsonResponse(['data' => null, 'meta' => [], 'links' => []], 200);
@@ -260,9 +249,11 @@ class HasOneController extends MartisController
         [
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
+            'hasOneField' => $hasOneField,
         ] = $context;
 
-        $relatedModel = $relation->first();
+        // The record the card shows, so Edit / Delete write that one.
+        $relatedModel = $this->relatedRecord($hasOneField, $relation);
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
@@ -341,9 +332,11 @@ class HasOneController extends MartisController
         [
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
+            'hasOneField' => $hasOneField,
         ] = $context;
 
-        $relatedModel = $relation->first();
+        // The record the card shows, so Edit / Delete write that one.
+        $relatedModel = $this->relatedRecord($hasOneField, $relation);
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
@@ -373,6 +366,23 @@ class HasOneController extends MartisController
             ['data' => [], 'meta' => ['message' => $relatedResourceClass::deletedMessage()], 'links' => []],
             200,
         );
+    }
+
+    /**
+     * The related record the card shows. A HasOneOfMany with a runtime
+     * scope (latestByTimestamp() / oldestByTimestamp()) picks it from its
+     * many relation with that order; any other relation holds one record.
+     * show(), update() and destroy() all read it here, so Edit and Delete
+     * write the record on screen.
+     *
+     * @param  Relation<Model, Model, mixed>  $relation
+     */
+    private function relatedRecord(HasOne $hasOneField, Relation $relation): ?Model
+    {
+        $scope = $hasOneField instanceof HasOneOfMany ? $hasOneField->getRuntimeScope() : null;
+
+        /** @var Model|null */
+        return $scope !== null ? $scope(clone $relation->getQuery())->first() : $relation->first();
     }
 
     /**
