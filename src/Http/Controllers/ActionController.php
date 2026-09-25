@@ -189,7 +189,7 @@ class ActionController extends MartisController
         // The predicate the rows' `_actionAuthorization` map shows. A
         // standalone action resolves no model, so nothing is checked here.
         foreach ($models as $model) {
-            if (($denial = $this->actionRunDenial($request, $actionInstance, new $resourceClass($model), $model)) !== null) {
+            if (($denial = $this->actionRunDenial($request, $actionInstance, $model, $this->actionPolicy($request, new $resourceClass($model)))) !== null) {
                 return JsonErrorResponse::notFound($denial)->toResponse();
             }
         }
@@ -299,9 +299,11 @@ class ActionController extends MartisController
      * name that resolve, as Nova runs an action on the selected records it
      * finds, or a 404 when none does (all outside the scope, trashed out of
      * reach or forged), so a run never handles nothing and answers "Done".
+     * An action that is not standalone and names no record is a 422.
      *
      * A standalone action runs on no record, whatever the request names. The
-     * records are looked up through the resource's `indexQuery()` (its
+     * records are looked up through the resource's `scopes()` and
+     * `indexQuery()` (its
      * tenant / ownership scope: an id outside it does not resolve), trashed
      * ones included when the resource soft-deletes, since the index and the
      * panels list them. With `viaResource`, `viaResourceId` and
@@ -326,19 +328,24 @@ class ActionController extends MartisController
             is_array($raw) ? $raw : [],
         )));
 
+        // An action that runs on records needs at least one, as a pivot
+        // action does: an empty run would handle nothing and answer "Done".
         if ($ids === []) {
-            return $empty;
+            return JsonErrorResponse::validation(
+                ['resources' => ['At least one resource must be selected.']],
+            )->toResponse();
         }
 
         $modelClass = $resource::model();
         /** @var Model $modelInstance */
         $modelInstance = new $modelClass;
 
-        // Apply the resource's index scoping (tenant / ownership filters)
-        // before selecting by id. Without this, an action could resolve and
-        // act on records outside the user's visible scope just by passing
-        // their ids (IDOR), the same guard the index listing applies.
-        $query = $resource::indexQuery($request, $modelInstance->newQuery());
+        // Apply the resource's index scoping (its declarative `scopes()`,
+        // then `indexQuery()`: tenant / ownership filters) before selecting
+        // by id, in the index's order. Without this, an action could resolve
+        // and act on records outside the user's visible scope just by
+        // passing their ids (IDOR).
+        $query = $resource::indexQuery($request, $resource::applyScopes($request, $modelInstance->newQuery()));
 
         if ($resource::softDeletes()) {
             $query->withoutGlobalScope(SoftDeletingScope::class);
@@ -445,7 +452,14 @@ class ActionController extends MartisController
             $keys->withoutGlobalScope(SoftDeletingScope::class);
         }
 
-        return $keys->toBase()->select($relation->getRelated()->getQualifiedKeyName());
+        // A key subquery for `IN (...)`: a relation's own order, limit and
+        // offset (`->latest()->limit(2)`) would cut it short, and MySQL
+        // refuses a LIMIT there (SQLSTATE 1235).
+        $base = $keys->toBase()->reorder();
+        $base->limit = null;
+        $base->offset = null;
+
+        return $base->select($relation->getRelated()->getQualifiedKeyName());
     }
 
     /**

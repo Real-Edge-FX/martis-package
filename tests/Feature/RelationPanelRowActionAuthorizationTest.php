@@ -66,6 +66,23 @@ class RPACloseAction extends Action
     }
 }
 
+class RPAExportAction extends RPACloseAction
+{
+    public function uriKey(): string
+    {
+        return 'rpa-export';
+    }
+}
+
+// Not inline: the panel rows do not map it.
+class RPABulkAction extends RPACloseAction
+{
+    public function uriKey(): string
+    {
+        return 'rpa-bulk';
+    }
+}
+
 abstract class RPARelatedResource extends Resource
 {
     public function fields(Request $request): array
@@ -77,6 +94,8 @@ abstract class RPARelatedResource extends Resource
     {
         return [
             (new RPACloseAction)->showInline()->canRun(fn ($request, $model) => $model->title !== 'Locked'),
+            (new RPAExportAction)->showInline()->standalone(),
+            new RPABulkAction,
         ];
     }
 }
@@ -178,9 +197,19 @@ it('carries each row action\'s canRun on the rows of a relationship panel', func
         ->assertStatus(200)
         ->json('data'))->keyBy('title');
 
-    expect($rows['Open']['_actionAuthorization'])->toBe(['rpa-close' => true])
-        ->and($rows['Locked']['_actionAuthorization'])->toBe(['rpa-close' => false]);
+    expect($rows['Open']['_actionAuthorization'])->toBe(['rpa-close' => true, 'rpa-export' => true])
+        ->and($rows['Locked']['_actionAuthorization'])->toBe(['rpa-close' => false, 'rpa-export' => true]);
 })->with([
     'has-many index' => ['has-many/tasks'],
     'morph-many index' => ['morph-many/notes'],
 ]);
+
+it('runs a row action through a morph-many relationship only on a record it holds', function () {
+    $other = RPAParentModel::create(['name' => 'Other']);
+    $foreign = $other->notes()->create(['title' => 'Foreign']);
+    $own = $this->parent->notes()->where('title', 'Open')->firstOrFail();
+    $via = ['viaResource' => 'rpa-parents', 'viaResourceId' => $this->parent->id, 'viaRelationship' => 'notes'];
+
+    $this->postJson('/martis/api/resources/rpa-notes/actions/rpa-close', ['resources' => [$own->id]] + $via)->assertOk();
+    $this->postJson('/martis/api/resources/rpa-notes/actions/rpa-close', ['resources' => [$foreign->id]] + $via)->assertStatus(404);
+});

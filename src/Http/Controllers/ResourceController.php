@@ -155,7 +155,9 @@ class ResourceController extends MartisController
                 $res = new $resourceClass($model);
 
                 $serialized = $this->serializeModel($res, Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX), $model);
-                $serialized['_actionAuthorization'] = $actionAuthorization !== null ? $actionAuthorization($model) : [];
+                $serialized['_actionAuthorization'] = $actionAuthorization !== null
+                    ? $actionAuthorization($model, is_array($serialized['_authorization'] ?? null) ? $serialized['_authorization'] : [])
+                    : [];
 
                 return $serialized;
             })->all()

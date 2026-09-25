@@ -169,8 +169,9 @@ reaches is run on. A `standalone()` action runs on no record. An
 `ActionResponse::openCreate()` / `openDetail()` / `openUpdate()` answer opens
 its drawer over the page, as on the index.
 
-Each panel row carries an `_actionAuthorization` map of the inline actions
-that run on a record (the index maps every action). `BelongsToMany` /
+Each panel row carries an `_actionAuthorization` map of its inline
+actions (the index maps every action); a standalone one is checked by its
+`canRun()` alone. `BelongsToMany` /
 `MorphToMany` panels keep their pivot actions instead.
 
 ### Visibility control
@@ -827,7 +828,7 @@ PublishPosts::make()->canRun(fn (Request $request, $model) => $model->status ===
 
 ### Layer 3 — Policy integration
 
-The controller resolves authorization via a fallback chain on the resource's policy. It applies to each record, after `canRun()`, except for a `standalone()` action; each row of the index and of a relationship panel is marked with the same result, so an action the menu enables is one the run accepts:
+The controller resolves authorization via a fallback chain on the resource's policy. It applies to each record, after `canRun()`, except for a `standalone()` action; each row of the index and of a relationship panel is marked with the same result, so an action the menu enables is one the run accepts. Both must allow the run: unlike Nova 5, where a `canRun()` replaces the policy, a `canRun()` grants nothing the policy refuses (see [Differentials](differentials.md)):
 
 **Normal actions** fall back through:
 1. `Policy::runAction($user)`
@@ -908,12 +909,12 @@ ActionController::execute()
   2. Find action by URI key (uriKey())
   3. Check canSee() — 403 if unauthorized
   4. Load Eloquent models by the IDs in "resources", through the
-     resource's indexQuery() (trashed records included when the resource
+     resource's scopes() and indexQuery() (trashed records included when the resource
      soft-deletes) and, with viaResource / viaResourceId /
      viaRelationship, only among the records that relationship reaches.
      The action runs on the IDs that resolve, as in Nova; 404 when none
-     does, rather than running on nothing. A standalone() action loads no
-     model.
+     does, rather than running on nothing, and 422 when "resources" is
+     empty. A standalone() action loads no model.
   5. Check canRun() and the policy per model: 404 if any is refused
   6. Validate the fields the request may set against their rules
      (a hidden, readonly or computed field is not validated and gets its

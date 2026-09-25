@@ -255,8 +255,10 @@ Each record serialized for the index or detail pages carries:
 the action's `canRun()`, then, unless it is `standalone()`, the
 `runAction` policy (`runDestructiveAction` for a destructive action), the
 same check the run applies. An index row maps every action the user can
-see; a relationship panel row maps only the inline actions that run on a
-record, and carries no map when there is none.
+see; a relationship panel row maps only the inline actions, and carries no
+map when there is none. The policy is asked once per row, not per action:
+the map reuses the row's `authorizedToRunAction` /
+`authorizedToRunDestructiveAction` flags.
 
 Top-level schema responses carry collection-level flags under
 `authorization`:

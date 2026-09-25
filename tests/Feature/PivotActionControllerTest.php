@@ -260,6 +260,40 @@ class PivotRunGuardResource extends PivotParentResource
     }
 }
 
+/** A standalone pivot action that reports how many records it received. */
+class PivotStandaloneCountAction extends PivotTestAction
+{
+    public function uriKey(): string
+    {
+        return 'pivot-standalone-count';
+    }
+
+    /** @param Collection<int, Model> $models */
+    public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
+    {
+        return ActionResponse::message('records: '.$models->count());
+    }
+
+    public function fields(Request $request): array
+    {
+        return [];
+    }
+}
+
+/** Parent resource that exposes the standalone pivot action. */
+class PivotStandaloneParentResource extends PivotParentResource
+{
+    public static function uriKey(): string
+    {
+        return 'pivot-standalone-parents';
+    }
+
+    public function actions(Request $request): array
+    {
+        return [PivotStandaloneCountAction::make()->standalone()];
+    }
+}
+
 /** A field action that reuses the URI key of the resource pivot action. */
 class PivotShadowAction extends PivotTestAction
 {
@@ -436,6 +470,23 @@ it('refuses a pivot action when none of its ids is attached, and runs on the att
 
     $this->postJson($url, ['resources' => [$attached->id, $loose->id], 'fields' => ['priority' => 'high']])->assertOk();
     expect($parent->pivotChildren()->withPivot(['priority'])->first()->pivot->priority)->toBe('high');
+});
+
+it('runs a standalone pivot action on no record, whatever ids are sent, as on the resource endpoint', function () {
+    app(ResourceRegistry::class)->register(PivotStandaloneParentResource::class);
+    $parent = PivotParentModel::create(['name' => 'Parent S']);
+    $child = PivotChildModel::create(['name' => 'Attached']);
+    $parent->pivotChildren()->attach($child->id, ['priority' => 'normal']);
+
+    $this->postJson(
+        route('martis.api.resources.belongs-to-many.actions.execute', [
+            'resource' => 'pivot-standalone-parents',
+            'id' => $parent->id,
+            'relationship' => 'pivotChildren',
+            'action' => 'pivot-standalone-count',
+        ]),
+        ['resources' => [$child->id, 999]],
+    )->assertOk()->assertJsonPath('data.data.message', 'records: 0');
 });
 
 it('forbids executing a pivot action on a parent the user cannot view (IDOR)', function () {

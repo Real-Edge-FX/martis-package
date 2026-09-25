@@ -38,6 +38,8 @@ import { ApiError } from '@/lib/api'
 
 registerDefaultFields()
 componentRegistry.register('martis:drawer-detail', (({ recordId }: { recordId: string | null }) => <div>Detail drawer {recordId}</div>) as never)
+componentRegistry.register('martis:drawer-create', (({ resource }: { resource: string }) => <div>Create drawer {resource}</div>) as never)
+componentRegistry.register('martis:drawer-update', (({ recordId }: { recordId: string | null }) => <div>Update drawer {recordId}</div>) as never)
 
 function action(overrides: Partial<ActionMeta>): ActionMeta {
   return {
@@ -188,15 +190,19 @@ describe.each([
     await waitFor(() => expect(apiPostMock).toHaveBeenCalledWith('/api/resources/tasks/actions/close-task', expect.objectContaining({ resources: [], ...VIA })))
   })
 
-  it('opens the drawer an action answers with openDetail', async () => {
+  it.each([
+    ['openDetail', { resource: 'tasks', recordId: 1 }, 'Detail drawer 1'],
+    ['openCreate', { resource: 'tasks' }, 'Create drawer tasks'],
+    ['openUpdate', { resource: 'tasks', recordId: 1 }, 'Update drawer 1'],
+  ])('opens the drawer an action answers with %s', async (answer, data, drawer) => {
     answerWith([action({})], ROWS)
-    apiPostMock.mockResolvedValue({ data: { type: 'openDetail', data: { resource: 'tasks', recordId: 1 } } })
+    apiPostMock.mockResolvedValue({ data: { type: answer, data } })
     renderPanel(panel(type, metaKey))
     await screen.findByText('Open task')
 
     await runOn('Open task')
 
-    expect(await screen.findByText('Detail drawer 1')).toBeTruthy()
+    expect(await screen.findByText(drawer)).toBeTruthy()
   })
 
   it('puts a grouped action in the row menu, which announces itself and takes the focus', async () => {
@@ -213,6 +219,62 @@ describe.each([
     expect(menuButton.getAttribute('aria-expanded')).toBe('true')
     const menu = screen.getByRole('menu')
     expect(menu.contains(document.activeElement)).toBe(true)
+  })
+
+  it('moves through the row menu with the arrows, and Escape gives the focus back to its button', async () => {
+    answerWith([
+      action({ uriKey: 'close-task', name: 'Close task', group: 'Workflow' }),
+      action({ uriKey: 'reopen-task', name: 'Reopen task', group: 'Review' }),
+    ], ROWS)
+    renderPanel(panel(type, metaKey))
+    await screen.findByText('Open task')
+    const menuButton = within(rowOf('Open task')).getByRole('button', { name: 'Actions' })
+
+    fireEvent.click(menuButton)
+    const menu = screen.getByRole('menu')
+    const [first, second] = within(menu).getAllByRole('menuitem')
+    expect(document.activeElement).toBe(first)
+
+    fireEvent.keyDown(first, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(second)
+    fireEvent.keyDown(second, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(first)
+    fireEvent.keyDown(first, { key: 'ArrowUp' })
+    expect(document.activeElement).toBe(second)
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(document.activeElement).toBe(menuButton)
+  })
+
+  it('moves the focus into a group\'s submenu, and Left or Escape bring it back to the group', async () => {
+    answerWith([action({ group: 'Workflow' })], ROWS)
+    renderPanel(panel(type, metaKey))
+    await screen.findByText('Open task')
+
+    fireEvent.click(within(rowOf('Open task')).getByRole('button', { name: 'Actions' }))
+    const groupRow = within(screen.getByRole('menu')).getByRole('menuitem', { name: /Workflow/ })
+
+    for (const back of ['ArrowLeft', 'Escape']) {
+      fireEvent.keyDown(groupRow, { key: 'Enter' })
+      const submenu = screen.getByRole('menu', { name: 'Workflow' })
+      const item = within(submenu).getByRole('menuitem', { name: 'Close task' })
+      expect(document.activeElement).toBe(item)
+
+      fireEvent.keyDown(item, { key: back })
+      expect(screen.queryByRole('menu', { name: 'Workflow' })).toBeNull()
+      expect(document.activeElement).toBe(groupRow)
+      // The row menu itself stays open.
+      expect(screen.getByRole('menu', { name: 'Actions' })).toBeTruthy()
+    }
+  })
+
+  it('offers a standalone inline action whatever the record\'s policy', async () => {
+    answerWith([action({ standalone: true })], [{ id: 3, title: 'Denied task', _title: 'Denied task', _authorization: { authorizedToRunAction: false } }])
+    renderPanel(panel(type, metaKey))
+    await screen.findByText('Denied task')
+
+    expect(rowButton('Denied task', 'Close task')!.disabled).toBe(false)
   })
 
   it('shows no row action when the related resource has no inline action', async () => {

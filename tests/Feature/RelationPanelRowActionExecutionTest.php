@@ -22,11 +22,12 @@ use Martis\ResourceRegistry;
 /*
  * A row action a relationship panel (or the index) offers runs on the
  * records of the run that resolve, as Nova does, and answers an error when
- * none does: never a silent 200 that handled nothing. The per-row map and the run share one predicate (the
- * action's canRun and the resource's runAction / runDestructiveAction
- * policy), a standalone action runs on no record, and with `viaResource`,
- * `viaResourceId` and `viaRelationship` (sent by the panel, as Nova does)
- * only a record the relationship reaches is run on.
+ * none does or none is named: never a silent 200 that handled nothing. The
+ * per-row map and the run share one predicate (the action's canRun and the
+ * resource's runAction / runDestructiveAction policy), a standalone action
+ * runs on no record, and with `viaResource`, `viaResourceId` and
+ * `viaRelationship` (sent by the panel, as Nova does) only a record the
+ * relationship reaches is run on.
  */
 
 class RPXOwnerModel extends Model
@@ -43,6 +44,25 @@ class RPXOwnerModel extends Model
     public function stepTasks(): EloquentHasManyThrough
     {
         return $this->hasManyThrough(RPXTaskModel::class, RPXStepModel::class, 'owner_id', 'step_id');
+    }
+
+    // Declared on the resource; its order and limit must not reach the key
+    // subquery of a run through it.
+    public function latestTasks(): EloquentHasMany
+    {
+        return $this->hasMany(RPXTaskModel::class, 'owner_id')->latest('id')->limit(1);
+    }
+
+    // A real relation no field of the resource declares.
+    public function undeclaredTasks(): EloquentHasMany
+    {
+        return $this->hasMany(RPXTaskModel::class, 'owner_id');
+    }
+
+    // Listed by a resource with no action.
+    public function plainTasks(): EloquentHasMany
+    {
+        return $this->hasMany(RPXTaskModel::class, 'owner_id');
     }
 }
 
@@ -66,6 +86,8 @@ class RPXRunLog
 {
     /** @var list<list<int>> */
     public static array $runs = [];
+
+    public static int $policyCalls = 0;
 }
 
 class RPXCloseAction extends Action
@@ -116,6 +138,12 @@ class RPXTaskResource extends Resource
         return $query->where('title', '!=', 'Hidden');
     }
 
+    // The tenant scope, as the index applies it.
+    public static function scopes(Request $request): array
+    {
+        return [fn (Builder $query) => $query->where('title', '!=', 'Other tenant')];
+    }
+
     public function fields(Request $request): array
     {
         return [Text::make('title')];
@@ -133,7 +161,37 @@ class RPXTaskResource extends Resource
     // The policy execute() checks: runAction is denied on "No policy".
     public function authorizedToRunAction(Request $request): bool
     {
+        RPXRunLog::$policyCalls++;
+
         return $this->model?->getAttribute('title') !== 'No policy';
+    }
+}
+
+// The same records under another key: its actions do not run through a
+// relationship that lists `rpx-tasks`.
+class RPXTaskCopyResource extends RPXTaskResource
+{
+    public static function uriKey(): string
+    {
+        return 'rpx-task-copies';
+    }
+}
+
+class RPXPlainTaskResource extends Resource
+{
+    public static function model(): string
+    {
+        return RPXTaskModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rpx-plain-tasks';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title')];
     }
 }
 
@@ -155,13 +213,35 @@ class RPXOwnerResource extends Resource
             Text::make('name'),
             HasMany::make('Tasks', 'tasks')->relatedResource('rpx-tasks'),
             HasManyThrough::make('Step tasks', 'stepTasks')->relatedResource('rpx-tasks'),
+            HasMany::make('Latest task', 'latestTasks')->relatedResource('rpx-tasks'),
+            HasMany::make('Plain tasks', 'plainTasks')->relatedResource('rpx-plain-tasks'),
         ];
+    }
+
+    public function authorizedToView(Request $request): bool
+    {
+        return $this->model?->getAttribute('name') !== 'Private';
+    }
+}
+
+// The same owners under a resource the user may not list.
+class RPXLockedOwnerResource extends RPXOwnerResource
+{
+    public static function uriKey(): string
+    {
+        return 'rpx-locked-owners';
+    }
+
+    public function authorizedToViewAny(Request $request): bool
+    {
+        return false;
     }
 }
 
 beforeEach(function () {
     $this->withoutMiddleware(MartisAuthenticate::class);
     RPXRunLog::$runs = [];
+    RPXRunLog::$policyCalls = 0;
 
     foreach (['rpx_tasks', 'rpx_steps', 'rpx_owners'] as $table) {
         Schema::dropIfExists($table);
@@ -187,8 +267,9 @@ beforeEach(function () {
 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
-    $registry->register(RPXTaskResource::class);
-    $registry->register(RPXOwnerResource::class);
+    foreach ([RPXTaskResource::class, RPXTaskCopyResource::class, RPXPlainTaskResource::class, RPXOwnerResource::class, RPXLockedOwnerResource::class] as $class) {
+        $registry->register($class);
+    }
 
     $this->owner = RPXOwnerModel::create(['name' => 'Owner']);
     $this->other = RPXOwnerModel::create(['name' => 'Other']);
@@ -201,6 +282,7 @@ beforeEach(function () {
     $this->trashed = RPXTaskModel::create(['title' => 'Trashed', 'owner_id' => $this->owner->id]);
     $this->trashed->delete();
     $this->foreign = RPXTaskModel::create(['title' => 'Foreign', 'owner_id' => $this->other->id]);
+    $this->tenant = RPXTaskModel::create(['title' => 'Other tenant', 'owner_id' => $this->owner->id]);
 });
 
 afterEach(function () {
@@ -232,18 +314,38 @@ it('marks a row action the resource policy denies as not runnable, on the panel 
     expect(RPXRunLog::$runs)->toBe([]);
 });
 
-it('maps only the inline actions that run on a record on a panel row', function () {
-    $row = collect($this->getJson("/martis/api/resources/rpx-owners/{$this->owner->id}/has-many/tasks")->json('data'))->firstWhere('title', 'Open');
+it('maps the inline actions on a panel row, a standalone one by canRun alone', function () {
+    $rows = collect($this->getJson("/martis/api/resources/rpx-owners/{$this->owner->id}/has-many/tasks")->json('data'))->keyBy('title');
 
-    expect(array_keys($row['_actionAuthorization']))->toBe(['rpx-close']);
+    expect($rows['Open']['_actionAuthorization'])->toBe(['rpx-close' => true, 'rpx-report' => true])
+        ->and($rows['No policy']['_actionAuthorization'])->toBe(['rpx-close' => false, 'rpx-report' => true]);
 });
+
+it('carries no action map on a panel whose related resource has no inline action', function () {
+    $rows = $this->getJson("/martis/api/resources/rpx-owners/{$this->owner->id}/has-many/plainTasks")->assertOk()->json('data');
+
+    expect($rows)->not->toBeEmpty();
+    foreach ($rows as $row) {
+        expect($row)->not->toHaveKey('_actionAuthorization');
+    }
+});
+
+it('asks the run-action policy once per row, not once per action', function (string $path) {
+    $rows = $this->getJson(str_replace('{owner}', (string) $this->owner->id, $path))->assertOk()->json('data');
+
+    expect($rows)->not->toBeEmpty()
+        ->and(RPXRunLog::$policyCalls)->toBe(count($rows));
+})->with([
+    'index' => ['/martis/api/resources/rpx-tasks'],
+    'panel' => ['/martis/api/resources/rpx-owners/{owner}/has-many/tasks'],
+]);
 
 it('keys a hasManyThrough row\'s action map on the record it lists', function () {
     $rows = $this->getJson("/martis/api/resources/rpx-owners/{$this->owner->id}/has-many/stepTasks")->assertOk()->json('data');
 
     expect($rows)->toHaveCount(1)
         ->and($rows[0]['id'])->toBe($this->open->id)
-        ->and($rows[0]['_actionAuthorization'])->toBe(['rpx-close' => true]);
+        ->and($rows[0]['_actionAuthorization'])->toBe(['rpx-close' => true, 'rpx-report' => true]);
 
     rpxRun(['resources' => [$rows[0]['id']]] + rpxVia('stepTasks'))->assertOk();
     expect(RPXRunLog::$runs)->toBe([[$this->open->id]]);
@@ -287,6 +389,57 @@ it('refuses a relationship the parent resource does not declare', function () {
     rpxRun(['resources' => [$this->open->id]] + ['viaResource' => 'rpx-owners', 'viaResourceId' => $this->owner->id, 'viaRelationship' => 'nope'])
         ->assertStatus(404);
     rpxRun(['resources' => [$this->open->id]] + ['viaResource' => 'rpx-owners', 'viaResourceId' => 999, 'viaRelationship' => 'tasks'])
+        ->assertStatus(404);
+
+    expect(RPXRunLog::$runs)->toBe([]);
+});
+
+it('refuses a run that names no record for an action that runs on records', function (array $body) {
+    rpxRun($body)
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.field', 'resources');
+
+    expect(RPXRunLog::$runs)->toBe([]);
+})->with(['an empty selection' => [['resources' => []]], 'no selection' => [[]]]);
+
+it('does not resolve a record the resource\'s scopes() keep out, as the index does not list it', function () {
+    rpxRun(['resources' => [$this->tenant->id]])->assertStatus(404);
+
+    expect(RPXRunLog::$runs)->toBe([]);
+});
+
+it('refuses a relationship name that is a method of the parent but no declared relationship, and leaves the parent', function (string $relationship) {
+    rpxRun(['resources' => [$this->open->id]] + rpxVia($relationship))->assertStatus(404);
+
+    expect(RPXOwnerModel::query()->whereKey($this->owner->id)->exists())->toBeTrue()
+        ->and(RPXRunLog::$runs)->toBe([]);
+})->with(['a model method' => ['delete'], 'an undeclared relation' => ['undeclaredTasks']]);
+
+it('reaches every record of a relationship whose query orders and limits', function () {
+    // latestTasks() keeps only the newest task; the run keys on the whole
+    // relationship, as MySQL refuses a LIMIT in the IN subquery.
+    rpxRun(['resources' => [$this->open->id]] + rpxVia('latestTasks'))->assertOk();
+
+    expect(RPXRunLog::$runs)->toBe([[$this->open->id]]);
+});
+
+it('runs through the relationship on a trashed record it holds', function () {
+    rpxRun(['resources' => [$this->trashed->id]] + rpxVia())->assertOk();
+
+    expect(RPXRunLog::$runs)->toBe([[$this->trashed->id]]);
+});
+
+it('gates the parent a run goes through as its panel is gated', function (Closure $via, int $status) {
+    rpxRun(['resources' => [$this->open->id]] + $via($this))->assertStatus($status);
+
+    expect(RPXRunLog::$runs)->toBe([]);
+})->with([
+    'the parent resource denies viewAny' => [fn ($t) => ['viaResource' => 'rpx-locked-owners', 'viaResourceId' => $t->owner->id, 'viaRelationship' => 'tasks'], 403],
+    'the parent record denies view' => [fn ($t) => ['viaResource' => 'rpx-owners', 'viaResourceId' => RPXOwnerModel::create(['name' => 'Private'])->id, 'viaRelationship' => 'tasks'], 403],
+]);
+
+it('refuses a relationship that lists another resource than the action\'s', function () {
+    test()->postJson('/martis/api/resources/rpx-task-copies/actions/rpx-close', ['resources' => [$this->open->id]] + rpxVia())
         ->assertStatus(404);
 
     expect(RPXRunLog::$runs)->toBe([]);
