@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Docs
+
+- **Troubleshooting listed the `--with-profile` paragraph twice.** The duplicate is gone and the avatar migration is named by its file pattern (`*_add_martis_profile_picture_column_to_users_table.php`).
+
 ## [2.0.1] — 2026-09-25
 
 Patch release of the v2.0.0 follow-ups. Several fixes refuse what a user or a request could do before, and some panels change as they follow Nova: read [Upgrading to v2.0.1 from v2.0.0](docs/upgrading.md#upgrading-to-v201-from-v200) before updating, then run `php artisan martis:publish-assets` and `php artisan martis:cache:clear`.
