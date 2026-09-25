@@ -665,12 +665,15 @@ Martis 2.0 aligns `HasOneThrough` and `HasManyThrough` with Nova. In 1.x:
   default;
 - the Through panels hid Edit and Delete by default (`canUpdate` /
   `canDelete` started as `false`), and the `has-one` endpoints refused an
-  update or a delete through a `HasOneThrough` field (403).
+  update or a delete through a `HasOneThrough` field (403). The
+  `HasManyThrough` panel already showed Restore and Force delete on trashed
+  rows, for every record.
 
 In 2.0 a create through a Through relationship answers 403 and the panels never
-offer Create, while Edit and Delete (plus Restore and Force delete on
-`HasManyThrough`) show as on `HasOne` / `HasMany`, for the records the related
-resource's policies allow.
+offer Create, while Edit and Delete show as on `HasOne` / `HasMany`. Restore and
+Force delete on `HasManyThrough` do not change. Every row and card action now
+also follows the related resource's policy for its record: an action the policy
+denies for a record is left out.
 
 What to do:
 
@@ -678,11 +681,9 @@ What to do:
   Martis version. On a path repository, whose version does not change, clear
   it (`php artisan martis:cache:clear schema`): until it is rebuilt a panel
   keeps the actions it offered in 1.x.
-- To keep the 1.x panel, hide the row actions on the field:
-  `->canUpdate(false)->canDelete(false)`, plus
-  `->hideRestoreAction()->hideForceDeleteAction()` on `HasManyThrough`. The
-  endpoints still follow the policies: deny `update` / `delete` there to
-  refuse those writes.
+- To keep the 1.x panel, hide Edit and Delete on the field:
+  `->canUpdate(false)->canDelete(false)`. The endpoints still follow the
+  policies: deny `update` / `delete` there to refuse those writes.
 - Create the related records from their own resource (its create page, or
   `POST /api/resources/{related}`). An API client that created them through
   `…/has-many/{relationship}` or `…/has-one/{relationship}` of a Through
