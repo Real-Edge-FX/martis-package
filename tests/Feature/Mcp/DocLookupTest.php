@@ -57,4 +57,3 @@ it('describes a page as the docs site does, past its lead blockquote and within 
         ->and(mb_strlen($rows['long']['one_liner']))->toBe(280)
         ->and($rows['long']['one_liner'])->toEndWith('...');
 });
-
