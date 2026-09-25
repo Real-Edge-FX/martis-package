@@ -2642,7 +2642,7 @@ html.dark body {
   height: 20px !important;
   color: var(--martis-text-muted) !important;
   border-radius: var(--martis-radius-sm);
-  transition: background var(--martis-dur-sm, 120ms) ease, color var(--martis-dur-sm, 120ms) ease;
+  transition: background var(--martis-dur-fast) ease, color var(--martis-dur-fast) ease;
 }
 .p-toast .p-toast-icon-close:hover {
   background: var(--martis-hover) !important;
@@ -2918,7 +2918,7 @@ html.dark body {
   color: var(--martis-text-muted);
   cursor: pointer;
   border-radius: var(--martis-radius-sm);
-  transition: background var(--martis-dur-sm, 120ms) ease, color var(--martis-dur-sm, 120ms) ease;
+  transition: background var(--martis-dur-fast) ease, color var(--martis-dur-fast) ease;
 }
 .martis-toast-close:hover {
   background: var(--martis-hover);
@@ -3293,10 +3293,10 @@ html:not(.dark) .martis-dropzone {
   background-color: var(--martis-hover);
 }
 .martis-belongs-to-option--selected {
-  background-color: rgba(99, 102, 241, 0.1);
+  background-color: color-mix(in srgb, var(--martis-accent) 10%, transparent);
 }
 .martis-belongs-to-option--selected:hover {
-  background-color: rgba(99, 102, 241, 0.15);
+  background-color: color-mix(in srgb, var(--martis-accent) 15%, transparent);
 }
 .martis-belongs-to-option-label {
   flex: 1;
@@ -4094,7 +4094,7 @@ html[data-density="dense"] .martis-index-toolbar {
 .martis-trix-wrapper trix-toolbar .trix-dialog input[type="url"]:focus,
 .martis-trix-wrapper trix-toolbar .trix-dialog input[type="text"]:focus {
   border-color: var(--martis-accent);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 0 2px var(--martis-focus-ring);
 }
 
 .martis-trix-wrapper trix-toolbar .trix-dialog input[type="url"].martis-invalid,
@@ -4236,13 +4236,6 @@ html:not(.dark) .martis-trix-wrapper trix-editor {
   color: var(--martis-accent-hover, #4f46e5);
 }
 
-html:not(.dark) .martis-trix-detail a {
-  color: #4f46e5;
-}
-
-html:not(.dark) .martis-trix-detail a:hover {
-  color: #4338ca;
-}
 
 /* == F7-41 — CodeMirror theme aligned to Martis design tokens.
    Surface, gutter, mono font and selection rgba all resolve from
@@ -6148,7 +6141,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   place-items: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition: transform var(--martis-dur-sm, 120ms) ease;
+  transition: transform var(--martis-dur-fast) ease;
 }
 .martis-audio-play-btn:hover { transform: scale(1.05); }
 .martis-audio-play-btn:focus-visible {
@@ -6182,7 +6175,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   height: 100%;
   background: var(--martis-accent);
   border-radius: inherit;
-  transition: width var(--martis-dur-sm, 120ms) linear;
+  transition: width var(--martis-dur-fast) linear;
 }
 .martis-audio-time {
   display: flex;
@@ -6200,7 +6193,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   place-items: center;
   color: var(--martis-text-muted);
   flex-shrink: 0;
-  transition: background var(--martis-dur-sm, 120ms) ease, color var(--martis-dur-sm, 120ms) ease;
+  transition: background var(--martis-dur-fast) ease, color var(--martis-dur-fast) ease;
 }
 .martis-audio-download:hover {
   background: var(--martis-hover);
@@ -6235,7 +6228,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   background: var(--martis-surface);
   color: var(--martis-text);
   cursor: pointer;
-  transition: background var(--martis-dur-sm, 120ms) ease;
+  transition: background var(--martis-dur-fast) ease;
 }
 .martis-audio-input-controls .martis-btn-secondary:hover { background: var(--martis-hover); }
 .martis-audio-input-controls .martis-btn-ghost {
@@ -6263,7 +6256,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   color: var(--martis-text-muted);
   text-align: center;
   cursor: pointer;
-  transition: border-color var(--martis-dur-sm, 120ms) ease, background var(--martis-dur-sm, 120ms) ease;
+  transition: border-color var(--martis-dur-fast) ease, background var(--martis-dur-fast) ease;
 }
 .martis-audio-dropzone:hover:not(:disabled) {
   border-color: var(--martis-accent);
@@ -7198,7 +7191,7 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   border-radius: var(--martis-radius-md);
   border: 1px solid var(--martis-border);
   background: var(--martis-input-bg);
-  transition: background var(--martis-dur-sm, 120ms) ease, border-color var(--martis-dur-sm, 120ms) ease;
+  transition: background var(--martis-dur-fast) ease, border-color var(--martis-dur-fast) ease;
   min-width: 0;
 }
 .martis-dropzone:hover:not(.is-readonly):not([disabled]) {
@@ -7300,7 +7293,7 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   color: var(--martis-text-muted);
   cursor: pointer;
   border-radius: 50%;
-  transition: background var(--martis-dur-sm, 120ms) ease, color var(--martis-dur-sm, 120ms) ease;
+  transition: background var(--martis-dur-fast) ease, color var(--martis-dur-fast) ease;
 }
 .martis-filter-chip-x:hover {
   background: var(--martis-surface);
@@ -7560,7 +7553,7 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   padding: 10px 14px;
   border-bottom: 1px solid var(--martis-border);
   position: relative;
-  transition: background var(--martis-dur-sm, 120ms) ease;
+  transition: background var(--martis-dur-fast) ease;
 }
 .martis-notif-item:last-child {
   border-bottom: 0;
@@ -7638,7 +7631,7 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   place-items: center;
   border-radius: var(--martis-radius-sm);
   opacity: 0;
-  transition: opacity var(--martis-dur-sm, 120ms) ease, background var(--martis-dur-sm, 120ms) ease, color var(--martis-dur-sm, 120ms) ease;
+  transition: opacity var(--martis-dur-fast) ease, background var(--martis-dur-fast) ease, color var(--martis-dur-fast) ease;
 }
 .martis-notif-item:hover .martis-notif-dismiss,
 .martis-notif-item:focus-within .martis-notif-dismiss {
@@ -7893,8 +7886,8 @@ html[data-density="dense"] .martis-cache-toggle {
   border-radius: var(--martis-radius-md, 8px);
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--martis-brand-500, #6366f1) 15%, transparent);
-  color: var(--martis-brand-500, #6366f1);
+  background: color-mix(in srgb, var(--martis-accent) 15%, transparent);
+  color: var(--martis-accent);
 }
 .martis-tool-header h1 {
   margin: 0;
@@ -7973,7 +7966,7 @@ html[data-density="dense"] .martis-cache-toggle {
   color: var(--martis-text-muted);
 }
 .martis-tool-row-master {
-  background: color-mix(in srgb, var(--martis-brand-500, #6366f1) 8%, transparent);
+  background: color-mix(in srgb, var(--martis-accent) 8%, transparent);
 }
 .martis-tool-empty-meta {
   margin: 0;

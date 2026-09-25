@@ -240,8 +240,8 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
     if (!active) return <CaretUpDownIcon size={14} className="text-gray-400" />
     return dir === 'asc'
-      ? <CaretUpIcon size={14} className="text-indigo-600" />
-      : <CaretDownIcon size={14} className="text-indigo-600" />
+      ? <CaretUpIcon size={14} style={{ color: 'var(--martis-accent)' }} />
+      : <CaretDownIcon size={14} style={{ color: 'var(--martis-accent)' }} />
   }
 
   const showMeta = !isCollapsed && (showPerPage || showSoftDeleteToggle)
@@ -453,7 +453,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                       <Link
                         to={viewUrl ? viewUrl(row.id as string | number) : recordHref(relatedResource, row.id)}
                         className="font-medium no-underline"
-                        style={{ color: 'var(--martis-primary)' }}
+                        style={{ color: 'var(--martis-accent)' }}
                       >
                         <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} />
                       </Link>
@@ -517,7 +517,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                             style={{ color: 'var(--martis-text-muted)' }}
                             data-pr-tooltip={tAct('edit', 'Edit')}
                             data-pr-position="top"
-                            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-primary)')}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-accent)')}
                             onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
                           >
                             <PencilSimpleIcon size={16} />

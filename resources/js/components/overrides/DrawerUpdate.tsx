@@ -280,7 +280,7 @@ export function DrawerUpdate(props: OverrideProps) {
       {isLoading ? (
         <div className="flex items-center justify-center p-12">
           <div
-            className="h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent"
+            className="h-8 w-8 animate-spin rounded-full border-2 border-solid border-current border-t-transparent"
             style={{ color: 'var(--martis-accent)' }}
           />
         </div>

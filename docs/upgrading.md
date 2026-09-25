@@ -95,6 +95,16 @@ The `schema` cache layer now expires after a day by default (`MARTIS_CACHE_SCHEM
 
 See [Cache → Invalidation](cache.md#invalidation).
 
+### Custom themes
+
+A theme generated with `martis:theme` before v2.0 may need three edits:
+
+1. **`--martis-dur-sm` and `--martis-brand-500` do nothing any more.** No stylesheet defined them; the package now reads `--martis-dur-fast` and `--martis-accent` where it read them, and `martis:theme:diff` lists them as *Unknown to package* (exit 2). Set `--martis-dur-fast` and `--martis-accent` instead.
+2. **Delete the two logo heights**, `--martis-brand-logo-height-auth` and `--martis-brand-logo-height-menu`, unless you mean to override `MARTIS_BRAND_LOGO_HEIGHT_AUTH` / `_MENU`: the old stub declared them on `:root` (the menu one at 28px), which silenced those `.env` knobs.
+3. **Set the short typography names.** The package CSS reads `--martis-text-*`, `--martis-weight-*` and `--martis-leading-*`; a theme that sets only `--martis-font-size-*`, `--martis-font-weight-*` or `--martis-line-height-*` changes almost nothing.
+
+See [Theming](theming.md#variable-reference).
+
 ### `martis:install` asks only on a terminal
 
 `martis:install`, and every other Martis command that asks (the generators' "Overwrite?", `martis:user`, `martis:agents`, `martis:sso`'s role mapping, the "Run pending migrations now?" of `martis:invitations`, `martis:roles` and `martis:sso`), asks a question only when the input is interactive **and** stdin is a real TTY. A generator run through a pipe leaves an existing file alone unless you pass `--force`, printing "already exists" and exiting 0. `martis:user` without a terminal needs `--email` and `--password` (it exits 1 naming the missing one, and creates no user; `--name` defaults to `Martis Admin`). The three scaffold commands now run their migrations through a pipe: `yes n | php artisan martis:invitations` used to answer "no" and skip them, so pass `--no-migrate` to skip them. Through a pipe or `docker compose exec -T` every question takes its default: optional features you pass no flag for stay off, the avatar column is `profile_picture`, and `--existing-avatar-column` needs `--avatar-column`. Before v2.0 the avatar column questions read the pipe, and `--force` rewrote any `*_create_notifications_table.php` / `*_create_sessions_table.php`, the application's own included.
