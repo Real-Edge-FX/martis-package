@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security: the action log is closed by default and masks hidden values
+
+**The Action Events resource (the `martis_action_events` audit log) is readable only by users granted the new `view-martis-action-events` gate, and its `original` / `changes` no longer reveal values the viewer could not read on the record.** v2.0.0 opened the log, and every value any action changed, to every panel user (a known issue deferred from 2.0.0).
+
+- A deny-by-default `view-martis-action-events` gate, registered like `manage-martis-cache` and `martis-invite`, decides `viewAny` / `view` on `ActionEventResource`. A policy for `Martis\Models\ActionEvent` that defines the ability still decides instead, as Nova's action log follows the `ActionEvent` policy.
+- Without access: the index and the detail answer `403`, the sidebar entry and the command palette's *Recent activity* disappear, and a relationship panel listing the log (a `MorphMany` on an `Actionable` model) lists no rows, through the resource's `indexQuery()`.
+- `original` / `changes` keep a value only when the viewer may see that attribute on the record's detail page: a detail field visible to the viewer (`canSee()`, `canSeeForModel()`, or the foreign key / morph type of a visible `BelongsTo` / `MorphTo`), through a resource that lets the viewer `viewAny` and `view` the record. Every other value reads `[hidden]`, attributes no field shows (`password`) included; a record the viewer may not view, or one outside the viewer's global scopes, masks every value. Pivot action events mask the pivot model's `$hidden` attributes; events on a model no resource exposes mask the model's `$hidden` attributes. The logic is public as `Martis\Actions\ActionEventRedactor` for custom audit resources.
+- The authorization-denial audit (`MARTIS_AUDIT_AUTHZ_DENIALS`) skips the new gate like the `viewAny` cascade, since the navigation asks it on every page.
+
+**Upgrade:** define the gate for the users who should read the log: `Gate::define('view-martis-action-events', fn ($user) => $user->is_admin);`. An app with an `ActionEventPolicy` defining `viewAny` and `view` needs no change. See [Upgrading](docs/upgrading.md#upgrading-to-v201-from-v200).
+
++15 Pest.
+
 ## [2.0.0] — 2026-09-25
 
 Major release: see [Upgrading](docs/upgrading.md) before updating a 1.x app. Includes every fix of 1.39.2. Known issues deferred to 2.1: relationship writes do not validate `relatableQuery()` (Nova's `Relatable` rule), the action log is readable by every panel user, and some Tailwind borders without a style class do not render.

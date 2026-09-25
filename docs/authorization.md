@@ -372,7 +372,7 @@ Repeat denials of the same `(user, ability, model)` within one request are de-du
 
 The log's `user_id` names a user of the Martis guard (the `ActionEvent::user()` relation resolves that guard's model), so a denial is recorded only while the Martis guard is the request's guard: in a panel request, and in every request when the Martis guard is the app's default. With a custom `MARTIS_GUARD`, the site's own requests record none (v2.0.0+): their user belongs to another guard, whose id the log would resolve to someone else.
 
-The noisy `viewAny` cascade (sidebar / navigation) is dropped by default. Toggle `MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY=true` to keep it.
+The noisy `viewAny` cascade (sidebar / navigation) is dropped by default, and so is the `view-martis-action-events` gate the Action Events entry asks on every navigation build (v2.0.1+). Toggle `MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY=true` to keep both.
 
 ## How policy instances are resolved
 

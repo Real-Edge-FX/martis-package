@@ -1168,10 +1168,53 @@ $post->actions()->where('status', 'failed')->get();
 
 Martis automatically registers an `ActionEventResource` in the admin panel, providing a read-only interface for browsing the audit log. This resource:
 
-- Appears in the sidebar as **"Action Events"** with a clipboard icon
+- Appears in the sidebar as **"Action Events"** with a clipboard icon, for the users allowed to read the log (see below)
 - Is **read-only** (no create, update, or delete)
 - Sorts by `created_at DESC` by default
 - Shows: Action name, User ID, Model type, Status, Executed At
+
+#### Who can read the audit log (v2.0.1+)
+
+The audit log is **closed by default**: it records what every user changed, including values of fields other users cannot see. Open it with the `view-martis-action-events` gate, from your `MartisServiceProvider` (or any service provider):
+
+```php
+use Illuminate\Support\Facades\Gate;
+
+Gate::define('view-martis-action-events', fn ($user) => $user->is_admin);
+```
+
+The package registers a deny-by-default definition, as it does for `manage-martis-cache` and `martis-invite`; yours replaces it whatever the boot order. A policy for the `Martis\Models\ActionEvent` model decides instead when it defines `viewAny` / `view` (`Gate::policy(ActionEvent::class, ActionEventPolicy::class)`, or `App\Martis\Policies\ActionEventPolicy` by auto-discovery), as Nova's action log follows the `ActionEvent` policy. An ability the policy does not define falls back to the gate.
+
+Without access:
+
+| Surface | Behaviour |
+|---------|-----------|
+| `GET /api/resources/action-events` and `/{id}` | `403` |
+| Sidebar, `MenuItem::resource(ActionEventResource::class)` | Hidden |
+| Command palette, *Recent activity* | Empty |
+| A relationship panel listing the log (for example `MorphMany::make('Actions', 'actions', ActionEventResource::class)` on an `Actionable` model) | Lists no rows. The panel still needs the parent record's `view`; hide the panel itself with `->canSee(fn ($request) => (new ActionEventResource)->authorizedToViewAny($request))` |
+
+The denied gate check runs with every navigation build, so the [authorization-denial audit](authorization.md#audit-log-of-denied-authorizations) skips it like the `viewAny` cascade (unless `MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY=true`).
+
+#### Hidden values in `original` and `changes` (v2.0.1+)
+
+`original` and `changes` store the raw attributes an action changed, whatever the record's resource shows. The detail page shows a value only when the viewer could read that attribute on the record's own detail page; any other value reads `[hidden]` (`ActionEventRedactor::MASK`), so the log still tells which attributes changed:
+
+- **The record has a resource.** A key keeps its value when it is the attribute of a detail field the viewer may see (`canSee()`, `canSeeForModel()`), or the foreign key / morph type of a visible `BelongsTo` / `MorphTo`, through a resource that lets the viewer `viewAny` and `view` the record. Attributes no field shows (`password`, `remember_token`, internal columns) are masked. A viewer who may not view the record sees every value masked, and so does one whose global scopes hide it (another tenant's record). A deleted record is judged by the field visibility alone.
+- **A pivot action's event** (`model_type` is the pivot): the values show when the viewer may view the parent record; the pivot model's `$hidden` attributes are masked.
+- **No resource exposes the model** (a standalone action, a role change, a custom writer): the values show, but the model's `$hidden` attributes.
+
+A custom audit resource applies the same rule from its fields:
+
+```php
+use Martis\Actions\ActionEventRedactor;
+
+Code::make('changes')->json()->resolveUsing(
+    fn ($value, $event, $attribute, $request) => ActionEventRedactor::redact($event, $value, $request ?? request()),
+);
+```
+
+The stored row is unchanged: code that reads `ActionEvent` directly gets every value.
 
 #### Hide from Navigation
 

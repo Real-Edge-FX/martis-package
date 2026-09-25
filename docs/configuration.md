@@ -724,6 +724,8 @@ Where Martis scans for `Martis\Tools\Tool` subclasses (since v1.8.20). `tools_na
 
 Individual actions can opt out via `->withoutActionEvents()`.
 
+The registered resource is closed until you define the `view-martis-action-events` gate (or an `ActionEvent` policy), v2.0.1+: see [Actions → Who can read the audit log](actions.md#who-can-read-the-audit-log-v201).
+
 ## Code-side registrations: `app/Providers/MartisServiceProvider.php`
 
 `config/martis.php` cannot hold closures — Laravel's `config:cache` fails to serialize them. So Martis splits configuration into two layers:
