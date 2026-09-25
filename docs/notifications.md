@@ -166,7 +166,7 @@ The React renderer reads these keys from the notification's `toArray()` / `Marti
 | `message` | no | — | Muted second line. |
 | `level` | no | `info` | Drives the icon bubble colour. One of `info` / `success` / `warning` / `danger`. |
 | `icon` | no | level default | Phosphor icon name (kebab-case). Resolves through `iconRegistry` so any of the 1500+ icons works. |
-| `action_url` | no | — | Click target. Path starting with `/` does an in-app navigation; full URLs open in a new tab. |
+| `action_url` | no | — | Click target. A same-origin path (`/…`) does an in-app navigation; full URLs open in a new tab. Since v2.0.1 a value that starts with `//` or holds a backslash or a control character is treated as another origin and opens in a new tab too, instead of going through the router. |
 | `action_label` | no | — | CTA text rendered next to the timestamp. Only shown when `action_url` is set. |
 
 In addition to the keys above, every row carries Laravel's standard notification envelope: `id` (UUID), `type` (notification class), `read_at` (ISO timestamp or `null`), `created_at`. The renderer uses `id` for mark-as-read / delete calls, `type` for grouping hooks, `read_at` to grey out read entries, and `created_at` for the relative timestamp.
