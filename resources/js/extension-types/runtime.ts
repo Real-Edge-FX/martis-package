@@ -52,6 +52,7 @@ export { layoutRegistry } from '@/lib/layoutRegistry'
 // Page and override hooks
 export { usePageTitle } from '@/hooks/usePageTitle'
 export { useModalHistoryLock } from '@/lib/historyLock'
+export { useEscapeLayer } from '@/lib/escapeLayers'
 export { OverridePropsProvider, useOverrideProps, useOverridePropsOptional } from '@/hooks/useOverrideProps'
 export { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 export { useError } from '@/lib/useError'

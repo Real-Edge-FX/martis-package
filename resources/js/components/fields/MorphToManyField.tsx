@@ -20,6 +20,7 @@ import { recordHref } from '@/lib/recordHref'
 import { pivotRowActions } from '@/lib/relationRowActions'
 import { DataTable } from 'primereact/datatable'
 import { Column } from 'primereact/column'
+import { useEscapeLayer } from '@/lib/escapeLayers'
 
 // -------------------------------------------------------------------------
 // Modal size mapping — PHP ModalSize enum value → CSS max-width
@@ -154,6 +155,9 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [openPivotGroup])
+
+  // Escape closes the pivot action group only, not a drawer the panel is in.
+  useEscapeLayer(openPivotGroup !== null, () => setOpenPivotGroup(null))
 
   const detachMutation = useMutation({
     mutationFn: (relatedId: string | number) =>

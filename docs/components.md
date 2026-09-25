@@ -270,6 +270,29 @@ export function DangerConfirm({ open, onCancel, onConfirm, title, body }: Props)
 
 The `useModalHistoryLock(open)` hook intercepts the browser back button while the dialog is visible and cooperates with the DrawerShell so closing the dialog, by a button, the back button or Escape (v2.0.0), does not also close the drawer underneath: while a locked dialog is open the drawer ignores Escape, so your dialog handles its own. Required whenever a modal nests inside a drawer or the unsaved-changes guard. It is on `@martis/runtime` since v1.38.0 and has to come from there: it shares a lock count with the drawers, which a copy of the hook would not see. `createPortal` comes from the runtime too: it is the host's, so the dialog renders with the host's React DOM. Since v1.38.0 `import { createPortal } from 'react-dom'` reaches the same function, since the extension build sends `react-dom` to a shim that carries it and `flushSync` (v1.38.2), nothing else of `react-dom`; on a scaffold published earlier, `react-dom` resolves to the React shim, which exports React core only (see [Refreshing the extension scaffold](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade)).
 
+### Escape closes the top layer only (v2.0.0)
+
+In a drawer, Escape closes whatever is open on top of it first: a modal, a menu (the actions menu, a row's inline action menu, the lens menu, a Repeater's add menu), a picker (`BelongsTo`, `MorphTo`, `Tag`, the multi-select, the icon picker) or a PrimeReact overlay (`Dropdown`, `MultiSelect`, `Calendar`, `AutoComplete`, `SplitButton`, `ColorPicker`, `OverlayPanel`). The drawer and the form in it stay; the next Escape closes the drawer, through its unsaved-changes prompt when the form is dirty. Before v2.0, an Escape meant for a menu or a picker in a Create or Update drawer also closed the drawer and lost the form.
+
+The DrawerShell leaves an Escape alone while a modal holds its history lock (`useModalHistoryLock()`), while a Martis popup is open, or while a PrimeReact overlay is mounted. A popup of your own (one that closes on an outside click) joins the same rule with `useEscapeLayer(open, close)` from `@martis/runtime`: Escape calls `close` when it is the top layer, and the drawer underneath stays open.
+
+```tsx
+import { useState } from 'react'
+import { useEscapeLayer } from '@martis/runtime'
+
+export function StatusMenu() {
+  const [open, setOpen] = useState(false)
+  useEscapeLayer(open, () => setOpen(false))
+
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(true)}>Status</button>
+      {open && <div role="menu">…</div>}
+    </div>
+  )
+}
+```
+
 ### Index toolbar (`.martis-index-toolbar`)
 
 The resource index and lens pages share a single card surface (`.martis-index-surface`) that holds the filter row, the search/per-page/trashed row, the DataTable, and the paginator as one continuous visual block. Toolbar rows render inside `.martis-index-toolbar` — pad, gap, and bottom border adjust automatically under `[data-density="dense"]`. Override the paginator or table chrome via the usual override hooks; override the toolbar by writing directly to the same classes in a consumer stylesheet.

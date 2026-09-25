@@ -20,6 +20,7 @@ import type { ActionMeta } from '@/components/Actions/ActionModal'
 import { PlusIcon, LinkSimpleIcon, LinkBreakIcon, PencilSimpleIcon, MagnifyingGlassIcon, CaretDownIcon, XIcon, LightningIcon, FloppyDiskIcon } from '@phosphor-icons/react'
 import { DataTable } from 'primereact/datatable'
 import { Column } from 'primereact/column'
+import { useEscapeLayer } from '@/lib/escapeLayers'
 
 // -------------------------------------------------------------------------
 // Modal size mapping — PHP ModalSize enum value → CSS max-width
@@ -157,6 +158,9 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [openPivotGroup])
+
+  // Escape closes the pivot action group only, not a drawer the panel is in.
+  useEscapeLayer(openPivotGroup !== null, () => setOpenPivotGroup(null))
 
   const detachMutation = useMutation({
     mutationFn: (relatedId: string | number) =>

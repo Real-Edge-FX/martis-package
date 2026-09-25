@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { consumeSuppressFlag, getModalLockCount } from '@/lib/historyLock'
+import { hasOpenLayer } from '@/lib/escapeLayers'
 import { config } from '@/lib/config'
 
 export interface DrawerShellProps {
@@ -229,14 +230,19 @@ export function DrawerShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Keyboard shortcuts
+  // Escape closes the top layer only. When an Escape arrives while a layer
+  // is open over the drawer, a modal (its history lock), a Martis popup or
+  // a PrimeReact overlay (escapeLayers.ts), the layer takes it and the
+  // drawer, with the form in it, stays; the next Escape reaches the drawer.
+  // React applies the state a layer's own Escape handler sets only after
+  // the event has been dispatched, so this listener still sees the layer
+  // open. `defaultPrevented` is not the signal: a PrimeReact Dropdown
+  // prevents every Escape its input receives, open or not, so it would
+  // keep the drawer from ever closing from there.
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key !== 'Escape') return
-      // A modal open over the drawer (a delete confirmation, an action,
-      // the unsaved-changes prompt) takes the Escape for itself: the same
-      // keystroke must not close the drawer underneath too.
-      if (getModalLockCount() > 0) return
+      if (getModalLockCount() > 0 || hasOpenLayer()) return
       void handleClose()
     }
     document.addEventListener('keydown', handleKey)

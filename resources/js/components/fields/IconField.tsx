@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { MagnifyingGlassIcon, XIcon, CaretDownIcon, SmileyBlankIcon } from '@phosphor-icons/react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { ResourceIcon } from '@/components/ResourceIcon'
+import { useEscapeLayer } from '@/lib/escapeLayers'
 
 // -----------------------------------------------------------------------------
 // Semantic color tokens — map friendly names to Martis CSS vars.
@@ -142,6 +143,8 @@ export function IconFieldInput({ field, value, onChange, error }: FieldInputProp
     document.addEventListener('mousedown', handle)
     return () => document.removeEventListener('mousedown', handle)
   }, [open])
+
+  useEscapeLayer(open, () => setOpen(false))
 
   const filtered = useMemo(() => {
     if (query === '') return palette
