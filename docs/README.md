@@ -72,6 +72,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | # | Document | What You Will Learn |
 |---|----------|---------------------|
 | 1 | **[Installation Guide](installation-guide.md)** | Add Martis to an existing Laravel app — Composer install, asset publishing, config, database setup, creating your first resource |
+| 2 | **[Upgrading](upgrading.md)** | Breaking changes between major versions and what to change in an app: v2.0 reads `Select` and `MultiSelect` options in Nova's order |
 
 ### Core Concepts
 

@@ -389,7 +389,7 @@ class GenerateReportPdf extends Action implements ShouldQueue
                 ->default('Monthly Report')
                 ->nullable(),
             Select::make('paper_size', 'Paper Size')
-                ->options(['A4' => 'a4', 'Letter' => 'letter', 'Legal' => 'legal'])
+                ->options(['a4' => 'A4', 'letter' => 'Letter', 'legal' => 'Legal'])
                 ->default('a4'),
         ];
     }
@@ -485,7 +485,7 @@ public function fields(Request $request): array
         Textarea::make('message', 'Message')->required(),
         // Admins pick the channel; everyone else runs with `email`.
         Select::make('channel', 'Channel')
-            ->optionsFromMap(['email' => 'Email', 'sms' => 'SMS'])
+            ->options(['email' => 'Email', 'sms' => 'SMS'])
             ->default('email')
             ->canSee(fn (Request $request) => $request->user()?->isAdmin() ?? false),
         // Shown, never set by the user.
@@ -1279,7 +1279,7 @@ class SetTagPriority extends Action
     {
         return [
             Select::make('priority', 'Priority')
-                ->optionsFromMap(['low' => 'Low', 'normal' => 'Normal', 'high' => 'High'])
+                ->options(['low' => 'Low', 'normal' => 'Normal', 'high' => 'High'])
                 ->required(),
         ];
     }
@@ -1292,7 +1292,7 @@ Declare it on the relationship field to show it on that relationship's panel onl
 MorphToMany::make('Tags', 'tags', TagResource::class)
     ->fields(fn () => [
         Select::make('priority', 'Priority')
-            ->optionsFromMap(['low' => 'Low', 'normal' => 'Normal', 'high' => 'High']),
+            ->options(['low' => 'Low', 'normal' => 'Normal', 'high' => 'High']),
     ])
     ->actions(fn (Request $request) => [
         SetTagPriority::make(),

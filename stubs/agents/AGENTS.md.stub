@@ -48,7 +48,8 @@ When unsure which generator to call, run `php artisan list martis` and read the 
 - Apply `->rules([...])` to every editable field. The same array drives validation on the API and visible errors on the form.
 - Hide irrelevant fields per context with `->onlyOnIndex()`, `->onlyOnDetail()`, `->hideFromIndex()`, `->showOnlyOn(['detail'])`. Don't move computation into the model just to gate visibility.
 - Custom display: `->displayUsing(fn ($value, $row) => ...)` for index/detail, `->resolveUsing(fn ($value, $row) => ...)` for serialisation. Keep them pure.
-- For finite enumerations, **always** define a PHP Enum and feed `Select::make(...)->options($enum::values())`. Do not pass a hand-typed associative array.
+- `Select` / `MultiSelect` options read `[value => label]`, as in Nova: `options(['draft' => 'Draft', 'published' => 'Published'])` stores `draft`. A list is keyed 0, 1, 2, so pass an enum class, or `array_combine($values, $values)` when each value is its own label.
+- For finite enumerations, **always** define a PHP Enum and feed `Select::make(...)->options(Status::class)` (a backed enum stores the case value). Do not pass a hand-typed associative array.
 
 ## 4. Resource conventions
 

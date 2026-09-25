@@ -47,9 +47,9 @@ class DependsOnTestResource extends Resource
             // Reactive Select with closure-loaded options that depend on plan.
             Select::make('billing_cycle')->dependsOn(['plan'], function (array $form, Request $r, Select $field) {
                 if (($form['plan'] ?? null) === 'paid') {
-                    $field->options(['Monthly' => 'monthly', 'Yearly' => 'yearly']);
+                    $field->options(['monthly' => 'Monthly', 'yearly' => 'Yearly']);
                 } else {
-                    $field->options(['Free tier' => 'free']);
+                    $field->options(['free' => 'Free tier']);
                 }
             }),
         ];

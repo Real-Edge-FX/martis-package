@@ -315,6 +315,8 @@ abstract class Field implements FieldContract
         $attr = $attribute ?? $this->attribute;
         $value = $this->resolveAttribute($model, $attr);
 
+        $this->inspectResolvedValue($model, $attr, $value);
+
         if ($this->resolveCallback !== null) {
             // 4th argument (Request|null) is optional — closures with 3
             // params still work because PHP accepts more args than declared.
@@ -323,6 +325,16 @@ abstract class Field implements FieldContract
 
         return $value;
     }
+
+    /**
+     * Look at the value `resolve()` just read, before `resolveUsing()` runs.
+     *
+     * A no-op by default. A field type that needs the stored value (for
+     * example to check it against its options) overrides this instead of
+     * `resolve()`, so the model is read once: an accessor or a `computed()`
+     * callback can be costly, and runs once per row on an index page.
+     */
+    protected function inspectResolvedValue(Model $model, string $attribute, mixed $value): void {}
 
     /**
      * Read the raw value that feeds `resolve()`: the computed callback (or

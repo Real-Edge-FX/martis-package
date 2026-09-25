@@ -1,0 +1,380 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Martis\Fields\MultiSelect;
+use Martis\Fields\Select;
+
+class ChoiceOrderWarningModel extends Model
+{
+    protected $guarded = [];
+
+    public $timestamps = false;
+}
+
+function choiceOrderModel(array $attributes, int $id = 1): ChoiceOrderWarningModel
+{
+    $model = new ChoiceOrderWarningModel($attributes);
+    $model->setAttribute('id', $id);
+
+    return $model;
+}
+
+beforeEach(function () {
+    Log::spy();
+});
+
+it('warns once when a stored value matches an option label and no option value, with app.debug off too', function () {
+    config(['app.debug' => false]);
+    // Written label first, as before v2.0.0: value "Draft", label "draft".
+    $field = Select::make('status')->options(['Draft' => 'draft', 'Published' => 'published']);
+
+    $field->resolve(choiceOrderModel(['status' => 'draft'], 12));
+    $field->resolve(choiceOrderModel(['status' => 'published'], 13));
+
+    Log::shouldHaveReceived('warning')->once()->withArgs(function (string $message, array $context): bool {
+        return str_contains($message, 'ChoiceOrderWarningModel #12 stores "draft" in Select [status], which matches an option label and no option value.')
+            && str_contains($message, 'See docs/upgrading.md.')
+            && $context === [
+                'model' => ChoiceOrderWarningModel::class,
+                'key' => 12,
+                'field' => Select::class,
+                'attribute' => 'status',
+                'value' => 'draft',
+            ];
+    });
+});
+
+it('stays silent when the stored value is an option value', function () {
+    Select::make('status')->options(['draft' => 'Draft'])->resolve(choiceOrderModel(['status' => 'draft']));
+
+    Log::shouldNotHaveReceived('warning');
+});
+
+it('warns for a MultiSelect element that matches a label', function () {
+    $field = MultiSelect::make('tags')->options(['PHP' => 'php', 'Go' => 'go']);
+
+    $field->resolve(choiceOrderModel(['tags' => '["php"]'], 5));
+
+    Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message): bool => str_contains($message, '#5 stores "php" in MultiSelect [tags]'));
+});
+
+it('warns once per model class and field in a request, across field instances', function () {
+    Select::make('status')->options(['Draft' => 'draft'])->resolve(choiceOrderModel(['status' => 'draft'], 1));
+    Select::make('status')->options(['Draft' => 'draft'])->resolve(choiceOrderModel(['status' => 'draft'], 2));
+
+    Log::shouldHaveReceived('warning')->once();
+});
+
+it('never runs a closure just for the check', function () {
+    $calls = 0;
+    $field = Select::make('status')->options(function () use (&$calls): array {
+        $calls++;
+
+        return ['Draft' => 'draft'];
+    });
+
+    foreach (range(1, 3) as $id) {
+        $field->resolve(choiceOrderModel(['status' => 'draft'], $id));
+    }
+
+    expect($calls)->toBe(0);
+    Log::shouldNotHaveReceived('warning');
+});
+
+it('checks the new options after options() replaces them', function () {
+    $field = Select::make('status')->options(['draft' => 'Draft']);
+    $field->resolve(choiceOrderModel(['status' => 'draft'], 1));
+
+    $field->options(['Draft' => 'draft']);
+    $field->resolve(choiceOrderModel(['status' => 'draft'], 2));
+
+    Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message): bool => str_contains($message, '#2 stores "draft"'));
+});
+
+// ---------------------------------------------------------------------------
+// Numeric lists: v1.x stored the numbers themselves, v2.0 stores positions
+// ---------------------------------------------------------------------------
+
+it('warns when a list of numbers holds a record whose stored number is the label of another position', function () {
+    // v1.x stored 1, 2, 3; v2.0 reads the list as 0 => "1", 1 => "2", 2 => "3".
+    // The stored 1 is also a valid value (it now shows "2"), so only the list
+    // check sees it.
+    $field = Select::make('rating')->options([1, 2, 3]);
+
+    $field->resolve(choiceOrderModel(['rating' => 1], 4));
+
+    Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message, array $context): bool => str_contains($message, '#4 stores "1" in Select [rating]')
+        && str_contains($message, 'the label of another option of a list, so it shows as "2"')
+        && $context['value'] === '1');
+});
+
+it('warns for range(1, 12) and for a MultiSelect list of numbers', function () {
+    Select::make('month')->options(range(1, 12))->resolve(choiceOrderModel(['month' => 5], 1));
+    MultiSelect::make('ratings')->options([1, 2, 3])->resolve(choiceOrderModel(['ratings' => '[2]'], 2));
+
+    Log::shouldHaveReceived('warning')->twice();
+});
+
+it('stays silent for a list of words and for range(0, n), whose labels equal their own values', function () {
+    Select::make('size')->options(['Small', 'Large'])->resolve(choiceOrderModel(['size' => 0], 1));
+    Select::make('size')->options(['Small', 'Large'])->resolve(choiceOrderModel(['size' => 1], 2));
+    Select::make('slot')->options(range(0, 5))->resolve(choiceOrderModel(['slot' => 3], 3));
+    MultiSelect::make('slots')->options(range(0, 5))->resolve(choiceOrderModel(['slots' => '[0, 4]'], 4));
+
+    Log::shouldNotHaveReceived('warning');
+});
+
+it('stays silent for a map whose key differs from a numeric label, since only lists shifted', function () {
+    // [value => label] written on purpose: 10 shows "1", stored 1 is not an option.
+    Select::make('code')->options([10 => '1', 1 => 'One'])->resolve(choiceOrderModel(['code' => 1], 1));
+
+    Log::shouldNotHaveReceived('warning');
+});
+
+// ---------------------------------------------------------------------------
+// The stored value is checked, not what resolveUsing() or computed() yields
+// ---------------------------------------------------------------------------
+
+it('checks the stored value, not the one resolveUsing() turns into a label', function () {
+    $field = Select::make('status')->options(['draft' => 'Draft'])->resolveUsing(fn ($value) => ucfirst((string) $value));
+
+    expect($field->resolve(choiceOrderModel(['status' => 'draft'])))->toBe('Draft');
+    Log::shouldNotHaveReceived('warning');
+});
+
+it('still warns on a stored label that resolveUsing() hides', function () {
+    Select::make('status')->options(['Draft' => 'draft'])->resolveUsing(fn ($value) => strtoupper((string) $value))
+        ->resolve(choiceOrderModel(['status' => 'draft'], 3));
+
+    Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message): bool => str_contains($message, '#3 stores "draft"'));
+});
+
+it('checks the stored MultiSelect values, not the ones resolveUsing() returns', function () {
+    MultiSelect::make('tags')->options(['php' => 'PHP'])
+        ->resolveUsing(fn ($value) => array_map('strtoupper', json_decode((string) $value, true)))
+        ->resolve(choiceOrderModel(['tags' => '["php"]']));
+
+    Log::shouldNotHaveReceived('warning');
+});
+
+it('never checks a computed field, which stores nothing', function () {
+    Select::make('status')->options(['draft' => 'Draft'])->computed(fn () => 'Draft')
+        ->resolve(choiceOrderModel([]));
+    MultiSelect::make('tags')->options(['php' => 'PHP'])->computed(fn () => ['PHP'])
+        ->resolve(choiceOrderModel([]));
+
+    Log::shouldNotHaveReceived('warning');
+});
+
+it('never checks a Select that accepts custom values, where a typed label is a legitimate value', function () {
+    Select::make('status')->options(['draft' => 'Draft'])->allowCustomValues()
+        ->resolve(choiceOrderModel(['status' => 'Draft']));
+
+    Log::shouldNotHaveReceived('warning');
+});
+
+// ---------------------------------------------------------------------------
+// withoutOptionOrderWarnings(): a deliberate 0-based list (e.g. a Nova rating
+// that stores 0-4 and shows "1".."5") must not warn on every request.
+// ---------------------------------------------------------------------------
+
+it('silences the plain stored-label warning with withoutOptionOrderWarnings()', function () {
+    Select::make('status')->options(['Draft' => 'draft'])->withoutOptionOrderWarnings()
+        ->resolve(choiceOrderModel(['status' => 'draft'], 1));
+
+    Log::shouldNotHaveReceived('warning');
+});
+
+it('silences the list-shift warning with withoutOptionOrderWarnings()', function () {
+    // A Nova rating stores 0-4 on purpose and shows "1".."5": array_combine
+    // or a plain list ported from Nova look identical to a v1.x record shifted
+    // by one, so the field itself must be able to say "this data is correct".
+    Select::make('rating')->options([1, 2, 3])->withoutOptionOrderWarnings()
+        ->resolve(choiceOrderModel(['rating' => 1], 4));
+
+    Log::shouldNotHaveReceived('warning');
+});
+
+it('still warns for both cases without withoutOptionOrderWarnings()', function () {
+    Select::make('status')->options(['Draft' => 'draft'])->resolve(choiceOrderModel(['status' => 'draft'], 1));
+    Select::make('rating')->options([1, 2, 3])->resolve(choiceOrderModel(['rating' => 1], 4));
+
+    Log::shouldHaveReceived('warning')->twice();
+});
+
+// ---------------------------------------------------------------------------
+// searchOptionsUsing() returning a list stores positions in the results
+// ---------------------------------------------------------------------------
+
+it('warns once per field in a request when searchOptionsUsing() returns a non-empty list', function () {
+    $field = Select::make('model')->searchOptionsUsing(fn (string $term) => ['gpt-4o', 'gpt-4.1']);
+
+    expect($field->searchOptions('gpt'))->toBe([
+        ['label' => 'gpt-4o', 'value' => 0],
+        ['label' => 'gpt-4.1', 'value' => 1],
+    ]);
+    $field->searchOptions('gpt-4');
+    Select::make('model')->searchOptionsUsing(fn (string $term) => ['gpt-4o'])->searchOptions('');
+
+    Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message, array $context): bool => str_contains($message, 'Select [model]: searchOptionsUsing() returned a list')
+        && str_contains($message, 'See docs/upgrading.md.')
+        && $context === ['field' => Select::class, 'attribute' => 'model']);
+});
+
+it('stays silent when searchOptionsUsing() returns a map or no results', function () {
+    Select::make('model')->searchOptionsUsing(fn (string $term) => ['gpt-4o' => 'GPT-4o'])->searchOptions('gpt');
+    Select::make('model')->searchOptionsUsing(fn (string $term) => collect())->searchOptions('zzz');
+    Select::make('owner_id')->searchOptionsUsing(fn (string $term) => [7 => 'Ana', 9 => 'Rui'])->searchOptions('a');
+
+    Log::shouldNotHaveReceived('warning');
+});
+
+// ---------------------------------------------------------------------------
+// Dedupe: per request, per field instance without one
+// ---------------------------------------------------------------------------
+
+it('warns once per field instance when no request is bound', function () {
+    // A queue job or a raw script: the container holds no Request.
+    $request = app('request');
+    app()->offsetUnset('request');
+
+    try {
+        $field = Select::make('status')->options(['Draft' => 'draft']);
+        $field->resolve(choiceOrderModel(['status' => 'draft'], 1));
+        $field->resolve(choiceOrderModel(['status' => 'draft'], 2));
+        Select::make('status')->options(['Draft' => 'draft'])->resolve(choiceOrderModel(['status' => 'draft'], 3));
+    } finally {
+        app()->instance('request', $request);
+    }
+
+    Log::shouldHaveReceived('warning')->twice();
+});
+
+it('warns again in a fresh request, for the same field instance (Octane)', function () {
+    $field = Select::make('status')->options(['Draft' => 'draft']);
+
+    app()->instance('request', Request::create('/first'));
+    $field->resolve(choiceOrderModel(['status' => 'draft'], 1));
+    $field->resolve(choiceOrderModel(['status' => 'draft'], 2));
+
+    app()->instance('request', Request::create('/second'));
+    $field->resolve(choiceOrderModel(['status' => 'draft'], 3));
+
+    Log::shouldHaveReceived('warning')->twice();
+    Log::shouldHaveReceived('warning')->withArgs(fn (string $message): bool => str_contains($message, '#3 stores "draft"'));
+});
+
+it('runs a computed field callback once per resolve, never again for the check', function () {
+    $calls = 0;
+    $field = Select::make('status')->options(['draft' => 'Draft'])->computed(function () use (&$calls): string {
+        $calls++;
+
+        return 'draft';
+    });
+
+    $field->resolve(choiceOrderModel([], 1));
+
+    expect($calls)->toBe(1);
+});
+
+class ChoiceOrderCountingModel extends Model
+{
+    protected $guarded = [];
+
+    public $timestamps = false;
+
+    public static int $reads = 0;
+
+    public function getStatusAttribute(mixed $value): mixed
+    {
+        static::$reads++;
+
+        return $value;
+    }
+
+    public function getTagsAttribute(mixed $value): mixed
+    {
+        static::$reads++;
+
+        return $value;
+    }
+}
+
+function countingChoiceModel(array $attributes): ChoiceOrderCountingModel
+{
+    ChoiceOrderCountingModel::$reads = 0;
+    $model = new ChoiceOrderCountingModel;
+    $model->setRawAttributes($attributes + ['id' => 1]);
+
+    return $model;
+}
+
+it('reads a Select stored value once per resolve while the order check is on', function () {
+    $model = countingChoiceModel(['status' => 'draft']);
+
+    Select::make('status')->options(['draft' => 'Draft'])->resolve($model);
+
+    expect(ChoiceOrderCountingModel::$reads)->toBe(1);
+});
+
+it('reads a Select stored value once per resolve with resolveUsing()', function () {
+    $model = countingChoiceModel(['status' => 'draft']);
+
+    $resolved = Select::make('status')->options(['draft' => 'Draft'])
+        ->resolveUsing(fn (mixed $value): string => strtoupper((string) $value))
+        ->resolve($model);
+
+    expect($resolved)->toBe('DRAFT')
+        ->and(ChoiceOrderCountingModel::$reads)->toBe(1);
+});
+
+it('reads a MultiSelect stored value once per resolve, with and without resolveUsing()', function () {
+    $model = countingChoiceModel(['tags' => '["php"]']);
+    $plain = MultiSelect::make('tags')->options(['php' => 'PHP'])->resolve($model);
+
+    expect($plain)->toBe(['php'])
+        ->and(ChoiceOrderCountingModel::$reads)->toBe(1);
+
+    $model = countingChoiceModel(['tags' => '["php"]']);
+    $callbackInput = null;
+    $resolved = MultiSelect::make('tags')->options(['php' => 'PHP'])
+        ->resolveUsing(function (mixed $value) use (&$callbackInput): string {
+            $callbackInput = $value;
+
+            return 'resolved';
+        })
+        ->resolve($model);
+
+    expect($resolved)->toBe('resolved')
+        ->and($callbackInput)->toBe('["php"]')
+        ->and(ChoiceOrderCountingModel::$reads)->toBe(1);
+});
+
+it('runs a MultiSelect computed callback once per resolve with resolveUsing()', function () {
+    $calls = 0;
+    $field = MultiSelect::make('tags')->options(['php' => 'PHP'])
+        ->computed(function () use (&$calls): array {
+            $calls++;
+
+            return ['php'];
+        })
+        ->resolveUsing(fn (mixed $value): mixed => $value);
+
+    $field->resolve(choiceOrderModel([], 1));
+
+    expect($calls)->toBe(1);
+});
+
+it('silences the searchOptionsUsing() list warning with withoutOptionOrderWarnings()', function () {
+    $field = Select::make('model')
+        ->searchOptionsUsing(fn (string $term): array => ['claude-opus-5', 'claude-sonnet-5'])
+        ->withoutOptionOrderWarnings();
+
+    $field->searchOptions('claude');
+
+    Log::shouldNotHaveReceived('warning');
+});

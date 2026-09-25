@@ -25,7 +25,7 @@ use Martis\ResourceRegistry;
  * `repeatable` (the row type) to either route, and is found in that row.
  *
  * Response envelope: JsonResponse
- *   data.options — list<{label, value}> exactly as `Select::searchOptions()` returns it
+ *   data.options — list<{label, value, group?}> exactly as `Select::searchOptions()` returns it
  *
  * The field is located in the same field set the form was rendered from
  * (`fieldsForUpdate()`, or `fieldsForCreate()` and the inline-create modal's

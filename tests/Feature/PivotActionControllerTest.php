@@ -105,9 +105,9 @@ class PivotTestAction extends Action
         return [
             Select::make('priority', 'Priority')
                 ->options([
-                    'Low' => 'low',
-                    'Normal' => 'normal',
-                    'High' => 'high',
+                    'low' => 'Low',
+                    'normal' => 'Normal',
+                    'high' => 'High',
                 ])
                 ->default('normal')
                 ->required(),
@@ -169,7 +169,7 @@ class PivotParentResource extends Resource
                 ->relatedResource('pivot-child-models')
                 ->fields(fn () => [
                     Select::make('priority', 'Priority')
-                        ->options(['Low' => 'low', 'Normal' => 'normal', 'High' => 'high'])
+                        ->options(['low' => 'Low', 'normal' => 'Normal', 'high' => 'High'])
                         ->nullable(),
                 ]),
             // Inside a layout on purpose: the pivot routes must still find it.
@@ -178,7 +178,7 @@ class PivotParentResource extends Resource
                     ->relatedResource('pivot-tag-models')
                     ->fields(fn () => [
                         Select::make('priority', 'Priority')
-                            ->options(['Low' => 'low', 'Normal' => 'normal', 'High' => 'high'])
+                            ->options(['low' => 'Low', 'normal' => 'Normal', 'high' => 'High'])
                             ->nullable(),
                     ])
                     ->actions(fn () => [PivotTagReportAction::make()]),

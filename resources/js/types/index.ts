@@ -359,6 +359,8 @@ export type FieldType =
 export interface SelectOption {
   value: string | number
   label: string
+  /** Group heading (Nova's grouped options, v2.0.0). */
+  group?: string
 }
 
 /**

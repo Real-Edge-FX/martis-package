@@ -47,6 +47,8 @@ php artisan martis:install --with-profile --avatar-column=avatar_path
 
 ## Upgrade
 
+Upgrading from v1.x to v2.0? `composer update` never crosses a major version, and v2.0 reads `Select` and `MultiSelect` options in Nova's order: follow [docs/upgrading.md](docs/upgrading.md).
+
 When updating Martis in an existing Laravel application, use:
 
 ```bash

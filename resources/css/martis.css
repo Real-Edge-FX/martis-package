@@ -2585,6 +2585,12 @@ html.dark body {
   background-color: var(--martis-surface);
 }
 
+/* A Select that mixes grouped and ungrouped options (v2.0.0) puts the
+   ungrouped ones in a leading group with no heading: hide that heading. */
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item-group:has(> .p-dropdown-item-group-label:empty) {
+  display: none;
+}
+
 /* ── Toast ─────────────────────────────────────────────────────── */
 /* F7-39 — PrimeReact Toast aligned to the design-system Catalog spec.
    320px minimum, surface + border + token shadow, severity colour

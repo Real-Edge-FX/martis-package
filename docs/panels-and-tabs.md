@@ -53,7 +53,7 @@ cannot collapse it.
 ```php
 Panel::make('Publication', [
     Select::make('status')
-        ->options(['draft', 'published', 'archived'])
+        ->options(['draft' => 'Draft', 'published' => 'Published', 'archived' => 'Archived'])
         ->required(),
 
     DateTime::make('published_at', 'Published At')
@@ -101,7 +101,7 @@ Panel::make('Tags & Labels', [
         ->relatedResource('tags'),
 
     MultiSelect::make('labels', 'Labels')
-        ->options(['featured', 'trending', 'exclusive']),
+        ->options(['featured' => 'Featured', 'trending' => 'Trending', 'exclusive' => 'Exclusive']),
 
     Text::make('source_url', 'Source URL')
         ->nullable(),
@@ -160,7 +160,7 @@ TabGroup::make([
 TabGroup::make([
     Tab::make('General', [
         Text::make('title')->required(),
-        Select::make('status')->options(['draft', 'published']),
+        Select::make('status')->options(['draft' => 'Draft', 'published' => 'Published']),
         DateTime::make('published_at')->nullable(),
     ]),
 
@@ -225,7 +225,7 @@ public function fieldsForUpdate(Request $request): array
                 ])->collapsible(),
                 Tag::make('tags', 'Tags')->relatedResource('tags')->withPreview(),
                 MultiSelect::make('labels', 'Labels')
-                    ->options(['featured', 'trending', 'exclusive'])
+                    ->options(['featured' => 'Featured', 'trending' => 'Trending', 'exclusive' => 'Exclusive'])
                     ->nullable(),
             ]),
 

@@ -7,6 +7,8 @@ import type { RepeaterRowScope } from '@/components/fields/types'
 export interface RemoteSelectOption {
   label: string
   value: string
+  /** Group heading, when the server returns grouped options. */
+  group?: string
 }
 
 export interface UseRemoteSelectOptionsArgs {
@@ -29,7 +31,7 @@ export interface UseRemoteSelectOptionsResult {
 export const REMOTE_SELECT_DEBOUNCE_MS = 300
 
 interface FieldOptionsEnvelope {
-  data?: { options?: { label: string; value: string | number }[] }
+  data?: { options?: { label: string; value: string | number; group?: string }[] }
 }
 
 /**
@@ -98,7 +100,11 @@ export function useRemoteSelectOptions({ endpoint, open, term }: UseRemoteSelect
       api.get<FieldOptionsEnvelope>(`${endpoint}${separator}search=${encodeURIComponent(term.trim())}`, controller.signal)
         .then((res) => {
           if (controller.signal.aborted) return
-          setOptions((res.data?.options ?? []).map((o) => ({ label: o.label, value: String(o.value) })))
+          setOptions((res.data?.options ?? []).map((o) => ({
+            label: o.label,
+            value: String(o.value),
+            ...(o.group ? { group: o.group } : {}),
+          })))
           setError(false)
           setLoading(false)
         })

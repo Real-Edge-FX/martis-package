@@ -28,12 +28,13 @@ class FieldOptionsTestModel extends Model
     public $timestamps = false;
 }
 
-/** @return list<string> */
+/** @return array<string, string> value => label */
 function fieldOptionsCatalog(string $term): array
 {
     $all = ['gpt-4o', 'gpt-4o-mini', 'claude-opus-5', 'claude-sonnet-5'];
+    $matches = array_values(array_filter($all, fn (string $m) => $term === '' || str_contains($m, $term)));
 
-    return array_values(array_filter($all, fn (string $m) => $term === '' || str_contains($m, $term)));
+    return array_combine($matches, $matches);
 }
 
 class FieldOptionsTestResource extends Resource
@@ -53,7 +54,7 @@ class FieldOptionsTestResource extends Resource
                     ->options(['gpt-4o' => 'gpt-4o'])
                     ->searchOptionsUsing(fn (string $term, ?Request $r) => fieldOptionsCatalog($term)),
             ]),
-            Select::make('plan')->options(['free', 'pro'])->searchableOptions(),
+            Select::make('plan')->options(['free' => 'Free', 'pro' => 'Pro'])->searchableOptions(),
         ];
     }
 
@@ -149,7 +150,7 @@ class FieldOptionsTool extends Tool implements ProvidesFields
     {
         return [
             Select::make('model')->searchOptionsUsing(fn (string $term) => fieldOptionsCatalog($term)),
-            Select::make('plan')->options(['free', 'pro']),
+            Select::make('plan')->options(['free' => 'Free', 'pro' => 'Pro']),
         ];
     }
 }
