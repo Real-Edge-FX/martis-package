@@ -2,21 +2,25 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Martis\Actions\Action;
 use Martis\Actions\ActionFields;
 use Martis\Actions\ActionResponse;
 use Martis\Actions\DestructiveAction;
+use Martis\Actions\Jobs\ExecuteAction;
 use Martis\Contracts\ActionContract;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\IndexScope;
 
 // ── Test Fixtures ────────────────────────────────────────────────
 
@@ -299,6 +303,9 @@ beforeEach(function () {
     $registry->register(ActionTestOpenResource::class);
     $registry->register(ActionTestFallbackResource::class);
     $registry->register(ActionTestRestrictedResource::class);
+    $registry->register(ActionTestTenantScopedResource::class);
+    $registry->register(ActionTestOrWhereIndexQueryResource::class);
+    $registry->register(ActionTestOrWhereScopesResource::class);
 
     $this->user = (new Authenticatable)->forceFill([
         'id' => 1,
@@ -643,4 +650,214 @@ it('an action cannot reach records outside the resource indexQuery scope (IDOR g
     // resolved, so the action could not touch it.
     expect($inScope->fresh()->status)->toBe('published')
         ->and($outOfScope->fresh()->status)->toBe('archived');
+});
+
+// ---------------------------------------------------------------------------
+// The records a run resolves: the resource's scopes() apply as on the index,
+// a run whose ids all fail to resolve answers 404, a run that names no record
+// answers 422, and a standalone action runs on no record.
+// ---------------------------------------------------------------------------
+
+/** Reports how many records handle() received. */
+class ActionTestCountRecords extends Action
+{
+    public ?string $name = 'Count Records';
+
+    public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
+    {
+        return ActionResponse::message('records: '.$models->count());
+    }
+}
+
+/** A queued action: its job carries the ids of the records it runs on. */
+class ActionTestQueuedPublish extends ActionTestPublish implements ShouldQueue
+{
+    public ?string $name = 'Queued Publish';
+}
+
+class ActionTestTenantScopedResource extends Resource
+{
+    public static ?string $policy = ActionTestPolicyWithRunAction::class;
+
+    public static function model(): string
+    {
+        return ActionTestModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'act-tenant-items';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title')->required(), Text::make('status')];
+    }
+
+    // The tenant scope, as the index applies it.
+    public static function scopes(Request $request): array
+    {
+        return ['tenant' => fn (Builder $query) => $query->where('title', '!=', 'Other tenant')];
+    }
+
+    /** @return list<ActionContract> */
+    public function actions(Request $request): array
+    {
+        return [
+            ActionTestPublish::make(),
+            ActionTestQueuedPublish::make(),
+            ActionTestCountRecords::make()->standalone(),
+        ];
+    }
+}
+
+it('does not run an action on a record the resource scopes() keep out, as the index does not list it', function () {
+    $mine = ActionTestModel::create(['title' => 'Mine', 'status' => 'draft']);
+    $theirs = ActionTestModel::create(['title' => 'Other tenant', 'status' => 'draft']);
+
+    $this->postJson('/martis/api/resources/act-tenant-items/actions/action-test-publish', [
+        'resources' => [$mine->id, $theirs->id],
+    ])->assertOk();
+
+    expect($mine->fresh()->status)->toBe('published')
+        ->and($theirs->fresh()->status)->toBe('draft');
+});
+
+it('answers 404 from the single-record endpoint for a record the resource scopes() keep out', function () {
+    $theirs = ActionTestModel::create(['title' => 'Other tenant', 'status' => 'draft']);
+
+    $this->postJson("/martis/api/resources/act-tenant-items/{$theirs->id}/actions/action-test-publish")
+        ->assertStatus(404)
+        ->assertJsonPath('message', 'One or more selected resources could not be found.');
+
+    expect($theirs->fresh()->status)->toBe('draft');
+});
+
+it('answers 404 and runs nothing when none of the selected records resolves', function (Closure $ids) {
+    $theirs = ActionTestModel::create(['title' => 'Other tenant', 'status' => 'draft']);
+
+    $this->postJson('/martis/api/resources/act-tenant-items/actions/action-test-publish', [
+        'resources' => $ids($theirs),
+    ])->assertStatus(404)->assertJsonPath('message', 'One or more selected resources could not be found.');
+
+    expect($theirs->fresh()->status)->toBe('draft');
+})->with([
+    'an id that does not exist' => [fn () => [999]],
+    'an id outside the scopes()' => [fn (ActionTestModel $theirs) => [$theirs->id]],
+]);
+
+it('refuses a run that names no record for an action that is not standalone', function (array $body) {
+    $this->postJson('/martis/api/resources/act-tenant-items/actions/action-test-publish', $body)
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.field', 'resources');
+})->with([
+    'an empty selection' => [['resources' => []]],
+    'no selection' => [[]],
+]);
+
+it('runs a standalone action on no record, whatever ids the request sends', function () {
+    $mine = ActionTestModel::create(['title' => 'Mine', 'status' => 'draft']);
+
+    $this->postJson('/martis/api/resources/act-tenant-items/actions/action-test-count-records', [
+        'resources' => [$mine->id, 999],
+    ])->assertOk()->assertJsonPath('data.data.message', 'records: 0');
+});
+
+it('queues an action with only the records the resource scopes() let through', function () {
+    Queue::fake();
+    $mine = ActionTestModel::create(['title' => 'Mine', 'status' => 'draft']);
+    $theirs = ActionTestModel::create(['title' => 'Other tenant', 'status' => 'draft']);
+
+    $this->postJson('/martis/api/resources/act-tenant-items/actions/action-test-queued-publish', [
+        'resources' => [$mine->id, $theirs->id],
+    ])->assertOk();
+
+    Queue::assertPushed(
+        ExecuteAction::class,
+        fn (ExecuteAction $job): bool => $job->modelIds === [$mine->id],
+    );
+});
+
+// ---------------------------------------------------------------------------
+// The hooks run as Eloquent runs a local scope: an orWhere() at their top
+// level is grouped before the selected ids are added. Ungrouped,
+// `status = 'draft' or title = 'Shared'` followed by `and id in (...)` reads
+// `status = 'draft' or (title = 'Shared' and id in (...))`, and an action on
+// one selected record ran on every draft.
+// ---------------------------------------------------------------------------
+
+class ActionTestOrWhereIndexQueryResource extends Resource
+{
+    public static ?string $policy = ActionTestPolicyWithRunAction::class;
+
+    public static function model(): string
+    {
+        return ActionTestModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'act-or-index-query-items';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title')->required(), Text::make('status')];
+    }
+
+    // Written as such a hook often is: a top-level orWhere().
+    public static function indexQuery(Request $request, Builder $query): Builder
+    {
+        return $query->where('status', 'draft')->orWhere('title', 'Shared');
+    }
+
+    /** @return list<ActionContract> */
+    public function actions(Request $request): array
+    {
+        return [ActionTestPublish::make()];
+    }
+}
+
+class ActionTestOrWhereScopesResource extends ActionTestOrWhereIndexQueryResource
+{
+    public static function uriKey(): string
+    {
+        return 'act-or-scopes-items';
+    }
+
+    public static function indexQuery(Request $request, Builder $query): Builder
+    {
+        return $query;
+    }
+
+    public static function scopes(Request $request): array
+    {
+        return ['visible' => fn (Builder $query) => $query->where('status', 'draft')->orWhere('title', 'Shared')];
+    }
+}
+
+it('runs an action on the selected record only when a hook has a top-level orWhere()', function (string $uriKey) {
+    $other = ActionTestModel::create(['title' => 'Not selected', 'status' => 'draft']);
+    $selected = ActionTestModel::create(['title' => 'Selected', 'status' => 'draft']);
+    $shared = ActionTestModel::create(['title' => 'Shared', 'status' => 'archived']);
+
+    $this->postJson("/martis/api/resources/{$uriKey}/actions/action-test-publish", [
+        'resources' => [$selected->id],
+    ])->assertOk();
+
+    expect($selected->fresh()->status)->toBe('published')
+        ->and($other->fresh()->status)->toBe('draft')
+        ->and($shared->fresh()->status)->toBe('archived');
+})->with([
+    'indexQuery()' => ['act-or-index-query-items'],
+    'scopes()' => ['act-or-scopes-items'],
+]);
+
+it('leaves the SQL of hooks with and-clauses only as it was', function () {
+    $request = Request::create('/');
+    $raw = ActionTestTenantScopedResource::indexQuery($request, ActionTestTenantScopedResource::applyScopes($request, (new ActionTestModel)->newQuery()));
+    $grouped = IndexScope::apply($request, ActionTestTenantScopedResource::class, (new ActionTestModel)->newQuery());
+
+    expect($grouped->toSql())->toBe($raw->toSql())
+        ->and($grouped->getBindings())->toBe($raw->getBindings());
 });

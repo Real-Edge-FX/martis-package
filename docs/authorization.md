@@ -318,6 +318,10 @@ The labels are informational (used by future debug overlays). The order is itera
 
 The count badge on the sidebar uses the same code path, so the scoped count always agrees with the row count on the index page.
 
+An action run looks its selected records up through the same `scopes()`, then `indexQuery()` (v1.39.3+; before, `indexQuery()` only), so a record `scopes()` keeps out of the index is never handed to an action's `handle()`, whatever ids the request sends: the run leaves it out, and answers 404 when no selected record is left. That includes an action run from the detail page of such a record, which the detail page still shows. See [Actions → Execution Modes](actions.md#execution-modes).
+
+For an action run the hooks run as Eloquent runs a local scope (v1.39.3+): what they add is wrapped in one group when it contains an `orWhere()`, so the selected ids added after it bind to all of it. After `where('tenant_id', 1)->orWhere('shared', true)` the run reads `(tenant_id = 1 or shared) and id in (...)`; ungrouped, it read `tenant_id = 1 or (shared and id in (...))` and ran the action on every record of the tenant. A hook with `and` clauses only runs the same SQL as before. The index page appends its filters and its search to the hooks ungrouped, so write an `orWhere()` inside `where(fn ($q) => ...)` when the filters must narrow it.
+
 ## Audit log of denied authorizations
 
 Off by default. Flip `MARTIS_AUDIT_AUTHZ_DENIALS=true` to record every Gate denial for an authenticated user into the `martis_action_events` audit table. Each row carries:
