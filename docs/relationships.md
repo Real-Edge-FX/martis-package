@@ -523,6 +523,8 @@ See [fields.md § HasOneOfMany](fields.md#hasoneofmany) for the full API.
 - `latestByTimestamp()` / `oldestByTimestamp()` avoid the verbose `->ofMany('created_at', 'max')` boilerplate.
 - `aggregateVia()` surfaces a metric tile with the full collection aggregate.
 
+On an Eloquent one-of-many relation (`latestOfMany()`, `ofMany()`), the pill and the tile cover every related row of the parent: the constraints written into that relation do not apply to them.
+
 ---
 
 ## HasOneThrough
