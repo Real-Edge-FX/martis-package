@@ -181,6 +181,13 @@ final class PivotActionEventLog
             }
         }
 
-        return [$original, $changes];
+        // The pivot model's $hidden columns are stored masked, as Nova
+        // stores a pivot row's (see ActionEventRedactor::maskHiddenAttributes()).
+        $pivotClass = $relation->getPivotClass();
+
+        return [
+            ActionEventRedactor::maskHiddenAttributes($original, $pivotClass),
+            ActionEventRedactor::maskHiddenAttributes($changes, $pivotClass),
+        ];
     }
 }

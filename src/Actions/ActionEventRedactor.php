@@ -4,10 +4,13 @@ namespace Martis\Actions;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo as EloquentBelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo as EloquentMorphTo;
 use Illuminate\Http\Request;
 use Martis\FieldContext;
+use Martis\Fields\BelongsToMany as BelongsToManyField;
 use Martis\Fields\Field;
+use Martis\Fields\MorphToMany as MorphToManyField;
 use Martis\Models\ActionEvent;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -31,7 +34,11 @@ use WeakMap;
  *    out of the viewer's global scopes (another tenant) masks every key.
  *  - a pivot action's event (its `model_type` is the pivot, not the
  *    record): the viewer must be able to view the parent record, and the
- *    pivot model's `$hidden` attributes are masked.
+ *    pivot model's `$hidden` attributes are masked, as are the pivot
+ *    fields' attributes the viewer may not see (`canSee()`) on the
+ *    many-to-many field that lists the row. When the parent's detail page
+ *    declares such a field but the viewer may see none of them, every
+ *    value is masked.
  *  - the event names no model a resource exposes (a standalone action,
  *    a role change, a custom writer): the model's `$hidden` attributes
  *    are masked, the rest is kept.
@@ -88,6 +95,41 @@ final class ActionEventRedactor
     }
 
     /**
+     * `$values` (an `original` / `changes` diff about to be stored) with the
+     * value of each attribute the model hides (its `$hidden`) replaced by
+     * {@see self::MASK}.
+     *
+     * Applied when an event is written, so a password hash or a token an
+     * action changed never reaches the log, whoever reads it later. Nova
+     * does the same: its action events store their diffs through
+     * `Orchestra\Sidekick\Eloquent\model_state()`, which replaces each
+     * `$hidden` attribute with a `SensitiveValue` serialised as `******`.
+     * The key stays, so the log still tells that the attribute changed.
+     *
+     * @param  array<array-key, mixed>  $values
+     * @param  Model|class-string<Model>  $model  The model (or pivot) whose attributes `$values` holds.
+     * @return array<array-key, mixed>
+     */
+    public static function maskHiddenAttributes(array $values, Model|string $model): array
+    {
+        $hidden = $model instanceof Model
+            ? array_map('strval', $model->getHidden())
+            : self::hiddenAttributes($model);
+
+        if ($hidden === []) {
+            return $values;
+        }
+
+        foreach ($values as $key => $value) {
+            if (in_array((string) $key, $hidden, true)) {
+                $values[$key] = self::MASK;
+            }
+        }
+
+        return $values;
+    }
+
+    /**
      * Forget the per-event visibility computed so far (tests, long-lived
      * workers that switch the authenticated user).
      */
@@ -137,6 +179,7 @@ final class ActionEventRedactor
         $isPivotEvent = is_string($event->model_type) && $event->model_type !== $type;
         $keys = [];
         $viewable = false;
+        $pivot = ['declared' => false, 'visible' => false, 'hidden' => [], 'shown' => []];
 
         foreach ($resources as $resourceClass) {
             $resource = new $resourceClass($record);
@@ -152,6 +195,10 @@ final class ActionEventRedactor
             $viewable = true;
 
             if ($isPivotEvent) {
+                /** @var string $pivotType */
+                $pivotType = $event->model_type;
+                $pivot = self::pivotVisibility($resource, $record, $pivotType, $event->target_type, $request, $pivot);
+
                 continue;
             }
 
@@ -171,13 +218,94 @@ final class ActionEventRedactor
         }
 
         if ($isPivotEvent) {
+            // The viewer sees none of the relationship panels that list the
+            // pivot row: every value is masked, as for a record they may not
+            // view.
+            if ($pivot['declared'] && ! $pivot['visible']) {
+                return ['mode' => 'none', 'keys' => []];
+            }
+
             /** @var string $pivotType */
             $pivotType = $event->model_type;
 
-            return ['mode' => 'deny', 'keys' => self::hiddenAttributes($pivotType)];
+            return ['mode' => 'deny', 'keys' => array_values(array_unique(array_merge(
+                self::hiddenAttributes($pivotType),
+                array_diff($pivot['hidden'], $pivot['shown']),
+            )))];
         }
 
         return ['mode' => 'allow', 'keys' => array_values(array_unique($keys))];
+    }
+
+    /**
+     * What the viewer sees of a pivot row through `$resource`'s detail page:
+     * whether a many-to-many field there lists the pivot model (`declared`),
+     * whether the viewer may see one (`visible`), and the attributes of its
+     * pivot fields the viewer may not see (`hidden`) or may (`shown`).
+     *
+     * A field lists the pivot row when its relationship on the record uses
+     * the event's pivot model and relates the event's target model. Two
+     * fields that match (two relationships through the same pivot model to
+     * the same model) both count, a pivot attribute one of them shows
+     * staying visible.
+     *
+     * @param  array{declared: bool, visible: bool, hidden: list<string>, shown: list<string>}  $carry
+     * @return array{declared: bool, visible: bool, hidden: list<string>, shown: list<string>}
+     */
+    private static function pivotVisibility(Resource $resource, Model $record, string $pivotType, mixed $targetType, Request $request, array $carry): array
+    {
+        foreach (Field::flattenLayoutFields($resource->resolveDetailFields($request)) as $field) {
+            if (! ($field instanceof BelongsToManyField || $field instanceof MorphToManyField)
+                || ! $field->isVisibleForContext(FieldContext::DETAIL)
+                || ! self::relationListsPivot($record, $field->getRelationship(), $pivotType, $targetType)) {
+                continue;
+            }
+
+            $carry['declared'] = true;
+
+            if (! $field->isAuthorizedToSee($request) || ! $field->isAuthorizedForModel($request, $record)) {
+                continue;
+            }
+
+            $carry['visible'] = true;
+
+            foreach ($field->getPivotFields() as $pivotField) {
+                if (! $pivotField instanceof Field) {
+                    continue;
+                }
+
+                if ($pivotField->isAuthorizedToSee($request)) {
+                    $carry['shown'][] = $pivotField->attribute();
+                } else {
+                    $carry['hidden'][] = $pivotField->attribute();
+                }
+            }
+        }
+
+        return $carry;
+    }
+
+    /**
+     * Whether the record's `$relationship` is a many-to-many relationship
+     * through `$pivotType` to `$targetType`.
+     */
+    private static function relationListsPivot(Model $record, string $relationship, string $pivotType, mixed $targetType): bool
+    {
+        if ($relationship === '' || ! method_exists($record, $relationship)) {
+            return false;
+        }
+
+        try {
+            $relation = $record->{$relationship}();
+        } catch (\Throwable) {
+            return false;
+        }
+
+        if (! $relation instanceof EloquentBelongsToMany || ! is_a($pivotType, $relation->getPivotClass(), true)) {
+            return false;
+        }
+
+        return ! is_string($targetType) || $targetType === '' || $relation->getRelated() instanceof $targetType;
     }
 
     /**
