@@ -96,19 +96,22 @@ The global search (`/api/search`, the Cmd+K palette) and the parent lookup of a 
 
 ### Tool routes run the Martis API middleware
 
-`Tool::loadRoutes()` gives a tool's routes the new `Tool::routeMiddleware()` by default: the middleware of the package's protected API routes (your `martis.middleware` and `martis.auth_middleware`, the impersonation expiry, the 2FA challenge, the user's locale, email verification when it is enabled, the API throttle), then `martis.tool:{uriKey}`. v1.x defaulted to `['web', 'martis.auth']`.
+`Tool::loadRoutes()` called without a middleware list gives a tool's routes `ToolRoutes::middleware($tool)` (`Martis\Tools\ToolRoutes`): the middleware of the package's protected API routes (your `martis.middleware` and `martis.auth_middleware`, the impersonation expiry, the 2FA challenge, the user's locale, email verification when it is enabled, the API throttle), then `martis.tool:{uriKey}`. v1.x defaulted to `['web', 'martis.auth']`.
 
 - A user who signed in with a password but has not passed the 2FA challenge gets `423` from a tool route (a redirect to the challenge for a page request), and a user who has not verified an email the app requires gets `409` (a redirect to the notice), as from the rest of the API. v1.x let both through.
 - A user the tool is hidden from (`canSee()`, its policy) gets `404` from its routes, as from the tool's page.
 - A tool's routes count toward the API throttle, `MARTIS_THROTTLE_MAX` (120) requests per `MARTIS_THROTTLE_DECAY` (1) minute per user, shared with the rest of the API. A tool that polls often answers `429` past it.
 - They run in the user's locale, and an impersonation past its limit stops before they run.
+- **With a `MARTIS_PATH` other than `martis`, they move** from `/martis/api/tools/{uriKey}/...` to `/{MARTIS_PATH}/api/tools/{uriKey}/...` (`ToolRoutes::prefix()`), where the SPA's `api` client calls them: on v1.x they stayed under `/martis`, so the client answered 404. Nothing moves with the default path.
+
+The signature keeps its v1.x type, `array $middleware`, so a tool that overrides `loadRoutes()` with the v1.x signature still loads, and a list passed explicitly is used as given, as in v1.x. A list that leaves out the 2FA challenge while `MARTIS_2FA_ENABLED` is on (the default), or email verification while it is on, and the v1.x list `['web', 'martis.auth']` itself, log a warning that names the tool, once per tool and PHP process.
 
 **What to change:**
 
-1. **A tool that relied on its routes answering before the 2FA challenge or the email verification**, or to users it is hidden from, passes its own list, which is used exactly as given, as in v1.x: `$this->loadRoutes($path, \Martis\Http\RouteMiddleware::api())` keeps the API guard without the tool gate, and `['web', 'martis.auth']` restores the v1.x stack.
-2. **Routes a tool registers in `boot()` with `Route::middleware(['web', 'martis.auth'])`**, the pattern these docs showed, keep that weaker stack: switch them to `Route::middleware($this->routeMiddleware())`. A route of your own that `martis.auth` alone guards skips the 2FA challenge the same way: use `Martis\Http\RouteMiddleware::api()`.
-3. **A tool that polls** raises `MARTIS_THROTTLE_MAX`, or passes a list without the throttle.
-4. **A subclass that overrides `loadRoutes()`** declares the parameter as `?array $middleware = null`: an `array $middleware = [...]` declaration no longer matches the parent and fails to load.
+1. **Drop the middleware argument** of every `loadRoutes()` call that passes `['web', 'martis.auth']` (or forwards it from an override): that list keeps the v1.x stack, without the 2FA challenge, and logs the warning. Pass a list only for another stack: `[...ToolRoutes::middleware($this), 'can:imports.run']` adds an ability, and a route that must answer before the 2FA challenge or to users the tool is hidden from keeps its own list, which is used exactly as given.
+2. **Routes a tool registers in `boot()` with `Route::middleware(['web', 'martis.auth'])->prefix('martis/api/tools/...')`**, the pattern these docs showed, keep that weaker stack and that path, and Martis does not warn about them: switch them to `Route::middleware(ToolRoutes::middleware($this))->prefix(ToolRoutes::prefix($this))`. A route of your own that `martis.auth` alone guards skips the 2FA challenge the same way: use the `martis.api` middleware group.
+3. **A client that calls a tool route by a hard-coded `/martis/api/tools/...` URL** with a custom `MARTIS_PATH` follows the new path, or goes through the SPA's `api` client (`api.get('/api/tools/...')`). To keep the old URL, pass `prefix: 'martis/api/tools/{uriKey}'`.
+4. **A tool that polls** raises `MARTIS_THROTTLE_MAX`, or passes a list without the throttle.
 
 See [Tools → Tool routes and their middleware](tools.md#tool-routes-and-their-middleware).
 

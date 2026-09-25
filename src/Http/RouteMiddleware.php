@@ -8,9 +8,10 @@ use InvalidArgumentException;
  * The middleware of the Martis routes, in one place.
  *
  * `routes/martis.php` nests its route groups from these pieces, and a
- * Tool's routes (`Tool::loadRoutes()`, `Tool::routeMiddleware()`) run the
+ * Tool's routes (`Tool::loadRoutes()`, `ToolRoutes::middleware()`) run the
  * stack of a protected API route, `api()`, so a route a tool adds is
- * guarded exactly as the package's own API is.
+ * guarded exactly as the package's own API is. The `martis.api` middleware
+ * group holds `api()` too, as built when the application boots.
  */
 final class RouteMiddleware
 {

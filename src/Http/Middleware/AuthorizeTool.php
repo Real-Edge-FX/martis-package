@@ -16,7 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
  * Otherwise it answers 404, exactly as `GET /api/tools/{uriKey}` does for
  * that user, so a user cannot tell which tools the app ships.
  *
- * `Tool::routeMiddleware()` puts it last on a tool's routes, after the
+ * `ToolRoutes::middleware()` puts it last on a tool's routes, after the
  * stack of the protected API routes. Nova guards a tool's routes the same
  * way with the tool's `Authorize` middleware, which answers 403 instead.
  */

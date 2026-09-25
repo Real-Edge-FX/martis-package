@@ -187,6 +187,22 @@ on the create page, and the page's record in a create drawer or modal opened
 over another record, so a Replicate drawer listed, and attached to, the record
 it copies.
 
+### How a panel finds its parent record
+
+Every panel endpoint checks the resource's `viewAny`, finds the record in the
+URL (`{resource}/{id}`), then checks `view` on it. The lookup differs by panel:
+
+| Endpoints | The parent is found |
+|-----------|---------------------|
+| The `BelongsToMany` panel: its list, attachable list, attach, detach and pivot update | Through the resource's `scopes()` and `indexQuery()`, as its index lists it: a parent they hide answers `404`, like a missing one, even for a resource with no policy. |
+| The pivot routes of the `BelongsToMany` and `MorphToMany` panels: the pivot actions, their fields and pickers, and the pickers of the pivot fields | The same way. |
+| The `HasMany`, `HasOne`, `MorphMany` and `MorphOne` panels, and the list, attachable list, attach, detach and pivot update of the `MorphToMany` panel | By its key alone, as its detail page finds it: the parent's `view` policy decides, as in Nova's model, so a record the index hides is reachable there when the policy allows it. |
+
+A resource that confines its records with `scopes()` or `indexQuery()`
+confines these parents with its `view` policy too. `scopes()` joined the first
+two rows in v2.0 (they ran `indexQuery()` alone). See [Authorization →
+Declarative query scopes](authorization.md#declarative-query-scopes).
+
 ---
 
 ## Soft-delete filter
@@ -807,6 +823,7 @@ The hardening pass codified the contract every relationship surface guarantees. 
 | Pivot actions listed, described and run per panel; `{relationship}` resolves only to a declared field of the route's type | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Authorization — `authorizedToCreate` / view / detach respected | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `attachAny{Model}` gates the list of records to attach, the attach and the attach modal's pivot pickers; `attach{Model}` then decides per record | n/a | n/a | ✅ | n/a | n/a | ✅ |
+| Parent record found through the resource's `scopes()` + `indexQuery()` (else by key, the `view` policy deciding; see [How a panel finds its parent record](#how-a-panel-finds-its-parent-record)) | policy | policy | ✅ | policy | policy | pivot routes only |
 
 ### Pivot data API (BelongsToMany & MorphToMany)
 

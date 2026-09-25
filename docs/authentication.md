@@ -965,8 +965,9 @@ Martis registers these middleware:
 | `martis.locale` | Applies the user's saved language before the controller runs. |
 | `martis.verified` | When email verification is enabled, refuses an unverified user: `409` for a JSON request, a redirect to the notice otherwise. |
 | `martis.tool:{uriKey}` | Answers `404` to a user the tool `{uriKey}` is hidden from. Applied to a Tool's routes (v2.0). |
+| `martis.api` (group) | The whole stack of a protected API route, from `martis.middleware` to the API throttle, built when the application boots (v2.0). |
 
-These are applied automatically by the Martis route definitions. You do not need to register them manually. The stack of a protected API route is built in one place, `Martis\Http\RouteMiddleware::api()`: `martis.middleware`, `martis.auth_middleware`, `martis.impersonation.duration`, `martis.2fa`, `martis.locale`, `martis.verified`, then the API throttle. A Tool's routes run it too, followed by `martis.tool:{uriKey}` (see [Tools → Tool routes and their middleware](tools.md#tool-routes-and-their-middleware)). Give a route of your own the same guard with `Route::middleware(\Martis\Http\RouteMiddleware::api())`: `martis.auth` alone lets a user who has not passed the 2FA challenge through.
+These are applied automatically by the Martis route definitions. You do not need to register them manually. The stack of a protected API route is built in one place, `Martis\Http\RouteMiddleware::api()`: `martis.middleware`, `martis.auth_middleware`, `martis.impersonation.duration`, `martis.2fa`, `martis.locale`, `martis.verified`, then the API throttle. A Tool's routes run it too, followed by `martis.tool:{uriKey}` (see [Tools → Tool routes and their middleware](tools.md#tool-routes-and-their-middleware)). It is also the `martis.api` middleware group (v2.0), so a route of your own gets the same guard with `Route::middleware('martis.api')`: `martis.auth` alone lets a user who has not passed the 2FA challenge through.
 
 ## Next Steps
 

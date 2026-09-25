@@ -55,8 +55,9 @@ The playground's `SystemStatus` Tool demonstrates the first four end-to-end. Pat
 // app/Martis/Tools/SystemStatus.php
 public function boot(): void
 {
-    Route::middleware($this->routeMiddleware())
-        ->prefix('martis/api/tools/system-status')
+    // use Martis\Tools\ToolRoutes;
+    Route::middleware(ToolRoutes::middleware($this))
+        ->prefix(ToolRoutes::prefix($this))
         ->name('martis-playground.tools.system-status.')
         ->group(function (): void {
             Route::get('/snapshot', [SystemStatusController::class, 'snapshot']);
@@ -71,7 +72,7 @@ public function boot(): void
 - Removing the Tool removes the routes — no orphaned endpoints.
 - The route name prefix mirrors the Tool's name, making `route('martis-playground.tools.system-status.snapshot')` unambiguous.
 
-**Watch out:** the routes register whatever `canSee()` says; the middleware chain is what gates access. `$this->routeMiddleware()` (v2.0) is the chain of the Martis API routes (authentication, the 2FA challenge, email verification, the locale, the impersonation expiry, the API throttle) followed by `martis.tool:{uriKey}`, which answers 404 to a user the Tool is hidden from, as its page does. Add a `can:` gate for a finer ability, as `health-check` does above. A hand-written list such as `['web', 'martis.auth']` skips the 2FA challenge and the rest: see [Tool routes and their middleware](tools.md#tool-routes-and-their-middleware).
+**Watch out:** the routes register whatever `canSee()` says; the middleware chain is what gates access. `ToolRoutes::middleware($this)` (v2.0) is the chain of the Martis API routes (authentication, the 2FA challenge, email verification, the locale, the impersonation expiry, the API throttle) followed by `martis.tool:{uriKey}`, which answers 404 to a user the Tool is hidden from, as its page does. Add a `can:` gate for a finer ability, as `health-check` does above. `ToolRoutes::prefix($this)` is `{martis.path}/api/tools/{uriKey}`, where the SPA's `api` client calls the routes. A hand-written list such as `['web', 'martis.auth']` skips the 2FA challenge and the rest, and Martis does not check the routes a tool registers itself: see [Tool routes and their middleware](tools.md#tool-routes-and-their-middleware).
 
 **Tip — `Tool::loadRoutes()` for richer Tools.** When the inline group exceeds three or four routes, `Tool::loadRoutes($path)` (added in v1.8.8) extracts them into a sibling file under the same prefix + middleware:
 
@@ -79,7 +80,7 @@ public function boot(): void
 public function boot(): void
 {
     // Loads `app/Martis/Tools/routes/system-status.php` under
-    // 'martis/api/tools/system-status', behind $this->routeMiddleware().
+    // ToolRoutes::prefix($this), behind ToolRoutes::middleware($this).
     $this->loadRoutes(__DIR__.'/routes/system-status.php');
 }
 ```

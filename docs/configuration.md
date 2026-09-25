@@ -18,7 +18,7 @@ This page documents every configuration option grouped by subsystem. The full en
 'path' => env('MARTIS_PATH', 'martis'),
 ```
 
-The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e.g., `http://yourdomain.com/martis`).
+The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e.g., `http://yourdomain.com/martis`), its API at `/{path}/api`, and the routes a Tool loads with `loadRoutes()` at `/{path}/api/tools/{uriKey}` (v2.0; they stayed under `/martis` before, whatever the path). See [Tools → Tool routes and their middleware](tools.md#tool-routes-and-their-middleware).
 
 ## Authentication
 

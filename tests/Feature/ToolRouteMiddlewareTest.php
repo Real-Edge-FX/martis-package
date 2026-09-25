@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\Request;
+use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Routing\Route as RoutingRoute;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
 use Martis\Facades\Martis;
 use Martis\Http\RouteMiddleware;
 use Martis\Tools\Tool;
+use Martis\Tools\ToolRoutes;
+use Symfony\Component\Process\Process;
 
 /*
  * The routes a Tool loads with `loadRoutes()` run the middleware of the
@@ -59,6 +63,51 @@ class ToolRouteHiddenTool extends Tool
     {
         parent::__construct(name: 'Hidden Routes', uriKey: 'tool-route-hidden');
         $this->canSee(fn (Request $request) => false);
+    }
+
+    public function boot(): void
+    {
+        $this->loadRoutes($this->routesPath);
+    }
+}
+
+/** Loads the shared routes file as its constructor says; one uriKey per test. */
+class ToolRouteListTool extends Tool
+{
+    /** @param list<string>|null $middleware null: no middleware argument */
+    public function __construct(string $uriKey, public string $routesPath, public ?array $middleware = null, public ?string $prefix = null)
+    {
+        parent::__construct(name: 'List '.$uriKey, uriKey: $uriKey);
+    }
+
+    public function boot(): void
+    {
+        if ($this->middleware !== null) {
+            $this->loadRoutes($this->routesPath, $this->middleware, $this->prefix);
+        } elseif ($this->prefix !== null) {
+            // A named argument skips the middleware: the default applies.
+            $this->loadRoutes($this->routesPath, prefix: $this->prefix);
+        } else {
+            $this->loadRoutes($this->routesPath);
+        }
+    }
+}
+
+/**
+ * Overrides loadRoutes() with its v1.x signature and forwards to it, as a
+ * tool written for v1.x may. Declared here, it also keeps the parent's
+ * signature compatible: this file would not load otherwise.
+ */
+class ToolRouteLegacyOverrideTool extends Tool
+{
+    public function __construct(public string $routesPath)
+    {
+        parent::__construct(name: 'Legacy Override', uriKey: 'tool-route-legacy-override');
+    }
+
+    public function loadRoutes(string $path, array $middleware = ['web', 'martis.auth'], ?string $prefix = null): void
+    {
+        parent::loadRoutes($path, $middleware, $prefix);
     }
 
     public function boot(): void
@@ -134,6 +183,32 @@ function toolRouteByUri(string $uri): RoutingRoute
     expect($route)->not->toBeNull("No route answers {$uri}.");
 
     return $route;
+}
+
+/** Register tools and run their boot(), which loads their routes. */
+function bootToolRoutes(Tool ...$tools): void
+{
+    Martis::tools(array_values($tools));
+    Martis::getFacadeRoot()?->bootTools();
+}
+
+/**
+ * The warnings logged from now on that name the tool `$uriKey`.
+ *
+ * @return ArrayObject<int, string>
+ */
+function toolRouteWarnings(string $uriKey): ArrayObject
+{
+    /** @var ArrayObject<int, string> $warnings */
+    $warnings = new ArrayObject;
+
+    Event::listen(MessageLogged::class, function (MessageLogged $event) use ($warnings, $uriKey): void {
+        if ($event->level === 'warning' && str_contains($event->message, "tool [{$uriKey}]")) {
+            $warnings[] = $event->message;
+        }
+    });
+
+    return $warnings;
 }
 
 // ── The same stack as the protected API routes ──────────────────────────────
@@ -284,4 +359,132 @@ it('refuses a throttle limit that is not a number or an attribute name', functio
     config()->set('martis.throttle.max_attempts', ['120']);
 
     expect(fn () => RouteMiddleware::throttle())->toThrow(InvalidArgumentException::class, 'The [martis.throttle.max_attempts] config value must be a number');
+});
+
+// ── A signature v1.x tools still load with ──────────────────────────────────
+
+it('loads a tool that overrides loadRoutes() with the v1.x signature', function () {
+    $script = tempnam(sys_get_temp_dir(), 'martis_legacy_tool_');
+    file_put_contents($script, '<?php require '.var_export(dirname(__DIR__, 2).'/vendor/autoload.php', true).';'
+        .' class LegacyLoadRoutesTool extends Martis\\Tools\\Tool {'
+        .' public function loadRoutes(string $path, array $middleware = [\'web\', \'martis.auth\'], ?string $prefix = null): void'
+        .' { parent::loadRoutes($path, $middleware, $prefix); } }'
+        .' echo \'loaded\';');
+
+    try {
+        $process = new Process([PHP_BINARY, $script]);
+        $process->run();
+
+        // A narrower parameter type in the parent is a fatal error when the class loads.
+        expect($process->getOutput().$process->getErrorOutput())->toBe('loaded')
+            ->and($process->getExitCode())->toBe(0);
+    } finally {
+        @unlink($script);
+    }
+});
+
+it('keeps the list a v1.x override forwards, and warns once naming the tool', function () {
+    $warnings = toolRouteWarnings('tool-route-legacy-override');
+    $tool = new ToolRouteLegacyOverrideTool($this->routesFile);
+    bootToolRoutes($tool);
+    $tool->loadRoutes($this->routesFile, prefix: 'martis/api/tools/tool-route-legacy-override/again');
+
+    expect(toolRouteByUri('martis/api/tools/tool-route-legacy-override/ping')->gatherMiddleware())->toBe(['web', 'martis.auth'])
+        ->and($warnings)->toHaveCount(1)
+        ->and($warnings[0])->toContain(ToolRouteLegacyOverrideTool::class)
+        ->toContain("with ['web', 'martis.auth'], the v1.x default of Tool::loadRoutes()")
+        ->toContain('the 2FA challenge (martis.2fa)')
+        ->toContain('Do not pass a middleware list');
+});
+
+it('warns about the v1.x list passed explicitly, even with 2FA and email verification off', function () {
+    config()->set('martis.profile.two_factor.enabled', false);
+    $warnings = toolRouteWarnings('tool-route-v1-list');
+    bootToolRoutes(new ToolRouteListTool('tool-route-v1-list', $this->routesFile, ['web', 'martis.auth']));
+
+    expect(toolRouteByUri('martis/api/tools/tool-route-v1-list/ping')->gatherMiddleware())->toBe(['web', 'martis.auth'])
+        ->and($warnings)->toHaveCount(1)
+        ->and($warnings[0])->toContain("the API throttle and the tool's canSee()")
+        ->not->toContain('martis.2fa');
+});
+
+it('warns when a list leaves out the 2FA challenge while 2FA is on', function () {
+    $warnings = toolRouteWarnings('tool-route-no-2fa');
+    bootToolRoutes(new ToolRouteListTool('tool-route-no-2fa', $this->routesFile, ['web', 'martis.auth', 'throttle:60,1']));
+
+    expect(toolRouteByUri('martis/api/tools/tool-route-no-2fa/ping')->gatherMiddleware())->toBe(['web', 'martis.auth', 'throttle:60,1'])
+        ->and($warnings)->toHaveCount(1)
+        ->and($warnings[0])->toContain('leaves out the 2FA challenge (martis.2fa), which is on');
+});
+
+it('does not warn about a list without the 2FA challenge while 2FA is off', function () {
+    config()->set('martis.profile.two_factor.enabled', false);
+    $warnings = toolRouteWarnings('tool-route-2fa-off');
+    bootToolRoutes(new ToolRouteListTool('tool-route-2fa-off', $this->routesFile, ['web', 'martis.auth', 'throttle:60,1']));
+
+    expect($warnings)->toHaveCount(0);
+});
+
+it('warns when a list leaves out email verification while it is on', function () {
+    config()->set('martis.auth.email_verification.enabled', true);
+    $warnings = toolRouteWarnings('tool-route-no-verified');
+    bootToolRoutes(new ToolRouteListTool('tool-route-no-verified', $this->routesFile, ['web', 'martis.auth', 'martis.2fa']));
+
+    expect($warnings)->toHaveCount(1)
+        ->and($warnings[0])->toContain('leaves out email verification (martis.verified), which is on')
+        ->not->toContain('martis.2fa)');
+});
+
+it('does not warn about a list that keeps the guards, through a group or the tool stack', function () {
+    config()->set('martis.auth.email_verification.enabled', true);
+    $group = toolRouteWarnings('tool-route-group');
+    $stack = toolRouteWarnings('tool-route-stack');
+    $stackTool = new ToolRouteListTool('tool-route-stack', $this->routesFile);
+    $stackTool->middleware = [...ToolRoutes::middleware($stackTool), 'can:viewReports'];
+    bootToolRoutes(new ToolRouteListTool('tool-route-group', $this->routesFile, ['martis.api', 'can:viewReports']), $stackTool);
+
+    expect($group)->toHaveCount(0)->and($stack)->toHaveCount(0);
+});
+
+it('runs the tool stack by default, a named prefix included, without a warning', function () {
+    $default = toolRouteWarnings('tool-route-default-stack');
+    $named = toolRouteWarnings('tool-route-named-prefix');
+    $defaultTool = new ToolRouteListTool('tool-route-default-stack', $this->routesFile);
+    $namedTool = new ToolRouteListTool('tool-route-named-prefix', $this->routesFile, prefix: 'custom/tools/named');
+    bootToolRoutes($defaultTool, $namedTool);
+
+    expect(toolRouteByUri('martis/api/tools/tool-route-default-stack/ping')->gatherMiddleware())->toBe(ToolRoutes::middleware($defaultTool))
+        ->and(toolRouteByUri('custom/tools/named/ping')->gatherMiddleware())->toBe(ToolRoutes::middleware($namedTool))
+        ->and($default)->toHaveCount(0)
+        ->and($named)->toHaveCount(0);
+});
+
+it('registers martis.api as the middleware group of the protected API routes', function () {
+    expect(app('router')->getMiddlewareGroups()['martis.api'] ?? null)->toBe(RouteMiddleware::api())
+        ->and(Tool::DEFAULT_ROUTE_MIDDLEWARE)->toBe(['martis.api']);
+});
+
+// ── The prefix follows martis.path ──────────────────────────────────────────
+
+it('mounts a tool route under martis.path, where the SPA api client calls it', function () {
+    config()->set('martis.path', 'admin');
+    bootToolRoutes(new ToolRouteListTool('tool-route-admin-path', $this->routesFile));
+
+    // The shell hands the api client /admin as its base path, and the client
+    // prefixes every path with it: api.get('/api/tools/...').
+    $this->get('/martis/login')->assertOk()->assertSee('basePath: "/admin"', false);
+
+    $this->actingAs(toolRouteUser(), config('martis.guard'));
+    $this->getJson('/admin/api/tools/tool-route-admin-path/ping')->assertOk()->assertExactJson(['pong' => true]);
+    $this->getJson('/martis/api/tools/tool-route-admin-path/ping')->assertNotFound();
+});
+
+it('mounts a tool route under the default path, and keeps an explicit prefix', function () {
+    bootToolRoutes(
+        new ToolRouteListTool('tool-route-default-path', $this->routesFile),
+        new ToolRouteListTool('tool-route-own-prefix', $this->routesFile, ['web'], 'hooks/own-prefix'),
+    );
+
+    expect(toolRouteByUri('martis/api/tools/tool-route-default-path/ping')->uri())->toBe('martis/api/tools/tool-route-default-path/ping')
+        ->and(toolRouteByUri('hooks/own-prefix/ping')->gatherMiddleware())->toBe(['web']);
 });

@@ -80,6 +80,7 @@ use Martis\Http\Middleware\EnforceImpersonationDuration;
 use Martis\Http\Middleware\EnsureEmailIsVerified;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Http\RouteMiddleware;
 use Martis\Impersonation\Events\ImpersonationStarted;
 use Martis\Impersonation\Events\ImpersonationStopped;
 use Martis\Impersonation\ImpersonationManager;
@@ -518,8 +519,11 @@ class MartisServiceProvider extends ServiceProvider
             EnforceImpersonationDuration::class,
         );
         // The gate of a Tool's routes (`martis.tool:{uriKey}`), see
-        // Tool::routeMiddleware().
+        // ToolRoutes::middleware().
         $router->aliasMiddleware('martis.tool', AuthorizeTool::class);
+        // The stack of the protected API routes as one group, for a route
+        // of the host app and for Tool::DEFAULT_ROUTE_MIDDLEWARE.
+        $router->middlewareGroup('martis.api', RouteMiddleware::api());
     }
 
     /**
