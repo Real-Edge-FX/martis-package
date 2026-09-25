@@ -79,6 +79,16 @@ describe('DeleteModal focus and naming', () => {
     expect(document.activeElement).toBe(first)
   })
 
+  it('marks the Escape it takes as handled, so a drawer underneath leaves it alone', () => {
+    render(<Harness />)
+    openModal()
+
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    document.dispatchEvent(escape)
+
+    expect(escape.defaultPrevented).toBe(true)
+  })
+
   it('gives the focus back to the control that opened it, on cancel, Escape and confirm', async () => {
     const onConfirm = vi.fn(async () => {})
     render(<Harness onConfirm={onConfirm} />)
