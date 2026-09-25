@@ -395,15 +395,17 @@ Since v1.36.0 the **outcome of that walk** (the policy class) is memoised per en
 
 ## Per-request Gate cache
 
-Off by default. Flip `MARTIS_AUTHZ_REQUEST_CACHE=true` and `Martis\Authorization\RequestScopedAbilityCache` records every Gate result keyed on `(user, ability, model_class, model_id)` for the duration of the request, by listening to `GateEvaluated`. It only **observes**: it does not short-circuit the Gate, and the package does not read it back yet, so enabling it does not by itself save any policy call. Resource checks (the sidebar, the schema authorization block, the per-record `_authorization` block, action visibility) call the policy directly and are not recorded at all. Host code can read the cache before a redundant check:
+Off by default. Flip `MARTIS_AUTHZ_REQUEST_CACHE=true` and `Martis\Authorization\RequestScopedAbilityCache` records every Gate result keyed on `(user class, user id, ability, model_class, model_id)` for the duration of the request, by listening to `GateEvaluated`. It only **observes**: it does not short-circuit the Gate, and the package does not read it back yet, so enabling it does not by itself save any policy call. Resource checks (the sidebar, the schema authorization block, the per-record `_authorization` block, action visibility) call the policy directly and are not recorded at all. Host code can read the cache before a redundant check:
 
 ```php
-$cached = app(\Martis\Authorization\RequestScopedAbilityCache::class)->lookup($userId, $ability, $model);
+$cached = app(\Martis\Authorization\RequestScopedAbilityCache::class)->lookup($user, $ability, $model);
 
 if ($cached === null) {
     // not cached yet: run the real check
 }
 ```
+
+`lookup()` takes the user, not its id (v2.0.1): the key holds the user's morph class as well as its identifier, so an admin and a site user who share an id (an `admins` guard beside the site's `users`) never read each other's answers. A call written for v2.0.0, `lookup($user->id, ...)`, now throws a `TypeError`: pass the user.
 
 The cache is request-scoped — never spans requests, never persisted. Closure-only gates that depend on `Request` state are skipped (the cache key would be ambiguous). `null` results (no policy registered) are not cached so the next call still falls through to the default behaviour.
 
