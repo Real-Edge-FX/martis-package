@@ -71,6 +71,23 @@ A user whose policy denies `viewAny` on the related resource gets a 403 on those
 
 `HasOneThrough` and `HasManyThrough` never offer Create, as in Nova, and a create through a Through relationship answers 403. Edit and Delete now show by default, under the related resource's policies. `canCreate()` has no effect; `canCreate(true)` logs a warning naming the field. See [Relationships → Upgrading the Through fields from 1.x](relationships.md#upgrading-the-through-fields-from-1x).
 
+### Relationship panels list what the related index lists
+
+A `HasMany`, `HasManyThrough`, `MorphMany`, `BelongsToMany` or `MorphToMany` panel now applies the related resource's `scopes()` and `indexQuery()`, as its index does and as Nova's relationship index does. v1.x listed every record of the relationship, including the ones those hooks hide (another tenant's, archived ones).
+
+**What to change:**
+
+1. **Qualify the columns in those hooks.** On a Through or pivot panel the query joins another table: `$query->where($query->qualifyColumn('tenant_id'), ...)`, or a column both tables have is ambiguous.
+2. **Check hooks that should not apply to panels.** An `indexQuery()` meant for the index page only (an order, a default filter) now also shapes the panels; test `$request->route('relationship')` to tell a panel apart.
+
+The `BelongsToMany` and `MorphToMany` panels also apply their soft-delete filter now; before, *Only trashed* listed the active records.
+
+### Creating a record needs `viewAny`
+
+`POST /api/resources/{resource}` and the inline create (its form and its store) answer `403` when the user may not list the resource, as its show, update and destroy endpoints do since v1.34.0. v1.x checked `create` only.
+
+**What to change:** grant `viewAny` to a user who should create records, and confine what they see with `indexQuery()` if needed.
+
 ### Actions: who may run them, and on which records
 
 An action run on records changed in v2.0:

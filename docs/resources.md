@@ -615,6 +615,12 @@ public static function indexQuery(Request $request, Builder $query): Builder
 
 Override when: you need a global constraint on the index that is *not* a user-configurable filter (filters are opt-in; `indexQuery()` is always applied).
 
+**Relationship panels apply it too (v2.0).** A `HasMany`, `HasManyThrough`, `MorphMany`, `BelongsToMany` or `MorphToMany` panel that lists this resource on another resource's detail page runs its `scopes()` and `indexQuery()` on the relationship's query, in the index's order, so a row the index hides is hidden there too (and out of the panel's count and search). Nova does the same: its relationship index runs the related resource's `indexQuery()` ([nova-issues#971](https://github.com/laravel/nova-issues/issues/971), [#3655](https://github.com/laravel/nova-issues/issues/3655), [#337](https://github.com/laravel/nova-issues/issues/337)), not its `relatableQuery()`, which only feeds the pickers ([docs](https://nova.laravel.com/docs/v5/resources/authorization#relatable-filtering), [#909](https://github.com/laravel/nova-issues/issues/909)). Three things to know:
+
+- On a Through or pivot panel the query joins another table, so **qualify the columns** you constrain (`$query->where($query->qualifyColumn('tenant_id'), ...)`): a column name the joined table also has would be ambiguous.
+- Constrain and return the builder you receive. An `indexQuery()` that builds another query (`Model::query()->...`) still applies on a panel, by key, but loses the relationship's own constraints if it is the one the index uses.
+- To tell a panel from the index, read the panel's request: `$request->route('relationship')` is set on a relationship panel.
+
 Source: `src/Resource.php::indexQuery()`.
 
 ### relatableQuery()

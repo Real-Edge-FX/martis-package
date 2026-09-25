@@ -279,6 +279,13 @@ class ResourceController extends MartisController
         }
 
         /** @var class-string<resource> $resourceClass */
+        // viewAny is the entry gate to a resource, as on its show, update and
+        // destroy endpoints (v1.34.0): a user who cannot list it cannot
+        // create one either.
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToCreate($request)) {
@@ -723,6 +730,11 @@ class ResourceController extends MartisController
         }
 
         /** @var class-string<resource> $resourceClass */
+        // The same viewAny entry gate as store().
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToCreate($request)) {
@@ -857,6 +869,11 @@ class ResourceController extends MartisController
         }
 
         /** @var class-string<resource> $resourceClass */
+        // The same viewAny entry gate as store().
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToCreate($request)) {

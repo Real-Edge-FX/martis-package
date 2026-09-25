@@ -93,6 +93,10 @@ class HasManyController extends MartisController
             }
         }
 
+        // The related resource's scopes() and indexQuery() hide rows here as
+        // on its index (tenancy, visibility), as Nova's relationship index.
+        $this->scopeRelationQuery($request, $query, $relatedResourceClass);
+
         // Apply search using the related resource's search pipeline
         $rawSearch = $request->query('search', '');
         $search = trim(is_string($rawSearch) ? $rawSearch : '');

@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Martis\Contracts\FieldContract;
+use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\Field;
@@ -67,6 +68,24 @@ class BelongsToManyController extends MartisController
             $relation->withPivot($pivotColumns);
             $query = $relation->getQuery();
         }
+
+        // Soft-delete filter on the related records, as on the has-many panel
+        // and as Nova's BelongsToMany panel offers it. It used to be ignored,
+        // so "only trashed" listed the active ones.
+        if ($relatedResourceClass::softDeletes() && $relatedResourceClass::canViewTrashed()) {
+            $trashed = TrashedFilter::fromQuery($request->query('trashed'));
+            if ($trashed === TrashedFilter::With) {
+                /** @phpstan-ignore-next-line guarded by softDeletes() */
+                $query->withTrashed();
+            } elseif ($trashed === TrashedFilter::Only) {
+                /** @phpstan-ignore-next-line guarded by softDeletes() */
+                $query->onlyTrashed();
+            }
+        }
+
+        // The related resource's scopes() and indexQuery() hide rows here as
+        // on its index (tenancy, visibility), as Nova's relationship index.
+        $this->scopeRelationQuery($request, $query, $relatedResourceClass);
 
         // Search
         $rawSearch = $request->query('search', '');

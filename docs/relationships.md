@@ -209,6 +209,15 @@ The default state comes from `config/martis.php` under the `index` block:
 Visibility follows the usual gate — `Resource::canViewTrashed()` must return
 `true` (default) AND the programmer must not call `->hideSoftDeleteToggle()`.
 
+The filter applies on every panel, the `BelongsToMany` and `MorphToMany`
+ones included (v2.0; before, their endpoints ignored `?trashed`, so *Only
+trashed* listed the active records). Nova's `BelongsToMany` panel has the
+same filter ([nova-dusk-suite: UpdateAttachedSoftDeletingTest](https://github.com/laravel/nova-dusk-suite/blob/10.4/tests/Browser/UpdateAttachedSoftDeletingTest.php)).
+
+Every panel also lists only the rows the related resource's index would:
+its `scopes()` and `indexQuery()` apply (v2.0). See
+[Resources → indexQuery()](resources.md#indexquery).
+
 ---
 
 ## BelongsTo

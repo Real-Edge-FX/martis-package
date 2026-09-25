@@ -130,6 +130,34 @@ abstract class MartisController extends Controller
     }
 
     /**
+     * Scope a relationship panel's rows as the related resource's index is
+     * scoped: its declarative `scopes()`, then `indexQuery()`, in the
+     * index's order, applied to the relation's own query so the panel
+     * still paginates through the relation (a Through relation selects the
+     * related columns only there; a pivot relation hydrates `pivot`). As in
+     * Nova, whose relationship index runs the related resource's
+     * `indexQuery()` on the relationship query. A hook that returns another
+     * builder than the one it received constrains the rows by key.
+     *
+     * @param  Builder<Model>  $query  The relation's query (`$relation->getQuery()`).
+     * @param  class-string<resource>  $relatedResourceClass
+     */
+    protected function scopeRelationQuery(Request $request, Builder $query, string $relatedResourceClass): void
+    {
+        $scoped = $relatedResourceClass::indexQuery($request, $relatedResourceClass::applyScopes($request, $query));
+
+        if ($scoped === $query) {
+            return;
+        }
+
+        $keys = $scoped->toBase()->reorder();
+        $keys->limit = null;
+        $keys->offset = null;
+
+        $query->whereIn($query->getModel()->getQualifiedKeyName(), $keys->select($scoped->getModel()->getQualifiedKeyName()));
+    }
+
+    /**
      * Consult the collection-level gate before any record query on a per-id
      * endpoint.
      *
