@@ -13,7 +13,7 @@ vi.mock('react-i18next', () => ({
 vi.mock('@/lib/api', () => ({ api: { get: (...args: unknown[]) => get(...args), delete: vi.fn() }, ApiError: class extends Error {} }))
 vi.mock('@/contexts/ToastContext', () => ({ useToast: () => ({ addToast: vi.fn() }) }))
 
-describe('BrowserSessionsSection — unsupported', () => {
+describe('BrowserSessionsSection: unsupported', () => {
   beforeEach(() => {
     get.mockReset()
   })

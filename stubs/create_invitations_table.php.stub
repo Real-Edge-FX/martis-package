@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Schema;
  * MARTIS_GUARD names a guard with its own model. They match that
  * model's primary-key shape, so a UUID/ULID-keyed host does not write a
  * UUID string into a `bigint` column (which Postgres rejects). Detection
- * mirrors the other Martis stubs — it inspects that model for
+ * mirrors the other Martis stubs: it inspects that model for
  * `HasUuids` / `HasUlids` and reads `$keyType` / `$incrementing`, and
  * honours a `MARTIS_USER_ID_COLUMN_TYPE` override. Both columns are
  * nullable foreign keys that null out on delete: losing the inviter or
