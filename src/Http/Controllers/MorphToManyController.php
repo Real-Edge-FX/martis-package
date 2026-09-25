@@ -75,14 +75,14 @@ class MorphToManyController extends MartisController
         $rawSearch = $request->query('search', '');
         $search = trim(is_string($rawSearch) ? $rawSearch : '');
         if ($search !== '') {
-            SearchResolver::apply($request, $query, $relatedResourceClass, $search);
+            SearchResolver::apply($request, $query, $relatedResourceClass, $search, qualifyColumns: true);
         }
 
         // Sort: only a sortable field of the related resource the user can
         // see orders the rows.
-        $this->applyRequestedSort($request, $query, $relatedResourceClass);
+        $this->applyRequestedSort($request, $query, $relatedResourceClass, qualifyJsonPaths: true);
 
-        $perPage = min((int) ($request->query('per_page', '10')), 100);
+        $perPage = $this->requestedPerPage($request, 10);
         $paginator = $relation->paginate($perPage);
 
         $data = array_values(
@@ -206,7 +206,7 @@ class MorphToManyController extends MartisController
             SearchResolver::apply($request, $query, $relatedResourceClass, $search);
         }
 
-        $perPage = min((int) ($request->query('per_page', '20')), 100);
+        $perPage = $this->requestedPerPage($request, 20);
         $paginator = $query->paginate($perPage);
 
         $data = array_values(

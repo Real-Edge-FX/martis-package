@@ -5,6 +5,7 @@ namespace Martis\Http\Controllers;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany as EloquentMorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne as EloquentMorphOne;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
@@ -65,14 +66,7 @@ class MorphOneController extends MartisController
             'morphOneField' => $morphOneField,
         ] = $context;
 
-        if ($morphOneField instanceof MorphOneOfMany) {
-            $scope = $morphOneField->getRuntimeScope();
-            $relatedModel = $scope !== null
-                ? $scope(clone $relation->getQuery())->first()
-                : $relation->first();
-        } else {
-            $relatedModel = $relation->first();
-        }
+        $relatedModel = $this->relatedRecord($morphOneField, $relation);
 
         if ($relatedModel === null) {
             return new IlluminateJsonResponse(['data' => null, 'meta' => [], 'links' => []], 200);
@@ -84,18 +78,27 @@ class MorphOneController extends MartisController
         // concern as HasOneOfMany.
         $ofManyMeta = null;
         if ($morphOneField instanceof MorphOneOfMany) {
-            $relatedClass = get_class($relation->getRelated());
-            $fk = $relation->getForeignKeyName();
-            $parentKey = $parentModel->getKey();
-            $morphType = $relation->getMorphType();
-            $morphClass = $parentModel->getMorphClass();
-            $baseQuery = fn () => $relatedClass::query()
-                ->where($fk, $parentKey)
-                ->where($morphType, $morphClass);
+            // A morphMany keeps its own query (and its constraints); an
+            // Eloquent one-of-many morphOne is rebuilt from its own keys, so
+            // a custom local key counts this parent's rows.
+            $related = get_class($relation->getRelated());
+            $baseQuery = method_exists($relation, 'isOneOfMany') && $relation->isOneOfMany()
+                ? fn () => $parentModel->morphMany(
+                    $related,
+                    '',
+                    $relation->getMorphType(),
+                    $relation->getForeignKeyName(),
+                    $relation->getLocalKeyName(),
+                )->getQuery()
+                : fn () => (clone $relation)->getQuery();
 
             $ofManyMeta = ['totalCount' => $baseQuery()->count()];
             $fn = $morphOneField->getAggregateFunction();
             $col = $morphOneField->getAggregateColumn();
+            $column = $col;
+            if ($col !== null && $col !== '*') {
+                $col = $relation->getRelated()->qualifyColumn($col);
+            }
             if ($fn !== null && $col !== null) {
                 $agg = match ($fn->value) {
                     'count' => (int) $baseQuery()->count($col === '*' ? '*' : $col),
@@ -105,7 +108,7 @@ class MorphOneController extends MartisController
                     'avg' => $baseQuery()->avg($col),
                     default => null,
                 };
-                $ofManyMeta['aggregate'] = ['fn' => $fn->value, 'column' => $col, 'value' => $agg];
+                $ofManyMeta['aggregate'] = ['fn' => $fn->value, 'column' => $column, 'value' => $agg];
             }
         }
 
@@ -221,9 +224,11 @@ class MorphOneController extends MartisController
         [
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
+            'morphOneField' => $morphOneField,
         ] = $context;
 
-        $relatedModel = $relation->first();
+        // The record the card shows, so Edit / Delete write that one.
+        $relatedModel = $this->relatedRecord($morphOneField, $relation);
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
@@ -301,9 +306,11 @@ class MorphOneController extends MartisController
         [
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
+            'morphOneField' => $morphOneField,
         ] = $context;
 
-        $relatedModel = $relation->first();
+        // The record the card shows, so Edit / Delete write that one.
+        $relatedModel = $this->relatedRecord($morphOneField, $relation);
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
@@ -336,9 +343,39 @@ class MorphOneController extends MartisController
     }
 
     /**
+     * The related record the card shows. A MorphOneOfMany with a runtime
+     * scope (latestByTimestamp() / oldestByTimestamp()) picks it from its
+     * many relation with that order; any other relation holds one record.
+     * show(), update() and destroy() all read it here, so Edit and Delete
+     * write the record on screen.
+     *
+     * @param  Relation<Model, Model, mixed>  $relation
+     */
+    private function relatedRecord(MorphOne $morphOneField, Relation $relation): ?Model
+    {
+        $scope = $morphOneField instanceof MorphOneOfMany ? $morphOneField->getRuntimeScope() : null;
+
+        if ($scope === null) {
+            /** @var Model|null */
+            return $relation->first();
+        }
+
+        // Order a clone of the relation and read through the relation's own
+        // first(): on a through relation the raw query joins the
+        // intermediate table, and a plain `select *` lets its id overwrite
+        // the related record's id, so a write would land on another
+        // parent's record.
+        $scoped = clone $relation;
+        $scope($scoped->getQuery());
+
+        /** @var Model|null */
+        return $scoped->first();
+    }
+
+    /**
      * Resolve all context needed for a MorphOne operation.
      *
-     * @return array{parentModel: Model, parentResourceClass: class-string<resource>, relatedResourceClass: class-string<resource>, morphOneField: MorphOne, relation: EloquentMorphOne<Model, Model>}|IlluminateJsonResponse
+     * @return array{parentModel: Model, parentResourceClass: class-string<resource>, relatedResourceClass: class-string<resource>, morphOneField: MorphOne, relation: EloquentMorphOne<Model, Model>|EloquentMorphMany<Model, Model>}|IlluminateJsonResponse
      */
     private function resolveContext(
         Request $request,

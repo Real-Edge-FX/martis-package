@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough as EloquentHasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOneOrManyThrough;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\File;
 use Martis\Fields\HasMany;
+use Martis\Fields\HasManyThrough as HasManyThroughField;
 use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
 use Martis\Http\Controllers\Concerns\SyncsDeferredWrites;
@@ -56,7 +58,7 @@ class HasManyController extends MartisController
      * and search pipeline (including Scout when applicable).
      */
     #[QueryParameter('search', description: 'Filter related records by free text, on the searchable fields of the related resource the user can see.', required: false, type: 'string')]
-    #[QueryParameter('per_page', description: 'Records per page. Default: 10, max: 100.', required: false, type: 'integer')]
+    #[QueryParameter('per_page', description: 'Records per page, from 1 to 100. Default: 10.', required: false, type: 'integer')]
     #[QueryParameter('sort', description: 'Attribute to sort by: a sortable field of the related resource the user can see; any other value is ignored.', required: false, type: 'string')]
     #[QueryParameter('direction', description: 'Sort direction: asc or desc (asc for any other value).', required: false, type: 'string')]
     #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only); any other value means active only.', required: false, type: 'string')]
@@ -97,20 +99,24 @@ class HasManyController extends MartisController
         $search = trim(is_string($rawSearch) ? $rawSearch : '');
 
         if ($search !== '') {
-            SearchResolver::apply($request, $query, $relatedResourceClass, $search);
+            // Qualified only through a hasManyThrough, whose intermediate may
+            // share a column; a plain hasMany may search a column of a table
+            // its relation joins, which the related table does not have.
+            SearchResolver::apply($request, $query, $relatedResourceClass, $search, qualifyColumns: $relation instanceof HasOneOrManyThrough);
         }
 
         // Only a sortable field of the related resource the user can see
         // orders the rows.
-        $this->applyRequestedSort($request, $query, $relatedResourceClass);
+        $this->applyRequestedSort($request, $query, $relatedResourceClass, qualifyJsonPaths: $relation instanceof HasOneOrManyThrough);
 
         // Pagination
-        $perPage = min(
-            (int) ($request->query('per_page', '10')),
-            100,
-        );
+        $perPage = $this->requestedPerPage($request, 10);
 
-        $paginator = $query->paginate($perPage);
+        // Paginate through the relation, not its bare query: a hasManyThrough
+        // selects only the related table's columns (plus its through key)
+        // there. The bare query selected both tables of the join, so the
+        // intermediate's id, timestamps and deleted_at overwrote the record's.
+        $paginator = $relation->paginate($perPage);
 
         /** @var list<array<string, mixed>> $data */
         $data = array_values(
@@ -369,7 +375,7 @@ class HasManyController extends MartisController
     /**
      * Resolve all context needed for a HasMany operation.
      *
-     * @return array{parentModel: Model, parentResourceClass: class-string<resource>, relatedResourceClass: class-string<resource>, hasManyField: HasMany, relation: EloquentHasMany<Model, Model>}|IlluminateJsonResponse
+     * @return array{parentModel: Model, parentResourceClass: class-string<resource>, relatedResourceClass: class-string<resource>, hasManyField: HasMany, relation: EloquentHasMany<Model, Model>|EloquentHasManyThrough<Model, Model, Model>}|IlluminateJsonResponse
      */
     private function resolveContext(
         Request $request,
@@ -451,6 +457,20 @@ class HasManyController extends MartisController
 
         /** @var class-string<resource> $relatedResourceClass */
         $relatedResourceClass = $this->registry->get($relatedResourceKey);
+
+        // A create through a hasManyThrough writes the parent's key into the
+        // related record's key to the intermediate model, which files the
+        // record under whichever intermediate has that id. Refused, unless a
+        // HasManyThrough field opted in with canCreate(true): the 1.x escape
+        // hatch for an app that sets that key itself (beforeSave(), an
+        // observer).
+        if (
+            $action === 'create'
+            && $relation instanceof EloquentHasManyThrough
+            && ! ($hasManyField instanceof HasManyThroughField && $hasManyField->canCreateRelated())
+        ) {
+            return JsonErrorResponse::forbidden('Records cannot be created through a hasManyThrough relationship.')->toResponse();
+        }
 
         // Check authorization for the action
         if ($action === 'create') {

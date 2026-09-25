@@ -2035,9 +2035,9 @@ HasOneOfMany::make('Latest Invoice', 'latestInvoice', InvoiceResource::class)
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | *All `HasOne` setters* | — | `$this` | Inherited. | — |
-| `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders the underlying relation by the timestamp column descending before picking the first row. | `'created_at'` |
-| `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart of `latestByTimestamp()`. | `'created_at'` |
-| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across the full collection (count/sum/min/max/avg). | disabled |
+| `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders the underlying relation by the timestamp column descending before picking the first row; a tie goes to the highest primary key. The related model's `created_at` / `updated_at` are qualified with its table; another column is used as given, so over a through relation qualify a column both tables have (`'projects.published_at'`). Show, Edit, Delete and the card's writes all target that record. | `'created_at'` |
+| `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart of `latestByTimestamp()`; a tie goes to the lowest primary key. | `'created_at'` |
+| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across this parent's full collection (count/sum/min/max/avg), through the relation's own keys (a through relation included). On an Eloquent one-of-many relation (`latestOfMany()`, `ofMany()`), the tile and the "latest of N" pill cover every related row of the parent: the constraints written into that relation do not apply. | disabled |
 
 *src/Fields/HasOneOfMany.php*
 
@@ -2063,7 +2063,10 @@ full guide.
 
 Shows a single distant record reached through an intermediate model
 (`hasOneThrough`). Read-only by default: `canCreate` / `canUpdate` /
-`canDelete` start as `false`.
+`canDelete` start as `false`. The has-one endpoints refuse any write
+through a `HasOneThrough` field, and a create through a plain `HasOne` /
+`HasOneOfMany` field declared on a `hasOneThrough` relationship (403,
+v1.39.2+): it would file the record under another intermediate.
 
 ```php
 use Martis\Fields\HasOneThrough;
@@ -2162,7 +2165,13 @@ for the shared shell layout.
 
 Inline DataTable of many records reached through an intermediate
 (`hasManyThrough`). Read-only by default: `canCreate` / `canUpdate` /
-`canDelete` start as `false`.
+`canDelete` start as `false`. The has-many endpoint refuses a create
+through a `hasManyThrough` relationship (403, v1.39.2+), since the store
+would write the parent's key into the record's key to the intermediate and
+file it under another one. `canCreate(true)` lifts that refusal for an app
+that sets that key itself, in the related resource's `beforeSave()` or an
+observer. A plain `HasMany` field declared on a `hasManyThrough`
+relationship is always refused, whatever its `canCreate()`.
 
 ```php
 use Martis\Fields\HasManyThrough;
@@ -2254,9 +2263,9 @@ MorphOneOfMany::make('Latest Note', 'latestNote', NoteResource::class)
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | *All `MorphOne` setters* | — | `$this` | Inherited. | — |
-| `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders by the timestamp descending before picking the first row. | `'created_at'` |
-| `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart. | `'created_at'` |
-| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across the full collection. | disabled |
+| `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders by the timestamp descending before picking the first row; a tie goes to the highest primary key. | `'created_at'` |
+| `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart; a tie goes to the lowest primary key. | `'created_at'` |
+| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across this parent's full collection. On an Eloquent one-of-many relation (`latestOfMany()`, `ofMany()`), the tile and the "latest of N" pill cover every related row of the parent: the constraints written into that relation do not apply. | disabled |
 
 *src/Fields/MorphOneOfMany.php*
 

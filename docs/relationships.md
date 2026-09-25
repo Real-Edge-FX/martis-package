@@ -502,6 +502,8 @@ See [fields.md § HasOneOfMany](fields.md#hasoneofmany) for the full API.
 - `latestByTimestamp()` / `oldestByTimestamp()` avoid the verbose `->ofMany('created_at', 'max')` boilerplate.
 - `aggregateVia()` surfaces a metric tile with the full collection aggregate.
 
+On an Eloquent one-of-many relation (`latestOfMany()`, `ofMany()`), the pill and the tile cover every related row of the parent: the constraints written into that relation do not apply to them.
+
 ---
 
 ## HasOneThrough
@@ -586,7 +588,7 @@ Inherits every `MorphOne` method plus the OfMany extras (`latestByTimestamp` / `
 
 ## HasManyThrough
 
-Inline DataTable of many records reached through an intermediate. Read-only (Create/Edit/Delete default to `false`).
+Inline DataTable of many records reached through an intermediate. Read-only (Create/Edit/Delete default to `false`). A create through a `hasManyThrough` relationship answers 403 (v1.39.2+) unless the field calls `canCreate(true)`, which is meant for an app that sets the record's key to the intermediate itself: without that, the record is filed under another intermediate (see [fields.md § HasManyThrough](fields.md#hasmanythrough)).
 
 ```php
 use Martis\Fields\HasManyThrough;
