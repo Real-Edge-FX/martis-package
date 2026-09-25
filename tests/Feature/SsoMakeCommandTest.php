@@ -6,38 +6,46 @@ use Illuminate\Filesystem\Filesystem;
 
 beforeEach(function () {
     $this->filesystem = new Filesystem;
-});
 
-afterEach(function () {
-    // Clean up anything the command may have published.
-    $generated = [
+    // `martis:sso` edits these testbench skeleton files, and publishes
+    // Spatie's config when it is missing. Each test puts them back exactly
+    // as it found them: stripping only the lines the command added left the
+    // newline in front of each one, so the skeleton's `.env.example` grew
+    // with every run.
+    $this->skeletonFiles = [];
+
+    foreach ([
         config_path('martis.php'),
+        config_path('permission.php'),
         base_path('.env'),
         base_path('.env.example'),
         app_path('Providers/AppServiceProvider.php'),
-    ];
+    ] as $path) {
+        $this->skeletonFiles[$path] = is_file($path) ? file_get_contents($path) : null;
+    }
 
-    foreach ($generated as $path) {
-        if ($this->filesystem->exists($path)) {
-            // Strip out any SSO-related lines we might have inserted.
-            $contents = (string) $this->filesystem->get($path);
-            $stripped = preg_replace([
-                '/MARTIS_SSO_[A-Z_]+=.*\n?/',
-                '/AZURE_[A-Z_]+=.*\n?/',
-            ], '', $contents) ?? $contents;
+    $this->skeletonMigrations = glob(database_path('migrations/*.php')) ?: [];
+});
 
-            if ($stripped !== $contents) {
-                $this->filesystem->put($path, $stripped);
+afterEach(function () {
+    // Nothing to put back when setUp failed before beforeEach ran.
+    if (! isset($this->skeletonFiles, $this->skeletonMigrations)) {
+        return;
+    }
+
+    foreach ($this->skeletonFiles as $path => $contents) {
+        if ($contents === null) {
+            if (is_file($path)) {
+                unlink($path);
             }
+        } elseif (! is_file($path) || file_get_contents($path) !== $contents) {
+            file_put_contents($path, $contents);
         }
     }
 
-    foreach (glob(database_path('migrations/*_add_*_group_name_to_roles_table.php')) ?: [] as $migration) {
-        try {
-            $this->filesystem->delete($migration);
-        } catch (Throwable) {
-            // ignore parallel-worker race
-        }
+    // The migrations the command published.
+    foreach (array_diff(glob(database_path('migrations/*.php')) ?: [], $this->skeletonMigrations) as $migration) {
+        unlink($migration);
     }
 });
 
@@ -153,14 +161,34 @@ it('martis:sso registers the SocialiteProviders listener idempotently', function
         $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
     }
 
+    // The testbench skeleton ships no AppServiceProvider, and without one
+    // the command only prints the listener to paste: give it the one a
+    // fresh Laravel app has. afterEach removes it again.
     $providerPath = app_path('Providers/AppServiceProvider.php');
-    $appServiceProvider = (new Filesystem)->exists($providerPath);
 
-    if (! $appServiceProvider) {
-        // Test environment may not have AppServiceProvider — skip.
-        $this->markTestSkipped('AppServiceProvider not available in this test environment.');
+    if (! (new Filesystem)->exists($providerPath)) {
+        (new Filesystem)->ensureDirectoryExists(dirname($providerPath));
+        (new Filesystem)->put($providerPath, <<<'PHP'
+            <?php
 
-        return;
+            namespace App\Providers;
+
+            use Illuminate\Support\ServiceProvider;
+
+            class AppServiceProvider extends ServiceProvider
+            {
+                public function register(): void
+                {
+                    //
+                }
+
+                public function boot(): void
+                {
+                    //
+                }
+            }
+
+            PHP);
     }
 
     $this->artisan('martis:sso', [

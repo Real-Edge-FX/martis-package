@@ -59,12 +59,8 @@ function cleanupMartisInstallArtifacts(): void
         });
     }
 
-    $envPath = app()->environmentFilePath();
-    if ($filesystem->exists($envPath)) {
-        $contents = (string) $filesystem->get($envPath);
-        $stripped = preg_replace('/^MARTIS_[A-Z0-9_]+=.*$\n?/m', '', $contents) ?? '';
-        $filesystem->put($envPath, $stripped);
-    }
+    // No `.env` step: martis:install writes no environment file while unit
+    // tests run (see the test that leaves the skeleton's `.env` untouched).
 
     // Published frontend assets (martis:install) and generated class files
     // (martis:resource / :metric / :dashboard / :tool …). Remove them so no
@@ -94,6 +90,19 @@ afterEach(function () {
 
 it('martis:install is registered and runs successfully', function () {
     $this->artisan('martis:install')->assertSuccessful();
+});
+
+it('martis:install leaves the skeleton .env and .env.example as it found them', function () {
+    // The testbench skeleton under vendor/ keeps what every run leaves in it;
+    // an install that wrote MARTIS_* keys there, or created the `.env`,
+    // would change the environment of later runs.
+    $files = [app()->environmentFilePath(), base_path('.env.example')];
+    $read = fn (): array => array_map(fn (string $path): ?string => is_file($path) ? (string) file_get_contents($path) : null, $files);
+    $before = $read();
+
+    $this->artisan('martis:install')->assertSuccessful();
+
+    expect($read())->toBe($before);
 });
 
 it('martis:install publishes the frontend manifest', function () {

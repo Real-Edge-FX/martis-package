@@ -315,19 +315,21 @@ it('Tool::loadRoutes() registers a routes file under the standard prefix and mid
         "<?php\n\nuse Illuminate\\Support\\Facades\\Route;\n\nRoute::get('/ping', fn () => 'pong')->name('martis.tool.routes-tool.ping');\n",
     );
 
-    Martis::tools([new RoutesTool($tmp)]);
-    Martis::getFacadeRoot()?->bootTools();
+    try {
+        Martis::tools([new RoutesTool($tmp)]);
+        Martis::getFacadeRoot()?->bootTools();
 
-    // Locate by URI — the named lookup table is sometimes lazy in test
-    // bootstraps; iterating the registered routes is unambiguous.
-    $route = collect(app('router')->getRoutes()->getRoutes())
-        ->first(fn ($r) => $r->uri() === 'martis/api/tools/routes-tool/ping');
+        // Locate by URI — the named lookup table is sometimes lazy in test
+        // bootstraps; iterating the registered routes is unambiguous.
+        $route = collect(app('router')->getRoutes()->getRoutes())
+            ->first(fn ($r) => $r->uri() === 'martis/api/tools/routes-tool/ping');
 
-    expect($route)->not->toBeNull()
-        ->and($route->getName())->toBe('martis.tool.routes-tool.ping')
-        ->and($route->gatherMiddleware())->toContain('web');
-
-    @unlink($tmp);
+        expect($route)->not->toBeNull()
+            ->and($route->getName())->toBe('martis.tool.routes-tool.ping')
+            ->and($route->gatherMiddleware())->toContain('web');
+    } finally {
+        @unlink($tmp);
+    }
 });
 
 it('Tool::loadRoutes() silently skips missing files', function () {
