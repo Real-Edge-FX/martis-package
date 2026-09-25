@@ -157,7 +157,7 @@ Each row carries:
 - `model_id` / `target_id`: the target user.
 - `fields.target_label`: the target's `name`, falling back to `email` (mirrors the snapshot label).
 
-Browse them under `/martis/system/action-events` (or whatever URL the bundled `ActionEventResource` lives at). Toggle the audit-row write per-environment via `MARTIS_AUDIT_IMPERSONATION=false` — the events still fire so any custom listeners you attach keep firing; only the Martis row is suppressed.
+Browse them under `/martis/system/action-events` (or whatever URL the bundled `ActionEventResource` lives at), once the `view-martis-action-events` gate lets you (see [Actions → Who can read the audit log](actions.md#who-can-read-the-audit-log-v201)). Toggle the audit-row write per-environment via `MARTIS_AUDIT_IMPERSONATION=false`: the events still fire so any custom listeners you attach keep firing; only the Martis row is suppressed.
 
 ### Custom listeners
 

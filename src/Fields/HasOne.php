@@ -5,6 +5,7 @@ namespace Martis\Fields;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne as EloquentHasOne;
 use Illuminate\Support\Str;
+use Martis\Fields\Concerns\AuthorizesRelatedResource;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Fields\Concerns\ResolvesRelatableOptions;
 
@@ -28,6 +29,7 @@ use Martis\Fields\Concerns\ResolvesRelatableOptions;
  */
 class HasOne extends Field
 {
+    use AuthorizesRelatedResource;
     use ControlsRelationshipToolbar;
     use ResolvesRelatableOptions;
 

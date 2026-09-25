@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlassIcon, XIcon, PulseIcon } from '@phosphor-icons/react'
@@ -522,7 +522,7 @@ function LensPage() {
       {/* Summary row — Martis D1 */}
       {summary && Object.keys(summary).length > 0 && (
         <div
-          className="flex flex-wrap gap-6 border-t px-4 py-3 text-sm"
+          className="flex flex-wrap gap-6 border-0 border-t border-solid px-4 py-3 text-sm"
           style={{
             borderColor: 'var(--martis-border)',
             backgroundColor: 'var(--martis-surface-alt)',
@@ -571,6 +571,7 @@ function LensPage() {
       <ActionModal
         action={activeAction}
         resource={resource}
+        lens={lensKey}
         selectedIds={actionTargetIds}
         visible={!!activeAction}
         onHide={() => {

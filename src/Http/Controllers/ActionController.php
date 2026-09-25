@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Martis\Actions\Action;
+use Martis\Actions\ActionEventRedactor;
 use Martis\Actions\ActionFields;
 use Martis\Actions\ActionResponse;
 use Martis\Actions\Jobs\ExecuteAction;
@@ -36,11 +37,14 @@ use Martis\Fields\MorphToMany as MorphToManyField;
 use Martis\Fields\Repeater;
 use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\ResolvesPivotActions;
+use Martis\Http\Requests\LensRequest;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
+use Martis\Lenses\Lens;
 use Martis\Models\ActionEvent;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Rules\RelatableWrite;
 use Martis\Support\IndexScope;
 use Martis\Support\RelationScope;
 
@@ -87,6 +91,22 @@ class ActionController extends MartisController
      */
     public function index(Request $request, string $resource): IlluminateJsonResponse
     {
+        return $this->listActions($request, $resource, null);
+    }
+
+    /**
+     * List the actions a lens runs: its own `actions()`, or the resource's
+     * when it declares none.
+     *
+     * GET /api/resources/{resource}/lenses/{lens}/actions
+     */
+    public function lensIndex(Request $request, string $resource, string $lens): IlluminateJsonResponse
+    {
+        return $this->listActions($request, $resource, $lens);
+    }
+
+    private function listActions(Request $request, string $resource, ?string $lensKey): IlluminateJsonResponse
+    {
         $resourceClass = $this->resolveResource($resource);
 
         if ($resourceClass === null) {
@@ -94,7 +114,13 @@ class ActionController extends MartisController
         }
 
         $instance = new $resourceClass;
-        $actions = $this->resolveActions($instance, $request);
+        $lens = $this->lensOf($instance, $lensKey, $request);
+
+        if ($lens instanceof IlluminateJsonResponse) {
+            return $lens;
+        }
+
+        $actions = $this->resolveActions($instance, $request, $lens);
 
         $rawContext = $request->query('context', 'index');
         $context = ActionVisibility::tryFrom(is_string($rawContext) ? $rawContext : 'index');
@@ -120,6 +146,21 @@ class ActionController extends MartisController
      */
     public function fields(Request $request, string $resource, string $action): IlluminateJsonResponse
     {
+        return $this->actionFields($request, $resource, $action, null);
+    }
+
+    /**
+     * Get the fields of an action a lens runs.
+     *
+     * GET /api/resources/{resource}/lenses/{lens}/actions/{action}/fields
+     */
+    public function lensFields(Request $request, string $resource, string $lens, string $action): IlluminateJsonResponse
+    {
+        return $this->actionFields($request, $resource, $action, $lens);
+    }
+
+    private function actionFields(Request $request, string $resource, string $action, ?string $lensKey): IlluminateJsonResponse
+    {
         $resourceClass = $this->resolveResource($resource);
 
         if ($resourceClass === null) {
@@ -127,7 +168,13 @@ class ActionController extends MartisController
         }
 
         $instance = new $resourceClass;
-        $actionInstance = $this->findAction($instance, $action, $request);
+        $lens = $this->lensOf($instance, $lensKey, $request);
+
+        if ($lens instanceof IlluminateJsonResponse) {
+            return $lens;
+        }
+
+        $actionInstance = $this->findAction($instance, $action, $request, $lens);
 
         if ($actionInstance === null) {
             return JsonErrorResponse::notFound("Action [{$action}] not found.")->toResponse();
@@ -156,6 +203,25 @@ class ActionController extends MartisController
      */
     public function execute(Request $request, string $resource, string $action): IlluminateJsonResponse
     {
+        return $this->run($request, $resource, $action, null);
+    }
+
+    /**
+     * Execute an action a lens runs (its own `actions()`, or the resource's
+     * when it declares none), as Nova's `LensActionController` does. The
+     * records are resolved as on the resource's run: the resource's index
+     * scopes bound them.
+     *
+     * POST /api/resources/{resource}/lenses/{lens}/actions/{action}
+     * Body: { "resources": [1, 2, 3], "fields": { ... }, "dryRun": false }
+     */
+    public function lensExecute(Request $request, string $resource, string $lens, string $action): IlluminateJsonResponse
+    {
+        return $this->run($request, $resource, $action, $lens);
+    }
+
+    private function run(Request $request, string $resource, string $action, ?string $lensKey): IlluminateJsonResponse
+    {
         $resourceClass = $this->resolveResource($resource);
 
         if ($resourceClass === null) {
@@ -167,7 +233,13 @@ class ActionController extends MartisController
         }
 
         $instance = new $resourceClass;
-        $actionInstance = $this->findAction($instance, $action, $request);
+        $lens = $this->lensOf($instance, $lensKey, $request);
+
+        if ($lens instanceof IlluminateJsonResponse) {
+            return $lens;
+        }
+
+        $actionInstance = $this->findAction($instance, $action, $request, $lens);
 
         if ($actionInstance === null) {
             return JsonErrorResponse::notFound("Action [{$action}] not found.")->toResponse();
@@ -177,7 +249,7 @@ class ActionController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $models = $this->resolveModels($instance, $actionInstance, $request);
+        $models = $this->resolveModels($instance, $actionInstance, $request, $lens);
 
         if ($models instanceof IlluminateJsonResponse) {
             return $models;
@@ -197,7 +269,7 @@ class ActionController extends MartisController
             }
         }
 
-        $fields = $this->resolveActionFields($actionInstance->fields($request), $request);
+        $fields = $this->resolveActionFields($actionInstance->fields($request), $request, $resourceClass);
 
         if ($fields instanceof IlluminateJsonResponse) {
             return $fields;
@@ -287,14 +359,24 @@ class ActionController extends MartisController
      *
      * @return list<ActionContract>
      */
-    private function resolveActions(Resource $resource, Request $request): array
+    private function resolveActions(Resource $resource, Request $request, ?Lens $lens = null): array
     {
-        $actions = $resource->actions($request);
+        $actions = $this->availableActions($resource, $request, $lens);
 
         return array_values(array_filter(
             $actions,
             fn (ActionContract $action) => $action->authorizedToSee($request),
         ));
+    }
+
+    /**
+     * The lens a lens route names, or `null` on a resource route; a 404 or
+     * 403 response when the resource has no such lens or the user may not
+     * see it.
+     */
+    private function lensOf(Resource $resource, ?string $lensKey, Request $request): Lens|IlluminateJsonResponse|null
+    {
+        return $lensKey === null ? null : $this->resolveLens($resource, $lensKey, $request);
     }
 
     /**
@@ -305,7 +387,8 @@ class ActionController extends MartisController
      * An action that is not standalone and names no record is a 422.
      *
      * A standalone action runs on no record, whatever the request names. The
-     * records are looked up as the index lists them (see `indexRecords()`)
+     * records are looked up as the index lists them (see `indexRecords()`),
+     * on a lens route as the lens lists them (see `lensRecords()`),
      * or, with `viaResource`, `viaResourceId` and `viaRelationship`, as the
      * relationship panel that sends them lists them (see `panelRecords()`,
      * as Nova runs a panel's action through its relationship): an id the
@@ -313,7 +396,7 @@ class ActionController extends MartisController
      *
      * @return Collection<int, Model>|IlluminateJsonResponse
      */
-    private function resolveModels(Resource $resource, ActionContract $action, Request $request): Collection|IlluminateJsonResponse
+    private function resolveModels(Resource $resource, ActionContract $action, Request $request, ?Lens $lens = null): Collection|IlluminateJsonResponse
     {
         /** @var Collection<int, Model> $empty */
         $empty = new Collection;
@@ -321,7 +404,7 @@ class ActionController extends MartisController
         // The relationship a panel's run names is checked first, a
         // standalone action's too: it runs on no record, but may read the
         // parent the request names.
-        $via = $this->viaRelation($request, $resource);
+        $via = $lens === null ? $this->viaRelation($request, $resource) : null;
 
         if ($via instanceof IlluminateJsonResponse) {
             return $via;
@@ -349,7 +432,11 @@ class ActionController extends MartisController
         // Scoped before selecting by id: without it an action could resolve
         // and act on records outside the user's visible scope just by
         // passing their ids (IDOR).
-        $query = $via === null ? $this->indexRecords($request, $resource) : $this->panelRecords($request, $resource, $via);
+        $query = match (true) {
+            $lens !== null => $this->lensRecords($request, $resource, $lens),
+            $via === null => $this->indexRecords($request, $resource),
+            default => $this->panelRecords($request, $resource, $via),
+        };
 
         /** @var Collection<int, Model> $result */
         $result = $query->whereIn($query->getModel()->getQualifiedKeyName(), $ids)->get();
@@ -382,6 +469,48 @@ class ActionController extends MartisController
         if ($resource::softDeletes()) {
             $query->withoutGlobalScope(SoftDeletingScope::class);
         }
+
+        return $query;
+    }
+
+    /**
+     * The records a lens lists, as Nova's `LensActionRequest` reads them:
+     * the lens's `query()` run on a query of the resource's model, with the
+     * lens's filters (the ones the user may see, from the request's
+     * `?filters=`) and search. The resource's `scopes()` and `indexQuery()`
+     * do not apply, as they do not on the lens's page: the lens owns its
+     * query. The trashed records the lens lists are included, as on the
+     * index. The rows are read by key from the model's own table, so an
+     * action receives whole records even from a lens that selects
+     * aggregates or joins another table.
+     *
+     * @return Builder<Model>
+     */
+    private function lensRecords(Request $request, Resource $resource, Lens $lens): Builder
+    {
+        $modelClass = $resource::model();
+        /** @var Model $modelInstance */
+        $modelInstance = new $modelClass;
+
+        $base = $modelInstance->newQuery();
+        $query = $modelInstance->newQuery();
+
+        if ($resource::softDeletes()) {
+            $base->withoutGlobalScope(SoftDeletingScope::class);
+            $query->withoutGlobalScope(SoftDeletingScope::class);
+        }
+
+        $lensRequest = LensRequest::fromRequest($request, $this->collectAuthorizedFilters($lens, $resource, $request));
+        $listed = $lens->query($lensRequest, $base);
+
+        if (! $listed instanceof Builder) {
+            throw new \LogicException(sprintf(
+                '%s::query() must return an Eloquent query, not a paginator, for its actions to run: the records an action runs on are the ones the query lists.',
+                $lens::class,
+            ));
+        }
+
+        $query->whereIn($modelInstance->getQualifiedKeyName(), RelationScope::keys($listed));
 
         return $query;
     }
@@ -479,7 +608,7 @@ class ActionController extends MartisController
         }
 
         $fields = MartisField::filterForModel(
-            MartisField::filterForContext($parent->fieldsForDetail($request), FieldContext::DETAIL),
+            MartisField::filterForContext($parent->resolveDetailFields($request), FieldContext::DETAIL),
             $request,
             $parentModel,
         );
@@ -517,8 +646,9 @@ class ActionController extends MartisController
      * `actionFieldValues()` for the others.
      *
      * @param  list<FieldContract>  $fields  The Action's fields.
+     * @param  class-string<\Martis\Resource>  $sourceResourceClass  The resource the Action runs on (the parent resource for a pivot action), the source of the relatable hooks of its pickers
      */
-    private function resolveActionFields(array $fields, Request $request): ActionFields|IlluminateJsonResponse
+    private function resolveActionFields(array $fields, Request $request, string $sourceResourceClass): ActionFields|IlluminateJsonResponse
     {
         $raw = $request->input('fields', []);
         /** @var array<string, mixed> $values */
@@ -530,7 +660,7 @@ class ActionController extends MartisController
                 fn (FieldContract $field): bool => $this->takesValueFromRequest($field, $request),
             ));
 
-            $validator = $this->actionFieldsValidator($writable, $values);
+            $validator = $this->actionFieldsValidator($writable, $values, new RelatableWrite($request, $sourceResourceClass));
 
             if ($validator->fails()) {
                 return JsonErrorResponse::validation($validator->errors()->toArray())->toResponse();
@@ -611,18 +741,21 @@ class ActionController extends MartisController
      * The validator of an Action's fields: each field's rules under its
      * attribute, named by its label, and the fields inside every row a
      * Repeater among them receives (see
-     * `BuildsFieldRules::buildNestedFieldValidation()`).
+     * `BuildsFieldRules::buildNestedFieldValidation()`). A `BelongsTo`,
+     * `MorphTo` or `Tag` also checks the record it names against the query
+     * its picker lists (see `Martis\Rules\Relatable`), as Nova validates an
+     * Action's fields with the fields' own rules.
      *
      * @param  list<FieldContract>  $fields
      * @param  array<string, mixed>  $fieldData
      */
-    private function actionFieldsValidator(array $fields, array $fieldData): ValidatorContract
+    private function actionFieldsValidator(array $fields, array $fieldData, RelatableWrite $relatable): ValidatorContract
     {
-        $nested = $this->buildNestedFieldValidation($fields, $fieldData, null);
+        $nested = $this->buildNestedFieldValidation($fields, $fieldData, null, relatable: $relatable);
 
         return Validator::make(
             $fieldData,
-            $this->buildFieldValidationRules($fields) + $nested['rules'],
+            $this->buildFieldValidationRules($fields, $relatable) + $nested['rules'],
             $nested['messages'],
             $this->buildFieldAttributeMap($fields) + $nested['attributes'],
         );
@@ -634,12 +767,16 @@ class ActionController extends MartisController
      * @param  list<FieldContract>  $fields
      * @return array<string, mixed>
      */
-    private function buildFieldValidationRules(array $fields): array
+    private function buildFieldValidationRules(array $fields, RelatableWrite $relatable): array
     {
         $rules = [];
 
         foreach ($fields as $field) {
             $fieldRules = $field->buildRules();
+            $relatableRule = $relatable->ruleFor($field);
+            if ($relatableRule !== null) {
+                $fieldRules[] = $relatableRule;
+            }
             if (! empty($fieldRules)) {
                 $rules[$field->attribute()] = $fieldRules;
             }
@@ -700,11 +837,15 @@ class ActionController extends MartisController
             $job->onQueue($action->queue);
         }
 
-        dispatch($job);
-
+        // The `queued` events are written before the job is dispatched, as
+        // a pivot action's are: the job settles them when it runs, and a job
+        // that runs at once (the `sync` connection, a fast worker) would
+        // otherwise find none, leaving the log at `queued` with no diff.
         if ($action->shouldLogEvents() && config('martis.action_events.enabled', true)) {
             $this->logActionEvent($action, $models, $request, 'queued', null, $snapshots);
         }
+
+        dispatch($job);
 
         return JsonResponse::make([
             'type' => 'message',
@@ -765,6 +906,11 @@ class ActionController extends MartisController
                         $changesDiff[$attr] = $value;
                     }
                 }
+
+                // The model's $hidden attributes are stored masked, as Nova
+                // stores them (see ActionEventRedactor::maskHiddenAttributes()).
+                $originalDiff = ActionEventRedactor::maskHiddenAttributes($originalDiff, $model);
+                $changesDiff = ActionEventRedactor::maskHiddenAttributes($changesDiff, $model);
 
                 ActionEvent::create([
                     'batch_id' => $batchId,
@@ -1058,7 +1204,7 @@ class ActionController extends MartisController
             }
         }
 
-        $fields = $this->resolveActionFields($actionInstance->fields($request), $request);
+        $fields = $this->resolveActionFields($actionInstance->fields($request), $request, $resourceClass);
 
         if ($fields instanceof IlluminateJsonResponse) {
             return $fields;

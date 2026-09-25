@@ -42,13 +42,11 @@ record carries those answers under `_authorization`, and a record without them
 keeps the action, as on the resource index. The id column links to the record
 only when its `authorizedToView` allows it (v2.0).
 
-When the related resource denies `viewAny`, a `HasMany` / `HasOne` /
-`MorphMany` / `MorphOne` panel still lists its records but offers no Create,
-Edit, Delete, Restore or Force delete (v2.0): every one of those writes needs
-the related `viewAny` (see
+When the related resource denies `viewAny`, the panel is not on the detail
+page at all (v2.0.1+, see below), so it offers no Create, Edit, Delete,
+Restore or Force delete either: every one of those writes needs the related
+`viewAny` (see
 [Authorization → `viewAny` is the entry gate](authorization.md#viewany-is-the-entry-gate)).
-Nova 1 to 3 hid such a panel; Nova 4/5 does not document it, so Martis keeps
-the 1.x listing and only drops the actions that would answer 403.
 
 On `BelongsToMany` / `MorphToMany` the row's own View / Edit / Delete are
 replaced by Detach and the pivot edit (which `hideDeleteAction()` /
@@ -73,6 +71,28 @@ HasMany::make('Comments', 'comments')
     ->hideSoftDeleteToggle()       // never show trashed filter
     ->hideForceDeleteAction()      // permanent deletion is never exposed
 ```
+
+### Panels follow the related resource's `viewAny` (v2.0.1+)
+
+A `HasMany`, `HasOne`, `MorphMany`, `MorphOne`, `BelongsToMany` or
+`MorphToMany` field (and `HasManyThrough`, `HasOneThrough`, `HasOneOfMany`,
+`MorphOneOfMany`, built on them) is seen only by a user whom the related
+resource lets `viewAny`, as in Nova, whose relationship fields authorize with
+`$resourceClass::authorizedToViewAny($request) && parent::authorize($request)`:
+
+- the detail page (and the schema, the drawer, a one-of-many card) leaves the
+  field out, wherever it is declared (a `Panel`, a tab);
+- its routes (the list or card, the attachable list, attach, detach, pivot
+  update, the pivot actions and their pickers, and the writes) answer `403`,
+  as Nova's relationship index (the related resource's index) does. A field
+  its own `canSee()` / `canSeeForModel()` hides keeps answering `404`;
+- the field's `canSee()` still applies on top: both must allow it.
+
+The automatic Action Events panel of an `Actionable` model follows the same
+rule (see [Actions → The Action Events panel](actions.md#the-action-events-panel-v201)).
+Before v2.0.1 the panel stayed on the page and listed the related records to
+any user who could view the parent. To show a panel to a user, grant `viewAny`
+on its related resource and confine the rows with `indexQuery()`.
 
 ---
 
@@ -175,6 +195,13 @@ it: the list, the pivot actions, the attach picker, Create / Edit links
 On `team-members/2`, a `HasOneThrough` card showing project 3 renders the
 project's `HasMany` tasks from `/api/resources/projects/3/has-many/tasks`, and
 its Create button opens `/resources/tasks/create?viaResource=projects&viaResourceId=3&…`.
+The query string also carries `from`, the page the button was clicked on, and
+Save and Cancel return there. Since v2.0.1 only a same-origin path is followed
+(`/…`): a `from` that starts with `//` or holds a backslash or a control
+character points at another origin once the browser parses it, so the form
+ignores it and returns to its default destination. A link crafted with
+`from=//attacker.example` can no longer send the user off the panel after a
+save (React Router 6 does not filter these values, GHSA-wrjc-x8rr-h8h6).
 That form posts to the relationship's endpoint, as multipart when it carries a
 file (v1.38.0+; before, it always posted JSON and a picked file was lost).
 Since **v1.38.0**: before it, only the `HasOne` / `MorphOne` cards honoured the
@@ -992,16 +1019,50 @@ The [Slug](fields.md#slug) collision check reads the forms in the same order (th
 
 ### Relatable scoping precedence
 
-When a picker list is computed, scopes apply in this order, on **every** picker that targets the resource: the BelongsTo dropdown (`/relatable/{field}`), the Action modal pickers (`/actions/{action}/relatable/{field}`, with the resource the Action runs on as the source, and `.../{relationship}/actions/{action}/relatable/{field}` for a pivot action, with the parent resource), the pivot field pickers (`.../{relationship}/pivot-fields/relatable/{field}` and `.../pivot-fields/{relatedId}/relatable/{field}`, with the parent resource), the pickers of a Repeater row (any of these with `?repeater=&repeatable=`), the context-free relatable form (`/_/_/relatable/{field}?related_resource=`), and the BelongsToMany / MorphToMany attach picker (`.../attachable`). The layers:
+When a picker list is computed, and when a write is checked against it (see [Writes follow the pickers](#writes-follow-the-pickers)), scopes apply in this order, on **every** picker that targets the resource: the BelongsTo dropdown (`/relatable/{field}`), the Action modal pickers (`/actions/{action}/relatable/{field}`, with the resource the Action runs on as the source, and `.../{relationship}/actions/{action}/relatable/{field}` for a pivot action, with the parent resource), the pivot field pickers (`.../{relationship}/pivot-fields/relatable/{field}` and `.../pivot-fields/{relatedId}/relatable/{field}`, with the parent resource), the pickers of a Repeater row (any of these with `?repeater=&repeatable=`), the context-free relatable form (`/_/_/relatable/{field}?related_resource=`), and the BelongsToMany / MorphToMany attach picker (`.../attachable`). The layers:
 
 1. **`relatableQuery` on the target resource** — the generic fence the target declares for itself. It always runs.
 2. **`relatable{PluralModelName}` on the source resource** (specific override, gets passed the field) — narrows the already-fenced query for that source's relationships.
 3. **Field-level `relatableQueryUsing(fn ($request, $query) => ...)`** (BelongsTo / BelongsToMany / MorphToMany).
 4. **Field-level `withoutTrashed()`** (BelongsTo / BelongsToMany when the model uses `SoftDeletes`).
 
-Each layer is composable — declaring a scope at one layer does not disable the others, and a lower layer can only ever narrow the result of the layers above it. In particular a source-side `relatable{PluralModelName}()` never replaces the target's `relatableQuery()`: a resource that fences itself (a tenant or ownership predicate on a model that cannot carry a global scope, such as the `User` model tenancy is resolved *from*) stays fenced no matter which resource offers the picker or which override that resource declares. This is a deliberate divergence from Nova, where the source override is an either/or replacement.
+Each layer is composable — declaring a scope at one layer does not disable the others, and a lower layer can only ever narrow the result of the layers above it. Layers 1 to 3 run as Eloquent runs a local scope (v2.0.1): what each adds is one group, so an `orWhere()` in a source hook or a field closure (`where('active', true)->orWhere('vip', true)`) cannot OR the target's fence away, and one in `relatableQuery()` cannot keep the picker's search term from narrowing it. Before v2.0.1 they were appended ungrouped, and such an `orWhere()` listed another tenant's records in the picker. In particular a source-side `relatable{PluralModelName}()` never replaces the target's `relatableQuery()`: a resource that fences itself (a tenant or ownership predicate on a model that cannot carry a global scope, such as the `User` model tenancy is resolved *from*) stays fenced no matter which resource offers the picker or which override that resource declares. This is a deliberate divergence from Nova, where the source override is an either/or replacement.
 
 > Before v1.34.0 the attach picker never called `relatableQuery()` (only the field closure) and `relatable{PluralModelName}()` replaced `relatableQuery()`. A consumer that only needs the index fence on its pickers declares it once in `relatableQuery()`; it no longer has to repeat it on every `BelongsToMany` / `MorphToMany` field targeting the resource.
+
+### Writes follow the pickers
+
+A relationship write must name a record its picker would list, as Nova's `Relatable` and `RelatableAttachment` rules require: an id outside the relatable query answers **422** with an error on the field (`martis::validation.relatable`, "This :attribute may not be associated with this resource."; `relatable_attachment` for an attach, in `en`, `pt_PT` and `pt_BR`), and nothing is written. The check runs the query the picker runs, with the layers above (the target's `relatableQuery()`, the source's `relatable{PluralModelName}()`, the field's `relatableQueryUsing()` and `withoutTrashed()`), on every write:
+
+| Write | Field | Source resource |
+|---|---|---|
+| Create, update, inline create (`POST /api/resources/{resource}`, `PUT .../{id}`, `POST .../inline-create`) | `BelongsTo`, `MorphTo`, `Tag` | The resource |
+| Inline create and update of a `HasMany`, `HasOne`, `MorphMany`, `MorphOne` panel | `BelongsTo`, `MorphTo`, `Tag` of the related resource | The related resource |
+| Attach (one record or a batch) and pivot update of a `BelongsToMany` / `MorphToMany` panel | The attached record (`related_id`, `related_ids`, the `{relatedId}` of the pivot update) and the pivot fields' `BelongsTo`, `MorphTo`, `Tag` | The parent resource |
+| An Action or pivot action run | The Action's `BelongsTo`, `MorphTo`, `Tag` | The resource the Action runs on (the parent resource for a pivot action) |
+| Any of these with a `Repeater` | The `BelongsTo`, `MorphTo`, `Tag` of its rows (errors under `{repeater}.{index}.fields.{attribute}`) | The resource of the write |
+
+As Nova's rule, the check runs on the value the request sends, an update that sends the stored value back included: a record whose target has left the query since answers 422 until the target changes (or the hook is widened).
+
+On top of the query:
+
+- the user must be allowed to list the related resource (`viewAny`), as the picker requires;
+- a `BelongsTo` / `MorphTo` needs the `add{SourceModel}` ability of the related record's policy (Nova's `authorizedToAdd()`; allowed when the policy does not define it): a task's owner is refused when `UserPolicy::addTask($user, $owner)` returns `false`, the ability the `HasMany` panel on the user's page checks before adding a task;
+- a `BelongsTo` / `MorphTo` fails when the picked record's inverse `HasOne` / `MorphOne` already holds another record (Nova's `relationshipIsFull()`): a profile cannot take a user whose `HasOne` profile is filled. The inverse is the related resource's `HasOne` / `MorphOne` field that points back at the resource of the write (not a one-of-many or Through field), or the one [`inverse()`](fields.md#belongsto) names. As in Nova, an update passes when the record keeps its target, and when it has no target yet (Nova's rule skips the check then). Only the record of the write is checked, not a pivot row, a Repeater row or an Action;
+- a `Tag` needs the source resource's `attachAny{Model}` and `attach{Model}` abilities for every record it adds, and `detach{Model}` for every record it removes (a `null` value removes them all), as the attach and detach endpoints; a removal the policy refuses answers 422 with `martis::validation.detachable`. Nova's `Tag` field checks none of them.
+
+What passes without a check:
+
+- an empty value (the field's own `required()` / `nullable()` decide), a readonly field, and a `MorphTo` value that names no type of `types()` (it writes nothing);
+- the parent of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne` inline create: the store writes the parent whatever the form sends for the inverse field, so that field is not checked against its picker.
+
+**Soft-deleted records.** A soft-deleted related record fails, as the picker never lists it, unless the request opts in: it sends `{attribute}_trashed=true` next to the value (Nova's opt-in, for example `owner_id_trashed=true`), or a `BelongsTo` / `MorphTo` value map with `trashed: true`. The record's value carries `trashed: true` when its target is soft-deleted, so an edit form that sends it back keeps the target, as Nova's form turns on "With Trashed" for a trashed target. Either way the related resource must let the user see trashed records (`canViewTrashed()`) and the field must not be `withoutTrashed()`. An attach never takes a trashed record.
+
+**The attach and the form draft.** A `relatableQueryUsing()` closure with a third argument receives the parent form draft the request sends in `?form[attribute]=value`. The attach modal of a `BelongsToMany` or `MorphToMany` panel sends the draft its picker used (the values of the fields its `dependsOn([...])` names); an attach or a pivot update that sends none gives the closure an empty array, as the picker does.
+
+**A batch attach** checks every record first: one record outside the picker fails the whole batch (422 on `related_ids`) before anything is attached. Records that do not exist, that `attach{Model}` refuses, or that are already attached keep their v2.0 handling (listed in `meta.errors`, skipped).
+
+A value the write cannot validate this way is still written as before when the field has no related resource (`relatedResource()` unset, or a resource that is not registered). In a `Repeater` row the value is stored in the row, not as a relationship of the record: the query, `viewAny` and `add{Model}` apply, the full inverse and the `Tag` attach / detach abilities do not.
 
 ### Polymorphic cross-type isolation
 
@@ -1023,7 +1084,7 @@ For every morph relation (`MorphMany`, `MorphOne`, `MorphToMany`), the controlle
 | `200` / `201` / `204` | Success. |
 | `403` | Policy / `authorizedToCreate` / `authorizedToView` denial. |
 | `404` | Unknown source resource, unknown parent record, unknown relationship name, OR a related id that exists in the DB but does not belong to this morph parent. |
-| `422` | Validation failure (missing required field, missing `related_id`, invalid pivot data). |
+| `422` | Validation failure (missing required field, missing `related_id`, invalid pivot data), or a related id the field's picker does not list ([Writes follow the pickers](#writes-follow-the-pickers)). |
 | `500` | Bug — please file an issue. |
 
 ### Test coverage
@@ -1053,6 +1114,7 @@ Per-type feature tests:
 - `tests/Feature/ModelVisibilityReadTest.php` (15): the same fields left out of each panel's records and inline update response, of the lens rows and of the peek card, and 404 on every endpoint of a relationship field hidden for the parent record.
 - `tests/Feature/PivotFieldModelVisibilityTest.php` (14): `canSeeForModel()` on pivot fields, decided on the pivot row (a new row on attach and in the attachable list's `hiddenPivotFields`, the attached row on pivot update, in `_pivot` and in the pivot edit modal's pickers), and on a `BelongsToMany` / `MorphToMany` field hidden for the parent record.
 - `tests/Feature/HiddenFieldEndpointsTest.php` (14): the pickers of a form, an Action, a pivot action and the pivot fields, the remote `Select` search of a resource and a Tool, the Slug check and the `dependsOn` sync answer for a field the user cannot see (a Repeater row field and a hidden Repeater included) exactly as for an undeclared one.
+- `tests/Feature/RelatableWritesTest.php` (41): every write checked against its picker: the resource create, update and inline create (`BelongsTo`, `MorphTo`, `Tag`), a `HasMany` inline create (and its inverse field left alone), the attach, batch attach and pivot update of both panels, pivot fields, Action fields and Repeater rows; the stored value re-checked, the trashed opt-ins, a full inverse `HasOne` and `inverse()`, the `viewAny`, `add{Model}`, `attach{Model}` and `detach{Model}` policies, the attach's form draft, the multipart value map, and the translated message.
 - `tests/Feature/ActionFieldVisibilityTest.php` (9): the fields of a resource action and a pivot action the request cannot set (hidden, readonly, computed, and a Repeater's rows) left out of the modal or the validation, and `handle()` receiving their `default()` (the queued job too).
 
 ---

@@ -9,14 +9,12 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
-use Martis\Contracts\FilterContract;
 use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Http\Requests\LensRequest;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
-use Martis\Http\Resources\JsonResponse;
 use Martis\Lenses\Lens;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -52,13 +50,9 @@ class LensController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $lensInstance = $this->findLens($resourceInstance, $lens, $request);
+        $lensInstance = $this->resolveLens($resourceInstance, $lens, $request);
         if ($lensInstance instanceof IlluminateJsonResponse) {
             return $lensInstance;
-        }
-
-        if (! $lensInstance->authorizedToSee($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
         $filtersByUriKey = $this->collectAuthorizedFilters($lensInstance, $resourceInstance, $request);
@@ -125,12 +119,21 @@ class LensController extends MartisController
             $result = $this->executeLensQuery($lensInstance, $lensRequest, $baseQuery, $perPage, $page);
             [$items, $meta, $links] = $result;
 
-            $data = array_values(array_map(function (Model $model) use ($resourceClass, $fields): array {
+            // Whether each lens action may run on each row, as on the
+            // resource index: the lens's own actions when it declares them.
+            $actionAuthorization = $this->rowActionAuthorizer($request, $resourceClass, lens: $lensInstance);
+
+            $data = array_map(function (Model $model) use ($resourceClass, $fields, $actionAuthorization): array {
                 /** @var resource $res */
                 $res = new $resourceClass($model);
 
-                return $this->serializeModelForIndex($res, $fields, $model);
-            }, $items));
+                $serialized = $this->serializeModelForIndex($res, $fields, $model);
+                $serialized['_actionAuthorization'] = $actionAuthorization !== null
+                    ? $actionAuthorization($model, is_array($serialized['_authorization'] ?? null) ? $serialized['_authorization'] : [])
+                    : [];
+
+                return $serialized;
+            }, $items);
 
             // Summary must aggregate over the filtered lens dataset — not
             // the base (unfiltered) query. We call lens.query() a second
@@ -184,9 +187,7 @@ class LensController extends MartisController
      */
     private function resolveLensActions(Lens $lensInstance, Resource $resourceInstance, Request $request): array
     {
-        $actions = $lensInstance->hasOverride('actions')
-            ? $lensInstance->actions($request)
-            : $resourceInstance->actions($request);
+        $actions = $this->availableActions($resourceInstance, $request, $lensInstance);
 
         return array_values(array_map(
             fn ($action): array => $action->jsonSerialize(),
@@ -325,64 +326,6 @@ class LensController extends MartisController
     private static function classHash(Lens $lens): string
     {
         return substr(sha1(get_class($lens)), 0, 10);
-    }
-
-    /**
-     * Locate a lens declared by the resource, honouring `authorizedToSee`.
-     * Returns a 404 JsonResponse when not found.
-     */
-    private function findLens(Resource $resourceInstance, string $uriKey, Request $request): Lens|IlluminateJsonResponse
-    {
-        foreach ($resourceInstance->lenses($request) as $lens) {
-            if ($lens instanceof Lens && $lens->uriKey() === $uriKey) {
-                return $lens;
-            }
-        }
-
-        return JsonErrorResponse::notFound("Lens '{$uriKey}' not found on resource.")->toResponse();
-    }
-
-    /**
-     * Collect filters available inside the lens, indexed by uriKey, and
-     * stripping those the user is not allowed to see.
-     *
-     * Inheritance rule (explicit override semantics):
-     *   - Lens overrode `filters()` → use its value verbatim (even []).
-     *     This lets developers disable filters entirely on a lens.
-     *   - Lens did NOT override → inherit the parent resource's filters.
-     *
-     * @return array<string, FilterContract>
-     */
-    private function collectAuthorizedFilters(Lens $lensInstance, Resource $resourceInstance, Request $request): array
-    {
-        $inheriting = ! $lensInstance->hasOverride('filters');
-        $filters = $inheriting
-            ? $resourceInstance->filters($request)
-            : $lensInstance->filters($request);
-
-        $result = [];
-        foreach ($filters as $filter) {
-            if (! $filter instanceof FilterContract) {
-                continue;
-            }
-            if (method_exists($filter, 'authorizedToSee') && ! $filter->authorizedToSee($request)) {
-                continue;
-            }
-            // Martis extension: the resource can tag filters as
-            // "not-for-lenses" with `->excludeFromLens()`. Such filters are
-            // skipped when the lens is inheriting from the resource; an
-            // explicit lens override trumps the tag.
-            if ($inheriting
-                && method_exists($filter, 'isExcludedFromLens')
-                && $filter->isExcludedFromLens()
-            ) {
-                continue;
-            }
-
-            $result[$filter->uriKey()] = $filter;
-        }
-
-        return $result;
     }
 
     /**

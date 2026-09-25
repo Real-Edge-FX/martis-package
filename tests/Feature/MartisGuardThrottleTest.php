@@ -6,12 +6,14 @@ use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Martis\Http\Middleware\ApplyUserPreferencesLocale;
 use Martis\Http\Middleware\EnforceImpersonationDuration;
 use Martis\Http\Middleware\EnsureEmailIsVerified;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Http\RouteMiddleware;
 
 /*
  * The protected routes' throttle keys its bucket on `$request->user()`. The
@@ -161,4 +163,39 @@ it('keeps a bucket per user with the default guard', function () {
 
     expect(throttleRemainingFor([$guardKey => $first->getKey()]))->toBe($limit - 1)
         ->and(throttleRemainingFor([$guardKey => $second->getKey()]))->toBe($limit - 1);
+});
+
+it('does not count an admin in the bucket a site throttle keeps for the site user with the same id', function () {
+    config()->set('martis.guard', 'admin');
+
+    $site = ThrottleGuardSiteUser::create(['name' => 'site', 'email' => 'site@example.com', 'password' => bcrypt('secret')]);
+    $admin = ThrottleGuardAdmin::create(['name' => 'admin', 'email' => 'admin@example.com', 'password' => bcrypt('secret')]);
+    expect($admin->getKey())->toBe($site->getKey());
+    $limit = (int) config('martis.throttle.max_attempts', 120);
+
+    // A site route's plain `throttle:60,1` keys the site user 5 on sha1(5),
+    // the key Laravel's throttle gave the admin 5 without a prefix.
+    foreach (range(1, 5) as $ignored) {
+        RateLimiter::hit(sha1((string) $site->getKey()), 60);
+    }
+
+    expect(throttleRemainingFor([auth()->guard('admin')->getName() => $admin->getKey()]))->toBe($limit - 1)
+        ->and(RateLimiter::attempts(sha1((string) $site->getKey())))->toBe(5);
+});
+
+it('keeps each Martis throttle in its own bucket, named after the Martis guard', function () {
+    $router = app('router');
+    $throttles = static fn (string $name): array => array_values(array_filter(
+        $router->getRoutes()->getByName($name)->gatherMiddleware(),
+        static fn ($middleware): bool => is_string($middleware) && str_starts_with($middleware, 'throttle:'),
+    ));
+    $login = config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1);
+
+    expect($throttles('martis.api.meta.guards'))->toBe(['throttle:120,1,martis-api:web:'])
+        ->and($throttles('martis.api.2fa.challenge'))->toBe(['throttle:120,1,martis-api:web:', "throttle:{$login},martis-2fa:web:"])
+        ->and($throttles('martis.api.auth.email.verification.send'))->toBe(['throttle:3,1,martis-verification:web:']);
+
+    config()->set('martis.guard', 'admin');
+    expect(RouteMiddleware::throttlePrefix('api'))->toBe('martis-api:admin:')
+        ->and(RouteMiddleware::throttle())->toBe(['throttle:120,1,martis-api:admin:']);
 });

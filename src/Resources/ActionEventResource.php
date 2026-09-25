@@ -2,15 +2,25 @@
 
 namespace Martis\Resources;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Martis\Actions\ActionEventRedactor;
+use Martis\Auth\GuardCatalog;
 use Martis\Enums\SortDirection;
-use Martis\Fields\Code;
 use Martis\Fields\DateTime;
 use Martis\Fields\Id;
+use Martis\Fields\KeyValue;
+use Martis\Fields\MorphTo;
+use Martis\Fields\Status;
 use Martis\Fields\Text;
 use Martis\Fields\Textarea;
 use Martis\Models\ActionEvent;
 use Martis\Resource;
+use Martis\ResourceRegistry;
+use Martis\Support\TranslatedLine;
 
 /**
  * Built-in resource for browsing the martis_action_events audit log.
@@ -21,10 +31,82 @@ use Martis\Resource;
  * Users can hide this resource from the sidebar by overriding
  * displayInNavigation() or setting the config key to false.
  *
- * This resource is read-only — create, update and delete are disabled.
+ * This resource is read-only: create, update and delete are disabled.
+ *
+ * Access. The audit log is closed by default, as the log holds what
+ * every user changed. A policy for the ActionEvent model that defines
+ * `viewAny` / `view` decides, as for any resource (Nova's
+ * `ActionResource` follows the ActionEvent policy too); an ability the
+ * policy does not define, or no policy at all, falls back to the
+ * `view-martis-action-events` gate, which denies until the host
+ * defines it. Without access the resource answers 403, leaves the
+ * navigation and the command palette, and a relationship panel that
+ * lists it (the "Action Events" panel of an `Actionable` model, or a
+ * `MorphMany` declared by hand) leaves the detail page, its route
+ * answering 403, as every relationship panel whose related resource the
+ * user may not `viewAny`.
+ *
+ * Redaction. `original` and `changes` show a value only when the
+ * viewer may see that attribute on the record's own detail page
+ * ({@see ActionEventRedactor}); other values read `******`.
  */
 class ActionEventResource extends Resource
 {
+    /** The gate that opens the audit log when no policy decides. */
+    public const GATE = 'view-martis-action-events';
+
+    /** {@inheritdoc} */
+    public function authorizedToViewAny(Request $request): bool
+    {
+        if ($this->policyDefinesAbility('viewAny')) {
+            return parent::authorizedToViewAny($request);
+        }
+
+        return static::gateAllows($request);
+    }
+
+    /** {@inheritdoc} */
+    public function authorizedToView(Request $request): bool
+    {
+        if ($this->policyDefinesAbility('view')) {
+            return parent::authorizedToView($request);
+        }
+
+        return static::gateAllows($request);
+    }
+
+    /** Whether the `view-martis-action-events` gate allows the request's user. */
+    protected static function gateAllows(Request $request): bool
+    {
+        $user = $request->user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        return Gate::forUser($user)->allows(static::GATE);
+    }
+
+    /**
+     * Eager-loads the user who ran each action (Nova's `$with = ['user']`),
+     * so the Initiated By column costs one query per page. Skipped when the
+     * Martis guard's user model does not exist: the column then shows the
+     * stored id.
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    public static function applyWith(Builder $query): Builder
+    {
+        $query = parent::applyWith($query);
+
+        if (class_exists(GuardCatalog::martisUserModel())) {
+            $query->with('user');
+        }
+
+        return $query;
+    }
+
     /** {@inheritdoc} */
     public static function globallySearchable(): bool
     {
@@ -40,13 +122,13 @@ class ActionEventResource extends Resource
     /** {@inheritdoc} */
     public static function label(): string
     {
-        return 'Action Events';
+        return TranslatedLine::get('martis::action_events.label');
     }
 
     /** {@inheritdoc} */
     public static function singularLabel(): string
     {
-        return 'Action Event';
+        return TranslatedLine::get('martis::action_events.singular_label');
     }
 
     /** {@inheritdoc} */
@@ -70,7 +152,7 @@ class ActionEventResource extends Resource
     /** {@inheritdoc} */
     public static function subtitle(): ?string
     {
-        return 'Audit log of all actions executed in the admin panel';
+        return TranslatedLine::get('martis::action_events.subtitle');
     }
 
     /** {@inheritdoc} */
@@ -90,9 +172,8 @@ class ActionEventResource extends Resource
     {
         // Audit log lives in the System section alongside Cache admin
         // and (when scaffolded via `martis:roles`) the Roles, Permissions,
-        // and Users resources. Admin-only via App\Policies\ActionEventPolicy
-        // when the host registers one (see docs/policies.md); the
-        // package itself stays unopinionated and exposes the resource.
+        // and Users resources. Closed until the host grants the
+        // `view-martis-action-events` gate or an ActionEvent policy.
         return true;
     }
 
@@ -122,72 +203,211 @@ class ActionEventResource extends Resource
     // Fields
     // -------------------------------------------------------------------------
 
-    /** {@inheritdoc} */
+    /**
+     * The fields of Nova 5's `ActionResource`, in its order and with its
+     * labels: ID, Name, Initiated By, Target, Status, Original, Changes,
+     * Exception, Happened At. The index shows ID to Status and Happened
+     * At; Original / Changes only appear when the event holds a diff, as
+     * Nova adds them only when they are set.
+     */
     public function fields(Request $request): array
     {
+        $waiting = static::statusLabel('waiting');
+        $running = static::statusLabel('running');
+
         return [
-            Id::make('id'),
+            Id::make('id', TranslatedLine::get('martis::action_events.id')),
 
-            Text::make('batch_id', 'Batch ID')
-                ->hideFromIndex(),
-
-            Text::make('user_id', 'User ID')
-                ->sortable(),
-
-            Text::make('name', 'Action')
+            Text::make('name', TranslatedLine::get('martis::action_events.name'))
+                ->displayUsing(static fn (mixed $value): mixed => is_string($value) && $value !== '' ? TranslatedLine::get($value) : $value)
                 ->sortable()
                 ->searchable(),
 
-            Text::make('actionable_type', 'Actionable Type')
-                ->hideFromIndex(),
+            Text::make('user_id', TranslatedLine::get('martis::action_events.initiated_by'))
+                ->displayUsing(static fn (mixed $value, Model $model): mixed => $model instanceof ActionEvent
+                    ? static::initiatorName($model)
+                    : $value)
+                ->exceptOnForms(),
 
-            Text::make('actionable_id', 'Actionable ID')
-                ->hideFromIndex(),
+            MorphTo::make('target', TranslatedLine::get('martis::action_events.target'))
+                ->resolveUsing(static fn (Model $model): ?array => $model instanceof ActionEvent
+                    ? static::targetValue($model, request())
+                    : null)
+                ->exceptOnForms(),
 
-            Text::make('status', 'Status')
+            Status::make('status', TranslatedLine::get('martis::action_events.status'))
+                ->displayUsing(static fn (mixed $value): mixed => is_string($value) && $value !== '' ? static::statusLabel($value) : $value)
+                ->loadingWhen([$waiting, $running])
+                ->failedWhen([static::statusLabel('failed'), static::statusLabel('denied')])
                 ->sortable(),
 
-            Textarea::make('exception', 'Exception')
+            KeyValue::make('original', TranslatedLine::get('martis::action_events.original'))
+                ->resolveUsing(static fn (mixed $value, Model $model, string $attribute, ?Request $request = null): mixed => $model instanceof ActionEvent
+                    ? ActionEventRedactor::redact($model, $value, $request ?? request())
+                    : $value)
+                ->canSeeForModel(static fn (Request $request, Model $model): bool => static::holdsDiff($model->getAttribute('original')))
+                ->exceptOnForms(),
+
+            KeyValue::make('changes', TranslatedLine::get('martis::action_events.changes'))
+                ->resolveUsing(static fn (mixed $value, Model $model, string $attribute, ?Request $request = null): mixed => $model instanceof ActionEvent
+                    ? ActionEventRedactor::redact($model, $value, $request ?? request())
+                    : $value)
+                ->canSeeForModel(static fn (Request $request, Model $model): bool => static::holdsDiff($model->getAttribute('changes')))
+                ->exceptOnForms(),
+
+            Textarea::make('exception', TranslatedLine::get('martis::action_events.exception'))
                 ->hideFromIndex()
                 ->nullable(),
 
-            Code::make('original', 'Original')
-                ->json()
-                ->hideFromIndex()
-                ->nullable(),
-
-            Code::make('changes', 'Changes')
-                ->json()
-                ->hideFromIndex()
-                ->nullable(),
-
-            DateTime::make('created_at', 'Executed At')
+            DateTime::make('created_at', TranslatedLine::get('martis::action_events.happened_at'))
                 ->sortable()
                 ->exceptOnForms(),
         ];
     }
 
-    /** {@inheritdoc} */
-    public function fieldsForIndex(Request $request): array
+    /**
+     * The status as Nova labels it: Waiting, Running, Finished, Failed.
+     *
+     * Martis records `queued` for an action waiting in the queue and
+     * `completed` for one that ran (Nova's `waiting` / `finished`); the
+     * audit listeners record `finished` and, for an authorization denial,
+     * `denied`. A status Martis does not know reads as its capitalised
+     * value, as Nova translates `ucfirst($status)`.
+     */
+    public static function statusLabel(string $status): string
     {
+        $key = match (strtolower($status)) {
+            'queued', 'waiting' => 'waiting',
+            'running' => 'running',
+            'completed', 'finished' => 'finished',
+            'failed' => 'failed',
+            'denied' => 'denied',
+            default => null,
+        };
+
+        if ($key === null) {
+            return TranslatedLine::get(ucfirst($status));
+        }
+
+        return TranslatedLine::get('martis::action_events.status_'.$key);
+    }
+
+    /**
+     * The name of the user who ran the action: the Martis guard's user
+     * model (`GuardCatalog::martisUserModel()`, the `user()` relation),
+     * its `name`, else its `email`, else the stored id when the user is
+     * gone (Nova prints "Nova User" there; the id says more in an audit).
+     */
+    public static function initiatorName(ActionEvent $event): mixed
+    {
+        $id = $event->getAttribute('user_id');
+
+        if ($id === null || $id === '') {
+            return null;
+        }
+
+        try {
+            $user = $event->relationLoaded('user') ? $event->getRelation('user') : $event->user()->first();
+        } catch (\Throwable) {
+            // The configured user model does not exist or cannot be queried.
+            $user = null;
+        }
+
+        if ($user instanceof Model) {
+            foreach (['name', 'email'] as $attribute) {
+                $value = $user->getAttribute($attribute);
+                if (is_scalar($value) && (string) $value !== '') {
+                    return (string) $value;
+                }
+            }
+        }
+
+        return $id;
+    }
+
+    /**
+     * The target of the event, as the `MorphTo` display reads it.
+     *
+     * Nova's `MorphToActionTarget`: the target record's resource label
+     * and title, linked to its detail page only when the viewer may view
+     * it. A record gone, or a model no resource exposes, shows the label
+     * and the stored id.
+     *
+     * @return array{type: string, id: string, title: string, resourceType: string|null, resourceLabel?: string}|null
+     */
+    public static function targetValue(ActionEvent $event, Request $request): ?array
+    {
+        $type = $event->getAttribute('target_type');
+        $id = $event->getAttribute('target_id');
+
+        if (! is_string($type) || $type === '' || $id === null || $id === '') {
+            return null;
+        }
+
+        $id = (string) $id;
+        $modelClass = Relation::getMorphedModel($type) ?? $type;
+        $resourceClass = static::resourceForModel($modelClass);
+        $label = $resourceClass !== null ? $resourceClass::singularLabel() : class_basename($modelClass);
+        $fallback = ['type' => $type, 'id' => $id, 'title' => $label.': '.$id, 'resourceType' => null];
+
+        if ($resourceClass === null) {
+            return $fallback;
+        }
+
+        try {
+            $query = $modelClass::query();
+            if ($resourceClass::softDeletes()) {
+                $query->withTrashed();
+            }
+            $record = $query->find($id);
+        } catch (\Throwable) {
+            $record = null;
+        }
+
+        if (! $record instanceof Model) {
+            return $fallback;
+        }
+
+        $resource = new $resourceClass($record);
+        $title = $resource->title();
+        // As Nova's MorphToActionTarget: the title always, the link only
+        // when the viewer may view the record.
+        $viewable = $resource->authorizedToViewAny($request) && $resource->authorizedToView($request);
+
         return [
-            Id::make('id'),
-
-            Text::make('name', 'Action')
-                ->sortable()
-                ->searchable(),
-
-            Text::make('user_id', 'User ID')
-                ->sortable(),
-
-            Text::make('actionable_type', 'Model')
-                ->sortable(),
-
-            Text::make('status', 'Status')
-                ->sortable(),
-
-            DateTime::make('created_at', 'Executed At')
-                ->sortable(),
+            'type' => $type,
+            'id' => $id,
+            'title' => $title !== '' ? $title : $id,
+            'resourceType' => $viewable ? $resourceClass::uriKey() : null,
+            'resourceLabel' => $label,
         ];
+    }
+
+    /**
+     * The registered resource that exposes `$modelClass`, if any.
+     *
+     * @return class-string<resource>|null
+     */
+    protected static function resourceForModel(string $modelClass): ?string
+    {
+        $modelClass = ltrim($modelClass, '\\');
+
+        foreach (app(ResourceRegistry::class)->list() as $resourceClass) {
+            if (ltrim($resourceClass::model(), '\\') === $modelClass) {
+                return $resourceClass;
+            }
+        }
+
+        return null;
+    }
+
+    /** Whether a stored `original` / `changes` value holds a diff to show. */
+    protected static function holdsDiff(mixed $value): bool
+    {
+        if (is_string($value)) {
+            $value = json_decode($value, true);
+        }
+
+        return is_array($value) && $value !== [];
     }
 }

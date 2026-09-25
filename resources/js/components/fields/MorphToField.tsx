@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router'
 import { api } from '@/lib/api'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
@@ -19,6 +19,12 @@ interface MorphToValue {
   id: number | string
   title?: string | null
   resourceType?: string | null
+  /**
+   * The target resource's singular label, when the server resolved it
+   * (the action log's Target column). Preferred over the field's
+   * `morphTypes`, which such a field does not list.
+   */
+  resourceLabel?: string | null
 }
 
 interface MorphTypeOption {
@@ -101,7 +107,7 @@ function PeekCard({ resourceKey, recordId, top, left }: PeekCardProps) {
   return createPortal(
     <div
       data-testid="peek-card"
-      className="fixed rounded-lg border p-2.5 text-sm pointer-events-none"
+      className="fixed rounded-lg border border-solid p-2.5 text-sm pointer-events-none"
       style={{
         backgroundColor: 'var(--martis-surface)',
         borderColor: 'var(--martis-border)',
@@ -195,7 +201,7 @@ export function MorphToFieldDisplay({ value, field }: FieldDisplayProps) {
     const resourceType = value.resourceType
     const peekable = (field as unknown as Record<string, unknown>).peekable !== false
     const morphTypes = (field as unknown as Record<string, unknown>).morphTypes as MorphTypeOption[] | undefined
-    const typeLabel = morphTypes?.find(t => t.value === resourceType)?.label ?? resourceType
+    const typeLabel = value.resourceLabel ?? morphTypes?.find(t => t.value === resourceType)?.label ?? resourceType
 
     if (resourceType) {
       return (
@@ -452,7 +458,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
           value={selectedType ?? ''}
           onChange={(e) => handleTypeChange(e.target.value)}
           disabled={field.readonly}
-          className="martis-input block w-full rounded-md border px-3 py-2 text-sm"
+          className="martis-input block w-full rounded-md px-3 py-2 text-sm"
           style={{
             backgroundColor: 'var(--martis-input-bg)',
             borderColor: error ? 'var(--martis-danger)' : 'var(--martis-border)',
@@ -521,7 +527,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setShowInlineCreate(true) }}
-                className="inline-flex items-center justify-center rounded-md border text-sm font-medium transition-colors martis-morphto-create-btn"
+                className="inline-flex items-center justify-center rounded-md border border-solid text-sm font-medium transition-colors martis-morphto-create-btn"
                 style={{
                   borderColor: 'var(--martis-border)',
                   backgroundColor: 'var(--martis-surface)',

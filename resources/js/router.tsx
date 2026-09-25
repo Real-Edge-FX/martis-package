@@ -1,5 +1,5 @@
 import { ComponentType, createElement } from 'react'
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter } from 'react-router'
 import { Layout } from '@/components/Layout'
 import { ResourceLayout } from '@/components/ResourceLayout'
 import { LoginPage } from '@/pages/Login'

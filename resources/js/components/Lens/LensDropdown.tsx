@@ -44,7 +44,7 @@ export function LensDropdown({ lenses, currentUriKey, onSelect }: LensDropdownPr
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors"
+        className="inline-flex items-center gap-2 rounded-md border border-solid px-3 py-1.5 text-sm transition-colors"
         style={{
           borderColor: 'var(--martis-border)',
           backgroundColor: active ? 'var(--martis-accent-bg)' : 'var(--martis-surface)',
@@ -61,7 +61,7 @@ export function LensDropdown({ lenses, currentUriKey, onSelect }: LensDropdownPr
 
       {open && (
         <div
-          className="absolute z-50 mt-1 min-w-[220px] rounded-md border shadow-lg"
+          className="absolute z-50 mt-1 min-w-[220px] rounded-md border border-solid shadow-lg"
           style={{
             backgroundColor: 'var(--martis-card)',
             borderColor: 'var(--martis-border)',

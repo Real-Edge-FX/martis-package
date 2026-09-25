@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeftIcon, BookOpenIcon, CopyIcon, CheckIcon } from '@phosphor-icons/react'
 import { config } from '@/lib/config'

@@ -9,6 +9,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Martis\Http\Resources\JsonErrorResponse;
+use Martis\Support\TranslatedLine;
 
 /**
  * REST endpoints powering the in-app notifications bell dropdown.
@@ -110,7 +111,7 @@ class NotificationController extends Controller
 
         $user = $request->user();
         if ($user === null) {
-            return JsonErrorResponse::forbidden(__('martis::messages.unauthorized'))->toResponse();
+            return JsonErrorResponse::forbidden(TranslatedLine::get('martis::messages.unauthorized'))->toResponse();
         }
         if (! $this->notifiable($user)) {
             return JsonErrorResponse::validation(['notifications' => [$this->notNotifiableReason($user)]], $this->notNotifiableReason($user))->toResponse();
@@ -137,7 +138,7 @@ class NotificationController extends Controller
 
         $user = $request->user();
         if ($user === null) {
-            return JsonErrorResponse::forbidden(__('martis::messages.unauthorized'))->toResponse();
+            return JsonErrorResponse::forbidden(TranslatedLine::get('martis::messages.unauthorized'))->toResponse();
         }
         if (! $this->notifiable($user)) {
             return JsonErrorResponse::validation(['notifications' => [$this->notNotifiableReason($user)]], $this->notNotifiableReason($user))->toResponse();
@@ -162,7 +163,7 @@ class NotificationController extends Controller
 
         $user = $request->user();
         if ($user === null) {
-            return JsonErrorResponse::forbidden(__('martis::messages.unauthorized'))->toResponse();
+            return JsonErrorResponse::forbidden(TranslatedLine::get('martis::messages.unauthorized'))->toResponse();
         }
         if (! $this->notifiable($user)) {
             return JsonErrorResponse::validation(['notifications' => [$this->notNotifiableReason($user)]], $this->notNotifiableReason($user))->toResponse();
@@ -189,7 +190,7 @@ class NotificationController extends Controller
 
         $user = $request->user();
         if ($user === null) {
-            return JsonErrorResponse::forbidden(__('martis::messages.unauthorized'))->toResponse();
+            return JsonErrorResponse::forbidden(TranslatedLine::get('martis::messages.unauthorized'))->toResponse();
         }
         if (! $this->notifiable($user)) {
             return JsonErrorResponse::validation(['notifications' => [$this->notNotifiableReason($user)]], $this->notNotifiableReason($user))->toResponse();

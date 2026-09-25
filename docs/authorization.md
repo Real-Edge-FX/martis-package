@@ -76,6 +76,13 @@ its `create` / `update` / `delete` ability as before. A user who cannot list
 `routable()` is not part of that check: a headless resource (v1.24.0, see
 [Resources → routable](resources.md)) stays usable as a relation target.
 
+Reading through a relationship needs it too (v2.0.1): a relationship panel
+(`HasMany`, `HasOne`, `MorphMany`, `MorphOne`, `BelongsToMany`,
+`MorphToMany` and the fields built on them) is left off the detail page, and
+its routes answer `403`, for a user the related resource does not let
+`viewAny`, as in Nova. See
+[Relationships → Panels follow the related resource's `viewAny`](relationships.md#panels-follow-the-related-resources-viewany-v201).
+
 ## Writing a policy
 
 Martis looks for policies in two places, in order:
@@ -356,7 +363,7 @@ Before v2.0 the global search and those parent lookups ran `indexQuery()` alone,
 
 Neither hook applies to the relationship pickers (BelongsTo dropdowns, attach pickers): they list through [`relatableQuery()`](resources.md#relatablequery), as Nova's pickers do ([Nova → Relatable Filtering](https://nova.laravel.com/docs/v5/resources/authorization#relatable-filtering)), so declare the tenant predicate there too. The detail, update and delete endpoints rely on the policies, and so does the parent record of the `HasMany`, `HasOne`, `MorphMany` and `MorphOne` panels and of the `MorphToMany` panel's own endpoints (see [Relationships → How a panel finds its parent record](relationships.md#how-a-panel-finds-its-parent-record)); a lens owns its query.
 
-On those three surfaces the hooks run as Eloquent runs a local scope (v2.0): what they add is wrapped in one group when it contains an `orWhere()`, so the search term, the selected ids or the key added after it binds to all of it. After `where('tenant_id', 1)->orWhere('shared', true)` the parent lookup reads `(tenant_id = 1 or shared) and id = ?`; ungrouped, it would read `tenant_id = 1 or (shared and id = ?)` and find another record of the tenant, and an action would run on every record of the tenant. The index page appends its filters and its search to the hooks ungrouped, so write an `orWhere()` inside `where(fn ($q) => ...)` when the filters must narrow it.
+Wherever they run (the index page and its count badge since v2.0.1, and the three surfaces above since v2.0) the hooks run as Eloquent runs a local scope: what they add is wrapped in one group when it contains an `orWhere()`, so the filters, the search term, the selected ids or the key added after it bind to all of it. After `where('tenant_id', 1)->orWhere('shared', true)` the parent lookup reads `(tenant_id = 1 or shared) and id = ?`; ungrouped, it would read `tenant_id = 1 or (shared and id = ?)` and find another record of the tenant, an action would run on every record of the tenant, and the index would list every record of the tenant whatever the filters and the search said. A hook that starts with `orWhere()` reads as `and`, as it does on a query with no clause before it, so `?trashed=only` still lists trashed records only. Each index filter's `apply()` and the resource's `searchQuery()` run grouped too (v2.0.1): an `orWhere()` in them cannot OR the hooks away. Hooks that add only `and` clauses produce the same SQL as before.
 
 ## Audit log of denied authorizations
 
@@ -372,7 +379,7 @@ Repeat denials of the same `(user, ability, model)` within one request are de-du
 
 The log's `user_id` names a user of the Martis guard (the `ActionEvent::user()` relation resolves that guard's model), so a denial is recorded only while the Martis guard is the request's guard: in a panel request, and in every request when the Martis guard is the app's default. With a custom `MARTIS_GUARD`, the site's own requests record none (v2.0.0+): their user belongs to another guard, whose id the log would resolve to someone else.
 
-The noisy `viewAny` cascade (sidebar / navigation) is dropped by default. Toggle `MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY=true` to keep it.
+The noisy `viewAny` cascade (sidebar / navigation) is dropped by default, and so is the `view-martis-action-events` gate the Action Events entry asks on every navigation build (v2.0.1+). Toggle `MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY=true` to keep both.
 
 ## How policy instances are resolved
 
@@ -395,15 +402,17 @@ Since v1.36.0 the **outcome of that walk** (the policy class) is memoised per en
 
 ## Per-request Gate cache
 
-Off by default. Flip `MARTIS_AUTHZ_REQUEST_CACHE=true` and `Martis\Authorization\RequestScopedAbilityCache` records every Gate result keyed on `(user, ability, model_class, model_id)` for the duration of the request, by listening to `GateEvaluated`. It only **observes**: it does not short-circuit the Gate, and the package does not read it back yet, so enabling it does not by itself save any policy call. Resource checks (the sidebar, the schema authorization block, the per-record `_authorization` block, action visibility) call the policy directly and are not recorded at all. Host code can read the cache before a redundant check:
+Off by default. Flip `MARTIS_AUTHZ_REQUEST_CACHE=true` and `Martis\Authorization\RequestScopedAbilityCache` records every Gate result keyed on `(user class, user id, ability, model_class, model_id)` for the duration of the request, by listening to `GateEvaluated`. It only **observes**: it does not short-circuit the Gate, and the package does not read it back yet, so enabling it does not by itself save any policy call. Resource checks (the sidebar, the schema authorization block, the per-record `_authorization` block, action visibility) call the policy directly and are not recorded at all. Host code can read the cache before a redundant check:
 
 ```php
-$cached = app(\Martis\Authorization\RequestScopedAbilityCache::class)->lookup($userId, $ability, $model);
+$cached = app(\Martis\Authorization\RequestScopedAbilityCache::class)->lookup($user, $ability, $model);
 
 if ($cached === null) {
     // not cached yet: run the real check
 }
 ```
+
+`lookup()` takes the user, not its id (v2.0.1): the key holds the user's morph class as well as its identifier, so an admin and a site user who share an id (an `admins` guard beside the site's `users`) never read each other's answers. A call written for v2.0.0, `lookup($user->id, ...)`, now throws a `TypeError`: pass the user.
 
 The cache is request-scoped — never spans requests, never persisted. Closure-only gates that depend on `Request` state are skipped (the cache key would be ambiguous). `null` results (no policy registered) are not cached so the next call still falls through to the default behaviour.
 

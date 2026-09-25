@@ -10,8 +10,9 @@ parameters:
         # layout wrappers from fields()). Kept out of src so they don't ship.
         - tests/StaticAnalysis
     # Baseline locks the pre-v1 errors (220 at the v1.0.0 cut, 189 entries
-    # in phpstan-baseline.neon at v1.39.0) so CI fails on new errors. Track
-    # the count down to zero; regenerating also drops stale entries:
+    # in phpstan-baseline.neon at v1.39.0, 153 at v2.0.1) so CI fails on new
+    # errors. Track the count down to zero; regenerating also drops stale
+    # entries:
     #   vendor/bin/phpstan analyse --memory-limit=2G --generate-baseline=phpstan-baseline.neon
     #
     # `reportUnmatchedIgnoredErrors: false` keeps inline `@phpstan-ignore-*`

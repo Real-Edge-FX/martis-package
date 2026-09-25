@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Martis\Fields\Field;
+use Martis\Support\IndexScope;
 
 /**
  * Central resolver for resource search — decides between Scout and database.
@@ -69,7 +70,9 @@ class SearchResolver
         // stages, `field:value` parsing, priority ranking, AND its empty-set
         // `1 = 0` guards — since matching is explicitly handled upstream.
         // Filters/sorting/pagination downstream are untouched.
-        $owned = (new $resourceClass)->searchQuery($query, $search);
+        // Grouped, as the index hooks are: an `orWhere()` in it matches the
+        // term and cannot OR the scopes, filters and keys around it away.
+        $owned = IndexScope::grouped($query, fn (Builder $grouped): ?Builder => (new $resourceClass)->searchQuery($grouped, $search));
         if ($owned !== null) {
             // The seam MUST constrain the SAME builder in place (Eloquent
             // `where`/scope calls do — they return `$this`). Returning a

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany as EloquentMorphMany;
 use Illuminate\Support\Str;
 use Martis\Enums\HasManyIndexDisplay;
 use Martis\Enums\HasManyRedirectMode;
+use Martis\Fields\Concerns\AuthorizesRelatedResource;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Fields\Concerns\CountsScopedRelation;
 use Martis\Resource;
@@ -30,6 +31,7 @@ use Martis\ResourceRegistry;
  */
 class MorphMany extends Field
 {
+    use AuthorizesRelatedResource;
     use ControlsRelationshipToolbar;
     use CountsScopedRelation;
 

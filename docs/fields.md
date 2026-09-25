@@ -1762,6 +1762,7 @@ BelongsTo::make('category_id', 'Category')
 | `hideCreateRelationButton` | `hideCreateRelationButton(): static` | `$this` | Explicitly hide the inline create button. | — |
 | `modalSize` | `modalSize(ModalSize $size): static` | `$this` | Set the inline create modal size. Pass any `Martis\Enums\ModalSize` case (`Small`, `Medium`, `Large`, `ExtraLarge`, `TwoExtraLarge` through `SevenExtraLarge`). | `ModalSize::TwoExtraLarge` |
 | `iconColor` | `iconColor(string $color): static` | `$this` | Color for the resource icon in the inline create modal header. Any CSS color. | accent color |
+| `inverse` | `inverse(string $relationship): static` | `$this` | The related resource's `HasOne` / `MorphOne` relationship that is the inverse of this one (Nova's `inverse()`): a write fails with 422 when that relationship of the picked record already holds another record. Without it, the first `HasOne` / `MorphOne` of the related resource pointing back at this resource is used. See [Relationships → Writes follow the pickers](relationships.md#writes-follow-the-pickers). | `null` |
 
 #### Where the picker loads its options
 

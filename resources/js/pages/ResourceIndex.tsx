@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { useParams, useNavigate, useLocation, useNavigationType } from 'react-router-dom'
+import { useParams, useNavigate, useLocation, useNavigationType } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, OverrideProps, ActiveFilters } from '@/types'
@@ -348,11 +348,21 @@ export function ResourceIndexPage() {
   // user is scrolled away from the table (the inline error state below
   // carries the details + Retry). Keyed on `errorUpdatedAt` so a Retry that
   // fails again toasts again, while re-renders of a stable error do not.
+  //
+  // The schema and the index are fetched in parallel. When the schema fails
+  // too (a 403 without `viewAny`, a 404 for an unknown resource) the page is
+  // the error page, which already says what went wrong: the index failure
+  // must not also toast. The index can fail first, so the toast waits for
+  // the schema to settle, and fires at most once per failure.
   const indexErrorAt = indexQuery.isError ? indexQuery.errorUpdatedAt : null
+  const toastedIndexErrorAt = useRef<number | null>(null)
   useEffect(() => {
-    if (indexErrorAt !== null) addToast('error', queryErrorTitle(tMsg))
+    if (indexErrorAt === null || schemaQuery.isPending || schemaQuery.isError) return
+    if (toastedIndexErrorAt.current === indexErrorAt) return
+    toastedIndexErrorAt.current = indexErrorAt
+    addToast('error', queryErrorTitle(tMsg))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [indexErrorAt])
+  }, [indexErrorAt, schemaQuery.isPending, schemaQuery.isError])
 
   // Cross-session revalidation seam: any transport (consumer ws-gateway,
   // SSE, Echo listener) can emit `martis:refresh-index` to tell this index

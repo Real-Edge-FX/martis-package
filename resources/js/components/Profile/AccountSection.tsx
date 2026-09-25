@@ -50,7 +50,7 @@ export function AccountSection({ name, email, onUpdate, emailReadOnly = false }:
 
   return (
     <section
-      className="rounded-xl p-6 border martis-border martis-card-bg"
+      className="rounded-xl p-6 border border-solid martis-border martis-card-bg"
       aria-labelledby="account-section-title"
     >
       <h2 id="account-section-title" className="text-lg font-semibold martis-text mb-4">

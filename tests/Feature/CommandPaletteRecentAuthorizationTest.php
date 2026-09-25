@@ -140,7 +140,17 @@ afterEach(function () {
     Resource::flushPolicyCache();
 });
 
-it('serves the recent rows with no ActionEvent policy registered (permissive default)', function () {
+it('hides the recent rows with no ActionEvent policy and no gate (closed by default)', function () {
+    $this->actingAs($this->agent, 'web');
+
+    $response = $this->getJson('/martis/api/command-palette')->assertOk();
+
+    expect($response->json('recent'))->toBe([]);
+});
+
+it('serves the recent rows with no ActionEvent policy when the gate allows the user', function () {
+    Gate::define(ActionEventResource::GATE, fn ($user): bool => $user->getAttribute('email') === 'agent@example.com');
+
     $this->actingAs($this->agent, 'web');
 
     $response = $this->getJson('/martis/api/command-palette')->assertOk();

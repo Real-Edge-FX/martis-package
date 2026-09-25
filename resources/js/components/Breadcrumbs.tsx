@@ -1,4 +1,4 @@
-import { Link, useMatches } from 'react-router-dom'
+import { Link, useMatches } from 'react-router'
 import { ChevronRight, Home } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useDynamicCrumbLabel } from '@/contexts/DynamicCrumbContext'

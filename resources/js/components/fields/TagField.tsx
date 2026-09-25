@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlassIcon, XIcon, PlusIcon, PlusCircleIcon, CheckIcon } from '@phosphor-icons/react'
 import { api } from '@/lib/api'

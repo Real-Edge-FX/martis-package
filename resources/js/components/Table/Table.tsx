@@ -250,7 +250,7 @@ function InlineSubMenu({
       role="menu"
       aria-label={group.label}
       onKeyDown={handleKey}
-      className="rounded-lg border shadow-lg py-1"
+      className="rounded-lg border border-solid shadow-lg py-1"
       style={{ position: "fixed", top, left, minWidth: 200, maxWidth: "calc(100vw - 16px)", zIndex: 9992, backgroundColor: "var(--martis-card)", borderColor: "var(--martis-border)" }}
       onMouseEnter={clearCloseTimer}
     >
@@ -377,7 +377,7 @@ export function InlineActionMenu({
           role="menu"
           aria-label={tMsg('actions', 'Actions')}
           onKeyDown={handleMenuKey}
-          className="rounded-lg border shadow-lg py-1"
+          className="rounded-lg border border-solid shadow-lg py-1"
           style={{ position: "fixed", top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 220), minWidth: 180, zIndex: 9991, backgroundColor: "var(--martis-card)", borderColor: "var(--martis-border)" }}
         >
           {tree.map((item, idx) => {

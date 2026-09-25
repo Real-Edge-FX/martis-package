@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Contracts\FieldContract;
 use Martis\Fields\BelongsTo;
+use Martis\Support\IndexScope;
 
 /**
  * Central resolver for relatable query hooks.
@@ -53,7 +54,7 @@ class RelationshipQueryResolver
         // It is the fence the target declares for every picker that reaches
         // it (typically a tenant / ownership scope on a model that cannot
         // carry a global scope), so no source resource can drop it.
-        $query = $targetResourceClass::relatableQuery($request, $query);
+        $query = static::targetFence($targetResourceClass, $request, $query);
 
         // Step 2: the SOURCE resource's relatable{PluralModelName}() composes
         // on top and narrows the already-fenced query for its own
@@ -63,13 +64,14 @@ class RelationshipQueryResolver
         $dynamicMethod = static::buildDynamicMethodName($targetResourceClass);
 
         if ($dynamicMethod !== null && method_exists($sourceResourceClass, $dynamicMethod)) {
-            $query = static::callDynamicMethod(
+            // Grouped: an `orWhere()` in it cannot OR the target's fence away.
+            $query = IndexScope::grouped($query, fn (Builder $grouped): Builder => static::callDynamicMethod(
                 $sourceResourceClass,
                 $dynamicMethod,
                 $request,
-                $query,
+                $grouped,
                 $field,
-            );
+            ));
         }
 
         // Step 2b: Apply the target Resource's declarative static $with list
@@ -81,7 +83,8 @@ class RelationshipQueryResolver
             // Apply relatableQueryUsing closure if defined
             $closure = $field->getRelatableQueryClosure();
             if ($closure !== null) {
-                $result = $closure($request, $query);
+                // Grouped, as the resource-level hooks above are.
+                $result = IndexScope::grouped($query, fn (Builder $grouped): mixed => $closure($request, $grouped));
                 if ($result instanceof Builder) {
                     $query = $result;
                 }
@@ -98,6 +101,25 @@ class RelationshipQueryResolver
         }
 
         return $query;
+    }
+
+    /**
+     * The target resource's generic `relatableQuery()` on `$query`, grouped
+     * as a local scope (`IndexScope::grouped()`): an `orWhere()` in it keeps
+     * the source's hook, the field's closure and the picker's search term
+     * from widening it, and a leading `orWhere()` in those cannot OR it
+     * away.
+     *
+     * @param  class-string<\Martis\Resource>  $targetResourceClass
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    public static function targetFence(string $targetResourceClass, Request $request, Builder $query): Builder
+    {
+        /** @var Builder<Model> $fenced */
+        $fenced = IndexScope::grouped($query, fn (Builder $grouped): Builder => $targetResourceClass::relatableQuery($request, $grouped));
+
+        return $fenced;
     }
 
     /**

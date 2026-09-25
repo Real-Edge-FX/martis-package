@@ -231,8 +231,6 @@ php artisan vendor:publish --tag=martis-avatar-migration
 php artisan migrate
 ```
 
-`martis:install` publishes the core migrations on every run, the avatar migration with `--with-profile` (as `*_add_martis_profile_picture_column_to_users_table.php`) and the two-factor migration with `--with-2fa` (as `*_add_martis_two_factor_columns_to_users_table.php`).
-
 `martis:install` publishes the core migrations on every run, the avatar migration with `--with-profile` (as `add_profile_picture_column`) and the two-factor migration with `--with-2fa` (as `*_add_martis_two_factor_columns_to_users_table.php`). Both add their columns to the table of the Martis guard's users: `users`, unless `MARTIS_GUARD` names a guard whose model has its own table.
 
 #### UUID / ULID / custom user PKs (v1.12.2+)
@@ -246,7 +244,30 @@ The published migrations adapt the `user_id` column (and the polymorphic `notifi
 | `use Illuminate\Database\Eloquent\Concerns\HasUlids;` | `foreignUlid('user_id')->constrained($table, $key)` |
 | `$keyType = 'string'` without `HasUuids` / `HasUlids` | `string('user_id')` + explicit `foreign()` |
 
-The polymorphic columns on `notifications` follow the same rule (`morphs` / `uuidMorphs` / `ulidMorphs`).
+#### The shared `sessions` and `notifications` tables
+
+`sessions` and `notifications` belong to the whole app, not to the panel: every `session` guard writes `sessions.user_id` (Laravel's database session handler stores the id of the request's guard), and the site's database notifications land in `notifications`. Their migrations (v2.0.1+) read the models of the Martis guard, the app's default guard and every `session` guard, and pick:
+
+| Those models' keys | `sessions.user_id` | `notifications.notifiable_*` |
+|---|---|---|
+| All auto-incrementing `bigint` | `foreignId()` (no constraint) | `morphs()` |
+| All `HasUuids` / all `HasUlids` | `uuid()` / `ulid()` | `uuidMorphs()` / `ulidMorphs()` |
+| `$keyType = 'string'`, or keys that differ (an `admins` guard keyed by UUID beside the site's bigint `users`) | `string()` | string `notifiable_type` / `notifiable_id` and their index |
+
+A string column holds an integer, a UUID and a ULID id alike; a typed one rejects the other guard's ids (PostgreSQL and MySQL answer `invalid input syntax for type bigint` / `Incorrect integer value` on every request that writes the session). Both migrations are skipped when the table exists, which is the common case: Laravel 11+'s `create_users_table` migration creates `sessions` with a `bigint` `user_id`, and `php artisan make:notifications-table` creates `morphs()`.
+
+**Symptom and fix when the table already exists.** With a Martis guard whose users are keyed by UUID or ULID (or a string) beside the site's bigint `users`, or the other way round, every panel request that writes the session (PostgreSQL: `SQLSTATE[22P02]: Invalid text representation: invalid input syntax for type bigint`; MySQL: `SQLSTATE[HY000]: General error: 1366 Incorrect integer value` for `user_id`), or every notification to the other guard's users, fails. Widen the column once, in a migration of your own (`doctrine/dbal` is not needed on Laravel 11+):
+
+```php
+Schema::table('sessions', function (Blueprint $table) {
+    $table->string('user_id')->nullable()->change();
+});
+Schema::table('notifications', function (Blueprint $table) {
+    $table->string('notifiable_id')->change();
+});
+```
+
+Keep the existing indexes (`change()` keeps them). An app that queries these columns itself with an integer (Jetstream's browser sessions, for instance) keeps working on MySQL and SQLite; on PostgreSQL compare with a string (`(string) $user->getAuthIdentifier()`) if a query joins `sessions.user_id` to an integer column.
 
 If your project uses a non-standard combination — for example, a custom string PK that does not register either canonical trait — set the `MARTIS_USER_ID_COLUMN_TYPE` env var to force the resolver. Accepted values: `bigint`, `uuid`, `ulid`, `string`.
 
@@ -470,13 +491,31 @@ The blade view emits the resolved array as `window.MartisConfig.extensions`. The
 npx tsc -p tsconfig.extensions.json
 ```
 
-Your app installs none of `@martis/runtime`, `react-router-dom`, `react-i18next` or `@tanstack/react-query`: the Vite config sends each to a shim under `.shims/` that re-exports the host's copy. It sends `react-dom` to a shim too (v1.38.0), which carries `createPortal` and, since v1.38.2, `flushSync`, the parts of `react-dom` the runtime serves, so a portal or a synchronous flush runs on the host's React DOM. Each of those shims has its TypeScript declarations next to it (`runtime.d.mts`, `react-dom.d.mts`, `react-router-dom.d.mts`, `react-i18next.d.mts`, `tanstack-react-query.d.mts`, since v1.38.0), and the tsconfig `paths` sends the same specifiers to them, the legacy paths included, so `tsc` checks your code against the modules the build uses: a name a shim does not export fails `tsc` as it fails the build. The declarations carry the Martis types and those of the host's copy of each library, and export each library's own types (its interfaces and type aliases, such as `import type { UseQueryResult } from '@tanstack/react-query'`), so a type your code took from a copy of the library in `node_modules` still resolves once the `paths` send the specifier to the declarations. A class or enum the shim does not export (`QueryCache`, `NavigationType`) is not declared, since the build has no value for it; the default export, the host's module, holds it (`import type ReactRouterDom from 'react-router-dom'`, then `ReactRouterDom.NavigationType`). `react` and `@phosphor-icons/react` come from your own `node_modules`, where `martis:install` adds them.
+Your app installs none of `@martis/runtime`, `react-router-dom`, `react-i18next` or `@tanstack/react-query`: the Vite config sends each to a shim under `.shims/` that re-exports the host's copy (since v2.0.1 it sends `react-router` to the `react-router-dom` shim as well, see [Extensions and React Router 7](#extensions-and-react-router-7-v201)). It sends `react-dom` to a shim too (v1.38.0), which carries `createPortal` and, since v1.38.2, `flushSync`, the parts of `react-dom` the runtime serves, so a portal or a synchronous flush runs on the host's React DOM. Each of those shims has its TypeScript declarations next to it (`runtime.d.mts`, `react-dom.d.mts`, `react-router-dom.d.mts`, `react-i18next.d.mts`, `tanstack-react-query.d.mts`, since v1.38.0), and the tsconfig `paths` sends the same specifiers to them, the legacy paths included, so `tsc` checks your code against the modules the build uses: a name a shim does not export fails `tsc` as it fails the build. The declarations carry the Martis types and those of the host's copy of each library, and export each library's own types (its interfaces and type aliases, such as `import type { UseQueryResult } from '@tanstack/react-query'`), so a type your code took from a copy of the library in `node_modules` still resolves once the `paths` send the specifier to the declarations. A class or enum the shim does not export (`QueryCache`, `NavigationType`) is not declared, since the build has no value for it; the default export, the host's module, holds it (`import type ReactRouterDom from 'react-router-dom'`, then `ReactRouterDom.NavigationType`). `react` and `@phosphor-icons/react` come from your own `node_modules`, where `martis:install` adds them.
 
 `react` itself is typed by your own `@types/react`, but an extension runs on the host's React, which is React 18: the Vite config sends `react` to a shim of it. `martis:install` adds `@types/react` and `@types/react-dom` at `^18` (v1.38.0; before, `^18 || ^19` installed the React 19 types). With the React 19 types an app may keep for its own code, `use`, `useActionState` and `useOptimistic` type-check and build, then are `undefined` in the extension.
 
 Editors type a file with the nearest `tsconfig.json`, so the scaffold also puts one in `resources/js/martis-extensions/` that extends `tsconfig.extensions.json` (v1.38.0): VS Code and other tsserver clients resolve `@martis/runtime` the same way `tsc` does, and `npx tsc -p resources/js/martis-extensions` is equivalent to the command above.
 
 The tsconfig is browser-only (`"types": ["vite/client"]`, no `@types/node`) and does not cover `vite.extensions.config.ts`. If your app has its own `tsconfig.json` that includes `resources/js` (the Laravel React starter kit does), exclude `resources/js/martis-extensions` from it: that config does not know the aliases, so it reports `Cannot find module '@martis/runtime'`.
+
+### Extensions and React Router 7 (v2.0.1)
+
+The panel runs on React Router 7 since v2.0.1 (on 6 before). In React Router 7 the library is the `react-router` package, and `react-router-dom` is a re-export of it plus the DOM `RouterProvider`. `window.Martis.runtime.reactRouterDom` is that module, so the `react-router-dom` shim keeps serving the same names (`Link`, `NavLink`, `useNavigate`, `useParams`, ...) and an extension built against an older Martis runs unchanged. The host's router behaves as React Router 7 does: a navigation runs in `React.startTransition`, and `navigate()` may return a promise.
+
+An extension can import from either specifier. A scaffold published from v2.0.1 sends both to the same shim; in an older one, add the alias to `vite.extensions.config.ts`, next to the `react-router-dom` line:
+
+```ts
+{find: /^react-router$/, replacement: routerShim},
+```
+
+and the path to `tsconfig.extensions.json`:
+
+```json
+"react-router": ["./resources/js/martis-extensions/.shims/react-router-dom.d.mts"],
+```
+
+Without them, `import { useNavigate } from 'react-router'` would bundle a second React Router that knows nothing of the host's router, and its hooks throw outside a router context. Republish the shims too (`php artisan vendor:publish --tag=martis-extension-shims --force`) for the React Router 7 types. See [Upgrading → The panel runs on React Router 7](upgrading.md#the-panel-runs-on-react-router-7).
 
 ### Refreshing the extension scaffold after an upgrade
 
@@ -517,6 +556,7 @@ Three ways to get a missing name, from the narrowest:
   "@martis/runtime": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
   "react-dom": ["./resources/js/martis-extensions/.shims/react-dom.d.mts"],
   "react-router-dom": ["./resources/js/martis-extensions/.shims/react-router-dom.d.mts"],
+  "react-router": ["./resources/js/martis-extensions/.shims/react-router-dom.d.mts"],
   "react-i18next": ["./resources/js/martis-extensions/.shims/react-i18next.d.mts"],
   "@tanstack/react-query": ["./resources/js/martis-extensions/.shims/tanstack-react-query.d.mts"],
   "@/contexts/*": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],

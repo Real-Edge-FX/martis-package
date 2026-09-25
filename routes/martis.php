@@ -185,7 +185,7 @@ Route::middleware(RouteMiddleware::base())
         // 3/min is the conventional ceiling for password-reset and
         // verification re-send flows. v1.8.16+.
         Route::post('/api/auth/email/verification-notification', [EmailVerificationController::class, 'send'])
-            ->middleware(['martis.auth', 'throttle:3,1'])
+            ->middleware(['martis.auth', 'throttle:3,1,'.RouteMiddleware::throttlePrefix('verification')])
             ->name('api.auth.email.verification.send');
 
         // Translations — public, loaded before login
@@ -210,7 +210,7 @@ Route::middleware(RouteMiddleware::base())
                     ->middleware($throttle)
                     ->group(function () {
                         Route::post('/2fa/challenge', [TwoFactorController::class, 'challenge'])
-                            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+                            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1).','.RouteMiddleware::throttlePrefix('2fa'))
                             ->name('2fa.challenge');
                     });
 
@@ -371,6 +371,17 @@ Route::middleware(RouteMiddleware::base())
                                 // Lenses
                                 Route::get('/resources/{resource}/lenses/{lens}', [LensController::class, 'index'])
                                     ->name('resources.lenses.index');
+                                // The actions a lens runs (its own actions(), or the
+                                // resource's), as Nova's lens action routes. Registered
+                                // before the /resources/{resource}/{id}/... routes.
+                                Route::get('/resources/{resource}/lenses/{lens}/actions', [ActionController::class, 'lensIndex'])
+                                    ->name('resources.lenses.actions.index');
+                                Route::get('/resources/{resource}/lenses/{lens}/actions/{action}/fields', [ActionController::class, 'lensFields'])
+                                    ->name('resources.lenses.actions.fields');
+                                Route::get('/resources/{resource}/lenses/{lens}/actions/{action}/relatable/{field}', [ResourceController::class, 'lensActionRelatableOptions'])
+                                    ->name('resources.lenses.actions.relatable');
+                                Route::post('/resources/{resource}/lenses/{lens}/actions/{action}', [ActionController::class, 'lensExecute'])
+                                    ->name('resources.lenses.actions.execute');
 
                                 // HasMany relationship CRUD
                                 Route::get('/resources/{resource}/{id}/has-many/{relationship}', [HasManyController::class, 'index'])

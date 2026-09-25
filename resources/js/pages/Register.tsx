@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type KeyboardEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { ArrowRightIcon } from '@phosphor-icons/react'
 import { useAuth } from '@/contexts/AuthContext'

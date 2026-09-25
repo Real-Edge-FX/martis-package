@@ -479,10 +479,10 @@ Shipped locales: `en` (English), `pt_BR` (Brazilian Portuguese), `pt_PT` (Europe
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `enabled` | `bool` | `true` | Set `false` to disable API rate limiting. |
-| `max_attempts` | `int` | `120` | Maximum requests per window, per signed-in user of the Martis guard. |
-
-| `max_attempts` | `int` | `120` | Maximum requests per window, per user, counted across the Martis API and every Tool's routes (v2.0). |
+| `max_attempts` | `int` | `120` | Maximum requests per window, per signed-in user of the Martis guard, counted across the Martis API and every Tool's routes (v2.0). |
 | `decay_minutes` | `int` | `1` | Rate limit window in minutes. |
+
+The limit is Laravel's `throttle` middleware with a key prefix, `throttle:{max},{decay},martis-api:{guard}:` (`RouteMiddleware::throttlePrefix('api')`, v2.0.1). Laravel keys a signed-in user's bucket on `sha1()` of the identifier alone, so without the prefix the Martis guard's user 5 shared a bucket with a site route's plain `throttle` for the site user 5 (an `admins` guard beside the site's `users`), or for the same person. The 2FA challenge (`martis-2fa:{guard}:`) and the verification email resend (`martis-verification:{guard}:`) keep their own limits in their own buckets: before v2.0.1 they counted in the API's, so a resend answered `429` after three API requests in the same minute.
 
 ## Theme
 
@@ -723,6 +723,8 @@ Where Martis scans for `Martis\Tools\Tool` subclasses (since v1.8.20). `tools_na
 | `resource` | `bool` | `true` | Register ActionEvent as a browsable resource in the sidebar. |
 
 Individual actions can opt out via `->withoutActionEvents()`.
+
+The registered resource is closed until you define the `view-martis-action-events` gate (or an `ActionEvent` policy), v2.0.1+: see [Actions → Who can read the audit log](actions.md#who-can-read-the-audit-log-v201).
 
 ## Code-side registrations: `app/Providers/MartisServiceProvider.php`
 
@@ -1134,12 +1136,12 @@ Toggles the theme switcher and locale picker that float on the auth pages.
     'passwordReset' => [
         'enabled' => env('MARTIS_AUTH_PASSWORD_RESET_ENABLED', false),
         'url'     => env('MARTIS_AUTH_PASSWORD_RESET_URL'),
-        'broker'  => env('MARTIS_AUTH_PASSWORD_BROKER', 'users'),
+        'broker'  => env('MARTIS_AUTH_PASSWORD_BROKER'),
     ],
 ],
 ```
 
-Off by default. Enable to expose the "Forgot your password?" flow. `broker` matches the broker name in `config/auth.php`.
+Off by default. Enable to expose the "Forgot your password?" flow. `broker` names a broker of `config/auth.php` (`passwords`) whose provider is the Martis guard's; unset (the default since v2.0.1), Martis picks one: the app's default broker when it reads the Martis guard's users, else the first that does. A broker of another provider, or none that fits, throws naming `martis.auth.passwordReset.broker`. See [Authentication → Which password broker resets a password](authentication.md#which-password-broker-resets-a-password).
 
 ## Registration
 
@@ -1355,7 +1357,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_AUTH_MAGIC_LINK_AUTO_REGISTER` | `false` |
 | `MARTIS_AUTH_MAGIC_LINK_ENABLED` | `false` |
 | `MARTIS_AUTH_MAGIC_LINK_TTL` | `15` |
-| `MARTIS_AUTH_PASSWORD_BROKER` | `'users'` |
+| `MARTIS_AUTH_PASSWORD_BROKER` | unset (the broker of the Martis guard's provider) |
 | `MARTIS_AUTH_PASSWORD_RESET_ENABLED` | `false` |
 | `MARTIS_AUTH_PASSWORD_RESET_URL` | `(no default)` |
 | `MARTIS_AUTH_REGISTER_SUBTITLE` | `(no default)` |

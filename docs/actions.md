@@ -1164,14 +1164,100 @@ $post->actions()->where('name', 'Publish Posts')->count();
 $post->actions()->where('status', 'failed')->get();
 ```
 
+#### The Action Events panel (v2.0.1+)
+
+As in Nova, the detail page of a model that uses the `Actionable` trait ends with a collapsable **Action Events** panel: a `MorphMany` of `actions()` through the resource that exposes the `ActionEvent` model (the built-in `ActionEventResource`, or your own). Martis adds it after `fieldsForDetail()` (see `Resource::resolveDetailFields()`), unless:
+
+- the detail fields already declare a `MorphMany` to that resource (yours stays, labelled as you wrote it, in its panel or tab);
+- no resource exposes the `ActionEvent` model (`martis.action_events.resource` off and no resource of your own);
+- the resource overrides `shouldAddActionsField()`, Nova's hook, to return `false`:
+
+```php
+use Illuminate\Http\Request;
+
+class PostResource extends Resource
+{
+    protected function shouldAddActionsField(Request $request, array $fields): bool
+    {
+        return false;
+    }
+}
+```
+
+`actionEventsField()` builds the panel, labelled **Action Events** as in Nova (`Nova::__('Action Events')`), translated (`martis::action_events.label`); override it to change its label or options. The panel follows the action event resource's `viewAny`, as every relationship panel does (see [Relationships → Panels follow the related resource's `viewAny`](relationships.md#panels-follow-the-related-resources-viewany-v201)): while the audit log is closed (below), no user sees it and its route answers `403`.
+
 ### Built-in ActionEvent Resource
 
 Martis automatically registers an `ActionEventResource` in the admin panel, providing a read-only interface for browsing the audit log. This resource:
 
-- Appears in the sidebar as **"Action Events"** with a clipboard icon
+- Appears in the sidebar as **"Action Events"** with a clipboard icon, for the users allowed to read the log (see below)
 - Is **read-only** (no create, update, or delete)
 - Sorts by `created_at DESC` by default
-- Shows: Action name, User ID, Model type, Status, Executed At
+- Shows Nova's columns (v2.0.1+), in Nova's order and with its labels, translated in `en`, `pt_PT` and `pt_BR` (`martis::action_events`)
+
+#### Columns and detail fields (v2.0.1+)
+
+The resource mirrors Nova 5's `Laravel\Nova\Actions\ActionResource`:
+
+| Field | Index | Shows |
+|-------|-------|-------|
+| **ID** | yes | The event id |
+| **Name** | yes | The action name, through `__()` as Nova's `Nova::__($value)` |
+| **Initiated By** | yes | The name of the user who ran the action, else their email, else the stored `user_id` when the user is gone (Nova prints "Nova User" there). The user comes from the Martis guard's user model (`GuardCatalog::martisUserModel()`, the model of `MARTIS_GUARD`'s provider), eager-loaded per page |
+| **Target** | yes | The target record as `Project: Apollo`: its resource's singular label and title, linked to its detail page (with the peek card) when the viewer may `viewAny` and `view` it. As in Nova, a record the viewer may not view shows its title unlinked. A record that is gone, or a model no resource exposes, reads `Project: 12` (label, or class basename, and id), unlinked |
+| **Status** | yes | Nova's labels: **Waiting** (`queued`), **Running**, **Finished** (`completed`, `finished`), **Failed**, plus **Denied** for an authorization denial. Waiting and Running show a spinner, Failed and Denied the error mark. Another value reads capitalised |
+| **Original**, **Changes** | no | The diff as a key/value table, only on an event that holds one (Nova adds them only when set). Values stay redacted, see below |
+| **Exception** | no | The exception message of a failed run |
+| **Happened At** | yes | `created_at` |
+
+The batch id and the raw `actionable_*` columns are not shown any more (Nova does not show them); they stay in the table and on the `ActionEvent` model. `ActionEventResource::statusLabel()`, `initiatorName()` and `targetValue()` are public, for a custom audit resource that wants the same display.
+
+#### Who can read the audit log (v2.0.1+)
+
+The audit log is **closed by default**: it records what every user changed, including values of fields other users cannot see. Open it with the `view-martis-action-events` gate, from your `MartisServiceProvider` (or any service provider):
+
+```php
+use Illuminate\Support\Facades\Gate;
+
+Gate::define('view-martis-action-events', fn ($user) => $user->is_admin);
+```
+
+The package registers a deny-by-default definition, as it does for `manage-martis-cache` and `martis-invite`; yours replaces it whatever the boot order. A policy for the `Martis\Models\ActionEvent` model decides instead when it defines `viewAny` / `view` (`Gate::policy(ActionEvent::class, ActionEventPolicy::class)`, or `App\Martis\Policies\ActionEventPolicy` by auto-discovery), as Nova's action log follows the `ActionEvent` policy. An ability the policy does not define falls back to the gate.
+
+Without access:
+
+| Surface | Behaviour |
+|---------|-----------|
+| `GET /api/resources/action-events` and `/{id}` | `403` |
+| Sidebar, `MenuItem::resource(ActionEventResource::class)` | Hidden |
+| Command palette, *Recent activity* | Empty |
+| A relationship panel listing the log (the automatic Action Events panel of an `Actionable` model, or a `MorphMany::make('Actions', 'actions', ActionEventResource::class)` of your own) | Not on the detail page; its route answers `403`, as for every panel whose related resource denies `viewAny` |
+
+The denied gate check runs with every navigation build, so the [authorization-denial audit](authorization.md#audit-log-of-denied-authorizations) skips it like the `viewAny` cascade (unless `MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY=true`).
+
+#### Hidden values in `original` and `changes` (v2.0.1+)
+
+`original` and `changes` store the raw attributes an action changed, whatever the record's resource shows. The detail page shows a value only when the viewer could read that attribute on the record's own detail page; any other value reads `******` (`ActionEventRedactor::MASK`), so the log still tells which attributes changed:
+
+- **The record has a resource.** A key keeps its value when it is the attribute of a detail field the viewer may see (`canSee()`, `canSeeForModel()`), or the foreign key / morph type of a visible `BelongsTo` / `MorphTo`, through a resource that lets the viewer `viewAny` and `view` the record. Attributes no field shows (`password`, `remember_token`, internal columns) are masked. A viewer who may not view the record sees every value masked, and so does one whose global scopes hide it (another tenant's record). A deleted record is judged by the field visibility alone.
+- **A pivot action's event** (`model_type` is the pivot): the values show when the viewer may view the parent record, but the pivot model's `$hidden` attributes and the attributes of the pivot fields the viewer may not see (`canSee()`) on the `BelongsToMany` / `MorphToMany` field that lists the row. When the parent's detail page declares such a field but the viewer may see none of them, every value is masked.
+- **No resource exposes the model** (a standalone action, a role change, a custom writer): the values show, but the model's `$hidden` attributes.
+
+A custom audit resource applies the same rule from its fields:
+
+```php
+use Martis\Actions\ActionEventRedactor;
+
+KeyValue::make('changes')->resolveUsing(
+    fn ($value, $event, $attribute, $request) => ActionEventRedactor::redact($event, $value, $request ?? request()),
+);
+```
+
+The stored row keeps every other value: code that reads `ActionEvent` directly gets them. Only the model's `$hidden` attributes never reach it (below).
+
+#### `$hidden` attributes are stored masked (v2.0.1+)
+
+When an action changes an attribute its model hides (`$hidden`: a password hash, a token), the event stores `******` for it in `original` and `changes`, keeping the key; a pivot action does the same with the pivot model's `$hidden` columns. This applies to synchronous and queued actions and to pivot actions, and to rows written from v2.0.1 on (older rows keep their values, still masked on read). Nova does the same: its action events store their diffs through `Orchestra\Sidekick\Eloquent\model_state()`, which replaces each `$hidden` attribute with a value serialised as `******`. A custom writer masks its own diffs with `ActionEventRedactor::maskHiddenAttributes($values, $model)`.
 
 #### Hide from Navigation
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { createMemoryRouter, RouterProvider } from 'react-router-dom'
+import { createMemoryRouter, RouterProvider } from 'react-router'
 import type { ResourceSchema } from '@/types'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { ApiError } from '@/lib/api'
@@ -195,5 +195,50 @@ describe('ResourceIndexPage — index fetch failure', () => {
     expect(state.textContent).toContain('Records could not be loaded')
     expect(state.dataset.status).toBe('network')
     expect(screen.queryByText('No records found.')).toBeNull()
+  })
+
+  // A resource the user may not viewAny answers 403 on both the schema and
+  // the index. The page is the 403 error page; a generic "Records could not
+  // be loaded" toast on top of it only repeats the failure.
+  it.each([
+    ['the index fails after the schema', 0],
+    ['the index fails before the schema', 30],
+  ])('does not toast when the page renders the error page (%s)', async (_label, schemaDelay) => {
+    apiGetMock.mockImplementation((path: string) => {
+      if (typeof path === 'string' && path.includes('/schema')) {
+        return new Promise((_resolve, reject) => {
+          setTimeout(() => reject(new ApiError(403, 'This action is unauthorized.')), schemaDelay)
+        })
+      }
+      if (isIndexCall(path, 'action-events')) return Promise.reject(new ApiError(403, 'This action is unauthorized.'))
+      return Promise.resolve({ data: [] })
+    })
+
+    renderIndexPage('action-events')
+
+    await screen.findByText('Access denied')
+    await waitFor(() => expect(indexCallCount('action-events')).toBeGreaterThan(0))
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
+
+    expect(document.querySelector('.martis-toast-message')).toBeNull()
+  })
+
+  it('toasts once when the index fails before the schema loads fine', async () => {
+    apiGetMock.mockImplementation((path: string) => {
+      if (typeof path === 'string' && path.includes('/schema')) {
+        return new Promise((resolve) => setTimeout(() => resolve({ data: makeSchema('posts') }), 30))
+      }
+      if (isIndexCall(path, 'posts')) return Promise.reject(new ApiError(500, 'Server Error'))
+      return Promise.resolve({ data: [] })
+    })
+
+    renderIndexPage('posts')
+
+    await findErrorState()
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
+
+    const toasts = document.querySelectorAll('.martis-toast-message')
+    expect(toasts).toHaveLength(1)
+    expect(toasts[0].textContent).toContain('Records could not be loaded')
   })
 })

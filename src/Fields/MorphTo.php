@@ -272,12 +272,19 @@ class MorphTo extends Field
         // Resolve the resource URI key for the morph type
         $resourceType = $this->resolveResourceUriKey($morphType);
 
-        return [
+        $data = [
             'type' => $morphType,
             'id' => $morphId,
             'title' => $related?->getAttribute($this->resolvedTitleAttribute($morphType)),
             'resourceType' => $resourceType,
         ];
+
+        // A trashed target says so (see BelongsTo::resolve()).
+        if ($related instanceof Model && method_exists($related, 'trashed') && $related->trashed()) {
+            $data['trashed'] = true;
+        }
+
+        return $data;
     }
 
     /** {@inheritdoc} */
@@ -356,6 +363,63 @@ class MorphTo extends Field
 
             if ($type === get_class($model) || $type === $model->getMorphClass()) {
                 return $type;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The morph type column (e.g. `commentable_type`).
+     */
+    public function getMorphTypeColumn(): string
+    {
+        return $this->morphTypeColumn;
+    }
+
+    /**
+     * The morph id column (e.g. `commentable_id`).
+     */
+    public function getMorphIdColumn(): string
+    {
+        return $this->morphIdColumn;
+    }
+
+    /**
+     * The target a submitted value names, as `fill()` reads it: the resource
+     * of `types()` it points at, the morph type `fill()` stores and the id.
+     * `null` when `fill()` writes nothing from the value (no map, a type the
+     * field does not offer, no id).
+     *
+     * @return array{resource: class-string<resource>, type: string, id: int|string}|null
+     */
+    public function submittedTarget(mixed $value): ?array
+    {
+        if (! is_array($value)) {
+            return null;
+        }
+
+        $morphType = $this->allowedMorphType($value['type'] ?? null);
+
+        if ($morphType === null && isset($value['resourceType']) && is_string($value['resourceType'])) {
+            $morphType = $this->resolveModelClass($value['resourceType']);
+        }
+
+        $id = $value['id'] ?? null;
+
+        if ($morphType === null || $id === null || $id === '' || (! is_int($id) && ! is_string($id))) {
+            return null;
+        }
+
+        foreach ($this->morphTypes as $resourceClass) {
+            try {
+                $model = $resourceClass::newModel();
+            } catch (\Throwable) {
+                continue;
+            }
+
+            if ($morphType === get_class($model) || $morphType === $model->getMorphClass()) {
+                return ['resource' => $resourceClass, 'type' => $morphType, 'id' => $id];
             }
         }
 

@@ -110,7 +110,11 @@ for the full ruleset (Rules 1–3 apply identically here).
 `LensRequest` exposes two composition helpers:
 
 - `withFilters(Builder): Builder` — applies filter values selected by
-  the user.
+  the user. Each filter runs as Eloquent runs a local scope (v2.0.1): an
+  `orWhere()` in the lens's query (`where('status', 'open')->orWhere('shared', true)`)
+  and one in a filter stay inside their own group, so the filter narrows
+  every record the lens's query keeps. Before v2.0.1 the filter's clause
+  was appended to the query's last `or` only.
 - `withOrdering(Builder, ?Closure $default = null): Builder` — applies
   the user's chosen sort column; if none, calls the default closure.
 
@@ -198,6 +202,34 @@ public function filters(Request $request): array
     return []; // the resource's filters are intentionally suppressed
 }
 ```
+
+#### Actions only the lens declares
+
+A lens that overrides `actions()` runs its own list, as in Nova: the lens
+page reads the actions' fields and pickers and runs them through
+`/martis/api/resources/{resource}/lenses/{lens}/actions/...` (see
+[API → Actions](api/overview.md#actions)), so an action the resource does
+not declare works on the lens, and a resource action the lens left out
+does not run from it. The lens's `canSee()` gates those routes; the
+action's `canSee()` / `canRun()` and the run-action policy apply as on the
+index, and each lens row carries `_actionAuthorization` for the lens's
+actions.
+
+The selected records are the ones the lens lists, as Nova's
+`LensActionRequest` reads them: `Lens::query()` runs on a query of the
+resource's model, with the lens's filters the user may see (from the
+request's `?filters=`) and its search, and the selected ids are kept only
+when it returns them. A record the lens does not list answers 404, like a
+record the index hides on the resource route; the resource's `scopes()` and
+`indexQuery()` do not apply, as they do not on the lens page, so a lens
+that must stay inside a tenant confines its own query. The action receives
+whole records read by key from the model's table, so a lens that selects
+aggregates, joins or groups still hands its actions real models. A lens
+whose `query()` returns a paginator cannot run actions on records: the run
+throws a `LogicException` naming the lens (return a query instead).
+Trashed records the lens lists are included. Before v2.0.1 the
+lens page ran its actions through the resource's routes, which only know
+the resource's `actions()`: an action only the lens declared answered 404.
 
 The controller uses PHP reflection (`Lens::hasOverride(string $method)`)
 to tell an implicit fallback apart from a deliberate empty return.

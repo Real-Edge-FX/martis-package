@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { useRef, useState, type ReactNode } from 'react'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter } from 'react-router'
 import { Dropdown } from 'primereact/dropdown'
 import { MultiSelect } from 'primereact/multiselect'
 import { Calendar } from 'primereact/calendar'

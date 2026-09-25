@@ -175,7 +175,7 @@ export function IconFieldInput({ field, value, onChange, error }: FieldInputProp
         type="button"
         onClick={() => !field.readonly && setOpen((v) => !v)}
         disabled={field.readonly}
-        className="flex items-center justify-between gap-2 rounded-md border transition-colors focus:outline-none focus-visible:ring-2"
+        className="flex items-center justify-between gap-2 rounded-md border border-solid transition-colors focus:outline-none focus-visible:ring-2"
         style={{
           height: 'var(--martis-input-h, 2.25rem)',
           paddingLeft: '0.625rem',
@@ -258,14 +258,14 @@ export function IconFieldInput({ field, value, onChange, error }: FieldInputProp
 
       {open && (
         <div
-          className="absolute z-50 top-full left-0 right-0 mt-1 min-w-[260px] rounded-md border shadow-lg"
+          className="absolute z-50 top-full left-0 right-0 mt-1 min-w-[260px] rounded-md border border-solid shadow-lg"
           style={{
             backgroundColor: 'var(--martis-card)',
             borderColor: 'var(--martis-border)',
           }}
           data-testid={`icon-picker-${field.attribute}`}
         >
-          <div className="flex items-center gap-2 border-b px-3 py-2" style={{ borderColor: 'var(--martis-border)' }}>
+          <div className="flex items-center gap-2 border-0 border-b border-solid px-3 py-2" style={{ borderColor: 'var(--martis-border)' }}>
             <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)' }} />
             <input
               autoFocus
@@ -273,7 +273,7 @@ export function IconFieldInput({ field, value, onChange, error }: FieldInputProp
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t('icon_picker_search', 'Search icons…')}
-              className="flex-1 bg-transparent text-sm focus:outline-none"
+              className="flex-1 border-0 bg-transparent text-sm focus:outline-none"
               style={{ color: 'var(--martis-text)' }}
             />
           </div>

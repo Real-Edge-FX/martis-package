@@ -39,6 +39,13 @@ class BelongsTo extends Field
     protected ?string $relatedUriKey = null;
 
     /**
+     * The relationship of the related resource that is the inverse of this
+     * one (Nova's `inverse()`), when the related resource declares several
+     * `HasOne` / `MorphOne` fields back to this resource.
+     */
+    protected ?string $inverse = null;
+
+    /**
      * Whether the dropdown should support text search.
      * Defaults to true — set to false via ->relationSearchable(false).
      */
@@ -302,7 +309,30 @@ class BelongsTo extends Field
             $data['subtitle'] = $related?->getAttribute($this->subtitleAttribute);
         }
 
+        // A trashed target says so: the edit form sends the value back, and
+        // the relatable check takes it as the trashed opt-in (Nova's form
+        // turns on "With Trashed" for a trashed target).
+        if ($related instanceof Model && method_exists($related, 'trashed') && $related->trashed()) {
+            $data['trashed'] = true;
+        }
+
         return $data;
+    }
+
+    /**
+     * The edit form sends back the `{id, title}` map `resolve()` gave it, which
+     * the multipart path (a form with a file field) serializes as JSON: it is
+     * decoded like a structured value, while a bare id passes as is.
+     */
+    public function hasStructuredValue(): bool
+    {
+        return true;
+    }
+
+    /** A bare id is the usual value, never an error. */
+    public function rejectsUnstructuredValue(): bool
+    {
+        return false;
     }
 
     /** {@inheritdoc} */
@@ -545,6 +575,53 @@ class BelongsTo extends Field
         $this->iconColor = $color;
 
         return $this;
+    }
+
+    /**
+     * Name the related resource's `HasOne` / `MorphOne` relationship that is
+     * the inverse of this one (Nova's `inverse()`). A write fails when that
+     * relationship of the picked record already holds another record (see
+     * `Martis\Rules\Relatable`); without it the first `HasOne` / `MorphOne`
+     * of the related resource pointing back at this resource is used.
+     */
+    public function inverse(string $relationship): static
+    {
+        $this->inverse = $relationship;
+
+        return $this;
+    }
+
+    /**
+     * The inverse relationship set by `inverse()`, if any.
+     */
+    public function getInverse(): ?string
+    {
+        return $this->inverse;
+    }
+
+    /**
+     * The URI key of the related resource the picker lists (`relatedResource()`),
+     * or `null` when none is set.
+     */
+    public function getRelatedResource(): ?string
+    {
+        return $this->relatedUriKey;
+    }
+
+    /**
+     * The id a submitted value names: a raw id or an `['id' => ...]` map, the
+     * empty string and `'null'` (FormData serialization) meaning none, as
+     * `fill()` reads it.
+     */
+    public function submittedId(mixed $value): int|string|null
+    {
+        $id = is_array($value) ? ($value['id'] ?? null) : $value;
+
+        if ($id === '' || $id === 'null' || (! is_int($id) && ! is_string($id))) {
+            return null;
+        }
+
+        return $id;
     }
 
     /**

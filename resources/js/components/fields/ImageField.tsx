@@ -35,7 +35,7 @@ export function ImageFieldDisplay({ value, field }: FieldDisplayProps) {
             <img
               src={img.thumbnailUrl ?? img.url}
               alt={img.name}
-              className="h-16 w-16 rounded border object-cover"
+              className="h-16 w-16 rounded border border-solid object-cover"
               style={{ borderColor: 'var(--martis-border)' }}
             />
           </a>
@@ -53,7 +53,7 @@ export function ImageFieldDisplay({ value, field }: FieldDisplayProps) {
       <img
         src={value.thumbnailUrl ?? value.url}
         alt={value.name}
-        className="max-h-24 rounded border object-cover"
+        className="max-h-24 rounded border border-solid object-cover"
         style={{ borderColor: 'var(--martis-border)' }}
       />
     </a>
@@ -163,7 +163,7 @@ function SingleImageInput({ field, value, onChange, error }: FieldInputProps) {
               <img
                 src={previewUrl}
                 alt="Preview"
-                className="h-20 w-20 flex-shrink-0 rounded border object-cover"
+                className="h-20 w-20 flex-shrink-0 rounded border border-solid object-cover"
                 style={{ borderColor: 'var(--martis-border)' }}
               />
             )}
@@ -346,7 +346,7 @@ function MultipleImageInput({ field, value, onChange, error }: FieldInputProps) 
           {items.map((item) => (
             <div
               key={item.id}
-              className="group relative h-24 w-24 overflow-hidden rounded-md border"
+              className="group relative h-24 w-24 overflow-hidden rounded-md border border-solid"
               style={{ borderColor: 'var(--martis-border)' }}
             >
               <img

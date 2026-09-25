@@ -92,7 +92,7 @@ export function AvatarSection({ avatarUrl, name, initials, palette, onUpdate }: 
 
   return (
     <section
-      className="rounded-xl p-6 border martis-border martis-card-bg"
+      className="rounded-xl p-6 border border-solid martis-border martis-card-bg"
       aria-labelledby="avatar-section-title"
     >
       <h2 id="avatar-section-title" className="text-lg font-semibold martis-text mb-4">
@@ -105,12 +105,12 @@ export function AvatarSection({ avatarUrl, name, initials, palette, onUpdate }: 
             <img
               src={displaySrc}
               alt={name}
-              className="h-20 w-20 rounded-full object-cover border-2 martis-border"
+              className="h-20 w-20 rounded-full object-cover border-2 border-solid martis-border"
               onError={() => setImgError(true)}
             />
           ) : (
             <div
-              className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold border-2 martis-border"
+              className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold border-2 border-solid martis-border"
               style={avatarPaletteStyle(palette)}
             >
               {initials || <UserIcon size={32} weight="bold" aria-hidden="true" />}
@@ -139,7 +139,7 @@ export function AvatarSection({ avatarUrl, name, initials, palette, onUpdate }: 
                     setPendingFile(null)
                     if (fileInputRef.current) fileInputRef.current.value = ''
                   }}
-                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90"
+                  className="inline-flex items-center gap-2 rounded-lg border border-solid px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90"
                   style={{
                     backgroundColor: 'var(--martis-surface-alt)',
                     borderColor: 'var(--martis-border)',
@@ -165,7 +165,7 @@ export function AvatarSection({ avatarUrl, name, initials, palette, onUpdate }: 
                     type="button"
                     disabled={removing}
                     onClick={() => void handleRemove()}
-                    className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-lg border border-solid px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
                     style={{
                       backgroundColor: 'var(--martis-surface-alt)',
                       borderColor: 'var(--martis-danger-hover)',

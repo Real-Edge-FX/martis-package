@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\MorphToMany as EloquentMorphToMany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Martis\Enums\ModalSize;
+use Martis\Fields\Concerns\AuthorizesRelatedResource;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Fields\Concerns\CountsScopedRelation;
 use Martis\Fields\Concerns\HasPivotActions;
@@ -39,6 +40,7 @@ use Martis\ResourceRegistry;
  */
 class MorphToMany extends Field
 {
+    use AuthorizesRelatedResource;
     use ControlsRelationshipToolbar;
     use CountsScopedRelation;
     use HasPivotActions;

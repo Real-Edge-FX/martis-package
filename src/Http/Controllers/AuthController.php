@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
+use Martis\Auth\PasswordBrokerConfigurationException;
 use Martis\Contracts\ProfileResourceContract;
 use Martis\Contracts\RegistersUsers;
 use Martis\Contracts\ResetsUserPasswords;
@@ -287,6 +288,11 @@ class AuthController extends MartisController
         } catch (ValidationException $e) {
             // Let the framework's 422 response shape through unchanged
             // so the form displays per-field errors correctly.
+            throw $e;
+        } catch (PasswordBrokerConfigurationException $e) {
+            // A broker that does not read the Martis guard's users is a
+            // configuration error, not an unavailable mailer: let it fail
+            // loudly, naming the config key.
             throw $e;
         } catch (\Throwable $e) {
             report($e);

@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
 use Martis\Filters\SelectFilter;
 use Martis\Http\Requests\LensRequest;
@@ -30,6 +31,16 @@ class RecordingSelectFilter extends SelectFilter
 }
 
 /**
+ * An Eloquent builder over a query that never reaches a database: each
+ * filter runs on it as a grouped scope (`IndexScope::grouped()`), which
+ * reads its where clauses.
+ */
+function lensFilterBuilder(): Builder
+{
+    return new Builder(Mockery::mock(QueryBuilder::class)->makePartial());
+}
+
+/**
  * Build a LensRequest with the given selectedFilters and one RecordingSelectFilter
  * registered under the key 'recording'.
  *
@@ -55,7 +66,7 @@ function makeLensRequestWithFilter(array $selectedFilters): array
 it('withFilters skips filter when selected value is null', function () {
     [$req, $filter] = makeLensRequestWithFilter(['recording' => null]);
 
-    $req->withFilters(Mockery::mock(Builder::class)->makePartial());
+    $req->withFilters(lensFilterBuilder());
 
     expect($filter->appliedValues)->toBeEmpty();
 });
@@ -63,7 +74,7 @@ it('withFilters skips filter when selected value is null', function () {
 it('withFilters skips filter when selected value is empty string', function () {
     [$req, $filter] = makeLensRequestWithFilter(['recording' => '']);
 
-    $req->withFilters(Mockery::mock(Builder::class)->makePartial());
+    $req->withFilters(lensFilterBuilder());
 
     expect($filter->appliedValues)->toBeEmpty();
 });
@@ -71,7 +82,7 @@ it('withFilters skips filter when selected value is empty string', function () {
 it('withFilters calls filter when selected value is a non-empty string', function () {
     [$req, $filter] = makeLensRequestWithFilter(['recording' => 'active']);
 
-    $req->withFilters(Mockery::mock(Builder::class)->makePartial());
+    $req->withFilters(lensFilterBuilder());
 
     expect($filter->appliedValues)->toBe(['active']);
 });
@@ -79,7 +90,7 @@ it('withFilters calls filter when selected value is a non-empty string', functio
 it('withFilters calls filter when selected value is integer 0', function () {
     [$req, $filter] = makeLensRequestWithFilter(['recording' => 0]);
 
-    $req->withFilters(Mockery::mock(Builder::class)->makePartial());
+    $req->withFilters(lensFilterBuilder());
 
     expect($filter->appliedValues)->toBe([0]);
 });
@@ -87,7 +98,7 @@ it('withFilters calls filter when selected value is integer 0', function () {
 it('withFilters calls filter when selected value is boolean false', function () {
     [$req, $filter] = makeLensRequestWithFilter(['recording' => false]);
 
-    $req->withFilters(Mockery::mock(Builder::class)->makePartial());
+    $req->withFilters(lensFilterBuilder());
 
     expect($filter->appliedValues)->toBe([false]);
 });
@@ -95,7 +106,7 @@ it('withFilters calls filter when selected value is boolean false', function () 
 it('withFilters skips unknown uriKey without calling any filter', function () {
     [$req, $filter] = makeLensRequestWithFilter(['unknown-key' => 'value']);
 
-    $req->withFilters(Mockery::mock(Builder::class)->makePartial());
+    $req->withFilters(lensFilterBuilder());
 
     expect($filter->appliedValues)->toBeEmpty();
 });

@@ -224,6 +224,7 @@ class MartisServiceProvider extends ServiceProvider
         $this->registerExceptionHandling();
         $this->registerCacheGate();
         $this->registerInvitationGate();
+        $this->registerActionEventGate();
         $this->discoverResources();
         $this->discoverTools();
         $this->registerApiDocs();
@@ -440,6 +441,30 @@ class MartisServiceProvider extends ServiceProvider
         // Secure default: deny. The host must explicitly grant this ability.
         if (! Gate::has('martis-invite')) {
             Gate::define('martis-invite', static fn ($user = null): bool => false);
+        }
+    }
+
+    /**
+     * Register the default `view-martis-action-events` gate. Denies by default.
+     *
+     * The audit log records what every user changed, including the
+     * values of fields other users cannot see, so the package does not
+     * open it to every panel user. Until the host grants it (or registers
+     * a policy for `Martis\Models\ActionEvent` that defines `viewAny` /
+     * `view`), the Action Events resource answers 403, leaves the
+     * sidebar and the command palette, and lists no rows in a
+     * relationship panel:
+     *
+     *     Gate::define('view-martis-action-events', fn ($user) => $user->is_admin);
+     *
+     * Calling `Gate::define()` from the host app replaces the closure
+     * registered here, so order doesn't matter.
+     */
+    protected function registerActionEventGate(): void
+    {
+        // Secure default: deny. The host must explicitly grant this ability.
+        if (! Gate::has(ActionEventResource::GATE)) {
+            Gate::define(ActionEventResource::GATE, static fn ($user = null): bool => false);
         }
     }
 

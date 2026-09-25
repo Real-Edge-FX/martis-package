@@ -12,17 +12,22 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
+use Martis\Contracts\FilterContract;
 use Martis\Enums\SortDirection;
+use Martis\FieldContext;
 use Martis\Fields\BelongsToMany;
+use Martis\Fields\Concerns\AuthorizesRelatedResource;
 use Martis\Fields\Field;
 use Martis\Fields\HasMany;
 use Martis\Fields\MorphMany;
 use Martis\Fields\MorphToMany;
 use Martis\Fields\Repeater;
 use Martis\Http\Resources\JsonErrorResponse;
+use Martis\Lenses\Lens;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\Support\RelationScope;
+use Martis\Support\TranslatedLine;
 
 abstract class MartisController extends Controller
 {
@@ -45,9 +50,10 @@ abstract class MartisController extends Controller
      * whether each action may run on the row's record, by the same predicate
      * `ActionController::execute()` enforces (see `actionRunDenial()`), so an
      * item the menu enables is one the run accepts. The resource index maps
-     * every action the user can see; a relationship panel (`$inlineOnly`)
-     * maps only its inline actions, the only ones its rows offer. `null`
-     * when there is none to map, so the rows skip it.
+     * every action the user can see; a lens maps the actions it runs (see
+     * `availableActions()`); a relationship panel (`$inlineOnly`) maps only
+     * its inline actions, the only ones its rows offer. `null` when there
+     * is none to map, so the rows skip it.
      *
      * The closure takes the row's serialized `_authorization`, whose
      * `authorizedToRunAction` / `authorizedToRunDestructiveAction` flags are
@@ -57,10 +63,10 @@ abstract class MartisController extends Controller
      * @param  class-string<resource>  $resourceClass
      * @return (\Closure(Model, array<string, mixed>=): array<string, bool>)|null
      */
-    protected function rowActionAuthorizer(Request $request, string $resourceClass, bool $inlineOnly = false): ?\Closure
+    protected function rowActionAuthorizer(Request $request, string $resourceClass, bool $inlineOnly = false, ?Lens $lens = null): ?\Closure
     {
         $actions = array_filter(
-            (new $resourceClass)->actions($request),
+            $this->availableActions(new $resourceClass, $request, $lens),
             fn (ActionContract $action): bool => $action->authorizedToSee($request)
                 && (! $inlineOnly || $action->isShownInline()),
         );
@@ -224,7 +230,7 @@ abstract class MartisController extends Controller
         $shown = $request->query('relatedId');
 
         if (is_scalar($shown) && (string) $shown !== '' && (string) $current->getKey() !== (string) $shown) {
-            return JsonErrorResponse::conflict($this->translatedMessage('martis::messages.card_record_changed'))->toResponse();
+            return JsonErrorResponse::conflict(TranslatedLine::get('martis::messages.card_record_changed'))->toResponse();
         }
 
         return null;
@@ -240,20 +246,12 @@ abstract class MartisController extends Controller
         $shown = $request->query('relatedId');
 
         if (! is_scalar($shown) || (string) $shown === '') {
-            $message = $this->translatedMessage('martis::messages.card_related_id_required');
+            $message = TranslatedLine::get('martis::messages.card_related_id_required');
 
             return JsonErrorResponse::validation(['relatedId' => [$message]], $message)->toResponse();
         }
 
         return null;
-    }
-
-    /** A translation line as a string (`__()` returns an array for a group key). */
-    private function translatedMessage(string $key): string
-    {
-        $line = __($key);
-
-        return is_string($line) ? $line : $key;
     }
 
     /**
@@ -275,6 +273,48 @@ abstract class MartisController extends Controller
 
         if (! $instance->authorizedToViewAny($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        return null;
+    }
+
+    /**
+     * The 403 a relationship route answers when the parent's detail page
+     * declares the relationship field, but the user may not list its
+     * related resource (the related resource's `viewAny`).
+     *
+     * The field lookup of a relationship route leaves such a field out, as
+     * the detail page does ({@see AuthorizesRelatedResource}), so the
+     * route would answer 404 "Relationship not found". Nova answers 403
+     * there: its relationship index is the related resource's index, which
+     * aborts with 403 without `viewAny`. A field the detail page hides for
+     * another reason (`canSee()`, `canSeeForModel()`) keeps its 404.
+     *
+     * @param  class-string<FieldContract>  $fieldClass
+     */
+    protected function forbiddenWhenRelatedResourceClosed(
+        Request $request,
+        Resource $parent,
+        Model $parentModel,
+        string $fieldClass,
+        string $relationship,
+    ): ?IlluminateJsonResponse {
+        foreach (Field::flattenLayoutFields($parent->resolveDetailFields($request)) as $field) {
+            if (! $field instanceof $fieldClass
+                || ! $field instanceof Field
+                || ! method_exists($field, 'relatedResourceAuthorizedToViewAny')
+                || ! method_exists($field, 'isAuthorizedToSeeIgnoringRelatedResource')
+                || ! method_exists($field, 'getRelationship')
+                || $field->getRelationship() !== $relationship
+                || ! $field->isVisibleForContext(FieldContext::DETAIL)
+                || ! $field->isAuthorizedToSeeIgnoringRelatedResource($request)
+                || ! $field->isAuthorizedForModel($request, $parentModel)) {
+                continue;
+            }
+
+            if (! $field->relatedResourceAuthorizedToViewAny($request)) {
+                return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            }
         }
 
         return null;
@@ -603,12 +643,92 @@ abstract class MartisController extends Controller
     }
 
     /**
-     * Find an Action a resource registers, by URI key. The caller runs the
-     * Action's gates (authorizedToSee(), authorizedToRun()).
+     * The actions a listing offers: the resource's, or on a lens the ones
+     * the lens declares in its own `actions()`, which replace the
+     * resource's (even an empty list); a lens that does not override
+     * `actions()` inherits the resource's. As in Nova, where a lens's
+     * actions are resolved from the lens (`LensActionRequest`).
+     *
+     * @return array<int, ActionContract>
      */
-    protected function findAction(Resource $resource, string $uriKey, Request $request): ?ActionContract
+    protected function availableActions(Resource $resource, Request $request, ?Lens $lens = null): array
     {
-        $actions = $resource->actions($request);
+        /** @var array<int, ActionContract> $actions */
+        $actions = $lens !== null && $lens->hasOverride('actions')
+            ? $lens->actions($request)
+            : $resource->actions($request);
+
+        return $actions;
+    }
+
+    /**
+     * Collect filters available inside the lens, indexed by uriKey, and
+     * stripping those the user is not allowed to see.
+     *
+     * Inheritance rule (explicit override semantics):
+     *   - Lens overrode `filters()` → use its value verbatim (even []).
+     *     This lets developers disable filters entirely on a lens.
+     *   - Lens did NOT override → inherit the parent resource's filters.
+     *
+     * @return array<string, FilterContract>
+     */
+    protected function collectAuthorizedFilters(Lens $lensInstance, Resource $resourceInstance, Request $request): array
+    {
+        $inheriting = ! $lensInstance->hasOverride('filters');
+        $filters = $inheriting
+            ? $resourceInstance->filters($request)
+            : $lensInstance->filters($request);
+
+        $result = [];
+        foreach ($filters as $filter) {
+            if (! $filter instanceof FilterContract) {
+                continue;
+            }
+            if (! $filter->authorizedToSee($request)) {
+                continue;
+            }
+            // Martis extension: the resource can tag filters as
+            // "not-for-lenses" with `->excludeFromLens()`. Such filters are
+            // skipped when the lens is inheriting from the resource; an
+            // explicit lens override trumps the tag.
+            if ($inheriting
+                && method_exists($filter, 'isExcludedFromLens')
+                && $filter->isExcludedFromLens()
+            ) {
+                continue;
+            }
+
+            $result[$filter->uriKey()] = $filter;
+        }
+
+        return $result;
+    }
+
+    /**
+     * The lens of `$resource` whose URI key is `$uriKey`, or a 404 when the
+     * resource declares none, or a 403 when the user may not see it.
+     */
+    protected function resolveLens(Resource $resource, string $uriKey, Request $request): Lens|IlluminateJsonResponse
+    {
+        foreach ($resource->lenses($request) as $lens) {
+            if ($lens instanceof Lens && $lens->uriKey() === $uriKey) {
+                return $lens->authorizedToSee($request)
+                    ? $lens
+                    : JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            }
+        }
+
+        return JsonErrorResponse::notFound("Lens '{$uriKey}' not found on resource.")->toResponse();
+    }
+
+    /**
+     * Find an Action a resource registers, or the lens `$lens` runs (see
+     * `availableActions()`), by URI key. The caller runs the Action's gates
+     * (authorizedToSee(), authorizedToRun()).
+     */
+    protected function findAction(Resource $resource, string $uriKey, Request $request, ?Lens $lens = null): ?ActionContract
+    {
+        $actions = $this->availableActions($resource, $request, $lens);
 
         foreach ($actions as $action) {
             if ($action->uriKey() === $uriKey) {

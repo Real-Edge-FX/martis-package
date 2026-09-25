@@ -508,7 +508,7 @@ export function StatusSelect({ field, value, onChange, error }: FieldInputProps)
         onChange={(e) => onChange(e.target.value)}
         className={
           'rounded-martis-md bg-martis-input-bg text-martis-text px-2 py-1 ' +
-          (error ? 'border border-martis-danger' : 'border border-martis-border')
+          (error ? 'border border-solid border-martis-danger' : 'border border-solid border-martis-border')
         }
       >
         <option value="draft">Draft</option>
@@ -520,7 +520,7 @@ export function StatusSelect({ field, value, onChange, error }: FieldInputProps)
 }
 ```
 
-If you opted out of the Tailwind preset, the same effect works with inline styles (`style={{ color: 'var(--martis-danger)' }}`) or the bundled helper classes (`.martis-text`, `.martis-border`). Either way, **don't hard-code colours like `bg-red-500`** — they don't follow the active theme.
+If you opted out of the Tailwind preset, the same effect works with inline styles (`style={{ color: 'var(--martis-danger)' }}`) or the bundled helper classes (`.martis-text`, `.martis-border`). Either way, **don't hard-code colours like `bg-red-500`** — they don't follow the active theme. A border utility needs its style next to it (`border border-solid`): the bundled CSS has no Tailwind preflight to supply one (see [Borders](theming.md#borders)).
 
 **An input whose value holds other values** (rows, items with fields of their own) also receives `nestedErrors`: the server errors of the values inside its value, keyed by their path below the field's attribute. A 422 on the `name` field of row 1 of a `lines` Repeater (`lines.1.fields.name`) reaches the `lines` input as `nestedErrors = { '1.fields.name': 'The Name field is required.' }`, while `error` keeps the field's own message. The bundled `Repeater` shows each under the matching row field. An input that renders other inputs passes each child its own error and the entries below `child.`, so a nested input gets its errors too. Every bundled form and `useMartisForm().fieldProps()` fill the prop (since v1.38.0); an input with a scalar value can ignore it.
 

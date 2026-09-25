@@ -5,6 +5,7 @@ namespace Martis\Fields;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphOne as EloquentMorphOne;
 use Illuminate\Support\Str;
+use Martis\Fields\Concerns\AuthorizesRelatedResource;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Fields\Concerns\ResolvesRelatableOptions;
 
@@ -26,6 +27,7 @@ use Martis\Fields\Concerns\ResolvesRelatableOptions;
  */
 class MorphOne extends Field
 {
+    use AuthorizesRelatedResource;
     use ControlsRelationshipToolbar;
     use ResolvesRelatableOptions;
 

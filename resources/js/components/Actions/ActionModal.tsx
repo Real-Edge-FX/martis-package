@@ -78,6 +78,9 @@ interface ActionModalProps {
   /** The relationship a panel runs the action through, sent as Nova does,
    *  so the run reaches only a record that relationship holds. */
   via?: ActionVia
+  /** The lens the action runs from: its actions (its own `actions()`, or
+   *  the resource's) are resolved from the lens, as in Nova. */
+  lens?: string
 }
 
 /** `viaResource` / `viaResourceId` / `viaRelationship` of a panel's run. */
@@ -87,7 +90,10 @@ export interface ActionVia {
   viaRelationship: string
 }
 
-function DefaultActionModal({ resource, action, selectedIds, visible, onHide, onSuccess, onOpenCreate, onOpenDetail, onOpenUpdate, via }: ActionModalProps) {
+function DefaultActionModal({ resource, action, selectedIds, visible, onHide, onSuccess, onOpenCreate, onOpenDetail, onOpenUpdate, via, lens }: ActionModalProps) {
+  // A lens's actions live under its own routes: an action only the lens
+  // declares is unknown to the resource's.
+  const actionUrl = action ? `/api/resources/${resource}${lens ? `/lenses/${lens}` : ''}/actions/${action.uriKey}` : ''
   const { addToast } = useToast()
   const { t } = useTranslation('actions')
   const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({})
@@ -131,11 +137,9 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   useModalHistoryLock(visible && !!action)
 
   const fieldsQuery = useQuery({
-    queryKey: ['action-fields', resource, action?.uriKey],
+    queryKey: ['action-fields', resource, lens ?? null, action?.uriKey],
     queryFn: () =>
-      api.get<{ data: { fields: FieldDefinition[] } }>(
-        `/api/resources/${resource}/actions/${action!.uriKey}/fields`,
-      ),
+      api.get<{ data: { fields: FieldDefinition[] } }>(`${actionUrl}/fields`),
     enabled: visible && !!action,
   })
 
@@ -153,7 +157,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
     onMutate: () => setFieldErrors({}),
     mutationFn: (params: { dryRun?: boolean; extraFields?: Record<string, unknown> }) =>
       api.post<{ data: { type?: string; data?: Record<string, unknown>; preview?: unknown } }>(
-        `/api/resources/${resource}/actions/${action!.uriKey}`,
+        actionUrl,
         {
           resources: selectedIds,
           fields: { ...fieldValues, ...(params.extraFields ?? {}) },
@@ -365,7 +369,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
                     }}
                     {...fieldErrorProps(fieldErrors, field.attribute)}
                     context="create"
-                    actionEndpoint={`/api/resources/${resource}/actions/${action.uriKey}`}
+                    actionEndpoint={actionUrl}
                   />
                 </div>
               ))}

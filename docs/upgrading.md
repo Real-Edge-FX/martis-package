@@ -4,6 +4,91 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.0.1 from v2.0.0
+
+The action log, the throttle buckets, the Gate cache's `lookup()` the Tool route warning, the grouped user hooks, the relatable checks on writes, the relationship panels, the Action Events panel, the action log's columns and React Router 7 apply to every app; the other changes concern an app with a custom `MARTIS_GUARD`.
+
+### Relationship writes follow the pickers
+
+A create, update, inline create, attach, pivot update or Action run now answers **422** when a `BelongsTo`, `MorphTo`, `Tag` or attached record names a record its picker would not list, as Nova's `Relatable` rule does. v2.0 applied `relatableQuery()`, `relatable{PluralModelName}()` and `relatableQueryUsing()` to the pickers only and saved any id the request sent. See [Relationships → Writes follow the pickers](relationships.md#writes-follow-the-pickers).
+
+**Who is affected:** an app whose relatable hooks are narrower than what it saves: a `relatableQuery()` that hides records a form or an API client still writes (an inactive owner, another tenant's record an admin assigns), a `relatableQueryUsing()` written only to sort or shorten the list, or a client that writes soft-deleted related records. The same writes now also need `viewAny` on the related resource, the related record's `add{Model}` policy ability for a `BelongsTo` / `MorphTo` (as the `HasMany` panel on its page already needs), `attachAny{Model}` / `attach{Model}` for the records a `Tag` adds and `detach{Model}` for the ones it removes, and a `BelongsTo` / `MorphTo` fails when the picked record's inverse `HasOne` / `MorphOne` already holds another record (Nova's `relationshipIsFull()`). As in Nova, the value is checked on every save: a record that already points at a target outside the query answers 422 on its next update until the target changes. The `BelongsTo`, `MorphTo` and `Tag` fields of `Repeater` rows are checked too.
+
+**What to change:** widen the hook to what the app writes (branch on `$request->route('resource')` or on the field passed to `relatable{PluralModelName}()` when only one picker should be narrow), send `{attribute}_trashed=true` with a soft-deleted target (the edit form sends the target's `trashed: true` back by itself), grant the policy abilities above, and look for records whose stored target the hooks now exclude, which cannot be saved unchanged. An API client that attaches with a 3-argument `relatableQueryUsing()` closure sends the same `?form[attribute]=value` draft on the attach as on the attachable list.
+
+### The action log is closed by default
+
+The Action Events resource (the `martis_action_events` audit log) was readable by every panel user, `original` and `changes` included, whatever fields those users could see on the records. From v2.0.1 it is closed until you open it, and it masks the values the viewer could not read on the record:
+
+- **Access.** A deny-by-default gate, `view-martis-action-events`, decides who reads the log, unless a policy for `Martis\Models\ActionEvent` defines `viewAny` / `view` (then the policy decides, as before). Without access the index and the detail answer `403`, the sidebar entry and the command palette's *Recent activity* disappear, and a relationship panel that lists the log leaves the detail page (see the next section).
+- **Hidden values.** A value in `original` / `changes` reads `******` unless the viewer may see that attribute on the record's own detail page (a visible field, through a resource that lets the viewer view the record). Attributes no field shows, such as `password`, are masked too, and so are the pivot columns of a pivot action whose pivot field the viewer may not see. Rows already stored are unchanged.
+- **`$hidden` attributes are stored masked.** From v2.0.1 an event stores `******` for each `$hidden` attribute of the model (or of the pivot model) an action changed, as Nova does. Code that read those values from `martis_action_events` gets the mask for new rows.
+
+**What to change:** grant the gate to the users who should read the log, in `app/Providers/MartisServiceProvider.php` (or any service provider):
+
+```php
+use Illuminate\Support\Facades\Gate;
+
+Gate::define('view-martis-action-events', fn ($user) => $user->is_admin);
+```
+
+An app with an `ActionEventPolicy` that defines `viewAny` and `view` needs no change. A custom resource for the `ActionEvent` model keeps its own authorization; apply `ActionEventRedactor::redact()` to its `original` / `changes` fields to mask the same values. See [Actions → Who can read the audit log](actions.md#who-can-read-the-audit-log-v201).
+
+### Password reset picks the Martis guard's broker
+
+Password reset now runs on the password broker whose provider is the Martis guard's (`GuardCatalog::martisPasswordBroker()`): `MARTIS_AUTH_PASSWORD_BROKER` when set, else the app's default broker when it reads the Martis guard's users, else the first broker that does. v2.0.0 used `MARTIS_AUTH_PASSWORD_BROKER`, `users` by default, whatever the guard, so beside an `admins` guard the forgot-password form reset the site user with the admin's email. A broker of another provider, an unknown broker, or none that fits now throws a `Martis\Auth\PasswordBrokerConfigurationException` naming `martis.auth.passwordReset.broker` (the endpoint answers 500 and reports it).
+
+**What to change**, with an own guard and password reset on: declare a broker for the guard's provider in `config/auth.php` (`passwords`). A `config/martis.php` published before v2.0.1 holds `env('MARTIS_AUTH_PASSWORD_BROKER', 'users')`, which now throws with an own guard: change the default to `env('MARTIS_AUTH_PASSWORD_BROKER')`, or set the variable to the guard's broker. See [Authentication → Which password broker resets a password](authentication.md#which-password-broker-resets-a-password).
+
+### The Martis throttles have their own buckets
+
+The API throttle's middleware is `throttle:{max},{decay},martis-api:{guard}:` (`RouteMiddleware::throttlePrefix('api')`), the 2FA challenge's and the verification resend's carry `martis-2fa:{guard}:` and `martis-verification:{guard}:`. Laravel keys a user's bucket on `sha1()` of the identifier alone, so the Martis guard's user 5 shared a bucket with a site route throttled per user for the site user 5, and the resend and the challenge counted in the API's bucket. The counters in flight start over once, on deploy. A test that asserts the route's middleware list reads the new string.
+
+### The per-request Gate cache takes the user
+
+`RequestScopedAbilityCache::lookup()` takes the user instead of its id, and keys it by morph class and id: `lookup($user->id, ...)` throws a `TypeError`. The package does not call it.
+
+### Routes a tool registers in `boot()` log a warning
+
+A route under a tool's path (`ToolRoutes::prefix($tool)`, or the v1.x `martis/api/tools/{uriKey}`) registered with `['web', 'martis.auth']`, or with a list that leaves out the 2FA challenge or email verification while it is on, now logs a warning naming the tool and the route, once per tool and PHP process, as a `loadRoutes()` list already did in v2.0.0. The route keeps its middleware. Move it to `ToolRoutes::middleware($this)` or to `loadRoutes()` ([Tools → Routes a tool registers in `boot()`](tools.md#routes-a-tool-registers-in-boot)); a route meant to skip the challenge belongs outside the tool's path.
+
+### Shared `sessions` and `notifications` tables
+
+The Martis migrations of these tables now shape their user columns on the users of every guard that writes them, with a string column when the keys differ. They skip a table that exists, which Laravel 11+ creates with a `bigint` `user_id`: with a Martis guard keyed by UUID or ULID beside the site's bigint users, widen the columns once, as [Installation → The shared `sessions` and `notifications` tables](installation-guide.md#the-shared-sessions-and-notifications-tables) shows.
+
+### User hooks run grouped
+
+No code change is needed. A user hook written with a top-level `orWhere()` now runs grouped everywhere Martis composes it with something else, as Eloquent runs a local scope: the resource's `scopes()` and `indexQuery()` on the index page and its count badge, each index filter's `apply()`, the resource's `searchQuery()`, each filter a lens's `withFilters()` applies, and the pickers' `relatableQuery()`, `relatable{PluralModelName}()` and `relatableQueryUsing()`. v2.0.0 appended the filters, the search term and the lower picker layers to the hook's last `or` clause only, so `where('tenant_id', 1)->orWhere('shared', true)` listed every record of the tenant whatever the filters and the search said, and a filter or a picker closure written with `orWhere()` could list another tenant's records. A list that relied on that precedence now shows fewer records; wrap the hook's clauses in `where(fn ($q) => ...)` yourself only if you meant the looser reading. Hooks that add only `and` clauses produce the same SQL.
+
+### The panel runs on React Router 7
+
+The SPA moved from React Router 6 to React Router 7 (library mode, `createBrowserRouter` as before), which closes GHSA-wrjc-x8rr-h8h6 and GHSA-337j-9hxr-rhxg. It needs Node 20 or later to build (only for building the package itself: an app installs the prebuilt assets). URLs and pages are unchanged.
+
+**Extensions** (custom tools, fields, cards and overrides built with `npm run build:extensions`) keep working without a rebuild. They never bundle React Router: their Vite config sends `react-router-dom` to a shim that reads the host's copy off `window.Martis.runtime.reactRouterDom`, and every name that shim exports (`Link`, `NavLink`, `Outlet`, `Navigate`, `Route`, `Routes`, the routers, `useNavigate`, `useParams`, `useSearchParams`, `useLocation`, `useMatch`, `useResolvedPath`, `useNavigationType`, `generatePath`, `matchPath`, `matchRoutes`) exists in React Router 7. What changes for extension code:
+
+- **`window.Martis.runtime.reactRouterDom` is React Router 7's `react-router-dom` module**: every export of `react-router`, with the DOM `RouterProvider`. Names React Router 7 removed are gone from it (`json`, `defer`, `AbortedDeferredError`, the `UNSAFE_` internals of v6), so code that read one off the shim's default export gets `undefined`.
+- **Behaviour of the v7 future flags** now applies to the host's router: navigations run in `React.startTransition`, and a relative link inside a splat route resolves from the splat's own path. An extension that navigates with absolute paths (`navigate('/resources/users')`, `<Link to="/tools/deployments">`) sees no difference. `navigate()` may return a promise; there is nothing to await for a plain navigation.
+- **Type declarations.** After you republish the shims (`php artisan vendor:publish --tag=martis-extension-shims --force`), `react-router-dom.d.mts` carries the React Router 7 types. Six type names React Router 7 no longer exports are gone: `FutureConfig`, `Hash`, `JsonFunction`, `Pathname`, `Search` and `V7_FormMethod` (use `string` or `Path['pathname']` for the path parts).
+- **`import ... from 'react-router'`** also works in a scaffold published from v2.0.1 (`martis:install --force`): its Vite config and `tsconfig.extensions.json` send `react-router` to the same shim. An older scaffold keeps importing from `react-router-dom`, or adds the two lines by hand (see [Installation → Extensions and React Router 7](installation-guide.md#extensions-and-react-router-7-v201)).
+
+### Relationship panels follow the related resource's `viewAny`
+
+A relationship panel (`HasMany`, `HasOne`, `MorphMany`, `MorphOne`, `BelongsToMany`, `MorphToMany`, and `HasManyThrough`, `HasOneThrough`, `HasOneOfMany`, `MorphOneOfMany`) was shown, and its records listed, to any user who could view the parent record. From v2.0.1 it follows Nova: a user the related resource does not let `viewAny` does not see the panel on the detail page, and its routes (the list, the card, the attachable list, attach, detach, the pivot update and the pivot actions) answer `403`. v2.0 already refused the writes.
+
+**What to change:** grant `viewAny` on the related resource to the users who should keep seeing the panel, and confine the rows they see with `indexQuery()`. See [Relationships → Panels follow the related resource's `viewAny`](relationships.md#panels-follow-the-related-resources-viewany-v201).
+
+### An Action Events panel on `Actionable` models
+
+As in Nova, the detail page of a model that uses `Martis\Concerns\Actionable` now ends with a collapsable **Action Events** panel listing its action log, for the users who may read the log (the `view-martis-action-events` gate or an `ActionEvent` policy). A resource that already declares a `MorphMany` to the action event resource keeps its own and gets no second one.
+
+**What to change:** nothing to get the panel. To leave it out of a resource, override `shouldAddActionsField()` to return `false`. A resource that overrides `fieldsForDetail()` keeps working: the panel is added after it. See [Actions → The Action Events panel](actions.md#the-action-events-panel-v201).
+
+### The action log shows Nova's columns
+
+The built-in `ActionEventResource` now lists Nova's columns: **ID, Name, Initiated By** (the user's name instead of `User ID`), **Target** (`Project: Apollo`, linked when the viewer may view the record, instead of the model class), **Status** (Waiting, Running, Finished, Failed, Denied instead of the stored `queued` / `completed` / ...) and **Happened At** (was Executed At). The detail page drops the batch id and the `actionable_*` columns and shows `original` / `changes` as key/value tables, only when the event holds a diff. Labels are translated (`martis::action_events`). The stored rows do not change.
+
+**What to change:** nothing, unless a subclass of `ActionEventResource` called `parent::fieldsForIndex()` (the override is gone: the index now comes from `fields()`) or reads the field labels. See [Actions → Columns and detail fields](actions.md#columns-and-detail-fields-v201).
+
 ## Upgrading to v2.0 from v1.x
 
 Require the new major; a `^1.x` constraint never installs it:
@@ -63,7 +148,7 @@ Both warnings can log a false positive: a field can store a valid 0-based positi
 
 Creating, editing or deleting a record through a relationship panel (`HasMany`, `HasOne`, `MorphMany`, `MorphOne`, and their endpoints) now needs the related resource's `viewAny`, as its own per-id endpoints do since v1.34.0 and as Nova does. v1.x checked only the parent's `viewAny` / `view` and the related record's `create` / `update` / `delete`.
 
-A user whose policy denies `viewAny` on the related resource gets a 403 on those writes, and the panel no longer offers Create, Edit, Delete, Restore or Force delete. It still lists the records, as in v1.x.
+A user whose policy denies `viewAny` on the related resource gets a 403 on those writes, and the panel no longer offers Create, Edit, Delete, Restore or Force delete. In v2.0.0 it still listed the records, as in v1.x; from v2.0.1 the panel is hidden too (see [Relationship panels follow the related resource's `viewAny`](#relationship-panels-follow-the-related-resources-viewany)).
 
 **What to change:** if that user should keep writing through the panel, grant `viewAny` on the related resource and confine what they see with `indexQuery()`. A resource that is not `routable()` keeps working as a relation target. See [Authorization → `viewAny` is the entry gate](authorization.md#viewany-is-the-entry-gate).
 
@@ -142,7 +227,7 @@ The signature keeps its v1.x type, `array $middleware`, so a tool that overrides
 **What to change:**
 
 1. **Drop the middleware argument** of every `loadRoutes()` call that passes `['web', 'martis.auth']` (or forwards it from an override): that list keeps the v1.x stack, without the 2FA challenge, and logs the warning. Pass a list only for another stack: `[...ToolRoutes::middleware($this), 'can:imports.run']` adds an ability, and a route that must answer before the 2FA challenge or to users the tool is hidden from keeps its own list, which is used exactly as given.
-2. **Routes a tool registers in `boot()` with `Route::middleware(['web', 'martis.auth'])->prefix('martis/api/tools/...')`**, the pattern these docs showed, keep that weaker stack and that path, and Martis does not warn about them: switch them to `Route::middleware(ToolRoutes::middleware($this))->prefix(ToolRoutes::prefix($this))`. A route of your own that `martis.auth` alone guards skips the 2FA challenge the same way: use the `martis.api` middleware group.
+2. **Routes a tool registers in `boot()` with `Route::middleware(['web', 'martis.auth'])->prefix('martis/api/tools/...')`**, the pattern these docs showed, keep that weaker stack and that path (from v2.0.1 they log a warning naming the tool and the route): switch them to `Route::middleware(ToolRoutes::middleware($this))->prefix(ToolRoutes::prefix($this))`, or move them to a routes file loaded by `$this->loadRoutes()`, as [Tools → Routes a tool registers in `boot()`](tools.md#routes-a-tool-registers-in-boot) shows. A route of your own that `martis.auth` alone guards skips the 2FA challenge the same way: use the `martis.api` middleware group.
 3. **A client that calls a tool route by a hard-coded `/martis/api/tools/...` URL** with a custom `MARTIS_PATH` follows the new path, or goes through the SPA's `api` client (`api.get('/api/tools/...')`). To keep the old URL, pass `prefix: 'martis/api/tools/{uriKey}'`.
 4. **A tool that polls** raises `MARTIS_THROTTLE_MAX`, or passes a list without the throttle.
 
@@ -228,7 +313,7 @@ Checklist for an app with `MARTIS_GUARD` set to its own guard:
 - Leave `MARTIS_IMPERSONATION_GUARD` unset (it follows `MARTIS_GUARD`), or set it to the same guard; a config file published before v2.0.0 has `'web'` as its default, so republish it or set the variable. An operator signed in by a guard of other users is recorded in the audit row's `fields.operator_type` / `operator_id`, with no `user_id`.
 - Rows the action log wrote before the upgrade with the default guard's ids now resolve through the Martis guard's model. From v2.0.0 an event caused by another guard's user records no actor: a role change or an invitation event outside the panel (in a site request, even from a browser that also holds a panel session, in a job, in a command) records none (or the inviter), and an authorization denial is recorded only while the Martis guard is the request's guard.
 - Impersonation now acts on the Martis guard's users: the operator and the target are both, for instance, admins. To impersonate the site's users, set `MARTIS_IMPERSONATION_GUARD` to the site's guard, on which the operator must then be signed in too.
-- With password reset enabled, set `MARTIS_AUTH_PASSWORD_BROKER` to a password broker (`config/auth.php` → `passwords`) whose provider is the Martis guard's: the default, `users`, resets the site's accounts.
+- With password reset enabled, declare a password broker (`config/auth.php` → `passwords`) whose provider is the Martis guard's. From v2.0.1 Martis picks it when `MARTIS_AUTH_PASSWORD_BROKER` is unset, and throws when that variable, or the `'users'` default of a `config/martis.php` published before v2.0.1, names a broker of another provider (see [Password reset picks the Martis guard's broker](#password-reset-picks-the-martis-guards-broker)).
 - If a boot script runs `php artisan martis:user --if-missing`, it now checks and creates the Martis guard's user.
 - When the guard's model has its own table, run this migration once (with your table in place of `admins`):
 

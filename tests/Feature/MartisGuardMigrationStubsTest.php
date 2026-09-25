@@ -7,6 +7,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Martis\Auth\GuardCatalog;
 use Martis\Models\UserPreference;
 
@@ -276,4 +277,99 @@ it('saves an admin preferences through the panel with the foreign key enforced',
 
     DB::setDefaultConnection('sqlite');
     DB::purge('martis_fk');
+});
+
+/*
+ * `sessions` and `notifications` are shared with the site: every session
+ * guard writes `sessions.user_id`, and the site's notifications land in
+ * `notifications`. v2.0.0 shaped their user columns on the Martis guard's
+ * model alone, so beside an `admins` guard keyed by UUID the site's bigint
+ * ids no longer fit (PostgreSQL and MySQL reject them on every site request
+ * that writes the session), or the other way round.
+ */
+
+/** The shape a shared-table stub resolves, read from its private resolver. */
+function stubGuardSharedShape(string $basename): string
+{
+    $migration = stubGuardMigration($basename);
+
+    return (fn (): string => $this->resolveUserKey())->call($migration);
+}
+
+it('shapes the shared tables on the users of every guard that writes them', function (?string $provider, string $shape) {
+    if ($provider !== null) {
+        stubGuardUse($provider);
+    }
+
+    expect(stubGuardSharedShape('create_sessions_table.php.stub'))->toBe($shape)
+        ->and(stubGuardSharedShape('create_martis_notifications_table.php.stub'))->toBe($shape);
+})->with([
+    'default guard only' => [null, 'bigint'],
+    'bigint admins beside bigint users' => ['stub_admins', 'bigint'],
+    'uuid admins beside bigint users' => ['stub_uuid_admins', 'string'],
+    'string-keyed admins beside bigint users' => ['stub_code_admins', 'string'],
+]);
+
+it('counts a session guard the panel does not use', function () {
+    config()->set('auth.guards.customer', ['driver' => 'session', 'provider' => 'stub_uuid_admins']);
+    config()->set('auth.guards.api_token', ['driver' => 'token', 'provider' => 'stub_code_admins']);
+
+    expect(stubGuardSharedShape('create_sessions_table.php.stub'))->toBe('string');
+
+    // A guard of another driver writes no session.
+    config()->set('auth.guards.customer', ['driver' => 'token', 'provider' => 'stub_uuid_admins']);
+    expect(stubGuardSharedShape('create_sessions_table.php.stub'))->toBe('bigint');
+});
+
+it('keeps the uuid shape when every guard signs in uuid-keyed users', function () {
+    config()->set('auth.providers.users.model', StubGuardUuidAdmin::class);
+    stubGuardUse('stub_uuid_admins');
+
+    expect(stubGuardSharedShape('create_sessions_table.php.stub'))->toBe('uuid')
+        ->and(stubGuardSharedShape('create_martis_notifications_table.php.stub'))->toBe('uuid');
+});
+
+it('lets MARTIS_USER_ID_COLUMN_TYPE override the shared shape', function () {
+    stubGuardUse('stub_uuid_admins');
+    config()->set('martis.user_id_column_type', 'uuid');
+
+    expect(stubGuardSharedShape('create_sessions_table.php.stub'))->toBe('uuid');
+});
+
+it('stores the ids of both guards in the shared tables when their keys differ', function () {
+    stubGuardUse('stub_uuid_admins');
+    Schema::dropIfExists('notifications');
+    config()->set('session.table', 'martis_test_stub_sessions');
+    Schema::dropIfExists('martis_test_stub_sessions');
+
+    try {
+        stubGuardMigration('create_sessions_table.php.stub')->up();
+        stubGuardMigration('create_martis_notifications_table.php.stub')->up();
+
+        $uuid = (string) Str::uuid();
+        foreach (['site' => 5, 'admin' => $uuid] as $id => $userId) {
+            DB::table('martis_test_stub_sessions')->insert(['id' => $id, 'user_id' => $userId, 'payload' => '', 'last_activity' => 0]);
+        }
+        foreach ([[StubGuardAdmin::class, 5], [StubGuardUuidAdmin::class, $uuid]] as [$type, $userId]) {
+            DB::table('notifications')->insert(['id' => (string) Str::uuid(), 'type' => 'test', 'notifiable_type' => $type, 'notifiable_id' => $userId, 'data' => '{}']);
+        }
+
+        $type = static function (string $on, string $column): string {
+            foreach (Schema::getColumns($on) as $info) {
+                if ($info['name'] === $column) {
+                    return strtolower((string) ($info['type_name'] ?? $info['type']));
+                }
+            }
+
+            return '';
+        };
+
+        expect($type('martis_test_stub_sessions', 'user_id'))->not->toContain('int')
+            ->and($type('notifications', 'notifiable_id'))->not->toContain('int')
+            ->and(DB::table('notifications')->where('notifiable_type', StubGuardUuidAdmin::class)->value('notifiable_id'))->toBe($uuid)
+            ->and(Schema::hasIndex('notifications', ['notifiable_type', 'notifiable_id']))->toBeTrue();
+    } finally {
+        Schema::dropIfExists('martis_test_stub_sessions');
+        Schema::dropIfExists('notifications');
+    }
 });

@@ -29,6 +29,7 @@
  * | `react/jsx-runtime`         | `.shims/react-jsx-runtime.mjs`         |
  * | `react-dom`                 | `.shims/react-dom.mjs`                 |
  * | `react-router-dom`          | `.shims/react-router-dom.mjs`          |
+ * | `react-router`              | `.shims/react-router-dom.mjs`          |
  * | `react-i18next`             | `.shims/react-i18next.mjs`             |
  * | `@tanstack/react-query`     | `.shims/tanstack-react-query.mjs`      |
  * | `@martis/runtime`           | `.shims/runtime.mjs`                   |
@@ -36,6 +37,9 @@
  * The `react-dom` shim (v1.38.0+) carries `createPortal` and, since
  * v1.38.2, `flushSync`, the parts of `react-dom` the runtime serves;
  * before, `react-dom` went to the React shim, which has neither.
+ * The host runs React Router 7 (v2.0.1+), where `react-router-dom` is a
+ * re-export of `react-router`: both specifiers go to the same shim, so
+ * an extension imports from either.
  *
  * Plus five legacy-path aliases (also pointing at the runtime shim)
  * so override stubs published by older Martis versions keep building:
@@ -88,6 +92,7 @@ export default defineConfig({
       // Re-exposed 3rd-party modules (host bundles them; consumer
       // doesn't need to install).
       {find: /^react-router-dom$/, replacement: routerShim},
+      {find: /^react-router$/, replacement: routerShim},
       {find: /^react-i18next$/, replacement: i18nextShim},
       {find: /^@tanstack\/react-query$/, replacement: queryShim},
       // The public `@martis/runtime` surface.

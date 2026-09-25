@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react"
 import { useIsTruncated } from "@/hooks/useIsTruncated"
-import { NavLink, useLocation } from "react-router-dom"
+import { NavLink, useLocation } from "react-router"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { config } from "@/lib/config"

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router'
 import { api } from '@/lib/api'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
@@ -144,7 +144,7 @@ export function PeekCard({ resourceKey, recordId, triggerRect, onFlipChange }: P
     <div
       ref={cardRef}
       data-testid="peek-card"
-      className="fixed rounded-lg border p-2.5 text-sm pointer-events-none"
+      className="fixed rounded-lg border border-solid p-2.5 text-sm pointer-events-none"
       style={{
         backgroundColor: 'var(--martis-surface)',
         borderColor: 'var(--martis-border)',
@@ -507,7 +507,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
           readOnly={field.readonly}
           required={field.required}
           onChange={(e) => emit(e.target.value === '' ? null : Number(e.target.value))}
-          className="martis-input block w-full rounded-md border px-3 py-2 text-sm"
+          className="martis-input block w-full rounded-md px-3 py-2 text-sm"
           style={{
             backgroundColor: 'var(--martis-input-bg)',
             borderColor: error ? 'var(--martis-danger)' : 'var(--martis-border)',
@@ -567,7 +567,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); setShowInlineCreate(true) }}
-          className="inline-flex items-center justify-center rounded-md border text-sm font-medium transition-colors martis-create-related-btn"
+          className="inline-flex items-center justify-center rounded-md border border-solid text-sm font-medium transition-colors martis-create-related-btn"
           data-pr-tooltip={tMsg('belongs_to_create_related', { resource: field.label, defaultValue: 'Create' })}
           data-pr-position="top"
           style={{

@@ -351,7 +351,7 @@ function MultipleFileInput({ field, value, onChange, error }: FieldInputProps) {
             return (
               <div
                 key={item.id}
-                className="flex items-center gap-2 rounded-md border px-3 py-2"
+                className="flex items-center gap-2 rounded-md border border-solid px-3 py-2"
                 style={{
                   backgroundColor: 'var(--martis-input-bg)',
                   borderColor: 'var(--martis-border)',
