@@ -216,9 +216,13 @@ That single registration covers the index page (sidebar visibility, list endpoin
 ### Gating a route
 
 ```php
+use Martis\Http\RouteMiddleware;
+
 Route::get('/admin/reports', ReportController::class)
-    ->middleware(['martis.auth', 'can:reports.view']);
+    ->middleware([...RouteMiddleware::api(), 'can:reports.view']);
 ```
+
+`RouteMiddleware::api()` is the stack of the Martis API routes: the session, authentication, the 2FA challenge, email verification when enabled, the user's locale, the impersonation expiry and the API throttle. `martis.auth` alone would let a user who has not passed the 2FA challenge through.
 
 ### Gating an Artisan command
 

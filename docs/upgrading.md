@@ -94,6 +94,24 @@ The global search (`/api/search`, the Cmd+K palette) and the parent lookup of a 
 
 **What to change:** nothing when `scopes()` holds tenancy or visibility rules: they now apply where the docs said they would. A scope meant to trim the index page only (an `archived = false` default that users should still reach from the palette) belongs in a [filter](filters.md) instead. See [Authorization → Declarative query scopes](authorization.md#declarative-query-scopes).
 
+### Tool routes run the Martis API middleware
+
+`Tool::loadRoutes()` gives a tool's routes the new `Tool::routeMiddleware()` by default: the middleware of the package's protected API routes (your `martis.middleware` and `martis.auth_middleware`, the impersonation expiry, the 2FA challenge, the user's locale, email verification when it is enabled, the API throttle), then `martis.tool:{uriKey}`. v1.x defaulted to `['web', 'martis.auth']`.
+
+- A user who signed in with a password but has not passed the 2FA challenge gets `423` from a tool route (a redirect to the challenge for a page request), and a user who has not verified an email the app requires gets `409` (a redirect to the notice), as from the rest of the API. v1.x let both through.
+- A user the tool is hidden from (`canSee()`, its policy) gets `404` from its routes, as from the tool's page.
+- A tool's routes count toward the API throttle, `MARTIS_THROTTLE_MAX` (120) requests per `MARTIS_THROTTLE_DECAY` (1) minute per user, shared with the rest of the API. A tool that polls often answers `429` past it.
+- They run in the user's locale, and an impersonation past its limit stops before they run.
+
+**What to change:**
+
+1. **A tool that relied on its routes answering before the 2FA challenge or the email verification**, or to users it is hidden from, passes its own list, which is used exactly as given, as in v1.x: `$this->loadRoutes($path, \Martis\Http\RouteMiddleware::api())` keeps the API guard without the tool gate, and `['web', 'martis.auth']` restores the v1.x stack.
+2. **Routes a tool registers in `boot()` with `Route::middleware(['web', 'martis.auth'])`**, the pattern these docs showed, keep that weaker stack: switch them to `Route::middleware($this->routeMiddleware())`. A route of your own that `martis.auth` alone guards skips the 2FA challenge the same way: use `Martis\Http\RouteMiddleware::api()`.
+3. **A tool that polls** raises `MARTIS_THROTTLE_MAX`, or passes a list without the throttle.
+4. **A subclass that overrides `loadRoutes()`** declares the parameter as `?array $middleware = null`: an `array $middleware = [...]` declaration no longer matches the parent and fails to load.
+
+See [Tools → Tool routes and their middleware](tools.md#tool-routes-and-their-middleware).
+
 ### The schema cache expires after a day
 
 The `schema` cache layer now expires after a day by default (`MARTIS_CACHE_SCHEMA_TTL=1440`); v1.x kept it with no expiration. Every cache key also carries the installed `martis/martis` version, so an upgrade of the package rebuilds every layer on its own and leaves the previous version's entries behind.

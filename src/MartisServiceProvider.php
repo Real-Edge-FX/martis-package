@@ -75,6 +75,7 @@ use Martis\Discovery\ToolDiscovery;
 use Martis\Exceptions\Handler as MartisExceptionHandler;
 use Martis\Facades\Martis;
 use Martis\Http\Middleware\ApplyUserPreferencesLocale;
+use Martis\Http\Middleware\AuthorizeTool;
 use Martis\Http\Middleware\EnforceImpersonationDuration;
 use Martis\Http\Middleware\EnsureEmailIsVerified;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
@@ -516,6 +517,9 @@ class MartisServiceProvider extends ServiceProvider
             'martis.impersonation.duration',
             EnforceImpersonationDuration::class,
         );
+        // The gate of a Tool's routes (`martis.tool:{uriKey}`), see
+        // Tool::routeMiddleware().
+        $router->aliasMiddleware('martis.tool', AuthorizeTool::class);
     }
 
     /**

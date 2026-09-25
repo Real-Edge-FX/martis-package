@@ -278,7 +278,7 @@ GET /martis/api/navigation/badges    # v1.8.8
 GET /martis/api/search?q=...
 ```
 
-Cross-resource record search. Powers the topbar search input. Each resource is matched on the `searchable()` fields the user can see (v1.38.0). See [Global Search](../global-search.md).
+Cross-resource record search. Powers the topbar search input. Each resource is matched on the `searchable()` fields the user can see (v1.38.0), among the records its index lists: its `scopes()`, then `indexQuery()` (v2.0). See [Global Search](../global-search.md).
 
 ## Command Palette
 
@@ -312,7 +312,7 @@ GET  /martis/api/tools/{uriKey}/fields/{field}/options?search=
                                         A select in a Repeater row adds &repeater=&repeatable= (v1.38.0).
 ```
 
-The 404-when-denied behaviour is intentional — an unauthorised user cannot probe which tools the app ships.
+The 404-when-denied behaviour is intentional: an unauthorised user cannot probe which tools the app ships. The routes a tool adds under `/martis/api/tools/{uriKey}/...` with `loadRoutes()` or `routeMiddleware()` run the same middleware as these endpoints and answer that user the same 404 (v2.0; see [Tools → Tool routes and their middleware](../tools.md#tool-routes-and-their-middleware)).
 
 ## Preferences
 

@@ -955,14 +955,18 @@ The contract layout above (bind your own `Martis\Contracts\*` implementations) i
 
 ## Middleware
 
-Martis registers two middleware:
+Martis registers these middleware:
 
 | Middleware | Description |
 |-----------|-------------|
 | `martis.auth` | Authenticates the user and checks the configured guard. Applied to all protected routes. |
-| `martis.2fa` | Ensures users with 2FA enabled have completed the challenge. Redirects to the challenge screen if pending. |
+| `martis.impersonation.duration` | Stops an impersonation that ran past `MARTIS_IMPERSONATION_MAX_DURATION` minutes. Applied to all protected routes. |
+| `martis.2fa` | Ensures users with 2FA enabled have completed the challenge: `423` for a JSON request, a redirect to the challenge screen otherwise. Applied to every protected route but the challenge itself. |
+| `martis.locale` | Applies the user's saved language before the controller runs. |
+| `martis.verified` | When email verification is enabled, refuses an unverified user: `409` for a JSON request, a redirect to the notice otherwise. |
+| `martis.tool:{uriKey}` | Answers `404` to a user the tool `{uriKey}` is hidden from. Applied to a Tool's routes (v2.0). |
 
-These are applied automatically by the Martis route definitions. You do not need to register them manually.
+These are applied automatically by the Martis route definitions. You do not need to register them manually. The stack of a protected API route is built in one place, `Martis\Http\RouteMiddleware::api()`: `martis.middleware`, `martis.auth_middleware`, `martis.impersonation.duration`, `martis.2fa`, `martis.locale`, `martis.verified`, then the API throttle. A Tool's routes run it too, followed by `martis.tool:{uriKey}` (see [Tools → Tool routes and their middleware](tools.md#tool-routes-and-their-middleware)). Give a route of your own the same guard with `Route::middleware(\Martis\Http\RouteMiddleware::api())`: `martis.auth` alone lets a user who has not passed the 2FA challenge through.
 
 ## Next Steps
 

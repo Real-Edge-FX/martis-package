@@ -31,8 +31,8 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `guard` | `?string` | `null` | Authentication guard. `null` uses Laravel's default guard. |
-| `middleware` | `array` | `['web']` | Applied to all Martis routes (public and protected). |
-| `auth_middleware` | `array` | `['martis.auth']` | Applied to protected routes only. |
+| `middleware` | `array` | `['web']` | Applied to all Martis routes (public and protected) and to a Tool's routes. |
+| `auth_middleware` | `array` | `['martis.auth']` | Applied to protected routes only, a Tool's routes included (v2.0). A middleware name is accepted in place of a list; `null` means the default; any other value throws an `InvalidArgumentException` naming the key. |
 
 ## Brand
 
@@ -475,7 +475,7 @@ Shipped locales: `en` (English), `pt_BR` (Brazilian Portuguese), `pt_PT` (Europe
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `enabled` | `bool` | `true` | Set `false` to disable API rate limiting. |
-| `max_attempts` | `int` | `120` | Maximum requests per window. |
+| `max_attempts` | `int` | `120` | Maximum requests per window, per user, counted across the Martis API and every Tool's routes (v2.0). |
 | `decay_minutes` | `int` | `1` | Rate limit window in minutes. |
 
 ## Theme

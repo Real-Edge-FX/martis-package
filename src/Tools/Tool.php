@@ -13,6 +13,7 @@ use Martis\Concerns\HasBadge;
 use Martis\Concerns\HasGate;
 use Martis\Concerns\HasPolicy;
 use Martis\Contracts\ToolContract;
+use Martis\Http\RouteMiddleware;
 
 /**
  * Base class for Martis Tools — free-form sidebar pages that are not
@@ -348,6 +349,30 @@ class Tool implements ToolContract
     // -------------------------------------------------------------------------
 
     /**
+     * The middleware of this tool's routes: the stack every protected
+     * Martis API route runs (`RouteMiddleware::api()`: `martis.middleware`,
+     * `martis.auth_middleware`, the impersonation expiry, the 2FA
+     * challenge, the user's locale, email verification and the API
+     * throttle), then `martis.tool:{uriKey}`, which answers 404 to a user
+     * this tool is hidden from (`authorizedToSee()`), as the tool's page
+     * does. Nova guards a tool's routes with the tool's `Authorize`
+     * middleware the same way, answering 403 instead.
+     *
+     * `loadRoutes()` applies it by default. A route group registered in
+     * `boot()` takes it too:
+     *
+     *     Route::middleware($this->routeMiddleware())
+     *         ->prefix('martis/api/tools/'.$this->uriKey())
+     *         ->group(function () { ... });
+     *
+     * @return list<string>
+     */
+    public function routeMiddleware(): array
+    {
+        return [...RouteMiddleware::api(), 'martis.tool:'.$this->uriKey()];
+    }
+
+    /**
      * Load a routes file under the standard Martis tool prefix and
      * middleware stack. Pair with `boot()` so consumers can ship a
      * sibling `routes/tool.php` and keep their lifecycle file lean:
@@ -360,19 +385,23 @@ class Tool implements ToolContract
      * The file is `require`d inside a `Route::middleware([...])->prefix(...)`
      * group, so the routes inside it should be plain `Route::post(...)` /
      * `Route::get(...)` calls without any wrapper. The default prefix is
-     * `martis/api/tools/{uriKey}` and the default middleware is the same
-     * stack the rest of the package uses (`web`, `martis.auth`).
+     * `martis/api/tools/{uriKey}` and the default middleware is
+     * `routeMiddleware()`: the stack of the protected API routes, then the
+     * tool's own gate. A `$middleware` list is used exactly as given,
+     * in place of that stack (before v2.0 the default was
+     * `['web', 'martis.auth']`, which skipped the 2FA challenge, email
+     * verification, the locale, the impersonation expiry and the throttle).
      *
      * Skipped silently when the file does not exist — this lets a tool
      * keep the call in place even when the consumer has not yet shipped
      * a routes file.
      *
-     * @param  list<string>  $middleware  Middleware stack. Defaults to the standard Martis admin stack.
+     * @param  list<string>|null  $middleware  Middleware stack. Defaults to `routeMiddleware()`.
      * @param  string|null  $prefix  URL prefix. Defaults to `martis/api/tools/{uriKey}`.
      */
     public function loadRoutes(
         string $path,
-        array $middleware = ['web', 'martis.auth'],
+        ?array $middleware = null,
         ?string $prefix = null,
     ): void {
         if (! is_file($path)) {
@@ -381,7 +410,7 @@ class Tool implements ToolContract
 
         $effectivePrefix = $prefix ?? 'martis/api/tools/'.$this->uriKey();
 
-        Route::middleware($middleware)
+        Route::middleware($middleware ?? $this->routeMiddleware())
             ->prefix($effectivePrefix)
             ->group($path);
     }
