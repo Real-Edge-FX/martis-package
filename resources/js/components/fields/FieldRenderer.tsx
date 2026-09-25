@@ -219,7 +219,7 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   sparkline: SparklineFieldDisplay,
   gravatar: GravatarFieldDisplay,
   has_many: LazyHasManyFieldDisplay,
-  has_many_through: LazyHasManyFieldDisplay, // Visually identical to HasMany; read-only flags are in the schema
+  has_many_through: LazyHasManyFieldDisplay, // Same panel as HasMany; the schema pins canCreate off (no Create, as in Nova)
   belongs_to_many: LazyBelongsToManyFieldDisplay,
   morph_to: MorphToFieldDisplay,
   morph_many: LazyMorphManyFieldDisplay,
@@ -228,7 +228,7 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   morph_to_many: LazyMorphToManyFieldDisplay,
   has_one: HasOneFieldDisplay,
   has_one_of_many: HasOneFieldDisplay, // Visually identical to HasOne
-  has_one_through: HasOneFieldDisplay, // Visually identical to HasOne; read-only flags are in the schema
+  has_one_through: HasOneFieldDisplay, // Same card as HasOne; the schema pins canCreate off (no Create, as in Nova)
   slug: SlugFieldDisplay,
   password_confirmation: PasswordConfirmationFieldDisplay,
   timezone: TimezoneFieldDisplay,

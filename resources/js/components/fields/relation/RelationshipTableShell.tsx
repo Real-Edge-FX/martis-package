@@ -432,8 +432,9 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                     )
                   }
                   body={(row: ResourceRecord) => (
-                    // A field the related record hides (`_hidden`) leaves its cell empty.
-                    isHiddenOn(row, f.attribute) ? null : f.attribute === 'id' ? (
+                    // A field the related record hides (`_hidden`) leaves its cell empty;
+                    // the id links to the record only when its policy lets the user view it.
+                    isHiddenOn(row, f.attribute) ? null : f.attribute === 'id' && row._authorization?.authorizedToView !== false ? (
                       <Link
                         to={viewUrl ? viewUrl(row.id as string | number) : recordHref(relatedResource, row.id)}
                         className="font-medium no-underline"

@@ -497,9 +497,14 @@ transparently.
 ### Relationship toolbar hide flags
 
 Every relationship field exposes nine fluent flags to hide affordances
-inside the relationship card without forking the component (the `-Many`
-panels honour all of them; see
-[relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting)).
+inside the relationship card without forking the component. The
+`HasMany` / `HasManyThrough` / `MorphMany` panels honour all nine. The
+`BelongsToMany` / `MorphToMany` panels have no View, Edit or Delete of
+their own (Detach and the pivot edit take their place, and
+`hideEditAction()` / `hideDeleteAction()` hide those), so `hideViewAction()`
+has nothing to hide there. The `HasOne` / `MorphOne` cards only have Create,
+Edit and Delete. See
+[relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
 
 ```php
 HasMany::make('Invoices')

@@ -88,6 +88,9 @@ interface BtmMeta {
   hidePerPageSelector?: boolean
   hideEditAction?: boolean
   hideDeleteAction?: boolean
+  hideSoftDeleteToggle?: boolean
+  hideRestoreAction?: boolean
+  hideForceDeleteAction?: boolean
 }
 
 function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { field: FieldDisplayProps['field']; readOnly?: boolean; formValues?: Record<string, unknown> }) {
@@ -211,6 +214,9 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
         canDelete={false}
         hideSearch={!!meta?.hideSearch}
         hidePerPageSelector={!!meta?.hidePerPageSelector}
+        hideSoftDeleteToggle={!!meta?.hideSoftDeleteToggle}
+        hideRestoreAction={!!meta?.hideRestoreAction}
+        hideForceDeleteAction={!!meta?.hideForceDeleteAction}
         hideViewAction
         toolbarExtras={({ selectedRows: selected }) => (
           <>

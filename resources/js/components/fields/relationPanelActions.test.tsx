@@ -70,6 +70,12 @@ const titleField = {
   showOnIndex: true, showOnDetail: true, showOnForms: true, rules: [],
 }
 
+const idField = {
+  attribute: 'id', label: 'ID', type: 'id',
+  nullable: false, readonly: true, required: false, sortable: false, searchable: false,
+  showOnIndex: true, showOnDetail: true, showOnForms: false, rules: [],
+}
+
 const ALLOWED: AuthorizationMetadata = {
   authorizedToView: true,
   authorizedToUpdate: true,
@@ -98,7 +104,10 @@ const TRASHED_AT = '2026-09-01T10:00:00.000000Z'
 function answerWith(records: Array<Record<string, unknown>>) {
   apiGetMock.mockImplementation((path: string) => {
     if (path === '/api/resources/projects/schema') {
-      return Promise.resolve({ data: { fieldsForIndex: [titleField], fieldsForDetail: [titleField], singularLabel: 'Project', softDeletes: true } })
+      return Promise.resolve({ data: { fieldsForIndex: [idField, titleField], fieldsForDetail: [titleField], singularLabel: 'Project', softDeletes: true } })
+    }
+    if (path.includes('/actions')) {
+      return Promise.resolve({ data: { actions: [] } })
     }
     if (path.includes('/has-one/') || path.includes('/morph-one/')) {
       return Promise.resolve({ data: records[0] ?? null, meta: {}, links: [] })
@@ -220,5 +229,91 @@ describe.each([
 
     expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy()
+  })
+})
+
+/** One answer granted and the rest denied, or the reverse. */
+function only(granted: Array<keyof AuthorizationMetadata>, value = true): AuthorizationMetadata {
+  const base = value ? DENIED : ALLOWED
+  return { ...base, ...Object.fromEntries(granted.map((key) => [key, value])) } as AuthorizationMetadata
+}
+
+const MORPH_MANY_META = { canCreate: true, canUpdate: true, canDelete: true }
+
+// Mixed answers: a version that mixed up two abilities (Edit read from
+// authorizedToDelete, Restore from authorizedToForceDelete, …) passes the
+// all-or-nothing rows above and fails here.
+describe.each([
+  ['has_many', 'hasManyMeta', HAS_MANY_META],
+  ['has_many_through', 'hasManyMeta', HAS_MANY_THROUGH_META],
+  ['morph_many', 'morphManyMeta', MORPH_MANY_META],
+])('%s panel: each row action reads its own ability', (type, metaKey, meta) => {
+  it('shows exactly the actions each row is allowed', async () => {
+    answerWith([
+      { id: 1, title: 'Delete only', _title: 'Delete only', _authorization: only(['authorizedToView', 'authorizedToDelete']) },
+      { id: 2, title: 'Update only', _title: 'Update only', _authorization: only(['authorizedToView', 'authorizedToUpdate']) },
+      { id: 3, title: 'No view', _title: 'No view', _authorization: only(['authorizedToView'], false) },
+      { id: 4, title: 'Force only', _title: 'Force only', deleted_at: TRASHED_AT, _authorization: only(['authorizedToView', 'authorizedToForceDelete']) },
+      { id: 5, title: 'Restore only', _title: 'Restore only', deleted_at: TRASHED_AT, _authorization: only(['authorizedToView', 'authorizedToRestore']) },
+    ])
+    renderPanel(relationField(type, metaKey, meta))
+
+    await screen.findByText('Restore only')
+
+    expect(rowActions('Delete only')).toEqual(['View', 'Delete'])
+    expect(rowActions('Update only')).toEqual(['View', 'Edit'])
+    expect(rowActions('No view')).toEqual(['Edit', 'Delete'])
+    expect(rowActions('Force only')).toEqual(['View', 'Force delete'])
+    expect(rowActions('Restore only')).toEqual(['View', 'Restore'])
+  })
+
+  it('links the id column only for a record the user may view', async () => {
+    answerWith([
+      { id: 11, title: 'Viewable', _title: 'Viewable', _authorization: ALLOWED },
+      { id: 12, title: 'Hidden', _title: 'Hidden', _authorization: only(['authorizedToView'], false) },
+    ])
+    renderPanel(relationField(type, metaKey, meta))
+
+    await screen.findByText('Hidden')
+
+    expect(screen.getByText('Viewable').closest('tr')?.querySelector('td a[href$="/11"]')).not.toBeNull()
+    expect(screen.getByText('Hidden').closest('tr')?.querySelector('a[href$="/12"]')).toBeNull()
+  })
+})
+
+// The pivot panels list the related records without View / Edit / Delete of
+// their own (Detach and the pivot edit take their place), but a trashed
+// related record keeps Restore and Force delete, by its policy and the
+// field's hide flags.
+describe.each([
+  ['belongs_to_many', 'belongsToManyMeta'],
+  ['morph_to_many', 'morphToManyMeta'],
+])('%s panel: trashed related records', (type, metaKey) => {
+  const meta = { canAttach: true, canDetach: true }
+
+  it('offers Restore and Force delete by each record\'s policy', async () => {
+    answerWith([
+      { id: 1, title: 'Force only', _title: 'Force only', deleted_at: TRASHED_AT, _pivot: {}, _authorization: only(['authorizedToForceDelete']) },
+      { id: 2, title: 'Restore only', _title: 'Restore only', deleted_at: TRASHED_AT, _pivot: {}, _authorization: only(['authorizedToRestore']) },
+      { id: 3, title: 'Neither', _title: 'Neither', deleted_at: TRASHED_AT, _pivot: {}, _authorization: DENIED },
+    ])
+    renderPanel(relationField(type, metaKey, meta))
+
+    await screen.findByText('Neither')
+
+    expect(rowActions('Force only')).toEqual(expect.arrayContaining(['Force delete']))
+    expect(rowActions('Force only')).not.toContain('Restore')
+    expect(rowActions('Restore only')).toEqual(expect.arrayContaining(['Restore']))
+    expect(rowActions('Restore only')).not.toContain('Force delete')
+    expect(rowActions('Neither').filter((a) => a === 'Restore' || a === 'Force delete')).toEqual([])
+  })
+
+  it('honours hideRestoreAction() and hideForceDeleteAction()', async () => {
+    answerWith([{ id: 1, title: 'Trashed', _title: 'Trashed', deleted_at: TRASHED_AT, _pivot: {}, _authorization: ALLOWED }])
+    renderPanel(relationField(type, metaKey, { ...meta, hideRestoreAction: true, hideForceDeleteAction: true }))
+
+    await screen.findByText('Trashed')
+
+    expect(rowActions('Trashed').filter((a) => a === 'Restore' || a === 'Force delete')).toEqual([])
   })
 })

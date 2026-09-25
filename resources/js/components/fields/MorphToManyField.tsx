@@ -86,6 +86,9 @@ interface BtmMeta {
   hidePerPageSelector?: boolean
   hideEditAction?: boolean
   hideDeleteAction?: boolean
+  hideSoftDeleteToggle?: boolean
+  hideRestoreAction?: boolean
+  hideForceDeleteAction?: boolean
 }
 
 function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDisplayProps['field']; readOnly?: boolean }) {
@@ -208,6 +211,9 @@ function MorphToManyDetailPanel({ field, readOnly = false }: { field: FieldDispl
         canDelete={false}
         hideSearch={!!meta?.hideSearch}
         hidePerPageSelector={!!meta?.hidePerPageSelector}
+        hideSoftDeleteToggle={!!meta?.hideSoftDeleteToggle}
+        hideRestoreAction={!!meta?.hideRestoreAction}
+        hideForceDeleteAction={!!meta?.hideForceDeleteAction}
         hideViewAction
         toolbarExtras={({ selectedRows: selected }) => (
           <>

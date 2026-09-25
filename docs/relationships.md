@@ -39,7 +39,14 @@ authorized when the field allows it (`canCreate()` / `canUpdate()` /
 Restore, Force delete on a row, Edit and Delete on a `HasOne` / `MorphOne`
 card), when the related resource's policy allows it for that record: each
 record carries those answers under `_authorization`, and a record without them
-keeps the action, as on the resource index.
+keeps the action, as on the resource index. The id column links to the record
+only when its `authorizedToView` allows it (v2.0).
+
+On `BelongsToMany` / `MorphToMany` the row's own View / Edit / Delete are
+replaced by Detach and the pivot edit (which `hideDeleteAction()` /
+`hideEditAction()` hide), so `hideViewAction()` has nothing to hide;
+`hideSoftDeleteToggle()`, `hideRestoreAction()` and `hideForceDeleteAction()`
+apply there too since v2.0 (1.x ignored them on these panels).
 
 | Setter | Hides |
 |--------|-------|
