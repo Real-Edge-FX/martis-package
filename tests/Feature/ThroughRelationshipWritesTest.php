@@ -267,6 +267,12 @@ beforeEach(function () {
     $this->bobClient = TROClientModel::forceCreate(['id' => $this->alice->id, 'name' => 'Bob client', 'manager_id' => $this->bob->id]);
     $this->aliceProject = TROProjectModel::create(['title' => 'Alice project', 'client_id' => $this->aliceClient->id]);
     $this->bobProject = TROProjectModel::create(['title' => 'Bob project', 'client_id' => $this->bobClient->id]);
+
+    // Carol has no project, so a has-one create goes past its "already
+    // exists" check; the client with her id is Alice's, where such a create
+    // would file the project.
+    $this->carol = TROManagerModel::create(['name' => 'Carol']);
+    TROClientModel::forceCreate(['id' => $this->carol->id, 'name' => 'Alice second client', 'manager_id' => $this->alice->id]);
 });
 
 afterEach(function () {
@@ -293,18 +299,20 @@ function troUrl(string $resource, TROManagerModel $manager, string $path, TROPro
 // ---------------------------------------------------------------------------
 
 dataset('tro through creates', [
-    'HasManyThrough field: POST has-many store' => ['tro-managers', 'has-many/projects', 'hasManyThrough'],
-    'HasMany field on a hasManyThrough relationship: POST has-many store' => ['tro-plain-managers', 'has-many/projects', 'hasManyThrough'],
-    'HasManyThrough field on a plain hasMany relationship: POST has-many store' => ['tro-misdeclared-managers', 'has-many/clients', 'hasManyThrough'],
-    'HasOneThrough field: POST has-one store' => ['tro-managers', 'has-one/firstProject', 'hasOneThrough'],
-    'HasOne field on a hasOneThrough relationship: POST has-one store' => ['tro-plain-managers', 'has-one/firstProject', 'hasOneThrough'],
+    'HasManyThrough field: POST has-many store' => ['tro-managers', 'bob', 'has-many/projects', 'hasManyThrough'],
+    'HasMany field on a hasManyThrough relationship: POST has-many store' => ['tro-plain-managers', 'bob', 'has-many/projects', 'hasManyThrough'],
+    'HasManyThrough field on a plain hasMany relationship: POST has-many store' => ['tro-misdeclared-managers', 'bob', 'has-many/clients', 'hasManyThrough'],
+    'HasOneThrough field: POST has-one store' => ['tro-managers', 'bob', 'has-one/firstProject', 'hasOneThrough'],
+    'HasOne field on a hasOneThrough relationship: POST has-one store' => ['tro-plain-managers', 'bob', 'has-one/firstProject', 'hasOneThrough'],
+    'HasOneThrough field: POST has-one store for a parent with no record' => ['tro-managers', 'carol', 'has-one/firstProject', 'hasOneThrough'],
+    'HasOne field on a hasOneThrough relationship: POST has-one store for a parent with no record' => ['tro-plain-managers', 'carol', 'has-one/firstProject', 'hasOneThrough'],
 ]);
 
-it('refuses to create a record through a Through relationship and writes nothing', function (string $resource, string $path, string $kind) {
+it('refuses to create a record through a Through relationship and writes nothing', function (string $resource, string $manager, string $path, string $kind) {
     $projects = troTable('tro_projects');
     $clients = troTable('tro_clients');
 
-    $this->postJson(troUrl($resource, $this->bob, $path, $this->bobProject), [
+    $this->postJson(troUrl($resource, $this->{$manager}, $path, $this->bobProject), [
         'title' => 'Created through the relationship',
         'name' => 'Created through the relationship',
     ])
