@@ -347,7 +347,7 @@ function RecordUpdatePage() {
       </h1>
 
       <form onSubmit={handleSubmit} noValidate>
-        <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
+        <div className="rounded-xl border border-solid" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
           {/* Fields rendered in declaration order — layout containers and
               scalar fields interleaved. The render loop (including dependsOn
               override resolution) is now owned by <FieldsForm>, driven by
@@ -355,7 +355,7 @@ function RecordUpdatePage() {
           <FieldsForm form={form} context="update" />
 
           {/* Footer */}
-          <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4"
+          <div className="flex justify-end gap-3 rounded-b-xl border-0 border-t border-solid px-6 py-4"
             style={{
               borderColor: 'var(--martis-border)',
               backgroundColor: 'var(--martis-surface-alt)',
@@ -426,9 +426,9 @@ function FormSkeleton() {
   return (
     <div className="space-y-6 animate-pulse">
       <div className="h-8 w-48 rounded bg-gray-200 dark:bg-gray-800" />
-      <div className="rounded-xl border border-gray-200 dark:border-gray-800">
+      <div className="rounded-xl border border-solid border-martis-border">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="grid grid-cols-3 gap-4 border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+          <div key={i} className="grid grid-cols-3 gap-4 px-6 py-4">
             <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" />
             <div className="col-span-2 h-10 rounded bg-gray-200 dark:bg-gray-700" />
           </div>

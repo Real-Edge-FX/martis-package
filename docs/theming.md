@@ -524,7 +524,7 @@ Hide additional surfaces by attribute: `<div data-print-hide="true">…` is not 
 The bundled CSS ships a small set of pre-built utility classes that wrap the most common token references:
 
 ```tsx
-<div className="martis-text martis-card-bg martis-border">
+<div className="martis-text martis-card-bg martis-border border border-solid">
   Content
 </div>
 ```
@@ -533,6 +533,8 @@ Available helper classes:
 - `.martis-text`, `.martis-text-muted`
 - `.martis-bg`, `.martis-surface`, `.martis-card-bg`, `.martis-sidebar-bg`, `.martis-topbar-bg`
 - `.martis-border`, `.martis-input-bg`, `.martis-surface-alt`
+
+`.martis-border` sets the border colour only: the width and the style come from `border border-solid` (see [Borders](#borders)).
 
 ### ⭐ In TSX (Tailwind preset)
 
@@ -560,6 +562,24 @@ After this, write component CSS the Tailwind way — utilities resolve at runtim
 ```
 
 The preset is additive — your existing `colors`, `fontFamily`, etc. stay untouched.
+
+### Borders
+
+The bundled CSS is built with Tailwind's preflight turned off (`corePlugins.preflight: false` in `tailwind.config.ts`). Preflight is an unlayered reset, and its `border-width: 0` on every element beat the PrimeReact component borders, which the theme declares inside `@layer primereact`. Preflight is also what gives every element `border-style: solid`, so in the panel a border utility needs a style utility next to it:
+
+| Border | Classes |
+|--------|---------|
+| Every side | `border border-solid` (`border-2 border-solid` for 2px) |
+| One side | `border-0 border-b border-solid` |
+| Between the children of a list | `divide-y divide-x-0 divide-solid` |
+
+- A width alone (`border`, `border-b`, `divide-y`) draws nothing: the style stays `none`.
+- A style draws the browser's default `medium` width (3px) on every side no utility gives a width, so a one-sided border zeroes the others with `border-0` first. Tailwind emits `border-0` before the one-sided widths, so `border-b` still sets the bottom. `divide-x-0` does the same for the sides of a divided list's children.
+- The colour defaults to the text colour (`currentColor`). Give it a theme token: `border-martis-border` with the [Tailwind preset](#-in-tsx-tailwind-preset), the `.martis-border` helper class, or `borderColor: 'var(--martis-border)'` inline.
+- An inline shorthand names the style too: `border: '1px solid var(--martis-border)'`. `border: '1px var(--martis-border)'` resets the style to `none`, and nothing is drawn.
+- Native `<input>` and `<textarea>` elements keep the browser's own border (inset on a text input) until a class replaces it: a width utility alone keeps the browser's inset style, and `border-0` removes the border.
+
+`resources/js/themeTokenReads.test.ts` checks the components and the React stubs against these rules (utilities, class constants and inline styles), and `tests/Unit/BorderStyleCssTest.php` checks the border shorthands of `martis.css`.
 
 ### In TSX (canvas/Chart.js — runtime resolution)
 

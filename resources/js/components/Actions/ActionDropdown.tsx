@@ -141,7 +141,7 @@ function SubMenu({
     <div
       ref={menuRef}
       data-action-submenu="true"
-      className="rounded-lg border shadow-lg"
+      className="rounded-lg border border-solid shadow-lg"
       style={{
         position: "fixed",
         top: pos.top,
@@ -311,7 +311,7 @@ export function ActionDropdown({ actions, onSelect, disabled, label, disabledAct
         type="button"
         onClick={() => setOpen(!open)}
         disabled={disabled}
-        className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-solid px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
         style={{
           backgroundColor: "var(--martis-surface)",
           borderColor: "var(--martis-border)",
@@ -327,7 +327,7 @@ export function ActionDropdown({ actions, onSelect, disabled, label, disabledAct
         createPortal(
           <div
             ref={menuRef}
-            className="rounded-lg border shadow-lg"
+            className="rounded-lg border border-solid shadow-lg"
             style={{
               position: "fixed",
               top: menuPos.top,

@@ -252,7 +252,7 @@ export function InlineCreateModal({
               <form id="inline-create-form" onSubmit={handleSubmit} noValidate>
 
                 <div
-                  className="divide-y"
+                  className="divide-y divide-x-0 divide-solid"
                   style={{ borderColor: "var(--martis-border)" }}
                 >
                   {schema.fields.map((field) => (

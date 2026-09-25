@@ -315,7 +315,7 @@ function CreateTargetPage() {
 
   if (!schema) {
     return (
-      <div className="rounded-lg border p-6 martis-border" style={{ backgroundColor: 'var(--martis-surface)', color: 'var(--martis-danger)' }}>
+      <div className="rounded-lg border border-solid p-6 martis-border" style={{ backgroundColor: 'var(--martis-surface)', color: 'var(--martis-danger)' }}>
         {tMsg('error_schema')}
       </div>
     )
@@ -399,7 +399,7 @@ function CreateTargetPage() {
           reads another one (see NestedParentContext). */}
       <NestedParentProvider value={{ resource: resource!, id: null }}>
         <form onSubmit={handleSubmit} noValidate>
-          <div className="rounded-xl border" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
+          <div className="rounded-xl border border-solid" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}>
             {/* Fields rendered in declaration order — layout containers and
                 scalar fields interleaved. The render loop (including dependsOn
                 override resolution) is now owned by <FieldsForm>, driven by
@@ -407,7 +407,7 @@ function CreateTargetPage() {
             <FieldsForm key={fieldsKey} form={form} context="create" />
 
             {/* Footer */}
-            <div className="flex justify-end gap-3 rounded-b-xl border-t px-6 py-4" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface-alt)' }}>
+            <div className="flex justify-end gap-3 rounded-b-xl border-0 border-t border-solid px-6 py-4" style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface-alt)' }}>
               <button
                 type="button"
                 onClick={() => {
@@ -483,9 +483,9 @@ function FormSkeleton() {
   return (
     <div className="space-y-6 animate-pulse">
       <div className="h-8 w-48 rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
-      <div className="rounded-xl border martis-border">
+      <div className="rounded-xl border border-solid martis-border">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="grid grid-cols-3 gap-4 border-b px-6 py-4" style={{ borderColor: 'var(--martis-border)' }}>
+          <div key={i} className="grid grid-cols-3 gap-4 px-6 py-4">
             <div className="h-4 w-24 rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
             <div className="col-span-2 h-10 rounded" style={{ backgroundColor: 'var(--martis-surface)' }} />
           </div>

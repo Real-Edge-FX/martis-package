@@ -59,7 +59,7 @@ export function ComponentInspectorPage() {
 
   return (
     <div className="grid grid-cols-12 gap-4 p-6">
-      <aside className="col-span-3 max-h-[80vh] overflow-y-auto rounded-martis-md border border-martis-border bg-martis-surface p-3">
+      <aside className="col-span-3 max-h-[80vh] overflow-y-auto rounded-martis-md border border-solid border-martis-border bg-martis-surface p-3">
         <h2 className="mb-2 text-martis-sm font-martis-semibold text-martis-text-muted">
           {t('inspector_keys', { defaultValue: 'Registered keys' })} ({allKeys.length})
         </h2>
@@ -84,7 +84,7 @@ export function ComponentInspectorPage() {
       </aside>
 
       <section className="col-span-9 flex flex-col gap-4">
-        <header className="rounded-martis-md border border-martis-border bg-martis-surface p-4">
+        <header className="rounded-martis-md border border-solid border-martis-border bg-martis-surface p-4">
           <div className="text-martis-xs text-martis-text-muted">
             {t('inspector_active', { defaultValue: 'Active component' })}
           </div>
@@ -94,7 +94,7 @@ export function ComponentInspectorPage() {
         </header>
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-martis-md border border-martis-border bg-martis-surface p-4">
+          <div className="rounded-martis-md border border-solid border-martis-border bg-martis-surface p-4">
             <div className="mb-2 text-martis-xs text-martis-text-muted">
               {t('inspector_payload', { defaultValue: 'Props (JSON)' })}
             </div>
@@ -102,7 +102,7 @@ export function ComponentInspectorPage() {
               value={payloadJson}
               onChange={(e) => setPayloadJson(e.target.value)}
               spellCheck={false}
-              className="h-72 w-full resize-y rounded-martis-sm border border-martis-border bg-martis-input-bg p-2 font-mono text-martis-xs text-martis-text"
+              className="h-72 w-full resize-y rounded-martis-sm border border-solid border-martis-border bg-martis-input-bg p-2 font-mono text-martis-xs text-martis-text"
             />
             {parseError && (
               <div className="mt-2 text-martis-xs text-martis-danger">
@@ -111,7 +111,7 @@ export function ComponentInspectorPage() {
             )}
           </div>
 
-          <div className="rounded-martis-md border border-martis-border bg-martis-surface p-4">
+          <div className="rounded-martis-md border border-solid border-martis-border bg-martis-surface p-4">
             <div className="mb-2 flex items-baseline justify-between gap-2">
               <span className="text-martis-xs text-martis-text-muted">
                 {t('inspector_render', { defaultValue: 'Render' })}
@@ -131,7 +131,7 @@ export function ComponentInspectorPage() {
                 {payloadHintFor(activeKey)}
               </p>
             )}
-            <div className="rounded-martis-sm border border-martis-border bg-martis-bg p-4">
+            <div className="rounded-martis-sm border border-solid border-martis-border bg-martis-bg p-4">
               {Active
                 ? (
                   <ErrorBoundary>
@@ -243,7 +243,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   render() {
     if (this.state.error) {
       return (
-        <pre className="whitespace-pre-wrap rounded-martis-sm border border-martis-danger bg-martis-danger-bg p-3 text-martis-xs text-martis-danger">
+        <pre className="whitespace-pre-wrap rounded-martis-sm border border-solid border-martis-danger bg-martis-danger-bg p-3 text-martis-xs text-martis-danger">
           {String(this.state.error.message)}
         </pre>
       )

@@ -126,7 +126,7 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
       ) : setupData ? (
         <>
           <div
-            className="flex justify-center p-4 rounded-lg border martis-border"
+            className="flex justify-center p-4 rounded-lg border border-solid martis-border"
             style={{ backgroundColor: 'var(--martis-card)' }}
             dangerouslySetInnerHTML={{ __html: setupData.qr_code_svg }}
             aria-label={t('2fa_scan_qr')}
@@ -212,7 +212,7 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
       <p className="text-sm martis-text-muted">{t('2fa_recovery_instructions')}</p>
 
       <div
-        className="rounded-lg p-4 border martis-border"
+        className="rounded-lg p-4 border border-solid martis-border"
         style={{ backgroundColor: 'var(--martis-hover)' }}
       >
         <div className="grid grid-cols-2 gap-1">

@@ -88,7 +88,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
 
   return (
     <section
-      className="rounded-xl p-6 border martis-border martis-card-bg"
+      className="rounded-xl p-6 border border-solid martis-border martis-card-bg"
       aria-labelledby="security-section-title"
     >
       <h2 id="security-section-title" className="text-lg font-semibold martis-text mb-4">
@@ -195,7 +195,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
                   value={currentPassword}
                   onChange={(e) => { setCurrentPassword(e.target.value); setPasswordError('') }}
                   onKeyDown={(e) => { if (e.key === 'Enter' && currentPassword) void handleDisable() }}
-                  className="w-full rounded-lg border px-3 py-2 text-sm martis-text martis-card-bg focus:outline-none focus:ring-2"
+                  className="w-full rounded-lg border border-solid px-3 py-2 text-sm martis-text martis-card-bg focus:outline-none focus:ring-2"
                   style={{ borderColor: passwordError ? 'var(--martis-danger)' : 'var(--martis-border)' }}
                   autoComplete="current-password"
                 />
@@ -255,7 +255,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
               <p>{t('2fa_regen_warning')}</p>
 
               <div
-                className="rounded-lg p-4 border martis-border"
+                className="rounded-lg p-4 border border-solid martis-border"
                 style={{ backgroundColor: 'var(--martis-hover)' }}
               >
                 <div className="grid grid-cols-2 gap-1">

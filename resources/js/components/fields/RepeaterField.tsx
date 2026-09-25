@@ -223,7 +223,7 @@ export function RepeaterFieldDisplay({ field, value }: FieldDisplayProps) {
         return (
           <div
             key={String(row.id ?? index)}
-            className="rounded-md border px-3 py-2 text-sm"
+            className="rounded-md border border-solid px-3 py-2 text-sm"
             style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface-alt)' }}
           >
             <div className="flex items-center gap-2">
@@ -502,7 +502,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
             onDragOver={onDragOver(index)}
             onDrop={onDrop(index)}
             onDragEnd={onDragEnd}
-            className="rounded-lg border"
+            className="rounded-lg border border-solid"
             style={{
               borderColor: 'var(--martis-border)',
               backgroundColor: 'var(--martis-surface)',
@@ -512,7 +512,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
           >
             {/* Header */}
             <div
-              className="flex items-center gap-2 border-b px-3 py-2"
+              className="flex items-center gap-2 border-0 border-b border-solid px-3 py-2"
               style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface-alt)' }}
             >
               {canReorder && (
@@ -702,7 +702,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
                   </button>
                   {showAddMenu && (
                     <div
-                      className="absolute right-0 z-10 mt-1 min-w-[220px] overflow-hidden rounded-md border shadow-lg"
+                      className="absolute right-0 z-10 mt-1 min-w-[220px] overflow-hidden rounded-md border border-solid shadow-lg"
                       style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}
                     >
                       {/* The row types come first, so a blank row can be added next to the templates. */}
@@ -809,7 +809,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
                 <select
                   value={bulkPasteType}
                   onChange={(e) => setBulkPasteType(e.target.value)}
-                  className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-md border border-solid px-3 py-2 text-sm"
                   style={{
                     borderColor: 'var(--martis-border)',
                     backgroundColor: 'var(--martis-surface)',
@@ -827,7 +827,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
               value={bulkPasteText}
               onChange={(e) => setBulkPasteText(e.target.value)}
               placeholder={`${repeatables[0]?.fields.slice(0, 3).map((f) => f.attribute).join(',') ?? ''}\nvalor1,valor2,valor3`}
-              className="mt-3 h-40 w-full rounded-md border px-3 py-2 font-mono text-xs"
+              className="mt-3 h-40 w-full rounded-md border border-solid px-3 py-2 font-mono text-xs"
               style={{
                 borderColor: 'var(--martis-border)',
                 backgroundColor: 'var(--martis-surface)',
