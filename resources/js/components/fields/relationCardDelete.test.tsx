@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import type { FieldDefinition } from '@/types'
 
@@ -9,6 +9,8 @@ import type { FieldDefinition } from '@/types'
  * (`?relatedId=`), so a record that took its place since the card loaded
  * (a newer one-of-many record, a replaced HasOne) answers 409 instead of
  * being deleted. On that answer the card reloads and says why in a toast.
+ * The id is the one shown when Delete was clicked: a refetch while the
+ * modal is open does not change which record the confirm names.
  */
 
 const apiGetMock = vi.fn()
@@ -85,6 +87,7 @@ async function confirmDelete() {
 beforeEach(() => {
   apiGetMock.mockReset()
   apiDeleteMock.mockReset()
+  focusManager.setFocused(undefined)
 })
 
 describe.each([
@@ -116,5 +119,30 @@ describe.each([
 
     expect(await screen.findByText('The record changed since the card loaded; reload to see it.')).toBeTruthy()
     await waitFor(() => expect(cardPaths().length).toBeGreaterThan(loadsBefore))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('names the record shown when Delete was clicked, even if a refetch swapped it while the modal was open', async () => {
+    answerWithRecord(7, 'Shown profile')
+    apiDeleteMock.mockResolvedValue({ data: null })
+    renderCard(card(type, metaKey))
+    await screen.findByText('Shown profile')
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }))
+    await screen.findByRole('dialog')
+
+    // Another record takes its place and the window regains focus
+    // (refetchOnWindowFocus), so the card shows it behind the modal.
+    answerWithRecord(8, 'Replacement profile')
+    await act(async () => {
+      focusManager.setFocused(false)
+      focusManager.setFocused(true)
+    })
+    await screen.findByText('Replacement profile')
+
+    const buttons = screen.getAllByRole('button', { name: /Delete/ })
+    fireEvent.click(buttons[buttons.length - 1])
+
+    await waitFor(() => expect(apiDeleteMock).toHaveBeenCalledWith(`/api/resources/users/2/${endpoint}/profile?relatedId=7`))
+    expect(apiDeleteMock).toHaveBeenCalledTimes(1)
   })
 })

@@ -84,7 +84,10 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
   // in the URL.
   const { resource: parentResource, id: parentId } = useRelationParent()
 
-  const [deleteOpen, setDeleteOpen] = useState(false)
+  // The id of the record shown when Delete was clicked: a refetch while the
+  // modal is open (window focus, another card's write) may swap the record
+  // under it, and the confirm must still name the one the user saw.
+  const [deleteTarget, setDeleteTarget] = useState<string | number | null>(null)
 
   // Fetch related resource schema for field definitions
   const schemaQuery = useQuery({
@@ -121,13 +124,13 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
       ),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['has-one', parentResource, parentId, relationship] })
-      setDeleteOpen(false)
+      setDeleteTarget(null)
     },
     onError: (error: Error) => {
       // A 409 (the record changed) or any other refusal: reload the card so
       // it shows the record the relationship holds now, and say why.
       void qc.invalidateQueries({ queryKey: ['has-one', parentResource, parentId, relationship] })
-      setDeleteOpen(false)
+      setDeleteTarget(null)
       addToast('error', error.message)
     },
   })
@@ -242,7 +245,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
           {record !== null && showDelete && record._authorization?.authorizedToDelete !== false && (
             <button
               type="button"
-              onClick={() => setDeleteOpen(true)}
+              onClick={() => setDeleteTarget(record.id as string | number)}
               className="martis-btn-danger"
             >
               <TrashIcon size={14} />
@@ -357,15 +360,15 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
 
       {/* Delete confirmation modal */}
       <DeleteModal
-        open={deleteOpen}
+        open={deleteTarget !== null}
         resourceLabel={schema?.singularLabel ?? ''}
         isSoftDelete={schema?.softDeletes ?? false}
         onConfirm={async () => {
-          if (record?.id == null) return
+          if (deleteTarget === null) return
           // The error is shown by onError; the modal only needs it settled.
-          await deleteMutation.mutateAsync(record.id as string | number).catch(() => undefined)
+          await deleteMutation.mutateAsync(deleteTarget).catch(() => undefined)
         }}
-        onCancel={() => setDeleteOpen(false)}
+        onCancel={() => setDeleteTarget(null)}
       />
     </div>
   )

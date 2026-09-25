@@ -2,6 +2,7 @@
 
 namespace Martis\Http\Controllers;
 
+use Dedoc\Scramble\Attributes\QueryParameter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany as EloquentMorphMany;
@@ -251,6 +252,7 @@ class MorphOneController extends MartisController
     /**
      * Update the existing polymorphically related record.
      */
+    #[QueryParameter('relatedId', description: 'The id of the record the card shows. Required: 422 without it, 409 when the relationship now holds another record (a newer one-of-many record, a replaced MorphOne), so a write never lands on a record the user did not see.', required: true, type: 'string')]
     public function update(
         Request $request,
         string $resource,
@@ -276,14 +278,16 @@ class MorphOneController extends MartisController
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
         }
 
-        if ($mismatch = $this->oneRecordTargetMismatch($request, $relatedModel)) {
-            return $mismatch;
-        }
-
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
+        // Authorized first, as on the record's own page: a user who may not
+        // write the record learns nothing from the id check (403, not 422/409).
         if (! $relatedInstance->authorizedToUpdate($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        if ($mismatch = $this->oneRecordTargetMismatch($request, $relatedModel)) {
+            return $mismatch;
         }
 
         // A field hidden for the related record (canSeeForModel()) is neither
@@ -337,6 +341,7 @@ class MorphOneController extends MartisController
     /**
      * Delete the polymorphically related record.
      */
+    #[QueryParameter('relatedId', description: 'The id of the record the card shows. Required: 422 without it, 409 when the relationship now holds another record (a newer one-of-many record, a replaced MorphOne), so a write never lands on a record the user did not see.', required: true, type: 'string')]
     public function destroy(
         Request $request,
         string $resource,
@@ -362,14 +367,16 @@ class MorphOneController extends MartisController
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
         }
 
-        if ($mismatch = $this->oneRecordTargetMismatch($request, $relatedModel)) {
-            return $mismatch;
-        }
-
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
+        // Authorized first, as on the record's own page: a user who may not
+        // write the record learns nothing from the id check (403, not 422/409).
         if (! $relatedInstance->authorizedToDelete($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        if ($mismatch = $this->oneRecordTargetMismatch($request, $relatedModel)) {
+            return $mismatch;
         }
 
         try {

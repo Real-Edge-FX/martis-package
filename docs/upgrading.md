@@ -86,7 +86,11 @@ The same hooks now shape what counts the related records: the relationship count
 
 A one-record card (`HasOne`, `HasOneOfMany`, `HasOneThrough`, `MorphOne`, `MorphOneOfMany`) now shows its record only when the user may `view` it, as Nova hides that panel; otherwise the card is not rendered at all (its endpoint answers `meta.hidden: true`) and its Edit and Delete answer 404. Grant `view` where the card should show the record. A custom card component that reads the endpoint should treat `meta.hidden` as "render nothing". Creating a second record on a `HasOne` / `MorphOne` card answers `422` with the reason as its `message` (it answered `500`); a one-of-many card now takes more records, as its many relationship does.
 
-**A card write names its record.** `PUT` and `DELETE` on `…/has-one/{relationship}` and `…/morph-one/{relationship}` need `?relatedId=` with the id of the record the client read from the card's `GET`: `422` without it, `409` when the relationship holds another record by then (nothing is written). The Martis card sends it; an API client that calls those endpoints must add it.
+### A one-record card write names its record
+
+`PUT` and `DELETE` on `…/has-one/{relationship}` and `…/morph-one/{relationship}` need `?relatedId=` with the id of the record the client read from the card's `GET`: `422` without it, `409` when the relationship holds another record by then (nothing is written). The policy is checked first (`403` whatever the id). The Martis card sends it.
+
+**What to change:** an API client that calls those endpoints adds the id it read. A custom card component (one registered in place of the `HasOne` / `MorphOne` card) that edits or deletes through them sends `?relatedId=` with the id it showed, keeps that id from the click to the confirm (a refetch may swap the record meanwhile), and on a `409` reloads the card and shows the response's `message`.
 
 ### Creating a record needs `viewAny`
 

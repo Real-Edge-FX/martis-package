@@ -212,16 +212,24 @@ abstract class MartisController extends Controller
         $shown = $request->query('relatedId');
 
         if (! is_scalar($shown) || (string) $shown === '') {
-            $message = 'The id of the record the card shows is required (relatedId).';
+            $message = $this->translatedMessage('martis::messages.card_related_id_required');
 
             return JsonErrorResponse::validation(['relatedId' => [$message]], $message)->toResponse();
         }
 
         if ((string) $current->getKey() !== (string) $shown) {
-            return JsonErrorResponse::conflict('The record changed since the card loaded; reload to see it.')->toResponse();
+            return JsonErrorResponse::conflict($this->translatedMessage('martis::messages.card_record_changed'))->toResponse();
         }
 
         return null;
+    }
+
+    /** A translation line as a string (`__()` returns an array for a group key). */
+    private function translatedMessage(string $key): string
+    {
+        $line = __($key);
+
+        return is_string($line) ? $line : $key;
     }
 
     /**

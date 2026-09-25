@@ -15,6 +15,7 @@ use Martis\Fields\HasOne;
 use Martis\Fields\HasOneThrough;
 use Martis\Fields\MorphOne;
 use Martis\Fields\Text;
+use Martis\Http\Middleware\ApplyUserPreferencesLocale;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -94,7 +95,10 @@ class RCVProjectModel extends Model
     protected $fillable = ['title', 'team_id'];
 }
 
-/** Hides "By index" from the index; the "Private" record may not be viewed. */
+/**
+ * Hides "By index" from the index; the "Private" record may not be viewed,
+ * the "Locked" one may not be updated or deleted.
+ */
 abstract class RCVRelatedResource extends Resource
 {
     public static bool $groupById = false;
@@ -119,6 +123,16 @@ abstract class RCVRelatedResource extends Resource
     public function authorizedToView(Request $request): bool
     {
         return $this->model?->getAttribute('title') !== 'Private';
+    }
+
+    public function authorizedToUpdate(Request $request): bool
+    {
+        return $this->model?->getAttribute('title') !== 'Locked';
+    }
+
+    public function authorizedToDelete(Request $request): bool
+    {
+        return $this->model?->getAttribute('title') !== 'Locked';
     }
 }
 
@@ -271,6 +285,44 @@ it('hides the card of a record the user may not view, and refuses to write it', 
 
     expect($record->fresh()?->title)->toBe('Private');
 })->with('rcv cards');
+
+it('answers 404, not the id check, to a write on a card whose record the user may not view', function (string $path, string $relation) {
+    $record = $this->parent->{$relation}()->create(['title' => 'Private', 'written_at' => now()]);
+
+    // Neither a made-up id nor the record's own tells the user it exists.
+    foreach (['999', (string) $record->id] as $relatedId) {
+        $this->putJson(rcvCard($path).'?relatedId='.$relatedId, ['title' => 'Renamed'])->assertStatus(404);
+        $this->deleteJson(rcvCard($path).'?relatedId='.$relatedId)->assertStatus(404);
+    }
+
+    expect($record->fresh()?->title)->toBe('Private');
+})->with('rcv cards');
+
+it('authorizes a card write before it checks the id, so a denied user gets 403 first', function (string $path, string $relation) {
+    $record = $this->parent->{$relation}()->create(['title' => 'Locked', 'written_at' => now()]);
+
+    // Without the id (422 otherwise), with another (409 otherwise), with its own.
+    foreach (['', '?relatedId=999', '?relatedId='.$record->id] as $query) {
+        $this->putJson(rcvCard($path).$query, ['title' => 'Renamed'])->assertStatus(403);
+        $this->deleteJson(rcvCard($path).$query)->assertStatus(403);
+    }
+
+    expect($record->fresh()?->title)->toBe('Locked');
+})->with('rcv cards');
+
+it('answers the id check in the app\'s locale', function () {
+    $record = $this->parent->notes()->create(['title' => 'Shown', 'written_at' => now()]);
+    // The preferences middleware would put the configured default back.
+    $this->withoutMiddleware(ApplyUserPreferencesLocale::class);
+    app()->setLocale('pt_PT');
+
+    $this->deleteJson(rcvCard('has-one/profile'))->assertStatus(422)
+        ->assertJsonPath('message', 'O id do registo que o cartão mostra é obrigatório (relatedId).');
+    $this->deleteJson(rcvCard('has-one/profile').'?relatedId=999')->assertStatus(409)
+        ->assertJsonPath('message', 'O registo mudou desde que o cartão carregou; recarregue para o ver.');
+
+    expect($record->fresh())->not->toBeNull();
+});
 
 it('shows and writes a record the user may view (control)', function (string $path, string $relation) {
     $record = $this->parent->{$relation}()->create(['title' => 'Visible', 'written_at' => now()]);
