@@ -1,6 +1,6 @@
 # Agent guidelines and the Martis MCP server
 
-Martis ships a generator for AI coding agents (Claude Code, Codex, Cursor, Gemini, Copilot) plus an optional MCP server that exposes the package documentation over the Model Context Protocol.
+Martis ships a generator of guidelines for AI coding agents such as Claude Code, Codex, Cursor, Gemini and Copilot. An optional MCP server exposes the package documentation over the Model Context Protocol.
 
 The goal is to make agent-assisted development on Martis productive out of the box: one command produces a dense, prescriptive primer your agent loads on session start, and an optional MCP server lets the agent fetch deep dives on demand without scanning your `vendor/` tree.
 

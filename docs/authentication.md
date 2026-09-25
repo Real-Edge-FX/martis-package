@@ -1,6 +1,6 @@
 # Authentication
 
-Martis provides a complete authentication system with login, logout, two-factor authentication (2FA), magic-link, browser-session management, and a user profile page — all configurable and overridable.
+Martis provides a complete authentication system, from login and logout to two-factor authentication, magic links and a user profile page. Every part, browser-session management included, is configurable and overridable.
 
 > See also: [SSO](sso.md) for OAuth/OIDC providers (Azure / Google / GitHub / custom), and [Impersonation](impersonation.md) for the login-as-another-user subsystem (admins surfacing a switch from the user menu and from the User Resource detail page).
 

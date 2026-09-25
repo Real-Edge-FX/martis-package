@@ -4,7 +4,7 @@
 
 ## What it does
 
-A user applies a filter, opens a record, and clicks back. The table is **exactly** as they left it. Same filter, same sort, same page, same search query. No need to redo the work.
+Sticky views keep a resource table as the user left it when they open a record and come back. The table is **exactly** as they left it: same filter, same sort, same page, same search query. No need to redo the work.
 
 The state is scoped per-resource and per-tab, so each resource remembers its own view independently and a fresh tab starts clean.
 
