@@ -41,6 +41,11 @@ class OMWParentModel extends Model
         return $this->hasMany(OMWNoteModel::class, 'parent_id');
     }
 
+    public function bigNotes(): EloquentHasMany
+    {
+        return $this->hasMany(OMWNoteModel::class, 'parent_id')->where('size', '>', 1);
+    }
+
     public function latestNote(): EloquentHasOne
     {
         return $this->hasOne(OMWNoteModel::class, 'parent_id')->latestOfMany('written_at');
@@ -153,6 +158,29 @@ class OMWThroughHiredParentResource extends Resource
         return [
             Text::make('name'),
             HasOne::ofMany('Latest project', 'project', OMWProjectResource::class)->latestByTimestamp('hired_at'),
+        ];
+    }
+}
+
+class OMWBigNotesParentResource extends Resource
+{
+    public static function model(): string
+    {
+        return OMWParentModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'omw-big-notes-parents';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('name'),
+            HasOne::ofMany('Latest big note', 'bigNotes', OMWNoteResource::class)
+                ->latestByTimestamp('written_at')
+                ->aggregateVia(AggregateFunction::Sum, 'size'),
         ];
     }
 }
@@ -360,7 +388,7 @@ beforeEach(function () {
 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
-    foreach ([OMWNoteResource::class, OMWCommentResource::class, OMWProjectResource::class, OMWLatestParentResource::class, OMWOldestParentResource::class, OMWEloquentParentResource::class, OMWThroughParentResource::class, OMWThroughHiredParentResource::class] as $class) {
+    foreach ([OMWNoteResource::class, OMWCommentResource::class, OMWProjectResource::class, OMWLatestParentResource::class, OMWOldestParentResource::class, OMWEloquentParentResource::class, OMWThroughParentResource::class, OMWThroughHiredParentResource::class, OMWBigNotesParentResource::class] as $class) {
         $registry->register($class);
     }
 
@@ -519,4 +547,13 @@ it('orders a through relation by a column of the intermediate table as given', f
     $url = "/martis/api/resources/omw-through-hired-parents/{$this->parent->id}/has-one/project";
 
     $this->getJson($url)->assertStatus(200)->assertJsonPath('data.title', 'A-New');
+});
+
+it('counts and aggregates only the rows the relation itself selects', function () use ($older, $newer) {
+    omwSeed($this->parent, 'notes', [['Small', $older, 1], ['Big-Old', $older, 5], ['Big-New', $newer, 7]]);
+    $url = "/martis/api/resources/omw-big-notes-parents/{$this->parent->id}/has-one/bigNotes";
+    $response = $this->getJson($url)->assertStatus(200)
+        ->assertJsonPath('data.title', 'Big-New')
+        ->assertJsonPath('meta.ofMany.totalCount', 2);
+    expect((int) $response->json('meta.ofMany.aggregate.value'))->toBe(12);
 });
