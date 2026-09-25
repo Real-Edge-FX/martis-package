@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Martis\Auth\GuardCatalog;
 use Martis\Models\ActionEvent;
 
 /**
@@ -19,7 +20,7 @@ use Martis\Models\ActionEvent;
  * Off the shelf the Spatie events fire whenever a `HasRoles` model
  * calls `assignRole`, `removeRole`, `syncRoles`, `givePermissionTo`,
  * `revokePermissionTo`, etc. The Martis listener captures the
- * acting user (the one the Martis guard signed in, if any: the audit
+ * acting user (the Martis guard's user, in a panel request: the audit
  * log's `user()` resolves that guard's model), the affected target
  * row, and the list of role / permission ids involved, and writes a
  * single `ActionEvent` row per dispatch.
@@ -55,10 +56,14 @@ class RecordRoleChange
             return;
         }
 
-        // The Martis guard's user: ActionEvent::user() resolves that guard's
-        // model, so a change made by a user of another guard (the site's, a
-        // job's) records no actor rather than someone else's id.
-        $authUser = Auth::guard(config('martis.guard') ?: null)->user();
+        // The Martis guard's user, and only while that guard is the request's
+        // guard (a panel request: MartisAuthenticate calls shouldUse()).
+        // ActionEvent::user() resolves that guard's model, so a change made
+        // elsewhere (a site request, even from a browser that also holds a
+        // panel session, a job, a command) records no actor rather than
+        // another account's id.
+        $martisGuard = config('martis.guard') ?: GuardCatalog::default();
+        $authUser = Auth::getDefaultDriver() === $martisGuard ? Auth::guard($martisGuard)->user() : null;
 
         ActionEvent::create([
             'batch_id' => (string) Str::uuid(),
