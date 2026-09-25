@@ -86,3 +86,72 @@ it('gives guests one shared entry', function (string $metricClass) {
 
     expect(UserScopedCountMetric::$calls)->toBe(1);
 })->with('metric cache paths');
+
+/** Counts its runs without reading the identifier, which may be any value here. */
+class IdentifierAgnosticMetric extends UserScopedCountMetric
+{
+    public function calculate(Request $request): ValueResult
+    {
+        self::$calls++;
+
+        return $this->result(0);
+    }
+}
+
+class IdentifierAgnosticMetricWithCacheFor extends IdentifierAgnosticMetric
+{
+    public function cacheFor(): ?DateTimeInterface
+    {
+        return now()->addMinutes(5);
+    }
+}
+
+dataset('metric cache paths, identifier agnostic', [
+    'the metrics cache layer' => [IdentifierAgnosticMetric::class],
+    'a per-class cacheFor()' => [IdentifierAgnosticMetricWithCacheFor::class],
+]);
+
+/** A request whose user answers `$identifier` as their auth identifier, as is. */
+function metricRequestForIdentifier(mixed $identifier): Request
+{
+    $user = new class extends User
+    {
+        public mixed $identifier = null;
+
+        public function getAuthIdentifier(): mixed
+        {
+            return $this->identifier;
+        }
+    };
+    $user->identifier = $identifier;
+
+    return tap(Request::create('/'), fn (Request $request) => $request->setUserResolver(fn () => $user));
+}
+
+it('keys a Stringable identifier to its user', function (string $metricClass) {
+    $metric = $metricClass::make('Count');
+    $ulid = fn (string $id): Stringable => new class($id) implements Stringable
+    {
+        public function __construct(private string $id) {}
+
+        public function __toString(): string
+        {
+            return $this->id;
+        }
+    };
+
+    $metric->resolve(metricRequestForIdentifier($ulid('01J-A')));
+    $metric->resolve(metricRequestForIdentifier($ulid('01J-B')));
+    $metric->resolve(metricRequestForIdentifier($ulid('01J-A')));
+
+    expect(UserScopedCountMetric::$calls)->toBe(2);
+})->with('metric cache paths, identifier agnostic');
+
+it('caches nothing for an identifier the key cannot hold', function (string $metricClass) {
+    $metric = $metricClass::make('Count');
+
+    $metric->resolve(metricRequestForIdentifier(['tenant' => 1, 'user' => 2]));
+    $metric->resolve(metricRequestForIdentifier(['tenant' => 1, 'user' => 2]));
+
+    expect(UserScopedCountMetric::$calls)->toBe(2);
+})->with('metric cache paths, identifier agnostic');

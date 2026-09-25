@@ -20,6 +20,14 @@ class MartisAuthenticate
         $auth = auth()->guard($guardName);
 
         if ($auth->check()) {
+            // Make the Martis guard the request's default, as Laravel's own
+            // `auth` middleware does: `$request->user()`, `auth()->user()`
+            // and the policies then resolve the user this guard signed in,
+            // not the app's default guard (null when MARTIS_GUARD differs).
+            if (is_string($guardName) && $guardName !== '') {
+                auth()->shouldUse($guardName);
+            }
+
             return $next($request);
         }
 

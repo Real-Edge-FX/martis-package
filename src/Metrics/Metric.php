@@ -236,7 +236,12 @@ abstract class Metric implements MetricContract
         // honour it directly and skip the centralized layer so users
         // overriding the method retain full control.
         if ($cacheFor !== null) {
-            return Cache::remember('martis_metric_'.$this->resultCacheKey($request), $cacheFor, fn () => $this->resolveResult($request));
+            $key = $this->resultCacheKey($request);
+
+            // A user this key cannot name is never served a cached result.
+            return $key === null
+                ? $this->resolveResult($request)
+                : Cache::remember('martis_metric_'.$key, $cacheFor, fn () => $this->resolveResult($request));
         }
 
         // Fall through to the central MartisCache so the runtime kill-
@@ -249,7 +254,11 @@ abstract class Metric implements MetricContract
             return $this->resolveResult($request);
         }
 
-        return $cache->remember('metrics', $this->resultCacheKey($request), fn () => $this->resolveResult($request));
+        $key = $this->resultCacheKey($request);
+
+        return $key === null
+            ? $this->resolveResult($request)
+            : $cache->remember('metrics', $key, fn () => $this->resolveResult($request));
     }
 
     /**
@@ -261,14 +270,29 @@ abstract class Metric implements MetricContract
      * summaries differ per language) and the authenticated user: a
      * `calculate()` commonly scopes its query to the user, their tenant or
      * their permissions, so a result computed for one user must never be
-     * served to another. Guests share one entry.
+     * served to another. Guests share one entry. The user is the one the
+     * Martis guard signed in (`MartisAuthenticate` makes it the request's
+     * guard). Null, so the result is computed and not cached, when the
+     * user's identifier is neither a scalar nor Stringable. A metric whose
+     * value is the same for everyone can override this to leave the user
+     * out (see docs/cache.md).
      */
-    protected function resultCacheKey(Request $request): string
+    protected function resultCacheKey(Request $request): ?string
     {
         $range = self::queryString($request, 'range', '30');
         $filters = self::queryString($request, 'filters', '');
         $userId = $request->user()?->getAuthIdentifier();
-        $userKey = is_int($userId) || is_string($userId) ? (string) $userId : 'guest';
+        $userKey = match (true) {
+            $userId === null => 'guest',
+            is_int($userId), is_string($userId), $userId instanceof \Stringable => (string) $userId,
+            // An identifier the key cannot hold (neither scalar nor
+            // Stringable): no entry at all, rather than one shared with
+            // the guests.
+            default => null,
+        };
+        if ($userKey === null) {
+            return null;
+        }
 
         return md5($this->uriKey().'_'.$range.'_'.$filters.'_'.app()->getLocale().'_'.$userKey);
     }
