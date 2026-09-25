@@ -1,4 +1,3 @@
-import { useCallback } from "react"
 import { registry } from "@/lib/registry"
 import type { FieldDefinition, ResourceRecord } from "@/types"
 import type { ActionMeta } from "@/components/Actions"
@@ -165,15 +164,11 @@ function InlineSubMenu({
   parentRect,
   onAction,
   row,
-  canRunAction,
-  canRunDestructive,
 }: {
   group: InlineGroupNode
   parentRect: DOMRect | null
   onAction: (action: ActionMeta, row: ResourceRecord) => void
   row: ResourceRecord
-  canRunAction: boolean
-  canRunDestructive: boolean
 }) {
   const [openChild, setOpenChild] = useState<string | null>(null)
   const [childRects, setChildRects] = useState<Map<string, DOMRect>>(new Map())
@@ -200,6 +195,8 @@ function InlineSubMenu({
   return createPortal(
     <div
       data-action-submenu="true"
+      role="menu"
+      aria-label={group.label}
       className="rounded-lg border shadow-lg py-1"
       style={{ position: "fixed", top, left, minWidth: 200, maxWidth: "calc(100vw - 16px)", zIndex: 9992, backgroundColor: "var(--martis-card)", borderColor: "var(--martis-border)" }}
       onMouseEnter={clearCloseTimer}
@@ -222,14 +219,13 @@ function InlineSubMenu({
                 <span className="font-medium">{child.label}</span>
                 <CaretRightIcon size={12} />
               </div>
-              {openChild === key && <InlineSubMenu group={child} parentRect={childRects.get(key) ?? null} onAction={onAction} row={row} canRunAction={canRunAction} canRunDestructive={canRunDestructive} />}
+              {openChild === key && <InlineSubMenu group={child} parentRect={childRects.get(key) ?? null} onAction={onAction} row={row} />}
             </div>
           )
         }
-        const childPerAction = row._actionAuthorization
-        const isDisabled = childPerAction && child.uriKey in childPerAction ? !childPerAction[child.uriKey] : (child.destructive ? !canRunDestructive : !canRunAction)
+        const isDisabled = !canRunInlineAction(row, child)
         return (
-          <button key={child.uriKey} type="button" disabled={isDisabled}
+          <button key={child.uriKey} type="button" role="menuitem" disabled={isDisabled}
             onClick={e => { e.stopPropagation(); if (!isDisabled) onAction(child, row) }}
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ color: isDisabled ? "var(--martis-text-muted)" : child.destructive ? "var(--martis-danger)" : "var(--martis-text)" }}
@@ -280,17 +276,36 @@ export function InlineActionMenu({
       if (target.closest("[data-action-submenu]")) return
       setOpen(false)
     }
-    function handleKey(e: KeyboardEvent) { if (e.key === "Escape") setOpen(false) }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { setOpen(false); btnRef.current?.focus() }
+    }
     document.addEventListener("mousedown", handleClick)
     document.addEventListener("keydown", handleKey)
     return () => { document.removeEventListener("mousedown", handleClick); document.removeEventListener("keydown", handleKey) }
   }, [open])
 
+  // Opening the menu moves the focus into it, on its first item.
+  useEffect(() => {
+    if (!open) return
+    menuItems(menuRef.current)[0]?.focus()
+  }, [open])
+
+  function menuItems(menu: HTMLElement | null): HTMLElement[] {
+    return menu ? Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])')) : []
+  }
+
+  // Up / Down move between the enabled items, wrapping around.
+  function handleMenuKey(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return
+    e.preventDefault()
+    const items = menuItems(menuRef.current)
+    if (items.length === 0) return
+    const at = items.indexOf(document.activeElement as HTMLElement)
+    const next = e.key === "ArrowDown" ? (at + 1) % items.length : (at - 1 + items.length) % items.length
+    items[next]?.focus()
+  }
+
   const rect = btnRef.current?.getBoundingClientRect()
-  // Per-action canRun helper for inline grouped actions
-  const perAction = row._actionAuthorization
-  const canRunAction = row._authorization?.authorizedToRunAction !== false
-  const canRunDestructive = row._authorization?.authorizedToRunDestructiveAction !== false
   const tree = buildInlineGroupTree(actions)
 
   return (
@@ -304,12 +319,17 @@ export function InlineActionMenu({
         data-pr-tooltip={tMsg('actions', 'Actions')}
         data-pr-position="top"
         aria-label={tMsg('actions', 'Actions')}
+        aria-haspopup="menu"
+        aria-expanded={open}
       >
         <DotsThreeVerticalIcon size={16} weight="bold" />
       </button>
       {open && rect && createPortal(
         <div
           ref={menuRef}
+          role="menu"
+          aria-label={tMsg('actions', 'Actions')}
+          onKeyDown={handleMenuKey}
           className="rounded-lg border shadow-lg py-1"
           style={{ position: "fixed", top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 220), minWidth: 180, zIndex: 9991, backgroundColor: "var(--martis-card)", borderColor: "var(--martis-border)" }}
         >
@@ -325,20 +345,22 @@ export function InlineActionMenu({
                   onMouseLeave={() => { closeTimer.current = setTimeout(() => setOpenGroup(prev => prev === key ? null : prev), 180) }}
                   onClick={e => { e.stopPropagation(); const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setGroupRects(prev => new Map(prev).set(key, rect)); setOpenGroup(p => p === key ? null : key) }}
                 >
-                  <div className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors cursor-pointer" style={{ color: "var(--martis-text)" }}
+                  <div role="menuitem" tabIndex={-1} aria-haspopup="menu" aria-expanded={openGroup === key}
+                    className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors cursor-pointer" style={{ color: "var(--martis-text)" }}
+                    onKeyDown={e => { if (e.key === "Enter" || e.key === " " || e.key === "ArrowRight") { e.preventDefault(); (e.currentTarget.parentElement as HTMLElement).click() } }}
                     onMouseEnter={e => (e.currentTarget.style.backgroundColor = "var(--martis-hover)")}
                     onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}
                   >
                     <span className="font-medium">{item.label}</span>
                     <CaretRightIcon size={12} />
                   </div>
-                  {openGroup === key && <InlineSubMenu group={item} parentRect={groupRects.get(key) ?? null} onAction={(a, r) => { setOpen(false); onAction(a, r) }} row={row} canRunAction={canRunAction} canRunDestructive={canRunDestructive} />}
+                  {openGroup === key && <InlineSubMenu group={item} parentRect={groupRects.get(key) ?? null} onAction={(a, r) => { setOpen(false); onAction(a, r) }} row={row} />}
                 </div>
               )
             }
-            const isItemDisabled = perAction && item.uriKey in perAction ? !perAction[item.uriKey] : (item.destructive ? !canRunDestructive : !canRunAction)
+            const isItemDisabled = !canRunInlineAction(row, item)
             return (
-              <button key={item.uriKey} type="button" disabled={isItemDisabled}
+              <button key={item.uriKey} type="button" role="menuitem" disabled={isItemDisabled}
                 onClick={e => { e.stopPropagation(); if (!isItemDisabled) { setOpen(false); onAction(item, row) } }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ color: isItemDisabled ? "var(--martis-text-muted)" : item.destructive ? "var(--martis-danger)" : "var(--martis-text)" }}
@@ -352,6 +374,63 @@ export function InlineActionMenu({
           })}
         </div>,
         document.body,
+      )}
+    </>
+  )
+}
+
+/**
+ * Whether `action` may run on `row`: the row's `_actionAuthorization` entry
+ * (the predicate the run enforces), else the record's run-action policy.
+ */
+export function canRunInlineAction(row: ResourceRecord, action: ActionMeta): boolean {
+  const perAction = row._actionAuthorization
+  if (perAction && action.uriKey in perAction) {
+    return perAction[action.uriKey]
+  }
+  if (action.destructive) return row._authorization?.authorizedToRunDestructiveAction !== false
+  return row._authorization?.authorizedToRunAction !== false
+}
+
+/**
+ * A row's inline (`showInline()`) actions, laid out as on the resource
+ * index: an action without a group is an icon button, the grouped ones sit
+ * in the "..." menu. Shared with the relationship panels.
+ */
+export function InlineRowActions({
+  actions,
+  row,
+  onAction,
+}: {
+  actions: ActionMeta[]
+  row: ResourceRecord
+  onAction: (action: ActionMeta, row: ResourceRecord) => void
+}) {
+  const ungrouped = actions.filter(a => !a.group)
+  const grouped = actions.filter(a => !!a.group)
+  return (
+    <>
+      {ungrouped.map(action => {
+        const iconNode = action.showIcon !== false
+          ? (action.icon
+              ? <ResourceIcon iconName={action.icon} size={16} color={action.iconColor ?? undefined} />
+              : action.destructive
+                ? <WarningIcon size={16} weight="fill" color={action.iconColor ?? undefined} />
+                : <LightningIcon size={16} color={action.iconColor ?? undefined} />)
+          : null
+        return (
+          <RowActionButton
+            key={action.uriKey}
+            label={action.name}
+            icon={iconNode}
+            disabled={!canRunInlineAction(row, action)}
+            variant={action.destructive ? "destructive" : "primary"}
+            onClick={() => onAction(action, row)}
+          />
+        )
+      })}
+      {grouped.length > 0 && (
+        <InlineActionMenu actions={grouped} row={row} onAction={onAction} />
       )}
     </>
   )
@@ -460,9 +539,6 @@ function DefaultTable({
     }
   }
 
-  const ungroupedInline = inlineActions.filter(a => !a.group)
-  const groupedInline = inlineActions.filter(a => !!a.group)
-  const hasGroupedInline = groupedInline.length > 0
 
   const showDefaults = defaultRowActions?.enabled === true
   const showView = showDefaults && defaultRowActions?.view !== false && !!onDefaultView
@@ -472,20 +548,6 @@ function DefaultTable({
   const showForceDelete = showDefaults && !!onDefaultForceDelete
   const hasDefaults = showView || showEdit || showDelete
   const hasActionsColumn = hasDefaults || inlineActions.length > 0
-
-  const canRunForRow = useCallback(
-    (row: ResourceRecord, action: ActionMeta): boolean => {
-      // Per-action canRun from backend
-      const perAction = row._actionAuthorization
-      if (perAction && action.uriKey in perAction) {
-        return perAction[action.uriKey]
-      }
-      // Fallback to resource-level authorization
-      if (action.destructive) return row._authorization?.authorizedToRunDestructiveAction !== false
-      return row._authorization?.authorizedToRunAction !== false
-    },
-    [],
-  )
 
   return (
     <>
@@ -622,7 +684,7 @@ function DefaultTable({
               const editDisabled = row._authorization?.authorizedToUpdate === false
               const deleteDisabled = row._authorization?.authorizedToDelete === false
               const isTrashed = "deleted_at" in row && row["deleted_at"] != null
-              const hasInline = ungroupedInline.length > 0 || hasGroupedInline
+              const hasInline = inlineActions.length > 0
               return (
                 <div className="martis-row-actions justify-end" onClick={e => e.stopPropagation()}>
                   {showView && (
@@ -670,33 +732,11 @@ function DefaultTable({
                   {hasDefaults && hasInline && (
                     <span className="martis-row-actions__divider" aria-hidden="true" />
                   )}
-                  {ungroupedInline.map(action => {
-                    const isDisabled = !canRunForRow(row, action)
-                    const iconNode = action.showIcon !== false
-                      ? (action.icon
-                          ? <ResourceIcon iconName={action.icon} size={16} color={action.iconColor ?? undefined} />
-                          : action.destructive
-                            ? <WarningIcon size={16} weight="fill" color={action.iconColor ?? undefined} />
-                            : <LightningIcon size={16} color={action.iconColor ?? undefined} />)
-                      : null
-                    return (
-                      <RowActionButton
-                        key={action.uriKey}
-                        label={action.name}
-                        icon={iconNode}
-                        disabled={isDisabled}
-                        variant={action.destructive ? "destructive" : "primary"}
-                        onClick={() => onInlineAction?.(action, row)}
-                      />
-                    )
-                  })}
-                  {hasGroupedInline && (
-                    <InlineActionMenu
-                      actions={groupedInline}
-                      row={row}
-                      onAction={(action, r) => onInlineAction?.(action, r)}
-                    />
-                  )}
+                  <InlineRowActions
+                    actions={inlineActions}
+                    row={row}
+                    onAction={(action, r) => onInlineAction?.(action, r)}
+                  />
                 </div>
               )
             }}

@@ -415,6 +415,27 @@ it('executes a pivot action and updates the pivot column', function () {
     }
 });
 
+it('refuses a pivot action whose ids are not all attached, and writes nothing', function () {
+    $parent = PivotParentModel::create(['name' => 'Parent C']);
+    $attached = PivotChildModel::create(['name' => 'Attached']);
+    $loose = PivotChildModel::create(['name' => 'Not attached']);
+    $parent->pivotChildren()->attach($attached->id, ['priority' => 'normal']);
+
+    foreach ([[$attached->id, $loose->id], [$attached->id, 999]] as $ids) {
+        $this->postJson(
+            route('martis.api.resources.belongs-to-many.actions.execute', [
+                'resource' => 'pivot-parent-models',
+                'id' => $parent->id,
+                'relationship' => 'pivotChildren',
+                'action' => 'pivot-test-action',
+            ]),
+            ['resources' => $ids, 'fields' => ['priority' => 'high']],
+        )->assertStatus(404)->assertJsonPath('message', 'One or more selected resources could not be found.');
+    }
+
+    expect($parent->pivotChildren()->withPivot(['priority'])->first()->pivot->priority)->toBe('normal');
+});
+
 it('forbids executing a pivot action on a parent the user cannot view (IDOR)', function () {
     app(ResourceRegistry::class)->register(PivotDeniedViewResource::class);
 

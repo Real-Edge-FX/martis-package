@@ -251,6 +251,13 @@ Each record serialized for the index or detail pages carries:
 }
 ```
 
+`_actionAuthorization` says, per action, whether it may run on that record:
+the action's `canRun()`, then, unless it is `standalone()`, the
+`runAction` policy (`runDestructiveAction` for a destructive action), the
+same check the run applies. An index row maps every action the user can
+see; a relationship panel row maps only the inline actions that run on a
+record, and carries no map when there is none.
+
 Top-level schema responses carry collection-level flags under
 `authorization`:
 

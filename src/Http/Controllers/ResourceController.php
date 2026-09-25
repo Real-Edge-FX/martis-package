@@ -146,7 +146,7 @@ class ResourceController extends MartisController
 
         $paginator = $query->paginate($perPage);
 
-        // Resolve actions once for per-row canRun authorization
+        // Resolve actions once for the per-row map (run predicate)
         $actionAuthorization = $this->rowActionAuthorizer($request, $resourceClass);
 
         /** @var list<array<string, mixed>> $data */
@@ -155,7 +155,7 @@ class ResourceController extends MartisController
                 $res = new $resourceClass($model);
 
                 $serialized = $this->serializeModel($res, Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX), $model);
-                $serialized['_actionAuthorization'] = $actionAuthorization($model);
+                $serialized['_actionAuthorization'] = $actionAuthorization !== null ? $actionAuthorization($model) : [];
 
                 return $serialized;
             })->all()

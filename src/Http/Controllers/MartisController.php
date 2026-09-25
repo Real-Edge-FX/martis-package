@@ -36,30 +36,62 @@ abstract class MartisController extends Controller
     }
 
     /**
-     * The per-action `canRun` map a listed row carries under
-     * `_actionAuthorization`: the resource's actions the user can see,
-     * resolved once per request, each asked about the row's model. The
-     * resource index and the relationship panels share it, so a row action
-     * is offered the same way wherever the record is listed.
+     * The per-action map a listed row carries under `_actionAuthorization`:
+     * whether each action may run on the row's record, by the same predicate
+     * `ActionController::execute()` enforces (see `actionRunDenial()`), so an
+     * item the menu enables is one the run accepts. The resource index maps
+     * every action the user can see; a relationship panel (`$inlineOnly`)
+     * maps only the inline actions that run on a record, the only ones its
+     * rows offer. `null` when there is none to map, so the rows skip it.
      *
      * @param  class-string<resource>  $resourceClass
-     * @return \Closure(Model): array<string, bool>
+     * @return (\Closure(Model): array<string, bool>)|null
      */
-    protected function rowActionAuthorizer(Request $request, string $resourceClass): \Closure
+    protected function rowActionAuthorizer(Request $request, string $resourceClass, bool $inlineOnly = false): ?\Closure
     {
         $actions = array_filter(
             (new $resourceClass)->actions($request),
-            fn (ActionContract $action): bool => $action->authorizedToSee($request),
+            fn (ActionContract $action): bool => $action->authorizedToSee($request)
+                && (! $inlineOnly || ($action->isShownInline() && ! $action->isStandalone())),
         );
 
-        return function (Model $model) use ($actions, $request): array {
+        if ($actions === []) {
+            return null;
+        }
+
+        return function (Model $model) use ($actions, $request, $resourceClass): array {
+            $resource = new $resourceClass($model);
             $map = [];
             foreach ($actions as $action) {
-                $map[$action->uriKey()] = $action->authorizedToRun($request, $model);
+                $map[$action->uriKey()] = $this->actionRunDenial($request, $action, $resource, $model) === null;
             }
 
             return $map;
         };
+    }
+
+    /**
+     * Why `$action` may not run on `$model`, or `null` when it may: the
+     * action's own `canRun()`, then, unless it is standalone, the resource's
+     * `runDestructiveAction` policy for a destructive action and its
+     * `runAction` policy otherwise. The one predicate behind the row map and
+     * the run.
+     */
+    protected function actionRunDenial(Request $request, ActionContract $action, Resource $resource, Model $model): ?string
+    {
+        if (! $action->authorizedToRun($request, $model)) {
+            return 'You are not authorized to run this action on one or more selected resources.';
+        }
+
+        if ($action->isStandalone()) {
+            return null;
+        }
+
+        if ($action->isDestructive()) {
+            return $resource->authorizedToRunDestructiveAction($request) ? null : 'You are not authorized to run this destructive action.';
+        }
+
+        return $resource->authorizedToRunAction($request) ? null : 'You are not authorized to run this action.';
     }
 
     /**

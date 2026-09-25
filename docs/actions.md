@@ -152,13 +152,26 @@ public function actions(Request $request): array
 
 ### In relationship panels
 
-An inline action also appears in the row menu of every `HasMany`,
+An inline action also appears on each row of every `HasMany`,
 `HasManyThrough` and `MorphMany` panel that lists the resource (v2.0, as in
-Nova): the same menu the index shows, each item disabled where
-`canRun()` / the policy refuses it for that record (each panel row carries
-the same `_actionAuthorization` map as an index row), and run on that one
-record through the same modal. `BelongsToMany` / `MorphToMany` panels keep
-their pivot actions instead.
+Nova), laid out as on the index: an action without a `group()` is an icon
+button, the grouped ones sit in the "..." menu. Each is disabled where the
+record may not run it, by the same predicate the run enforces (`canRun()`,
+then, unless the action is `standalone()`, the `runAction` policy, or
+`runDestructiveAction` for a destructive action; see
+[Authorization](#authorization)). Actions that cannot run stay visible and
+disabled, as on the index.
+
+The panel runs the action on that one record through the same modal, and
+sends the relationship with it (`viaResource`, `viaResourceId`,
+`viaRelationship`, as Nova does), so only a record that relationship
+reaches is run on. A `standalone()` action runs on no record. An
+`ActionResponse::openCreate()` / `openDetail()` / `openUpdate()` answer opens
+its drawer over the page, as on the index.
+
+Each panel row carries an `_actionAuthorization` map of the inline actions
+that run on a record (the index maps every action). `BelongsToMany` /
+`MorphToMany` panels keep their pivot actions instead.
 
 ### Visibility control
 
@@ -806,7 +819,7 @@ PublishPosts::make()->canSee(fn (Request $request) => $request->user()->isAdmin(
 
 ### Layer 2 — canRun()
 
-Controls whether a specific model can be acted on. Evaluated per model at execution.
+Controls whether a specific model can be acted on. Evaluated per model at execution, and for each listed row, where a row button or menu item the check refuses is disabled.
 
 ```php
 PublishPosts::make()->canRun(fn (Request $request, $model) => $model->status === 'draft');
@@ -814,7 +827,7 @@ PublishPosts::make()->canRun(fn (Request $request, $model) => $model->status ===
 
 ### Layer 3 — Policy integration
 
-The controller resolves authorization via a fallback chain on the resource's policy:
+The controller resolves authorization via a fallback chain on the resource's policy. It applies to each record, after `canRun()`, except for a `standalone()` action; each row of the index and of a relationship panel is marked with the same result, so an action the menu enables is one the run accepts:
 
 **Normal actions** fall back through:
 1. `Policy::runAction($user)`
@@ -894,8 +907,13 @@ ActionController::execute()
   1. Resolve resource class from URI key
   2. Find action by URI key (uriKey())
   3. Check canSee() — 403 if unauthorized
-  4. Load Eloquent models by the IDs in "resources"
-  5. Check canRun() per model — 403 if any unauthorized
+  4. Load Eloquent models by the IDs in "resources", through the
+     resource's indexQuery() (trashed records included when the resource
+     soft-deletes) and, with viaResource / viaResourceId /
+     viaRelationship, only among the records that relationship reaches.
+     404 when any ID does not resolve: nothing runs on a partial
+     selection. A standalone() action loads no model.
+  5. Check canRun() and the policy per model: 404 if any is refused
   6. Validate the fields the request may set against their rules
      (a hidden, readonly or computed field is not validated and gets its
      default(); see "Fields the request cannot set")

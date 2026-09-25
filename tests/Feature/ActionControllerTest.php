@@ -637,10 +637,10 @@ it('an action cannot reach records outside the resource indexQuery scope (IDOR g
         'resources' => [$inScope->id, $outOfScope->id],
     ]);
 
-    $response->assertSuccessful();
+    // The out-of-scope id does not resolve, so the run is refused rather
+    // than handling only part of the selection and answering success.
+    $response->assertStatus(404);
 
-    // In-scope record was acted on; the out-of-scope record was never
-    // resolved, so the action could not touch it.
-    expect($inScope->fresh()->status)->toBe('published')
+    expect($inScope->fresh()->status)->toBe('draft')
         ->and($outOfScope->fresh()->status)->toBe('archived');
 });

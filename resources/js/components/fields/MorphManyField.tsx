@@ -102,7 +102,7 @@ function MorphManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) 
       hideDeleteAction={!!meta?.hideDeleteAction}
       hideRestoreAction={!!meta?.hideRestoreAction}
       hideForceDeleteAction={!!meta?.hideForceDeleteAction}
-      rowActions
+      rowActions={{ viaResource: parentResource, viaResourceId: parentId, viaRelationship: relationship }}
     />
   )
 }
