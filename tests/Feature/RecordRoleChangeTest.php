@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
 use Martis\Auth\Listeners\RecordRoleChange;
@@ -204,4 +205,23 @@ it('registers itself against the four Spatie event classes when registerRoleAudi
         });
         expect($hasRecorder)->toBeTrue("No listener registered for {$event}");
     }
+});
+
+it('records the Martis guard user as the actor in a panel request only', function () {
+    config()->set('auth.guards.admin', ['driver' => 'session', 'provider' => 'users']);
+    config()->set('martis.guard', 'admin');
+    $target = RoleChangeTestUser::create(['email' => 'target@example.com']);
+
+    // A site request (the default guard stays `web`): the site user changes
+    // a role, from a browser that also holds a panel session.
+    auth()->guard('web')->setUser((new User)->forceFill(['id' => 5]));
+    auth()->guard('admin')->setUser((new User)->forceFill(['id' => 9]));
+    (new RecordRoleChange)->record('role.attached', $target, [42]);
+
+    // A panel request: MartisAuthenticate makes the Martis guard the
+    // request's guard.
+    auth()->shouldUse('admin');
+    (new RecordRoleChange)->record('role.attached', $target, [43]);
+
+    expect(ActionEvent::query()->orderBy('id')->pluck('user_id')->all())->toBe([null, 9]);
 });

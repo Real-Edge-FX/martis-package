@@ -351,6 +351,8 @@ Off by default. Flip `MARTIS_AUDIT_AUTHZ_DENIALS=true` to record every Gate deni
 
 Repeat denials of the same `(user, ability, model)` within one request are de-duplicated to a single row, so a page that runs many redundant checks does not flood the table.
 
+The log's `user_id` names a user of the Martis guard (the `ActionEvent::user()` relation resolves that guard's model), so a denial is recorded only while the Martis guard is the request's guard: in a panel request, and in every request when the Martis guard is the app's default. With a custom `MARTIS_GUARD`, the site's own requests record none (v2.0.0+): their user belongs to another guard, whose id the log would resolve to someone else.
+
 The noisy `viewAny` cascade (sidebar / navigation) is dropped by default. Toggle `MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY=true` to keep it.
 
 ## How policy instances are resolved
@@ -391,6 +393,8 @@ The cache is request-scoped — never spans requests, never persisted. Closure-o
 Off by default. When `MARTIS_AUTHZ_REVOKE_SESSIONS_ON_DEMOTE=true` and the host app uses Laravel's `database` session driver, a Spatie `RoleDetachedEvent` or `PermissionDetachedEvent` triggers a session sweep on the demoted user — every active session row for that user (across all devices) is dropped. The operator (admin) stays signed in because their session row belongs to them, not to the demoted user.
 
 Use this in regulated apps where a demotion must take immediate effect on every device the user is signed in on, without waiting for the session cookie to expire.
+
+The sweep deletes the session rows by the demoted user's id, and Laravel's `sessions.user_id` stores no table. When the session guards of `config/auth.php` (with the Martis and the default guard) sign in users of more than one table, such as a custom `MARTIS_GUARD` whose model has its own table beside the site's `users`, that id can be another person's, so the sweep is skipped and a warning names the tables (v2.0.0+). Guards that share one table keep the sweep.
 
 ## Testing helpers
 

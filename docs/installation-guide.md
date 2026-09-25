@@ -233,15 +233,17 @@ php artisan migrate
 
 `martis:install` publishes the core migrations on every run, the avatar migration with `--with-profile` (as `*_add_martis_profile_picture_column_to_users_table.php`) and the two-factor migration with `--with-2fa` (as `*_add_martis_two_factor_columns_to_users_table.php`).
 
+`martis:install` publishes the core migrations on every run, the avatar migration with `--with-profile` (as `add_profile_picture_column`) and the two-factor migration with `--with-2fa` (as `*_add_martis_two_factor_columns_to_users_table.php`). Both add their columns to the table of the Martis guard's users: `users`, unless `MARTIS_GUARD` names a guard whose model has its own table.
+
 #### UUID / ULID / custom user PKs (v1.12.2+)
 
-The published migrations adapt the `user_id` column (and the polymorphic `notifiable_id` on the notifications table) to whichever primary-key shape your host `users` table uses. The adaptation happens at migration time — each stub introspects the configured user model (`auth.providers.{provider}.model`) and picks the matching column helper:
+The published migrations adapt the `user_id` column (and the polymorphic `notifiable_id` on the notifications table) to the primary-key shape of the Martis guard's users. The adaptation happens at migration time: each stub introspects the model of the Martis guard's provider (`auth.guards.{MARTIS_GUARD, else the default guard}.provider` → `auth.providers.{provider}.model`, the `users` model on a default install) and picks the matching column helper. The foreign keys (`martis_user_preferences.user_id`, `invitations.invited_by` / `accepted_user_id`) reference that model's table and key, and the two-factor and avatar migrations add their columns to that table (v2.0.0+; before, always `users`):
 
 | User model | `user_id` column |
 |---|---|
-| Default Laravel (auto-incrementing `bigint`) | `foreignId('user_id')->constrained()` |
-| `use Illuminate\Database\Eloquent\Concerns\HasUuids;` | `foreignUuid('user_id')->constrained()` |
-| `use Illuminate\Database\Eloquent\Concerns\HasUlids;` | `foreignUlid('user_id')->constrained()` |
+| Default Laravel (auto-incrementing `bigint`) | `foreignId('user_id')->constrained($table, $key)` |
+| `use Illuminate\Database\Eloquent\Concerns\HasUuids;` | `foreignUuid('user_id')->constrained($table, $key)` |
+| `use Illuminate\Database\Eloquent\Concerns\HasUlids;` | `foreignUlid('user_id')->constrained($table, $key)` |
 | `$keyType = 'string'` without `HasUuids` / `HasUlids` | `string('user_id')` + explicit `foreign()` |
 
 The polymorphic columns on `notifications` follow the same rule (`morphs` / `uuidMorphs` / `ulidMorphs`).
@@ -624,6 +626,7 @@ Coming from 1.x, also check:
 - **`profile.resource`** must be `null` or name a class that implements `Martis\Contracts\ProfileResourceContract`. Any other value, such as a misspelt class, now throws an `InvalidArgumentException` naming the key; 1.x fell back to the default resource without a word. When you set it, `/martis/api/auth/user` and the login response take the Topbar avatar from your resource's `toArray()`, as the profile page does. See [Authentication → Custom Profile Resource](authentication.md#custom-profile-resource).
 - **Avatar colours** come from the theme's `--martis-avatar-1..16` tokens. The Topbar shows two initials on a palette colour instead of one letter on the accent colour, the profile avatar is no longer indigo, and the initials of an `Avatar` or `UiAvatar` field can change colour. To keep a fixed colour per record, use `colorFrom()`; to change the colours, redefine the tokens in your theme. A subclass of `Avatar` or `UiAvatar` that calls or overrides the trait's `resolveInitialsColor()`, `deterministicInitialsColor()` or `$initialsPalette` has to move to `Martis\Support\Initials` (`paletteSlot()`, `defaultColor()`), or override `customInitialsColor()` to give its own colour.
 - **Metric results are cached per user.** No action is needed, but the metric cache holds one entry per user and metric where 1.x held one per metric. See [Cache → The four built-in layers](cache.md#the-four-built-in-layers).
+- **A custom `MARTIS_GUARD`** now signs in the panel's user everywhere, policies and gates included: see [Upgrading → A custom Martis guard](upgrading.md#a-custom-martis-guard) before you upgrade an app that sets one.
 
 Use the asset-only command if you only want to refresh static files. Use the install command with `--force` if you want the full recommended refresh:
 
