@@ -71,6 +71,9 @@ class MartisCache
      */
     public const TYPES = ['metrics', 'navigation', 'dashboards', 'schema'];
 
+    /** Longest cache key written as is; a longer one is hashed. */
+    public const MAX_KEY_LENGTH = 191;
+
     /**
      * Custom layers registered via `extend()`. Map of name => default
      * config. Built-in layers always exist regardless of this list.
@@ -382,8 +385,12 @@ class MartisCache
     public function buildKey(string $type, string $key): string
     {
         $installed = $this->installedVersion === null ? '' : '@'.$this->installedVersion;
+        $full = 'martis:cache:'.$type.$installed.':v'.$this->state($type)['version'].':'.$key;
 
-        return 'martis:cache:'.$type.$installed.':v'.$this->state($type)['version'].':'.$key;
+        // Stores bound key length (a database cache column indexed under
+        // utf8mb4 holds 191 characters, memcached 250 bytes): hash the whole
+        // key past that, so the version and the counter still count.
+        return strlen($full) <= self::MAX_KEY_LENGTH ? $full : 'martis:cache:'.$type.':h:'.hash('sha256', $full);
     }
 
     /**

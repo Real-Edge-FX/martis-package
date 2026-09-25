@@ -1069,7 +1069,10 @@ return [
         ],
         'schema' => [
             'enabled' => env('MARTIS_CACHE_SCHEMA_ENABLED', true),
-            'ttl' => env('MARTIS_CACHE_SCHEMA_TTL', env('MARTIS_CACHE_SCHEMA', null)),
+            // Finite so the entries a previous Martis version left behind
+            // (the key carries the installed version) expire on stores
+            // without eviction. One day; the key keeps the payload fresh.
+            'ttl' => env('MARTIS_CACHE_SCHEMA_TTL', env('MARTIS_CACHE_SCHEMA', 1440)),
         ],
 
         // When true, Martis registers `/api/cache/*` admin endpoints and

@@ -51,7 +51,7 @@ Calling `Gate::define()` from the host app replaces Martis's default closure, so
 | `metrics` | Computed metric results (Value, Trend, Partition, Progress, Activity feed, Endpoint table). | 5 minutes | **Yes** — keyed on the user, the locale, the range and the filters (guests share one entry). Before v2.0.0 the key had no user, so a `calculate()` scoped to the user served the first user's value to everyone for the TTL |
 | `navigation` | Sidebar / top-nav structure. | 1 minute | **Yes** — different policies, different menus |
 | `dashboards` | Dashboard list + per-dashboard definition (cards/filters metadata). Metric values are NOT cached here — that's `metrics`. | 5 minutes | **Yes** — and the list key carries a fingerprint of the set the user is authorized to see (see below) |
-| `schema` | Resource schema payload (fields, filters, lenses, cards, actions). Heavy to compute, stable across requests. | No expiration | **Yes** |
+| `schema` | Resource schema payload (fields, filters, lenses, cards, actions). Heavy to compute, stable across requests. | 1440 min (one day, v2.0; before, no expiration) | **Yes** |
 
 TTL `null` means "no expiration" — the entry stays cached until explicitly cleared (the version key trick: see [Invalidation](#invalidation) below).
 
@@ -89,7 +89,7 @@ Hover any column header in the admin UI for the same explanation as a tooltip.
     'metrics'    => ['enabled' => true, 'ttl' => 5],     // 5 minutes
     'navigation' => ['enabled' => true, 'ttl' => 1],
     'dashboards' => ['enabled' => true, 'ttl' => 5],     // 5 minutes
-    'schema'     => ['enabled' => true, 'ttl' => null],
+    'schema'     => ['enabled' => true, 'ttl' => 1440],  // one day (v2.0)
 
     'admin_ui'   => true,
     'admin_ui_order' => 1000,   // position of the "System cache" link in the System section (v1.38.0+)
@@ -115,7 +115,7 @@ MARTIS_CACHE_DASHBOARDS_ENABLED=true
 MARTIS_CACHE_DASHBOARDS_TTL=5
 
 MARTIS_CACHE_SCHEMA_ENABLED=true
-MARTIS_CACHE_SCHEMA_TTL=
+MARTIS_CACHE_SCHEMA_TTL=1440
 
 MARTIS_CACHE_ADMIN_UI=true
 ```
@@ -257,7 +257,7 @@ afterEach(fn () => MartisCache::forgetExtension('reports'));
 
 Per-layer **version key**: `martis:cache:version:{type}`. Every cached entry is keyed by `martis:cache:{type}@{installed}:v{version}:{rest}`. Clearing a layer just increments the counter — every old key becomes orphaned and the next request recomputes. O(1) on every cache backend (no tagging support required).
 
-`{installed}` is the `martis/martis` version Composer installed (what `composer show martis/martis` reports, e.g. `v2.0.0`; a `dev-*` branch keeps its name across `composer update`, so its commit reference is appended: `dev-main@0123456789ab`), so **an upgrade rebuilds every layer** on its own, `schema` included: it has no expiry and would otherwise keep serving the previous version's payload. On a **path repository** (a local checkout linked with `"type": "path"`, like the Playground) Composer keeps the version of the last `composer install` / `update`, so editing the linked package does not change the key: run `php artisan martis:cache:clear` after pulling changes there. When Composer has no record of the package the segment is left out (`martis:cache:{type}:v{version}:{rest}`).
+`{installed}` is the `martis/martis` version Composer installed (what `composer show martis/martis` reports, e.g. `v2.0.0`; a `dev-*` branch keeps its name across `composer update`, so its commit reference is appended: `dev-main@0123456789ab`), so **an upgrade rebuilds every layer** on its own, `schema` included, which would otherwise keep serving the previous version's payload until it expires. On a **path repository** (a local checkout linked with `"type": "path"`, like the Playground) Composer keeps the version of the last `composer install` / `update`, so editing the linked package does not change the key: run `php artisan martis:cache:clear` after pulling changes there. When Composer has no record of the package the segment is left out (`martis:cache:{type}:v{version}:{rest}`).
 
 ```bash
 # Atomic invalidation, no traversal of the cache store needed
@@ -267,6 +267,10 @@ php artisan martis:cache:clear schema
 The button in the admin panel does the same.
 
 Old keys linger until natural expiration (or until the store evicts them under pressure). On Redis with `maxmemory-policy: allkeys-lru` they get evicted quickly; on the file driver they sit on disk until expired. Functionally the cache is invalidated immediately; physically the orphans go away later.
+
+**Orphans after an upgrade.** Each upgrade (or `martis:cache:clear`) leaves the previous keys behind. A layer with a TTL drops them when it expires, which is why the `schema` layer ships a one-day TTL since v2.0 (it had none before). A layer set to `'ttl' => null` keeps them until the store evicts them, and the file and database stores never do: a `config/martis.php` published before v2.0 still reads `env('MARTIS_CACHE_SCHEMA_TTL', env('MARTIS_CACHE_SCHEMA', null))`, so set `MARTIS_CACHE_SCHEMA_TTL=1440` there. To remove orphans already on disk, point Martis at a **dedicated store** (a `CACHE_STORE` connection used by nothing else) so `php artisan cache:clear` on it removes Martis entries only; on a shared store, `cache:clear` also wipes the application's own cache.
+
+**Long keys.** A key over 191 characters (the length a database cache column indexed under `utf8mb4` holds; memcached stops at 250 bytes) is hashed whole: `martis:cache:{type}:h:{sha256}`. The hash covers the installed version and the counter, so upgrades and `clear()` still invalidate it.
 
 ## Cache store
 
