@@ -522,7 +522,12 @@ filled.`, Nova's wording for a `HasOne`,
 a `MorphOne` answers the same sentence with its own name, which is Martis's),
 also as the response's `message`, whether or not the user may view the
 record already there, and checks again under a lock on the parent before it
-writes, so two concurrent creates cannot both succeed. Nova hides the
+writes, so two concurrent creates cannot both succeed. Only that check and
+the insert run in the lock's transaction (the model's own `saving` /
+`created` events fire inside it): the related resource's `afterSave()` and
+the deferred writes of the form (a `Tag`, a `Repeater`) run after the
+commit, as on every other create, so a job they dispatch finds the record.
+A one-of-many card's create opens no transaction. Nova hides the
 Create button once a record exists
 ([HasOneRelationTest](https://github.com/laravel/nova-dusk-suite/blob/10.4/tests/Browser/HasOneRelationTest.php)).
 Before v2.0 it answered `500`. A one-of-many card sits on a many

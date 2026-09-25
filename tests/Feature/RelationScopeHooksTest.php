@@ -22,12 +22,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany as EHasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough as EHasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne as EHasOne;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough as EHasOneThrough;
+use Illuminate\Database\Eloquent\Relations\MorphMany as EMorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne as EMorphOne;
+use Illuminate\Database\Eloquent\Relations\MorphToMany as EMorphToMany;
 use Illuminate\Database\Eloquent\Scope;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Testing\TestResponse;
+use Martis\Events\AfterSave;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\HasMany;
@@ -35,6 +39,7 @@ use Martis\Fields\HasManyThrough;
 use Martis\Fields\HasOne;
 use Martis\Fields\MorphOne;
 use Martis\Fields\Number;
+use Martis\Fields\Tag;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Resource;
@@ -66,6 +71,16 @@ class RSHOwner extends Model
         return $this->hasOne(RSHProfile::class, 'owner_id');
     }
 
+    public function image(): EMorphOne
+    {
+        return $this->morphOne(RSHImage::class, 'imageable');
+    }
+
+    public function images(): EMorphMany
+    {
+        return $this->morphMany(RSHImage::class, 'imageable');
+    }
+
     public function category()
     {
         return $this->belongsTo(RSHCategory::class, 'category_id');
@@ -92,6 +107,11 @@ class RSHItem extends Model
     public function likes(): EHasMany
     {
         return $this->hasMany(RSHLike::class, 'item_id');
+    }
+
+    public function tags(): EMorphToMany
+    {
+        return $this->morphToMany(RSHTag::class, 'taggable', 'rsh_taggables', 'taggable_id', 'tag_id');
     }
 }
 
@@ -126,6 +146,23 @@ class RSHProfile extends Model
     protected $table = 'rsh_profiles';
 
     protected $guarded = [];
+
+    public function tags(): EMorphToMany
+    {
+        return $this->morphToMany(RSHTag::class, 'taggable', 'rsh_taggables', 'taggable_id', 'tag_id');
+    }
+}
+
+class RSHImage extends Model
+{
+    protected $table = 'rsh_images';
+
+    protected $guarded = [];
+
+    public function tags(): EMorphToMany
+    {
+        return $this->morphToMany(RSHTag::class, 'taggable', 'rsh_taggables', 'taggable_id', 'tag_id');
+    }
 }
 
 class RSHCategory extends Model
@@ -257,6 +294,24 @@ class RSHProfileResource extends Resource
     }
 }
 
+class RSHImageResource extends Resource
+{
+    public static function model(): string
+    {
+        return RSHImage::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-images';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title')];
+    }
+}
+
 class RSHCategoryResource extends Resource
 {
     public static bool $viewAny = true;
@@ -312,7 +367,7 @@ class RSHOwnerResource extends Resource
     }
 }
 
-const RSH_TABLES = ['rsh_likes', 'rsh_owner_tag', 'rsh_tags', 'rsh_items', 'rsh_groups', 'rsh_profiles', 'rsh_images', 'rsh_owners', 'rsh_categories'];
+const RSH_TABLES = ['rsh_likes', 'rsh_owner_tag', 'rsh_taggables', 'rsh_tags', 'rsh_items', 'rsh_groups', 'rsh_profiles', 'rsh_images', 'rsh_owners', 'rsh_categories'];
 
 function rshSchema(): Illuminate\Database\Schema\Builder
 {
@@ -437,6 +492,10 @@ beforeEach(function () {
         $table->timestamp('written_at')->nullable();
         $table->timestamps();
     });
+    rshSchema()->create('rsh_taggables', function ($table) {
+        $table->unsignedBigInteger('tag_id');
+        $table->morphs('taggable');
+    });
 
     RSHItemResource::$hook = null;
     RSHItemResource::$scopeHooks = [];
@@ -448,7 +507,7 @@ beforeEach(function () {
 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
-    foreach ([RSHOwnerResource::class, RSHItemResource::class, RSHTagResource::class, RSHLikeResource::class, RSHProfileResource::class, RSHCategoryResource::class] as $class) {
+    foreach ([RSHOwnerResource::class, RSHItemResource::class, RSHTagResource::class, RSHLikeResource::class, RSHProfileResource::class, RSHImageResource::class, RSHCategoryResource::class] as $class) {
         $registry->register($class);
     }
 
@@ -1126,13 +1185,6 @@ class RSHScopedTag extends RSHTag
     use RSHHidesArchivedAndDrafts;
 }
 
-class RSHImage extends Model
-{
-    protected $table = 'rsh_images';
-
-    protected $guarded = [];
-}
-
 class RSHScopedImage extends RSHImage
 {
     use RSHHidesArchivedAndDrafts;
@@ -1453,3 +1505,101 @@ it('P44 a relation is read without its constraints, as withCount() reads it, so 
     expect([$rows['Owner A']['keyedItems'], $rows['Owner B']['keyedItems']])->toBe([2, 1])
         ->and($perRow)->toBeEmpty();
 });
+
+// ---------------------------------------------------------------------
+// Third review round: creating the record of a one-record card
+// ---------------------------------------------------------------------
+
+/** Related resources whose create form defers a write (a Tag field). */
+class RSHProfileTaggedResource extends RSHProfileResource
+{
+    public static function uriKey(): string
+    {
+        return 'rsh-profiles-tagged';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('bio'), Tag::make('tags', 'Tags')->relatedResource('rsh-tags')->nullable()];
+    }
+}
+
+class RSHItemTaggedResource extends RSHItemResource
+{
+    public static function uriKey(): string
+    {
+        return 'rsh-items-tagged';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title'), Tag::make('tags', 'Tags')->relatedResource('rsh-tags')->nullable()];
+    }
+}
+
+class RSHImageTaggedResource extends RSHImageResource
+{
+    public static function uriKey(): string
+    {
+        return 'rsh-images-tagged';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title'), Tag::make('tags', 'Tags')->relatedResource('rsh-tags')->nullable()];
+    }
+}
+
+class RSHOwnerTaggedResource extends Resource
+{
+    public static function model(): string
+    {
+        return RSHOwner::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-owners-tagged';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('name'),
+            HasOne::make('Profile', 'profile')->relatedResource('rsh-profiles-tagged'),
+            HasOne::ofMany('Latest item', 'items', RSHItemTaggedResource::class)->latestByTimestamp('written_at'),
+            MorphOne::make('Image', 'image')->relatedResource('rsh-images-tagged'),
+            MorphOne::ofMany('Latest image', 'images', RSHImageTaggedResource::class)->latestByTimestamp('written_at'),
+        ];
+    }
+}
+
+it('P45 a card create holds the parent lock for the check and the insert only: afterSave and the deferred writes run after the commit, and a one-of-many create opens no transaction', function (string $path, array $payload, string $model, int $inTransaction) {
+    foreach ([RSHProfileTaggedResource::class, RSHItemTaggedResource::class, RSHImageTaggedResource::class, RSHOwnerTaggedResource::class] as $class) {
+        app(ResourceRegistry::class)->register($class);
+    }
+    $tag = RSHTag::create(['title' => 'Tagged']);
+    // The test's own transaction, if any (RefreshDatabase on SQLite).
+    $outside = DB::connection()->transactionLevel();
+    $levels = [];
+    $model::created(function () use (&$levels) {
+        $levels['created'] = DB::connection()->transactionLevel();
+    });
+    Event::listen(AfterSave::class, function () use (&$levels) {
+        $levels['afterSave'] = DB::connection()->transactionLevel();
+    });
+    DB::listen(function ($query) use (&$levels) {
+        if (str_starts_with(strtolower($query->sql), 'insert') && str_contains($query->sql, 'rsh_taggables')) {
+            $levels['deferred'] = $query->connection->transactionLevel();
+        }
+    });
+
+    $this->postJson('/martis/api/resources/rsh-owners-tagged/'.$this->a->id.'/'.$path, $payload + ['tags' => [$tag->id]])->assertCreated();
+
+    expect($levels)->toBe(['created' => $outside + $inTransaction, 'afterSave' => $outside, 'deferred' => $outside]);
+})->with([
+    'has-one' => ['has-one/profile', ['bio' => 'Mine'], RSHProfile::class, 1],
+    'morph-one' => ['morph-one/image', ['title' => 'Mine'], RSHImage::class, 1],
+    'has-one of many' => ['has-one/items', ['title' => 'Mine'], RSHItem::class, 0],
+    'morph-one of many' => ['morph-one/images', ['title' => 'Mine'], RSHImage::class, 0],
+]);

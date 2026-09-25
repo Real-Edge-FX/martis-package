@@ -228,28 +228,36 @@ class HasOneController extends MartisController
         );
 
         try {
-            // The parent's own connection: a model on another connection than
-            // the default one would lock nothing in a default transaction.
-            $filled = $parentModel->getConnection()->transaction(function () use ($single, $parentModel, $relation, $relatedResourceClass, $relatedModel, $request): bool {
-                if ($single) {
+            $relatedInstance = new $relatedResourceClass($relatedModel);
+            $relatedInstance->beforeSave($relatedModel, $request, creating: true);
+
+            if ($single) {
+                // Only the check and the insert hold the lock, in a
+                // transaction on the parent's own connection (a model on
+                // another connection than the default one would lock nothing
+                // in a default transaction).
+                $filled = $parentModel->getConnection()->transaction(function () use ($parentModel, $relation, $relatedModel): bool {
                     $parentModel->newQuery()->whereKey($parentModel->getKey())->lockForUpdate()->first();
                     if ($relation->exists()) {
                         return true;
                     }
+
+                    $relatedModel->save();
+
+                    return false;
+                });
+
+                if ($filled) {
+                    return $this->alreadyFilled($relationship, 'The HasOne relationship has already been filled.');
                 }
-
-                $relatedInstance = new $relatedResourceClass($relatedModel);
-                $relatedInstance->beforeSave($relatedModel, $request, creating: true);
+            } else {
                 $relatedModel->save();
-                $relatedInstance->afterSave($relatedModel, $request, creating: true);
-                $this->syncDeferredWrites($relatedModel);
-
-                return false;
-            });
-
-            if ($filled) {
-                return $this->alreadyFilled($relationship, 'The HasOne relationship has already been filled.');
             }
+
+            // After the commit, as on every other create: a job these
+            // dispatch (a notification, a search index) finds the record.
+            $relatedInstance->afterSave($relatedModel, $request, creating: true);
+            $this->syncDeferredWrites($relatedModel);
         } catch (QueryException $e) {
             Log::error('Martis: HasOne store error', [
                 'resource' => $resource,
