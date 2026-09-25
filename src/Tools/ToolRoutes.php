@@ -118,6 +118,88 @@ final class ToolRoutes
     }
 
     /**
+     * Warn, once per tool and process, about a route a tool registered
+     * itself (in `boot()`, not through `loadRoutes()`) under its tool path,
+     * `ToolRoutes::prefix()` or the v1.x `martis/api/tools/{uriKey}`, whose
+     * middleware is the v1.x `['web', 'martis.auth']` or leaves out a guard
+     * of the Martis API that is on, as `warnAboutMiddleware()` warns about a
+     * list passed to `loadRoutes()`. The v1.x docs showed that pattern, and
+     * nothing else tells such a route runs without the 2FA challenge.
+     *
+     * Reads the routes' own middleware (`Route::middleware()`, the groups
+     * included), so a controller's is not resolved at boot. A tool already
+     * warned about for its `loadRoutes()` list is not warned about again.
+     *
+     * @internal Called by `MartisManager::bootTools()`.
+     *
+     * @param  iterable<mixed>  $tools  The registered tools; a class name that did not boot is skipped.
+     */
+    public static function warnAboutRegisteredRoutes(iterable $tools): void
+    {
+        $byPrefix = [];
+        foreach ($tools as $tool) {
+            if (! $tool instanceof ToolContract) {
+                continue;
+            }
+
+            $byPrefix[self::prefix($tool)] = $tool;
+            $byPrefix['martis/api/tools/'.$tool->uriKey()] ??= $tool;
+        }
+
+        if ($byPrefix === []) {
+            return;
+        }
+
+        /** @var Router $router */
+        $router = app('router');
+
+        foreach ($router->getRoutes()->getRoutes() as $route) {
+            $uri = $route->uri();
+
+            if (! str_contains($uri, 'api/tools/')) {
+                continue;
+            }
+
+            foreach ($byPrefix as $prefix => $tool) {
+                if ($uri !== $prefix && ! str_starts_with($uri, $prefix.'/')) {
+                    continue;
+                }
+
+                $key = $tool::class.'|'.$tool->uriKey();
+                if (isset(self::$warned[$key])) {
+                    break;
+                }
+
+                $middleware = $route->middleware();
+                $v1 = $middleware === self::V1_MIDDLEWARE;
+                $skipped = self::skippedGuards($middleware);
+
+                if ($v1 || $skipped !== []) {
+                    self::$warned[$key] = true;
+
+                    Log::warning(sprintf(
+                        'Martis: tool [%s] (%s) registers the route [%s] with the middleware [%s], so it skips %s. '
+                        .'Register it with Route::middleware(ToolRoutes::middleware($this))->prefix(ToolRoutes::prefix($this)), '
+                        .'or move it to a routes file loaded by $this->loadRoutes(), which applies them. See docs/upgrading.md.',
+                        $tool->uriKey(),
+                        $tool::class,
+                        $uri,
+                        implode(', ', array_map(static fn (mixed $name): string => is_string($name) ? $name : get_debug_type($name), $middleware)),
+                        self::sentence($v1 ? [...$skipped, 'the API throttle', "the tool's canSee()"] : $skipped),
+                    ), [
+                        'tool' => $tool::class,
+                        'uriKey' => $tool->uriKey(),
+                        'route' => $uri,
+                        'middleware' => $middleware,
+                    ]);
+                }
+
+                break;
+            }
+        }
+    }
+
+    /**
      * The guards that are on and that the list leaves out, read through the
      * router's aliases and groups, so a group holding them counts.
      *

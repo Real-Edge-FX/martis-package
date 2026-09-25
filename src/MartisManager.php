@@ -10,6 +10,7 @@ use Martis\Menu\Menu;
 use Martis\Menu\MenuSection;
 use Martis\Support\ConfigCallable;
 use Martis\Support\InstalledVersion;
+use Martis\Tools\ToolRoutes;
 use Throwable;
 
 class MartisManager
@@ -223,6 +224,15 @@ class MartisManager
                     ]);
                 }
             }
+        }
+
+        // A tool that registers its routes itself, with the v1.x
+        // ['web', 'martis.auth'] the docs showed, skips the 2FA challenge:
+        // say so once. Never let the check break the boot.
+        try {
+            ToolRoutes::warnAboutRegisteredRoutes($this->tools);
+        } catch (Throwable $e) {
+            report($e);
         }
     }
 

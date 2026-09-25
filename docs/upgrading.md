@@ -22,6 +22,10 @@ The API throttle's middleware is `throttle:{max},{decay},martis-api:{guard}:` (`
 
 `RequestScopedAbilityCache::lookup()` takes the user instead of its id, and keys it by morph class and id: `lookup($user->id, ...)` throws a `TypeError`. The package does not call it.
 
+### Routes a tool registers in `boot()` log a warning
+
+A route under a tool's path (`ToolRoutes::prefix($tool)`, or the v1.x `martis/api/tools/{uriKey}`) registered with `['web', 'martis.auth']`, or with a list that leaves out the 2FA challenge or email verification while it is on, now logs a warning naming the tool and the route, once per tool and PHP process, as a `loadRoutes()` list already did in v2.0.0. The route keeps its middleware. Move it to `ToolRoutes::middleware($this)` or to `loadRoutes()` ([Tools → Routes a tool registers in `boot()`](tools.md#routes-a-tool-registers-in-boot)); a route meant to skip the challenge belongs outside the tool's path.
+
 ### Shared `sessions` and `notifications` tables
 
 The Martis migrations of these tables now shape their user columns on the users of every guard that writes them, with a string column when the keys differ. They skip a table that exists, which Laravel 11+ creates with a `bigint` `user_id`: with a Martis guard keyed by UUID or ULID beside the site's bigint users, widen the columns once, as [Installation → The shared `sessions` and `notifications` tables](installation-guide.md#the-shared-sessions-and-notifications-tables) shows.
@@ -164,7 +168,7 @@ The signature keeps its v1.x type, `array $middleware`, so a tool that overrides
 **What to change:**
 
 1. **Drop the middleware argument** of every `loadRoutes()` call that passes `['web', 'martis.auth']` (or forwards it from an override): that list keeps the v1.x stack, without the 2FA challenge, and logs the warning. Pass a list only for another stack: `[...ToolRoutes::middleware($this), 'can:imports.run']` adds an ability, and a route that must answer before the 2FA challenge or to users the tool is hidden from keeps its own list, which is used exactly as given.
-2. **Routes a tool registers in `boot()` with `Route::middleware(['web', 'martis.auth'])->prefix('martis/api/tools/...')`**, the pattern these docs showed, keep that weaker stack and that path, and Martis does not warn about them: switch them to `Route::middleware(ToolRoutes::middleware($this))->prefix(ToolRoutes::prefix($this))`. A route of your own that `martis.auth` alone guards skips the 2FA challenge the same way: use the `martis.api` middleware group.
+2. **Routes a tool registers in `boot()` with `Route::middleware(['web', 'martis.auth'])->prefix('martis/api/tools/...')`**, the pattern these docs showed, keep that weaker stack and that path (from v2.0.1 they log a warning naming the tool and the route): switch them to `Route::middleware(ToolRoutes::middleware($this))->prefix(ToolRoutes::prefix($this))`, or move them to a routes file loaded by `$this->loadRoutes()`, as [Tools → Routes a tool registers in `boot()`](tools.md#routes-a-tool-registers-in-boot) shows. A route of your own that `martis.auth` alone guards skips the 2FA challenge the same way: use the `martis.api` middleware group.
 3. **A client that calls a tool route by a hard-coded `/martis/api/tools/...` URL** with a custom `MARTIS_PATH` follows the new path, or goes through the SPA's `api` client (`api.get('/api/tools/...')`). To keep the old URL, pass `prefix: 'martis/api/tools/{uriKey}'`.
 4. **A tool that polls** raises `MARTIS_THROTTLE_MAX`, or passes a list without the throttle.
 

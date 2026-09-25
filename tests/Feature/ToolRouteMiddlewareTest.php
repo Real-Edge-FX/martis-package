@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Martis\Facades\Martis;
 use Martis\Http\RouteMiddleware;
@@ -113,6 +114,29 @@ class ToolRouteLegacyOverrideTool extends Tool
     public function boot(): void
     {
         $this->loadRoutes($this->routesPath);
+    }
+}
+
+/** Registers one route itself in boot(), as the v1.x docs showed. */
+class ToolRouteInlineTool extends Tool
+{
+    /** @param list<string>|null $middleware null: ToolRoutes::middleware($this) */
+    public function __construct(string $uriKey, public ?array $middleware = ['web', 'martis.auth'], public ?string $prefix = null, public ?string $routesPath = null)
+    {
+        parent::__construct(name: 'Inline '.$uriKey, uriKey: $uriKey);
+    }
+
+    public function boot(): void
+    {
+        if ($this->routesPath !== null) {
+            $this->loadRoutes($this->routesPath, ['web', 'martis.auth']);
+        }
+
+        Route::middleware($this->middleware ?? ToolRoutes::middleware($this))
+            ->prefix($this->prefix ?? 'martis/api/tools/'.$this->uriKey())
+            ->group(function (): void {
+                Route::get('/inline', fn () => response()->json(['ok' => true]));
+            });
     }
 }
 
@@ -487,4 +511,57 @@ it('mounts a tool route under the default path, and keeps an explicit prefix', f
 
     expect(toolRouteByUri('martis/api/tools/tool-route-default-path/ping')->uri())->toBe('martis/api/tools/tool-route-default-path/ping')
         ->and(toolRouteByUri('hooks/own-prefix/ping')->gatherMiddleware())->toBe(['web']);
+});
+
+// ── Routes a tool registers itself in boot() ────────────────────────────────
+
+it('warns once about routes a tool registers in boot() with the v1.x list', function () {
+    $warnings = toolRouteWarnings('tool-route-inline-v1');
+    bootToolRoutes(new ToolRouteInlineTool('tool-route-inline-v1'));
+    ToolRoutes::warnAboutRegisteredRoutes([new ToolRouteInlineTool('tool-route-inline-v1')]);
+
+    expect(toolRouteByUri('martis/api/tools/tool-route-inline-v1/inline')->middleware())->toBe(['web', 'martis.auth'])
+        ->and($warnings)->toHaveCount(1)
+        ->and($warnings[0])->toContain('registers the route [martis/api/tools/tool-route-inline-v1/inline] with the middleware [web, martis.auth]')
+        ->toContain("the 2FA challenge (martis.2fa), the API throttle and the tool's canSee()")
+        ->toContain('Route::middleware(ToolRoutes::middleware($this))->prefix(ToolRoutes::prefix($this))');
+});
+
+it('warns about a route registered in boot() under martis.path that leaves out email verification', function () {
+    config()->set('martis.path', 'admin');
+    config()->set('martis.auth.email_verification.enabled', true);
+    $warnings = toolRouteWarnings('tool-route-inline-path');
+    bootToolRoutes(new ToolRouteInlineTool('tool-route-inline-path', ['web', 'martis.auth', 'martis.2fa'], 'admin/api/tools/tool-route-inline-path'));
+
+    expect($warnings)->toHaveCount(1)
+        ->and($warnings[0])->toContain('so it skips email verification (martis.verified)');
+});
+
+it('does not warn about a route registered in boot() with the tool stack, or with a list that keeps the guards', function () {
+    config()->set('martis.profile.two_factor.enabled', false);
+    $stack = toolRouteWarnings('tool-route-inline-stack');
+    $kept = toolRouteWarnings('tool-route-inline-kept');
+    bootToolRoutes(
+        new ToolRouteInlineTool('tool-route-inline-stack', null),
+        new ToolRouteInlineTool('tool-route-inline-kept', ['web', 'martis.auth', 'throttle:60,1']),
+    );
+
+    expect(toolRouteByUri('martis/api/tools/tool-route-inline-stack/inline')->middleware())->toBe(ToolRoutes::middleware(new ToolRouteInlineTool('tool-route-inline-stack')))
+        ->and($stack)->toHaveCount(0)
+        ->and($kept)->toHaveCount(0);
+});
+
+it('does not warn twice about a tool whose loadRoutes() list was warned about', function () {
+    $warnings = toolRouteWarnings('tool-route-inline-both');
+    bootToolRoutes(new ToolRouteInlineTool('tool-route-inline-both', routesPath: $this->routesFile));
+
+    expect($warnings)->toHaveCount(1)
+        ->and($warnings[0])->toContain('the v1.x default of Tool::loadRoutes()');
+});
+
+it('leaves out routes outside the tool path', function () {
+    $warnings = toolRouteWarnings('tool-route-inline-elsewhere');
+    bootToolRoutes(new ToolRouteInlineTool('tool-route-inline-elsewhere', prefix: 'reports/tool-route-inline-elsewhere'));
+
+    expect($warnings)->toHaveCount(0);
 });
