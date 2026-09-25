@@ -299,6 +299,10 @@ class HasOneController extends MartisController
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
         }
 
+        if ($mismatch = $this->oneRecordTargetMismatch($request, $relatedModel)) {
+            return $mismatch;
+        }
+
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToUpdate($request)) {
@@ -380,6 +384,10 @@ class HasOneController extends MartisController
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
+        }
+
+        if ($mismatch = $this->oneRecordTargetMismatch($request, $relatedModel)) {
+            return $mismatch;
         }
 
         $relatedInstance = new $relatedResourceClass($relatedModel);

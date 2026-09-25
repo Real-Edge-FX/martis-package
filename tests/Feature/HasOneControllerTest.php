@@ -199,8 +199,7 @@ it('has-one update modifies the related record', function () {
     HOChildModel::create(['bio' => 'Old bio', 'parent_id' => $parent->id]);
     $uri = HOParentResource::uriKey();
 
-    $response = $this->putJson(
-        "/martis/api/resources/{$uri}/{$parent->id}/has-one/profile",
+    $response = $this->putJson(cardWriteUrl("/martis/api/resources/{$uri}/{$parent->id}/has-one/profile"),
         ['bio' => 'Updated bio']
     );
 
@@ -211,8 +210,7 @@ it('has-one update returns 404 when no related record', function () {
     $parent = HOParentModel::create(['name' => 'Frank']);
     $uri = HOParentResource::uriKey();
 
-    $response = $this->putJson(
-        "/martis/api/resources/{$uri}/{$parent->id}/has-one/profile",
+    $response = $this->putJson(cardWriteUrl("/martis/api/resources/{$uri}/{$parent->id}/has-one/profile"),
         ['bio' => 'Orphan bio']
     );
 
@@ -228,8 +226,7 @@ it('has-one destroy deletes the related record', function () {
     HOChildModel::create(['bio' => 'To be deleted', 'parent_id' => $parent->id]);
     $uri = HOParentResource::uriKey();
 
-    $response = $this->deleteJson(
-        "/martis/api/resources/{$uri}/{$parent->id}/has-one/profile"
+    $response = $this->deleteJson(cardWriteUrl("/martis/api/resources/{$uri}/{$parent->id}/has-one/profile")
     );
 
     $response->assertStatus(200);
@@ -240,8 +237,7 @@ it('has-one destroy returns 404 when no related record', function () {
     $parent = HOParentModel::create(['name' => 'Henry']);
     $uri = HOParentResource::uriKey();
 
-    $response = $this->deleteJson(
-        "/martis/api/resources/{$uri}/{$parent->id}/has-one/profile"
+    $response = $this->deleteJson(cardWriteUrl("/martis/api/resources/{$uri}/{$parent->id}/has-one/profile")
     );
 
     $response->assertStatus(404);

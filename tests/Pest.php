@@ -102,3 +102,22 @@ if (! function_exists('preservePublishedMartisConfig')) {
         };
     }
 }
+
+if (! function_exists('cardWriteUrl')) {
+    /**
+     * The URL a write on a one-record card (`/has-one/`, `/morph-one/`)
+     * goes to, with the id of the record the card shows (`?relatedId=`), as
+     * the card sends it: read from the card itself. Any other URL is
+     * returned as is, so a test over several endpoints can wrap them all.
+     */
+    function cardWriteUrl(string $url): string
+    {
+        if (! preg_match('~/(has-one|morph-one)/[^/?]+(\?|$)~', $url)) {
+            return $url;
+        }
+
+        $id = test()->getJson($url)->json('data.id');
+
+        return $url.(str_contains($url, '?') ? '&' : '?').'relatedId='.(is_scalar($id) ? $id : '');
+    }
+}

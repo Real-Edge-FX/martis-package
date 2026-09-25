@@ -204,6 +204,32 @@ abstract class MartisController extends Controller
     }
 
     /**
+     * The answer to a write on a one-record card (`has-one`, `morph-one`)
+     * aimed at another record than the one the relationship holds now, or
+     * `null` when it is aimed at `$current`. The card sends the id of the
+     * record it shows (`?relatedId=`), as a write on the record's own page
+     * does: a record created or replaced after the card loaded (a newer
+     * one-of-many record, a swapped `HasOne`) is never the one written
+     * instead. 422 without the id, 409 when it is not `$current`'s.
+     */
+    protected function oneRecordTargetMismatch(Request $request, Model $current): ?IlluminateJsonResponse
+    {
+        $shown = $request->query('relatedId');
+
+        if (! is_scalar($shown) || (string) $shown === '') {
+            $message = 'The id of the record the card shows is required (relatedId).';
+
+            return JsonErrorResponse::validation(['relatedId' => [$message]], $message)->toResponse();
+        }
+
+        if ((string) $current->getKey() !== (string) $shown) {
+            return JsonErrorResponse::conflict('The record changed since the card loaded; reload to see it.')->toResponse();
+        }
+
+        return null;
+    }
+
+    /**
      * Consult the collection-level gate before any record query on a per-id
      * endpoint.
      *

@@ -261,8 +261,8 @@ it('hides the card of a record the user may not view, and refuses to write it', 
         ->assertJsonPath('data', null)
         ->assertJsonPath('meta.hidden', true)
         ->assertJsonMissingPath('meta.ofMany');
-    $this->putJson(rcvCard($path), ['title' => 'Renamed'])->assertStatus(404);
-    $this->deleteJson(rcvCard($path))->assertStatus(404);
+    $this->putJson(cardWriteUrl(rcvCard($path)), ['title' => 'Renamed'])->assertStatus(404);
+    $this->deleteJson(cardWriteUrl(rcvCard($path)))->assertStatus(404);
 
     expect($record->fresh()?->title)->toBe('Private');
 })->with('rcv cards');
@@ -273,7 +273,7 @@ it('shows and writes a record the user may view (control)', function (string $pa
     $this->getJson(rcvCard($path))->assertOk()
         ->assertJsonPath('data.id', $record->id)
         ->assertJsonMissingPath('meta.hidden');
-    $this->putJson(rcvCard($path), ['title' => 'Renamed'])->assertOk();
+    $this->putJson(cardWriteUrl(rcvCard($path)), ['title' => 'Renamed'])->assertOk();
 
     expect($record->fresh()->title)->toBe('Renamed');
 })->with('rcv cards');
@@ -304,7 +304,7 @@ it('hides a has-one-through card whose record the user may not view, and shows a
     $project = RCVProjectModel::create(['title' => 'Private', 'team_id' => $team->id]);
 
     $this->getJson(rcvCard('has-one/project'))->assertOk()->assertJsonPath('meta.hidden', true);
-    $this->deleteJson(rcvCard('has-one/project'))->assertStatus(404);
+    $this->deleteJson(cardWriteUrl(rcvCard('has-one/project')))->assertStatus(404);
     expect($project->fresh())->not->toBeNull();
 
     $project->update(['title' => 'Visible']);
@@ -331,6 +331,72 @@ it('takes another record on a one-of-many card, which sits on a many relationshi
 
     expect($this->parent->{$relation}()->count())->toBe(2);
 })->with([
+    'has-one of many' => ['has-one/notes', 'notes'],
+    'morph-one of many' => ['morph-one/comments', 'comments'],
+]);
+
+/*
+ * A write on a card names the record the card shows (`?relatedId=`). A
+ * record created or swapped in between the load and the click (a newer
+ * one-of-many record, a replaced HasOne, another Through record) would
+ * otherwise be the one written: the write answers 409 and touches nothing.
+ */
+dataset('rcv changed cards', [
+    'has-one, replaced' => ['has-one/profile', 'notes', 'replace'],
+    'morph-one, replaced' => ['morph-one/comment', 'comments', 'replace'],
+    'has-one of many, a newer record' => ['has-one/notes', 'notes', 'newer'],
+    'morph-one of many, a newer record' => ['morph-one/comments', 'comments', 'newer'],
+    'has-one of many, Eloquent latestOfMany(), a newer record' => ['has-one/newestNote', 'notes', 'newer'],
+]);
+
+it('refuses a write aimed at the record the card showed once another one took its place', function (string $path, string $relation, string $change, string $method) {
+    $shown = $this->parent->{$relation}()->create(['title' => 'Shown', 'written_at' => now()->subHour()]);
+    $url = cardWriteUrl(rcvCard($path));
+
+    if ($change === 'replace') {
+        $shown->delete();
+    }
+    $current = $this->parent->{$relation}()->create(['title' => 'Current', 'written_at' => now()]);
+
+    $this->{$method}($url, ['title' => 'Written'])
+        ->assertStatus(409)
+        ->assertJsonPath('message', 'The record changed since the card loaded; reload to see it.');
+
+    expect($current->fresh()->title)->toBe('Current');
+    if ($change === 'newer') {
+        expect($shown->fresh()->title)->toBe('Shown');
+    }
+})->with('rcv changed cards')->with(['putJson', 'deleteJson']);
+
+it('refuses a has-one-through write once another record took the shown one\'s place', function (string $method) {
+    $team = RCVTeamModel::create(['parent_id' => $this->parent->id]);
+    $shown = RCVProjectModel::create(['title' => 'Shown', 'team_id' => $team->id]);
+    $url = cardWriteUrl(rcvCard('has-one/project'));
+    $shown->delete();
+    $current = RCVProjectModel::create(['title' => 'Current', 'team_id' => $team->id]);
+
+    $this->{$method}($url, ['title' => 'Written'])->assertStatus(409);
+
+    expect($current->fresh()->title)->toBe('Current');
+})->with(['putJson', 'deleteJson']);
+
+it('writes the shown record when the card names it, and needs the name', function (string $path, string $relation) {
+    $record = $this->parent->{$relation}()->create(['title' => 'Shown', 'written_at' => now()]);
+
+    $this->putJson(rcvCard($path), ['title' => 'Written'])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.field', 'relatedId');
+    $this->deleteJson(rcvCard($path))->assertStatus(422);
+    expect($record->fresh()->title)->toBe('Shown');
+
+    $this->putJson(rcvCard($path).'?relatedId='.$record->id, ['title' => 'Written'])->assertOk();
+    expect($record->fresh()->title)->toBe('Written');
+
+    $this->deleteJson(rcvCard($path).'?relatedId='.$record->id)->assertOk();
+    expect($record->fresh())->toBeNull();
+})->with([
+    'has-one' => ['has-one/profile', 'notes'],
+    'morph-one' => ['morph-one/comment', 'comments'],
     'has-one of many' => ['has-one/notes', 'notes'],
     'morph-one of many' => ['morph-one/comments', 'comments'],
 ]);

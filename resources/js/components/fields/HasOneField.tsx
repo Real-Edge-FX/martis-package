@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useToastSafe } from '@/contexts/ToastContext'
 import { NestedParentProvider, useRelationParent } from './NestedParentContext'
 import { buildViaParams } from '@/lib/relationViaParams'
 import { STANDALONE_RELATIONSHIP_TYPES } from '@/lib/relationshipFieldTypes'
@@ -60,6 +61,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
   const fnLabel = useFnLabel()
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { addToast } = useToastSafe()
 
   const meta = field.hasOneMeta as {
     canCreate: boolean
@@ -110,14 +112,23 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
     enabled: !!parentResource && !!parentId && !!relationship,
   })
 
+  // The delete names the record the card shows: a record that took its
+  // place since the card loaded answers 409 instead of being deleted.
   const deleteMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (shownId: string | number) =>
       api.delete(
-        `/api/resources/${parentResource}/${parentId}/has-one/${relationship}`
+        `/api/resources/${parentResource}/${parentId}/has-one/${relationship}?relatedId=${encodeURIComponent(String(shownId))}`
       ),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['has-one', parentResource, parentId, relationship] })
       setDeleteOpen(false)
+    },
+    onError: (error: Error) => {
+      // A 409 (the record changed) or any other refusal: reload the card so
+      // it shows the record the relationship holds now, and say why.
+      void qc.invalidateQueries({ queryKey: ['has-one', parentResource, parentId, relationship] })
+      setDeleteOpen(false)
+      addToast('error', error.message)
     },
   })
 
@@ -350,7 +361,9 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
         resourceLabel={schema?.singularLabel ?? ''}
         isSoftDelete={schema?.softDeletes ?? false}
         onConfirm={async () => {
-          await deleteMutation.mutateAsync()
+          if (record?.id == null) return
+          // The error is shown by onError; the modal only needs it settled.
+          await deleteMutation.mutateAsync(record.id as string | number).catch(() => undefined)
         }}
         onCancel={() => setDeleteOpen(false)}
       />

@@ -512,6 +512,19 @@ Edit, no count. The card's endpoint answers `data: null` with
 `meta.hidden: true` then (a card with no record answers `data: null` alone),
 and its Edit and Delete answer 404.
 
+**A write names the record the card shows (v2.0).** `PUT` and `DELETE` on
+`/api/resources/{resource}/{id}/has-one/{relationship}` (and `morph-one`)
+take the id of the record the card displays as `?relatedId=`, which the card
+sends. When the relationship holds another record by then (a newer
+one-of-many record, a `HasOne` replaced, another record through a
+`HasOneThrough`) the write answers `409` (`The record changed since the card
+loaded; reload to see it.`) and touches nothing; the card reloads and shows
+the message. Without the id the write answers `422`. Before v2.0 the write
+went to whatever record the relationship held at that moment, so a Delete
+could remove a record the user had not seen. Nova's one-record panel is
+the related record's detail view; no public source shows how its Delete
+names the record, so Martis requires the id rather than guessing.
+
 **A `HasOne` or `MorphOne` takes one record.** Creating a second one through
 the card's endpoint answers `422` (`The HasOne relationship has already been
 filled.`, Nova's wording for a `HasOne`,

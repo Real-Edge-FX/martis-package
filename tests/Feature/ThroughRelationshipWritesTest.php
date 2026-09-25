@@ -342,7 +342,7 @@ dataset('tro through deletes', [
 ]);
 
 it('updates the related record through a Through relationship without moving it', function (string $resource, string $path) {
-    $this->putJson(troUrl($resource, $this->alice, $path, $this->aliceProject), ['title' => 'Renamed through the relationship'])
+    $this->putJson(cardWriteUrl(troUrl($resource, $this->alice, $path, $this->aliceProject)), ['title' => 'Renamed through the relationship'])
         ->assertStatus(200)
         ->assertJsonPath('data.title', 'Renamed through the relationship');
 
@@ -353,7 +353,7 @@ it('updates the related record through a Through relationship without moving it'
 })->with('tro through updates');
 
 it('deletes the related record through a Through relationship', function (string $resource, string $path) {
-    $this->deleteJson(troUrl($resource, $this->alice, $path, $this->aliceProject))->assertStatus(200);
+    $this->deleteJson(cardWriteUrl(troUrl($resource, $this->alice, $path, $this->aliceProject)))->assertStatus(200);
 
     expect(TROProjectModel::find($this->aliceProject->id))->toBeNull()
         ->and(TROProjectModel::find($this->bobProject->id))->not->toBeNull();
@@ -362,7 +362,7 @@ it('deletes the related record through a Through relationship', function (string
 it('answers 404 to an update or a delete of a record the Through relationship does not reach', function (string $method) {
     $projects = troTable('tro_projects');
 
-    $this->{$method}(troUrl('tro-managers', $this->alice, 'has-many/projects/{project}', $this->bobProject), ['title' => 'Renamed through the relationship'])
+    $this->{$method}(cardWriteUrl(troUrl('tro-managers', $this->alice, 'has-many/projects/{project}', $this->bobProject)), ['title' => 'Renamed through the relationship'])
         ->assertStatus(404);
 
     expect(troTable('tro_projects'))->toBe($projects);
@@ -371,7 +371,7 @@ it('answers 404 to an update or a delete of a record the Through relationship do
 it('refuses an update or a delete through a Through relationship that the related policy denies', function (string $method, string $path) {
     $projects = troTable('tro_projects');
 
-    $this->{$method}(troUrl('tro-locked-managers', $this->alice, $path, $this->aliceProject), ['title' => 'Renamed through the relationship'])
+    $this->{$method}(cardWriteUrl(troUrl('tro-locked-managers', $this->alice, $path, $this->aliceProject)), ['title' => 'Renamed through the relationship'])
         ->assertStatus(403)
         ->assertJsonPath('message', 'This action is unauthorized.');
 
@@ -438,9 +438,9 @@ it('still creates, updates and deletes through the plain hasMany on the same par
     $newClient = TROClientModel::findOrFail($created->json('data.id'));
     expect($newClient->manager_id)->toBe($this->alice->id);
 
-    $this->putJson("{$base}/{$newClient->id}", ['name' => 'Renamed client'])->assertStatus(200);
+    $this->putJson(cardWriteUrl("{$base}/{$newClient->id}"), ['name' => 'Renamed client'])->assertStatus(200);
     expect($newClient->fresh()->name)->toBe('Renamed client');
 
-    $this->deleteJson("{$base}/{$newClient->id}")->assertStatus(200);
+    $this->deleteJson(cardWriteUrl("{$base}/{$newClient->id}"))->assertStatus(200);
     expect(TROClientModel::find($newClient->id))->toBeNull();
 });
