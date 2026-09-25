@@ -479,7 +479,7 @@ class ActionController extends MartisController
         }
 
         $fields = MartisField::filterForModel(
-            MartisField::filterForContext($parent->fieldsForDetail($request), FieldContext::DETAIL),
+            MartisField::filterForContext($parent->resolveDetailFields($request), FieldContext::DETAIL),
             $request,
             $parentModel,
         );

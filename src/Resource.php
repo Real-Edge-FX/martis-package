@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laravel\Scout\Searchable;
 use Martis\Authorization\PolicyResolver;
+use Martis\Concerns\Actionable;
 use Martis\Concerns\HasBadge;
 use Martis\Concerns\HasGate;
 use Martis\Contracts\ActionContract;
@@ -29,7 +30,11 @@ use Martis\Events\AfterDelete;
 use Martis\Events\AfterSave;
 use Martis\Events\BeforeDelete;
 use Martis\Events\BeforeSave;
+use Martis\Fields\Field;
+use Martis\Fields\MorphMany;
 use Martis\Menu\MenuItem;
+use Martis\Models\ActionEvent;
+use Martis\Resources\ActionEventResource;
 
 /**
  * Base class for all Martis admin resources.
@@ -361,6 +366,98 @@ abstract class Resource implements ResourceContract
     public function fieldsForDetail(Request $request): array
     {
         return $this->fields($request);
+    }
+
+    /**
+     * The fields of the detail page: `fieldsForDetail()`, then, as in Nova,
+     * the "Action Events" panel of a model that uses the `Actionable` trait
+     * (see `shouldAddActionsField()`).
+     *
+     * Every surface that reads the detail page (the detail endpoint, the
+     * schema, the relationship routes, the action event redactor) resolves
+     * the fields through this method; override `fieldsForDetail()` to change
+     * the resource's own detail fields.
+     *
+     * @return list<FieldContract|LayoutContract>
+     */
+    public function resolveDetailFields(Request $request): array
+    {
+        $fields = $this->fieldsForDetail($request);
+
+        if ($this->shouldAddActionsField($request, $fields)) {
+            $fields[] = $this->actionEventsField();
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Whether the detail page gets the automatic "Action Events" panel.
+     *
+     * As in Nova (`ResolvesFields::shouldAddActionsField()`): the model uses
+     * the `Martis\Concerns\Actionable` trait, a resource exposes the
+     * ActionEvent model, and the detail fields do not already declare a
+     * `MorphMany` to that resource. The panel is then seen only by a user
+     * the action event resource lets `viewAny` (a relationship field
+     * follows its related resource's `viewAny`), so the audit log, closed
+     * by default, adds nothing until the host opens it.
+     *
+     * Override it to return `false` to leave the panel out of this
+     * resource's detail page.
+     *
+     * @param  list<FieldContract|LayoutContract>  $fields
+     */
+    protected function shouldAddActionsField(Request $request, array $fields): bool
+    {
+        if (! in_array(Actionable::class, class_uses_recursive(static::model()), true)) {
+            return false;
+        }
+
+        $actionResource = static::actionEventResourceClass();
+
+        if ($actionResource === null) {
+            return false;
+        }
+
+        foreach (Field::flattenLayoutFields($fields) as $field) {
+            if ($field instanceof MorphMany && $field->getRelatedResourceKey() === $actionResource::uriKey()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The automatic "Action Events" panel: a collapsable `MorphMany` of the
+     * model's `actions()` through the resource that exposes the ActionEvent
+     * model (Nova's `actionEventsField()`).
+     */
+    protected function actionEventsField(): MorphMany
+    {
+        /** @var class-string<self> $actionResource */
+        $actionResource = static::actionEventResourceClass() ?? ActionEventResource::class;
+
+        return MorphMany::make('Action Events', 'actions', $actionResource)
+            ->collapsable();
+    }
+
+    /**
+     * The registered resource that exposes the ActionEvent model (the
+     * built-in `ActionEventResource`, or the host's own), or null when none
+     * does (`martis.action_events.resource` off and no resource of its own).
+     *
+     * @return class-string<self>|null
+     */
+    protected static function actionEventResourceClass(): ?string
+    {
+        foreach (app(ResourceRegistry::class)->list() as $resourceClass) {
+            if (is_a($resourceClass::model(), ActionEvent::class, true)) {
+                return $resourceClass;
+            }
+        }
+
+        return null;
     }
 
     /**

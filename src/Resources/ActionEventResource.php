@@ -2,7 +2,6 @@
 
 namespace Martis\Resources;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -35,7 +34,10 @@ use Martis\Resource;
  * `view-martis-action-events` gate, which denies until the host
  * defines it. Without access the resource answers 403, leaves the
  * navigation and the command palette, and a relationship panel that
- * lists it (a `MorphMany` on an `Actionable` model) lists no rows.
+ * lists it (the "Action Events" panel of an `Actionable` model, or a
+ * `MorphMany` declared by hand) leaves the detail page, its route
+ * answering 403, as every relationship panel whose related resource the
+ * user may not `viewAny`.
  *
  * Redaction. `original` and `changes` show a value only when the
  * viewer may see that attribute on the record's own detail page
@@ -64,27 +66,6 @@ class ActionEventResource extends Resource
         }
 
         return static::gateAllows($request);
-    }
-
-    /**
-     * A viewer without access lists no rows, wherever the resource is
-     * listed: its index and, above all, a relationship panel on another
-     * record's detail page (which only checks the parent's `view`).
-     *
-     * @param  Builder<Model>  $query
-     * @return Builder<Model>
-     */
-    public static function indexQuery(Request $request, Builder $query): Builder
-    {
-        $resourceClass = static::class;
-
-        if (! (new $resourceClass)->authorizedToViewAny($request)) {
-            $query->whereRaw('1 = 0');
-
-            return $query;
-        }
-
-        return parent::indexQuery($request, $query);
     }
 
     /** Whether the `view-martis-action-events` gate allows the request's user. */

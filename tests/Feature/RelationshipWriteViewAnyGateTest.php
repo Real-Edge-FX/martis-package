@@ -311,15 +311,11 @@ function rwvPanelMeta(string $resource): array
         ->all();
 }
 
-it('offers no write action on a panel whose related resource denies viewAny', function () {
-    $metas = rwvPanelMeta('rwv-hidden-parents');
-
-    expect($metas)->toHaveCount(4);
-    foreach ($metas as $relationship => $meta) {
-        expect($meta, $relationship)->toMatchArray(['canCreate' => false, 'canUpdate' => false, 'canDelete' => false])
-            ->and($meta['hideRestoreAction'], $relationship)->toBeTrue()
-            ->and($meta['hideForceDeleteAction'], $relationship)->toBeTrue();
-    }
+it('leaves a panel whose related resource denies viewAny off the detail page', function () {
+    // As in Nova, a relationship field whose related resource the user may
+    // not viewAny is not on the detail page at all (v2.0.1), so it offers
+    // no write action either.
+    expect(rwvPanelMeta('rwv-hidden-parents'))->toBe([]);
 });
 
 it('keeps the write actions of a panel whose related resource allows viewAny', function () {

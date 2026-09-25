@@ -79,7 +79,7 @@ trait ResolvesPivotActions
         // page, so it answers like an undeclared one.
         $field = null;
         $detailFields = Field::filterForModel(
-            Field::filterForContext($parentResource->fieldsForDetail($request), FieldContext::DETAIL),
+            Field::filterForContext($parentResource->resolveDetailFields($request), FieldContext::DETAIL),
             $request,
             $parentModel,
         );
@@ -88,6 +88,10 @@ trait ResolvesPivotActions
                 $field = $candidate;
                 break;
             }
+        }
+
+        if ($field === null && ($forbidden = $this->forbiddenWhenRelatedResourceClosed($request, $parentResource, $parentModel, $fieldClass, $relationship))) {
+            return $forbidden;
         }
 
         if ($field === null || ! method_exists($parentModel, $relationship)) {

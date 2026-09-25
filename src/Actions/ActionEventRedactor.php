@@ -156,7 +156,7 @@ final class ActionEventRedactor
             }
 
             $fields = Field::filterForModel(
-                Field::filterForContext($resource->fieldsForDetail($request), FieldContext::DETAIL, $request),
+                Field::filterForContext($resource->resolveDetailFields($request), FieldContext::DETAIL, $request),
                 $request,
                 $record,
             );
