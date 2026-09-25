@@ -2,6 +2,8 @@
 
 namespace Martis\Dashboards;
 
+use Martis\Support\TranslatedLine;
+
 /**
  * The built-in Martis landing dashboard.
  *
@@ -21,7 +23,7 @@ class DefaultDashboard extends Dashboard
 {
     public function __construct(?string $name = null, ?string $uriKey = null)
     {
-        parent::__construct($name ?? __('martis::resources.default_dashboard'), $uriKey ?? 'default');
+        parent::__construct($name ?? TranslatedLine::get('martis::resources.default_dashboard'), $uriKey ?? 'default');
     }
 
     public function layoutType(): string

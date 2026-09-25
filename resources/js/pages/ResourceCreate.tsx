@@ -15,6 +15,7 @@ import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import { recordHref } from '@/lib/recordHref'
+import { safeInternalPath } from '@/lib/safeInternalPath'
 import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 
 /** Shared fallback while the schema loads: a stable reference keeps the form
@@ -268,7 +269,7 @@ function CreateTargetPage() {
       // flow was launched from a nested relation panel, prefer the `from`
       // URL so the user returns to the exact page they clicked from
       // (which may sit higher up the tree than the immediate viaResource).
-      const fromParam = searchParams.get('from')
+      const fromParam = safeInternalPath(searchParams.get('from'))
       if (fromParam) {
         navigate(fromParam)
       } else if (isViaRelation && redirectMode === 'parent') {
@@ -419,7 +420,7 @@ function CreateTargetPage() {
                   // created from a team-member's nested HasOneThrough panel
                   // has viaResource=projects but the return target is the
                   // team-member page).
-                  const fromParam = searchParams.get('from')
+                  const fromParam = safeInternalPath(searchParams.get('from'))
                   if (fromParam) {
                     navigate(fromParam)
                   } else if (window.history.length > 1) {

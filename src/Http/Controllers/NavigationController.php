@@ -13,6 +13,7 @@ use Martis\Menu\MenuCountResolver;
 use Martis\Menu\MenuItem;
 use Martis\Menu\MenuSection;
 use Martis\ResourceRegistry;
+use Martis\Support\TranslatedLine;
 
 class NavigationController extends MartisController
 {
@@ -366,7 +367,7 @@ class NavigationController extends MartisController
         $order = config('martis.cache.admin_ui_order');
 
         return [
-            'item' => MenuItem::link(__('martis::messages.cache_admin_title'), self::CACHE_ADMIN_PATH)
+            'item' => MenuItem::link(TranslatedLine::get('martis::messages.cache_admin_title'), self::CACHE_ADMIN_PATH)
                 ->icon('database'),
             'order' => is_numeric($order) ? (int) $order : 1000,
         ];
@@ -544,7 +545,7 @@ class NavigationController extends MartisController
             return $sections;
         }
 
-        $section = MenuSection::make(__('martis::messages.system'), $systemItems)
+        $section = MenuSection::make(TranslatedLine::get('martis::messages.system'), $systemItems)
             ->collapsable(true)
             ->resolve($request);
 

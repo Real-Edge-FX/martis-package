@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import { config } from "@/lib/config"
 import { buildCustomMenuItems } from "@/lib/userMenu"
+import { isSafeInternalPath } from "@/lib/safeInternalPath"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { GlobalSearch } from "@/components/GlobalSearch"
@@ -90,7 +91,7 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
       // a scheme (http(s):, mailto:, tel:) or protocol-relative ("//…") is a
       // native link. Only http(s) targets open in a new tab — mailto:/tel:
       // must hand off to the OS handler in place.
-      const internal = url ? url.startsWith("/") : false
+      const internal = isSafeInternalPath(url)
       const httpExternal = url ? /^https?:\/\//.test(url) : false
       return {
         template: (

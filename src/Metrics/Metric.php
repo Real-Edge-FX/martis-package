@@ -13,6 +13,7 @@ use Martis\Contracts\MetricContract;
 use Martis\Enums\CardStyle;
 use Martis\Enums\MetricType;
 use Martis\Enums\MetricWidthPreset;
+use Martis\Support\TranslatedLine;
 
 /**
  * Base class for all Martis metrics.
@@ -198,13 +199,13 @@ abstract class Metric implements MetricContract
     {
         try {
             return [
-                30 => __('martis::metrics.30_days'),
-                60 => __('martis::metrics.60_days'),
-                365 => __('martis::metrics.365_days'),
-                'TODAY' => __('martis::metrics.today'),
-                'MTD' => __('martis::metrics.month_to_date'),
-                'QTD' => __('martis::metrics.quarter_to_date'),
-                'YTD' => __('martis::metrics.year_to_date'),
+                30 => TranslatedLine::get('martis::metrics.30_days'),
+                60 => TranslatedLine::get('martis::metrics.60_days'),
+                365 => TranslatedLine::get('martis::metrics.365_days'),
+                'TODAY' => TranslatedLine::get('martis::metrics.today'),
+                'MTD' => TranslatedLine::get('martis::metrics.month_to_date'),
+                'QTD' => TranslatedLine::get('martis::metrics.quarter_to_date'),
+                'YTD' => TranslatedLine::get('martis::metrics.year_to_date'),
             ];
         } catch (\Throwable) {
             // Fallback when translator is not available (e.g. unit tests)

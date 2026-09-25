@@ -16,6 +16,7 @@ import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import { recordHref } from '@/lib/recordHref'
+import { safeInternalPath } from '@/lib/safeInternalPath'
 import { updatePayload } from '@/lib/updatePayload'
 import { useHiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
 
@@ -204,7 +205,7 @@ function RecordUpdatePage() {
       // Default — prefer the explicit `from` URL so the user returns to
       // the exact page they clicked from, even when that page sits above
       // the immediate parent in the resource tree.
-      const fromParam = searchParams.get('from')
+      const fromParam = safeInternalPath(searchParams.get('from'))
       if (fromParam) {
         navigate(fromParam)
       } else if (isViaRelation && redirectMode === 'parent') {
@@ -365,7 +366,7 @@ function RecordUpdatePage() {
               onClick={() => {
                 // See ResourceCreate cancel handler — same rationale for
                 // preferring the `from` param over navigate(-1).
-                const fromParam = searchParams.get('from')
+                const fromParam = safeInternalPath(searchParams.get('from'))
                 if (fromParam) {
                   navigate(fromParam)
                 } else if (window.history.length > 1) {

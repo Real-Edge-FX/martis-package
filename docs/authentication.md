@@ -931,7 +931,7 @@ Each entry in `customItems` accepts `label`, `icon`, `url`, and an optional
 |-----|-------------|
 | `label` | Menu text. Resolved through i18n: when the value matches a translation key it is translated (and follows the active locale); otherwise it renders verbatim. Config files can't call `__()`, so pass the key here and it behaves like every other Martis surface. |
 | `icon` | **Phosphor icon name** (the same names the sidebar uses, e.g. `key`, `gear`, `book-open`), rendered as an inline SVG through the shared icon path. |
-| `url` | Internal path (navigated via the SPA router, like Profile) or a full `https://…` URL (opens in a new tab). |
+| `url` | Internal path (navigated via the SPA router, like Profile) or a full `https://…` URL (opens in a new tab). A protocol-relative `//host/…` value, or one with a backslash or a control character, is not an internal path: since v2.0.1 it renders as a plain link instead of going through the router. |
 | `position` | `'before'` (default) or `'after'`, relative to the built-in Profile entry. `'before'` keeps the item above Profile; `'after'` places it below. |
 
 > **Breaking change (v1.29.0):** `icon` is now a Phosphor icon name, not a

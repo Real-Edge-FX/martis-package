@@ -8,6 +8,7 @@ import { config } from '@/lib/config'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { martisEventBus, type EventPayload } from '@/lib/eventBus'
 import { useEscapeLayer } from '@/lib/escapeLayers'
+import { isSafeInternalPath } from '@/lib/safeInternalPath'
 
 interface NotificationItem {
   id: string
@@ -242,7 +243,10 @@ export function NotificationBell() {
                 if (isUnread) markRead.mutate(item.id)
                 if (item.action_url) {
                   setOpen(false)
-                  if (item.action_url.startsWith('/')) {
+                  // Only a same-origin path goes through the SPA router: a
+                  // `//host` or `/\host` value is another origin and opens
+                  // in a new tab like any absolute URL.
+                  if (isSafeInternalPath(item.action_url)) {
                     navigate(item.action_url)
                   } else {
                     window.open(item.action_url, '_blank', 'noopener,noreferrer')

@@ -175,6 +175,13 @@ it: the list, the pivot actions, the attach picker, Create / Edit links
 On `team-members/2`, a `HasOneThrough` card showing project 3 renders the
 project's `HasMany` tasks from `/api/resources/projects/3/has-many/tasks`, and
 its Create button opens `/resources/tasks/create?viaResource=projects&viaResourceId=3&…`.
+The query string also carries `from`, the page the button was clicked on, and
+Save and Cancel return there. Since v2.0.1 only a same-origin path is followed
+(`/…`): a `from` that starts with `//` or holds a backslash or a control
+character points at another origin once the browser parses it, so the form
+ignores it and returns to its default destination. A link crafted with
+`from=//attacker.example` can no longer send the user off the panel after a
+save (React Router 6 does not filter these values, GHSA-wrjc-x8rr-h8h6).
 That form posts to the relationship's endpoint, as multipart when it carries a
 file (v1.38.0+; before, it always posted JSON and a picked file was lost).
 Since **v1.38.0**: before it, only the `HasOne` / `MorphOne` cards honoured the
