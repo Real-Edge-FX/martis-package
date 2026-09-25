@@ -5,9 +5,10 @@ namespace Martis\Auth;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Helper that exposes the auth guards configured by the host app.
+ * Helper that exposes the auth guards configured by the host app, and the
+ * Martis guard among them: its name and its user model.
  *
- * Used by:
+ * The guard list is used by:
  *   - `Martis\Fields\GuardSelect` — populates its options at schema-render
  *     time so PermissionResource / RoleResource forms list the guards
  *     defined in `config/auth.guards` instead of forcing the dev to type
@@ -55,6 +56,17 @@ class GuardCatalog
     }
 
     /**
+     * The guard the panel signs in with: MARTIS_GUARD (`martis.guard`), else
+     * the app's default guard.
+     */
+    public static function martis(): string
+    {
+        $guard = config('martis.guard');
+
+        return is_string($guard) && $guard !== '' ? $guard : self::default();
+    }
+
+    /**
      * The Eloquent model of the users the Martis guard signs in: the model
      * of its provider (`auth.guards.{MARTIS_GUARD}.provider`), the `users`
      * provider's when the guard names none, and `$fallback` when that
@@ -66,8 +78,7 @@ class GuardCatalog
      */
     public static function martisUserModel(string $fallback = 'App\\Models\\User'): string
     {
-        $guard = config('martis.guard') ?: self::default();
-        $provider = config("auth.guards.{$guard}.provider") ?: 'users';
+        $provider = config('auth.guards.'.self::martis().'.provider') ?: 'users';
         $model = config("auth.providers.{$provider}.model");
 
         /** @var class-string<Model> */

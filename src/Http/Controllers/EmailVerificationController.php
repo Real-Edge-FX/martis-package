@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Martis\Auth\GuardCatalog;
 use Martis\Contracts\SendsEmailVerification;
 
 /**
@@ -146,8 +147,9 @@ class EmailVerificationController extends MartisController
     }
 
     /**
-     * Resolve the host-app's User Eloquent model class via the
-     * configured auth provider. Mirrors the resolution
+     * Resolve the Eloquent model of the Martis guard's provider
+     * (MARTIS_GUARD, else the app's default guard), the users the
+     * verification mail was sent to. Mirrors the resolution
      * `Martis\Auth\DefaultRegistersUsers` uses, so behaviour stays
      * consistent across the auth surfaces.
      *
@@ -155,10 +157,8 @@ class EmailVerificationController extends MartisController
      */
     private function resolveUserModel(): ?string
     {
-        $guardName = config('martis.guard', 'web');
-        $providerKey = is_string($guardName) ? $guardName : 'web';
-        $provider = config("auth.guards.{$providerKey}.provider", 'users');
-        $providerName = is_string($provider) ? $provider : 'users';
+        $provider = config('auth.guards.'.GuardCatalog::martis().'.provider');
+        $providerName = is_string($provider) && $provider !== '' ? $provider : 'users';
         $modelClass = config("auth.providers.{$providerName}.model");
 
         if (! is_string($modelClass) || $modelClass === '' || ! is_subclass_of($modelClass, Model::class)) {
