@@ -147,6 +147,8 @@ Documentation and code comments that disagreed with the code:
 - **`Select` and `MultiSelect` read the stored value once per `resolve()`.** `Field::resolve()` now hands the value it reads to a protected hook, `inspectResolvedValue()` (a no-op by default), before `resolveUsing()` runs. The option-order check lives there, so `Select` no longer overrides `resolve()` and `MultiSelect` only decodes the result when there is no `resolveUsing()`: an accessor or a `computed()` callback runs once per read, as on v1.39.1, and a future change to `Field::resolve()` reaches both fields. +10 Pest: parity coverage (a plain attribute, `resolveUsing()` and `computed()`, each compared against a plain `Field`) and read counts for `Select` and `MultiSelect`, with and without `resolveUsing()` and `computed()`.
 - **Hardened the "shows the label of a picked remote-only option" Vitest test** to wait for `.p-dropdown-panel` to close before reading the closed control's label: while the panel is still in the DOM, the picked option's own row also carries the label text, so the assertion passed even against the pre-fix `SelectField.tsx` (`ab2c2fc55`). Confirmed red against that revision, green again on HEAD.
 
+
+
 ## [1.39.2] — 2026-09-25
 
 ### Security
