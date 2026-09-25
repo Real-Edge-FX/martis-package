@@ -4,6 +4,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
+use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\ExtensionKey;
 use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -25,6 +26,8 @@ use Symfony\Component\Console\Attribute\AsCommand;
 #[AsCommand(name: 'martis:card')]
 class CardMakeCommand extends GeneratorCommand
 {
+    use AsksOnlyOnATerminal;
+
     protected $signature = 'martis:card
         {name : The card class name (e.g. WelcomeCard)}
         {--force : Overwrite the TSX component if it already exists}';
@@ -116,7 +119,7 @@ class CardMakeCommand extends GeneratorCommand
 
         if (file_exists($componentPath)) {
             if ($this->option('force') !== true) {
-                if (! $this->input->isInteractive() || $this->laravel->runningUnitTests()) {
+                if (! $this->canPrompt()) {
                     $this->components->warn("React component already exists: {$relative}");
                     $this->line('  Pass <fg=cyan>--force</> to overwrite.');
 

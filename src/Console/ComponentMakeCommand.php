@@ -4,6 +4,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\ExtensionKey;
 use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -26,6 +27,8 @@ use Symfony\Component\Console\Attribute\AsCommand;
 #[AsCommand(name: 'martis:component', aliases: ['martis:override'])]
 class ComponentMakeCommand extends Command
 {
+    use AsksOnlyOnATerminal;
+
     protected $signature = 'martis:component
         {name? : The component class name (e.g. StatusBadge). Optional when --type=complete-layout, ignored when --type maps to a fixed-name shell/auth piece.}
         {--type=generic : Component type: field | shell | sidebar | topbar | footer | complete-layout | login-page | register-page | forgot-password-page | reset-password-page | email-verify-notice-page | generic}
@@ -265,7 +268,7 @@ class ComponentMakeCommand extends Command
         if ($this->option('force') === true) {
             return true;
         }
-        if (! $this->input->isInteractive() || $this->laravel->runningUnitTests()) {
+        if (! $this->canPrompt()) {
             $this->error("Component already exists: {$relative}  (re-run with --force to overwrite)");
 
             return false;

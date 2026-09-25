@@ -180,7 +180,7 @@ The command is idempotent and self-sufficient. It:
 3. **Env** — stubs the `AZURE_*` and `MARTIS_SSO_*` env vars in `.env` and `.env.example`.
 4. **Listener** — adds the `MicrosoftExtendSocialite` event listener at the top of `AppServiceProvider::boot()` (idempotent — checks if already there).
 5. **Migration** — publishes `add_azure_group_name_to_roles_table` (with `--with-migration`).
-6. **Migrate** — runs `php artisan migrate` (interactive prompt; non-interactive auto-runs unless `--no-migrate`).
+6. **Migrate** — runs `php artisan migrate` (asks first on a terminal; without one, a pipe included, it runs unless `--no-migrate`). The role mapping questions are asked only on a terminal too (since v1.39.3: before, a pipe answered them).
 
 Skip flags for CI / production deploys:
 
