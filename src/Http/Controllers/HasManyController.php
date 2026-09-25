@@ -107,7 +107,7 @@ class HasManyController extends MartisController
 
         // Only a sortable field of the related resource the user can see
         // orders the rows.
-        $this->applyRequestedSort($request, $query, $relatedResourceClass);
+        $this->applyRequestedSort($request, $query, $relatedResourceClass, qualifyJsonPaths: $relation instanceof HasOneOrManyThrough);
 
         // Pagination
         $perPage = $this->requestedPerPage($request, 10);

@@ -2,10 +2,13 @@
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough as EloquentHasManyThrough;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Martis\Fields\HasMany;
+use Martis\Fields\HasManyThrough;
+use Martis\Fields\ID;
 use Martis\Fields\Number;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
@@ -30,6 +33,11 @@ class RPSCOwner extends Model
     public function shops(): EloquentHasMany
     {
         return $this->hasMany(RPSCShop::class, 'owner_id');
+    }
+
+    public function sales(): EloquentHasManyThrough
+    {
+        return $this->hasManyThrough(RPSCSale::class, RPSCShop::class, 'owner_id', 'shop_id');
     }
 
     public function regionShops(): EloquentHasMany
@@ -61,6 +69,26 @@ class RPSCSale extends Model
     protected $table = 'rpsc_sales';
 
     protected $guarded = [];
+
+    protected $casts = ['meta' => 'array'];
+}
+
+class RPSCSaleResource extends Resource
+{
+    public static function model(): string
+    {
+        return RPSCSale::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rpsc-sales';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [ID::make(), Text::make('meta->code', 'Code')->sortable()];
+    }
 }
 
 class RPSCShopResource extends Resource
@@ -123,6 +151,7 @@ class RPSCOwnerResource extends Resource
             Text::make('name'),
             HasMany::make('Shops', 'shops')->relatedResource('rpsc-shops'),
             HasMany::make('Region shops', 'regionShops')->relatedResource('rpsc-region-shops'),
+            HasManyThrough::make('Sales', 'sales')->relatedResource('rpsc-sales'),
         ];
     }
 }
@@ -148,17 +177,19 @@ beforeEach(function () {
         $table->string('name');
         $table->unsignedBigInteger('owner_id');
         $table->unsignedBigInteger('region_id')->nullable();
+        $table->json('meta')->nullable();
         $table->timestamps();
     });
     Schema::create('rpsc_sales', function ($table) {
         $table->id();
         $table->unsignedBigInteger('shop_id');
+        $table->json('meta')->nullable();
         $table->timestamps();
     });
 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
-    foreach ([RPSCShopResource::class, RPSCRegionShopResource::class, RPSCOwnerResource::class] as $resource) {
+    foreach ([RPSCShopResource::class, RPSCRegionShopResource::class, RPSCSaleResource::class, RPSCOwnerResource::class] as $resource) {
         $registry->register($resource);
     }
 });
@@ -195,4 +226,18 @@ it('searches a hasMany panel by a column its relation joins', function () {
 
     $response->assertStatus(200);
     expect(array_column($response->json('data'), 'name'))->toBe(['Harbour']);
+});
+
+it('sorts a hasManyThrough panel by a JSON path whose column the intermediate also has', function () {
+    $owner = RPSCOwner::create(['name' => 'Owner']);
+    $shop = RPSCShop::create(['name' => 'Shop', 'owner_id' => $owner->id, 'meta' => json_encode(['code' => 'Z'])]);
+    $ids = [];
+    foreach (['B', 'C', 'A'] as $code) {
+        $ids[$code] = RPSCSale::create(['shop_id' => $shop->id, 'meta' => ['code' => $code]])->id;
+    }
+
+    $response = $this->getJson("/martis/api/resources/rpsc-owners/{$owner->id}/has-many/sales?sort=meta->code&direction=desc");
+
+    $response->assertStatus(200);
+    expect(array_column($response->json('data'), 'id'))->toBe([$ids['C'], $ids['B'], $ids['A']]);
 });

@@ -77,7 +77,7 @@ class BelongsToManyController extends MartisController
 
         // Sort: only a sortable field of the related resource the user can
         // see orders the rows.
-        $this->applyRequestedSort($request, $query, $relatedResourceClass);
+        $this->applyRequestedSort($request, $query, $relatedResourceClass, qualifyJsonPaths: true);
 
         // Pagination — use $relation->paginate() (not $query->paginate()) so Laravel
         // can hydrate the pivot accessor on each resulting Model instance.

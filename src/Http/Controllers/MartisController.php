@@ -536,8 +536,11 @@ abstract class MartisController extends Controller
      *
      * @param  class-string<\Martis\Resource>  $resourceClass
      * @param  Builder<Model>  $query
+     * @param  bool  $qualifyJsonPaths  Qualify a JSON path (`meta->code`) with the
+     *                                  related table: a panel whose relation joins a table by
+     *                                  nature (hasManyThrough, a pivot) sets it.
      */
-    protected function applyRequestedSort(Request $request, Builder $query, string $resourceClass): void
+    protected function applyRequestedSort(Request $request, Builder $query, string $resourceClass, bool $qualifyJsonPaths = false): void
     {
         $sort = $request->query('sort');
 
@@ -550,8 +553,11 @@ abstract class MartisController extends Controller
         // joined table shares (a hasManyThrough's intermediate, a pivot) is
         // not ambiguous here: the panels paginate through the relation, which
         // selects the related table's columns, and ORDER BY resolves a bare
-        // name against the select list first.
-        $query->orderBy($sort, SortDirection::fromQuery($request->query('direction'))->value);
+        // name against the select list first. A JSON path compiles to an
+        // expression, which ORDER BY does not resolve that way, so over a
+        // joining relation it is qualified.
+        $column = $qualifyJsonPaths && str_contains($sort, '->') ? $query->qualifyColumn($sort) : $sort;
+        $query->orderBy($column, SortDirection::fromQuery($request->query('direction'))->value);
     }
 
     /**

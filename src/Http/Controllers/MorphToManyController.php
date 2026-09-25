@@ -80,7 +80,7 @@ class MorphToManyController extends MartisController
 
         // Sort: only a sortable field of the related resource the user can
         // see orders the rows.
-        $this->applyRequestedSort($request, $query, $relatedResourceClass);
+        $this->applyRequestedSort($request, $query, $relatedResourceClass, qualifyJsonPaths: true);
 
         $perPage = $this->requestedPerPage($request, 10);
         $paginator = $relation->paginate($perPage);
