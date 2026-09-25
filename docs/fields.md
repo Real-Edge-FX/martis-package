@@ -656,7 +656,7 @@ What `computed()` changes besides the read:
 
 Which fields honour `computed()`: every field whose value resolution goes through `Field::resolve()` (`Text`, `Badge`, `Status`, `Number`, `Boolean`, `Date`, `Select`, …) plus the ones with their own `resolve()` that read through the shared seam: `KeyValue`, `MultiSelect`, `Sparkline`, `File`, `Image`, `Gravatar`. Relationship fields read a foreign key or relation rather than the attribute, `Icon` has its own display/stored/computed modes, `UiAvatar` derives its initials from `from()` / the attribute directly, and `Repeater` has its own storage modes; `computed()` does not apply to them.
 
-Custom field types that override `resolve()` must read the model through `$this->resolveAttribute($model, $attribute)` instead of `$model->getAttribute()`, otherwise `computed()` is silently ineffective for that type.
+Custom field types that override `resolve()` must read the model through `$this->resolveAttribute($model, $attribute)` instead of `$model->getAttribute()`, otherwise `computed()` is silently ineffective for that type. A type that only needs to look at the stored value (for example to check it) should override `inspectResolvedValue(Model $model, string $attribute, mixed $value): void` instead: `Field::resolve()` calls it with the value it just read, before `resolveUsing()`, so the model is read once and an accessor or a `computed()` callback does not run twice per row.
 
 Without `computed()`, the rule stands: a field's attribute must be a real attribute (column, cast, accessor or loaded relation) and must not share its name with a model method.
 
@@ -1119,7 +1119,7 @@ Select::make('status')
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
 | `options` | `options(iterable\|Arrayable\|string\|Closure $options): static` | `$this` | Set options in Nova's order, `[value => label]`: the key is stored, the value is shown. Also takes a list (stores 0, 1, 2…, as in Nova), grouped options (`[value => ['label' => ..., 'group' => ...]]`), a Collection or any other iterable (as in Nova), an enum class (Martis extension), or a closure that resolves at render time (perfect for DB-backed lists). See [Option order](#option-order) and [Closure-aware setters](#closure-aware-setters). |
-| `withoutOptionOrderWarnings` | `withoutOptionOrderWarnings(): static` | `$this` | Silence the stored-label and list-shift warnings below for this field (Martis extension). Use it when a stored value that looks like stale v1.x data is actually correct, for example a Nova rating that stores `0..4` on purpose and shows `"1".."5"`. |
+| `withoutOptionOrderWarnings` | `withoutOptionOrderWarnings(): static` | `$this` | Silence the stored-label and list-shift warnings below, and the `searchOptionsUsing()` list warning, for this field (Martis extension). Use it when a stored value that looks like stale v1.x data is actually correct, for example a Nova rating that stores `0..4` on purpose and shows `"1".."5"`. |
 | `displayUsingLabels` | `displayUsingLabels(): static` | `$this` | Render the option label on index and detail (default behaviour). Symmetric with `MultiSelect::displayUsingLabels()` for code that handles both fields generically. |
 | `displayUsingValues` | `displayUsingValues(): static` | `$this` | Render the raw stored value on index and detail. Useful when the value is itself meaningful (ISO codes, slugs) and the label is just a humanised alias. |
 | `isDisplayingLabels` | `isDisplayingLabels(): bool` | `bool` | Whether the field currently renders labels (true) or raw values (false). |
@@ -1273,7 +1273,7 @@ MultiSelect::make('technologies')
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
 | `options` | `options(iterable\|Arrayable\|string\|Closure $options): static` | `$this` | Set options in Nova's order, `[value => label]`, with the same forms as `Select::options()`: a list (0, 1, 2…), **grouped** options (`[value => ['label' => ..., 'group' => ...]]`), an enum class (Martis extension), or a closure that resolves at render time. See [Option order](#option-order) and [Closure-aware setters](#closure-aware-setters). |
-| `withoutOptionOrderWarnings` | `withoutOptionOrderWarnings(): static` | `$this` | Silence the stored-label and list-shift warnings for this field (Martis extension). See the same row on `Select`. |
+| `withoutOptionOrderWarnings` | `withoutOptionOrderWarnings(): static` | `$this` | Silence the stored-label and list-shift warnings (and, on `Select`, the `searchOptionsUsing()` list warning) for this field (Martis extension). See the same row on `Select`. |
 | `displayUsingLabels` | `displayUsingLabels(): static` | `$this` | Show labels instead of raw values on index/detail. |
 | `getOptions` | `getOptions(): array` | `array` | Get normalized options `[{label, value, group?}]` (resolves the closure if one was set). |
 | `isDisplayingLabels` | `isDisplayingLabels(): bool` | `bool` | Check if displaying labels. |

@@ -68,20 +68,15 @@ class Select extends Field
      *
      * The stored value, before `resolveUsing()`, is checked against static
      * options (see HasChoiceOptions::warnIfStoredAsLabel()), unless the field
-     * accepts custom values, where a typed label is a legitimate value. The
-     * rest of the resolution (`resolveCallback`, `computed()`) is
-     * {@see Field::resolve()} itself, so a future change there reaches
-     * `Select` too.
+     * accepts custom values, where a typed label is a legitimate value.
+     * Resolution itself stays {@see Field::resolve()}, which reads the model
+     * once and hands the value here.
      */
-    public function resolve(Model $model, ?string $attribute = null): mixed
+    protected function inspectResolvedValue(Model $model, string $attribute, mixed $value): void
     {
-        $attr = $attribute ?? $this->attribute;
-
         if (! $this->allowCustomValues && $this->checksStoredOptionOrder()) {
-            $this->warnIfStoredAsLabel($model, $this->resolveAttribute($model, $attr));
+            $this->warnIfStoredAsLabel($model, $value);
         }
-
-        return parent::resolve($model, $attr);
     }
 
     /**
@@ -223,6 +218,10 @@ class Select extends Field
 
     private function warnSearchedList(): void
     {
+        if ($this->optionOrderWarningsDisabled) {
+            return;
+        }
+
         if (! $this->warnOncePerRequest('search|'.static::class.'::'.$this->attribute)) {
             return;
         }

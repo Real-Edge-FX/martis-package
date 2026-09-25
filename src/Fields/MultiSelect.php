@@ -90,26 +90,27 @@ class MultiSelect extends Field
     /**
      * {@inheritdoc}
      *
-     * Unlike {@see Select::resolve()}, this cannot fully delegate to
-     * {@see Field::resolve()}: with no `resolveCallback`, `Field::resolve()`
-     * returns the raw stored value, while `MultiSelect` always decodes it to
-     * a list. The `resolveCallback` branch does delegate, so a future change
-     * to that part of `Field::resolve()` still reaches `MultiSelect`.
+     * Delegates to {@see Field::resolve()}, which reads the model once. With
+     * no `resolveCallback` the stored value comes back raw, and `MultiSelect`
+     * decodes it to a list; a `resolveCallback` receives the raw value, as
+     * before, and its result is returned as is.
      */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
-        $attr = $attribute ?? $this->attribute;
-        $raw = $this->resolveAttribute($model, $attr);
+        $value = parent::resolve($model, $attribute);
 
-        // The stored values, before resolveUsing(), are checked against
-        // static options, see HasChoiceOptions::warnIfStoredAsLabel().
-        $this->warnIfStoredAsLabel($model, $this->decodeToArray($raw));
+        return $this->resolveCallback !== null ? $value : $this->decodeToArray($value);
+    }
 
-        if ($this->resolveCallback !== null) {
-            return parent::resolve($model, $attr);
+    /**
+     * The stored values, before `resolveUsing()`, are checked against static
+     * options, see HasChoiceOptions::warnIfStoredAsLabel().
+     */
+    protected function inspectResolvedValue(Model $model, string $attribute, mixed $value): void
+    {
+        if ($this->checksStoredOptionOrder()) {
+            $this->warnIfStoredAsLabel($model, $this->decodeToArray($value));
         }
-
-        return $this->decodeToArray($raw);
     }
 
     /** {@inheritdoc} */

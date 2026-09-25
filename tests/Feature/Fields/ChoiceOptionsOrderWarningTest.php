@@ -280,3 +280,101 @@ it('runs a computed field callback once per resolve, never again for the check',
 
     expect($calls)->toBe(1);
 });
+
+class ChoiceOrderCountingModel extends Model
+{
+    protected $guarded = [];
+
+    public $timestamps = false;
+
+    public static int $reads = 0;
+
+    public function getStatusAttribute(mixed $value): mixed
+    {
+        static::$reads++;
+
+        return $value;
+    }
+
+    public function getTagsAttribute(mixed $value): mixed
+    {
+        static::$reads++;
+
+        return $value;
+    }
+}
+
+function countingChoiceModel(array $attributes): ChoiceOrderCountingModel
+{
+    ChoiceOrderCountingModel::$reads = 0;
+    $model = new ChoiceOrderCountingModel;
+    $model->setRawAttributes($attributes + ['id' => 1]);
+
+    return $model;
+}
+
+it('reads a Select stored value once per resolve while the order check is on', function () {
+    $model = countingChoiceModel(['status' => 'draft']);
+
+    Select::make('status')->options(['draft' => 'Draft'])->resolve($model);
+
+    expect(ChoiceOrderCountingModel::$reads)->toBe(1);
+});
+
+it('reads a Select stored value once per resolve with resolveUsing()', function () {
+    $model = countingChoiceModel(['status' => 'draft']);
+
+    $resolved = Select::make('status')->options(['draft' => 'Draft'])
+        ->resolveUsing(fn (mixed $value): string => strtoupper((string) $value))
+        ->resolve($model);
+
+    expect($resolved)->toBe('DRAFT')
+        ->and(ChoiceOrderCountingModel::$reads)->toBe(1);
+});
+
+it('reads a MultiSelect stored value once per resolve, with and without resolveUsing()', function () {
+    $model = countingChoiceModel(['tags' => '["php"]']);
+    $plain = MultiSelect::make('tags')->options(['php' => 'PHP'])->resolve($model);
+
+    expect($plain)->toBe(['php'])
+        ->and(ChoiceOrderCountingModel::$reads)->toBe(1);
+
+    $model = countingChoiceModel(['tags' => '["php"]']);
+    $callbackInput = null;
+    $resolved = MultiSelect::make('tags')->options(['php' => 'PHP'])
+        ->resolveUsing(function (mixed $value) use (&$callbackInput): string {
+            $callbackInput = $value;
+
+            return 'resolved';
+        })
+        ->resolve($model);
+
+    expect($resolved)->toBe('resolved')
+        ->and($callbackInput)->toBe('["php"]')
+        ->and(ChoiceOrderCountingModel::$reads)->toBe(1);
+});
+
+it('runs a MultiSelect computed callback once per resolve with resolveUsing()', function () {
+    $calls = 0;
+    $field = MultiSelect::make('tags')->options(['php' => 'PHP'])
+        ->computed(function () use (&$calls): array {
+            $calls++;
+
+            return ['php'];
+        })
+        ->resolveUsing(fn (mixed $value): mixed => $value);
+
+    $field->resolve(choiceOrderModel([], 1));
+
+    expect($calls)->toBe(1);
+});
+
+it('silences the searchOptionsUsing() list warning with withoutOptionOrderWarnings()', function () {
+    $field = Select::make('model')
+        ->searchOptionsUsing(fn (string $term): array => ['claude-opus-5', 'claude-sonnet-5'])
+        ->withoutOptionOrderWarnings();
+
+    $field->searchOptions('claude');
+
+    Log::shouldNotHaveReceived('warning');
+});
