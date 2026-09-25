@@ -691,3 +691,52 @@ it('stops on a signal handled before its loop runs', function () {
         Loop::set($previous);
     }
 })->skip(! function_exists('posix_kill') || ! function_exists('pcntl_signal'), 'needs ext-posix and ext-pcntl');
+
+it('stops within a second on a signal still pending while its loop sleeps', function () {
+    // PHP runs a signal's handler between two opcodes, and the loop sleeps in
+    // stream_select() for a timeout it worked out before: a SIGTERM that
+    // lands in between (right after a request, when a supervisor or a test
+    // stops the server) waited for the next event, after a request the
+    // session timer, five minutes away. From outside that is 1 to 2 runs in
+    // 100 in Docker. Here the handler is left pending on purpose (async
+    // signals are off while the signal is sent, so only a dispatch runs
+    // it), and the loop must still stop within about a second.
+    $previous = Loop::get();
+    $handlers = [SIGTERM => pcntl_signal_get_handler(SIGTERM), SIGINT => pcntl_signal_get_handler(SIGINT)];
+    $async = pcntl_async_signals();
+    $loop = new StreamSelectLoop;
+    Loop::set($loop);
+    try {
+        $register = new ReflectionMethod(McpServeCommand::class, 'registerSignalHandlers');
+        $register->invoke(app(McpServeCommand::class), null);
+        // As in the test above: never signal this process without a handler.
+        expect(pcntl_signal_get_handler(SIGTERM))->toBeCallable('registerSignalHandlers() did not handle SIGTERM')
+            ->not->toBe($handlers[SIGTERM], 'registerSignalHandlers() left the SIGTERM handler as it was');
+
+        pcntl_async_signals(false);
+        posix_kill(getmypid(), SIGTERM);
+        pcntl_async_signals(true);
+
+        // The session timer, all the loop waits for between two requests,
+        // plus a fuse if the signal is never handled.
+        $session = $loop->addPeriodicTimer(300, static fn () => null);
+        $fuseBlown = false;
+        $loop->addTimer(3.0, function () use ($loop, &$fuseBlown): void {
+            $fuseBlown = true;
+            $loop->stop();
+        });
+
+        $loop->run();
+
+        expect($fuseBlown)->toBeFalse('the loop slept through a SIGTERM whose handler was still pending');
+        $loop->cancelTimer($session);
+    } finally {
+        // Nothing may stay pending for the rest of the run.
+        pcntl_signal_dispatch();
+        foreach ($handlers as $signal => $handler) {
+            pcntl_signal($signal, $handler);
+        }
+        pcntl_async_signals($async);
+        Loop::set($previous);
+    }
+})->skip(! function_exists('posix_kill') || ! function_exists('pcntl_signal'), 'needs ext-posix and ext-pcntl');
