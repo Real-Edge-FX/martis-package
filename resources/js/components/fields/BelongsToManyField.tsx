@@ -314,7 +314,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
                 style={{ color: 'var(--martis-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
                 data-pr-tooltip={tAct('edit', 'Edit')}
                 data-pr-position="top"
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-primary)')}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-accent)')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
               >
                 <PencilSimpleIcon size={16} />

@@ -989,32 +989,40 @@ The preferences panel is a compact topbar overlay — theme / accent /
 density / language / accessibility. See [preferences.md](preferences.md)
 for the resolver, API, and SSR no-flash mechanics.
 
-### 94-token theme system
+### 162-token theme system
 
 A single theme file controls the entire admin panel:
 
-- **Background layers** (7 vars) — page bg, surfaces, sidebar, topbar, cards, inputs.
+- **Background layers** (7 vars): page bg, surfaces, sidebar, topbar, cards, inputs.
 - **Text & borders** (3 vars).
-- **Accent / brand** (6 vars) — primary, hover, active, alpha tints, focus ring.
-- **Semantic colors solid** (8 vars) — success/warning/danger/info + hover variants.
-- **Semantic backgrounds** (8 vars) — for badges, alerts, status.
-- **Interactive states** (4 vars) — hover, active, search overlay.
-- **Overlays & shadows** (5 vars) — modal backdrop, sm/md/lg shadows, peek.
-- **DataTable** (5 vars) — header, rows, borders.
-- **Border radius** (5 vars) — from sm to full pill.
-- **Typography** (15 vars) — font families (sans/mono/heading), 7-step size scale, 4 weights, 3 line heights.
-- **Chart palette** (10 vars) — for partition/trend metrics.
-- **File icons** (6 vars) — semantic per file type.
-- **Badge variants** (12 vars) — legacy compatibility.
+- **Accent / brand** (7 vars): primary, hover, active, contrast, alpha tints, focus ring.
+- **Semantic colors, solid** (8 vars): success/warning/danger/info + hover variants.
+- **Semantic backgrounds & text** (8 vars): for badges, alerts, status.
+- **Interactive states** (4 vars): hover, active, search overlay.
+- **Overlays & shadows** (5 vars): modal backdrop, sm/md/lg shadows, peek.
+- **DataTable** (5 vars): header, rows, borders.
+- **Border radius** (5 vars): from sm to full pill.
+- **Typography** (31 vars): font families (sans/mono/heading), 7-step size scale, 4 weights, 3 line heights, each size, weight and line height with its verbose alias.
+- **Chart palette** (10 vars): for partition/trend metrics.
+- **Avatar palette** (16 vars): the initials avatar hues.
+- **Brand gradient** (12 vars): hero and auth surfaces, badge, logo heights.
+- **File icons** (6 vars): semantic per file type.
+- **Badge variants** (12 vars): legacy compatibility.
+- **Density** (7 vars): row, input, button heights and paddings.
+- **Motion** (10 vars): 5 durations, 5 easing curves.
+- **Print** (5 vars): the print stylesheet palette.
+- **Rich text editor** (1 var): the Trix toolbar icon filter.
 
 ```bash
 # Generate a theme scaffold with all variables
 php artisan martis:theme MyTheme
 ```
 
-The generated stub includes all 94 variables in both dark mode
-(`:root`) and light mode (`html:not(.dark)`), with comments and
-grouping. Edit any value in `resources/css/martis/mytheme.css`, publish
+The generated stub declares the 160 variables `martis.css` gives a
+value, on `:root` (dark, and the ones that do not depend on the mode) and
+on `html:not(.dark)` for the 102 it gives a light value, with comments
+and grouping; the two brand logo heights, set from `.env`, come commented
+out. Edit any value in `resources/css/martis/mytheme.css`, publish
 it with `php artisan martis:publish-assets` and refresh the browser: no
 Vite rebuild needed.
 

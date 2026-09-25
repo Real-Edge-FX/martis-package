@@ -104,221 +104,290 @@ A theme only sets the Martis tokens; it never needs to restyle PrimeReact select
 
 ## Variable Reference
 
-All variables are organized into **10 logical groups**. The default theme defines values for **all** variables in both dark mode (`:root`) and light mode (`html:not(.dark)`).
+A theme can define **162 CSS variables** in **19 groups**. The bundled `martis.css` gives 160 of them a value, once on `:root` (the dark theme, and every variable that does not depend on the mode) and again on `html:not(.dark)` for 102 of them; the scaffolded theme (`stubs/theme.css.stub`, written by `martis:theme`) declares the same 160 on `:root` and the same 102 on `html:not(.dark)`, with the same values (the test in `tests/Unit/ThemeTokenDriftTest.php` compares them, accents, density and motion included). The other two, the brand logo heights, come from the config (`MARTIS_BRAND_LOGO_HEIGHT_MENU` / `MARTIS_BRAND_LOGO_HEIGHT_AUTH`, written on `:root` by the panel's layout); the stub carries them commented out, to uncomment only to override those knobs. The **Light** column shows "same" when light mode keeps the dark value.
 
 ### 1. Background Layers (7 variables)
 
 Surface and background colors used throughout the UI.
 
-| Variable | Purpose |
-|----------|---------|
-| `--martis-bg` | Page background |
-| `--martis-surface` | Cards, panels, modals — primary surface |
-| `--martis-surface-alt` | Alternate surface (zebra rows, secondary panels, drawer footer) |
-| `--martis-sidebar` | Sidebar background |
-| `--martis-topbar` | Top navigation bar |
-| `--martis-card` | Card components |
-| `--martis-input-bg` | Form input backgrounds |
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-bg` | `#0B0D10` | `#F7F8FA` | Page background |
+| `--martis-surface` | `#12151A` | `#FFFFFF` | Cards, panels, modals: primary surface |
+| `--martis-surface-alt` | `#161A20` | `#F2F4F7` | Alternate surface (zebra rows, secondary panels, drawer footer) |
+| `--martis-sidebar` | `#0E1115` | `#FFFFFF` | Sidebar background |
+| `--martis-topbar` | `#0E1115` | `#FFFFFF` | Top navigation bar |
+| `--martis-card` | `#12151A` | `#FFFFFF` | Card components |
+| `--martis-input-bg` | `#0E1115` | `#FFFFFF` | Form input backgrounds |
 
 ### 2. Text & Borders (3 variables)
 
-| Variable | Purpose |
-|----------|---------|
-| `--martis-text` | Primary text color |
-| `--martis-text-muted` | Secondary, placeholder, label, and dimmed/tertiary text |
-| `--martis-border` | Default border color (inputs, panels, table cells) |
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-text` | `#E6E8EC` | `#0F172A` | Primary text color |
+| `--martis-text-muted` | `#8A93A1` | `#64748B` | Secondary, placeholder, label, and dimmed/tertiary text |
+| `--martis-border` | `#232830` | `#E4E8EE` | Default border color (inputs, panels, table cells) |
 
 ### 3. Accent / Brand (7 variables)
 
-The brand identity colors — buttons, links, focus states, selected items.
+The brand identity colors: buttons, links, focus states, selected items. The `[data-accent]` variants below override six of them (all but `--martis-accent-contrast`).
 
-| Variable | Purpose |
-|----------|---------|
-| `--martis-accent` | Primary brand color |
-| `--martis-accent-hover` | Hover state |
-| `--martis-accent-active` | Active/pressed state |
-| `--martis-accent-contrast` | Text/icon colour rendered **on top of** an accent fill. Every accent fill reads it (primary buttons, paginator and datepicker highlights, calendar trigger, checkbox ticks, Trix dialog buttons, the SPA's accent-filled buttons and the PrimeReact `--primary-color-text` bridge), with `#ffffff` as the fallback. A theme with a bright accent sets a dark value here (`#071726`) instead of darkening the accent; for `MARTIS_CUSTOM_ACCENTS` and a per-user `brandColor` Martis derives it from the accent's luminance |
-| `--martis-accent-bg-light` | Subtle background tint (e.g. selected row) |
-| `--martis-accent-bg` | Stronger background tint |
-| `--martis-focus-ring` | Focus ring color (with alpha for box-shadow) |
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-accent` | `#4F7BF9` | `#3B6AF0` | Primary brand color |
+| `--martis-accent-hover` | `#3B6AF0` | `#2C57D8` | Hover state |
+| `--martis-accent-active` | `#2C57D8` | `#1E44BE` | Active/pressed state |
+| `--martis-accent-contrast` | `#FFFFFF` | same | Text/icon colour rendered **on top of** an accent fill. Every accent fill reads it (primary buttons, paginator and datepicker highlights, calendar trigger, checkbox ticks, Trix dialog buttons, the SPA's accent-filled buttons and the PrimeReact `--primary-color-text` bridge), with `#ffffff` as the fallback. A theme with a bright accent sets a dark value here (`#071726`) instead of darkening the accent; for `MARTIS_CUSTOM_ACCENTS` and a per-user `brandColor` Martis derives it from the accent's luminance |
+| `--martis-accent-bg-light` | `rgba(79, 123, 249, 0.14)` | `#ECF1FE` | Subtle background tint (e.g. selected row) |
+| `--martis-accent-bg` | `rgba(79, 123, 249, 0.24)` | `#D7E1FD` | Stronger background tint |
+| `--martis-focus-ring` | `rgba(79, 123, 249, 0.45)` | `rgba(59, 106, 240, 0.35)` | Focus ring color (with alpha for box-shadow) |
 
-### 4. Semantic Colors — Solid (8 variables)
+### 4. Semantic Colors, Solid (8 variables)
 
 Solid colors used in modals, action buttons, alerts.
 
-| Variable | Default Dark | Default Light | Purpose |
-|----------|--------------|---------------|---------|
-| `--martis-success` | `#22c55e` | `#16a34a` | Success state |
-| `--martis-success-hover` | `#16a34a` | `#15803d` | Hover |
-| `--martis-warning` | `#f59e0b` | `#d97706` | Warning state (e.g. archive) |
-| `--martis-warning-hover` | `#d97706` | `#b45309` | Hover |
-| `--martis-danger` | `#ef4444` | `#dc2626` | Danger state (e.g. delete) |
-| `--martis-danger-hover` | `#dc2626` | `#b91c1c` | Hover |
-| `--martis-info` | `#3b82f6` | `#2563eb` | Info state |
-| `--martis-info-hover` | `#2563eb` | `#1d4ed8` | Hover |
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-success` | `#22C55E` | `#16A34A` | Success state |
+| `--martis-success-hover` | `#16A34A` | `#15803D` | Hover |
+| `--martis-warning` | `#F59E0B` | `#D97706` | Warning state (e.g. archive) |
+| `--martis-warning-hover` | `#D97706` | `#B45309` | Hover |
+| `--martis-danger` | `#EF4444` | `#DC2626` | Danger state (e.g. delete) |
+| `--martis-danger-hover` | `#DC2626` | `#B91C1C` | Hover |
+| `--martis-info` | `#38BDF8` | `#0EA5E9` | Info state |
+| `--martis-info-hover` | `#0EA5E9` | `#0284C7` | Hover |
 
 ### 5. Semantic Backgrounds & Text (8 variables)
 
 Used for badges, alerts, status indicators (alpha tints in dark, solid pastels in light).
 
-| Variable | Purpose |
-|----------|---------|
-| `--martis-success-bg` | Success badge/alert background |
-| `--martis-success-text` | Success badge/alert text |
-| `--martis-warning-bg` | Warning badge/alert background |
-| `--martis-warning-text` | Warning badge/alert text |
-| `--martis-danger-bg` | Danger badge/alert background |
-| `--martis-danger-text` | Danger badge/alert text |
-| `--martis-info-bg` | Info badge/alert background |
-| `--martis-info-text` | Info badge/alert text |
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-success-bg` | `rgba(34, 197, 94, 0.12)` | `#E7F7EC` | Success badge/alert background |
+| `--martis-success-text` | `#4ADE80` | `#15803D` | Success badge/alert text |
+| `--martis-warning-bg` | `rgba(245, 158, 11, 0.14)` | `#FEF3DB` | Warning badge/alert background |
+| `--martis-warning-text` | `#FBBF24` | `#B45309` | Warning badge/alert text |
+| `--martis-danger-bg` | `rgba(239, 68, 68, 0.14)` | `#FDE5E5` | Danger badge/alert background |
+| `--martis-danger-text` | `#F87171` | `#B91C1C` | Danger badge/alert text |
+| `--martis-info-bg` | `rgba(56, 189, 248, 0.14)` | `#E0F2FE` | Info badge/alert background |
+| `--martis-info-text` | `#7DD3FC` | `#0369A1` | Info badge/alert text |
 
 ### 6. Interactive States (4 variables)
 
-| Variable | Purpose |
-|----------|---------|
-| `--martis-hover` | Generic hover background |
-| `--martis-active` | Generic active/pressed background |
-| `--martis-search-bg` | Search input overlay |
-| `--martis-search-border` | Search input border |
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-hover` | `rgba(255, 255, 255, 0.035)` | `rgba(15, 23, 42, 0.035)` | Generic hover background |
+| `--martis-active` | `rgba(255, 255, 255, 0.06)` | `rgba(15, 23, 42, 0.06)` | Generic active/pressed background |
+| `--martis-search-bg` | `#0B0D10` | `#FFFFFF` | Search input overlay |
+| `--martis-search-border` | `#2A303A` | `#D6DBE3` | Search input border |
 
 ### 7. Overlays & Shadows (5 variables)
 
-| Variable | Purpose |
-|----------|---------|
-| `--martis-overlay` | Modal backdrop |
-| `--martis-shadow-sm` | Small shadow (1px) |
-| `--martis-shadow-md` | Medium shadow (cards, peeks) |
-| `--martis-shadow-lg` | Large shadow (modals) |
-| `--martis-peek-shadow` | Hover preview popover shadow |
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-overlay` | `rgba(5, 7, 10, 0.72)` | `rgba(15, 23, 42, 0.4)` | Modal backdrop |
+| `--martis-shadow-sm` | `0 1px 0 rgba(0, 0, 0, 0.25)` | `0 1px 0 rgba(15, 23, 42, 0.04)` | Small shadow (1px) |
+| `--martis-shadow-md` | `0 4px 16px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.03)` | `0 4px 12px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.04)` | Medium shadow (cards, peeks) |
+| `--martis-shadow-lg` | `0 24px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04)` | `0 18px 36px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.06)` | Large shadow (modals) |
+| `--martis-peek-shadow` | `0 8px 24px rgba(0, 0, 0, 0.45)` | `0 6px 16px rgba(15, 23, 42, 0.08)` | Hover preview popover shadow |
 
 ### 8. DataTable (5 variables)
 
-| Variable | Purpose |
-|----------|---------|
-| `--martis-row-even` | Striped even row |
-| `--martis-row-hover` | Row hover background |
-| `--martis-table-header-bg` | Header row background |
-| `--martis-table-header-text` | Header text |
-| `--martis-table-header-border` | Header border |
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-row-even` | `#10131A` | `#F9FAFB` | Striped even row |
+| `--martis-row-hover` | `#171B22` | `#F2F4F7` | Row hover background |
+| `--martis-table-header-bg` | `#0E1115` | `#F7F8FA` | Header row background |
+| `--martis-table-header-text` | `#8A93A1` | `#64748B` | Header text |
+| `--martis-table-header-border` | `#232830` | `#E4E8EE` | Header border |
 
 ### 9. Border Radius (5 variables)
 
-| Variable | Default | Use |
-|----------|---------|-----|
-| `--martis-radius-sm` | `0.25rem` | Tight elements (badges, chips) |
-| `--martis-radius-md` | `0.375rem` | Inputs, small buttons |
-| `--martis-radius-lg` | `0.5rem` | Buttons, cards |
-| `--martis-radius-xl` | `0.75rem` | Containers, large cards |
-| `--martis-radius-full` | `9999px` | Pills, avatars |
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-radius-sm` | `0.25rem` | same | Tight elements (badges, chips) |
+| `--martis-radius-md` | `0.375rem` | same | Inputs, small buttons |
+| `--martis-radius-lg` | `0.5rem` | same | Buttons, cards |
+| `--martis-radius-xl` | `0.75rem` | same | Containers, large cards |
+| `--martis-radius-full` | `9999px` | same | Pills, avatars |
 
-### 10. Typography (17 variables)
+### 10. Typography (31 variables)
 
-#### Font families
+Font families, the modular size scale, weights and line heights. Sizes, weights and line heights ship with **two names** each: the short form (`--martis-text-*`, `--martis-weight-*`, `--martis-leading-*`), used pervasively in package CSS, and the verbose alias (`--martis-font-size-*`, `--martis-font-weight-*`, `--martis-line-height-*`), defined as `var()` of the short one. **A theme sets the short name**: the package CSS reads it (only `body` and the password checklist read an alias), so a theme that sets only `--martis-font-size-sm` changes almost nothing. Both names are counted below, since both are defined.
 
-| Variable | Default |
-|----------|---------|
-| `--martis-font-sans` | Inter + system stack |
-| `--martis-font-mono` | JetBrains Mono + system stack |
-| `--martis-font-heading` | Same as `--martis-font-sans` |
-
-#### Font sizes (modular scale)
-
-The scale ships with **two interchangeable names** — `--martis-text-*` (short, used pervasively in package CSS) and `--martis-font-size-*` (verbose, semantic). Both resolve to the same value. Prefer the short form in new code.
-
-| Variable | Alias | Size | Pixels | Use |
-|----------|-------|------|--------|-----|
-| `--martis-text-xs` | `--martis-font-size-xs` | `0.75rem` | 12px | Tooltips, micro labels |
-| `--martis-text-sm` | `--martis-font-size-sm` | `0.875rem` | 14px | Body, inputs, labels |
-| `--martis-text-base` | `--martis-font-size-base` | `1rem` | 16px | Default |
-| `--martis-text-lg` | `--martis-font-size-lg` | `1.125rem` | 18px | Section headers |
-| `--martis-text-xl` | `--martis-font-size-xl` | `1.25rem` | 20px | Card titles |
-| `--martis-text-2xl` | `--martis-font-size-2xl` | `1.5rem` | 24px | Page titles |
-| `--martis-text-3xl` | `--martis-font-size-3xl` | `1.875rem` | 30px | Dashboard metrics |
-
-#### Font weights
-
-Same dual-naming convention as font sizes. The short form (`--martis-weight-*`) is what the bundled package CSS uses.
-
-| Variable | Alias | Value |
-|----------|-------|-------|
-| `--martis-weight-regular` | `--martis-font-weight-normal` | `400` |
-| `--martis-weight-medium` | `--martis-font-weight-medium` | `500` |
-| `--martis-weight-semibold` | `--martis-font-weight-semibold` | `600` |
-| `--martis-weight-bold` | `--martis-font-weight-bold` | `700` |
-
-#### Line heights
-
-| Variable | Value | Use |
-|----------|-------|-----|
-| `--martis-line-height-tight` | `1.25` | Titles |
-| `--martis-line-height-normal` | `1.5` | Body |
-| `--martis-line-height-relaxed` | `1.75` | Long-form content |
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-font-sans` | `'Inter var', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif` | same | Body font stack |
+| `--martis-font-mono` | `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace` | same | Code font stack |
+| `--martis-font-heading` | `'Inter var', 'Inter', ui-sans-serif, system-ui, sans-serif` | same | Heading font stack |
+| `--martis-text-xs` | `12px` | same | Tooltips, micro labels |
+| `--martis-text-sm` | `14px` | same | Body, inputs, labels |
+| `--martis-text-base` | `16px` | same | Default |
+| `--martis-text-lg` | `18px` | same | Section headers |
+| `--martis-text-xl` | `20px` | same | Card titles |
+| `--martis-text-2xl` | `24px` | same | Page titles |
+| `--martis-text-3xl` | `30px` | same | Dashboard metrics |
+| `--martis-font-size-xs` | `var(--martis-text-xs)` | same | Alias of `--martis-text-xs` |
+| `--martis-font-size-sm` | `var(--martis-text-sm)` | same | Alias of `--martis-text-sm` |
+| `--martis-font-size-base` | `var(--martis-text-base)` | same | Alias of `--martis-text-base` |
+| `--martis-font-size-lg` | `var(--martis-text-lg)` | same | Alias of `--martis-text-lg` |
+| `--martis-font-size-xl` | `var(--martis-text-xl)` | same | Alias of `--martis-text-xl` |
+| `--martis-font-size-2xl` | `var(--martis-text-2xl)` | same | Alias of `--martis-text-2xl` |
+| `--martis-font-size-3xl` | `var(--martis-text-3xl)` | same | Alias of `--martis-text-3xl` |
+| `--martis-weight-regular` | `400` | same | Font weight |
+| `--martis-weight-medium` | `500` | same | Font weight |
+| `--martis-weight-semibold` | `600` | same | Font weight |
+| `--martis-weight-bold` | `700` | same | Font weight |
+| `--martis-font-weight-normal` | `var(--martis-weight-regular)` | same | Alias of `--martis-weight-regular` |
+| `--martis-font-weight-medium` | `var(--martis-weight-medium)` | same | Alias of `--martis-weight-medium` |
+| `--martis-font-weight-semibold` | `var(--martis-weight-semibold)` | same | Alias of `--martis-weight-semibold` |
+| `--martis-font-weight-bold` | `var(--martis-weight-bold)` | same | Alias of `--martis-weight-bold` |
+| `--martis-leading-tight` | `1.25` | same | Titles |
+| `--martis-leading-normal` | `1.5` | same | Body |
+| `--martis-leading-relaxed` | `1.75` | same | Long-form content |
+| `--martis-line-height-tight` | `var(--martis-leading-tight)` | same | Alias of `--martis-leading-tight` |
+| `--martis-line-height-normal` | `var(--martis-leading-normal)` | same | Alias of `--martis-leading-normal` |
+| `--martis-line-height-relaxed` | `var(--martis-leading-relaxed)` | same | Alias of `--martis-leading-relaxed` |
 
 ### 11. Chart Palette (10 variables)
 
-10 distinct colors used by Partition and Trend metrics. Customize for branded dashboards.
+10 distinct colors used by Partition and Trend metrics. `PartitionCard` (donut/pie) uses them when no custom colors are provided; they are resolved at runtime via JavaScript (Chart.js cannot read CSS variables natively).
 
-```css
---martis-chart-1 ... --martis-chart-10
-```
-
-Used automatically by `PartitionCard` (donut/pie) when no custom colors provided. Resolved at runtime via JavaScript (Chart.js can't read CSS vars natively).
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-chart-1` | `#60A5FA` | `#2563EB` | Series 1 |
+| `--martis-chart-2` | `#34D399` | `#059669` | Series 2 |
+| `--martis-chart-3` | `#F472B6` | `#DB2777` | Series 3 |
+| `--martis-chart-4` | `#FBBF24` | `#D97706` | Series 4 |
+| `--martis-chart-5` | `#A78BFA` | `#7C3AED` | Series 5 |
+| `--martis-chart-6` | `#22D3EE` | `#0891B2` | Series 6 |
+| `--martis-chart-7` | `#FB923C` | `#EA580C` | Series 7 |
+| `--martis-chart-8` | `#F87171` | `#DC2626` | Series 8 |
+| `--martis-chart-9` | `#4ADE80` | `#16A34A` | Series 9 |
+| `--martis-chart-10` | `#C084FC` | `#9333EA` | Series 10 |
 
 ### 12. Avatar Palette (16 variables)
 
-16 deterministic hues for every initials avatar: the `Avatar` and `UiAvatar` fields, the Topbar and the profile page. The server (`Martis\Support\Initials`) picks one of `--martis-avatar-1..16` from a stable hash of the seed (the user's name, or e-mail when the name is blank; a field's seed attribute) and the frontend paints `var(--martis-avatar-N)`, so redefining these tokens in a theme recolours every avatar. Two people with the same name always get the same colour. A field with `colorFrom()` paints that attribute's colour instead. For a custom component, `avatarColorForSeed()` on `@martis/runtime` uses the same hash.
+16 deterministic hues for every initials avatar: the `Avatar` and `UiAvatar` fields, the Topbar and the profile page. The server (`Martis\Support\Initials`) picks one of `--martis-avatar-1..16` from a stable hash of the seed (the user's name, or e-mail when the name is blank; a field's seed attribute) and the frontend paints `var(--martis-avatar-N)`, so redefining these tokens in a theme recolours every avatar. `martis.css` and the scaffolded theme declare them twice, on `:root` and on `html:not(.dark)`, so set both blocks: a value set on `:root` alone recolours the dark mode only. Two people with the same name always get the same colour. A field with `colorFrom()` paints that attribute's colour instead. For a custom component, `avatarColorForSeed()` on `@martis/runtime` uses the same hash. The hex values are intentionally identical across light and dark themes: a user's avatar colour cannot change when the theme toggles.
 
-```css
---martis-avatar-1 ... --martis-avatar-16
-```
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-avatar-1` | `#2563EB` | same | Avatar hue 1 |
+| `--martis-avatar-2` | `#059669` | same | Avatar hue 2 |
+| `--martis-avatar-3` | `#DB2777` | same | Avatar hue 3 |
+| `--martis-avatar-4` | `#D97706` | same | Avatar hue 4 |
+| `--martis-avatar-5` | `#7C3AED` | same | Avatar hue 5 |
+| `--martis-avatar-6` | `#0891B2` | same | Avatar hue 6 |
+| `--martis-avatar-7` | `#EA580C` | same | Avatar hue 7 |
+| `--martis-avatar-8` | `#DC2626` | same | Avatar hue 8 |
+| `--martis-avatar-9` | `#16A34A` | same | Avatar hue 9 |
+| `--martis-avatar-10` | `#9333EA` | same | Avatar hue 10 |
+| `--martis-avatar-11` | `#4F46E5` | same | Avatar hue 11 |
+| `--martis-avatar-12` | `#0D9488` | same | Avatar hue 12 |
+| `--martis-avatar-13` | `#C026D3` | same | Avatar hue 13 |
+| `--martis-avatar-14` | `#65A30D` | same | Avatar hue 14 |
+| `--martis-avatar-15` | `#BE185D` | same | Avatar hue 15 |
+| `--martis-avatar-16` | `#475569` | same | Avatar hue 16 |
 
-The hex values are intentionally identical across light and dark themes — a user's avatar colour cannot change when the theme toggles.
+### 13. Brand Gradient (12 variables)
 
-### 13. Brand Gradient (9 variables)
+Tokens for hero / welcome / marquee surfaces (currently the dashboard `WelcomeCard`) and brand-bearing surfaces like the auth screen. Override these in your theme CSS to reskin the brand without touching React. Hero surfaces stay dark by design in both themes (white type on a saturated gradient reads better than the inverse), so the difference between themes is mostly trimmed opacity on the auroras. The two logo heights come from the config, not from `martis.css`: the panel's layout writes `MARTIS_BRAND_LOGO_HEIGHT_MENU` (default `40`, clamped to 20–56) and `MARTIS_BRAND_LOGO_HEIGHT_AUTH` (default `48`, clamped to 24–80) on `:root`, and the **Dark** / **Light** columns show those defaults. A theme that defines them overrides the `.env` knobs, so the scaffolded theme carries them commented out.
 
-Tokens for hero / welcome / marquee surfaces (currently the dashboard `WelcomeCard`) and brand-bearing surfaces like the auth screen. Override these in your theme CSS to reskin the brand without touching React.
-
-| Variable | Description |
-|----------|-------------|
-| `--martis-brand-gradient` | Base 135° gradient. Three stops; defaults to indigo / violet / purple. |
-| `--martis-brand-aurora-cyan` | Cyan aurora blob colour (drifts top-left). |
-| `--martis-brand-aurora-pink` | Pink aurora blob colour (drifts bottom-right). |
-| `--martis-brand-pointer-glow` | Spot-glow that tracks the cursor. |
-| `--martis-brand-grid-dot` | Dot-grid overlay opacity. |
-| `--martis-brand-shadow` | Shadow pushed under the brand surface. |
-| `--martis-brand-text` | Default text colour on top of the brand surface. |
-| `--martis-brand-badge-bg` | Glass fill of the version badge on the hero (default: a 12 % → 6 % white gradient). |
-| `--martis-brand-badge-border` | Border of the version badge (default `rgba(255, 255, 255, 0.22)`). |
-| `--martis-brand-shimmer` | Colour of the bright band that sweeps across the version badge every 3.5 s (default `rgba(255, 255, 255, 0.28)`). On a bright gradient the band can push the badge text below WCAG AA for a slice of every cycle: lower the alpha, or set `transparent` to remove the sweep. The band also stops under `prefers-reduced-motion` and `html[data-reduced-motion="true"]` (the aurora blobs keep drifting; they sit below the vestibular threshold, a bright highlight moving over text does not). |
-| `--martis-brand-logo-height-auth` | Logo height (px) on the auth screen lockup. |
-| `--martis-brand-logo-height-menu` | Logo height (px) in the user dropdown menu. |
-
-Light and dark themes ship the same recipe with stops keyed for the canvas — hero surfaces stay dark by design (white type on a saturated gradient reads better than the inverse), so the difference between themes is mostly trimmed opacity on the auroras.
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-brand-gradient` | `linear-gradient(135deg, #1A1F4B 0%, #2A1F66 45%, #3B1F7A 100%)` | `linear-gradient(135deg, #1F2566 0%, #2E2173 45%, #4324A0 100%)` | Base 135° gradient. Three stops; defaults to indigo / violet / purple. |
+| `--martis-brand-aurora-cyan` | `rgba(56, 189, 248, 0.55)` | `rgba(56, 189, 248, 0.45)` | Cyan aurora blob colour (drifts top-left). |
+| `--martis-brand-aurora-pink` | `rgba(236, 72, 153, 0.45)` | `rgba(236, 72, 153, 0.38)` | Pink aurora blob colour (drifts bottom-right). |
+| `--martis-brand-pointer-glow` | `rgba(124, 140, 255, 0.35)` | `rgba(124, 140, 255, 0.30)` | Spot-glow that tracks the cursor. |
+| `--martis-brand-grid-dot` | `rgba(255, 255, 255, 0.09)` | `rgba(255, 255, 255, 0.10)` | Dot-grid overlay opacity. |
+| `--martis-brand-shadow` | `0 20px 50px -20px rgba(76, 56, 200, 0.55)` | `0 20px 50px -20px rgba(76, 56, 200, 0.40)` | Shadow pushed under the brand surface. |
+| `--martis-brand-text` | `#FFFFFF` | same | Default text colour on top of the brand surface. |
+| `--martis-brand-badge-bg` | `linear-gradient(110deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%)` | same | Glass fill of the version badge on the hero (default: a 12 % → 6 % white gradient). |
+| `--martis-brand-badge-border` | `rgba(255, 255, 255, 0.22)` | same | Border of the version badge (default `rgba(255, 255, 255, 0.22)`). |
+| `--martis-brand-shimmer` | `rgba(255, 255, 255, 0.28)` | same | Colour of the bright band that sweeps across the version badge every 3.5 s (default `rgba(255, 255, 255, 0.28)`). On a bright gradient the band can push the badge text below WCAG AA for a slice of every cycle: lower the alpha, or set `transparent` to remove the sweep. The band also stops under `prefers-reduced-motion` and `html[data-reduced-motion="true"]` (the aurora blobs keep drifting; they sit below the vestibular threshold, a bright highlight moving over text does not). |
+| `--martis-brand-logo-height-auth` | `48px` | same | Logo height on the auth screen lockup (`MARTIS_BRAND_LOGO_HEIGHT_AUTH`). |
+| `--martis-brand-logo-height-menu` | `40px` | same | Logo height of the brand in the sidebar and the top navigation, in logo-only mode (`MARTIS_BRAND_LOGO_HEIGHT_MENU`). |
 
 ### 14. File Icon Colors (6 variables)
 
 Semantic colors for file type icons in `FileField`.
 
-| Variable | Default | File type |
-|----------|---------|-----------|
-| `--martis-file-icon-pdf` | `#ef4444` | PDF |
-| `--martis-file-icon-doc` | `#3b82f6` | Word documents |
-| `--martis-file-icon-xls` | `#22c55e` | Excel/CSV |
-| `--martis-file-icon-ppt` | `#f97316` | PowerPoint |
-| `--martis-file-icon-zip` | `#a855f7` | Archives |
-| `--martis-file-icon-default` | `#6b7280` | Unknown |
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-file-icon-pdf` | `#EF4444` | `#DC2626` | PDF |
+| `--martis-file-icon-doc` | `#3B82F6` | `#2563EB` | Word documents |
+| `--martis-file-icon-xls` | `#22C55E` | `#16A34A` | Excel/CSV |
+| `--martis-file-icon-ppt` | `#F97316` | `#EA580C` | PowerPoint |
+| `--martis-file-icon-zip` | `#A78BFA` | `#7C3AED` | Archives |
+| `--martis-file-icon-default` | `#8A93A1` | `#64748B` | Unknown |
 
-### 15. Badge Variants (legacy — 12 variables)
+### 15. Badge Variants (legacy) (12 variables)
 
-Kept for backward compatibility with existing Badge field components. New code should use semantic variants (`--martis-success-bg`, etc.).
+Kept for backward compatibility with existing Badge field components. New code should use the semantic variants (`--martis-success-bg`, etc.).
 
-```css
---martis-badge-{type}-bg
---martis-badge-{type}-text
---martis-badge-{type}-border
-```
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-badge-info-bg` | `rgba(56, 189, 248, 0.14)` | `#E0F2FE` | Legacy info badge background |
+| `--martis-badge-info-text` | `#7DD3FC` | `#0369A1` | Legacy info badge text |
+| `--martis-badge-info-border` | `rgba(56, 189, 248, 0.30)` | `#BAE6FD` | Legacy info badge border |
+| `--martis-badge-success-bg` | `rgba(34, 197, 94, 0.12)` | `#E7F7EC` | Legacy success badge background |
+| `--martis-badge-success-text` | `#4ADE80` | `#15803D` | Legacy success badge text |
+| `--martis-badge-success-border` | `rgba(34, 197, 94, 0.30)` | `#BBF7D0` | Legacy success badge border |
+| `--martis-badge-warning-bg` | `rgba(245, 158, 11, 0.14)` | `#FEF3DB` | Legacy warning badge background |
+| `--martis-badge-warning-text` | `#FBBF24` | `#B45309` | Legacy warning badge text |
+| `--martis-badge-warning-border` | `rgba(245, 158, 11, 0.30)` | `#FDE68A` | Legacy warning badge border |
+| `--martis-badge-danger-bg` | `rgba(239, 68, 68, 0.14)` | `#FDE5E5` | Legacy danger badge background |
+| `--martis-badge-danger-text` | `#F87171` | `#B91C1C` | Legacy danger badge text |
+| `--martis-badge-danger-border` | `rgba(239, 68, 68, 0.30)` | `#FECACA` | Legacy danger badge border |
 
-Where `{type}` is one of: `info`, `success`, `warning`, `danger`.
+### 16. Density (7 variables)
+
+The comfortable values; `[data-density="dense"]` swaps them (see [Density tokens](#density-tokens--data-density)).
+
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-row-h` | `44px` | same | Table row height |
+| `--martis-nav-item-h` | `34px` | same | Sidebar item height |
+| `--martis-input-h` | `36px` | same | Input height |
+| `--martis-btn-h` | `34px` | same | Button height |
+| `--martis-pad-x` | `20px` | same | Horizontal surface padding |
+| `--martis-pad-y` | `18px` | same | Vertical surface padding |
+| `--martis-gap` | `14px` | same | Gap between stacked elements |
+
+### 17. Motion (10 variables)
+
+Durations and easing curves (see [Motion tokens](#motion-tokens----martis-dur----martis-ease-)). Reduced motion clamps every duration to `1ms`.
+
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-dur-ultra` | `80ms` | same | Micro feedback |
+| `--martis-dur-fast` | `120ms` | same | Hover, color and background changes |
+| `--martis-dur-base` | `180ms` | same | Default transition |
+| `--martis-dur-medium` | `240ms` | same | Panels, drawers |
+| `--martis-dur-slow` | `320ms` | same | Large surfaces |
+| `--martis-ease-standard` | `cubic-bezier(0.2, 0.8, 0.2, 1)` | same | Default easing |
+| `--martis-ease-accel` | `cubic-bezier(0.4, 0, 1, 1)` | same | Leaving the screen |
+| `--martis-ease-decel` | `cubic-bezier(0, 0, 0.2, 1)` | same | Entering the screen |
+| `--martis-ease-linear` | `linear` | same | Progress, constant motion |
+| `--martis-ease-spring` | `cubic-bezier(0.34, 1.56, 0.64, 1)` | same | Playful overshoot |
+
+### 18. Print (5 variables)
+
+The palette of the print stylesheet (see [Print stylesheet](#-print-stylesheet--media-print)); `@media print` pins them for both themes.
+
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-print-bg` | `#ffffff` | same | Paper background |
+| `--martis-print-text` | `#000000` | same | Body text |
+| `--martis-print-border` | `#000000` | same | Table and card borders |
+| `--martis-print-link-color` | `#000000` | same | Link text (targets are inlined) |
+| `--martis-print-muted` | `#444444` | same | Secondary text |
+
+### 19. Rich Text Editor (1 variable)
+
+| Variable | Dark | Light | Purpose |
+|----------|------|-------|---------|
+| `--martis-trix-icon-filter` | `invert(0.85)` | `none` | CSS `filter` applied to the Trix toolbar icons (inverted on the dark theme) |
 
 ---
 
@@ -372,7 +441,7 @@ Override per-surface by adding `[data-density="dense"]` on any ancestor — a de
 
 ### Motion tokens — `--martis-dur-*`, `--martis-ease-*`
 
-**Six** duration stops (`fast`, `sm`, `base`, `medium`, `slow`, `ultra` — 80ms → 480ms) and **five** easing curves (`linear`, `standard`, `accel`, `decel`, `spring`). Custom themes inherit them; override any value to slow down / speed up your whole app without touching component CSS.
+**Five** duration stops (`ultra`, `fast`, `base`, `medium`, `slow`: 80ms → 320ms) and **five** easing curves (`linear`, `standard`, `accel`, `decel`, `spring`). Custom themes inherit them; override any value to slow down / speed up your whole app without touching component CSS.
 
 Both `@media (prefers-reduced-motion: reduce)` and `html[data-reduced-motion="true"]` clamp every duration to `1ms` — transitions still resolve (focus rings keep working), just instantly.
 
@@ -443,7 +512,7 @@ Hide additional surfaces by attribute: `<div data-print-hide="true">…` is not 
   backgroundColor: 'var(--martis-surface)',
   color: 'var(--martis-text)',
   borderRadius: 'var(--martis-radius-lg)',
-  fontSize: 'var(--martis-font-size-sm)',
+  fontSize: 'var(--martis-text-sm)',
   boxShadow: 'var(--martis-shadow-md)',
 }}>
   Themed content
@@ -545,26 +614,30 @@ Before v1.37.1 the workaround was to add `className="martis-input"` (or `p-input
 
 | Category | Count |
 |----------|-------|
-| Background layers | 7 |
-| Text & borders | 4 |
-| Accent variants | 7 |
-| Semantic solid | 8 |
-| Semantic backgrounds & text | 8 |
-| Interactive states | 4 |
-| Overlays & shadows | 5 |
+| Background Layers | 7 |
+| Text & Borders | 3 |
+| Accent / Brand | 7 |
+| Semantic Colors, Solid | 8 |
+| Semantic Backgrounds & Text | 8 |
+| Interactive States | 4 |
+| Overlays & Shadows | 5 |
 | DataTable | 5 |
-| Border radius | 5 |
-| Typography (families/sizes/weights/heights) | 17 |
-| Chart palette | 10 |
-| Avatar palette | 16 |
-| Brand gradient | 9 |
-| File icons | 6 |
-| Badge variants (legacy) | 12 |
-| Density tokens | 7 |
-| Motion tokens (durations + eases) | 11 |
-| **Total** | **141** |
+| Border Radius | 5 |
+| Typography | 31 |
+| Chart Palette | 10 |
+| Avatar Palette | 16 |
+| Brand Gradient | 12 |
+| File Icon Colors | 6 |
+| Badge Variants (legacy) | 12 |
+| Density | 7 |
+| Motion | 10 |
+| Print | 5 |
+| Rich Text Editor | 1 |
+| **Total** | **162** |
 
-The `--martis-text-*` ↔ `--martis-font-size-*` and `--martis-weight-*` ↔ `--martis-font-weight-*` aliases are counted once each; the package ships both names but they always resolve to the same value.
+Each alias pair (`--martis-text-*` / `--martis-font-size-*`, `--martis-weight-*` / `--martis-font-weight-*`, `--martis-leading-*` / `--martis-line-height-*`) is counted as two variables, since both names are defined. The package CSS reads the short name, though: only `body` and the password checklist read an alias, so **set the short name in a theme** (`--martis-text-sm`, not `--martis-font-size-sm`).
+
+Not counted: the per-element layout variables the React components set inline (`--martis-field-span`, `--martis-field-span-md`, `--martis-field-span-lg`, `--martis-field-columns`, `--martis-card-span`, `--martis-card-span-md`, `--martis-card-span-lg`, `--martis-filter-span`), which are not theme tokens, and two optional hooks no stylesheet defines: `--martis-tooltip-bg` and `--martis-tooltip-text` color the tooltips when a theme sets them (they fall back to `--martis-text` on `--martis-bg`, inverted). `tests/Unit/ThemeTokenDriftTest.php` fails when these lists drift: a variable `martis.css` defines that the stub or this reference does not list, a value or a count that does not match, a stale total elsewhere in the docs, or a `var(--martis-*)` read in the package CSS or components that nothing defines and this paragraph does not name.
 
 ---
 
@@ -592,7 +665,7 @@ That's it — buttons, links, focus rings, selected items all turn pink instantl
 :root {
   --martis-font-sans: 'Roboto', sans-serif;
   --martis-font-heading: 'Playfair Display', serif;
-  --martis-font-size-base: 0.9375rem;  /* 15px instead of 16px */
+  --martis-text-base: 0.9375rem;  /* 15px instead of 16px */
 }
 ```
 
