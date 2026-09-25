@@ -36,3 +36,9 @@
 
 # Internal-only dev docs — never ship in the Composer dist.
 /internal              export-ignore
+
+# Maintainer tooling and repo-only config.
+/.tooling              export-ignore
+/phpstan-baseline.neon export-ignore
+/.phpunit.result.cache export-ignore
+/AGENTS.md             export-ignore
