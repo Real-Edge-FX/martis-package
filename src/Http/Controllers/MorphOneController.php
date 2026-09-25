@@ -78,18 +78,24 @@ class MorphOneController extends MartisController
         // concern as HasOneOfMany.
         $ofManyMeta = null;
         if ($morphOneField instanceof MorphOneOfMany) {
-            $relatedClass = get_class($relation->getRelated());
-            $fk = $relation->getForeignKeyName();
-            $parentKey = $parentModel->getKey();
-            $morphType = $relation->getMorphType();
-            $morphClass = $parentModel->getMorphClass();
-            $baseQuery = fn () => $relatedClass::query()
-                ->where($fk, $parentKey)
-                ->where($morphType, $morphClass);
+            // Rebuilt from the relation's own keys, so a custom local key
+            // counts this parent's rows.
+            $related = get_class($relation->getRelated());
+            $baseQuery = fn () => $parentModel->morphMany(
+                $related,
+                '',
+                $relation->getMorphType(),
+                $relation->getForeignKeyName(),
+                $relation->getLocalKeyName(),
+            )->getQuery();
 
             $ofManyMeta = ['totalCount' => $baseQuery()->count()];
             $fn = $morphOneField->getAggregateFunction();
             $col = $morphOneField->getAggregateColumn();
+            $column = $col;
+            if ($col !== null && $col !== '*') {
+                $col = $relation->getRelated()->qualifyColumn($col);
+            }
             if ($fn !== null && $col !== null) {
                 $agg = match ($fn->value) {
                     'count' => (int) $baseQuery()->count($col === '*' ? '*' : $col),
@@ -99,7 +105,7 @@ class MorphOneController extends MartisController
                     'avg' => $baseQuery()->avg($col),
                     default => null,
                 };
-                $ofManyMeta['aggregate'] = ['fn' => $fn->value, 'column' => $col, 'value' => $agg];
+                $ofManyMeta['aggregate'] = ['fn' => $fn->value, 'column' => $column, 'value' => $agg];
             }
         }
 

@@ -85,9 +85,8 @@ class HasOneOfMany extends HasOne
         $this->runtimeScope = static function (Builder $query) use ($column): Builder {
             // The primary key breaks a timestamp tie, as Eloquent's
             // latestOfMany() does, so every database picks the same record
-            // for the card and for its writes; both columns are qualified
-            // because a through relation joins another table.
-            return $query->orderByDesc($query->qualifyColumn($column))
+            // for the card and for its writes.
+            return $query->orderByDesc(self::orderColumn($query, $column))
                 ->orderByDesc($query->getModel()->getQualifiedKeyName());
         };
 
@@ -100,11 +99,30 @@ class HasOneOfMany extends HasOne
     public function oldestByTimestamp(string $column = 'created_at'): static
     {
         $this->runtimeScope = static function (Builder $query) use ($column): Builder {
-            return $query->orderBy($query->qualifyColumn($column))
+            return $query->orderBy(self::orderColumn($query, $column))
                 ->orderBy($query->getModel()->getQualifiedKeyName());
         };
 
         return $this;
+    }
+
+    /**
+     * The column to order by. The related model's own timestamp columns
+     * are qualified with its table: a through relation joins the
+     * intermediate table, which usually has the same `created_at` /
+     * `updated_at`. Any other column is used as given, so a column that
+     * only the intermediate table has still works; qualify a column that
+     * both tables have (`projects.published_at`).
+     *
+     * @param  Builder<Model>  $query
+     */
+    private static function orderColumn(Builder $query, string $column): string
+    {
+        $model = $query->getModel();
+
+        return in_array($column, [$model->getCreatedAtColumn(), $model->getUpdatedAtColumn()], true)
+            ? $query->qualifyColumn($column)
+            : $column;
     }
 
     /**

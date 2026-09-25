@@ -6,10 +6,12 @@ use Illuminate\Database\Eloquent\Relations\HasOne as EloquentHasOne;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough as EloquentHasOneThrough;
 use Illuminate\Database\Eloquent\Relations\MorphMany as EloquentMorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne as EloquentMorphOne;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
+use Martis\Enums\AggregateFunction;
 use Martis\Fields\HasOne;
 use Martis\Fields\MorphOne;
 use Martis\Fields\Text;
@@ -83,14 +85,14 @@ class OMWTeamModel extends Model
 {
     protected $table = 'omw_teams';
 
-    protected $fillable = ['parent_id'];
+    protected $fillable = ['parent_id', 'hired_at'];
 }
 
 class OMWProjectModel extends Model
 {
     protected $table = 'omw_projects';
 
-    protected $fillable = ['title', 'written_at', 'team_id'];
+    protected $fillable = ['title', 'written_at', 'amount', 'team_id'];
 }
 
 class OMWProjectResource extends Resource
@@ -127,8 +129,59 @@ class OMWThroughParentResource extends Resource
     {
         return [
             Text::make('name'),
-            HasOne::ofMany('Latest project', 'project', OMWProjectResource::class)->latestByTimestamp('written_at'),
+            HasOne::ofMany('Latest project', 'project', OMWProjectResource::class)
+                ->latestByTimestamp('written_at')
+                ->aggregateVia(AggregateFunction::Sum, 'amount'),
         ];
+    }
+}
+
+class OMWThroughHiredParentResource extends Resource
+{
+    public static function model(): string
+    {
+        return OMWParentModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'omw-through-hired-parents';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('name'),
+            HasOne::ofMany('Latest project', 'project', OMWProjectResource::class)->latestByTimestamp('hired_at'),
+        ];
+    }
+}
+
+class OMWUser extends Authenticatable
+{
+    protected $table = 'omw_users';
+}
+
+class OMWAllowNewOnlyPolicy
+{
+    public function viewAny(): bool
+    {
+        return true;
+    }
+
+    public function view(): bool
+    {
+        return true;
+    }
+
+    public function update(mixed $user, OMWNoteModel $note): bool
+    {
+        return $note->title === 'New';
+    }
+
+    public function delete(mixed $user, OMWNoteModel $note): bool
+    {
+        return $note->title === 'New';
     }
 }
 
@@ -292,6 +345,7 @@ beforeEach(function () {
     Schema::create('omw_teams', function ($table) {
         $table->id();
         $table->unsignedBigInteger('parent_id');
+        $table->dateTime('hired_at')->nullable();
         $table->timestamps();
     });
 
@@ -300,12 +354,13 @@ beforeEach(function () {
         $table->unsignedBigInteger('team_id');
         $table->string('title');
         $table->dateTime('written_at');
+        $table->integer('amount')->default(0);
         $table->timestamps();
     });
 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
-    foreach ([OMWNoteResource::class, OMWCommentResource::class, OMWProjectResource::class, OMWLatestParentResource::class, OMWOldestParentResource::class, OMWEloquentParentResource::class, OMWThroughParentResource::class] as $class) {
+    foreach ([OMWNoteResource::class, OMWCommentResource::class, OMWProjectResource::class, OMWLatestParentResource::class, OMWOldestParentResource::class, OMWEloquentParentResource::class, OMWThroughParentResource::class, OMWThroughHiredParentResource::class] as $class) {
         $registry->register($class);
     }
 
@@ -383,12 +438,13 @@ it('deletes the record the card shows', function (string $resource, string $path
 function omwSeedThrough(OMWParentModel $a, string $older, string $newer): OMWParentModel
 {
     $b = OMWParentModel::create(['name' => 'B']);
-    $teamB = OMWTeamModel::create(['parent_id' => $b->id]);
-    OMWProjectModel::create(['team_id' => $teamB->id, 'title' => 'B-One', 'written_at' => $older]);
-    OMWProjectModel::create(['team_id' => $teamB->id, 'title' => 'B-Two', 'written_at' => $older]);
-    $teamA = OMWTeamModel::create(['parent_id' => $a->id]);
-    OMWProjectModel::create(['team_id' => $teamA->id, 'title' => 'A-Old', 'written_at' => $older]);
-    OMWProjectModel::create(['team_id' => $teamA->id, 'title' => 'A-New', 'written_at' => $newer]);
+    $teamB = OMWTeamModel::create(['parent_id' => $b->id, 'hired_at' => $older]);
+    OMWProjectModel::create(['team_id' => $teamB->id, 'title' => 'B-One', 'written_at' => $older, 'amount' => 100]);
+    OMWProjectModel::create(['team_id' => $teamB->id, 'title' => 'B-Two', 'written_at' => $older, 'amount' => 100]);
+    OMWProjectModel::create(['team_id' => $teamB->id, 'title' => 'B-Three', 'written_at' => $older, 'amount' => 100]);
+    $teamA = OMWTeamModel::create(['parent_id' => $a->id, 'hired_at' => $newer]);
+    OMWProjectModel::create(['team_id' => $teamA->id, 'title' => 'A-Old', 'written_at' => $older, 'amount' => 1]);
+    OMWProjectModel::create(['team_id' => $teamA->id, 'title' => 'A-New', 'written_at' => $newer, 'amount' => 2]);
 
     expect($teamA->id)->toBe(2);
 
@@ -405,13 +461,14 @@ it('shows, updates and deletes the record of a one-of-many declared on a through
         ->assertJsonPath('data.id', $aNew);
 
     $this->putJson($url, ['title' => 'Renamed'])->assertStatus(200);
-    expect(DB::table('omw_projects')->orderBy('id')->pluck('title')->all())->toBe(['B-One', 'B-Two', 'A-Old', 'Renamed']);
+    expect(DB::table('omw_projects')->orderBy('id')->pluck('title')->all())->toBe(['B-One', 'B-Two', 'B-Three', 'A-Old', 'Renamed']);
 
     $this->deleteJson($url)->assertStatus(200);
-    expect(DB::table('omw_projects')->orderBy('id')->pluck('title')->all())->toBe(['B-One', 'B-Two', 'A-Old']);
+    expect(DB::table('omw_projects')->orderBy('id')->pluck('title')->all())->toBe(['B-One', 'B-Two', 'B-Three', 'A-Old']);
 });
 
 it('checks the policy on the record the card shows', function () use ($older, $newer) {
+    $this->actingAs((new OMWUser)->forceFill(['id' => 1]));
     Gate::policy(OMWNoteModel::class, OMWDenyNewNotePolicy::class);
     omwSeed($this->parent, 'notes', [['Old', $older, 1], ['New', $newer, 2]]);
     $url = "/martis/api/resources/omw-latest-parents/{$this->parent->id}/has-one/notes";
@@ -422,14 +479,44 @@ it('checks the policy on the record the card shows', function () use ($older, $n
     expect(omwTitles('notes'))->toBe(['Old', 'New']);
 });
 
-it('breaks a timestamp tie on the primary key, the same way for show, update and delete', function (string $resource, string $shown) use ($older) {
-    omwSeed($this->parent, 'notes', [['First', $older, 1], ['Second', $older, 2]]);
-    $url = "/martis/api/resources/{$resource}/{$this->parent->id}/has-one/notes";
+it('breaks a timestamp tie on the primary key, the same way for show, update and delete', function (string $resource, string $path, string $storage, string $shown) use ($older) {
+    omwSeed($this->parent, $storage, [['First', $older, 1], ['Second', $older, 2]]);
+    $url = "/martis/api/resources/{$resource}/{$this->parent->id}/{$path}";
 
     $this->getJson($url)->assertStatus(200)->assertJsonPath('data.title', $shown);
     $this->putJson($url, ['title' => 'Renamed'])->assertStatus(200);
-    expect(omwTitles('notes'))->toBe(array_map(fn (string $t) => $t === $shown ? 'Renamed' : $t, ['First', 'Second']));
+    expect(omwTitles($storage))->toBe(array_map(fn (string $t) => $t === $shown ? 'Renamed' : $t, ['First', 'Second']));
+
+    $this->deleteJson($url)->assertStatus(200);
+    expect(omwTitles($storage))->toBe(array_values(array_filter(['First', 'Second'], fn (string $t) => $t !== $shown)));
 })->with([
-    'latest keeps the newest id' => ['omw-latest-parents', 'Second'],
-    'oldest keeps the oldest id' => ['omw-oldest-parents', 'First'],
+    'has-one latest keeps the newest id' => ['omw-latest-parents', 'has-one/notes', 'notes', 'Second'],
+    'has-one oldest keeps the oldest id' => ['omw-oldest-parents', 'has-one/notes', 'notes', 'First'],
+    'morph-one latest keeps the newest id' => ['omw-latest-parents', 'morph-one/comments', 'comments', 'Second'],
+    'morph-one oldest keeps the oldest id' => ['omw-oldest-parents', 'morph-one/comments', 'comments', 'First'],
 ]);
+
+it('lets a logged-in user with the policy write the record the card shows', function () use ($older, $newer) {
+    $this->actingAs((new OMWUser)->forceFill(['id' => 1]));
+    Gate::policy(OMWNoteModel::class, OMWAllowNewOnlyPolicy::class);
+    omwSeed($this->parent, 'notes', [['Old', $older, 1], ['New', $newer, 2]]);
+    $url = "/martis/api/resources/omw-latest-parents/{$this->parent->id}/has-one/notes";
+
+    $this->putJson($url, ['title' => 'Renamed'])->assertStatus(200);
+    expect(omwTitles('notes'))->toBe(['Old', 'Renamed']);
+});
+
+it('counts and aggregates this parent\'s rows on a through relation, never another parent\'s', function () use ($older, $newer) {
+    omwSeedThrough($this->parent, $older, $newer);
+    $url = "/martis/api/resources/omw-through-parents/{$this->parent->id}/has-one/project";
+
+    $response = $this->getJson($url)->assertStatus(200)->assertJsonPath('meta.ofMany.totalCount', 2);
+    expect((int) $response->json('meta.ofMany.aggregate.value'))->toBe(3);
+});
+
+it('orders a through relation by a column of the intermediate table as given', function () use ($older, $newer) {
+    omwSeedThrough($this->parent, $older, $newer);
+    $url = "/martis/api/resources/omw-through-hired-parents/{$this->parent->id}/has-one/project";
+
+    $this->getJson($url)->assertStatus(200)->assertJsonPath('data.title', 'A-New');
+});
