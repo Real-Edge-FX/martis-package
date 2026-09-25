@@ -4,6 +4,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
+use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\StubResolver;
 use Martis\Support\LinkedDirectory;
 use Martis\Support\ThemeFiles;
@@ -13,6 +14,8 @@ use Throwable;
 
 class ThemeMakeCommand extends Command
 {
+    use AsksOnlyOnATerminal;
+
     protected $signature = 'martis:theme
                             {name? : The theme name (default: custom)}
                             {--force : Overwrite an existing theme file without prompting}';
@@ -35,9 +38,9 @@ class ThemeMakeCommand extends Command
         }
 
         if (file_exists($path) && ! $this->option('force')) {
-            // In non-interactive contexts (CI, pipes, unit tests), prompting is
-            // not possible — fail explicitly so automation knows to pass --force.
-            if (! $this->input->isInteractive() || app()->runningUnitTests()) {
+            // Without a terminal (CI, pipes, unit tests) prompting is not
+            // possible: fail explicitly so automation knows to pass --force.
+            if (! $this->canPrompt()) {
                 $this->components->error("Theme '{$name}.css' already exists. Use --force to overwrite.");
 
                 return self::FAILURE;

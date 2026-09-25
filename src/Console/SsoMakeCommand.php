@@ -259,8 +259,7 @@ class SsoMakeCommand extends Command
 
     protected function runMigrations(): void
     {
-        if ($this->input->isInteractive()
-            && ! app()->runningUnitTests()
+        if ($this->canPrompt()
             && ! $this->confirm('Run pending migrations now?', true)) {
             $this->components->twoColumnDetail('<fg=yellow>Skipping</> migrate', 'user declined');
 

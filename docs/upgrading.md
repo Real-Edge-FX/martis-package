@@ -97,7 +97,7 @@ See [Cache → Invalidation](cache.md#invalidation).
 
 ### `martis:install` asks only on a terminal
 
-`martis:install` (and `martis:sso`'s role mapping) asks a question only when the input is interactive **and** stdin is a real TTY. Through a pipe or `docker compose exec -T` every question takes its default: optional features you pass no flag for stay off, the avatar column is `profile_picture`, and `--existing-avatar-column` needs `--avatar-column`. Before v2.0 the avatar column questions read the pipe, and `--force` rewrote any `*_create_notifications_table.php` / `*_create_sessions_table.php`, the application's own included.
+`martis:install`, and every other Martis command that asks (the generators' "Overwrite?", `martis:sso`'s role mapping, the "Run pending migrations now?" of `martis:invitations`, `martis:roles` and `martis:sso`), asks a question only when the input is interactive **and** stdin is a real TTY. A generator run through a pipe leaves an existing file alone unless you pass `--force`. Through a pipe or `docker compose exec -T` every question takes its default: optional features you pass no flag for stay off, the avatar column is `profile_picture`, and `--existing-avatar-column` needs `--avatar-column`. Before v2.0 the avatar column questions read the pipe, and `--force` rewrote any `*_create_notifications_table.php` / `*_create_sessions_table.php`, the application's own included.
 
 **What to check:**
 
