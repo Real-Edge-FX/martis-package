@@ -246,6 +246,10 @@ Per-resource and per-row action execution.
 | `GET` | `/martis/api/resources/{resource}/actions/{action}/relatable/{field}` | Options of a `BelongsTo` / `MorphTo` / `Tag` the action declares, read from the action's `fields()` (v1.38.0). Gated on `viewAny` of the resource, the action's `canSee()` and `viewAny` of the related resource. |
 | `POST` | `/martis/api/resources/{resource}/actions/{action}` | Run a bulk / standalone action. |
 | `POST` | `/martis/api/resources/{resource}/{id}/actions/{action}` | Run an inline (per-row) action. |
+| `GET` | `/martis/api/resources/{resource}/lenses/{lens}/actions` | The actions a lens runs: its own `actions()`, or the resource's when the lens does not override it (v2.0.1). 403 on a lens the user cannot see (`canSee()`), 404 on an unknown one. |
+| `GET` | `/martis/api/resources/{resource}/lenses/{lens}/actions/{action}/fields` | Field schema of an action the lens runs (v2.0.1). |
+| `GET` | `/martis/api/resources/{resource}/lenses/{lens}/actions/{action}/relatable/{field}` | Picker options of a relation field of an action the lens runs, gated as the resource route plus the lens's `canSee()` (v2.0.1). |
+| `POST` | `/martis/api/resources/{resource}/lenses/{lens}/actions/{action}` | Run a bulk, inline or standalone action of the lens (v2.0.1), as Nova's lens action route. The selected records are resolved as on the resource route (the resource's `scopes()` and `indexQuery()`), and the action's `canSee()` / `canRun()` and the run-action policy apply. |
 | `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions` | Pivot-row actions list. |
 | `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions/{action}/fields` | Field schema of a pivot action, without the fields the user cannot see (v1.38.0). |
 | `GET` | `/martis/api/resources/{resource}/{id}/{belongs-to-many\|morph-to-many}/{rel}/actions/{action}/relatable/{field}` | Options of a `BelongsTo` / `MorphTo` / `Tag` a pivot action declares, behind the panel's pivot action gates, with the parent resource as the source of the relatable hooks (v1.38.0). |

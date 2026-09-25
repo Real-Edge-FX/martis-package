@@ -571,6 +571,7 @@ function LensPage() {
       <ActionModal
         action={activeAction}
         resource={resource}
+        lens={lensKey}
         selectedIds={actionTargetIds}
         visible={!!activeAction}
         onHide={() => {

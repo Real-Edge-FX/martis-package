@@ -20,6 +20,7 @@ use Martis\Fields\MorphMany;
 use Martis\Fields\MorphToMany;
 use Martis\Fields\Repeater;
 use Martis\Http\Resources\JsonErrorResponse;
+use Martis\Lenses\Lens;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\Support\RelationScope;
@@ -45,9 +46,10 @@ abstract class MartisController extends Controller
      * whether each action may run on the row's record, by the same predicate
      * `ActionController::execute()` enforces (see `actionRunDenial()`), so an
      * item the menu enables is one the run accepts. The resource index maps
-     * every action the user can see; a relationship panel (`$inlineOnly`)
-     * maps only its inline actions, the only ones its rows offer. `null`
-     * when there is none to map, so the rows skip it.
+     * every action the user can see; a lens maps the actions it runs (see
+     * `availableActions()`); a relationship panel (`$inlineOnly`) maps only
+     * its inline actions, the only ones its rows offer. `null` when there
+     * is none to map, so the rows skip it.
      *
      * The closure takes the row's serialized `_authorization`, whose
      * `authorizedToRunAction` / `authorizedToRunDestructiveAction` flags are
@@ -57,10 +59,10 @@ abstract class MartisController extends Controller
      * @param  class-string<resource>  $resourceClass
      * @return (\Closure(Model, array<string, mixed>=): array<string, bool>)|null
      */
-    protected function rowActionAuthorizer(Request $request, string $resourceClass, bool $inlineOnly = false): ?\Closure
+    protected function rowActionAuthorizer(Request $request, string $resourceClass, bool $inlineOnly = false, ?Lens $lens = null): ?\Closure
     {
         $actions = array_filter(
-            (new $resourceClass)->actions($request),
+            $this->availableActions(new $resourceClass, $request, $lens),
             fn (ActionContract $action): bool => $action->authorizedToSee($request)
                 && (! $inlineOnly || $action->isShownInline()),
         );
@@ -603,12 +605,49 @@ abstract class MartisController extends Controller
     }
 
     /**
-     * Find an Action a resource registers, by URI key. The caller runs the
-     * Action's gates (authorizedToSee(), authorizedToRun()).
+     * The actions a listing offers: the resource's, or on a lens the ones
+     * the lens declares in its own `actions()`, which replace the
+     * resource's (even an empty list); a lens that does not override
+     * `actions()` inherits the resource's. As in Nova, where a lens's
+     * actions are resolved from the lens (`LensActionRequest`).
+     *
+     * @return array<int, ActionContract>
      */
-    protected function findAction(Resource $resource, string $uriKey, Request $request): ?ActionContract
+    protected function availableActions(Resource $resource, Request $request, ?Lens $lens = null): array
     {
-        $actions = $resource->actions($request);
+        /** @var array<int, ActionContract> $actions */
+        $actions = $lens !== null && $lens->hasOverride('actions')
+            ? $lens->actions($request)
+            : $resource->actions($request);
+
+        return $actions;
+    }
+
+    /**
+     * The lens of `$resource` whose URI key is `$uriKey`, or a 404 when the
+     * resource declares none, or a 403 when the user may not see it.
+     */
+    protected function resolveLens(Resource $resource, string $uriKey, Request $request): Lens|IlluminateJsonResponse
+    {
+        foreach ($resource->lenses($request) as $lens) {
+            if ($lens instanceof Lens && $lens->uriKey() === $uriKey) {
+                return $lens->authorizedToSee($request)
+                    ? $lens
+                    : JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            }
+        }
+
+        return JsonErrorResponse::notFound("Lens '{$uriKey}' not found on resource.")->toResponse();
+    }
+
+    /**
+     * Find an Action a resource registers, or the lens `$lens` runs (see
+     * `availableActions()`), by URI key. The caller runs the Action's gates
+     * (authorizedToSee(), authorizedToRun()).
+     */
+    protected function findAction(Resource $resource, string $uriKey, Request $request, ?Lens $lens = null): ?ActionContract
+    {
+        $actions = $this->availableActions($resource, $request, $lens);
 
         foreach ($actions as $action) {
             if ($action->uriKey() === $uriKey) {

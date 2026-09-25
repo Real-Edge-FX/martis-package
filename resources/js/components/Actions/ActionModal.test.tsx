@@ -13,12 +13,17 @@ import { ToastProvider } from '@/contexts/ToastContext'
  */
 
 const apiGetMock = vi.fn()
+const apiPostMock = vi.fn()
 
 vi.mock('@/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api')>()
   return {
     ...actual,
-    api: { ...actual.api, get: (...args: unknown[]) => apiGetMock(...args) },
+    api: {
+      ...actual.api,
+      get: (...args: unknown[]) => apiGetMock(...args),
+      post: (...args: unknown[]) => apiPostMock(...args),
+    },
   }
 })
 
@@ -48,6 +53,8 @@ function relatableCalls(): string[] {
 
 beforeEach(() => {
   apiGetMock.mockReset()
+  apiPostMock.mockReset()
+  apiPostMock.mockResolvedValue({ data: { type: 'message', data: { message: 'Done.' } } })
   apiGetMock.mockImplementation(async (url: string) =>
     url.endsWith('/actions/assign-owner/fields') ? { data: { fields: [ownerField] } } : { data: [] },
   )
@@ -91,5 +98,52 @@ describe('ActionModal pickers', () => {
 
     await waitFor(() => expect(relatableCalls()).toHaveLength(1))
     expect(relatableCalls()[0].split('?')[0]).toBe(`/api/resources/${resource}/actions/assign-owner/relatable/owner_id`)
+  })
+})
+
+describe('ActionModal on a lens', () => {
+  // A lens's actions are resolved from the lens (its own actions(), as in
+  // Nova): an action only the lens declares is unknown to the resource's
+  // action routes, so its fields, its pickers and its run use the lens's.
+  it('reads the fields, the picker options and runs the action through the lens routes', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ToastProvider>
+          <MemoryRouter initialEntries={['/resources/projects/lens/overdue']}>
+            <Routes>
+              <Route
+                path="/resources/:resource/lens/:lens"
+                element={
+                  <ActionModal
+                    resource="projects"
+                    lens="overdue"
+                    action={action}
+                    selectedIds={[1]}
+                    visible
+                    onHide={() => {}}
+                    onSuccess={() => {}}
+                  />
+                }
+              />
+            </Routes>
+          </MemoryRouter>
+        </ToastProvider>
+      </QueryClientProvider>,
+    )
+
+    const trigger = await waitFor(() => {
+      const el = document.body.querySelector('.martis-belongs-to-trigger')
+      expect(el).not.toBeNull()
+      return el as HTMLElement
+    })
+    expect(String(apiGetMock.mock.calls[0][0])).toBe('/api/resources/projects/lenses/overdue/actions/assign-owner/fields')
+
+    fireEvent.click(trigger)
+    await waitFor(() => expect(relatableCalls()).toHaveLength(1))
+    expect(relatableCalls()[0].split('?')[0]).toBe('/api/resources/projects/lenses/overdue/actions/assign-owner/relatable/owner_id')
+
+    fireEvent.click(document.body.querySelector('.martis-btn-primary') as HTMLElement)
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(1))
+    expect(apiPostMock.mock.calls[0][0]).toBe('/api/resources/projects/lenses/overdue/actions/assign-owner')
   })
 })

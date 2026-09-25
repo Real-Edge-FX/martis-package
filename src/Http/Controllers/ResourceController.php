@@ -1362,6 +1362,33 @@ class ResourceController extends MartisController
         string $action,
         string $fieldAttr,
     ): IlluminateJsonResponse {
+        return $this->actionRelatable($request, $resource, $action, $fieldAttr, null);
+    }
+
+    /**
+     * Return filtered options for a relationship field of an Action a lens
+     * runs (its own `actions()`, or the resource's when it declares none),
+     * gated as `actionRelatableOptions()` is, and by the lens's `canSee()`.
+     *
+     * GET /api/resources/{resource}/lenses/{lens}/actions/{action}/relatable/{field}
+     */
+    public function lensActionRelatableOptions(
+        Request $request,
+        string $resource,
+        string $lens,
+        string $action,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        return $this->actionRelatable($request, $resource, $action, $fieldAttr, $lens);
+    }
+
+    private function actionRelatable(
+        Request $request,
+        string $resource,
+        string $action,
+        string $fieldAttr,
+        ?string $lensKey,
+    ): IlluminateJsonResponse {
         [$resourceClass, $error] = $this->resolveResource($resource);
 
         if ($error !== null) {
@@ -1373,7 +1400,14 @@ class ResourceController extends MartisController
             return $forbidden;
         }
 
-        $actionInstance = $this->findAction(new $resourceClass, $action, $request);
+        $instance = new $resourceClass;
+        $lens = $lensKey === null ? null : $this->resolveLens($instance, $lensKey, $request);
+
+        if ($lens instanceof IlluminateJsonResponse) {
+            return $lens;
+        }
+
+        $actionInstance = $this->findAction($instance, $action, $request, $lens);
 
         if ($actionInstance === null) {
             return JsonErrorResponse::notFound("Action [{$action}] not found.")->toResponse();

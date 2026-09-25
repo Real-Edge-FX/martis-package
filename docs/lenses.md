@@ -199,6 +199,22 @@ public function filters(Request $request): array
 }
 ```
 
+#### Actions only the lens declares
+
+A lens that overrides `actions()` runs its own list, as in Nova: the lens
+page reads the actions' fields and pickers and runs them through
+`/martis/api/resources/{resource}/lenses/{lens}/actions/...` (see
+[API → Actions](api/overview.md#actions)), so an action the resource does
+not declare works on the lens, and a resource action the lens left out
+does not run from it. The lens's `canSee()` gates those routes; the
+action's `canSee()` / `canRun()` and the run-action policy apply as on the
+index, and each lens row carries `_actionAuthorization` for the lens's
+actions. The selected records are looked up as the resource index lists
+them (its `scopes()` and `indexQuery()`), not through `Lens::query()`: a
+lens row the resource index hides cannot be acted on. Before v2.0.1 the
+lens page ran its actions through the resource's routes, which only know
+the resource's `actions()`: an action only the lens declared answered 404.
+
 The controller uses PHP reflection (`Lens::hasOverride(string $method)`)
 to tell an implicit fallback apart from a deliberate empty return.
 

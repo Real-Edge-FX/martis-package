@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **An action only a lens declares runs from the lens.** The lens page ran its actions through the resource's action routes, which look up the resource's `actions()` only, so an action declared in the lens's own `actions()` answered 404 (its fields, its pickers and its run), and a resource action the lens left out could still run. The lens page now uses the new lens action routes, `/martis/api/resources/{resource}/lenses/{lens}/actions` (list), `.../{action}/fields`, `.../{action}/relatable/{field}` and `POST .../{action}`, which resolve the action from the lens (its own `actions()`, or the resource's when it does not override it), as Nova's lens action routes do, and are gated by the lens's `canSee()`. The records are still resolved as the resource index lists them. Lens rows now carry `_actionAuthorization` for the lens's actions, so an inline action disabled by `canRun()` shows disabled. Rebuild and republish the assets (`php artisan martis:publish-assets`). +11 Pest, +1 Vitest.
+
 ## [2.0.0] — 2026-09-25
 
 Major release: see [Upgrading](docs/upgrading.md) before updating a 1.x app. Includes every fix of 1.39.2. Known issues deferred to 2.1: relationship writes do not validate `relatableQuery()` (Nova's `Relatable` rule), the action log is readable by every panel user, and some Tailwind borders without a style class do not render.
