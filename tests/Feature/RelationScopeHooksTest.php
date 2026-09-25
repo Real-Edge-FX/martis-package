@@ -10,7 +10,9 @@
  * has, and one that returns its own query. Born from the review of #256.
  *
  * MARTIS_TEST_DB=mysql|pgsql runs the file against MySQL 8 on 127.0.0.1:33306
- * or PostgreSQL on 127.0.0.1:55432 (database `probe`, password `root`).
+ * or PostgreSQL on 127.0.0.1:55432 (database `probe`, password `root`);
+ * MARTIS_TEST_DB_HOST, MARTIS_TEST_DB_PORT and MARTIS_TEST_DB_PASSWORD name
+ * another server (see rshServer()).
  */
 
 use Illuminate\Database\Eloquent\Builder;
@@ -313,14 +315,41 @@ function rshSchema(): Illuminate\Database\Schema\Builder
     return DB::connection()->getSchemaBuilder();
 }
 
+/**
+ * The server MARTIS_TEST_DB runs the file against: 127.0.0.1 on 33306
+ * (MySQL) or 55432 (PostgreSQL), database `probe`, password `root`, unless
+ * MARTIS_TEST_DB_HOST, MARTIS_TEST_DB_PORT or MARTIS_TEST_DB_PASSWORD say
+ * otherwise.
+ *
+ * @return array{host: string, port: int, database: string, username: string, password: string}
+ */
+function rshServer(string $driver): array
+{
+    return [
+        'host' => getenv('MARTIS_TEST_DB_HOST') ?: '127.0.0.1',
+        'port' => (int) (getenv('MARTIS_TEST_DB_PORT') ?: ($driver === 'mysql' ? 33306 : 55432)),
+        'database' => 'probe',
+        'username' => $driver === 'mysql' ? 'root' : 'postgres',
+        'password' => getenv('MARTIS_TEST_DB_PASSWORD') ?: 'root',
+    ];
+}
+
+/** A second connection to that server, as a concurrent request opens. */
+function rshPdo(string $driver): PDO
+{
+    $server = rshServer($driver);
+
+    return new PDO("{$driver}:host={$server['host']};port={$server['port']};dbname={$server['database']}", $server['username'], $server['password']);
+}
+
 beforeEach(function () {
     $this->withoutMiddleware(MartisAuthenticate::class);
 
     $driver = getenv('MARTIS_TEST_DB') ?: 'sqlite';
     if ($driver !== 'sqlite') {
-        config(['database.connections.probe' => $driver === 'mysql'
-            ? ['driver' => 'mysql', 'host' => '127.0.0.1', 'port' => 33306, 'database' => 'probe', 'username' => 'root', 'password' => 'root', 'charset' => 'utf8mb4', 'collation' => 'utf8mb4_unicode_ci', 'prefix' => '', 'strict' => true, 'engine' => null]
-            : ['driver' => 'pgsql', 'host' => '127.0.0.1', 'port' => 55432, 'database' => 'probe', 'username' => 'postgres', 'password' => 'root', 'charset' => 'utf8', 'prefix' => '', 'search_path' => 'public', 'sslmode' => 'disable']]);
+        config(['database.connections.probe' => rshServer($driver) + ($driver === 'mysql'
+            ? ['driver' => 'mysql', 'charset' => 'utf8mb4', 'collation' => 'utf8mb4_unicode_ci', 'prefix' => '', 'strict' => true, 'engine' => null]
+            : ['driver' => 'pgsql', 'charset' => 'utf8', 'prefix' => '', 'search_path' => 'public', 'sslmode' => 'disable'])]);
         DB::purge('probe');
         DB::setDefaultConnection('probe');
         if (! rshSchema()->hasTable('martis_cache_state')) {
@@ -853,8 +882,7 @@ it('P27 two concurrent creates on a has-one: the parent lock serializes them', f
     $ownerId = $this->a->id;
     $pid = pcntl_fork();
     if ($pid === 0) {
-        $dsn = $driver === 'mysql' ? 'mysql:host=127.0.0.1;port=33306;dbname=probe' : 'pgsql:host=127.0.0.1;port=55432;dbname=probe';
-        $pdo = new PDO($dsn, $driver === 'mysql' ? 'root' : 'postgres', 'root');
+        $pdo = rshPdo($driver);
         $pdo->beginTransaction();
         $pdo->query("select * from rsh_owners where id = {$ownerId} for update")->fetchAll();
         $pdo->exec("insert into rsh_profiles (owner_id, bio) values ({$ownerId}, 'concurrent')");
@@ -927,8 +955,7 @@ it('P28 the lock when the models use a connection other than the default one', f
     $ownerId = $this->a->id;
     $pid = pcntl_fork();
     if ($pid === 0) {
-        $dsn = $driver === 'mysql' ? 'mysql:host=127.0.0.1;port=33306;dbname=probe' : 'pgsql:host=127.0.0.1;port=55432;dbname=probe';
-        $pdo = new PDO($dsn, $driver === 'mysql' ? 'root' : 'postgres', 'root');
+        $pdo = rshPdo($driver);
         $pdo->beginTransaction();
         $pdo->query("select * from rsh_owners where id = {$ownerId} for update")->fetchAll();
         $pdo->exec("insert into rsh_profiles (owner_id, bio) values ({$ownerId}, 'concurrent')");
@@ -962,8 +989,7 @@ function rshRaceBetweenCheckAndInsert(string $driver, int $ownerId, string $url)
         while (! file_exists("$dir/go") && microtime(true) < $deadline) {
             usleep(10000);
         }
-        $dsn = $driver === 'mysql' ? 'mysql:host=127.0.0.1;port=33306;dbname=probe' : 'pgsql:host=127.0.0.1;port=55432;dbname=probe';
-        $pdo = new PDO($dsn, $driver === 'mysql' ? 'root' : 'postgres', 'root');
+        $pdo = rshPdo($driver);
         $pdo->beginTransaction();
         $pdo->query("select * from rsh_owners where id = {$ownerId} for update")->fetchAll();
         $exists = (int) $pdo->query("select count(*) from rsh_profiles where owner_id = {$ownerId}")->fetchColumn();
