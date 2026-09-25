@@ -4,6 +4,25 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.0.1 from v2.0.0
+
+### The action log is closed by default
+
+The Action Events resource (the `martis_action_events` audit log) was readable by every panel user, `original` and `changes` included, whatever fields those users could see on the records. From v2.0.1 it is closed until you open it, and it masks the values the viewer could not read on the record:
+
+- **Access.** A deny-by-default gate, `view-martis-action-events`, decides who reads the log, unless a policy for `Martis\Models\ActionEvent` defines `viewAny` / `view` (then the policy decides, as before). Without access the index and the detail answer `403`, the sidebar entry and the command palette's *Recent activity* disappear, and a relationship panel that lists the log shows no rows.
+- **Hidden values.** A value in `original` / `changes` reads `[hidden]` unless the viewer may see that attribute on the record's own detail page (a visible field, through a resource that lets the viewer view the record). Attributes no field shows, such as `password`, are masked too. The stored rows are unchanged.
+
+**What to change:** grant the gate to the users who should read the log, in `app/Providers/MartisServiceProvider.php` (or any service provider):
+
+```php
+use Illuminate\Support\Facades\Gate;
+
+Gate::define('view-martis-action-events', fn ($user) => $user->is_admin);
+```
+
+An app with an `ActionEventPolicy` that defines `viewAny` and `view` needs no change. A custom resource for the `ActionEvent` model keeps its own authorization; apply `ActionEventRedactor::redact()` to its `original` / `changes` fields to mask the same values. See [Actions → Who can read the audit log](actions.md#who-can-read-the-audit-log-v201).
+
 ## Upgrading to v2.0 from v1.x
 
 Require the new major; a `^1.x` constraint never installs it:

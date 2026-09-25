@@ -314,7 +314,7 @@ Spatie 5+ fires `RoleAttachedEvent`, `RoleDetachedEvent`, `PermissionAttachedEve
 | `permission.attached` | Spatie permission attached directly to a model (rare; usually flows via roles) |
 | `permission.detached` | Spatie permission detached directly from a model |
 
-Each row carries the acting user (the Martis guard's user when the change is made in a panel request, `null` when it is made elsewhere: a site request, a job, a command), the target model FQCN + id, and the list of role / permission ids in the `fields.ids` JSON column. Browse the log under `/martis/system/action-events`.
+Each row carries the acting user (the Martis guard's user when the change is made in a panel request, `null` when it is made elsewhere: a site request, a job, a command), the target model FQCN + id, and the list of role / permission ids in the `fields.ids` JSON column. Browse the log under `/martis/system/action-events`, once the `view-martis-action-events` gate lets you (see [Actions → Who can read the audit log](actions.md#who-can-read-the-audit-log-v201)).
 
 The listener is gated on a single config knob:
 

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Martis\Auth\GuardCatalog;
 use Martis\Models\ActionEvent;
+use Martis\Resources\ActionEventResource;
 
 /**
  * Listener that writes a `martis_action_events` row every time
@@ -64,7 +65,10 @@ class RecordAuthorizationDenial
         // navigation. The denial is already implied when `view` is also
         // denied — recording both produces double the volume for zero
         // signal. Keep `viewAny` only when the consumer explicitly asks.
-        if ($event->ability === 'viewAny' && (bool) config('martis.audit.authz_denials_include_viewany', false) === false) {
+        // The audit log's own gate runs with every navigation build (the
+        // Action Events entry asks it for its viewAny), so it belongs to
+        // the same cascade.
+        if (in_array($event->ability, ['viewAny', ActionEventResource::GATE], true) && (bool) config('martis.audit.authz_denials_include_viewany', false) === false) {
             return;
         }
 

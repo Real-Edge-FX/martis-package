@@ -2,7 +2,11 @@
 
 namespace Martis\Resources;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Martis\Actions\ActionEventRedactor;
 use Martis\Enums\SortDirection;
 use Martis\Fields\Code;
 use Martis\Fields\DateTime;
@@ -21,10 +25,80 @@ use Martis\Resource;
  * Users can hide this resource from the sidebar by overriding
  * displayInNavigation() or setting the config key to false.
  *
- * This resource is read-only — create, update and delete are disabled.
+ * This resource is read-only: create, update and delete are disabled.
+ *
+ * Access. The audit log is closed by default, as the log holds what
+ * every user changed. A policy for the ActionEvent model that defines
+ * `viewAny` / `view` decides, as for any resource (Nova's
+ * `ActionResource` follows the ActionEvent policy too); an ability the
+ * policy does not define, or no policy at all, falls back to the
+ * `view-martis-action-events` gate, which denies until the host
+ * defines it. Without access the resource answers 403, leaves the
+ * navigation and the command palette, and a relationship panel that
+ * lists it (a `MorphMany` on an `Actionable` model) lists no rows.
+ *
+ * Redaction. `original` and `changes` show a value only when the
+ * viewer may see that attribute on the record's own detail page
+ * ({@see ActionEventRedactor}); other values read `[hidden]`.
  */
 class ActionEventResource extends Resource
 {
+    /** The gate that opens the audit log when no policy decides. */
+    public const GATE = 'view-martis-action-events';
+
+    /** {@inheritdoc} */
+    public function authorizedToViewAny(Request $request): bool
+    {
+        if ($this->policyDefinesAbility('viewAny')) {
+            return parent::authorizedToViewAny($request);
+        }
+
+        return static::gateAllows($request);
+    }
+
+    /** {@inheritdoc} */
+    public function authorizedToView(Request $request): bool
+    {
+        if ($this->policyDefinesAbility('view')) {
+            return parent::authorizedToView($request);
+        }
+
+        return static::gateAllows($request);
+    }
+
+    /**
+     * A viewer without access lists no rows, wherever the resource is
+     * listed: its index and, above all, a relationship panel on another
+     * record's detail page (which only checks the parent's `view`).
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    public static function indexQuery(Request $request, Builder $query): Builder
+    {
+        $resourceClass = static::class;
+
+        if (! (new $resourceClass)->authorizedToViewAny($request)) {
+            $query->whereRaw('1 = 0');
+
+            return $query;
+        }
+
+        return parent::indexQuery($request, $query);
+    }
+
+    /** Whether the `view-martis-action-events` gate allows the request's user. */
+    protected static function gateAllows(Request $request): bool
+    {
+        $user = $request->user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        return Gate::forUser($user)->allows(static::GATE);
+    }
+
     /** {@inheritdoc} */
     public static function globallySearchable(): bool
     {
@@ -90,9 +164,8 @@ class ActionEventResource extends Resource
     {
         // Audit log lives in the System section alongside Cache admin
         // and (when scaffolded via `martis:roles`) the Roles, Permissions,
-        // and Users resources. Admin-only via App\Policies\ActionEventPolicy
-        // when the host registers one (see docs/policies.md); the
-        // package itself stays unopinionated and exposes the resource.
+        // and Users resources. Closed until the host grants the
+        // `view-martis-action-events` gate or an ActionEvent policy.
         return true;
     }
 
@@ -153,11 +226,17 @@ class ActionEventResource extends Resource
 
             Code::make('original', 'Original')
                 ->json()
+                ->resolveUsing(static fn (mixed $value, Model $model, string $attribute, ?Request $request = null): mixed => $model instanceof ActionEvent
+                    ? ActionEventRedactor::redact($model, $value, $request ?? request())
+                    : $value)
                 ->hideFromIndex()
                 ->nullable(),
 
             Code::make('changes', 'Changes')
                 ->json()
+                ->resolveUsing(static fn (mixed $value, Model $model, string $attribute, ?Request $request = null): mixed => $model instanceof ActionEvent
+                    ? ActionEventRedactor::redact($model, $value, $request ?? request())
+                    : $value)
                 ->hideFromIndex()
                 ->nullable(),
 
