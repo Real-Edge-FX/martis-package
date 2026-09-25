@@ -40,22 +40,30 @@ final class RelationScope
     /**
      * Apply the hooks to `$query` in place, grouped. A hook that returns
      * another builder than the one it received constrains `$query` by key.
+     * The relation's query keeps its own trashed state (the relation's
+     * definition, the panel's filter).
      *
      * @param  Builder<Model>  $query  A plain has-many / morph-many relation's query.
      * @param  class-string<resource>  $relatedResourceClass
-     * @param  bool  $withTrashed  Whether the panel lists trashed records (`?trashed=with|only`).
      */
-    public static function apply(Request $request, Builder $query, string $relatedResourceClass, bool $withTrashed = false): void
+    public static function apply(Request $request, Builder $query, string $relatedResourceClass): void
     {
-        $scope = function (Builder $scoped) use ($request, $relatedResourceClass, $withTrashed): void {
+        $scope = function (Builder $scoped) use ($request, $relatedResourceClass): void {
+            $before = count($scoped->getQuery()->wheres);
             $result = $relatedResourceClass::indexQuery($request, $relatedResourceClass::applyScopes($request, $scoped));
 
-            if ($result !== $scoped) {
-                if ($withTrashed) {
-                    $result->withoutGlobalScope(SoftDeletingScope::class);
-                }
+            // callScope() joins the group with the boolean of the first
+            // condition it adds: a hook that starts with orWhere() would
+            // otherwise OR the whole group with the relation's own
+            // constraint and reach other parents' rows. On the index the
+            // grammar drops a leading `or`, so the hook means `and` there.
+            $wheres = &$scoped->getQuery()->wheres;
+            if (isset($wheres[$before]) && str_starts_with((string) $wheres[$before]['boolean'], 'or')) {
+                $wheres[$before]['boolean'] = 'and'.substr((string) $wheres[$before]['boolean'], 2);
+            }
 
-                $scoped->whereIn(self::keyColumn($scoped), self::keys($result));
+            if ($result !== $scoped) {
+                $scoped->whereIn(self::keyColumn($scoped), self::keys($result->withoutGlobalScope(SoftDeletingScope::class)));
             }
         };
 
@@ -66,25 +74,21 @@ final class RelationScope
 
     /**
      * Keep the rows of `$query` whose key the hooks return, run on a fresh
-     * query of the related model.
+     * query of the related model. The keys ignore the soft-delete scope:
+     * `$query` already decides which trashed records it keeps (a relation
+     * defined `withTrashed()`, the panel's `?trashed` filter).
      *
      * @param  Builder<Model>  $query  Any query over the related model's table.
      * @param  class-string<resource>  $relatedResourceClass
-     * @param  bool  $withTrashed  Whether the caller lists trashed records.
      */
-    public static function constrainByKey(Request $request, Builder $query, string $relatedResourceClass, bool $withTrashed = false): void
+    public static function constrainByKey(Request $request, Builder $query, string $relatedResourceClass): void
     {
         $fresh = $relatedResourceClass::newModel()->newQuery();
 
-        if ($withTrashed) {
-            $fresh->withoutGlobalScope(SoftDeletingScope::class);
-        }
-
-        $result = $relatedResourceClass::indexQuery($request, $relatedResourceClass::applyScopes($request, $fresh));
-
-        if ($withTrashed) {
-            $result->withoutGlobalScope(SoftDeletingScope::class);
-        }
+        // Dropped from what the hooks return, the fresh query or one they
+        // built themselves.
+        $result = $relatedResourceClass::indexQuery($request, $relatedResourceClass::applyScopes($request, $fresh))
+            ->withoutGlobalScope(SoftDeletingScope::class);
 
         $query->whereIn(self::keyColumn($query), self::keys($result));
     }
@@ -101,6 +105,13 @@ final class RelationScope
         $keys = $result->toBase()->reorder();
         $keys->limit = null;
         $keys->offset = null;
+
+        // A HAVING may read an alias the hook selects (`withCount()` then
+        // `having('likes_count', ...)`): keep its select and read the key
+        // from it as a derived table, which MySQL accepts in `IN (...)`.
+        if (! empty($keys->havings)) {
+            return $keys->newQuery()->fromSub($keys, 'martis_keys')->select('martis_keys.'.$result->getModel()->getKeyName());
+        }
 
         return $keys->select($result->getModel()->getQualifiedKeyName());
     }

@@ -770,3 +770,288 @@ it('P25 the one-of-many card still reads its newest record, and a hidden-by-view
     RSHItem::create(['owner_id' => $this->a->id, 'title' => 'A-newest-private', 'written_at' => now()->addDay()]);
     rshPanel('has-one/items')->assertOk()->assertJsonPath('meta.hidden', true);
 });
+
+// ---------------------------------------------------------------------
+// Second review round
+// ---------------------------------------------------------------------
+
+it('P24a has-many panel with a hook whose first constraint is an orWhere()', function () {
+    RSHItemResource::$hook = fn (Builder $q) => $q->orWhere($q->qualifyColumn('title'), 'like', 'A%')->orWhere($q->qualifyColumn('is_public'), true);
+    $index = $this->getJson('/martis/api/resources/rsh-items')->assertOk();
+    $r = rshPanel('has-many/items')->assertOk();
+    $card = rshPanel('has-one/items')->assertOk();
+    $parent = collect($this->getJson('/martis/api/resources/rsh-owners')->assertOk()->json('data'))->keyBy('name');
+    expect(collect($r->json('data'))->pluck('title')->all())->toBe(['A1']);
+});
+
+it('P24b the same leading orWhere() from scopes()', function () {
+    RSHItemResource::$scopeHooks = ['visible' => fn (Builder $q) => $q->orWhere($q->qualifyColumn('title'), 'like', 'A%')->orWhere($q->qualifyColumn('is_public'), true)];
+    $r = rshPanel('has-many/items')->assertOk();
+    expect(collect($r->json('data'))->pluck('title')->all())->toBe(['A1']);
+});
+
+it('P25 a hook that filters on a withCount alias (having)', function () {
+    RSHItemResource::$hook = fn (Builder $q) => $q->withCount('likes')->having('likes_count', '>=', 0);
+    $index = $this->getJson('/martis/api/resources/rsh-items');
+    $hasMany = rshPanel('has-many/items');
+    $through = rshPanel('has-many/groupItems');
+    $parent = $this->getJson('/martis/api/resources/rsh-owners');
+    $card = rshPanel('has-one/items');
+    expect([$through->status(), $parent->status(), $card->status()])->toBe([$index->status(), $index->status(), $index->status()]);
+});
+
+class RSHOwnerTrashedRel extends RSHOwner
+{
+    public function allItems(): EHasMany
+    {
+        return $this->hasMany(RSHItem::class, 'owner_id')->withTrashed();
+    }
+
+    public function allTags(): EBelongsToMany
+    {
+        return $this->belongsToMany(RSHTag::class, 'rsh_owner_tag', 'owner_id', 'tag_id')->withTrashed();
+    }
+}
+
+class RSHOwnerTrashedRelResource extends Resource
+{
+    public static function model(): string
+    {
+        return RSHOwnerTrashedRel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-owners-trashed';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('name'),
+            HasMany::make('All items', 'allItems')->relatedResource('rsh-items')->showOnIndex(),
+            BelongsToMany::make('All tags', 'allTags')->relatedResource('rsh-tags')->showOnIndex(),
+        ];
+    }
+}
+
+it('P26 a relation defined withTrashed(): index count, has-many panel and pivot panel, no hooks', function () {
+    app(ResourceRegistry::class)->register(RSHOwnerTrashedRelResource::class);
+    $this->itemA->delete();
+    RSHTag::where('title', 'A-tag')->first()->delete();
+    $rows = collect($this->getJson('/martis/api/resources/rsh-owners-trashed')->assertOk()->json('data'))->keyBy('name');
+    $hasMany = $this->getJson('/martis/api/resources/rsh-owners-trashed/'.$this->a->id.'/has-many/allItems')->assertOk();
+    $pivot = $this->getJson('/martis/api/resources/rsh-owners-trashed/'.$this->a->id.'/belongs-to-many/allTags')->assertOk();
+    expect([$rows['Owner A']['allItems'], $rows['Owner A']['allTags']])->toBe([$hasMany->json('meta.total'), $pivot->json('meta.total')]);
+});
+
+it('P27 two concurrent creates on a has-one: the parent lock serializes them', function () {
+    $driver = getenv('MARTIS_TEST_DB') ?: 'sqlite';
+    if ($driver === 'sqlite' || ! function_exists('pcntl_fork')) {
+        $this->markTestSkipped('Needs a second database connection: MARTIS_TEST_DB=mysql|pgsql and pcntl.');
+    }
+    $ownerId = $this->a->id;
+    $pid = pcntl_fork();
+    if ($pid === 0) {
+        $dsn = $driver === 'mysql' ? 'mysql:host=127.0.0.1;port=33306;dbname=probe' : 'pgsql:host=127.0.0.1;port=55432;dbname=probe';
+        $pdo = new PDO($dsn, $driver === 'mysql' ? 'root' : 'postgres', 'root');
+        $pdo->beginTransaction();
+        $pdo->query("select * from rsh_owners where id = {$ownerId} for update")->fetchAll();
+        $pdo->exec("insert into rsh_profiles (owner_id, bio) values ({$ownerId}, 'concurrent')");
+        usleep(1500000);
+        $pdo->commit();
+        posix_kill(posix_getpid(), SIGKILL);
+    }
+    usleep(500000);
+    $t0 = microtime(true);
+    $r = $this->postJson('/martis/api/resources/rsh-owners/'.$ownerId.'/has-one/profile', ['bio' => 'mine']);
+    $waited = (microtime(true) - $t0) * 1000;
+    pcntl_waitpid($pid, $status);
+    $count = RSHProfile::where('owner_id', $ownerId)->count();
+    expect($count)->toBe(1);
+});
+
+class RSHOwnerOnProbe extends RSHOwner
+{
+    protected $connection = 'probe';
+
+    public function profile(): EHasOne
+    {
+        return $this->hasOne(RSHProfileOnProbe::class, 'owner_id');
+    }
+}
+
+class RSHProfileOnProbe extends RSHProfile
+{
+    protected $connection = 'probe';
+}
+
+class RSHOwnerOnProbeResource extends RSHOwnerTrashedRelResource
+{
+    public static function model(): string
+    {
+        return RSHOwnerOnProbe::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-owners-on-probe';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('name'), HasOne::make('Profile', 'profile')->relatedResource('rsh-profiles-on-probe')];
+    }
+}
+
+class RSHProfileOnProbeResource extends RSHProfileResource
+{
+    public static function model(): string
+    {
+        return RSHProfileOnProbe::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'rsh-profiles-on-probe';
+    }
+}
+
+it('P28 the lock when the models use a connection other than the default one', function () {
+    $driver = getenv('MARTIS_TEST_DB') ?: 'sqlite';
+    if ($driver === 'sqlite' || ! function_exists('pcntl_fork')) {
+        $this->markTestSkipped('Needs a second database connection: MARTIS_TEST_DB=mysql|pgsql and pcntl.');
+    }
+    app(ResourceRegistry::class)->register(RSHOwnerOnProbeResource::class);
+    app(ResourceRegistry::class)->register(RSHProfileOnProbeResource::class);
+    $ownerId = $this->a->id;
+    $pid = pcntl_fork();
+    if ($pid === 0) {
+        $dsn = $driver === 'mysql' ? 'mysql:host=127.0.0.1;port=33306;dbname=probe' : 'pgsql:host=127.0.0.1;port=55432;dbname=probe';
+        $pdo = new PDO($dsn, $driver === 'mysql' ? 'root' : 'postgres', 'root');
+        $pdo->beginTransaction();
+        $pdo->query("select * from rsh_owners where id = {$ownerId} for update")->fetchAll();
+        $pdo->exec("insert into rsh_profiles (owner_id, bio) values ({$ownerId}, 'concurrent')");
+        usleep(1500000);
+        $pdo->commit();
+        posix_kill(posix_getpid(), SIGKILL);
+    }
+    usleep(500000);
+    // The app's default connection is another database (sqlite here), as in
+    // a landlord/tenant setup; the models name their own connection.
+    DB::setDefaultConnection('sqlite');
+    $r = $this->postJson('/martis/api/resources/rsh-owners-on-probe/'.$ownerId.'/has-one/profile', ['bio' => 'mine']);
+    DB::setDefaultConnection('probe');
+    pcntl_waitpid($pid, $status);
+    $count = RSHProfile::where('owner_id', $ownerId)->count();
+    expect($count)->toBe(1);
+});
+
+/**
+ * A second request that runs the same steps as the controller (lock the
+ * parent, check, insert) exactly between the first request's in-transaction
+ * check and its insert.
+ */
+function rshRaceBetweenCheckAndInsert(string $driver, int $ownerId, string $url): array
+{
+    $dir = sys_get_temp_dir().'/rsh-race-'.getmypid().'-'.uniqid();
+    @mkdir($dir);
+    $pid = pcntl_fork();
+    if ($pid === 0) {
+        $deadline = microtime(true) + 10;
+        while (! file_exists("$dir/go") && microtime(true) < $deadline) {
+            usleep(10000);
+        }
+        $dsn = $driver === 'mysql' ? 'mysql:host=127.0.0.1;port=33306;dbname=probe' : 'pgsql:host=127.0.0.1;port=55432;dbname=probe';
+        $pdo = new PDO($dsn, $driver === 'mysql' ? 'root' : 'postgres', 'root');
+        $pdo->beginTransaction();
+        $pdo->query("select * from rsh_owners where id = {$ownerId} for update")->fetchAll();
+        $exists = (int) $pdo->query("select count(*) from rsh_profiles where owner_id = {$ownerId}")->fetchColumn();
+        if ($exists === 0) {
+            $pdo->exec("insert into rsh_profiles (owner_id, bio) values ({$ownerId}, 'concurrent')");
+        }
+        $pdo->commit();
+        touch("$dir/done");
+        posix_kill(posix_getpid(), SIGKILL);
+    }
+
+    $seen = 0;
+    DB::listen(function ($query) use (&$seen, $dir) {
+        if ($query->connectionName === 'probe' && str_contains(strtolower($query->sql), 'exists') && str_contains($query->sql, 'rsh_profiles')) {
+            $seen++;
+            if ($seen === 2) {
+                touch("$dir/go");
+                $deadline = microtime(true) + 1.5;
+                while (! file_exists("$dir/done") && microtime(true) < $deadline) {
+                    usleep(10000);
+                }
+            }
+        }
+    });
+
+    $r = test()->postJson($url, ['bio' => 'mine']);
+    pcntl_waitpid($pid, $status);
+    @unlink("$dir/go");
+    @unlink("$dir/done");
+    @rmdir($dir);
+
+    return [$r->status(), DB::connection('probe')->table('rsh_profiles')->where('owner_id', $ownerId)->count(), $seen];
+}
+
+it('P29 race between the check and the insert, models on the default connection (control)', function () {
+    $driver = getenv('MARTIS_TEST_DB') ?: 'sqlite';
+    if ($driver === 'sqlite' || ! function_exists('pcntl_fork')) {
+        $this->markTestSkipped('Needs a second database connection: MARTIS_TEST_DB=mysql|pgsql and pcntl.');
+    }
+    [$status, $count, $seen] = rshRaceBetweenCheckAndInsert($driver, $this->a->id, '/martis/api/resources/rsh-owners/'.$this->a->id.'/has-one/profile');
+    expect($count)->toBe(1);
+});
+
+it('P30 race between the check and the insert, models on a connection other than the default', function () {
+    $driver = getenv('MARTIS_TEST_DB') ?: 'sqlite';
+    if ($driver === 'sqlite' || ! function_exists('pcntl_fork')) {
+        $this->markTestSkipped('Needs a second database connection: MARTIS_TEST_DB=mysql|pgsql and pcntl.');
+    }
+    app(ResourceRegistry::class)->register(RSHOwnerOnProbeResource::class);
+    app(ResourceRegistry::class)->register(RSHProfileOnProbeResource::class);
+    DB::setDefaultConnection('sqlite');
+    [$status, $count, $seen] = rshRaceBetweenCheckAndInsert($driver, $this->a->id, '/martis/api/resources/rsh-owners-on-probe/'.$this->a->id.'/has-one/profile');
+    DB::setDefaultConnection('probe');
+    expect($count)->toBe(1);
+});
+
+it('P31 detail page: a count through a Through relation with the documented unqualified tenant scope', function () {
+    // Counted by key on a fresh query: an unqualified column the joined
+    // intermediate table also has cannot be ambiguous there.
+    RSHItemResource::$scopeHooks = ['tenant' => fn (Builder $q) => $q->where('tenant', 't1')];
+    RSHItem::where('id', $this->itemA->id)->update(['tenant' => 't2']);
+
+    $r = $this->getJson('/martis/api/resources/rsh-owners/'.$this->a->id)->assertOk();
+
+    expect($r->json('data.groupItems'))->toBe(0);
+});
+
+it('P32 the one-of-many "1 of N" with the documented unqualified tenant scope and a join to the parent', function () {
+    RSHItemResource::$hook = fn (Builder $q) => $q->select('rsh_items.*')
+        ->join('rsh_owners', 'rsh_owners.id', '=', 'rsh_items.owner_id')
+        ->where('rsh_owners.tenant', 't1');
+    RSHItem::create(['owner_id' => $this->a->id, 'title' => 'A2', 'written_at' => now()]);
+
+    expect(rshPanel('has-one/items')->assertOk()->json('meta.ofMany.totalCount'))->toBe(2);
+});
+
+it('P33 a pivot panel lists the trashed rows it asks for when the hook builds its own query', function () {
+    RSHTagResource::$hook = fn (Builder $q) => RSHTag::query()->where('title', '!=', 'nothing');
+    RSHTag::where('title', 'A-tag')->first()->delete();
+
+    expect(collect(rshPanel('belongs-to-many/tags', '?trashed=only')->assertOk()->json('data'))->pluck('title')->all())->toBe(['A-tag']);
+});
+
+it('P34 the one-of-many "1 of N" with a hook that groups, as the index allows', function () {
+    // A count run on the hook's own query would count one group; the keys
+    // it returns count every record.
+    RSHItemResource::$hook = fn (Builder $q) => $q->groupBy($q->qualifyColumn('id'));
+    RSHItem::create(['owner_id' => $this->a->id, 'title' => 'A2', 'written_at' => now()]);
+
+    expect(rshPanel('has-one/items')->assertOk()->json('meta.ofMany.totalCount'))->toBe(2);
+});

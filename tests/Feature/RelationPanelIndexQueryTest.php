@@ -101,9 +101,11 @@ class RPITagModel extends Model
 /** Hides "By index" through indexQuery() and "By scope" through scopes(). */
 abstract class RPIHidingResource extends Resource
 {
+    public static bool $unqualified = false;
+
     public static function indexQuery(Request $request, Builder $query): Builder
     {
-        return $query->where($query->qualifyColumn('title'), '!=', 'By index');
+        return $query->where(static::$unqualified ? 'title' : $query->qualifyColumn('title'), '!=', 'By index');
     }
 
     public static function scopes(Request $request): array
@@ -347,3 +349,17 @@ it('counts on the index only the related records the related index lists, in the
     $perRow = collect(DB::getQueryLog())->filter(fn (array $q) => str_starts_with(strtolower((string) $q['query']), 'select count(*) as aggregate from') && ! str_contains((string) $q['query'], 'rpi_teams'));
     expect($perRow)->toBeEmpty();
 });
+
+it('scopes a pivot panel by key, so a hook column the pivot also has stays unambiguous', function (string $path) {
+    // rpi_team_tag and rpi_taggables carry a `title` too: run on the pivot
+    // panel's own query, an unqualified `title` would be ambiguous (500).
+    RPIHidingResource::$unqualified = true;
+    try {
+        expect(rpiTitles($path))->toBe(['Visible']);
+    } finally {
+        RPIHidingResource::$unqualified = false;
+    }
+})->with([
+    'belongs-to-many' => ['belongs-to-many/tags'],
+    'morph-to-many' => ['morph-to-many/labels'],
+]);

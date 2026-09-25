@@ -13,7 +13,6 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
@@ -229,7 +228,9 @@ class HasOneController extends MartisController
         );
 
         try {
-            $filled = DB::transaction(function () use ($single, $parentModel, $relation, $relatedResourceClass, $relatedModel, $request): bool {
+            // The parent's own connection: a model on another connection than
+            // the default one would lock nothing in a default transaction.
+            $filled = $parentModel->getConnection()->transaction(function () use ($single, $parentModel, $relation, $relatedResourceClass, $relatedModel, $request): bool {
                 if ($single) {
                     $parentModel->newQuery()->whereKey($parentModel->getKey())->lockForUpdate()->first();
                     if ($relation->exists()) {
