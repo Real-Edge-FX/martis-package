@@ -345,7 +345,11 @@ describe('SelectFieldInput — remote option search', () => {
 
     fireEvent.click(document.querySelectorAll('.p-dropdown-item')[0])
 
-    await waitFor(() => expect(container.querySelector('.p-dropdown-label')?.textContent).toBe('Claude Opus 5'))
+    // Wait for the panel to close first: while it is still in the DOM, the
+    // picked option's own row also carries the label text, so an assertion
+    // made too early passes even when the closed control shows the raw value.
+    await waitFor(() => expect(document.querySelector('.p-dropdown-panel')).toBeNull())
+    expect(container.querySelector('.p-dropdown-label')?.textContent).toBe('Claude Opus 5')
   })
 
   it('shows a stored value that is not in the initial list instead of the placeholder', () => {
