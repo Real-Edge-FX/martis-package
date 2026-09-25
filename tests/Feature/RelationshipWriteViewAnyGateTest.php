@@ -312,7 +312,10 @@ function rwvPanelMeta(string $resource): array
 }
 
 it('offers no write action on a panel whose related resource denies viewAny', function () {
-    foreach (rwvPanelMeta('rwv-hidden-parents') as $relationship => $meta) {
+    $metas = rwvPanelMeta('rwv-hidden-parents');
+
+    expect($metas)->toHaveCount(4);
+    foreach ($metas as $relationship => $meta) {
         expect($meta, $relationship)->toMatchArray(['canCreate' => false, 'canUpdate' => false, 'canDelete' => false])
             ->and($meta['hideRestoreAction'], $relationship)->toBeTrue()
             ->and($meta['hideForceDeleteAction'], $relationship)->toBeTrue();
