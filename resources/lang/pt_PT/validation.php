@@ -6,4 +6,6 @@ return [
     'relatable' => 'Este :attribute não pode ser associado a este recurso.',
     // An attach names a record the attach picker does not offer.
     'relatable_attachment' => 'Este registo não pode ser associado a este recurso.',
+    // A Tag sync removes a record the detach{Model} policy keeps attached.
+    'detachable' => 'Este :attribute não pode desassociar um dos seus registos.',
 ];

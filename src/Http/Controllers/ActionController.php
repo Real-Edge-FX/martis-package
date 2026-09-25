@@ -750,7 +750,7 @@ class ActionController extends MartisController
      */
     private function actionFieldsValidator(array $fields, array $fieldData, RelatableWrite $relatable): ValidatorContract
     {
-        $nested = $this->buildNestedFieldValidation($fields, $fieldData, null);
+        $nested = $this->buildNestedFieldValidation($fields, $fieldData, null, relatable: $relatable);
 
         return Validator::make(
             $fieldData,

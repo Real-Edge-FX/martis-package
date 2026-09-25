@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Martis\Contracts\FieldContract;
 use Martis\Enums\RepeaterStorage;
+use Martis\Rules\RelatableWrite;
 use Ramsey\Uuid\Uuid;
 
 /**
@@ -382,16 +383,17 @@ class Repeater extends Field
      * @param  array<array-key, mixed>  $data  The input the validator runs on.
      * @param  'create'|'update'|null  $context  The write: a create, an update, or neither (an Action's fields).
      * @param  Model|null  $model  The record the write updates, whose stored rows the rows sent continue.
+     * @param  RelatableWrite|null  $relatable  Checks a row's `BelongsTo`, `MorphTo` and `Tag` against their pickers (see `Martis\Rules\Relatable`)
      * @return array{rules: array<string, list<mixed>>, messages: array<string, string>, attributes: array<string, string>}
      */
-    public function buildRowValidation(array $data, ?string $context = null, ?Model $model = null): array
+    public function buildRowValidation(array $data, ?string $context = null, ?Model $model = null, ?RelatableWrite $relatable = null): array
     {
         $validation = ['rules' => [], 'messages' => [], 'attributes' => []];
 
         if ($this->writesRows($context)) {
             $request = $this->safeRequest() ?? Request::create('/');
             $stored = $model !== null ? $this->storedRows($model, $request) : [];
-            $this->collectRowValidation($validation, $this->attribute(), data_get($data, $this->attribute()), $context, $request, $stored);
+            $this->collectRowValidation($validation, $this->attribute(), data_get($data, $this->attribute()), $context, $request, $stored, $relatable);
         }
 
         return $validation;
@@ -406,7 +408,7 @@ class Repeater extends Field
      * @param  'create'|'update'|null  $context
      * @param  array<string, StoredRow>  $stored
      */
-    protected function collectRowValidation(array &$validation, string $path, mixed $rows, ?string $context, Request $request, array $stored = []): void
+    protected function collectRowValidation(array &$validation, string $path, mixed $rows, ?string $context, Request $request, array $stored = [], ?RelatableWrite $relatable = null): void
     {
         if (! is_array($rows)) {
             return;
@@ -457,6 +459,12 @@ class Repeater extends Field
                 $fieldPath = "{$fieldsPath}.{$attribute}";
 
                 $validation['rules'][$fieldPath] = $field->buildRules($context);
+
+                // A picker in the row writes only what it lists.
+                $relatableRule = $relatable?->rowRuleFor($field);
+                if ($relatableRule !== null) {
+                    $validation['rules'][$fieldPath][] = $relatableRule;
+                }
                 $validation['attributes'][$fieldPath] = $field->label();
 
                 // A custom message is keyed `{attribute}.{rule}` (a unique()
@@ -470,7 +478,7 @@ class Repeater extends Field
                 if ($field instanceof self) {
                     $inner = is_array($values) ? ($values[$attribute] ?? null) : null;
                     $innerStored = $field->indexJsonRows($continued['fields'][$attribute] ?? null);
-                    $field->collectRowValidation($validation, $fieldPath, $inner, $context, $request, $innerStored);
+                    $field->collectRowValidation($validation, $fieldPath, $inner, $context, $request, $innerStored, $relatable);
                 }
             }
         }

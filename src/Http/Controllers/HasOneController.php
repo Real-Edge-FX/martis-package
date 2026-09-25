@@ -216,13 +216,10 @@ class HasOneController extends MartisController
             $relatedModel,
         );
 
-        // The new record points at the parent before its fields are checked
-        // (the store sets it again after the fill): an inverse relationship
-        // field the form sends for the parent holds the value the store
-        // writes anyway, so the relatable check of that field leaves it be.
-        $relatedModel->setAttribute($relation->getForeignKeyName(), $parentModel->getKey());
-
-        $validationError = $this->validateRequest($request, $fields, relatable: new RelatableWrite($request, $relatedResourceClass, $relatedModel));
+        // The store writes the parent key itself after the fill, so an
+        // inverse relationship field the form sends for the parent writes
+        // nothing and is not checked against its picker.
+        $validationError = $this->validateRequest($request, $fields, relatable: new RelatableWrite($request, $relatedResourceClass, $relatedModel, [$relation->getForeignKeyName()]));
         if ($validationError !== null) {
             return $validationError;
         }
