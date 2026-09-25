@@ -2063,7 +2063,10 @@ full guide.
 
 Shows a single distant record reached through an intermediate model
 (`hasOneThrough`). Read-only by default: `canCreate` / `canUpdate` /
-`canDelete` start as `false`.
+`canDelete` start as `false`. The has-one endpoints refuse any write
+through a `HasOneThrough` field, and a create through a plain `HasOne` /
+`HasOneOfMany` field declared on a `hasOneThrough` relationship (403,
+v1.39.2+): it would file the record under another intermediate.
 
 ```php
 use Martis\Fields\HasOneThrough;
@@ -2162,7 +2165,13 @@ for the shared shell layout.
 
 Inline DataTable of many records reached through an intermediate
 (`hasManyThrough`). Read-only by default: `canCreate` / `canUpdate` /
-`canDelete` start as `false`.
+`canDelete` start as `false`. The has-many endpoint refuses a create
+through a `hasManyThrough` relationship (403, v1.39.2+), since the store
+would write the parent's key into the record's key to the intermediate and
+file it under another one. `canCreate(true)` lifts that refusal for an app
+that sets that key itself, in the related resource's `beforeSave()` or an
+observer. A plain `HasMany` field declared on a `hasManyThrough`
+relationship is always refused, whatever its `canCreate()`.
 
 ```php
 use Martis\Fields\HasManyThrough;

@@ -539,6 +539,14 @@ class HasOneController extends MartisController
             return JsonErrorResponse::forbidden('hasOneThrough relationships are read-only.')->toResponse();
         }
 
+        // The same for a plain HasOne / HasOneOfMany field declared on a
+        // hasOneThrough relationship: a create writes the parent's key into
+        // the related record's key to the intermediate model, which files the
+        // record under whichever intermediate has that id.
+        if ($action === 'create' && $relation instanceof EloquentHasOneThrough) {
+            return JsonErrorResponse::forbidden('Records cannot be created through a hasOneThrough relationship.')->toResponse();
+        }
+
         // Check authorization for the action
         if ($action === 'create') {
             $relatedCheck = new $relatedResourceClass;

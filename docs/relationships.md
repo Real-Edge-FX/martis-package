@@ -586,7 +586,7 @@ Inherits every `MorphOne` method plus the OfMany extras (`latestByTimestamp` / `
 
 ## HasManyThrough
 
-Inline DataTable of many records reached through an intermediate. Read-only (Create/Edit/Delete default to `false`).
+Inline DataTable of many records reached through an intermediate. Read-only (Create/Edit/Delete default to `false`). A create through a `hasManyThrough` relationship answers 403 (v1.39.2+) unless the field calls `canCreate(true)` and the app sets the record's key to the intermediate itself (see [fields.md § HasManyThrough](fields.md#hasmanythrough)).
 
 ```php
 use Martis\Fields\HasManyThrough;

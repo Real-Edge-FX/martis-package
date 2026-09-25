@@ -19,6 +19,7 @@ use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\File;
 use Martis\Fields\HasMany;
+use Martis\Fields\HasManyThrough as HasManyThroughField;
 use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
 use Martis\Http\Controllers\Concerns\SyncsDeferredWrites;
@@ -456,6 +457,20 @@ class HasManyController extends MartisController
 
         /** @var class-string<resource> $relatedResourceClass */
         $relatedResourceClass = $this->registry->get($relatedResourceKey);
+
+        // A create through a hasManyThrough writes the parent's key into the
+        // related record's key to the intermediate model, which files the
+        // record under whichever intermediate has that id. Refused, unless a
+        // HasManyThrough field opted in with canCreate(true): the 1.x escape
+        // hatch for an app that sets that key itself (beforeSave(), an
+        // observer).
+        if (
+            $action === 'create'
+            && $relation instanceof EloquentHasManyThrough
+            && ! ($hasManyField instanceof HasManyThroughField && $hasManyField->canCreateRelated())
+        ) {
+            return JsonErrorResponse::forbidden('Records cannot be created through a hasManyThrough relationship.')->toResponse();
+        }
 
         // Check authorization for the action
         if ($action === 'create') {

@@ -217,6 +217,12 @@ class HasMany extends Field
         return $this;
     }
 
+    /** Whether the panel offers Create (see canCreate()). */
+    public function canCreateRelated(): bool
+    {
+        return $this->canCreateRelated;
+    }
+
     /** Configure whether edit actions are shown. */
     public function canUpdate(bool $value = true): static
     {
