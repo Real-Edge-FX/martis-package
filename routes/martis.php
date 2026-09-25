@@ -185,7 +185,7 @@ Route::middleware(RouteMiddleware::base())
         // 3/min is the conventional ceiling for password-reset and
         // verification re-send flows. v1.8.16+.
         Route::post('/api/auth/email/verification-notification', [EmailVerificationController::class, 'send'])
-            ->middleware(['martis.auth', 'throttle:3,1'])
+            ->middleware(['martis.auth', 'throttle:3,1,'.RouteMiddleware::throttlePrefix('verification')])
             ->name('api.auth.email.verification.send');
 
         // Translations — public, loaded before login
@@ -210,7 +210,7 @@ Route::middleware(RouteMiddleware::base())
                     ->middleware($throttle)
                     ->group(function () {
                         Route::post('/2fa/challenge', [TwoFactorController::class, 'challenge'])
-                            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+                            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1).','.RouteMiddleware::throttlePrefix('2fa'))
                             ->name('2fa.challenge');
                     });
 

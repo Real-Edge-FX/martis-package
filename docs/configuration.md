@@ -479,10 +479,10 @@ Shipped locales: `en` (English), `pt_BR` (Brazilian Portuguese), `pt_PT` (Europe
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `enabled` | `bool` | `true` | Set `false` to disable API rate limiting. |
-| `max_attempts` | `int` | `120` | Maximum requests per window, per signed-in user of the Martis guard. |
-
-| `max_attempts` | `int` | `120` | Maximum requests per window, per user, counted across the Martis API and every Tool's routes (v2.0). |
+| `max_attempts` | `int` | `120` | Maximum requests per window, per signed-in user of the Martis guard, counted across the Martis API and every Tool's routes (v2.0). |
 | `decay_minutes` | `int` | `1` | Rate limit window in minutes. |
+
+The limit is Laravel's `throttle` middleware with a key prefix, `throttle:{max},{decay},martis-api:{guard}:` (`RouteMiddleware::throttlePrefix('api')`, v2.0.1). Laravel keys a signed-in user's bucket on `sha1()` of the identifier alone, so without the prefix the Martis guard's user 5 shared a bucket with a site route's plain `throttle` for the site user 5 (an `admins` guard beside the site's `users`), or for the same person. The 2FA challenge (`martis-2fa:{guard}:`) and the verification email resend (`martis-verification:{guard}:`) keep their own limits in their own buckets: before v2.0.1 they counted in the API's, so a resend answered `429` after three API requests in the same minute.
 
 ## Theme
 

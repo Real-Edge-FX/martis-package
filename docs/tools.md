@@ -281,7 +281,7 @@ A tool's routes run `ToolRoutes::middleware($tool)` (v2.0; `Martis\Tools\ToolRou
 | `martis.2fa` | package | a user who signed in but has not passed the 2FA challenge: `423 {"two_factor_required": true}` (JSON) or a redirect to the challenge |
 | `martis.locale` | package | (applies the user's locale, so `__()` and validation messages follow it) |
 | `martis.verified` | package | when `MARTIS_AUTH_EMAIL_VERIFICATION_ENABLED=true`, an unverified user: `409` (JSON) or a redirect to the notice |
-| `throttle:{max},{decay}` | config, `martis.throttle.*` | past `MARTIS_THROTTLE_MAX` requests per `MARTIS_THROTTLE_DECAY` minutes per user, shared with the Martis API: `429`. Left out when `MARTIS_THROTTLE_ENABLED=false` |
+| `throttle:{max},{decay},martis-api:{guard}:` | config, `martis.throttle.*` | past `MARTIS_THROTTLE_MAX` requests per `MARTIS_THROTTLE_DECAY` minutes per user, shared with the Martis API: `429`. Left out when `MARTIS_THROTTLE_ENABLED=false` |
 | `martis.tool:{uriKey}` | package | a user this tool is hidden from (`canSee()`, its policy): `404` `{"message": "Tool not found."}`, as `GET /api/tools/{uriKey}` answers them |
 
 The first seven are built in one place, `Martis\Http\RouteMiddleware::api()`, which the package's own routes use too, so a tool's route answers a request exactly as `GET /api/tools` does. They are also a middleware group, `martis.api`, built when the application boots, for a route of your own: `Route::middleware(['martis.api', 'can:viewReports'])`.

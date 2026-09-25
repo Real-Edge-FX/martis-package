@@ -227,7 +227,7 @@ it('gives a tool route the middleware of the protected API routes, then the tool
             'martis.2fa',
             'martis.locale',
             'martis.verified',
-            'throttle:120,1',
+            'throttle:120,1,martis-api:web:',
         ]);
 });
 
@@ -352,7 +352,7 @@ it('passes a throttle limit on as Laravel reads it, null as the default', functi
     config()->set('martis.throttle.decay_minutes', null);
 
     // A name reads the limit from that attribute of the user.
-    expect(RouteMiddleware::throttle())->toBe(['throttle:rate_limit,1']);
+    expect(RouteMiddleware::throttle())->toBe(['throttle:rate_limit,1,martis-api:web:']);
 });
 
 it('refuses a throttle limit that is not a number or an attribute name', function () {
