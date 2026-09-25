@@ -19,6 +19,9 @@ import { Pagination } from '@/components/Pagination'
 import { QueryErrorState } from '@/components/QueryErrorState'
 import { recordHref } from '@/lib/recordHref'
 import { isHiddenOn } from '@/lib/hiddenFields'
+import { filterInlineActions } from '@/lib/actionVisibility'
+import { InlineActionMenu } from '@/components/Table/Table'
+import { ActionModal, type ActionMeta } from '@/components/Actions'
 
 /**
  * Shared toolbar/table/pagination shell for *-Many relationship fields.
@@ -85,6 +88,10 @@ export interface RelationshipTableShellProps {
    *  dropdowns with a "2 selected" badge, etc. */
   toolbarExtras?: ReactNode | ((ctx: { selectedRows: ResourceRecord[] }) => ReactNode)
   rowActionsExtras?: (row: ResourceRecord) => ReactNode
+
+  /** Offer the related resource's inline (`showInline()`) actions on each
+   *  row, as the resource index does (Nova parity). */
+  rowActions?: boolean
 }
 
 export function RelationshipTableShell(props: RelationshipTableShellProps) {
@@ -102,6 +109,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
     hideRestoreAction, hideForceDeleteAction,
     defaultTrashed,
     toolbarExtras, rowActionsExtras,
+    rowActions = false,
   } = props
 
   const { t: tAct } = useTranslation('actions')
@@ -120,6 +128,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   const [restoreTarget, setRestoreTarget] = useState<{ id: string | number } | null>(null)
   const [isCollapsed, setIsCollapsed] = useState(collapsedByDefault)
   const [trashed, setTrashed] = useState<'active' | 'with' | 'only'>(defaultTrashed ?? 'active')
+  const [activeAction, setActiveAction] = useState<{ action: ActionMeta; id: string | number } | null>(null)
 
   const schemaQuery = useQuery({
     queryKey: ['schema', relatedResource],
@@ -192,6 +201,9 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   const totalCount = pagination?.total ?? records.length
 
   const indexFields: FieldDefinition[] = schema?.fieldsForIndex ?? []
+  const inlineActions = rowActions
+    ? filterInlineActions(((schema as unknown as { actions?: ActionMeta[] })?.actions ?? []))
+    : []
 
   const softDeletes = !!(schema as unknown as { softDeletes?: boolean })?.softDeletes
 
@@ -200,7 +212,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   const showDelete = canDelete && !hideDeleteAction && !!deleteUrl
   const showRestore = softDeletes && !hideRestoreAction
   const showForceDelete = softDeletes && !hideForceDeleteAction
-  const hasActions = showView || showEdit || showDelete || showRestore || showForceDelete || !!rowActionsExtras
+  const hasActions = showView || showEdit || showDelete || showRestore || showForceDelete || !!rowActionsExtras || inlineActions.length > 0
 
   const showSearch = searchable && !hideSearch
   const showCreate = canCreate && !hideCreateButton && !!createUrl
@@ -551,6 +563,13 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                           </button>
                         )}
                         {rowActionsExtras?.(row)}
+                        {inlineActions.length > 0 && (
+                          <InlineActionMenu
+                            actions={inlineActions}
+                            row={row}
+                            onAction={(action, target) => setActiveAction({ action, id: target.id as string | number })}
+                          />
+                        )}
                       </div>
                     )
                   }}
@@ -610,6 +629,22 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
         }}
         onCancel={() => setRestoreTarget(null)}
       />
+
+      {/* Mounted only while an action runs, so a panel with no action open
+          needs no toast provider. */}
+      {activeAction !== null && (
+        <ActionModal
+          resource={relatedResource}
+          action={activeAction.action}
+          selectedIds={[activeAction.id]}
+          visible
+          onHide={() => setActiveAction(null)}
+          onSuccess={() => {
+            void qc.invalidateQueries({ queryKey })
+            setActiveAction(null)
+          }}
+        />
+      )}
 
       <style>{`
         .relation-shell-search::placeholder {

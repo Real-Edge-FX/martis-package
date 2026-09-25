@@ -150,6 +150,16 @@ public function actions(Request $request): array
 }
 ```
 
+### In relationship panels
+
+An inline action also appears in the row menu of every `HasMany`,
+`HasManyThrough` and `MorphMany` panel that lists the resource (v2.0, as in
+Nova): the same menu the index shows, each item disabled where
+`canRun()` / the policy refuses it for that record (each panel row carries
+the same `_actionAuthorization` map as an index row), and run on that one
+record through the same modal. `BelongsToMany` / `MorphToMany` panels keep
+their pivot actions instead.
+
 ### Visibility control
 
 | Method | Effect |

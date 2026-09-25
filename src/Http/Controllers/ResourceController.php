@@ -147,22 +147,15 @@ class ResourceController extends MartisController
         $paginator = $query->paginate($perPage);
 
         // Resolve actions once for per-row canRun authorization
-        $actionsForAuth = $instance->actions($request);
-        $actionsWithCanRun = array_filter($actionsForAuth, fn (ActionContract $a) => $a->authorizedToSee($request));
+        $actionAuthorization = $this->rowActionAuthorizer($request, $resourceClass);
 
         /** @var list<array<string, mixed>> $data */
         $data = array_values(
-            collect($paginator->items())->map(function (Model $model) use ($resourceClass, $request, $actionsWithCanRun): array {
+            collect($paginator->items())->map(function (Model $model) use ($resourceClass, $request, $actionAuthorization): array {
                 $res = new $resourceClass($model);
 
                 $serialized = $this->serializeModel($res, Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX), $model);
-
-                // Per-action canRun authorization map
-                $actionAuth = [];
-                foreach ($actionsWithCanRun as $action) {
-                    $actionAuth[$action->uriKey()] = $action->authorizedToRun($request, $model);
-                }
-                $serialized['_actionAuthorization'] = $actionAuth;
+                $serialized['_actionAuthorization'] = $actionAuthorization($model);
 
                 return $serialized;
             })->all()

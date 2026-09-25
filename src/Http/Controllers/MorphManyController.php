@@ -102,16 +102,20 @@ class MorphManyController extends MartisController
 
         $paginator = $query->paginate($perPage);
 
+        // The panel offers the related resource's row actions, as the
+        // resource index does, so each row carries their canRun map too.
+        $actionAuthorization = $this->rowActionAuthorizer($request, $relatedResourceClass);
+
         /** @var list<array<string, mixed>> $data */
         $data = array_values(
-            collect($paginator->items())->map(function (Model $model) use ($relatedResourceClass, $request): array {
+            collect($paginator->items())->map(function (Model $model) use ($relatedResourceClass, $request, $actionAuthorization): array {
                 $res = new $relatedResourceClass($model);
 
                 return $this->serializeModel(
                     $res,
                     Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX),
                     $model,
-                );
+                ) + ['_actionAuthorization' => $actionAuthorization($model)];
             })->all()
         );
 

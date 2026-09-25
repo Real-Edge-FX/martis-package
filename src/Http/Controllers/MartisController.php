@@ -36,6 +36,33 @@ abstract class MartisController extends Controller
     }
 
     /**
+     * The per-action `canRun` map a listed row carries under
+     * `_actionAuthorization`: the resource's actions the user can see,
+     * resolved once per request, each asked about the row's model. The
+     * resource index and the relationship panels share it, so a row action
+     * is offered the same way wherever the record is listed.
+     *
+     * @param  class-string<resource>  $resourceClass
+     * @return \Closure(Model): array<string, bool>
+     */
+    protected function rowActionAuthorizer(Request $request, string $resourceClass): \Closure
+    {
+        $actions = array_filter(
+            (new $resourceClass)->actions($request),
+            fn (ActionContract $action): bool => $action->authorizedToSee($request),
+        );
+
+        return function (Model $model) use ($actions, $request): array {
+            $map = [];
+            foreach ($actions as $action) {
+                $map[$action->uriKey()] = $action->authorizedToRun($request, $model);
+            }
+
+            return $map;
+        };
+    }
+
+    /**
      * Consult the collection-level gate before any record query on a per-id
      * endpoint.
      *

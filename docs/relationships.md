@@ -120,7 +120,10 @@ narrow tab wraps even when the window is wide.
 4. **`pivotFields`** — `BelongsToMany` and `MorphToMany` only. Each pivot
    column reads its value from `row._pivot.{attribute}`.
 5. **Actions column** — View / Edit / Delete, plus Restore and Force-delete
-   on trashed rows, plus any `rowActionsExtras(row)` the consumer returns.
+   on trashed rows, plus any `rowActionsExtras(row)` the consumer returns,
+   plus (on `HasMany` / `HasManyThrough` / `MorphMany`, v2.0) the related
+   resource's inline actions menu, as on its index (see
+   [Actions → In relationship panels](actions.md#in-relationship-panels)).
    The column **auto-collapses** when a row would render **zero** actions: a
    fully read-only panel (all row actions hidden/unauthorized, and for pivot
    relations `canAttach(false)` + `canDetach(false)` with no pivot editing)

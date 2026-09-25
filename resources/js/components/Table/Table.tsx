@@ -246,7 +246,11 @@ function InlineSubMenu({
   )
 }
 
-function InlineActionMenu({
+/**
+ * The per-row actions menu (`showInline()` actions), disabled per record by
+ * its `_actionAuthorization`. Shared with the relationship panels.
+ */
+export function InlineActionMenu({
   actions,
   row,
   onAction,

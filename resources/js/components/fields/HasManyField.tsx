@@ -102,6 +102,7 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
       hideDeleteAction={!!meta?.hideDeleteAction}
       hideRestoreAction={!!meta?.hideRestoreAction}
       hideForceDeleteAction={!!meta?.hideForceDeleteAction}
+      rowActions
     />
   )
 }
