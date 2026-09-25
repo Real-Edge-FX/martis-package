@@ -56,19 +56,33 @@ class ThemeDiffCommand extends Command
             return self::FAILURE;
         }
 
+        if (! ThemeFiles::isValidName($themeName)) {
+            $this->components->error("\"{$themeName}\" is not a theme name the panel loads: use letters, digits, dashes and underscores.");
+
+            return self::FAILURE;
+        }
+
         $consumerPath = ThemeFiles::sourcePath($themeName);
         $packagePath = __DIR__.'/../../resources/css/martis.css';
 
-        if (! $filesystem->exists($consumerPath)) {
+        if (! is_link($consumerPath) && ! $filesystem->exists($consumerPath)) {
             $this->components->error("Theme source not found: resources/css/martis/{$themeName}.css");
 
             if ($filesystem->exists(ThemeFiles::publishedPath($themeName))) {
-                $this->line("  Only the published copy <fg=cyan>public/vendor/martis/themes/{$themeName}.css</> exists, and the next");
-                $this->line('  <fg=cyan>php artisan martis:publish-assets</> deletes it: published themes are generated from resources/css/martis/.');
+                $this->line("  Only the published copy <fg=cyan>public/vendor/martis/themes/{$themeName}.css</> exists. <fg=cyan>php artisan martis:publish-assets</>");
+                $this->line('  publishes the themes from resources/css/martis/ and removes a copy that has no source, after');
+                $this->line('  backing it up to storage/app/martis/theme-backups/ (it stops instead when the copy is the theme');
+                $this->line('  martis.theme.name names, and a run with --no-wipe leaves it).');
                 $this->line("  Move it to <fg=cyan>resources/css/martis/{$themeName}.css</> to keep the theme.");
             } else {
                 $this->line('  Did you forget to <fg=cyan>php artisan martis:theme '.$themeName.'</>?');
             }
+
+            return self::FAILURE;
+        }
+
+        if (($reason = ThemeFiles::unreadableReason($consumerPath)) !== null) {
+            $this->components->error("Could not read resources/css/martis/{$themeName}.css: {$reason}.");
 
             return self::FAILURE;
         }
@@ -89,7 +103,8 @@ class ThemeDiffCommand extends Command
         $packageKnown = array_values(array_unique(array_merge($packageDeclared, $packageReferenced)));
         $referencedOnly = array_values(array_diff($packageReferenced, $packageDeclared));
 
-        $consumerTokens = $this->extractTokens($filesystem->get($consumerPath));
+        $consumerCss = $filesystem->get($consumerPath);
+        $consumerTokens = $this->extractTokens($consumerCss);
 
         // Missing = declared tokens the consumer hasn't overridden. Only
         // *declared* tokens are "expected"; referenced-only tokens have a
@@ -147,7 +162,36 @@ class ThemeDiffCommand extends Command
             $this->components->twoColumnDetail('Match', '<fg=green>'.count($match).'</> (use --show-match to list)');
         }
 
+        $this->warnAboutPublishedCopy($filesystem, $themeName, $consumerCss);
+
         return $missing === [] && $unknown === [] ? self::SUCCESS : self::INVALID;
+    }
+
+    /**
+     * The panel loads the published copy, not the source: say when it is
+     * missing or out of date. The exit code stays the token drift's.
+     */
+    private function warnAboutPublishedCopy(Filesystem $filesystem, string $themeName, string $sourceCss): void
+    {
+        $published = ThemeFiles::publishedPath($themeName);
+        $relative = "public/vendor/martis/themes/{$themeName}.css";
+
+        if (! $filesystem->exists($published)) {
+            $this->newLine();
+            $this->components->warn("{$relative} is not published, so the panel cannot load this theme yet.");
+            $this->line('  Publish it with <fg=cyan>php artisan martis:publish-assets --themes-only</>.');
+
+            return;
+        }
+
+        if ($filesystem->get($published) === $sourceCss) {
+            return;
+        }
+
+        $this->newLine();
+        $this->components->warn("The published copy {$relative} differs from the source, and the panel loads the copy.");
+        $this->line('  Publish the source with <fg=cyan>php artisan martis:publish-assets --themes-only</>; a copy edited in place');
+        $this->line('  is backed up to storage/app/martis/theme-backups/ first.');
     }
 
     /**

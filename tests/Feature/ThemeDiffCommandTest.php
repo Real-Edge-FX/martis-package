@@ -88,16 +88,65 @@ it('compares the theme source, not the published copy', function () {
 });
 
 it('fails with a hint when only a published copy exists', function () {
-    // martis:publish-assets deletes a published copy that has no source, so
-    // the diff points at where the theme has to live instead of comparing it.
+    // martis:publish-assets removes a published copy that has no source
+    // (after backing it up; --no-wipe keeps it), so the diff points at where
+    // the theme has to live instead of comparing it.
     $fs = new Filesystem;
     $fs->ensureDirectoryExists(public_path('vendor/martis/themes'));
     $fs->put(public_path('vendor/martis/themes/diff-orphan.css'), ':root { --martis-accent: #ff00ff; }');
 
     $this->artisan('martis:theme:diff', ['theme' => 'diff-orphan'])
         ->expectsOutputToContain('Theme source not found: resources/css/martis/diff-orphan.css')
-        ->expectsOutputToContain('public/vendor/martis/themes/diff-orphan.css')
+        ->expectsOutputToContain('Only the published copy public/vendor/martis/themes/diff-orphan.css exists')
+        ->expectsOutputToContain('a run with --no-wipe leaves it')
+        ->expectsOutputToContain('Move it to resources/css/martis/diff-orphan.css')
         ->assertExitCode(1);
+});
+
+it('reports a theme source it cannot read instead of crashing', function () {
+    symlink(resource_path('css/martis/missing-target.css'), resource_path('css/martis/diff-broken.css'));
+
+    $this->artisan('martis:theme:diff', ['theme' => 'diff-broken'])
+        ->expectsOutputToContain('Could not read resources/css/martis/diff-broken.css: it is a broken symlink')
+        ->assertExitCode(1);
+});
+
+it('rejects a theme name the panel does not load', function (string $name) {
+    $this->artisan('martis:theme:diff', ['theme' => $name])
+        ->expectsOutputToContain('is not a theme name the panel loads')
+        ->assertExitCode(1);
+})->with(['my theme', '../diff-escape']);
+
+it('warns when the published copy differs from the source', function () {
+    $fs = new Filesystem;
+    $fs->put(resource_path('css/martis/diff-stale.css'), file_get_contents(__DIR__.'/../../resources/css/martis.css'));
+    $fs->ensureDirectoryExists(public_path('vendor/martis/themes'));
+    $fs->put(public_path('vendor/martis/themes/diff-stale.css'), ':root { --martis-accent: #ff00ff; }');
+
+    $this->artisan('martis:theme:diff', ['theme' => 'diff-stale'])
+        ->expectsOutputToContain('The published copy public/vendor/martis/themes/diff-stale.css differs from the source')
+        ->assertExitCode(0);
+});
+
+it('warns when the theme source is not published', function () {
+    (new Filesystem)->put(resource_path('css/martis/diff-unpublished.css'), file_get_contents(__DIR__.'/../../resources/css/martis.css'));
+
+    $this->artisan('martis:theme:diff', ['theme' => 'diff-unpublished'])
+        ->expectsOutputToContain('public/vendor/martis/themes/diff-unpublished.css is not published')
+        ->assertExitCode(0);
+});
+
+it('says nothing about the published copy when it matches the source', function () {
+    $fs = new Filesystem;
+    $css = (string) file_get_contents(__DIR__.'/../../resources/css/martis.css');
+    $fs->put(resource_path('css/martis/diff-current.css'), $css);
+    $fs->ensureDirectoryExists(public_path('vendor/martis/themes'));
+    $fs->put(public_path('vendor/martis/themes/diff-current.css'), $css);
+
+    $this->artisan('martis:theme:diff', ['theme' => 'diff-current'])
+        ->doesntExpectOutputToContain('The published copy')
+        ->doesntExpectOutputToContain('is not published')
+        ->assertExitCode(0);
 });
 
 it('fails when the consumer theme file is missing', function () {

@@ -22,10 +22,10 @@ This creates:
 Edit the source, publish it and refresh the browser. No Vite rebuild is needed:
 
 ```bash
-php artisan martis:publish-assets
+php artisan martis:publish-assets --themes-only
 ```
 
-Never edit the published copy: every publish replaces it with the source (see [Theme files](#theme-files)).
+`--themes-only` publishes the themes alone; a full `php artisan martis:publish-assets` publishes them too, after the package assets. Never edit the published copy: every publish replaces it with the source (see [Theme files](#theme-files)).
 
 ---
 
@@ -42,30 +42,41 @@ Themes load **after** the package CSS, so any variable you redefine wins. You on
 
 ### Theme files
 
-`resources/css/martis/<name>.css` is the theme: commit it with your app. The browser loads a copy, `public/vendor/martis/themes/<name>.css`, and that copy is generated. `php artisan martis:publish-assets` wipes `public/vendor/martis/`, copies the package assets, then publishes every `.css` file directly inside `resources/css/martis/` to `public/vendor/martis/themes/`. `martis:vendor-publish --assets` and `martis:install` run the same command. So:
+`resources/css/martis/<name>.css` is the theme: commit it with your app. The browser loads a copy, `public/vendor/martis/themes/<name>.css`, and that copy is generated. `php artisan martis:publish-assets` wipes `public/vendor/martis/`, copies the package assets, then publishes every `.css` file directly inside `resources/css/martis/` to `public/vendor/martis/themes/`. `martis:vendor-publish --assets` and `martis:install` run the same command, and `php artisan martis:publish-assets --themes-only` runs the theme step alone, without the wipe and the package assets: use it after editing a theme. So:
 
-- The published themes always match their sources. An edit made to a copy is replaced, and a copy whose source you deleted is gone after the next publish.
-- A deploy that runs `martis:publish-assets`, as the [upgrade steps](installation-guide.md#upgrading) require, restores the published themes from the committed sources, also when `public/vendor/martis/` is not in version control.
-- `--no-wipe` still publishes the sources over the copies; only a copy without a source stays, like any other stale file.
-- A file whose name is not made of letters, digits, dashes and underscores is skipped with a warning: the panel only loads a `theme.name` of that form.
+- The published themes match their sources. A publish replaces a copy with its source, and removes a copy whose source you deleted.
+- Before it replaces or removes a file it cannot write back, the publish copies it to `storage/app/martis/theme-backups/<date>-<time>/`, under its path in the app (for example `public/vendor/martis/themes/brand.css`), and prints a warning with the backup's path: a copy edited in place, a theme without a source, or any other file in `public/vendor/martis/themes/`, hidden files included. When a backup cannot be written, the publish stops before deleting anything. A file already backed up with the same content is not copied again. When a run makes a new backup, it deletes the old runs beyond 10 and lists each one it deletes: it keeps the oldest run, which holds what the first publish after the upgrade took away (your 1.x copies), and the 9 newest. A run it cannot delete is a warning. Delete a run once you have looked at it.
+- A copy the publish wrote itself, or one identical to its source, is replaced without a backup. The publish records the copies it writes in `public/vendor/martis/themes/.published.json`, next to them, as sha1 hashes only (it names no theme), so it needs nothing writable outside the published directory.
+- `.gitkeep`, `.gitignore` and `.keep` in `public/vendor/martis/themes/` are not themes: the publish never reports, backs up or removes them, and a full publish puts them back after its wipe.
+- A symlink in `public/vendor/martis/themes/` is never followed: the publish replaces a link to a theme with a copy of its source, and removes any other link without touching its target. Neither needs a backup.
+- When `public/vendor/martis/` or `public/vendor/martis/themes/` is itself a symlink (a shared directory of Deployer or Envoyer, for example), the publish and `martis:theme` never write into its target. They check and back up the theme files the link shows like any other, warn, and replace the link with a real directory holding a copy of the target's files (symlinks stay symlinks), before any backup or removal. The wipe and the copy then work on the new directory, and the target is left as it was, so drop the directory from the deploy tool's shared list. When a link cannot be replaced (its parent directory is not writable), the run stops with exit code 1 before anything is deleted or written.
+- The publish stops, with exit code 1 and nothing changed, when it would take away the theme `martis.theme.name` names (that theme's source is skipped or cannot be read, or it has no source and the run would remove its published copy, a file or a symlink), when it would remove the published copy of a source it cannot read (a broken symlink, a file that does not open: the copy may be the only readable version left), and when `resources/css/martis/` cannot be listed. A source it cannot read that nothing depends on is skipped with a warning.
+- `--no-wipe` still publishes the sources over the copies, backing up an edited one first; a file without a source stays, like any other stale file. With `--themes-only`, `--no-wipe` keeps those files as well.
+- A source the panel could not load is skipped with a warning: a name not made of letters, digits, dashes and underscores (the panel only loads a `theme.name` of that form), or an extension other than a lowercase `.css`.
+- The publish warns when `martis.theme.name` names a theme without a source that it does not remove, a name the panel ignores, or a name that differs from its source only in case (the theme loads on macOS and Windows, not on a Linux server).
+- Keep the fonts and images a theme uses outside `public/vendor/martis/`, for example in `public/fonts/`, and reference them with absolute URLs: the publish only copies the `.css` sources.
 
 #### Upgrading from 1.x
 
-Up to v1.39.1 the `martis:theme` hint told you to edit the published copy, and every asset publish then deleted it without writing it again: the theme stylesheet returned 404 and the panel fell back to the default tokens, with no error. What changes for an app with a custom theme:
+Up to v1.39.1 the `martis:theme` hint told you to edit the published copy, and asset publishes deleted it without writing it again: `martis:publish-assets` and `martis:vendor-publish --assets` since v1.8.8, `martis:install` since v1.29.1. The theme stylesheet then returned 404 and the panel fell back to the default tokens, with no error. `martis:theme` has always written both files, so a 1.x theme usually has its edits in the published copy and the untouched scaffold in the source. What changes:
 
 | | 1.x | Now |
 |---|---|---|
 | File you edit | `public/vendor/martis/themes/<name>.css` (as the `martis:theme` hint said) | `resources/css/martis/<name>.css` |
-| After an edit | Refresh the browser | Run `php artisan martis:publish-assets`, then refresh |
-| `martis:publish-assets` | Deletes the published copy | Writes it again from the source |
-| `martis:publish-assets --no-wipe` | Leaves the published copy alone | Writes it again from the source |
-| `martis:theme:diff` | Compares the published copy | Compares the source |
+| After an edit | Refresh the browser | Run `php artisan martis:publish-assets --themes-only`, then refresh |
+| A copy edited in place, next to its source | Deleted by the publish | Backed up, then replaced with the source |
+| A copy without a source | Deleted by the publish | Backed up and removed; when it is the theme `martis.theme.name` names, the publish stops instead and changes nothing |
+| `--no-wipe` and a copy edited in place | Left alone | Backed up, then replaced with the source |
+| A theme source that cannot be read | Never read | Skipped with a warning; the publish stops and changes nothing when it is the source of `martis.theme.name` or the run would remove its published copy |
+| `public/vendor/martis/themes/` as a symlink (deploy tool shared directory) | The wipe removed the link itself and left the target alone, so the panel lost the theme; `martis:theme` wrote its copy through the link, into the target | Checked and backed up, then replaced by a real directory holding a copy of the target's files; the target is never written |
+| `public/vendor/martis/` itself as a symlink | Since v1.8.8 the wipe emptied the target through the link (any other file there was deleted) and the assets were copied into it | Replaced the same way before anything is written; the target is never written |
+| `martis:theme:diff` | Compares the published copy | Compares the source, and warns when the published copy differs |
 
 Before you upgrade:
 
-1. Find the file that holds your edits: `diff resources/css/martis/<name>.css public/vendor/martis/themes/<name>.css`. If the published copy has them, copy it over the source: `cp public/vendor/martis/themes/<name>.css resources/css/martis/<name>.css`. If a publish already deleted it, restore your edits into the source from version control or a backup.
+1. Find the file that holds your edits: `diff resources/css/martis/<name>.css public/vendor/martis/themes/<name>.css`. If the published copy has them, copy it over the source: `mkdir -p resources/css/martis && cp public/vendor/martis/themes/<name>.css resources/css/martis/<name>.css`. If a publish already deleted it, restore your edits into the source from version control or a backup.
 2. Commit `resources/css/martis/<name>.css`. `public/vendor/martis/` can stay out of version control: every publish writes it again.
-3. Upgrade as usual (`composer update martis/martis`, then `php artisan martis:publish-assets` or `php artisan martis:install --force`). The publish writes your theme to `public/vendor/martis/themes/<name>.css`.
+3. Upgrade as usual (`composer update martis/martis`, then `php artisan martis:publish-assets` or `php artisan martis:install --force`). The publish writes your theme to `public/vendor/martis/themes/<name>.css`. If you skipped step 1, it backs up the edited copy to `storage/app/martis/theme-backups/` and says so: move your edits from the backup into the source, then publish again. If the theme `martis.theme.name` names only exists as its published copy, or the publish would remove the copy of a theme source it cannot read, the publish (and `martis:install` with it) stops with exit code 1 and changes nothing: do step 1, or fix the file, then run it again. If your deploy tool shares `public/vendor/martis/themes/` between releases (a workaround for the old wipe), remove it from the shared list: the publish replaces the link with a real directory.
 4. Point any script that edits or copies the published copy at the source, and run a `martis:theme:diff` CI gate against the source.
 
 ### PrimeReact components (v1.39.0)
@@ -620,7 +631,7 @@ php artisan martis:theme:diff mytheme       # explicit theme name
 php artisan martis:theme:diff --show-match  # also list tokens both files declare
 ```
 
-The command compares the theme source, `resources/css/martis/<name>.css`. When only the published copy exists, it fails and tells you to move the copy there, since the next publish deletes it.
+The command compares the theme source, `resources/css/martis/<name>.css`. When only the published copy exists, it fails and tells you to move the copy there: a publish removes a copy without a source, after backing it up (`--no-wipe` keeps it). It rejects a name the panel does not load, fails on a source it cannot read, and warns when the published copy is missing or differs from the source, since the panel loads the copy; the exit code only reflects the tokens.
 
 Output is split into three groups:
 
@@ -636,11 +647,11 @@ Exit codes: `0` (everything aligned), `2` (drift detected — useful for CI gate
 
 ### Theme not loading
 1. Verify `config('martis.theme.name')` returns your theme name
-2. Check `resources/css/martis/{name}.css` exists, then run `php artisan martis:publish-assets`: it publishes the file to `public/vendor/martis/themes/{name}.css`, the stylesheet the browser loads
+2. Check `resources/css/martis/{name}.css` exists, then run `php artisan martis:publish-assets --themes-only`: it publishes the file to `public/vendor/martis/themes/{name}.css`, the stylesheet the browser loads, and warns when `martis.theme.name` has no source or a source is skipped. It stops with exit code 1, changing nothing, when a theme source cannot be read or when it would remove the published copy of the theme `martis.theme.name` names: the error names the file
 3. Run `php artisan view:clear` and `php artisan config:clear`
 4. Inspect HTML `<head>`: the theme `<link>` must appear AFTER app CSS and return 200
 
-On martis/martis up to v1.39.1, every asset publish (`martis:publish-assets`, `martis:vendor-publish --assets`, `martis:install`) deleted the published copy without writing it again. Upgrade (see [Upgrading from 1.x](#upgrading-from-1x)), or copy the source over the published copy after each publish.
+On martis/martis up to v1.39.1, asset publishes deleted the published copy without writing it again: `martis:publish-assets` and `martis:vendor-publish --assets` since v1.8.8, `martis:install` since v1.29.1. Upgrade (see [Upgrading from 1.x](#upgrading-from-1x)), or copy the source over the published copy after each publish.
 
 ### Some colors don't change
 Every PrimeReact component reads the `--martis-*` tokens (see [PrimeReact components](#primereact-components-v1390)). When a colour does not follow your theme:

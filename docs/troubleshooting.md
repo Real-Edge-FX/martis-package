@@ -75,7 +75,7 @@ This wipes `public/vendor/martis/` first so stale Vite-hashed chunks from previo
 php artisan optimize:clear
 ```
 
-> **Note:** the legacy `php artisan vendor:publish --tag=martis-assets --force` still works but is a merge-style copy — orphaned chunks accumulate at every `composer update`, and it never checks that the full set landed. The `martis:publish-assets` command (and `martis:vendor-publish --assets`, and `martis:install`) is the canonical entry point: it avoids the disk bloat and guarantees a complete set. Pass `--no-wipe` to opt back into the merge behaviour if you have a specific reason to.
+> **Note:** the legacy `php artisan vendor:publish --tag=martis-assets --force` still works but is a merge-style copy — orphaned chunks accumulate at every `composer update`, and it never checks that the full set landed. It never publishes your themes either: `resources/css/martis/*.css` only reaches `public/vendor/martis/themes/` through `martis:publish-assets` (or its `--themes-only` form). The `martis:publish-assets` command (and `martis:vendor-publish --assets`, and `martis:install`) is the canonical entry point: it avoids the disk bloat and guarantees a complete set. Pass `--no-wipe` to opt back into the merge behaviour if you have a specific reason to.
 
 ### Black screen (admin loads but nothing renders)
 
@@ -229,11 +229,24 @@ See [Global Search → Searchable detail relations](global-search.md#-searchable
 A custom theme is the stylesheet `resources/css/martis/<name>.css`, activated by `theme.name` in the `theme` block of `config/martis.php` (there is no separate `config/martis-theme.php`). The browser loads the published copy, `public/vendor/martis/themes/<name>.css`, which `martis:publish-assets` writes from the source. After editing the theme or the config, publish and clear the config cache:
 
 ```bash
-php artisan martis:publish-assets
+php artisan martis:publish-assets --themes-only
 php artisan config:clear
 ```
 
-Do not run `php artisan martis:theme` again to refresh the published file: it refuses to overwrite the source without `--force`, and with `--force` it replaces your theme with the scaffold. Up to v1.39.1 every asset publish deleted the published copy without writing it again; see [Theming → Theme not loading](theming.md#theme-not-loading).
+The publish warns when `martis.theme.name` has no source, when it skips a source, and when it backs up a published copy it replaces or removes (to `storage/app/martis/theme-backups/`). It stops instead in the cases below.
+
+### `martis:publish-assets` or `martis:install` stops on a theme
+
+The asset publish checks the themes before it deletes anything, and stops with exit code 1, changing nothing, in these cases:
+
+- `Could not read resources/css/martis/<file>, the source of the active theme` or `Could not read resources/css/martis/<file>: ..., and this publish would remove public/vendor/martis/themes/<file>`: a theme source is a broken symlink or does not open, and the panel's theme or a published copy depends on it. Fix or remove the file. A source nothing depends on is only skipped, with a `Skipped resources/css/martis/<file>` warning.
+- `Could not list resources/css/martis: the directory cannot be listed`: give the user that runs the command permission to list the directory.
+- `martis.theme.name is "<name>", but ...`: the publish would take away the theme the panel loads, because its source is skipped (for example a `.CSS` extension) or missing while its published copy (a file, or a symlink) exists. Move the published copy to `resources/css/martis/<name>.css` (see [Theming → Upgrading from 1.x](theming.md#upgrading-from-1x)), or set `martis.theme.name` to another theme or `null`.
+- `Could not replace a symlinked directory under public/vendor/ with a real one`: `public/vendor/martis/` or its `themes/` is a symlink, and its parent directory does not let the publish create the directory that replaces it. Replace the link with a directory yourself, or make the parent writable.
+
+Then run the command again. A failed backup stops it the same way: make `storage/app/martis/theme-backups/` writable.
+
+Do not run `php artisan martis:theme` again to refresh the published file: it asks before it overwrites the source (and refuses in a non-interactive run), and if you confirm, or pass `--force`, it replaces your theme with the scaffold. Up to v1.39.1 asset publishes deleted the published copy without writing it again; see [Theming → Theme not loading](theming.md#theme-not-loading).
 
 ### Custom override not picked up
 
