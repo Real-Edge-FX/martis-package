@@ -630,6 +630,8 @@ Source: `src/Resource.php::indexQuery()`.
 
 Constrains the query used to list candidate records in every relationship picker that targets this resource: BelongsTo dropdowns, the context-free relatable form, and the BelongsToMany / MorphToMany attach pickers. It is the resource's own fence and always applies; a source resource's `relatable{PluralModelName}()` and a field's `relatableQueryUsing()` narrow on top of it, never replace it (see [Relationships → Relatable scoping precedence](relationships.md#relatable-scoping-precedence)). A resource that confines its index with `indexQuery()` or `scopes()` on a model that cannot carry a global scope should declare the same predicate here so the fence holds on the pickers too: neither hook applies to a picker.
 
+The writes follow it too, as Nova's `Relatable` rule: a create, update, attach or Action run that names a record outside the query answers 422 on the field (see [Relationships → Writes follow the pickers](relationships.md#writes-follow-the-pickers)). So keep it as wide as what the app actually saves.
+
 ```php
 public static function relatableQuery(Request $request, Builder $query): Builder
 {

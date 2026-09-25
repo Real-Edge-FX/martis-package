@@ -4,6 +4,16 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.0.1
+
+### Relationship writes follow the pickers
+
+A create, update, inline create, attach, pivot update or Action run now answers **422** when a `BelongsTo`, `MorphTo`, `Tag` or attached record names a record its picker would not list, as Nova's `Relatable` rule does. v2.0 applied `relatableQuery()`, `relatable{PluralModelName}()` and `relatableQueryUsing()` to the pickers only and saved any id the request sent. See [Relationships → Writes follow the pickers](relationships.md#writes-follow-the-pickers).
+
+**Who is affected:** an app whose relatable hooks are narrower than what it saves: a `relatableQuery()` that hides records a form or an API client still writes (an inactive owner, another tenant's record an admin assigns), a `relatableQueryUsing()` written only to sort or shorten the list, or a client that writes soft-deleted related records. The same writes now also need `viewAny` on the related resource, the related record's `add{Model}` policy ability for a `BelongsTo` / `MorphTo` (as the `HasMany` panel on its page already needs), and `attachAny{Model}` / `attach{Model}` for the records a `Tag` adds. A record that already points at a target keeps saving: the stored value is not checked again.
+
+**What to change:** widen the hook to what the app writes (branch on `$request->route('resource')` or on the field passed to `relatable{PluralModelName}()` when only one picker should be narrow), send `{attribute}_trashed=true` with a soft-deleted target, and grant the policy abilities above. An API client that attaches with a 3-argument `relatableQueryUsing()` closure sends the same `?form[attribute]=value` draft on the attach as on the attachable list.
+
 ## Upgrading to v2.0 from v1.x
 
 Require the new major; a `^1.x` constraint never installs it:
