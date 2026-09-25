@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
@@ -130,6 +131,9 @@ class CPRSoftArchivedResource extends CPRSoftActiveResource
 
 beforeEach(function () {
     $this->withoutMiddleware(MartisAuthenticate::class);
+
+    // The audit log is closed by default: these tests read it.
+    Gate::define(ActionEventResource::GATE, fn ($user = null): bool => true);
 
     if (! Schema::hasTable('users')) {
         Schema::create('users', function ($t) {

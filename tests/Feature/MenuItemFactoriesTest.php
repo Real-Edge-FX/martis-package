@@ -2,7 +2,9 @@
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Martis\Dashboards\Dashboard;
 use Martis\Enums\FilterType;
@@ -320,6 +322,10 @@ it('suppresses System auto-injection when a resource is referenced in the custom
             ]),
         ]));
     });
+
+    // The audit log is closed by default: open it for this user.
+    Gate::define(ActionEventResource::GATE, fn ($user = null): bool => true);
+    $this->actingAs((new User)->forceFill(['id' => 1]));
 
     // The bundled System section may still show the Cache admin link,
     // but it must not contain a second copy of the action-events resource.
