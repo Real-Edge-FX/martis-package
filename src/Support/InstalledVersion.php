@@ -65,9 +65,11 @@ final class InstalledVersion
     }
 
     /**
-     * A tagged version names its code on its own. A `dev-*` branch keeps its
-     * name across `composer update`, so its commit reference (shortened to
-     * 12 characters) is appended: `dev-main@0123456789ab`.
+     * A tagged version names its code on its own. A dev version keeps its
+     * name across `composer update`, whether a branch (`dev-main`) or a
+     * numbered branch or alias (`2.x-dev`, `2.0.x-dev`), so its commit
+     * reference (shortened to 12 characters) is appended:
+     * `dev-main@0123456789ab`.
      */
     public static function stamp(?string $version, ?string $reference): ?string
     {
@@ -75,7 +77,9 @@ final class InstalledVersion
             return null;
         }
 
-        if (! str_starts_with($version, 'dev-') || $reference === null || $reference === '') {
+        $dev = str_starts_with($version, 'dev-') || str_ends_with($version, '-dev');
+
+        if (! $dev || $reference === null || $reference === '') {
             return $version;
         }
 

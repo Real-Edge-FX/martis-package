@@ -42,6 +42,12 @@ it('stamps a dev branch with its commit reference', function () {
         ->and(InstalledVersion::stamp('dev-main', 'fedcba9876543210fedcba9876543210fedcba98'))->toBe('dev-main@fedcba987654');
 });
 
+it('stamps a branch alias or a numbered dev branch with its commit reference', function () {
+    expect(InstalledVersion::stamp('2.x-dev', '0123456789abcdef0123456789abcdef01234567'))->toBe('2.x-dev@0123456789ab')
+        ->and(InstalledVersion::stamp('2.0.x-dev', '0123456789abcdef0123456789abcdef01234567'))->toBe('2.0.x-dev@0123456789ab')
+        ->and(InstalledVersion::stamp('v2.0.0-beta1', '0123456789abcdef0123456789abcdef01234567'))->toBe('v2.0.0-beta1');
+});
+
 it('stamps a dev branch without a reference with its name, and nothing as null', function () {
     expect(InstalledVersion::stamp('dev-main', null))->toBe('dev-main')
         ->and(InstalledVersion::stamp('dev-main', ''))->toBe('dev-main')
