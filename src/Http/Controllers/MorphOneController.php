@@ -346,8 +346,21 @@ class MorphOneController extends MartisController
     {
         $scope = $morphOneField instanceof MorphOneOfMany ? $morphOneField->getRuntimeScope() : null;
 
+        if ($scope === null) {
+            /** @var Model|null */
+            return $relation->first();
+        }
+
+        // Order a clone of the relation and read through the relation's own
+        // first(): on a through relation the raw query joins the
+        // intermediate table, and a plain `select *` lets its id overwrite
+        // the related record's id, so a write would land on another
+        // parent's record.
+        $scoped = clone $relation;
+        $scope($scoped->getQuery());
+
         /** @var Model|null */
-        return $scope !== null ? $scope(clone $relation->getQuery())->first() : $relation->first();
+        return $scoped->first();
     }
 
     /**
