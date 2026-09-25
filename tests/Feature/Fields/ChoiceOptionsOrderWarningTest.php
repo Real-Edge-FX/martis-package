@@ -267,3 +267,16 @@ it('warns again in a fresh request, for the same field instance (Octane)', funct
     Log::shouldHaveReceived('warning')->twice();
     Log::shouldHaveReceived('warning')->withArgs(fn (string $message): bool => str_contains($message, '#3 stores "draft"'));
 });
+
+it('runs a computed field callback once per resolve, never again for the check', function () {
+    $calls = 0;
+    $field = Select::make('status')->options(['draft' => 'Draft'])->computed(function () use (&$calls): string {
+        $calls++;
+
+        return 'draft';
+    });
+
+    $field->resolve(choiceOrderModel([], 1));
+
+    expect($calls)->toBe(1);
+});

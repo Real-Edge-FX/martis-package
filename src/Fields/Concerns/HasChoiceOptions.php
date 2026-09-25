@@ -223,6 +223,20 @@ trait HasChoiceOptions
     }
 
     /**
+     * Whether warnIfStoredAsLabel() can warn at all for this field, so a
+     * caller can skip reading the stored value for nothing: a computed
+     * field stores nothing (its value cannot be stale), closure options are
+     * never run for the check, and the warnings may be turned off.
+     */
+    protected function checksStoredOptionOrder(): bool
+    {
+        return ! $this->computed
+            && $this->optionsResolver === null
+            && $this->options !== []
+            && ! $this->optionOrderWarningsDisabled;
+    }
+
+    /**
      * Warn when a stored value matches the label of an option and the value
      * of none: the sign of an options array still written label first (the
      * order before v2.0.0), or of a record saved while it was. Saving such a
@@ -240,8 +254,7 @@ trait HasChoiceOptions
      */
     protected function warnIfStoredAsLabel(Model $model, mixed $value): void
     {
-        // A computed field stores nothing, so its value cannot be stale.
-        if ($this->computed || $this->optionsResolver !== null || $this->options === [] || $this->optionOrderWarningsDisabled) {
+        if (! $this->checksStoredOptionOrder()) {
             return;
         }
 

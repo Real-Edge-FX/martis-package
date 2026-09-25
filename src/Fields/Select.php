@@ -77,7 +77,7 @@ class Select extends Field
     {
         $attr = $attribute ?? $this->attribute;
 
-        if (! $this->allowCustomValues) {
+        if (! $this->allowCustomValues && $this->checksStoredOptionOrder()) {
             $this->warnIfStoredAsLabel($model, $this->resolveAttribute($model, $attr));
         }
 
