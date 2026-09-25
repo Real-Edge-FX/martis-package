@@ -36,6 +36,100 @@ abstract class MartisController extends Controller
     }
 
     /**
+     * The per-action map a listed row carries under `_actionAuthorization`:
+     * whether each action may run on the row's record, by the same predicate
+     * `ActionController::execute()` enforces (see `actionRunDenial()`), so an
+     * item the menu enables is one the run accepts. The resource index maps
+     * every action the user can see; a relationship panel (`$inlineOnly`)
+     * maps only its inline actions, the only ones its rows offer. `null`
+     * when there is none to map, so the rows skip it.
+     *
+     * The closure takes the row's serialized `_authorization`, whose
+     * `authorizedToRunAction` / `authorizedToRunDestructiveAction` flags are
+     * the policy answers the map needs, so the policy is not asked again
+     * per action.
+     *
+     * @param  class-string<resource>  $resourceClass
+     * @return (\Closure(Model, array<string, mixed>=): array<string, bool>)|null
+     */
+    protected function rowActionAuthorizer(Request $request, string $resourceClass, bool $inlineOnly = false): ?\Closure
+    {
+        $actions = array_filter(
+            (new $resourceClass)->actions($request),
+            fn (ActionContract $action): bool => $action->authorizedToSee($request)
+                && (! $inlineOnly || $action->isShownInline()),
+        );
+
+        if ($actions === []) {
+            return null;
+        }
+
+        return function (Model $model, array $authorization = []) use ($actions, $request, $resourceClass): array {
+            $policy = $this->actionPolicy($request, new $resourceClass($model), $authorization);
+            $map = [];
+            foreach ($actions as $action) {
+                $map[$action->uriKey()] = $this->actionRunDenial($request, $action, $model, $policy) === null;
+            }
+
+            return $map;
+        };
+    }
+
+    /**
+     * The record's run-action policy, asked at most once per kind:
+     * `$policy(true)` is `runDestructiveAction` (falling back to `delete`),
+     * `$policy(false)` is `runAction` (falling back to `update`). A known
+     * answer (the row's `_authorization` flags) is used as is.
+     *
+     * @param  array<string, mixed>  $known
+     * @return \Closure(bool): bool
+     */
+    protected function actionPolicy(Request $request, Resource $resource, array $known = []): \Closure
+    {
+        $answers = [];
+        if (is_bool($known['authorizedToRunAction'] ?? null)) {
+            $answers[0] = $known['authorizedToRunAction'];
+        }
+        if (is_bool($known['authorizedToRunDestructiveAction'] ?? null)) {
+            $answers[1] = $known['authorizedToRunDestructiveAction'];
+        }
+
+        return function (bool $destructive) use (&$answers, $request, $resource): bool {
+            return $answers[(int) $destructive] ??= $destructive
+                ? $resource->authorizedToRunDestructiveAction($request)
+                : $resource->authorizedToRunAction($request);
+        };
+    }
+
+    /**
+     * Why `$action` may not run on `$model`, or `null` when it may: the
+     * action's own `canRun()`, then, unless it is standalone, the record's
+     * `runDestructiveAction` policy for a destructive action and its
+     * `runAction` policy otherwise (see `actionPolicy()`). Both must allow
+     * it: unlike Nova 5, where a `canRun()` replaces the policy, a
+     * `canRun()` grants nothing the policy refuses. The one predicate behind
+     * the row map and the run.
+     *
+     * @param  \Closure(bool): bool  $policy
+     */
+    protected function actionRunDenial(Request $request, ActionContract $action, Model $model, \Closure $policy): ?string
+    {
+        if (! $action->authorizedToRun($request, $model)) {
+            return 'You are not authorized to run this action on one or more selected resources.';
+        }
+
+        if ($action->isStandalone()) {
+            return null;
+        }
+
+        if ($action->isDestructive()) {
+            return $policy(true) ? null : 'You are not authorized to run this destructive action.';
+        }
+
+        return $policy(false) ? null : 'You are not authorized to run this action.';
+    }
+
+    /**
      * Consult the collection-level gate before any record query on a per-id
      * endpoint.
      *
