@@ -53,10 +53,19 @@ class HasManyThrough extends HasMany
 
     /**
      * No effect: the panel of a Through relationship never offers Create.
-     * Kept callable so a resource that calls it still loads.
+     * Kept callable so a resource that calls it still loads; asking for
+     * Create raises an E_USER_DEPRECATED notice (logged by Laravel on the
+     * deprecations channel) instead of failing silently.
      */
     public function canCreate(bool $value = true): static
     {
+        if ($value) {
+            trigger_error(sprintf(
+                'HasManyThrough::canCreate() on "%s" has no effect: records cannot be created through a Through relationship, as in Nova. Remove the call.',
+                $this->relationship,
+            ), E_USER_DEPRECATED);
+        }
+
         return $this;
     }
 

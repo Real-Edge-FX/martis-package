@@ -2119,7 +2119,7 @@ HasOneThrough::make('Account Manager', 'accountManager', TeamMemberResource::cla
 
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
-| *All `HasOne` setters* | — | `$this` | Inherited, except `canCreate`, which has no effect (always `false`). | — |
+| *All `HasOne` setters* | — | `$this` | Inherited, except `canCreate`, which has no effect (always `false`; `canCreate(true)` raises an `E_USER_DEPRECATED` notice). | — |
 | `throughBreadcrumb` | `throughBreadcrumb(bool $enabled = true, ?string $text = null): static` | `$this` | Adds a "through" hint next to the section heading. Pass a custom `$text` to override the default label. | `false` |
 
 *src/Fields/HasOneThrough.php*
@@ -2221,7 +2221,7 @@ HasManyThrough::make('Managed Projects', 'managedProjects', ProjectResource::cla
 
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
-| *All `HasMany` setters* | — | `$this` | Inherited, except `canCreate`, which has no effect (always `false`). | — |
+| *All `HasMany` setters* | — | `$this` | Inherited, except `canCreate`, which has no effect (always `false`; `canCreate(true)` raises an `E_USER_DEPRECATED` notice). | — |
 | `throughBreadcrumb` | `throughBreadcrumb(bool $enabled = true, ?string $text = null): static` | `$this` | Adds a "through" hint next to the section heading. | `false` |
 | `countBadge` | `countBadge(bool $enabled = true): static` | `$this` | Renders a count pill on the parent resource's index cell. | `true` |
 

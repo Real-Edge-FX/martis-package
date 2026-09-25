@@ -536,7 +536,8 @@ public function accountManager(): HasOneThrough
 ```
 
 See [fields.md § HasOneThrough](fields.md#hasonethrough) for the full API.
-All `HasOne` methods are inherited, except that `canCreate()` has no effect.
+All `HasOne` methods are inherited, except that `canCreate()` has no effect
+(`canCreate(true)` raises an `E_USER_DEPRECATED` notice naming the field).
 `throughBreadcrumb(bool)` ⭐ adds a "through" hint next to the section heading.
 
 The relationship has no foreign key of its own to write, so the `has-one`
@@ -630,7 +631,8 @@ public function managedProjects(): HasManyThrough
 ```
 
 See [fields.md § HasManyThrough](fields.md#hasmanythrough) for the full API.
-All `HasMany` methods are inherited, except that `canCreate()` has no effect.
+All `HasMany` methods are inherited, except that `canCreate()` has no effect
+(`canCreate(true)` raises an `E_USER_DEPRECATED` notice naming the field).
 Adds `throughBreadcrumb(bool)` ⭐ and `countBadge(bool)` ⭐.
 
 The relationship has no foreign key of its own to write: a create through it
@@ -688,8 +690,10 @@ What to do:
 - Declare a Through relationship with `HasOneThrough` / `HasManyThrough`. A
   plain `HasMany` / `HasOne` field on one still shows Create, and its request
   now answers 403.
-- Drop `canCreate()` from Through fields. It no longer does anything, and it
-  stays callable, so a resource that still calls it keeps loading.
+- Drop `canCreate()` from Through fields. It no longer does anything; it
+  stays callable, so a resource that still calls it keeps loading, and
+  `canCreate(true)` raises an `E_USER_DEPRECATED` notice naming the field
+  (Laravel logs it on its `deprecations` log channel).
 - If a panel offered Create on a Through relationship in your app, check the
   records created from it: the create wrote the parent's id into the
   relationship's second key (for `TeamMember::managedProjects()` above, the
