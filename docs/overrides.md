@@ -1,6 +1,6 @@
 # Override System
 
-The override system is a core Martis differential. **Everything can be customized without forking** — React components, layouts, and server-side behaviors.
+The override system lets you replace any Martis React component or layout, and hook your own logic into server-side CRUD operations, from your application. **Everything can be customized without forking**, and it is a core Martis differential.
 
 ## Overview
 

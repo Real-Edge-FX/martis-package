@@ -1,9 +1,9 @@
 # Highlights
 
 A tour of the surfaces Martis ships beyond the bare-essential admin-panel
-contract — features that exist as first-class APIs in the package, with
-their own configuration, generators, or escape hatches. Each entry below
-links into the dedicated reference for the full surface.
+contract, each a first-class API of the package. They come with their own
+configuration, generators, or escape hatches, and each entry below links
+into the dedicated reference for the full surface.
 
 This page is descriptive: it tells you **what is in the box**. It does
 not benchmark Martis against any other package — for ecosystem

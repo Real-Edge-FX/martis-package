@@ -1,6 +1,6 @@
 # Martis Documentation
 
-A modern, open-source admin engine for Laravel.
+Martis is a modern, open-source admin engine for Laravel, with a PHP API modelled on Laravel Nova 5 and a React + TypeScript frontend. It covers resources, fields, actions, filters, lenses, metrics and dashboards.
 
 ## What is Martis?
 

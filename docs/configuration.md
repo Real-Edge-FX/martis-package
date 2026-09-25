@@ -1,6 +1,6 @@
 # Configuration
 
-Martis is configured through `config/martis.php`. Publish it with the bundled wrapper (or the standard `vendor:publish` if you prefer):
+Martis is configured through `config/martis.php`, which the installer publishes; most of its options also read an environment variable. Publish it with the bundled wrapper (or the standard `vendor:publish` if you prefer):
 
 ```bash
 php artisan martis:vendor-publish --config

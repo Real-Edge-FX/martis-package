@@ -1,6 +1,6 @@
 # Relationships
 
-This guide covers all relationship field types in Martis and how to use them.
+Martis has a field for every Eloquent relationship, from `BelongsTo` and `HasMany` to the polymorphic `MorphTo` and `MorphToMany`. This guide covers how each one is declared, how it renders (a picker, a card or an inline panel) and how it is authorized.
 
 ## Overview
 

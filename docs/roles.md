@@ -1,6 +1,8 @@
 # Roles & Permissions Admin
 
-Martis ships a one-shot generator that scaffolds an admin UI for users, roles, and permissions on top of [`spatie/laravel-permission`](https://spatie.be/docs/laravel-permission). The generated resources land in your app's `app/Martis/Resources/` directory and live in the **System** sidebar group alongside the audit log and the Cache admin link.
+Martis ships a one-shot generator that scaffolds an admin UI for users, roles, and permissions on top of [`spatie/laravel-permission`](https://spatie.be/docs/laravel-permission).
+
+The generated resources land in your app's `app/Martis/Resources/` directory and live in the **System** sidebar group alongside the audit log and the Cache admin link.
 
 ## TL;DR
 

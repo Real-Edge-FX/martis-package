@@ -2,7 +2,9 @@
 
 > Per-subsystem cache layer with three control planes (config / env / runtime), per-request bypass, atomic version-key invalidation, custom-layer extensibility, and a built-in admin page. Lives at `Sistema → Cache`.
 
-Most admin panels make caching opaque: TTLs hidden in code, invalidation by deploy, no kill-switch. Martis flips that — every cache layer has a name, an effective state, and a button. Developers read the config and trust it. Ops have a switch they can flip in production without redeploying. Apps add their own layers in three lines.
+Most admin panels make caching opaque: TTLs hidden in code, invalidation by deploy, no kill-switch. Martis flips that: every cache layer has a name, an effective state, and a button.
+
+Developers read the config and trust it. Ops have a switch they can flip in production without redeploying. Apps add their own layers in three lines.
 
 ## What's differentiated
 

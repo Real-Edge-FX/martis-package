@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Martis\Mcp;
 
+use Martis\Support\DocDescription;
+
 /**
  * Reads the canonical Martis docs (`vendor/martis/martis/docs/*.md`)
  * and provides list / read / search helpers consumed by the MCP
@@ -97,27 +99,17 @@ class DocLookup
 
     private function oneLiner(string $path): string
     {
-        $handle = @fopen($path, 'r');
-        if ($handle === false) {
+        $markdown = @file_get_contents($path);
+        if ($markdown === false) {
             return '';
         }
-        try {
-            while (($line = fgets($handle)) !== false) {
-                $trim = trim($line);
-                if ($trim === '' || str_starts_with($trim, '#')) {
-                    continue;
-                }
-                if (mb_strlen($trim) > 160) {
-                    return mb_substr($trim, 0, 157).'...';
-                }
 
-                return $trim;
-            }
-        } finally {
-            fclose($handle);
-        }
+        // The description the docs site shows for the page.
+        $description = DocDescription::fromMarkdown($markdown);
 
-        return '';
+        return mb_strlen($description) > DocDescription::MAX_LENGTH
+            ? mb_substr($description, 0, DocDescription::MAX_LENGTH - 3).'...'
+            : $description;
     }
 
     private function snippet(string $haystack, string $query): string
