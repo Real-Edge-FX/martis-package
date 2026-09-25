@@ -110,7 +110,11 @@ for the full ruleset (Rules 1–3 apply identically here).
 `LensRequest` exposes two composition helpers:
 
 - `withFilters(Builder): Builder` — applies filter values selected by
-  the user.
+  the user. Each filter runs as Eloquent runs a local scope (v2.0.1): an
+  `orWhere()` in the lens's query (`where('status', 'open')->orWhere('shared', true)`)
+  and one in a filter stay inside their own group, so the filter narrows
+  every record the lens's query keeps. Before v2.0.1 the filter's clause
+  was appended to the query's last `or` only.
 - `withOrdering(Builder, ?Closure $default = null): Builder` — applies
   the user's chosen sort column; if none, calls the default closure.
 

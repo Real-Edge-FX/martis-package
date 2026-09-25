@@ -22,6 +22,7 @@ use Martis\RelationshipQueryResolver;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\SearchResolver;
+use Martis\Support\IndexScope;
 
 /**
  * Controller for MorphToMany polymorphic relationship operations.
@@ -206,11 +207,11 @@ class MorphToManyController extends MartisController
             $formDraft = $this->collectFormDraft($request);
 
             $arity = (new \ReflectionFunction($relatableClosure))->getNumberOfParameters();
-            if ($arity >= 3) {
-                $relatableClosure($request, $query, $formDraft);
-            } else {
-                $relatableClosure($request, $query);
-            }
+            // Grouped: an `orWhere()` in it cannot OR the resource-level
+            // fences above away (see IndexScope).
+            IndexScope::grouped($query, fn (Builder $grouped) => $arity >= 3
+                ? $relatableClosure($request, $grouped, $formDraft)
+                : $relatableClosure($request, $grouped));
         }
 
         // Exclude already-attached records unless allowDuplicates

@@ -38,6 +38,7 @@ use Martis\RelationshipQueryResolver;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\SearchResolver;
+use Martis\Support\IndexScope;
 
 /**
  * Generic CRUD controller for all registered Martis resources.
@@ -122,10 +123,10 @@ class ResourceController extends MartisController
 
         // Apply declarative scopes (v1.8.8) BEFORE the imperative
         // `indexQuery()` so the manual hook can override scope-applied
-        // predicates when the resource really needs to. Then the
-        // declarative static $with list.
-        $query = $resourceClass::applyScopes($request, $query);
-        $query = $resourceClass::indexQuery($request, $query);
+        // predicates when the resource really needs to, grouped: an
+        // `orWhere()` in them cannot OR the filters and the search below
+        // away (see IndexScope). Then the declarative static $with list.
+        $query = IndexScope::apply($request, $resourceClass, $query);
         $query = $resourceClass::applyWith($query);
 
         // Apply filters
@@ -1734,7 +1735,7 @@ class ResourceController extends MartisController
             );
         } else {
             // No source context - apply only the target's generic relatableQuery
-            $query = $relatedResourceClass::relatableQuery($request, $query);
+            $query = RelationshipQueryResolver::targetFence($relatedResourceClass, $request, $query);
         }
 
         // The declarative static $with list applies to relatable lookups too,
@@ -2109,7 +2110,9 @@ class ResourceController extends MartisController
                 continue;
             }
 
-            $filter->apply($request, $query, $value);
+            // Grouped, as the hooks are: an `orWhere()` in a filter cannot
+            // OR the resource's scopes() and indexQuery() away.
+            IndexScope::grouped($query, fn (Builder $grouped) => $filter->apply($request, $grouped, $value));
         }
     }
 
