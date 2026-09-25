@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Martis\Auth\GuardCatalog;
@@ -115,6 +116,10 @@ class RecordRoleChange
      * Skips silently when the host app does not use the database
      * session driver (BrowserSessionsService surfaces a
      * `supported: false` envelope in that case; nothing to revoke).
+     * Skips with a warning when the app's session guards sign in users of
+     * more than one table: `sessions.user_id` holds the id of whichever
+     * guard wrote the row, so a delete by the demoted user's id could sign
+     * out another person who has the same id in the other table.
      */
     protected function maybeRevokeSessions(object $event): void
     {
@@ -139,6 +144,16 @@ class RecordRoleChange
 
         $table = (string) config('session.table', 'sessions');
         if (! Schema::hasTable($table)) {
+            return;
+        }
+
+        if (GuardCatalog::sessionUserIdsAreAmbiguous()) {
+            Log::warning('Martis: revoke_sessions_on_demote skipped. The session guards of config/auth.php sign in users of more than one table and sessions.user_id stores no table, so the sessions of the demoted user cannot be told apart from those of another user with the same id.', [
+                'model' => $model::class,
+                'id' => $userId,
+                'tables' => GuardCatalog::sessionUserTables(),
+            ]);
+
             return;
         }
 

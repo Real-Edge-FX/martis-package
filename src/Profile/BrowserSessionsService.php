@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Martis\Auth\GuardCatalog;
 
 /**
  * Reads + revokes browser sessions stored by the Laravel `database`
@@ -21,11 +22,18 @@ use Illuminate\Support\Facades\Schema;
  * driver (`file`, `cookie`, `array`, `redis-without-table`) the
  * service short-circuits with `supported: false` and the React UI
  * is expected to render a single hint row instead of crashing.
+ *
+ * It also answers `supported: false`, with a `reason` the UI shows, when
+ * the app's session guards sign in users of more than one table (a custom
+ * MARTIS_GUARD with its own model beside the site's `users`): Laravel
+ * writes `sessions.user_id` with the id of the request's guard and no
+ * table, so a row with the panel user's id can be another person's, whose
+ * IP and device would be listed and whose session would be revoked.
  */
 class BrowserSessionsService
 {
     /**
-     * @return array{sessions: list<array<string, mixed>>, supported: bool, driver: string}
+     * @return array{sessions: list<array<string, mixed>>, supported: bool, driver: string, reason?: string}
      */
     public function forUser(Authenticatable $user, Request $request): array
     {
@@ -33,6 +41,10 @@ class BrowserSessionsService
 
         if (! $this->driverSupported($driver)) {
             return ['sessions' => [], 'supported' => false, 'driver' => $driver];
+        }
+
+        if (($reason = $this->unsupportedReason()) !== null) {
+            return ['sessions' => [], 'supported' => false, 'driver' => $driver, 'reason' => $reason];
         }
 
         $userId = $this->userId($user);
@@ -47,7 +59,7 @@ class BrowserSessionsService
             ->all();
 
         $currentId = $request->session()->getId();
-        $sessions = array_map(function ($row) use ($currentId): array {
+        $sessions = array_values(array_map(function ($row) use ($currentId): array {
             $row = (array) $row;
 
             return [
@@ -57,7 +69,7 @@ class BrowserSessionsService
                 'last_active' => (int) ($row['last_activity'] ?? 0),
                 'is_current' => ($row['id'] ?? null) === $currentId,
             ];
-        }, $rows);
+        }, $rows));
 
         return ['sessions' => $sessions, 'supported' => true, 'driver' => $driver];
     }
@@ -67,7 +79,7 @@ class BrowserSessionsService
      * the count of removed rows so the UI can confirm + update its
      * local state without an extra GET.
      *
-     * @return array{revoked: int, supported: bool, driver: string}
+     * @return array{revoked: int, supported: bool, driver: string, reason?: string}
      */
     public function revokeOthers(Authenticatable $user, Request $request): array
     {
@@ -75,6 +87,10 @@ class BrowserSessionsService
 
         if (! $this->driverSupported($driver)) {
             return ['revoked' => 0, 'supported' => false, 'driver' => $driver];
+        }
+
+        if (($reason = $this->unsupportedReason()) !== null) {
+            return ['revoked' => 0, 'supported' => false, 'driver' => $driver, 'reason' => $reason];
         }
 
         $userId = $this->userId($user);
@@ -97,7 +113,7 @@ class BrowserSessionsService
      * no-op (`revoked: 0`) so the call cannot accidentally sign the
      * user out of the device they are issuing the request from.
      *
-     * @return array{revoked: int, supported: bool, driver: string}
+     * @return array{revoked: int, supported: bool, driver: string, reason?: string}
      */
     public function revoke(Authenticatable $user, Request $request, string $sessionId): array
     {
@@ -105,6 +121,10 @@ class BrowserSessionsService
 
         if (! $this->driverSupported($driver)) {
             return ['revoked' => 0, 'supported' => false, 'driver' => $driver];
+        }
+
+        if (($reason = $this->unsupportedReason()) !== null) {
+            return ['revoked' => 0, 'supported' => false, 'driver' => $driver, 'reason' => $reason];
         }
 
         $userId = $this->userId($user);
@@ -123,6 +143,22 @@ class BrowserSessionsService
             ->delete();
 
         return ['revoked' => $revoked, 'supported' => true, 'driver' => $driver];
+    }
+
+    /**
+     * Why the rows of the `sessions` table cannot be attributed to this
+     * panel's user, or null when they can: the ids there can name users of
+     * more than one table ({@see GuardCatalog::sessionUserIdsAreAmbiguous()}).
+     */
+    public function unsupportedReason(): ?string
+    {
+        if (! GuardCatalog::sessionUserIdsAreAmbiguous()) {
+            return null;
+        }
+
+        $reason = __('martis::profile.sessions_unsupported_guards');
+
+        return is_string($reason) ? $reason : 'Browser sessions are not available: the app signs in users of more than one table, and Laravel stores the user id of a session without its table.';
     }
 
     private function driverSupported(string $driver): bool

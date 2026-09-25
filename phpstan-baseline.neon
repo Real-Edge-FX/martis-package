@@ -1003,12 +1003,6 @@ parameters:
 			path: src/Preferences/PreferencesResolver.php
 
 		-
-			message: '#^Method Martis\\Profile\\BrowserSessionsService\:\:forUser\(\) should return array\{sessions\: list\<array\<string, mixed\>\>, supported\: bool, driver\: string\} but returns array\{sessions\: array\<int, array\{id\: string, ip_address\: string, user_agent\: string, last_active\: int, is_current\: bool\}\>, supported\: true, driver\: string\}\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Profile/BrowserSessionsService.php
-
-		-
 			message: '#^Call to function is_callable\(\) with Closure will always evaluate to true\.$#'
 			identifier: function.alreadyNarrowedType
 			count: 1

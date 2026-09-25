@@ -6,7 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * Helper that exposes the auth guards configured by the host app, and the
- * Martis guard among them: its name and its user model.
+ * Martis guard among them: its name, its user model, and whether the
+ * session table can tell its users apart from the other guards'.
  *
  * The guard list is used by:
  *   - `Martis\Fields\GuardSelect` — populates its options at schema-render
@@ -83,5 +84,80 @@ class GuardCatalog
 
         /** @var class-string<Model> */
         return is_string($model) && $model !== '' ? $model : $fallback;
+    }
+
+    /**
+     * Whether an id in Laravel's `sessions.user_id` can name users of more
+     * than one table. The database session handler writes that column with
+     * the id of the request's guard and no table or model: a panel request
+     * writes the Martis guard's user, a site request the site guard's. When
+     * those guards sign in users of different tables (an `admins` guard for
+     * the panel beside the site's `users`), the same id is an admin in one
+     * row and a site user in another, and a row cannot be attributed to a
+     * person by its id. See {@see sessionUserTables()}.
+     */
+    public static function sessionUserIdsAreAmbiguous(): bool
+    {
+        return count(self::sessionUserTables()) > 1;
+    }
+
+    /**
+     * The tables whose ids the `sessions.user_id` column can hold: those of
+     * the providers of the guards that write it (every `session` guard, the
+     * Martis guard and the app's default guard), one entry per table
+     * (`{connection}|{table}`). A provider whose table cannot be told (a
+     * custom driver, a model class that does not exist) counts as a table of
+     * its own, so the answer errs on the ambiguous side.
+     *
+     * @return list<string>
+     */
+    public static function sessionUserTables(): array
+    {
+        $guards = (array) config('auth.guards', []);
+
+        $names = [self::martis(), self::default()];
+        foreach ($guards as $name => $guard) {
+            if (is_array($guard) && ($guard['driver'] ?? null) === 'session') {
+                $names[] = (string) $name;
+            }
+        }
+
+        $tables = [];
+        foreach (array_unique($names) as $name) {
+            $guard = $guards[$name] ?? null;
+            $provider = is_array($guard) ? ($guard['provider'] ?? null) : null;
+            if (is_string($provider) && $provider !== '') {
+                $tables[self::providerTable($provider)] = true;
+            }
+        }
+
+        return array_keys($tables);
+    }
+
+    /**
+     * The `{connection}|{table}` of a user provider's users, or
+     * `provider:{name}` when the provider does not say (a custom driver).
+     */
+    private static function providerTable(string $provider): string
+    {
+        $config = config("auth.providers.{$provider}");
+        $connection = config('database.default');
+        $connection = is_string($connection) ? $connection : '';
+
+        if (is_array($config) && ($config['driver'] ?? null) === 'eloquent'
+            && is_string($config['model'] ?? null) && is_subclass_of($config['model'], Model::class)) {
+            /** @var Model $model */
+            $model = new $config['model'];
+
+            return ($model->getConnectionName() ?? $connection).'|'.$model->getTable();
+        }
+
+        if (is_array($config) && ($config['driver'] ?? null) === 'database' && is_string($config['table'] ?? null)) {
+            $tableConnection = $config['connection'] ?? null;
+
+            return (is_string($tableConnection) && $tableConnection !== '' ? $tableConnection : $connection).'|'.$config['table'];
+        }
+
+        return 'provider:'.$provider;
     }
 }
