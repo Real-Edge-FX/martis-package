@@ -318,3 +318,9 @@ it('translates the labels, the statuses and the panel label', function (string $
     'pt_PT' => ['pt_PT', ['ID', 'Nome', 'Iniciada por', 'Alvo', 'Estado', 'Original', 'Alterações', 'Exceção', 'Ocorreu em'], 'Concluída', 'Eventos de ações'],
     'pt_BR' => ['pt_BR', ['ID', 'Nome', 'Iniciada por', 'Alvo', 'Status', 'Original', 'Alterações', 'Exceção', 'Ocorreu em'], 'Concluída', 'Eventos de ações'],
 ]);
+
+it('offers only the View control on a row, as Nova', function () {
+    $this->getJson('/martis/api/resources/action-events/schema')
+        ->assertOk()
+        ->assertJsonPath('data.defaultRowActions', ['enabled' => true, 'view' => true, 'edit' => false, 'delete' => false]);
+});

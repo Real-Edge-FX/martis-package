@@ -503,7 +503,9 @@ class MorphManyController extends MartisController
         // on every read of a record, and listed under `_hidden`.
         $visible = Field::filterForModel($fields, request(), $model);
         foreach ($visible as $field) {
-            $data[$field->attribute()] = $field->resolve($model);
+            // What the index shows, displayUsing() included (Nova's
+            // index and detail fields), like ResourceController.
+            $data[$field->attribute()] = $field->resolveForDisplay($model);
         }
         $data += $this->hiddenFieldsEntry($fields, $visible);
 

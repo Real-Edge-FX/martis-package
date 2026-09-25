@@ -590,3 +590,45 @@ it('resolves the has-many index endpoint when the field sits inside a Section', 
     $response->assertStatus(200);
     $response->assertJsonPath('meta.total', 2);
 });
+
+// ---------------------------------------------------------------------------
+// displayUsing() in the panel, as on the index
+// ---------------------------------------------------------------------------
+
+class HMDisplayChildResource extends Resource
+{
+    public static function model(): string
+    {
+        return HMChildModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'h-m-child-models';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('title')->displayUsing(fn ($value) => strtoupper((string) $value)),
+        ];
+    }
+}
+
+it('shows a related row through its fields displayUsing(), as the index does', function () {
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register(HMParentResource::class);
+    $registry->register(HMDisplayChildResource::class);
+
+    $parent = HMParentModel::create(['name' => 'Parent A']);
+    HMChildModel::create(['title' => 'quiet child', 'parent_id' => $parent->id]);
+
+    $this->getJson('/martis/api/resources/h-m-child-models')
+        ->assertOk()
+        ->assertJsonPath('data.0.title', 'QUIET CHILD');
+
+    $this->getJson("/martis/api/resources/h-m-parent-models/{$parent->id}/has-many/children")
+        ->assertOk()
+        ->assertJsonPath('data.0.title', 'QUIET CHILD');
+});

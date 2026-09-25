@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Martis\Actions\ActionEventRedactor;
 use Martis\Auth\GuardCatalog;
+use Martis\Enums\DefaultRowAction;
 use Martis\Enums\SortDirection;
 use Martis\Fields\DateTime;
 use Martis\Fields\Id;
@@ -202,6 +203,17 @@ class ActionEventResource extends Resource
     // -------------------------------------------------------------------------
     // Fields
     // -------------------------------------------------------------------------
+
+    /**
+     * Only the View control on a row, as Nova's action log: an event is
+     * never edited or deleted from the panel.
+     *
+     * @return list<DefaultRowAction>
+     */
+    public function defaultRowActions(Request $request): bool|array
+    {
+        return [DefaultRowAction::View];
+    }
 
     /**
      * The fields of Nova 5's `ActionResource`, in its order and with its
