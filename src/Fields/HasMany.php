@@ -379,6 +379,11 @@ class HasMany extends Field
     {
         $relatedAuth = $this->relatedResourceAuthorizations($this->getRelatedResourceKey());
         $authorizedToCreate = $relatedAuth['authorizedToCreate'] ?? true;
+        // Every write through the relationship (and the related resource's
+        // own restore / force-delete endpoints) needs the related viewAny,
+        // so a panel whose related resource denies it offers none of them;
+        // it still lists the records.
+        $canWrite = $relatedAuth['authorizedToViewAny'] ?? true;
 
         return [
             'relationship' => $this->relationship,
@@ -395,10 +400,10 @@ class HasMany extends Field
                 'perPage' => $this->resolvePerPage(),
                 'perPageOptions' => $this->resolvePerPageOptions(),
                 'searchable' => $this->relationSearchable,
-                'canCreate' => $this->canCreateRelated && $authorizedToCreate,
-                'canUpdate' => $this->canUpdateRelated,
-                'canDelete' => $this->canDeleteRelated,
-            ] + $this->relationshipToolbarControls(),
+                'canCreate' => $this->canCreateRelated && $authorizedToCreate && $canWrite,
+                'canUpdate' => $this->canUpdateRelated && $canWrite,
+                'canDelete' => $this->canDeleteRelated && $canWrite,
+            ] + ($canWrite ? [] : ['hideRestoreAction' => true, 'hideForceDeleteAction' => true]) + $this->relationshipToolbarControls(),
         ] + $relatedAuth + $this->relatableOptionsMeta();
     }
 }

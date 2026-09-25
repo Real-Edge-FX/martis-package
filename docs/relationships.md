@@ -53,6 +53,16 @@ HasMany::make('Comments', 'comments')
     ->hideForceDeleteAction()      // permanent deletion is never exposed
 ```
 
+When the related resource denies `viewAny`, a `HasMany` / `HasOne` /
+`MorphMany` / `MorphOne` panel (and their Through and one-of-many variants)
+still lists its records but offers no Create, Edit, Delete, Restore or Force
+delete (v1.39.3+): every one of those writes needs the related `viewAny` and
+answers 403 without it (see
+[Authorization → `viewAny` is the entry gate](authorization.md#viewany-is-the-entry-gate)).
+The panel flags are part of the resource schema, which the `schema` cache
+layer keeps with no expiration by default: after upgrading, run
+`php artisan martis:cache:clear schema` so cached panels drop those actions.
+
 ---
 
 ## Relationship panel anatomy

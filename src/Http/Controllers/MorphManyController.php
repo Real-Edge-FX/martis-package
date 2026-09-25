@@ -432,6 +432,14 @@ class MorphManyController extends MartisController
         /** @var class-string<resource> $relatedResourceClass */
         $relatedResourceClass = $this->registry->get($relatedResourceKey);
 
+        // A write through the relationship writes a record of the related
+        // resource, so it needs that resource's viewAny, as its own per-id
+        // endpoints do. routable() is not required: a headless resource
+        // stays usable as a relation target.
+        if ($action !== null && ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $relatedResourceClass))) {
+            return $forbidden;
+        }
+
         if ($action === 'create') {
             $relatedCheck = new $relatedResourceClass;
             if (! $relatedCheck->authorizedToCreate($request)) {
