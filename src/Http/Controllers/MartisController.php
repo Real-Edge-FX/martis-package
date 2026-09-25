@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
+use Martis\Contracts\FilterContract;
 use Martis\Enums\SortDirection;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\Field;
@@ -614,6 +615,49 @@ abstract class MartisController extends Controller
             : $resource->actions($request);
 
         return $actions;
+    }
+
+    /**
+     * Collect filters available inside the lens, indexed by uriKey, and
+     * stripping those the user is not allowed to see.
+     *
+     * Inheritance rule (explicit override semantics):
+     *   - Lens overrode `filters()` → use its value verbatim (even []).
+     *     This lets developers disable filters entirely on a lens.
+     *   - Lens did NOT override → inherit the parent resource's filters.
+     *
+     * @return array<string, FilterContract>
+     */
+    protected function collectAuthorizedFilters(Lens $lensInstance, Resource $resourceInstance, Request $request): array
+    {
+        $inheriting = ! $lensInstance->hasOverride('filters');
+        $filters = $inheriting
+            ? $resourceInstance->filters($request)
+            : $lensInstance->filters($request);
+
+        $result = [];
+        foreach ($filters as $filter) {
+            if (! $filter instanceof FilterContract) {
+                continue;
+            }
+            if (! $filter->authorizedToSee($request)) {
+                continue;
+            }
+            // Martis extension: the resource can tag filters as
+            // "not-for-lenses" with `->excludeFromLens()`. Such filters are
+            // skipped when the lens is inheriting from the resource; an
+            // explicit lens override trumps the tag.
+            if ($inheriting
+                && method_exists($filter, 'isExcludedFromLens')
+                && $filter->isExcludedFromLens()
+            ) {
+                continue;
+            }
+
+            $result[$filter->uriKey()] = $filter;
+        }
+
+        return $result;
     }
 
     /**

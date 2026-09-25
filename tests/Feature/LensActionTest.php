@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -10,8 +11,10 @@ use Illuminate\Support\Facades\Schema;
 use Martis\Actions\Action;
 use Martis\Actions\ActionFields;
 use Martis\Actions\ActionResponse;
+use Martis\Enums\FilterType;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\Text;
+use Martis\Filters\Filter;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Http\Requests\LensRequest;
 use Martis\Lenses\Lens;
@@ -43,10 +46,14 @@ abstract class LensActionRename extends Action
 {
     protected string $to = '';
 
+    /** @var list<array<string, mixed>> The attributes of each record it ran on, as it received them. */
+    public static array $received = [];
+
     /** @param Collection<int, Model> $models */
     public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
     {
         foreach ($models as $model) {
+            self::$received[] = $model->getAttributes();
             $model->forceFill(['name' => $this->to])->save();
         }
 
@@ -90,12 +97,59 @@ class LensActionStandalone extends Action
     }
 }
 
+/** `name = value`. */
+class LensActionNameFilter extends Filter
+{
+    public function apply(Request $request, Builder $query, mixed $value): Builder
+    {
+        return $query->where('name', $value);
+    }
+
+    public function filterType(): FilterType
+    {
+        return FilterType::Select;
+    }
+}
+
+/** A lens that lists aggregates (one row per record, only its key and a count). */
+class LensActionAggregateLens extends Lens
+{
+    public function query(LensRequest $request, Builder $query): Builder
+    {
+        return $query->select('lens_action_items.id')->selectRaw('count(*) as weight')->groupBy('lens_action_items.id');
+    }
+
+    public function actions(Request $request): array
+    {
+        return [LensActionLensOnly::make()];
+    }
+}
+
+/** A lens that paginates itself: its actions have no query to read records from. */
+class LensActionPaginatingLens extends Lens
+{
+    public function query(LensRequest $request, Builder $query): Paginator
+    {
+        return $query->paginate();
+    }
+
+    public function actions(Request $request): array
+    {
+        return [LensActionLensOnly::make()];
+    }
+}
+
 /** A lens with its own actions: they replace the resource's. */
 class LensActionOwnLens extends Lens
 {
     public function query(LensRequest $request, Builder $query): Builder
     {
-        return $request->withOrdering($request->withFilters($query));
+        return $request->withOrdering($request->withFilters($query->where('name', '!=', 'Unlisted')));
+    }
+
+    public function filters(Request $request): array
+    {
+        return [LensActionNameFilter::make('Name')];
     }
 
     public function fields(Request $request): array
@@ -167,6 +221,8 @@ class LensActionItemResource extends Resource
         return [
             new LensActionOwnLens,
             new LensActionInheritingLens,
+            new LensActionAggregateLens,
+            new LensActionPaginatingLens,
             (new LensActionForbiddenLens)->canSee(fn (): bool => false),
         ];
     }
@@ -175,6 +231,7 @@ class LensActionItemResource extends Resource
 beforeEach(function () {
     $this->withoutMiddleware(MartisAuthenticate::class);
     LensActionStandalone::$ran = false;
+    LensActionRename::$received = [];
 
     Schema::create('lens_action_items', function ($table) {
         $table->id();
@@ -268,14 +325,73 @@ it('refuses the actions of a lens the user cannot see, or that does not exist', 
     expect($item->fresh()->name)->toBe('Ada');
 });
 
-it('runs a lens action on the records the resource index confines only', function () {
+// ── The records a lens action runs on ───────────────────────────────────────
+//
+// As in Nova (`LensActionRequest`), the selected records are the ones the
+// lens's query lists, not the resource index's: the resource's scopes() do
+// not apply, and a record the lens does not list does not resolve.
+
+it('runs a lens action on a record the lens lists, whatever the resource scopes() hide', function () {
     $theirs = LensActionItem::create(['name' => 'Theirs', 'tenant_id' => 2]);
 
     $this->postJson(LENS_ACTION_BASE.'/lenses/lens-action-own/actions/lens-action-lens-only', [
         'resources' => [$theirs->id],
+    ])->assertOk();
+
+    expect($theirs->fresh()->name)->toBe('by lens');
+});
+
+it('answers 404 for a record the lens does not list', function () {
+    $unlisted = LensActionItem::create(['name' => 'Unlisted']);
+    $listed = LensActionItem::create(['name' => 'Listed']);
+
+    $this->postJson(LENS_ACTION_BASE.'/lenses/lens-action-own/actions/lens-action-lens-only', [
+        'resources' => [$unlisted->id],
+    ])->assertNotFound();
+    // Named with a listed one, it is left out of the run.
+    $this->postJson(LENS_ACTION_BASE.'/lenses/lens-action-own/actions/lens-action-lens-only', [
+        'resources' => [$unlisted->id, $listed->id],
+    ])->assertOk();
+
+    expect($unlisted->fresh()->name)->toBe('Unlisted')
+        ->and($listed->fresh()->name)->toBe('by lens');
+});
+
+it('reads the records through the lens filters the request carries', function () {
+    $ada = LensActionItem::create(['name' => 'Ada']);
+    $filters = urlencode(json_encode(['name' => 'Bob']));
+
+    $this->postJson(LENS_ACTION_BASE."/lenses/lens-action-own/actions/lens-action-lens-only?filters={$filters}", [
+        'resources' => [$ada->id],
     ])->assertNotFound();
 
-    expect($theirs->fresh()->name)->toBe('Theirs');
+    expect($ada->fresh()->name)->toBe('Ada');
+});
+
+it('hands the action whole records from a lens that lists aggregates', function () {
+    $item = LensActionItem::create(['name' => 'Ada', 'tenant_id' => 7]);
+
+    $this->postJson(LENS_ACTION_BASE.'/lenses/lens-action-aggregate/actions/lens-action-lens-only', [
+        'resources' => [$item->id],
+    ])->assertOk();
+
+    // The action read the record's own columns, not the lens's aggregate row.
+    expect(LensActionRename::$received)->toHaveCount(1)
+        ->and(LensActionRename::$received[0])->toMatchArray(['name' => 'Ada', 'tenant_id' => 7])
+        ->and(LensActionRename::$received[0])->not->toHaveKey('weight')
+        ->and($item->fresh()->name)->toBe('by lens');
+});
+
+it('fails loudly when the lens returns a paginator instead of a query', function () {
+    $item = LensActionItem::create(['name' => 'Ada']);
+
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->postJson(LENS_ACTION_BASE.'/lenses/lens-action-paginating/actions/lens-action-lens-only', [
+        'resources' => [$item->id],
+    ]))->toThrow(LogicException::class, 'LensActionPaginatingLens::query() must return an Eloquent query');
+
+    expect($item->fresh()->name)->toBe('Ada');
 });
 
 // ── Fields, relatable options, listing ──────────────────────────────────────

@@ -120,11 +120,12 @@ final class RelationScope
     /**
      * The keys `$result` selects, as a subquery for `IN (...)`: its select,
      * order, limit and offset dropped (a `select()` would return several
-     * columns, and MySQL refuses a LIMIT there).
+     * columns, and MySQL refuses a LIMIT there). A lens action reads the
+     * records its lens lists through it too.
      *
      * @param  Builder<Model>  $result
      */
-    private static function keys(Builder $result): QueryBuilder
+    public static function keys(Builder $result): QueryBuilder
     {
         $keys = $result->toBase()->reorder();
         $keys->limit = null;

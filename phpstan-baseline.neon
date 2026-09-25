@@ -319,12 +319,6 @@ parameters:
 			path: src/Http/Controllers/LensController.php
 
 		-
-			message: '#^Call to function method_exists\(\) with Martis\\Contracts\\FilterContract and ''authorizedToSee'' will always evaluate to true\.$#'
-			identifier: function.alreadyNarrowedType
-			count: 1
-			path: src/Http/Controllers/LensController.php
-
-		-
 			message: '#^Method Martis\\Http\\Controllers\\LensController\:\:buildCacheKey\(\) has parameter \$lensRequest with generic class Martis\\Http\\Requests\\LensRequest but does not specify its types\: TModel$#'
 			identifier: missingType.generics
 			count: 1

@@ -9,7 +9,6 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
-use Martis\Contracts\FilterContract;
 use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\Field;
@@ -327,49 +326,6 @@ class LensController extends MartisController
     private static function classHash(Lens $lens): string
     {
         return substr(sha1(get_class($lens)), 0, 10);
-    }
-
-    /**
-     * Collect filters available inside the lens, indexed by uriKey, and
-     * stripping those the user is not allowed to see.
-     *
-     * Inheritance rule (explicit override semantics):
-     *   - Lens overrode `filters()` → use its value verbatim (even []).
-     *     This lets developers disable filters entirely on a lens.
-     *   - Lens did NOT override → inherit the parent resource's filters.
-     *
-     * @return array<string, FilterContract>
-     */
-    private function collectAuthorizedFilters(Lens $lensInstance, Resource $resourceInstance, Request $request): array
-    {
-        $inheriting = ! $lensInstance->hasOverride('filters');
-        $filters = $inheriting
-            ? $resourceInstance->filters($request)
-            : $lensInstance->filters($request);
-
-        $result = [];
-        foreach ($filters as $filter) {
-            if (! $filter instanceof FilterContract) {
-                continue;
-            }
-            if (method_exists($filter, 'authorizedToSee') && ! $filter->authorizedToSee($request)) {
-                continue;
-            }
-            // Martis extension: the resource can tag filters as
-            // "not-for-lenses" with `->excludeFromLens()`. Such filters are
-            // skipped when the lens is inheriting from the resource; an
-            // explicit lens override trumps the tag.
-            if ($inheriting
-                && method_exists($filter, 'isExcludedFromLens')
-                && $filter->isExcludedFromLens()
-            ) {
-                continue;
-            }
-
-            $result[$filter->uriKey()] = $filter;
-        }
-
-        return $result;
     }
 
     /**
