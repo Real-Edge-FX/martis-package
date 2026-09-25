@@ -548,6 +548,31 @@ class BelongsTo extends Field
     }
 
     /**
+     * The URI key of the related resource the picker lists (`relatedResource()`),
+     * or `null` when none is set.
+     */
+    public function getRelatedResource(): ?string
+    {
+        return $this->relatedUriKey;
+    }
+
+    /**
+     * The id a submitted value names: a raw id or an `['id' => ...]` map, the
+     * empty string and `'null'` (FormData serialization) meaning none, as
+     * `fill()` reads it.
+     */
+    public function submittedId(mixed $value): int|string|null
+    {
+        $id = is_array($value) ? ($value['id'] ?? null) : $value;
+
+        if ($id === '' || $id === 'null' || (! is_int($id) && ! is_string($id))) {
+            return null;
+        }
+
+        return $id;
+    }
+
+    /**
      * Get the relatableQueryUsing closure (used by RelationshipQueryResolver).
      */
     public function getRelatableQueryClosure(): ?\Closure

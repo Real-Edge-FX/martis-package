@@ -284,7 +284,7 @@ class Tag extends Field
      *
      * @return list<int|string>
      */
-    protected function extractIds(mixed $value): array
+    public function extractIds(mixed $value): array
     {
         if ($value === null || $value === '' || $value === []) {
             return [];
