@@ -22,6 +22,14 @@ use function React\Promise\reject;
  * resource itself, so the console's shutdown failed ("StreamOutput needs a
  * stream", exit 255). Here a response is written, all of it, before the
  * next request is read, and closing leaves STDOUT open.
+ *
+ * While a response waits for the client to read it, the event loop waits
+ * with it: no request is read and no timer fires, but a SIGTERM or SIGINT
+ * still ends the write (the transport closes and the response is dropped).
+ * A single-threaded client that writes more than about 128 KB of requests
+ * before it reads anything can therefore deadlock with the server once the
+ * responses fill the STDOUT pipe: both pipes full, each side waiting on the
+ * other. MCP clients read while they write, so none does.
  */
 final class FlushingStdioServerTransport extends StdioServerTransport
 {
@@ -59,10 +67,13 @@ final class FlushingStdioServerTransport extends StdioServerTransport
             }
             $payload = (string) substr($payload, $written);
             if ($payload !== '') {
-                $read = null;
-                $write = [$this->output];
-                $except = null;
-                @stream_select($read, $write, $except, 1);
+                $this->waitUntilWritable();
+
+                // A signal closed the transport while the client was not
+                // reading: stop waiting for it, or the process never exits.
+                if ($this->closing) {
+                    return reject(new TransportException('Stdio transport closed while writing.'));
+                }
             }
         }
         @fflush($this->output);
@@ -81,5 +92,17 @@ final class FlushingStdioServerTransport extends StdioServerTransport
         $this->stdout = null;
 
         parent::close();
+    }
+
+    /**
+     * Wait up to a second for the client to read. A SIGTERM or SIGINT
+     * interrupts the wait, and its handler may close the transport.
+     */
+    private function waitUntilWritable(): void
+    {
+        $read = null;
+        $write = [$this->output];
+        $except = null;
+        @stream_select($read, $write, $except, 1);
     }
 }
