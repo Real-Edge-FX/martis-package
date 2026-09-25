@@ -87,7 +87,15 @@ class MultiSelect extends Field
         return true;
     }
 
-    /** {@inheritdoc} */
+    /**
+     * {@inheritdoc}
+     *
+     * Unlike {@see Select::resolve()}, this cannot fully delegate to
+     * {@see Field::resolve()}: with no `resolveCallback`, `Field::resolve()`
+     * returns the raw stored value, while `MultiSelect` always decodes it to
+     * a list. The `resolveCallback` branch does delegate, so a future change
+     * to that part of `Field::resolve()` still reaches `MultiSelect`.
+     */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $attr = $attribute ?? $this->attribute;
@@ -97,9 +105,11 @@ class MultiSelect extends Field
         // static options, see HasChoiceOptions::warnIfStoredAsLabel().
         $this->warnIfStoredAsLabel($model, $this->decodeToArray($raw));
 
-        return $this->resolveCallback !== null
-            ? ($this->resolveCallback)($raw, $model, $attr, $this->safeRequest())
-            : $this->decodeToArray($raw);
+        if ($this->resolveCallback !== null) {
+            return parent::resolve($model, $attr);
+        }
+
+        return $this->decodeToArray($raw);
     }
 
     /** {@inheritdoc} */

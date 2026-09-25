@@ -3,6 +3,7 @@
 use Illuminate\Database\Eloquent\Model;
 use Martis\FieldContext;
 use Martis\Fields\MultiSelect;
+use Martis\Fields\Text;
 
 enum MultiSelectFieldTag: string
 {
@@ -248,6 +249,29 @@ it('MultiSelect respects resolveUsing callback', function () {
     $field = MultiSelect::make('labels')->resolveUsing(fn ($v) => ['overridden']);
 
     expect($field->resolve($model))->toBe(['overridden']);
+});
+
+it('MultiSelect resolveUsing() matches Field::resolve(), with the same 4 arguments', function () {
+    // The resolveCallback branch of MultiSelect::resolve() delegates to
+    // Field::resolve() (see MultiSelect::resolve()); the callback receives
+    // the raw stored value, not the decoded array.
+    $model = new MultiSelectTestModel(['labels' => '["php"]']);
+    $capture = fn ($value, $m, $attr, $request) => [$value, $m === $model, $attr, $request];
+
+    $multiSelect = MultiSelect::make('labels')->resolveUsing($capture);
+    $text = Text::make('labels')->resolveUsing($capture);
+
+    expect($multiSelect->resolve($model))->toBe($text->resolve($model));
+});
+
+it('MultiSelect computed() matches Field::resolve()', function () {
+    $model = new MultiSelectTestModel([]);
+    $computed = fn () => ['computed'];
+
+    $multiSelect = MultiSelect::make('labels')->computed($computed);
+    $text = Text::make('labels')->computed($computed);
+
+    expect($multiSelect->resolve($model))->toBe($text->resolve($model))->toBe(['computed']);
 });
 
 it('MultiSelect respects fillUsing callback', function () {

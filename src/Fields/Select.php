@@ -68,22 +68,20 @@ class Select extends Field
      *
      * The stored value, before `resolveUsing()`, is checked against static
      * options (see HasChoiceOptions::warnIfStoredAsLabel()), unless the field
-     * accepts custom values, where a typed label is a legitimate value.
+     * accepts custom values, where a typed label is a legitimate value. The
+     * rest of the resolution (`resolveCallback`, `computed()`) is
+     * {@see Field::resolve()} itself, so a future change there reaches
+     * `Select` too.
      */
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         $attr = $attribute ?? $this->attribute;
-        $stored = $this->resolveAttribute($model, $attr);
 
         if (! $this->allowCustomValues) {
-            $this->warnIfStoredAsLabel($model, $stored);
+            $this->warnIfStoredAsLabel($model, $this->resolveAttribute($model, $attr));
         }
 
-        if ($this->resolveCallback !== null) {
-            return ($this->resolveCallback)($stored, $model, $attr, $this->safeRequest());
-        }
-
-        return $stored;
+        return parent::resolve($model, $attr);
     }
 
     /**

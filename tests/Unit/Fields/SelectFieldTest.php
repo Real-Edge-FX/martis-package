@@ -1,7 +1,16 @@
 <?php
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Martis\Fields\Select;
+use Martis\Fields\Text;
+
+class SelectResolveTestModel extends Model
+{
+    protected $guarded = [];
+
+    public $timestamps = false;
+}
 
 // ---------------------------------------------------------------------------
 // Options in Nova's order: [value => label] (v2.0.0)
@@ -351,4 +360,39 @@ it('searchOptionsUsing() leaves getOptions() (the initial list) untouched', func
     $field = Select::make('model')->options(['a' => 'a'])->searchOptionsUsing(fn () => ['b' => 'b']);
 
     expect($field->getOptions())->toEqual([['label' => 'a', 'value' => 'a']]);
+});
+
+// ---------------------------------------------------------------------------
+// resolve() parity with Field::resolve(): Select::resolve() must delegate to
+// the base implementation so future changes to Field::resolve() reach it,
+// not reimplement it. These tests compare Select's output to a plain Field
+// (Text, which never overrides resolve()) under identical setups.
+// ---------------------------------------------------------------------------
+
+it('resolve() matches Field::resolve() for a plain stored attribute', function () {
+    $model = new SelectResolveTestModel(['status' => 'draft']);
+    $select = Select::make('status')->options(['draft' => 'Draft']);
+    $text = Text::make('status');
+
+    expect($select->resolve($model))->toBe($text->resolve($model))->toBe('draft');
+});
+
+it('resolve() matches Field::resolve() through resolveUsing(), with the same 4 arguments', function () {
+    $model = new SelectResolveTestModel(['status' => 'draft']);
+    $capture = fn ($value, $m, $attr, $request) => [$value, $m === $model, $attr, $request];
+
+    $select = Select::make('status')->options(['draft' => 'Draft'])->resolveUsing($capture);
+    $text = Text::make('status')->resolveUsing($capture);
+
+    expect($select->resolve($model))->toBe($text->resolve($model));
+});
+
+it('resolve() matches Field::resolve() for a computed field', function () {
+    $model = new SelectResolveTestModel([]);
+    $computed = fn () => 'computed-value';
+
+    $select = Select::make('status')->options(['draft' => 'Draft'])->computed($computed);
+    $text = Text::make('status')->computed($computed);
+
+    expect($select->resolve($model))->toBe($text->resolve($model))->toBe('computed-value');
 });
