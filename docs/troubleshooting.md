@@ -54,7 +54,7 @@ The package ships precompiled assets under `public/vendor/martis`. Republish the
 php artisan martis:publish-assets
 ```
 
-This wipes `public/vendor/martis/` first so stale Vite-hashed chunks from previous package versions don't pile up across upgrades, does a deterministic full-tree copy of the package's compiled assets, and then **verifies the result** — every file the published `manifest.json` references (the app entry bundle, its CSS, and every chunk) must exist in the destination. Then clear caches:
+This first deletes what the package published before (`assets/`, `manifest.json`, a Vite `hot` file) so stale Vite-hashed chunks from previous package versions don't pile up across upgrades, does a deterministic full-tree copy of the package's compiled assets, and then **verifies the result**: every file the published `manifest.json` references (the app entry bundle, its CSS, and every chunk) must exist in the destination. Your themes under `public/vendor/martis/themes/` and anything else you put in `public/vendor/martis/` stay (v1.39.3+; see [Theming → Theme files and asset publishes](theming.md#theme-files-and-asset-publishes)). Then clear caches:
 
 ```bash
 php artisan optimize:clear
@@ -217,7 +217,7 @@ Theme tokens live under the `theme` block in `config/martis.php` (there is no se
 php artisan config:clear
 ```
 
-If you scaffolded a custom theme via `php artisan martis:theme`, regenerate the published file by running the generator again.
+If you scaffolded a custom theme via `php artisan martis:theme`, the browser loads `public/vendor/martis/themes/<name>.css`. When that file is missing, run `php artisan martis:publish-assets`: it restores it from `resources/css/martis/<name>.css` (v1.39.3+). Do not run `php artisan martis:theme` again to get it back: with `--force`, or a confirmed prompt, it overwrites your theme with the scaffold. See [Theming → Theme files and asset publishes](theming.md#theme-files-and-asset-publishes).
 
 ### Custom override not picked up
 
@@ -256,7 +256,13 @@ Without this, every row triggers N+1 queries when a field accessor traverses the
 
 ### Metric card is slow
 
-Metrics do **not** cache by default. The base `Metric::cacheFor()` returns `null`, so the metric re-queries on every page load. Override it on the metric class:
+Metric results are cached by default through the Martis `metrics` cache layer (`MARTIS_CACHE_METRICS_ENABLED`, TTL `MARTIS_CACHE_METRICS_TTL`, default 5 minutes). When the base `Metric::cacheFor()` returns `null` (the default), the result goes through that layer, which honours the master switch, `php artisan martis:cache:disable metrics`, `?nocache=1` and `martis:cache:clear metrics`. Check `php artisan martis:cache:status`: if the layer is disabled, every page load re-queries. Raise the TTL for heavy metrics:
+
+```env
+MARTIS_CACHE_METRICS_TTL=15
+```
+
+Or give one metric its own lifetime by overriding `cacheFor()`, which caches it with `Cache::remember()` directly, outside the Martis layer (the kill-switch, the `?nocache` bypass and `martis:cache:clear` no longer apply to it):
 
 ```php
 use DateTimeInterface;
@@ -267,7 +273,7 @@ public function cacheFor(): ?DateTimeInterface
 }
 ```
 
-See [Metrics](metrics.md) for the cache key and ranges.
+Both paths keep one entry per user since v1.39.3, so a metric that is the same for everyone is computed once per user; set `protected bool $cachePerUser = false;` on it to share one entry. See [Metrics](metrics.md#caching) and [Cache](cache.md) for the cache keys and ranges.
 
 ### Cache subsystem disabled at runtime
 

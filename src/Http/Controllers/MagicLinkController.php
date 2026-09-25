@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Martis\Http\Controllers;
 
+use Illuminate\Auth\EloquentUserProvider;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\UserProvider;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -14,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use Martis\Auth\GuardCatalog;
 use Martis\Auth\MagicLinkNotification;
 use Martis\Auth\MagicLinkService;
 
@@ -31,6 +34,11 @@ use Martis\Auth\MagicLinkService;
  * The consume endpoint redirects to the dashboard on success and to
  * `/login?magic_link=expired` on failure so a leaked link cannot
  * leak its content into a server log error.
+ *
+ * The email is looked up (and auto-registered) in the user provider of
+ * the Martis guard, the guard consume() signs the user into: a user of
+ * another provider (the site's `users`) would put their id in the Martis
+ * guard's session and sign in the panel user with that id.
  */
 class MagicLinkController
 {
@@ -68,7 +76,11 @@ class MagicLinkController
             'token' => $token,
         ], absolute: true);
 
-        $target = $user ?? $this->resolveAnonymousNotifiable($email);
+        // A Martis user model without Notifiable has no mail route: mail the
+        // address the link was asked for, the one the user was found by.
+        $target = $user !== null && method_exists($user, 'routeNotificationFor')
+            ? $user
+            : $this->resolveAnonymousNotifiable($email);
         Notification::send($target, new MagicLinkNotification($url, $this->service->ttlMinutes()));
 
         return response()->json(['ok' => true]);
@@ -106,8 +118,7 @@ class MagicLinkController
             return redirect($loginPath.'?magic_link=expired');
         }
 
-        $guard = (string) config('martis.guard', 'web');
-        Auth::guard($guard)->login($user);
+        Auth::guard(GuardCatalog::martis())->login($user);
         $request->session()->regenerate();
 
         $home = '/'.ltrim((string) config('martis.path', 'martis'), '/');
@@ -117,12 +128,27 @@ class MagicLinkController
 
     protected function resolveUser(string $email): ?Authenticatable
     {
-        $provider = Auth::createUserProvider((string) config('auth.defaults.provider', 'users'));
-        if ($provider === null) {
-            return null;
+        return $this->userProvider()?->retrieveByCredentials(['email' => $email]);
+    }
+
+    /**
+     * The user provider of the Martis guard: the guard's own when it
+     * exposes one (a session guard does), else the provider its config
+     * names.
+     */
+    protected function userProvider(): ?UserProvider
+    {
+        $guard = Auth::guard(GuardCatalog::martis());
+        if (method_exists($guard, 'getProvider')) {
+            $provider = $guard->getProvider();
+            if ($provider instanceof UserProvider) {
+                return $provider;
+            }
         }
 
-        return $provider->retrieveByCredentials(['email' => $email]);
+        $name = config('auth.guards.'.GuardCatalog::martis().'.provider');
+
+        return is_string($name) && $name !== '' ? Auth::createUserProvider($name) : null;
     }
 
     protected function autoRegister(string $email): ?Authenticatable
@@ -152,12 +178,15 @@ class MagicLinkController
         return Notification::route('mail', $email);
     }
 
+    /**
+     * The model auto-registration creates: the Martis guard provider's,
+     * when that provider is Eloquent.
+     */
     protected function userClass(): ?string
     {
-        $provider = (string) config('auth.defaults.provider', 'users');
-        $driver = (string) config("auth.providers.{$provider}.driver", 'eloquent');
-        $class = (string) config("auth.providers.{$provider}.model", '');
+        $provider = $this->userProvider();
+        $class = $provider instanceof EloquentUserProvider ? $provider->getModel() : '';
 
-        return $driver === 'eloquent' && $class !== '' && class_exists($class) ? $class : null;
+        return $class !== '' && class_exists($class) ? $class : null;
     }
 }

@@ -29,9 +29,11 @@ use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\ResolvesPivotActions;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
+use Martis\Lenses\Lens;
 use Martis\Models\ActionEvent;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\IndexScope;
 
 /**
  * Controller for action execution on Martis resources.
@@ -76,6 +78,22 @@ class ActionController extends MartisController
      */
     public function index(Request $request, string $resource): IlluminateJsonResponse
     {
+        return $this->listActions($request, $resource, null);
+    }
+
+    /**
+     * List the actions a lens runs: its own `actions()`, or the resource's
+     * when it declares none.
+     *
+     * GET /api/resources/{resource}/lenses/{lens}/actions
+     */
+    public function lensIndex(Request $request, string $resource, string $lens): IlluminateJsonResponse
+    {
+        return $this->listActions($request, $resource, $lens);
+    }
+
+    private function listActions(Request $request, string $resource, ?string $lensKey): IlluminateJsonResponse
+    {
         $resourceClass = $this->resolveResource($resource);
 
         if ($resourceClass === null) {
@@ -83,7 +101,13 @@ class ActionController extends MartisController
         }
 
         $instance = new $resourceClass;
-        $actions = $this->resolveActions($instance, $request);
+        $lens = $this->lensOf($instance, $lensKey, $request);
+
+        if ($lens instanceof IlluminateJsonResponse) {
+            return $lens;
+        }
+
+        $actions = $this->resolveActions($instance, $request, $lens);
 
         $rawContext = $request->query('context', 'index');
         $context = ActionVisibility::tryFrom(is_string($rawContext) ? $rawContext : 'index');
@@ -109,6 +133,21 @@ class ActionController extends MartisController
      */
     public function fields(Request $request, string $resource, string $action): IlluminateJsonResponse
     {
+        return $this->actionFields($request, $resource, $action, null);
+    }
+
+    /**
+     * Get the fields of an action a lens runs.
+     *
+     * GET /api/resources/{resource}/lenses/{lens}/actions/{action}/fields
+     */
+    public function lensFields(Request $request, string $resource, string $lens, string $action): IlluminateJsonResponse
+    {
+        return $this->actionFields($request, $resource, $action, $lens);
+    }
+
+    private function actionFields(Request $request, string $resource, string $action, ?string $lensKey): IlluminateJsonResponse
+    {
         $resourceClass = $this->resolveResource($resource);
 
         if ($resourceClass === null) {
@@ -116,7 +155,13 @@ class ActionController extends MartisController
         }
 
         $instance = new $resourceClass;
-        $actionInstance = $this->findAction($instance, $action, $request);
+        $lens = $this->lensOf($instance, $lensKey, $request);
+
+        if ($lens instanceof IlluminateJsonResponse) {
+            return $lens;
+        }
+
+        $actionInstance = $this->findAction($instance, $action, $request, $lens);
 
         if ($actionInstance === null) {
             return JsonErrorResponse::notFound("Action [{$action}] not found.")->toResponse();
@@ -145,6 +190,25 @@ class ActionController extends MartisController
      */
     public function execute(Request $request, string $resource, string $action): IlluminateJsonResponse
     {
+        return $this->run($request, $resource, $action, null);
+    }
+
+    /**
+     * Execute an action a lens runs (its own `actions()`, or the resource's
+     * when it declares none), as Nova's `LensActionController` does. The
+     * records are resolved as on the resource's run: the resource's index
+     * scopes bound them.
+     *
+     * POST /api/resources/{resource}/lenses/{lens}/actions/{action}
+     * Body: { "resources": [1, 2, 3], "fields": { ... }, "dryRun": false }
+     */
+    public function lensExecute(Request $request, string $resource, string $lens, string $action): IlluminateJsonResponse
+    {
+        return $this->run($request, $resource, $action, $lens);
+    }
+
+    private function run(Request $request, string $resource, string $action, ?string $lensKey): IlluminateJsonResponse
+    {
         $resourceClass = $this->resolveResource($resource);
 
         if ($resourceClass === null) {
@@ -156,7 +220,13 @@ class ActionController extends MartisController
         }
 
         $instance = new $resourceClass;
-        $actionInstance = $this->findAction($instance, $action, $request);
+        $lens = $this->lensOf($instance, $lensKey, $request);
+
+        if ($lens instanceof IlluminateJsonResponse) {
+            return $lens;
+        }
+
+        $actionInstance = $this->findAction($instance, $action, $request, $lens);
 
         if ($actionInstance === null) {
             return JsonErrorResponse::notFound("Action [{$action}] not found.")->toResponse();
@@ -166,7 +236,11 @@ class ActionController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        $models = $this->resolveModels($instance, $request);
+        $models = $this->resolveModels($instance, $actionInstance, $request);
+
+        if ($models instanceof IlluminateJsonResponse) {
+            return $models;
+        }
 
         if ($actionInstance->isSole() && $models->count() !== 1) {
             return JsonErrorResponse::validation(
@@ -283,9 +357,9 @@ class ActionController extends MartisController
      *
      * @return list<ActionContract>
      */
-    private function resolveActions(Resource $resource, Request $request): array
+    private function resolveActions(Resource $resource, Request $request, ?Lens $lens = null): array
     {
-        $actions = $resource->actions($request);
+        $actions = $this->availableActions($resource, $request, $lens);
 
         return array_values(array_filter(
             $actions,
@@ -294,37 +368,73 @@ class ActionController extends MartisController
     }
 
     /**
-     * Resolve Eloquent models from the request.
-     *
-     * @return Collection<int, Model>
+     * The lens a lens route names, or `null` on a resource route; a 404 or
+     * 403 response when the resource has no such lens or the user may not
+     * see it.
      */
-    private function resolveModels(Resource $resource, Request $request): Collection
+    private function lensOf(Resource $resource, ?string $lensKey, Request $request): Lens|IlluminateJsonResponse|null
     {
-        /** @var list<int|string> $ids */
-        $ids = $request->input('resources', []);
+        return $lensKey === null ? null : $this->resolveLens($resource, $lensKey, $request);
+    }
 
-        if (empty($ids)) {
-            /** @var Collection<int, Model> $empty */
-            $empty = new Collection;
+    /**
+     * The models an action runs on: the records the request's `resources`
+     * name that resolve, as Nova runs an action on the selected records it
+     * finds, or a 404 when none does (all outside the scope, deleted or
+     * forged), so a run never handles nothing and answers "Done". An action
+     * that is not standalone and names no record is a 422. A standalone
+     * action runs on no record, whatever the request names.
+     *
+     * The records are looked up through the resource's `scopes()`, then its
+     * `indexQuery()`, as the index lists them (the tenant / ownership
+     * scope), grouped as Eloquent groups a local scope (see `IndexScope`):
+     * an id outside them does not resolve.
+     *
+     * @return Collection<int, Model>|IlluminateJsonResponse
+     */
+    private function resolveModels(Resource $resource, ActionContract $action, Request $request): Collection|IlluminateJsonResponse
+    {
+        /** @var Collection<int, Model> $empty */
+        $empty = new Collection;
 
+        if ($action->isStandalone()) {
             return $empty;
+        }
+
+        $raw = $request->input('resources', []);
+        /** @var list<string> $ids */
+        $ids = array_values(array_unique(array_map(
+            static fn (mixed $id): string => is_scalar($id) ? (string) $id : '',
+            is_array($raw) ? $raw : [],
+        )));
+
+        // An action that runs on records needs at least one, as a pivot
+        // action does: an empty run would handle nothing and answer "Done".
+        if ($ids === []) {
+            return JsonErrorResponse::validation(
+                ['resources' => ['At least one resource must be selected.']],
+            )->toResponse();
         }
 
         $modelClass = $resource::model();
         /** @var Model $modelInstance */
         $modelInstance = new $modelClass;
 
-        // Apply the resource's index scoping (tenant / ownership filters)
-        // before selecting by id. Without this, an action could resolve and
-        // act on records outside the user's visible scope just by passing
-        // their ids (IDOR) — the same guard the index listing applies.
-        $query = $resource::indexQuery($request, $modelInstance->newQuery());
+        // Apply the resource's index scoping (its declarative `scopes()`,
+        // then `indexQuery()`: tenant / ownership filters) before selecting
+        // by id, in the index's order. Without this, an action could resolve
+        // and act on records outside the user's visible scope just by
+        // passing their ids (IDOR). Grouped, so the ids below bind to all of
+        // it: after an ungrouped `orWhere()` they would bind to its last
+        // clause only and the action would run on records nobody selected.
+        $query = IndexScope::apply($request, $resource::class, $modelInstance->newQuery());
 
         /** @var Collection<int, Model> $result */
-        $result = $query->whereIn(
-            $modelInstance->getKeyName(),
-            $ids,
-        )->get();
+        $result = $query->whereIn($modelInstance->getQualifiedKeyName(), $ids)->get();
+
+        if ($result->isEmpty()) {
+            return JsonErrorResponse::notFound('One or more selected resources could not be found.')->toResponse();
+        }
 
         return $result;
     }
@@ -796,8 +906,14 @@ class ActionController extends MartisController
 
         ['parentModel' => $parentModel, 'parentResource' => $parentResource, 'field' => $field, 'relation' => $relation, 'action' => $actionInstance] = $resolved;
 
-        /** @var list<int|string> $relatedIds */
-        $relatedIds = $request->input('resources', []);
+        // A standalone action runs on no record, as on the resource's own
+        // endpoint; the others run on the ids sent that are attached.
+        $rawIds = $actionInstance->isStandalone() ? [] : $request->input('resources', []);
+        /** @var list<string> $relatedIds */
+        $relatedIds = array_values(array_unique(array_map(
+            static fn (mixed $id): string => is_scalar($id) ? (string) $id : '',
+            is_array($rawIds) ? $rawIds : [],
+        )));
 
         if (empty($relatedIds) && ! $actionInstance->isStandalone()) {
             return JsonErrorResponse::validation(
@@ -819,6 +935,12 @@ class ActionController extends MartisController
         // with its own `id` column would make a bare key ambiguous.
         /** @var Collection<int, Model> $models */
         $models = $relation->whereIn($relation->getRelated()->getQualifiedKeyName(), $relatedIds)->get();
+
+        // Run on the ids attached, as execute() does; none attached is a 404
+        // rather than a run on nothing.
+        if (! $actionInstance->isStandalone() && $models->isEmpty()) {
+            return JsonErrorResponse::notFound('One or more selected resources could not be found.')->toResponse();
+        }
 
         if ($actionInstance->isSole() && $models->count() !== 1) {
             return JsonErrorResponse::validation(

@@ -3,11 +3,14 @@
 namespace Martis\Console;
 
 use Illuminate\Console\Command;
+use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\StubResolver;
 use RuntimeException;
 
 class ThemeMakeCommand extends Command
 {
+    use AsksOnlyOnATerminal;
+
     protected $signature = 'martis:theme
                             {name? : The theme name (default: custom)}
                             {--force : Overwrite an existing theme file without prompting}';
@@ -29,9 +32,10 @@ class ThemeMakeCommand extends Command
         }
 
         if (file_exists($path) && ! $this->option('force')) {
-            // In non-interactive contexts (CI, pipes, unit tests), prompting is
-            // not possible — fail explicitly so automation knows to pass --force.
-            if (! $this->input->isInteractive() || app()->runningUnitTests()) {
+            // Without a terminal (CI, pipes, unit tests) nothing is asked
+            // (AsksOnlyOnATerminal): a pipe would answer the question. Fail
+            // explicitly so automation knows to pass --force.
+            if (! $this->canPrompt()) {
                 $this->components->error("Theme '{$name}.css' already exists. Use --force to overwrite.");
 
                 return self::FAILURE;
@@ -81,6 +85,8 @@ class ThemeMakeCommand extends Command
         $this->newLine();
         $this->line('  1. Edit CSS variables in <comment>public/vendor/martis/themes/'.$name.'.css</comment>');
         $this->line('  2. Changes take effect immediately (plain CSS, no rebuild needed).');
+        $this->line('     Asset publishes keep that file. Copy your edits to <comment>resources/css/martis/'.$name.'.css</comment>');
+        $this->line('     and commit it: <comment>php artisan martis:publish-assets</comment> restores a missing copy from there.');
         $this->line('  3. Switch theme in <comment>config/martis.php</comment>:');
         $this->newLine();
         $this->line("     <comment>'theme' => ['name' => '{$name}']</comment>");

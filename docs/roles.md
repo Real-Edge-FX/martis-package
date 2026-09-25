@@ -217,8 +217,10 @@ That single registration covers the index page (sidebar visibility, list endpoin
 
 ```php
 Route::get('/admin/reports', ReportController::class)
-    ->middleware(['martis.auth', 'can:reports.view']);
+    ->middleware(['martis.api', 'can:reports.view']);
 ```
+
+`martis.api` is the middleware group of the Martis API routes (`Martis\Http\RouteMiddleware::api()`): the session, authentication, the 2FA challenge, email verification when enabled, the user's locale, the impersonation expiry and the API throttle. `martis.auth` alone would let a user who has not passed the 2FA challenge through.
 
 ### Gating an Artisan command
 
@@ -310,7 +312,7 @@ Spatie 5+ fires `RoleAttachedEvent`, `RoleDetachedEvent`, `PermissionAttachedEve
 | `permission.attached` | Spatie permission attached directly to a model (rare; usually flows via roles) |
 | `permission.detached` | Spatie permission detached directly from a model |
 
-Each row carries the acting user (from the active session, or `null` for system-level writes), the target model FQCN + id, and the list of role / permission ids in the `fields.ids` JSON column. Browse the log under `/martis/system/action-events`.
+Each row carries the acting user (the Martis guard's user when the change is made in a panel request, `null` when it is made elsewhere: a site request, a job, a command), the target model FQCN + id, and the list of role / permission ids in the `fields.ids` JSON column. Browse the log under `/martis/system/action-events`.
 
 The listener is gated on a single config knob:
 

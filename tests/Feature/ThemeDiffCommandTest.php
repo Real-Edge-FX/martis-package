@@ -80,7 +80,26 @@ it('treats a referenced-only package token as known, not unknown (reaches exit 0
 
 it('fails when the consumer theme file is missing', function () {
     $this->artisan('martis:theme:diff', ['theme' => 'never-existed-theme'])
+        ->expectsOutputToContain('php artisan martis:theme never-existed-theme')
         ->assertExitCode(1);
+});
+
+it('says to publish a missing copy from its source, never to scaffold it again', function () {
+    // martis:theme would replace the source with the scaffold.
+    $fs = new Filesystem;
+    $fs->ensureDirectoryExists(resource_path('css/martis'));
+    $fs->put(resource_path('css/martis/diff-source-only.css'), ':root { --martis-accent: #123456; }');
+    $fs->delete(public_path('vendor/martis/themes/diff-source-only.css'));
+
+    try {
+        $this->artisan('martis:theme:diff', ['theme' => 'diff-source-only'])
+            ->expectsOutputToContain('php artisan martis:publish-assets')
+            ->doesntExpectOutputToContain('php artisan martis:theme diff-source-only')
+            ->assertExitCode(1);
+    } finally {
+        $fs->delete(resource_path('css/martis/diff-source-only.css'));
+        @rmdir(resource_path('css/martis'));
+    }
 });
 
 it('fails when no theme is configured and no argument is provided', function () {

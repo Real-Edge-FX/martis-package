@@ -19,7 +19,23 @@ This creates:
 - `public/vendor/martis/themes/mytheme.css` — published copy
 - Updates `config/martis.php` to activate the theme
 
-Edit the CSS file (no rebuild needed) and refresh the browser. Changes are immediate.
+Edit the published copy (no rebuild needed) and refresh the browser. Changes are immediate. Copy your edits to the source as well and commit it: see [Theme files and asset publishes](#theme-files-and-asset-publishes).
+
+---
+
+## Theme files and asset publishes
+
+The panel loads `public/vendor/martis/themes/<name>.css`, the published copy. `resources/css/martis/<name>.css` is the source, the file to keep in version control.
+
+Since v1.39.3 the asset publishes (`php artisan martis:publish-assets`, `martis:vendor-publish --assets` and `martis:install`, `--force` included) keep `public/vendor/martis/themes/` as it is: they delete and copy only the package's own files (`assets/`, `manifest.json`). They also restore a missing published copy from its source: every `resources/css/martis/<name>.css` whose `public/vendor/martis/themes/<name>.css` does not exist is copied there, so a fresh deploy where `public/vendor/` is not committed gets the theme instead of a 404 on its stylesheet. An existing published copy is never overwritten, so after editing the source, copy it over the published one yourself:
+
+```bash
+cp resources/css/martis/mytheme.css public/vendor/martis/themes/mytheme.css
+```
+
+Keep both files in step: the published copy is what the panel shows, and the source is what a deploy or a new machine publishes.
+
+> **Themes lost to an earlier publish.** From v1.8.8 to v1.39.2 every asset publish deleted the whole `public/vendor/martis/`, `themes/` included (and, when `public/vendor/martis` was a symlink, the files in its target), so the panel fell back to the default tokens. The command does not bring a deleted file back by itself: restore `public/vendor/martis/themes/<name>.css` from version control or a backup, and keep the edited copy in `resources/css/martis/<name>.css` too, which is what `martis:publish-assets` restores a missing copy from. Do not run `php artisan martis:theme` again to get it back: with `--force`, or a confirmed prompt, it overwrites your theme with the scaffold.
 
 ---
 
@@ -600,7 +616,7 @@ Exit codes: `0` (everything aligned), `2` (drift detected — useful for CI gate
 
 ### Theme not loading
 1. Verify `config('martis.theme.name')` returns your theme name
-2. Check `public/vendor/martis/themes/{name}.css` exists
+2. Check `public/vendor/martis/themes/{name}.css` exists. If it does not, `php artisan martis:publish-assets` restores it from `resources/css/martis/{name}.css` (v1.39.3+); see [Theme files and asset publishes](#theme-files-and-asset-publishes)
 3. Run `php artisan view:clear` and `php artisan config:clear`
 4. Inspect HTML `<head>` — theme `<link>` must appear AFTER app CSS
 

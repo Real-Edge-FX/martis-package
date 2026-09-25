@@ -8,6 +8,7 @@ use Illuminate\Auth\Access\Events\GateEvaluated;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Martis\Auth\GuardCatalog;
 use Martis\Models\ActionEvent;
 
 /**
@@ -23,6 +24,10 @@ use Martis\Models\ActionEvent;
  *   - skips silently when `martis.audit.authz_denials` is false;
  *   - skips silently when no user authenticated the call (system / guest
  *     / pre-auth gate evaluations are not actionable);
+ *   - skips silently while another guard than the Martis guard is the
+ *     request's guard (a site request beside a custom MARTIS_GUARD): the
+ *     log's `user()` resolves the Martis guard's model, which would name
+ *     another person with that id;
  *   - skips silently when `martis_action_events` does not exist;
  *   - records `name = authz.denied`, `user_id = operator id`,
  *     `fields.ability`, optional `fields.model_id` / `fields.model_class`.
@@ -48,6 +53,10 @@ class RecordAuthorizationDenial
 
         $user = $event->user;
         if ($user === null) {
+            return;
+        }
+
+        if (! GuardCatalog::requestUsesMartisGuard()) {
             return;
         }
 

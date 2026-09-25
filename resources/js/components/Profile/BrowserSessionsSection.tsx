@@ -14,7 +14,10 @@ import { useToast } from '@/contexts/ToastContext'
  * The endpoint short-circuits with `supported: false` when the host
  * app uses a non-database driver (file / cookie / array). This UI
  * renders a one-line hint in that case, so the panel still appears
- * but the user understands why it is empty.
+ * but the user understands why it is empty. When the server gives a
+ * `reason` (the app's session guards sign in users of more than one
+ * table, so a session row cannot be told apart from another person's),
+ * the hint is that reason.
  */
 
 interface BrowserSession {
@@ -29,6 +32,7 @@ interface SessionsResponse {
   sessions: BrowserSession[]
   supported: boolean
   driver: string
+  reason?: string
 }
 
 function deviceIconFor(userAgent: string): JSX.Element {
@@ -73,6 +77,7 @@ export function BrowserSessionsSection(): JSX.Element {
   const { addToast } = useToast()
   const [sessions, setSessions] = useState<BrowserSession[]>([])
   const [supported, setSupported] = useState(true)
+  const [unsupportedReason, setUnsupportedReason] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [revokingAll, setRevokingAll] = useState(false)
   const [revokingId, setRevokingId] = useState<string | null>(null)
@@ -89,6 +94,7 @@ export function BrowserSessionsSection(): JSX.Element {
       const res = await api.get<SessionsResponse>('/api/profile/sessions')
       setSessions(res.sessions ?? [])
       setSupported(res.supported)
+      setUnsupportedReason(res.reason ?? null)
     } catch {
       const { addToast, t } = latestRef.current
       addToast('error', t('error', { defaultValue: 'Could not load sessions.' }))
@@ -172,7 +178,7 @@ export function BrowserSessionsSection(): JSX.Element {
 
       {!supported && (
         <p className="text-sm martis-text-muted">
-          {t('sessions_unsupported', {
+          {unsupportedReason ?? t('sessions_unsupported', {
             defaultValue: 'Browser-session management requires the database session driver.',
           })}
         </p>

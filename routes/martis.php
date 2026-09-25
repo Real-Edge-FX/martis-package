@@ -35,8 +35,12 @@ use Martis\Http\Controllers\ToolFieldsController;
 use Martis\Http\Controllers\ToolsController;
 use Martis\Http\Controllers\TranslationsController;
 use Martis\Http\Controllers\TwoFactorController;
+use Martis\Http\RouteMiddleware;
 
-Route::middleware(config('martis.middleware', ['web']))
+// The middleware of every group below comes from RouteMiddleware, which
+// also gives a Tool's routes (Tool::loadRoutes()) the stack of the
+// protected API routes.
+Route::middleware(RouteMiddleware::base())
     ->prefix(config('martis.path', 'admin'))
     ->name('martis.')
     ->group(function () {
@@ -191,19 +195,14 @@ Route::middleware(config('martis.middleware', ['web']))
         Route::get('/api/auth/user', [AuthController::class, 'user'])->name('api.auth.user');
 
         // Throttle middleware shorthand
-        $throttle = config('martis.throttle.enabled', true)
-            ? 'throttle:'.config('martis.throttle.max_attempts', 120).','.config('martis.throttle.decay_minutes', 1)
-            : [];
+        $throttle = RouteMiddleware::throttle();
 
         // Protected routes — require martis.auth middleware. The
         // `martis.impersonation.duration` middleware sits inside the
         // auth group so it can read the impersonation session bag —
         // it auto-stops impersonation that has run past the configured
         // `max_duration_minutes` (default disabled).
-        Route::middleware([
-            ...config('martis.auth_middleware', ['martis.auth']),
-            'martis.impersonation.duration',
-        ])
+        Route::middleware(RouteMiddleware::authenticated())
             ->group(function () use ($throttle) {
                 // ── 2FA challenge — auth only, NO martis.2fa (this is how you complete 2FA) ──
                 Route::prefix('api')
@@ -224,7 +223,7 @@ Route::middleware(config('martis.middleware', ['web']))
                 // it's a pass-through), so this is safe to apply globally
                 // — backwards-compatible for consumers that haven't opted
                 // in.
-                Route::middleware(['martis.2fa', 'martis.locale', 'martis.verified'])
+                Route::middleware(RouteMiddleware::verified())
                     ->group(function () use ($throttle) {
                         // API routes
                         Route::prefix('api')
@@ -372,6 +371,17 @@ Route::middleware(config('martis.middleware', ['web']))
                                 // Lenses
                                 Route::get('/resources/{resource}/lenses/{lens}', [LensController::class, 'index'])
                                     ->name('resources.lenses.index');
+                                // The actions a lens runs (its own actions(), or the
+                                // resource's), as Nova's lens action routes. Registered
+                                // before the /resources/{resource}/{id}/... routes.
+                                Route::get('/resources/{resource}/lenses/{lens}/actions', [ActionController::class, 'lensIndex'])
+                                    ->name('resources.lenses.actions.index');
+                                Route::get('/resources/{resource}/lenses/{lens}/actions/{action}/fields', [ActionController::class, 'lensFields'])
+                                    ->name('resources.lenses.actions.fields');
+                                Route::get('/resources/{resource}/lenses/{lens}/actions/{action}/relatable/{field}', [ResourceController::class, 'lensActionRelatableOptions'])
+                                    ->name('resources.lenses.actions.relatable');
+                                Route::post('/resources/{resource}/lenses/{lens}/actions/{action}', [ActionController::class, 'lensExecute'])
+                                    ->name('resources.lenses.actions.execute');
 
                                 // HasMany relationship CRUD
                                 Route::get('/resources/{resource}/{id}/has-many/{relationship}', [HasManyController::class, 'index'])

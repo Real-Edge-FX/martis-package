@@ -59,6 +59,21 @@ and `view` granted therefore never reaches a record any more; if you relied
 on that combination for deep-links, grant `viewAny` and confine the
 listing with `indexQuery()` instead.
 
+A write through a relationship endpoint (`POST`, `PUT` and `DELETE` on
+`has-many`, `has-one`, `morph-many` and `morph-one`) creates, updates or
+deletes a record of the **related** resource, so it also needs that
+resource's `viewAny` (v1.39.3+), checked before the related record query,
+then its `create` / `update` / `delete` ability as before. A user who cannot
+list `Comment` cannot write a comment through a post's panel either, as in
+Nova, and the panel no longer offers that user Create, Edit, Delete,
+Restore or Force delete; it still lists the records. `routable()` is not
+part of that check: a headless resource (v1.24.0, see
+[Resources → routable](resources.md)) stays usable as a relation target.
+Before v1.39.3 those writes checked only the parent's `viewAny` / `view`
+and the related record's ability; if a user should keep writing through
+the panel, grant `viewAny` on the related resource and confine what they
+see with `indexQuery()`.
+
 ## Writing a policy
 
 Martis looks for policies in two places, in order:
@@ -302,7 +317,7 @@ Before v1.38.0 the callback only ran when the resource's own endpoints serialise
 
 ## Declarative query scopes
 
-`Resource::indexQuery()` is the imperative hook for one-off mutations. For invariants that should compose across every list endpoint (multi-tenancy, "archived = false", "subscription_active = true"), declare them with the v1.8.8 `scopes()` method:
+`Resource::indexQuery()` is the imperative hook for one-off mutations. For invariants that should hold wherever the resource is listed as its index lists it (multi-tenancy, "archived = false", "subscription_active = true"), declare them with the v1.8.8 `scopes()` method:
 
 ```php
 public static function scopes(Request $request): array
@@ -318,6 +333,18 @@ The labels are informational (used by future debug overlays). The order is itera
 
 The count badge on the sidebar uses the same code path, so the scoped count always agrees with the row count on the index page.
 
+Wherever Martis runs `indexQuery()`, it runs `scopes()` first (v1.39.3+):
+
+- **The global search** (`/api/search`, the Cmd+K palette): its results and the `total` of each group, on the database and the Scout paths. See [Global Search → Which records are searched](global-search.md#which-records-are-searched).
+- **The records an action runs on**: a record `scopes()` keeps out of the index is never handed to an action's `handle()`, whatever ids the request sends; the run leaves it out, and answers 404 when no selected record is left, from the detail page of such a record too, which the detail page still shows (see [Actions → Execution Modes](actions.md#execution-modes)).
+- **The parent record of a `BelongsToMany` panel** (its list, attachable list, attach, detach and pivot update) **and of the pivot routes** (the pivot actions, their fields and pickers, and the pickers of the pivot fields, on `belongs-to-many` and `morph-to-many`). A parent the scopes hide answers `404`, exactly like a missing one.
+
+Before v1.39.3 the global search, an action run and those parent lookups ran `indexQuery()` alone, so a tenant confined with `scopes()` still found another tenant's records in the palette (title, subtitle, link and count) and reached the pivot panels of their records.
+
+Neither hook applies to the relationship pickers (BelongsTo dropdowns, attach pickers): they list through [`relatableQuery()`](resources.md#relatablequery), as Nova's pickers do ([Nova → Relatable Filtering](https://nova.laravel.com/docs/v5/resources/authorization#relatable-filtering)), so declare the tenant predicate there too. The detail, update and delete endpoints rely on the policies, and so does the parent record of the `HasMany`, `HasOne`, `MorphMany` and `MorphOne` panels and of the `MorphToMany` panel's own endpoints (see [Relationships → How a panel finds its parent record](relationships.md#how-a-panel-finds-its-parent-record)); a lens owns its query.
+
+On those three surfaces the hooks run as Eloquent runs a local scope (v1.39.3+): what they add is wrapped in one group when it contains an `orWhere()`, so the search term, the selected ids or the key added after it binds to all of it. After `where('tenant_id', 1)->orWhere('shared', true)` the parent lookup reads `(tenant_id = 1 or shared) and id = ?`; ungrouped, it would read `tenant_id = 1 or (shared and id = ?)` and find another record of the tenant, and an action would run on every record of the tenant. The index page appends its filters and its search to the hooks ungrouped, so write an `orWhere()` inside `where(fn ($q) => ...)` when the filters must narrow it.
+
 ## Audit log of denied authorizations
 
 Off by default. Flip `MARTIS_AUDIT_AUTHZ_DENIALS=true` to record every Gate denial for an authenticated user into the `martis_action_events` audit table. Each row carries:
@@ -329,6 +356,8 @@ Off by default. Flip `MARTIS_AUDIT_AUTHZ_DENIALS=true` to record every Gate deni
 - `status = denied`.
 
 Repeat denials of the same `(user, ability, model)` within one request are de-duplicated to a single row, so a page that runs many redundant checks does not flood the table.
+
+The log's `user_id` names a user of the Martis guard (the `ActionEvent::user()` relation resolves that guard's model), so a denial is recorded only while the Martis guard is the request's guard: in a panel request, and in every request when the Martis guard is the app's default. With a custom `MARTIS_GUARD`, the site's own requests record none (v1.39.3+): their user belongs to another guard, whose id the log would resolve to someone else.
 
 The noisy `viewAny` cascade (sidebar / navigation) is dropped by default. Toggle `MARTIS_AUDIT_AUTHZ_DENIALS_INCLUDE_VIEWANY=true` to keep it.
 
@@ -362,6 +391,8 @@ The cache is request-scoped — never spans requests, never persisted. Closure-o
 Off by default. When `MARTIS_AUTHZ_REVOKE_SESSIONS_ON_DEMOTE=true` and the host app uses Laravel's `database` session driver, a Spatie `RoleDetachedEvent` or `PermissionDetachedEvent` triggers a session sweep on the demoted user — every active session row for that user (across all devices) is dropped. The operator (admin) stays signed in because their session row belongs to them, not to the demoted user.
 
 Use this in regulated apps where a demotion must take immediate effect on every device the user is signed in on, without waiting for the session cookie to expire.
+
+The sweep deletes the session rows by the demoted user's id, and Laravel's `sessions.user_id` stores no table. When the session guards of `config/auth.php` (with the Martis and the default guard) sign in users of more than one table, such as a custom `MARTIS_GUARD` whose model has its own table beside the site's `users`, that id can be another person's, so the sweep is skipped and a warning names the tables (v1.39.3+). Guards that share one table keep the sweep.
 
 ## Testing helpers
 

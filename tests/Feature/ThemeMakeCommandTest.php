@@ -21,6 +21,13 @@ it('generates the theme file in resources and public', function () {
     expect(file_exists(public_path('vendor/martis/themes/test-theme.css')))->toBeTrue();
 });
 
+it('says to keep the edits in resources/css/martis, which a publish restores a missing copy from', function () {
+    $this->artisan('martis:theme', ['name' => 'test-theme'])
+        ->expectsOutputToContain('Asset publishes keep that file')
+        ->expectsOutputToContain('restores a missing copy from there')
+        ->assertSuccessful();
+});
+
 it('fills the {{ name }} placeholder in the stub header', function () {
     $this->artisan('martis:theme', ['name' => 'brand-x'])->assertSuccessful();
 

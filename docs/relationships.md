@@ -53,6 +53,16 @@ HasMany::make('Comments', 'comments')
     ->hideForceDeleteAction()      // permanent deletion is never exposed
 ```
 
+When the related resource denies `viewAny`, a `HasMany` / `HasOne` /
+`MorphMany` / `MorphOne` panel (and their Through and one-of-many variants)
+still lists its records but offers no Create, Edit, Delete, Restore or Force
+delete (v1.39.3+): every one of those writes needs the related `viewAny` and
+answers 403 without it (see
+[Authorization → `viewAny` is the entry gate](authorization.md#viewany-is-the-entry-gate)).
+The panel flags are part of the resource schema, which the `schema` cache
+layer keeps with no expiration by default: after upgrading, run
+`php artisan martis:cache:clear schema` so cached panels drop those actions.
+
 ---
 
 ## Relationship panel anatomy
@@ -162,6 +172,22 @@ forms and read the page: `/api/resources/{resource}//belongs-to-many/...` (404)
 on the create page, and the page's record in a create drawer or modal opened
 over another record, so a Replicate drawer listed, and attached to, the record
 it copies.
+
+### How a panel finds its parent record
+
+Every panel endpoint checks the resource's `viewAny`, finds the record in the
+URL (`{resource}/{id}`), then checks `view` on it. The lookup differs by panel:
+
+| Endpoints | The parent is found |
+|-----------|---------------------|
+| The `BelongsToMany` panel: its list, attachable list, attach, detach and pivot update | Through the resource's `scopes()` and `indexQuery()`, as its index lists it: a parent they hide answers `404`, like a missing one, even for a resource with no policy. |
+| The pivot routes of the `BelongsToMany` and `MorphToMany` panels: the pivot actions, their fields and pickers, and the pickers of the pivot fields | The same way. |
+| The `HasMany`, `HasOne`, `MorphMany` and `MorphOne` panels, and the list, attachable list, attach, detach and pivot update of the `MorphToMany` panel | By its key alone, as its detail page finds it: the parent's `view` policy decides, as in Nova's model, so a record the index hides is reachable there when the policy allows it. |
+
+A resource that confines its records with `scopes()` or `indexQuery()`
+confines these parents with its `view` policy too. `scopes()` joined the first
+two rows in v1.39.3 (they ran `indexQuery()` alone). See [Authorization →
+Declarative query scopes](authorization.md#declarative-query-scopes).
 
 ---
 
@@ -310,7 +336,7 @@ BelongsToMany::make('Members', 'members')
     ])
 ```
 
-The field is looked up in the relationship's `fields()` only (a `Repeater` row among them included, see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)), so its related resource, `relatableQueryUsing()` and `withoutTrashed()` apply, and the parent resource is the source of the `relatable{PluralModelName}()` hook, as for the panel's pivot actions. The two routes are gated like the panel: `viewAny` on the resource, the parent record found through its `indexQuery()`, `view` on it, and `{relationship}` resolved only to a relationship field of the route's type the resource declares. Then like the operation the modal performs:
+The field is looked up in the relationship's `fields()` only (a `Repeater` row among them included, see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)), so its related resource, `relatableQueryUsing()` and `withoutTrashed()` apply, and the parent resource is the source of the `relatable{PluralModelName}()` hook, as for the panel's pivot actions. The two routes are gated like the panel: `viewAny` on the resource, the parent record found through its `scopes()` and `indexQuery()` (a parent they hide answers 404), `view` on it, and `{relationship}` resolved only to a relationship field of the route's type the resource declares. Then like the operation the modal performs:
 
 - the attach modal needs `authorizedToAttachAny()` for the related model (the `attachAny{Model}` policy ability), as the list of records to attach and the attach itself do: no record is picked yet, and the attach then checks `attach{Model}` for each one;
 - the pivot edit modal needs `authorizedToUpdatePivot()` for that record (`updatePivot{Model}`, falling back to `update`), as the pivot update does.
@@ -711,6 +737,7 @@ The hardening pass codified the contract every relationship surface guarantees. 
 | Pivot actions listed, described and run per panel; `{relationship}` resolves only to a declared field of the route's type | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Authorization — `authorizedToCreate` / view / detach respected | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `attachAny{Model}` gates the list of records to attach, the attach and the attach modal's pivot pickers; `attach{Model}` then decides per record | n/a | n/a | ✅ | n/a | n/a | ✅ |
+| Parent record found through the resource's `scopes()` + `indexQuery()` (else by key, the `view` policy deciding; see [How a panel finds its parent record](#how-a-panel-finds-its-parent-record)) | policy | policy | ✅ | policy | policy | pivot routes only |
 
 ### Pivot data API (BelongsToMany & MorphToMany)
 

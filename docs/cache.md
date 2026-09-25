@@ -48,16 +48,33 @@ Calling `Gate::define()` from the host app replaces Martis's default closure, so
 
 | Type | What it caches | Default TTL | Per-user? |
 |------|----------------|-------------|-----------|
-| `metrics` | Computed metric results (Value, Trend, Partition, Progress, Activity feed, Endpoint table). | 5 minutes | No (cached per locale + filters) |
+| `metrics` | Computed metric results (Value, Trend, Partition, Progress, Activity feed, Endpoint table). | 5 minutes | **Yes** (v1.39.3+): keyed on the user, the locale, the range and the filters (guests share one entry). Before v1.39.3 the key had no user, so a `calculate()` scoped to the user served the first user's value to everyone for the TTL |
 | `navigation` | Sidebar / top-nav structure. | 1 minute | **Yes** — different policies, different menus |
 | `dashboards` | Dashboard list + per-dashboard definition (cards/filters metadata). Metric values are NOT cached here — that's `metrics`. | 5 minutes | **Yes** — and the list key carries a fingerprint of the set the user is authorized to see (see below) |
 | `schema` | Resource schema payload (fields, filters, lenses, cards, actions). Heavy to compute, stable across requests. | No expiration | **Yes** |
 
 TTL `null` means "no expiration" — the entry stays cached until explicitly cleared (the version key trick: see [Invalidation](#invalidation) below).
 
+**Metric results are cached per user (v1.39.3+).** A metric's `calculate()` receives the request and commonly scopes its query to the authenticated user, their tenant or their permissions, so a result cached without the user was served to everyone who opened the same card within the TTL: the first user's revenue, counts or totals leaked to the others. Both metric cache paths (the `metrics` layer and a per-class `cacheFor()`) now put the authenticated user (`$request->user()`, the user the Martis guard signed in since `MartisAuthenticate` makes it the request's guard, by model class and identifier) in the key, and guests share one entry; a user whose identifier is not an int, a string or `Stringable` gets no cached entry at all. What this means for an existing installation:
+
+- **No previous entry is reused.** Every metric key changes at the upgrade, so the first request of each user computes the metric again; the old entries expire by their TTL (`php artisan martis:cache:clear metrics` stops serving the layer's at once; `cacheFor()` entries live in Laravel's cache and expire by their own lifetime).
+- **More entries, fewer hits.** A metric whose value is the same for everyone is now computed and stored once per user instead of once in total. With many users and heavy global metrics, raise the TTL (`MARTIS_CACHE_METRICS_TTL`, or a longer `cacheFor()`), precompute the value (a scheduled job writing to a table the metric reads), or, for a metric whose result does not depend on who asks, leave the user out of its key with `$cachePerUser`:
+
+```php
+class TotalRevenue extends ValueMetric
+{
+    // The same value for everyone: one cached entry for all users.
+    // Only for a calculate() that reads nothing of the user, their
+    // tenant or their permissions.
+    protected bool $cachePerUser = false;
+}
+```
+
+A metric whose result depends on something else in the request (a subdomain or a header that picks the tenant) has to put it in its key itself: override `resultCacheKey()` and keep its null (no cache) answer, `$key = parent::resultCacheKey($request); return $key === null ? null : md5($key.'|'.$tenant);`.
+
 **The dashboards list is an authorization snapshot that keeps itself fresh.** `MetricController::dashboards()` resolves the user's dashboards through `authorizedToSee()` on every request and caches only their serialized shape under `list:{user}:{locale}:{fingerprint}`, where the fingerprint hashes the class and `uriKey` of every dashboard that passed the gate. A dashboard registered after a user's list was cached, one removed at deploy, or a user whose state changes what `authorizedToSee()` answers therefore land on a fresh key immediately, with no `martis:cache:clear dashboards` and no TTL to wait out. The finite default TTL (5 minutes, `MARTIS_CACHE_DASHBOARDS_TTL`) bounds the orphaned entries and lets the cached shape itself (name, icon, badge, per-dashboard cards/filters metadata) converge after a release; set it to `null` to go back to "until cleared".
 
-**Per-user scoping** is the convention used by Martis's own cached endpoints (`navigation`, `dashboards`, `schema`). Each controller derives the auth identifier and prepends it to the cache key — see `NavigationController`, `MetricController`, `ResourceController`. `MartisCache::remember()` itself takes the key verbatim, so **custom layers must include the user identifier in their own keys** if they want the same isolation. The `OrdersController` example below shows the standard shape: `"show:{$id}:{$userKey}"`.
+**Per-user scoping** is the convention used by Martis's own cached entries (`navigation`, `dashboards`, `schema`, `metrics`). Each one derives the auth identifier and puts it in the cache key (see `NavigationController`, `MetricController`, `ResourceController` and `Metric::resultCacheKey()`). `MartisCache::remember()` itself takes the key verbatim, so **custom layers must include the user identifier in their own keys** if they want the same isolation. The `OrdersController` example below shows the standard shape: `"show:{$id}:{$userKey}"`.
 
 ## Reading the admin page columns
 

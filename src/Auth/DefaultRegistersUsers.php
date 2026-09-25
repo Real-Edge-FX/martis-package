@@ -11,13 +11,15 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rules\Password;
 use Martis\Contracts\RegistersUsers;
+use Martis\Support\ModelUniqueRule;
 
 /**
  * Default registration pipeline.
  *
- * Validates the incoming payload, creates a user via the model bound to
- * the auth provider configured under `auth.providers.users.model`,
- * optionally assigns a role (when `martis.auth.registration.default_role`
+ * Validates the incoming payload, creates a user via the model of the
+ * Martis guard's provider (`auth.guards.{MARTIS_GUARD, else the default
+ * guard}.provider`; `auth.providers.users.model` on a default install),
+ * whose table the email must be unique in, optionally assigns a role (when `martis.auth.registration.default_role`
  * is set and the user model uses `Spatie\Permission\Traits\HasRoles`),
  * fires `Registered`, and returns the user.
  *
@@ -31,13 +33,13 @@ class DefaultRegistersUsers implements RegistersUsers
 {
     public function register(Request $request): Authenticatable
     {
+        $modelClass = $this->userModel();
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email:rfc', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'string', 'email:rfc', 'max:255', ModelUniqueRule::make(new $modelClass, 'email')],
             'password' => ['required', 'string', 'confirmed', Password::min(8)],
         ]);
-
-        $modelClass = $this->userModel();
 
         /** @var Authenticatable&Model $user */
         $user = new $modelClass;
@@ -87,7 +89,7 @@ class DefaultRegistersUsers implements RegistersUsers
      */
     private function userModel(): string
     {
-        $provider = config('auth.guards.'.config('martis.guard', 'web').'.provider', 'users');
+        $provider = config('auth.guards.'.GuardCatalog::martis().'.provider') ?: 'users';
 
         /** @var class-string<Model&Authenticatable>|null $modelClass */
         $modelClass = config("auth.providers.{$provider}.model");

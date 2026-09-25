@@ -45,8 +45,16 @@ php artisan martis:user
 # Visit http://your-app.test/martis
 ```
 
-The command prompts for the email, name and password it does not receive as
-options (`--email`, `--name`, `--password`). By default it is **create-only**:
+On a terminal the command prompts for the email, name and password it does
+not receive as options (`--email`, `--name`, `--password`). Without one (CI, a
+container entrypoint, a pipe, `--no-interaction`) it asks nothing: `--email`
+and `--password` are required (a missing one is named, the command exits 1 and
+no user is created or changed) and the name defaults to `Martis Admin`, since
+v1.39.3. Before, `yes | php artisan martis:user` answered every prompt with `y`
+and created an admin whose email, name and password were `y`. The user is
+created in the table of the Martis guard's model (`MARTIS_GUARD`'s provider,
+else the app's default guard's), as Nova's `nova:user` does for the Nova guard,
+since v1.39.3. By default it is **create-only**:
 when a user with that email already exists it prints an error and exits with a
 non-zero status, so a script cannot accidentally overwrite an account.
 
@@ -74,7 +82,7 @@ command fails with `A user with email [...] already exists.`
 
 | Flag | Effect |
 |------|--------|
-| `--force` | Overwrite previously published migrations, translations and the extension scaffold (Vite config, both tsconfig files, `index.ts`, the shims and their declarations); `config/martis.php` and the host provider stay unless you add `--force-config` / `--force-provider` |
+| `--force` | Overwrite previously published migrations (only those Martis published: an application's own `*_create_notifications_table.php` or `*_create_sessions_table.php` from `make:notifications-table` / `make:session-table` is left alone since v1.39.3), translations and the extension scaffold (Vite config, both tsconfig files, `index.ts`, the shims and their declarations); `config/martis.php` and the host provider stay unless you add `--force-config` / `--force-provider` |
 | `--force-config` | Republish `config/martis.php`, overwriting your changes to it |
 | `--force-provider` | Republish `app/Providers/MartisServiceProvider.php`, overwriting your changes to it |
 | `--with-profile` | Publish the optional Martis profile migration for avatar + 2FA columns |
@@ -118,7 +126,7 @@ If the column already exists on `users` and you do **not** want a migration:
 php artisan martis:install --with-profile --existing-avatar-column --avatar-column=avatar_path
 ```
 
-In non-interactive environments such as CI, Docker setup scripts, or deployment hooks, `--no-interaction` skips the optional profile prompt. If you want the profile migration there as well, pass `--with-profile` explicitly:
+The installer asks a question only when it runs interactively **and** STDIN is a real TTY, the avatar column questions included (since v1.39.3; before, they read a piped answer, so `yes | php artisan martis:install --with-profile` published a migration adding a `users.y` column and wrote `MARTIS_AVATAR_COLUMN=y`). In CI, Docker setup scripts (`docker compose exec -T`), deployment hooks, a piped stdin or an AI agent's shell nothing is asked: every optional feature you do not pass a flag for resolves to disabled, the avatar column is `profile_picture` unless you pass `--avatar-column`, and `--existing-avatar-column` needs `--avatar-column`. If you want the profile migration there as well, pass `--with-profile` explicitly:
 
 ```bash
 php artisan martis:install --force --no-interaction --with-profile
@@ -172,11 +180,13 @@ php artisan martis:publish-assets
 
 This copies the precompiled React application to `public/vendor/martis/`. End users do not need to run Vite in the consuming Laravel app.
 
-The command **wipes `public/vendor/martis/` first** so stale Vite-hashed chunks from previous package versions never accumulate, then does a deterministic full-tree copy. Laravel's stock `vendor:publish --tag=martis-assets --force` is a merge-style copy and would otherwise pile up tens of thousands of orphan files across upgrades — enough on macOS Docker bind mounts to slow every PHP-FPM request to several seconds. Pass `--no-wipe` to opt back into the legacy merge behaviour if you have a specific reason to.
+The command **first deletes what the package published before** (`assets/`, `manifest.json` and a Vite `hot` file under `public/vendor/martis/`) so stale Vite-hashed chunks from previous package versions never accumulate, then does a deterministic full-tree copy. Laravel's stock `vendor:publish --tag=martis-assets --force` is a merge-style copy and would otherwise pile up tens of thousands of orphan files across upgrades, enough on macOS Docker bind mounts to slow every PHP-FPM request to several seconds. Pass `--no-wipe` to opt back into the legacy merge behaviour if you have a specific reason to.
+
+Since **v1.39.3** the rest of `public/vendor/martis/` stays: your themes under `themes/` (see [Theming → Theme files and asset publishes](theming.md#theme-files-and-asset-publishes)) and anything else you put there. A symlinked `public/vendor/martis/` is replaced by a real directory (its target keeps its files), and one that is the package's own `public/` is left as it is. Up to v1.39.2 the command deleted the whole directory, themes included, and emptied a symlink's target.
 
 Since **v1.29.1** the command also **verifies completeness**: after copying it checks that every file the published `manifest.json` references (the app entry bundle, its CSS, every chunk) exists in the destination, and exits non-zero with the missing count if any are absent — so a partial publish is caught here rather than surfacing as a black-screen admin at runtime.
 
-Equivalent: `php artisan martis:vendor-publish --assets` performs the same wipe-then-publish flow, as does `martis:install` — all three share this single hardened path.
+Equivalent: `php artisan martis:vendor-publish --assets` performs the same delete-then-publish flow, as does `martis:install`: all three share this single hardened path.
 
 Important:
 
@@ -215,15 +225,17 @@ php artisan migrate
 
 The `martis:install` command runs all four behind the scenes when invoked with `--with-profile`.
 
+`martis:install` publishes the core migrations on every run, the avatar migration with `--with-profile` (as `add_profile_picture_column`) and the two-factor migration with `--with-2fa` (as `*_add_martis_two_factor_columns_to_users_table.php`). Both add their columns to the table of the Martis guard's users: `users`, unless `MARTIS_GUARD` names a guard whose model has its own table.
+
 #### UUID / ULID / custom user PKs (v1.12.2+)
 
-The published migrations adapt the `user_id` column (and the polymorphic `notifiable_id` on the notifications table) to whichever primary-key shape your host `users` table uses. The adaptation happens at migration time — each stub introspects the configured user model (`auth.providers.{provider}.model`) and picks the matching column helper:
+The published migrations adapt the `user_id` column (and the polymorphic `notifiable_id` on the notifications table) to the primary-key shape of the Martis guard's users. The adaptation happens at migration time: each stub introspects the model of the Martis guard's provider (`auth.guards.{MARTIS_GUARD, else the default guard}.provider` → `auth.providers.{provider}.model`, the `users` model on a default install) and picks the matching column helper. The foreign keys (`martis_user_preferences.user_id`, `invitations.invited_by` / `accepted_user_id`) reference that model's table and key, and the two-factor and avatar migrations add their columns to that table (v1.39.3+; before, always `users`):
 
 | User model | `user_id` column |
 |---|---|
-| Default Laravel (auto-incrementing `bigint`) | `foreignId('user_id')->constrained()` |
-| `use Illuminate\Database\Eloquent\Concerns\HasUuids;` | `foreignUuid('user_id')->constrained()` |
-| `use Illuminate\Database\Eloquent\Concerns\HasUlids;` | `foreignUlid('user_id')->constrained()` |
+| Default Laravel (auto-incrementing `bigint`) | `foreignId('user_id')->constrained($table, $key)` |
+| `use Illuminate\Database\Eloquent\Concerns\HasUuids;` | `foreignUuid('user_id')->constrained($table, $key)` |
+| `use Illuminate\Database\Eloquent\Concerns\HasUlids;` | `foreignUlid('user_id')->constrained($table, $key)` |
 | `$keyType = 'string'` without `HasUuids` / `HasUlids` | `string('user_id')` + explicit `foreign()` |
 
 The polymorphic columns on `notifications` follow the same rule (`morphs` / `uuidMorphs` / `ulidMorphs`).
@@ -413,7 +425,7 @@ That's it. The Tool is auto-registered (since v1.8.20), the React component is a
 
 ### Collision detection
 
-Each generator (`martis:tool`, `martis:field`, `martis:card`, `martis:component`) checks for both the destination PHP file AND the destination TSX file before writing. When either exists, the command lists the conflicting paths and asks `[y/N]` whether to overwrite. `--force` skips the prompt. In a non-interactive shell (e.g. CI) the command aborts with an error code unless `--force` was passed.
+Each generator (`martis:tool`, `martis:field`, `martis:card`, `martis:component`) checks for both the destination PHP file AND the destination TSX file before writing. When either exists, the command lists the conflicting paths and asks `[y/N]` whether to overwrite. `--force` skips the prompt. The question is asked only on a terminal (an interactive input **and** a real TTY on STDIN, since v1.39.3): in CI, a pipe (`yes | php artisan martis:field Rating` used to answer "y" and rewrite a customised component) or with `--no-interaction` nothing is asked, the existing file is left alone and the command stops unless `--force` was passed (`martis:component` and `martis:theme` exit 1, as before). The scaffold commands' "Run pending migrations now?" (`martis:invitations`, `martis:roles`, `martis:sso`) and `martis:sso`'s role mapping questions follow the same rule: without a terminal the migrations run, so pass `--no-migrate` to skip them.
 
 ### How the registry is exposed
 

@@ -215,7 +215,7 @@ public function actions(Request $request): array
 
 - Action appears in the dropdown regardless of row selection
 - No "select rows first" requirement
-- `$models` collection is always empty — query data yourself inside `handle()`
+- `$models` collection is always empty: query data yourself inside `handle()`. The server ignores any ids the request sends (v1.39.3+; before, a standalone action run with rows selected received those records, without `canRun()` or the policy being asked)
 
 ---
 
@@ -776,9 +776,11 @@ Defaults: `showOnIndex = true`, `showOnDetail = true`, `showInline = false`.
 
 | Method | Behaviour |
 |--------|-----------|
-| _(default)_ | Runs on 1+ selected models |
-| `standalone()` | Runs with no models — selection not required |
+| _(default)_ | Runs on 1+ selected models: a run that names none answers 422 (v1.39.3+) |
+| `standalone()` | Runs with no models: selection not required, and any ids sent are ignored (v1.39.3+) |
 | `sole()` | Requires exactly 1 selected model |
+
+The selected models are looked up through the resource's `scopes()`, then its `indexQuery()`, as the index lists them (`scopes()` since v1.39.3, `indexQuery()` before): an id they keep out is left out of the run, as one that no longer exists, and the action runs on the others, as in Nova. The two hooks run as Eloquent runs a local scope, so an `orWhere()` at their top level is grouped before the selected ids are added and cannot widen the run (v1.39.3+; before, an `indexQuery()` such as `where('tenant_id', 1)->orWhere('shared', true)` read `tenant_id = 1 or (shared and id in (...))`, and an action on one selected record ran on every record of the tenant). A run none of whose ids resolves answers 404 (`One or more selected resources could not be found.`) instead of running `handle()` on nothing (v1.39.3+). This covers every way a resource action runs: the index and lens bulk actions, the detail page and inline row actions (`POST /api/resources/{resource}/{id}/actions/{action}`), and the job of a queued action, which receives the ids that resolved.
 
 `Action::executionMode(): ActionExecutionMode` returns the resolved mode (`Default`, `Standalone`, `Sole`) — useful when consumer code or tests need to branch on the configured mode without re-checking each setter. The matching boolean shortcuts `isStandalone()` and `isSole()` are also available.
 
@@ -884,8 +886,13 @@ ActionController::execute()
   1. Resolve resource class from URI key
   2. Find action by URI key (uriKey())
   3. Check canSee() — 403 if unauthorized
-  4. Load Eloquent models by the IDs in "resources"
-  5. Check canRun() per model — 403 if any unauthorized
+  4. Load Eloquent models by the IDs in "resources", through the
+     resource's scopes() and indexQuery(), grouped so an orWhere() in
+     them cannot widen the selection. The action runs on the IDs
+     that resolve, as in Nova; 404 when none does, rather than running
+     on nothing, and 422 when "resources" is empty. A standalone()
+     action loads no model.
+  5. Check canRun() and the policy per model: 404 if any is refused
   6. Validate the fields the request may set against their rules
      (a hidden, readonly or computed field is not validated and gets its
      default(); see "Fields the request cannot set")
@@ -1317,6 +1324,8 @@ public function actions(Request $request): array
 
 `referToPivotAs()` labels the panel's dropdown (**Actions** by default); actions with different labels get one dropdown each. `canSee()`, `canRun()`, `sole()`, `standalone()` and the validation of the action's `fields()` apply as they do on the resource, and so do the rules for the [fields the request cannot set](#fields-the-request-cannot-set).
 
+A pivot action runs on the selected ids the relationship attaches, and answers 404 (`One or more selected resources could not be found.`) when it attaches none of them, instead of running `handle()` on nothing; a `standalone()` pivot action runs on no record, whatever ids the request sends (v1.39.3+).
+
 Running a pivot action also needs the policy a resource action checks, asked of the record whose relationship panel runs it (v1.38.0+): `runAction` on its resource's policy, falling back to `update`, or for a `DestructiveAction`, `runDestructiveAction`, falling back to `delete`. A user who may only view the parent record cannot run a pivot action on its rows; before v1.38.0 only `canSee()` and `canRun()` gated one.
 
 A pivot action runs like a resource action (v1.38.0+):
@@ -1373,6 +1382,8 @@ The pivot action routes (see the [API Reference](#api-reference)) resolve `{rela
   }
 }
 ```
+
+A run is refused with 403 when the user may not list the resource (`viewAny`) or see the action (`canSee()`); 404 when none of the selected records resolves through the resource's `scopes()` and `indexQuery()` (v1.39.3+), or when `canRun()` or the policy refuses one of them; 422 when an action that is not `standalone()` names no record (`resources`, v1.39.3+) or a field fails its rules.
 
 ---
 

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Martis\Invitations\Listeners;
 
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Martis\Auth\GuardCatalog;
 use Martis\Auth\Listeners\RecordRoleChange;
 use Martis\Invitations\Events\InvitationAccepted;
 use Martis\Invitations\Events\InvitationCreated;
@@ -36,16 +36,16 @@ class RecordInvitation
     public function handleCreated(InvitationCreated $event): void
     {
         // The inviting operator is the actor of record; fall back to
-        // whoever is currently authenticated (e.g. a console-issued
-        // invitation with no `invited_by`).
-        $this->record('invitation.created', $event->invitation, $event->invitation->invited_by ?? Auth::id());
+        // the panel's current user (e.g. a console-issued invitation with
+        // no `invited_by` has none).
+        $this->record('invitation.created', $event->invitation, $event->invitation->invited_by ?? $this->panelUserId());
     }
 
     public function handleAccepted(InvitationAccepted $event): void
     {
         // Same actor rule as `created`: the invitation describes what
         // happened to the inviter's invite, not the invitee's own action.
-        $this->record('invitation.accepted', $event->invitation, $event->invitation->invited_by ?? Auth::id());
+        $this->record('invitation.accepted', $event->invitation, $event->invitation->invited_by ?? $this->panelUserId());
     }
 
     public function handleRevoked(InvitationRevoked $event): void
@@ -53,9 +53,22 @@ class RecordInvitation
         // Revoked is different: the actor is whoever CLICKED revoke (the
         // current operator), not the original inviter — an operator can
         // revoke someone else's outstanding invite. Fall back to the
-        // inviter only when revoked from an unauthenticated context (e.g.
-        // console/queue).
-        $this->record('invitation.revoked', $event->invitation, Auth::id() ?? $event->invitation->invited_by);
+        // inviter when revoked outside a panel request (console, queue, a
+        // request of another guard).
+        $this->record('invitation.revoked', $event->invitation, $this->panelUserId() ?? $event->invitation->invited_by);
+    }
+
+    /**
+     * The Martis guard's user in a panel request, whose id the log's
+     * `user()` resolves; never the user of another guard (a site request
+     * beside a custom MARTIS_GUARD), whose id it would resolve to someone
+     * else.
+     */
+    protected function panelUserId(): int|string|null
+    {
+        $id = GuardCatalog::panelUser()?->getAuthIdentifier();
+
+        return is_int($id) || is_string($id) ? $id : null;
     }
 
     protected function record(string $name, Invitation $invitation, int|string|null $userId): void

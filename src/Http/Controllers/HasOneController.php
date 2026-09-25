@@ -531,6 +531,14 @@ class HasOneController extends MartisController
         /** @var class-string<resource> $relatedResourceClass */
         $relatedResourceClass = $this->registry->get($relatedResourceKey);
 
+        // A write through the relationship writes a record of the related
+        // resource, so it needs that resource's viewAny, as its own per-id
+        // endpoints do. routable() is not required: a headless resource
+        // stays usable as a relation target.
+        if ($action !== null && ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $relatedResourceClass))) {
+            return $forbidden;
+        }
+
         // Block mutations on HasOneThrough — the relationship is a traversal,
         // there is no direct FK for Eloquent to create/update/delete on.
         // Defence in depth: even if someone bypasses the UI, the backend

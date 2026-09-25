@@ -24,7 +24,7 @@ When the master switch is off, every endpoint returns **503**. When the gate den
 // config/martis.php
 'impersonation' => [
     'enabled' => env('MARTIS_IMPERSONATION_ENABLED', false),
-    'guard' => env('MARTIS_IMPERSONATION_GUARD', 'web'),
+    'guard' => env('MARTIS_IMPERSONATION_GUARD'), // null: the Martis guard
     'session_key' => env('MARTIS_IMPERSONATION_SESSION_KEY', 'martis.impersonation'),
     'max_duration_minutes' => (int) env('MARTIS_IMPERSONATION_MAX_DURATION', 0),
 ],
@@ -33,7 +33,7 @@ When the master switch is off, every endpoint returns **503**. When the gate den
 | Key | Default | Purpose |
 |---|---|---|
 | `enabled` | `false` | Master switch. |
-| `guard` | `web` | Auth guard the impersonation operates on. Most apps stay on `web`. |
+| `guard` | `null` (the Martis guard) | Auth guard the impersonation operates on: the operator and the target are users of that guard. Unset, it follows `MARTIS_GUARD` (v1.39.3+; it was `web`). With a custom Martis guard that means another admin; to impersonate the users of the site's guard, set it to that guard, on which the operator must then be signed in too. |
 | `session_key` | `martis.impersonation` | Session bag where the operator's id is stashed. Change it for cross-tenant isolation. |
 | `max_duration_minutes` | `0` (disabled) | Auto-stop the session after N minutes of impersonation. The `martis.impersonation.duration` middleware (registered automatically on every protected Martis route) compares `started_at` against `now()` and calls `stop()` when the window has elapsed. Use it to prevent forgotten impersonations from leaking access. v1.8.8. |
 
@@ -151,9 +151,9 @@ Since v1.8.8 every successful `start()` / `stop()` is recorded into the `martis_
 
 Each row carries:
 
-- `user_id` — the operator (the user issuing the impersonation, even after the auth guard switched to the target).
-- `model_id` / `target_id` — the target user.
-- `fields.target_label` — the target's `name`, falling back to `email` (mirrors the snapshot label).
+- `user_id`: the operator (the user issuing the impersonation, even after the auth guard switched to the target), when the impersonation guard signs in the Martis guard's users (the default). When `guard` names a guard of other users (the site's), the log's `user()`, which resolves the Martis guard's model, would name someone else: `user_id` is null and the operator goes to `fields.operator_type` / `fields.operator_id` (v1.39.3+).
+- `model_id` / `target_id`: the target user.
+- `fields.target_label`: the target's `name`, falling back to `email` (mirrors the snapshot label).
 
 Browse them under `/martis/system/action-events` (or whatever URL the bundled `ActionEventResource` lives at). Toggle the audit-row write per-environment via `MARTIS_AUDIT_IMPERSONATION=false` — the events still fire so any custom listeners you attach keep firing; only the Martis row is suppressed.
 
