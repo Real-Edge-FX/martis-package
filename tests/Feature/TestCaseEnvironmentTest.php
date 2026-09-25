@@ -149,6 +149,15 @@ it('gives a parallel worker a copy of the testbench skeleton of its own', functi
             ->and($probe['copy_after_child'])->toBeTrue()
             // Removed when the worker exits.
             ->and(is_dir($probe['path']))->toBeFalse();
+
+        // A sequential run (no worker token) gets a copy too: nothing writes
+        // the skeleton under vendor/.
+        $sequential = new Process([PHP_BINARY, $script, dirname(__DIR__, 2), 'child'], null, ['TEST_TOKEN' => false]);
+        $sequential->run();
+
+        expect($sequential->isSuccessful())->toBeTrue($sequential->getErrorOutput())
+            ->and(trim($sequential->getOutput()))->toEndWith('-seq')
+            ->not->toBe($probe['shared']);
     } finally {
         @unlink($script);
     }

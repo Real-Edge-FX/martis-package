@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
+use Martis\Tests\Support\SkeletonSnapshot;
+use Martis\Tests\TestCase;
 
 /*
  * `martis:invitations` — pin the contract that the command:
@@ -29,6 +31,23 @@ function invitationsMigrationFiles(): array
 {
     return (array) glob(base_path('database/migrations/*_create_invitations_table.php'));
 }
+
+// The hooks below clear and stub app/Martis/Resources, app/Policies,
+// app/Notifications and app/Providers and remove the invitations migration:
+// put the skeleton copy back as this file found it for the tests after it.
+beforeAll(function () {
+    $GLOBALS['__martis_invitations_skeleton'] = SkeletonSnapshot::take(TestCase::applicationBasePath(), [
+        'app/Martis/Resources',
+        'app/Policies',
+        'app/Notifications',
+        'app/Providers',
+        'database/migrations',
+    ]);
+});
+
+afterAll(function () {
+    $GLOBALS['__martis_invitations_skeleton']->restore();
+});
 
 beforeEach(function () {
     /** @var Filesystem $files */

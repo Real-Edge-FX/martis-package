@@ -29,40 +29,44 @@ abstract class TestCase extends OrchestraTestCase
      * `cache` table, see migrateFreshUsing()). CI installs a fresh vendor/
      * on every run and never has the file, so the tests run on the
      * skeleton's config defaults there; ignoring the file does the same
-     * locally.
+     * locally. The skeleton copy the tests run in (applicationBasePath())
+     * leaves the file out as well; this keeps any other `.env` off too.
      *
      * @var bool
      */
     protected $loadEnvironmentVariables = false;
 
     /**
-     * The copy of the testbench skeleton this parallel worker runs in.
+     * The copy of the testbench skeleton this test process runs in.
      */
     private static ?string $workerSkeleton = null;
 
     /**
-     * Give each parallel worker a copy of the testbench skeleton of its own.
+     * Run every test process in a copy of the testbench skeleton of its own.
      *
-     * The suite writes into the skeleton: martis:install publishes assets,
-     * config and migrations, the generators write app/Martis classes, and
-     * `vendor/bin/testbench` copies a `.env`. Under `pest --parallel` every
-     * worker shared it, and one worker read the files another was writing or
-     * deleting. Paratest sets TEST_TOKEN in each worker: the first test of a
-     * worker copies the skeleton to a temporary directory named after its
-     * process, and every application of that worker boots there. The copy
-     * goes when the process exits; one whose process could not clean up
-     * (Ctrl+C, SIGKILL) goes when the next copy is made. A sequential run,
-     * CI's included, keeps the shared skeleton.
+     * The skeleton lives under vendor/, and the suite writes into it:
+     * martis:install publishes assets, config, translations and migrations,
+     * the generators write app/Martis classes, scaffolding tests replace
+     * app/Providers and bootstrap/providers.php, and `vendor/bin/testbench`
+     * leaves a `.env`. Written in place, all of it stayed for every later
+     * run (a leftover `.env` failed about a thousand tests locally, while
+     * CI, with a fresh vendor/, passed), and under `pest --parallel` one
+     * worker read the files another was writing or deleting. The first test
+     * of a process copies the skeleton to a temporary directory named after
+     * the process and the paratest token (TEST_TOKEN, `seq` for a sequential
+     * run), and every application of that process boots there, so the
+     * skeleton under vendor/ is never written. The copy goes when the
+     * process exits; one whose process could not clean up (Ctrl+C, SIGKILL)
+     * goes when the next copy is made.
      */
     public static function applicationBasePath()
     {
         $token = getenv('TEST_TOKEN');
 
-        if (! is_string($token) || $token === '') {
-            return parent::applicationBasePath();
-        }
-
-        return self::$workerSkeleton ??= self::copySkeletonForWorker(parent::applicationBasePath(), $token);
+        return self::$workerSkeleton ??= self::copySkeletonForWorker(
+            parent::applicationBasePath(),
+            is_string($token) && $token !== '' ? $token : 'seq',
+        );
     }
 
     private static function copySkeletonForWorker(string $skeleton, string $token): string
