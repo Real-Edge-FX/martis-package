@@ -1184,7 +1184,7 @@ class PostResource extends Resource
 }
 ```
 
-`actionEventsField()` builds the panel; override it to change its label or options. The panel follows the action event resource's `viewAny`, as every relationship panel does (see [Relationships → Panels follow the related resource's `viewAny`](relationships.md#panels-follow-the-related-resources-viewany-v201)): while the audit log is closed (below), no user sees it and its route answers `403`.
+`actionEventsField()` builds the panel, labelled **Action Events** as in Nova (`Nova::__('Action Events')`), translated (`martis::action_events.label`); override it to change its label or options. The panel follows the action event resource's `viewAny`, as every relationship panel does (see [Relationships → Panels follow the related resource's `viewAny`](relationships.md#panels-follow-the-related-resources-viewany-v201)): while the audit log is closed (below), no user sees it and its route answers `403`.
 
 ### Built-in ActionEvent Resource
 
@@ -1193,7 +1193,24 @@ Martis automatically registers an `ActionEventResource` in the admin panel, prov
 - Appears in the sidebar as **"Action Events"** with a clipboard icon, for the users allowed to read the log (see below)
 - Is **read-only** (no create, update, or delete)
 - Sorts by `created_at DESC` by default
-- Shows: Action name, User ID, Model type, Status, Executed At
+- Shows Nova's columns (v2.0.1+), in Nova's order and with its labels, translated in `en`, `pt_PT` and `pt_BR` (`martis::action_events`)
+
+#### Columns and detail fields (v2.0.1+)
+
+The resource mirrors Nova 5's `Laravel\Nova\Actions\ActionResource`:
+
+| Field | Index | Shows |
+|-------|-------|-------|
+| **ID** | yes | The event id |
+| **Name** | yes | The action name, through `__()` as Nova's `Nova::__($value)` |
+| **Initiated By** | yes | The name of the user who ran the action, else their email, else the stored `user_id` when the user is gone (Nova prints "Nova User" there). The user comes from the Martis guard's user model (`GuardCatalog::martisUserModel()`, the model of `MARTIS_GUARD`'s provider), eager-loaded per page |
+| **Target** | yes | The target record as `Project: Apollo`: its resource's singular label and title, linked to its detail page (with the peek card) when the viewer may `viewAny` and `view` it. A record the viewer may not view, a record that is gone, or a model no resource exposes reads `Project: 12` (label, or class basename, and id), unlinked: the title stays hidden like the values of `original` / `changes` below |
+| **Status** | yes | Nova's labels: **Waiting** (`queued`), **Running**, **Finished** (`completed`, `finished`), **Failed**, plus **Denied** for an authorization denial. Waiting and Running show a spinner, Failed and Denied the error mark. Another value reads capitalised |
+| **Original**, **Changes** | no | The diff as a key/value table, only on an event that holds one (Nova adds them only when set). Values stay redacted, see below |
+| **Exception** | no | The exception message of a failed run |
+| **Happened At** | yes | `created_at` |
+
+The batch id and the raw `actionable_*` columns are not shown any more (Nova does not show them); they stay in the table and on the `ActionEvent` model. `ActionEventResource::statusLabel()`, `initiatorName()` and `targetValue()` are public, for a custom audit resource that wants the same display.
 
 #### Who can read the audit log (v2.0.1+)
 
@@ -1231,7 +1248,7 @@ A custom audit resource applies the same rule from its fields:
 ```php
 use Martis\Actions\ActionEventRedactor;
 
-Code::make('changes')->json()->resolveUsing(
+KeyValue::make('changes')->resolveUsing(
     fn ($value, $event, $attribute, $request) => ActionEventRedactor::redact($event, $value, $request ?? request()),
 );
 ```

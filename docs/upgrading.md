@@ -6,7 +6,7 @@ The sections below list the breaking changes of each major version and what to c
 
 ## Upgrading to v2.0.1 from v2.0.0
 
-The action log, the throttle buckets, the Gate cache's `lookup()` the Tool route warning, the grouped user hooks, the relatable checks on writes, the relationship panels, the Action Events panel and React Router 7 apply to every app; the other changes concern an app with a custom `MARTIS_GUARD`.
+The action log, the throttle buckets, the Gate cache's `lookup()` the Tool route warning, the grouped user hooks, the relatable checks on writes, the relationship panels, the Action Events panel, the action log's columns and React Router 7 apply to every app; the other changes concern an app with a custom `MARTIS_GUARD`.
 
 ### Relationship writes follow the pickers
 
@@ -82,6 +82,12 @@ A relationship panel (`HasMany`, `HasOne`, `MorphMany`, `MorphOne`, `BelongsToMa
 As in Nova, the detail page of a model that uses `Martis\Concerns\Actionable` now ends with a collapsable **Action Events** panel listing its action log, for the users who may read the log (the `view-martis-action-events` gate or an `ActionEvent` policy). A resource that already declares a `MorphMany` to the action event resource keeps its own and gets no second one.
 
 **What to change:** nothing to get the panel. To leave it out of a resource, override `shouldAddActionsField()` to return `false`. A resource that overrides `fieldsForDetail()` keeps working: the panel is added after it. See [Actions → The Action Events panel](actions.md#the-action-events-panel-v201).
+
+### The action log shows Nova's columns
+
+The built-in `ActionEventResource` now lists Nova's columns: **ID, Name, Initiated By** (the user's name instead of `User ID`), **Target** (`Project: Apollo`, linked when the viewer may view the record, instead of the model class), **Status** (Waiting, Running, Finished, Failed, Denied instead of the stored `queued` / `completed` / ...) and **Happened At** (was Executed At). The detail page drops the batch id and the `actionable_*` columns and shows `original` / `changes` as key/value tables, only when the event holds a diff. Labels are translated (`martis::action_events`). The stored rows do not change.
+
+**What to change:** nothing, unless a subclass of `ActionEventResource` called `parent::fieldsForIndex()` (the override is gone: the index now comes from `fields()`) or reads the field labels. See [Actions → Columns and detail fields](actions.md#columns-and-detail-fields-v201).
 
 ## Upgrading to v2.0 from v1.x
 
