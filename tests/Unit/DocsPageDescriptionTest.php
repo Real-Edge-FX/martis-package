@@ -24,11 +24,28 @@ it('opens every docs page with a paragraph that describes it', function () {
 
     $weak = [];
     foreach ($pages as $page) {
-        $description = DocDescription::fromMarkdown((string) file_get_contents($page));
+        $markdown = (string) file_get_contents($page);
+        $name = substr($page, strlen($root) + 1);
+        if (preg_match('/^#\s+.+$/m', $markdown) !== 1) {
+            $weak[$name] = 'no title';
+
+            continue;
+        }
+
+        $description = DocDescription::fromMarkdown($markdown);
         $length = mb_strlen($description);
 
+        // The site writes the description into a double-quoted YAML string
+        // and escapes only the quotes: a backslash there (`Martis\Foo`) is an
+        // invalid escape and breaks the sync.
+        if (str_contains($description, '\\')) {
+            $weak[$name] = 'backslash: '.mb_substr($description, 0, 80);
+
+            continue;
+        }
+
         if ($length < 60 || $length > DocDescription::MAX_LENGTH || str_starts_with($description, '|') || preg_match('/^(This (document|page|guide)|For |See )/', $description) === 1) {
-            $weak[substr($page, strlen($root) + 1)] = "{$length} chars: ".mb_substr($description, 0, 80);
+            $weak[$name] = "{$length} chars: ".mb_substr($description, 0, 80);
         }
     }
 

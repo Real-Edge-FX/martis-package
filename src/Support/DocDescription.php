@@ -9,7 +9,7 @@ namespace Martis\Support;
  * The docs site derives a page's description (its search excerpt and meta
  * description) this way (`deriveTitleAndDescription()` in martis-docs
  * `scripts/sync-docs.mjs`) and keeps its first MAX_LENGTH characters; the
- * docs MCP server's `list_docs` uses it too, so both describe a page alike.
+ * docs MCP server's `martis_doc_list` tool uses it too, so both describe a page alike.
  */
 final class DocDescription
 {
