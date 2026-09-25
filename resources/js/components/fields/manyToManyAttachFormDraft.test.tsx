@@ -6,7 +6,7 @@ import type { FieldDefinition } from '@/types'
 import { relationField, renderOnPage } from '@/test-support/relationPanels'
 
 /*
- * The attach of a BelongsToMany panel checks the picked records against the
+ * The attach of a BelongsToMany / MorphToMany panel checks the picked records against the
  * query its picker ran (Nova's RelatableAttachment rule). A 3-argument
  * `relatableQueryUsing()` closure filters the picker on the parent form
  * draft (`?form[attribute]=value`), so the attach sends the same draft, or a
@@ -42,6 +42,12 @@ vi.mock('primereact/datatable', () => ({
 vi.mock('primereact/column', () => ({ Column: () => null }))
 
 import { BelongsToManyFieldInput } from './BelongsToManyField'
+import { MorphToManyFieldInput } from './MorphToManyField'
+
+const PANELS = [
+  { type: 'belongs_to_many', path: 'belongs-to-many', metaKey: 'belongsToManyMeta', Input: BelongsToManyFieldInput },
+  { type: 'morph_to_many', path: 'morph-to-many', metaKey: 'morphToManyMeta', Input: MorphToManyFieldInput },
+]
 
 beforeEach(() => {
   vi.mocked(api.get).mockReset()
@@ -65,14 +71,14 @@ afterEach(() => {
   window.history.replaceState(null, '', '/')
 })
 
-describe('BelongsToMany attach', () => {
+describe.each(PANELS)('$type attach', ({ type, path, metaKey, Input }) => {
   it('sends the parent form draft the picker filtered on', async () => {
     const field = {
-      ...relationField('belongs_to_many', 'permissions', 'permissions', 'belongsToManyMeta'),
+      ...relationField(type, 'permissions', 'permissions', metaKey),
       dependsOn: { fields: ['guard_name'] },
     } as FieldDefinition
     renderOnPage('/resources/roles/3/edit', '/resources/:resource/:id/edit', (
-      <BelongsToManyFieldInput field={field} value={null} onChange={() => {}} formValues={{ guard_name: 'api', name: 'Editor' }} />
+      <Input field={field} value={null} onChange={() => {}} formValues={{ guard_name: 'api', name: 'Editor' }} />
     ))
 
     fireEvent.click(await screen.findByRole('button', { name: 'Attach' }))
@@ -83,7 +89,7 @@ describe('BelongsToMany attach', () => {
 
     await waitFor(() => expect(api.post).toHaveBeenCalled())
     expect(vi.mocked(api.get).mock.calls.some(([url]) => String(url).includes('form%5Bguard_name%5D=api'))).toBe(true)
-    expect(vi.mocked(api.post).mock.calls[0][0]).toBe('/api/resources/roles/3/belongs-to-many/permissions/attach?form%5Bguard_name%5D=api')
+    expect(vi.mocked(api.post).mock.calls[0][0]).toBe(`/api/resources/roles/3/${path}/permissions/attach?form%5Bguard_name%5D=api`)
     expect(vi.mocked(api.post).mock.calls[0][1]).toEqual({ related_id: 9 })
   })
 })
