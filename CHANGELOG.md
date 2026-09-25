@@ -86,6 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Docs
 
+- The SSO, preferences, in-app Tool boot, relationships and v1 roadmap pages, and the docs index, open with a paragraph that says what the page covers: the docs site uses that paragraph as the page's description and search excerpt, and the SSO page's was a line of navigation, the preferences and roadmap pages' a table. `tests/Unit/DocsPageDescriptionTest.php` applies the site's rule to every page. +1 Pest.
 - The troubleshooting guide told you to refresh a theme's published file by running `martis:theme` again, which asks before it overwrites the source (and refuses in a non-interactive run), then replaces your theme with the scaffold. It now says to run `martis:publish-assets --themes-only`, and its note on the legacy `vendor:publish --tag=martis-assets` says that path never publishes themes. The `theme.name` row of the configuration reference describes the key the panel reads.
 - New [Upgrading](docs/upgrading.md) page. The `Select` and `MultiSelect` references, the closure-aware setters and the actions, quick start, grid layout and panels pages use Nova's order, and the `pluck('name', 'id')` examples now store the id as they meant to. The filters page notes that filter options keep `[label => value]`, as in Nova; the REST overview documents `group` on the options payload.
 

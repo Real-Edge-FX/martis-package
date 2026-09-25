@@ -3,6 +3,8 @@
 > Live document. Updated with every PR that lands on `release/v1.0.0`.
 > Current snapshot: branch `release/v1.0.0` cut from `main` at v0.10.0-rc1.
 
+The plan Martis followed from v0.10.0-rc1 to v1.0.0, with the state of the test suites and of each area when the 1.0 branch was cut. It is kept as a record: the current state is in the CHANGELOG and the upgrading guide.
+
 ## Where we are
 
 **Feature-complete.** v0.10.0-rc1 closed the entire post-1.0 backlog: Custom Tools, Impersonation, Reactive forms, Save variants, Sticky views, Cache surface, SSO, Notifications, Locale extensibility, all 12 relation fields, 50 field types, full action / lens / metric / dashboard / menu systems.

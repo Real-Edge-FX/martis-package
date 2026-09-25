@@ -2,6 +2,8 @@
 
 > Per-user UI preferences (theme, accent, density, locale, reduced-motion) persisted server-side so they travel across devices and sessions. URL presets compose over the user row for shareable, link-driven layouts. Exposed through a compact overlay in the topbar.
 
+Each admin user keeps their own interface preferences: theme, accent (or, when allowed, a brand colour), density, locale and reduced motion. The topbar overlay edits them, the server stores them on the user so they follow every device and session, and a URL preset can override them for a shared link.
+
 ---
 
 ## What's persisted

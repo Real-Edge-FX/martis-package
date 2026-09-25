@@ -4,6 +4,8 @@
 >
 > Live reference: a playground demo ships a real `boot()` with all four core patterns wired up — `app/Martis/Tools/SystemStatus.php` (the Tool), `app/Http/Controllers/SystemStatusController.php` (the routes' backend), and `resources/js/tools/SystemStatusTool.tsx` (the React consumer).
 
+Where to put the setup code of a Tool that lives inside your application: in the Tool's own `boot()` or in your `AppServiceProvider::boot()`, when each one runs, and how the four usual pieces (routes, gates, listeners and schedules) are wired in either place.
+
 ## The question this answers
 
 For an in-app Tool, you have two places where setup code can live:
