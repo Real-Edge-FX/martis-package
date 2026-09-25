@@ -13,7 +13,6 @@ use Illuminate\Routing\Controller;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Enums\SortDirection;
-use Martis\Enums\TrashedFilter;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\Field;
 use Martis\Fields\HasMany;
@@ -154,17 +153,13 @@ abstract class MartisController extends Controller
      */
     protected function scopeRelationQuery(Request $request, Builder $query, string $relatedResourceClass, bool $byKey = false): void
     {
-        $withTrashed = $relatedResourceClass::softDeletes()
-            && $relatedResourceClass::canViewTrashed()
-            && TrashedFilter::fromQuery($request->query('trashed')) !== TrashedFilter::Active;
-
         if ($byKey) {
-            RelationScope::constrainByKey($request, $query, $relatedResourceClass, $withTrashed);
+            RelationScope::constrainByKey($request, $query, $relatedResourceClass);
 
             return;
         }
 
-        RelationScope::apply($request, $query, $relatedResourceClass, $withTrashed);
+        RelationScope::apply($request, $query, $relatedResourceClass);
     }
 
     /**

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasOneThrough as EloquentHasOneThroug
 use Illuminate\Database\Eloquent\Relations\MorphMany as EloquentMorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne as EloquentMorphOne;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Martis\Enums\AggregateFunction;
 use Martis\Fields\HasOne;
@@ -96,9 +97,13 @@ class RCVProjectModel extends Model
 /** Hides "By index" from the index; the "Private" record may not be viewed. */
 abstract class RCVRelatedResource extends Resource
 {
+    public static bool $groupById = false;
+
     public static function indexQuery(Request $request, Builder $query): Builder
     {
-        return $query->where($query->qualifyColumn('title'), '!=', 'By index');
+        $query->where($query->qualifyColumn('title'), '!=', 'By index');
+
+        return static::$groupById ? $query->groupBy($query->qualifyColumn('id')) : $query;
     }
 
     public static function scopes(Request $request): array
@@ -330,6 +335,46 @@ it('takes another record on a one-of-many card, which sits on a many relationshi
     $this->postJson(rcvCard($path), ['title' => 'Second'])->assertStatus(201);
 
     expect($this->parent->{$relation}()->count())->toBe(2);
+})->with([
+    'has-one of many' => ['has-one/notes', 'notes'],
+    'morph-one of many' => ['morph-one/comments', 'comments'],
+]);
+
+it('refuses a second morph-one record with its reason as the message, also when one is added between the check and the insert', function () {
+    $this->parent->comment()->create(['title' => 'First']);
+
+    $this->postJson(rcvCard('morph-one/comment'), ['title' => 'Second'])
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'The MorphOne relationship has already been filled.');
+
+    $this->parent->comments()->delete();
+    // A record another request adds after the first check: the check again
+    // under the parent's lock refuses the insert.
+    $added = false;
+    DB::listen(function ($query) use (&$added) {
+        if (! $added && str_contains(strtolower($query->sql), 'exists') && str_contains($query->sql, 'rcv_comments')) {
+            $added = true;
+            DB::table('rcv_comments')->insert(['commentable_type' => RCVParentModel::class, 'commentable_id' => test()->parent->id, 'title' => 'Concurrent', 'created_at' => now(), 'updated_at' => now()]);
+        }
+    });
+
+    $this->postJson(rcvCard('morph-one/comment'), ['title' => 'Mine'])
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'The MorphOne relationship has already been filled.');
+
+    expect($this->parent->comments()->pluck('title')->all())->toBe(['Concurrent']);
+});
+
+it('counts "1 of N" by key, so a hook that groups still counts every record', function (string $path, string $relation) {
+    RCVRelatedResource::$groupById = true;
+    try {
+        $this->parent->{$relation}()->create(['title' => 'One', 'written_at' => now()->subHour()]);
+        $this->parent->{$relation}()->create(['title' => 'Two', 'written_at' => now()]);
+
+        expect($this->getJson(rcvCard($path))->assertOk()->json('meta.ofMany.totalCount'))->toBe(2);
+    } finally {
+        RCVRelatedResource::$groupById = false;
+    }
 })->with([
     'has-one of many' => ['has-one/notes', 'notes'],
     'morph-one of many' => ['morph-one/comments', 'comments'],
