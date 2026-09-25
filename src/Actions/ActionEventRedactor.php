@@ -51,7 +51,7 @@ use WeakMap;
 final class ActionEventRedactor
 {
     /** The value a masked key shows. */
-    public const MASK = '[hidden]';
+    public const MASK = '******';
 
     /**
      * Per-event visibility, computed once for the `original` and the

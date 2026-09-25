@@ -1220,7 +1220,7 @@ The denied gate check runs with every navigation build, so the [authorization-de
 
 #### Hidden values in `original` and `changes` (v2.0.1+)
 
-`original` and `changes` store the raw attributes an action changed, whatever the record's resource shows. The detail page shows a value only when the viewer could read that attribute on the record's own detail page; any other value reads `[hidden]` (`ActionEventRedactor::MASK`), so the log still tells which attributes changed:
+`original` and `changes` store the raw attributes an action changed, whatever the record's resource shows. The detail page shows a value only when the viewer could read that attribute on the record's own detail page; any other value reads `******` (`ActionEventRedactor::MASK`), so the log still tells which attributes changed:
 
 - **The record has a resource.** A key keeps its value when it is the attribute of a detail field the viewer may see (`canSee()`, `canSeeForModel()`), or the foreign key / morph type of a visible `BelongsTo` / `MorphTo`, through a resource that lets the viewer `viewAny` and `view` the record. Attributes no field shows (`password`, `remember_token`, internal columns) are masked. A viewer who may not view the record sees every value masked, and so does one whose global scopes hide it (another tenant's record). A deleted record is judged by the field visibility alone.
 - **A pivot action's event** (`model_type` is the pivot): the values show when the viewer may view the parent record, but the pivot model's `$hidden` attributes and the attributes of the pivot fields the viewer may not see (`canSee()`) on the `BelongsToMany` / `MorphToMany` field that lists the row. When the parent's detail page declares such a field but the viewer may see none of them, every value is masked.
@@ -1240,7 +1240,7 @@ The stored row keeps every other value: code that reads `ActionEvent` directly g
 
 #### `$hidden` attributes are stored masked (v2.0.1+)
 
-When an action changes an attribute its model hides (`$hidden`: a password hash, a token), the event stores `[hidden]` for it in `original` and `changes`, keeping the key; a pivot action does the same with the pivot model's `$hidden` columns. This applies to synchronous and queued actions and to pivot actions, and to rows written from v2.0.1 on (older rows keep their values, still masked on read). Nova does the same: its action events store their diffs through `Orchestra\Sidekick\Eloquent\model_state()`, which replaces each `$hidden` attribute with a value serialised as `******`. A custom writer masks its own diffs with `ActionEventRedactor::maskHiddenAttributes($values, $model)`.
+When an action changes an attribute its model hides (`$hidden`: a password hash, a token), the event stores `******` for it in `original` and `changes`, keeping the key; a pivot action does the same with the pivot model's `$hidden` columns. This applies to synchronous and queued actions and to pivot actions, and to rows written from v2.0.1 on (older rows keep their values, still masked on read). Nova does the same: its action events store their diffs through `Orchestra\Sidekick\Eloquent\model_state()`, which replaces each `$hidden` attribute with a value serialised as `******`. A custom writer masks its own diffs with `ActionEventRedactor::maskHiddenAttributes($values, $model)`.
 
 #### Hide from Navigation
 

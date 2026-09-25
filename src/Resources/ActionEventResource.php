@@ -41,7 +41,7 @@ use Martis\Resource;
  *
  * Redaction. `original` and `changes` show a value only when the
  * viewer may see that attribute on the record's own detail page
- * ({@see ActionEventRedactor}); other values read `[hidden]`.
+ * ({@see ActionEventRedactor}); other values read `******`.
  */
 class ActionEventResource extends Resource
 {
