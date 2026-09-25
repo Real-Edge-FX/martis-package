@@ -6,7 +6,15 @@ The sections below list the breaking changes of each major version and what to c
 
 ## Upgrading to v2.0.1 from v2.0.0
 
-The action log, the throttle buckets, the Gate cache's `lookup()` the Tool route warning and the grouped user hooks apply to every app; the other changes concern an app with a custom `MARTIS_GUARD`.
+The action log, the throttle buckets, the Gate cache's `lookup()` the Tool route warning, the grouped user hooks and the relatable checks on writes apply to every app; the other changes concern an app with a custom `MARTIS_GUARD`.
+
+### Relationship writes follow the pickers
+
+A create, update, inline create, attach, pivot update or Action run now answers **422** when a `BelongsTo`, `MorphTo`, `Tag` or attached record names a record its picker would not list, as Nova's `Relatable` rule does. v2.0 applied `relatableQuery()`, `relatable{PluralModelName}()` and `relatableQueryUsing()` to the pickers only and saved any id the request sent. See [Relationships → Writes follow the pickers](relationships.md#writes-follow-the-pickers).
+
+**Who is affected:** an app whose relatable hooks are narrower than what it saves: a `relatableQuery()` that hides records a form or an API client still writes (an inactive owner, another tenant's record an admin assigns), a `relatableQueryUsing()` written only to sort or shorten the list, or a client that writes soft-deleted related records. The same writes now also need `viewAny` on the related resource, the related record's `add{Model}` policy ability for a `BelongsTo` / `MorphTo` (as the `HasMany` panel on its page already needs), and `attachAny{Model}` / `attach{Model}` for the records a `Tag` adds. A record that already points at a target keeps saving: the stored value is not checked again.
+
+**What to change:** widen the hook to what the app writes (branch on `$request->route('resource')` or on the field passed to `relatable{PluralModelName}()` when only one picker should be narrow), send `{attribute}_trashed=true` with a soft-deleted target, and grant the policy abilities above. An API client that attaches with a 3-argument `relatableQueryUsing()` closure sends the same `?form[attribute]=value` draft on the attach as on the attachable list.
 
 ### The action log is closed by default
 

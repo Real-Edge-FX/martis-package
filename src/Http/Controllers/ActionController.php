@@ -42,6 +42,7 @@ use Martis\Lenses\Lens;
 use Martis\Models\ActionEvent;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Rules\RelatableWrite;
 use Martis\Support\IndexScope;
 use Martis\Support\RelationScope;
 
@@ -266,7 +267,7 @@ class ActionController extends MartisController
             }
         }
 
-        $fields = $this->resolveActionFields($actionInstance->fields($request), $request);
+        $fields = $this->resolveActionFields($actionInstance->fields($request), $request, $resourceClass);
 
         if ($fields instanceof IlluminateJsonResponse) {
             return $fields;
@@ -596,8 +597,9 @@ class ActionController extends MartisController
      * `actionFieldValues()` for the others.
      *
      * @param  list<FieldContract>  $fields  The Action's fields.
+     * @param  class-string<\Martis\Resource>  $sourceResourceClass  The resource the Action runs on (the parent resource for a pivot action), the source of the relatable hooks of its pickers
      */
-    private function resolveActionFields(array $fields, Request $request): ActionFields|IlluminateJsonResponse
+    private function resolveActionFields(array $fields, Request $request, string $sourceResourceClass): ActionFields|IlluminateJsonResponse
     {
         $raw = $request->input('fields', []);
         /** @var array<string, mixed> $values */
@@ -609,7 +611,7 @@ class ActionController extends MartisController
                 fn (FieldContract $field): bool => $this->takesValueFromRequest($field, $request),
             ));
 
-            $validator = $this->actionFieldsValidator($writable, $values);
+            $validator = $this->actionFieldsValidator($writable, $values, new RelatableWrite($request, $sourceResourceClass));
 
             if ($validator->fails()) {
                 return JsonErrorResponse::validation($validator->errors()->toArray())->toResponse();
@@ -690,18 +692,21 @@ class ActionController extends MartisController
      * The validator of an Action's fields: each field's rules under its
      * attribute, named by its label, and the fields inside every row a
      * Repeater among them receives (see
-     * `BuildsFieldRules::buildNestedFieldValidation()`).
+     * `BuildsFieldRules::buildNestedFieldValidation()`). A `BelongsTo`,
+     * `MorphTo` or `Tag` also checks the record it names against the query
+     * its picker lists (see `Martis\Rules\Relatable`), as Nova validates an
+     * Action's fields with the fields' own rules.
      *
      * @param  list<FieldContract>  $fields
      * @param  array<string, mixed>  $fieldData
      */
-    private function actionFieldsValidator(array $fields, array $fieldData): ValidatorContract
+    private function actionFieldsValidator(array $fields, array $fieldData, RelatableWrite $relatable): ValidatorContract
     {
         $nested = $this->buildNestedFieldValidation($fields, $fieldData, null);
 
         return Validator::make(
             $fieldData,
-            $this->buildFieldValidationRules($fields) + $nested['rules'],
+            $this->buildFieldValidationRules($fields, $relatable) + $nested['rules'],
             $nested['messages'],
             $this->buildFieldAttributeMap($fields) + $nested['attributes'],
         );
@@ -713,12 +718,16 @@ class ActionController extends MartisController
      * @param  list<FieldContract>  $fields
      * @return array<string, mixed>
      */
-    private function buildFieldValidationRules(array $fields): array
+    private function buildFieldValidationRules(array $fields, RelatableWrite $relatable): array
     {
         $rules = [];
 
         foreach ($fields as $field) {
             $fieldRules = $field->buildRules();
+            $relatableRule = $relatable->ruleFor($field);
+            if ($relatableRule !== null) {
+                $fieldRules[] = $relatableRule;
+            }
             if (! empty($fieldRules)) {
                 $rules[$field->attribute()] = $fieldRules;
             }
@@ -1137,7 +1146,7 @@ class ActionController extends MartisController
             }
         }
 
-        $fields = $this->resolveActionFields($actionInstance->fields($request), $request);
+        $fields = $this->resolveActionFields($actionInstance->fields($request), $request, $resourceClass);
 
         if ($fields instanceof IlluminateJsonResponse) {
             return $fields;

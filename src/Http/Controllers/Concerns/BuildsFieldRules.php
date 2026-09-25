@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Martis\Contracts\FieldContract;
 use Martis\Fields\Field;
 use Martis\Fields\Repeater;
+use Martis\Rules\RelatableWrite;
 
 /**
  * Build the validation rules of a field for a create or an update.
@@ -74,12 +75,17 @@ trait BuildsFieldRules
      * record an update writes: a Repeater tells the rows it stores from new
      * ones by it.
      *
+     * With `$relatable`, a `BelongsTo`, `MorphTo` or `Tag` also validates the
+     * record it writes against the query its picker lists (Nova's
+     * `Relatable` rule, see `Martis\Rules\Relatable`): a record outside the
+     * relatable query fails with a 422 on the field.
+     *
      * @param  list<FieldContract>  $fields
      * @param  array<array-key, mixed>  $data  The input the validator runs on.
      * @param  list<string>  $undecodable
      * @return array{rules: array<string, list<mixed>>, messages: array<string, string>, attributes: array<string, string>}
      */
-    protected function buildWriteValidation(array $fields, array $data, bool $isUpdate, array $undecodable = [], ?Model $model = null): array
+    protected function buildWriteValidation(array $fields, array $data, bool $isUpdate, array $undecodable = [], ?Model $model = null, ?RelatableWrite $relatable = null): array
     {
         $rules = [];
         $messages = [];
@@ -94,6 +100,11 @@ trait BuildsFieldRules
             // for a list or map fails here instead of reaching fill().
             if (in_array($attribute, $undecodable, true)) {
                 $fieldRules[] = 'array';
+            }
+
+            $relatableRule = $relatable?->ruleFor($field);
+            if ($relatableRule !== null) {
+                $fieldRules[] = $relatableRule;
             }
 
             $rules[$attribute] = $fieldRules;

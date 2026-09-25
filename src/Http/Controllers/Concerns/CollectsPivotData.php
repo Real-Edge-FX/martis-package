@@ -12,6 +12,8 @@ use Martis\Contracts\FieldContract;
 use Martis\Fields\Field;
 use Martis\Fields\Repeater;
 use Martis\Http\Resources\JsonErrorResponse;
+use Martis\Resource;
+use Martis\Rules\RelatableWrite;
 
 /**
  * Validate the pivot fields of an attach or a pivot update and collect the
@@ -59,13 +61,17 @@ trait CollectsPivotData
     /**
      * Validate the pivot fields and return the values to write, or the 422
      * response of a failed validation. `$relatedId` names the attached
-     * record a pivot update writes.
+     * record a pivot update writes. `$sourceResourceClass` is the parent
+     * resource, the source of the relatable hooks of the pivot fields'
+     * pickers: a `BelongsTo`, `MorphTo` or `Tag` among them is checked
+     * against its picker's query (see `Martis\Rules\Relatable`).
      *
      * @param  list<mixed>  $pivotFields
      * @param  EloquentBelongsToMany<Model, Model, covariant Pivot, covariant string>  $relation
+     * @param  class-string<\Martis\Resource>|null  $sourceResourceClass
      * @return array<string, mixed>|IlluminateJsonResponse
      */
-    protected function collectPivotData(Request $request, array $pivotFields, bool $isUpdate, EloquentBelongsToMany $relation, int|string|null $relatedId = null): array|IlluminateJsonResponse
+    protected function collectPivotData(Request $request, array $pivotFields, bool $isUpdate, EloquentBelongsToMany $relation, int|string|null $relatedId = null, ?string $sourceResourceClass = null): array|IlluminateJsonResponse
     {
         $fields = array_values(array_filter($pivotFields, static fn (mixed $field): bool => $field instanceof Field));
 
@@ -87,7 +93,8 @@ trait CollectsPivotData
             Field::filterForModel($fields, $request, $row),
             static fn (Field $field): bool => $field->isAuthorizedToSee($request),
         ));
-        $validation = $this->buildWriteValidation($visible, $request->all(), $isUpdate, [], $pivot);
+        $relatable = $sourceResourceClass !== null ? new RelatableWrite($request, $sourceResourceClass, $row) : null;
+        $validation = $this->buildWriteValidation($visible, $request->all(), $isUpdate, [], $pivot, $relatable);
 
         if ($validation['rules'] !== []) {
             $validator = Validator::make($request->all(), $validation['rules'], $validation['messages'], $validation['attributes']);

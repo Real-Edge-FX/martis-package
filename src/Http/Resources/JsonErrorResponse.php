@@ -174,6 +174,12 @@ final class JsonErrorResponse
             return 'min';
         }
 
+        // A relationship write naming a record its picker does not offer
+        // (`martis::validation.relatable` / `relatable_attachment`).
+        if (str_contains($lower, 'may not be associated') || str_contains($lower, 'may not be attached')) {
+            return 'relatable';
+        }
+
         if (str_contains($lower, 'max') || str_contains($lower, 'may not')) {
             return 'max';
         }

@@ -25,6 +25,7 @@ use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Rules\RelatableWrite;
 use Martis\SearchResolver;
 
 /**
@@ -193,7 +194,14 @@ class MorphManyController extends MartisController
             $relatedModel,
         );
 
-        $validationError = $this->validateRequest($request, $fields);
+        // The new record points at the parent before its fields are checked
+        // (the store sets it again after the fill): an inverse relationship
+        // field the form sends for the parent holds the value the store
+        // writes anyway, so the relatable check of that field leaves it be.
+        $relatedModel->setAttribute($relation->getMorphType(), $relation->getMorphClass());
+        $relatedModel->setAttribute($relation->getForeignKeyName(), $parentModel->getKey());
+
+        $validationError = $this->validateRequest($request, $fields, relatable: new RelatableWrite($request, $relatedResourceClass, $relatedModel));
         if ($validationError !== null) {
             return $validationError;
         }
@@ -279,7 +287,7 @@ class MorphManyController extends MartisController
             }
         }
 
-        $validationError = $this->validateRequest($request, $fields, isUpdate: true, model: $relatedModel);
+        $validationError = $this->validateRequest($request, $fields, isUpdate: true, model: $relatedModel, relatable: new RelatableWrite($request, $relatedResourceClass, $relatedModel));
         if ($validationError !== null) {
             return $validationError;
         }
@@ -517,13 +525,13 @@ class MorphManyController extends MartisController
      *
      * @param  list<FieldContract>  $fields
      */
-    private function validateRequest(Request $request, array $fields, bool $isUpdate = false, ?Model $model = null): ?IlluminateJsonResponse
+    private function validateRequest(Request $request, array $fields, bool $isUpdate = false, ?Model $model = null, ?RelatableWrite $relatable = null): ?IlluminateJsonResponse
     {
         // Multipart requests carry list / map values as JSON strings; give
         // the rules below and the fill that follows the decoded structure.
         $undecodable = $this->decodeStructuredValues($request, $fields);
 
-        $validation = $this->buildWriteValidation($fields, $request->all(), $isUpdate, $undecodable, $model);
+        $validation = $this->buildWriteValidation($fields, $request->all(), $isUpdate, $undecodable, $model, $relatable);
 
         $validator = Validator::make($request->all(), $validation['rules'], $validation['messages'], $validation['attributes']);
 
