@@ -8,6 +8,7 @@ use Composer\Autoload\ClassLoader;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\Filesystem;
+use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\StubResolver;
 use Symfony\Component\Process\Process;
 
@@ -34,6 +35,8 @@ use Symfony\Component\Process\Process;
  */
 class RolesScaffoldCommand extends Command
 {
+    use AsksOnlyOnATerminal;
+
     protected $signature = 'martis:roles
                             {--user= : Fully-qualified User model class (default: App\\Models\\User)}
                             {--namespace= : Namespace for the generated resources (default: App\\Martis\\Resources)}
@@ -290,8 +293,7 @@ class RolesScaffoldCommand extends Command
 
     protected function runMigrations(): void
     {
-        if ($this->input->isInteractive()
-            && ! app()->runningUnitTests()
+        if ($this->canPrompt()
             && ! $this->confirm('Run pending migrations now?', true)) {
             $this->components->twoColumnDetail('<fg=yellow>Skipping</> migrate', 'user declined');
 

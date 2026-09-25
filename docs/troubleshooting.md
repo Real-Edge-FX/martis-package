@@ -23,7 +23,7 @@ The `--force` flag **does not** republish `config/martis.php` or `app/Providers/
 
 | Flag | Republishes |
 |------|-------------|
-| `--force` | Extension scaffold (Vite config, both tsconfig files, shims and declarations, `index.ts`), `lang/vendor/martis` and the published Martis migrations (rewritten in place) |
+| `--force` | Extension scaffold (Vite config, both tsconfig files, shims and declarations, `index.ts`), `lang/vendor/martis` and the migrations Martis published (rewritten in place; an application's own notifications or sessions migration is left alone) |
 | `--force-config` | `config/martis.php` |
 | `--force-provider` (v1.10.2+) | `app/Providers/MartisServiceProvider.php` |
 
@@ -47,11 +47,11 @@ To re-run the full installer including the optional avatar and 2FA migrations:
 php artisan martis:install --force --with-profile --with-2fa
 ```
 
-`--with-profile` does **not** create a `Profile` model or an admin user. It publishes the avatar column migration (`add_profile_picture_column`); `--with-2fa` independently publishes the two-factor columns migration (`*_add_martis_two_factor_columns_to_users_table.php`). Use `php artisan martis:user` afterwards to create an admin account.
+`--with-profile` does **not** create a `Profile` model or an admin user. It publishes the avatar column migration (`*_add_martis_profile_picture_column_to_users_table.php`); `--with-2fa` independently publishes the two-factor columns migration (`*_add_martis_two_factor_columns_to_users_table.php`). Use `php artisan martis:user` afterwards to create an admin account.
 
 ### Profile or 2FA stays disabled after `--with-profile` / `--with-2fa`
 
-The installer prompts only when STDIN is a real TTY. A run from CI, `docker compose exec -T` or an agent shell resolves every optional feature you did not pass a flag for to disabled and writes `MARTIS_PROFILE_ENABLED=false` (and `MARTIS_2FA_ENABLED`, `MARTIS_AVATAR_ENABLED`, `MARTIS_SHOW_PROFILE_MENU`) to `.env`. On the next run the disabled config wins over `--with-*`. Set those keys back to `true` in `.env` (or remove them), run `php artisan config:clear`, then:
+The installer prompts only when STDIN is a real TTY, the avatar column question included. A run from CI, `docker compose exec -T`, a piped stdin (`yes |`) or an agent shell takes the `profile_picture` avatar column unless you pass `--avatar-column`, and resolves every optional feature you did not pass a flag for to disabled and writes `MARTIS_PROFILE_ENABLED=false` (and `MARTIS_2FA_ENABLED`, `MARTIS_AVATAR_ENABLED`, `MARTIS_SHOW_PROFILE_MENU`) to `.env`. On the next run the disabled config wins over `--with-*`. Set those keys back to `true` in `.env` (or remove them), run `php artisan config:clear`, then:
 
 ```bash
 php artisan martis:install --force --no-interaction --with-profile --with-2fa

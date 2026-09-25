@@ -341,7 +341,7 @@ export function TopnavLayout() {
               type="button"
               className="martis-tb-icon-btn"
               onClick={() => setSearchOpen(true)}
-              aria-label="Search"
+              aria-label={t("search_placeholder", "Search")}
               data-pr-tooltip={t("search_placeholder", "Search")}
               data-pr-position="bottom"
             >

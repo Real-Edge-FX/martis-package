@@ -6,6 +6,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
+use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\StubResolver;
 
 /**
@@ -39,6 +40,8 @@ use Martis\Stubs\StubResolver;
  */
 class InvitationsScaffoldCommand extends Command
 {
+    use AsksOnlyOnATerminal;
+
     protected $signature = 'martis:invitations
                             {--user= : Fully-qualified User model class (default: App\\Models\\User)}
                             {--namespace= : Namespace for the generated resource + actions (default: App\\Martis\\Resources)}
@@ -474,8 +477,7 @@ PHP;
 
     protected function runMigrations(): void
     {
-        if ($this->input->isInteractive()
-            && ! app()->runningUnitTests()
+        if ($this->canPrompt()
             && ! $this->confirm('Run pending migrations now?', true)) {
             $this->components->twoColumnDetail('<fg=yellow>Skipping</> migrate', 'user declined');
 

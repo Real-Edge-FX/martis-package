@@ -154,6 +154,7 @@ return [
     'server_error' => 'Ocorreu um erro inesperado no servidor.',
     'ofmany_total_count' => ':count registos no total',
     'ofmany_n_of_total' => ':n de :total',
+    'ofmany_aggregate_column' => 'Coluna agregada: :column',
     'has_one_empty' => 'Nenhum registo relacionado existe ainda.',
     'has_one_create' => 'Criar registo relacionado',
     'has_one_edit' => 'Editar registo relacionado',

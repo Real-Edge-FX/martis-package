@@ -4,6 +4,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\ExtensionKey;
 use Martis\Stubs\StubResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -26,6 +27,8 @@ use Symfony\Component\Console\Attribute\AsCommand;
 #[AsCommand(name: 'martis:component', aliases: ['martis:override'])]
 class ComponentMakeCommand extends Command
 {
+    use AsksOnlyOnATerminal;
+
     protected $signature = 'martis:component
         {name? : The component class name (e.g. StatusBadge). Optional when --type=complete-layout, ignored when --type maps to a fixed-name shell/auth piece.}
         {--type=generic : Component type: field | shell | sidebar | topbar | footer | complete-layout | login-page | register-page | forgot-password-page | reset-password-page | email-verify-notice-page | generic}
@@ -116,8 +119,10 @@ class ComponentMakeCommand extends Command
         $relative = "resources/js/martis-extensions/overrides/{$filename}.tsx";
         $absolutePath = base_path($relative);
 
+        // A file that exists is left alone with an error line and exit 0,
+        // as Laravel's GeneratorCommand (and Nova's generators) do.
         if (! $this->confirmCollision($relative, $absolutePath)) {
-            return self::FAILURE;
+            return self::SUCCESS;
         }
 
         $this->writeStub($piece['stub'], $absolutePath, [
@@ -167,8 +172,10 @@ class ComponentMakeCommand extends Command
         $relative = "resources/js/martis-extensions/overrides/{$className}.tsx";
         $absolutePath = base_path($relative);
 
+        // A file that exists is left alone with an error line and exit 0,
+        // as Laravel's GeneratorCommand (and Nova's generators) do.
         if (! $this->confirmCollision($relative, $absolutePath)) {
-            return self::FAILURE;
+            return self::SUCCESS;
         }
 
         $this->writeStub("component-{$type}.tsx.stub", $absolutePath, [
@@ -265,8 +272,8 @@ class ComponentMakeCommand extends Command
         if ($this->option('force') === true) {
             return true;
         }
-        if (! $this->input->isInteractive() || $this->laravel->runningUnitTests()) {
-            $this->error("Component already exists: {$relative}  (re-run with --force to overwrite)");
+        if (! $this->canPrompt()) {
+            $this->components->error("Component already exists: {$relative}. Pass --force to overwrite.");
 
             return false;
         }

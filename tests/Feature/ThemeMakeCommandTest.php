@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Filesystem\Filesystem;
+use Martis\Support\ThemeFiles;
 
 function cleanupThemeArtifacts(string $name = 'test-theme'): void
 {
@@ -233,12 +234,17 @@ it('--force flag overwrites an existing theme without prompting', function () {
     expect(file_exists(resource_path('css/martis/test-theme.css')))->toBeTrue();
 });
 
-it('aborts without --force in non-interactive mode when the file already exists', function () {
+it('leaves an existing theme alone without --force in non-interactive mode, with an error line and exit 0', function () {
     $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
+    $path = ThemeFiles::sourcePath('test-theme');
+    file_put_contents($path, "/* edited */\n");
 
-    // Second run without --force in test (non-interactive) environment aborts.
+    // As Laravel's GeneratorCommand: "already exists", nothing written, exit 0.
     $this->artisan('martis:theme', ['name' => 'test-theme'])
-        ->assertFailed();
+        ->expectsOutputToContain("Theme 'test-theme.css' already exists.")
+        ->assertExitCode(0);
+
+    expect(file_get_contents($path))->toBe("/* edited */\n");
 });
 
 it('updates theme.name when the theme block contains a nested sub-array', function () {
