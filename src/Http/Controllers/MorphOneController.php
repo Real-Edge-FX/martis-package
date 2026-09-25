@@ -78,16 +78,19 @@ class MorphOneController extends MartisController
         // concern as HasOneOfMany.
         $ofManyMeta = null;
         if ($morphOneField instanceof MorphOneOfMany) {
-            // Rebuilt from the relation's own keys, so a custom local key
-            // counts this parent's rows.
+            // A morphMany keeps its own query (and its constraints); an
+            // Eloquent one-of-many morphOne is rebuilt from its own keys, so
+            // a custom local key counts this parent's rows.
             $related = get_class($relation->getRelated());
-            $baseQuery = fn () => $parentModel->morphMany(
-                $related,
-                '',
-                $relation->getMorphType(),
-                $relation->getForeignKeyName(),
-                $relation->getLocalKeyName(),
-            )->getQuery();
+            $baseQuery = method_exists($relation, 'isOneOfMany') && $relation->isOneOfMany()
+                ? fn () => $parentModel->morphMany(
+                    $related,
+                    '',
+                    $relation->getMorphType(),
+                    $relation->getForeignKeyName(),
+                    $relation->getLocalKeyName(),
+                )->getQuery()
+                : fn () => (clone $relation)->getQuery();
 
             $ofManyMeta = ['totalCount' => $baseQuery()->count()];
             $fn = $morphOneField->getAggregateFunction();
@@ -372,7 +375,7 @@ class MorphOneController extends MartisController
     /**
      * Resolve all context needed for a MorphOne operation.
      *
-     * @return array{parentModel: Model, parentResourceClass: class-string<resource>, relatedResourceClass: class-string<resource>, morphOneField: MorphOne, relation: EloquentMorphOne<Model, Model>}|IlluminateJsonResponse
+     * @return array{parentModel: Model, parentResourceClass: class-string<resource>, relatedResourceClass: class-string<resource>, morphOneField: MorphOne, relation: EloquentMorphOne<Model, Model>|EloquentMorphMany<Model, Model>}|IlluminateJsonResponse
      */
     private function resolveContext(
         Request $request,

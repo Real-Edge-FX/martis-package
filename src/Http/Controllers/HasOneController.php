@@ -372,18 +372,12 @@ class HasOneController extends MartisController
     }
 
     /**
-     * The related record the card shows. A HasOneOfMany with a runtime
-     * scope (latestByTimestamp() / oldestByTimestamp()) picks it from its
-     * many relation with that order; any other relation holds one record.
-     * show(), update() and destroy() all read it here, so Edit and Delete
-     * write the record on screen.
-     *
-     * @param  Relation<Model, Model, mixed>  $relation
-     */
-    /**
-     * The many relation behind a one-of-many card, without the one-of-many
-     * narrowing, for the "1 of N" count and the aggregate tile. It is built
-     * from the relation's own keys: a plain where on the foreign key with
+     * The rows behind a one-of-many card, for the "1 of N" count and the
+     * aggregate tile. A relation that is not narrowed to one row (a hasMany,
+     * a morphMany, a through relation) keeps its own query, and so the
+     * constraints written into it (`->where('paid', true)`). An Eloquent
+     * one-of-many relation is narrowed to its record, so its many relation
+     * is rebuilt from its own keys; a plain where on the foreign key with
      * the parent's primary key ignored a custom local key and, on a through
      * relation, matched the intermediate table's ids, so the card counted
      * and summed another parent's rows.
@@ -393,6 +387,10 @@ class HasOneController extends MartisController
      */
     private function manyQuery(Model $parentModel, Relation $relation): Builder
     {
+        if (! (method_exists($relation, 'isOneOfMany') && $relation->isOneOfMany())) {
+            return (clone $relation)->getQuery();
+        }
+
         $related = get_class($relation->getRelated());
 
         if ($relation instanceof HasOneOrManyThrough) {
@@ -410,7 +408,15 @@ class HasOneController extends MartisController
         return $parentModel->hasMany($related, $relation->getForeignKeyName(), $relation->getLocalKeyName())->getQuery();
     }
 
-    /** @param  Relation<Model, Model, mixed>  $relation */
+    /**
+     * The related record the card shows. A HasOneOfMany with a runtime
+     * scope (latestByTimestamp() / oldestByTimestamp()) picks it from its
+     * many relation with that order; any other relation holds one record.
+     * show(), update() and destroy() all read it here, so Edit and Delete
+     * write the record on screen.
+     *
+     * @param  Relation<Model, Model, mixed>  $relation
+     */
     private function relatedRecord(HasOne $hasOneField, Relation $relation): ?Model
     {
         $scope = $hasOneField instanceof HasOneOfMany ? $hasOneField->getRuntimeScope() : null;
