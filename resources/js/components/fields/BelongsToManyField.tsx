@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '@/lib/api'
@@ -603,20 +603,25 @@ function AttachModal({
     return out
   }, [dependentFieldNames, formValues])
 
+  // Append `form[attribute]=value` for each declared dependent field.
+  // The backend forwards these to the closure as a 3rd argument; closures
+  // with arity 2 ignore the extra data. The attach sends them too: it
+  // checks the picked records against the same query the picker ran.
+  const appendFormDraft = useCallback((params: URLSearchParams) => {
+    for (const [k, v] of Object.entries(dependentFormSnapshot)) {
+      if (v === null || v === undefined) continue
+      if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+        params.set(`form[${k}]`, String(v))
+      }
+    }
+  }, [dependentFormSnapshot])
+
   const attachableQuery = useQuery({
     queryKey: ['btm-attachable', parentResource, parentId, relationship, debouncedSearch, attachPage, attachPerPage, dependentFormSnapshot],
     queryFn: ({ signal }) => {
       const params = new URLSearchParams({ per_page: String(attachPerPage), page: String(attachPage) })
       if (debouncedSearch) params.set('search', debouncedSearch)
-      // Append `form[attribute]=value` for each declared dependent
-      // field. The backend forwards these to the closure as a 3rd
-      // argument; closures with arity 2 ignore the extra data.
-      for (const [k, v] of Object.entries(dependentFormSnapshot)) {
-        if (v === null || v === undefined) continue
-        if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
-          params.set(`form[${k}]`, String(v))
-        }
-      }
+      appendFormDraft(params)
       return api.get<PaginatedResponse<ResourceRecord>>(
         `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/attachable?${params.toString()}`,
         signal
@@ -626,11 +631,15 @@ function AttachModal({
   })
 
   const attachMutation = useMutation({
-    mutationFn: (payload: Record<string, unknown>) =>
-      api.post(
-        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/attach`,
+    mutationFn: (payload: Record<string, unknown>) => {
+      const params = new URLSearchParams()
+      appendFormDraft(params)
+      const query = params.toString()
+      return api.post(
+        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/attach${query ? `?${query}` : ''}`,
         payload
-      ),
+      )
+    },
     onSuccess: () => { onSuccess() },
     onError: (e: unknown) => {
       if (e instanceof ApiError) {

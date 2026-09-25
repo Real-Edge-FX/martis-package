@@ -14,11 +14,11 @@ use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\MorphToMany;
+use Martis\Http\Controllers\Concerns\ChecksRelatableAttachments;
 use Martis\Http\Controllers\Concerns\CollectsPivotData;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
-use Martis\RelationshipQueryResolver;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\SearchResolver;
@@ -40,6 +40,7 @@ use Martis\SearchResolver;
  */
 class MorphToManyController extends MartisController
 {
+    use ChecksRelatableAttachments;
     use CollectsPivotData;
 
     /** Create the controller and inject the resource registry. */
@@ -168,7 +169,6 @@ class MorphToManyController extends MartisController
 
         [
             'parentModel' => $parentModel,
-            'parentResourceClass' => $parentResourceClass,
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
             'field' => $field,
@@ -181,37 +181,9 @@ class MorphToManyController extends MartisController
         /** @var class-string<Model> $relatedModelClass */
         $relatedModelClass = $relatedResourceClass::model();
 
-        /** @var Builder<Model> $query */
-        $query = $relatedModelClass::query();
-
-        // Resource-level fences first, through the same resolver the
-        // BelongsTo picker uses: the target's relatableQuery() always
-        // applies, the source's relatable{PluralModelName}() narrows on top.
-        // The field closure below then narrows an already-fenced query
-        // instead of being the only fence on this picker.
-        $query = RelationshipQueryResolver::resolve($parentResourceClass, $relatedResourceClass, $request, $query, $field);
-
-        // Apply relatableQueryUsing closure.
-        //
-        // v1.8.2 parity — pass the parent form draft as a 3rd argument when
-        // the closure asks for it. The frontend posts unsaved form values via
-        // `?form[attribute]=value` so the picker can filter on what the user
-        // JUST picked in the parent form (e.g. only permissions matching the
-        // role's chosen `guard_name` even though the role is not saved yet).
-        //
-        // Backwards-compat: closures with arity 2 keep working —
-        // ReflectionFunction tells us how many args they want.
-        $relatableClosure = $field->getRelatableQueryClosure();
-        if ($relatableClosure !== null) {
-            $formDraft = $this->collectFormDraft($request);
-
-            $arity = (new \ReflectionFunction($relatableClosure))->getNumberOfParameters();
-            if ($arity >= 3) {
-                $relatableClosure($request, $query, $formDraft);
-            } else {
-                $relatableClosure($request, $query);
-            }
-        }
+        // The records the field's relatable hooks let it attach (see
+        // ChecksRelatableAttachments), which the attach checks again.
+        $query = $this->attachableQuery($request, $ctx);
 
         // Exclude already-attached records unless allowDuplicates
         if (! $field->isAllowDuplicates()) {
@@ -323,9 +295,16 @@ class MorphToManyController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
+        // Only a record the attach picker lists (Nova's RelatableAttachment
+        // rule): the relatable hooks decide what may be attached, not only
+        // what the picker shows.
+        if ($notRelatable = $this->notRelatableAttachment($request, $ctx, [$relatedModel->getKey()], 'related_id')) {
+            return $notRelatable;
+        }
+
         // Check duplicates
         if (! $field->isAllowDuplicates()) {
-            $alreadyAttached = $relation
+            $alreadyAttached = (clone $relation)
                 ->where($relatedModel->qualifyColumn($relatedModel->getKeyName()), $relatedModel->getKey())
                 ->exists();
             if ($alreadyAttached) {
@@ -337,7 +316,7 @@ class MorphToManyController extends MartisController
         }
 
         // Pivot data
-        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false, relation: $relation);
+        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false, relation: $relation, sourceResourceClass: $ctx['parentResourceClass']);
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }
@@ -453,9 +432,16 @@ class MorphToManyController extends MartisController
             return JsonErrorResponse::forbidden('Not authorized to update pivot data for this relation.')->toResponse();
         }
 
+        // The pivot of a record the attach picker no longer lists is not
+        // edited either (Nova validates an attachment update with the same
+        // RelatableAttachment rule as the attach).
+        if ($notRelatable = $this->notRelatableAttachment($request, $ctx, [$relatedModel->getKey()], 'related_id')) {
+            return $notRelatable;
+        }
+
         // Readonly, hidden and immutable pivot fields keep their stored value,
         // and so do the row fields of a pivot Repeater a row cannot write.
-        $pivotData = $this->collectPivotData($request, $pivotFields, isUpdate: true, relation: $relation, relatedId: $relatedModel->getKey());
+        $pivotData = $this->collectPivotData($request, $pivotFields, isUpdate: true, relation: $relation, relatedId: $relatedModel->getKey(), sourceResourceClass: $ctx['parentResourceClass']);
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }
@@ -598,7 +584,7 @@ class MorphToManyController extends MartisController
         /** @var class-string<Model> $relatedModelClass */
         $relatedModelClass = $relatedResourceClass::model();
 
-        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false, relation: $relation);
+        $pivotData = $this->collectPivotData($request, $field->getPivotFields(), isUpdate: false, relation: $relation, sourceResourceClass: $ctx['parentResourceClass']);
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }
@@ -606,6 +592,9 @@ class MorphToManyController extends MartisController
         $attached = [];
         $errors = [];
 
+        // Every record first, so a record the attach picker does not list
+        // fails the whole batch before anything is attached.
+        $candidates = [];
         foreach ($relatedIds as $relatedId) {
             /** @var Model|null $relatedModel */
             $relatedModel = $relatedModelClass::find($relatedId); // @phpstan-ignore-line
@@ -621,8 +610,18 @@ class MorphToManyController extends MartisController
                 continue;
             }
 
+            $candidates[] = $relatedModel;
+        }
+
+        if ($notRelatable = $this->notRelatableAttachment($request, $ctx, array_map(static fn (Model $model): int|string => $model->getKey(), $candidates), 'related_ids')) {
+            return $notRelatable;
+        }
+
+        foreach ($candidates as $relatedModel) {
+            $relatedId = $relatedModel->getKey();
+
             if (! $field->isAllowDuplicates()) {
-                $alreadyAttached = $relation
+                $alreadyAttached = (clone $relation)
                     ->where($relatedModel->qualifyColumn($relatedModel->getKeyName()), $relatedModel->getKey())
                     ->exists();
                 if ($alreadyAttached) {
@@ -758,42 +757,6 @@ class MorphToManyController extends MartisController
         $data += $this->hiddenFieldsEntry($fields, $visible);
 
         return $data;
-    }
-
-    /**
-     * Read the parent form draft posted by the frontend in `?form[*]`.
-     *
-     * The picker sends UNSAVED values from the parent form (e.g.
-     * `guard_name` for a Role being created) so 3-arg
-     * `relatableQueryUsing` closures can filter on them. Returns an
-     * empty array when no `form` param is present — older closures
-     * (arity 2) never see this and continue to work unchanged.
-     *
-     * v1.8.2 parity.
-     *
-     * @return array<string, scalar|null>
-     */
-    private function collectFormDraft(Request $request): array
-    {
-        $raw = $request->query('form', []);
-        if (! is_array($raw)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($raw as $key => $value) {
-            if (! is_string($key)) {
-                continue;
-            }
-            // Only forward scalars / null. Nested arrays are not part
-            // of the contract — the caller is supposed to send simple
-            // top-level form fields.
-            if ($value === null || is_scalar($value)) {
-                $out[$key] = $value;
-            }
-        }
-
-        return $out;
     }
 
     private function handleDatabaseError(QueryException $e): IlluminateJsonResponse
