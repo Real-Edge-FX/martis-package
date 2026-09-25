@@ -545,6 +545,8 @@ abstract class MartisController extends Controller
             return;
         }
 
-        $query->orderBy($sort, SortDirection::fromQuery($request->query('direction'))->value);
+        // Qualified: a relationship panel's query can join another table
+        // (hasManyThrough, a pivot) that has a column of the same name.
+        $query->orderBy($query->qualifyColumn($sort), SortDirection::fromQuery($request->query('direction'))->value);
     }
 }
