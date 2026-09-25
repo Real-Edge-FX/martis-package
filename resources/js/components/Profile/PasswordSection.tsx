@@ -130,7 +130,7 @@ export function PasswordSection() {
 
   return (
     <section
-      className="rounded-xl p-6 border martis-border martis-card-bg"
+      className="rounded-xl p-6 border border-solid martis-border martis-card-bg"
       aria-labelledby="password-section-title"
     >
       <h2 id="password-section-title" className="text-lg font-semibold martis-text mb-4">

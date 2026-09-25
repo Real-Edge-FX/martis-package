@@ -54,16 +54,45 @@ function themeDriftDeclared(string $relativePath): array
 }
 
 /**
+ * A selector or at-rule prelude without the spacing CSS ignores: runs of
+ * whitespace, and the spaces inside and before a parenthesis, around a comma,
+ * a child or sibling combinator and a media feature's colon. So
+ * `@media(prefers-reduced-motion:reduce)` names the same block as
+ * `@media (prefers-reduced-motion: reduce)`, while `html :not(.dark)` (a
+ * descendant) stays apart from `html:not(.dark)`.
+ */
+function themeDriftSelector(string $selector): string
+{
+    $selector = (string) preg_replace('/\s+/', ' ', trim($selector));
+    $selector = (string) preg_replace('/\s*([(),>+~])\s*/', '$1', $selector);
+
+    return (string) preg_replace('/\(([A-Za-z-]+)\s*:\s*/', '($1:', $selector);
+}
+
+/**
  * The values the rules named `$selectors` declare, later rules winning, as
  * the cascade reads them. A nested rule is named by its selectors from the
  * outside in, joined with ` >> ` (`@media (prefers-reduced-motion: reduce) >> :root`).
+ * Both sides are compared through themeDriftSelector().
  *
  * @param  list<string>  $selectors
  * @return array<string, string>
  */
 function themeDriftValues(string $relativePath, array $selectors): array
 {
-    $css = themeDriftCss($relativePath);
+    return themeDriftValuesIn(themeDriftCss($relativePath), $selectors);
+}
+
+/**
+ * @param  list<string>  $selectors
+ * @return array<string, string>
+ */
+function themeDriftValuesIn(string $css, array $selectors): array
+{
+    $selectors = array_map(
+        fn (string $path): string => implode(' >> ', array_map('themeDriftSelector', explode(' >> ', $path))),
+        $selectors,
+    );
     $values = [];
     $stack = [];
     $buffer = '';
@@ -72,7 +101,7 @@ function themeDriftValues(string $relativePath, array $selectors): array
     for ($i = 0; $i < $length; $i++) {
         $char = $css[$i];
         if ($char === '{') {
-            $stack[] = (string) preg_replace('/\s+/', ' ', trim($buffer));
+            $stack[] = themeDriftSelector($buffer);
             $buffer = '';
 
             continue;
@@ -259,6 +288,18 @@ it('reads no variable in martis.css that nothing defines, other than the inline 
     foreach ($allowed as $name) {
         expect($doc)->toContain("`{$name}`");
     }
+});
+
+it('names a rule the same whatever the spacing CSS ignores, and keeps a descendant apart', function () {
+    $css = <<<'CSS'
+        @media(prefers-reduced-motion:reduce){:root{--martis-a: 1;}}
+        html :not(.dark) { --martis-b: 2; }
+        html:not(.dark),html[data-theme="light"]{ --martis-c: 3; }
+        CSS;
+
+    expect(themeDriftValuesIn($css, ['@media (prefers-reduced-motion: reduce) >> :root']))->toBe(['--martis-a' => '1'])
+        ->and(themeDriftValuesIn($css, ['html:not(.dark)']))->toBe([])
+        ->and(themeDriftValuesIn($css, ['html:not(.dark), html[data-theme="light"]']))->toBe(['--martis-c' => '3']);
 });
 
 it('scaffolds each variable with the values martis.css gives it, per mode, accent, density and motion', function () {

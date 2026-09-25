@@ -194,7 +194,7 @@ export function TimezoneFieldInput({ field, value, onChange, error }: FieldInput
           <button
             type="button"
             onClick={handleAutoDetect}
-            className="flex-shrink-0 inline-flex items-center justify-center rounded-md border transition-colors hover:opacity-90 focus:outline-none"
+            className="flex-shrink-0 inline-flex items-center justify-center rounded-md border border-solid transition-colors hover:opacity-90 focus:outline-none"
             style={{
               width: '2.25rem',  // matches the standardized input height
               height: '2.25rem',

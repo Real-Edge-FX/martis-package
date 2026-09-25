@@ -660,7 +660,7 @@ function AttachModal({
         </div>
 
         {/* Search + Per Page — same layout as ResourceIndex */}
-        <div className="shrink-0 border-b px-6 py-3" style={{ borderColor: 'var(--martis-border)' }}>
+        <div className="shrink-0 border-0 border-b border-solid px-6 py-3" style={{ borderColor: 'var(--martis-border)' }}>
           <div className="flex items-center gap-3">
             <div className="relative flex-1">
               <span className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
@@ -767,7 +767,7 @@ function AttachModal({
         {/* Pivot fields (if any) */}
         {shownPivotFields.length > 0 && selected.length > 0 && (
           <div
-            className="shrink-0 space-y-4 border-t px-6 py-4"
+            className="shrink-0 space-y-4 border-0 border-t border-solid px-6 py-4"
             style={{ borderColor: 'var(--martis-border)' }}
           >
             <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--martis-text-muted)' }}>

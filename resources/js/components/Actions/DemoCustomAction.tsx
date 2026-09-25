@@ -60,7 +60,7 @@ export function DemoCustomAction({
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between border-b px-6 py-4"
+          className="flex items-center justify-between border-0 border-b border-solid px-6 py-4"
           style={{ borderColor: 'var(--martis-border)' }}
         >
           <span className="text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
@@ -94,7 +94,7 @@ export function DemoCustomAction({
                 key={opt}
                 type="button"
                 onClick={() => handleSelect(opt)}
-                className="rounded-lg border px-3 py-2 text-sm font-medium transition-all"
+                className="rounded-lg border border-solid px-3 py-2 text-sm font-medium transition-all"
                 style={{
                   backgroundColor: selected === opt ? 'var(--martis-accent)' : 'var(--martis-surface)',
                   borderColor: selected === opt ? 'var(--martis-accent)' : 'var(--martis-border)',
@@ -114,7 +114,7 @@ export function DemoCustomAction({
               value={note}
               onChange={(e) => handleNoteChange(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-solid px-3 py-2 text-sm"
               style={{
                 backgroundColor: 'var(--martis-input-bg)',
                 borderColor: 'var(--martis-border)',
@@ -125,7 +125,7 @@ export function DemoCustomAction({
           </div>
 
           {selected && (
-            <div className="rounded-lg border px-3 py-2 text-xs" style={{ backgroundColor: 'var(--martis-surface)', borderColor: 'var(--martis-border)', color: 'var(--martis-text-muted)' }}>
+            <div className="rounded-lg border border-solid px-3 py-2 text-xs" style={{ backgroundColor: 'var(--martis-surface)', borderColor: 'var(--martis-border)', color: 'var(--martis-text-muted)' }}>
               Selected: <strong style={{ color: 'var(--martis-accent)' }}>{selected}</strong>
             </div>
           )}
@@ -133,7 +133,7 @@ export function DemoCustomAction({
 
         {/* Footer */}
         <div
-          className="flex items-center justify-end gap-3 border-t px-6 py-4"
+          className="flex items-center justify-end gap-3 border-0 border-t border-solid px-6 py-4"
           style={{
             borderColor: 'var(--martis-border)',
             backgroundColor: 'var(--martis-surface)',
@@ -144,7 +144,7 @@ export function DemoCustomAction({
             type="button"
             onClick={onClose}
             disabled={isExecuting}
-            className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-solid px-4 py-2 text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50"
             style={{
               backgroundColor: 'var(--martis-input-bg)',
               borderColor: 'var(--martis-border)',

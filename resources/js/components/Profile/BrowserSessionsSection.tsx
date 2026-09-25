@@ -147,7 +147,7 @@ export function BrowserSessionsSection(): JSX.Element {
 
   return (
     <section
-      className="rounded-xl p-6 border martis-border martis-card-bg"
+      className="rounded-xl p-6 border border-solid martis-border martis-card-bg"
       aria-labelledby="sessions-section-title"
     >
       <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
@@ -199,7 +199,7 @@ export function BrowserSessionsSection(): JSX.Element {
           {sessions.map((session) => (
             <li
               key={session.id}
-              className="flex items-center justify-between gap-4 p-3 border martis-border rounded-lg"
+              className="flex items-center justify-between gap-4 p-3 border border-solid martis-border rounded-lg"
             >
               <div className="flex items-center gap-3">
                 {deviceIconFor(session.user_agent)}

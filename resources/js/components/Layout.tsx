@@ -201,7 +201,7 @@ export function Layout() {
     if (preset === "custom") {
       return (
         <div className="martis-bg flex min-h-screen items-center justify-center p-6">
-          <div className="max-w-md rounded-lg border p-4 text-sm" style={{
+          <div className="max-w-md rounded-lg border border-solid p-4 text-sm" style={{
             borderColor: "var(--martis-danger)",
             color: "var(--martis-text)",
             backgroundColor: "var(--martis-danger-bg)",

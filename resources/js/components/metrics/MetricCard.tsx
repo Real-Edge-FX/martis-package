@@ -110,7 +110,7 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
             <select
               value={range}
               onChange={(e) => setRange(e.target.value)}
-              className="text-xs rounded border px-1.5 py-1"
+              className="text-xs rounded border border-solid px-1.5 py-1"
               style={{
                 borderColor: 'var(--martis-border)',
                 backgroundColor: 'var(--martis-input-bg)',

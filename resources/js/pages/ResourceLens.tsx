@@ -522,7 +522,7 @@ function LensPage() {
       {/* Summary row — Martis D1 */}
       {summary && Object.keys(summary).length > 0 && (
         <div
-          className="flex flex-wrap gap-6 border-t px-4 py-3 text-sm"
+          className="flex flex-wrap gap-6 border-0 border-t border-solid px-4 py-3 text-sm"
           style={{
             borderColor: 'var(--martis-border)',
             backgroundColor: 'var(--martis-surface-alt)',

@@ -73,18 +73,24 @@ interface ErrorFallbackProps {
 
 /**
  * Default fallback UI for ErrorBoundary.
- * Uses CSS theme variables — works in both light and dark modes.
+ * Reads the Martis theme tokens, so it follows the light and dark modes.
  */
 function ErrorFallback({ error, label, onReset }: ErrorFallbackProps) {
   const { t } = useTranslation('messages')
 
   return (
     <div className="flex min-h-[200px] items-center justify-center p-8">
-      <div className="w-full max-w-md rounded-lg border border-destructive/30 bg-card p-6 text-center shadow-sm">
+      <div
+        className="w-full max-w-md rounded-lg border border-solid bg-martis-card p-6 text-center shadow-sm"
+        style={{ borderColor: 'color-mix(in srgb, var(--martis-danger) 30%, transparent)' }}
+      >
         <div className="mb-3 flex justify-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+          <div
+            className="flex h-12 w-12 items-center justify-center rounded-full"
+            style={{ backgroundColor: 'color-mix(in srgb, var(--martis-danger) 10%, transparent)' }}
+          >
             <svg
-              className="h-6 w-6 text-destructive"
+              className="h-6 w-6 text-martis-danger"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -100,23 +106,23 @@ function ErrorFallback({ error, label, onReset }: ErrorFallbackProps) {
           </div>
         </div>
 
-        <h2 className="mb-1 text-base font-semibold text-foreground">
+        <h2 className="mb-1 text-base font-semibold text-martis-text">
           {t('error_boundary_title', 'Unexpected error')}
           {label && (
-            <span className="ml-1 font-normal text-muted-foreground">
+            <span className="ml-1 font-normal text-martis-text-muted">
               — {label}
             </span>
           )}
         </h2>
 
-        <p className="mb-4 text-sm text-muted-foreground">
+        <p className="mb-4 text-sm text-martis-text-muted">
           {error?.message ?? t('error_boundary_message', 'An error occurred while rendering this section.')}
         </p>
 
         <button
           type="button"
           onClick={onReset}
-          className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="martis-btn-primary"
         >
           {t('error_boundary_retry', 'Try again')}
         </button>

@@ -150,8 +150,7 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
         type="button"
         aria-label={t('preferences', 'Preferences')}
         onClick={(e) => overlayRef.current?.toggle(e)}
-        className="inline-flex items-center justify-center rounded-md border p-2 text-[color:var(--martis-text-muted)] hover:bg-[color:var(--martis-hover)] hover:text-[color:var(--martis-text)]"
-        style={{ borderColor: 'transparent' }}
+        className="inline-flex items-center justify-center rounded-md p-2 text-[color:var(--martis-text-muted)] hover:bg-[color:var(--martis-hover)] hover:text-[color:var(--martis-text)]"
         data-pr-tooltip={t('preferences', 'Preferences')}
         data-pr-position="bottom"
       >
@@ -263,7 +262,7 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
                       the text input in lock-step so users see the hex
                       they just picked. */}
                   <label
-                    className="relative inline-flex h-7 w-7 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border"
+                    className="relative inline-flex h-7 w-7 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border border-solid"
                     style={{
                       borderColor: 'var(--martis-border)',
                       backgroundColor: prefs.brandColor && brandColorValid
@@ -301,7 +300,7 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
                     value={brandColorInput}
                     onChange={(e) => onBrandColorChange(e.target.value)}
                     placeholder="#4f7bf9"
-                    className="flex-1 rounded-md border px-2 py-1 font-mono text-xs"
+                    className="flex-1 rounded-md border border-solid px-2 py-1 font-mono text-xs"
                     style={{
                       borderColor: brandColorValid ? 'var(--martis-border)' : 'var(--martis-danger)',
                       backgroundColor: 'var(--martis-input-bg)',
@@ -349,7 +348,7 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
             <select
               value={prefs.locale}
               onChange={(e) => { void onLocalePick(e.target.value) }}
-              className="w-full rounded-md border px-2 py-1.5 text-xs"
+              className="w-full rounded-md border border-solid px-2 py-1.5 text-xs"
               style={{
                 borderColor: 'var(--martis-border)',
                 backgroundColor: 'var(--martis-input-bg)',
@@ -380,7 +379,7 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
 
           {meta?.preset && (
             <div
-              className="rounded-md border px-2 py-1.5 text-[10px]"
+              className="rounded-md border border-solid px-2 py-1.5 text-[10px]"
               style={{
                 borderColor: 'var(--martis-accent)',
                 backgroundColor: 'var(--martis-accent-bg-light)',
