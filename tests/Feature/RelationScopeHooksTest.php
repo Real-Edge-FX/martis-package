@@ -15,6 +15,7 @@
  * another server (see rshServer()).
  */
 
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EBelongsToMany;
@@ -28,16 +29,21 @@ use Illuminate\Database\Eloquent\Relations\MorphToMany as EMorphToMany;
 use Illuminate\Database\Eloquent\Scope;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Testing\TestResponse;
+use Martis\Actions\Action;
+use Martis\Actions\ActionFields;
 use Martis\Events\AfterSave;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\HasMany;
 use Martis\Fields\HasManyThrough;
 use Martis\Fields\HasOne;
+use Martis\Fields\MorphMany;
 use Martis\Fields\MorphOne;
+use Martis\Fields\MorphToMany;
 use Martis\Fields\Number;
 use Martis\Fields\Tag;
 use Martis\Fields\Text;
@@ -505,6 +511,10 @@ beforeEach(function () {
     RSHTagResource::$scopeHooks = [];
     RSHLikeResource::$hook = null;
     RSHCategoryResource::$viewAny = true;
+    RSHScopedItemResource::$trashedVisible = true;
+    RSHScopedTagResource::$trashedVisible = true;
+    RSHScopedImageResource::$hook = null;
+    RSHMarkLog::$runs = [];
 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
@@ -1303,10 +1313,66 @@ class RSHOwnerScopedRel extends RSHOwner
     {
         return $this->morphOne(RSHScopedImage::class, 'imageable')->withoutGlobalScope(RSHArchivedScope::class)->latestOfMany('written_at');
     }
+
+    public function allImages(): EMorphMany
+    {
+        return $this->morphMany(RSHScopedImage::class, 'imageable')->withoutGlobalScope(RSHArchivedScope::class);
+    }
+
+    public function morphTags(): EMorphToMany
+    {
+        return $this->morphToMany(RSHScopedTag::class, 'taggable', 'rsh_taggables', 'taggable_id', 'tag_id')->withoutGlobalScope(RSHArchivedScope::class);
+    }
+}
+
+/** The records each action run handled, in order. */
+class RSHMarkLog
+{
+    /** @var list<list<int>> */
+    public static array $runs = [];
+}
+
+class RSHMarkAction extends Action
+{
+    public function handle(ActionFields $fields, Collection $models): ?Action
+    {
+        RSHMarkLog::$runs[] = $models->map(fn (Model $m) => (int) $m->getKey())->sort()->values()->all();
+
+        return null;
+    }
+
+    public function uriKey(): string
+    {
+        return 'rsh-mark';
+    }
+}
+
+class RSHQueuedMarkAction extends RSHMarkAction implements ShouldQueue
+{
+    public function uriKey(): string
+    {
+        return 'rsh-queued-mark';
+    }
+}
+
+class RSHReportAction extends RSHMarkAction
+{
+    public function uriKey(): string
+    {
+        return 'rsh-report';
+    }
+}
+
+/** @return list<Action> */
+function rshMarkActions(): array
+{
+    return [(new RSHMarkAction)->showInline(), (new RSHQueuedMarkAction)->showInline(), (new RSHReportAction)->showInline()->standalone()];
 }
 
 class RSHScopedItemResource extends RSHItemResource
 {
+    public static bool $trashedVisible = true;
+
     public static function model(): string
     {
         return RSHScopedItem::class;
@@ -1316,10 +1382,22 @@ class RSHScopedItemResource extends RSHItemResource
     {
         return 'rsh-scoped-items';
     }
+
+    public static function canViewTrashed(): bool
+    {
+        return static::$trashedVisible;
+    }
+
+    public function actions(Request $request): array
+    {
+        return rshMarkActions();
+    }
 }
 
 class RSHScopedTagResource extends RSHTagResource
 {
+    public static bool $trashedVisible = true;
+
     public static function model(): string
     {
         return RSHScopedTag::class;
@@ -1329,10 +1407,17 @@ class RSHScopedTagResource extends RSHTagResource
     {
         return 'rsh-scoped-tags';
     }
+
+    public static function canViewTrashed(): bool
+    {
+        return static::$trashedVisible;
+    }
 }
 
 class RSHScopedImageResource extends Resource
 {
+    public static ?Closure $hook = null;
+
     public static function model(): string
     {
         return RSHScopedImage::class;
@@ -1343,9 +1428,19 @@ class RSHScopedImageResource extends Resource
         return 'rsh-scoped-images';
     }
 
+    public static function indexQuery(Request $request, Builder $query): Builder
+    {
+        return static::$hook ? (static::$hook)($query, $request) : $query;
+    }
+
     public function fields(Request $request): array
     {
         return [Text::make('title')];
+    }
+
+    public function actions(Request $request): array
+    {
+        return rshMarkActions();
     }
 }
 
@@ -1367,7 +1462,10 @@ class RSHOwnerScopedRelResource extends Resource
             Text::make('name'),
             HasMany::make('All items', 'allItems')->relatedResource('rsh-scoped-items')->showOnIndex(),
             HasManyThrough::make('All group items', 'allGroupItems')->relatedResource('rsh-scoped-items')->showOnIndex(),
-            BelongsToMany::make('All tags', 'allTags')->relatedResource('rsh-scoped-tags')->showOnIndex(),
+            BelongsToMany::make('All tags', 'allTags')->relatedResource('rsh-scoped-tags')->showOnIndex()
+                ->actions(fn () => rshMarkActions()),
+            MorphMany::make('All images', 'allImages')->relatedResource('rsh-scoped-images'),
+            MorphToMany::make('Morph tags', 'morphTags')->relatedResource('rsh-scoped-tags')->actions(fn () => rshMarkActions()),
             HasMany::make('Every item', 'everyItem')->relatedResource('rsh-scoped-items')->showOnIndex(),
             HasOne::ofMany('Latest item', 'cardItems', RSHScopedItemResource::class)->latestByTimestamp('written_at'),
             HasOne::ofMany('Newest item', 'newestItem', RSHScopedItemResource::class),
@@ -1695,4 +1793,143 @@ it('P46 the keys drop a hook\'s order by an alias it selects (withCount then ord
     'orderByDesc()' => [fn (Builder $q) => $q->withCount('likes')->orderByDesc('likes_count')],
     // The unquoted name fails on SQLite too.
     'orderByRaw()' => [fn (Builder $q) => $q->withCount('likes')->orderByRaw('likes_count desc')],
+]);
+
+// ---------------------------------------------------------------------
+// Third review round: an action run from a panel resolves as the panel lists
+// ---------------------------------------------------------------------
+
+/**
+ * Owner A's (and B's) images, besides the items and tags of
+ * rshArchivedAndDrafts(): allImages() holds "A image" and "Archived".
+ */
+function rshPanelRunFixtures(): void
+{
+    rshArchivedAndDrafts();
+    $type = (new RSHOwnerScopedRel)->getMorphClass();
+    foreach (['A image' => test()->a->id, 'Archived' => test()->a->id, 'Draft' => test()->a->id, 'B image' => test()->b->id] as $title => $owner) {
+        RSHImage::create(['imageable_type' => $type, 'imageable_id' => $owner, 'title' => $title]);
+    }
+    foreach (['A-tag' => test()->a->id, 'Archived' => test()->a->id, 'Draft' => test()->a->id, 'Public-tag' => test()->b->id] as $title => $owner) {
+        DB::table('rsh_taggables')->insert(['tag_id' => RSHTag::where('title', $title)->value('id'), 'taggable_type' => $type, 'taggable_id' => $owner]);
+    }
+}
+
+/** The id of the `$kind` panel's record titled `$title`, trashed or not. */
+function rshRecordId(string $kind, string $title): int
+{
+    return (int) match ($kind) {
+        'morph-many' => RSHImage::where('title', $title)->value('id'),
+        'belongs-to-many (pivot)', 'morph-to-many (pivot)' => RSHTag::withTrashed()->where('title', $title)->value('id'),
+        default => RSHItem::withTrashed()->where('title', $title)->value('id'),
+    };
+}
+
+/** Run `$action` on `$titles` from owner A's `$kind` panel, as the panel sends it. */
+function rshRunFromPanel(string $kind, string $action, array $titles, ?string $relationship = null): TestResponse
+{
+    $ids = array_map(fn (string $title) => rshRecordId($kind, $title), $titles);
+
+    if (str_ends_with($kind, '(pivot)')) {
+        $path = $kind === 'belongs-to-many (pivot)' ? 'belongs-to-many/allTags' : 'morph-to-many/morphTags';
+
+        return test()->postJson('/martis/api/resources/rsh-owners-scoped/'.test()->a->id."/{$path}/actions/{$action}", ['resources' => $ids]);
+    }
+
+    [$resource, $default] = match ($kind) {
+        'has-many' => ['rsh-scoped-items', 'allItems'],
+        'has-many-through' => ['rsh-scoped-items', 'allGroupItems'],
+        'morph-many' => ['rsh-scoped-images', 'allImages'],
+    };
+
+    return test()->postJson("/martis/api/resources/{$resource}/actions/{$action}", [
+        'resources' => $ids,
+        'viaResource' => 'rsh-owners-scoped',
+        'viaResourceId' => test()->a->id,
+        'viaRelationship' => $relationship ?? $default,
+    ]);
+}
+
+dataset('rsh panels with actions', ['has-many', 'has-many-through', 'morph-many', 'belongs-to-many (pivot)', 'morph-to-many (pivot)']);
+
+it('P47 an action run from a panel reaches a row only the relationship keeps (a global scope it removes)', function (string $kind) {
+    rshPanelRunFixtures();
+
+    rshRunFromPanel($kind, 'rsh-mark', ['Archived'])->assertOk();
+
+    expect(RSHMarkLog::$runs)->toBe([[rshRecordId($kind, 'Archived')]]);
+})->with('rsh panels with actions');
+
+it('P48 an action run from a panel refuses a row the panel does not list: another parent\'s, or one the related hooks hide', function (string $kind, string $otherParents, string $hidden) {
+    rshPanelRunFixtures();
+    RSHItemResource::$hook = fn (Builder $q) => $q->where($q->qualifyColumn('title'), '!=', 'A1');
+    RSHTagResource::$hook = fn (Builder $q) => $q->where($q->qualifyColumn('title'), '!=', 'A-tag');
+    RSHScopedImageResource::$hook = fn (Builder $q) => $q->where($q->qualifyColumn('title'), '!=', 'A image');
+
+    rshRunFromPanel($kind, 'rsh-mark', [$otherParents])->assertNotFound();
+    rshRunFromPanel($kind, 'rsh-mark', [$hidden])->assertNotFound();
+    // The draft: a global scope the relationship keeps.
+    rshRunFromPanel($kind, 'rsh-mark', ['Draft'])->assertNotFound();
+
+    expect(RSHMarkLog::$runs)->toBe([]);
+})->with([
+    'has-many' => ['has-many', 'B-public', 'A1'],
+    'has-many-through' => ['has-many-through', 'B-public', 'A1'],
+    'morph-many' => ['morph-many', 'B image', 'A image'],
+    'belongs-to-many (pivot)' => ['belongs-to-many (pivot)', 'Public-tag', 'A-tag'],
+    'morph-to-many (pivot)' => ['morph-to-many (pivot)', 'Public-tag', 'A-tag'],
+]);
+
+it('P49 an action run on the resource itself, without a panel, still does not reach the archived row', function (string $resource, string $kind) {
+    rshPanelRunFixtures();
+
+    $this->postJson("/martis/api/resources/{$resource}/actions/rsh-mark", ['resources' => [rshRecordId($kind, 'Archived')]])->assertNotFound();
+
+    expect(RSHMarkLog::$runs)->toBe([]);
+})->with([
+    'items' => ['rsh-scoped-items', 'has-many'],
+    'images' => ['rsh-scoped-images', 'morph-many'],
+]);
+
+it('P50 a queued action handles the rows its run resolved, as the job restores them', function (Closure $run, string $kind, string $title) {
+    rshPanelRunFixtures();
+    RSHItem::create(['owner_id' => $this->a->id, 'title' => 'Trashed'])->delete();
+    RSHTag::where('title', 'A-tag')->first()->delete();
+
+    $run()->assertOk();
+
+    // The test queue is `sync`: the job ran in the request.
+    expect(RSHMarkLog::$runs)->toBe([[rshRecordId($kind, $title)]]);
+})->with([
+    'a panel run on an archived row' => [fn () => rshRunFromPanel('has-many', 'rsh-queued-mark', ['Archived']), 'has-many', 'Archived'],
+    'a pivot panel run on a trashed row' => [fn () => rshRunFromPanel('belongs-to-many (pivot)', 'rsh-queued-mark', ['A-tag']), 'belongs-to-many (pivot)', 'A-tag'],
+    'an index run on a trashed row' => [fn () => test()->postJson('/martis/api/resources/rsh-scoped-items/actions/rsh-queued-mark', ['resources' => [rshRecordId('has-many', 'Trashed')]]), 'has-many', 'Trashed'],
+]);
+
+it('P51 a standalone action checks the relationship its run names, and runs on no record', function () {
+    rshPanelRunFixtures();
+
+    rshRunFromPanel('has-many', 'rsh-report', ['A1'], relationship: 'nope')->assertNotFound();
+    rshRunFromPanel('has-many', 'rsh-report', ['A1'], relationship: 'everyItem')->assertOk();
+
+    expect(RSHMarkLog::$runs)->toBe([[]]);
+});
+
+it('P52 a panel run reaches a trashed row when the panel may list it (its trashed filter), and not otherwise', function (string $kind, string $title) {
+    rshPanelRunFixtures();
+    RSHItem::create(['owner_id' => $this->a->id, 'group_id' => RSHGroup::where('owner_id', $this->a->id)->value('id'), 'title' => 'Trashed'])->delete();
+    RSHTag::where('title', 'A-tag')->first()->delete();
+
+    rshRunFromPanel($kind, 'rsh-mark', [$title])->assertOk();
+
+    RSHScopedItemResource::$trashedVisible = false;
+    RSHScopedTagResource::$trashedVisible = false;
+    rshRunFromPanel($kind, 'rsh-mark', [$title])->assertNotFound();
+
+    expect(RSHMarkLog::$runs)->toBe([[rshRecordId($kind, $title)]]);
+})->with([
+    'has-many' => ['has-many', 'Trashed'],
+    'has-many-through' => ['has-many-through', 'Trashed'],
+    'belongs-to-many (pivot)' => ['belongs-to-many (pivot)', 'A-tag'],
+    'morph-to-many (pivot)' => ['morph-to-many (pivot)', 'A-tag'],
 ]);

@@ -3,13 +3,14 @@
 namespace Martis\Http\Controllers;
 
 use Illuminate\Contracts\Validation\Validator as ValidatorContract;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough as EloquentHasManyThrough;
 use Illuminate\Database\Eloquent\Relations\MorphMany as EloquentMorphMany;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -40,6 +41,7 @@ use Martis\Http\Resources\JsonResponse;
 use Martis\Models\ActionEvent;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\RelationScope;
 
 /**
  * Controller for action execution on Martis resources.
@@ -302,13 +304,11 @@ class ActionController extends MartisController
      * An action that is not standalone and names no record is a 422.
      *
      * A standalone action runs on no record, whatever the request names. The
-     * records are looked up through the resource's `scopes()` and
-     * `indexQuery()` (its
-     * tenant / ownership scope: an id outside it does not resolve), trashed
-     * ones included when the resource soft-deletes, since the index and the
-     * panels list them. With `viaResource`, `viaResourceId` and
-     * `viaRelationship`, as a relationship panel sends them (as Nova does),
-     * only a record that relationship reaches resolves.
+     * records are looked up as the index lists them (see `indexRecords()`)
+     * or, with `viaResource`, `viaResourceId` and `viaRelationship`, as the
+     * relationship panel that sends them lists them (see `panelRecords()`,
+     * as Nova runs a panel's action through its relationship): an id the
+     * list does not hold does not resolve.
      *
      * @return Collection<int, Model>|IlluminateJsonResponse
      */
@@ -316,6 +316,15 @@ class ActionController extends MartisController
     {
         /** @var Collection<int, Model> $empty */
         $empty = new Collection;
+
+        // The relationship a panel's run names is checked first, a
+        // standalone action's too: it runs on no record, but may read the
+        // parent the request names.
+        $via = $this->viaRelation($request, $resource);
+
+        if ($via instanceof IlluminateJsonResponse) {
+            return $via;
+        }
 
         if ($action->isStandalone()) {
             return $empty;
@@ -336,33 +345,13 @@ class ActionController extends MartisController
             )->toResponse();
         }
 
-        $modelClass = $resource::model();
-        /** @var Model $modelInstance */
-        $modelInstance = new $modelClass;
-
-        // Apply the resource's index scoping (its declarative `scopes()`,
-        // then `indexQuery()`: tenant / ownership filters) before selecting
-        // by id, in the index's order. Without this, an action could resolve
+        // Scoped before selecting by id: without it an action could resolve
         // and act on records outside the user's visible scope just by
         // passing their ids (IDOR).
-        $query = $resource::indexQuery($request, $resource::applyScopes($request, $modelInstance->newQuery()));
-
-        if ($resource::softDeletes()) {
-            $query->withoutGlobalScope(SoftDeletingScope::class);
-        }
-
-        $via = $this->viaRelationKeys($request, $resource);
-
-        if ($via instanceof IlluminateJsonResponse) {
-            return $via;
-        }
-
-        if ($via !== null) {
-            $query->whereIn($modelInstance->getQualifiedKeyName(), $via);
-        }
+        $query = $via === null ? $this->indexRecords($request, $resource) : $this->panelRecords($request, $resource, $via);
 
         /** @var Collection<int, Model> $result */
-        $result = $query->whereIn($modelInstance->getQualifiedKeyName(), $ids)->get();
+        $result = $query->whereIn($query->getModel()->getQualifiedKeyName(), $ids)->get();
 
         if ($result->isEmpty()) {
             return JsonErrorResponse::notFound('One or more selected resources could not be found.')->toResponse();
@@ -372,14 +361,80 @@ class ActionController extends MartisController
     }
 
     /**
-     * The keys of the records the relationship named by `viaResource`,
-     * `viaResourceId` and `viaRelationship` reaches, as a subquery, or `null`
-     * when the request names none. The parent is gated as its relationship
-     * panel is (its resource's `viewAny`, the record's `view`), and the
-     * relationship must be a `HasMany` (`HasManyThrough` included) or
-     * `MorphMany` field of the parent's detail page listing `$resource`.
+     * The records the resource's index lists: its declarative `scopes()`,
+     * then `indexQuery()` (tenant / ownership filters), in the index's
+     * order, with the trashed ones when it soft-deletes, since the index
+     * lists them.
+     *
+     * @return Builder<Model>
      */
-    private function viaRelationKeys(Request $request, Resource $resource): QueryBuilder|IlluminateJsonResponse|null
+    private function indexRecords(Request $request, Resource $resource): Builder
+    {
+        $modelClass = $resource::model();
+        /** @var Model $modelInstance */
+        $modelInstance = new $modelClass;
+
+        $query = $resource::indexQuery($request, $resource::applyScopes($request, $modelInstance->newQuery()));
+
+        if ($resource::softDeletes()) {
+            $query->withoutGlobalScope(SoftDeletingScope::class);
+        }
+
+        return $query;
+    }
+
+    /**
+     * The records a relationship panel lists: the relationship's own rows,
+     * the global scopes it removes (`->withoutGlobalScope(ArchivedScope::class)`)
+     * staying removed, narrowed by the resource's `scopes()` and
+     * `indexQuery()` by key, as on the panel (see `RelationScope`), with the
+     * trashed ones when the panel offers its trashed filter (`softDeletes()`
+     * and `canViewTrashed()`) or the relationship keeps them (`withTrashed()`).
+     * They are read from the resource's own table: a through relationship's
+     * join would lay the intermediate's columns over the record's.
+     *
+     * @param  Relation<Model, Model, mixed>  $relation
+     * @return Builder<Model>
+     */
+    private function panelRecords(Request $request, Resource $resource, Relation $relation): Builder
+    {
+        $modelClass = $resource::model();
+        /** @var Model $modelInstance */
+        $modelInstance = new $modelClass;
+        $keys = clone $relation->getQuery();
+
+        $query = $modelInstance->newQuery()->withoutGlobalScopes($keys->removedScopes());
+
+        if ($resource::softDeletes() && $resource::canViewTrashed()) {
+            $query->withoutGlobalScope(SoftDeletingScope::class);
+            $keys->withoutGlobalScope(SoftDeletingScope::class);
+        }
+
+        // A key subquery for `IN (...)`: a relation's own order, limit and
+        // offset (`->latest()->limit(2)`) would cut it short, and MySQL
+        // refuses a LIMIT there (SQLSTATE 1235).
+        $base = $keys->toBase()->reorder();
+        $base->limit = null;
+        $base->offset = null;
+
+        $query->whereIn($modelInstance->getQualifiedKeyName(), $base->select($relation->getRelated()->getQualifiedKeyName()));
+
+        RelationScope::constrainByKey($request, $query, $resource::class);
+
+        return $query;
+    }
+
+    /**
+     * The relationship named by `viaResource`, `viaResourceId` and
+     * `viaRelationship`, or `null` when the request names none. The parent
+     * is gated as its relationship panel is (its resource's `viewAny`, the
+     * record's `view`), and the relationship must be a `HasMany`
+     * (`HasManyThrough` included) or `MorphMany` field of the parent's
+     * detail page listing `$resource`.
+     *
+     * @return Relation<Model, Model, mixed>|IlluminateJsonResponse|null
+     */
+    private function viaRelation(Request $request, Resource $resource): Relation|IlluminateJsonResponse|null
     {
         $viaResource = $request->input('viaResource');
         $viaResourceId = $request->input('viaResourceId');
@@ -446,20 +501,7 @@ class ActionController extends MartisController
             return $notFound;
         }
 
-        $keys = clone $relation->getQuery();
-
-        if ($resource::softDeletes()) {
-            $keys->withoutGlobalScope(SoftDeletingScope::class);
-        }
-
-        // A key subquery for `IN (...)`: a relation's own order, limit and
-        // offset (`->latest()->limit(2)`) would cut it short, and MySQL
-        // refuses a LIMIT there (SQLSTATE 1235).
-        $base = $keys->toBase()->reorder();
-        $base->limit = null;
-        $base->offset = null;
-
-        return $base->select($relation->getRelated()->getQualifiedKeyName());
+        return $relation;
     }
 
     /**
@@ -952,6 +994,23 @@ class ActionController extends MartisController
         ));
         if ($pivotColumns !== []) {
             $relation->withPivot($pivotColumns);
+        }
+
+        // The rows the panel lists: the relationship's own (the global scopes
+        // it removes stay removed), narrowed by the related resource's
+        // scopes() and indexQuery() by key, with the trashed ones when the
+        // panel offers its trashed filter. An id the panel does not list does
+        // not resolve.
+        $relatedResourceKey = $field->getRelatedResourceKey();
+        if ($relatedResourceKey !== null && $this->registry->has($relatedResourceKey)) {
+            /** @var class-string<resource> $relatedResourceClass */
+            $relatedResourceClass = $this->registry->get($relatedResourceKey);
+
+            if ($relatedResourceClass::softDeletes() && $relatedResourceClass::canViewTrashed()) {
+                $relation->getQuery()->withoutGlobalScope(SoftDeletingScope::class);
+            }
+
+            RelationScope::constrainByKey($request, $relation->getQuery(), $relatedResourceClass);
         }
 
         // Qualified key: the relation joins the pivot table, and a pivot table
