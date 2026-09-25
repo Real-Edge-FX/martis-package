@@ -26,11 +26,14 @@ use Illuminate\Support\Facades\Schema;
  * existing classes — the Martis UI renders any payload, falling back
  * to the notification's class name when `title` is missing.
  *
- * The polymorphic `notifiable` columns adapt to the host's user PK
- * shape (uuid / ulid / bigint) via the resolver inlined below.
- * `string`-keyed user models fall through to `morphs()` (bigint) and
- * the operator should set `MARTIS_USER_ID_COLUMN_TYPE=uuid` or `ulid`
- * if their host doesn't fit either default. See
+ * The polymorphic `notifiable` columns adapt to the key of the users the
+ * app notifies (uuid / ulid / bigint / string) via the resolver inlined
+ * below. The table is shared: the site's notifications land in it too, so
+ * the resolver reads the models of the Martis guard, the default guard and
+ * every `session` guard, and when their keys disagree (an `admins` guard
+ * keyed by UUID beside the site's bigint `users`) it creates string
+ * columns, which hold both. `MARTIS_USER_ID_COLUMN_TYPE` overrides the
+ * detection. Skipped when the table already exists. See
  * `docs/installation-guide.md`.
  */
 return new class extends Migration
@@ -50,6 +53,7 @@ return new class extends Migration
             match ($userKey) {
                 'uuid' => $table->uuidMorphs('notifiable'),
                 'ulid' => $table->ulidMorphs('notifiable'),
+                'string' => $this->stringMorphs($table, 'notifiable'),
                 default => $table->morphs('notifiable'),
             };
 
@@ -65,10 +69,20 @@ return new class extends Migration
     }
 
     /**
-     * Resolve the user-id column shape the host expects. Mirrors the
-     * resolver inlined in `create_user_preferences_table.php.stub` and
-     * `create_martis_action_events_table.php.stub` so all Martis
-     * tables stay consistent with the host's user PK.
+     * String `{name}_type` / `{name}_id` columns and their index, as
+     * `morphs()` creates them: they hold an integer, a UUID and a ULID key.
+     */
+    private function stringMorphs(Blueprint $table, string $name): void
+    {
+        $table->string("{$name}_type");
+        $table->string("{$name}_id");
+        $table->index(["{$name}_type", "{$name}_id"]);
+    }
+
+    /**
+     * Resolve the column shape of the notifiable ids: one of `bigint`,
+     * `uuid`, `ulid`, `string`. Inlined so the published file works even if
+     * the package itself is later removed from the host's composer.
      */
     private function resolveUserKey(): string
     {
@@ -80,11 +94,25 @@ return new class extends Migration
             }
         }
 
-        $model = $this->resolveUserModel();
-        if ($model === null) {
+        $shapes = [];
+        foreach ($this->resolveUserModels() as $model) {
+            $shapes[$this->keyShape($model)] = true;
+        }
+
+        if ($shapes === []) {
             return 'bigint';
         }
 
+        // The users of the guards disagree on the key (an `admins` guard
+        // keyed by UUID beside the site's bigint `users`): only a string
+        // column holds both, where either typed column rejects the other
+        // guard's ids on PostgreSQL and MySQL.
+        return count($shapes) === 1 ? (string) array_key_first($shapes) : 'string';
+    }
+
+    /** The key shape of one user model: `bigint`, `uuid`, `ulid` or `string`. */
+    private function keyShape(Model $model): string
+    {
         $traits = class_uses_recursive($model);
         if (in_array(\Illuminate\Database\Eloquent\Concerns\HasUuids::class, $traits, true)) {
             return 'uuid';
@@ -106,22 +134,35 @@ return new class extends Migration
     }
 
     /**
-     * The model of the users the Martis guard signs in: its provider's
-     * (`auth.guards.{MARTIS_GUARD, else the default guard}.provider`, the
-     * `users` provider when the guard names none). Mirrors
-     * `Martis\Auth\GuardCatalog::martisUserModel()`, inlined for the same
-     * reason as resolveUserKey(). Null when that provider names no model.
+     * The models of the users whose ids this shared table holds: those of
+     * the Martis guard (MARTIS_GUARD, else the default guard), of the app's
+     * default guard and of every `session` guard, through their providers
+     * (the `users` provider when a guard names none). Mirrors
+     * `Martis\Auth\GuardCatalog::sessionUserTables()`, inlined for the same
+     * reason as resolveUserKey(). A provider without a model is left out.
+     *
+     * @return list<Model>
      */
-    private function resolveUserModel(): ?Model
+    private function resolveUserModels(): array
     {
-        $guard = config('martis.guard') ?: (config('auth.defaults.guard') ?: 'web');
-        $provider = config("auth.guards.{$guard}.provider") ?: 'users';
-        $userClass = config("auth.providers.{$provider}.model");
-
-        if (! is_string($userClass) || ! is_subclass_of($userClass, Model::class)) {
-            return null;
+        $default = config('auth.defaults.guard') ?: 'web';
+        $guards = [config('martis.guard') ?: $default, $default];
+        foreach ((array) config('auth.guards', []) as $name => $guard) {
+            if (is_array($guard) && ($guard['driver'] ?? null) === 'session') {
+                $guards[] = (string) $name;
+            }
         }
 
-        return new $userClass;
+        $models = [];
+        foreach (array_unique($guards) as $guard) {
+            $provider = config("auth.guards.{$guard}.provider") ?: 'users';
+            $userClass = config("auth.providers.{$provider}.model");
+
+            if (is_string($userClass) && is_subclass_of($userClass, Model::class)) {
+                $models[$userClass] = new $userClass;
+            }
+        }
+
+        return array_values($models);
     }
 };

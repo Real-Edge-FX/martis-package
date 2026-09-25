@@ -4,6 +4,28 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.0.1 from v2.0.0
+
+Nothing changes on an app whose Martis guard is the default guard, except the throttle buckets (below). With a custom `MARTIS_GUARD`:
+
+### Password reset picks the Martis guard's broker
+
+Password reset now runs on the password broker whose provider is the Martis guard's (`GuardCatalog::martisPasswordBroker()`): `MARTIS_AUTH_PASSWORD_BROKER` when set, else the app's default broker when it reads the Martis guard's users, else the first broker that does. v2.0.0 used `MARTIS_AUTH_PASSWORD_BROKER`, `users` by default, whatever the guard, so beside an `admins` guard the forgot-password form reset the site user with the admin's email. A broker of another provider, an unknown broker, or none that fits now throws a `Martis\Auth\PasswordBrokerConfigurationException` naming `martis.auth.passwordReset.broker` (the endpoint answers 500 and reports it).
+
+**What to change**, with an own guard and password reset on: declare a broker for the guard's provider in `config/auth.php` (`passwords`). A `config/martis.php` published before v2.0.1 holds `env('MARTIS_AUTH_PASSWORD_BROKER', 'users')`, which now throws with an own guard: change the default to `env('MARTIS_AUTH_PASSWORD_BROKER')`, or set the variable to the guard's broker. See [Authentication → Which password broker resets a password](authentication.md#which-password-broker-resets-a-password).
+
+### The Martis throttles have their own buckets
+
+The API throttle's middleware is `throttle:{max},{decay},martis-api:{guard}:` (`RouteMiddleware::throttlePrefix('api')`), the 2FA challenge's and the verification resend's carry `martis-2fa:{guard}:` and `martis-verification:{guard}:`. Laravel keys a user's bucket on `sha1()` of the identifier alone, so the Martis guard's user 5 shared a bucket with a site route throttled per user for the site user 5, and the resend and the challenge counted in the API's bucket. The counters in flight start over once, on deploy. A test that asserts the route's middleware list reads the new string.
+
+### The per-request Gate cache takes the user
+
+`RequestScopedAbilityCache::lookup()` takes the user instead of its id, and keys it by morph class and id: `lookup($user->id, ...)` throws a `TypeError`. The package does not call it.
+
+### Shared `sessions` and `notifications` tables
+
+The Martis migrations of these tables now shape their user columns on the users of every guard that writes them, with a string column when the keys differ. They skip a table that exists, which Laravel 11+ creates with a `bigint` `user_id`: with a Martis guard keyed by UUID or ULID beside the site's bigint users, widen the columns once, as [Installation → The shared `sessions` and `notifications` tables](installation-guide.md#the-shared-sessions-and-notifications-tables) shows.
+
 ## Upgrading to v2.0 from v1.x
 
 Require the new major; a `^1.x` constraint never installs it:
