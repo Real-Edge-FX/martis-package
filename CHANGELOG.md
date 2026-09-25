@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-09-25
+
+Major release: see [Upgrading](docs/upgrading.md) before updating a 1.x app. Includes every fix of 1.39.2. Known issues deferred to 2.1: relationship writes do not validate `relatableQuery()` (Nova's `Relatable` rule), the action log is readable by every panel user, and some Tailwind borders without a style class do not render.
+
 ### BREAKING: choice-field options follow Nova's order
 
 `Select::options()` and `MultiSelect::options()` now read `[value => label]`, the order Nova uses: the array key is stored, the array value is shown. v1.x read the array label first, so `options(fn () => User::pluck('name', 'id')->all())` stored the name and not the id, and the examples in these docs written in Nova's order (`pluck('name', 'id')`, `['csv' => 'CSV']`) stored the label. Nothing fails at runtime when an array keeps the v1 order, so every call needs a look. Upgrade steps:
