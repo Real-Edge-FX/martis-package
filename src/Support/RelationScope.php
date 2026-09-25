@@ -24,7 +24,7 @@ use Throwable;
  * they are never simply run on the relationship's query:
  *
  *  - `apply()` runs them on the query of a plain `hasMany` / `morphMany`
- *    panel as an Eloquent scope (`callScope()`), which wraps what they add
+ *    panel as an Eloquent scope (`IndexScope::grouped()`), which wraps what they add
  *    in its own group: an `orWhere()` in a hook cannot widen the panel to
  *    another parent's rows (nova-issues #3655). The hook's order, joins and
  *    select aliases stay, as on the index.
@@ -51,19 +51,11 @@ final class RelationScope
      */
     public static function apply(Request $request, Builder $query, string $relatedResourceClass): void
     {
-        $scope = function (Builder $scoped) use ($request, $relatedResourceClass): void {
-            $before = count($scoped->getQuery()->wheres);
-            $result = $relatedResourceClass::indexQuery($request, $relatedResourceClass::applyScopes($request, $scoped));
-
-            // callScope() joins the group with the boolean of the first
-            // condition it adds: a hook that starts with orWhere() would
-            // otherwise OR the whole group with the relation's own
-            // constraint and reach other parents' rows. On the index the
-            // grammar drops a leading `or`, so the hook means `and` there.
-            $wheres = &$scoped->getQuery()->wheres;
-            if (isset($wheres[$before]) && str_starts_with((string) $wheres[$before]['boolean'], 'or')) {
-                $wheres[$before]['boolean'] = 'and'.substr((string) $wheres[$before]['boolean'], 2);
-            }
+        // Grouped as Eloquent groups a local scope (IndexScope::grouped()):
+        // an `orWhere()` in a hook, even a leading one, stays inside the
+        // group and cannot OR the relation's own constraint away.
+        IndexScope::grouped($query, function (Builder $scoped) use ($request, $relatedResourceClass): void {
+            $result = IndexScope::hooks($request, $relatedResourceClass, $scoped);
 
             // A builder the hook made itself carries every global scope of
             // its model: the ones the relation removes do not filter the keys.
@@ -72,11 +64,7 @@ final class RelationScope
                     $result->withoutGlobalScope(SoftDeletingScope::class)->withoutGlobalScopes($scoped->removedScopes())
                 ));
             }
-        };
-
-        // callScope() is how Eloquent runs a local scope: it groups the
-        // wheres the scope adds, so their `or` stays inside the group.
-        (fn () => $this->callScope($scope))->call($query);
+        });
     }
 
     /**
@@ -100,7 +88,7 @@ final class RelationScope
 
         // Dropped again from what the hooks return, the fresh query or one
         // they built themselves, which carries every scope of its model.
-        $result = $relatedResourceClass::indexQuery($request, $relatedResourceClass::applyScopes($request, $fresh))
+        $result = IndexScope::hooks($request, $relatedResourceClass, $fresh)
             ->withoutGlobalScope(SoftDeletingScope::class)
             ->withoutGlobalScopes($removed);
 

@@ -30,6 +30,7 @@ use Martis\Events\AfterSave;
 use Martis\Events\BeforeDelete;
 use Martis\Events\BeforeSave;
 use Martis\Menu\MenuItem;
+use Martis\Support\IndexScope;
 
 /**
  * Base class for all Martis admin resources.
@@ -1129,14 +1130,9 @@ abstract class Resource implements ResourceContract
     /** {@inheritdoc} */
     public static function menuCount(Request $request): ?int
     {
-        $query = static::newModel()->newQuery();
-
-        // v1.8.8 — apply declarative scopes before the imperative hook
+        // The index's confinement (scopes(), then indexQuery(), grouped),
         // so the count badge agrees with the index-page row count.
-        $query = static::applyScopes($request, $query);
-
-        /** @var Builder<Model> $scoped */
-        $scoped = static::indexQuery($request, $query);
+        $scoped = IndexScope::apply($request, static::class, static::newModel()->newQuery());
 
         return (int) $scoped->toBase()->getCountForPagination();
     }

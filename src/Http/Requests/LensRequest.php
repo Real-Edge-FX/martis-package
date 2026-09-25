@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Martis\Contracts\FilterContract;
 use Martis\Enums\SortDirection;
+use Martis\Support\IndexScope;
 
 /**
  * Request wrapper for lens endpoints.
@@ -62,7 +63,9 @@ class LensRequest extends Request
                 // when the caller's $query is the concrete TModel.
                 /** @var Builder<Model> $generic */
                 $generic = $query;
-                $filter->apply($this, $generic, $value);
+                // Grouped: an `orWhere()` in the lens's query or in the
+                // filter cannot OR the other away (see IndexScope).
+                IndexScope::grouped($generic, fn (Builder $grouped) => $filter->apply($this, $grouped, $value));
             }
         }
 

@@ -38,6 +38,7 @@ use Martis\RelationshipQueryResolver;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\SearchResolver;
+use Martis\Support\IndexScope;
 
 /**
  * Generic CRUD controller for all registered Martis resources.
@@ -122,10 +123,10 @@ class ResourceController extends MartisController
 
         // Apply declarative scopes (v1.8.8) BEFORE the imperative
         // `indexQuery()` so the manual hook can override scope-applied
-        // predicates when the resource really needs to. Then the
-        // declarative static $with list.
-        $query = $resourceClass::applyScopes($request, $query);
-        $query = $resourceClass::indexQuery($request, $query);
+        // predicates when the resource really needs to, grouped: an
+        // `orWhere()` in them cannot OR the filters and the search below
+        // away (see IndexScope). Then the declarative static $with list.
+        $query = IndexScope::apply($request, $resourceClass, $query);
         $query = $resourceClass::applyWith($query);
 
         // Apply filters
@@ -1362,6 +1363,33 @@ class ResourceController extends MartisController
         string $action,
         string $fieldAttr,
     ): IlluminateJsonResponse {
+        return $this->actionRelatable($request, $resource, $action, $fieldAttr, null);
+    }
+
+    /**
+     * Return filtered options for a relationship field of an Action a lens
+     * runs (its own `actions()`, or the resource's when it declares none),
+     * gated as `actionRelatableOptions()` is, and by the lens's `canSee()`.
+     *
+     * GET /api/resources/{resource}/lenses/{lens}/actions/{action}/relatable/{field}
+     */
+    public function lensActionRelatableOptions(
+        Request $request,
+        string $resource,
+        string $lens,
+        string $action,
+        string $fieldAttr,
+    ): IlluminateJsonResponse {
+        return $this->actionRelatable($request, $resource, $action, $fieldAttr, $lens);
+    }
+
+    private function actionRelatable(
+        Request $request,
+        string $resource,
+        string $action,
+        string $fieldAttr,
+        ?string $lensKey,
+    ): IlluminateJsonResponse {
         [$resourceClass, $error] = $this->resolveResource($resource);
 
         if ($error !== null) {
@@ -1373,7 +1401,14 @@ class ResourceController extends MartisController
             return $forbidden;
         }
 
-        $actionInstance = $this->findAction(new $resourceClass, $action, $request);
+        $instance = new $resourceClass;
+        $lens = $lensKey === null ? null : $this->resolveLens($instance, $lensKey, $request);
+
+        if ($lens instanceof IlluminateJsonResponse) {
+            return $lens;
+        }
+
+        $actionInstance = $this->findAction($instance, $action, $request, $lens);
 
         if ($actionInstance === null) {
             return JsonErrorResponse::notFound("Action [{$action}] not found.")->toResponse();
@@ -1700,7 +1735,7 @@ class ResourceController extends MartisController
             );
         } else {
             // No source context - apply only the target's generic relatableQuery
-            $query = $relatedResourceClass::relatableQuery($request, $query);
+            $query = RelationshipQueryResolver::targetFence($relatedResourceClass, $request, $query);
         }
 
         // The declarative static $with list applies to relatable lookups too,
@@ -2075,7 +2110,9 @@ class ResourceController extends MartisController
                 continue;
             }
 
-            $filter->apply($request, $query, $value);
+            // Grouped, as the hooks are: an `orWhere()` in a filter cannot
+            // OR the resource's scopes() and indexQuery() away.
+            IndexScope::grouped($query, fn (Builder $grouped) => $filter->apply($request, $grouped, $value));
         }
     }
 

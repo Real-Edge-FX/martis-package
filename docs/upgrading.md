@@ -6,7 +6,7 @@ The sections below list the breaking changes of each major version and what to c
 
 ## Upgrading to v2.0.1 from v2.0.0
 
-The action log, the throttle buckets, the Gate cache's `lookup()` and the Tool route warning apply to every app; the other changes concern an app with a custom `MARTIS_GUARD`.
+The action log, the throttle buckets, the Gate cache's `lookup()` the Tool route warning and the grouped user hooks apply to every app; the other changes concern an app with a custom `MARTIS_GUARD`.
 
 ### The action log is closed by default
 
@@ -46,6 +46,11 @@ A route under a tool's path (`ToolRoutes::prefix($tool)`, or the v1.x `martis/ap
 ### Shared `sessions` and `notifications` tables
 
 The Martis migrations of these tables now shape their user columns on the users of every guard that writes them, with a string column when the keys differ. They skip a table that exists, which Laravel 11+ creates with a `bigint` `user_id`: with a Martis guard keyed by UUID or ULID beside the site's bigint users, widen the columns once, as [Installation → The shared `sessions` and `notifications` tables](installation-guide.md#the-shared-sessions-and-notifications-tables) shows.
+
+### User hooks run grouped
+
+No code change is needed. A user hook written with a top-level `orWhere()` now runs grouped everywhere Martis composes it with something else, as Eloquent runs a local scope: the resource's `scopes()` and `indexQuery()` on the index page and its count badge, each index filter's `apply()`, the resource's `searchQuery()`, each filter a lens's `withFilters()` applies, and the pickers' `relatableQuery()`, `relatable{PluralModelName}()` and `relatableQueryUsing()`. v2.0.0 appended the filters, the search term and the lower picker layers to the hook's last `or` clause only, so `where('tenant_id', 1)->orWhere('shared', true)` listed every record of the tenant whatever the filters and the search said, and a filter or a picker closure written with `orWhere()` could list another tenant's records. A list that relied on that precedence now shows fewer records; wrap the hook's clauses in `where(fn ($q) => ...)` yourself only if you meant the looser reading. Hooks that add only `and` clauses produce the same SQL.
+
 ## Upgrading to v2.0 from v1.x
 
 Require the new major; a `^1.x` constraint never installs it:

@@ -225,6 +225,8 @@ class RecentlyActiveFilter extends Filter
 }
 ```
 
+`apply()` runs as Eloquent runs a local scope (v2.0.1), on the index and through a lens's `withFilters()`: what it adds is one group, and so is what the query held before it (the resource's `scopes()` and `indexQuery()`, a lens's own query). A filter written `where('status', 'open')->orWhere('status', 'urgent')` therefore reads `(tenant) and (status = 'open' or status = 'urgent')`, and cannot list another tenant's urgent records. Before v2.0.1 its `orWhere()` was appended to the hooks' clauses and did.
+
 ## Default Values
 
 Override the `default()` method to pre-select a filter value when the page loads:

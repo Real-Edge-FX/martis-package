@@ -371,6 +371,17 @@ Route::middleware(RouteMiddleware::base())
                                 // Lenses
                                 Route::get('/resources/{resource}/lenses/{lens}', [LensController::class, 'index'])
                                     ->name('resources.lenses.index');
+                                // The actions a lens runs (its own actions(), or the
+                                // resource's), as Nova's lens action routes. Registered
+                                // before the /resources/{resource}/{id}/... routes.
+                                Route::get('/resources/{resource}/lenses/{lens}/actions', [ActionController::class, 'lensIndex'])
+                                    ->name('resources.lenses.actions.index');
+                                Route::get('/resources/{resource}/lenses/{lens}/actions/{action}/fields', [ActionController::class, 'lensFields'])
+                                    ->name('resources.lenses.actions.fields');
+                                Route::get('/resources/{resource}/lenses/{lens}/actions/{action}/relatable/{field}', [ResourceController::class, 'lensActionRelatableOptions'])
+                                    ->name('resources.lenses.actions.relatable');
+                                Route::post('/resources/{resource}/lenses/{lens}/actions/{action}', [ActionController::class, 'lensExecute'])
+                                    ->name('resources.lenses.actions.execute');
 
                                 // HasMany relationship CRUD
                                 Route::get('/resources/{resource}/{id}/has-many/{relationship}', [HasManyController::class, 'index'])
