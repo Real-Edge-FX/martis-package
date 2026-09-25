@@ -4,13 +4,13 @@ namespace Martis\Fields\Concerns;
 
 use Closure;
 use Illuminate\Database\Eloquent\Model;
+use Martis\Support\Initials;
 
 /**
  * Shared trait for fields that render "initials-in-a-coloured-circle"
- * (Avatar's default fallback, UiAvatar). Keeps the palette + initials
- * computation in one place so the two fields — and the topbar, profile,
- * login surfaces — always agree on what letters and colour a given name
- * ends up with.
+ * (Avatar's default fallback, UiAvatar). The letters and the palette slot
+ * come from {@see Initials}, which the Topbar and profile avatars use too,
+ * so a person gets the same initials on the same colour on every surface.
  *
  * Consumers provide:
  *   - A seed attribute (e.g. 'name') — the source of both initials and
@@ -21,20 +21,19 @@ use Illuminate\Database\Eloquent\Model;
  */
 trait ResolvesInitialsPayload
 {
-    /** @var list<string> 16-slot palette used when no colourFrom attribute is set. */
-    protected static array $initialsPalette = [
-        '#2563eb', '#7c3aed', '#db2777', '#dc2626',
-        '#ea580c', '#ca8a04', '#16a34a', '#0d9488',
-        '#0891b2', '#4f46e5', '#c026d3', '#9333ea',
-        '#e11d48', '#059669', '#0284c7', '#475569',
-    ];
-
     /**
-     * Build the `{ initials, color, seed }` payload the frontend uses
-     * to render a coloured circle with letters inline — no external
-     * service call.
+     * Build the payload the frontend uses to render a coloured circle with
+     * letters inline — no external service call:
      *
-     * @return array{initials: string, color: string, seed: string}
+     *   - `initials`: the letters;
+     *   - `palette`: the slot of the theme's avatar tokens the circle is
+     *     painted with (`var(--martis-avatar-{palette})`), or null when the
+     *     `colorFrom` attribute gave the colour;
+     *   - `color`: the literal colour, the `colorFrom` value or the slot's
+     *     colour in the built-in theme;
+     *   - `seed`: the seed attribute's value.
+     *
+     * @return array{initials: string, color: string, palette: int|null, seed: string}
      */
     protected function initialsPayload(
         Model $model,
@@ -43,12 +42,16 @@ trait ResolvesInitialsPayload
         ?Closure $initialsCallback = null,
     ): array {
         $seed = (string) ($model->getAttribute($seedAttribute) ?? '');
+        $initials = $this->computeInitials($seed, $model, $initialsCallback);
+        $customColor = $this->customInitialsColor($model, $colorFromAttribute);
 
-        return [
-            'initials' => $this->computeInitials($seed, $model, $initialsCallback),
-            'color' => $this->resolveInitialsColor($seed, $model, $colorFromAttribute),
-            'seed' => $seed,
-        ];
+        if ($customColor !== null) {
+            return ['initials' => $initials, 'color' => $customColor, 'palette' => null, 'seed' => $seed];
+        }
+
+        $palette = Initials::paletteSlot($seed);
+
+        return ['initials' => $initials, 'color' => Initials::defaultColor($palette), 'palette' => $palette, 'seed' => $seed];
     }
 
     protected function computeInitials(string $seed, Model $model, ?Closure $callback = null): string
@@ -59,47 +62,18 @@ trait ResolvesInitialsPayload
             return is_string($result) ? mb_strtoupper(mb_substr($result, 0, 3)) : '';
         }
 
-        $trimmed = trim($seed);
-        if ($trimmed === '') {
-            return '';
-        }
-
-        $tokens = preg_split('/\s+/u', $trimmed) ?: [];
-        $first = mb_substr($tokens[0] ?? '', 0, 1);
-        $last = count($tokens) > 1 ? mb_substr($tokens[count($tokens) - 1], 0, 1) : '';
-
-        return mb_strtoupper($first.$last);
+        return Initials::of($seed);
     }
 
-    protected function resolveInitialsColor(string $seed, Model $model, ?string $colorFromAttribute = null): string
+    /** The `colorFrom` attribute's colour, or null when it has none and the palette colours the circle. */
+    protected function customInitialsColor(Model $model, ?string $colorFromAttribute = null): ?string
     {
-        if ($colorFromAttribute !== null) {
-            $custom = $model->getAttribute($colorFromAttribute);
-            if (is_string($custom) && $custom !== '') {
-                return $custom;
-            }
+        if ($colorFromAttribute === null) {
+            return null;
         }
 
-        return $this->deterministicInitialsColor($seed);
-    }
+        $custom = $model->getAttribute($colorFromAttribute);
 
-    /**
-     * Stable 16-slot palette derived from the seed string. Same seed
-     * always yields the same colour across requests, migrations and
-     * even environments — no DB column required.
-     */
-    protected function deterministicInitialsColor(string $seed): string
-    {
-        if ($seed === '') {
-            return self::$initialsPalette[0];
-        }
-
-        $hash = 0;
-        $bytes = unpack('C*', $seed) ?: [];
-        foreach ($bytes as $byte) {
-            $hash = (($hash << 5) - $hash + $byte) & 0xFFFFFFFF;
-        }
-
-        return self::$initialsPalette[abs($hash) % count(self::$initialsPalette)];
+        return is_string($custom) && $custom !== '' ? $custom : null;
     }
 }

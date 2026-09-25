@@ -284,7 +284,7 @@ class FflInlineFormProjectResource extends FflProjectResource
         return [
             Text::make('name'),
             BelongsTo::make('team', 'Team')->relatedResource('ffl-teams')->titleAttribute('name')->nullable(),
-            Select::make('stage')->searchOptionsUsing(fn (string $term) => ['Draft' => 'draft', 'Live' => 'live']),
+            Select::make('stage')->searchOptionsUsing(fn (string $term) => ['draft' => 'Draft', 'live' => 'Live']),
             Text::make('code')->dependsOn(['name'], function (array $form, Request $request, Text $field) {
                 $field->placeholder('Code for '.($form['name'] ?? ''));
             }),

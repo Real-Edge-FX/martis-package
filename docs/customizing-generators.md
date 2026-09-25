@@ -1,6 +1,8 @@
 # Customising Martis Generators
 
-Every Martis make-command (e.g. `martis:resource`, `martis:action`, `martis:lens`, `martis:trend`, `martis:tool`) renders a class from a `.stub` template shipped inside the package. The defaults aim for "drop-in" with sane Laravel-style headers and docblocks. Once a project has its own conventions (custom file headers, opinionated docblocks, organisation imports, project-specific traits) the default stubs become a friction point.
+Every Martis make-command (`martis:resource`, `martis:action`, `martis:lens`, `martis:tool` and the rest) renders a class from a `.stub` template in the package. This page shows how a project overrides those templates in `stubs/martis/`.
+
+The defaults aim for "drop-in" with sane Laravel-style headers and docblocks. Once a project has its own conventions (custom file headers, opinionated docblocks, organisation imports, project-specific traits) the default stubs become a friction point.
 
 `martis:stubs` publishes every template into `stubs/martis/` so consumers can edit them in place.
 
@@ -67,16 +69,16 @@ The folder is created at `base_path('stubs/martis/')`. From now on every `martis
 
 ### Install / SSO / Roles stubs
 
-`martis:stubs` also publishes the templates that `martis:install`, `martis:sso`, and `martis:roles:scaffold` use to write migrations + helper classes:
+`martis:stubs` also publishes the templates that `martis:install`, `martis:sso`, and `martis:roles` use to write migrations + helper classes:
 
 | Stub | Used by |
 |---|---|
-| `create_martis_action_events_table.php.stub`, `create_user_preferences_table.php.stub`, `create_martis_notifications_table.php.stub`, `add_profile_picture_column.php.stub`, `add_two_factor_columns.php.stub` | `martis:install` |
+| `create_martis_action_events_table.php.stub`, `alter_martis_action_events_morph_ids_to_string.php.stub`, `fix_martis_action_events_morph_ids_string_v2.php.stub`, `create_user_preferences_table.php.stub`, `drop_dashboards_layout_from_user_preferences_table.php.stub`, `create_martis_notifications_table.php.stub`, `create_martis_cache_state_table.php.stub`, `add_profile_picture_column.php.stub`, `add_two_factor_columns.php.stub`, `create_sessions_table.php.stub` | `martis:install` |
 | `add_provider_group_column_to_roles_table.php.stub` | `martis:sso --with-migration` |
 | `MartisServiceProvider.php.stub` | `martis:install` (provider scaffold) |
-| `roles-permission-resource.stub`, `roles-role-resource.stub`, `roles-user-resource.stub`, `roles-policy.stub`, `roles-seeder.stub` | `martis:roles:scaffold` |
+| `roles-permission-resource.stub`, `roles-role-resource.stub`, `roles-user-resource.stub`, `roles-policy.stub`, `roles-seeder.stub` | `martis:roles` |
 
-Since v1.8.8 these all route through `StubResolver::path()`, so editing the published copy in `stubs/martis/` produces a custom output exactly like the regular generators. **Caveat:** the migrations describe schema Martis depends on at runtime — change column names or types only if you also update the matching app code, and re-run `martis:install` after.
+Since v1.8.8 these all route through `StubResolver::path()`, so editing the published copy in `stubs/martis/` produces a custom output exactly like the regular generators. **Caveats:** the migrations describe schema Martis depends on at runtime — change column names or types only if you also update the matching app code, and re-run `martis:install` after. Because the copies in `stubs/martis/` win, an upstream fix to one of these stubs (for example a migration correction) does not reach your installs until you re-publish it with `martis:stubs --force` or delete your copy. The extension scaffold (`stubs/extensions/*`: the Vite config, the tsconfig files, `index.ts` and the shims) is **not** override-aware: `martis:install` always reads it from the package (`StubResolver::packagePath()`).
 
 ## Editing a stub
 
@@ -116,7 +118,7 @@ The resolver exposes three static methods:
 |---|---|
 | `path(string $name): string` | Override-aware path — `base_path('stubs/martis/<name>')` when present, else the package default. This is the path every make-command uses. |
 | `packagePath(string $name): string` | Always the bundled package default, regardless of any override. Useful when your custom command needs the unmodified template (e.g. to diff against a customer override). |
-| `packageDirectory(): string` | The package's `stubs/` root, derived from the resolver's own filename via reflection. Drives the `martis:stubs` command itself. |
+| `packageDirectory(): string` | The package's `stubs/` root, derived from the resolver's own location (`dirname(__DIR__, 2).'/stubs'`). Drives the `martis:stubs` command itself. |
 
 If you ship a custom artisan command of your own, the same resolver gives you the override-aware path:
 

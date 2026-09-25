@@ -9,16 +9,27 @@ import { dropdownClearIconPt } from './dropdownHelpers'
 import { remoteOptionsEndpoint, useRemoteSelectOptions } from '@/hooks/useRemoteSelectOptions'
 
 export function SelectFieldDisplay({ field, value }: FieldDisplayProps) {
-  if (value === null || value === undefined || value === '') {
+  if (value === null || value === undefined) {
     return <span className="text-gray-400 dark:text-gray-500">—</span>
   }
   const opt = field.options?.find((o) => String(o.value) === String(value))
+  // A stored '' is normally "nothing selected" (the dash), but a real
+  // option whose value IS '' (a "None" choice) must render its label
+  // instead: only fall back to the dash when no option matches.
+  if (value === '' && !opt) {
+    return <span className="text-gray-400 dark:text-gray-500">—</span>
+  }
   // PHP `Select::displayUsingLabels()` (default `true`) controls whether
   // the index/detail cell renders the option label or the raw stored
   // value. Falling back to the original label-resolution path when the
   // flag is missing keeps prior payloads working.
   const displayLabels = (field as Record<string, unknown>).displayLabels !== false
   const rendered = displayLabels && opt ? opt.label : String(value)
+  // displayUsingValues() on a '' option (or any other empty text to render)
+  // has nothing to show: the dash, not an empty badge.
+  if (rendered === '') {
+    return <span className="text-gray-400 dark:text-gray-500">—</span>
+  }
   return (
     <span className="martis-badge martis-badge-neutral">
       {rendered}
@@ -37,18 +48,99 @@ interface DropdownFilterTemplateOptions {
   filterInputKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void
 }
 
+/** An option as the Dropdown receives it: the value as a string, the group kept. */
+interface DropdownOption {
+  label: string
+  value: string
+  group?: string
+}
+
+/** A group of options, the shape PrimeReact's Dropdown renders under a heading. */
+interface DropdownOptionGroup {
+  label: string
+  items: DropdownOption[]
+}
+
+/**
+ * PrimeReact's Dropdown groups only when every entry is a group. Options
+ * that name a group (Nova's grouped options, v2.0.0) gather under it, in
+ * the order the groups first appear; options without one form a leading
+ * group whose empty heading `martis.css` hides. `null` when no option names
+ * a group, so an ungrouped select renders exactly as before.
+ *
+ * A bucketed item drops the `group` it carried: PrimeReact renders ANY
+ * entry whose own `.group` is truthy as a heading row
+ * (`option.group && props.optionGroupLabel` in `createItem`), so leaving it
+ * on the item itself would render every option as a second, phantom
+ * heading alongside its real one.
+ */
+function groupDropdownOptions(options: DropdownOption[]): DropdownOptionGroup[] | null {
+  if (!options.some((o) => o.group)) return null
+  const ungrouped: DropdownOptionGroup = { label: '', items: [] }
+  const groups: DropdownOptionGroup[] = []
+  for (const option of options) {
+    const item: DropdownOption = { label: option.label, value: option.value }
+    if (!option.group) {
+      ungrouped.items.push(item)
+      continue
+    }
+    let group = groups.find((g) => g.label === option.group)
+    if (!group) {
+      group = { label: option.group, items: [] }
+      groups.push(group)
+    }
+    group.items.push(item)
+  }
+  return ungrouped.items.length > 0 ? [ungrouped, ...groups] : groups
+}
+
 export function SelectFieldInput({ field, value, onChange, error, resourceKey, recordId, toolKey, context, repeaterRow }: FieldInputProps) {
   const { t } = useTranslation('messages')
-  const staticOptions = field.options?.map((o) => ({ label: o.label, value: String(o.value) })) ?? []
+  // A real option whose value IS '' (a "None" choice) must stay selectable
+  // and shown, but PrimeReact 10.9.9 treats an empty string as "no value" in
+  // several of its own internal checks (`ObjectUtils.isNotEmpty('')` is
+  // false): its `getOptionValue()` falls back to handing back the WHOLE
+  // option object instead of `''` on select, and the closed control hides
+  // the label and the clear icon exactly as it does for no selection at
+  // all. We swap '' for this sentinel only inside the Dropdown's own option
+  // list and current value, and swap it back to '' the moment a value
+  // leaves the Dropdown (onChange), so nothing outside this component ever
+  // receives it. PrimeReact itself DOES see the sentinel (it is the
+  // option's `value` and the control's `value` prop), including its own
+  // local filter (`filterBy="label,value"`): '\u0000' alone, not readable
+  // text, so no term a person types can ever match it.
+  const EMPTY_VALUE_SENTINEL = '\u0000'
+  const toSentinelValue = (value: string): string => (value === '' ? EMPTY_VALUE_SENTINEL : value)
+  const staticOptions: DropdownOption[] = field.options?.map((o) => ({
+    label: o.label,
+    value: toSentinelValue(String(o.value)),
+    ...(o.group ? { group: o.group } : {}),
+  })) ?? []
+  // The option last picked from the server's results. Once the panel closes
+  // those results are gone, so a value that only they carried (a remote ''
+  // "None" choice included) would lose its label and, for '', read as "no
+  // value" below. Only used while it is not a static option.
+  const [picked, setPicked] = useState<DropdownOption | null>(null)
+  const pickedOption = picked !== null && !staticOptions.some((o) => o.value === picked.value) ? picked : null
   // Pass `null` (not '') when empty so PrimeReact's own `value != null` guard
   // hides the clear (X) icon on an empty select — an empty select has nothing
   // to clear. Coercing to '' made `showClear` fire on the placeholder state.
   // Guard the rare case of a real option whose value is literally '': only
-  // treat '' as "empty" when no such option exists, so a genuinely-selected
-  // empty-string option still highlights.
-  const hasEmptyOption = staticOptions.some((o) => o.value === '')
+  // treat '' as "empty" when no such option exists (static, or picked from
+  // the server's results), so a genuinely-selected empty-string option still
+  // highlights (via the sentinel above).
+  const hasEmptyOption = staticOptions.some((o) => o.value === EMPTY_VALUE_SENTINEL)
+    || pickedOption?.value === EMPTY_VALUE_SENTINEL
   const isEmpty = value === null || value === undefined || (value === '' && !hasEmptyOption)
-  const currentValue = isEmpty ? null : String(value)
+  const currentValue = isEmpty ? null : value === '' ? EMPTY_VALUE_SENTINEL : String(value)
+  // The sentinel must never reach anything a person can read: resolve it
+  // back to the real option's label (or '' when none matches) for display.
+  // A value picked from the server's results keeps the label it had there.
+  const currentValueLabel = currentValue !== null && pickedOption?.value === currentValue
+    ? pickedOption.label
+    : currentValue === EMPTY_VALUE_SENTINEL
+      ? (staticOptions.find((o) => o.value === EMPTY_VALUE_SENTINEL)?.label ?? '')
+      : currentValue
   const clearTip = t('clear', { defaultValue: 'Clear' })
   const selectPlaceholder = field.placeholder ?? t('select', { defaultValue: 'Select…' })
   // PHP `Select::searchableOptions()` / `allowCustomValues()` /
@@ -70,9 +162,26 @@ export function SelectFieldInput({ field, value, onChange, error, resourceKey, r
   // the clear icon (and resolves no label) when `options` lacks the value or
   // is empty. Open: exactly what the server returned.
   const remoteClosedOptions = remote && currentValue !== null && !staticOptions.some((o) => o.value === currentValue)
-    ? [{ label: currentValue, value: currentValue }, ...staticOptions]
+    ? [{ label: currentValueLabel ?? currentValue, value: currentValue }, ...staticOptions]
     : staticOptions
-  const options = remote && open && remoteState.options !== null ? remoteState.options : remoteClosedOptions
+  // A remote result whose value IS '' (a "None" choice) needs the same
+  // sentinel swap as the static options, or it is just as unpickable.
+  const remoteOptions: DropdownOption[] | null = remoteState.options?.map((o) => ({
+    label: o.label,
+    value: toSentinelValue(o.value),
+    ...(o.group ? { group: o.group } : {}),
+  })) ?? null
+  const options = remote && open && remoteOptions !== null ? remoteOptions : remoteClosedOptions
+
+  const optionGroups = groupDropdownOptions(options)
+  const optionProps = optionGroups
+    ? {
+        options: optionGroups,
+        optionGroupLabel: 'label',
+        optionGroupChildren: 'items',
+        optionGroupTemplate: (group: DropdownOptionGroup) => group.label || null,
+      }
+    : { options }
 
   // Opt into the compact filter-dropdown look (used by native resource filters)
   // via `field.variant === 'filter'`, and allow an extra passthrough className.
@@ -109,9 +218,11 @@ export function SelectFieldInput({ field, value, onChange, error, resourceKey, r
   )
 
   // A stored value that is not in the (partial) remote list would otherwise
-  // render as the placeholder, as if nothing were selected.
+  // render as the placeholder, as if nothing were selected. Fall back to
+  // `currentValueLabel`, never the raw `currentValue`, so the sentinel for
+  // an empty-string option is never the text shown to a person.
   const remoteValueTemplate = (option: { label: string } | null) =>
-    option ? option.label : (currentValue ?? selectPlaceholder)
+    option ? option.label : (currentValueLabel ?? selectPlaceholder)
 
   const remoteEmptyMessage = remoteState.error
     ? t('options_load_error')
@@ -134,8 +245,29 @@ export function SelectFieldInput({ field, value, onChange, error, resourceKey, r
         inputId={field.attribute}
         name={field.attribute}
         value={currentValue}
-        options={options}
-        onChange={(e) => onChange(e.value as string)}
+        {...optionProps}
+        // Guard the boundary: in editable mode, PrimeReact's
+        // `onEditableInputChange` matches the typed text against every
+        // visible row, including the synthesized group-heading rows
+        // `groupDropdownOptions()` builds, unlike the keyboard-navigation
+        // paths which skip them via `isOptionGroup`. Both `onEnterKey` and
+        // `onTabKey` can then resolve a focused heading through
+        // `getOptionValue`, which falls back to the heading object itself
+        // because a heading carries no `value`. A real option's value, a
+        // typed custom value, and the clear action only ever produce a
+        // string, null, or undefined here, so drop anything else instead
+        // of handing a heading object to the form. Map the empty-string
+        // sentinel back to '' here too, the only place it may leave the
+        // Dropdown.
+        onChange={(e) => {
+          if (typeof e.value !== 'string' && e.value != null) return
+          const next = e.value as string
+          if (remote) {
+            const fromResults = next == null ? undefined : options.find((o) => o.value === next)
+            setPicked(fromResults ? { label: fromResults.label, value: fromResults.value } : null)
+          }
+          onChange(next === EMPTY_VALUE_SENTINEL ? '' : next)
+        }}
         disabled={field.readonly}
         invalid={!!error}
         placeholder={selectPlaceholder}

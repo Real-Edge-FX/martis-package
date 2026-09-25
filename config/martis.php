@@ -429,8 +429,11 @@ return [
     |--------------------------------------------------------------------------
     | Localisation
     |--------------------------------------------------------------------------
-    | Default locale for the Martis admin panel.
-    | Override per user by setting locale dynamically or publish lang files.
+    | Locale the blade shell uses only when `preferences.enabled` is false.
+    | With preferences enabled (the default), the panel language is the
+    | user's saved preference, else `preferences.defaults.locale`
+    | (MARTIS_DEFAULT_LOCALE), applied by the `martis.locale` middleware on
+    | every authenticated Martis route.
     */
     'locale' => env('MARTIS_LOCALE', env('APP_LOCALE', 'en')),
 
@@ -1066,7 +1069,10 @@ return [
         ],
         'schema' => [
             'enabled' => env('MARTIS_CACHE_SCHEMA_ENABLED', true),
-            'ttl' => env('MARTIS_CACHE_SCHEMA_TTL', env('MARTIS_CACHE_SCHEMA', null)),
+            // Finite so the entries a previous Martis version left behind
+            // (the key carries the installed version) expire on stores
+            // without eviction. One day; the key keeps the payload fresh.
+            'ttl' => env('MARTIS_CACHE_SCHEMA_TTL', env('MARTIS_CACHE_SCHEMA', 1440)),
         ],
 
         // When true, Martis registers `/api/cache/*` admin endpoints and
@@ -1298,7 +1304,10 @@ return [
     | Configure the user profile page (accessible via the user menu).
     |
     | enabled        - Set false to disable the profile page entirely.
-    | resource       - FQCN of a custom ProfileResource class (null = default).
+    | resource       - Class that serves the profile page and the Topbar avatar:
+    |                  a subclass of Martis\Profile\ProfileResource, or any class
+    |                  implementing Martis\Contracts\ProfileResourceContract.
+    |                  Null uses the default. A value naming no such class throws.
     | menu.label     - Label shown in the user dropdown menu.
     | menu.icon      - Phosphor icon name for the menu item.
     | avatar.enabled - Show/hide the avatar upload section.
@@ -1428,7 +1437,8 @@ return [
 
     'impersonation' => [
         'enabled' => env('MARTIS_IMPERSONATION_ENABLED', false),
-        'guard' => env('MARTIS_IMPERSONATION_GUARD', 'web'),
+        // Null: the Martis guard (MARTIS_GUARD, else the app's default).
+        'guard' => env('MARTIS_IMPERSONATION_GUARD'),
         'session_key' => env('MARTIS_IMPERSONATION_SESSION_KEY', 'martis.impersonation'),
         // Auto-stop after N minutes of impersonation (prevents
         // forgotten sessions from leaking access). 0 / null disables

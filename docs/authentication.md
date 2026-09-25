@@ -1,6 +1,6 @@
 # Authentication
 
-Martis provides a complete authentication system with login, logout, two-factor authentication (2FA), magic-link, browser-session management, and a user profile page — all configurable and overridable.
+Martis provides a complete authentication system, from login and logout to two-factor authentication (2FA), magic links and a user profile page. Every part, browser-session management included, is configurable and overridable.
 
 > See also: [SSO](sso.md) for OAuth/OIDC providers (Azure / Google / GitHub / custom), and [Impersonation](impersonation.md) for the login-as-another-user subsystem (admins surfacing a switch from the user menu and from the User Resource detail page).
 
@@ -63,6 +63,8 @@ GET /martis/api/auth/user
 ```
 
 Public route (deliberately unprotected) so the Login page can probe the active session without a noisy `401` in the console. Returns the user object when a session cookie is present, or `null` when the visitor is a guest.
+
+The user object, here and in the login response, is the user model's attributes without the password, the remember token and the 2FA secret and recovery codes, plus the avatar the Topbar shows, from the profile resource (see [Custom Profile Resource](#custom-profile-resource)): `avatar_url`, and the `avatar_initials` and `avatar_palette` (a slot of the theme's `--martis-avatar-N` tokens) it falls back to without a picture.
 
 ## Auth UI shell
 
@@ -204,15 +206,10 @@ MARTIS_AUTH_REGISTRATION_URL=https://app.example.com/signup
 Use the Martis component override system to swap any of the auth pages. The artisan generator scaffolds a TSX file, registers it under a fixed key under `resources/js/martis-extensions/overrides/`, and the SPA router (`router.tsx`) resolves the override before the bundled default — exactly the same mechanism that already works for `--type=shell` / `--type=topbar` / etc.
 
 ```bash
-php artisan martis:component MyLogin --type=login-page
+php artisan martis:component LoginPage --type=login-page
 ```
 
-Generates `resources/js/martis-extensions/overrides/MyLogin.tsx` (a working starting point that calls `useAuth().login()` and renders inside `AuthFrame`), and adds these two lines to `resources/js/martis-extensions/index.ts`:
-
-```typescript
-import { MyLogin } from './components/MyLogin'
-componentRegistry.register('auth:login', MyLogin as never)
-```
+Generates `resources/js/martis-extensions/overrides/LoginPage.tsx` (a working starting point that calls `useAuth().login()` and renders inside `AuthFrame`). The auth-page types always write this fixed file name, whatever name you pass, because the auto-discovery entry (`resources/js/martis-extensions/index.ts`) maps the file name to the registry key through its `OVERRIDE_KEYS` table (`LoginPage` → `auth:login`). No `register()` call is needed. If you register a component by hand instead, use the exact key: `componentRegistry.register('auth:login', MyLogin)`.
 
 Same notation extends to every auth surface:
 
@@ -224,14 +221,13 @@ Same notation extends to every auth surface:
 | `reset-password-page` | `auth:reset-password` | `pages/ResetPassword.tsx` |
 | `email-verify-notice-page` | `auth:email-verify-notice` | `pages/EmailVerifyNotice.tsx` |
 
-After generating the override, rebuild assets so the bundle picks up the new component:
+After generating the override, build your extension bundle **in your application root** (never inside `vendor/martis/martis`, whose precompiled SPA does not include consumer code since v1.8.19):
 
 ```bash
-cd vendor/martis/martis
 npm run build:extensions
 ```
 
-The build copies the rebuilt `public/` back to your app via `php artisan martis:publish-assets` (or your existing deploy pipeline). Visit `/{martis-path}/login` and the override renders instead of the bundled page.
+The bundle lands in `public/vendor/martis-user/extensions.js`, which the SPA loads at runtime from the URLs in `MARTIS_EXTENSIONS` (`martis:install` sets `/vendor/martis-user/extensions.js`). Visit `/{martis-path}/login` and the override renders instead of the bundled page. To check the registration, run `window.Martis.componentRegistry.has('auth:login')` in the browser console.
 
 Reference impls live under `vendor/martis/martis/resources/js/pages/` — the stub starts as a working copy of the bundled default so you can edit incrementally rather than rewrite from scratch.
 
@@ -643,6 +639,7 @@ Tokens are persisted in the same `password_reset_tokens` table Laravel ships wit
 - **Per-email throttle.** The request endpoint sits behind both per-IP `throttle:N,1` and the `martis-login` named limiter (per-email + IP). A flood against `victim@example.com` is blocked even when distributed across IPs.
 - **No account enumeration.** When the email is unknown the endpoint still returns `200 { ok: true }` and sends nothing. The frontend toast is identical to the success path.
 - **Auto-register opt-in.** Default false. When you flip it on, an unknown email triggers a user create with a random password before the login completes — useful for invite-by-link flows.
+- **The Martis guard's users.** The email is looked up, and auto-registered, in the user provider of the Martis guard (`MARTIS_GUARD`, else the app's default guard), the guard the link signs into (v2.0.0+). v1.x looked it up in `users`: with a custom guard whose model has its own table, the link of a site account signed in the panel user with the same id. A Martis user model without `Illuminate\Notifications\Notifiable` is mailed at the address the link was asked for.
 
 ### Customising the email
 
@@ -664,6 +661,7 @@ The Browser sessions section has an external host dependency (unlike the other p
 |---|---|
 | **Session driver** | `SESSION_DRIVER=database`. On `file` / `cookie` / `array` / unknown the API returns `supported: false` and the UI renders a one-line hint instead of an empty list. |
 | **`sessions` table** | The standard Laravel session table must exist. |
+| **One user table** | Laravel writes `sessions.user_id` with the id of the request's guard and no table. When the session guards of `config/auth.php` (with the Martis and the default guard) sign in users of more than one table, as a custom `MARTIS_GUARD` with its own model beside the site's `users` does, an id there can be another person's: the API returns `supported: false` with a `reason` the UI shows, and revokes nothing (v2.0.0+). Guards that share one table, through any provider or model, are supported. |
 
 **Provisioning (since v1.30.0):** run `php artisan martis:install --with-sessions` to publish a **key-type-aware** sessions migration (published under the `martis-sessions-migration` tag, folded into `--with-profile` when the section is active). Its `user_id` column matches your `users.id` shape — a UUID/ULID-keyed host gets a `uuid`/`ulid` column instead of a `bigint`, avoiding the Postgres `invalid input syntax for type bigint` failure that Laravel's stock `php artisan session:table` (`foreignId('user_id')`) causes on non-integer-keyed users tables. The migration is idempotent (skipped when the table already exists) and carries no FK constraint, matching Laravel's own session table. You may still use `php artisan session:table` + `php artisan migrate` if your `users.id` is a `bigint`.
 
@@ -673,15 +671,15 @@ The Browser sessions section has an external host dependency (unlike the other p
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/martis/api/profile/sessions` | `{ sessions: [...], supported, driver }`. Each session row carries `id`, `ip_address`, `user_agent`, `last_active` (unix seconds), and `is_current`. |
-| `DELETE` | `/martis/api/profile/sessions/others` | Revokes every session except the current one. Returns `{ revoked, supported }`. |
+| `GET` | `/martis/api/profile/sessions` | `{ sessions: [...], supported, driver }`, plus `reason` when the session rows cannot be attributed (see the requirements). Each session row carries `id`, `ip_address`, `user_agent`, `last_active` (unix seconds), and `is_current`. |
+| `DELETE` | `/martis/api/profile/sessions/others` | Revokes every session except the current one. Returns `{ revoked, supported }` (204 when unsupported). |
 | `DELETE` | `/martis/api/profile/sessions/{id}` | Revokes a single session by ID. Targeting the current session is a deliberate no-op so the call cannot accidentally sign the user out of the device issuing the request. |
 
 ### Customisation
 
 - **Backend**: bind your own subclass of `Martis\Profile\BrowserSessionsService` against the FQCN to extend with geo-IP enrichment, audit logging, or cross-device push notifications. The service exposes `forUser(Authenticatable, Request)`, `revokeOthers(Authenticatable, Request)`, and `revoke(Authenticatable, Request, string $id)`.
 - **UI**: register a custom React component under the `martis:profile-sessions` registry key from your consumer extension bundle (`resources/js/martis-extensions/`) to swap the bundled `BrowserSessionsSection`. When unset, the bundled component renders.
-- **Translations**: keys live under the `profile` namespace — `sessions_title`, `sessions_subtitle`, `sessions_loading`, `sessions_empty`, `sessions_unsupported`, `sessions_current_badge`, `sessions_unknown_ip`, `sessions_revoke`, `sessions_revoke_success`, `sessions_revoke_others`, `sessions_revoke_others_confirm`, `sessions_revoke_others_success`, `sessions_revoking`. All shipped in en, pt_PT, pt_BR.
+- **Translations**: keys live under the `profile` namespace: `sessions_title`, `sessions_subtitle`, `sessions_loading`, `sessions_empty`, `sessions_unsupported`, `sessions_unsupported_guards` (the `reason` above), `sessions_current_badge`, `sessions_unknown_ip`, `sessions_revoke`, `sessions_revoke_success`, `sessions_revoke_others`, `sessions_revoke_others_confirm`, `sessions_revoke_others_success`, `sessions_revoking`. All shipped in en, pt_PT, pt_BR.
 
 ## Error pages
 
@@ -730,6 +728,10 @@ To use a separate guard for Martis:
 // config/martis.php
 'guard' => 'martis',
 ```
+
+The panel then runs as that guard: `MartisAuthenticate` makes it the request's guard (v2.0.0+), so `$request->user()`, `auth()->user()`, the gates, the policies and the protected routes' throttle see the user it signed in, an instance of its provider's model. Type policies and gate closures for that model (or `Authenticatable`), give the model `Illuminate\Notifications\Notifiable` for the notification bell, and see [Upgrading → A custom Martis guard](upgrading.md#a-custom-martis-guard).
+
+The auth flows use that guard's provider: the login, the magic link, the registration and invitation accept (the email is unique among that guard's users), the email verification link, SSO and `php artisan martis:user`. Password reset uses the broker `MARTIS_AUTH_PASSWORD_BROKER` names (`users` by default): point it at a broker of `config/auth.php` whose provider is the Martis guard's. When that provider's model has its own table (`admins`), the Martis migrations reference it (the preferences and invitations foreign keys) and add the two-factor and avatar columns to it, and the Browser sessions section reads as unsupported, since the `sessions` table cannot tell an admin's id from a site user's (see [Browser sessions](#browser-sessions)).
 
 ## User Profile
 
@@ -792,8 +794,8 @@ and password editable while the e-mail stays fixed. Set
 and the built-in Account section renders the e-mail field read-only.
 
 This flag is the **UI half only**. Pair it with a custom `ProfileResource` that
-also rejects e-mail changes server-side, so a hand-crafted `PATCH /martis/api/profile`
-request cannot bypass the locked field.
+also rejects e-mail changes server-side (see [Custom Profile Resource](#custom-profile-resource)),
+so a hand-crafted `PATCH /martis/api/profile` request cannot bypass the locked field.
 
 ### Profile API Endpoints
 
@@ -807,20 +809,36 @@ request cannot bypass the locked field.
 
 ### Custom Profile Resource
 
-Override the default profile resource by extending `ProfileResource`:
+The profile resource is the class behind the profile page. `Martis\Contracts\ProfileResourceContract` has three methods:
+
+| Method | Role |
+|--------|------|
+| `toArray(Authenticatable $user): array` | The profile data of `GET` and `PATCH /martis/api/profile`: the page reads `name`, `email`, `avatar_url` and `two_factor_enabled`, and the avatar's `avatar_initials` and `avatar_palette`. `/martis/api/auth/user` and the login response take the three avatar keys from it too, so the Topbar shows the avatar the profile page shows. When the array has no `avatar_initials` or `avatar_palette`, Martis adds the initials and palette slot of the user's name (or e-mail), as the `Avatar` and `UiAvatar` fields compute them. |
+| `updateRules(Authenticatable $user): array` | The validation rules of `PATCH /martis/api/profile`. |
+| `applyUpdate(Authenticatable $user, array $data): void` | Saves the validated data. |
+
+Extend the default `Martis\Profile\ProfileResource` and override what you need, then name the class in `profile.resource`. This one keeps the e-mail fixed server-side, the other half of [Locking the e-mail field](#locking-the-e-mail-field):
 
 ```php
 namespace App\Martis;
 
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Model;
 use Martis\Profile\ProfileResource;
 
 class CustomProfileResource extends ProfileResource
 {
-    public function fields(Request $request): array
+    public function updateRules(Authenticatable $user): array
     {
         return [
-            // Add custom fields to the profile page
+            'name' => ['required', 'string', 'max:255'],
         ];
+    }
+
+    public function applyUpdate(Authenticatable $user, array $data): void
+    {
+        /** @var Model&Authenticatable $user */
+        $user->forceFill(['name' => $data['name']])->save();
     }
 }
 
@@ -829,6 +847,10 @@ class CustomProfileResource extends ProfileResource
     'resource' => \App\Martis\CustomProfileResource::class,
 ],
 ```
+
+The request is validated against `updateRules()` and only the validated keys reach `applyUpdate()`, so an `email` sent to this resource is dropped.
+
+`profile.resource` must name a class that implements the contract. Any other value (a misspelt class, a class that does not implement it) throws an `InvalidArgumentException` naming the key; `null` keeps the default. Up to v1.39.1, a class that did not exist fell back to the default without a word, and `/martis/api/auth/user` always used the default resource, so the Topbar could show another avatar than the profile page.
 
 ## Two-Factor Authentication (2FA)
 
@@ -868,7 +890,7 @@ When 2FA is enabled, the system generates one-time recovery codes (default: 8). 
 
 ### Database Requirements
 
-2FA requires the following columns on the users table:
+2FA requires the following columns on the table of the Martis guard's users (`users` unless `MARTIS_GUARD` names a guard whose model has its own table; `martis:install --with-2fa` publishes a migration that adds them there):
 
 ```php
 Schema::table('users', function (Blueprint $table) {
@@ -939,14 +961,19 @@ The contract layout above (bind your own `Martis\Contracts\*` implementations) i
 
 ## Middleware
 
-Martis registers two middleware:
+Martis registers these middleware:
 
 | Middleware | Description |
 |-----------|-------------|
 | `martis.auth` | Authenticates the user and checks the configured guard. Applied to all protected routes. |
-| `martis.2fa` | Ensures users with 2FA enabled have completed the challenge. Redirects to the challenge screen if pending. |
+| `martis.impersonation.duration` | Stops an impersonation that ran past `MARTIS_IMPERSONATION_MAX_DURATION` minutes. Applied to all protected routes. |
+| `martis.2fa` | Ensures users with 2FA enabled have completed the challenge: `423` for a JSON request, a redirect to the challenge screen otherwise. Applied to every protected route but the challenge itself. |
+| `martis.locale` | Applies the user's saved language before the controller runs. |
+| `martis.verified` | When email verification is enabled, refuses an unverified user: `409` for a JSON request, a redirect to the notice otherwise. |
+| `martis.tool:{uriKey}` | Answers `404` to a user the tool `{uriKey}` is hidden from. Applied to a Tool's routes (v2.0). |
+| `martis.api` (group) | The whole stack of a protected API route, from `martis.middleware` to the API throttle, built when the application boots (v2.0). |
 
-These are applied automatically by the Martis route definitions. You do not need to register them manually.
+These are applied automatically by the Martis route definitions. You do not need to register them manually. The stack of a protected API route is built in one place, `Martis\Http\RouteMiddleware::api()`: `martis.middleware`, `martis.auth_middleware`, `martis.impersonation.duration`, `martis.2fa`, `martis.locale`, `martis.verified`, then the API throttle. A Tool's routes run it too, followed by `martis.tool:{uriKey}` (see [Tools → Tool routes and their middleware](tools.md#tool-routes-and-their-middleware)). It is also the `martis.api` middleware group (v2.0), so a route of your own gets the same guard with `Route::middleware('martis.api')`: `martis.auth` alone lets a user who has not passed the 2FA challenge through.
 
 ## Next Steps
 

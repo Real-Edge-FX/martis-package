@@ -133,18 +133,6 @@ parameters:
 			path: src/Facades/Martis.php
 
 		-
-			message: '#^Method Martis\\Fields\\Avatar\:\:resolve\(\) should return array\<''name''\|''path''\|''thumbnailUrl''\|''url''\|int\<0, max\>, array\{path\: string, url\: string, name\: string, thumbnailUrl\: string\}\|string\>\|null but returns array\{url\: null, name\: null, path\: null, thumbnailUrl\: null, isInitialsFallback\: true, initials\: string, color\: string, seed\: string\}\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Fields/Avatar.php
-
-		-
-			message: '#^Method Martis\\Fields\\Avatar\:\:resolve\(\) should return array\<''name''\|''path''\|''thumbnailUrl''\|''url''\|int\<0, max\>, array\{path\: string, url\: string, name\: string, thumbnailUrl\: string\}\|string\>\|null but returns array\{url\: string, name\: null, path\: null, thumbnailUrl\: string, isFallback\: true\}\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Fields/Avatar.php
-
-		-
 			message: '#^Strict comparison using \!\=\= between array\{path\: string, url\: string, name\: string, thumbnailUrl\: string\}\|string and null will always evaluate to true\.$#'
 			identifier: notIdentical.alwaysTrue
 			count: 1
@@ -211,12 +199,6 @@ parameters:
 			path: src/Fields/MorphTo.php
 
 		-
-			message: '#^Method Martis\\Fields\\MultiSelect\:\:options\(\) has parameter \$options with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: src/Fields/MultiSelect.php
-
-		-
 			message: '#^Unsafe usage of new static\(\)\.$#'
 			identifier: new.static
 			count: 1
@@ -281,12 +263,6 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 2
 			path: src/Fields/Repeater.php
-
-		-
-			message: '#^Method Martis\\Fields\\Select\:\:options\(\) has parameter \$options with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: src/Fields/Select.php
 
 		-
 			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
@@ -1025,12 +1001,6 @@ parameters:
 			identifier: missingType.iterableValue
 			count: 1
 			path: src/Preferences/PreferencesResolver.php
-
-		-
-			message: '#^Method Martis\\Profile\\BrowserSessionsService\:\:forUser\(\) should return array\{sessions\: list\<array\<string, mixed\>\>, supported\: bool, driver\: string\} but returns array\{sessions\: array\<int, array\{id\: string, ip_address\: string, user_agent\: string, last_active\: int, is_current\: bool\}\>, supported\: true, driver\: string\}\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Profile/BrowserSessionsService.php
 
 		-
 			message: '#^Call to function is_callable\(\) with Closure will always evaluate to true\.$#'

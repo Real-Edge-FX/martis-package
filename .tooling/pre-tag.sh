@@ -8,6 +8,13 @@
 #      for the tag (catches missing release notes).
 #   3. sync-docs.sh reports drift between martis-package/docs/*.md
 #      and martis-docs/src/content/**/*.mdx.
+#   4. martis-docs/src/data/landing.ts TESTS_PASSING ≠ the README
+#      "= **N passing**" total, or a landing component hardcodes its
+#      own "N tests passing" instead of reading TESTS_PASSING.
+#
+# Keep this file in step with the workspace copy (`pre-tag-check.sh` at
+# the workspace root). Both need the workspace layout: martis-docs and
+# sync-docs.sh next to martis-package.
 #
 # Failure exits non-zero. Success prints a one-line confirmation. The
 # user (and the loop driver) treat "trio atómico" — package tag +
@@ -73,4 +80,26 @@ if ! echo "$DRIFT" | grep -q '0 missing, 0 drifted'; then
     exit 1
 fi
 
-echo "✓ pre-tag check passed for $TAG (landing pill, CHANGELOG section, docs sync)."
+# 4. Test-count check. The hero status line and the stat strip both read
+#    TESTS_PASSING; it must match the README total, and no component may
+#    carry a count of its own (the hero once kept a stale "2,408").
+README="$ROOT/martis-package/README.md"
+LANDING_TESTS=$(grep -oE "TESTS_PASSING = '[^']+'" "$DOCS_LANDING" | sed -E "s/.*'([^']+)'.*/\1/" | tr -d ',' || true)
+README_TESTS=$(grep -oE '= \*\*[0-9,]+ passing\*\*' "$README" | head -1 | grep -oE '[0-9,]+' | tr -d ',' || true)
+if [ -z "$LANDING_TESTS" ] || [ -z "$README_TESTS" ]; then
+    echo "✗ Could not read the test total (landing TESTS_PASSING='$LANDING_TESTS', README='$README_TESTS')." >&2
+    exit 1
+fi
+if [ "$LANDING_TESTS" != "$README_TESTS" ]; then
+    echo "✗ martis-docs landing shows $LANDING_TESTS tests passing but the README says $README_TESTS." >&2
+    echo "  Set TESTS_PASSING in $DOCS_LANDING to the CI Pest + Vitest total before tagging." >&2
+    exit 1
+fi
+HARDCODED=$(grep -rniE "[0-9][0-9,]* tests? passing" "$ROOT/martis-docs/src/components" "$ROOT/martis-docs/src/pages" 2>/dev/null || true)
+if [ -n "$HARDCODED" ]; then
+    echo "✗ A landing component hardcodes its own test count; render TESTS_PASSING instead:" >&2
+    echo "$HARDCODED" | sed 's/^/  /' >&2
+    exit 1
+fi
+
+echo "✓ pre-tag check passed for $TAG (landing pill, CHANGELOG section, docs sync, test count)."

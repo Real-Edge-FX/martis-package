@@ -105,9 +105,9 @@ class PivotTestAction extends Action
         return [
             Select::make('priority', 'Priority')
                 ->options([
-                    'Low' => 'low',
-                    'Normal' => 'normal',
-                    'High' => 'high',
+                    'low' => 'Low',
+                    'normal' => 'Normal',
+                    'high' => 'High',
                 ])
                 ->default('normal')
                 ->required(),
@@ -169,7 +169,7 @@ class PivotParentResource extends Resource
                 ->relatedResource('pivot-child-models')
                 ->fields(fn () => [
                     Select::make('priority', 'Priority')
-                        ->options(['Low' => 'low', 'Normal' => 'normal', 'High' => 'high'])
+                        ->options(['low' => 'Low', 'normal' => 'Normal', 'high' => 'High'])
                         ->nullable(),
                 ]),
             // Inside a layout on purpose: the pivot routes must still find it.
@@ -178,7 +178,7 @@ class PivotParentResource extends Resource
                     ->relatedResource('pivot-tag-models')
                     ->fields(fn () => [
                         Select::make('priority', 'Priority')
-                            ->options(['Low' => 'low', 'Normal' => 'normal', 'High' => 'high'])
+                            ->options(['low' => 'Low', 'normal' => 'Normal', 'high' => 'High'])
                             ->nullable(),
                     ])
                     ->actions(fn () => [PivotTagReportAction::make()]),
@@ -257,6 +257,40 @@ class PivotRunGuardResource extends PivotParentResource
     public function actions(Request $request): array
     {
         return [PivotDeniedRunAction::make()];
+    }
+}
+
+/** A standalone pivot action that reports how many records it received. */
+class PivotStandaloneCountAction extends PivotTestAction
+{
+    public function uriKey(): string
+    {
+        return 'pivot-standalone-count';
+    }
+
+    /** @param Collection<int, Model> $models */
+    public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
+    {
+        return ActionResponse::message('records: '.$models->count());
+    }
+
+    public function fields(Request $request): array
+    {
+        return [];
+    }
+}
+
+/** Parent resource that exposes the standalone pivot action. */
+class PivotStandaloneParentResource extends PivotParentResource
+{
+    public static function uriKey(): string
+    {
+        return 'pivot-standalone-parents';
+    }
+
+    public function actions(Request $request): array
+    {
+        return [PivotStandaloneCountAction::make()->standalone()];
     }
 }
 
@@ -413,6 +447,46 @@ it('executes a pivot action and updates the pivot column', function () {
     foreach ($updated as $child) {
         expect($child->pivot->priority)->toBe('high');
     }
+});
+
+it('refuses a pivot action when none of its ids is attached, and runs on the attached ones otherwise', function () {
+    $parent = PivotParentModel::create(['name' => 'Parent C']);
+    $attached = PivotChildModel::create(['name' => 'Attached']);
+    $loose = PivotChildModel::create(['name' => 'Not attached']);
+    $parent->pivotChildren()->attach($attached->id, ['priority' => 'normal']);
+    $url = route('martis.api.resources.belongs-to-many.actions.execute', [
+        'resource' => 'pivot-parent-models',
+        'id' => $parent->id,
+        'relationship' => 'pivotChildren',
+        'action' => 'pivot-test-action',
+    ]);
+
+    foreach ([[$loose->id], [999]] as $ids) {
+        $this->postJson($url, ['resources' => $ids, 'fields' => ['priority' => 'high']])
+            ->assertStatus(404)
+            ->assertJsonPath('message', 'One or more selected resources could not be found.');
+    }
+    expect($parent->pivotChildren()->withPivot(['priority'])->first()->pivot->priority)->toBe('normal');
+
+    $this->postJson($url, ['resources' => [$attached->id, $loose->id], 'fields' => ['priority' => 'high']])->assertOk();
+    expect($parent->pivotChildren()->withPivot(['priority'])->first()->pivot->priority)->toBe('high');
+});
+
+it('runs a standalone pivot action on no record, whatever ids are sent, as on the resource endpoint', function () {
+    app(ResourceRegistry::class)->register(PivotStandaloneParentResource::class);
+    $parent = PivotParentModel::create(['name' => 'Parent S']);
+    $child = PivotChildModel::create(['name' => 'Attached']);
+    $parent->pivotChildren()->attach($child->id, ['priority' => 'normal']);
+
+    $this->postJson(
+        route('martis.api.resources.belongs-to-many.actions.execute', [
+            'resource' => 'pivot-standalone-parents',
+            'id' => $parent->id,
+            'relationship' => 'pivotChildren',
+            'action' => 'pivot-standalone-count',
+        ]),
+        ['resources' => [$child->id, 999]],
+    )->assertOk()->assertJsonPath('data.data.message', 'records: 0');
 });
 
 it('forbids executing a pivot action on a parent the user cannot view (IDOR)', function () {

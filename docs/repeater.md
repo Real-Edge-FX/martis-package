@@ -1,7 +1,9 @@
 # Repeater
 
 Repeatable row widget backed by JSON, a child table (HasMany), or a single
-polymorphic child table. Ships five differentials: parent-context injection
+polymorphic child table.
+
+Ships five differentials: parent-context injection
 (`dependsOn`), collapsible rows with cardinality limits, dynamic row headers,
 row templates with duplicate and bulk paste, and a polymorphic storage mode for
 page-builder-style layouts.

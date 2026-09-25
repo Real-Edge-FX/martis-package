@@ -2,29 +2,24 @@
 
 namespace Martis\Fields;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
+use Martis\Fields\Concerns\HasChoiceOptions;
 
 /**
  * Dropdown select field.
  *
- * Renders as a PrimeReact Dropdown in the React frontend.
- * Options may be a flat list of values or an associative label => value map.
- * The control can also search its options (`searchableOptions()`), accept
- * values outside the list (`allowCustomValues()`) and ask the server for
- * matches as the user types (`searchOptionsUsing()`).
+ * Renders as a PrimeReact Dropdown in the React frontend. `options()` reads
+ * `[value => label]`, the order Nova uses, and also takes a list, grouped
+ * options, an enum class or a closure (see HasChoiceOptions). The control
+ * can also search its options (`searchableOptions()`), accept values
+ * outside the list (`allowCustomValues()`) and ask the server for matches
+ * as the user types (`searchOptionsUsing()`).
  */
 class Select extends Field
 {
-    /** @var list<array{label: string, value: scalar}> */
-    protected array $options = [];
-
-    /**
-     * Lazy resolver — set when `options()` was called with a Closure
-     * instead of an array. The closure runs at schema-render time so
-     * options can pull from the DB / config / current user.
-     */
-    protected ?\Closure $optionsResolver = null;
+    use HasChoiceOptions;
 
     /**
      * Whether index/detail views render the option label or the raw
@@ -69,122 +64,19 @@ class Select extends Field
     }
 
     /**
-     * Set the available options for the select.
+     * {@inheritdoc}
      *
-     * Accepts three formats:
-     *   - Associative array: ['Active' => 1, 'Inactive' => 0]  (label => value)
-     *   - Sequential array:  ['draft', 'published', 'archived'] (value used as label too)
-     *   - Closure:           fn (Request|null $r) => User::pluck('name', 'id')->all()
-     *
-     * The closure form is evaluated lazily via `getOptions()` — perfect
-     * for options that come from the database, depend on the active
-     * user, or change per locale.
-     *
-     * @param  array<string, scalar>|list<scalar>|class-string<\UnitEnum>|\Closure(Request|null): array  $options
+     * The stored value, before `resolveUsing()`, is checked against static
+     * options (see HasChoiceOptions::warnIfStoredAsLabel()), unless the field
+     * accepts custom values, where a typed label is a legitimate value.
+     * Resolution itself stays {@see Field::resolve()}, which reads the model
+     * once and hands the value here.
      */
-    public function options(array|string|\Closure $options): static
+    protected function inspectResolvedValue(Model $model, string $attribute, mixed $value): void
     {
-        // PHP 8.1+ Enum class — derive options from cases().
-        // Backed enum: value => name (e.g. `'active' => 'Active'`).
-        // Pure enum: name => name (case acts as both label + value).
-        if (is_string($options) && enum_exists($options)) {
-            $this->optionsResolver = null;
-            $this->options = $this->normalizeEnumOptions($options);
-
-            return $this;
+        if (! $this->allowCustomValues && $this->checksStoredOptionOrder()) {
+            $this->warnIfStoredAsLabel($model, $value);
         }
-
-        if ($options instanceof \Closure) {
-            $this->optionsResolver = $options;
-            $this->options = [];
-
-            return $this;
-        }
-
-        $this->optionsResolver = null;
-        /** @var array<int|string, scalar> $options */
-        $this->options = $this->normalizeOptions($options);
-
-        return $this;
-    }
-
-    /**
-     * Build the internal label/value shape from a PHP 8.1+ Enum class.
-     *
-     * Conventions:
-     *  - **Backed enum (`enum Status: string`)** — `value` = case `value`,
-     *    `label` = case `name` humanised via `Str::headline()` so a case
-     *    `InProgress` reads as "In Progress" in the dropdown.
-     *  - **Pure enum (`enum Status`)** — `value` = case `name`, `label`
-     *    = humanised case `name`. Without backing values there is nothing
-     *    else to persist.
-     *
-     * Override the labels by re-mapping post-call if the headline
-     * transform is wrong for the consumer's domain (e.g. acronyms).
-     *
-     * @param  class-string<\UnitEnum>  $enumClass
-     * @return list<array{label: string, value: scalar}>
-     */
-    protected function normalizeEnumOptions(string $enumClass): array
-    {
-        $out = [];
-
-        foreach ($enumClass::cases() as $case) {
-            $value = $case instanceof \BackedEnum ? $case->value : $case->name;
-            $out[] = [
-                'label' => Str::headline($case->name),
-                'value' => $value,
-            ];
-        }
-
-        return $out;
-    }
-
-    /**
-     * Normalize a raw options array into the internal label/value
-     * shape. Extracted so the Closure path can reuse it.
-     *
-     * @param  array<int|string, scalar>  $raw
-     * @return list<array{label: string, value: scalar}>
-     */
-    protected function normalizeOptions(array $raw): array
-    {
-        $out = [];
-        foreach ($raw as $key => $value) {
-            if (is_int($key)) {
-                $out[] = ['label' => (string) $value, 'value' => $value];
-            } else {
-                $out[] = ['label' => $key, 'value' => $value];
-            }
-        }
-
-        return $out;
-    }
-
-    /**
-     * Define options from a stable [value => label] map.
-     *
-     * More ergonomic than `options()` when labels come from i18n, because
-     * the value (what's persisted) stays unchanged while the label can
-     * be translated:
-     *
-     *   Select::make('plan')->optionsFromMap([
-     *       'free'       => __('plan.free'),
-     *       'pro'        => __('plan.pro'),
-     *       'enterprise' => __('plan.enterprise'),
-     *   ]);
-     *
-     * @param  array<int|string, string>  $map  value => label pairs
-     */
-    public function optionsFromMap(array $map): static
-    {
-        $this->options = [];
-
-        foreach ($map as $value => $label) {
-            $this->options[] = ['label' => (string) $label, 'value' => $value];
-        }
-
-        return $this;
     }
 
     /**
@@ -267,7 +159,8 @@ class Select extends Field
      * Resolve options on the server from the user's search term instead of
      * shipping the whole list to the browser. The closure receives the raw
      * term (may be empty: the panel just opened) and the current request,
-     * and returns the same shapes `options()` accepts. Implies
+     * and returns the same shapes `options()` accepts, in the same order
+     * (`[value => label]`). Implies
      * {@see self::searchableOptions()}. Only Resource forms and Tools that
      * implement ProvidesFields expose the endpoint; anywhere else the field
      * falls back to local filtering over `getOptions()`.
@@ -295,9 +188,16 @@ class Select extends Field
     }
 
     /**
-     * Run the server-side resolver for a search term.
+     * Run the server-side resolver for a search term and normalise the
+     * result like `options()`: an array, an Arrayable (a Collection) or any
+     * other Traversable, exactly as `getOptions()` reads an `options()`
+     * closure.
      *
-     * @return list<array{label: string, value: scalar}>
+     * A non-empty list is keyed 0, 1, 2..., so the field would store a
+     * position in this search's results, which changes with the term: that
+     * logs a warning, once per field per request.
+     *
+     * @return list<array{label: string, value: int|string, group?: string}>
      */
     public function searchOptions(string $term, ?Request $request = null): array
     {
@@ -305,31 +205,37 @@ class Select extends Field
             return [];
         }
 
-        $resolved = ($this->searchOptionsResolver)($term, $request ?? $this->safeRequest());
+        $resolved = $this->resolvedOptionsToArray(
+            ($this->searchOptionsResolver)($term, $request ?? $this->safeRequest()),
+        );
 
-        if (! is_array($resolved)) {
-            return [];
+        if ($resolved !== [] && array_is_list($resolved)) {
+            $this->warnSearchedList();
         }
 
-        /** @var array<int|string, scalar> $resolved */
         return $this->normalizeOptions($resolved);
     }
 
-    /**
-     * Return the normalized options array.
-     *
-     * @return list<array{label: string, value: scalar}>
-     */
-    public function getOptions(): array
+    private function warnSearchedList(): void
     {
-        if ($this->optionsResolver !== null) {
-            $request = $this->safeRequest();
-            $resolved = ($this->optionsResolver)($request);
-
-            return is_array($resolved) ? $this->normalizeOptions($resolved) : [];
+        if ($this->optionOrderWarningsDisabled) {
+            return;
         }
 
-        return $this->options;
+        if (! $this->warnOncePerRequest('search|'.static::class.'::'.$this->attribute)) {
+            return;
+        }
+
+        Log::warning(sprintf(
+            'Martis: %s [%s]: searchOptionsUsing() returned a list, so the field stores the position of the '
+            .'picked option in that search\'s results, which changes with the term. Return [value => label], '
+            .'for example ->pluck(\'name\', \'id\'), or array_combine($values, $values). See docs/upgrading.md.',
+            class_basename(static::class),
+            $this->attribute,
+        ), [
+            'field' => static::class,
+            'attribute' => $this->attribute,
+        ]);
     }
 
     /**

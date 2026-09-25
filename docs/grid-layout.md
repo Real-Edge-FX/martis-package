@@ -286,7 +286,7 @@ public function fieldsForCreate(Request $request): array
 
         Section::make('Publication', [
             Select::make('status')
-                ->options(['draft', 'published', 'archived'])
+                ->options(['draft' => 'Draft', 'published' => 'Published', 'archived' => 'Archived'])
                 ->required()
                 ->span(6),
             DateTime::make('published_at', 'Published At')->nullable()->span(6),

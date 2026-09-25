@@ -306,7 +306,7 @@ Before v1.37.2 the two responsive values were serialised but never read, and the
 
 ## Caching
 
-Override `cacheFor()` to cache metric results:
+Metric results are cached by default through the Martis `metrics` cache layer (5 minutes, see [Cache](cache.md)). Override `cacheFor()` to give one metric its own lifetime instead:
 
 ```php
 public function cacheFor(): ?\DateTimeInterface
@@ -314,6 +314,8 @@ public function cacheFor(): ?\DateTimeInterface
     return now()->addMinutes(5);
 }
 ```
+
+A metric that overrides `cacheFor()` is cached with Laravel's `Cache::remember()` directly, outside the Martis layer, so the `metrics` kill-switch, the `?nocache` bypass and `martis:cache:clear` do not apply to it. Both paths key the result on the user the Martis guard signed in (by model and identifier; guests share one entry), the locale, the range and the filters, so a `calculate()` scoped to the user, their tenant or their permissions is never served to another user (v2.0.0+). A user whose identifier is not an int, a string or `Stringable` gets no cached entry, and `protected bool $cachePerUser = false;` shares one entry for a metric whose value is the same for everyone.
 
 ## Authorization
 
@@ -410,7 +412,7 @@ public function cacheFor(): ?\DateTimeInterface
 
 ### Global cache defaults
 
-Defaults live in `config/martis.php` under the `cache` block. Each subsystem (`metrics`, `navigation`, `dashboards`, `schema`) has its own `{enabled, ttl}` pair so an operator can flip a single layer off without touching the others. Individual metrics still win via `cacheFor()`.
+Defaults live in `config/martis.php` under the `cache` block. Each subsystem (`metrics`, `navigation`, `dashboards`, `schema`) has its own `{enabled, ttl}` pair so an operator can flip a single layer off without touching the others. Individual metrics still win via `cacheFor()`, which bypasses the layer (and its kill-switch) entirely. Every metric cache entry is per user, unless the metric sets `$cachePerUser = false`.
 
 ```php
 'cache' => [
@@ -430,7 +432,7 @@ Defaults live in `config/martis.php` under the `cache` block. Each subsystem (`m
     ],
     'schema' => [
         'enabled' => env('MARTIS_CACHE_SCHEMA_ENABLED', true),
-        'ttl'     => env('MARTIS_CACHE_SCHEMA_TTL', env('MARTIS_CACHE_SCHEMA', null)),
+        'ttl'     => env('MARTIS_CACHE_SCHEMA_TTL', env('MARTIS_CACHE_SCHEMA', 1440)),
     ],
 
     'admin_ui' => env('MARTIS_CACHE_ADMIN_UI', true),    // exposes /api/cache/* + the admin page

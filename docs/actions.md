@@ -150,6 +150,38 @@ public function actions(Request $request): array
 }
 ```
 
+### In relationship panels
+
+An inline action also appears on each row of every `HasMany`,
+`HasManyThrough` and `MorphMany` panel that lists the resource (v2.0, as in
+Nova), laid out as on the index: an action without a `group()` is an icon
+button, the grouped ones sit in the "..." menu. Each is disabled where the
+record may not run it, by the same predicate the run enforces (`canRun()`,
+then, unless the action is `standalone()`, the `runAction` policy, or
+`runDestructiveAction` for a destructive action; see
+[Authorization](#authorization)). Actions that cannot run stay visible and
+disabled, as on the index.
+
+The panel runs the action on that one record through the same modal, and
+sends the relationship with it (`viaResource`, `viaResourceId`,
+`viaRelationship`, as Nova does). The run then finds its records as that
+panel lists them: the relationship's own rows, a global scope the
+relationship removes (`->withoutGlobalScope(ArchivedScope::class)`)
+staying removed, so a row the panel shows runs even when the resource's own
+index hides it; narrowed by the resource's `scopes()` and `indexQuery()`;
+with the trashed ones when the panel offers its trashed filter
+(`softDeletes()` and `canViewTrashed()`). A record the panel does not list
+(another parent's, one those hooks hide) answers 404, and so does a
+relationship the parent does not declare, for a `standalone()` action too,
+which then runs on no record. An
+`ActionResponse::openCreate()` / `openDetail()` / `openUpdate()` answer opens
+its drawer over the page, as on the index.
+
+Each panel row carries an `_actionAuthorization` map of its inline
+actions (the index maps every action); a standalone one is checked by its
+`canRun()` alone. `BelongsToMany` /
+`MorphToMany` panels keep their pivot actions instead.
+
 ### Visibility control
 
 | Method | Effect |
@@ -389,7 +421,7 @@ class GenerateReportPdf extends Action implements ShouldQueue
                 ->default('Monthly Report')
                 ->nullable(),
             Select::make('paper_size', 'Paper Size')
-                ->options(['A4' => 'a4', 'Letter' => 'letter', 'Legal' => 'legal'])
+                ->options(['a4' => 'A4', 'letter' => 'Letter', 'legal' => 'Legal'])
                 ->default('a4'),
         ];
     }
@@ -485,7 +517,7 @@ public function fields(Request $request): array
         Textarea::make('message', 'Message')->required(),
         // Admins pick the channel; everyone else runs with `email`.
         Select::make('channel', 'Channel')
-            ->optionsFromMap(['email' => 'Email', 'sms' => 'SMS'])
+            ->options(['email' => 'Email', 'sms' => 'SMS'])
             ->default('email')
             ->canSee(fn (Request $request) => $request->user()?->isAdmin() ?? false),
         // Shown, never set by the user.
@@ -796,7 +828,7 @@ PublishPosts::make()->canSee(fn (Request $request) => $request->user()->isAdmin(
 
 ### Layer 2 — canRun()
 
-Controls whether a specific model can be acted on. Evaluated per model at execution.
+Controls whether a specific model can be acted on. Evaluated per model at execution, and for each listed row, where a row button or menu item the check refuses is disabled.
 
 ```php
 PublishPosts::make()->canRun(fn (Request $request, $model) => $model->status === 'draft');
@@ -804,7 +836,7 @@ PublishPosts::make()->canRun(fn (Request $request, $model) => $model->status ===
 
 ### Layer 3 — Policy integration
 
-The controller resolves authorization via a fallback chain on the resource's policy:
+The controller resolves authorization via a fallback chain on the resource's policy. It applies to each record, after `canRun()`, except for a `standalone()` action; each row of the index and of a relationship panel is marked with the same result, so an action the menu enables is one the run accepts. Both must allow the run: unlike Nova 5, where a `canRun()` replaces the policy, a `canRun()` grants nothing the policy refuses (see [Differentials](differentials.md)):
 
 **Normal actions** fall back through:
 1. `Policy::runAction($user)`
@@ -884,8 +916,24 @@ ActionController::execute()
   1. Resolve resource class from URI key
   2. Find action by URI key (uriKey())
   3. Check canSee() — 403 if unauthorized
-  4. Load Eloquent models by the IDs in "resources"
-  5. Check canRun() per model — 403 if any unauthorized
+  4. Load Eloquent models by the IDs in "resources", as the index lists
+     them: through the resource's scopes() and indexQuery() (trashed
+     records included when the resource soft-deletes). With viaResource /
+     viaResourceId / viaRelationship, as that panel lists them: the
+     relationship's rows (the global scopes it removes stay removed), the
+     resource's scopes() and indexQuery() by key, trashed records when the
+     panel offers its trashed filter.
+
+  4. Load Eloquent models by the IDs in "resources", through the
+     resource's scopes() and indexQuery(), grouped so an orWhere() in
+     them cannot widen the selection (trashed records included when the resource
+     soft-deletes) and, with viaResource / viaResourceId /
+     viaRelationship, only among the records that relationship reaches.
+     The action runs on the IDs that resolve, as in Nova; 404 when none
+     does, rather than running on nothing, and 422 when "resources" is
+     empty. A standalone() action loads no model (the relationship it
+     names is still checked).
+  5. Check canRun() and the policy per model: 404 if any is refused
   6. Validate the fields the request may set against their rules
      (a hidden, readonly or computed field is not validated and gets its
      default(); see "Fields the request cannot set")
@@ -927,7 +975,10 @@ Same steps 1-7 as above
 
 ExecuteAction::handle()
   1. Re-instantiate the action from its class name
-  2. Re-load models from DB by stored IDs
+  2. Re-load the models by the IDs the request resolved, without global
+     scopes, as Laravel restores a queued job's models (the request already
+     scoped them; a trashed record or one only the panel's relationship
+     reaches is handled as in a synchronous run)
   3. Capture model snapshots
   4. Call action->handle($fields, $models)
   5. Refresh models
@@ -1253,7 +1304,7 @@ Register the component in the frontend registry. The component receives `action`
 
 ## Pivot Actions
 
-A pivot action runs on records attached through a `BelongsToMany` or `MorphToMany` relationship, from that relationship's panel on the detail page: select rows, then pick the action from the panel's dropdown. `handle()` receives the related models loaded through the relationship, so each one carries its pivot row, including the pivot fields the relationship field declares:
+A pivot action runs on records attached through a `BelongsToMany` or `MorphToMany` relationship, from that relationship's panel on the detail page: select rows, then pick the action from the panel's dropdown. `handle()` receives the related models loaded through the relationship, so each one carries its pivot row, including the pivot fields the relationship field declares. The rows resolve as the panel lists them (v2.0): the relationship's own, the global scopes it removes staying removed, narrowed by the related resource's `scopes()` and `indexQuery()`, with the trashed ones when the panel offers its trashed filter; a row the panel does not list answers 404:
 
 ```php
 use Illuminate\Http\Request;
@@ -1279,7 +1330,7 @@ class SetTagPriority extends Action
     {
         return [
             Select::make('priority', 'Priority')
-                ->optionsFromMap(['low' => 'Low', 'normal' => 'Normal', 'high' => 'High'])
+                ->options(['low' => 'Low', 'normal' => 'Normal', 'high' => 'High'])
                 ->required(),
         ];
     }
@@ -1292,7 +1343,7 @@ Declare it on the relationship field to show it on that relationship's panel onl
 MorphToMany::make('Tags', 'tags', TagResource::class)
     ->fields(fn () => [
         Select::make('priority', 'Priority')
-            ->optionsFromMap(['low' => 'Low', 'normal' => 'Normal', 'high' => 'High']),
+            ->options(['low' => 'Low', 'normal' => 'Normal', 'high' => 'High']),
     ])
     ->actions(fn (Request $request) => [
         SetTagPriority::make(),
@@ -1322,7 +1373,7 @@ Running a pivot action also needs the policy a resource action checks, asked of 
 A pivot action runs like a resource action (v1.38.0+):
 
 - **Dry run.** `withDryRun()` adds a Preview button to the pivot action modal; it posts the same body with `dryRun: true`, and the modal shows what `dryRun()` returns (the related models carry their `pivot`) without running `handle()`.
-- **Queue.** An action implementing `ShouldQueue` is dispatched as `Martis\Actions\Jobs\ExecutePivotAction` (on the action's `$connection` / `$queue` when it declares them). The job reloads the selected rows through the parent's relationship, with the pivot columns the field declares, so `handle()` receives the same models it would receive synchronously.
+- **Queue.** An action implementing `ShouldQueue` is dispatched as `Martis\Actions\Jobs\ExecutePivotAction` (on the action's `$connection` / `$queue` when it declares them). The job reloads the selected rows through the parent's relationship, with the pivot columns the field declares and without global scopes (the request already resolved them as the panel lists them), so `handle()` receives the same models it would receive synchronously, a trashed one included.
 - **Action event log.** Every run writes one `ActionEvent` per selected row, `completed`, `failed` or `queued` (a queued run settles its rows when the job ends), with the parent record as `actionable`, the related record as `target` and the pivot row as `model`; `original` / `changes` hold the pivot columns the action changed. `withoutActionEvents()` and `martis.action_events.enabled` switch it off, as on the resource. See [What lands in martis_action_events](#what-lands-in-martis_action_events).
 - **Errors.** A failed run answers with the same generic message as a resource action; the exception text goes to the log and the action event, never to the response.
 

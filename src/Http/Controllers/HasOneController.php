@@ -2,6 +2,7 @@
 
 namespace Martis\Http\Controllers;
 
+use Dedoc\Scramble\Attributes\QueryParameter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
@@ -28,6 +29,7 @@ use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\RelationScope;
 
 /**
  * Controller for HasOne relationship operations.
@@ -77,6 +79,13 @@ class HasOneController extends MartisController
             return new IlluminateJsonResponse(['data' => null, 'meta' => [], 'links' => []], 200);
         }
 
+        // A record the user may not view: as Nova, which drops the whole
+        // panel, the card is hidden (`meta.hidden`), with no Create, Edit or
+        // count, so it neither shows the record nor offers a second one.
+        if (! (new $relatedResourceClass($relatedModel))->authorizedToView($request)) {
+            return new IlluminateJsonResponse(['data' => null, 'meta' => ['hidden' => true], 'links' => []], 200);
+        }
+
         $resInstance = new $relatedResourceClass($relatedModel);
 
         // ⭐ Build OfMany meta bag — "Latest of N" affordance + optional aggregate tile.
@@ -86,7 +95,14 @@ class HasOneController extends MartisController
         // rebuilt from the relation's own keys (see manyQuery()).
         $ofManyMeta = null;
         if ($hasOneField instanceof HasOneOfMany) {
-            $baseQuery = fn () => $this->manyQuery($parentModel, $relation);
+            // Counted as the related index lists them: a record its scopes()
+            // or indexQuery() hide is not part of "1 of N" or the aggregate.
+            $baseQuery = function () use ($request, $parentModel, $relation, $relatedResourceClass): Builder {
+                $query = $this->manyQuery($parentModel, $relation);
+                RelationScope::constrainByKey($request, $query, $relatedResourceClass);
+
+                return $query;
+            };
             $col = $hasOneField->getAggregateColumn();
             if ($col !== null && $col !== '*') {
                 $col = $relation->getRelated()->qualifyColumn($col);
@@ -167,11 +183,17 @@ class HasOneController extends MartisController
             'parentResourceClass' => $resourceClass,
             'relatedResourceClass' => $relatedResourceClass,
             'relation' => $relation,
+            'hasOneField' => $hasOneField,
         ] = $context;
 
-        // Guard: cannot create if one already exists
-        if ($relation->exists()) {
-            return JsonErrorResponse::serverError('A related record already exists for this relationship.')->toResponse();
+        // A HasOne holds one record: a second one is refused with a 422,
+        // whether or not the user may view the one there. The check runs
+        // again under a lock on the parent before the insert, so two
+        // concurrent creates cannot both pass it. A one-of-many card sits
+        // on a many relationship, which takes more records.
+        $single = ! $hasOneField instanceof HasOneOfMany;
+        if ($single && $relation->exists()) {
+            return $this->alreadyFilled($relationship, 'The HasOne relationship has already been filled.');
         }
 
         // Check parent resource authorizedToAdd for this related model class
@@ -209,7 +231,32 @@ class HasOneController extends MartisController
         try {
             $relatedInstance = new $relatedResourceClass($relatedModel);
             $relatedInstance->beforeSave($relatedModel, $request, creating: true);
-            $relatedModel->save();
+
+            if ($single) {
+                // Only the check and the insert hold the lock, in a
+                // transaction on the parent's own connection (a model on
+                // another connection than the default one would lock nothing
+                // in a default transaction).
+                $filled = $parentModel->getConnection()->transaction(function () use ($parentModel, $relation, $relatedModel): bool {
+                    $parentModel->newQuery()->whereKey($parentModel->getKey())->lockForUpdate()->first();
+                    if ($relation->exists()) {
+                        return true;
+                    }
+
+                    $relatedModel->save();
+
+                    return false;
+                });
+
+                if ($filled) {
+                    return $this->alreadyFilled($relationship, 'The HasOne relationship has already been filled.');
+                }
+            } else {
+                $relatedModel->save();
+            }
+
+            // After the commit, as on every other create: a job these
+            // dispatch (a notification, a search index) finds the record.
             $relatedInstance->afterSave($relatedModel, $request, creating: true);
             $this->syncDeferredWrites($relatedModel);
         } catch (QueryException $e) {
@@ -237,6 +284,7 @@ class HasOneController extends MartisController
     /**
      * Update the existing related record.
      */
+    #[QueryParameter('relatedId', description: 'The id of the record the card shows. Required: 422 without it, 409 when the relationship now holds another record (a newer one-of-many record, a replaced HasOne), so a write never lands on a record the user did not see.', required: true, type: 'string')]
     public function update(
         Request $request,
         string $resource,
@@ -256,16 +304,27 @@ class HasOneController extends MartisController
         ] = $context;
 
         // The record the card shows, so Edit / Delete write that one.
-        $relatedModel = $this->relatedRecord($hasOneField, $relation);
+        $relatedModel = $this->viewableRelatedRecord($request, $relatedResourceClass, $hasOneField, $relation);
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
+        }
+
+        // A write named for another record than the one the relationship
+        // holds now answers 409 before the policy, which is that record's.
+        if ($conflict = $this->oneRecordTargetConflict($request, $relatedModel)) {
+            return $conflict;
         }
 
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToUpdate($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        // The id is required, after the policy: a denied user gets the 403.
+        if ($missing = $this->oneRecordTargetMissing($request)) {
+            return $missing;
         }
 
         // A field hidden for the related record (canSeeForModel()) is neither
@@ -320,6 +379,7 @@ class HasOneController extends MartisController
     /**
      * Delete the related record.
      */
+    #[QueryParameter('relatedId', description: 'The id of the record the card shows. Required: 422 without it, 409 when the relationship now holds another record (a newer one-of-many record, a replaced HasOne), so a write never lands on a record the user did not see.', required: true, type: 'string')]
     public function destroy(
         Request $request,
         string $resource,
@@ -339,16 +399,27 @@ class HasOneController extends MartisController
         ] = $context;
 
         // The record the card shows, so Edit / Delete write that one.
-        $relatedModel = $this->relatedRecord($hasOneField, $relation);
+        $relatedModel = $this->viewableRelatedRecord($request, $relatedResourceClass, $hasOneField, $relation);
 
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
+        }
+
+        // A write named for another record than the one the relationship
+        // holds now answers 409 before the policy, which is that record's.
+        if ($conflict = $this->oneRecordTargetConflict($request, $relatedModel)) {
+            return $conflict;
         }
 
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToDelete($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        // The id is required, after the policy: a denied user gets the 403.
+        if ($missing = $this->oneRecordTargetMissing($request)) {
+            return $missing;
         }
 
         try {
@@ -377,7 +448,8 @@ class HasOneController extends MartisController
      * a morphMany, a through relation) keeps its own query, and so the
      * constraints written into it (`->where('paid', true)`). An Eloquent
      * one-of-many relation is narrowed to its record, so its many relation
-     * is rebuilt from its own keys; a plain where on the foreign key with
+     * is rebuilt from its own keys, without the global scopes it removes,
+     * as its record is read; a plain where on the foreign key with
      * the parent's primary key ignored a custom local key and, on a through
      * relation, matched the intermediate table's ids, so the card counted
      * and summed another parent's rows.
@@ -392,6 +464,7 @@ class HasOneController extends MartisController
         }
 
         $related = get_class($relation->getRelated());
+        $removedScopes = $relation->getQuery()->removedScopes();
 
         if ($relation instanceof HasOneOrManyThrough) {
             return $parentModel->hasManyThrough(
@@ -401,11 +474,32 @@ class HasOneController extends MartisController
                 $relation->getForeignKeyName(),
                 $relation->getLocalKeyName(),
                 $relation->getSecondLocalKeyName(),
-            )->getQuery();
+            )->getQuery()->withoutGlobalScopes($removedScopes);
         }
 
         /** @var HasOneOrMany<Model, Model, mixed> $relation */
-        return $parentModel->hasMany($related, $relation->getForeignKeyName(), $relation->getLocalKeyName())->getQuery();
+        return $parentModel->hasMany($related, $relation->getForeignKeyName(), $relation->getLocalKeyName())->getQuery()->withoutGlobalScopes($removedScopes);
+    }
+
+    /**
+     * The record the card shows and writes, when the user may view it: as
+     * in Nova, whose one-record panel is the related resource's detail view
+     * and disappears when its `view` policy denies the record (nova-dusk-suite
+     * HasOneAuthorizationTest). A record the user may not view reads as no
+     * record: the card shows empty and a write answers 404.
+     *
+     * @param  class-string<\Martis\Resource>  $relatedResourceClass
+     * @param  Relation<Model, Model, mixed>  $relation
+     */
+    private function viewableRelatedRecord(Request $request, string $relatedResourceClass, HasOne $hasOneField, Relation $relation): ?Model
+    {
+        $model = $this->relatedRecord($hasOneField, $relation);
+
+        if ($model === null || ! (new $relatedResourceClass($model))->authorizedToView($request)) {
+            return null;
+        }
+
+        return $model;
     }
 
     /**
@@ -441,7 +535,7 @@ class HasOneController extends MartisController
     /**
      * Resolve all context needed for a HasOne operation.
      *
-     * @return array{parentModel: Model, parentResourceClass: class-string<resource>, relatedResourceClass: class-string<resource>, hasOneField: HasOne, relation: EloquentHasOne<Model, Model>}|IlluminateJsonResponse
+     * @return array{parentModel: Model, parentResourceClass: class-string<resource>, relatedResourceClass: class-string<resource>, hasOneField: HasOne, relation: EloquentHasOne<Model, Model>|EloquentHasOneThrough<Model, Model, Model>|EloquentHasMany<Model, Model>}|IlluminateJsonResponse
      */
     private function resolveContext(
         Request $request,
@@ -531,19 +625,22 @@ class HasOneController extends MartisController
         /** @var class-string<resource> $relatedResourceClass */
         $relatedResourceClass = $this->registry->get($relatedResourceKey);
 
-        // Block mutations on HasOneThrough — the relationship is a traversal,
-        // there is no direct FK for Eloquent to create/update/delete on.
-        // Defence in depth: even if someone bypasses the UI, the backend
-        // refuses.
-        if ($action !== null && $hasOneField instanceof HasOneThroughField) {
-            return JsonErrorResponse::forbidden('hasOneThrough relationships are read-only.')->toResponse();
+        // A write through the relationship writes a record of the related
+        // resource, so it needs that resource's viewAny, as its own per-id
+        // endpoints do. routable() is not required: a headless resource
+        // stays usable as a relation target.
+        if ($action !== null && ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $relatedResourceClass))) {
+            return $forbidden;
         }
 
-        // The same for a plain HasOne / HasOneOfMany field declared on a
-        // hasOneThrough relationship: a create writes the parent's key into
-        // the related record's key to the intermediate model, which files the
-        // record under whichever intermediate has that id.
-        if ($action === 'create' && $relation instanceof EloquentHasOneThrough) {
+        // No create through a HasOneThrough relationship, as in Nova: it is a
+        // traversal, there is no direct FK for Eloquent to create on.
+        // Defence in depth: even if someone bypasses the UI, the backend
+        // refuses. A plain HasOne field declared on a hasOneThrough
+        // relationship is refused too. An update or a delete reaches the
+        // record the relationship holds, under the related resource's
+        // policies.
+        if ($action === 'create' && ($hasOneField instanceof HasOneThroughField || $relation instanceof EloquentHasOneThrough)) {
             return JsonErrorResponse::forbidden('Records cannot be created through a hasOneThrough relationship.')->toResponse();
         }
 
@@ -668,5 +765,15 @@ class HasOneController extends MartisController
         };
 
         return JsonErrorResponse::serverError($message)->toResponse();
+    }
+
+    /**
+     * The 422 a second record on a one-record relationship answers, with
+     * its message on the response too: the form has no input named after
+     * the relationship, so only the top-level message reaches the user.
+     */
+    private function alreadyFilled(string $relationship, string $message): IlluminateJsonResponse
+    {
+        return JsonErrorResponse::validation([$relationship => [$message]], $message)->toResponse();
     }
 }

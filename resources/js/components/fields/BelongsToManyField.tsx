@@ -20,6 +20,7 @@ import type { ActionMeta } from '@/components/Actions/ActionModal'
 import { PlusIcon, LinkSimpleIcon, LinkBreakIcon, PencilSimpleIcon, MagnifyingGlassIcon, CaretDownIcon, XIcon, LightningIcon, FloppyDiskIcon } from '@phosphor-icons/react'
 import { DataTable } from 'primereact/datatable'
 import { Column } from 'primereact/column'
+import { useEscapeLayer } from '@/lib/escapeLayers'
 
 // -------------------------------------------------------------------------
 // Modal size mapping — PHP ModalSize enum value → CSS max-width
@@ -88,6 +89,9 @@ interface BtmMeta {
   hidePerPageSelector?: boolean
   hideEditAction?: boolean
   hideDeleteAction?: boolean
+  hideSoftDeleteToggle?: boolean
+  hideRestoreAction?: boolean
+  hideForceDeleteAction?: boolean
 }
 
 function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { field: FieldDisplayProps['field']; readOnly?: boolean; formValues?: Record<string, unknown> }) {
@@ -155,6 +159,9 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
     }
   }, [openPivotGroup])
 
+  // Escape closes the pivot action group only, not a drawer the panel is in.
+  useEscapeLayer(openPivotGroup !== null, () => setOpenPivotGroup(null))
+
   const detachMutation = useMutation({
     mutationFn: (relatedId: string | number) =>
       api.delete(
@@ -211,6 +218,9 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
         canDelete={false}
         hideSearch={!!meta?.hideSearch}
         hidePerPageSelector={!!meta?.hidePerPageSelector}
+        hideSoftDeleteToggle={!!meta?.hideSoftDeleteToggle}
+        hideRestoreAction={!!meta?.hideRestoreAction}
+        hideForceDeleteAction={!!meta?.hideForceDeleteAction}
         hideViewAction
         toolbarExtras={({ selectedRows: selected }) => (
           <>
@@ -308,7 +318,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
                 style={{ color: 'var(--martis-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
                 data-pr-tooltip={tAct('edit', 'Edit')}
                 data-pr-position="top"
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-primary)')}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-accent)')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
               >
                 <PencilSimpleIcon size={16} />

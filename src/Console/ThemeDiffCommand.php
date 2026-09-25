@@ -4,17 +4,20 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
+use Martis\Support\ThemeFiles;
 
 /**
  * martis:theme:diff
  *
- * Compare a consumer's published theme CSS against the bundled package
- * tokens and report any `--martis-*` variables the consumer has not
- * defined. Useful after upgrading martis/martis when the new release
- * introduces tokens the consumer's custom theme didn't know about: the
- * fallback to the package default keeps the panel functional, but a
- * brand-conscious team usually wants to declare the new tokens
- * explicitly.
+ * Compare a consumer theme's source (`resources/css/martis/<name>.css`)
+ * against the bundled package tokens and report any `--martis-*`
+ * variables the consumer has not defined. The published copy under
+ * `public/vendor/martis/themes/` is generated from that source by
+ * `martis:publish-assets`, so it is never compared. Useful after
+ * upgrading martis/martis when the new release introduces tokens the
+ * consumer's custom theme didn't know about: the fallback to the package
+ * default keeps the panel functional, but a brand-conscious team usually
+ * wants to declare the new tokens explicitly.
  *
  * Reports three sets:
  *
@@ -53,12 +56,33 @@ class ThemeDiffCommand extends Command
             return self::FAILURE;
         }
 
-        $consumerPath = public_path('vendor/martis/themes/'.$themeName.'.css');
+        if (! ThemeFiles::isValidName($themeName)) {
+            $this->components->error("\"{$themeName}\" is not a theme name the panel loads: use letters, digits, dashes and underscores.");
+
+            return self::FAILURE;
+        }
+
+        $consumerPath = ThemeFiles::sourcePath($themeName);
         $packagePath = __DIR__.'/../../resources/css/martis.css';
 
-        if (! $filesystem->exists($consumerPath)) {
-            $this->components->error("Consumer theme not found: {$consumerPath}");
-            $this->line('  Did you forget to <fg=cyan>php artisan martis:theme '.$themeName.'</>?');
+        if (! is_link($consumerPath) && ! $filesystem->exists($consumerPath)) {
+            $this->components->error("Theme source not found: resources/css/martis/{$themeName}.css");
+
+            if ($filesystem->exists(ThemeFiles::publishedPath($themeName))) {
+                $this->line("  Only the published copy <fg=cyan>public/vendor/martis/themes/{$themeName}.css</> exists. <fg=cyan>php artisan martis:publish-assets</>");
+                $this->line('  publishes the themes from resources/css/martis/ and removes a copy that has no source, after');
+                $this->line('  backing it up to storage/app/martis/theme-backups/ (it stops instead when the copy is the theme');
+                $this->line('  martis.theme.name names, and a run with --no-wipe leaves it).');
+                $this->line("  Move it to <fg=cyan>resources/css/martis/{$themeName}.css</> to keep the theme.");
+            } else {
+                $this->line('  Did you forget to <fg=cyan>php artisan martis:theme '.$themeName.'</>?');
+            }
+
+            return self::FAILURE;
+        }
+
+        if (($reason = ThemeFiles::unreadableReason($consumerPath)) !== null) {
+            $this->components->error("Could not read resources/css/martis/{$themeName}.css: {$reason}.");
 
             return self::FAILURE;
         }
@@ -79,7 +103,8 @@ class ThemeDiffCommand extends Command
         $packageKnown = array_values(array_unique(array_merge($packageDeclared, $packageReferenced)));
         $referencedOnly = array_values(array_diff($packageReferenced, $packageDeclared));
 
-        $consumerTokens = $this->extractTokens($filesystem->get($consumerPath));
+        $consumerCss = $filesystem->get($consumerPath);
+        $consumerTokens = $this->extractTokens($consumerCss);
 
         // Missing = declared tokens the consumer hasn't overridden. Only
         // *declared* tokens are "expected"; referenced-only tokens have a
@@ -96,6 +121,7 @@ class ThemeDiffCommand extends Command
 
         $this->newLine();
         $this->components->twoColumnDetail('Theme', "<fg=cyan>{$themeName}</>");
+        $this->components->twoColumnDetail('Source', "resources/css/martis/{$themeName}.css");
         $this->components->twoColumnDetail('Package tokens (declared)', (string) count($packageDeclared));
         if ($referencedOnly !== []) {
             $this->components->twoColumnDetail(
@@ -136,7 +162,36 @@ class ThemeDiffCommand extends Command
             $this->components->twoColumnDetail('Match', '<fg=green>'.count($match).'</> (use --show-match to list)');
         }
 
+        $this->warnAboutPublishedCopy($filesystem, $themeName, $consumerCss);
+
         return $missing === [] && $unknown === [] ? self::SUCCESS : self::INVALID;
+    }
+
+    /**
+     * The panel loads the published copy, not the source: say when it is
+     * missing or out of date. The exit code stays the token drift's.
+     */
+    private function warnAboutPublishedCopy(Filesystem $filesystem, string $themeName, string $sourceCss): void
+    {
+        $published = ThemeFiles::publishedPath($themeName);
+        $relative = "public/vendor/martis/themes/{$themeName}.css";
+
+        if (! $filesystem->exists($published)) {
+            $this->newLine();
+            $this->components->warn("{$relative} is not published, so the panel cannot load this theme yet.");
+            $this->line('  Publish it with <fg=cyan>php artisan martis:publish-assets --themes-only</>.');
+
+            return;
+        }
+
+        if ($filesystem->get($published) === $sourceCss) {
+            return;
+        }
+
+        $this->newLine();
+        $this->components->warn("The published copy {$relative} differs from the source, and the panel loads the copy.");
+        $this->line('  Publish the source with <fg=cyan>php artisan martis:publish-assets --themes-only</>; a copy edited in place');
+        $this->line('  is backed up to storage/app/martis/theme-backups/ first.');
     }
 
     /**
@@ -149,7 +204,7 @@ class ThemeDiffCommand extends Command
     private function extractTokens(string $css): array
     {
         $matches = [];
-        preg_match_all('/(--martis-[a-z0-9-]+)\s*:/i', $css, $matches);
+        preg_match_all('/(--martis-[a-z0-9_-]+)\s*:/i', $this->withoutComments($css), $matches);
 
         return array_values(array_unique($matches[1]));
     }
@@ -167,8 +222,18 @@ class ThemeDiffCommand extends Command
     private function extractReferencedTokens(string $css): array
     {
         $matches = [];
-        preg_match_all('/var\(\s*(--martis-[a-z0-9-]+)/i', $css, $matches);
+        preg_match_all('/var\(\s*(--martis-[a-z0-9_-]+)/i', $this->withoutComments($css), $matches);
 
         return array_values(array_unique($matches[1]));
+    }
+
+    /**
+     * The CSS without its comments: a variable named in a comment (prose, or
+     * a declaration left commented out, like the stub's logo heights) is
+     * neither declared nor used.
+     */
+    private function withoutComments(string $css): string
+    {
+        return (string) preg_replace('~/\*.*?\*/~s', '', $css);
     }
 }

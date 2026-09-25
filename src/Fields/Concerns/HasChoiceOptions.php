@@ -1,0 +1,432 @@
+<?php
+
+namespace Martis\Fields\Concerns;
+
+use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Traversable;
+
+/**
+ * The option list of a choice field (Select, MultiSelect), in Nova's order.
+ *
+ * `options()` reads `[value => label]`: the key is what the field stores
+ * and the value is what the user sees, so `User::pluck('name', 'id')`
+ * stores the id. A list is a map keyed 0, 1, 2..., so `['Small', 'Large']`
+ * stores 0 and 1, as in Nova. A grouped option maps its value to
+ * `['label' => ..., 'group' => ...]`. Filters keep Nova's filter order,
+ * `[label => value]` (see Filter::options()).
+ *
+ * Before v2.0.0 the array was read label first; see docs/upgrading.md.
+ */
+trait HasChoiceOptions
+{
+    /** @var list<array{label: string, value: int|string, group?: string}> */
+    protected array $options = [];
+
+    /**
+     * Lazy resolver, set when `options()` receives a Closure. It runs when
+     * the options are read, so they can come from the database, the config
+     * or the current user.
+     */
+    protected ?\Closure $optionsResolver = null;
+
+    /**
+     * The values and labels of the static options, flipped for lookups and
+     * built once for warnIfStoredAsLabel(); `options()` clears it.
+     *
+     * @var array{values: array<array-key, int>, labels: array<array-key, int>}|null
+     */
+    private ?array $optionsIndex = null;
+
+    /**
+     * Whether the static options came from a list (`array_is_list()`), keyed
+     * 0, 1, 2... v1.x stored a list's items themselves, so a list of numbers
+     * (`[1, 2, 3]`, `range(1, 12)`) shifted by one position with no error:
+     * warnIfStoredAsLabel() checks such lists harder.
+     */
+    private bool $optionsFromList = false;
+
+    /**
+     * The warnings this field already logged, when no request can remember
+     * them (see warnOncePerRequest()).
+     *
+     * @var array<string, true>
+     */
+    private array $optionsOrderWarned = [];
+
+    /**
+     * Whether {@see self::warnIfStoredAsLabel()} is silenced for this field
+     * instance, set by {@see self::withoutOptionOrderWarnings()}.
+     */
+    private bool $optionOrderWarningsDisabled = false;
+
+    /**
+     * Turn off both option-order warnings for this field: the plain
+     * stored-label warning and the numeric-list shift warning. Both assume
+     * the stored value is stale data from before v2.0.0, but a field can
+     * legitimately store a valid 0-based position that also happens to read
+     * as another option's label, for example a Nova rating that stores
+     * `0..4` on purpose and shows `"1".."5"` (`[0 => '1', 1 => '2', ...]`,
+     * `array_combine(range(0, 4), range(1, 5))`, or `options([1, 2, 3, 4, 5])`
+     * ported straight from Nova): reading a stored `1` would otherwise log
+     * "stores 1, shows as 2, pass array_combine..." on every request, even
+     * though the data is correct. Call this once the array is confirmed
+     * right for the field.
+     */
+    public function withoutOptionOrderWarnings(): static
+    {
+        $this->optionOrderWarningsDisabled = true;
+
+        return $this;
+    }
+
+    /**
+     * Set the options, in Nova's order.
+     *
+     *   - Map:        ['draft' => 'Draft', 'live' => 'Live']   value => label
+     *   - List:       ['Small', 'Large']                       stores 0 and 1
+     *   - Grouped:    ['MS' => ['label' => 'Small', 'group' => 'Men Sizes']]
+     *   - Collection: User::query()->pluck('name', 'id')       any iterable or Arrayable, keys kept
+     *   - Enum:       Status::class                            a backed case stores its value
+     *   - Closure:    fn (Request|null $r) => User::query()->pluck('name', 'id')
+     *
+     * Nova 5 takes `iterable|callable|string` and reads it through
+     * `collect()`; this takes the same iterables, plus any Arrayable. The
+     * closure runs lazily in `getOptions()`. When each value is its own
+     * label, pass `array_combine($values, $values)`.
+     *
+     * @param  iterable<int|string, mixed>|Arrayable<int|string, mixed>|class-string<\UnitEnum>|\Closure(Request|null): mixed  $options
+     */
+    public function options(iterable|Arrayable|string|\Closure $options): static
+    {
+        $this->optionsIndex = null;
+        $this->optionsFromList = false;
+
+        if ($options instanceof \Closure) {
+            $this->optionsResolver = $options;
+            $this->options = [];
+
+            return $this;
+        }
+
+        $this->optionsResolver = null;
+
+        if (is_string($options)) {
+            if (! enum_exists($options)) {
+                throw new \InvalidArgumentException(sprintf(
+                    '%s [%s]: options() received [%s], which is neither an iterable, a Closure nor an enum class.',
+                    class_basename(static::class),
+                    $this->attribute,
+                    $options,
+                ));
+            }
+
+            $this->options = $this->normalizeEnumOptions($options);
+
+            return $this;
+        }
+
+        $raw = $this->resolvedOptionsToArray($options);
+        $this->optionsFromList = $raw !== [] && array_is_list($raw);
+        $this->options = $this->normalizeOptions($raw);
+
+        return $this;
+    }
+
+    /**
+     * The normalised options, running the lazy resolver when one is set. A
+     * resolver may return an array, an Arrayable (a Collection) or any other
+     * Traversable, exactly as Nova reads a closure through `collect()`; a
+     * resolver returning anything else yields no options.
+     *
+     * @return list<array{label: string, value: int|string, group?: string}>
+     */
+    public function getOptions(): array
+    {
+        if ($this->optionsResolver === null) {
+            return $this->options;
+        }
+
+        $resolved = ($this->optionsResolver)($this->safeRequest());
+
+        return $this->normalizeOptions($this->resolvedOptionsToArray($resolved));
+    }
+
+    /**
+     * Turn the options handed to `options()`, or returned by a resolver
+     * closure, into a plain array, the way Nova reads them through
+     * `collect()`: an array as-is, an Arrayable (a Collection) through
+     * `->toArray()`, any other Traversable through `iterator_to_array()`
+     * (keys kept), and anything else as no options at all.
+     *
+     * @return array<int|string, mixed>
+     */
+    private function resolvedOptionsToArray(mixed $resolved): array
+    {
+        if (is_array($resolved)) {
+            return $resolved;
+        }
+
+        if ($resolved instanceof Arrayable) {
+            return $resolved->toArray();
+        }
+
+        if ($resolved instanceof Traversable) {
+            return iterator_to_array($resolved);
+        }
+
+        return [];
+    }
+
+    /**
+     * Normalise a `[value => label]` array into the payload shape.
+     *
+     * @param  array<int|string, mixed>  $raw
+     * @return list<array{label: string, value: int|string, group?: string}>
+     */
+    protected function normalizeOptions(array $raw): array
+    {
+        $out = [];
+
+        foreach ($raw as $value => $label) {
+            $out[] = is_array($label)
+                ? $this->normalizeGroupedOption($value, $label)
+                : ['label' => $this->optionText($value, $label, 'label'), 'value' => $value];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Options from an enum class: a backed case stores its value, a pure
+     * case its name, and the label is the case name as a headline
+     * (`InProgress` reads "In Progress").
+     *
+     * @param  class-string<\UnitEnum>  $enumClass
+     * @return list<array{label: string, value: int|string}>
+     */
+    protected function normalizeEnumOptions(string $enumClass): array
+    {
+        $out = [];
+
+        foreach ($enumClass::cases() as $case) {
+            $out[] = [
+                'label' => Str::headline($case->name),
+                'value' => $case instanceof \BackedEnum ? $case->value : $case->name,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Whether warnIfStoredAsLabel() can warn at all for this field, so a
+     * caller can skip reading the stored value for nothing: a computed
+     * field stores nothing (its value cannot be stale), closure options are
+     * never run for the check, and the warnings may be turned off.
+     */
+    protected function checksStoredOptionOrder(): bool
+    {
+        return ! $this->computed
+            && $this->optionsResolver === null
+            && $this->options !== []
+            && ! $this->optionOrderWarningsDisabled;
+    }
+
+    /**
+     * Warn when a stored value matches the label of an option and the value
+     * of none: the sign of an options array still written label first (the
+     * order before v2.0.0), or of a record saved while it was. Saving such a
+     * record again would store the wrong value, so the warning is logged in
+     * production too, once per model class and field per request. Only
+     * static options are checked: a closure never runs just for this. The
+     * caller passes the stored value, never what `resolveUsing()` made of it.
+     *
+     * Static options from a list are checked harder: v1.x stored the items of
+     * `[1, 2, 3]` themselves, v2.0 stores their positions, so a stored 1 is
+     * still a valid value (it now shows "2"). A stored value that is the
+     * label of an option whose own value differs warns too; a list whose
+     * labels equal their positions (`range(0, n)`) or are not numbers
+     * (`['Small', 'Large']`) never matches.
+     */
+    protected function warnIfStoredAsLabel(Model $model, mixed $value): void
+    {
+        if (! $this->checksStoredOptionOrder()) {
+            return;
+        }
+
+        $stored = array_filter(
+            is_array($value) ? $value : [$value],
+            static fn (mixed $item): bool => is_scalar($item) && $item !== '',
+        );
+
+        if ($stored === []) {
+            return;
+        }
+
+        $this->optionsIndex ??= [
+            'values' => array_flip(array_map(static fn (array $option): string => (string) $option['value'], $this->options)),
+            'labels' => array_flip(array_column($this->options, 'label')),
+        ];
+
+        foreach ($stored as $item) {
+            $item = (string) $item;
+
+            if (! isset($this->optionsIndex['labels'][$item])) {
+                continue;
+            }
+
+            if (! isset($this->optionsIndex['values'][$item])) {
+                $this->logStoredAsLabel($model, $item, null);
+
+                return;
+            }
+
+            $labelled = $this->options[$this->optionsIndex['labels'][$item]];
+
+            if ($this->optionsFromList && (string) $labelled['value'] !== $item) {
+                $shown = $this->options[$this->optionsIndex['values'][$item]]['label'];
+                $this->logStoredAsLabel($model, $item, $shown);
+
+                return;
+            }
+        }
+    }
+
+    /**
+     * One grouped option in Nova's format. Any other array is rejected:
+     * before v2.0.0 a MultiSelect group was `['Group' => ['Label' => 'value']]`,
+     * which Nova's order reads as an option whose value is the group name.
+     *
+     * @param  array<array-key, mixed>  $entry
+     * @return array{label: string, value: int|string, group?: string}
+     */
+    private function normalizeGroupedOption(int|string $value, array $entry): array
+    {
+        if (! array_key_exists('label', $entry) || array_diff(array_keys($entry), ['label', 'group']) !== []) {
+            throw new \InvalidArgumentException(sprintf(
+                '%s [%s]: the option [%s] maps to an array that is not a grouped option. '
+                .'Since v2.0.0 options() reads [value => label], as Nova does; '
+                ."a grouped option is [value => ['label' => ..., 'group' => ...]]. See docs/upgrading.md.",
+                class_basename(static::class),
+                $this->attribute,
+                $value,
+            ));
+        }
+
+        $option = ['label' => $this->optionText($value, $entry['label'], 'label'), 'value' => $value];
+
+        $group = $entry['group'] ?? null;
+        if ($group !== null && $group !== '') {
+            $option['group'] = $this->optionText($value, $group, 'group');
+        }
+
+        return $option;
+    }
+
+    /** A label or group name as text; anything that cannot be a string is rejected. */
+    private function optionText(int|string $value, mixed $text, string $what): string
+    {
+        if (is_scalar($text) || $text === null || $text instanceof \Stringable) {
+            return (string) $text;
+        }
+
+        throw new \InvalidArgumentException(sprintf(
+            '%s [%s]: the %s of option [%s] must be a string, got %s.',
+            class_basename(static::class),
+            $this->attribute,
+            $what,
+            $value,
+            get_debug_type($text),
+        ));
+    }
+
+    /**
+     * @param  string|null  $shownAs  the label the value shows as now, when it
+     *                                is also a valid position in a list
+     */
+    private function logStoredAsLabel(Model $model, string $value, ?string $shownAs): void
+    {
+        if (! $this->warnOncePerRequest($model::class.'|'.static::class.'::'.$this->attribute)) {
+            return;
+        }
+
+        $id = $model->getKey();
+
+        $message = $shownAs === null
+            ? sprintf(
+                'Martis: %s #%s stores "%s" in %s [%s], which matches an option label and no option value. '
+                .'Since v2.0.0 options() reads [value => label], as Nova does: flip the options array, '
+                .'or fix the stored value if the record was saved while the array listed the label first. '
+                .'If the stored value is correct on purpose, call withoutOptionOrderWarnings() on this field. '
+                .'See docs/upgrading.md.',
+                $model::class,
+                is_scalar($id) ? (string) $id : '?',
+                $value,
+                class_basename(static::class),
+                $this->attribute,
+            )
+            : sprintf(
+                'Martis: %s #%s stores "%s" in %s [%s], which is the label of another option of a list, so it shows as "%s". '
+                .'Since v2.0.0 a list is keyed 0, 1, 2..., as in Nova, and v1.x stored the items themselves: '
+                .'pass array_combine($values, $values) to keep storing them, or fix the stored value. '
+                .'If the stored value is correct on purpose (e.g. a deliberate 0-based list), call '
+                .'withoutOptionOrderWarnings() on this field. See docs/upgrading.md.',
+                $model::class,
+                is_scalar($id) ? (string) $id : '?',
+                $value,
+                class_basename(static::class),
+                $this->attribute,
+                $shownAs,
+            );
+
+        Log::warning($message, [
+            'model' => $model::class,
+            'key' => is_scalar($id) ? $id : null,
+            'field' => static::class,
+            'attribute' => $this->attribute,
+            'value' => $value,
+        ]);
+    }
+
+    /**
+     * Whether the warning under `$key` is the first one in this request, and
+     * record it. The request remembers it, so every field instance built in
+     * the request shares it and a fresh request (Octane) warns again; with
+     * no request (a queue job, a raw script) this field instance does.
+     */
+    protected function warnOncePerRequest(string $key): bool
+    {
+        // Without an application (unit tests, raw scripts) there is no log.
+        if (! app()->bound('log')) {
+            return false;
+        }
+
+        $request = $this->safeRequest();
+
+        if ($request === null) {
+            if (isset($this->optionsOrderWarned[$key])) {
+                return false;
+            }
+
+            $this->optionsOrderWarned[$key] = true;
+
+            return true;
+        }
+
+        /** @var array<string, true> $warned */
+        $warned = $request->attributes->get('martis.options_order_warned', []);
+
+        if (isset($warned[$key])) {
+            return false;
+        }
+
+        $warned[$key] = true;
+        $request->attributes->set('martis.options_order_warned', $warned);
+
+        return true;
+    }
+}

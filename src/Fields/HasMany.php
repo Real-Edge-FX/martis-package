@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Martis\Enums\HasManyIndexDisplay;
 use Martis\Enums\HasManyRedirectMode;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
+use Martis\Fields\Concerns\CountsScopedRelation;
 use Martis\Fields\Concerns\ResolvesRelatableOptions;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -36,6 +37,7 @@ use Martis\ResourceRegistry;
 class HasMany extends Field
 {
     use ControlsRelationshipToolbar;
+    use CountsScopedRelation;
     use ResolvesRelatableOptions;
 
     /** Eloquent relationship method name on the parent model. */
@@ -217,12 +219,6 @@ class HasMany extends Field
         return $this;
     }
 
-    /** Whether the panel offers Create (see canCreate()). */
-    public function canCreateRelated(): bool
-    {
-        return $this->canCreateRelated;
-    }
-
     /** Configure whether edit actions are shown. */
     public function canUpdate(bool $value = true): static
     {
@@ -359,7 +355,7 @@ class HasMany extends Field
         if ($this->showOnIndex) {
             $method = $this->relationship;
             if (method_exists($model, $method)) {
-                return $model->{$method}()->count();
+                return $this->scopedRelationCount($model);
             }
         }
 
@@ -379,6 +375,11 @@ class HasMany extends Field
     {
         $relatedAuth = $this->relatedResourceAuthorizations($this->getRelatedResourceKey());
         $authorizedToCreate = $relatedAuth['authorizedToCreate'] ?? true;
+        // Every write through the relationship (and the related resource's
+        // own restore / force-delete endpoints) needs the related viewAny,
+        // so a panel whose related resource denies it offers none of them;
+        // it still lists the records.
+        $canWrite = $relatedAuth['authorizedToViewAny'] ?? true;
 
         return [
             'relationship' => $this->relationship,
@@ -395,10 +396,10 @@ class HasMany extends Field
                 'perPage' => $this->resolvePerPage(),
                 'perPageOptions' => $this->resolvePerPageOptions(),
                 'searchable' => $this->relationSearchable,
-                'canCreate' => $this->canCreateRelated && $authorizedToCreate,
-                'canUpdate' => $this->canUpdateRelated,
-                'canDelete' => $this->canDeleteRelated,
-            ] + $this->relationshipToolbarControls(),
+                'canCreate' => $this->canCreateRelated && $authorizedToCreate && $canWrite,
+                'canUpdate' => $this->canUpdateRelated && $canWrite,
+                'canDelete' => $this->canDeleteRelated && $canWrite,
+            ] + ($canWrite ? [] : ['hideRestoreAction' => true, 'hideForceDeleteAction' => true]) + $this->relationshipToolbarControls(),
         ] + $relatedAuth + $this->relatableOptionsMeta();
     }
 }

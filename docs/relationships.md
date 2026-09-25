@@ -1,6 +1,6 @@
 # Relationships
 
-This guide covers all relationship field types in Martis and how to use them.
+Martis has a field for every Eloquent relationship, from `BelongsTo` and `HasMany` to the polymorphic `MorphTo` and `MorphToMany`. This guide covers how each one is declared, how it renders (a picker, a card or an inline panel) and how it is authorized.
 
 ## Overview
 
@@ -33,7 +33,28 @@ the panel's UI. Visibility composes with authorization as:
     visible = authorized AND NOT hidden
 
 Authorization is always the source of truth — the setters cannot *force*
-something to appear. Unauthorized actions are never shown.
+something to appear. Unauthorized actions are never shown. An action is
+authorized when the field allows it (`canCreate()` / `canUpdate()` /
+`canDelete()`) and, for an action on a listed record (View, Edit, Delete,
+Restore, Force delete on a row, Edit and Delete on a `HasOne` / `MorphOne`
+card), when the related resource's policy allows it for that record: each
+record carries those answers under `_authorization`, and a record without them
+keeps the action, as on the resource index. The id column links to the record
+only when its `authorizedToView` allows it (v2.0).
+
+When the related resource denies `viewAny`, a `HasMany` / `HasOne` /
+`MorphMany` / `MorphOne` panel still lists its records but offers no Create,
+Edit, Delete, Restore or Force delete (v2.0): every one of those writes needs
+the related `viewAny` (see
+[Authorization → `viewAny` is the entry gate](authorization.md#viewany-is-the-entry-gate)).
+Nova 1 to 3 hid such a panel; Nova 4/5 does not document it, so Martis keeps
+the 1.x listing and only drops the actions that would answer 403.
+
+On `BelongsToMany` / `MorphToMany` the row's own View / Edit / Delete are
+replaced by Detach and the pivot edit (which `hideDeleteAction()` /
+`hideEditAction()` hide), so `hideViewAction()` has nothing to hide;
+`hideSoftDeleteToggle()`, `hideRestoreAction()` and `hideForceDeleteAction()`
+apply there too since v2.0 (1.x ignored them on these panels).
 
 | Setter | Hides |
 |--------|-------|
@@ -99,7 +120,10 @@ narrow tab wraps even when the window is wide.
 4. **`pivotFields`** — `BelongsToMany` and `MorphToMany` only. Each pivot
    column reads its value from `row._pivot.{attribute}`.
 5. **Actions column** — View / Edit / Delete, plus Restore and Force-delete
-   on trashed rows, plus any `rowActionsExtras(row)` the consumer returns.
+   on trashed rows, plus any `rowActionsExtras(row)` the consumer returns,
+   plus (on `HasMany` / `HasManyThrough` / `MorphMany`, v2.0) the related
+   resource's inline actions menu, as on its index (see
+   [Actions → In relationship panels](actions.md#in-relationship-panels)).
    The column **auto-collapses** when a row would render **zero** actions: a
    fully read-only panel (all row actions hidden/unauthorized, and for pivot
    relations `canAttach(false)` + `canDetach(false)` with no pivot editing)
@@ -163,6 +187,22 @@ on the create page, and the page's record in a create drawer or modal opened
 over another record, so a Replicate drawer listed, and attached to, the record
 it copies.
 
+### How a panel finds its parent record
+
+Every panel endpoint checks the resource's `viewAny`, finds the record in the
+URL (`{resource}/{id}`), then checks `view` on it. The lookup differs by panel:
+
+| Endpoints | The parent is found |
+|-----------|---------------------|
+| The `BelongsToMany` panel: its list, attachable list, attach, detach and pivot update | Through the resource's `scopes()` and `indexQuery()`, as its index lists it: a parent they hide answers `404`, like a missing one, even for a resource with no policy. |
+| The pivot routes of the `BelongsToMany` and `MorphToMany` panels: the pivot actions, their fields and pickers, and the pickers of the pivot fields | The same way. |
+| The `HasMany`, `HasOne`, `MorphMany` and `MorphOne` panels, and the list, attachable list, attach, detach and pivot update of the `MorphToMany` panel | By its key alone, as its detail page finds it: the parent's `view` policy decides, as in Nova's model, so a record the index hides is reachable there when the policy allows it. |
+
+A resource that confines its records with `scopes()` or `indexQuery()`
+confines these parents with its `view` policy too. `scopes()` joined the first
+two rows in v2.0 (they ran `indexQuery()` alone). See [Authorization →
+Declarative query scopes](authorization.md#declarative-query-scopes).
+
 ---
 
 ## Soft-delete filter
@@ -184,6 +224,18 @@ The default state comes from `config/martis.php` under the `index` block:
 
 Visibility follows the usual gate — `Resource::canViewTrashed()` must return
 `true` (default) AND the programmer must not call `->hideSoftDeleteToggle()`.
+
+The filter applies on every panel, the `BelongsToMany` and `MorphToMany`
+ones included (v2.0; before, their endpoints ignored `?trashed`, so *Only
+trashed* listed the active records). Nova's `BelongsToMany` panel has the
+same filter ([nova-dusk-suite: UpdateAttachedSoftDeletingTest](https://github.com/laravel/nova-dusk-suite/blob/10.4/tests/Browser/UpdateAttachedSoftDeletingTest.php)).
+
+Every panel also lists only the rows the related resource's index would:
+its `scopes()` and `indexQuery()` apply (v2.0), within the relationship's
+own definition: a global scope the relationship removes
+(`->withoutGlobalScope(ArchivedScope::class)`, `->withoutGlobalScopes()`)
+stays removed on the panel and in its counts. See
+[Resources → indexQuery()](resources.md#indexquery).
 
 ---
 
@@ -310,7 +362,7 @@ BelongsToMany::make('Members', 'members')
     ])
 ```
 
-The field is looked up in the relationship's `fields()` only (a `Repeater` row among them included, see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)), so its related resource, `relatableQueryUsing()` and `withoutTrashed()` apply, and the parent resource is the source of the `relatable{PluralModelName}()` hook, as for the panel's pivot actions. The two routes are gated like the panel: `viewAny` on the resource, the parent record found through its `indexQuery()`, `view` on it, and `{relationship}` resolved only to a relationship field of the route's type the resource declares. Then like the operation the modal performs:
+The field is looked up in the relationship's `fields()` only (a `Repeater` row among them included, see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)), so its related resource, `relatableQueryUsing()` and `withoutTrashed()` apply, and the parent resource is the source of the `relatable{PluralModelName}()` hook, as for the panel's pivot actions. The two routes are gated like the panel: `viewAny` on the resource, the parent record found through its `scopes()` and `indexQuery()` (a parent they hide answers 404), `view` on it, and `{relationship}` resolved only to a relationship field of the route's type the resource declares. Then like the operation the modal performs:
 
 - the attach modal needs `authorizedToAttachAny()` for the related model (the `attachAny{Model}` policy ability), as the list of records to attach and the attach itself do: no record is picked yet, and the attach then checks `attach{Model}` for each one;
 - the pivot edit modal needs `authorizedToUpdatePivot()` for that record (`updatePivot{Model}`, falling back to `update`), as the pivot update does.
@@ -467,6 +519,74 @@ Note the static factory `HasOne::ofMany($name, $relationship, $resourceClass)`
 promotes a `hasMany()->latestOfMany()` relation into a
 [`HasOneOfMany`](#hasoneofmany) field.
 
+**The card is the related record's detail view (v2.0).** As in Nova, which
+hides the panel when the related `view` policy denies the record
+([nova-dusk-suite: HasOneAuthorizationTest](https://github.com/laravel/nova-dusk-suite/blob/10.4/tests/Browser/HasOneAuthorizationTest.php);
+Nova reads it with a detail query),
+a `HasOne`, `HasOneOfMany`, `HasOneThrough`, `MorphOne` or `MorphOneOfMany`
+card shows its record only when the user may `view` it. When the policy
+denies the record the card is not rendered at all, as Nova drops the panel:
+no heading, no Create (which would add a second record to a `HasOne`), no
+Edit, no count. The card's endpoint answers `data: null` with
+`meta.hidden: true` then (a card with no record answers `data: null` alone),
+and its Edit and Delete answer 404.
+
+**A write names the record the card shows (v2.0).** `PUT` and `DELETE` on
+`/api/resources/{resource}/{id}/has-one/{relationship}` (and `morph-one`)
+take the id of the record the card displays as `?relatedId=`, which the card
+sends. When the relationship holds another record by then (a newer
+one-of-many record, a `HasOne` replaced, another record through a
+`HasOneThrough`) the write answers `409` (`The record changed since the card
+loaded; reload to see it.`) and touches nothing; the card reloads and shows
+the message. Without the id the write answers `422`. The checks run in this
+order: `404` when the user may not view the record the relationship holds
+(whatever id is sent), `409` when the id names another record (before the
+policy, which is the current record's: the request was for the other one),
+`403` when the policy denies the write, then `422` when the id is missing
+(so a denied user gets the `403` either way). The
+card keeps the id it showed when Delete was clicked: a reload while the
+confirmation is open (the window regaining focus) does not change which
+record the confirm names. Before v2.0 the write went to whatever record the
+relationship held at that moment, so a Delete could remove a record the user
+had not seen.
+
+Nova's `HasOne` panel is the related resource's detail component
+([nova-dusk-suite `tests/Browser/HasOneAuthorizationTest.php`](https://github.com/laravel/nova-dusk-suite/blob/10.4/tests/Browser/HasOneAuthorizationTest.php)).
+Its delete endpoint deletes the ids it receives
+(`DELETE /nova-api/{resource}?resources[]={id}`, sent with `viaResource`,
+`viaResourceId` and `viaRelationship`) without comparing them with the
+relationship
+([laravel/nova-issues#6364](https://github.com/laravel/nova-issues/issues/6364)).
+Martis compares them and answers `409` when the record is no longer the one
+the relationship holds: the record is not the one the card stands for any
+more, and the user sees the current one before deciding.
+
+**A `HasOne` or `MorphOne` takes one record.** Creating a second one through
+the card's endpoint answers `422` (`The HasOne relationship has already been
+filled.`, Nova's wording for a `HasOne`,
+[nova-dusk-suite lang](https://raw.githubusercontent.com/laravel/nova-dusk-suite/10.4/lang/vendor/nova/en.json);
+a `MorphOne` answers the same sentence with its own name, which is Martis's),
+also as the response's `message`, whether or not the user may view the
+record already there, and checks again under a lock on the parent before it
+writes, so two concurrent creates cannot both succeed. Only that check and
+the insert run in the lock's transaction (the model's own `saving` /
+`created` events fire inside it): the related resource's `afterSave()` and
+the deferred writes of the form (a `Tag`, a `Repeater`) run after the
+commit, as on every other create, so a job they dispatch finds the record.
+A one-of-many card's create opens no transaction. Nova hides the
+Create button once a record exists
+([HasOneRelationTest](https://github.com/laravel/nova-dusk-suite/blob/10.4/tests/Browser/HasOneRelationTest.php)).
+Before v2.0 it answered `500`. A one-of-many card sits on a many
+relationship and takes more records. Like the resource's own detail page, the card does not apply the related
+resource's `indexQuery()`; the one-of-many "1 of N" count and the
+`aggregateVia()` tile, which count a list, do (see below).
+
+**Divergence from Nova: a trashed record.** Nova reads a `HasOne` without
+global scopes, so its panel shows a soft-deleted record
+([nova-issues discussion #4120](https://github.com/laravel/nova-issues/discussions/4120));
+a Martis card reads it through the relationship, whose `SoftDeletes` scope
+leaves a trashed record out, so the card shows none.
+
 ---
 
 ## HasOneOfMany
@@ -498,17 +618,17 @@ See [fields.md § HasOneOfMany](fields.md#hasoneofmany) for the full API.
 
 **⭐ Martis differentials:**
 
-- **"Latest of N" pill** appears automatically on the detail panel next to the section heading (`1 de 12`), surfacing the size of the underlying collection.
+- **"Latest of N" pill** appears automatically on the detail panel next to the section heading (`1 de 12`), surfacing the size of the underlying collection. It and the `aggregateVia()` tile count the records the related resource's index would list (its `scopes()` and `indexQuery()`, v2.0), so a hidden record is not counted.
 - `latestByTimestamp()` / `oldestByTimestamp()` avoid the verbose `->ofMany('created_at', 'max')` boilerplate.
 - `aggregateVia()` surfaces a metric tile with the full collection aggregate.
 
-On an Eloquent one-of-many relation (`latestOfMany()`, `ofMany()`), the pill and the tile cover every related row of the parent: the constraints written into that relation do not apply to them.
+On an Eloquent one-of-many relation (`latestOfMany()`, `ofMany()`), the pill and the tile cover every related row of the parent: the constraints written into that relation do not apply to them. The global scopes it removes (`->withoutGlobalScope(...)`) stay removed, as for its record.
 
 ---
 
 ## HasOneThrough
 
-Shows a single distant record reached through an intermediate model. Rendered visually like `HasOne`, but **read-only** (Create/Edit/Delete default to `false`; the UI hides those buttons).
+Shows a single distant record reached through an intermediate model. Rendered visually like `HasOne`, but, as in Nova, **without Create**: a record cannot be created through the relationship. Edit and Delete work as on `HasOne`.
 
 ```php
 use Martis\Fields\HasOneThrough;
@@ -532,13 +652,24 @@ public function accountManager(): HasOneThrough
 ```
 
 See [fields.md § HasOneThrough](fields.md#hasonethrough) for the full API.
-All `HasOne` methods are inherited; `canCreate/canUpdate/canDelete` default to
-`false`. `throughBreadcrumb(bool)` ⭐ adds a "through" hint next to the
-section heading.
+All `HasOne` methods are inherited, except that `canCreate()` has no effect
+(`canCreate(true)` logs a warning naming the field, once per request).
+`throughBreadcrumb(bool)` ⭐ adds a "through" hint next to the section heading.
+
+The relationship has no foreign key of its own to write, so the `has-one`
+endpoints refuse a create through it: `POST
+/api/resources/{resource}/{id}/has-one/{relationship}` answers 403 (`Records
+cannot be created through a hasOneThrough relationship.`), also when the
+relationship is declared with a plain `HasOne` (or `HasOneOfMany`) field.
+Create the record from its own resource. `PUT` and `DELETE` on the same URL
+work as on `HasOne`: they reach the record the relationship holds, under the
+related resource's `update` / `delete` policies, and the card leaves out the
+Edit or Delete a policy denies for that record. Coming from 1.x, see
+[Upgrading the Through fields from 1.x](#upgrading-the-through-fields-from-1x).
 
 **⭐ Martis differentials:**
 
-- Read-only defaults prevent misleading Create/Edit/Delete UI on traversal relationships.
+- No create through the relationship, as in Nova, and enforced: the `has-one` endpoints refuse one (403).
 - `throughBreadcrumb()` hint describes the intermediate hop without a custom tooltip.
 
 ---
@@ -588,7 +719,7 @@ Inherits every `MorphOne` method plus the OfMany extras (`latestByTimestamp` / `
 
 ## HasManyThrough
 
-Inline DataTable of many records reached through an intermediate. Read-only (Create/Edit/Delete default to `false`). A create through a `hasManyThrough` relationship answers 403 (v1.39.2+) unless the field calls `canCreate(true)`, which is meant for an app that sets the record's key to the intermediate itself: without that, the record is filed under another intermediate (see [fields.md § HasManyThrough](fields.md#hasmanythrough)).
+Inline DataTable of many records reached through an intermediate. As in Nova, **without Create**: a record cannot be created through the relationship. The rows keep View, Edit, Delete, Restore and Force delete, as on `HasMany`.
 
 ```php
 use Martis\Fields\HasManyThrough;
@@ -616,13 +747,74 @@ public function managedProjects(): HasManyThrough
 ```
 
 See [fields.md § HasManyThrough](fields.md#hasmanythrough) for the full API.
-All `HasMany` methods are inherited; `canCreate/canUpdate/canDelete` default
-to `false`. Adds `throughBreadcrumb(bool)` ⭐ and `countBadge(bool)` ⭐.
+All `HasMany` methods are inherited, except that `canCreate()` has no effect
+(`canCreate(true)` logs a warning naming the field, once per request).
+Adds `throughBreadcrumb(bool)` ⭐ and `countBadge(bool)` ⭐.
+
+The relationship has no foreign key of its own to write: a create through it
+would put the parent's key in the related record's key to the intermediate
+model (`client_id` above), filing the project under whichever client has that
+id. The `has-many` endpoints therefore refuse a create through it: `POST
+/api/resources/{resource}/{id}/has-many/{relationship}` answers 403 (`Records
+cannot be created through a hasManyThrough relationship.`), also when the
+relationship is declared with a plain `HasMany` field. Create the projects from
+their own resource. `PUT` and `DELETE …/has-many/{relationship}/{relatedId}`
+work as on `HasMany`: they reach a project the relationship holds (404 for any
+other), under the related resource's `update` / `delete` policies, and a row
+leaves out the actions a policy denies for its record.
 
 **⭐ Martis differentials:**
 
-- Read-only defaults.
+- No create through the relationship, as in Nova, and enforced: the `has-many` endpoints refuse one (403).
 - `countBadge` brings the count affordance to Through fields (in addition to `showRelationCount` on `HasMany`).
+
+### Upgrading the Through fields from 1.x
+
+Martis 2.0 aligns `HasOneThrough` and `HasManyThrough` with Nova. In 1.x:
+
+- the `has-many` endpoints took a create through a `hasManyThrough`
+  relationship and filed the new record under whichever intermediate had the
+  parent's id, and so did the `has-one` endpoints when a plain `HasOne` field
+  declared a `hasOneThrough` one;
+- `canCreate()` brought the Create button back on a Through panel, and a plain
+  `HasMany` / `HasOne` field declaring a Through relationship showed it by
+  default;
+- the Through panels hid Edit and Delete by default (`canUpdate` /
+  `canDelete` started as `false`), and the `has-one` endpoints refused an
+  update or a delete through a `HasOneThrough` field (403). The
+  `HasManyThrough` panel already showed Restore and Force delete on trashed
+  rows, for every record.
+
+In 2.0 a create through a Through relationship answers 403 and the panels never
+offer Create, while Edit and Delete show as on `HasOne` / `HasMany`. Restore and
+Force delete on `HasManyThrough` do not change. Every row and card action now
+also follows the related resource's policy for its record: an action the policy
+denies for a record is left out.
+
+What to do:
+
+- The upgrade rebuilds the schema cache, whose keys carry the installed
+  Martis version. On a path repository, whose version does not change, clear
+  it (`php artisan martis:cache:clear schema`): until it is rebuilt a panel
+  keeps the actions it offered in 1.x.
+- To keep the 1.x panel, hide Edit and Delete on the field:
+  `->canUpdate(false)->canDelete(false)`. The endpoints still follow the
+  policies: deny `update` / `delete` there to refuse those writes.
+- Create the related records from their own resource (its create page, or
+  `POST /api/resources/{related}`). An API client that created them through
+  `…/has-many/{relationship}` or `…/has-one/{relationship}` of a Through
+  relationship now gets a 403 there.
+- Declare a Through relationship with `HasOneThrough` / `HasManyThrough`. A
+  plain `HasMany` / `HasOne` field on one still shows Create, and its request
+  now answers 403.
+- Drop `canCreate()` from Through fields. It no longer does anything; it
+  stays callable, so a resource that still calls it keeps loading, and
+  `canCreate(true)` logs a warning naming the field, once per request
+  (`Log::warning`, on the default log channel).
+- If a panel offered Create on a Through relationship in your app, check the
+  records created from it: the create wrote the parent's id into the
+  relationship's second key (for `TeamMember::managedProjects()` above, the
+  project's `client_id`).
 
 ---
 
@@ -711,6 +903,7 @@ The hardening pass codified the contract every relationship surface guarantees. 
 | Pivot actions listed, described and run per panel; `{relationship}` resolves only to a declared field of the route's type | n/a | n/a | ✅ | n/a | n/a | ✅ |
 | Authorization — `authorizedToCreate` / view / detach respected | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `attachAny{Model}` gates the list of records to attach, the attach and the attach modal's pivot pickers; `attach{Model}` then decides per record | n/a | n/a | ✅ | n/a | n/a | ✅ |
+| Parent record found through the resource's `scopes()` + `indexQuery()` (else by key, the `view` policy deciding; see [How a panel finds its parent record](#how-a-panel-finds-its-parent-record)) | policy | policy | ✅ | policy | policy | pivot routes only |
 
 ### Pivot data API (BelongsToMany & MorphToMany)
 

@@ -89,6 +89,15 @@ final class JsonErrorResponse
     }
 
     /**
+     * Build a 409 Conflict response (the target changed since the client
+     * read it).
+     */
+    public static function conflict(string $message): self
+    {
+        return new self($message, [], 409);
+    }
+
+    /**
      * Build a 403 Forbidden response (authorization denied).
      */
     public static function forbidden(string $message = 'This action is unauthorized.'): self

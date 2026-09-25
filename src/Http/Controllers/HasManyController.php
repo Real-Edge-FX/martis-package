@@ -94,6 +94,10 @@ class HasManyController extends MartisController
             }
         }
 
+        // The related resource's scopes() and indexQuery() hide rows here as
+        // on its index (tenancy, visibility), as Nova's relationship index.
+        $this->scopeRelationQuery($request, $query, $relatedResourceClass, byKey: $relation instanceof EloquentHasManyThrough);
+
         // Apply search using the related resource's search pipeline
         $rawSearch = $request->query('search', '');
         $search = trim(is_string($rawSearch) ? $rawSearch : '');
@@ -109,6 +113,10 @@ class HasManyController extends MartisController
         // orders the rows.
         $this->applyRequestedSort($request, $query, $relatedResourceClass, qualifyJsonPaths: $relation instanceof HasOneOrManyThrough);
 
+        // The relationship counts of the related rows' index columns, scoped
+        // and aggregated in this query.
+        $this->withScopedRelationCounts($request, $query, Field::filterForContext((new $relatedResourceClass)->fieldsForIndex($request), FieldContext::INDEX));
+
         // Pagination
         $perPage = $this->requestedPerPage($request, 10);
 
@@ -118,16 +126,27 @@ class HasManyController extends MartisController
         // intermediate's id, timestamps and deleted_at overwrote the record's.
         $paginator = $relation->paginate($perPage);
 
+        // The panel offers the related resource's inline row actions, as
+        // the resource index does, so each row carries whether each may run
+        // on it (its inline actions).
+        $actionAuthorization = $this->rowActionAuthorizer($request, $relatedResourceClass, inlineOnly: true);
+
         /** @var list<array<string, mixed>> $data */
         $data = array_values(
-            collect($paginator->items())->map(function (Model $model) use ($relatedResourceClass, $request): array {
+            collect($paginator->items())->map(function (Model $model) use ($relatedResourceClass, $request, $actionAuthorization): array {
                 $res = new $relatedResourceClass($model);
 
-                return $this->serializeModel(
+                $row = $this->serializeModel(
                     $res,
                     Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX),
                     $model,
                 );
+
+                if ($actionAuthorization !== null) {
+                    $row['_actionAuthorization'] = $actionAuthorization($model, is_array($row['_authorization'] ?? null) ? $row['_authorization'] : []);
+                }
+
+                return $row;
             })->all()
         );
 
@@ -458,17 +477,22 @@ class HasManyController extends MartisController
         /** @var class-string<resource> $relatedResourceClass */
         $relatedResourceClass = $this->registry->get($relatedResourceKey);
 
-        // A create through a hasManyThrough writes the parent's key into the
-        // related record's key to the intermediate model, which files the
-        // record under whichever intermediate has that id. Refused, unless a
-        // HasManyThrough field opted in with canCreate(true): the 1.x escape
-        // hatch for an app that sets that key itself (beforeSave(), an
-        // observer).
-        if (
-            $action === 'create'
-            && $relation instanceof EloquentHasManyThrough
-            && ! ($hasManyField instanceof HasManyThroughField && $hasManyField->canCreateRelated())
-        ) {
+        // A write through the relationship writes a record of the related
+        // resource, so it needs that resource's viewAny, as its own per-id
+        // endpoints do. routable() is not required: a headless resource
+        // stays usable as a relation target.
+        if ($action !== null && ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $relatedResourceClass))) {
+            return $forbidden;
+        }
+
+        // No create through a HasManyThrough relationship, as in Nova: it is
+        // a traversal with no foreign key of its own, so a create would write
+        // the parent's key into the related record's key to the intermediate
+        // model, filing the record under whichever intermediate has that id.
+        // A plain HasMany field declared on a hasManyThrough relationship is
+        // refused too. An update or a delete reaches a record the
+        // relationship holds, under the related resource's policies.
+        if ($action === 'create' && ($hasManyField instanceof HasManyThroughField || $relation instanceof EloquentHasManyThrough)) {
             return JsonErrorResponse::forbidden('Records cannot be created through a hasManyThrough relationship.')->toResponse();
         }
 

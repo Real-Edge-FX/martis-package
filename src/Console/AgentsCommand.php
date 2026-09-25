@@ -6,6 +6,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\StubResolver;
 use Martis\Support\AgentDetector;
 use Martis\Support\AgentProfile;
@@ -35,6 +36,11 @@ use function Laravel\Prompts\multiselect;
  */
 class AgentsCommand extends Command
 {
+    // Laravel Prompts ask nothing without a TTY but answer their own
+    // defaults (the MCP wiring on, an existing file skipped), unlike
+    // --no-interaction: without a terminal this command behaves as with it.
+    use AsksOnlyOnATerminal;
+
     /** The primer template, relative to the stub directories. */
     public const STUB = 'agents/AGENTS.md.stub';
 
@@ -138,7 +144,7 @@ class AgentsCommand extends Command
         }
 
         $detected = $detector->detect();
-        if ($this->option('no-interaction')) {
+        if (! $this->canPrompt()) {
             return $detected;
         }
 
@@ -184,7 +190,7 @@ class AgentsCommand extends Command
         if ($eligible === []) {
             return false;
         }
-        if ($this->option('no-interaction')) {
+        if (! $this->canPrompt()) {
             return false;
         }
 
@@ -216,7 +222,7 @@ class AgentsCommand extends Command
         foreach ($targets as $relative) {
             $absolute = base_path().'/'.$relative;
             $exists = file_exists($absolute);
-            if ($exists && ! $this->option('force') && ! $this->option('no-interaction')) {
+            if ($exists && ! $this->option('force') && $this->canPrompt()) {
                 $confirmed = confirm("`{$relative}` already exists. Overwrite?", default: false);
                 if (! $confirmed) {
                     $this->components->info("Skipped {$relative}.");

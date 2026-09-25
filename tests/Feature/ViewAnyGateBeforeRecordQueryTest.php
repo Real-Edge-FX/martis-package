@@ -258,6 +258,21 @@ it('gates the bulk action endpoint on viewAny before resolving the selected reco
     expect(vagTouchedItems())->toBeFalse();
 });
 
+it('refuses a create without viewAny, as the per-id endpoints do', function (string $path) {
+    $before = VAGItem::withTrashed()->count();
+
+    $this->postJson($path, ['title' => 'Created'])->assertStatus(403);
+
+    expect(VAGItem::withTrashed()->count())->toBe($before);
+})->with([
+    'POST store' => ['/martis/api/resources/vag-items'],
+    'POST inline create' => ['/martis/api/resources/vag-items/inline-create'],
+]);
+
+it('refuses the inline create form without viewAny', function () {
+    $this->getJson('/martis/api/resources/vag-items/inline-create-schema')->assertStatus(403);
+});
+
 it('keeps the record-level checks once viewAny is granted (control)', function () {
     VAGItemResource::$policy = VAGControlPolicy::class;
     Resource::flushPolicyCache();

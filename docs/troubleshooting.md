@@ -15,20 +15,21 @@ grep '"laravel/framework"' composer.json
 
 If you are on Laravel 10, upgrade first or pin Martis to a compatible older release.
 
-### `php artisan martis:install` fails on `martis-config` publish
+### `php artisan martis:install` does not update `config/martis.php`
 
-Vendor publishing skips files that already exist. If a previous (incomplete) install left `config/martis.php` in place, the command exits without overwriting.
+When `config/martis.php` already exists, the installer skips it with the notice `Skipping config — already published (use --force-config to overwrite — destroys customisations)` and carries on with the other steps. A key added to the package config in a later release therefore never reaches the published copy (see [New config keys have no effect](#new-config-keys-have-no-effect-in-an-existing-app)).
 
-The `--force` flag refreshes the extension scaffold (Vite config, shim files, generator stubs) but **does not** republish `config/martis.php` or `app/Providers/MartisServiceProvider.php` — those are split behind separate flags so refreshing the scaffold cannot destroy host-app customisations:
+The `--force` flag **does not** republish `config/martis.php` or `app/Providers/MartisServiceProvider.php` — those are split behind separate flags so a `--force` run cannot destroy host-app customisations:
 
 | Flag | Republishes |
 |------|-------------|
-| `--force` | Extension scaffold (Vite config, shims, stubs, index entry) |
+| `--force` | Extension scaffold (Vite config, both tsconfig files, shims and declarations, `index.ts`), `lang/vendor/martis` and the migrations Martis published (rewritten in place; an application's own notifications or sessions migration is left alone) |
 | `--force-config` | `config/martis.php` |
 | `--force-provider` (v1.10.2+) | `app/Providers/MartisServiceProvider.php` |
 
 ```bash
-# Refresh just the extension scaffold (safe, default).
+# Rewrite the extension scaffold, translations and Martis migrations.
+# Overwrites index.ts register() calls and customised lang/vendor/martis strings: commit first.
 php artisan martis:install --force
 
 # Re-publish config/martis.php (destroys consumer customisations).
@@ -38,13 +39,29 @@ php artisan martis:install --force-config
 php artisan martis:install --force-provider
 ```
 
-To re-run the full installer including the optional avatar + 2FA migrations:
+Every run, with or without `--force`, also rewrites the profile / 2FA flags and `MARTIS_EXTENSIONS` in `.env` and ends with `php artisan migrate --force`.
+
+To re-run the full installer including the optional avatar and 2FA migrations:
 
 ```bash
-php artisan martis:install --force --with-profile
+php artisan martis:install --force --with-profile --with-2fa
 ```
 
-`--with-profile` does **not** create a `Profile` model or an admin user. It publishes two granular migration stubs (`add_two_factor_columns` and `add_profile_picture_column`) on top of the base install. Use `php artisan martis:user` afterwards to create an admin account.
+`--with-profile` does **not** create a `Profile` model or an admin user. It publishes the avatar column migration (`*_add_martis_profile_picture_column_to_users_table.php`); `--with-2fa` independently publishes the two-factor columns migration (`*_add_martis_two_factor_columns_to_users_table.php`). Use `php artisan martis:user` afterwards to create an admin account.
+
+`--with-profile` does **not** create a `Profile` model or an admin user. It publishes the avatar column migration (`add_profile_picture_column`); `--with-2fa` independently publishes the two-factor columns migration (`*_add_martis_two_factor_columns_to_users_table.php`, which alters the Martis guard's user table, `users` by default). Use `php artisan martis:user` afterwards to create an admin account (a user of the Martis guard).
+
+### Profile or 2FA stays disabled after `--with-profile` / `--with-2fa`
+
+The installer prompts only when STDIN is a real TTY, the avatar column question included. A run from CI, `docker compose exec -T`, a piped stdin (`yes |`) or an agent shell takes the `profile_picture` avatar column unless you pass `--avatar-column`, and resolves every optional feature you did not pass a flag for to disabled and writes `MARTIS_PROFILE_ENABLED=false` (and `MARTIS_2FA_ENABLED`, `MARTIS_AVATAR_ENABLED`, `MARTIS_SHOW_PROFILE_MENU`) to `.env`. On the next run the disabled config wins over `--with-*`. Set those keys back to `true` in `.env` (or remove them), run `php artisan config:clear`, then:
+
+```bash
+php artisan martis:install --force --no-interaction --with-profile --with-2fa
+```
+
+### New config keys have no effect in an existing app
+
+The package merges its config into yours with Laravel's `mergeConfigFrom()`, which only merges top-level keys. A published `config/martis.php` keeps its whole `audit`, `search`, `profile`, ... array, so a key added to one of those arrays in a newer release is simply absent, and its env switch does nothing. Add the new key to your published config by hand (the release notes list it), or re-publish with `php artisan martis:install --force-config` (destroys your customisations), then `php artisan config:clear`.
 
 ### Assets 404 after install
 
@@ -60,7 +77,7 @@ This wipes `public/vendor/martis/` first so stale Vite-hashed chunks from previo
 php artisan optimize:clear
 ```
 
-> **Note:** the legacy `php artisan vendor:publish --tag=martis-assets --force` still works but is a merge-style copy — orphaned chunks accumulate at every `composer update`, and it never checks that the full set landed. The `martis:publish-assets` command (and `martis:vendor-publish --assets`, and `martis:install`) is the canonical entry point: it avoids the disk bloat and guarantees a complete set. Pass `--no-wipe` to opt back into the merge behaviour if you have a specific reason to.
+> **Note:** the legacy `php artisan vendor:publish --tag=martis-assets --force` still works but is a merge-style copy — orphaned chunks accumulate at every `composer update`, and it never checks that the full set landed. It never publishes your themes either: `resources/css/martis/*.css` only reaches `public/vendor/martis/themes/` through `martis:publish-assets` (or its `--themes-only` form). The `martis:publish-assets` command (and `martis:vendor-publish --assets`, and `martis:install`) is the canonical entry point: it avoids the disk bloat and guarantees a complete set. Pass `--no-wipe` to opt back into the merge behaviour if you have a specific reason to.
 
 ### Black screen (admin loads but nothing renders)
 
@@ -211,13 +228,27 @@ See [Global Search → Searchable detail relations](global-search.md#-searchable
 
 ### Theme tokens not applied
 
-Theme tokens live under the `theme` block in `config/martis.php` (there is no separate `config/martis-theme.php`). After editing tokens, clear the config cache:
+A custom theme is the stylesheet `resources/css/martis/<name>.css`, activated by `theme.name` in the `theme` block of `config/martis.php` (there is no separate `config/martis-theme.php`). The browser loads the published copy, `public/vendor/martis/themes/<name>.css`, which `martis:publish-assets` writes from the source. After editing the theme or the config, publish and clear the config cache:
 
 ```bash
+php artisan martis:publish-assets --themes-only
 php artisan config:clear
 ```
 
-If you scaffolded a custom theme via `php artisan martis:theme`, regenerate the published file by running the generator again.
+The publish warns when `martis.theme.name` has no source, when it skips a source, and when it backs up a published copy it replaces or removes (to `storage/app/martis/theme-backups/`). It stops instead in the cases below.
+
+### `martis:publish-assets` or `martis:install` stops on a theme
+
+The asset publish checks the themes before it deletes anything, and stops with exit code 1, changing nothing, in these cases:
+
+- `Could not read resources/css/martis/<file>, the source of the active theme` or `Could not read resources/css/martis/<file>: ..., and this publish would remove public/vendor/martis/themes/<file>`: a theme source is a broken symlink or does not open, and the panel's theme or a published copy depends on it. Fix or remove the file. A source nothing depends on is only skipped, with a `Skipped resources/css/martis/<file>` warning.
+- `Could not list resources/css/martis: the directory cannot be listed`: give the user that runs the command permission to list the directory.
+- `martis.theme.name is "<name>", but ...`: the publish would take away the theme the panel loads, because its source is skipped (for example a `.CSS` extension) or missing while its published copy (a file, or a symlink) exists. Move the published copy to `resources/css/martis/<name>.css` (see [Theming → Upgrading from 1.x](theming.md#upgrading-from-1x)), or set `martis.theme.name` to another theme or `null`.
+- `Could not replace a symlinked directory under public/vendor/ with a real one`: `public/vendor/martis/` or its `themes/` is a symlink, and its parent directory does not let the publish create the directory that replaces it. Replace the link with a directory yourself, or make the parent writable.
+
+Then run the command again. A failed backup stops it the same way: make `storage/app/martis/theme-backups/` writable.
+
+Do not run `php artisan martis:theme` again to refresh the published file: it asks before it overwrites the source (and refuses in a non-interactive run), and if you confirm, or pass `--force`, it replaces your theme with the scaffold. Up to v1.39.1 asset publishes deleted the published copy without writing it again; see [Theming → Theme not loading](theming.md#theme-not-loading).
 
 ### Custom override not picked up
 
@@ -231,10 +262,10 @@ Confirm that every Tool and Action key in the output is registered by your exten
 
 Common culprits when an override is missing:
 
-- **`MARTIS_EXTENSIONS` env var unset.** v1.8.19+ loads the consumer extension bundle dynamically from the URL listed in `MARTIS_EXTENSIONS` (defaults to `/vendor/martis-user/extensions.js`). Confirm it is set in `.env` and that the URL returns 200.
+- **`MARTIS_EXTENSIONS` env var unset.** v1.8.19+ loads the consumer extension bundle dynamically from the comma-separated URLs listed in `MARTIS_EXTENSIONS`. The config default is an empty list; `martis:install` writes `MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js` to `.env` (on every run, so re-add any extra URLs afterwards). Confirm it is set in `.env` and that the URL returns 200.
 - **Bundle not built.** Re-run `npm run build:extensions` and check `public/vendor/martis-user/extensions.js` exists. The deploy script runs this automatically; local dev iterations need it manually.
 - **TSX file in the wrong bucket.** Auto-discovery only walks `resources/js/martis-extensions/{tools,fields,cards,overrides}/`. A file in any other folder is invisible to the loop.
-- **Slug typo.** Keys are case-sensitive. `field.text` and `Field.Text` are different.
+- **Key typo.** Keys are case-sensitive and colon-separated: `tool:seo-report`, `card:revenue-gauge`, `field:display:<type>` / `field:input:<type>`, `auth:login`. The entry derives them from the file name (`tools/SEOReport.tsx` → `tool:seo-report`); on the PHP side use `Martis\Stubs\ExtensionKey::kebab()`, not `Str::kebab()` (which turns `SEOReport` into `s-e-o-report`).
 
 ## Performance
 
@@ -256,18 +287,15 @@ Without this, every row triggers N+1 queries when a field accessor traverses the
 
 ### Metric card is slow
 
-Metrics do **not** cache by default. The base `Metric::cacheFor()` returns `null`, so the metric re-queries on every page load. Override it on the metric class:
+Metric results are cached by default through the Martis `metrics` cache layer (`MARTIS_CACHE_METRICS_ENABLED`, TTL `MARTIS_CACHE_METRICS_TTL`, default 5 minutes). When the base `Metric::cacheFor()` returns `null` (the default), the result goes through that layer, which honours the master switch, `php artisan martis:cache:disable metrics`, `?nocache=1` and `martis:cache:clear metrics`. Check `php artisan martis:cache:status`: if the layer is disabled, every page load re-queries. Raise the TTL for heavy metrics:
 
-```php
-use DateTimeInterface;
-
-public function cacheFor(): ?DateTimeInterface
-{
-    return now()->addMinutes(5);
-}
+```env
+MARTIS_CACHE_METRICS_TTL=15
 ```
 
-See [Metrics](metrics.md) for the cache key and ranges.
+Overriding `cacheFor()` to return a date caches the metric with `Cache::remember()` directly, outside the Martis layer, so the kill-switch, the `?nocache` bypass and `martis:cache:clear` no longer apply to it. Both cache paths key the result on the user the Martis guard authenticated (v2.0.0+), so a metric whose result depends only on that user (their tenant, their permissions) is safe to cache; one that depends on something else in the request, such as a subdomain or a header choosing the tenant, has to put it in its key by overriding `resultCacheKey()` and keeping its null (no cache) answer: `$key = parent::resultCacheKey($request); return $key === null ? null : md5($key.'|'.$tenant);` (see [Cache](cache.md)). Before v2.0.0 the first user's value was served to everyone for the TTL.
+
+See [Metrics](metrics.md) and [Cache](cache.md) for the cache keys and ranges.
 
 ### Cache subsystem disabled at runtime
 
@@ -285,7 +313,7 @@ If a subsystem feels stale, `martis:cache:clear` is non-destructive and safe to 
 
 ### Translations fall back to English even when the locale is set
 
-Martis resolves the runtime locale through `PreferencesResolver` in this order: URL preset (`?preset=…`) > the `martis_user_preferences.locale` row of the authenticated user > `config('app.locale')`. The `ApplyUserPreferencesLocale` middleware reads the resolved value and calls `app()->setLocale($locale)` for the request.
+Martis resolves the runtime locale through `PreferencesResolver` in this order: URL preset (`?preset=…`) > the `martis_user_preferences.locale` row of the authenticated user > `config('martis.preferences.defaults.locale')` (`MARTIS_DEFAULT_LOCALE`, default `en`). `APP_LOCALE` and `MARTIS_LOCALE` are **not** part of this chain: to change the panel language for users without a saved preference, set `MARTIS_DEFAULT_LOCALE` (it must be listed in `martis.preferences.locales`). The `ApplyUserPreferencesLocale` middleware (`martis.locale`) reads the resolved value and calls `app()->setLocale($locale)` on every authenticated Martis route.
 
 If you change the locale at runtime in code, set Laravel's locale directly:
 

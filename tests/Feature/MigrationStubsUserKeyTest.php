@@ -66,11 +66,17 @@ beforeEach(function () {
 function loadStub(string $basename): Migration
 {
     $stub = (string) file_get_contents(__DIR__.'/../../stubs/'.$basename);
-    $tmp = tempnam(sys_get_temp_dir(), 'martis_stub_').'.php';
+    // require needs no .php extension: load the file tempnam() created, so
+    // no empty placeholder is left in the temp directory.
+    $tmp = (string) tempnam(sys_get_temp_dir(), 'martis_stub_');
     file_put_contents($tmp, $stub);
-    /** @var Migration $migration */
-    $migration = require $tmp;
-    @unlink($tmp);
+
+    try {
+        /** @var Migration $migration */
+        $migration = require $tmp;
+    } finally {
+        @unlink($tmp);
+    }
 
     return $migration;
 }

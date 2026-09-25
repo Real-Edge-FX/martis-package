@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
+use Martis\Tests\Support\SkeletonSnapshot;
+use Martis\Tests\TestCase;
 
 /*
  * `martis:roles` — pin the contract that the command:
@@ -21,6 +23,23 @@ use Illuminate\Filesystem\Filesystem;
  * environment (CI runs `--no-install` because Spatie is dev-suggested,
  * not required, in martis-package).
  */
+
+// The hooks below clear and stub app/Models, app/Providers, app/Policies,
+// app/Martis/Resources and database/seeders in the testbench skeleton: put
+// them back as this file found them.
+beforeAll(function () {
+    $GLOBALS['__martis_roles_skeleton'] = SkeletonSnapshot::take(TestCase::applicationBasePath(), [
+        'app/Martis/Resources',
+        'app/Policies',
+        'app/Models',
+        'app/Providers',
+        'database/seeders',
+    ]);
+});
+
+afterAll(function () {
+    $GLOBALS['__martis_roles_skeleton']->restore();
+});
 
 beforeEach(function () {
     /** @var Filesystem $files */
@@ -365,4 +384,13 @@ it('is idempotent — re-running without --force skips existing files', function
     $hashAfterRerun = md5((string) file_get_contents($userResourcePath));
     expect($hashAfterRerun)->toBe($mutatedHash);
     expect($hashAfterRerun)->not->toBe($hash);
+});
+
+it('builds the BulkAssignRole role picker in Nova order, so it stores the role id', function () {
+    // Read the stub itself: the scaffold test above is skipped without Spatie,
+    // and a revert to pluck('id', 'name') would hand the action a role name.
+    $stub = (string) file_get_contents(__DIR__.'/../../stubs/roles-bulk-assign-role-action.stub');
+
+    expect($stub)->toContain("->pluck('name', 'id')")
+        ->and($stub)->not->toContain("pluck('id', 'name')");
 });

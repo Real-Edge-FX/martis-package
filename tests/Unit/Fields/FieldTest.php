@@ -199,7 +199,7 @@ it('Select::make creates a select field', function () {
 });
 
 it('Select options() normalizes associative array', function () {
-    $field = Select::make('status')->options(['Active' => 1, 'Inactive' => 0]);
+    $field = Select::make('status')->options([1 => 'Active', 0 => 'Inactive']);
     $options = $field->getOptions();
 
     expect($options)->toHaveCount(2)
@@ -207,16 +207,16 @@ it('Select options() normalizes associative array', function () {
         ->and($options[1])->toBe(['label' => 'Inactive', 'value' => 0]);
 });
 
-it('Select options() normalizes sequential array', function () {
+it('Select options() reads a list as values 0, 1 like Nova', function () {
     $field = Select::make('status')->options(['draft', 'published']);
     $options = $field->getOptions();
 
-    expect($options[0])->toBe(['label' => 'draft', 'value' => 'draft'])
-        ->and($options[1])->toBe(['label' => 'published', 'value' => 'published']);
+    expect($options[0])->toBe(['label' => 'draft', 'value' => 0])
+        ->and($options[1])->toBe(['label' => 'published', 'value' => 1]);
 });
 
 it('Select options appear in toArray', function () {
-    $field = Select::make('status')->options(['Draft' => 'draft']);
+    $field = Select::make('status')->options(['draft' => 'Draft']);
     $arr = $field->toArray();
 
     expect($arr['options'])->toHaveCount(1)

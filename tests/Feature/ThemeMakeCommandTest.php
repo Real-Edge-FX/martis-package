@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Filesystem\Filesystem;
+use Martis\Support\ThemeFiles;
 
 function cleanupThemeArtifacts(string $name = 'test-theme'): void
 {
@@ -9,16 +10,124 @@ function cleanupThemeArtifacts(string $name = 'test-theme'): void
     $fs->delete(public_path("vendor/martis/themes/{$name}.css"));
     $fs->deleteDirectory(resource_path('css/martis'));
     $fs->deleteDirectory(public_path('vendor/martis/themes'));
+    removeThemeState();
 }
 
-beforeEach(fn () => cleanupThemeArtifacts());
-afterEach(fn () => cleanupThemeArtifacts());
+beforeEach(function () {
+    cleanupThemeArtifacts();
+
+    // Every martis:theme run writes theme.name into a published
+    // config/martis.php; the config specs below write a fixture there.
+    $this->restoreMartisConfig = preservePublishedMartisConfig();
+});
+
+afterEach(function () {
+    cleanupThemeArtifacts();
+
+    ($this->restoreMartisConfig)();
+});
 
 it('generates the theme file in resources and public', function () {
     $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
 
     expect(file_exists(resource_path('css/martis/test-theme.css')))->toBeTrue();
     expect(file_exists(public_path('vendor/martis/themes/test-theme.css')))->toBeTrue();
+});
+
+it('tells the user to edit the source and publish it', function () {
+    // The published copy is regenerated from the source on every
+    // martis:publish-assets, so the hint must never point at the copy.
+    $this->artisan('martis:theme', ['name' => 'test-theme'])
+        ->expectsOutputToContain('Edit CSS variables in resources/css/martis/test-theme.css')
+        ->expectsOutputToContain('php artisan martis:publish-assets --themes-only')
+        ->doesntExpectOutputToContain('Edit CSS variables in public/vendor/martis/themes/test-theme.css')
+        ->assertSuccessful();
+});
+
+it('writes a source whose header says to publish it after editing', function () {
+    $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
+
+    $contents = (string) file_get_contents(resource_path('css/martis/test-theme.css'));
+
+    expect($contents)->toContain('php artisan martis:publish-assets --themes-only');
+    expect($contents)->not->toContain('no rebuild required');
+});
+
+it('backs up a published copy edited in place before --force overwrites it', function () {
+    $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
+    file_put_contents(public_path('vendor/martis/themes/test-theme.css'), ':root { --martis-accent: #abcdef; }');
+
+    $this->artisan('martis:theme', ['name' => 'test-theme', '--force' => true])
+        ->expectsOutputToContain('public/vendor/martis/themes/test-theme.css differs from its source')
+        ->expectsOutputToContain('Backed up to storage/app/martis/theme-backups/')
+        ->assertSuccessful();
+
+    expect(array_values(themeBackups()))->toBe([':root { --martis-accent: #abcdef; }']);
+});
+
+it('backs up a published theme without a source before scaffolding over it', function () {
+    $fs = new Filesystem;
+    $fs->ensureDirectoryExists(public_path('vendor/martis/themes'));
+    $fs->put(public_path('vendor/martis/themes/test-theme.css'), ':root { --martis-accent: #abcdef; }');
+
+    $this->artisan('martis:theme', ['name' => 'test-theme'])
+        ->expectsOutputToContain('public/vendor/martis/themes/test-theme.css has no source in resources/css/martis/')
+        ->assertSuccessful();
+
+    expect(array_values(themeBackups()))->toBe([':root { --martis-accent: #abcdef; }']);
+});
+
+it('backs up the published copy when its source is gone, even if the record matches it', function () {
+    // After a publish the record holds the copy's hash; once the source is
+    // deleted, that copy is the only one left of the theme.
+    $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
+    file_put_contents(resource_path('css/martis/test-theme.css'), ':root { --martis-accent: #abcdef; }');
+    $this->artisan('martis:publish-assets', ['--themes-only' => true])->assertSuccessful();
+    unlink(resource_path('css/martis/test-theme.css'));
+
+    $this->artisan('martis:theme', ['name' => 'test-theme'])
+        ->expectsOutputToContain('public/vendor/martis/themes/test-theme.css has no source in resources/css/martis/')
+        ->assertSuccessful();
+
+    expect(array_values(themeBackups()))->toBe([':root { --martis-accent: #abcdef; }']);
+});
+
+it('backs up the source it overwrites with --force', function () {
+    // After the edit-and-publish loop the source holds the edits and the
+    // published copy matches it: --force would leave no copy of them.
+    $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
+    file_put_contents(resource_path('css/martis/test-theme.css'), ':root { --martis-accent: #abcdef; }');
+    $this->artisan('martis:publish-assets', ['--themes-only' => true])->assertSuccessful();
+
+    $this->artisan('martis:theme', ['name' => 'test-theme', '--force' => true])
+        ->expectsOutputToContain('resources/css/martis/test-theme.css differs from the scaffold')
+        ->assertSuccessful();
+
+    $backups = themeBackups();
+    expect($backups)->toHaveCount(1)
+        ->and((string) array_key_first($backups))->toEndWith('/resources/css/martis/test-theme.css')
+        ->and(array_values($backups))->toBe([':root { --martis-accent: #abcdef; }']);
+});
+
+it('warns, and still succeeds, when the publish record cannot be written', function () {
+    // A directory where the record goes.
+    (new Filesystem)->ensureDirectoryExists(public_path('vendor/martis/themes/.published.json'));
+
+    $this->artisan('martis:theme', ['name' => 'test-theme'])
+        ->expectsOutputToContain('Could not write public/vendor/martis/themes/.published.json')
+        ->assertSuccessful();
+
+    expect(public_path('vendor/martis/themes/test-theme.css'))->toBeFile();
+});
+
+it('makes no backup when --force overwrites a published copy nobody edited', function () {
+    $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
+
+    $this->artisan('martis:theme', ['name' => 'test-theme', '--force' => true])
+        ->doesntExpectOutputToContain('Backed up')
+        ->assertSuccessful();
+
+    expect(themeBackups())->toBe([]);
 });
 
 it('fills the {{ name }} placeholder in the stub header', function () {
@@ -125,12 +234,17 @@ it('--force flag overwrites an existing theme without prompting', function () {
     expect(file_exists(resource_path('css/martis/test-theme.css')))->toBeTrue();
 });
 
-it('aborts without --force in non-interactive mode when the file already exists', function () {
+it('leaves an existing theme alone without --force in non-interactive mode, with an error line and exit 0', function () {
     $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
+    $path = ThemeFiles::sourcePath('test-theme');
+    file_put_contents($path, "/* edited */\n");
 
-    // Second run without --force in test (non-interactive) environment aborts.
+    // As Laravel's GeneratorCommand: "already exists", nothing written, exit 0.
     $this->artisan('martis:theme', ['name' => 'test-theme'])
-        ->assertFailed();
+        ->expectsOutputToContain("Theme 'test-theme.css' already exists.")
+        ->assertExitCode(0);
+
+    expect(file_get_contents($path))->toBe("/* edited */\n");
 });
 
 it('updates theme.name when the theme block contains a nested sub-array', function () {
@@ -148,30 +262,21 @@ return [
 ];
 PHP;
 
-    $configPath = config_path('martis.php');
-    // Restore whatever was published before (or nothing): leaving this
-    // minimal fixture behind poisons every later test that reads
+    // afterEach restores whatever was published before (or removes this
+    // fixture): leaving it behind poisons every later test that reads
     // config('martis.brand') in the same environment.
-    $previous = file_exists($configPath) ? (string) file_get_contents($configPath) : null;
+    $configPath = config_path('martis.php');
     file_put_contents($configPath, $original);
 
-    try {
-        $this->artisan('martis:theme', ['name' => 'nested-test'])->assertSuccessful();
+    $this->artisan('martis:theme', ['name' => 'nested-test'])->assertSuccessful();
 
-        $after = (string) file_get_contents($configPath);
+    $after = (string) file_get_contents($configPath);
 
-        // theme.name must be inserted despite the nested array.
-        expect($after)->toContain("'name' => 'nested-test'");
+    // theme.name must be inserted despite the nested array.
+    expect($after)->toContain("'name' => 'nested-test'");
 
-        // brand.name must be untouched.
-        expect($after)->toContain("'name' => env('MARTIS_BRAND_NAME', 'Martis')");
-    } finally {
-        if ($previous === null) {
-            @unlink($configPath);
-        } else {
-            file_put_contents($configPath, $previous);
-        }
-    }
+    // brand.name must be untouched.
+    expect($after)->toContain("'name' => env('MARTIS_BRAND_NAME', 'Martis')");
 });
 
 it('updates theme.name without touching brand.name in config/martis.php', function () {
@@ -189,28 +294,19 @@ return [
 ];
 PHP;
 
-    $configPath = config_path('martis.php');
-    // Restore whatever was published before (or nothing): leaving this
-    // minimal fixture behind poisons every later test that reads
+    // afterEach restores whatever was published before (or removes this
+    // fixture): leaving it behind poisons every later test that reads
     // config('martis.brand') in the same environment.
-    $previous = file_exists($configPath) ? (string) file_get_contents($configPath) : null;
+    $configPath = config_path('martis.php');
     file_put_contents($configPath, $original);
 
-    try {
-        $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
+    $this->artisan('martis:theme', ['name' => 'test-theme'])->assertSuccessful();
 
-        $after = (string) file_get_contents($configPath);
+    $after = (string) file_get_contents($configPath);
 
-        // theme.name should be inserted / updated …
-        expect($after)->toContain("'name' => 'test-theme'");
+    // theme.name should be inserted / updated …
+    expect($after)->toContain("'name' => 'test-theme'");
 
-        // … and brand.name must be left intact.
-        expect($after)->toContain("'name' => env('MARTIS_BRAND_NAME', 'Martis')");
-    } finally {
-        if ($previous === null) {
-            @unlink($configPath);
-        } else {
-            file_put_contents($configPath, $previous);
-        }
-    }
+    // … and brand.name must be left intact.
+    expect($after)->toContain("'name' => env('MARTIS_BRAND_NAME', 'Martis')");
 });

@@ -43,6 +43,16 @@ export function getModalLockCount(): number {
 
 export function suppressNextPop(): void {
   suppressNextPopFlag = true
+  // The flag belongs to the pop the modal is about to cause: a drawer
+  // mounted under the modal consumes it in its own popstate listener,
+  // registered before this one. With no drawer, nothing would, and the
+  // first Back of the next drawer opened would be swallowed; this
+  // listener, run last on that pop, clears it.
+  if (typeof window !== 'undefined') {
+    window.addEventListener('popstate', () => {
+      suppressNextPopFlag = false
+    }, { once: true })
+  }
 }
 
 export function consumeSuppressFlag(): boolean {

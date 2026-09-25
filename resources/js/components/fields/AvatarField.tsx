@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UserIcon } from '@phosphor-icons/react'
-import { avatarColorForSeed, avatarHexForSeed } from '@/lib/avatarPalette'
+import { initialsAvatarStyle } from '@/lib/avatarPalette'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 
 interface AvatarSchema {
@@ -19,6 +19,8 @@ interface StoredPayload {
   isInitialsFallback?: boolean
   initials?: string
   color?: string
+  /** Slot of the theme's `--martis-avatar-N` tokens; null when `colorFrom()` gave `color`. */
+  palette?: number | null
   seed?: string
 }
 
@@ -52,26 +54,16 @@ function asPayload(value: Value): StoredPayload | null {
   return value
 }
 
-/** WCAG-ish contrast pick: return black on pale bg, white otherwise. */
-function readableTextColor(hex: string | null): string {
-  if (!hex) return '#fff'
-  const h = hex.replace('#', '')
-  if (h.length !== 6) return '#fff'
-  const r = parseInt(h.substring(0, 2), 16)
-  const g = parseInt(h.substring(2, 4), 16)
-  const b = parseInt(h.substring(4, 6), 16)
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-  return luminance > 0.6 ? '#0f172a' : '#ffffff'
-}
-
 function InitialsCircle({
   initials,
   color,
+  palette,
   seed,
   shapeClass,
 }: {
   initials: string
   color: string | null | undefined
+  palette: number | null | undefined
   seed: string | null | undefined
   shapeClass: string
 }) {
@@ -87,18 +79,16 @@ function InitialsCircle({
     )
   }
 
-  // F7-35 — fall back to the deterministic 16-hue palette when no
-  // explicit colour is supplied. The CSS variable resolves at paint
-  // time so the colour stays consistent across themes.
-  const bg = color && color.length > 0 ? color : avatarColorForSeed(seed)
-  const textColor = color && color.length > 0
-    ? readableTextColor(color)
-    : readableTextColor(avatarHexForSeed(seed))
+  // The server's palette slot paints the circle with the theme token (the
+  // CSS variable resolves at paint time, so the theme controls it); a
+  // `color` without a slot comes from `colorFrom()`. F7-35 — a payload
+  // with neither falls back to the seed's slot.
+  const style = initialsAvatarStyle({ palette, color, seed })
 
   return (
     <span
       className={`martis-avatar ${shapeClass} martis-ui-avatar`}
-      style={{ backgroundColor: bg, color: textColor }}
+      style={style}
       aria-hidden="true"
     >
       {initials}
@@ -117,6 +107,7 @@ export function AvatarFieldDisplay({ field, value }: FieldDisplayProps) {
       <InitialsCircle
         initials={payload.initials}
         color={payload.color}
+        palette={payload.palette}
         seed={payload.seed ?? payload.name ?? payload.initials}
         shapeClass={shapeClass}
       />
@@ -133,6 +124,7 @@ export function AvatarFieldDisplay({ field, value }: FieldDisplayProps) {
         <InitialsCircle
           initials=""
           color={payload?.color}
+          palette={payload?.palette}
           seed={payload?.seed ?? payload?.name}
           shapeClass={shapeClass}
         />
@@ -195,11 +187,7 @@ export function AvatarFieldInput({ field, value, onChange, error }: FieldInputPr
         aria-label="Upload avatar"
         style={
           showInitialsFallback
-            ? {
-                backgroundColor: payload?.color ?? '#475569',
-                color: readableTextColor(payload?.color ?? '#475569'),
-                borderStyle: 'solid',
-              }
+            ? { ...initialsAvatarStyle(payload), borderStyle: 'solid' }
             : undefined
         }
       >

@@ -177,7 +177,7 @@ Used by `Slug::make()` for live "this slug is taken" hints in the create / updat
 GET /martis/api/resources/{resource}/fields/{field}/options?search=term&context=create|update&id=<record>
 ```
 
-Backs `Select::searchOptionsUsing()` (v1.37.0). Locates the select in the field set of the given context (default `create`: `fieldsForCreate()`, then `fieldsForInlineCreate()` since v1.38.0; `update`: `fieldsForUpdate()`), gated on the matching ability like `sync-field` (`create`, or `update` with the record named by `id` bound first: `id` is required in the update context, 404 when it does not exist), and returns `{ options: [{ label, value }] }`. 422 for an unknown field, a non-select field or a select without a server-side resolver, and for a select the user cannot see, which answers exactly like an unknown field (`canSee()`, or `canSeeForModel()` for the record the form edits or the new one a create fills; v1.38.0). A select in a Repeater row adds `&repeater={attribute}&repeatable={type}` and is found in that row type's `fields()` (v1.38.0, see [Repeater → Relation pickers and remote selects in rows](../repeater.md#relation-pickers-and-remote-selects-in-rows)).
+Backs `Select::searchOptionsUsing()` (v1.37.0). Locates the select in the field set of the given context (default `create`: `fieldsForCreate()`, then `fieldsForInlineCreate()` since v1.38.0; `update`: `fieldsForUpdate()`), gated on the matching ability like `sync-field` (`create`, or `update` with the record named by `id` bound first: `id` is required in the update context, 404 when it does not exist), and returns `{ options: [{ label, value, group? }] }` (`group` for grouped options, v2.0.0). 422 for an unknown field, a non-select field or a select without a server-side resolver, and for a select the user cannot see, which answers exactly like an unknown field (`canSee()`, or `canSeeForModel()` for the record the form edits or the new one a create fills; v1.38.0). A select in a Repeater row adds `&repeater={attribute}&repeatable={type}` and is found in that row type's `fields()` (v1.38.0, see [Repeater → Relation pickers and remote selects in rows](../repeater.md#relation-pickers-and-remote-selects-in-rows)).
 
 ### Lenses
 
@@ -219,8 +219,8 @@ Each relation type has a full sub-tree under the parent's URL. The shape mirrors
 | `DELETE` | `/{r}/{id}/has-many/{rel}/{relatedId}` | Delete a child. |
 | `GET` | `/{r}/{id}/has-one/{rel}` | Show. |
 | `POST` | `/{r}/{id}/has-one/{rel}` | Create. |
-| `PUT` | `/{r}/{id}/has-one/{rel}` | Update. |
-| `DELETE` | `/{r}/{id}/has-one/{rel}` | Delete. |
+| `PUT` | `/{r}/{id}/has-one/{rel}?relatedId={id}` | Update the record the card shows. `relatedId` (required, v2.0.0) is the id the client read from the `GET`: `422` without it, `409` when the relationship holds another record by then (see [Conflict (409)](#conflict-409)). A stale id answers `409` before the policy (the policy is the current record's); the policy's `403` comes before the `422` of a missing id. |
+| `DELETE` | `/{r}/{id}/has-one/{rel}?relatedId={id}` | Delete the record the card shows, under the same rules. |
 | `GET` | `/{r}/{id}/belongs-to-many/{rel}` | List with pivot data. |
 | `GET` | `/{r}/{id}/belongs-to-many/{rel}/attachable` | Options available to attach. `meta.hiddenPivotFields` lists the attributes of the pivot fields a new row hides (`canSeeForModel()` on the row the attach writes), which the attach modal leaves out (v1.38.0). |
 | `POST` | `/{r}/{id}/belongs-to-many/{rel}/attach` | Attach with optional pivot fields. |
@@ -229,7 +229,7 @@ Each relation type has a full sub-tree under the parent's URL. The shape mirrors
 | `GET` | `/{r}/{id}/belongs-to-many/{rel}/pivot-fields/relatable/{field}` | Options of a `BelongsTo` / `MorphTo` / `Tag` pivot field in the attach modal: read from the relationship's `fields()`, gated like the panel and on `attachAny{Model}`, with the parent resource as the source of the relatable hooks (v1.38.0). |
 | `GET` | `/{r}/{id}/belongs-to-many/{rel}/pivot-fields/{relatedId}/relatable/{field}` | The same in the pivot edit modal of an attached record, gated on its `updatePivot{Model}` (v1.38.0). |
 
-(`/{r}` is shorthand for `/martis/api/resources/{resource}`.) MorphMany / MorphOne / MorphToMany follow the same shape under `/morph-many/`, `/morph-one/`, `/morph-to-many/`.
+(`/{r}` is shorthand for `/martis/api/resources/{resource}`.) MorphMany / MorphOne / MorphToMany follow the same shape under `/morph-many/`, `/morph-one/`, `/morph-to-many/`. The `morph-one` `PUT` and `DELETE` take the same required `?relatedId=`.
 
 The lists (`GET` on `has-many`, `morph-many`, `belongs-to-many` and `morph-to-many`) take the `search`, `sort`, `direction` and `per_page` parameters of the resource index, applied with the related resource's fields: `sort` names a `sortable()` field of the related resource the user can see, and anything else is ignored (v1.38.0).
 
@@ -278,7 +278,7 @@ GET /martis/api/navigation/badges    # v1.8.8
 GET /martis/api/search?q=...
 ```
 
-Cross-resource record search. Powers the topbar search input. Each resource is matched on the `searchable()` fields the user can see (v1.38.0). See [Global Search](../global-search.md).
+Cross-resource record search. Powers the topbar search input. Each resource is matched on the `searchable()` fields the user can see (v1.38.0), among the records its index lists: its `scopes()`, then `indexQuery()` (v2.0). See [Global Search](../global-search.md).
 
 ## Command Palette
 
@@ -312,7 +312,7 @@ GET  /martis/api/tools/{uriKey}/fields/{field}/options?search=
                                         A select in a Repeater row adds &repeater=&repeatable= (v1.38.0).
 ```
 
-The 404-when-denied behaviour is intentional — an unauthorised user cannot probe which tools the app ships.
+The 404-when-denied behaviour is intentional: an unauthorised user cannot probe which tools the app ships. The routes a tool adds under `/martis/api/tools/{uriKey}/...` (`/{martis.path}/...`) with `loadRoutes()` or `ToolRoutes::middleware()` run the same middleware as these endpoints and answer that user the same 404 (v2.0; see [Tools → Tool routes and their middleware](../tools.md#tool-routes-and-their-middleware)).
 
 ## Preferences
 
@@ -474,6 +474,14 @@ Laravel's own shape instead, a map of messages per field:
 ```
 
 The `errors` array is intentionally empty so the SPA can route the same envelope through its generic 422-style error renderer; consumer overrides can populate it for richer messaging.
+
+### Conflict (409)
+
+```json
+{ "message": "The record changed since the card loaded; reload to see it.", "errors": [] }
+```
+
+A `PUT` or `DELETE` on a one-record card (`…/has-one/{rel}`, `…/morph-one/{rel}`) whose `?relatedId=` is not the record the relationship holds now: a newer one-of-many record, a replaced `HasOne` / `MorphOne`, or another record through a `HasOneThrough` (the shown one or its intermediate record trashed, for instance). Nothing is written; reload the card (its `GET`) and retry on the record it returns. The message is translated (`martis::messages.card_record_changed`).
 
 ### Service Unavailable (503)
 

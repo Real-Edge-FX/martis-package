@@ -24,6 +24,7 @@ import { ToastContainer } from '@/components/Toast'
 import { LanguageSwitchOverlay } from '@/components/LanguageSwitchOverlay/LanguageSwitchOverlay'
 import { registerDefaultFields } from '@/components/fields/FieldRenderer'
 import { initI18n } from '@/lib/i18n'
+import { loadConsumerExtensions } from '@/lib/extensionLoader'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { DrawerCreate } from '@/components/overrides/DrawerCreate'
 import { DrawerUpdate } from '@/components/overrides/DrawerUpdate'
@@ -84,47 +85,6 @@ window.Martis = {
   // semver contract.
   runtime: martisRuntime,
   version: __MARTIS_VERSION__,
-}
-
-/**
- * Load every extension bundle listed in `window.MartisConfig.extensions`
- * (sourced from the `MARTIS_EXTENSIONS` env, comma-separated).
- *
- * v1.8.19 shipped this as fire-and-forget: imports started, React
- * mounted, the SPA raced the network. On a cold-cache navigation
- * straight to `/martis/tools/{key}` the ToolPage queried the registry
- * before the bundle had registered the component, the placeholder
- * fired, and a subsequent registry write never re-rendered the page —
- * so the user saw "No React component is registered…" forever.
- *
- * v1.9.2 awaits every import (with a 5s per-URL timeout safety net so
- * a hung extension cannot keep the whole panel hidden forever) before
- * mounting React. Failures stay isolated — one broken bundle logs and
- * the rest still load — and the slowest case is a single round-trip
- * for the cached extensions.js, which is well under the i18n init
- * cost we already wait on below.
- */
-const EXTENSION_LOAD_TIMEOUT_MS = 5_000
-
-async function loadConsumerExtensions(): Promise<void> {
-  const extensionUrls = window.MartisConfig?.extensions ?? []
-
-  await Promise.all(
-    extensionUrls
-      .filter((url): url is string => typeof url === 'string' && url !== '')
-      .map((url) => {
-        const load = import(/* @vite-ignore */ url).catch((err: unknown) => {
-          console.error('[martis] failed to load extension', url, err)
-        })
-        const timeout = new Promise<void>((resolve) =>
-          setTimeout(() => {
-            console.warn('[martis] extension load exceeded', EXTENSION_LOAD_TIMEOUT_MS, 'ms; mounting without it', url)
-            resolve()
-          }, EXTENSION_LOAD_TIMEOUT_MS),
-        )
-        return Promise.race([load, timeout])
-      }),
-  )
 }
 
 function App() {

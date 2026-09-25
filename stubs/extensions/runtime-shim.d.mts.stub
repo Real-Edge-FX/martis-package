@@ -25,6 +25,10 @@ interface User {
     name: string;
     email: string;
     avatar_url?: string | null;
+    /** Initials of the name (or e-mail), shown when there is no picture. */
+    avatar_initials?: string;
+    /** Slot (1..16) of the theme's `--martis-avatar-N` tokens behind the initials. */
+    avatar_palette?: number;
     [key: string]: unknown;
 }
 interface ResourceMeta {
@@ -121,6 +125,8 @@ type FieldType = 'audio' | 'avatar' | 'badge' | 'belongs_to' | 'belongs_to_many'
 interface SelectOption {
     value: string | number;
     label: string;
+    /** Group heading (Nova's grouped options, v2.0.0). */
+    group?: string;
 }
 /**
  * A field as the forms, displays and tables render it. The server sends
@@ -5180,6 +5186,12 @@ declare function usePageTitle(segment: string | null | undefined): void;
  */
 declare function useModalHistoryLock(open: boolean): void;
 
+/**
+ * Register a popup as a layer while `open` is true: Escape calls `close`
+ * when this popup is the top layer, and a drawer underneath stays open.
+ */
+declare function useEscapeLayer(open: boolean, close: () => void): void;
+
 declare const OverridePropsProvider: React$1.Provider<OverrideProps | null>;
 /**
  * Read the override payload from context. Throws when called outside
@@ -5327,21 +5339,13 @@ declare function mutedTextColor(): string;
 declare function accentColor(): string;
 
 /**
- * Deterministic avatar colour lookup.
- *
- * Two users with the same name (or seed) always get the same colour.
- * The 16 hues are declared as `--martis-avatar-1..16` in `martis.css`
- * and stay identical across light/dark themes so a person's avatar
- * doesn't shift colour when the user toggles the theme.
- *
- * Used by AvatarField / UiAvatarField when no explicit `color` is
- * supplied by the backend. Backend-supplied colours still win — this
- * is the zero-config fallback.
- */
-/**
  * Map a seed (name, email, slug, anything) to one of the 16 avatar
- * hues. Returns the CSS `var(--martis-avatar-N)` reference so callers
- * can drop it directly into a `style.backgroundColor`.
+ * hues, `--martis-avatar-1..16`: the same seed always gets the same hue,
+ * identical in light and dark mode, and a theme can redefine the hues.
+ * Returns the CSS `var(--martis-avatar-N)` reference so callers can drop
+ * it directly into a `style.backgroundColor`. The server picks the avatar
+ * slots with the same hash, so a user's name gets the colour of their
+ * Topbar avatar.
  */
 declare function avatarColorForSeed(seed: string | null | undefined): string;
 
@@ -5606,6 +5610,7 @@ declare const martisRuntime: {
     readonly layoutRegistry: LayoutRegistry;
     readonly usePageTitle: typeof usePageTitle;
     readonly useModalHistoryLock: typeof useModalHistoryLock;
+    readonly useEscapeLayer: typeof useEscapeLayer;
     readonly OverridePropsProvider: React$1.Provider<OverrideProps | null>;
     readonly useOverrideProps: typeof useOverrideProps;
     readonly useOverridePropsOptional: typeof useOverridePropsOptional;
@@ -5644,5 +5649,5 @@ declare const martisRuntime: {
  */
 type MartisRuntime = typeof martisRuntime;
 
-export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, MartisLoader, MultiSelect, NestedParentProvider, OverridePropsProvider, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, resolveColor, useAuth, useError, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard };
+export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, MartisLoader, MultiSelect, NestedParentProvider, OverridePropsProvider, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, resolveColor, useAuth, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard };
 export type { DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, Shortcut, ShortcutOptions, TooltipProps, UseToolFieldsResult };

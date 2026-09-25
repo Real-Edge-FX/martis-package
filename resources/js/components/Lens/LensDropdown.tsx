@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CaretDownIcon, EyeIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import type { LensDefinition } from '@/types'
+import { useEscapeLayer } from '@/lib/escapeLayers'
 
 interface LensDropdownProps {
   lenses: LensDefinition[]
@@ -31,6 +32,8 @@ export function LensDropdown({ lenses, currentUriKey, onSelect }: LensDropdownPr
     return () => document.removeEventListener('mousedown', handle)
   }, [open])
 
+  useEscapeLayer(open, () => setOpen(false))
+
   if (lenses.length === 0) return null
 
   const active = lenses.find((l) => l.uriKey === currentUriKey) ?? null
@@ -46,7 +49,7 @@ export function LensDropdown({ lenses, currentUriKey, onSelect }: LensDropdownPr
           borderColor: 'var(--martis-border)',
           backgroundColor: active ? 'var(--martis-accent-bg)' : 'var(--martis-surface)',
           color: active ? 'var(--martis-accent)' : 'var(--martis-text)',
-          height: 'var(--martis-input-height, 2.25rem)',
+          height: 'var(--martis-input-h, 2.25rem)',
         }}
         aria-haspopup="menu"
         aria-expanded={open}

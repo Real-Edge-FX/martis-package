@@ -6,6 +6,8 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Martis\Tests\Support\SkeletonSnapshot;
+use Martis\Tests\TestCase;
 
 function cleanupMartisInstallArtifacts(): void
 {
@@ -59,12 +61,8 @@ function cleanupMartisInstallArtifacts(): void
         });
     }
 
-    $envPath = app()->environmentFilePath();
-    if ($filesystem->exists($envPath)) {
-        $contents = (string) $filesystem->get($envPath);
-        $stripped = preg_replace('/^MARTIS_[A-Z0-9_]+=.*$\n?/m', '', $contents) ?? '';
-        $filesystem->put($envPath, $stripped);
-    }
+    // No `.env` step: martis:install writes no environment file while unit
+    // tests run (see the test that leaves the skeleton's `.env` untouched).
 
     // Published frontend assets (martis:install) and generated class files
     // (martis:resource / :metric / :dashboard / :tool …). Remove them so no
@@ -80,6 +78,21 @@ function cleanupMartisInstallArtifacts(): void
     }
 }
 
+// cleanupMartisInstallArtifacts() rewrites the skeleton's
+// bootstrap/providers.php and removes the host MartisServiceProvider stub,
+// and one test writes a providers.php of its own: put both back as this
+// file found them.
+beforeAll(function () {
+    $GLOBALS['__martis_console_skeleton'] = SkeletonSnapshot::take(TestCase::applicationBasePath(), [
+        'bootstrap/providers.php',
+        'app/Providers/MartisServiceProvider.php',
+    ]);
+});
+
+afterAll(function () {
+    $GLOBALS['__martis_console_skeleton']->restore();
+});
+
 beforeEach(function () {
     cleanupMartisInstallArtifacts();
 });
@@ -94,6 +107,19 @@ afterEach(function () {
 
 it('martis:install is registered and runs successfully', function () {
     $this->artisan('martis:install')->assertSuccessful();
+});
+
+it('martis:install leaves the skeleton .env and .env.example as it found them', function () {
+    // The testbench skeleton under vendor/ keeps what every run leaves in it;
+    // an install that wrote MARTIS_* keys there, or created the `.env`,
+    // would change the environment of later runs.
+    $files = [app()->environmentFilePath(), base_path('.env.example')];
+    $read = fn (): array => array_map(fn (string $path): ?string => is_file($path) ? (string) file_get_contents($path) : null, $files);
+    $before = $read();
+
+    $this->artisan('martis:install')->assertSuccessful();
+
+    expect($read())->toBe($before);
 });
 
 it('martis:install publishes the frontend manifest', function () {
@@ -298,12 +324,9 @@ it('martis:install --force-provider overwrites an existing host MartisServicePro
 it('martis:install registers the host MartisServiceProvider in bootstrap/providers.php', function () {
     try {
         $bootstrapPath = base_path('bootstrap/providers.php');
-        if (! file_exists($bootstrapPath)) {
-            // Some testbench setups don't have this file. Skip.
-            return;
-        }
 
-        // Reset to a clean providers.php with no Martis entry.
+        // Start from a clean providers.php with no Martis entry (afterAll
+        // puts the skeleton's own back).
         (new Filesystem)->put($bootstrapPath, "<?php\n\nreturn [\n    App\\Providers\\AppServiceProvider::class,\n];\n");
 
         $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();

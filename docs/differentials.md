@@ -1,9 +1,9 @@
 # Highlights
 
 A tour of the surfaces Martis ships beyond the bare-essential admin-panel
-contract — features that exist as first-class APIs in the package, with
-their own configuration, generators, or escape hatches. Each entry below
-links into the dedicated reference for the full surface.
+contract, each a first-class API of the package. They come with their own
+configuration, generators, or escape hatches, and each entry below links
+into the dedicated reference for the full surface.
 
 This page is descriptive: it tells you **what is in the box**. It does
 not benchmark Martis against any other package — for ecosystem
@@ -247,10 +247,22 @@ class Publish extends Action
 }
 ```
 
-Fallback order when executing an action: `canRun()` closure →
-`Policy::runAction` (or `runDestructiveAction` for destructive ones) →
-`Policy::update` (or `delete`). Teams that prefer a pure-policy story
-can omit the closures entirely.
+⭐ **Security differential: `canRun()` and the policy must both allow a
+run.** When an action runs on a record, Martis checks the action's
+`canRun()` **and** the resource's policy: `runAction` (or
+`runDestructiveAction` for a destructive action), falling back to
+`update` (or `delete`). In Nova 5 a `canRun()`, when defined, replaces
+the policy ("Authorization via Resource Policy"). Coming from Nova, a
+`canRun()` alone grants nothing: the user also needs `runAction` /
+`update` (or `runDestructiveAction` / `delete`). A `standalone()` action
+runs on no record, so only its `canRun()` / `canSee()` apply. Teams that
+prefer a pure-policy story can omit the closures entirely.
+
+⭐ **An action that cannot run on a row stays visible, disabled.** The
+row buttons and the row menu of the index and of the relationship panels
+show every inline action and disable the ones the record may not run
+(the same check the run applies). Nova hides them on the row and
+disables them only in the bulk selector and on the detail page.
 
 ### `updatePivot{Model}` policy ability
 
@@ -273,6 +285,30 @@ MorphToMany, MorphMany, MorphOne, HasOne) include `authorizedToCreate`
 policy. The inline "Create Related" button is suppressed when the user
 cannot create the related model — without the developer needing to
 toggle `showCreateRelationButton` by hand.
+
+---
+
+## Tool System
+
+### Tool routes run behind the Martis API middleware
+
+⭐ **Security differential: a tool's routes answer `404` to a user the tool
+is hidden from, behind the whole API stack.** `Tool::loadRoutes()` gives a
+tool's routes the middleware of the Martis API routes (authentication, the
+2FA challenge, email verification, the locale, the impersonation expiry, the
+API throttle), then `martis.tool:{uriKey}`, which answers
+`404 {"message": "Tool not found."}` to a user whose `canSee()` or policy hides
+the tool: the answer `GET /api/tools/{uriKey}` already gives that user, so the
+app does not reveal which tools it ships. Nova guards a tool's routes with the
+tool's `Authorize` middleware, which answers `403`
+([Nova → Tools → Routing Authorization](https://nova.laravel.com/docs/v5/customization/tools#routing-authorization);
+the middleware a generated tool ships:
+[nova-dusk-suite, `IconsViewer` `Authorize`](https://github.com/laravel/nova-dusk-suite/blob/11.4/nova-components/IconsViewer/src/Http/Middleware/Authorize.php)),
+and the API routes of a tool Nova's generator scaffolds do not run Nova's
+authentication ([nova-issues#5495](https://github.com/laravel/nova-issues/issues/5495)).
+Coming from Nova, expect `404` where the tool is hidden, and `423` / `409` /
+`429` from the 2FA challenge, email verification and the throttle. See
+[Tools → Tool routes and their middleware](tools.md#tool-routes-and-their-middleware).
 
 ---
 
@@ -419,8 +455,9 @@ BooleanGroup::make('permissions')
 
 Both fields share the same palette + initials logic through the
 [`ResolvesInitialsPayload`](../src/Fields/Concerns/ResolvesInitialsPayload.php)
-trait, keeping the topbar pill, login view, profile page, `Avatar`
-empty state and `UiAvatar` all visually consistent.
+trait, backed by `Martis\Support\Initials`, which also gives the Topbar
+and the profile page their avatar: a person gets the same letters on the
+same `--martis-avatar-N` token everywhere, and a theme recolours them all.
 
 **`Avatar` — upload field with a zero-config empty state:**
 
@@ -432,7 +469,7 @@ empty state and `UiAvatar` all visually consistent.
 **`UiAvatar` — always initials, never uploads:**
 
 - Display-only (`hideFromForms()` locked), computed from the model — no DB column.
-- Same deterministic 16-slot palette hash. Shipped client-side with no external service call.
+- Same deterministic 16-slot palette hash. Computed with the record and painted inline, with no external service call.
 - Same `colorFrom()` / `initials(Closure)` / `from('other_attr')` knobs as `Avatar`.
 
 ```php
@@ -495,23 +532,30 @@ transparently.
 
 ### Relationship toolbar hide flags
 
-Every HasMany / MorphMany / BelongsToMany / MorphToMany /
-HasManyThrough field exposes nine fluent flags to hide affordances
-inside the relationship card without forking the component.
+Every relationship field exposes nine fluent flags to hide affordances
+inside the relationship card without forking the component. The
+`HasMany` / `HasManyThrough` / `MorphMany` panels honour all nine. The
+`BelongsToMany` / `MorphToMany` panels have no View, Edit or Delete of
+their own (Detach and the pivot edit take their place, and
+`hideEditAction()` / `hideDeleteAction()` hide those), so `hideViewAction()`
+has nothing to hide there. The `HasOne` / `MorphOne` cards only have Create,
+Edit and Delete. See
+[relationships.md § Toolbar hide flags](relationships.md#toolbar-hide-flags-cross-cutting).
 
 ```php
 HasMany::make('Invoices')
     ->hideCreateButton()
     ->hideSearch()
-    ->hideTrashedFilter()
-    ->hidePagination();
+    ->hideSoftDeleteToggle()
+    ->hidePerPageSelector();
 ```
 
-Full set: `hideCreateButton`, `hideSearch`, `hidePerPage`,
-`hideTrashedFilter`, `hidePagination`, `hideEditAction`,
-`hideDeleteAction`, `hideDetachAction`, `hideRestoreAction`. Each one
-degrades cleanly: hidden controls are stripped from the schema and
-ignored on the backend.
+Full set: `hideSearch`, `hideCreateButton`, `hidePerPageSelector`,
+`hideSoftDeleteToggle`, `hideViewAction`, `hideEditAction`,
+`hideDeleteAction`, `hideRestoreAction`, `hideForceDeleteAction`. The
+flags only change the panel: an action is shown when it is authorized
+and not hidden, so a flag never shows an action the policies deny, and
+hiding one does not make its endpoint refuse it.
 
 ### Grid layout system (12-column)
 
@@ -969,32 +1013,42 @@ The preferences panel is a compact topbar overlay — theme / accent /
 density / language / accessibility. See [preferences.md](preferences.md)
 for the resolver, API, and SSR no-flash mechanics.
 
-### 94-token theme system
+### 162-token theme system
 
 A single theme file controls the entire admin panel:
 
-- **Background layers** (7 vars) — page bg, surfaces, sidebar, topbar, cards, inputs.
+- **Background layers** (7 vars): page bg, surfaces, sidebar, topbar, cards, inputs.
 - **Text & borders** (3 vars).
-- **Accent / brand** (6 vars) — primary, hover, active, alpha tints, focus ring.
-- **Semantic colors solid** (8 vars) — success/warning/danger/info + hover variants.
-- **Semantic backgrounds** (8 vars) — for badges, alerts, status.
-- **Interactive states** (4 vars) — hover, active, search overlay.
-- **Overlays & shadows** (5 vars) — modal backdrop, sm/md/lg shadows, peek.
-- **DataTable** (5 vars) — header, rows, borders.
-- **Border radius** (5 vars) — from sm to full pill.
-- **Typography** (15 vars) — font families (sans/mono/heading), 7-step size scale, 4 weights, 3 line heights.
-- **Chart palette** (10 vars) — for partition/trend metrics.
-- **File icons** (6 vars) — semantic per file type.
-- **Badge variants** (12 vars) — legacy compatibility.
+- **Accent / brand** (7 vars): primary, hover, active, contrast, alpha tints, focus ring.
+- **Semantic colors, solid** (8 vars): success/warning/danger/info + hover variants.
+- **Semantic backgrounds & text** (8 vars): for badges, alerts, status.
+- **Interactive states** (4 vars): hover, active, search overlay.
+- **Overlays & shadows** (5 vars): modal backdrop, sm/md/lg shadows, peek.
+- **DataTable** (5 vars): header, rows, borders.
+- **Border radius** (5 vars): from sm to full pill.
+- **Typography** (31 vars): font families (sans/mono/heading), 7-step size scale, 4 weights, 3 line heights, each size, weight and line height with its verbose alias.
+- **Chart palette** (10 vars): for partition/trend metrics.
+- **Avatar palette** (16 vars): the initials avatar hues.
+- **Brand gradient** (12 vars): hero and auth surfaces, badge, logo heights.
+- **File icons** (6 vars): semantic per file type.
+- **Badge variants** (12 vars): legacy compatibility.
+- **Density** (7 vars): row, input, button heights and paddings.
+- **Motion** (10 vars): 5 durations, 5 easing curves.
+- **Print** (5 vars): the print stylesheet palette.
+- **Rich text editor** (1 var): the Trix toolbar icon filter.
 
 ```bash
 # Generate a theme scaffold with all variables
 php artisan martis:theme MyTheme
 ```
 
-The generated stub includes all 94 variables in both dark mode
-(`:root`) and light mode (`html:not(.dark)`), with comments and
-grouping. Edit any value, refresh the browser — no rebuild needed.
+The generated stub declares the 160 variables `martis.css` gives a
+value, on `:root` (dark, and the ones that do not depend on the mode) and
+on `html:not(.dark)` for the 102 it gives a light value, with comments
+and grouping; the two brand logo heights, set from `.env`, come commented
+out. Edit any value in `resources/css/martis/mytheme.css`, publish
+it with `php artisan martis:publish-assets` and refresh the browser: no
+Vite rebuild needed.
 
 See [Theming Guide](theming.md) for the complete variable reference.
 

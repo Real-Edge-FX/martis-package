@@ -9,7 +9,7 @@ Add Martis to any existing Laravel application as a Composer package.
 | PHP | 8.3+ |
 | Laravel | 12.x or 13.x |
 | Node.js | 20+ (contributors only) |
-| PNPM | 9+ (or npm/yarn, contributors only) |
+| npm | the version bundled with Node.js (contributors only; the repository ships `package-lock.json` and CI runs `npm ci`) |
 | Database | Any driver Laravel supports — MySQL, PostgreSQL, SQLite, or SQL Server (no specific version required) |
 | Redis | 7+ (optional, for cache/queue) |
 
@@ -32,9 +32,9 @@ This command performs the following steps automatically:
 2. **Publishes the config file** — `config/martis.php` with all customizable settings.
 3. **Publishes the host MartisServiceProvider** — `app/Providers/MartisServiceProvider.php` and wires it into `bootstrap/providers.php`. This is where consumer code that cannot live in `config/martis.php` (closures, gate definitions, menu items, dashboards, runtime cache layers) is registered. See [Host MartisServiceProvider](#host-martisserviceprovider) below.
 4. **Publishes frontend assets** — precompiled React app to `public/vendor/martis/`.
-5. **Publishes the core migrations** — `create_martis_action_events_table` and `create_martis_user_preferences_table`.
+5. **Publishes the core migrations** — `create_martis_action_events_table`, the two action-events morph id conversions (`alter_martis_action_events_morph_ids_to_string`, `fix_martis_action_events_morph_ids_string_v2`), `create_martis_user_preferences_table`, `drop_dashboards_layout_from_user_preferences_table`, `create_notifications_table` and `create_martis_cache_state_table`. A migration already present (matched by its `*_<name>.php` suffix) is skipped.
 6. **Publishes translation files** — `en`, `pt_BR`, `pt_PT` to `lang/vendor/martis/`.
-7. **Runs database migrations** — creates the `martis_action_events` and `martis_user_preferences` tables.
+7. **Runs database migrations** — `php artisan migrate --force`, which creates the `martis_action_events`, `martis_user_preferences`, `notifications` and `martis_cache_state` tables. Note that it applies **every** pending migration of the application, not only the Martis ones, without the production confirmation prompt.
 
 > **Upgrading from pre-0.7.0**: If you already have an `action_events` table, the new migration detects it and performs an in-place `RENAME` to `martis_action_events`. No data loss. The `martis_` prefix keeps every package-owned table in one namespace so it never collides with an app's own tables.
 
@@ -45,8 +45,12 @@ php artisan martis:user
 # Visit http://your-app.test/martis
 ```
 
-The command prompts for the email, name and password it does not receive as
-options (`--email`, `--name`, `--password`). By default it is **create-only**:
+On a terminal the command prompts for the email, name and password it does
+not receive as options (`--email`, `--name`, `--password`). Without one (CI, a
+container entrypoint, a pipe, `--no-interaction`) it asks nothing: `--email`
+and `--password` are required (a missing one is named, the command exits 1 and
+no user is created or changed) and the name defaults to `Martis Admin`, since
+v2.0.0. By default it is **create-only**:
 when a user with that email already exists it prints an error and exits with a
 non-zero status, so a script cannot accidentally overwrite an account.
 
@@ -77,8 +81,12 @@ command fails with `A user with email [...] already exists.`
 | `--force` | Overwrite previously published migrations, translations and the extension scaffold (Vite config, both tsconfig files, `index.ts`, the shims and their declarations); `config/martis.php` and the host provider stay unless you add `--force-config` / `--force-provider` |
 | `--force-config` | Republish `config/martis.php`, overwriting your changes to it |
 | `--force-provider` | Republish `app/Providers/MartisServiceProvider.php`, overwriting your changes to it |
-| `--with-profile` | Publish the optional Martis profile migration for avatar + 2FA columns |
-| `--with-2fa` | Publish only the 2FA columns migration (subset of `--with-profile`) |
+| `--with-profile` | Enable profile support and publish the avatar column migration (`*_add_martis_profile_picture_column_to_users_table.php`); when the `sessions` profile section is active it also publishes the sessions table migration |
+| `--no-profile` | Disable profile support, even when running interactively; wins over `--with-profile` |
+| `--with-2fa` | Enable two-factor support and publish the 2FA columns migration (`*_add_martis_two_factor_columns_to_users_table.php`); independent of `--with-profile` |
+| `--no-2fa` | Disable two-factor support; wins over `--with-2fa` |
+| `--with-sessions` | Publish the sessions table migration for the browser-sessions profile section (requires `SESSION_DRIVER=database`) |
+| `--no-sessions` | Skip the sessions table migration; wins over `--with-sessions` |
 | `--avatar-column=<column>` | Customize which `users` table column Martis should use for avatar paths |
 | `--existing-avatar-column` | Use an existing avatar column on `users` instead of publishing a migration |
 
@@ -86,19 +94,19 @@ command fails with `A user with email [...] already exists.`
 
 By default, `martis:install` always installs the core Martis package, the `martis_action_events` audit log, and the `martis_user_preferences` table (theme/accent/density/locale/reduced-motion persistence). Profile support is optional because some applications already have their own avatar column strategy.
 
-To install Martis with profile support:
+To install Martis with profile and two-factor support:
 
 ```bash
-php artisan martis:install --with-profile
+php artisan martis:install --with-profile --with-2fa
 ```
 
-That flag publishes both granular migration stubs (`add_two_factor_columns` and `add_profile_picture_column`). Each stub is idempotent:
+The two flags are independent switches: `--with-profile` publishes the avatar column migration (`*_add_martis_profile_picture_column_to_users_table.php`), and `--with-2fa` publishes the two-factor columns migration (`*_add_martis_two_factor_columns_to_users_table.php`). Each stub is idempotent:
 
 - the avatar column is added only if it does not already exist
 - the 2FA columns are added only if they do not already exist
-- re-running `martis:install --with-profile` does not create duplicate migration files
+- re-running `martis:install` with the same flags does not create duplicate migration files
 
-If you want only the 2FA columns and not the avatar migration, use `--with-2fa`.
+If you want only the 2FA columns and not the avatar migration, pass `--with-2fa` without `--with-profile`.
 
 If your application already stores avatar paths in a different `users` column, pass that column name when installing:
 
@@ -118,11 +126,13 @@ If the column already exists on `users` and you do **not** want a migration:
 php artisan martis:install --with-profile --existing-avatar-column --avatar-column=avatar_path
 ```
 
-In non-interactive environments such as CI, Docker setup scripts, or deployment hooks, `--no-interaction` skips the optional profile prompt. If you want the profile migration there as well, pass `--with-profile` explicitly:
+The installer only prompts when it runs interactively **and** STDIN is a real TTY, the avatar column question included. In CI, Docker setup scripts (`docker compose exec -T`), deployment hooks, a piped stdin (`yes | php artisan martis:install`) or an AI agent's shell there is no prompt: every optional feature you do not pass a flag for resolves to disabled, the avatar column is `profile_picture` unless you pass `--avatar-column`, and `--existing-avatar-column` needs `--avatar-column`. Before v2.0 the avatar column question read a piped answer (`yes |` created a column named `y`) or waited forever. The resolved values are also written to `.env` (`MARTIS_PROFILE_ENABLED`, `MARTIS_AVATAR_ENABLED`, `MARTIS_AVATAR_COLUMN`, `MARTIS_2FA_ENABLED`, `MARTIS_SHOW_PROFILE_MENU`) on every run, and a disabled value in the config wins over `--with-*` on the next run. Pass the flags explicitly:
 
 ```bash
-php artisan martis:install --force --no-interaction --with-profile
+php artisan martis:install --force --no-interaction --with-profile --with-2fa
 ```
+
+If a previous run already wrote `false`, set those keys back to `true` in `.env` (or remove them), run `php artisan config:clear`, then re-run the command with the flags.
 
 ## Manual Install (Step by Step)
 
@@ -149,7 +159,8 @@ This creates `config/martis.php`. The most commonly customized keys:
 - `resources_path` — Directory scanned for resource classes (default: `app_path('Martis')`); `resources_namespace` pins its namespace when it cannot be derived from Composer's PSR-4 map (default: `null`, derived)
 - `theme.default` — Default theme: `dark`, `light`, or `system`
 - `theme.allowToggle` — Allow users to switch themes from the preferences panel
-- `locale` — Default locale (defaults to `config('app.locale')`)
+- `preferences.defaults.locale` — Default panel language for users without a saved preference (`MARTIS_DEFAULT_LOCALE`, default `en`; it must be listed in `preferences.locales`). The `martis.locale` middleware applies it (or the user's saved preference) on every authenticated Martis route, so this, not `APP_LOCALE`, decides the panel language.
+- `locale` — Read by the blade shell only when `preferences.enabled` is `false` (`MARTIS_LOCALE`, falling back to `APP_LOCALE`, then `en`)
 - `brand.name` / `brand.logo` / `brand.icon` / `brand.favicon` — Brand block (see [Configuration](configuration.md))
 - `layout.preset` — Layout preset (`sidebar`, `topnav`, `minimal`)
 - `footer` / `search` / `auth` / `preferences` / `cache` — Subsystem configuration
@@ -176,6 +187,8 @@ The command **wipes `public/vendor/martis/` first** so stale Vite-hashed chunks 
 
 Since **v1.29.1** the command also **verifies completeness**: after copying it checks that every file the published `manifest.json` references (the app entry bundle, its CSS, every chunk) exists in the destination, and exits non-zero with the missing count if any are absent — so a partial publish is caught here rather than surfacing as a black-screen admin at runtime.
 
+Last, it publishes your custom themes: every `resources/css/martis/<name>.css` is copied to `public/vendor/martis/themes/`, where the panel loads it. Commit the sources; the published copies are written again on every run, so edit the source, never the copy. Before it replaces or removes a file there that it cannot write back, such as a copy edited in place, it backs it up to `storage/app/martis/theme-backups/` and says so, and it stops, changing nothing, when the run would take away the theme `martis.theme.name` names or remove the copy of a theme source it cannot read. A `public/vendor/martis/` or `public/vendor/martis/themes/` that is a symlink is replaced by a real directory, never written through. `php artisan martis:publish-assets --themes-only` publishes the themes alone, and the stock `vendor:publish --tag=martis-assets` never publishes them. See [Theming → Theme files](theming.md#theme-files).
+
 Equivalent: `php artisan martis:vendor-publish --assets` performs the same wipe-then-publish flow, as does `martis:install` — all three share this single hardened path.
 
 Important:
@@ -186,20 +199,25 @@ Important:
 
 ### Step 5: Publish and Run Migrations
 
-The package ships migration stubs across **four** independent tags so consumers can opt in to each subsystem.
+The package ships its migration stubs under several publish tags so consumers can opt in to each subsystem.
 
 | Tag | Publishes |
 |---|---|
-| `martis-migrations` | `create_martis_action_events_table` (audit log — required) |
+| `martis-migrations` | `create_martis_action_events_table` (audit log — required), `create_martis_user_preferences_table`, `create_martis_cache_state_table` and `drop_dashboards_layout_from_user_preferences_table` |
 | `martis-preferences-migration` | `create_martis_user_preferences_table` (per-user theme / locale / density / accent / reduced-motion) |
+| `martis-preferences-drop-dashboards-layout-migration` | `drop_dashboards_layout_from_user_preferences_table` |
+| `martis-cache-state-migration` | `create_martis_cache_state_table` (persisted cache versions and runtime kill-switches) |
 | `martis-2fa-migration` | `add_two_factor_columns` to `users` (TOTP secret + recovery codes) |
 | `martis-avatar-migration` | `add_profile_picture_column` to `users` (filename of the uploaded avatar) |
+| `martis-sessions-migration` | `create_sessions_table` (browser-sessions profile section, `SESSION_DRIVER=database`) |
+| `martis-invitations-migration` | `create_invitations_table` |
+
+No tag publishes `create_notifications_table` or the two action-events morph id conversions (`alter_martis_action_events_morph_ids_to_string`, `fix_martis_action_events_morph_ids_string_v2`, needed for UUID / ULID keyed models): only `martis:install` publishes them. Tag-published files are named `<date>_00000N_<name>.php`; `martis:install` recognises an existing migration by its `*_<name>.php` suffix and skips it, but a tag publish does not look for a differently dated copy, so publishing a tag after `martis:install` can add a second copy of the same migration. Prefer `martis:install` (without `--force`) to add missing migrations.
 
 Recommended sequence for a manual install:
 
 ```bash
 php artisan vendor:publish --tag=martis-migrations
-php artisan vendor:publish --tag=martis-preferences-migration
 php artisan migrate
 ```
 
@@ -213,17 +231,19 @@ php artisan vendor:publish --tag=martis-avatar-migration
 php artisan migrate
 ```
 
-The `martis:install` command runs all four behind the scenes when invoked with `--with-profile`.
+`martis:install` publishes the core migrations on every run, the avatar migration with `--with-profile` (as `*_add_martis_profile_picture_column_to_users_table.php`) and the two-factor migration with `--with-2fa` (as `*_add_martis_two_factor_columns_to_users_table.php`).
+
+`martis:install` publishes the core migrations on every run, the avatar migration with `--with-profile` (as `add_profile_picture_column`) and the two-factor migration with `--with-2fa` (as `*_add_martis_two_factor_columns_to_users_table.php`). Both add their columns to the table of the Martis guard's users: `users`, unless `MARTIS_GUARD` names a guard whose model has its own table.
 
 #### UUID / ULID / custom user PKs (v1.12.2+)
 
-The published migrations adapt the `user_id` column (and the polymorphic `notifiable_id` on the notifications table) to whichever primary-key shape your host `users` table uses. The adaptation happens at migration time — each stub introspects the configured user model (`auth.providers.{provider}.model`) and picks the matching column helper:
+The published migrations adapt the `user_id` column (and the polymorphic `notifiable_id` on the notifications table) to the primary-key shape of the Martis guard's users. The adaptation happens at migration time: each stub introspects the model of the Martis guard's provider (`auth.guards.{MARTIS_GUARD, else the default guard}.provider` → `auth.providers.{provider}.model`, the `users` model on a default install) and picks the matching column helper. The foreign keys (`martis_user_preferences.user_id`, `invitations.invited_by` / `accepted_user_id`) reference that model's table and key, and the two-factor and avatar migrations add their columns to that table (v2.0.0+; before, always `users`):
 
 | User model | `user_id` column |
 |---|---|
-| Default Laravel (auto-incrementing `bigint`) | `foreignId('user_id')->constrained()` |
-| `use Illuminate\Database\Eloquent\Concerns\HasUuids;` | `foreignUuid('user_id')->constrained()` |
-| `use Illuminate\Database\Eloquent\Concerns\HasUlids;` | `foreignUlid('user_id')->constrained()` |
+| Default Laravel (auto-incrementing `bigint`) | `foreignId('user_id')->constrained($table, $key)` |
+| `use Illuminate\Database\Eloquent\Concerns\HasUuids;` | `foreignUuid('user_id')->constrained($table, $key)` |
+| `use Illuminate\Database\Eloquent\Concerns\HasUlids;` | `foreignUlid('user_id')->constrained($table, $key)` |
 | `$keyType = 'string'` without `HasUuids` / `HasUlids` | `string('user_id')` + explicit `foreign()` |
 
 The polymorphic columns on `notifications` follow the same rule (`morphs` / `uuidMorphs` / `ulidMorphs`).
@@ -328,7 +348,7 @@ php artisan vendor:publish --tag=martis-provider
 
 Without this provider, you can still ship a working Martis install relying purely on `config/martis.php` and auto-discovered resources, but every closure-driven feature will be unavailable.
 
-> **`martis:install --force` does not touch this file (v1.10.2+).** The default `--force` flag refreshes the extension scaffold (Vite config, shim files, generator stubs) but never overwrites the host provider, where dashboards, menus, gates, and cache-layer registrations live. To republish the stub on top of your customisations, opt in explicitly with `--force-provider`:
+> **`martis:install --force` does not touch this file (v1.10.2+).** The default `--force` flag rewrites the extension scaffold (Vite config, both tsconfig files, `index.ts`, the shims and their declarations), republishes `lang/vendor/martis` and rewrites the published Martis migrations, but never overwrites the host provider, where dashboards, menus, gates, and cache-layer registrations live. To republish the stub on top of your customisations, opt in explicitly with `--force-provider`:
 >
 > ```bash
 > php artisan martis:install --force-provider
@@ -413,7 +433,7 @@ That's it. The Tool is auto-registered (since v1.8.20), the React component is a
 
 ### Collision detection
 
-Each generator (`martis:tool`, `martis:field`, `martis:card`, `martis:component`) checks for both the destination PHP file AND the destination TSX file before writing. When either exists, the command lists the conflicting paths and asks `[y/N]` whether to overwrite. `--force` skips the prompt. In a non-interactive shell (e.g. CI) the command aborts with an error code unless `--force` was passed.
+Each generator (`martis:tool`, `martis:field`, `martis:card`, `martis:component`) checks for both the destination PHP file AND the destination TSX file before writing. When either exists, the command lists the conflicting paths and asks `[y/N]` whether to overwrite. `--force` skips the prompt. Without a terminal (CI, a pipe, `--no-interaction`) nothing is asked: the command prints that the file already exists, writes nothing and exits 0 unless `--force` was passed, as Laravel's own `make:*` generators do. `martis:theme` behaves the same for an existing theme.
 
 ### How the registry is exposed
 
@@ -550,10 +570,12 @@ your-laravel-app/
 │   └── martis.php                                    # Published configuration
 ├── database/
 │   └── migrations/
-│       ├── *_create_martis_action_events_table.php   # Audit log
+│       ├── *_create_martis_action_events_table.php   # Audit log (+ the two morph id conversions)
 │       ├── *_create_martis_user_preferences_table.php # Per-user prefs
-│       ├── *_add_two_factor_columns.php              # 2FA (with --with-profile / --with-2fa)
-│       └── *_add_profile_picture_column.php          # Avatar (with --with-profile)
+│       ├── *_create_notifications_table.php          # In-app notifications
+│       ├── *_create_martis_cache_state_table.php     # Cache versions and kill-switches
+│       ├── *_add_martis_two_factor_columns_to_users_table.php # 2FA (with --with-2fa)
+│       └── *_add_martis_profile_picture_column_to_users_table.php  # Avatar (with --with-profile)
 ├── lang/
 │   └── vendor/
 │       └── martis/                                   # Published translations (martis-lang)
@@ -597,6 +619,15 @@ Why this second step exists:
 - Martis serves published files from `public/vendor/martis`
 - The host app keeps using the old published files until you publish again
 
+If your app has a custom theme and you are coming from 1.x, follow [Theming → Upgrading from 1.x](theming.md#upgrading-from-1x) before you publish: the publish now writes `public/vendor/martis/themes/` from `resources/css/martis/`, so edits made to the published copy have to move to the source first.
+
+Coming from 1.x, also check:
+
+- **`profile.resource`** must be `null` or name a class that implements `Martis\Contracts\ProfileResourceContract`. Any other value, such as a misspelt class, now throws an `InvalidArgumentException` naming the key; 1.x fell back to the default resource without a word. When you set it, `/martis/api/auth/user` and the login response take the Topbar avatar from your resource's `toArray()`, as the profile page does. See [Authentication → Custom Profile Resource](authentication.md#custom-profile-resource).
+- **Avatar colours** come from the theme's `--martis-avatar-1..16` tokens. The Topbar shows two initials on a palette colour instead of one letter on the accent colour, the profile avatar is no longer indigo, and the initials of an `Avatar` or `UiAvatar` field can change colour. To keep a fixed colour per record, use `colorFrom()`; to change the colours, redefine the tokens in your theme. A subclass of `Avatar` or `UiAvatar` that calls or overrides the trait's `resolveInitialsColor()`, `deterministicInitialsColor()` or `$initialsPalette` has to move to `Martis\Support\Initials` (`paletteSlot()`, `defaultColor()`), or override `customInitialsColor()` to give its own colour.
+- **Metric results are cached per user.** No action is needed, but the metric cache holds one entry per user and metric where 1.x held one per metric. See [Cache → The four built-in layers](cache.md#the-four-built-in-layers).
+- **A custom `MARTIS_GUARD`** now signs in the panel's user everywhere, policies and gates included: see [Upgrading → A custom Martis guard](upgrading.md#a-custom-martis-guard) before you upgrade an app that sets one.
+
 Use the asset-only command if you only want to refresh static files. Use the install command with `--force` if you want the full recommended refresh:
 
 ```bash
@@ -605,12 +636,26 @@ php artisan martis:install --force
 
 `--force` also rewrites the extension scaffold (Vite config, `tsconfig.extensions.json`, shims and their declarations, `index.ts`, `resources/js/martis-extensions/tsconfig.json`), which is how an existing extension picks up the runtime names added since it was scaffolded. See [Refreshing the extension scaffold after an upgrade](#refreshing-the-extension-scaffold-after-an-upgrade) for the narrower options.
 
-If your application uses the optional profile migration, re-run the install command with the same profile options after upgrading:
+Know what else the installer changes before you use it on an app with customisations. With `--force`:
+
+- it republishes `lang/vendor/martis`, overwriting customised strings
+- it rewrites the migrations Martis published in place; an application's own `*_create_notifications_table.php` or `*_create_sessions_table.php` (from `make:notifications-table` / `make:session-table`) is left alone: a file counts as Martis's only when it holds a sentence of the Martis stub's header, not because it mentions Martis
+- it rewrites `resources/js/martis-extensions/index.ts`, manual `register()` calls included
+
+On every run, with or without `--force`:
+
+- it rewrites the profile and 2FA flags in `.env` from the flags you pass (see [Optional Profile Support](#optional-profile-support)) and resets `MARTIS_EXTENSIONS` to `/vendor/martis-user/extensions.js`
+- the asset publish wipes and re-copies `public/vendor/martis/` (see Step 4)
+- it ends with `php artisan migrate --force`, which applies all pending migrations of the app
+
+Commit first and review `git diff` afterwards. If your application uses the optional profile and two-factor migrations, re-run the install command with the same options after upgrading:
 
 ```bash
 composer update martis/martis
-php artisan martis:install --force --with-profile --avatar-column=avatar_path
+php artisan martis:install --force --with-profile --with-2fa --avatar-column=avatar_path
 ```
+
+Since v2.0 every Martis cache key carries the installed version, so an upgrade rebuilds the caches on its own (on a path repository, whose version does not change, run `php artisan martis:cache:clear`). On the `database` or `file` cache store, run `php artisan martis:cache:prune` after an upgrade to delete the entries the previous version left behind; see [Cache → Invalidation](cache.md#invalidation).
 
 ## Vendor Publish Tags Reference
 
@@ -624,16 +669,20 @@ The package exposes the following `--tag` values for `vendor:publish`:
 | `martis-views` | Blade SPA shell template | `resources/views/vendor/martis/` |
 | `martis-lang` | Translation files (en, pt_BR, pt_PT) | `lang/vendor/martis/` |
 | `martis-extension-shims` | Consumer-extension shims and their TypeScript declarations (v1.38.0) | `resources/js/martis-extensions/.shims/` |
-| `martis-migrations` | Action-events audit log table | `database/migrations/*_create_martis_action_events_table.php` |
+| `martis-migrations` | Action-events audit log, user preferences, cache state and drop-dashboards-layout migrations | `database/migrations/*_create_martis_action_events_table.php`, `*_create_martis_user_preferences_table.php`, `*_create_martis_cache_state_table.php`, `*_drop_dashboards_layout_from_user_preferences_table.php` |
 | `martis-preferences-migration` | User preferences table | `database/migrations/*_create_martis_user_preferences_table.php` |
+| `martis-preferences-drop-dashboards-layout-migration` | Drops the legacy `dashboards_layout` preferences column | `database/migrations/*_drop_dashboards_layout_from_user_preferences_table.php` |
+| `martis-cache-state-migration` | Cache state table | `database/migrations/*_create_martis_cache_state_table.php` |
 | `martis-2fa-migration` | 2FA columns on `users` | `database/migrations/*_add_two_factor_columns.php` |
 | `martis-avatar-migration` | Profile picture column on `users` | `database/migrations/*_add_profile_picture_column.php` |
+| `martis-sessions-migration` | Sessions table (browser-sessions profile section) | `database/migrations/*_create_sessions_table.php` |
+| `martis-invitations-migration` | Invitations table | `database/migrations/*_create_invitations_table.php` |
 
-`martis:install` runs the appropriate combination based on its flags. Direct `vendor:publish` calls are for advanced manual workflows.
+`martis:install` runs the appropriate combination based on its flags, and is the only way to publish the notifications table and the action-events morph id conversions. Direct `vendor:publish` calls are for advanced manual workflows; see Step 5 for the duplicate-migration caveat.
 
 ## Available Artisan Commands
 
-The package ships 28 commands. The full list:
+The package ships 35 commands (plus the aliases `martis:override` → `martis:component` and `martis:make-policy` → `martis:policy`). The full list:
 
 ### Setup & maintenance
 
@@ -641,9 +690,14 @@ The package ships 28 commands. The full list:
 |---|---|
 | `martis:install` | Full installation (directories, config, provider, assets, core migrations, translations, auto-migrate) |
 | `martis:user` | Create an admin user (`--if-missing` / `--update` for idempotent bootstrap scripts) |
-| `martis:vendor-publish` | Wrapper around `vendor:publish` with Martis-aware defaults and prompts |
-| `martis:stubs` | List or scaffold the customizable stubs used by the make commands |
+| `martis:publish-assets` | Republish the frontend assets: wipes `public/vendor/martis/`, copies the package build, verifies it against the manifest (`--no-wipe` for the legacy merge copy), then publishes the app themes from `resources/css/martis/` |
+| `martis:vendor-publish` | Publish Martis package files by flag (`--config`, `--assets`, `--views`, `--lang`, `--force`); `--assets` goes through `martis:publish-assets` |
+| `martis:stubs` | Publish all generator stubs into `stubs/martis/` for customisation (`--force` overwrites existing ones) |
 | `martis:list-overrides` | Print the component keys the PHP layer declares (Tools, Actions with a custom component, resources); `--frontend` checks that your extension registers them |
+| `martis:list-env-vars` | List every `MARTIS_*` env var the published config reads, with its default and config key (`--json` for machine output) |
+| `martis:agents` | Generate guidelines for AI coding agents (`AGENTS.md`, `CLAUDE.md`, ...) and optionally wire the Martis MCP server. With `--no-interaction` it overwrites existing files without asking |
+| `martis:mcp-serve` | Serve the Martis docs as an MCP server (stdio or HTTP transport) |
+| `martis:invitations` | Scaffold the consumer-owned invitations admin UI (resource, actions, policy, notification); `--no-migrate` / `--no-publish` skip the migration steps |
 
 ### Cache control
 
@@ -651,6 +705,7 @@ The package ships 28 commands. The full list:
 |---|---|
 | `martis:cache:status` | Show enabled / disabled state for each Martis cache subsystem |
 | `martis:cache:clear` | Flush every Martis cache subsystem |
+| `martis:cache:prune` | Delete the cache entries earlier versions and clears left behind (database and file stores; v2.0) |
 | `martis:cache:enable` | Enable a Martis cache subsystem at runtime (survives until disabled) |
 | `martis:cache:disable` | Disable a Martis cache subsystem at runtime |
 
@@ -685,8 +740,9 @@ The package ships 28 commands. The full list:
 | Command | Description |
 |---|---|
 | `martis:component` | Scaffold a React override (TSX) under `resources/js/martis-extensions/overrides/`. Every `--type` auto-registers on the next `npm run build:extensions`. See [Overrides](overrides.md#6-creating-custom-components-artisan) for the filename → key table |
-| `martis:theme` | Scaffold a custom theme override |
-| `martis:sso` | Scaffold an SSO provider configuration block |
+| `martis:theme` | Scaffold a custom theme in `resources/css/martis/<name>.css`, publish it and set `theme.name` in a published `config/martis.php` |
+| `martis:theme:diff` | Compare a consumer theme against the bundled package tokens (exit `0` aligned, `2` drift) |
+| `martis:sso` | Scaffold an SSO provider end to end (composer deps, config, env, listener, migrations); pass `--no-composer --no-migrate` in CI or agent shells |
 
 ## Next Steps
 

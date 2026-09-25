@@ -1,51 +1,178 @@
 <?php
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Martis\Fields\Select;
+use Martis\Fields\Text;
 
-it('normalises associative options as [label => value]', function () {
+class SelectResolveTestModel extends Model
+{
+    protected $guarded = [];
+
+    public $timestamps = false;
+}
+
+// ---------------------------------------------------------------------------
+// Options in Nova's order: [value => label] (v2.0.0)
+// ---------------------------------------------------------------------------
+
+it('reads options as [value => label], the order Nova uses', function () {
     $field = Select::make('status')->options([
-        'Active' => 'active',
-        'Inactive' => 'inactive',
+        'active' => 'Active',
+        'inactive' => 'Inactive',
     ]);
 
-    expect($field->getOptions())->toEqual([
+    expect($field->getOptions())->toBe([
         ['label' => 'Active', 'value' => 'active'],
         ['label' => 'Inactive', 'value' => 'inactive'],
     ]);
 });
 
-it('normalises sequential options using the value as label', function () {
-    $field = Select::make('status')->options(['draft', 'published']);
+it('stores the id of a pluck(name, id) closure, keeps duplicate names apart and resolves lazily', function () {
+    $users = collect([
+        ['id' => 7, 'name' => 'Ana'],
+        ['id' => 9, 'name' => 'Ana'],
+        ['id' => 12, 'name' => 'Rui'],
+    ]);
+    $calls = 0;
+    $field = Select::make('owner_id')->options(function (?Request $request) use ($users, &$calls): array {
+        $calls++;
 
-    expect($field->getOptions())->toEqual([
-        ['label' => 'draft', 'value' => 'draft'],
-        ['label' => 'published', 'value' => 'published'],
+        return $users->pluck('name', 'id')->all();
+    });
+
+    expect($calls)->toBe(0);
+
+    $expected = [
+        ['label' => 'Ana', 'value' => 7],
+        ['label' => 'Ana', 'value' => 9],
+        ['label' => 'Rui', 'value' => 12],
+    ];
+
+    expect($field->getOptions())->toBe($expected)
+        ->and($calls)->toBe(1)
+        ->and($field->toArray()['options'])->toBe($expected);
+});
+
+it('reads a Collection returned from an options() closure, as Nova does with collect()', function () {
+    $field = Select::make('owner_id')->options(fn () => collect([7 => 'Ana', 9 => 'Rui']));
+
+    expect($field->getOptions())->toBe([
+        ['label' => 'Ana', 'value' => 7],
+        ['label' => 'Rui', 'value' => 9],
     ]);
 });
 
-it('optionsFromMap accepts [value => label] and keeps values untranslated', function () {
-    $field = Select::make('plan')->optionsFromMap([
-        'free' => 'Grátis',
-        'pro' => 'Pro',
-        'enterprise' => 'Empresa',
-    ]);
+it('normalises a Collection returned from searchOptionsUsing()', function () {
+    $field = Select::make('model')->searchOptionsUsing(fn (string $term) => collect(['gpt-4o' => 'GPT-4o']));
 
-    expect($field->getOptions())->toEqual([
-        ['label' => 'Grátis', 'value' => 'free'],
+    expect($field->searchOptions('gpt'))->toBe([
+        ['label' => 'GPT-4o', 'value' => 'gpt-4o'],
+    ]);
+});
+
+it('accepts a Collection passed straight to options(), as Nova does', function () {
+    $field = Select::make('owner_id')->options(collect([7 => 'Ana', 9 => 'Rui']));
+
+    expect($field->getOptions())->toBe([
+        ['label' => 'Ana', 'value' => 7],
+        ['label' => 'Rui', 'value' => 9],
+    ]);
+});
+
+it('accepts any iterable passed to options(), keys kept', function () {
+    $generator = (function () {
+        yield 'draft' => 'Draft';
+        yield 'live' => 'Live';
+    })();
+
+    expect(Select::make('status')->options($generator)->getOptions())->toBe([
+        ['label' => 'Draft', 'value' => 'draft'],
+        ['label' => 'Live', 'value' => 'live'],
+    ])->and(Select::make('status')->options(new ArrayIterator([3 => 'Three']))->getOptions())->toBe([
+        ['label' => 'Three', 'value' => 3],
+    ]);
+});
+
+it('reads a list as values 0, 1, 2 like Nova does', function () {
+    $field = Select::make('size')->options(['Small', 'Large']);
+
+    expect($field->getOptions())->toBe([
+        ['label' => 'Small', 'value' => 0],
+        ['label' => 'Large', 'value' => 1],
+    ]);
+});
+
+it('keeps non-sequential integer keys as the stored values', function () {
+    $field = Select::make('priority')->options([1 => 'Low', 5 => 'High']);
+
+    expect($field->getOptions())->toBe([
+        ['label' => 'Low', 'value' => 1],
+        ['label' => 'High', 'value' => 5],
+    ]);
+});
+
+it('stores a numeric-string key as the integer PHP makes of it', function () {
+    $field = Select::make('code')->options(['1' => 'One', '02' => 'Two']);
+
+    expect($field->getOptions())->toBe([
+        ['label' => 'One', 'value' => 1],
+        ['label' => 'Two', 'value' => '02'],
+    ]);
+});
+
+it('keeps an empty-string key as a real option whose value is the empty string', function () {
+    $field = Select::make('tier')->options(['' => 'None', 'pro' => 'Pro']);
+
+    expect($field->getOptions())->toBe([
+        ['label' => 'None', 'value' => ''],
         ['label' => 'Pro', 'value' => 'pro'],
-        ['label' => 'Empresa', 'value' => 'enterprise'],
     ]);
 });
 
-it('optionsFromMap is idempotent — successive calls replace options', function () {
-    $field = Select::make('plan')->optionsFromMap(['a' => 'Alpha']);
-    $field->optionsFromMap(['b' => 'Beta']);
-
-    expect($field->getOptions())->toEqual([
-        ['label' => 'Beta', 'value' => 'b'],
+it('reads a null label as an empty label', function () {
+    expect(Select::make('status')->options(['draft' => null])->getOptions())->toBe([
+        ['label' => '', 'value' => 'draft'],
     ]);
 });
+
+it('reads Nova grouped options and carries the group in the payload', function () {
+    $field = Select::make('size')->options([
+        'MS' => ['label' => 'Small', 'group' => 'Men Sizes'],
+        'WS' => ['label' => 'Small', 'group' => 'Women Sizes'],
+        'XL' => ['label' => 'Extra large'],
+    ]);
+
+    expect($field->getOptions())->toBe([
+        ['label' => 'Small', 'value' => 'MS', 'group' => 'Men Sizes'],
+        ['label' => 'Small', 'value' => 'WS', 'group' => 'Women Sizes'],
+        ['label' => 'Extra large', 'value' => 'XL'],
+    ]);
+});
+
+it('rejects the pre-v2 nested group format with a message naming the field and the option', function () {
+    Select::make('stack')->options(['Backend' => ['PHP' => 'php']]);
+})->throws(InvalidArgumentException::class, 'Select [stack]: the option [Backend] maps to an array that is not a grouped option.');
+
+it('rejects a grouped option with keys other than label and group', function () {
+    Select::make('size')->options(['MS' => ['label' => 'Small', 'color' => 'blue']]);
+})->throws(InvalidArgumentException::class, 'the option [MS] maps to an array that is not a grouped option');
+
+it('raises the grouped-option error from a closure when the options are read', function () {
+    Select::make('stack')->options(fn () => ['Backend' => ['PHP' => 'php']])->getOptions();
+})->throws(InvalidArgumentException::class, 'Select [stack]: the option [Backend]');
+
+it('rejects a label that cannot be a string', function () {
+    Select::make('status')->options(['draft' => new stdClass]);
+})->throws(InvalidArgumentException::class, 'Select [status]: the label of option [draft] must be a string, got stdClass.');
+
+it('rejects a string that is not an enum class', function () {
+    Select::make('status')->options('NotAnEnum');
+})->throws(InvalidArgumentException::class, 'Select [status]: options() received [NotAnEnum], which is neither an iterable, a Closure nor an enum class.');
+
+it('fails loudly when optionsFromMap() is called, since options() replaced it', function () {
+    Select::make('plan')->optionsFromMap(['free' => 'Free']);
+})->throws(Error::class, 'Call to undefined method Martis\Fields\Select::optionsFromMap()');
 
 // ---------------------------------------------------------------------------
 // Enum support (v1.1)
@@ -83,14 +210,6 @@ it('options() accepts a pure enum class and uses case name as both value and lab
         ['label' => 'Green', 'value' => 'Green'],
         ['label' => 'Blue Light', 'value' => 'BlueLight'],
     ]);
-});
-
-it('options() rejects a string that is not an enum class as a regular value', function () {
-    // String that isn't an enum should fall through to the array branch.
-    // This is more of a contract check — passing arbitrary strings is a
-    // type-system error caught by static analysis. Here we just confirm
-    // there's no false-positive enum interpretation.
-    expect(enum_exists('NotAnEnum'))->toBeFalse();
 });
 
 it('displayUsingLabels defaults to true so the index/detail cell shows labels', function () {
@@ -206,7 +325,7 @@ it('searchOptions() runs the resolver with the term and the request and normalis
     $field = Select::make('model')->searchOptionsUsing(function (string $term, ?Request $request) use (&$seen): array {
         $seen = [$term, $request];
 
-        return ['GPT-4o' => 'gpt-4o', 'Claude Opus 5' => 'claude-opus-5'];
+        return ['gpt-4o' => 'GPT-4o', 'claude-opus-5' => 'Claude Opus 5'];
     });
     $request = Request::create('/martis/api/resources/x/fields/model/options', 'GET');
 
@@ -218,12 +337,12 @@ it('searchOptions() runs the resolver with the term and the request and normalis
         ->and($seen[1])->toBe($request);
 });
 
-it('searchOptions() accepts a sequential list and uses each value as its label', function () {
+it('searchOptions() reads a list like options(): values 0, 1, 2', function () {
     $field = Select::make('model')->searchOptionsUsing(fn (string $term) => ['gpt-4o', 'gpt-4o-mini']);
 
-    expect($field->searchOptions('gpt'))->toEqual([
-        ['label' => 'gpt-4o', 'value' => 'gpt-4o'],
-        ['label' => 'gpt-4o-mini', 'value' => 'gpt-4o-mini'],
+    expect($field->searchOptions('gpt'))->toBe([
+        ['label' => 'gpt-4o', 'value' => 0],
+        ['label' => 'gpt-4o-mini', 'value' => 1],
     ]);
 });
 
@@ -241,4 +360,39 @@ it('searchOptionsUsing() leaves getOptions() (the initial list) untouched', func
     $field = Select::make('model')->options(['a' => 'a'])->searchOptionsUsing(fn () => ['b' => 'b']);
 
     expect($field->getOptions())->toEqual([['label' => 'a', 'value' => 'a']]);
+});
+
+// ---------------------------------------------------------------------------
+// resolve() parity with Field::resolve(): Select::resolve() must delegate to
+// the base implementation so future changes to Field::resolve() reach it,
+// not reimplement it. These tests compare Select's output to a plain Field
+// (Text, which never overrides resolve()) under identical setups.
+// ---------------------------------------------------------------------------
+
+it('resolve() matches Field::resolve() for a plain stored attribute', function () {
+    $model = new SelectResolveTestModel(['status' => 'draft']);
+    $select = Select::make('status')->options(['draft' => 'Draft']);
+    $text = Text::make('status');
+
+    expect($select->resolve($model))->toBe($text->resolve($model))->toBe('draft');
+});
+
+it('resolve() matches Field::resolve() through resolveUsing(), with the same 4 arguments', function () {
+    $model = new SelectResolveTestModel(['status' => 'draft']);
+    $capture = fn ($value, $m, $attr, $request) => [$value, $m === $model, $attr, $request];
+
+    $select = Select::make('status')->options(['draft' => 'Draft'])->resolveUsing($capture);
+    $text = Text::make('status')->resolveUsing($capture);
+
+    expect($select->resolve($model))->toBe($text->resolve($model));
+});
+
+it('resolve() matches Field::resolve() for a computed field', function () {
+    $model = new SelectResolveTestModel([]);
+    $computed = fn () => 'computed-value';
+
+    $select = Select::make('status')->options(['draft' => 'Draft'])->computed($computed);
+    $text = Text::make('status')->computed($computed);
+
+    expect($select->resolve($model))->toBe($text->resolve($model))->toBe('computed-value');
 });

@@ -1,6 +1,6 @@
 # Configuration
 
-Martis is configured through `config/martis.php`. Publish it with the bundled wrapper (or the standard `vendor:publish` if you prefer):
+Martis is configured through `config/martis.php`, which the installer publishes; most of its options also read an environment variable. Publish it with the bundled wrapper (or the standard `vendor:publish` if you prefer):
 
 ```bash
 php artisan martis:vendor-publish --config
@@ -18,7 +18,7 @@ This page documents every configuration option grouped by subsystem. The full en
 'path' => env('MARTIS_PATH', 'martis'),
 ```
 
-The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e.g., `http://yourdomain.com/martis`).
+The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e.g., `http://yourdomain.com/martis`), its API at `/{path}/api`, and the routes a Tool loads with `loadRoutes()` at `/{path}/api/tools/{uriKey}` (v2.0; they stayed under `/martis` before, whatever the path). See [Tools → Tool routes and their middleware](tools.md#tool-routes-and-their-middleware).
 
 ## Authentication
 
@@ -30,9 +30,13 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `guard` | `?string` | `null` | Authentication guard. `null` uses Laravel's default guard. |
+| `guard` | `?string` | `null` | Authentication guard. `null` uses Laravel's default guard. The panel's requests run as that guard (it becomes the request's guard), and the auth flows, the Martis migrations and `martis:user` use its provider: see [Upgrading → A custom Martis guard](upgrading.md#a-custom-martis-guard). |
 | `middleware` | `array` | `['web']` | Applied to all Martis routes (public and protected). |
-| `auth_middleware` | `array` | `['martis.auth']` | Applied to protected routes only. |
+| `auth_middleware` | `array` | `['martis.auth']` | Applied to protected routes only. `martis.auth` implements Laravel's `AuthenticatesRequests`, so the router's middleware priority runs it where it runs Laravel's `auth`: before the throttle, the route bindings and any middleware outside the priority list (v2.0.0+). |
+
+| `guard` | `?string` | `null` | Authentication guard. `null` uses Laravel's default guard. |
+| `middleware` | `array` | `['web']` | Applied to all Martis routes (public and protected) and to a Tool's routes. |
+| `auth_middleware` | `array` | `['martis.auth']` | Applied to protected routes only, a Tool's routes included (v2.0). A middleware name is accepted in place of a list; `null` means the default; any other value throws an `InvalidArgumentException` naming the key. |
 
 ## Brand
 
@@ -449,10 +453,12 @@ See [menus.md](menus.md#count-badges) for the badge API (including `menuCount()`
 ## Localization
 
 ```php
-'locale' => env('MARTIS_LOCALE', 'en'),
+'locale' => env('MARTIS_LOCALE', env('APP_LOCALE', 'en')),
 ```
 
-Default locale for the admin panel. Translations are loaded from `resources/lang/{locale}/` files. Publish translations with:
+Locale the blade shell uses **only when preferences are disabled** (`preferences.enabled = false`). With preferences enabled (the default), the panel language comes from the preferences resolver: the user's saved preference, else `preferences.defaults.locale` (`MARTIS_DEFAULT_LOCALE`, default `en`, which must be listed in `preferences.locales`). The `martis.locale` middleware applies that value on every authenticated Martis route, so set `MARTIS_DEFAULT_LOCALE`, not `APP_LOCALE` / `MARTIS_LOCALE`, to change the default panel language.
+
+Martis UI strings come from the package's `resources/lang/{locale}/` files, overridden by the published copies in `lang/vendor/martis/{locale}/` (see [i18n](i18n.md)). Publish translations with:
 
 ```bash
 php artisan vendor:publish --tag=martis-lang
@@ -473,7 +479,9 @@ Shipped locales: `en` (English), `pt_BR` (Brazilian Portuguese), `pt_PT` (Europe
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `enabled` | `bool` | `true` | Set `false` to disable API rate limiting. |
-| `max_attempts` | `int` | `120` | Maximum requests per window. |
+| `max_attempts` | `int` | `120` | Maximum requests per window, per signed-in user of the Martis guard. |
+
+| `max_attempts` | `int` | `120` | Maximum requests per window, per user, counted across the Martis API and every Tool's routes (v2.0). |
 | `decay_minutes` | `int` | `1` | Rate limit window in minutes. |
 
 ## Theme
@@ -490,9 +498,9 @@ Shipped locales: `en` (English), `pt_BR` (Brazilian Portuguese), `pt_PT` (Europe
 |-----|------|---------|-------------|
 | `default` | `string` | `'dark'` | Default theme: `'dark'` or `'light'`. |
 | `allowToggle` | `bool` | `true` | When `false`, the theme picker is hidden everywhere — the Theme section disappears from the preferences overlay and the theme cycle button is suppressed on every pre-login surface (login, register, 2FA, password reset). Use this to lock the entire shell to a single theme without removing the rest of the preferences. |
-| `name` | `?string` | `null` | Custom theme name for the `martis:theme` artisan command. |
+| `name` | `?string` | `null` | Active custom theme. The panel loads `public/vendor/martis/themes/<name>.css`, which `martis:publish-assets` publishes from `resources/css/martis/<name>.css`. `null` keeps the built-in theme. |
 
-Custom themes are scaffolded via `php artisan martis:theme`. See [Theming](components.md#theming).
+Custom themes are scaffolded via `php artisan martis:theme`, which writes the source and sets `name`. See [Theming → Theme files](theming.md#theme-files).
 
 ## Keyboard Shortcuts
 
@@ -725,7 +733,7 @@ Individual actions can opt out via `->withoutActionEvents()`.
 | **Static config** | Paths, throttle, theme, profile, cache TTLs, drawer widths, sticky-views scope, notifications poll interval, … | `config/martis.php` |
 | **Code registrations** | Main menu resolver, dashboards, custom cache layers, gate definitions, page-title closures | `app/Providers/MartisServiceProvider.php` |
 
-`martis:install` publishes the provider stub to `app/Providers/MartisServiceProvider.php` and wires it into `bootstrap/providers.php` automatically. Re-running `martis:install` is idempotent — the file is preserved and the bootstrap entry is not duplicated. Use `--force` to refresh the stub.
+`martis:install` publishes the provider stub to `app/Providers/MartisServiceProvider.php` and wires it into `bootstrap/providers.php` automatically. Re-running `martis:install` is idempotent — the file is preserved and the bootstrap entry is not duplicated. `--force` does not touch it: use `--force-provider` to refresh the stub (this overwrites your registered dashboards, menu and gates).
 
 The stub ships every section commented-out, so an unmodified provider registers nothing and Martis runs on its built-in defaults. Uncomment what you need:
 
@@ -1004,7 +1012,7 @@ See [Loader](loader.md) for the surface-by-surface behaviour matrix.
 ```php
 'impersonation' => [
     'enabled' => env('MARTIS_IMPERSONATION_ENABLED', false),
-    'guard' => env('MARTIS_IMPERSONATION_GUARD', 'web'),
+    'guard' => env('MARTIS_IMPERSONATION_GUARD'), // null: the Martis guard
     'session_key' => env('MARTIS_IMPERSONATION_SESSION_KEY', 'martis.impersonation'),
 ],
 ```
@@ -1034,7 +1042,7 @@ The package can record three categories of administrative events into the `marti
 |---|---|---|
 | `role_changes` | `true` | Logs `role.attached` / `role.detached` rows whenever Spatie attaches or detaches a role. |
 | `impersonation` | `true` | Logs `impersonation.started` / `impersonation.stopped`. |
-| `authz_denials` | `false` | Records denied gate decisions as `authz.denied`. Off by default — turning it on can be noisy on a busy app. |
+| `authz_denials` | `false` | Records denied gate decisions as `authz.denied`, while the Martis guard is the request's guard. Off by default: turning it on can be noisy on a busy app. |
 | `authz_denials_include_viewany` | `false` | When `authz_denials` is on, also record `viewAny` denials. Off by default because index pages probe `viewAny` on every request. |
 
 The denial listener dedupes the same `(ability, model_class, model_id)` tuple within one request, so a sidebar that probes the same gate three times only emits one row.
@@ -1051,7 +1059,7 @@ The denial listener dedupes the same `(ability, model_class, model_id)` tuple wi
 | Key | Default | Effect |
 |---|---|---|
 | `request_cache` | `false` | Memoises `(user, ability, model)` gate results for the current request. Wins when a single request evaluates the same gate from many surfaces (sidebar, schema authorization block, action visibility). Per-request only — never crosses request boundaries. Closure gates with non-Model arguments are skipped. |
-| `revoke_sessions_on_demote` | `false` | When a role is detached from a user, force-logs out their existing browser sessions. Useful when promoting/demoting between admin tiers. |
+| `revoke_sessions_on_demote` | `false` | When a role is detached from a user, force-logs out their existing browser sessions. Useful when promoting/demoting between admin tiers. Skipped, with a warning, when the session guards sign in users of more than one table (a custom `MARTIS_GUARD` with its own model): the session rows cannot be told apart by id. |
 
 ## Magic-link sign-in (v1.8.8)
 
@@ -1164,7 +1172,7 @@ In addition to `MARTIS_IMPERSONATION_ENABLED` (covered above), the impersonation
 
 | Variable | Default | Effect |
 |---|---|---|
-| `MARTIS_IMPERSONATION_GUARD` | `web` | Auth guard the impersonation operates on. |
+| `MARTIS_IMPERSONATION_GUARD` | the Martis guard | Auth guard the impersonation operates on (v2.0.0+: unset follows `MARTIS_GUARD`, then the app's default guard; it was `web`). |
 | `MARTIS_IMPERSONATION_SESSION_KEY` | `martis.impersonation` | Session bag where the operator's id is stashed. |
 | `MARTIS_IMPERSONATION_MAX_DURATION` | `0` | Maximum session length in minutes. `0` disables the timeout. |
 | `MARTIS_IMPERSONATION_POLL_MS` | `120000` | Banner status poll interval in ms. Default 2 min — sessions change rarely. Set to `0` to disable polling (banner still mounts and reads state once per page load). v1.8.8. |
@@ -1207,7 +1215,7 @@ Beyond the global `MARTIS_CACHE_ENABLED` master switch, every surface that cache
 | `MARTIS_CACHE_NAVIGATION_ENABLED` | `true` | Sidebar navigation tree |
 | `MARTIS_CACHE_NAVIGATION` / `MARTIS_CACHE_NAVIGATION_TTL` | `1` | Navigation TTL |
 | `MARTIS_CACHE_SCHEMA_ENABLED` | `true` | Resource schema payload |
-| `MARTIS_CACHE_SCHEMA` / `MARTIS_CACHE_SCHEMA_TTL` | `null` | Schema TTL |
+| `MARTIS_CACHE_SCHEMA` / `MARTIS_CACHE_SCHEMA_TTL` | `1440` | Schema TTL in minutes (one day since v2.0; `null` before, see [Cache → Invalidation](cache.md#invalidation)) |
 | `MARTIS_CACHE_ADMIN_UI` | `true` | Cache admin UI in the System sidebar group |
 
 The shorter names (`MARTIS_CACHE_DASHBOARDS`, etc.) and the explicit `_TTL` variants resolve to the same value — the `_TTL` form just makes intent unambiguous. Pick whichever reads better in your `.env`.
@@ -1384,7 +1392,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_CACHE_NAVIGATION_TTL` | `env('MARTIS_CACHE_NAVIGATION', 1)` |
 | `MARTIS_CACHE_SCHEMA` | `null` |
 | `MARTIS_CACHE_SCHEMA_ENABLED` | `true` |
-| `MARTIS_CACHE_SCHEMA_TTL` | `env('MARTIS_CACHE_SCHEMA', null)` |
+| `MARTIS_CACHE_SCHEMA_TTL` | `env('MARTIS_CACHE_SCHEMA', 1440)` |
 | `MARTIS_CUSTOM_ACCENTS` | `(no default)` |
 | `MARTIS_DASHBOARD_SHOW_GREETING` | `true` |
 | `MARTIS_DASHBOARD_SHOW_WELCOME` | `true` |
@@ -1404,7 +1412,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_FOOTER_TEXT` | `(no default)` |
 | `MARTIS_GUARD` | `null` |
 | `MARTIS_IMPERSONATION_ENABLED` | `false` |
-| `MARTIS_IMPERSONATION_GUARD` | `'web'` |
+| `MARTIS_IMPERSONATION_GUARD` | `null` (the Martis guard) |
 | `MARTIS_IMPERSONATION_MAX_DURATION` | `0` |
 | `MARTIS_IMPERSONATION_POLL_MS` | `120000` |
 | `MARTIS_IMPERSONATION_SESSION_KEY` | `'martis.impersonation'` |

@@ -249,7 +249,7 @@ Returns `[]` by default. Defining the method is opt-in.
 
 ## Bridge — config → frontend
 
-The PHP-side `loader` config reaches the SPA via `window.MartisConfig.loader`, set by the package blade template (`resources/views/app.blade.php`, line 104):
+The PHP-side `loader` config reaches the SPA via `window.MartisConfig.loader`, set by the package blade template (`resources/views/app.blade.php`, in the inline `window.MartisConfig` script):
 
 ```blade
 loader: {!! json_encode(config('martis.loader', ['disabled' => false])) !!},
@@ -307,10 +307,13 @@ On a resource index page, type in the search bar. After 300ms debounce, a small 
 In your Resource class (for testing only):
 
 ```php
-public function indexQuery(Request $request): Builder
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+
+public static function indexQuery(Request $request, Builder $query): Builder
 {
     sleep(2); // simulate slow response — remove after testing
-    return parent::indexQuery($request);
+    return parent::indexQuery($request, $query);
 }
 ```
 

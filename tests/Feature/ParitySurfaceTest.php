@@ -444,7 +444,7 @@ it('martis.impersonation config exposes enabled + guard + session_key with safe 
 // v1.1 surface — Enum support, $relatableSearchResults, Image closures
 // ---------------------------------------------------------------------------
 
-it('Select::options() accepts a UnitEnum class-string in addition to array|Closure', function () {
+it('Select::options() accepts a UnitEnum class-string in addition to an iterable, an Arrayable or a Closure', function () {
     $reflection = new ReflectionMethod(Select::class, 'options');
     $param = $reflection->getParameters()[0];
 
@@ -454,7 +454,11 @@ it('Select::options() accepts a UnitEnum class-string in addition to array|Closu
 
     $names = array_map(static fn ($t) => $t->getName(), $type->getTypes());
     sort($names);
-    expect($names)->toBe(['Closure', 'array', 'string'], 'Select::options() must accept array|string|Closure (string for Enum class-strings).');
+    // `iterable` reflects as Traversable|array. Nova 5 takes iterable|callable|string.
+    expect($names)->toBe(
+        ['Closure', 'Illuminate\\Contracts\\Support\\Arrayable', 'Traversable', 'array', 'string'],
+        'Select::options() must accept iterable|Arrayable|string|Closure (string for Enum class-strings).',
+    );
 });
 
 it('Resource::$relatableSearchResults + resolveRelatableSearchResults() are part of the public surface', function () {

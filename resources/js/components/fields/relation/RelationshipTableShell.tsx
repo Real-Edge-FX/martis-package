@@ -19,6 +19,9 @@ import { Pagination } from '@/components/Pagination'
 import { QueryErrorState } from '@/components/QueryErrorState'
 import { recordHref } from '@/lib/recordHref'
 import { isHiddenOn } from '@/lib/hiddenFields'
+import { filterInlineActions } from '@/lib/actionVisibility'
+import { InlineRowActions } from '@/components/Table/Table'
+import { ActionModal, ActionDrawer, type ActionMeta, type ActionVia } from '@/components/Actions'
 
 /**
  * Shared toolbar/table/pagination shell for *-Many relationship fields.
@@ -29,7 +32,9 @@ import { isHiddenOn } from '@/lib/hiddenFields'
  *
  * Authorization gates (`canCreate`/`canUpdate`/`canDelete`) AND programmer
  * hide flags (`hideXxx`) compose: an action appears only when authorized AND
- * not explicitly hidden. Unauthorized actions never render.
+ * not explicitly hidden. Unauthorized actions never render, per row too: a
+ * row leaves out the actions its record's `_authorization` denies (a record
+ * without it keeps them, as on the resource index).
  */
 export interface RelationshipTableShellProps {
   title: string
@@ -83,6 +88,12 @@ export interface RelationshipTableShellProps {
    *  dropdowns with a "2 selected" badge, etc. */
   toolbarExtras?: ReactNode | ((ctx: { selectedRows: ResourceRecord[] }) => ReactNode)
   rowActionsExtras?: (row: ResourceRecord) => ReactNode
+
+  /** Offer the related resource's inline (`showInline()`) actions on each
+   *  row, as the resource index does (Nova parity), run through this
+   *  relationship: the run sends it (`viaResource`, `viaResourceId`,
+   *  `viaRelationship`) and reaches only a record it holds. */
+  rowActions?: ActionVia
 }
 
 export function RelationshipTableShell(props: RelationshipTableShellProps) {
@@ -100,6 +111,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
     hideRestoreAction, hideForceDeleteAction,
     defaultTrashed,
     toolbarExtras, rowActionsExtras,
+    rowActions,
   } = props
 
   const { t: tAct } = useTranslation('actions')
@@ -118,6 +130,8 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   const [restoreTarget, setRestoreTarget] = useState<{ id: string | number } | null>(null)
   const [isCollapsed, setIsCollapsed] = useState(collapsedByDefault)
   const [trashed, setTrashed] = useState<'active' | 'with' | 'only'>(defaultTrashed ?? 'active')
+  const [activeAction, setActiveAction] = useState<{ action: ActionMeta; id: string | number } | null>(null)
+  const [actionDrawer, setActionDrawer] = useState<{ type: 'create' | 'detail' | 'update'; resource: string; recordId?: string | number } | null>(null)
 
   const schemaQuery = useQuery({
     queryKey: ['schema', relatedResource],
@@ -190,6 +204,9 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   const totalCount = pagination?.total ?? records.length
 
   const indexFields: FieldDefinition[] = schema?.fieldsForIndex ?? []
+  const inlineActions = rowActions
+    ? filterInlineActions(((schema as unknown as { actions?: ActionMeta[] })?.actions ?? []))
+    : []
 
   const softDeletes = !!(schema as unknown as { softDeletes?: boolean })?.softDeletes
 
@@ -198,7 +215,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   const showDelete = canDelete && !hideDeleteAction && !!deleteUrl
   const showRestore = softDeletes && !hideRestoreAction
   const showForceDelete = softDeletes && !hideForceDeleteAction
-  const hasActions = showView || showEdit || showDelete || showRestore || showForceDelete || !!rowActionsExtras
+  const hasActions = showView || showEdit || showDelete || showRestore || showForceDelete || !!rowActionsExtras || inlineActions.length > 0
 
   const showSearch = searchable && !hideSearch
   const showCreate = canCreate && !hideCreateButton && !!createUrl
@@ -223,8 +240,8 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
     if (!active) return <CaretUpDownIcon size={14} className="text-gray-400" />
     return dir === 'asc'
-      ? <CaretUpIcon size={14} className="text-indigo-600" />
-      : <CaretDownIcon size={14} className="text-indigo-600" />
+      ? <CaretUpIcon size={14} style={{ color: 'var(--martis-accent)' }} />
+      : <CaretDownIcon size={14} style={{ color: 'var(--martis-accent)' }} />
   }
 
   const showMeta = !isCollapsed && (showPerPage || showSoftDeleteToggle)
@@ -430,12 +447,13 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                     )
                   }
                   body={(row: ResourceRecord) => (
-                    // A field the related record hides (`_hidden`) leaves its cell empty.
-                    isHiddenOn(row, f.attribute) ? null : f.attribute === 'id' ? (
+                    // A field the related record hides (`_hidden`) leaves its cell empty;
+                    // the id links to the record only when its policy lets the user view it.
+                    isHiddenOn(row, f.attribute) ? null : f.attribute === 'id' && row._authorization?.authorizedToView !== false ? (
                       <Link
                         to={viewUrl ? viewUrl(row.id as string | number) : recordHref(relatedResource, row.id)}
                         className="font-medium no-underline"
-                        style={{ color: 'var(--martis-primary)' }}
+                        style={{ color: 'var(--martis-accent)' }}
                       >
                         <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} />
                       </Link>
@@ -474,9 +492,12 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                   }
                   body={(row: ResourceRecord) => {
                     const isTrashed = row.deleted_at != null
+                    // The related resource's policy answers for this record;
+                    // a missing answer is not a denial.
+                    const auth = row._authorization
                     return (
                       <div className="flex items-center justify-end gap-1">
-                        {showView && (
+                        {showView && auth?.authorizedToView !== false && (
                           <Link
                             to={viewUrl ? viewUrl(row.id as string | number) : recordHref(relatedResource, row.id)}
                             className="rounded p-1.5 transition-colors no-underline"
@@ -489,20 +510,20 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                             <EyeIcon size={16} />
                           </Link>
                         )}
-                        {!isTrashed && showEdit && (
+                        {!isTrashed && showEdit && auth?.authorizedToUpdate !== false && (
                           <Link
                             to={editUrl!(row.id as string | number)}
                             className="rounded p-1.5 transition-colors no-underline"
                             style={{ color: 'var(--martis-text-muted)' }}
                             data-pr-tooltip={tAct('edit', 'Edit')}
                             data-pr-position="top"
-                            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-primary)')}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--martis-accent)')}
                             onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--martis-text-muted)')}
                           >
                             <PencilSimpleIcon size={16} />
                           </Link>
                         )}
-                        {!isTrashed && showDelete && (
+                        {!isTrashed && showDelete && auth?.authorizedToDelete !== false && (
                           <button
                             type="button"
                             onClick={() => setDeleteTarget({ id: row.id as string | number })}
@@ -516,7 +537,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                             <TrashIcon size={16} />
                           </button>
                         )}
-                        {isTrashed && showRestore && (
+                        {isTrashed && showRestore && auth?.authorizedToRestore !== false && (
                           <button
                             type="button"
                             onClick={() => setRestoreTarget({ id: row.id as string | number })}
@@ -530,7 +551,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                             <ArrowCounterClockwiseIcon size={16} />
                           </button>
                         )}
-                        {isTrashed && showForceDelete && (
+                        {isTrashed && showForceDelete && auth?.authorizedToForceDelete !== false && (
                           <button
                             type="button"
                             onClick={() => setForceDeleteTarget({ id: row.id as string | number })}
@@ -545,6 +566,13 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                           </button>
                         )}
                         {rowActionsExtras?.(row)}
+                        {inlineActions.length > 0 && (
+                          <InlineRowActions
+                            actions={inlineActions}
+                            row={row}
+                            onAction={(action, target) => setActiveAction({ action, id: target.id as string | number })}
+                          />
+                        )}
                       </div>
                     )
                   }}
@@ -604,6 +632,43 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
         }}
         onCancel={() => setRestoreTarget(null)}
       />
+
+      {/* Mounted only while an action runs, so a panel with no action open
+          needs no toast provider. */}
+      {activeAction !== null && (
+        <ActionModal
+          resource={relatedResource}
+          action={activeAction.action}
+          // A standalone action runs on no record, as on the index.
+          selectedIds={activeAction.action.standalone ? [] : [activeAction.id]}
+          via={rowActions}
+          visible
+          onHide={() => setActiveAction(null)}
+          onSuccess={() => {
+            void qc.invalidateQueries({ queryKey })
+            setActiveAction(null)
+          }}
+          onOpenCreate={(res) => setActionDrawer({ type: 'create', resource: res })}
+          onOpenDetail={(res, rid) => setActionDrawer({ type: 'detail', resource: res, recordId: rid })}
+          onOpenUpdate={(res, rid) => setActionDrawer({ type: 'update', resource: res, recordId: rid })}
+        />
+      )}
+
+      {/* An action's openCreate / openDetail / openUpdate answer opens here,
+          over the page, as on the index, the detail page and a lens. */}
+      {actionDrawer && (
+        <ActionDrawer
+          type={actionDrawer.type}
+          resource={actionDrawer.resource}
+          recordId={actionDrawer.recordId}
+          onClose={() => setActionDrawer(null)}
+          onSuccess={() => {
+            void qc.invalidateQueries({ queryKey })
+            setActionDrawer(null)
+          }}
+          onSwitchTo={(next) => setActionDrawer(next)}
+        />
+      )}
 
       <style>{`
         .relation-shell-search::placeholder {

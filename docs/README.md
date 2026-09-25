@@ -1,6 +1,6 @@
 # Martis Documentation
 
-A modern, open-source admin engine for Laravel.
+Martis is a modern, open-source admin engine for Laravel, with a PHP API modelled on Laravel Nova 5 and a React + TypeScript frontend. It covers resources, fields, actions, filters, lenses, metrics and dashboards.
 
 ## What is Martis?
 
@@ -72,6 +72,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | # | Document | What You Will Learn |
 |---|----------|---------------------|
 | 1 | **[Installation Guide](installation-guide.md)** | Add Martis to an existing Laravel app — Composer install, asset publishing, config, database setup, creating your first resource |
+| 2 | **[Upgrading](upgrading.md)** | Breaking changes between major versions and what to change in an app: v2.0 reads `Select` and `MultiSelect` options in Nova's order |
 
 ### Core Concepts
 
@@ -104,7 +105,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 10.6 | **[Impersonation](impersonation.md)** | Login as another user — opt-in master switch + `martis-impersonate` gate + REST + banner contract (v0.10) |
 | 10.7 | **[Invitations](invitations.md)** | Invite-only onboarding — opt-in master switch + `martis-invite` gate, `InvitationManager` (hashed single-use tokens, TTL, enumeration-neutral accept), `createUser()` override seam, events + audit, React accept screen, `martis:invitations` generator |
 | 11 | **[Configuration](configuration.md)** | Complete `config/martis.php` reference — every option with type, default, and description |
-| 11.1 | **[Theming](theming.md)** | 94-variable design system — token reference, light/dark modes, custom themes |
+| 11.1 | **[Theming](theming.md)** | 162-variable design system — token reference, light/dark modes, custom themes |
 | 11.2 | **[User Preferences](preferences.md)** | ⭐ D1/D2/D3 — persisted per-user theme/accent/density/locale, URL presets, custom brand hex |
 | 11.3 | **[Internationalisation](i18n.md)** | Adding locales, overriding strings, runtime language switching, per-key deep merge, `app_namespaces`, `fallback_chain` |
 | 11.4 | **[Cache Control Surface](cache.md)** | `MartisCache::extend()`, runtime per-type toggle, `/martis/system/cache` admin page (v0.8) |
@@ -155,7 +156,7 @@ docs/
 ├── impersonation.md ................ Impersonation subsystem (v0.10)
 ├── invitations.md .................. Invite-only onboarding subsystem
 ├── configuration.md ................ Config reference
-├── theming.md ...................... 94-token design system
+├── theming.md ...................... 162-token design system
 ├── preferences.md .................. User preferences (⭐ D1/D2/D3)
 ├── i18n.md ......................... Adding locales & translations
 ├── cache.md ........................ Cache control surface (v0.8)

@@ -12,6 +12,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { recordHref } from '@/lib/recordHref'
 import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
 import { relatableUrl, withQuery } from '@/lib/relatableEndpoint'
+import { useEscapeLayer } from '@/lib/escapeLayers'
 // Tooltip handled by global <Tooltip> in Layout.tsx
 
 interface BelongsToValue {
@@ -403,6 +404,9 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Escape closes the picker only, not a drawer the form is in.
+  useEscapeLayer(open, () => setOpen(false))
+
   // Focus search input when dropdown opens
   useEffect(() => {
     if (open && searchInputRef.current) {
@@ -569,7 +573,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
           style={{
             borderColor: 'var(--martis-border)',
             backgroundColor: 'var(--martis-surface)',
-            color: createButtonColorField ?? 'var(--martis-primary)',
+            color: createButtonColorField ?? 'var(--martis-accent)',
             height: '38px',
             width: '38px',
             flexShrink: 0,

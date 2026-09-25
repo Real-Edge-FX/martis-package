@@ -45,3 +45,15 @@ it('searches across pages and ranks by frequency', function () {
 it('returns empty results when the query is empty', function () {
     expect((new DocLookup($this->dir))->search(''))->toBe([]);
 });
+
+it('describes a page as the docs site does, past its lead blockquote and within 280 characters', function () {
+    $long = str_repeat('word ', 80);
+    file_put_contents($this->dir.'/sso.md', "# SSO\n\n> A summary the site skips.\n\nThe **first** paragraph, with [a link](https://example.com).\n");
+    file_put_contents($this->dir.'/long.md', "# Long\n\n{$long}\n");
+
+    $rows = collect((new DocLookup($this->dir))->list())->keyBy('slug');
+
+    expect($rows['sso']['one_liner'])->toBe('The first paragraph, with a link.')
+        ->and(mb_strlen($rows['long']['one_liner']))->toBe(280)
+        ->and($rows['long']['one_liner'])->toEndWith('...');
+});

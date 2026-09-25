@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use InvalidArgumentException;
 use Martis\Auth\DefaultRegistersUsers;
 use Martis\Auth\DefaultResetsUserPasswords;
 use Martis\Auth\DefaultSendsEmailVerification;
@@ -34,6 +35,7 @@ use Martis\Console\AgentsCommand;
 use Martis\Console\CacheClearCommand;
 use Martis\Console\CacheDisableCommand;
 use Martis\Console\CacheEnableCommand;
+use Martis\Console\CachePruneCommand;
 use Martis\Console\CacheStatusCommand;
 use Martis\Console\CardMakeCommand;
 use Martis\Console\ComponentMakeCommand;
@@ -62,6 +64,7 @@ use Martis\Console\TrendMakeCommand;
 use Martis\Console\UserCommand;
 use Martis\Console\ValueMakeCommand;
 use Martis\Console\VendorPublishCommand;
+use Martis\Contracts\ProfileResourceContract;
 use Martis\Contracts\RegistersUsers;
 use Martis\Contracts\ResetsUserPasswords;
 use Martis\Contracts\SendsEmailVerification;
@@ -72,10 +75,12 @@ use Martis\Discovery\ToolDiscovery;
 use Martis\Exceptions\Handler as MartisExceptionHandler;
 use Martis\Facades\Martis;
 use Martis\Http\Middleware\ApplyUserPreferencesLocale;
+use Martis\Http\Middleware\AuthorizeTool;
 use Martis\Http\Middleware\EnforceImpersonationDuration;
 use Martis\Http\Middleware\EnsureEmailIsVerified;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Http\RouteMiddleware;
 use Martis\Impersonation\Events\ImpersonationStarted;
 use Martis\Impersonation\Events\ImpersonationStopped;
 use Martis\Impersonation\ImpersonationManager;
@@ -86,9 +91,11 @@ use Martis\Invitations\Invitation;
 use Martis\Invitations\InvitationManager;
 use Martis\Invitations\InvitationUrl;
 use Martis\Invitations\Listeners\RecordInvitation;
+use Martis\Profile\ProfileResource;
 use Martis\Profile\TwoFactorService;
 use Martis\Resources\ActionEventResource;
 use Martis\Sso\SsoManager;
+use Martis\Support\InstalledVersion;
 use Spatie\Permission\Events\PermissionAttachedEvent;
 use Spatie\Permission\Events\PermissionDetachedEvent;
 use Spatie\Permission\Events\RoleAttachedEvent;
@@ -130,7 +137,7 @@ class MartisServiceProvider extends ServiceProvider
         // requests — operational metadata read from `martis_cache_state`
         // stays at most one request stale.
         $this->app->scoped(MartisCache::class, function (): MartisCache {
-            return new MartisCache(Cache::store());
+            return new MartisCache(Cache::store(), InstalledVersion::fingerprint('martis/martis'));
         });
 
         // The PSR-4 map does not change during a process; read it once
@@ -179,6 +186,35 @@ class MartisServiceProvider extends ServiceProvider
             SendsEmailVerification::class,
             DefaultSendsEmailVerification::class,
         );
+
+        // The profile resource: the profile page's data (`/api/profile`)
+        // and the avatar of `/api/auth/user` both come from it, so the top
+        // bar shows what the profile page shows. `profile.resource` names a
+        // custom class; unset, the default resolves (a container binding of
+        // ProfileResource::class still applies). Read on every resolve, so a
+        // config change takes effect without a rebind.
+        $this->app->bind(ProfileResourceContract::class, function ($app): ProfileResourceContract {
+            $class = config('martis.profile.resource');
+
+            if ($class === null || $class === '' || $class === false) {
+                return $app->make(ProfileResource::class);
+            }
+
+            if (! is_string($class) || ! is_a($class, ProfileResourceContract::class, true)) {
+                throw new InvalidArgumentException(sprintf(
+                    'The [martis.profile.resource] config value is not a profile resource: %s. Use the name of a class that implements %s (usually a subclass of %s), or null for the default.',
+                    match (true) {
+                        ! is_string($class) => 'got '.get_debug_type($class),
+                        class_exists($class) => "{$class} does not implement ".ProfileResourceContract::class,
+                        default => "no class is named \"{$class}\"",
+                    },
+                    ProfileResourceContract::class,
+                    ProfileResource::class,
+                ));
+            }
+
+            return $app->make($class);
+        });
     }
 
     /** Boot package services: routes, views, translations, assets, and console commands. */
@@ -240,6 +276,7 @@ class MartisServiceProvider extends ServiceProvider
                 ToolMakeCommand::class,
                 CacheStatusCommand::class,
                 CacheClearCommand::class,
+                CachePruneCommand::class,
                 CacheDisableCommand::class,
                 CacheEnableCommand::class,
                 ListOverridesCommand::class,
@@ -481,6 +518,12 @@ class MartisServiceProvider extends ServiceProvider
             'martis.impersonation.duration',
             EnforceImpersonationDuration::class,
         );
+        // The gate of a Tool's routes (`martis.tool:{uriKey}`), see
+        // ToolRoutes::middleware().
+        $router->aliasMiddleware('martis.tool', AuthorizeTool::class);
+        // The stack of the protected API routes as one group, for a route
+        // of the host app and for Tool::DEFAULT_ROUTE_MIDDLEWARE.
+        $router->middlewareGroup('martis.api', RouteMiddleware::api());
     }
 
     /**

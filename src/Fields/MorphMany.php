@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Martis\Enums\HasManyIndexDisplay;
 use Martis\Enums\HasManyRedirectMode;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
+use Martis\Fields\Concerns\CountsScopedRelation;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -30,6 +31,7 @@ use Martis\ResourceRegistry;
 class MorphMany extends Field
 {
     use ControlsRelationshipToolbar;
+    use CountsScopedRelation;
 
     /** Eloquent relationship method name on the parent model. */
     protected string $relationship;
@@ -342,7 +344,7 @@ class MorphMany extends Field
         if ($this->showOnIndex) {
             $method = $this->relationship;
             if (method_exists($model, $method)) {
-                return $model->{$method}()->count();
+                return $this->scopedRelationCount($model);
             }
         }
 
@@ -362,6 +364,11 @@ class MorphMany extends Field
     {
         $relatedAuth = $this->relatedResourceAuthorizations($this->getRelatedResourceKey());
         $authorizedToCreate = $relatedAuth['authorizedToCreate'] ?? true;
+        // Every write through the relationship (and the related resource's
+        // own restore / force-delete endpoints) needs the related viewAny,
+        // so a panel whose related resource denies it offers none of them;
+        // it still lists the records.
+        $canWrite = $relatedAuth['authorizedToViewAny'] ?? true;
 
         return [
             'relationship' => $this->relationship,
@@ -378,10 +385,10 @@ class MorphMany extends Field
                 'perPage' => $this->resolvePerPage(),
                 'perPageOptions' => $this->resolvePerPageOptions(),
                 'searchable' => $this->relationSearchable,
-                'canCreate' => $this->canCreateRelated && $authorizedToCreate,
-                'canUpdate' => $this->canUpdateRelated,
-                'canDelete' => $this->canDeleteRelated,
-            ] + $this->relationshipToolbarControls(),
+                'canCreate' => $this->canCreateRelated && $authorizedToCreate && $canWrite,
+                'canUpdate' => $this->canUpdateRelated && $canWrite,
+                'canDelete' => $this->canDeleteRelated && $canWrite,
+            ] + ($canWrite ? [] : ['hideRestoreAction' => true, 'hideForceDeleteAction' => true]) + $this->relationshipToolbarControls(),
         ] + $relatedAuth;
     }
 }

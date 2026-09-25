@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { MagnifyingGlassIcon, XIcon, CaretDownIcon, SmileyBlankIcon } from '@phosphor-icons/react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { ResourceIcon } from '@/components/ResourceIcon'
+import { useEscapeLayer } from '@/lib/escapeLayers'
 
 // -----------------------------------------------------------------------------
 // Semantic color tokens — map friendly names to Martis CSS vars.
@@ -143,6 +144,8 @@ export function IconFieldInput({ field, value, onChange, error }: FieldInputProp
     return () => document.removeEventListener('mousedown', handle)
   }, [open])
 
+  useEscapeLayer(open, () => setOpen(false))
+
   const filtered = useMemo(() => {
     if (query === '') return palette
     const needle = query.toLowerCase()
@@ -174,7 +177,7 @@ export function IconFieldInput({ field, value, onChange, error }: FieldInputProp
         disabled={field.readonly}
         className="flex items-center justify-between gap-2 rounded-md border transition-colors focus:outline-none focus-visible:ring-2"
         style={{
-          height: 'var(--martis-input-height, 2.25rem)',
+          height: 'var(--martis-input-h, 2.25rem)',
           paddingLeft: '0.625rem',
           paddingRight: '0.5rem',
           borderColor: error ? 'var(--martis-danger)' : open ? 'var(--martis-accent)' : 'var(--martis-border)',

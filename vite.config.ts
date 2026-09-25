@@ -27,11 +27,12 @@ export default defineConfig({
         outDir: 'public',
         manifest: 'manifest.json',
         // Empty `public/` before each build so old hashed assets don't
-        // accumulate (we've seen 1k+ stale chunks after a few weeks of
-        // active development, and they get rsync'd to every consumer
-        // by `vendor:publish --tag=martis-assets`). Vite's auto-detection
-        // skips this when `publicDir: false` is set, hence the explicit
-        // opt-in. The whole directory only contains build artifacts
+        // accumulate in the committed build (we've seen 1k+ stale chunks
+        // after a few weeks of active development, and consumers publish
+        // this directory with `martis:publish-assets`). Vite already
+        // empties an outDir inside the project root by default; the flag
+        // is explicit so the behaviour never depends on that default.
+        // The whole directory only contains build artifacts
         // (manifest.json + assets/), so emptying it is safe.
         emptyOutDir: true,
         rollupOptions: {
@@ -98,6 +99,11 @@ export default defineConfig({
         },
     },
     test: {
+        // Only the package's own tests. Vitest's default include globs the
+        // whole root with dotfiles allowed, so it also collected the copies
+        // in git worktrees under `.claude/worktrees/` (doubling the count and
+        // mixing source trees through the `@` alias).
+        include: ['resources/js/**/*.test.{ts,tsx}'],
         setupFiles: ['resources/js/test-setup.ts'],
         globals: true,
         environment: 'jsdom',

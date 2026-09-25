@@ -268,7 +268,30 @@ export function DangerConfirm({ open, onCancel, onConfirm, title, body }: Props)
 }
 ```
 
-The `useModalHistoryLock(open)` hook intercepts the browser back button while the dialog is visible and cooperates with the DrawerShell so closing the dialog does not also close the drawer underneath. Required whenever a modal nests inside a drawer or the unsaved-changes guard. It is on `@martis/runtime` since v1.38.0 and has to come from there: it shares a lock count with the drawers, which a copy of the hook would not see. `createPortal` comes from the runtime too: it is the host's, so the dialog renders with the host's React DOM. Since v1.38.0 `import { createPortal } from 'react-dom'` reaches the same function, since the extension build sends `react-dom` to a shim that carries it and `flushSync` (v1.38.2), nothing else of `react-dom`; on a scaffold published earlier, `react-dom` resolves to the React shim, which exports React core only (see [Refreshing the extension scaffold](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade)).
+The `useModalHistoryLock(open)` hook intercepts the browser back button while the dialog is visible and cooperates with the DrawerShell so closing the dialog, by a button, the back button or Escape (v2.0.0), does not also close the drawer underneath: while a locked dialog is open the drawer ignores Escape, so your dialog handles its own. Its Escape handler also calls `e.preventDefault()`, which tells any later listener (a drawer's, the app's) that the key was taken. Required whenever a modal nests inside a drawer or the unsaved-changes guard. It is on `@martis/runtime` since v1.38.0 and has to come from there: it shares a lock count with the drawers, which a copy of the hook would not see. `createPortal` comes from the runtime too: it is the host's, so the dialog renders with the host's React DOM. Since v1.38.0 `import { createPortal } from 'react-dom'` reaches the same function, since the extension build sends `react-dom` to a shim that carries it and `flushSync` (v1.38.2), nothing else of `react-dom`; on a scaffold published earlier, `react-dom` resolves to the React shim, which exports React core only (see [Refreshing the extension scaffold](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade)).
+
+### Escape closes the top layer only (v2.0.0)
+
+In a drawer, Escape closes whatever is open on top of it first: a modal, a menu (the actions menu, a row's inline action menu, the lens menu, a Repeater's add menu), a picker (`BelongsTo`, `MorphTo`, `Tag`, the multi-select, the icon picker) or a PrimeReact overlay (`Dropdown`, `MultiSelect`, `Calendar`, `AutoComplete`, `SplitButton`, `ColorPicker`, `OverlayPanel`). The drawer and the form in it stay; the next Escape closes the drawer, through its unsaved-changes prompt when the form is dirty. Before v2.0, an Escape meant for a menu or a picker in a Create or Update drawer also closed the drawer and lost the form.
+
+The DrawerShell closes on an Escape nothing else took. It decides in the capture phase, before the layers' own listeners: a key press runs the microtasks between listeners, where React applies a layer's close, so a later check would find nothing open. It leaves the Escape alone when it arrives already handled (`defaultPrevented`, as every Martis modal and popup marks the Escape it takes), while a modal holds its history lock (`useModalHistoryLock()`), while a Martis popup is open, or while a PrimeReact overlay is mounted. A dialog of your own calls `e.preventDefault()` on the Escape it takes; a popup of your own (one that closes on an outside click) joins the same rule with `useEscapeLayer(open, close)` from `@martis/runtime`: Escape calls `close` when it is the top layer, and the drawer underneath stays open.
+
+```tsx
+import { useState } from 'react'
+import { useEscapeLayer } from '@martis/runtime'
+
+export function StatusMenu() {
+  const [open, setOpen] = useState(false)
+  useEscapeLayer(open, () => setOpen(false))
+
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(true)}>Status</button>
+      {open && <div role="menu">…</div>}
+    </div>
+  )
+}
+```
 
 ### Index toolbar (`.martis-index-toolbar`)
 
@@ -828,7 +851,7 @@ Prefer CSS media queries when the layout swap is purely visual; reach for this h
 
 ## Tooltip Standard (PrimeReact)
 
-All tooltips in Martis **must** use [`primereact/tooltip`](https://primereact.org/tooltip/). Native HTML `title=` attributes and custom tooltip implementations are prohibited.
+All tooltips in Martis **must** go through the global `data-pr-tooltip` pattern (the PrimeReact attribute convention), rendered by the bundled `MartisTooltip` provider, or through the ref-based `Tooltip` export for JSX content. Native HTML `title=` attributes and ad-hoc tooltip implementations are prohibited. Extensions cannot import `primereact/tooltip` directly (the extension build does not alias `primereact`): use `data-pr-tooltip`, or `Tooltip` from `@martis/runtime`.
 
 A global tooltip provider (`MartisTooltip`) is registered in the layout targeting `[data-pr-tooltip]`, so any element with `data-pr-tooltip` automatically gets a tooltip.
 
@@ -1054,7 +1077,7 @@ Use `.martis-avatar-stack` on a wrapper to overlap several avatars with a subtle
 
 `.martis-avatar-fallback` paints a muted user glyph slot for records with no image and no initials seed, keeping row layouts aligned.
 
-The `avatarColorForSeed` helper (on `@martis/runtime` since v1.38.0) returns a deterministic colour for any seed string, picking one of the 16 `--martis-avatar-1..16` token hues. Two users with the same name always get the same colour, and the colour stays stable across light/dark themes:
+The `avatarColorForSeed` helper (on `@martis/runtime` since v1.38.0) returns a deterministic colour for any seed string, picking one of the 16 `--martis-avatar-1..16` token hues. Two users with the same name always get the same colour, and the colour stays stable across light/dark themes. The server picks the avatar slots with the same hash, so for a user with a name it is the colour of their Topbar avatar:
 
 ```ts
 import { avatarColorForSeed } from '@martis/runtime'
@@ -1063,9 +1086,11 @@ import { avatarColorForSeed } from '@martis/runtime'
   className="martis-avatar martis-avatar-md martis-avatar-circle"
   style={{ backgroundColor: avatarColorForSeed(user.name) }}
 >
-  {user.initials}
+  {user.avatar_initials}
 </span>
 ```
+
+The signed-in user (`useAuth().user`) already carries both: `avatar_initials`, and `avatar_palette`, the slot to paint as `var(--martis-avatar-${user.avatar_palette})`.
 
 ### KPI typography
 

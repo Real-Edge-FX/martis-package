@@ -1,76 +1,94 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { EXTENSION_LOAD_TIMEOUT_MS, loadConsumerExtensions } from '@/lib/extensionLoader'
 
 /**
- * Unit-level test for the runtime extension loader. The actual loader
- * code lives in `app.tsx` (where `window.Martis` is wired and the
- * dynamic-import loop runs); we replicate the same logic here against
- * a fake import() so the lockable contract — "every URL in
- * MartisConfig.extensions is dynamically imported, failures are
- * swallowed, all URLs are attempted" — is exercised without needing
- * to mount the entire SPA.
+ * The runtime extension loader `app.tsx` awaits before mounting React,
+ * exercised directly with a fake importer (the browser's `import()`).
  */
 
-interface ExtensionLoaderHarness {
-  imported: string[]
-  failures: Array<{url: string; err: unknown}>
-  load: (urls: string[]) => Promise<void>
-}
-
-function buildHarness(simulateFailureFor: ReadonlySet<string> = new Set()): ExtensionLoaderHarness {
-  const imported: string[] = []
-  const failures: Array<{url: string; err: unknown}> = []
-
-  return {
-    imported,
-    failures,
-    load: async (urls: string[]) => {
-      for (const url of urls) {
-        if (typeof url !== 'string' || url === '') continue
-        imported.push(url)
-        await Promise.resolve()
-        if (simulateFailureFor.has(url)) {
-          failures.push({url, err: new Error(`fail ${url}`)})
-        }
-      }
-    },
-  }
-}
-
 describe('runtime extension loader (v1.8.19+)', () => {
+  let warn: ReturnType<typeof vi.spyOn>
+  let error: ReturnType<typeof vi.spyOn>
+
   beforeEach(() => {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    error = vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
+    delete (window as { MartisConfig?: unknown }).MartisConfig
   })
 
-  it('imports each URL from MartisConfig.extensions in order', async () => {
-    const h = buildHarness()
-    await h.load(['/vendor/a.js', '/vendor/b.js', '/vendor/c.js'])
-    expect(h.imported).toEqual(['/vendor/a.js', '/vendor/b.js', '/vendor/c.js'])
+  it('imports every URL', async () => {
+    const importer = vi.fn((_url: string) => Promise.resolve({}))
+
+    await loadConsumerExtensions(['/vendor/a.js', '/vendor/b.js', '/vendor/c.js'], importer)
+
+    expect(importer.mock.calls.map(([url]) => url)).toEqual(['/vendor/a.js', '/vendor/b.js', '/vendor/c.js'])
   })
 
   it('skips empty and non-string entries', async () => {
-    const h = buildHarness()
-    // Cast through unknown for the test harness — at runtime the
-    // blade emits an array<string> but a defensive consumer might
-    // hand-edit window.MartisConfig.extensions.
-    const mixed = ['/vendor/a.js', '', null, undefined, 42, '/vendor/b.js'] as unknown as string[]
-    await h.load(mixed)
-    expect(h.imported).toEqual(['/vendor/a.js', '/vendor/b.js'])
+    const importer = vi.fn((_url: string) => Promise.resolve({}))
+
+    await loadConsumerExtensions(['/vendor/a.js', '', null, undefined, 42, '/vendor/b.js'], importer)
+
+    expect(importer.mock.calls.map(([url]) => url)).toEqual(['/vendor/a.js', '/vendor/b.js'])
   })
 
-  it('continues loading when one URL fails (failure isolation)', async () => {
-    const h = buildHarness(new Set(['/vendor/b.js']))
-    await h.load(['/vendor/a.js', '/vendor/b.js', '/vendor/c.js'])
-    expect(h.imported).toEqual(['/vendor/a.js', '/vendor/b.js', '/vendor/c.js'])
-    expect(h.failures.map((f) => f.url)).toEqual(['/vendor/b.js'])
+  it('keeps loading the other bundles when one fails', async () => {
+    const importer = vi.fn((url: string) => (url === '/vendor/b.js' ? Promise.reject(new Error('boom')) : Promise.resolve({})))
+
+    await loadConsumerExtensions(['/vendor/a.js', '/vendor/b.js', '/vendor/c.js'], importer)
+
+    expect(importer).toHaveBeenCalledTimes(3)
+    expect(error).toHaveBeenCalledTimes(1)
+    expect(error.mock.calls[0]?.[1]).toBe('/vendor/b.js')
   })
 
-  it('is a no-op when extensions is undefined or empty', async () => {
-    const h1 = buildHarness()
-    await h1.load([])
-    expect(h1.imported).toEqual([])
+  it('reads the URLs from window.MartisConfig.extensions by default and is a no-op without them', async () => {
+    const importer = vi.fn((_url: string) => Promise.resolve({}))
+
+    await loadConsumerExtensions(undefined, importer)
+    expect(importer).not.toHaveBeenCalled()
+
+    ;(window as { MartisConfig?: unknown }).MartisConfig = { extensions: ['/vendor/martis-user/extensions.js'] }
+    await loadConsumerExtensions(undefined, importer)
+    expect(importer).toHaveBeenCalledWith('/vendor/martis-user/extensions.js')
+  })
+
+  it('gives up on a bundle that does not load in time and warns once', async () => {
+    vi.useFakeTimers()
+    const importer = vi.fn((_url: string) => new Promise<unknown>(() => {}))
+
+    const loading = loadConsumerExtensions(['/vendor/slow.js'], importer)
+    await vi.advanceTimersByTimeAsync(EXTENSION_LOAD_TIMEOUT_MS)
+    await loading
+
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]?.[3]).toBe('/vendor/slow.js')
+  })
+
+  it('does not warn about a timeout for a bundle that loaded in time', async () => {
+    vi.useFakeTimers()
+    const importer = vi.fn((_url: string) => Promise.resolve({}))
+
+    await loadConsumerExtensions(['/vendor/fast.js'], importer)
+    await vi.advanceTimersByTimeAsync(EXTENSION_LOAD_TIMEOUT_MS * 2)
+
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('clears the timeout of a bundle whose import is rejected, so it never warns', async () => {
+    vi.useFakeTimers()
+    const importer = vi.fn((_url: string) => Promise.reject(new Error('404')))
+
+    await loadConsumerExtensions(['/vendor/missing.js'], importer)
+    expect(vi.getTimerCount()).toBe(0)
+    await vi.advanceTimersByTimeAsync(EXTENSION_LOAD_TIMEOUT_MS * 2)
+
+    expect(error).toHaveBeenCalledTimes(1)
+    expect(warn).not.toHaveBeenCalled()
   })
 })

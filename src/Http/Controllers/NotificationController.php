@@ -6,6 +6,8 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Martis\Http\Resources\JsonErrorResponse;
 
 /**
@@ -43,6 +45,9 @@ class NotificationController extends Controller
                 'data' => [],
                 'meta' => ['total' => 0, 'unread' => 0],
             ]);
+        }
+        if (! $this->notifiable($user)) {
+            return $this->disabled($this->notNotifiableReason($user));
         }
 
         $perPage = (int) $request->query('per_page', (string) (config('martis.notifications.max_in_dropdown', 10)));
@@ -84,6 +89,9 @@ class NotificationController extends Controller
         if ($user === null) {
             return new IlluminateJsonResponse(['unread' => 0]);
         }
+        if (! $this->notifiable($user)) {
+            return new IlluminateJsonResponse(['unread' => 0, 'enabled' => false, 'reason' => $this->notNotifiableReason($user)]);
+        }
 
         return new IlluminateJsonResponse([
             'unread' => (int) $user->unreadNotifications()->count(),
@@ -103,6 +111,9 @@ class NotificationController extends Controller
         $user = $request->user();
         if ($user === null) {
             return JsonErrorResponse::forbidden(__('martis::messages.unauthorized'))->toResponse();
+        }
+        if (! $this->notifiable($user)) {
+            return JsonErrorResponse::validation(['notifications' => [$this->notNotifiableReason($user)]], $this->notNotifiableReason($user))->toResponse();
         }
 
         $notification = $user->notifications()->where('id', $id)->first();
@@ -128,6 +139,9 @@ class NotificationController extends Controller
         if ($user === null) {
             return JsonErrorResponse::forbidden(__('martis::messages.unauthorized'))->toResponse();
         }
+        if (! $this->notifiable($user)) {
+            return JsonErrorResponse::validation(['notifications' => [$this->notNotifiableReason($user)]], $this->notNotifiableReason($user))->toResponse();
+        }
 
         $user->unreadNotifications->markAsRead();
 
@@ -149,6 +163,9 @@ class NotificationController extends Controller
         $user = $request->user();
         if ($user === null) {
             return JsonErrorResponse::forbidden(__('martis::messages.unauthorized'))->toResponse();
+        }
+        if (! $this->notifiable($user)) {
+            return JsonErrorResponse::validation(['notifications' => [$this->notNotifiableReason($user)]], $this->notNotifiableReason($user))->toResponse();
         }
 
         $notification = $user->notifications()->where('id', $id)->first();
@@ -174,6 +191,9 @@ class NotificationController extends Controller
         if ($user === null) {
             return JsonErrorResponse::forbidden(__('martis::messages.unauthorized'))->toResponse();
         }
+        if (! $this->notifiable($user)) {
+            return JsonErrorResponse::validation(['notifications' => [$this->notNotifiableReason($user)]], $this->notNotifiableReason($user))->toResponse();
+        }
 
         $user->notifications()->delete();
 
@@ -189,12 +209,37 @@ class NotificationController extends Controller
         return (bool) config('martis.notifications.enabled', true);
     }
 
-    protected function disabled(): IlluminateJsonResponse
+    protected function disabled(?string $reason = null): IlluminateJsonResponse
     {
         return new IlluminateJsonResponse([
             'data' => [],
-            'meta' => ['enabled' => false, 'unread' => 0],
+            'meta' => array_filter(['enabled' => false, 'unread' => 0, 'reason' => $reason], fn (mixed $value): bool => $value !== null),
         ]);
+    }
+
+    /**
+     * Whether the signed-in user can hold notifications. With a custom
+     * MARTIS_GUARD, the panel's user is that guard's model, which may not
+     * use Illuminate\Notifications\Notifiable: the bell then reads as off
+     * and says why (and the log says it once an hour), instead of a 500 on
+     * every poll.
+     */
+    protected function notifiable(object $user): bool
+    {
+        if (method_exists($user, 'notifications') && method_exists($user, 'unreadNotifications')) {
+            return true;
+        }
+
+        if (Cache::add('martis:notifications:not-notifiable:'.md5($user::class), true, now()->addHour())) {
+            Log::warning('Martis: '.$this->notNotifiableReason($user));
+        }
+
+        return false;
+    }
+
+    protected function notNotifiableReason(object $user): string
+    {
+        return 'The notifications need the Martis user model ('.$user::class.') to use Illuminate\\Notifications\\Notifiable. Add the trait, or set MARTIS_NOTIFICATIONS_ENABLED=false.';
     }
 
     /**

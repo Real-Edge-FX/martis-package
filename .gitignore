@@ -10,13 +10,21 @@
 !.env.example
 
 # Dependencies
-node_modules/
-vendor/
+# No trailing slash: also ignores a `node_modules` symlink (a git worktree
+# linking the main checkout's dependencies).
+node_modules
+# Anchored to the root: an unanchored `vendor/` (or `coverage/`,
+# `internal/`) also ignores a source directory of that name at any
+# depth, case-insensitively on macOS (the vendored PrimeReact SASS
+# source had to move from `vendor/` to `upstream/` for that reason).
+/vendor/
 
 # Test / tooling cache
 .phpunit.result.cache
-coverage/
-coverage-*/
+/coverage/
+/coverage-*/
+# phpunit.xml writes the coverage report under build/.
+/build/
 test-results/
 
 # Vite / logs
@@ -36,4 +44,4 @@ docs/superpowers/
 .claude-flow/
 
 # Internal-only dev docs — never publish to the public package repo
-internal/
+/internal/

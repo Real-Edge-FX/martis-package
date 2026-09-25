@@ -5,6 +5,7 @@ namespace Martis\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as AuthUser;
+use Martis\Auth\GuardCatalog;
 use Martis\Enums\AccentColor;
 use Martis\Enums\ThemeMode;
 use Martis\Enums\UiDensity;
@@ -49,8 +50,10 @@ class UserPreference extends Model
     /** @return BelongsTo<AuthUser, $this> */
     public function user(): BelongsTo
     {
+        // The users the Martis guard signs in (MARTIS_GUARD's provider)
+        // are the ones whose preferences the panel stores.
         /** @var class-string<AuthUser> $userModel */
-        $userModel = config('auth.providers.users.model', AuthUser::class);
+        $userModel = GuardCatalog::martisUserModel(AuthUser::class);
 
         /** @phpstan-ignore-next-line — generic resolved from config at runtime */
         return $this->belongsTo($userModel);

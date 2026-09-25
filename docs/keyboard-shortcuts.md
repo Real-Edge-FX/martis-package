@@ -1,6 +1,6 @@
 # Keyboard Shortcuts
 
-Martis ships a tiny in-house registry for keyboard shortcuts. Every combo the admin shell, custom Tools, or consumer plugins want to bind goes through one API — so the help overlay (`Shift+?`) always lists the live set, and conflict detection has a single point of truth.
+Martis ships a tiny in-house registry for keyboard shortcuts. Every combo the admin shell, custom Tools, or consumer plugins want to bind goes through one API, so the help overlay (`Shift+?`) always lists the live set and conflict detection has a single point of truth.
 
 No 3rd-party dependency: implementation lives in `resources/js/lib/keyboardShortcuts.ts` (~200 lines on top of the browser `KeyboardEvent` API).
 

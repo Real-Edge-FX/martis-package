@@ -7,8 +7,10 @@ namespace Martis\Auth\Listeners;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Martis\Auth\GuardCatalog;
 use Martis\Impersonation\Events\ImpersonationStarted;
 use Martis\Impersonation\Events\ImpersonationStopped;
+use Martis\Impersonation\ImpersonationManager;
 use Martis\Models\ActionEvent;
 
 /**
@@ -18,7 +20,12 @@ use Martis\Models\ActionEvent;
  * Each row carries:
  *   - `name`            — `impersonation.started` / `impersonation.stopped`
  *   - `user_id`         — the operator (the user issuing the
- *                         impersonation; NOT the target)
+ *                         impersonation; NOT the target), when the
+ *                         impersonation guard signs in the Martis guard's
+ *                         users; otherwise null, and the operator goes to
+ *                         `fields.operator_type` / `fields.operator_id`
+ *                         (the log's `user()` resolves the Martis guard's
+ *                         model, which would name another person)
  *   - `model_type` / `model_id`         — the target user
  *   - `target_type` / `target_id`       — the target user
  *   - `actionable_type` / `actionable_id` — the target user
@@ -54,10 +61,11 @@ class RecordImpersonation
         $targetType = $target::class;
         $targetId = $this->extractId($target);
         $targetLabel = $this->describeLabel($target);
+        $operatorIsMartisUser = GuardCatalog::sameUsers(app(ImpersonationManager::class)->guard(), GuardCatalog::martis());
 
         ActionEvent::create([
             'batch_id' => (string) Str::uuid(),
-            'user_id' => $operator->getAuthIdentifier(),
+            'user_id' => $operatorIsMartisUser ? $operator->getAuthIdentifier() : null,
             'name' => $name,
             'actionable_type' => $targetType,
             'actionable_id' => $targetId,
@@ -68,7 +76,10 @@ class RecordImpersonation
             'fields' => [
                 'target_id' => $targetId,
                 'target_label' => $targetLabel,
-            ],
+            ] + ($operatorIsMartisUser ? [] : [
+                'operator_type' => $operator::class,
+                'operator_id' => $this->extractId($operator),
+            ]),
             'status' => 'finished',
             'exception' => '',
             'original' => [],

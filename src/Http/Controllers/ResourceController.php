@@ -136,6 +136,10 @@ class ResourceController extends MartisController
         SearchResolver::apply($request, $query, $resourceClass, $search);
         $this->applySorting($request, $query, $resourceClass);
 
+        // The relationship counts of the index columns, scoped as the related
+        // index is, in this query (one per page, not one per row).
+        $this->withScopedRelationCounts($request, $query, Field::filterForContext($instance->fieldsForIndex($request), FieldContext::INDEX));
+
         $perPage = max(
             1,
             min(
@@ -146,23 +150,18 @@ class ResourceController extends MartisController
 
         $paginator = $query->paginate($perPage);
 
-        // Resolve actions once for per-row canRun authorization
-        $actionsForAuth = $instance->actions($request);
-        $actionsWithCanRun = array_filter($actionsForAuth, fn (ActionContract $a) => $a->authorizedToSee($request));
+        // Resolve actions once for the per-row map (run predicate)
+        $actionAuthorization = $this->rowActionAuthorizer($request, $resourceClass);
 
         /** @var list<array<string, mixed>> $data */
         $data = array_values(
-            collect($paginator->items())->map(function (Model $model) use ($resourceClass, $request, $actionsWithCanRun): array {
+            collect($paginator->items())->map(function (Model $model) use ($resourceClass, $request, $actionAuthorization): array {
                 $res = new $resourceClass($model);
 
                 $serialized = $this->serializeModel($res, Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX), $model);
-
-                // Per-action canRun authorization map
-                $actionAuth = [];
-                foreach ($actionsWithCanRun as $action) {
-                    $actionAuth[$action->uriKey()] = $action->authorizedToRun($request, $model);
-                }
-                $serialized['_actionAuthorization'] = $actionAuth;
+                $serialized['_actionAuthorization'] = $actionAuthorization !== null
+                    ? $actionAuthorization($model, is_array($serialized['_authorization'] ?? null) ? $serialized['_authorization'] : [])
+                    : [];
 
                 return $serialized;
             })->all()
@@ -284,6 +283,13 @@ class ResourceController extends MartisController
         }
 
         /** @var class-string<resource> $resourceClass */
+        // viewAny is the entry gate to a resource, as on its show, update and
+        // destroy endpoints (v1.34.0): a user who cannot list it cannot
+        // create one either.
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToCreate($request)) {
@@ -728,6 +734,11 @@ class ResourceController extends MartisController
         }
 
         /** @var class-string<resource> $resourceClass */
+        // The same viewAny entry gate as store().
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToCreate($request)) {
@@ -862,6 +873,11 @@ class ResourceController extends MartisController
         }
 
         /** @var class-string<resource> $resourceClass */
+        // The same viewAny entry gate as store().
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $instance = new $resourceClass;
 
         if (! $instance->authorizedToCreate($request)) {
