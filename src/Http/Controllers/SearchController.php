@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\SearchResolver;
+use Martis\Support\IndexScope;
 
 /**
  * Global Search controller.
@@ -45,7 +46,8 @@ class SearchController extends MartisController
      *
      * Only resources where the resolved `globallySearchable()` config
      * has `enabled = true` and the authenticated user passes
-     * `authorizedToViewAny()` are searched.
+     * `authorizedToViewAny()` are searched, each among the records its
+     * index lists (its `scopes()`, then `indexQuery()`).
      *
      * @response array{results: array<int, array{
      *   resource: string,
@@ -90,10 +92,7 @@ class SearchController extends MartisController
                 continue;
             }
 
-            /** @var class-string<Model> $modelClass */
-            $modelClass = $resourceClass::model();
-            $builder = $modelClass::query();
-            $builder = $resourceClass::indexQuery($request, $builder);
+            $builder = $this->indexScopedQuery($request, $resourceClass);
             $builder = $resourceClass::applyWith($builder);
             /** @var Builder<Model> $builder */
             $builder = SearchResolver::apply($request, $builder, $resourceClass, $q);
@@ -188,7 +187,7 @@ class SearchController extends MartisController
     }
 
     /**
-     * Re-run the same indexQuery + search pipeline (without the limit)
+     * Re-run the same scoped query + search pipeline (without the limit)
      * to compute the total match count. Called only when the limited
      * set was full, so the cost is bounded to "at most one extra COUNT
      * per resource that has overflow".
@@ -197,13 +196,29 @@ class SearchController extends MartisController
      */
     private function countAfterSearch(Request $request, string $resourceClass, string $term): int
     {
-        /** @var class-string<Model> $modelClass */
-        $modelClass = $resourceClass::model();
-        $builder = $modelClass::query();
-        $builder = $resourceClass::indexQuery($request, $builder);
+        $builder = $this->indexScopedQuery($request, $resourceClass);
         /** @var Builder<Model> $builder */
         $builder = SearchResolver::apply($request, $builder, $resourceClass, $term);
 
         return (int) $builder->count();
+    }
+
+    /**
+     * The resource's records as its index lists them: the model query
+     * through the resource's declarative `scopes()`, then `indexQuery()`,
+     * in the index's order (tenant and visibility confinement), grouped so
+     * the search term binds to all of them. The results and their overflow
+     * count both start here, so a record the index hides is neither listed
+     * nor counted.
+     *
+     * @param  class-string<resource>  $resourceClass
+     * @return Builder<Model>
+     */
+    private function indexScopedQuery(Request $request, string $resourceClass): Builder
+    {
+        /** @var class-string<Model> $modelClass */
+        $modelClass = $resourceClass::model();
+
+        return IndexScope::apply($request, $resourceClass, $modelClass::query());
     }
 }

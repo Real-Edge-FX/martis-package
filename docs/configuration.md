@@ -18,7 +18,7 @@ This page documents every configuration option grouped by subsystem. The full en
 'path' => env('MARTIS_PATH', 'martis'),
 ```
 
-The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e.g., `http://yourdomain.com/martis`).
+The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e.g., `http://yourdomain.com/martis`), its API at `/{path}/api`, and the routes a Tool loads with `loadRoutes()` at `/{path}/api/tools/{uriKey}` (v2.0; they stayed under `/martis` before, whatever the path). See [Tools → Tool routes and their middleware](tools.md#tool-routes-and-their-middleware).
 
 ## Authentication
 
@@ -33,6 +33,10 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
 | `guard` | `?string` | `null` | Authentication guard. `null` uses Laravel's default guard. The panel's requests run as that guard (it becomes the request's guard), and the auth flows, the Martis migrations and `martis:user` use its provider: see [Upgrading → A custom Martis guard](upgrading.md#a-custom-martis-guard). |
 | `middleware` | `array` | `['web']` | Applied to all Martis routes (public and protected). |
 | `auth_middleware` | `array` | `['martis.auth']` | Applied to protected routes only. `martis.auth` implements Laravel's `AuthenticatesRequests`, so the router's middleware priority runs it where it runs Laravel's `auth`: before the throttle, the route bindings and any middleware outside the priority list (v2.0.0+). |
+
+| `guard` | `?string` | `null` | Authentication guard. `null` uses Laravel's default guard. |
+| `middleware` | `array` | `['web']` | Applied to all Martis routes (public and protected) and to a Tool's routes. |
+| `auth_middleware` | `array` | `['martis.auth']` | Applied to protected routes only, a Tool's routes included (v2.0). A middleware name is accepted in place of a list; `null` means the default; any other value throws an `InvalidArgumentException` naming the key. |
 
 ## Brand
 
@@ -476,6 +480,8 @@ Shipped locales: `en` (English), `pt_BR` (Brazilian Portuguese), `pt_PT` (Europe
 |-----|------|---------|-------------|
 | `enabled` | `bool` | `true` | Set `false` to disable API rate limiting. |
 | `max_attempts` | `int` | `120` | Maximum requests per window, per signed-in user of the Martis guard. |
+
+| `max_attempts` | `int` | `120` | Maximum requests per window, per user, counted across the Martis API and every Tool's routes (v2.0). |
 | `decay_minutes` | `int` | `1` | Rate limit window in minutes. |
 
 ## Theme

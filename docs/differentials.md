@@ -288,6 +288,30 @@ toggle `showCreateRelationButton` by hand.
 
 ---
 
+## Tool System
+
+### Tool routes run behind the Martis API middleware
+
+⭐ **Security differential: a tool's routes answer `404` to a user the tool
+is hidden from, behind the whole API stack.** `Tool::loadRoutes()` gives a
+tool's routes the middleware of the Martis API routes (authentication, the
+2FA challenge, email verification, the locale, the impersonation expiry, the
+API throttle), then `martis.tool:{uriKey}`, which answers
+`404 {"message": "Tool not found."}` to a user whose `canSee()` or policy hides
+the tool: the answer `GET /api/tools/{uriKey}` already gives that user, so the
+app does not reveal which tools it ships. Nova guards a tool's routes with the
+tool's `Authorize` middleware, which answers `403`
+([Nova → Tools → Routing Authorization](https://nova.laravel.com/docs/v5/customization/tools#routing-authorization);
+the middleware a generated tool ships:
+[nova-dusk-suite, `IconsViewer` `Authorize`](https://github.com/laravel/nova-dusk-suite/blob/11.4/nova-components/IconsViewer/src/Http/Middleware/Authorize.php)),
+and the API routes of a tool Nova's generator scaffolds do not run Nova's
+authentication ([nova-issues#5495](https://github.com/laravel/nova-issues/issues/5495)).
+Coming from Nova, expect `404` where the tool is hidden, and `423` / `409` /
+`429` from the 2FA challenge, email verification and the throttle. See
+[Tools → Tool routes and their middleware](tools.md#tool-routes-and-their-middleware).
+
+---
+
 ## Lens System
 
 ### Sticky summary row

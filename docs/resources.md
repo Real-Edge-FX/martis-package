@@ -604,7 +604,7 @@ Static query hooks wrap every Eloquent query built by Martis for this resource. 
 
 ### indexQuery()
 
-Constrains every index listing query. The canonical place for multi-tenancy, ownership scoping, or any other structural filter that must apply to every listing, export, and lens built on top of this resource.
+Constrains the index listing query and the queries Martis builds like it: the count badge, the global search (its results and `total`), the records an action runs on, and the parent record of a `BelongsToMany` panel and of the pivot routes. The canonical place for multi-tenancy, ownership scoping, or any other structural filter. The declarative [`scopes()`](authorization.md#declarative-query-scopes) run first wherever it runs. A lens owns its query, as in Nova, so repeat such a filter in the lens's `query()`; the relationship pickers use `relatableQuery()` below.
 
 ```php
 public static function indexQuery(Request $request, Builder $query): Builder
@@ -627,7 +627,7 @@ Source: `src/Resource.php::indexQuery()`.
 
 ### relatableQuery()
 
-Constrains the query used to list candidate records in every relationship picker that targets this resource: BelongsTo dropdowns, the context-free relatable form, and the BelongsToMany / MorphToMany attach pickers. It is the resource's own fence and always applies; a source resource's `relatable{PluralModelName}()` and a field's `relatableQueryUsing()` narrow on top of it, never replace it (see [Relationships → Relatable scoping precedence](relationships.md#relatable-scoping-precedence)). A resource that confines its index with `indexQuery()` on a model that cannot carry a global scope should declare the same predicate here so the fence holds on the pickers too.
+Constrains the query used to list candidate records in every relationship picker that targets this resource: BelongsTo dropdowns, the context-free relatable form, and the BelongsToMany / MorphToMany attach pickers. It is the resource's own fence and always applies; a source resource's `relatable{PluralModelName}()` and a field's `relatableQueryUsing()` narrow on top of it, never replace it (see [Relationships → Relatable scoping precedence](relationships.md#relatable-scoping-precedence)). A resource that confines its index with `indexQuery()` or `scopes()` on a model that cannot carry a global scope should declare the same predicate here so the fence holds on the pickers too: neither hook applies to a picker.
 
 ```php
 public static function relatableQuery(Request $request, Builder $query): Builder

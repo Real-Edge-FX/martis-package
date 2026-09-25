@@ -909,7 +909,8 @@ ActionController::execute()
   2. Find action by URI key (uriKey())
   3. Check canSee() — 403 if unauthorized
   4. Load Eloquent models by the IDs in "resources", through the
-     resource's scopes() and indexQuery() (trashed records included when the resource
+     resource's scopes() and indexQuery(), grouped so an orWhere() in
+     them cannot widen the selection (trashed records included when the resource
      soft-deletes) and, with viaResource / viaResourceId /
      viaRelationship, only among the records that relationship reaches.
      The action runs on the IDs that resolve, as in Nova; 404 when none
