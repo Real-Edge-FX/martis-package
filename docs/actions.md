@@ -911,8 +911,9 @@ ActionController::execute()
      resource's indexQuery() (trashed records included when the resource
      soft-deletes) and, with viaResource / viaResourceId /
      viaRelationship, only among the records that relationship reaches.
-     404 when any ID does not resolve: nothing runs on a partial
-     selection. A standalone() action loads no model.
+     The action runs on the IDs that resolve, as in Nova; 404 when none
+     does, rather than running on nothing. A standalone() action loads no
+     model.
   5. Check canRun() and the policy per model: 404 if any is refused
   6. Validate the fields the request may set against their rules
      (a hidden, readonly or computed field is not validated and gets its

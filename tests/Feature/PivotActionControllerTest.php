@@ -415,25 +415,27 @@ it('executes a pivot action and updates the pivot column', function () {
     }
 });
 
-it('refuses a pivot action whose ids are not all attached, and writes nothing', function () {
+it('refuses a pivot action when none of its ids is attached, and runs on the attached ones otherwise', function () {
     $parent = PivotParentModel::create(['name' => 'Parent C']);
     $attached = PivotChildModel::create(['name' => 'Attached']);
     $loose = PivotChildModel::create(['name' => 'Not attached']);
     $parent->pivotChildren()->attach($attached->id, ['priority' => 'normal']);
+    $url = route('martis.api.resources.belongs-to-many.actions.execute', [
+        'resource' => 'pivot-parent-models',
+        'id' => $parent->id,
+        'relationship' => 'pivotChildren',
+        'action' => 'pivot-test-action',
+    ]);
 
-    foreach ([[$attached->id, $loose->id], [$attached->id, 999]] as $ids) {
-        $this->postJson(
-            route('martis.api.resources.belongs-to-many.actions.execute', [
-                'resource' => 'pivot-parent-models',
-                'id' => $parent->id,
-                'relationship' => 'pivotChildren',
-                'action' => 'pivot-test-action',
-            ]),
-            ['resources' => $ids, 'fields' => ['priority' => 'high']],
-        )->assertStatus(404)->assertJsonPath('message', 'One or more selected resources could not be found.');
+    foreach ([[$loose->id], [999]] as $ids) {
+        $this->postJson($url, ['resources' => $ids, 'fields' => ['priority' => 'high']])
+            ->assertStatus(404)
+            ->assertJsonPath('message', 'One or more selected resources could not be found.');
     }
-
     expect($parent->pivotChildren()->withPivot(['priority'])->first()->pivot->priority)->toBe('normal');
+
+    $this->postJson($url, ['resources' => [$attached->id, $loose->id], 'fields' => ['priority' => 'high']])->assertOk();
+    expect($parent->pivotChildren()->withPivot(['priority'])->first()->pivot->priority)->toBe('high');
 });
 
 it('forbids executing a pivot action on a parent the user cannot view (IDOR)', function () {

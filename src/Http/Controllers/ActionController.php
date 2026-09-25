@@ -296,8 +296,9 @@ class ActionController extends MartisController
 
     /**
      * The models an action runs on: the records the request's `resources`
-     * name, or a 404 when any of them does not resolve, so a run never
-     * handles fewer records than the user picked and answers "Done".
+     * name that resolve, as Nova runs an action on the selected records it
+     * finds, or a 404 when none does (all outside the scope, trashed out of
+     * reach or forged), so a run never handles nothing and answers "Done".
      *
      * A standalone action runs on no record, whatever the request names. The
      * records are looked up through the resource's `indexQuery()` (its
@@ -356,7 +357,7 @@ class ActionController extends MartisController
         /** @var Collection<int, Model> $result */
         $result = $query->whereIn($modelInstance->getQualifiedKeyName(), $ids)->get();
 
-        if ($result->count() !== count($ids)) {
+        if ($result->isEmpty()) {
             return JsonErrorResponse::notFound('One or more selected resources could not be found.')->toResponse();
         }
 
@@ -915,7 +916,7 @@ class ActionController extends MartisController
         ['parentModel' => $parentModel, 'parentResource' => $parentResource, 'field' => $field, 'relation' => $relation, 'action' => $actionInstance] = $resolved;
 
         // A standalone action runs on no record, as on the resource's own
-        // endpoint; the others need every id sent to be attached.
+        // endpoint; the others run on the ids sent that are attached.
         $rawIds = $actionInstance->isStandalone() ? [] : $request->input('resources', []);
         /** @var list<string> $relatedIds */
         $relatedIds = array_values(array_unique(array_map(
@@ -944,9 +945,9 @@ class ActionController extends MartisController
         /** @var Collection<int, Model> $models */
         $models = $relation->whereIn($relation->getRelated()->getQualifiedKeyName(), $relatedIds)->get();
 
-        // A record attached twice comes back once per pivot row, so count
-        // the distinct keys.
-        if ($models->map(fn (Model $m): string => (string) $m->getKey())->unique()->count() !== count($relatedIds)) {
+        // Run on the ids attached, as execute() does; none attached is a 404
+        // rather than a run on nothing.
+        if (! $actionInstance->isStandalone() && $models->isEmpty()) {
             return JsonErrorResponse::notFound('One or more selected resources could not be found.')->toResponse();
         }
 

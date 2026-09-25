@@ -20,9 +20,9 @@ use Martis\Resource;
 use Martis\ResourceRegistry;
 
 /*
- * A row action a relationship panel (or the index) offers runs on exactly
- * the record of its row, or answers an error: never a silent 200 that
- * handled nothing. The per-row map and the run share one predicate (the
+ * A row action a relationship panel (or the index) offers runs on the
+ * records of the run that resolve, as Nova does, and answers an error when
+ * none does: never a silent 200 that handled nothing. The per-row map and the run share one predicate (the
  * action's canRun and the resource's runAction / runDestructiveAction
  * policy), a standalone action runs on no record, and with `viaResource`,
  * `viaResourceId` and `viaRelationship` (sent by the panel, as Nova does)
@@ -249,15 +249,19 @@ it('keys a hasManyThrough row\'s action map on the record it lists', function ()
     expect(RPXRunLog::$runs)->toBe([[$this->open->id]]);
 });
 
-it('refuses a run whose ids do not all resolve, and handles nothing', function (string $record) {
-    $ids = [$this->open->id, $record === 'forged' ? 999 : $this->{$record}->id];
-
-    rpxRun(['resources' => $ids])
+it('refuses a run when none of its ids resolves, and handles nothing', function (string $record) {
+    rpxRun(['resources' => [$record === 'forged' ? 999 : $this->{$record}->id]])
         ->assertStatus(404)
         ->assertJsonPath('message', 'One or more selected resources could not be found.');
 
     expect(RPXRunLog::$runs)->toBe([]);
-})->with(['outside the index scope' => ['hidden'], 'a forged id' => ['forged']]);
+})->with(['a row outside the index scope' => ['hidden'], 'a forged id' => ['forged']]);
+
+it('runs on the ids that resolve when only some do, as Nova does', function () {
+    rpxRun(['resources' => [$this->open->id, $this->hidden->id, 999]])->assertOk();
+
+    expect(RPXRunLog::$runs)->toBe([[$this->open->id]]);
+});
 
 it('runs on a trashed row, which the panel and the index list with trashed=with', function () {
     rpxRun(['resources' => [$this->trashed->id]])->assertOk();
