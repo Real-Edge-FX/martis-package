@@ -15,8 +15,9 @@ use Martis\Contracts\ResetsUserPasswords;
 /**
  * Default reset-password handler.
  *
- * Calls Laravel's `Password::reset()` with the broker configured under
- * `martis.auth.passwordReset.broker`. On success the user's password is
+ * Calls Laravel's `Password::reset()` with the broker of the Martis
+ * guard's users, `GuardCatalog::martisPasswordBroker()`
+ * (`martis.auth.passwordReset.broker` when set). On success the user's password is
  * hashed and persisted, the remember_token is rotated, and
  * `Illuminate\Auth\Events\PasswordReset` is fired so listeners (e.g.
  * "all your sessions were signed out" notifications) can react.
@@ -31,7 +32,7 @@ class DefaultResetsUserPasswords implements ResetsUserPasswords
             'password' => ['required', 'string', 'confirmed', PasswordRule::min(8)],
         ]);
 
-        $broker = (string) config('martis.auth.passwordReset.broker', 'users');
+        $broker = GuardCatalog::martisPasswordBroker();
 
         return Password::broker($broker)->reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),

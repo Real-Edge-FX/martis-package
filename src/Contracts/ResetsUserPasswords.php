@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
  *
  * Martis ships `Martis\Auth\DefaultResetsUserPasswords` which delegates to
  * Laravel's `Password::reset()` against the broker named in
- * `config('martis.auth.passwordReset.broker', 'users')` and dispatches
+ * `Martis\Auth\GuardCatalog::martisPasswordBroker()` and dispatches
  * `Illuminate\Auth\Events\PasswordReset` on success.
  *
  * Override the binding to enforce extra invariants (audit log, force

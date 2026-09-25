@@ -1134,12 +1134,12 @@ Toggles the theme switcher and locale picker that float on the auth pages.
     'passwordReset' => [
         'enabled' => env('MARTIS_AUTH_PASSWORD_RESET_ENABLED', false),
         'url'     => env('MARTIS_AUTH_PASSWORD_RESET_URL'),
-        'broker'  => env('MARTIS_AUTH_PASSWORD_BROKER', 'users'),
+        'broker'  => env('MARTIS_AUTH_PASSWORD_BROKER'),
     ],
 ],
 ```
 
-Off by default. Enable to expose the "Forgot your password?" flow. `broker` matches the broker name in `config/auth.php`.
+Off by default. Enable to expose the "Forgot your password?" flow. `broker` names a broker of `config/auth.php` (`passwords`) whose provider is the Martis guard's; unset (the default since v2.0.1), Martis picks one: the app's default broker when it reads the Martis guard's users, else the first that does. A broker of another provider, or none that fits, throws naming `martis.auth.passwordReset.broker`. See [Authentication → Which password broker resets a password](authentication.md#which-password-broker-resets-a-password).
 
 ## Registration
 
@@ -1355,7 +1355,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_AUTH_MAGIC_LINK_AUTO_REGISTER` | `false` |
 | `MARTIS_AUTH_MAGIC_LINK_ENABLED` | `false` |
 | `MARTIS_AUTH_MAGIC_LINK_TTL` | `15` |
-| `MARTIS_AUTH_PASSWORD_BROKER` | `'users'` |
+| `MARTIS_AUTH_PASSWORD_BROKER` | unset (the broker of the Martis guard's provider) |
 | `MARTIS_AUTH_PASSWORD_RESET_ENABLED` | `false` |
 | `MARTIS_AUTH_PASSWORD_RESET_URL` | `(no default)` |
 | `MARTIS_AUTH_REGISTER_SUBTITLE` | `(no default)` |

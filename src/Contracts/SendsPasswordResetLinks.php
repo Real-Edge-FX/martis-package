@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
  *
  * Martis ships `Martis\Auth\DefaultSendsPasswordResetLinks` which delegates
  * to Laravel's `Password::sendResetLink()` against the broker named in
- * `config('martis.auth.passwordReset.broker', 'users')`.
+ * `Martis\Auth\GuardCatalog::martisPasswordBroker()`.
  *
  * Override the binding in a consumer service provider to plug in custom
  * delivery (e.g. queueing, magic-link tokens, branded notifications):
