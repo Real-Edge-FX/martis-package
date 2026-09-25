@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { isValidElement, type ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
-import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router-dom'
+import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router'
 import { layoutRegistry } from '@/lib/layoutRegistry'
 import { ResourceLayout } from '@/components/ResourceLayout'
 import { router } from '@/router'

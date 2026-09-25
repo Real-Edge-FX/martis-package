@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useBlocker, useLocation } from 'react-router-dom'
+import { useBlocker, useLocation } from 'react-router'
 import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 import { consumeSuppressFlag, getModalLockCount } from '@/lib/historyLock'
 import type { ResourceSchema, UnsavedChangesConfig } from '@/types'

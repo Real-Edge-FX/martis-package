@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
 import { useRef, useState, type ReactNode } from 'react'
 import { render, screen, fireEvent, act } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter } from 'react-router'
 import { OverlayPanel } from 'primereact/overlaypanel'
 import { DrawerShell } from './DrawerShell'
 import { DeleteModal } from '@/components/DeleteModal'

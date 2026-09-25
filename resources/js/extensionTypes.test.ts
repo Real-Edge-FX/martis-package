@@ -47,7 +47,9 @@ const RUNTIME_OBJECTS: Record<string, Record<string, unknown>> = {
 const SHIMS = [
     { shim: 'runtime', specifier: '@martis/runtime', entry: runtimeEntry },
     { shim: 'react-dom', specifier: 'react-dom', entry: reactDomEntry },
-    { shim: 'react-router-dom', specifier: 'react-router-dom', entry: routerEntry },
+    // React Router 7's `react-router-dom` is a re-export of `react-router`,
+    // the package the host installs: its types are the library's.
+    { shim: 'react-router-dom', specifier: 'react-router-dom', library: 'react-router', entry: routerEntry },
     { shim: 'react-i18next', specifier: 'react-i18next', entry: i18nextEntry },
     { shim: 'tanstack-react-query', specifier: '@tanstack/react-query', entry: queryEntry },
 ]
@@ -145,7 +147,7 @@ describe('the extension shim declarations', () => {
     // One program reads the four libraries: seconds on a loaded machine.
     let libraryTypes: Record<string, string[]> = {}
     beforeAll(() => {
-        libraryTypes = libraryTypeExports(SHIMS.filter(({ shim }) => shim !== 'runtime').map(({ specifier }) => specifier))
+        libraryTypes = libraryTypeExports(SHIMS.filter(({ shim }) => shim !== 'runtime').map(({ specifier, library }) => library ?? specifier))
     }, 120_000)
 
     it('ship for exactly the shims that have a type entry', () => {
@@ -156,13 +158,13 @@ describe('the extension shim declarations', () => {
         expect(declared).toEqual(SHIMS.map(({ shim }) => shim).sort())
     })
 
-    it.each(SHIMS)('declare exactly what the $shim shim exports, and import only what a consumer installs', ({ shim, specifier }) => {
+    it.each(SHIMS)('declare exactly what the $shim shim exports, and import only what a consumer installs', ({ shim, specifier, library }) => {
         const { named } = shimExports(stub(`${shim}-shim.mjs.stub`))
         const declaration = declarationExports(stub(`${shim}-shim.d.mts.stub`))
 
         expect(declaration.values).toEqual([...named.keys(), 'default'].sort())
         // The runtime's own types, or every type of the library.
-        const types = shim === 'runtime' ? typeExports(runtimeSource) : (libraryTypes[specifier] ?? [])
+        const types = shim === 'runtime' ? typeExports(runtimeSource) : (libraryTypes[library ?? specifier] ?? [])
         expect(declaration.types).toEqual(types)
         // `martis:install` adds react, react-dom and @phosphor-icons/react to the
         // consumer; the runtime reaches the third-party types through the
@@ -232,7 +234,7 @@ describe('the published tsconfig.extensions.json', () => {
             expected[specifier] = [`./resources/js/martis-extensions/.shims/${shim}.d.mts`]
         }
 
-        expect(Object.keys(expected)).toHaveLength(10)
+        expect(Object.keys(expected)).toHaveLength(11)
         expect(tsconfig.compilerOptions.paths).toEqual(expected)
     })
 

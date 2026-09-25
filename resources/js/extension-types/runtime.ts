@@ -74,7 +74,7 @@ export { addShortcut, disableShortcut, listShortcuts } from '@/lib/keyboardShort
 
 // The third-party hooks the shim flattens (their declarations live in the
 // sibling shims' files; the generator points these imports there)
-export { Link, NavLink, Outlet, Navigate, useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom'
+export { Link, NavLink, Outlet, Navigate, useNavigate, useParams, useSearchParams, useLocation } from 'react-router'
 export { useTranslation, Trans } from 'react-i18next'
 export { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 

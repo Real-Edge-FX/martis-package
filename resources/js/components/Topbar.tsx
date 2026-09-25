@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router"
 import { useAuth } from "@/contexts/AuthContext"
 import { config } from "@/lib/config"
 import { buildCustomMenuItems } from "@/lib/userMenu"

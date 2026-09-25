@@ -24,7 +24,7 @@ import runtimeEntrySource from '@/extension-types/runtime.ts?raw'
  *
  * The consumer lives in memory, as if under the package's
  * `node_modules/.cache`, so `react` and `@types/react` resolve from the
- * package; `@martis/runtime`, `react-router-dom`, `react-i18next` and
+ * package; `@martis/runtime`, `react-router-dom` (and `react-router`), `react-i18next` and
  * `@tanstack/react-query` go to the declarations through the tsconfig
  * `paths`, as in a consumer app, which installs none of those libraries.
  */
@@ -77,7 +77,7 @@ function asModule(block: string): string {
 const ENTRY_BLOCK = /^\/\/ resources\/js\/martis-extensions\/index\.ts\b/
 
 /** An import of a third-party module the build sends to a shim with declarations. */
-const SHIMMED_IMPORT = /from ['"](?:react-dom|react-router-dom|react-i18next|@tanstack\/react-query)['"]/
+const SHIMMED_IMPORT = /from ['"](?:react-dom|react-router(?:-dom)?|react-i18next|@tanstack\/react-query)['"]/
 
 /**
  * Every TypeScript docs block (```ts, ```tsx or ```typescript) that imports
@@ -206,12 +206,13 @@ put(LIBRARY_TYPES_PROBE, [
     "import type { Container } from 'react-dom'",
     "import type ReactRouterDom from 'react-router-dom'",
     "import type { LinkProps, NavigateFunction } from 'react-router-dom'",
+    "import type { To } from 'react-router'",
     "import type { UseTranslationResponse } from 'react-i18next'",
     "import { useQuery, type QueryKey, type UseQueryResult } from '@tanstack/react-query'",
     '// @ts-expect-error the shim does not export QueryCache, so the build has no value for it',
     "import { QueryCache } from '@tanstack/react-query'",
     '',
-    "export type LibraryTypes = [Container, LinkProps, NavigateFunction, ReactRouterDom.NavigationType, UseTranslationResponse<'translation', undefined>, QueryKey]",
+    "export type LibraryTypes = [Container, LinkProps, NavigateFunction, To, ReactRouterDom.NavigationType, UseTranslationResponse<'translation', undefined>, QueryKey]",
     '',
     'export default function LibraryTypesProbe() {',
     "  const query: UseQueryResult<string> = useQuery({ queryKey: ['probe'], queryFn: async () => 'ok' })",

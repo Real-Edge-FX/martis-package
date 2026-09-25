@@ -1,4 +1,4 @@
-import { Outlet, Navigate, useLocation } from "react-router-dom"
+import { Outlet, Navigate, useLocation } from "react-router"
 import { MartisTooltip } from "@/components/MartisTooltip"
 import { useAuth } from "@/contexts/AuthContext"
 import { config } from "@/lib/config"

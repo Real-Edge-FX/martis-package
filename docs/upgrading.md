@@ -23,6 +23,17 @@ Gate::define('view-martis-action-events', fn ($user) => $user->is_admin);
 
 An app with an `ActionEventPolicy` that defines `viewAny` and `view` needs no change. A custom resource for the `ActionEvent` model keeps its own authorization; apply `ActionEventRedactor::redact()` to its `original` / `changes` fields to mask the same values. See [Actions → Who can read the audit log](actions.md#who-can-read-the-audit-log-v201).
 
+### The panel runs on React Router 7
+
+The SPA moved from React Router 6 to React Router 7 (library mode, `createBrowserRouter` as before), which closes GHSA-wrjc-x8rr-h8h6 and GHSA-337j-9hxr-rhxg. It needs Node 20 or later to build (only for building the package itself: an app installs the prebuilt assets). URLs and pages are unchanged.
+
+**Extensions** (custom tools, fields, cards and overrides built with `npm run build:extensions`) keep working without a rebuild. They never bundle React Router: their Vite config sends `react-router-dom` to a shim that reads the host's copy off `window.Martis.runtime.reactRouterDom`, and every name that shim exports (`Link`, `NavLink`, `Outlet`, `Navigate`, `Route`, `Routes`, the routers, `useNavigate`, `useParams`, `useSearchParams`, `useLocation`, `useMatch`, `useResolvedPath`, `useNavigationType`, `generatePath`, `matchPath`, `matchRoutes`) exists in React Router 7. What changes for extension code:
+
+- **`window.Martis.runtime.reactRouterDom` is React Router 7's `react-router-dom` module**: every export of `react-router`, with the DOM `RouterProvider`. Names React Router 7 removed are gone from it (`json`, `defer`, `AbortedDeferredError`, the `UNSAFE_` internals of v6), so code that read one off the shim's default export gets `undefined`.
+- **Behaviour of the v7 future flags** now applies to the host's router: navigations run in `React.startTransition`, and a relative link inside a splat route resolves from the splat's own path. An extension that navigates with absolute paths (`navigate('/resources/users')`, `<Link to="/tools/deployments">`) sees no difference. `navigate()` may return a promise; there is nothing to await for a plain navigation.
+- **Type declarations.** After you republish the shims (`php artisan vendor:publish --tag=martis-extension-shims --force`), `react-router-dom.d.mts` carries the React Router 7 types. Six type names React Router 7 no longer exports are gone: `FutureConfig`, `Hash`, `JsonFunction`, `Pathname`, `Search` and `V7_FormMethod` (use `string` or `Path['pathname']` for the path parts).
+- **`import ... from 'react-router'`** also works in a scaffold published from v2.0.1 (`martis:install --force`): its Vite config and `tsconfig.extensions.json` send `react-router` to the same shim. An older scaffold keeps importing from `react-router-dom`, or adds the two lines by hand (see [Installation → Extensions and React Router 7](installation-guide.md#extensions-and-react-router-7-v201)).
+
 ## Upgrading to v2.0 from v1.x
 
 Require the new major; a `^1.x` constraint never installs it:

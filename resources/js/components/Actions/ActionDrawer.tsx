@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router"
 import { api } from "@/lib/api"
 import { componentRegistry } from "@/lib/componentRegistry"
 import { useToast } from "@/contexts/ToastContext"
