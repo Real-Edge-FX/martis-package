@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.2] — 2026-09-26
+
 ### Fixed
 
 - **`martis:mcp-serve` could take five minutes to stop on a SIGTERM that arrived while its loop slept.** PHP runs a signal handler between two opcodes, and the loop sleeps in `stream_select()` for a timeout it computed before; a signal landing in between (right after a request, when a supervisor or a test stops the server) waited for the next event, the session timer five minutes away (1 to 2 runs in 100 in Docker). The loop now dispatches pending signals every second. +1 Pest.
