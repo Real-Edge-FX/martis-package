@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.39.4] — 2026-09-26
+
 ### Fixed
 
 - **`martis:mcp-serve` could take five minutes to stop on a SIGTERM that arrived while its loop slept.** A signal landing while the loop slept in `stream_select()` waited for the next event, the session timer five minutes away. The loop now dispatches pending signals every second. +1 Pest.
