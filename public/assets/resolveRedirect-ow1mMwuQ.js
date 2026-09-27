@@ -1,0 +1,1 @@
+import{H as s}from"./app-n51CJ8Oj.js";function n(a,e,r){const t=a??"detail";switch(t){case"detail":return s(e,r);case"index":return`/resources/${e}`;case"edit":return`/resources/${e}/${r}/edit`;case"create":return`/resources/${e}/create`;case"dashboard":return"/";case"stay":return null;default:return t.replace(/\{id\}/g,String(r)).replace(/\{resource\}/g,e)}}export{n as r};
