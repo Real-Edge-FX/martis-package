@@ -17,6 +17,9 @@ use Martis\MartisManager;
  * @method static MartisManager pageTitleUsing(\Closure $resolver)
  * @method static MartisManager forgetPageTitle()
  * @method static string resolvePageTitle(\Illuminate\Http\Request $request)
+ * @method static MartisManager commandPalette(\Closure $resolver)
+ * @method static MartisManager forgetCommandPalette()
+ * @method static list<array{key: string, label: string, url: string, external: bool, icon: string|null, group: string|null}> resolveCommandPalette(\Illuminate\Http\Request $request)
  *
  * @see MartisManager
  */

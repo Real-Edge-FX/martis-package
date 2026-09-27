@@ -1084,6 +1084,18 @@ php artisan martis:override StatusBadge --type=field
 
 `martis:card` writes both the PHP class (`app/Martis/Cards/`) and the React component (`resources/js/martis-extensions/cards/{Name}.tsx`); the bundle's filename → key auto-discovery (`{Name}.tsx` → `card:{kebab-name}`) registers it on the next `npm run build:extensions`. `martis:override` writes a TSX-only file under `resources/js/martis-extensions/overrides/` and the bundle auto-registers it on the next build. See [Override System: Auto-registration scope](overrides.md#6-creating-custom-components-artisan) for the full filename → key table.
 
+### Command palette entries
+
+The ⌘K palette lists resources, Tools, standalone actions, recent activity and records, and an app adds its own commands and deep links with `Martis::commandPalette()`. The entries are the menu's `MenuItem`s and `MenuGroup`s, filtered per request by the same visibility rules as the menu. Nova has global search, but no registrable command palette.
+
+```php
+Martis::commandPalette(fn (Request $request) => [
+    MenuItem::link('Open analyses', '/tools/analyses'),
+]);
+```
+
+See [Components → App commands](components.md#app-commands-v210).
+
 ---
 
 ## Artisan command suite

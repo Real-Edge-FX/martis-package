@@ -11,6 +11,9 @@ use Martis\Actions\ActionResponse;
 use Martis\Facades\Martis;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\MartisManager;
+use Martis\Menu\MenuGroup;
+use Martis\Menu\MenuItem;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\Tools\Tool;
@@ -145,6 +148,7 @@ afterEach(function () {
     Schema::dropIfExists('palette_test_items');
     app(ResourceRegistry::class)->flush();
     Martis::tools([]);
+    Martis::forgetCommandPalette();
 });
 
 // ---------------------------------------------------------------------------
@@ -248,4 +252,56 @@ it('leaves a non-System resource group untouched (fix is scoped)', function () {
     // group() — its palette tag stays null, unaffected by the fix.
     expect($entry)->not->toBeNull();
     expect($entry['group'])->toBeNull();
+});
+
+// ---------------------------------------------------------------------------
+// Enhancement: app-registered commands (Martis::commandPalette(), v2.1.0)
+// ---------------------------------------------------------------------------
+
+it('lists the commands an app registers, with the label of a MenuGroup as their group', function () {
+    Martis::commandPalette(fn (Request $request) => [
+        MenuItem::link('Open analyses', '/tools/analyses')->icon('chart-line'),
+        MenuGroup::make('Reports', [
+            MenuItem::externalLink('Status page', 'https://status.example.com'),
+        ]),
+    ]);
+
+    $commands = $this->getJson('/martis/api/command-palette')->assertOk()->json('commands');
+
+    expect($commands)->toBe([
+        ['key' => 'command:0', 'label' => 'Open analyses', 'url' => '/tools/analyses', 'external' => false, 'icon' => 'chart-line', 'group' => null],
+        ['key' => 'command:1', 'label' => 'Status page', 'url' => 'https://status.example.com', 'external' => true, 'icon' => null, 'group' => 'Reports'],
+    ]);
+});
+
+it('leaves out a command canSee() hides and a tool the user may not see', function () {
+    Martis::commandPalette(fn () => [
+        MenuItem::link('Hidden', '/hidden')->canSee(fn () => false),
+        MenuItem::tool(PaletteDeniedTool::class),
+        MenuItem::link('Visible', '/visible'),
+    ]);
+
+    $labels = collect($this->getJson('/martis/api/command-palette')->json('commands'))->pluck('label')->all();
+
+    expect($labels)->toBe(['Visible']);
+});
+
+it('accumulates the commands of several registrations', function () {
+    Martis::commandPalette(fn () => [MenuItem::link('First', '/first')]);
+    Martis::commandPalette(fn () => [MenuItem::link('Second', '/second')]);
+
+    $labels = collect($this->getJson('/martis/api/command-palette')->json('commands'))->pluck('label')->all();
+
+    expect($labels)->toBe(['First', 'Second']);
+});
+
+it('answers an empty commands list when no app registers any', function () {
+    expect($this->getJson('/martis/api/command-palette')->assertOk()->json('commands'))->toBe([]);
+});
+
+it('fails loudly on an entry that is not a MenuItem or a MenuGroup', function () {
+    Martis::commandPalette(fn () => ['/not-a-menu-item']);
+
+    expect(fn () => app(MartisManager::class)->resolveCommandPalette(request()))
+        ->toThrow(InvalidArgumentException::class, 'string given');
 });

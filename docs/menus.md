@@ -110,6 +110,8 @@ Mid-level cluster nested **inside** a `MenuSection`. See [Nested MenuGroup](#nes
 - `canSee(...)`
 - `withMeta([...])`
 
+The same `MenuItem`s and `MenuGroup`s feed the command palette through `Martis::commandPalette()`: see [Components → App commands](components.md#app-commands-v210).
+
 ### Tool menu items
 
 Since v1.8.20, every registered Tool is auto-grouped into the sidebar by default. A Tool that declares `withMenuSection('Operations')` lands in the "Operations" section; everything else goes under the localised "Tools" header (translation key `martis::messages.tools_section`, default English label `Tools`). You only need to call `MenuItem::tool(...)` when you build a fully custom main menu via `Martis::mainMenu(...)` and want a Tool placed alongside hand-rolled links.

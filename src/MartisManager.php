@@ -4,9 +4,12 @@ namespace Martis;
 
 use Closure;
 use Illuminate\Http\Request;
+use InvalidArgumentException;
 use Martis\Contracts\DashboardContract;
 use Martis\Contracts\ToolContract;
 use Martis\Menu\Menu;
+use Martis\Menu\MenuGroup;
+use Martis\Menu\MenuItem;
 use Martis\Menu\MenuSection;
 use Martis\Support\ConfigCallable;
 use Martis\Support\InstalledVersion;
@@ -20,6 +23,9 @@ class MartisManager
 
     /** @var Closure(Request): string|null */
     protected ?Closure $pageTitleResolver = null;
+
+    /** @var list<Closure(Request): array<int, mixed>> */
+    protected array $commandPaletteResolvers = [];
 
     /** @var list<class-string<DashboardContract>|DashboardContract> */
     protected array $dashboards = [];
@@ -447,6 +453,96 @@ class MartisManager
         $registry = app(ResourceRegistry::class);
 
         return $registry instanceof ResourceRegistry ? $registry : null;
+    }
+
+    // -------------------------------------------------------------------------
+    // Command palette
+    // -------------------------------------------------------------------------
+
+    /**
+     * Add entries to the command palette (⌘K). The resolver returns a list
+     * of `MenuItem`s and `MenuGroup`s, resolved per request as the menu
+     * resolves them: `canSee()`, a tool's `authorizedToSee()` and soft-gate
+     * locks apply. Calls accumulate, so several tools or packages can each
+     * add theirs.
+     *
+     * @param  Closure(Request): array<int, mixed>  $resolver
+     */
+    public function commandPalette(Closure $resolver): static
+    {
+        $this->commandPaletteResolvers[] = $resolver;
+
+        return $this;
+    }
+
+    public function forgetCommandPalette(): static
+    {
+        $this->commandPaletteResolvers = [];
+
+        return $this;
+    }
+
+    /**
+     * The registered palette entries the request may see, in registration
+     * order. A `MenuGroup` gives its visible items its label as their group.
+     *
+     * @return list<array{key: string, label: string, url: string, external: bool, icon: string|null, group: string|null}>
+     */
+    public function resolveCommandPalette(Request $request): array
+    {
+        $entries = [];
+
+        foreach ($this->commandPaletteResolvers as $resolver) {
+            foreach ((array) $resolver($request) as $item) {
+                if ($item instanceof MenuItem) {
+                    $resolved = $item->resolve($request);
+                    if ($resolved !== null) {
+                        $entries[] = $this->paletteEntry(count($entries), $resolved, null);
+                    }
+
+                    continue;
+                }
+
+                if ($item instanceof MenuGroup) {
+                    $group = $item->resolve($request);
+                    $items = is_array($group['items'] ?? null) ? $group['items'] : [];
+                    $label = is_string($group['label'] ?? null) ? $group['label'] : null;
+
+                    foreach ($items as $resolved) {
+                        if (is_array($resolved)) {
+                            $entries[] = $this->paletteEntry(count($entries), $resolved, $label);
+                        }
+                    }
+
+                    continue;
+                }
+
+                throw new InvalidArgumentException(sprintf(
+                    'Martis::commandPalette() entries must be %s or %s instances, %s given.',
+                    MenuItem::class,
+                    MenuGroup::class,
+                    get_debug_type($item),
+                ));
+            }
+        }
+
+        return $entries;
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $resolved  a resolved MenuItem
+     * @return array{key: string, label: string, url: string, external: bool, icon: string|null, group: string|null}
+     */
+    protected function paletteEntry(int $index, array $resolved, ?string $group): array
+    {
+        return [
+            'key' => 'command:'.$index,
+            'label' => is_string($resolved['label'] ?? null) ? $resolved['label'] : '',
+            'url' => is_string($resolved['url'] ?? null) ? $resolved['url'] : '',
+            'external' => ($resolved['external'] ?? false) === true,
+            'icon' => is_string($resolved['icon'] ?? null) ? $resolved['icon'] : null,
+            'group' => $group,
+        ];
     }
 
     // -------------------------------------------------------------------------
