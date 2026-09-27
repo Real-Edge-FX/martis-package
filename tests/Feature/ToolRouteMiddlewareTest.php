@@ -251,6 +251,7 @@ it('gives a tool route the middleware of the protected API routes, then the tool
             'martis.2fa',
             'martis.locale',
             'martis.verified',
+            'martis.authorize',
             'throttle:120,1,martis-api:web:',
         ]);
 });
@@ -268,6 +269,7 @@ it('builds the tool route stack from martis.auth_middleware and martis.throttle.
         'martis.2fa',
         'martis.locale',
         'martis.verified',
+        'martis.authorize',
         'martis.tool:tool-route-default',
     ]);
 });

@@ -69,6 +69,7 @@
     <script>
         window.MartisConfig = {
             basePath: "/{{ $basePath }}",
+            panelForbidden: {{ ($panelForbidden ?? false) ? 'true' : 'false' }},
             locale: "{{ $prefsPayload['locale'] ?? config('martis.locale', config('app.locale', 'en')) }}",
             preferences: {!! json_encode($prefsConfig) !!},
             brand: "{{ config('martis.brand.name', 'Martis') }}",
