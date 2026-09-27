@@ -1,5 +1,6 @@
 import { Outlet, Navigate, useLocation } from "react-router"
 import { MartisTooltip } from "@/components/MartisTooltip"
+import { MAIN_CONTENT_ID, SkipLink } from "@/components/SkipLink"
 import { PanelForbiddenPage } from "@/pages/PanelForbidden"
 import { useAuth } from "@/contexts/AuthContext"
 import { config } from "@/lib/config"
@@ -104,6 +105,8 @@ function SidebarLayout() {
       data-mobile={isMobile ? "true" : undefined}
       data-sidebar-collapsed={!isMobile && collapsed ? "true" : undefined}
     >
+      <SkipLink />
+
       <SidebarComponent
         mobileOpen={isMobile ? mobileSidebarOpen : undefined}
         onMobileClose={() => setMobileSidebarOpen(false)}
@@ -116,7 +119,7 @@ function SidebarLayout() {
         sidebarCollapsed={collapsed}
       />
 
-      <main className="martis-shell-content">
+      <main id={MAIN_CONTENT_ID} tabIndex={-1} className="martis-shell-content">
         {(() => {
           // Allow consumer override under the canonical registry key
           // `impersonation:banner`. When unset the bundled banner
