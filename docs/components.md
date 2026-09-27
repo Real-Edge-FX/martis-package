@@ -183,7 +183,7 @@ Martis::commandPalette(fn (Request $request) => [
 - A `MenuGroup`'s label becomes the hint of its items.
 - `link()` takes a path inside the panel (`/tools/analyses`, not `/martis/tools/analyses`). `externalLink()` opens in a new tab.
 - Calls accumulate, so a Tool or a package can register its own.
-- Anything other than a `MenuItem` or a `MenuGroup` throws an `InvalidArgumentException`.
+- The closure may return an array or a Collection. Any other return value (a single `MenuItem`, `null`) throws an `InvalidArgumentException` naming its type, and so does an entry other than a `MenuItem` or a `MenuGroup`.
 - Resolving a resource or Tool item may compute its menu count, as the menu does.
 
 A standalone action on any resource also appears in the palette, under Actions.

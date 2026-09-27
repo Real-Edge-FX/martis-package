@@ -27,7 +27,7 @@ class MartisManager
     /** @var Closure(Request): string|null */
     protected ?Closure $pageTitleResolver = null;
 
-    /** @var list<Closure(Request): array<int, mixed>> */
+    /** @var list<Closure(Request): mixed> checked at resolve time: an iterable of entries */
     protected array $commandPaletteResolvers = [];
 
     /** @var (Closure(Builder<Model>, Request): mixed)|null */
@@ -473,7 +473,10 @@ class MartisManager
      * page, as in the menu. Calls accumulate, so several tools or packages
      * can each add theirs.
      *
-     * @param  Closure(Request): array<int, mixed>  $resolver
+     * The resolver may return an array or any other iterable (a
+     * Collection); anything else throws an InvalidArgumentException.
+     *
+     * @param  Closure(Request): mixed  $resolver  an iterable of MenuItem/MenuGroup
      */
     public function commandPalette(Closure $resolver): static
     {
@@ -500,7 +503,16 @@ class MartisManager
         $entries = [];
 
         foreach ($this->commandPaletteResolvers as $resolver) {
-            foreach ((array) $resolver($request) as $item) {
+            $items = $resolver($request);
+
+            if (! is_iterable($items)) {
+                throw new InvalidArgumentException(sprintf(
+                    'Martis::commandPalette() resolvers must return an iterable of MenuItem/MenuGroup, %s given.',
+                    get_debug_type($items),
+                ));
+            }
+
+            foreach ($items as $item) {
                 if ($item instanceof MenuItem) {
                     $resolved = $item->resolve($request);
                     if ($resolved !== null) {

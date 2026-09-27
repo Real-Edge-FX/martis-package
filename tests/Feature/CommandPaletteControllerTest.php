@@ -305,3 +305,18 @@ it('fails loudly on an entry that is not a MenuItem or a MenuGroup', function ()
     expect(fn () => app(MartisManager::class)->resolveCommandPalette(request()))
         ->toThrow(InvalidArgumentException::class, 'string given');
 });
+
+it('accepts a resolver that returns a Collection of entries', function () {
+    Martis::commandPalette(fn () => collect([MenuItem::link('First', '/first'), MenuItem::link('Second', '/second')]));
+
+    $labels = collect($this->getJson('/martis/api/command-palette')->json('commands'))->pluck('label')->all();
+
+    expect($labels)->toBe(['First', 'Second']);
+});
+
+it('fails loudly on a resolver that returns a single MenuItem instead of an iterable', function () {
+    Martis::commandPalette(fn () => MenuItem::link('Lonely', '/lonely'));
+
+    expect(fn () => app(MartisManager::class)->resolveCommandPalette(request()))
+        ->toThrow(InvalidArgumentException::class, 'Martis::commandPalette() resolvers must return an iterable of MenuItem/MenuGroup, Martis\Menu\MenuItem given.');
+});
