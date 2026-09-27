@@ -445,6 +445,12 @@ export interface MartisConfigShape {
    */
   extensions?: string[]
   /**
+   * True when the `viewMartis` gate refused this user the panel (v2.1.0):
+   * the server answered the shell with 403 and the SPA mounts only the
+   * standalone "no access" screen.
+   */
+  panelForbidden?: boolean
+  /**
    * Developer tooling switches. Today this only carries the gate
    * for the Component Inspector at `/dev/components`; future dev
    * surfaces (route inspector, schema browser, etc.) hang here too.

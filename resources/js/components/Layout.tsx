@@ -1,5 +1,6 @@
 import { Outlet, Navigate, useLocation } from "react-router"
 import { MartisTooltip } from "@/components/MartisTooltip"
+import { PanelForbiddenPage } from "@/pages/PanelForbidden"
 import { useAuth } from "@/contexts/AuthContext"
 import { config } from "@/lib/config"
 import { componentRegistry } from "@/lib/componentRegistry"
@@ -169,6 +170,11 @@ export function Layout() {
   }
 
   if (!user) return <Navigate to="/login" replace />
+
+  // A client-side sign-in never re-requests the shell, so the server's 403
+  // shell cannot catch a user the `viewMartis` gate refuses: the auth
+  // payload's `panel_access` does.
+  if (user.panel_access === false) return <PanelForbiddenPage />
 
   // The global tooltip is mounted once, above the shell switch, so every
   // shell (a preset, a `layout:shell` override or the one the config key
