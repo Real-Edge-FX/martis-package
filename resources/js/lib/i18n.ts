@@ -3,6 +3,7 @@ import { initReactI18next } from "react-i18next"
 import { API_BASE_URL, config } from "./config"
 import { queryClient } from "./query"
 import { beginLocaleSwitch, endLocaleSwitch } from "./localeSwitching"
+import { toBcp47 } from "./formatLocale"
 
 export function getLocale(): string {
   // Resolution order (v1.7.4):
@@ -87,7 +88,9 @@ export function applyDocumentDirection(locale: string): void {
   const isRtl = normalized.includes(locale.toLowerCase())
 
   document.documentElement.setAttribute("dir", isRtl ? "rtl" : "ltr")
-  document.documentElement.setAttribute("lang", locale)
+  // `lang` takes a BCP 47 tag (`pt-PT`); assistive technology reads it
+  // for pronunciation, and `pt_PT` is not one.
+  document.documentElement.setAttribute("lang", toBcp47(locale) ?? locale)
 }
 
 /**
