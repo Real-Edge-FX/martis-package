@@ -4,6 +4,21 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.1.0 from v2.0.x
+
+Nothing to change: v2.1.0 adds optional features and fixes. There are three visible changes:
+
+- **Dates and numbers follow the user's Martis language.** The following format in the language the user picked in Martis, not the browser's: Date, DateTime and Currency values, metric values, menu count badges and notification dates. With `pt_PT` a date reads `27/09/2026` and a number `1234,5`. The Currency and Number inputs take the same decimal separator. A Currency field with `locale()` keeps that locale. See [Internationalisation → Number and date formatting](i18n.md#number-and-date-formatting).
+- **The `aggregateVia()` tile shows a number, not EUR.** A column named like `amount`, `price` or `total` was shown as euros whatever the app's currency. It is now a plain number with up to two decimals.
+- **A fresh install stops logging a 404 for the extensions bundle.** The shell leaves `/vendor/martis-user/extensions.js` out while the file does not exist, and `npm run build:extensions` brings it back with no other step. Any other `MARTIS_EXTENSIONS` URL is still loaded as configured.
+
+New and optional:
+
+- **Restrict the panel** with the `viewMartis` gate ([Authorization → Panel access](authorization.md#panel-access-viewmartis)). Without it every signed-in user gets in, as before.
+- **Install without migrating:** `php artisan martis:install --no-migrate`, then `php artisan migrate`.
+- **Add palette commands** with `Martis::commandPalette()` ([Components → App commands](components.md#app-commands-v210)).
+- **Scope the notification centre** with `Martis::scopeNotificationsUsing()` ([Notifications → Scoping the notification centre](notifications.md#scoping-the-notification-centre)).
+
 ## Upgrading to v2.0.1 from v2.0.0
 
 The action log, the throttle buckets, the Gate cache's `lookup()` the Tool route warning, the grouped user hooks, the relatable checks on writes, the relationship panels, the Action Events panel, the action log's columns and React Router 7 apply to every app; the other changes concern an app with a custom `MARTIS_GUARD`.

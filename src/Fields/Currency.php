@@ -13,7 +13,7 @@ use Martis\Enums\CurrencyDisplayMode;
  *
  * API:
  *   - currency($code)    — ISO 4217 currency code (default: USD)
- *   - locale($locale)    — override app locale for formatting
+ *   - locale($locale)    fixes the locale this field's amount is displayed and typed in; without it, the user's Martis locale applies
  *   - asMinorUnits()     — treat stored value as minor units (cents)
  *   - asMajorUnits()     — treat stored value as major units (dollars)
  *
@@ -97,7 +97,9 @@ class Currency extends Number
     }
 
     /**
-     * Override locale for currency formatting.
+     * Fix the locale this field's amount is displayed and typed in.
+     *
+     * Without it, the user's Martis locale applies.
      */
     public function locale(string $locale): static
     {
