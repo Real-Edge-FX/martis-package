@@ -1,9 +1,12 @@
+import { useFormatLocale } from '@/lib/formatLocale'
+
 interface ProgressCardProps {
   data: Record<string, unknown>
   color?: string | null
 }
 
 export function ProgressCard({ data, color }: ProgressCardProps) {
+  const locale = useFormatLocale()
   const current = (data.current as number) ?? 0
   const target = (data.target as number) ?? 1
   const percentage = (data.percentage as number) ?? 0
@@ -30,13 +33,13 @@ export function ProgressCard({ data, color }: ProgressCardProps) {
           className="text-2xl font-bold"
           style={{ color: 'var(--martis-text)' }}
         >
-          {prefix}{current.toLocaleString()}{suffix}
+          {prefix}{current.toLocaleString(locale)}{suffix}
         </p>
         <p
           className="text-sm"
           style={{ color: 'var(--martis-text-muted)' }}
         >
-          / {prefix}{target.toLocaleString()}{suffix}
+          / {prefix}{target.toLocaleString(locale)}{suffix}
         </p>
       </div>
 

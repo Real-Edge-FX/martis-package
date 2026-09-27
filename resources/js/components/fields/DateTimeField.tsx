@@ -2,11 +2,12 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 import { Calendar } from 'primereact/calendar'
 import { getCalendarLocale } from '@/lib/calendarLocale'
 import { ClearButton } from '@/components/ClearButton'
+import { useFormatLocale } from '@/lib/formatLocale'
 
-function formatDateTime(value: unknown): string {
+function formatDateTime(value: unknown, locale: string | undefined): string {
   if (!value || typeof value !== 'string') return ''
   const d = new Date(value)
-  return isNaN(d.getTime()) ? String(value) : d.toLocaleString()
+  return isNaN(d.getTime()) ? String(value) : d.toLocaleString(locale)
 }
 
 function toDate(value: unknown): Date | null {
@@ -16,11 +17,12 @@ function toDate(value: unknown): Date | null {
 }
 
 export function DateTimeFieldDisplay({ value }: FieldDisplayProps) {
+  const locale = useFormatLocale()
   if (value === null || value === undefined || value === '') {
     return <span className="text-gray-400 dark:text-gray-500">—</span>
   }
   return (
-    <span className="text-gray-900 dark:text-white">{formatDateTime(value)}</span>
+    <span className="text-gray-900 dark:text-white">{formatDateTime(value, locale)}</span>
   )
 }
 
