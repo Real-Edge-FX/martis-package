@@ -23,6 +23,7 @@ class InstallCommand extends Command
                             {--no-2fa : Disable 2FA support, even when running interactively. Wins over --with-2fa.}
                             {--with-sessions : Publish the key-type-aware sessions table migration for the browser-sessions profile section (requires SESSION_DRIVER=database)}
                             {--no-sessions : Skip the sessions table migration, even when the sessions section is active. Wins over --with-sessions.}
+                            {--no-migrate : Skip running migrations after publishing them}
                             {--avatar-column= : Column on the users table that stores avatar paths}
                             {--existing-avatar-column : Use an existing avatar column instead of publishing a migration}';
 
@@ -44,13 +45,22 @@ class InstallCommand extends Command
         $this->publishExtensionsScaffold();
         $this->writeEnvironmentConfiguration($options);
         $this->clearConfigCache();
-        $this->runMigrations();
+
+        if ($this->option('no-migrate')) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipped</> migrations', 'run php artisan migrate');
+        } else {
+            $this->runMigrations();
+        }
+
         $this->preflightSessions();
 
         $this->newLine();
         $this->components->info('Martis installed successfully.');
         $this->newLine();
         $this->line('  Next steps:');
+        if ($this->option('no-migrate')) {
+            $this->line('  - Run <fg=cyan>php artisan migrate</> to create the Martis tables.');
+        }
         $this->line('  - Run <fg=cyan>php artisan martis:user</> to create an admin account.');
 
         /** @var string $panelUrl */

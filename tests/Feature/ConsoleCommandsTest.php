@@ -142,6 +142,21 @@ it('martis:install publishes the action events migration once', function () {
     expect($migrations)->toHaveCount(1);
 });
 
+it('martis:install --no-migrate publishes the migrations without running them', function () {
+    $this->artisan('martis:install', ['--no-interaction' => true, '--no-migrate' => true])
+        ->expectsOutputToContain('php artisan migrate')
+        ->assertSuccessful();
+
+    expect(glob(database_path('migrations/*_create_martis_action_events_table.php')) ?: [])->toHaveCount(1)
+        ->and(Schema::hasTable('martis_action_events'))->toBeFalse();
+});
+
+it('martis:install without --no-migrate runs the published migrations', function () {
+    $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+
+    expect(Schema::hasTable('martis_action_events'))->toBeTrue();
+});
+
 it('martis:install --no-interaction skips the optional profile migration by default', function () {
     $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
 
