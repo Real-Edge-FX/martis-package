@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+use Martis\Auth\PanelAccess;
 use Martis\Facades\Martis;
 use Martis\Http\RouteMiddleware;
 use Martis\Tools\Tool;
@@ -308,6 +309,23 @@ it('lets a user who passed the 2FA challenge reach a tool route', function () {
 
     $this->getJson('/martis/api/tools')->assertOk();
     $this->getJson('/martis/api/tools/tool-route-default/ping')->assertOk()->assertExactJson(['pong' => true]);
+});
+
+it('answers 403 on a tool route to a user the viewMartis gate refuses, and 200 to one it allows', function () {
+    bootToolRouteTools($this->routesFile);
+    $allowed = toolRouteUser();
+    $refused = toolRouteUser();
+    Gate::define(PanelAccess::GATE, fn (User $user) => $user->is($allowed));
+
+    $this->actingAs($refused, config('martis.guard'))
+        ->getJson('/martis/api/tools/tool-route-default/ping')
+        ->assertForbidden()
+        ->assertJsonPath('message', __('martis::messages.panel_forbidden'));
+
+    $this->actingAs($allowed, config('martis.guard'))
+        ->getJson('/martis/api/tools/tool-route-default/ping')
+        ->assertOk()
+        ->assertExactJson(['pong' => true]);
 });
 
 it('answers a tool route as the package API when the email the app requires is not verified', function () {
