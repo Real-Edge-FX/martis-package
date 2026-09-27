@@ -15,7 +15,7 @@ Minor release built from a consumer's reports. Nothing to change on upgrade: rea
 
 - **An optional `viewMartis` gate decides who may open the panel.**
   - Undefined (the default), every user the Martis guard signs in gets in, as before.
-  - Defined, the new `martis.authorize` middleware checks it after authentication, the 2FA challenge and email verification, in every environment. It guards the shell, the protected API, every Tool route and any app route on the `martis.api` group.
+  - Defined, the new `martis.authorize` middleware checks it after authentication, the 2FA challenge and email verification, in every environment. It guards the shell, the protected API, the Tool routes that run the Martis API stack and any app route on the `martis.api` group.
   - A refused JSON request gets `403` with a translated message. A refused page request gets a standalone "No access to this panel" screen with a **Sign out** button.
   - Sign-in, logout, the 2FA challenge and email verification stay reachable. The 2FA challenge page itself also stays reachable, so a refused user sees the refusal only after passing 2FA. `Gate::before()` callbacks apply, and the user is never passed as a gate argument, so a user-model policy cannot intercept the check.
   - The SPA signs in without reloading, so `GET /api/auth/user` and `POST /api/auth/login` carry `panel_access`, and the layout shows the same screen to a refused user who just signed in.
@@ -24,7 +24,7 @@ Minor release built from a consumer's reports. Nothing to change on upgrade: rea
   - +17 Pest, +5 Vitest.
 - **`martis:install --no-migrate`.** It publishes everything, skips `php artisan migrate --force` and lists the command among the next steps. `docs/upgrading.md` already told scripts to pass it, and the command answered "The --no-migrate option does not exist". +2 Pest.
 - **Apps add commands and deep links to the command palette with `Martis::commandPalette()`.**
-  - The entries are the menu's `MenuItem`s and `MenuGroup`s, resolved per request with `canSee()`, Tool visibility and soft-gate locks.
+  - The entries are the menu's `MenuItem`s and `MenuGroup`s, resolved per request as the menu resolves them: `canSee()` and Tool visibility hide an entry, and a soft-locked Tool or Dashboard stays listed and opens its lock page.
   - A group's label becomes the hint, and an external link opens in a new tab.
   - A resolver must return an iterable (array or Collection) of `MenuItem`/`MenuGroup`; anything else throws an `InvalidArgumentException` naming the given type.
   - +7 Pest, +4 Vitest.
