@@ -17,6 +17,7 @@ import {
 } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { isMacPlatform } from "@/lib/platform"
+import { openExternal } from "@/lib/openExternal"
 
 interface GlobalSearchProps {
   onClose: () => void
@@ -49,9 +50,19 @@ interface PaletteRecent {
   created_at: string
 }
 
+interface PaletteCommand {
+  key: string
+  label: string
+  url: string
+  external: boolean
+  icon: string | null
+  group: string | null
+}
+
 interface PaletteResponse {
   resources: PaletteResource[]
   tools: PaletteResource[]
+  commands?: PaletteCommand[]
   actions: PaletteAction[]
   recent: PaletteRecent[]
 }
@@ -89,6 +100,7 @@ interface SearchRecordsResponse {
 type PaletteItem =
   | { kind: 'resource'; label: string; hint: string | null; url: string; icon: string | null }
   | { kind: 'tool'; label: string; hint: string | null; url: string; icon: string | null }
+  | { kind: 'command'; label: string; hint: string | null; url: string; icon: string | null; external: boolean }
   | { kind: 'action'; label: string; hint: string | null; url: string; icon: string | null; destructive: boolean }
   | { kind: 'recent'; label: string; hint: string | null; url: string | null; icon: ReactNode }
   | { kind: 'record'; label: string; hint: string | null; url: string; image?: string | null }
@@ -260,6 +272,18 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
     .filter((i) => matches(i, query))
   pushCapped(t('palette_tools', 'Tools'), toolItems)
 
+  const commandItems: PaletteItem[] = (palette?.commands ?? [])
+    .map((c) => ({
+      kind: 'command' as const,
+      label: c.label,
+      hint: c.group,
+      url: c.url,
+      icon: c.icon,
+      external: c.external,
+    }))
+    .filter((i) => matches(i, query))
+  pushCapped(t('palette_commands', 'Commands'), commandItems)
+
   const actionItems: PaletteItem[] = (palette?.actions ?? [])
     .map((a) => ({
       kind: 'action' as const,
@@ -360,6 +384,12 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
     // Expander row — reveal the rest of its section in place, no navigation.
     if (item.kind === 'view-more') {
       setExpandedSections((prev) => new Set(prev).add(item.section))
+      return
+    }
+
+    if (item.kind === 'command' && item.external) {
+      openExternal(item.url)
+      onClose()
       return
     }
 
@@ -506,6 +536,11 @@ function renderItemIcon(item: PaletteItem): ReactNode {
     return item.icon
       ? <ResourceIcon iconName={item.icon} size={16} />
       : <PlugIcon size={16} />
+  }
+  if (item.kind === 'command') {
+    return item.icon
+      ? <ResourceIcon iconName={item.icon} size={16} />
+      : <ArrowRightIcon size={16} weight="bold" />
   }
   if (item.kind === 'action') {
     return item.icon
