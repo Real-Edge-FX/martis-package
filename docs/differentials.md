@@ -974,6 +974,14 @@ Full reference: [sso.md](sso.md).
 
 ---
 
+## Notifications
+
+### Scoped notification centre
+
+`Martis::scopeNotificationsUsing()` narrows every notification endpoint (the list, the counts, mark-read, mark-all-read, delete and clear-all) with one query callback, so a multi-context app does not show one context's activity in another. Nova's notification centre always lists every notification of the user. See [Notifications → Scoping the notification centre](notifications.md#scoping-the-notification-centre).
+
+---
+
 ## Frontend utilities
 
 ### Event bus

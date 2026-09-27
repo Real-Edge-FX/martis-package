@@ -27,6 +27,9 @@ class MartisManager
     /** @var list<Closure(Request): array<int, mixed>> */
     protected array $commandPaletteResolvers = [];
 
+    /** @var (Closure(object, Request): mixed)|null */
+    protected ?Closure $notificationScope = null;
+
     /** @var list<class-string<DashboardContract>|DashboardContract> */
     protected array $dashboards = [];
 
@@ -543,6 +546,40 @@ class MartisManager
             'icon' => is_string($resolved['icon'] ?? null) ? $resolved['icon'] : null,
             'group' => $group,
         ];
+    }
+
+    // -------------------------------------------------------------------------
+    // Notifications
+    // -------------------------------------------------------------------------
+
+    /**
+     * Narrow the notification centre: every endpoint (the list, both unread
+     * counts, mark-read, mark-all-read, delete and clear-all) passes the
+     * user's `notifications()` relation through `$scope($query, $request)`,
+     * which modifies it in place. Its return value is ignored; `null`
+     * removes the scope. The package knows nothing about what the scope
+     * filters on (a tenant, a workspace, a product area).
+     *
+     * @param  (Closure(object, Request): mixed)|null  $scope
+     */
+    public function scopeNotificationsUsing(?Closure $scope): static
+    {
+        $this->notificationScope = $scope;
+
+        return $this;
+    }
+
+    public function forgetNotificationScope(): static
+    {
+        return $this->scopeNotificationsUsing(null);
+    }
+
+    /** Apply the registered notification scope, if any, to `$query`. */
+    public function applyNotificationScope(object $query, Request $request): void
+    {
+        if ($this->notificationScope instanceof Closure) {
+            ($this->notificationScope)($query, $request);
+        }
     }
 
     // -------------------------------------------------------------------------
