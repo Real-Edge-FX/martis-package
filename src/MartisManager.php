@@ -468,9 +468,10 @@ class MartisManager
     /**
      * Add entries to the command palette (⌘K). The resolver returns a list
      * of `MenuItem`s and `MenuGroup`s, resolved per request as the menu
-     * resolves them: `canSee()`, a tool's `authorizedToSee()` and soft-gate
-     * locks apply. Calls accumulate, so several tools or packages can each
-     * add theirs.
+     * resolves them: `canSee()` and a tool's `authorizedToSee()` hide an
+     * entry; a soft-gate lock keeps it listed and points it at the lock
+     * page, as in the menu. Calls accumulate, so several tools or packages
+     * can each add theirs.
      *
      * @param  Closure(Request): array<int, mixed>  $resolver
      */

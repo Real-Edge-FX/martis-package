@@ -157,7 +157,7 @@ Keyboard:
 - `esc` — close.
 - `⌘K` / `Ctrl+K` — toggle open / closed even while typing in a text field.
 
-Backend route: `GET /api/command-palette` (`CommandPaletteController@index`), behind the standard Martis auth + 2FA + locale middleware stack. The aggregate is short-cached client-side for 30 s; the record search is debounced 300 ms and re-queries for every distinct query string.
+Backend route: `GET /api/command-palette` (`CommandPaletteController@index`), behind the protected Martis API stack: authentication, the 2FA challenge, the locale, email verification and the `viewMartis` panel gate when the app defines it. The aggregate is short-cached client-side for 30 s; the record search is debounced 300 ms and re-queries for every distinct query string.
 
 #### App commands (v2.1.0)
 
@@ -179,7 +179,7 @@ Martis::commandPalette(fn (Request $request) => [
 ]);
 ```
 
-- The entries resolve per request as in the menu: `canSee()`, a Tool's `authorizedToSee()` and soft-gate locks apply, so a user never sees a command they may not use.
+- The entries resolve per request as in the menu: `canSee()` and a Tool's `authorizedToSee()` apply, so a user never sees a command either of them hides. Soft-gate locks do not hide a command: a locked Tool or Dashboard command stays listed and opens its lock page, as its menu item does.
 - A `MenuGroup`'s label becomes the hint of its items.
 - `link()` takes a path inside the panel (`/tools/analyses`, not `/martis/tools/analyses`). `externalLink()` opens in a new tab.
 - Calls accumulate, so a Tool or a package can register its own.
