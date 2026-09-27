@@ -204,7 +204,8 @@ Martis::scopeNotificationsUsing(function ($query, Request $request) {
 });
 ```
 
-- The closure receives the user's `notifications()` relation and modifies it in place.
+- The closure receives an Eloquent query builder over the user's notifications and adds its constraints to it (its return value is ignored).
+- Its constraints are grouped in parentheses and joined to the user constraint with `AND`, so an `orWhere` (for example `->where('data->tenant_id', 1)->orWhere('data->tenant_id', 2)`) stays inside the signed-in user's notifications.
 - It applies to every endpoint: the list, both unread counts, mark-read, mark-all-read, delete and clear-all.
 - A notification outside the scope is absent from the list and the counts. Mark-read and delete answer `404` for it, and mark-all-read and clear-all leave it untouched.
 - Without a scope, nothing changes.

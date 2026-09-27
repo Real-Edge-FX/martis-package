@@ -3,6 +3,9 @@
 namespace Martis;
 
 use Closure;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
 use Martis\Contracts\DashboardContract;
@@ -27,7 +30,7 @@ class MartisManager
     /** @var list<Closure(Request): array<int, mixed>> */
     protected array $commandPaletteResolvers = [];
 
-    /** @var (Closure(object, Request): mixed)|null */
+    /** @var (Closure(Builder<Model>, Request): mixed)|null */
     protected ?Closure $notificationScope = null;
 
     /** @var list<class-string<DashboardContract>|DashboardContract> */
@@ -554,13 +557,16 @@ class MartisManager
 
     /**
      * Narrow the notification centre: every endpoint (the list, both unread
-     * counts, mark-read, mark-all-read, delete and clear-all) passes the
-     * user's `notifications()` relation through `$scope($query, $request)`,
-     * which modifies it in place. Its return value is ignored; `null`
-     * removes the scope. The package knows nothing about what the scope
-     * filters on (a tenant, a workspace, a product area).
+     * counts, mark-read, mark-all-read, delete and clear-all) calls
+     * `$scope($query, $request)` with an Eloquent query builder over the
+     * user's notifications. The closure adds its constraints to that
+     * builder; they land inside one parenthesised group joined to the
+     * user constraint with AND, so an `orWhere` never reaches another
+     * user's notifications. Its return value is ignored; `null` removes
+     * the scope. The package knows nothing about what the scope filters
+     * on (a tenant, a workspace, a product area).
      *
-     * @param  (Closure(object, Request): mixed)|null  $scope
+     * @param  (Closure(Builder<Model>, Request): mixed)|null  $scope
      */
     public function scopeNotificationsUsing(?Closure $scope): static
     {
@@ -574,11 +580,22 @@ class MartisManager
         return $this->scopeNotificationsUsing(null);
     }
 
-    /** Apply the registered notification scope, if any, to `$query`. */
-    public function applyNotificationScope(object $query, Request $request): void
+    /**
+     * Apply the registered notification scope, if any, to `$query` (the
+     * user's `notifications()` relation or a builder over it). The scope
+     * runs on a nested builder, so its constraints stay in one group
+     * AND-ed with the constraints `$query` already carries.
+     *
+     * @param  Builder<Model>|Relation<Model, Model, mixed>  $query
+     */
+    public function applyNotificationScope(Builder|Relation $query, Request $request): void
     {
-        if ($this->notificationScope instanceof Closure) {
-            ($this->notificationScope)($query, $request);
+        $scope = $this->notificationScope;
+
+        if ($scope instanceof Closure) {
+            $query->where(function (Builder $nested) use ($scope, $request): void {
+                $scope($nested, $request);
+            });
         }
     }
 
