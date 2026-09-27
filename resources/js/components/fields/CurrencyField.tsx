@@ -1,13 +1,15 @@
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { InputNumber } from 'primereact/inputnumber'
 import { ClearButton } from '@/components/ClearButton'
-import { useFormatLocale } from '@/lib/formatLocale'
+import { toBcp47, useFormatLocale } from '@/lib/formatLocale'
 
 interface CurrencyExt {
   currencyCode?: string
   currencySymbol?: string
   currencyName?: string
   currencyDecimals?: number
+  /** Set by Currency::locale(); null or absent means the user's Martis locale. */
+  locale?: string | null
   displayMode?: 'text' | 'badge' | 'badge_text'
   badgeColor?: string
   minorUnits?: boolean
@@ -48,13 +50,20 @@ function formatValue(val: number, ext: CurrencyExt, locale: string | undefined):
   }
 }
 
+/** The field's own locale (Currency::locale()), else the user's Martis locale. */
+function useCurrencyLocale(ext: CurrencyExt): string | undefined {
+  const martisLocale = useFormatLocale()
+
+  return toBcp47(ext.locale) ?? martisLocale
+}
+
 export function CurrencyFieldDisplay({ field, value }: FieldDisplayProps) {
-  const locale = useFormatLocale()
+  const ext = getExt(field as unknown as Record<string, unknown>)
+  const locale = useCurrencyLocale(ext)
   if (value === null || value === undefined || value === '') {
     return <span className="text-gray-400 dark:text-gray-500">—</span>
   }
 
-  const ext = getExt(field as unknown as Record<string, unknown>)
   const numVal = Number(value)
   if (Number.isNaN(numVal)) {
     return <span className="text-gray-400 dark:text-gray-500">—</span>
@@ -92,8 +101,8 @@ export function CurrencyFieldDisplay({ field, value }: FieldDisplayProps) {
 }
 
 export function CurrencyFieldInput({ field, value, onChange, error }: FieldInputProps) {
-  const locale = useFormatLocale()
   const ext = getExt(field as unknown as Record<string, unknown>)
+  const locale = useCurrencyLocale(ext)
   const numValue = value === null || value === undefined || value === '' ? null : Number(value)
   const decimals = ext.currencyDecimals ?? 2
   const symbol = ext.currencySymbol ?? ext.currencyCode ?? '$'

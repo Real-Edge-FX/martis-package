@@ -1702,7 +1702,7 @@ Currency::make('price')
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `currency` | `currency(CurrencyCode $code): static` | `$this` | Set ISO 4217 currency code (typed enum). Auto-sets step. | `CurrencyCode::USD` |
-| `locale` | `locale(string $locale): static` | `$this` | Override locale for formatting. | app locale |
+| `locale` | `locale(string $locale): static` | `$this` | Fixes the display and input locale of this field (e.g. `de_DE`), whatever the user's Martis locale. | the user's Martis locale |
 | `asMinorUnits` | `asMinorUnits(): static` | `$this` | Treat stored value as minor units (cents). | `false` |
 | `asMajorUnits` | `asMajorUnits(): static` | `$this` | Treat stored value as major units (dollars). | — |
 | `displayMode` | `displayMode(CurrencyDisplayMode $mode): static` | `$this` | Set display mode (typed enum: `Text`, `Badge`, `BadgeText`). Martis extension. | `CurrencyDisplayMode::Text` |
@@ -1720,7 +1720,7 @@ Currency::make('price')
 **Supported currencies:** USD, EUR, GBP, BRL, JPY, CNY, CAD, AUD, CHF, INR, MXN, KRW, SEK, NOK, DKK, PLN, THB, ZAR, TRY, RUB, NZD, SGD, HKD, CLP, ARS, COP, PEN
 **Extra attributes:** `currencyCode`, `currencySymbol`, `currencyName`, `currencyDecimals`, `locale`, `minorUnits`, `displayMode`, `badgeColor` + Number extras (`min`, `max`, `step`)
 
-**Display and input:** the amount uses the separators of the user's Martis locale on the index, the detail page and the form input (v2.1.0).
+**Display and input:** the amount uses the separators of the user's Martis locale, unless `locale()` sets one, on the index, the detail page and the form input (v2.1.0). The `locale` extra attribute is present only when `locale()` was called.
 
 ---
 
