@@ -85,6 +85,17 @@ it('marks the shell of an allowed user as not forbidden', function () {
     $this->actingAs($this->member)->get('/martis')->assertSee('panelForbidden: false', false);
 });
 
+it('lets a refused user reach the 2FA challenge page, and refuses the rest of the shell', function () {
+    allowOnlyPanelAdmins();
+
+    $this->actingAs($this->member)->get('/martis/2fa/challenge')
+        ->assertOk()
+        ->assertSee('panelForbidden: false', false);
+
+    $this->actingAs($this->member)->get('/martis')->assertForbidden();
+    $this->actingAs($this->member)->get('/martis/2fa/challenge/extra')->assertForbidden();
+});
+
 it('lets a refused user sign out', function () {
     allowOnlyPanelAdmins();
 

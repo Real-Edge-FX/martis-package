@@ -228,3 +228,86 @@ it('keeps every notification of the user without a scope', function () {
 
     expect($this->getJson('/martis/api/notifications')->json('meta.total'))->toBe(2);
 });
+
+// Adversarial: a scope with orWhere must never reach another user's rows.
+// The scope used to join the relation's `notifiable_type = ? and
+// notifiable_id = ?` at top level, so `where(a)->orWhere(b)` matched
+// every user's notification tagged `b` on all six endpoints.
+
+function scopeNotificationsWithOrWhere(): void
+{
+    Martis::scopeNotificationsUsing(fn ($query, Request $request) => $query
+        ->where('data->tenant_id', 1)
+        ->orWhere('data->tenant_id', 2));
+}
+
+function strangerTenantNotification(): DatabaseNotification
+{
+    $stranger = NotificationTestUser::create([
+        'name' => 'Stranger',
+        'email' => 'stranger@martis.test',
+        'password' => bcrypt('secret'),
+    ]);
+
+    return tenantNotification($stranger, 'Stranger tenant 2', 2);
+}
+
+it('keeps an orWhere scope inside the user on the list', function () {
+    tenantNotification($this->user, 'Mine tenant 1', 1);
+    strangerTenantNotification();
+    scopeNotificationsWithOrWhere();
+
+    $index = $this->getJson('/martis/api/notifications')->assertOk();
+
+    expect(collect($index->json('data'))->pluck('title')->all())->toBe(['Mine tenant 1'])
+        ->and($index->json('meta.total'))->toBe(1)
+        ->and($index->json('meta.unread'))->toBe(1);
+});
+
+it('keeps an orWhere scope inside the user on the unread count', function () {
+    tenantNotification($this->user, 'Mine tenant 1', 1);
+    strangerTenantNotification();
+    scopeNotificationsWithOrWhere();
+
+    expect($this->getJson('/martis/api/notifications/unread-count')->json('unread'))->toBe(1);
+});
+
+it('answers 404 to mark-read on another user\'s notification under an orWhere scope', function () {
+    $stranger = strangerTenantNotification();
+    scopeNotificationsWithOrWhere();
+
+    $this->postJson("/martis/api/notifications/{$stranger->id}/read")->assertNotFound();
+
+    expect($stranger->fresh()->read_at)->toBeNull();
+});
+
+it('answers 404 to delete on another user\'s notification under an orWhere scope', function () {
+    $stranger = strangerTenantNotification();
+    scopeNotificationsWithOrWhere();
+
+    $this->deleteJson("/martis/api/notifications/{$stranger->id}")->assertNotFound();
+
+    expect($stranger->fresh())->not->toBeNull();
+});
+
+it('leaves another user\'s notification unread on mark-all-read under an orWhere scope', function () {
+    $mine = tenantNotification($this->user, 'Mine tenant 2', 2);
+    $stranger = strangerTenantNotification();
+    scopeNotificationsWithOrWhere();
+
+    $this->postJson('/martis/api/notifications/read-all')->assertOk();
+
+    expect($stranger->fresh()->read_at)->toBeNull()
+        ->and($mine->fresh()->read_at)->not->toBeNull();
+});
+
+it('leaves another user\'s notification in the table on clear-all under an orWhere scope', function () {
+    $mine = tenantNotification($this->user, 'Mine tenant 2', 2);
+    $stranger = strangerTenantNotification();
+    scopeNotificationsWithOrWhere();
+
+    $this->deleteJson('/martis/api/notifications')->assertOk();
+
+    expect($stranger->fresh())->not->toBeNull()
+        ->and($mine->fresh())->toBeNull();
+});

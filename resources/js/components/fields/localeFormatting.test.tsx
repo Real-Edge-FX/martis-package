@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import i18n from 'i18next'
 import { DateFieldDisplay } from './DateField'
 import { DateTimeFieldDisplay } from './DateTimeField'
-import { CurrencyFieldDisplay } from './CurrencyField'
+import { CurrencyFieldDisplay, CurrencyFieldInput } from './CurrencyField'
 import { formatAggregate } from './HasOneField'
 import type { FieldDefinition } from '@/types'
 
@@ -40,6 +40,20 @@ describe.each(LOCALES)('with the Martis locale %s', (martisLocale, tag) => {
     const amount = new Intl.NumberFormat(tag, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(1234.5)
 
     expect(screen.getByText(`€ ${amount}`)).toBeTruthy()
+  })
+
+  it('displays a Currency field in the locale its locale() sets', async () => {
+    await i18n.changeLanguage(martisLocale)
+    render(<CurrencyFieldDisplay field={field({ currencySymbol: '€', currencyDecimals: 2, locale: 'de_DE' })} value={1234.5} />)
+
+    expect(screen.getByText('€ 1.234,50')).toBeTruthy()
+  })
+
+  it('edits a Currency field in the locale its locale() sets', async () => {
+    await i18n.changeLanguage(martisLocale)
+    render(<CurrencyFieldInput field={field({ currencySymbol: '€', currencyDecimals: 2, locale: 'de_DE' })} value={1234.5} onChange={() => {}} />)
+
+    expect((document.getElementById('value') as HTMLInputElement).value).toBe('€ 1.234,50')
   })
 })
 
