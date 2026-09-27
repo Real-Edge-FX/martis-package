@@ -11,6 +11,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\Event;
 use Martis\Auth\GuardCatalog;
+use Martis\Auth\PanelAccess;
 use Martis\Contracts\NotImpersonable;
 use Martis\Impersonation\Events\ImpersonationStarted;
 use Martis\Impersonation\Events\ImpersonationStopped;
@@ -48,8 +49,9 @@ class ImpersonationManager
      *
      * Throws RuntimeException when the feature is disabled, no user
      * is currently authenticated, the operator and target are the
-     * same person, or impersonation is already active (chaining is
-     * not supported on purpose — it would be a foot-gun).
+     * same person, the target fails the `viewMartis` gate, or
+     * impersonation is already active (chaining is not supported on
+     * purpose — it would be a foot-gun).
      */
     public function start(Authenticatable $target): void
     {
@@ -78,6 +80,12 @@ class ImpersonationManager
         // mutated so a denied attempt has no side-effect.
         if ($target instanceof NotImpersonable) {
             throw new RuntimeException('This user cannot be impersonated.');
+        }
+
+        // A target the `viewMartis` gate refuses could not use the panel,
+        // and the operator could not stop the session from it either.
+        if (! PanelAccess::allows($target)) {
+            throw new RuntimeException('This user cannot access the panel.');
         }
 
         $this->session()->put($this->sessionKey(), [

@@ -12,8 +12,9 @@ use Martis\Auth\PanelAccess;
 /*
  * `viewMartis` decides who may open the panel at all (v2.1.0). It is
  * optional: an app that does not define it lets every signed-in user in,
- * as before. Defined, it guards the shell, the protected API and every
- * Tool route, in every environment.
+ * as before. Defined, it guards the shell, the protected API and the Tool
+ * routes that run the Martis API stack (ToolRoutes::middleware), in every
+ * environment.
  */
 
 class PanelAccessTestUser extends User

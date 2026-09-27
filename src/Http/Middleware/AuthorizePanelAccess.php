@@ -16,8 +16,9 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * `RouteMiddleware::verified()` runs it after authentication, the 2FA
  * challenge and email verification, so it guards the SPA shell, the
- * protected API, every Tool route and any app route on the `martis.api`
- * group. The sign-in routes, logout, the 2FA challenge and the email
+ * protected API, the Tool routes that run the Martis API stack
+ * (ToolRoutes::middleware) and any app route on the `martis.api` group.
+ * The sign-in routes, logout, the 2FA challenge and the email
  * verification routes stay outside it, so a refused user can sign out.
  */
 class AuthorizePanelAccess

@@ -84,7 +84,7 @@ The closure receives the **operator** (not the target). The package does not pas
 | 503 | Master switch off. |
 | 403 | `martis-impersonate` gate returned false. |
 | 404 | Target user id does not exist on the configured guard's user provider. |
-| 422 | Operator tried to impersonate themselves, **or** impersonation is already active (chaining is not supported on purpose). |
+| 422 | Operator tried to impersonate themselves, **or** impersonation is already active (chaining is not supported on purpose), **or** the target fails the `viewMartis` panel gate (v2.1.0). |
 | 200 | Started — body is the active snapshot. |
 
 ### Stop
