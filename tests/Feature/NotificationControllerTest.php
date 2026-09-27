@@ -1,10 +1,13 @@
 <?php
 
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Martis\Enums\NotificationLevel;
+use Martis\Facades\Martis;
 use Martis\Notifications\MartisNotification;
 
 class NotificationTestUser extends User
@@ -51,6 +54,28 @@ beforeEach(function () {
 
     $this->actingAs($this->user);
 });
+
+afterEach(function () {
+    Martis::forgetNotificationScope();
+});
+
+/** A notification of the test user tagged with a tenant, as an app would store it. */
+function tenantNotification(NotificationTestUser $user, string $title, int $tenant): DatabaseNotification
+{
+    /** @var DatabaseNotification $notification */
+    $notification = $user->notifications()->create([
+        'id' => (string) Str::uuid(),
+        'type' => MartisNotification::class,
+        'data' => ['title' => $title, 'message' => $title, 'level' => 'info', 'tenant_id' => $tenant],
+    ]);
+
+    return $notification;
+}
+
+function scopeNotificationsToTenant(int $tenant): void
+{
+    Martis::scopeNotificationsUsing(fn ($query, Request $request) => $query->where('data->tenant_id', $tenant));
+}
 
 it('returns an empty list when the user has no notifications', function () {
     $response = $this->getJson('/martis/api/notifications');
@@ -155,4 +180,51 @@ it('returns 404 when marking a notification that does not belong to the user', f
     $stranger = DatabaseNotification::query()->first();
 
     $this->postJson("/martis/api/notifications/{$stranger->id}/read")->assertNotFound();
+});
+
+// ---------------------------------------------------------------------------
+// Martis::scopeNotificationsUsing() (v2.1.0)
+// ---------------------------------------------------------------------------
+
+it('narrows the list and both unread counts to the registered scope', function () {
+    tenantNotification($this->user, 'Tenant 1', 1);
+    tenantNotification($this->user, 'Tenant 2', 2);
+    scopeNotificationsToTenant(1);
+
+    $index = $this->getJson('/martis/api/notifications')->assertOk();
+
+    expect(collect($index->json('data'))->pluck('title')->all())->toBe(['Tenant 1'])
+        ->and($index->json('meta.total'))->toBe(1)
+        ->and($index->json('meta.unread'))->toBe(1)
+        ->and($this->getJson('/martis/api/notifications/unread-count')->json('unread'))->toBe(1);
+});
+
+it('answers 404 to mark-read and delete on a notification outside the scope', function () {
+    $other = tenantNotification($this->user, 'Tenant 2', 2);
+    scopeNotificationsToTenant(1);
+
+    $this->postJson("/martis/api/notifications/{$other->id}/read")->assertNotFound();
+    $this->deleteJson("/martis/api/notifications/{$other->id}")->assertNotFound();
+
+    expect($other->fresh()->read_at)->toBeNull();
+});
+
+it('leaves a notification outside the scope alone on mark-all-read and clear-all', function () {
+    tenantNotification($this->user, 'Tenant 1', 1);
+    $other = tenantNotification($this->user, 'Tenant 2', 2);
+    scopeNotificationsToTenant(1);
+
+    $this->postJson('/martis/api/notifications/read-all')->assertOk();
+    expect($other->fresh()->read_at)->toBeNull();
+
+    $this->deleteJson('/martis/api/notifications')->assertOk();
+    expect($other->fresh())->not->toBeNull()
+        ->and($this->user->notifications()->count())->toBe(1);
+});
+
+it('keeps every notification of the user without a scope', function () {
+    tenantNotification($this->user, 'Tenant 1', 1);
+    tenantNotification($this->user, 'Tenant 2', 2);
+
+    expect($this->getJson('/martis/api/notifications')->json('meta.total'))->toBe(2);
 });

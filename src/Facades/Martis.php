@@ -20,6 +20,9 @@ use Martis\MartisManager;
  * @method static MartisManager commandPalette(\Closure $resolver)
  * @method static MartisManager forgetCommandPalette()
  * @method static list<array{key: string, label: string, url: string, external: bool, icon: string|null, group: string|null}> resolveCommandPalette(\Illuminate\Http\Request $request)
+ * @method static MartisManager scopeNotificationsUsing(\Closure|null $scope)
+ * @method static MartisManager forgetNotificationScope()
+ * @method static void applyNotificationScope(object $query, \Illuminate\Http\Request $request)
  *
  * @see MartisManager
  */
