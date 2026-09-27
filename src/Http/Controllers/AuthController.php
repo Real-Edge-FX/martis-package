@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
+use Martis\Auth\PanelAccess;
 use Martis\Auth\PasswordBrokerConfigurationException;
 use Martis\Contracts\ProfileResourceContract;
 use Martis\Contracts\RegistersUsers;
@@ -83,7 +84,13 @@ class AuthController extends MartisController
         /** @var Model&Authenticatable $userModel */
         $userModel = $user;
 
-        return response()->json(array_merge($this->safeUserArray($userModel), $this->avatarPayload($userModel)));
+        // The SPA signs in and navigates without reloading, so the 403 shell
+        // of martis.authorize never reaches a refused user: this flag does.
+        return response()->json(array_merge(
+            $this->safeUserArray($userModel),
+            $this->avatarPayload($userModel),
+            ['panel_access' => PanelAccess::allows($userModel)],
+        ));
     }
 
     /**
@@ -154,7 +161,11 @@ class AuthController extends MartisController
         /** @var Model&Authenticatable $loginUser */
         $loginUser = $user;
 
-        return response()->json(array_merge($this->safeUserArray($loginUser), $this->avatarPayload($loginUser)));
+        return response()->json(array_merge(
+            $this->safeUserArray($loginUser),
+            $this->avatarPayload($loginUser),
+            ['panel_access' => PanelAccess::allows($loginUser)],
+        ));
     }
 
     /**

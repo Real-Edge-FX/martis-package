@@ -251,3 +251,14 @@ it('status reflects the original + target users while impersonation runs', funct
     expect($payload['target']['id'])->toBe($this->target->id);
     expect($payload['started_at'])->toBeString();
 });
+
+it('start answers 422 when the target cannot open the panel (viewMartis)', function () {
+    Gate::define('martis-impersonate', fn () => true);
+    Gate::define('viewMartis', fn ($user) => $user->email !== 'target@example.com');
+
+    $response = $this->actingAs($this->operator, 'web')
+        ->postJson('/martis/api/impersonation/start/'.$this->target->id);
+
+    $response->assertStatus(422)->assertJson(['message' => 'This user cannot access the panel.']);
+    expect(Impersonation::isActive())->toBeFalse();
+});

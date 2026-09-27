@@ -6,6 +6,7 @@ import * as React from 'react'
 import { StrictMode } from 'react'
 import * as ReactJsxRuntime from 'react/jsx-runtime'
 import { createRoot } from 'react-dom/client'
+import { MemoryRouter } from 'react-router'
 import { martisRuntime } from '@/lib/martisRuntime'
 import { RouterProvider } from 'react-router/dom'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -26,6 +27,8 @@ import { registerDefaultFields } from '@/components/fields/FieldRenderer'
 import { initI18n } from '@/lib/i18n'
 import { loadConsumerExtensions } from '@/lib/extensionLoader'
 import { componentRegistry } from '@/lib/componentRegistry'
+import { config } from '@/lib/config'
+import { PanelForbiddenPage } from '@/pages/PanelForbidden'
 import { DrawerCreate } from '@/components/overrides/DrawerCreate'
 import { DrawerUpdate } from '@/components/overrides/DrawerUpdate'
 import { DemoCustomAction } from '@/components/Actions/DemoCustomAction'
@@ -116,6 +119,18 @@ function App() {
   )
 }
 
+// A user the `viewMartis` gate refuses gets this instead of the panel: no
+// providers that call protected endpoints, only the screen and sign-out.
+function PanelForbiddenApp() {
+  return (
+    <StrictMode>
+      <MemoryRouter>
+        <PanelForbiddenPage />
+      </MemoryRouter>
+    </StrictMode>
+  )
+}
+
 const container = document.getElementById('martis-root')
 
 if (container) {
@@ -124,10 +139,12 @@ if (container) {
   // find their registrations on the very first lookup. Anything that
   // throws/times-out short-circuits to a render so a slow CDN cannot
   // black-hole the panel.
+  const panelForbidden = config.panelForbidden === true
+
   Promise.all([
     initI18n().catch(() => undefined),
-    loadConsumerExtensions().catch(() => undefined),
+    panelForbidden ? Promise.resolve() : loadConsumerExtensions().catch(() => undefined),
   ]).then(() => {
-    createRoot(container).render(<App />)
+    createRoot(container).render(panelForbidden ? <PanelForbiddenApp /> : <App />)
   })
 }

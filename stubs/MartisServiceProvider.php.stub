@@ -110,9 +110,16 @@ class MartisServiceProvider extends ServiceProvider
      * Out of the box every authenticated user passes
      * `manage-martis-cache` so the System → Cache page is reachable.
      * Production deployments typically restrict this to admins.
+     *
+     * `viewMartis` decides who may open the panel at all. Undefined, every
+     * user the Martis guard signs in gets in.
      */
     protected function registerGates(): void
     {
         // Gate::define('manage-martis-cache', fn ($user) => $user->is_admin);
+
+        // Gate::define('viewMartis', fn ($user) => in_array($user->email, [
+        //     'admin@example.com',
+        // ]));
     }
 }

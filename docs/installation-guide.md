@@ -349,7 +349,7 @@ Resources are **auto-discovered** — no manual registration needed. Martis scan
 
 ### Step 9: Access the Admin Panel
 
-Navigate to `http://your-app.test/martis` and log in with any user from your application.
+Navigate to `http://your-app.test/martis` and log in with a user of your application. Every user the Martis guard signs in gets in unless you define the `viewMartis` gate: see [Authorization → Panel access](authorization.md#panel-access-viewmartis).
 
 ## Host MartisServiceProvider
 

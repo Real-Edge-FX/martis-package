@@ -17,6 +17,10 @@ export interface ErrorScreenProps {
   primaryLabel?: string
   /** Optional custom handler for the primary CTA — defaults to navigating home. */
   onPrimary?: () => void
+  /** Icon of the primary button (defaults to a back arrow). */
+  primaryIcon?: ReactNode
+  /** False hides the secondary link, which otherwise falls back to `config.docsUrl`. */
+  showSecondary?: boolean
   /** Optional href for a secondary CTA — defaults to `config.docsUrl` when set. */
   secondaryHref?: string | null
   /** Label for the secondary CTA (defaults to "Check status"). */
@@ -32,6 +36,8 @@ export function ErrorScreen({
   description,
   primaryLabel,
   onPrimary,
+  primaryIcon,
+  showSecondary = true,
   secondaryHref,
   secondaryLabel,
   incidentId,
@@ -42,7 +48,7 @@ export function ErrorScreen({
 
   const resolvedPrimaryLabel = primaryLabel ?? t('error_back_to_dashboard', { defaultValue: 'Back to dashboard' })
   const resolvedSecondaryLabel = secondaryLabel ?? t('error_check_status', { defaultValue: 'Check status' })
-  const resolvedSecondaryHref = secondaryHref ?? config.docsUrl ?? null
+  const resolvedSecondaryHref = showSecondary ? (secondaryHref ?? config.docsUrl ?? null) : null
 
   async function copyIncidentId() {
     if (!incidentId) return
@@ -95,7 +101,7 @@ export function ErrorScreen({
       )}
       <div style={{ display: 'flex', gap: 8, marginTop: 24, position: 'relative', zIndex: 1 }}>
         <button type="button" onClick={handlePrimary} className="martis-btn-primary">
-          <ArrowLeftIcon size={14} weight="bold" />
+          {primaryIcon ?? <ArrowLeftIcon size={14} weight="bold" />}
           {resolvedPrimaryLabel}
         </button>
         {resolvedSecondaryHref && (
