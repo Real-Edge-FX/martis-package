@@ -463,6 +463,8 @@ Counts above the configured threshold render in compact notation (`10K`,
 Lower the value (e.g. `1000`) to compact earlier, or set it to a very
 large number to disable compaction entirely.
 
+Counts format in the user's Martis locale (v2.1.0): `1234` reads `1234` for `pt_PT` and `1,234` for `en_US`, and the compact form follows the same locale.
+
 ### Live polling
 
 The frontend keeps counts fresh through a **lightweight badges

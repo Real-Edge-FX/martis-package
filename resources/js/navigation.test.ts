@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { formatItemCount } from '@/lib/navigation'
+import i18n from 'i18next'
 
 /**
  * Tests for the count-badge formatter introduced in v1.8.0.
@@ -79,5 +80,19 @@ describe('formatItemCount', () => {
 
   it('returns 0 unchanged', () => {
     expect(formatItemCount(0)).toBe('0')
+  })
+
+  it('formats in the locale it is given', () => {
+    expect(formatItemCount(1234, 'pt-PT')).toBe(new Intl.NumberFormat('pt-PT').format(1234))
+    expect(formatItemCount(1234, 'en-US')).toBe(new Intl.NumberFormat('en-US').format(1234))
+  })
+
+  it('defaults to the active Martis locale', async () => {
+    await i18n.changeLanguage('pt_PT')
+    try {
+      expect(formatItemCount(1234)).toBe(new Intl.NumberFormat('pt-PT').format(1234))
+    } finally {
+      await i18n.changeLanguage('en')
+    }
   })
 })
