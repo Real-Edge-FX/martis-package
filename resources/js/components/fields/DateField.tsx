@@ -3,21 +3,23 @@ import { Calendar } from 'primereact/calendar'
 import { getCalendarLocale } from '@/lib/calendarLocale'
 import { formatLocalDate, parseLocalDate } from '@/lib/localDate'
 import { ClearButton } from '@/components/ClearButton'
+import { useFormatLocale } from '@/lib/formatLocale'
 
-function formatDate(value: unknown): string {
+function formatDate(value: unknown, locale: string | undefined): string {
   // Parse as a local calendar date so the displayed day matches the stored
   // day in every timezone (a UTC parse shifts it west of UTC).
   const d = parseLocalDate(value)
   if (d === null) return typeof value === 'string' ? value : ''
-  return d.toLocaleDateString()
+  return d.toLocaleDateString(locale)
 }
 
 export function DateFieldDisplay({ value }: FieldDisplayProps) {
+  const locale = useFormatLocale()
   if (value === null || value === undefined || value === '') {
     return <span className="text-gray-400 dark:text-gray-500">—</span>
   }
   return (
-    <span className="text-gray-900 dark:text-white">{formatDate(value)}</span>
+    <span className="text-gray-900 dark:text-white">{formatDate(value, locale)}</span>
   )
 }
 

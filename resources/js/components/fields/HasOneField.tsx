@@ -13,6 +13,7 @@ import { hiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
 import { DeleteModal } from '@/components/DeleteModal'
 import { useTranslation } from 'react-i18next'
 import { PlusIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
+import { useFormatLocale } from '@/lib/formatLocale'
 
 /** ⭐ Martis differential helper — human labels for OfMany aggregate tile.
  *  Falls through `t(...)` against the resources locale so each label
@@ -31,14 +32,15 @@ function useFnLabel(): (fn: string) => string {
   }
 }
 
-function formatAggregate(agg: { fn: string; column: string; value: number | null }): string {
+export function formatAggregate(
+  agg: { fn: string; column: string; value: number | null },
+  locale: string | undefined,
+): string {
   if (agg.value === null) return '—'
   if (agg.fn === 'count') return String(Math.round(agg.value))
-  // Heuristic: columns that look like money render with 2 decimals.
-  if (/amount|revenue|price|cost|total/i.test(agg.column)) {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR' }).format(agg.value)
-  }
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(agg.value)
+  // The package cannot know the app's currency: a money-like column is a
+  // number like any other (up to v2.0 it was shown in EUR).
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(agg.value)
 }
 
 /**
@@ -59,6 +61,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
   const fnLabel = useFnLabel()
+  const formatLocale = useFormatLocale()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { addToast } = useToastSafe()
@@ -285,7 +288,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
             data-pr-position="top"
           >
             <span className="martis-ofmany-tile-label">{fnLabel(ofMany.aggregate.fn)}</span>
-            <span className="martis-ofmany-tile-value">{formatAggregate(ofMany.aggregate)}</span>
+            <span className="martis-ofmany-tile-value">{formatAggregate(ofMany.aggregate, formatLocale)}</span>
             {/* The column is in the tooltip only; screen readers get it here. */}
             {ofMany.aggregate.column !== '*' && (
               <span className="sr-only">
