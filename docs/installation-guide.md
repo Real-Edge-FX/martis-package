@@ -476,7 +476,7 @@ The shims and the scaffold's `index.ts` read this global, so a consumer extensio
 
 ### Configuring multiple bundle URLs
 
-The auto-published `MARTIS_EXTENSIONS` line points at a single bundle (`/vendor/martis-user/extensions.js`). To load additional bundles — e.g. a Composer-distributed package's prebuilt extensions, or a separate dev/staging override — comma-separate them:
+The auto-published `MARTIS_EXTENSIONS` line points at a single bundle (`/vendor/martis-user/extensions.js`). That bundle is optional: the shell leaves it out while `public/vendor/martis-user/extensions.js` does not exist, so an app that never runs `npm run build:extensions` logs no 404 (v2.1.0). Any other URL is loaded as configured. To load additional bundles — e.g. a Composer-distributed package's prebuilt extensions, or a separate dev/staging override — comma-separate them:
 
 ```env
 MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js,/vendor/another/lib.js

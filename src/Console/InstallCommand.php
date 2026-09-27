@@ -7,6 +7,7 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
 use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\StubResolver;
+use Martis\Support\ExtensionBundles;
 use RuntimeException;
 
 class InstallCommand extends Command
@@ -694,8 +695,9 @@ class InstallCommand extends Command
             'MARTIS_SHOW_PROFILE_MENU' => $options['profile_enabled'] ? 'true' : 'false',
             // v1.9.0+ runtime extension loader. The default URL points
             // at the bundle `npm run build:extensions` produces in
-            // `public/vendor/martis-user/extensions.js`.
-            'MARTIS_EXTENSIONS' => '/vendor/martis-user/extensions.js',
+            // `public/vendor/martis-user/extensions.js`; the shell leaves
+            // it out until that file exists (ExtensionBundles).
+            'MARTIS_EXTENSIONS' => ExtensionBundles::CONVENTIONAL_URL,
         ];
 
         foreach ($pairs as $key => $value) {
