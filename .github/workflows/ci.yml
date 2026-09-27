@@ -14,10 +14,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ["8.3", "8.4"]
+        php: ["8.3", "8.4", "8.5"]
         laravel: ["12.*", "13.*"]
         # 8.3 is the floor (Pest 4 + PHPUnit 12 require it; PHPUnit 12's
-        # GarbageCollectorStatus crashes on PHP 8.2). 8.4 is the ceiling
+        # GarbageCollectorStatus crashes on PHP 8.2). 8.5 is the ceiling
         # so we catch upcoming breaks early. Laravel ^11 was dropped
         # from the matrix on 2026-06-11: every v11.x release on packagist
         # is flagged with security advisories (PKSA-mdq4-51ck-6kdq and

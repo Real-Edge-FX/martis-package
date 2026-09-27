@@ -71,7 +71,7 @@ php artisan martis:install --force --with-profile --with-2fa --avatar-column=ava
 
 | Dependency | Version |
 |------------|---------|
-| PHP | 8.3+ |
+| PHP | 8.3+ (CI: 8.3, 8.4, 8.5) |
 | Laravel | 12 or 13 |
 | Node.js | 20+ (contributors only) |
 | npm | the version bundled with Node.js (contributors only; the repository ships `package-lock.json` and CI runs `npm ci` on Node 20) |
@@ -192,7 +192,7 @@ Full documentation lives in the [`docs/`](docs/) directory.
 
 | Layer     | Technology |
 |-----------|-----------|
-| Backend   | PHP 8.3+, Laravel 12/13 |
+| Backend   | PHP 8.3+ (CI: 8.3, 8.4, 8.5), Laravel 12/13 |
 | Frontend  | React 18, TypeScript, PrimeReact, Tailwind CSS |
 | Icons     | Phosphor Icons |
 | Build     | Vite, npm |
