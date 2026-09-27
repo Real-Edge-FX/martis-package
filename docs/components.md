@@ -188,6 +188,10 @@ Martis::commandPalette(fn (Request $request) => [
 
 A standalone action on any resource also appears in the palette, under Actions.
 
+### Skip link
+
+The sidebar and topnav layouts start with a "Skip to main content" link (v2.1.0, WCAG 2.2 success criterion 2.4.1). It stays off-screen until it takes keyboard focus, and Enter moves focus to the page content, the `<main id="martis-main">` landmark, without changing the URL. The minimal layout has no navigation to skip, so it has no link, but its `<main>` carries the same id.
+
 ### Footer
 
 Configurable page footer. Enable/disable and set custom text via config:

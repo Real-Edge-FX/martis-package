@@ -1104,6 +1104,10 @@ Martis::commandPalette(fn (Request $request) => [
 
 See [Components → App commands](components.md#app-commands-v210).
 
+### Skip link
+
+The sidebar and topnav layouts start with a translated "Skip to main content" link that moves focus to the `<main id="martis-main">` landmark (WCAG 2.2, 2.4.1). Nova's layout has neither a skip link nor a `<main>` landmark.
+
 ---
 
 ## Artisan command suite

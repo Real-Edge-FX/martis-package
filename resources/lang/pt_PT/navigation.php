@@ -39,6 +39,7 @@ return [
     'palette_resources' => 'Recursos',
     'palette_tools' => 'Ferramentas',
     'palette_commands' => 'Comandos',
+    'skip_to_content' => 'Saltar para o conteúdo principal',
     'palette_show_more' => 'Mostrar mais {{count}}',
     'palette_actions' => 'Ações',
     'palette_recent' => 'Atividade recente',

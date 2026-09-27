@@ -954,6 +954,8 @@ Your replacement receives the same props the bundled component does, so the shel
 
 Use `layout:shell` (or `config.layout.components.shell`) when you want to rebuild the entire layout from scratch and don't need Martis's default mobile drawer / collapse behaviour.
 
+A custom shell owns its markup, the skip link included: render a first focusable link to its content and give that element an `id` and `tabIndex={-1}`, as the bundled layouts do with `#martis-main`.
+
 ## Component Registry API
 
 ```typescript

@@ -12,6 +12,7 @@ import {
 } from "@/lib/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
+import { MAIN_CONTENT_ID, SkipLink } from "@/components/SkipLink"
 import { GlobalSearch } from "@/components/GlobalSearch"
 import { PreferencesMenu, type PreferencesMenuHandle } from "@/components/PreferencesMenu"
 import { Footer } from "@/components/Footer"
@@ -188,6 +189,8 @@ export function TopnavLayout() {
 
   return (
     <div className="martis-bg flex h-screen flex-col overflow-hidden">
+      <SkipLink />
+
       <header className="martis-topnav-bar">
         <div className="martis-topnav-brand" data-mode={brandMark.mode}>
           <div className="martis-sb-logo-mark">
@@ -380,7 +383,7 @@ export function TopnavLayout() {
         <Breadcrumbs />
       </div>
 
-      <main className="flex-1 overflow-auto">
+      <main id={MAIN_CONTENT_ID} tabIndex={-1} className="flex-1 overflow-auto">
         <div className="martis-page">
           <Outlet />
         </div>
