@@ -20,6 +20,9 @@ use Symfony\Component\HttpFoundation\Response;
  * (ToolRoutes::middleware) and any app route on the `martis.api` group.
  * The sign-in routes, logout, the 2FA challenge and the email
  * verification routes stay outside it, so a refused user can sign out.
+ * The 2FA challenge SPA page runs through the shell route, so it passes
+ * here exactly as EnsureTwoFactorChallenge lets it pass: a refused user
+ * with a pending challenge completes it and then sees the refusal.
  */
 class AuthorizePanelAccess
 {
@@ -27,6 +30,12 @@ class AuthorizePanelAccess
     public function handle(Request $request, Closure $next): Response
     {
         if (PanelAccess::allows($request->user())) {
+            return $next($request);
+        }
+
+        $basePath = trim((string) config('martis.path', 'admin'), '/');
+
+        if ($request->is("{$basePath}/2fa/challenge")) {
             return $next($request);
         }
 
