@@ -39,7 +39,7 @@ php artisan martis:install --force-config
 php artisan martis:install --force-provider
 ```
 
-Every run, with or without `--force`, also rewrites the profile / 2FA flags and `MARTIS_EXTENSIONS` in `.env` and ends with `php artisan migrate --force`.
+Every run, with or without `--force`, also rewrites the profile / 2FA flags and `MARTIS_EXTENSIONS` in `.env` and ends with `php artisan migrate --force` (skip that step with `--no-migrate`).
 
 To re-run the full installer including the optional avatar and 2FA migrations:
 

@@ -34,7 +34,7 @@ This command performs the following steps automatically:
 4. **Publishes frontend assets** — precompiled React app to `public/vendor/martis/`.
 5. **Publishes the core migrations** — `create_martis_action_events_table`, the two action-events morph id conversions (`alter_martis_action_events_morph_ids_to_string`, `fix_martis_action_events_morph_ids_string_v2`), `create_martis_user_preferences_table`, `drop_dashboards_layout_from_user_preferences_table`, `create_notifications_table` and `create_martis_cache_state_table`. A migration already present (matched by its `*_<name>.php` suffix) is skipped.
 6. **Publishes translation files** — `en`, `pt_BR`, `pt_PT` to `lang/vendor/martis/`.
-7. **Runs database migrations** — `php artisan migrate --force`, which creates the `martis_action_events`, `martis_user_preferences`, `notifications` and `martis_cache_state` tables. Note that it applies **every** pending migration of the application, not only the Martis ones, without the production confirmation prompt.
+7. **Runs database migrations** — `php artisan migrate --force`, which creates the `martis_action_events`, `martis_user_preferences`, `notifications` and `martis_cache_state` tables. Note that it applies **every** pending migration of the application, not only the Martis ones, without the production confirmation prompt. Pass `--no-migrate` to publish the migrations without running them: the command then lists `php artisan migrate` among the next steps.
 
 > **Upgrading from pre-0.7.0**: If you already have an `action_events` table, the new migration detects it and performs an in-place `RENAME` to `martis_action_events`. No data loss. The `martis_` prefix keeps every package-owned table in one namespace so it never collides with an app's own tables.
 
@@ -89,6 +89,7 @@ command fails with `A user with email [...] already exists.`
 | `--no-sessions` | Skip the sessions table migration; wins over `--with-sessions` |
 | `--avatar-column=<column>` | Customize which `users` table column Martis should use for avatar paths |
 | `--existing-avatar-column` | Use an existing avatar column on `users` instead of publishing a migration |
+| `--no-migrate` | Publish the migrations but do not run them; run `php artisan migrate` afterwards |
 
 ### Optional Profile Support
 
@@ -686,7 +687,7 @@ On every run, with or without `--force`:
 
 - it rewrites the profile and 2FA flags in `.env` from the flags you pass (see [Optional Profile Support](#optional-profile-support)) and resets `MARTIS_EXTENSIONS` to `/vendor/martis-user/extensions.js`
 - the asset publish wipes and re-copies `public/vendor/martis/` (see Step 4)
-- it ends with `php artisan migrate --force`, which applies all pending migrations of the app
+- it ends with `php artisan migrate --force`, which applies all pending migrations of the app, unless you pass `--no-migrate`
 
 Commit first and review `git diff` afterwards. If your application uses the optional profile and two-factor migrations, re-run the install command with the same options after upgrading:
 
