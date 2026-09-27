@@ -200,7 +200,7 @@
                     'email_editable' => (bool) config('martis.profile.account.email_editable', true),
                 ],
             ]) !!},
-            extensions: {!! json_encode((array) config('martis.extensions', [])) !!},
+            extensions: {!! json_encode(\Martis\Support\ExtensionBundles::urls()) !!},
             impersonation: {!! json_encode([
                 // Master switch surfaced at boot so the React banner
                 // can short-circuit its `/api/impersonation/status`
