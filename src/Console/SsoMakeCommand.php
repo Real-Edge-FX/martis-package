@@ -9,7 +9,9 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Martis\Console\Concerns\AsksOnlyOnATerminal;
+use Martis\Console\Concerns\LoadsPackagesInstalledThisRun;
 use Martis\Stubs\StubResolver;
+use Martis\Support\MigrationTimestamps;
 use Symfony\Component\Process\Process;
 
 /**
@@ -34,6 +36,7 @@ use Symfony\Component\Process\Process;
 class SsoMakeCommand extends Command
 {
     use AsksOnlyOnATerminal;
+    use LoadsPackagesInstalledThisRun;
 
     protected $signature = 'martis:sso
                             {provider : Provider name (azure, google, github, or a custom name)}
@@ -90,13 +93,13 @@ class SsoMakeCommand extends Command
         }
 
         // 4. Publish Spatie's own config + migrations when --with-spatie.
-        if ($this->option('with-spatie')) {
-            $this->publishSpatieAssets();
+        if ($this->option('with-spatie') && ! $this->publishSpatieAssets()) {
+            return self::FAILURE;
         }
 
         // 5. Publish Martis migration (only when --with-migration).
-        if ($this->option('with-migration')) {
-            $this->publishMigration($name);
+        if ($this->option('with-migration') && ! $this->publishMigration($name)) {
+            return self::FAILURE;
         }
 
         // 6. Run migrations (only when migration was published OR Spatie
@@ -174,6 +177,9 @@ class SsoMakeCommand extends Command
 
             return;
         }
+
+        // This process booted before the install: make the new packages loadable.
+        $this->refreshComposerAutoloader();
 
         $this->components->twoColumnDetail('<fg=green>Installed</> composer', $list);
     }
@@ -274,17 +280,31 @@ class SsoMakeCommand extends Command
      * Publish Spatie's permission config + migrations. Idempotent — the
      * Spatie command itself skips files that already exist unless
      * --force is passed.
+     *
+     * When Composer installed Spatie during this run, the application never
+     * registered its provider, so it is registered here first: without it
+     * `vendor:publish --provider` has nothing to copy. Returns false (the
+     * command fails) when Spatie was meant to be installed by this command
+     * and still cannot be loaded; under --no-composer it only warns.
      */
-    protected function publishSpatieAssets(): void
+    protected function publishSpatieAssets(): bool
     {
         if ($this->option('no-publish-spatie')) {
-            return;
+            return true;
         }
 
-        if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
-            $this->components->twoColumnDetail('<fg=yellow>Skipping</> spatie publish', 'spatie/laravel-permission not installed');
+        if (! $this->loadServiceProvider('Spatie\\Permission\\PermissionServiceProvider')) {
+            if ($this->option('no-composer')) {
+                $this->components->twoColumnDetail('<fg=yellow>Skipping</> spatie publish', 'spatie/laravel-permission not installed');
 
-            return;
+                return true;
+            }
+
+            $this->components->error(
+                'spatie/laravel-permission could not be loaded, so its roles table and the group column migration were not published. If Composer installed it above, re-run the same command and it will be picked up. Otherwise install it manually (composer require spatie/laravel-permission) and re-run.'
+            );
+
+            return false;
         }
 
         // Check if config + migration are already published — skip when both are.
@@ -294,7 +314,7 @@ class SsoMakeCommand extends Command
         if ($configPublished && $migrationPublished) {
             $this->components->twoColumnDetail('<fg=yellow>Skipping</> spatie publish', 'config + migration already published');
 
-            return;
+            return true;
         }
 
         $this->components->twoColumnDetail('<fg=cyan>Publishing</> spatie', 'config + migrations');
@@ -302,6 +322,8 @@ class SsoMakeCommand extends Command
             '--provider' => 'Spatie\\Permission\\PermissionServiceProvider',
         ]);
         $this->components->twoColumnDetail('<fg=green>Published</> spatie', 'config + migrations');
+
+        return true;
     }
 
     /**
@@ -519,13 +541,20 @@ class SsoMakeCommand extends Command
         }
     }
 
-    protected function publishMigration(string $name): void
+    /**
+     * Publish the migration adding `{name}_group_name` to Spatie's `roles`
+     * table. Returns false (the command fails) when nothing would create
+     * that table first: the migration would run as a no-op through its
+     * `hasTable('roles')` guard and be recorded as run, so the column would
+     * never exist, and a re-run would skip the published file.
+     */
+    protected function publishMigration(string $name): bool
     {
         $stubPath = StubResolver::path('add_provider_group_column_to_roles_table.php.stub');
         if (! file_exists($stubPath)) {
             $this->components->warn('Migration stub missing.');
 
-            return;
+            return true;
         }
 
         $migrationName = "add_{$name}_group_name_to_roles_table";
@@ -533,18 +562,46 @@ class SsoMakeCommand extends Command
         if ($existing !== []) {
             $this->components->twoColumnDetail('<fg=yellow>Skipping</> migration', "{$migrationName} already published");
 
-            return;
+            return true;
+        }
+
+        if (! $this->rolesTableWillExist()) {
+            $this->components->error(
+                "Neither a roles table nor Spatie's create_permission_tables migration exists, so {$migrationName} would do nothing and roles.{$name}_group_name would never be added. Re-run with --with-spatie (it installs and publishes spatie/laravel-permission first), or publish Spatie's migration and re-run with --with-migration."
+            );
+
+            return false;
         }
 
         $filesystem = new Filesystem;
         $filesystem->ensureDirectoryExists(database_path('migrations'));
-        $target = database_path('migrations/'.date('Y_m_d_His')."_{$migrationName}.php");
+        $target = database_path('migrations/'.(new MigrationTimestamps(database_path('migrations')))->filename($migrationName));
 
         $stub = (string) file_get_contents($stubPath);
         $stub = str_replace('{{column_name}}', "{$name}_group_name", $stub);
 
         $filesystem->put($target, $stub);
         $this->components->twoColumnDetail('<fg=green>Created</> migration', basename($target));
+
+        return true;
+    }
+
+    /**
+     * Whether Spatie's `roles` table exists, or a published migration will
+     * create it before the group column migration (which is dated after
+     * every migration already on disk).
+     */
+    protected function rolesTableWillExist(): bool
+    {
+        if (glob(database_path('migrations/*_create_permission_tables.php'))) {
+            return true;
+        }
+
+        try {
+            return Schema::hasTable('roles');
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     protected function printNextSteps(string $name): void

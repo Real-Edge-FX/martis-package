@@ -138,7 +138,7 @@ That's it. The command runs end-to-end:
 2. ✅ Inserts `auth.sso.providers.azure` block in `config/martis.php`.
 3. ✅ Stubs `AZURE_*` and `MARTIS_SSO_*` env vars in `.env` and `.env.example`.
 4. ✅ Auto-registers the Microsoft Socialite listener in `AppServiceProvider::boot()`.
-5. ✅ Publishes Spatie's permission config + migrations (`vendor:publish` for the package).
+5. ✅ Publishes Spatie's permission config + migrations (`vendor:publish` for the package), in the same run when step 1 just installed Spatie. If Spatie still cannot be loaded, the command stops with an error asking you to re-run it.
 6. ✅ Publishes the `azure_group_name` migration on the `roles` table.
 7. ✅ Runs `php artisan migrate`.
 8. ✅ Interactive prompt (one row at a time) to populate `azure_group_name` on each existing Spatie role.
@@ -177,11 +177,11 @@ php artisan martis:sso azure --with-spatie --with-migration
 
 The command is idempotent and self-sufficient. It:
 
-1. **Composer** — runs `composer require` for any missing packages: `laravel/socialite`, `socialiteproviders/microsoft`, and `spatie/laravel-permission` (with `--with-spatie`). Skips packages already declared in `composer.json`.
+1. **Composer** — runs `composer require` for any missing packages: `laravel/socialite`, `socialiteproviders/microsoft`, and `spatie/laravel-permission` (with `--with-spatie`). Skips packages already declared in `composer.json`. The packages it installs are loaded in the same run (their classes, and Spatie's service provider so its config + migrations can be published); if Spatie still cannot be loaded, the command exits with an error asking you to re-run it.
 2. **Config** — inserts the `auth.sso.providers.azure` block in `config/martis.php`.
 3. **Env** — stubs the `AZURE_*` and `MARTIS_SSO_*` env vars in `.env` and `.env.example`.
 4. **Listener** — adds the `MicrosoftExtendSocialite` event listener at the top of `AppServiceProvider::boot()` (idempotent — checks if already there).
-5. **Migration** — publishes `add_azure_group_name_to_roles_table` (with `--with-migration`).
+5. **Migration** — publishes `add_azure_group_name_to_roles_table` (with `--with-migration`). Its timestamp is later than every migration already in `database/migrations`, Spatie's `create_permission_tables` included, so the column is added after the `roles` table exists. When there is neither a `roles` table nor Spatie's migration (no `--with-spatie`, Spatie not set up yet), the command stops with an error instead: the migration would do nothing, be recorded as run, and the column would never be added. Pass `--with-spatie`, or publish Spatie's migration first and re-run.
 6. **Migrate** — runs `php artisan migrate` (interactive prompt; non-interactive auto-runs unless `--no-migrate`).
 
 Skip flags for CI / production deploys:
@@ -662,7 +662,7 @@ php artisan martis:sso <provider>
 | Flag | Meaning |
 |---|---|
 | `--with-spatie` | Installs `spatie/laravel-permission` (when missing), runs Spatie's `vendor:publish`, sets `permission_adapter = 'spatie'` in the generated config. |
-| `--with-migration` | Publishes a migration adding `{provider}_group_name` to `roles`. No-op if `roles` doesn't exist. |
+| `--with-migration` | Publishes a migration adding `{provider}_group_name` to `roles`. Fails when neither the `roles` table nor Spatie's `create_permission_tables` migration exists. |
 | `--strategy` | Sets the default `role_strategy` (default `column`). |
 | `--no-auto-create-user` | Sets `auto_create_user = false` in the generated config. |
 | `--custom` | Skips the validation that the provider is one of `azure / google / github`. Use when registering a custom provider via `MartisSso::extend()`. |

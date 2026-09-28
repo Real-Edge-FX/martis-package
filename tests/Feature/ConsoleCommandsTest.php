@@ -29,8 +29,13 @@ function cleanupMartisInstallArtifacts(): void
     if ($filesystem->exists($bootstrapPath)) {
         try {
             $contents = (string) $filesystem->get($bootstrapPath);
+            // Take out what martis:install adds: the entry, fully qualified
+            // or short, and its import.
             $stripped = preg_replace(
-                '/\s*App\\\\Providers\\\\MartisServiceProvider::class,\n?/',
+                [
+                    '/^\h*(App\\\\Providers\\\\)?MartisServiceProvider::class,\h*\R/m',
+                    '/^use App\\\\Providers\\\\MartisServiceProvider;\h*\R/m',
+                ],
                 '',
                 $contents,
             ) ?? '';
@@ -340,20 +345,80 @@ it('martis:install registers the host MartisServiceProvider in bootstrap/provide
     try {
         $bootstrapPath = base_path('bootstrap/providers.php');
 
-        // Start from a clean providers.php with no Martis entry (afterAll
-        // puts the skeleton's own back).
+        // Start from the Laravel 12 skeleton's providers.php, with no Martis
+        // entry (afterAll puts the skeleton's own back).
         (new Filesystem)->put($bootstrapPath, "<?php\n\nreturn [\n    App\\Providers\\AppServiceProvider::class,\n];\n");
 
         $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
 
-        $contents = (string) file_get_contents($bootstrapPath);
-        expect($contents)->toContain('App\\Providers\\MartisServiceProvider::class');
+        $registered = (string) file_get_contents($bootstrapPath);
+        expect($registered)->toBe("<?php\n\nreturn [\n    App\\Providers\\MartisServiceProvider::class,\n    App\\Providers\\AppServiceProvider::class,\n];\n");
 
-        // Re-running install does not duplicate the entry.
+        // Re-running install leaves the file byte for byte as it was.
         $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
 
-        $occurrences = substr_count((string) file_get_contents($bootstrapPath), 'App\\Providers\\MartisServiceProvider::class');
-        expect($occurrences)->toBe(1);
+        expect((string) file_get_contents($bootstrapPath))->toBe($registered);
+    } finally {
+        cleanupMartisInstallArtifacts();
+    }
+});
+
+it('martis:install imports the provider when bootstrap/providers.php imports its providers', function () {
+    try {
+        $bootstrapPath = base_path('bootstrap/providers.php');
+
+        // The Laravel 13 skeleton imports its providers with `use`.
+        (new Filesystem)->put($bootstrapPath, "<?php\n\nuse App\\Providers\\AppServiceProvider;\n\nreturn [\n    AppServiceProvider::class,\n];\n");
+
+        $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+
+        expect((string) file_get_contents($bootstrapPath))->toBe(
+            "<?php\n\nuse App\\Providers\\AppServiceProvider;\nuse App\\Providers\\MartisServiceProvider;\n\nreturn [\n    MartisServiceProvider::class,\n    AppServiceProvider::class,\n];\n"
+        );
+    } finally {
+        cleanupMartisInstallArtifacts();
+    }
+});
+
+it('martis:install warns and leaves bootstrap/providers.php alone when it finds no providers array', function () {
+    try {
+        $bootstrapPath = base_path('bootstrap/providers.php');
+
+        // A variable literally named $providers would collide with the
+        // parameter of Orchestra Testbench's own
+        // RegisterProviders::mergeAdditionalProvidersForTestbench(), which
+        // requires this file in its own scope: the file's assignment would
+        // overwrite the framework's provider list for every following test
+        // in this run. $martisProviderList avoids the name clash while still
+        // exercising a variable-then-return shape the patcher does not
+        // recognize.
+        $unknown = "<?php\n\n\$martisProviderList = [\n    App\\Providers\\AppServiceProvider::class,\n];\n\nreturn \$martisProviderList;\n";
+        (new Filesystem)->put($bootstrapPath, $unknown);
+
+        $this->artisan('martis:install', ['--no-interaction' => true])
+            ->expectsOutputToContain('Could not register')
+            ->assertSuccessful();
+
+        expect((string) file_get_contents($bootstrapPath))->toBe($unknown);
+    } finally {
+        cleanupMartisInstallArtifacts();
+    }
+});
+
+it('martis:install warns instead of registering the provider inside a block comment', function () {
+    try {
+        $bootstrapPath = base_path('bootstrap/providers.php');
+
+        // A commented-out list above the real one: its `return [` comes
+        // first. Laravel would drop an entry written there without a word.
+        $commented = "<?php\n\n/*\nreturn [\n    App\\Providers\\OldServiceProvider::class,\n];\n*/\n\nreturn [\n    App\\Providers\\AppServiceProvider::class,\n];\n";
+        (new Filesystem)->put($bootstrapPath, $commented);
+
+        $this->artisan('martis:install', ['--no-interaction' => true])
+            ->expectsOutputToContain('Could not register')
+            ->assertSuccessful();
+
+        expect((string) file_get_contents($bootstrapPath))->toBe($commented);
     } finally {
         cleanupMartisInstallArtifacts();
     }

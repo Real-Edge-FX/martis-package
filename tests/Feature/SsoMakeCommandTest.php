@@ -2,7 +2,12 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\ServiceProvider;
+use Martis\Console\SsoMakeCommand;
 
 beforeEach(function () {
     $this->filesystem = new Filesystem;
@@ -43,11 +48,25 @@ afterEach(function () {
         }
     }
 
+    Schema::dropIfExists('roles');
+
     // The migrations the command published.
     foreach (array_diff(glob(database_path('migrations/*.php')) ?: [], $this->skeletonMigrations) as $migration) {
         unlink($migration);
     }
 });
+
+/**
+ * Spatie's `roles` table, which the group column migration alters: without
+ * it (or Spatie's migration on disk) martis:sso refuses --with-migration.
+ */
+function ssoRolesTable(): void
+{
+    Schema::create('roles', function ($table) {
+        $table->id();
+        $table->string('name');
+    });
+}
 
 it('martis:sso requires a known provider name unless --custom is passed', function () {
     $this->artisan('martis:sso', ['provider' => 'unknown'])
@@ -66,6 +85,8 @@ it('martis:sso accepts --custom for an unknown provider name', function () {
 });
 
 it('martis:sso azure --no-composer --no-listener --no-migrate runs cleanly', function () {
+    ssoRolesTable();
+
     if (! file_exists(config_path('martis.php'))) {
         $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
     }
@@ -116,6 +137,8 @@ it('martis:sso azure is idempotent — running twice does not duplicate the conf
 });
 
 it('martis:sso azure --with-migration only publishes the migration once', function () {
+    ssoRolesTable();
+
     if (! file_exists(config_path('martis.php'))) {
         $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
     }
@@ -244,4 +267,148 @@ it('martis:sso rejects a provider name that reduces to empty after sanitization'
         '--no-listener' => true,
         '--no-migrate' => true,
     ])->assertFailed();
+});
+
+it('publishes the group column migration after the Spatie migration dated one second ahead', function () {
+    if (! file_exists(config_path('martis.php'))) {
+        $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+    }
+
+    // Spatie names create_permission_tables when its provider boots, one
+    // second ahead (spatie/laravel-package-tools, bootPackageMigrations()).
+    $spatie = database_path('migrations/'.date('Y_m_d_His', time() + 1).'_create_permission_tables.php');
+    file_put_contents($spatie, "<?php\n");
+
+    $this->artisan('martis:sso', [
+        'provider' => 'azure',
+        '--no-composer' => true,
+        '--no-listener' => true,
+        '--no-migrate' => true,
+        '--with-migration' => true,
+    ])->assertSuccessful();
+
+    $group = glob(database_path('migrations/*_add_azure_group_name_to_roles_table.php')) ?: [];
+
+    expect($group)->toHaveCount(1)
+        ->and(strcmp(basename($group[0]), basename($spatie)))->toBeGreaterThan(0);
+});
+
+it('publishes the Spatie config and migration when the app did not boot the Spatie provider', function () {
+    if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
+        $this->markTestSkipped('spatie/laravel-permission not installed');
+    }
+
+    // As after `composer require` inside the same run: Spatie is on disk but
+    // the application never registered its provider, so `vendor:publish
+    // --provider` had no paths to copy.
+    expect(app()->getProviders('Spatie\\Permission\\PermissionServiceProvider'))->toBe([]);
+
+    // ServiceProvider::$publishes is static: a provider registered by an
+    // earlier test would leave Spatie's paths there and hide a missing
+    // registration. Start without them, and put them back afterwards.
+    $publishes = ServiceProvider::$publishes;
+    unset(ServiceProvider::$publishes['Spatie\\Permission\\PermissionServiceProvider']);
+
+    try {
+        $this->artisan('martis:sso', [
+            'provider' => 'azure',
+            '--with-spatie' => true,
+            '--no-composer' => true,
+            '--no-listener' => true,
+            '--no-migrate' => true,
+        ])->assertSuccessful();
+
+        expect(glob(database_path('migrations/*_create_permission_tables.php')) ?: [])->toHaveCount(1)
+            ->and(config_path('permission.php'))->toBeFile();
+    } finally {
+        ServiceProvider::$publishes = $publishes;
+    }
+});
+
+/**
+ * martis:sso with Composer stubbed out and Spatie reported as not loadable,
+ * as when the composer subprocess installed it but this process still
+ * cannot load it.
+ */
+function ssoCommandWithoutSpatie(): void
+{
+    $command = new class extends SsoMakeCommand
+    {
+        protected function installComposerDependencies(string $providerName): void {}
+
+        protected function loadServiceProvider(string $provider): bool
+        {
+            return false;
+        }
+    };
+
+    app(Kernel::class)->registerCommand($command);
+}
+
+it('fails loudly when Spatie was to be installed but still cannot be loaded', function () {
+    ssoCommandWithoutSpatie();
+
+    $exitCode = Artisan::call('martis:sso', [
+        'provider' => 'azure',
+        '--with-spatie' => true,
+        '--with-migration' => true,
+        '--no-listener' => true,
+        '--no-migrate' => true,
+    ]);
+    $output = (string) preg_replace('/\s+/', ' ', Artisan::output());
+
+    expect($exitCode)->toBe(1)
+        ->and($output)->toContain('spatie/laravel-permission could not be loaded')
+        ->and($output)->toContain('re-run the same command');
+
+    // Nothing depending on Spatie's tables is published on a failed run.
+    expect(glob(database_path('migrations/*_add_azure_group_name_to_roles_table.php')) ?: [])->toBe([]);
+});
+
+it('keeps skipping the Spatie publish under --no-composer when Spatie is not installed', function () {
+    ssoCommandWithoutSpatie();
+
+    $this->artisan('martis:sso', [
+        'provider' => 'azure',
+        '--with-spatie' => true,
+        '--no-composer' => true,
+        '--no-listener' => true,
+        '--no-migrate' => true,
+    ])
+        ->expectsOutputToContain('spatie/laravel-permission not installed')
+        ->assertSuccessful();
+});
+
+it('refuses the group column migration when nothing creates the roles table first', function () {
+    // No Spatie migration on disk and no roles table: the migration would run
+    // as a no-op, be recorded as run, and the column would never exist.
+    expect(glob(database_path('migrations/*_create_permission_tables.php')) ?: [])->toBe([]);
+
+    $exitCode = Artisan::call('martis:sso', [
+        'provider' => 'azure',
+        '--with-migration' => true,
+        '--no-composer' => true,
+        '--no-listener' => true,
+        '--no-migrate' => true,
+    ]);
+    $output = (string) preg_replace('/\s+/', ' ', Artisan::output());
+
+    expect($exitCode)->toBe(1)
+        ->and($output)->toContain("Spatie's create_permission_tables migration exists")
+        ->and($output)->toContain('--with-spatie')
+        ->and(glob(database_path('migrations/*_add_azure_group_name_to_roles_table.php')) ?: [])->toBe([]);
+});
+
+it('publishes the group column migration when the roles table already exists', function () {
+    ssoRolesTable();
+
+    $this->artisan('martis:sso', [
+        'provider' => 'azure',
+        '--with-migration' => true,
+        '--no-composer' => true,
+        '--no-listener' => true,
+        '--no-migrate' => true,
+    ])->assertSuccessful();
+
+    expect(glob(database_path('migrations/*_add_azure_group_name_to_roles_table.php')) ?: [])->toHaveCount(1);
 });

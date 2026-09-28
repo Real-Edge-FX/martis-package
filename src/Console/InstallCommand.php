@@ -7,7 +7,9 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
 use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\StubResolver;
+use Martis\Support\BootstrapProvidersPatcher;
 use Martis\Support\ExtensionBundles;
+use Martis\Support\MigrationTimestamps;
 use RuntimeException;
 
 class InstallCommand extends Command
@@ -29,6 +31,12 @@ class InstallCommand extends Command
                             {--existing-avatar-column : Use an existing avatar column instead of publishing a migration}';
 
     protected $description = 'Install the Martis admin panel';
+
+    /**
+     * One timestamp source for the whole run, so every migration this
+     * install publishes sorts after the one before it.
+     */
+    private ?MigrationTimestamps $migrationTimestamps = null;
 
     public function handle(): int
     {
@@ -554,7 +562,7 @@ class InstallCommand extends Command
      */
     protected function registerProviderInBootstrap(): void
     {
-        $providerClass = 'App\\Providers\\MartisServiceProvider::class';
+        $providerClass = 'App\\Providers\\MartisServiceProvider';
 
         // Laravel 11+ — bootstrap/providers.php is the canonical list.
         $bootstrapPath = base_path('bootstrap/providers.php');
@@ -564,17 +572,16 @@ class InstallCommand extends Command
                 return;
             }
 
-            $updated = (string) preg_replace(
-                '/return\s*\[\s*/',
-                "return [\n    {$providerClass},\n",
-                $contents,
-                1,
-            );
+            $updated = (new BootstrapProvidersPatcher)->add($contents, $providerClass);
 
-            if ($updated !== $contents) {
-                file_put_contents($bootstrapPath, $updated);
-                $this->components->twoColumnDetail('<fg=green>Registered</> provider', 'bootstrap/providers.php');
+            if ($updated === null) {
+                $this->warnProviderNotRegistered('bootstrap/providers.php', $providerClass);
+
+                return;
             }
+
+            file_put_contents($bootstrapPath, $updated);
+            $this->components->twoColumnDetail('<fg=green>Registered</> provider', 'bootstrap/providers.php');
 
             return;
         }
@@ -592,15 +599,28 @@ class InstallCommand extends Command
 
         $updated = (string) preg_replace(
             '/(App\\\\Providers\\\\AppServiceProvider::class,)/',
-            "$1\n        {$providerClass},",
+            "$1\n        {$providerClass}::class,",
             $contents,
             1,
         );
 
-        if ($updated !== $contents) {
-            file_put_contents($configPath, $updated);
-            $this->components->twoColumnDetail('<fg=green>Registered</> provider', 'config/app.php');
+        if ($updated === $contents) {
+            $this->warnProviderNotRegistered('config/app.php', $providerClass);
+
+            return;
         }
+
+        file_put_contents($configPath, $updated);
+        $this->components->twoColumnDetail('<fg=green>Registered</> provider', 'config/app.php');
+    }
+
+    /**
+     * The installer found no providers array it can extend: say so, with the
+     * line to add, instead of leaving the provider unregistered in silence.
+     */
+    protected function warnProviderNotRegistered(string $file, string $providerClass): void
+    {
+        $this->components->warn("Could not register {$providerClass} in {$file}. Add {$providerClass}::class to its array by hand.");
     }
 
     /**
@@ -660,7 +680,9 @@ class InstallCommand extends Command
 
     protected function migrationFilename(string $migrationName): string
     {
-        return date('Y_m_d_His')."_{$migrationName}.php";
+        $this->migrationTimestamps ??= new MigrationTimestamps(database_path('migrations'));
+
+        return $this->migrationTimestamps->filename($migrationName);
     }
 
     protected function sanitizeColumnName(string $name): string

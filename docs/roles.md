@@ -12,8 +12,8 @@ php artisan martis:roles
 
 The command:
 
-1. Runs `composer require spatie/laravel-permission` if it is missing.
-2. Publishes Spatie's config + migrations and runs them.
+1. Runs `composer require spatie/laravel-permission` if it is missing, and loads it in the same run. If it still cannot be loaded, the command exits with an error asking you to re-run it.
+2. Publishes Spatie's config + migrations and runs them (with `--with-categories`, after publishing the category migration too, so one run adds the column).
 3. Adds the `HasRoles` trait to your `User` model.
 4. Scaffolds three resources: `UserResource`, `RoleResource`, `PermissionResource`.
 5. Generates three policies: `UserPolicy`, `RolePolicy`, `PermissionPolicy` (admin-only by default).
@@ -293,7 +293,7 @@ php artisan martis:roles --with-categories
 
 Effects:
 
-- Publishes `database/migrations/{ts}_add_category_column_to_permissions_table.php` (re-runs are idempotent — only the first publish writes; subsequent runs skip with a yellow `already published` row).
+- Publishes `database/migrations/{ts}_add_category_column_to_permissions_table.php` (re-runs are idempotent — only the first publish writes; subsequent runs skip with a yellow `already published` row). Its timestamp is later than every migration already in `database/migrations`, Spatie's `create_permission_tables` included, so a database built from scratch creates the table before it adds the column.
 - Renders `Text::make('Category', 'category')` inside the PermissionResource fields list.
 - Scaffolds `app/Martis/Filters/PermissionCategoryFilter.php` — a concrete `SelectFilter` subclass that pulls every distinct category currently in use as the dropdown options. The PermissionResource's `filters()` method references it. Customise the column / source freely; the file is yours, not the package's. (v1.8.17+)
 

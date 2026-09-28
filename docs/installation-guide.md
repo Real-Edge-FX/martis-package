@@ -30,9 +30,9 @@ This command performs the following steps automatically:
 
 1. **Creates the directory structure** — `app/Martis/` for your resource definitions.
 2. **Publishes the config file** — `config/martis.php` with all customizable settings.
-3. **Publishes the host MartisServiceProvider** — `app/Providers/MartisServiceProvider.php` and wires it into `bootstrap/providers.php`. This is where consumer code that cannot live in `config/martis.php` (closures, gate definitions, menu items, dashboards, runtime cache layers) is registered. See [Host MartisServiceProvider](#host-martisserviceprovider) below.
+3. **Publishes the host MartisServiceProvider** — `app/Providers/MartisServiceProvider.php` and wires it into `bootstrap/providers.php` in the file's own style: first in the array, with a `use` import when the file imports its providers (as the current Laravel 12 and 13 skeletons do). A file whose providers array the installer cannot find, or where the entry would land in a comment or a closure rather than in the array the file returns, gets a warning with the line to add by hand. This is where consumer code that cannot live in `config/martis.php` (closures, gate definitions, menu items, dashboards, runtime cache layers) is registered. See [Host MartisServiceProvider](#host-martisserviceprovider) below.
 4. **Publishes frontend assets** — precompiled React app to `public/vendor/martis/`.
-5. **Publishes the core migrations** — `create_martis_action_events_table`, the two action-events morph id conversions (`alter_martis_action_events_morph_ids_to_string`, `fix_martis_action_events_morph_ids_string_v2`), `create_martis_user_preferences_table`, `drop_dashboards_layout_from_user_preferences_table`, `create_notifications_table` and `create_martis_cache_state_table`. A migration already present (matched by its `*_<name>.php` suffix) is skipped.
+5. **Publishes the core migrations** — `create_martis_action_events_table`, the two action-events morph id conversions (`alter_martis_action_events_morph_ids_to_string`, `fix_martis_action_events_morph_ids_string_v2`), `create_martis_user_preferences_table`, `drop_dashboards_layout_from_user_preferences_table`, `create_notifications_table` and `create_martis_cache_state_table`. A migration already present (matched by its `*_<name>.php` suffix) is skipped. Each migration it publishes gets its own timestamp, later than the one before and than the newest migration already in `database/migrations`, so they run in the order listed.
 6. **Publishes translation files** — `en`, `pt_BR`, `pt_PT` to `lang/vendor/martis/`.
 7. **Runs database migrations** — `php artisan migrate --force`, which creates the `martis_action_events`, `martis_user_preferences`, `notifications` and `martis_cache_state` tables. Note that it applies **every** pending migration of the application, not only the Martis ones, without the production confirmation prompt. Pass `--no-migrate` to publish the migrations without running them: the command then lists `php artisan migrate` among the next steps.
 
@@ -353,7 +353,7 @@ Navigate to `http://your-app.test/martis` and log in with a user of your applica
 
 ## Host MartisServiceProvider
 
-`martis:install` publishes `app/Providers/MartisServiceProvider.php` and wires it into `bootstrap/providers.php`. This file is where consumer code that **cannot live in `config/martis.php`** is registered:
+`martis:install` publishes `app/Providers/MartisServiceProvider.php` and wires it into `bootstrap/providers.php` (with a `use` import when the file imports its providers; when it finds no providers array, it warns with the line to add by hand). This file is where consumer code that **cannot live in `config/martis.php`** is registered:
 
 - The main menu (`Martis::menu(...)`) — closures cannot survive `config:cache`
 - Dashboards (`Martis::dashboards([...])`) — same reason
