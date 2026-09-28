@@ -28,6 +28,8 @@ export { AuthFrame } from '@/components/auth/AuthFrame'
 export { Sidebar } from '@/components/Sidebar'
 export { Topbar } from '@/components/Topbar'
 export { Footer } from '@/components/Footer'
+export { ForbiddenPage } from '@/pages/Forbidden'
+export { NotFoundPage } from '@/pages/NotFound'
 
 // Composition components
 export { FieldInput, FieldDisplay } from '@/components/fields/FieldRenderer'
@@ -48,9 +50,11 @@ export { useRevalidateOnFocus } from '@/hooks/useRevalidateOnFocus'
 export { componentRegistry } from '@/lib/componentRegistry'
 export { iconRegistry } from '@/lib/iconRegistry'
 export { layoutRegistry } from '@/lib/layoutRegistry'
+export { routeRegistry } from '@/lib/routeRegistry'
 
 // Page and override hooks
 export { usePageTitle } from '@/hooks/usePageTitle'
+export { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
 export { useModalHistoryLock } from '@/lib/historyLock'
 export { useEscapeLayer } from '@/lib/escapeLayers'
 export { OverridePropsProvider, useOverrideProps, useOverridePropsOptional } from '@/hooks/useOverrideProps'
@@ -102,6 +106,9 @@ export type {
   NavigationNestedGroup,
   ShortcutOptions,
   Shortcut,
+  RouteRegistration,
+  RegisteredRoutePageProps,
+  ToolDescriptor,
 } from '@/lib/martisRuntime'
 
 export { martisRuntime as default } from '@/lib/martisRuntime'
