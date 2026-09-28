@@ -12,8 +12,8 @@ php artisan martis:roles
 
 The command:
 
-1. Runs `composer require spatie/laravel-permission` if it is missing.
-2. Publishes Spatie's config + migrations and runs them.
+1. Runs `composer require spatie/laravel-permission` if it is missing, and loads it in the same run. If it still cannot be loaded, the command exits with an error asking you to re-run it.
+2. Publishes Spatie's config + migrations and runs them (with `--with-categories`, after publishing the category migration too, so one run adds the column).
 3. Adds the `HasRoles` trait to your `User` model.
 4. Scaffolds three resources: `UserResource`, `RoleResource`, `PermissionResource`.
 5. Generates three policies: `UserPolicy`, `RolePolicy`, `PermissionPolicy` (admin-only by default).

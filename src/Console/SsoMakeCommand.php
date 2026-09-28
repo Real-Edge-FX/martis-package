@@ -9,6 +9,7 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Martis\Console\Concerns\AsksOnlyOnATerminal;
+use Martis\Console\Concerns\LoadsPackagesInstalledThisRun;
 use Martis\Stubs\StubResolver;
 use Martis\Support\MigrationTimestamps;
 use Symfony\Component\Process\Process;
@@ -35,6 +36,7 @@ use Symfony\Component\Process\Process;
 class SsoMakeCommand extends Command
 {
     use AsksOnlyOnATerminal;
+    use LoadsPackagesInstalledThisRun;
 
     protected $signature = 'martis:sso
                             {provider : Provider name (azure, google, github, or a custom name)}
@@ -91,8 +93,8 @@ class SsoMakeCommand extends Command
         }
 
         // 4. Publish Spatie's own config + migrations when --with-spatie.
-        if ($this->option('with-spatie')) {
-            $this->publishSpatieAssets();
+        if ($this->option('with-spatie') && ! $this->publishSpatieAssets()) {
+            return self::FAILURE;
         }
 
         // 5. Publish Martis migration (only when --with-migration).
@@ -175,6 +177,9 @@ class SsoMakeCommand extends Command
 
             return;
         }
+
+        // This process booted before the install: make the new packages loadable.
+        $this->refreshComposerAutoloader();
 
         $this->components->twoColumnDetail('<fg=green>Installed</> composer', $list);
     }
@@ -275,17 +280,31 @@ class SsoMakeCommand extends Command
      * Publish Spatie's permission config + migrations. Idempotent — the
      * Spatie command itself skips files that already exist unless
      * --force is passed.
+     *
+     * When Composer installed Spatie during this run, the application never
+     * registered its provider, so it is registered here first: without it
+     * `vendor:publish --provider` has nothing to copy. Returns false (the
+     * command fails) when Spatie was meant to be installed by this command
+     * and still cannot be loaded; under --no-composer it only warns.
      */
-    protected function publishSpatieAssets(): void
+    protected function publishSpatieAssets(): bool
     {
         if ($this->option('no-publish-spatie')) {
-            return;
+            return true;
         }
 
-        if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
-            $this->components->twoColumnDetail('<fg=yellow>Skipping</> spatie publish', 'spatie/laravel-permission not installed');
+        if (! $this->loadServiceProvider('Spatie\\Permission\\PermissionServiceProvider')) {
+            if ($this->option('no-composer')) {
+                $this->components->twoColumnDetail('<fg=yellow>Skipping</> spatie publish', 'spatie/laravel-permission not installed');
 
-            return;
+                return true;
+            }
+
+            $this->components->error(
+                'spatie/laravel-permission could not be loaded, so its roles table and the group column migration were not published. If Composer installed it above, re-run the same command and it will be picked up. Otherwise install it manually (composer require spatie/laravel-permission) and re-run.'
+            );
+
+            return false;
         }
 
         // Check if config + migration are already published — skip when both are.
@@ -295,7 +314,7 @@ class SsoMakeCommand extends Command
         if ($configPublished && $migrationPublished) {
             $this->components->twoColumnDetail('<fg=yellow>Skipping</> spatie publish', 'config + migration already published');
 
-            return;
+            return true;
         }
 
         $this->components->twoColumnDetail('<fg=cyan>Publishing</> spatie', 'config + migrations');
@@ -303,6 +322,8 @@ class SsoMakeCommand extends Command
             '--provider' => 'Spatie\\Permission\\PermissionServiceProvider',
         ]);
         $this->components->twoColumnDetail('<fg=green>Published</> spatie', 'config + migrations');
+
+        return true;
     }
 
     /**
