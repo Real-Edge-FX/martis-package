@@ -69,6 +69,10 @@ export const AuthFrame = R.AuthFrame
 export const Sidebar = R.Sidebar
 export const Topbar = R.Topbar
 export const Footer = R.Footer
+// The shell's 403 and 404 screens (v2.2.0+), for a page whose API answers
+// 403 or 404. See docs/custom-pages.md.
+export const ForbiddenPage = R.ForbiddenPage
+export const NotFoundPage = R.NotFoundPage
 
 // Composition components consumer Tools/Actions/cards render natively:
 // the canonical field renderer, the generic drawer shell, and the
@@ -118,11 +122,16 @@ export const useRevalidateOnFocus = R.useRevalidateOnFocus
 export const componentRegistry = R.componentRegistry
 export const iconRegistry = R.iconRegistry
 export const layoutRegistry = R.layoutRegistry
+// Route registry (v2.2.0+): pages at URLs of your own, inside the shell.
+// Register at the top level of the bundle. See docs/custom-pages.md.
+export const routeRegistry = R.routeRegistry
 
 // Page and override hooks (v1.38.0+): tab title, the back-button lock of
 // a dialog inside a drawer, the override-props context, the
 // unsaved-changes guard and the error state. See docs/components.md.
 export const usePageTitle = R.usePageTitle
+// The last breadcrumb's label (v2.2.0+).
+export const useDynamicCrumb = R.useDynamicCrumb
 export const useModalHistoryLock = R.useModalHistoryLock
 export const useEscapeLayer = R.useEscapeLayer
 export const OverridePropsProvider = R.OverridePropsProvider

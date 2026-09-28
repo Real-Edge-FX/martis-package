@@ -7,6 +7,10 @@ import { martisRuntime } from '@/lib/martisRuntime'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { iconRegistry } from '@/lib/iconRegistry'
 import { layoutRegistry } from '@/lib/layoutRegistry'
+import { routeRegistry } from '@/lib/routeRegistry'
+import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
+import { ForbiddenPage } from '@/pages/Forbidden'
+import { NotFoundPage } from '@/pages/NotFound'
 import { MartisLoader } from '@/components/Loader'
 import { addShortcut, disableShortcut, listShortcuts } from '@/lib/keyboardShortcuts'
 import runtimeSource from './lib/martisRuntime.ts?raw'
@@ -176,6 +180,13 @@ describe('martisRuntime', () => {
         expect(martisRuntime.reactRouterDom).toBeTypeOf('object')
         expect(martisRuntime.reactI18next).toBeTypeOf('object')
         expect(martisRuntime.tanstackReactQuery).toBeTypeOf('object')
+    })
+
+    it('exposes the registered-page surface (v2.2.0): the instances the SPA uses', () => {
+        expect(martisRuntime.routeRegistry).toBe(routeRegistry)
+        expect(martisRuntime.useDynamicCrumb).toBe(useDynamicCrumb)
+        expect(martisRuntime.ForbiddenPage).toBe(ForbiddenPage)
+        expect(martisRuntime.NotFoundPage).toBe(NotFoundPage)
     })
 
     it('serves React Router 7 as the react-router-dom module: every react-router export, with the DOM RouterProvider', () => {

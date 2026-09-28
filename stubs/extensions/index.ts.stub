@@ -157,4 +157,18 @@ if (registry === undefined) {
   }
 }
 
+// Pages at URLs of your own (v2.2.0+). Register them at the top level of
+// this file, so they are in place when Martis builds its router; a later
+// registration is refused. The page renders inside the Martis shell, and
+// `tool` guards it with that Tool's canSee() and soft lock. Paths whose
+// first segment Martis uses (tools, resources, api, login, ...) are
+// refused with a console error. See the package's docs/custom-pages.md.
+//
+//   import { routeRegistry } from '@martis/runtime'
+//   import FindingsPage from './pages/FindingsPage'
+//   import FindingDetailPage from './pages/FindingDetailPage'
+//
+//   routeRegistry.register({ path: 'findings', component: FindingsPage, crumb: 'Findings' })
+//   routeRegistry.register({ path: 'findings/:findingId', component: FindingDetailPage, crumb: 'Findings', tool: 'findings' })
+
 export {}
