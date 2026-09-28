@@ -478,6 +478,10 @@ If your tool's `component()` returns a key that has no registration in `componen
 
 > **Navigating between tools.** Switching from one Tool to another (`/tools/:uriKey` → `/tools/:otherUriKey`) fully unmounts and remounts `ToolPage`, so the outgoing tool's state and in-flight fetch are torn down cleanly instead of flashing stale data from the previous tool. A top progress bar (mounted once in the shell layout) reflects any in-flight navigation or query across the whole app, tool pages included.
 
+### Pages at URLs of your own (v2.2.0+)
+
+A Tool's page lives at `/tools/{uriKey}`. For a product URL (`/findings`, `/findings/{finding}`), register the page with `routeRegistry` and bind it to the Tool with `tool: '{uriKey}'`: the page renders inside the shell, and the Tool's `canSee()` and soft lock guard it exactly as they guard `/tools/{uriKey}`. See [Custom pages](custom-pages.md).
+
 ## The `martis:tool` generator
 
 ```bash
@@ -695,6 +699,8 @@ class ProjectResource extends Resource
 ```
 
 With that in place, projects surface in the ⌘K palette and any `BelongsTo`/breadcrumb/search-result link to a project opens `/tools/project-knowledge?id={id}` instead of a 404. See [`recordUrl()`](resources.md#recordurl) in the Resources reference for the full contract (the dual role, the `routable()`/`globallySearchable()` interaction table, and the authorization guarantee).
+
+A [registered page](custom-pages.md) is a valid target too: once a page is registered at `projects/:projectId`, `recordUrl()` can return `'/projects/{id}'`.
 
 ## Anti-patterns
 
