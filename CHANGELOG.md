@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-09-28
+
+Minor release from a consumer's report: applications register pages at URLs of their own, rendered inside the shell, and the auth page overrides of an extension bundle render. Nothing needs to change in an app: see [Upgrading to v2.2.0 from v2.1.x](docs/upgrading.md#upgrading-to-v220-from-v21x).
+
 ### Added
 
 - **Applications give their own pages URLs of their own, rendered inside the shell.** `routeRegistry.register({ path, component, crumb, tool })`, on `@martis/runtime`, adds a route below the Martis base path (`findings`, `findings/:findingId`, `projects/:projectId/repositories`). The page renders inside the standard shell: sidebar, topbar, footer, mobile drawer, breadcrumbs and navigation progress bar, in every layout preset. A reload works, and `MenuItem::link()`, the command palette and `recordUrl()` open the page client-side. See [Custom pages](docs/custom-pages.md).
