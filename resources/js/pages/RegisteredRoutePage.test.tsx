@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { lazy, useEffect } from 'react'
 import { act, render, screen } from '@testing-library/react'
-import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes, useNavigate, useParams } from 'react-router'
+import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes, useLocation, useNavigate, useParams } from 'react-router'
 import { ApiError } from '@/lib/api'
 
 const apiGetMock = vi.fn()
@@ -136,6 +136,72 @@ describe('RegisteredRoutePage', () => {
     act(() => navigate!('/findings/2?tab=history'))
 
     expect(mounts).toBe(2)
+  })
+
+  describe('a route ending in *', () => {
+    /** Render `path` at `start`, count the page's mounts, and return a navigate function. */
+    function renderSplat(path: string, start: string) {
+      const counter = { mounts: 0 }
+      function Counting() {
+        const { pathname } = useLocation()
+        useEffect(() => {
+          counter.mounts++
+        }, [])
+        return <p>At {pathname}</p>
+      }
+      let navigate: ((to: string) => void) | null = null
+      function Navigator() {
+        navigate = useNavigate()
+        return null
+      }
+      const route = registered({ path, component: Counting })
+
+      render(
+        <ToastProvider>
+          <MemoryRouter initialEntries={[start]}>
+            <Navigator />
+            <Routes>
+              <Route path={`/${path}`} element={<RegisteredRoutePage route={route} />} />
+            </Routes>
+          </MemoryRouter>
+        </ToastProvider>,
+      )
+
+      return { counter, go: (to: string) => act(() => navigate!(to)) }
+    }
+
+    it('keeps the page mounted while only the part the * matches changes', async () => {
+      const { counter, go } = renderSplat('reports/*', '/reports/tab-a')
+      await screen.findByText('At /reports/tab-a')
+
+      go('/reports/tab-b')
+      await screen.findByText('At /reports/tab-b')
+      go('/reports/tab-b/nested')
+      await screen.findByText('At /reports/tab-b/nested')
+      go('/reports')
+      await screen.findByText('At /reports')
+
+      expect(counter.mounts).toBe(1)
+    })
+
+    it('keeps the page mounted across sub-paths below a parameter', async () => {
+      const { counter, go } = renderSplat('orgs/:org/*', '/orgs/acme/settings')
+      await screen.findByText('At /orgs/acme/settings')
+
+      go('/orgs/acme/members')
+      await screen.findByText('At /orgs/acme/members')
+
+      expect(counter.mounts).toBe(1)
+    })
+
+    it('still remounts when a parameter before the * changes (control)', async () => {
+      const { counter, go } = renderSplat('orgs/:org/*', '/orgs/acme/settings')
+      await screen.findByText('At /orgs/acme/settings')
+
+      go('/orgs/globex/settings')
+      await screen.findByText('At /orgs/globex/settings')
+      expect(counter.mounts).toBe(2)
+    })
   })
 
   it("shows the Tool's not-found state when the Tool it is bound to is hidden", async () => {

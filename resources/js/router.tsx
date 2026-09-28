@@ -16,7 +16,7 @@ import { TwoFactorChallengePage } from '@/pages/TwoFactorChallenge'
 import { RegisteredRoutePage } from '@/pages/RegisteredRoutePage'
 import { BASE_PATH, config } from '@/lib/config'
 import { componentRegistry } from '@/lib/componentRegistry'
-import { crumbLabelFor, routeRegistry, type RegisteredRoute, type RouteRegistry } from '@/lib/routeRegistry'
+import { crumbLabelFor, inRouterOrder, routeRegistry, type RegisteredRoute, type RouteRegistry } from '@/lib/routeRegistry'
 
 /**
  * Resolve an auth page component by registry key, falling back to the
@@ -46,12 +46,13 @@ function resolveAuthPage<P>(key: string, fallback: ComponentType<P>): ComponentT
 
 /**
  * The routes applications registered on `routeRegistry` (v2.2.0+), as
- * children of the shell route. Each renders its page through
- * `RegisteredRoutePage`, and its handle carries the crumb label the
+ * children of the shell route, in `inRouterOrder()` so a ranking tie never
+ * follows the order the extension bundles loaded in. Each renders its page
+ * through `RegisteredRoutePage`, and its handle carries the crumb label the
  * breadcrumb shows as given.
  */
 function registeredRouteObjects(registered: readonly RegisteredRoute[]): RouteObject[] {
-  return registered.map((route) => ({
+  return inRouterOrder(registered).map((route) => ({
     path: route.path,
     element: <RegisteredRoutePage route={route} />,
     handle: { crumbLabel: crumbLabelFor(route) },

@@ -13,10 +13,13 @@ import type { RegisteredRoute, RegisteredRoutePageProps } from '@/lib/routeRegis
  * (v2.2.0+, docs/custom-pages.md). `createAppRouter()` mounts one per
  * registered route inside the shell route.
  *
- * Keyed on the pathname: moving from `/findings/1` to `/findings/2`
- * remounts the page, so no state leaks from one record to the next (as
- * `ToolPage` remounts between tools, and as an Inertia visit resets page
- * state by default); a change of the query string alone keeps it.
+ * Keyed on the part of the pathname the route's own segments match:
+ * moving from `/findings/1` to `/findings/2` remounts the page, so no state
+ * leaks from one record to the next (as `ToolPage` remounts between tools,
+ * and as an Inertia visit resets page state by default). A change of the
+ * query string alone keeps it, and so does a change below a final `*`: a
+ * `reports/*` page owns its sub-paths (tabs, steps, nested routes) and
+ * keeps its state across them.
  *
  * Sets neither the tab title nor the dynamic crumb: effects run child
  * first, so a call here would overwrite the one the page makes
@@ -24,7 +27,21 @@ import type { RegisteredRoute, RegisteredRoutePageProps } from '@/lib/routeRegis
  */
 export function RegisteredRoutePage({ route }: { route: RegisteredRoute }) {
   const { pathname } = useLocation()
-  return <RegisteredRouteContent key={pathname} route={route} />
+  return <RegisteredRouteContent key={remountKey(pathname, route.path)} route={route} />
+}
+
+/**
+ * The pathname without the part a final `*` matches: `/reports/tab-b` gives
+ * `/reports` for `reports/*`, `/orgs/acme` for `orgs/:org/*` and
+ * `/findings/2` for `findings/:findingId`. Counted in segments, so an
+ * encoded character or a trailing slash cannot shift it.
+ */
+function remountKey(pathname: string, routePath: string): string {
+  const segments = pathname.split('/').filter((segment) => segment !== '')
+  const routeSegments = routePath.split('/')
+  const owned = routeSegments[routeSegments.length - 1] === '*' ? routeSegments.length - 1 : segments.length
+
+  return '/' + segments.slice(0, owned).join('/')
 }
 
 function RegisteredRouteContent({ route }: { route: RegisteredRoute }) {

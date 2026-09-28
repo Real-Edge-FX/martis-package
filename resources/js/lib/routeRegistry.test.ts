@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { createElement, memo } from 'react'
-import { crumbLabelFor, RESERVED_ROUTE_SEGMENTS, RouteRegistry, type RegisteredRoute } from '@/lib/routeRegistry'
+import { crumbLabelFor, inRouterOrder, RESERVED_ROUTE_SEGMENTS, RouteRegistry, type RegisteredRoute } from '@/lib/routeRegistry'
 
 function Page() {
   return null
@@ -61,24 +61,51 @@ describe('RouteRegistry', () => {
 
   it('reserves the shell pages, the account pages and the server routes', () => {
     expect([...RESERVED_ROUTE_SEGMENTS].sort()).toEqual([
-      '2fa', '403', '500', 'api', 'dashboards', 'dev', 'email', 'favicon.ico', 'forgot-password',
+      '2fa', '403', '500', 'api', 'api-docs', 'dashboards', 'dev', 'email', 'favicon.ico', 'forgot-password',
       'invitations', 'login', 'logout', 'profile', 'register', 'reset-password', 'resources', 'sso',
       'system', 'tools',
     ])
     expect(Object.isFrozen(RESERVED_ROUTE_SEGMENTS)).toBe(true)
   })
 
-  it('refuses a second route of the same shape and keeps the first', () => {
-    const registry = new RouteRegistry()
+  it('refuses both routes of a duplicated shape, so the outcome never depends on which bundle loaded first', () => {
     function Other() {
       return null
     }
+    // Bundles load in parallel: the two orders below are the two orders
+    // the network can produce. Both end the same way.
+    for (const [first, second] of [
+      [{ path: 'findings/:id', component: Page }, { path: 'Findings/:findingId', component: Other }],
+      [{ path: 'Findings/:findingId', component: Other }, { path: 'findings/:id', component: Page }],
+    ]) {
+      const registry = new RouteRegistry()
 
-    expect(registry.register({ path: 'findings/:id', component: Page })).toBe(true)
-    expectRefused(registry, { path: 'Findings/:findingId', component: Other }, /already registered/)
+      expect(registry.register(first!)).toBe(true)
+      expectRefused(registry, second!, /already registered: both are refused/)
 
-    expect(registry.routes()).toHaveLength(1)
-    expect(registry.routes()[0]!.component).toBe(Page)
+      expect(registry.routes()).toEqual([])
+      expect(registry.has('findings/:id')).toBe(false)
+    }
+  })
+
+  it('keeps refusing a duplicated shape after both were dropped', () => {
+    const registry = new RouteRegistry()
+    registry.register({ path: 'findings/:id', component: Page })
+    registry.register({ path: 'findings/:other', component: Page })
+    error.mockClear()
+
+    expectRefused(registry, { path: 'findings/:third', component: Page }, /already registered/)
+    expect(registry.routes()).toEqual([])
+  })
+
+  it('keeps the routes of other shapes when one shape is duplicated (control)', () => {
+    const registry = new RouteRegistry()
+    registry.register({ path: 'findings', component: Page })
+    registry.register({ path: 'findings/:id', component: Page })
+    registry.register({ path: 'findings/:other', component: Page })
+
+    expect(registry.routes().map((route) => route.path)).toEqual(['findings'])
+    expect(registry.has('findings')).toBe(true)
   })
 
   it('answers has() by shape', () => {
@@ -97,8 +124,17 @@ describe('RouteRegistry', () => {
     expect(registry.register({ path: 'c', component: memo(Page) })).toBe(true)
   })
 
-  it.each([[42], [''], [{}], [null]])('refuses the component %j', (component) => {
+  it.each([[42], [''], ['  '], [{}], [null]])('refuses the component %j', (component) => {
     expectRefused(new RouteRegistry(), { path: 'findings', component: component as never }, /component must be/)
+  })
+
+  it('trims a componentRegistry key, as it trims tool and crumb', () => {
+    const registry = new RouteRegistry()
+
+    expect(registry.register({ path: 'a', component: ' page:a ' })).toBe(true)
+    expect(registry.register({ path: 'b', component: 'page:b' })).toBe(true)
+
+    expect(registry.routes().map((route) => route.component)).toEqual(['page:a', 'page:b'])
   })
 
   it('refuses a rendered element in place of the component, naming the mistake', () => {
@@ -126,6 +162,26 @@ describe('RouteRegistry', () => {
 
   it('refuses a registration that is not an object', () => {
     expectRefused(new RouteRegistry(), null as never, /a route is an object/)
+  })
+})
+
+describe('inRouterOrder', () => {
+  const route = (path: string): RegisteredRoute => ({ path, component: Page, crumb: null, tool: null })
+
+  it('orders the routes by path, whatever the registration order', () => {
+    const one = inRouterOrder([route('a/:x/c'), route('a/b/:y'), route('Zeta'), route('beta')]).map((r) => r.path)
+    const two = inRouterOrder([route('beta'), route('Zeta'), route('a/b/:y'), route('a/:x/c')]).map((r) => r.path)
+
+    expect(one).toEqual(two)
+    expect(one).toEqual(['a/:x/c', 'a/b/:y', 'beta', 'Zeta'])
+  })
+
+  it('does not reorder the list it was given', () => {
+    const routes = [route('b'), route('a')]
+
+    inRouterOrder(routes)
+
+    expect(routes.map((r) => r.path)).toEqual(['b', 'a'])
   })
 })
 

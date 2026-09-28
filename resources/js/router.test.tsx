@@ -16,7 +16,8 @@ vi.mock('@/contexts/AuthContext', async (importOriginal) => ({
 }))
 
 import { componentRegistry } from '@/lib/componentRegistry'
-import { RouteRegistry } from '@/lib/routeRegistry'
+import { RESERVED_ROUTE_SEGMENTS, RouteRegistry } from '@/lib/routeRegistry'
+import { config } from '@/lib/config'
 import * as routerModule from '@/router'
 import { buildAppRoutes, createAppRouter } from '@/router'
 
@@ -131,5 +132,45 @@ describe('the app router', () => {
 
     expect(await screen.findByText('Resource not found')).toBeTruthy()
     expect(screen.getByText('Sidebar')).toBeTruthy()
+  })
+
+  it('resolves two routes React Router ranks equal the same way in any registration order', () => {
+    // `a/:x/c` and `a/b/:y` both score 26 on `/a/b/c`, so the earlier
+    // sibling wins. Registered from two bundles, the registration order is
+    // the network's; the router must not follow it.
+    const leafFor = (paths: string[]) => {
+      const registry = new RouteRegistry()
+      for (const path of paths) registry.register({ path, component: FindingPage })
+      const matches = matchRoutes(buildAppRoutes(registry.routes()), '/a/b/c')!
+      return matches[matches.length - 1]!.route.path
+    }
+
+    expect(leafFor(['a/:x/c', 'a/b/:y'])).toBe(leafFor(['a/b/:y', 'a/:x/c']))
+  })
+})
+
+describe('the reserved first segments', () => {
+  const dev = config.dev
+
+  afterEach(() => {
+    config.dev = dev
+  })
+
+  it('include the first segment of every package route, dev-only routes too', () => {
+    config.dev = { ...config.dev, toolsEnabled: true }
+    const firsts = new Set<string>()
+    const walk = (routes: RouteObject[]) => {
+      for (const route of routes) {
+        const first = route.path?.replace(/^\//, '').split('/')[0]
+        if (first !== undefined && first !== '' && first !== '*') firsts.add(first.toLowerCase())
+        if (route.children) walk(route.children)
+      }
+    }
+
+    walk(buildAppRoutes([]))
+
+    // The walk must have seen the package's routes, or it proves nothing.
+    expect([...firsts]).toEqual(expect.arrayContaining(['tools', 'resources', 'login', 'dev']))
+    expect([...firsts].filter((first) => !RESERVED_ROUTE_SEGMENTS.includes(first))).toEqual([])
   })
 })

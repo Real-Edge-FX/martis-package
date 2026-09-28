@@ -5286,6 +5286,7 @@ interface RegisteredRoute {
 }
 declare class RouteRegistry {
     private readonly accepted;
+    /** Every shape ever registered, the ones dropped as duplicates included. */
     private readonly shapes;
     private sealed;
     /**
@@ -5293,7 +5294,7 @@ declare class RouteRegistry {
      * the route is accepted; a refused route logs the reason and returns false.
      */
     register(route: RouteRegistration): boolean;
-    /** Whether a route of this path's shape is registered. */
+    /** Whether a route of this path's shape is registered (and not dropped as a duplicate). */
     has(path: string): boolean;
     /** The accepted routes, in registration order. */
     routes(): readonly RegisteredRoute[];
