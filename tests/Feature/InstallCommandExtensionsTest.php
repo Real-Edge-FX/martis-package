@@ -201,3 +201,18 @@ it('martis:install publishes a tsconfig.json next to the extension sources for e
     expect($config['extends'])->toBe('../../../tsconfig.extensions.json')
         ->and($config['include'])->toBe(['./**/*']);
 });
+
+it('resolves the extension paths from import.meta.url, never from __dirname', function () {
+    $this->artisan('martis:install', ['--force' => true])->assertSuccessful();
+
+    $config = (string) $this->fs->get($this->paths['vite']);
+
+    // The comment above rootDir names __dirname on purpose: only a path
+    // resolved from it breaks under Vite's native config loader.
+    expect($config)
+        ->not->toContain('path.resolve(__dirname')
+        ->toContain("import {fileURLToPath} from 'node:url'")
+        ->toContain("const rootDir = fileURLToPath(new URL('.', import.meta.url))")
+        ->toContain("path.resolve(rootDir, 'resources/js/martis-extensions/.shims')")
+        ->toContain("path.resolve(rootDir, 'resources/js/martis-extensions/index.ts')");
+});

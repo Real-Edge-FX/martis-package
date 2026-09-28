@@ -61,8 +61,13 @@
 import {defineConfig} from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'node:path'
+import {fileURLToPath} from 'node:url'
 
-const shimsDir = path.resolve(__dirname, 'resources/js/martis-extensions/.shims')
+// The directory of this file. `__dirname` only exists while Vite bundles
+// the config; Vite's native config loader does not define it.
+const rootDir = fileURLToPath(new URL('.', import.meta.url))
+
+const shimsDir = path.resolve(rootDir, 'resources/js/martis-extensions/.shims')
 
 const reactShim = path.join(shimsDir, 'react.mjs')
 const jsxRuntimeShim = path.join(shimsDir, 'react-jsx-runtime.mjs')
@@ -114,7 +119,7 @@ export default defineConfig({
   },
   build: {
     lib: {
-      entry: path.resolve(__dirname, 'resources/js/martis-extensions/index.ts'),
+      entry: path.resolve(rootDir, 'resources/js/martis-extensions/index.ts'),
       formats: ['es'],
       fileName: () => 'extensions.js',
     },
