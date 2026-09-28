@@ -181,7 +181,7 @@ The command is idempotent and self-sufficient. It:
 2. **Config** — inserts the `auth.sso.providers.azure` block in `config/martis.php`.
 3. **Env** — stubs the `AZURE_*` and `MARTIS_SSO_*` env vars in `.env` and `.env.example`.
 4. **Listener** — adds the `MicrosoftExtendSocialite` event listener at the top of `AppServiceProvider::boot()` (idempotent — checks if already there).
-5. **Migration** — publishes `add_azure_group_name_to_roles_table` (with `--with-migration`).
+5. **Migration** — publishes `add_azure_group_name_to_roles_table` (with `--with-migration`). Its timestamp is later than every migration already in `database/migrations`, Spatie's `create_permission_tables` included, so the column is added after the `roles` table exists.
 6. **Migrate** — runs `php artisan migrate` (interactive prompt; non-interactive auto-runs unless `--no-migrate`).
 
 Skip flags for CI / production deploys:

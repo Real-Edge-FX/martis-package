@@ -9,6 +9,7 @@ use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\StubResolver;
 use Martis\Support\BootstrapProvidersPatcher;
 use Martis\Support\ExtensionBundles;
+use Martis\Support\MigrationTimestamps;
 use RuntimeException;
 
 class InstallCommand extends Command
@@ -671,9 +672,17 @@ class InstallCommand extends Command
         $this->components->twoColumnDetail($action, 'database/migrations/'.basename($target));
     }
 
+    /**
+     * One timestamp source for the whole run, so every migration this
+     * install publishes sorts after the one before it.
+     */
+    private ?MigrationTimestamps $migrationTimestamps = null;
+
     protected function migrationFilename(string $migrationName): string
     {
-        return date('Y_m_d_His')."_{$migrationName}.php";
+        $this->migrationTimestamps ??= new MigrationTimestamps(database_path('migrations'));
+
+        return $this->migrationTimestamps->filename($migrationName);
     }
 
     protected function sanitizeColumnName(string $name): string

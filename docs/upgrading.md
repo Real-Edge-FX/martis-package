@@ -4,6 +4,20 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.1.1 from v2.1.0
+
+Nothing is required. The optional checks below concern apps set up with an earlier version.
+
+### Migrations that add a column to Spatie's tables
+
+`martis:roles --with-categories` and `martis:sso --with-migration` could date their migration at or before Spatie's `create_permission_tables`, which Spatie dates one second ahead. On a database built from scratch (CI, a new machine, a first deploy), the Martis migration then ran first, found no table and skipped its column. Check the order:
+
+```bash
+ls database/migrations | grep -E 'create_permission_tables|add_category_column_to_permissions_table|_group_name_to_roles_table'
+```
+
+If a Martis file is listed before `create_permission_tables`, rename it with a later timestamp, for example the current date and time (`2026_10_01_120000_add_category_column_to_permissions_table.php`). Laravel runs it once more under the new name: where the column exists, its `hasColumn()` check makes that run a no-op; where it is missing, the column is added.
+
 ## Upgrading to v2.1.0 from v2.0.x
 
 v2.1.0 adds optional features and fixes. Nothing needs changing unless one of the two cases at the end of this section applies. There are three visible changes:

@@ -394,3 +394,40 @@ it('builds the BulkAssignRole role picker in Nova order, so it stores the role i
     expect($stub)->toContain("->pluck('name', 'id')")
         ->and($stub)->not->toContain("pluck('id', 'name')");
 });
+
+it('publishes the category migration after the Spatie migration dated one second ahead', function () {
+    if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
+        $this->markTestSkipped('spatie/laravel-permission not installed');
+    }
+
+    foreach ((array) glob(base_path('database/migrations/*_add_category_column_to_permissions_table.php')) as $file) {
+        @unlink((string) $file);
+    }
+
+    // Spatie names create_permission_tables when its provider boots, one
+    // second ahead (spatie/laravel-package-tools, bootPackageMigrations()).
+    $spatie = base_path('database/migrations/'.date('Y_m_d_His', time() + 1).'_create_permission_tables.php');
+    file_put_contents($spatie, "<?php\n");
+
+    try {
+        $this->artisan('martis:roles', [
+            '--no-install' => true,
+            '--no-publish-spatie' => true,
+            '--no-migrate' => true,
+            '--no-seed' => true,
+            '--with-categories' => true,
+            '--force' => true,
+        ])->run();
+
+        $category = (array) glob(base_path('database/migrations/*_add_category_column_to_permissions_table.php'));
+
+        expect($category)->toHaveCount(1)
+            ->and(strcmp(basename((string) $category[0]), basename($spatie)))->toBeGreaterThan(0);
+    } finally {
+        @unlink($spatie);
+
+        foreach ((array) glob(base_path('database/migrations/*_add_category_column_to_permissions_table.php')) as $file) {
+            @unlink((string) $file);
+        }
+    }
+});
