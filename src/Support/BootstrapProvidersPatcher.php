@@ -29,8 +29,8 @@ final class BootstrapProvidersPatcher
         $entry = ($importStyle ? class_basename($providerClass) : $providerClass).'::class';
 
         $patched = preg_replace_callback(
-            '/return\s*\[\h*\R?/',
-            static fn (): string => 'return ['.$eol.'    '.$entry.','.$eol,
+            '/^(\h*)return\s*\[\h*\R?/m',
+            static fn (array $match): string => $match[1].'return ['.$eol.'    '.$entry.','.$eol,
             $contents,
             1,
             $count,

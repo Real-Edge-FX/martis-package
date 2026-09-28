@@ -32,6 +32,12 @@ class InstallCommand extends Command
 
     protected $description = 'Install the Martis admin panel';
 
+    /**
+     * One timestamp source for the whole run, so every migration this
+     * install publishes sorts after the one before it.
+     */
+    private ?MigrationTimestamps $migrationTimestamps = null;
+
     public function handle(): int
     {
         $this->components->info('Installing Martis...');
@@ -671,12 +677,6 @@ class InstallCommand extends Command
         $action = $existing === [] ? '<fg=green>Created</> migration' : '<fg=green>Updated</> migration';
         $this->components->twoColumnDetail($action, 'database/migrations/'.basename($target));
     }
-
-    /**
-     * One timestamp source for the whole run, so every migration this
-     * install publishes sorts after the one before it.
-     */
-    private ?MigrationTimestamps $migrationTimestamps = null;
 
     protected function migrationFilename(string $migrationName): string
     {

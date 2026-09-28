@@ -16,11 +16,11 @@ Nothing is required. The optional checks below concern apps set up with an earli
 ls database/migrations | grep -E 'create_permission_tables|add_category_column_to_permissions_table|_group_name_to_roles_table'
 ```
 
-If a Martis file is listed before `create_permission_tables`, rename it with a later timestamp, for example the current date and time (`2026_10_01_120000_add_category_column_to_permissions_table.php`). Laravel runs it once more under the new name: where the column exists, its `hasColumn()` check makes that run a no-op; where it is missing, the column is added.
+If a Martis file is listed before `create_permission_tables`, rename it with a later timestamp, for example the current date and time (`2026_10_01_120000_add_category_column_to_permissions_table.php`). Laravel runs it once more under the new name: where the column exists, its `hasColumn()` check makes that run a no-op; where it is missing, the column is added. The old name stays recorded in the `migrations` table and the renamed file is recorded in a new batch, so do not roll that batch back with `migrate:rollback`: its `down()` would drop the column. On a database that already has the column, you can instead rename the row in the `migrations` table to the new file name.
 
 ### The extensions Vite config
 
-`vite.extensions.config.ts`, which `martis:install` publishes, resolved its paths from `__dirname`, so every `npm run build:extensions` warned that Vite's native config loader (announced as the default of a future major) does not support it. New installs resolve the paths from `import.meta.url`, which works with Vite 4 to 9, both config loaders and any Node version. To update an existing app, edit the file:
+`vite.extensions.config.ts`, which `martis:install` publishes, resolved its paths from `__dirname`, so with Vite 8 every `npm run build:extensions` warned that Vite's native config loader (announced as the default of a future major) does not support it. New installs resolve the paths from `import.meta.url`, which works with Vite 4 to 9, both config loaders and any Node version. To update an existing app, edit the file:
 
 ```diff
  import path from 'node:path'
