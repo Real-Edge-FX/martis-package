@@ -56,6 +56,14 @@ it('slots the import alphabetically into the first import block without moving t
     );
 });
 
+it('does not match a comment mentioning "return [" before the real array', function () {
+    $skeleton = "<?php\n\n/* Providers: return [ ... ] below. */\n\nreturn [\n    App\\Providers\\AppServiceProvider::class,\n];\n";
+
+    expect($this->patcher->add($skeleton, $this->provider))->toBe(
+        "<?php\n\n/* Providers: return [ ... ] below. */\n\nreturn [\n    App\\Providers\\MartisServiceProvider::class,\n    App\\Providers\\AppServiceProvider::class,\n];\n"
+    );
+});
+
 it('returns null when the file does not return an array literal', function () {
     expect($this->patcher->add("<?php\n\nreturn array(\n    App\\Providers\\AppServiceProvider::class,\n);\n", $this->provider))->toBeNull()
         ->and($this->patcher->add("<?php\n\n\$providers = [];\n\nreturn \$providers;\n", $this->provider))->toBeNull();
