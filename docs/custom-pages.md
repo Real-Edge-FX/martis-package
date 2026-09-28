@@ -1,0 +1,137 @@
+# Custom pages at your own URLs
+
+A page of your application can live at a URL of its own below the Martis path (`/martis/findings`, `/martis/findings/{finding}`, `/martis/projects/{project}/repositories`) and render inside the standard shell: the sidebar, the topbar, the footer, the mobile drawer, the breadcrumbs and the navigation progress bar, in every layout preset. You register the route from your extension bundle with `routeRegistry` (v2.2.0+).
+
+Use it when a page needs a product URL. A page that is fine at `/tools/{uriKey}` can stay a plain [Tool](tools.md).
+
+## Registering a page
+
+```tsx
+// resources/js/martis-extensions/index.ts, at the top level
+import { routeRegistry } from '@martis/runtime'
+import FindingsPage from './pages/FindingsPage'
+import FindingDetailPage from './pages/FindingDetailPage'
+
+routeRegistry.register({ path: 'findings', component: FindingsPage, crumb: 'Findings' })
+routeRegistry.register({ path: 'findings/:findingId', component: FindingDetailPage, crumb: 'Findings', tool: 'findings' })
+routeRegistry.register({ path: 'projects/:projectId/repositories', component: 'page:project-repositories' })
+```
+
+`register()` takes:
+
+| Key | Required | Meaning |
+|---|---|---|
+| `path` | yes | The path below the Martis base path. Leading and trailing slashes are ignored: `findings` and `/findings/` are the same route. |
+| `component` | yes | The React component, or a `componentRegistry` key resolved when the page renders. |
+| `crumb` | no | The breadcrumb label, shown as given. Without it, the first segment of the path is used: `project-reports` shows `Project reports`. |
+| `tool` | no | The `uriKey` of a Tool whose `canSee()` and soft lock guard the page. See [Guarding a page with a Tool](#guarding-a-page-with-a-tool). |
+
+It returns `true` when the route is accepted. A refused route is not added: `register()` returns `false` and the browser console shows `[martis] routeRegistry:` with the reason. Nothing throws, so one bad route never stops the rest of your bundle from registering.
+
+Build the bundle as usual (`npm run build:extensions`). A reload of a registered URL needs no server route: Martis serves its SPA for every path below its base path except `api/`.
+
+### When to register
+
+Martis builds its router once, after every bundle listed in `MARTIS_EXTENSIONS` has loaded. Register routes at the top level of the bundle, as above. A `register()` call that runs later (in an effect, after a click, after an `await`) is refused with `routes must be registered when the extension bundle loads (at its top level): the router was already built`.
+
+## Path rules
+
+- Each segment is static text (letters, digits, `.`, `_`, `~`, `-`), a parameter (`:findingId`), or `*`, allowed only as the last segment, where it matches the rest of the path.
+- Optional segments (`:id?`), empty segments, spaces, `#` and `%` are refused.
+- The first segment must be static text that Martis does not use itself. These are reserved, in any letter case:
+
+  | Reserved first segment | Why |
+  |---|---|
+  | `dashboards`, `profile`, `system`, `dev`, `tools`, `resources`, `403`, `500` | Pages of the Martis shell |
+  | `login`, `register`, `forgot-password`, `reset-password`, `email`, `invitations`, `2fa` | Sign-in and account pages |
+  | `api`, `sso`, `logout`, `favicon.ico` | Server routes: a reload would never reach the SPA |
+
+  So a registered page can never take the place of a Martis page, and `:slug`, `*` and an empty path are refused.
+- Two routes with the same shape (`findings/:id` and `Findings/:findingId`) are one route: the second is refused and the first stays.
+
+A path that matches no registered route and no Martis page still renders the 404 page inside the shell.
+
+## Writing the page
+
+The page is an ordinary React component. Read the route parameters with `useParams()` and set the tab title with `usePageTitle()`:
+
+```tsx
+// resources/js/martis-extensions/pages/FindingDetailPage.tsx
+import { ApiError, ForbiddenPage, MartisLoader, NotFoundPage, api, useDynamicCrumb, usePageTitle, useParams, useQuery } from '@martis/runtime'
+
+export default function FindingDetailPage() {
+  const { findingId } = useParams<{ findingId: string }>()
+  const finding = useQuery({
+    queryKey: ['finding', findingId],
+    queryFn: () => api.get<{ id: string; title: string }>(`/api/findings/${findingId}`),
+  })
+
+  usePageTitle(finding.data?.title)
+  useDynamicCrumb(finding.data?.title)
+
+  if (finding.error instanceof ApiError && finding.error.status === 404) return <NotFoundPage />
+  if (finding.error instanceof ApiError && finding.error.isForbidden()) return <ForbiddenPage />
+  if (!finding.data) return <MartisLoader />
+
+  return <h1>{finding.data.title}</h1>
+}
+```
+
+- **Parameters.** `useParams()` returns the `:parameters` of the path.
+- **Remounting.** The page remounts when the path changes (`/findings/1` to `/findings/2`), so its state starts fresh for each record. A change of the query string alone keeps it.
+- **Breadcrumb.** The trail reads Home, then the route's crumb. `useDynamicCrumb(label)` replaces that crumb while the page is mounted, for example with the record's title; `null` or `undefined` keeps the registered one. The trail has one level: `findings/:findingId` does not link back to `findings`.
+- **Error screens.** `NotFoundPage` and `ForbiddenPage` render the shell's 404 and 403 screens in place and keep the URL. Navigating to `/403` would change it.
+- **Data.** `api` calls paths below the Martis base path, so `api.get('/api/findings/...')` reaches an API route of your app under `/{martis-path}/api/`, on the `martis.api` middleware group, which runs the same authentication as the Martis API.
+
+## Guarding a page with a Tool
+
+Without `tool`, a registered page is open to every user who may open the panel (see [Panel access](authorization.md#panel-access-viewmartis)); the data it shows is protected by the API routes it calls. To hide the page itself, bind it to a Tool:
+
+```php
+namespace App\Martis\Tools;
+
+use App\Models\Finding;
+use Illuminate\Http\Request;
+use Martis\Tools\Tool;
+
+class Findings extends Tool
+{
+    public function __construct()
+    {
+        parent::__construct(name: 'Findings', uriKey: 'findings');
+
+        $this->canSee(fn (Request $request): bool => $request->user()?->can('viewAny', Finding::class) ?? false);
+    }
+}
+```
+
+Register the Tool with `Martis::tools([Findings::class])`, then pass `tool: 'findings'`. Before the page renders, the shell asks `GET /api/tools/findings`, exactly as `/tools/findings` does:
+
+- a user the Tool is hidden from gets the Tool's "Tool not found" state, the same answer as for a Tool that does not exist;
+- a user the Tool is locked for (`lockedFor()`, see [Gates](gates.md)) gets the lock page, and the lock modal opens;
+- otherwise the page renders and receives the Tool as its `tool` prop (a `ToolDescriptor`, typed on `@martis/runtime`).
+
+One Tool can guard several pages. The Tool needs no component of its own. For its menu entry, point it at your page: `MenuItem::tool(Findings::class)->path('/findings')` shows the entry only to the users the Tool is visible to, and opens `/findings`.
+
+## Linking to a page
+
+- **Menu:** `MenuItem::link('Findings', '/findings')`, or the Tool entry above. The link opens the page without a full reload. See [Menus](menus.md).
+- **Command palette:** a `Martis::commandPalette()` entry with the same path.
+- **Records:** a resource's `recordUrl()` can return `'/findings/{id}'`, so search results and relation links open the page. See [`recordUrl()`](resources.md#recordurl).
+- **In React:** `Link` and `useNavigate` from `@martis/runtime` take paths relative to the Martis base path (`<Link to="/findings/0192f7c1">`).
+
+## Existing installs
+
+`martis:install` publishes the runtime shim once. An extension scaffolded before v2.2.0 imports `routeRegistry`, `useDynamicCrumb`, `ForbiddenPage` and `NotFoundPage` by name after refreshing it:
+
+```bash
+php artisan vendor:publish --tag=martis-extension-shims --force
+```
+
+Until then, read them from the default export: `import runtime from '@martis/runtime'`, then `runtime.routeRegistry`. See [Refreshing the extension scaffold after an upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade).
+
+## Coming from Nova
+
+Nova declares a tool's pages in PHP, with `Nova::router()` and a `routes/inertia.php` file, and registers their components in JS with `Nova.inertia()`. The tool's `Authorize` middleware answers `403` to a user its `canSee()` refuses, and a tool page shows no breadcrumb ([Nova: Tools](https://nova.laravel.com/docs/v5/customization/tools)).
+
+Martis routes on the client, so the path and the component are registered in one call. A page bound to a Tool answers as `/tools/{uriKey}` does, with `404` where the Tool is hidden (see [Differentials](differentials.md#tool-routes-run-behind-the-martis-api-middleware)). The page gets a breadcrumb, and a registered path can never take a URL Martis uses.

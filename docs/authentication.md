@@ -247,7 +247,7 @@ After generating the override, build your extension bundle **in your application
 npm run build:extensions
 ```
 
-The bundle lands in `public/vendor/martis-user/extensions.js`, which the SPA loads at runtime from the URLs in `MARTIS_EXTENSIONS` (`martis:install` sets `/vendor/martis-user/extensions.js`). Visit `/{martis-path}/login` and the override renders instead of the bundled page. To check the registration, run `window.Martis.componentRegistry.has('auth:login')` in the browser console.
+The bundle lands in `public/vendor/martis-user/extensions.js`, which the SPA loads at runtime from the URLs in `MARTIS_EXTENSIONS` (`martis:install` sets `/vendor/martis-user/extensions.js`). Visit `/{martis-path}/login` and the override renders instead of the bundled page. To check it, load the page itself: `window.Martis.componentRegistry.has('auth:login')` only shows that the key is registered. Before v2.2.0 the router read the key before the extension bundle loaded, so the bundled page rendered even with the key registered.
 
 Reference impls live under `vendor/martis/martis/resources/js/pages/` — the stub starts as a working copy of the bundled default so you can edit incrementally rather than rewrite from scratch.
 

@@ -86,7 +86,7 @@ All six unauthenticated surfaces (Login, Register, 2FA challenge, 404, 403, 500)
 - **Login** — email + password + `Keep me signed in` toggle. SSO, Google, Forgot password, and "Create an account" render only when the matching `config.auth.*.enabled` flag is set.
 - **Register** — `/register` route gated by `config.auth.registration.enabled`. Posts to `/{martis-path}/api/auth/register` (consumer-provided endpoint).
 - **2FA challenge** — 6-cell OTP row with auto-advance + paste-to-fill, a 30 s visual countdown, and a backup-code toggle that swaps the OTP grid for a plain recovery-code input.
-- **Error pages** — `ErrorScreen.tsx` drives 404 / 403 / 500 with a faded watermark code, accent icon, optional `incidentId` chip with copy button, and primary + secondary CTAs.
+- **Error pages** — `ErrorScreen.tsx` drives 404 / 403 / 500 with a faded watermark code, accent icon, optional `incidentId` chip with copy button, and primary + secondary CTAs. `ForbiddenPage` and `NotFoundPage` are on `@martis/runtime` (v2.2.0+), so a custom page shows the 403 or 404 screen in place.
 
 See [Authentication](authentication.md) for the full config surface (`config.auth`), backend recipes for SSO / Google, and the registration contract.
 
@@ -332,7 +332,7 @@ The resource index and lens pages share a single card surface (`.martis-index-su
 
 ### Breadcrumbs
 
-Navigation breadcrumbs showing the current path (Dashboard > Resource > Record).
+Navigation breadcrumbs showing the current path (Dashboard > Resource > Record). A package route names its crumb with an i18n key; a page your app [registered](custom-pages.md) shows its `crumb` as given. A page replaces the last crumb with `useDynamicCrumb(label)` from `@martis/runtime` (v2.2.0+), as a Tool page shows the tool's name.
 
 ### ResourceIcon
 
