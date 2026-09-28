@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`martis:install` left the first entry of `bootstrap/providers.php` without its indentation.** The pattern that inserted `App\Providers\MartisServiceProvider::class` also consumed the whitespace in front of the next entry. The provider is now added in the file's own style (new `Martis\Support\BootstrapProvidersPatcher`): first in the array with four spaces, and with a `use` import and a short entry when the file imports its providers, as the Laravel 13 skeleton does, so Pint's `laravel` preset stays green. An empty `return [];` is filled, and a file whose providers array the installer cannot find now gets a warning with the line to add, where it was skipped without a word (the same for `config/app.php`). +8 Pest.
+
 ## [2.1.0] — 2026-09-27
 
 Minor release built from a consumer's reports. Nothing to change on upgrade: read [Upgrading to v2.1.0 from v2.0.x](docs/upgrading.md#upgrading-to-v210-from-v20x) for the three visible changes.
