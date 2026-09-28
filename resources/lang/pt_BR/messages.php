@@ -234,6 +234,7 @@ return [
     // React registado para a key — instrui o dev no caminho v1.9+
     // (auto-discovery do `martis-extensions/tools/` bucket).
     'tool_component_missing' => 'Nenhum componente React está registrado para a key "{{key}}". Coloque um componente com `export default` em resources/js/martis-extensions/tools/{{filenameHint}}.tsx e rode `npm run build:extensions`.',
+    'registered_route_component_missing' => 'Nenhum componente React está registrado para a key "{{key}}". Registre-o com componentRegistry.register(\'{{key}}\', MyPage), ou passe o próprio componente para routeRegistry.register().',
     'cache_admin_title' => 'Cache do sistema',
     'cache_admin_subtitle' => 'Inspecione, limpe e ative/desative camadas de cache do Martis sem redeploy.',
     'cache_master_on' => 'Cache global ativada',
