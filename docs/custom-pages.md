@@ -46,10 +46,12 @@ Martis builds its router once, after every bundle listed in `MARTIS_EXTENSIONS` 
   |---|---|
   | `dashboards`, `profile`, `system`, `dev`, `tools`, `resources`, `403`, `500` | Pages of the Martis shell |
   | `login`, `register`, `forgot-password`, `reset-password`, `email`, `invitations`, `2fa` | Sign-in and account pages |
-  | `api`, `sso`, `logout`, `favicon.ico` | Server routes: a reload would never reach the SPA |
+  | `api`, `api-docs`, `sso`, `logout`, `favicon.ico` | Server routes: a reload would never reach the SPA (`api-docs` is the default path of the [API documentation](api/overview.md#enabling-the-openapi-surface)) |
 
   So a registered page can never take the place of a Martis page, and `:slug`, `*` and an empty path are refused.
-- Two routes with the same shape (`findings/:id` and `Findings/:findingId`) are one route: the second is refused and the first stays.
+- An app that moves the API documentation elsewhere (`martis.api_docs.path`) must not register a page on that path either: the server answers it on a reload.
+- Two routes with the same shape (`findings/:id` and `Findings/:findingId`) are one route, and registering it twice refuses both: the console shows the refusal and the path renders the 404 page until one registration is removed. Keeping either would make the page depend on which extension bundle happened to load first, since bundles load in parallel.
+- Two routes of different shapes can both match one URL: a static segment beats a parameter (`findings/new` wins over `findings/:findingId` on `/findings/new`). When React Router ranks them equal (`a/:x/c` and `a/b/:y` on `/a/b/c`), the route whose path comes first in alphabetical order wins, whatever order they were registered in.
 
 A path that matches no registered route and no Martis page still renders the 404 page inside the shell.
 
@@ -80,7 +82,7 @@ export default function FindingDetailPage() {
 ```
 
 - **Parameters.** `useParams()` returns the `:parameters` of the path.
-- **Remounting.** The page remounts when the path changes (`/findings/1` to `/findings/2`), so its state starts fresh for each record. A change of the query string alone keeps it.
+- **Remounting.** The page remounts when the part of the path its own segments match changes (`/findings/1` to `/findings/2`), so its state starts fresh for each record. A change of the query string alone keeps it, and so does a change below a final `*`: a `reports/*` page keeps its state from `/reports/summary` to `/reports/by-team`, so it can own its sub-paths (tabs, steps, nested `<Routes>`). In `orgs/:org/*`, a change of `:org` remounts it.
 - **Breadcrumb.** The trail reads Home, then the route's crumb. `useDynamicCrumb(label)` replaces that crumb while the page is mounted, for example with the record's title; `null` or `undefined` keeps the registered one. The trail has one level: `findings/:findingId` does not link back to `findings`.
 - **Error screens.** `NotFoundPage` and `ForbiddenPage` render the shell's 404 and 403 screens in place and keep the URL. Navigating to `/403` would change it.
 - **Data.** `api` calls paths below the Martis base path, so `api.get('/api/findings/...')` reaches an API route of your app under `/{martis-path}/api/`, on the `martis.api` middleware group, which runs the same authentication as the Martis API.

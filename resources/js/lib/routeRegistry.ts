@@ -31,8 +31,9 @@ export const RESERVED_ROUTE_SEGMENTS: readonly string[] = Object.freeze([
   'dashboards', 'profile', 'system', 'dev', 'tools', 'resources', '403', '500',
   // Sign-in and account pages
   'login', 'register', 'forgot-password', 'reset-password', 'email', 'invitations', '2fa',
-  // Server routes that never reach the SPA
-  'api', 'sso', 'logout', 'favicon.ico',
+  // Server routes that never reach the SPA: `api-docs` is the default
+  // `martis.api_docs.path` (the API documentation, when enabled)
+  'api', 'api-docs', 'sso', 'logout', 'favicon.ico',
 ])
 
 /** The props a registered page receives: the Tool it is bound to, once resolved. */
@@ -102,6 +103,19 @@ function shapeOf(path: string): string {
     .join('/')
 }
 
+/**
+ * The order the router receives the registered routes in: by path, letter
+ * case aside, never by registration order. React Router gives a tie in its
+ * ranking (`a/:x/c` and `a/b/:y` on `/a/b/c`) to the earlier sibling, and
+ * routes from two bundles are registered in the order the network delivers
+ * the bundles.
+ */
+export function inRouterOrder(routes: readonly RegisteredRoute[]): RegisteredRoute[] {
+  const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
+
+  return [...routes].sort((a, b) => compare(a.path.toLowerCase(), b.path.toLowerCase()) || compare(a.path, b.path))
+}
+
 function isComponent(value: unknown): boolean {
   if (typeof value === 'string') return value.trim() !== ''
   if (typeof value === 'function') return true
@@ -120,6 +134,7 @@ function optionalText(value: unknown): string | null | false {
 // can name the type of `routeRegistry`.
 export class RouteRegistry {
   private readonly accepted: RegisteredRoute[] = []
+  /** Every shape ever registered, the ones dropped as duplicates included. */
   private readonly shapes = new Set<string>()
   private sealed = false
 
@@ -149,6 +164,7 @@ export class RouteRegistry {
     if (!isComponent(route.component)) {
       return refuse('the component must be a componentRegistry key or a React component')
     }
+    const component = typeof route.component === 'string' ? route.component.trim() : route.component
 
     const tool = optionalText(route.tool)
     if (tool === false) return refuse('tool must be the uriKey of a Tool')
@@ -156,18 +172,27 @@ export class RouteRegistry {
     const crumb = optionalText(route.crumb)
     if (crumb === false) return refuse('crumb must be a non-empty string')
 
+    // Extension bundles load in parallel, so which of two registrations of
+    // one shape comes first depends on the network. Keeping either would
+    // make the page that renders depend on it too: both are dropped, and
+    // the path renders the 404 page on every load until one is removed.
     const shape = shapeOf(path)
-    if (this.shapes.has(shape)) return refuse(`a route of the shape "${path}" is already registered`)
+    if (this.shapes.has(shape)) {
+      const index = this.accepted.findIndex((accepted) => shapeOf(accepted.path) === shape)
+      if (index !== -1) this.accepted.splice(index, 1)
+      return refuse(`a route of the shape "${path}" is already registered: both are refused, so the page never depends on which extension bundle loaded first`)
+    }
 
     this.shapes.add(shape)
-    this.accepted.push({ path, component: route.component, crumb, tool })
+    this.accepted.push({ path, component, crumb, tool })
 
     return true
   }
 
-  /** Whether a route of this path's shape is registered. */
+  /** Whether a route of this path's shape is registered (and not dropped as a duplicate). */
   has(path: string): boolean {
-    return this.shapes.has(shapeOf(normalisePath(path)))
+    const shape = shapeOf(normalisePath(path))
+    return this.accepted.some((accepted) => shapeOf(accepted.path) === shape)
   }
 
   /** The accepted routes, in registration order. */
