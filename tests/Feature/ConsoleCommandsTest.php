@@ -405,6 +405,25 @@ it('martis:install warns and leaves bootstrap/providers.php alone when it finds 
     }
 });
 
+it('martis:install warns instead of registering the provider inside a block comment', function () {
+    try {
+        $bootstrapPath = base_path('bootstrap/providers.php');
+
+        // A commented-out list above the real one: its `return [` comes
+        // first. Laravel would drop an entry written there without a word.
+        $commented = "<?php\n\n/*\nreturn [\n    App\\Providers\\OldServiceProvider::class,\n];\n*/\n\nreturn [\n    App\\Providers\\AppServiceProvider::class,\n];\n";
+        (new Filesystem)->put($bootstrapPath, $commented);
+
+        $this->artisan('martis:install', ['--no-interaction' => true])
+            ->expectsOutputToContain('Could not register')
+            ->assertSuccessful();
+
+        expect((string) file_get_contents($bootstrapPath))->toBe($commented);
+    } finally {
+        cleanupMartisInstallArtifacts();
+    }
+});
+
 // ---------------------------------------------------------------------------
 // martis:resource
 // ---------------------------------------------------------------------------

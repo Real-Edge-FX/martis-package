@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Martis\Console\SsoMakeCommand;
 
@@ -47,11 +48,25 @@ afterEach(function () {
         }
     }
 
+    Schema::dropIfExists('roles');
+
     // The migrations the command published.
     foreach (array_diff(glob(database_path('migrations/*.php')) ?: [], $this->skeletonMigrations) as $migration) {
         unlink($migration);
     }
 });
+
+/**
+ * Spatie's `roles` table, which the group column migration alters: without
+ * it (or Spatie's migration on disk) martis:sso refuses --with-migration.
+ */
+function ssoRolesTable(): void
+{
+    Schema::create('roles', function ($table) {
+        $table->id();
+        $table->string('name');
+    });
+}
 
 it('martis:sso requires a known provider name unless --custom is passed', function () {
     $this->artisan('martis:sso', ['provider' => 'unknown'])
@@ -70,6 +85,8 @@ it('martis:sso accepts --custom for an unknown provider name', function () {
 });
 
 it('martis:sso azure --no-composer --no-listener --no-migrate runs cleanly', function () {
+    ssoRolesTable();
+
     if (! file_exists(config_path('martis.php'))) {
         $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
     }
@@ -120,6 +137,8 @@ it('martis:sso azure is idempotent — running twice does not duplicate the conf
 });
 
 it('martis:sso azure --with-migration only publishes the migration once', function () {
+    ssoRolesTable();
+
     if (! file_exists(config_path('martis.php'))) {
         $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
     }
@@ -358,4 +377,38 @@ it('keeps skipping the Spatie publish under --no-composer when Spatie is not ins
     ])
         ->expectsOutputToContain('spatie/laravel-permission not installed')
         ->assertSuccessful();
+});
+
+it('refuses the group column migration when nothing creates the roles table first', function () {
+    // No Spatie migration on disk and no roles table: the migration would run
+    // as a no-op, be recorded as run, and the column would never exist.
+    expect(glob(database_path('migrations/*_create_permission_tables.php')) ?: [])->toBe([]);
+
+    $exitCode = Artisan::call('martis:sso', [
+        'provider' => 'azure',
+        '--with-migration' => true,
+        '--no-composer' => true,
+        '--no-listener' => true,
+        '--no-migrate' => true,
+    ]);
+    $output = (string) preg_replace('/\s+/', ' ', Artisan::output());
+
+    expect($exitCode)->toBe(1)
+        ->and($output)->toContain("Spatie's create_permission_tables migration exists")
+        ->and($output)->toContain('--with-spatie')
+        ->and(glob(database_path('migrations/*_add_azure_group_name_to_roles_table.php')) ?: [])->toBe([]);
+});
+
+it('publishes the group column migration when the roles table already exists', function () {
+    ssoRolesTable();
+
+    $this->artisan('martis:sso', [
+        'provider' => 'azure',
+        '--with-migration' => true,
+        '--no-composer' => true,
+        '--no-listener' => true,
+        '--no-migrate' => true,
+    ])->assertSuccessful();
+
+    expect(glob(database_path('migrations/*_add_azure_group_name_to_roles_table.php')) ?: [])->toHaveCount(1);
 });

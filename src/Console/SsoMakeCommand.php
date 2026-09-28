@@ -98,8 +98,8 @@ class SsoMakeCommand extends Command
         }
 
         // 5. Publish Martis migration (only when --with-migration).
-        if ($this->option('with-migration')) {
-            $this->publishMigration($name);
+        if ($this->option('with-migration') && ! $this->publishMigration($name)) {
+            return self::FAILURE;
         }
 
         // 6. Run migrations (only when migration was published OR Spatie
@@ -541,13 +541,20 @@ class SsoMakeCommand extends Command
         }
     }
 
-    protected function publishMigration(string $name): void
+    /**
+     * Publish the migration adding `{name}_group_name` to Spatie's `roles`
+     * table. Returns false (the command fails) when nothing would create
+     * that table first: the migration would run as a no-op through its
+     * `hasTable('roles')` guard and be recorded as run, so the column would
+     * never exist, and a re-run would skip the published file.
+     */
+    protected function publishMigration(string $name): bool
     {
         $stubPath = StubResolver::path('add_provider_group_column_to_roles_table.php.stub');
         if (! file_exists($stubPath)) {
             $this->components->warn('Migration stub missing.');
 
-            return;
+            return true;
         }
 
         $migrationName = "add_{$name}_group_name_to_roles_table";
@@ -555,7 +562,15 @@ class SsoMakeCommand extends Command
         if ($existing !== []) {
             $this->components->twoColumnDetail('<fg=yellow>Skipping</> migration', "{$migrationName} already published");
 
-            return;
+            return true;
+        }
+
+        if (! $this->rolesTableWillExist()) {
+            $this->components->error(
+                "Neither a roles table nor Spatie's create_permission_tables migration exists, so {$migrationName} would do nothing and roles.{$name}_group_name would never be added. Re-run with --with-spatie (it installs and publishes spatie/laravel-permission first), or publish Spatie's migration and re-run with --with-migration."
+            );
+
+            return false;
         }
 
         $filesystem = new Filesystem;
@@ -567,6 +582,26 @@ class SsoMakeCommand extends Command
 
         $filesystem->put($target, $stub);
         $this->components->twoColumnDetail('<fg=green>Created</> migration', basename($target));
+
+        return true;
+    }
+
+    /**
+     * Whether Spatie's `roles` table exists, or a published migration will
+     * create it before the group column migration (which is dated after
+     * every migration already on disk).
+     */
+    protected function rolesTableWillExist(): bool
+    {
+        if (glob(database_path('migrations/*_create_permission_tables.php'))) {
+            return true;
+        }
+
+        try {
+            return Schema::hasTable('roles');
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     protected function printNextSteps(string $name): void

@@ -16,7 +16,7 @@ beforeEach(function () {
     $this->provider = 'App\\Providers\\MartisServiceProvider';
 });
 
-it('adds a fully qualified entry first and keeps the next entry indented (Laravel 12 skeleton)', function () {
+it('adds a fully qualified entry first and keeps the next entry indented (Laravel 11 and 12.0 skeleton)', function () {
     $skeleton = "<?php\n\nreturn [\n    App\\Providers\\AppServiceProvider::class,\n];\n";
 
     expect($this->patcher->add($skeleton, $this->provider))->toBe(
@@ -24,7 +24,7 @@ it('adds a fully qualified entry first and keeps the next entry indented (Larave
     );
 });
 
-it('adds an import and a short entry when the file imports its providers (Laravel 13 skeleton)', function () {
+it('adds an import and a short entry when the file imports its providers (Laravel 12.x and 13 skeleton)', function () {
     $skeleton = "<?php\n\nuse App\\Providers\\AppServiceProvider;\n\nreturn [\n    AppServiceProvider::class,\n];\n";
 
     expect($this->patcher->add($skeleton, $this->provider))->toBe(
@@ -67,4 +67,30 @@ it('does not match a comment mentioning "return [" before the real array', funct
 it('returns null when the file does not return an array literal', function () {
     expect($this->patcher->add("<?php\n\nreturn array(\n    App\\Providers\\AppServiceProvider::class,\n);\n", $this->provider))->toBeNull()
         ->and($this->patcher->add("<?php\n\n\$providers = [];\n\nreturn \$providers;\n", $this->provider))->toBeNull();
+});
+
+it('returns null rather than write the entry into a block comment', function () {
+    $file = "<?php\n\n/*\nreturn [\n    App\\Providers\\OldServiceProvider::class,\n];\n*/\n\nreturn [\n    App\\Providers\\AppServiceProvider::class,\n];\n";
+
+    expect($this->patcher->add($file, $this->provider))->toBeNull();
+});
+
+it('returns null rather than write the import into a block comment', function () {
+    $file = "<?php\n\n/*\nuse App\\Providers\\TelescopeServiceProvider;\n*/\nuse App\\Providers\\AppServiceProvider;\n\nreturn [\n    AppServiceProvider::class,\n];\n";
+
+    expect($this->patcher->add($file, $this->provider))->toBeNull();
+});
+
+it('returns null rather than write the entry into a closure returning its own array', function () {
+    $file = "<?php\n\n\$local = static function (): array {\n    return [\n        App\\Providers\\DebugServiceProvider::class,\n    ];\n};\n\nreturn [\n    App\\Providers\\AppServiceProvider::class,\n    ...\$local(),\n];\n";
+
+    expect($this->patcher->add($file, $this->provider))->toBeNull();
+});
+
+it('still patches a file whose block comment holds no statement', function () {
+    $file = "<?php\n\n/*\n * Providers the app registers.\n */\n\nuse App\\Providers\\AppServiceProvider;\n\nreturn [\n    AppServiceProvider::class,\n];\n";
+
+    expect($this->patcher->add($file, $this->provider))->toBe(
+        "<?php\n\n/*\n * Providers the app registers.\n */\n\nuse App\\Providers\\AppServiceProvider;\nuse App\\Providers\\MartisServiceProvider;\n\nreturn [\n    MartisServiceProvider::class,\n    AppServiceProvider::class,\n];\n"
+    );
 });
