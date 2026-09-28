@@ -1,6 +1,8 @@
 # Custom pages at your own URLs
 
-A page of your application can live at a URL of its own below the Martis path (`/martis/findings`, `/martis/findings/{finding}`, `/martis/projects/{project}/repositories`) and render inside the standard shell: the sidebar, the topbar, the footer, the mobile drawer, the breadcrumbs and the navigation progress bar, in every layout preset. You register the route from your extension bundle with `routeRegistry` (v2.2.0+).
+Register a page of your application at a URL of its own below the Martis path, rendered inside the standard Martis shell. The route comes from your extension bundle, through `routeRegistry` on `@martis/runtime` (v2.2.0+).
+
+The page keeps the sidebar, the topbar, the footer, the mobile drawer, the breadcrumbs and the navigation progress bar, in every layout preset, at URLs such as `/martis/findings`, `/martis/findings/{finding}` or `/martis/projects/{project}/repositories`.
 
 Use it when a page needs a product URL. A page that is fine at `/tools/{uriKey}` can stay a plain [Tool](tools.md).
 
