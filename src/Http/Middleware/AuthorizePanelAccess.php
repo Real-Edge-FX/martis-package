@@ -8,6 +8,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Martis\Auth\PanelAccess;
 use Martis\Http\Resources\JsonErrorResponse;
+use Martis\Impersonation\ImpersonationManager;
 use Martis\Support\TranslatedLine;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -23,6 +24,11 @@ use Symfony\Component\HttpFoundation\Response;
  * The 2FA challenge SPA page runs through the shell route, so it passes
  * here exactly as EnsureTwoFactorChallenge lets it pass: a refused user
  * with a pending challenge completes it and then sees the refusal.
+ *
+ * Stopping an active impersonation also passes: the gate evaluates the
+ * impersonated user, and a target it stops accepting mid-session must
+ * still be able to hand the session back to the operator. Stopping can
+ * only restore the operator, who passed the gate to start it.
  */
 class AuthorizePanelAccess
 {
@@ -39,10 +45,16 @@ class AuthorizePanelAccess
             return $next($request);
         }
 
+        $impersonating = app(ImpersonationManager::class)->isActive();
+
+        if ($impersonating && $request->isMethod('POST') && $request->is("{$basePath}/api/impersonation/stop")) {
+            return $next($request);
+        }
+
         if ($request->expectsJson()) {
             return JsonErrorResponse::forbidden(TranslatedLine::get('martis::messages.panel_forbidden'))->toResponse();
         }
 
-        return response()->view('martis::app', ['panelForbidden' => true], 403);
+        return response()->view('martis::app', ['panelForbidden' => true, 'panelForbiddenImpersonating' => $impersonating], 403);
     }
 }

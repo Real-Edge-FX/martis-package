@@ -311,3 +311,37 @@ it('leaves another user\'s notification in the table on clear-all under an orWhe
     expect($stranger->fresh())->not->toBeNull()
         ->and($mine->fresh())->toBeNull();
 });
+
+// ---------------------------------------------------------------------------
+// One scope, and the shell tells the bell about it (PR #276 review)
+// ---------------------------------------------------------------------------
+
+it('replaces the first scope with a second registration', function () {
+    tenantNotification($this->user, 'Tenant 1', 1);
+    tenantNotification($this->user, 'Tenant 2', 2);
+
+    scopeNotificationsToTenant(1);
+    scopeNotificationsToTenant(2);
+
+    $titles = collect($this->getJson('/martis/api/notifications')->assertOk()->json('data'))->pluck('title')->all();
+
+    expect($titles)->toBe(['Tenant 2'])
+        ->and(Martis::hasNotificationScope())->toBeTrue();
+});
+
+it('tells the bell in the shell that a scope narrows the centre', function () {
+    scopeNotificationsToTenant(1);
+
+    $this->get('/martis')->assertOk()->assertSee('"scoped":true', false);
+});
+
+it('tells the bell in the shell that no scope is registered', function () {
+    expect(Martis::hasNotificationScope())->toBeFalse();
+
+    $this->get('/martis')->assertOk()->assertSee('"scoped":false', false);
+
+    scopeNotificationsToTenant(1);
+    Martis::scopeNotificationsUsing(null);
+
+    expect(Martis::hasNotificationScope())->toBeFalse();
+});

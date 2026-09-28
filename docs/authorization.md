@@ -107,7 +107,7 @@ The `martis.authorize` middleware checks it after authentication, the 2FA challe
 | JSON (the SPA's API calls, a Tool route) | `403 {"message": "You do not have access to this panel."}`, translated |
 | A page | `403` with a standalone "No access to this panel" screen and a **Sign out** button |
 
-`Gate::before()` callbacks apply, so a super-admin rule lets its users in. The user is not passed to the gate as an argument, so a policy of your user model is never consulted for it. An operator cannot impersonate a user the gate refuses: `POST /api/impersonation/start/{id}` answers `422`.
+`Gate::before()` callbacks apply, so a super-admin rule lets its users in. The user is not passed to the gate as an argument, so a policy of your user model is never consulted for it. An operator cannot impersonate a user the gate refuses: `POST /api/impersonation/start/{id}` answers `422`. The gate evaluates the impersonated user during the session, so if it stops accepting that user mid-session, `POST /api/impersonation/stop` stays reachable and the no-access screen offers **Stop impersonating** instead of **Sign out**: the session goes back to the operator. Every other route stays refused.
 
 ## Writing a policy
 

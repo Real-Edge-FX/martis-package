@@ -209,7 +209,7 @@ The `<Sparkline>` React component used internally is also on `@martis/runtime` (
 
 ## Number formatting
 
-Value, trend and progress metrics format their numbers in the user's Martis locale (v2.1.0), with the metric's prefix and suffix around them: `1234.5` reads `1234,5` for `pt_PT` and `1,234.5` for `en_US`.
+Value, trend and progress metrics format their numbers in the user's Martis locale (v2.1.0), with the metric's prefix and suffix around them: `1234.5` reads `1234,5` for `pt_PT` and `1,234.5` for `en_US`. The trend chart's axis and tooltip, and the partition chart's tooltip, use the same locale (Chart.js `locale` option).
 
 ## Custom date column on query helpers
 

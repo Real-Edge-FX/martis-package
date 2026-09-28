@@ -6,9 +6,9 @@ The sections below list the breaking changes of each major version and what to c
 
 ## Upgrading to v2.1.0 from v2.0.x
 
-Nothing to change: v2.1.0 adds optional features and fixes. There are three visible changes:
+v2.1.0 adds optional features and fixes. Nothing needs changing unless one of the two cases at the end of this section applies. There are three visible changes:
 
-- **Dates and numbers follow the user's Martis language.** The following format in the language the user picked in Martis, not the browser's: Date, DateTime and Currency values, metric values, menu count badges and notification dates. With `pt_PT` a date reads `27/09/2026` and a number `1234,5`. The Currency and Number inputs take the same decimal separator. A Currency field with `locale()` keeps that locale. See [Internationalisation → Number and date formatting](i18n.md#number-and-date-formatting).
+- **Dates and numbers follow the user's Martis language.** The following format in the language the user picked in Martis, not the browser's: Date, DateTime and Currency values, metric values, menu count badges and notification dates. With `pt_PT` a date reads `27/09/2026` and a number `1234,5`. The bundled `en` locale formats with US rules (`9/27/2026`, `1,234.5`) on every browser, where it used to follow the browser (`27/09/2026` on an `en-GB` browser). The Currency and Number inputs take the same decimal separator, and the metric charts their axes and tooltips. A Currency field with `locale()` keeps that locale. See [Internationalisation → Number and date formatting](i18n.md#number-and-date-formatting).
 - **The `aggregateVia()` tile shows a number, not EUR.** A column named like `amount`, `price` or `total` was shown as euros whatever the app's currency. It is now a plain number with up to two decimals.
 - **A fresh install stops logging a 404 for the extensions bundle.** The shell leaves `/vendor/martis-user/extensions.js` out while the file does not exist, and `npm run build:extensions` brings it back with no other step. Any other `MARTIS_EXTENSIONS` URL is still loaded as configured.
 
@@ -18,6 +18,11 @@ New and optional:
 - **Install without migrating:** `php artisan martis:install --no-migrate`, then `php artisan migrate`.
 - **Add palette commands** with `Martis::commandPalette()` ([Components → App commands](components.md#app-commands-v210)).
 - **Scope the notification centre** with `Martis::scopeNotificationsUsing()` ([Notifications → Scoping the notification centre](notifications.md#scoping-the-notification-centre)).
+
+When to act:
+
+- **Your users expect another English format.** Add a regional code such as `en_GB` to `martis.preferences.locales` (and a label to `locale_labels`), and let those users pick it: it translates through `en` and formats with its region. See [Internationalisation → Number and date formatting](i18n.md#number-and-date-formatting).
+- **You published the shell template** (`vendor:publish --tag=martis-views`, `resources/views/vendor/martis/app.blade.php`). Your copy wins over the package's, so it keeps loading the unbuilt extensions bundle (the 404), and a user the `viewMartis` gate refuses gets the full SPA instead of the standalone screen. Republish it, or port three changes of the package's `resources/views/app.blade.php` into it: `panelForbidden` and `panelForbiddenImpersonating` in `window.MartisConfig`, `extensions: {!! json_encode(\Martis\Support\ExtensionBundles::urls()) !!}`, and the `scoped` key of `notifications`.
 
 ## Upgrading to v2.0.1 from v2.0.0
 

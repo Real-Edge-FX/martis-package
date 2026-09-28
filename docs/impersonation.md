@@ -87,6 +87,8 @@ The closure receives the **operator** (not the target). The package does not pas
 | 422 | Operator tried to impersonate themselves, **or** impersonation is already active (chaining is not supported on purpose), **or** the target fails the `viewMartis` panel gate (v2.1.0). |
 | 200 | Started — body is the active snapshot. |
 
+If the `viewMartis` gate stops accepting the impersonated user during the session, every panel route refuses them except `POST /api/impersonation/stop`, and the no-access screen offers **Stop impersonating** (v2.1.0). See [Authorization → Panel access](authorization.md#panel-access-viewmartis).
+
 ### Stop
 
 `POST /martis/api/impersonation/stop` always returns 200 and the (now-inactive) snapshot. Calling it when no impersonation is running is a no-op.

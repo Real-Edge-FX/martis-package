@@ -262,3 +262,55 @@ it('start answers 422 when the target cannot open the panel (viewMartis)', funct
     $response->assertStatus(422)->assertJson(['message' => 'This user cannot access the panel.']);
     expect(Impersonation::isActive())->toBeFalse();
 });
+
+/*
+ * Stop runs behind `martis.authorize`, which evaluates the impersonated
+ * user. A target the viewMartis gate stops accepting mid-session must still
+ * be able to hand the session back (PR #276 review); nothing else opens.
+ */
+function refuseTheTargetFromNowOn(): void
+{
+    Gate::define('viewMartis', fn ($user) => $user->email !== 'target@example.com');
+}
+
+it('stop hands the session back when the gate refuses the target mid-session', function () {
+    Gate::define('martis-impersonate', fn () => true);
+    $this->actingAs($this->operator, 'web')->postJson('/martis/api/impersonation/start/'.$this->target->id)->assertOk();
+
+    refuseTheTargetFromNowOn();
+
+    $this->postJson('/martis/api/impersonation/stop')->assertOk()->assertJson(['active' => false]);
+    expect(Impersonation::isActive())->toBeFalse()
+        ->and(auth()->guard('web')->id())->toBe($this->operator->id);
+});
+
+it('keeps every other route closed to a refused target while impersonating', function () {
+    Gate::define('martis-impersonate', fn () => true);
+    $this->actingAs($this->operator, 'web')->postJson('/martis/api/impersonation/start/'.$this->target->id)->assertOk();
+
+    refuseTheTargetFromNowOn();
+
+    $this->getJson('/martis/api/impersonation/status')->assertForbidden();
+    $this->postJson('/martis/api/impersonation/start/'.$this->operator->id)->assertForbidden();
+    $this->getJson('/martis/api/command-palette')->assertForbidden();
+    expect(Impersonation::isActive())->toBeTrue();
+});
+
+it('offers the refused impersonated user a way back in the no-access shell', function () {
+    Gate::define('martis-impersonate', fn () => true);
+    $this->actingAs($this->operator, 'web')->postJson('/martis/api/impersonation/start/'.$this->target->id)->assertOk();
+
+    refuseTheTargetFromNowOn();
+
+    $this->get('/martis/resources/users')->assertForbidden()
+        ->assertSee('panelForbidden: true', false)
+        ->assertSee('panelForbiddenImpersonating: true', false);
+});
+
+it('does not open stop to a refused user who is not impersonating', function () {
+    Gate::define('viewMartis', fn () => false);
+
+    $this->actingAs($this->target, 'web')->postJson('/martis/api/impersonation/stop')->assertForbidden();
+    $this->actingAs($this->target, 'web')->get('/martis')->assertForbidden()
+        ->assertSee('panelForbiddenImpersonating: false', false);
+});

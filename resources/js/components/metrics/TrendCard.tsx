@@ -48,6 +48,10 @@ export function TrendCard({ data, color }: TrendCardProps) {
   }
 
   const chartOptions = {
+    // Chart.js formats the axis ticks and the tooltip values itself
+    // (`Intl.NumberFormat(options.locale)`); without it they follow the
+    // browser, not the Martis locale of the headline above.
+    locale,
     responsive: true,
     maintainAspectRatio: false,
     plugins: {

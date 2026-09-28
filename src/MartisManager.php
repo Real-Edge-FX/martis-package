@@ -524,10 +524,10 @@ class MartisManager
 
                 if ($item instanceof MenuGroup) {
                     $group = $item->resolve($request);
-                    $items = is_array($group['items'] ?? null) ? $group['items'] : [];
+                    $groupItems = is_array($group['items'] ?? null) ? $group['items'] : [];
                     $label = is_string($group['label'] ?? null) ? $group['label'] : null;
 
-                    foreach ($items as $resolved) {
+                    foreach ($groupItems as $resolved) {
                         if (is_array($resolved)) {
                             $entries[] = $this->paletteEntry(count($entries), $resolved, $label);
                         }
@@ -576,7 +576,10 @@ class MartisManager
      * builder; they land inside one parenthesised group joined to the
      * user constraint with AND, so an `orWhere` never reaches another
      * user's notifications. Its return value is ignored; `null` removes
-     * the scope. The package knows nothing about what the scope filters
+     * the scope. There is one scope: a second call replaces the first
+     * (unlike commandPalette(), which accumulates), so an app and a
+     * package that both narrow the centre combine their conditions in one
+     * closure. The package knows nothing about what the scope filters
      * on (a tenant, a workspace, a product area).
      *
      * @param  (Closure(Builder<Model>, Request): mixed)|null  $scope
@@ -591,6 +594,17 @@ class MartisManager
     public function forgetNotificationScope(): static
     {
         return $this->scopeNotificationsUsing(null);
+    }
+
+    /**
+     * Whether an app registered a notification scope. The shell tells the
+     * bell, which then refetches the scoped count on a real-time
+     * `martis:notification-received` instead of adding one: the pushed
+     * notification may fall outside the scope.
+     */
+    public function hasNotificationScope(): bool
+    {
+        return $this->notificationScope instanceof Closure;
     }
 
     /**

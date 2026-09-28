@@ -1,11 +1,13 @@
 import { Chart } from 'primereact/chart'
 import { chartPalette, mutedTextColor, resolveColor } from '@/lib/themeColors'
+import { useFormatLocale } from '@/lib/formatLocale'
 
 interface PartitionCardProps {
   data: Record<string, unknown>
 }
 
 export function PartitionCard({ data }: PartitionCardProps) {
+  const locale = useFormatLocale()
   const labels = (data.labels as string[]) ?? []
   const values = (data.values as number[]) ?? []
 
@@ -37,6 +39,8 @@ export function PartitionCard({ data }: PartitionCardProps) {
   }
 
   const chartOptions = {
+    // The tooltip values: Chart.js formats them with `options.locale`.
+    locale,
     responsive: true,
     maintainAspectRatio: false,
     plugins: {

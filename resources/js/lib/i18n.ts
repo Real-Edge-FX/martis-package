@@ -38,10 +38,11 @@ export function getLocale(): string {
     locale = config.locale ?? "en"
   }
 
-  if (locale === "en_US" || locale === "en_GB") {
-    return "en"
-  }
-
+  // A regional code (`en_GB`, `en_US`) is kept as is: the translations
+  // endpoint answers it through the fallback chain (`en`), and the dates
+  // and numbers format with its region. Collapsing it to `en` here made
+  // i18next boot in `en` (US formats) and the preferences refetch then
+  // re-switch to the saved code on every page load (v2.1.0).
   return locale
 }
 
