@@ -4,24 +4,37 @@ import { useTranslation } from 'react-i18next'
 import { useDynamicCrumbLabel } from '@/contexts/DynamicCrumbContext'
 
 interface BreadcrumbHandle {
+  /** An i18n key of the `navigation` namespace (the package's own routes). */
   crumb?: string
+  /**
+   * A label shown as given, never through `t()`: the crumb of a route an
+   * application registered on `routeRegistry` (v2.2.0+). With i18next's
+   * default separators, `t('Findings: open')` would look up the namespace
+   * `Findings`.
+   */
+  crumbLabel?: string
+}
+
+function isCrumb(handle: unknown): handle is BreadcrumbHandle {
+  const candidate = handle as BreadcrumbHandle | undefined
+  return typeof candidate?.crumb === 'string' || typeof candidate?.crumbLabel === 'string'
 }
 
 export function Breadcrumbs() {
   const { t } = useTranslation('navigation')
   const matches = useMatches()
   const dynamicLabel = useDynamicCrumbLabel()
-  const crumbs = matches.filter(
-    (m): m is typeof m & { handle: BreadcrumbHandle } =>
-      typeof (m.handle as BreadcrumbHandle | undefined)?.crumb === 'string',
-  )
+  const crumbs = matches.filter((m) => isCrumb(m.handle))
 
   // Pages that publish a dynamic label (e.g. ToolPage with the resolved
-  // tool name) override the static i18n key for the deepest crumb. Falls
-  // back to the static key while the page is still resolving its title.
+  // tool name) override the static label for the deepest crumb. Falls
+  // back to the static label while the page is still resolving its title.
   const labelFor = (handle: BreadcrumbHandle, isLast: boolean): string => {
     if (isLast && dynamicLabel !== null && dynamicLabel.trim() !== '') {
       return dynamicLabel
+    }
+    if (typeof handle.crumbLabel === 'string') {
+      return handle.crumbLabel
     }
     return t(handle.crumb!)
   }

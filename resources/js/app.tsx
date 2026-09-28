@@ -20,7 +20,7 @@ import { GateProvider } from '@/contexts/GateContext'
 import { GateModal } from '@/components/GateModal'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-import { router } from '@/router'
+import { createAppRouter, type AppRouter } from '@/router'
 import { ToastContainer } from '@/components/Toast'
 import { LanguageSwitchOverlay } from '@/components/LanguageSwitchOverlay/LanguageSwitchOverlay'
 import { registerDefaultFields } from '@/components/fields/FieldRenderer'
@@ -90,7 +90,7 @@ window.Martis = {
   version: __MARTIS_VERSION__,
 }
 
-function App() {
+function App({ router }: { router: AppRouter }) {
   return (
     <StrictMode>
       <ErrorBoundary>
@@ -145,6 +145,9 @@ if (container) {
     initI18n().catch(() => undefined),
     panelForbidden ? Promise.resolve() : loadConsumerExtensions().catch(() => undefined),
   ]).then(() => {
-    createRoot(container).render(panelForbidden ? <PanelForbiddenApp /> : <App />)
+    // The router is built only now, once the extension bundles have
+    // registered their routes and auth page overrides (v2.2.0; before, it
+    // was built when `@/router` was imported, ahead of every bundle).
+    createRoot(container).render(panelForbidden ? <PanelForbiddenApp /> : <App router={createAppRouter()} />)
   })
 }
