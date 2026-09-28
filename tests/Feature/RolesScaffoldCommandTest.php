@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Artisan;
+use Martis\Console\RolesScaffoldCommand;
 use Martis\Tests\Support\SkeletonSnapshot;
 use Martis\Tests\TestCase;
 
@@ -428,6 +430,101 @@ it('publishes the category migration after the Spatie migration dated one second
 
         foreach ((array) glob(base_path('database/migrations/*_add_category_column_to_permissions_table.php')) as $file) {
             @unlink((string) $file);
+        }
+    }
+});
+
+it('publishes the Spatie config and migration when the app did not boot the Spatie provider', function () {
+    if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
+        $this->markTestSkipped('spatie/laravel-permission not installed');
+    }
+
+    // As after `composer require` inside the same run: Spatie is on disk but
+    // the application never registered its provider, so `vendor:publish
+    // --provider` had no paths to copy.
+    expect(app()->getProviders('Spatie\\Permission\\PermissionServiceProvider'))->toBe([]);
+
+    $config = config_path('permission.php');
+    $configBefore = is_file($config) ? file_get_contents($config) : null;
+    $migrationsBefore = glob(database_path('migrations/*.php')) ?: [];
+
+    try {
+        $this->artisan('martis:roles', [
+            '--no-install' => true,
+            '--no-migrate' => true,
+            '--no-seed' => true,
+        ])->assertSuccessful();
+
+        expect(glob(database_path('migrations/*_create_permission_tables.php')) ?: [])->toHaveCount(1)
+            ->and($config)->toBeFile();
+    } finally {
+        foreach (array_diff(glob(database_path('migrations/*.php')) ?: [], $migrationsBefore) as $file) {
+            @unlink($file);
+        }
+
+        if ($configBefore === null) {
+            @unlink($config);
+        } else {
+            file_put_contents($config, $configBefore);
+        }
+    }
+});
+
+it('fails loudly when Spatie was to be installed but still cannot be loaded', function () {
+    $command = new class extends RolesScaffoldCommand
+    {
+        protected function ensureSpatieInstalled(): void {}
+
+        protected function loadServiceProvider(string $provider): bool
+        {
+            return false;
+        }
+    };
+    $this->app->make(Kernel::class)->registerCommand($command);
+
+    $exitCode = Artisan::call('martis:roles', ['--no-migrate' => true, '--no-seed' => true]);
+    $output = (string) preg_replace('/\s+/', ' ', Artisan::output());
+
+    expect($exitCode)->toBe(1)
+        ->and($output)->toContain('spatie/laravel-permission could not be loaded')
+        ->and($output)->toContain('re-run the same command');
+
+    expect(app_path('Martis/Resources/UserResource.php'))->not->toBeFile();
+});
+
+it('runs the migrations after publishing the category migration, so one run adds the column', function () {
+    if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
+        $this->markTestSkipped('spatie/laravel-permission not installed');
+    }
+
+    $command = new class extends RolesScaffoldCommand
+    {
+        /** @var list<string> */
+        public static array $categoryMigrationsAtMigrate = [];
+
+        public static bool $migrated = false;
+
+        protected function runMigrations(): void
+        {
+            self::$migrated = true;
+            self::$categoryMigrationsAtMigrate = glob(database_path('migrations/*_add_category_column_to_permissions_table.php')) ?: [];
+        }
+    };
+    $this->app->make(Kernel::class)->registerCommand($command);
+
+    try {
+        $this->artisan('martis:roles', [
+            '--no-install' => true,
+            '--no-publish-spatie' => true,
+            '--no-seed' => true,
+            '--with-categories' => true,
+        ])->assertSuccessful();
+
+        expect($command::$migrated)->toBeTrue()
+            ->and($command::$categoryMigrationsAtMigrate)->toHaveCount(1);
+    } finally {
+        foreach (glob(database_path('migrations/*_add_category_column_to_permissions_table.php')) ?: [] as $file) {
+            @unlink($file);
         }
     }
 });

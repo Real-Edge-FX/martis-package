@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Martis\Console;
 
-use Composer\Autoload\ClassLoader;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\Filesystem;
 use Martis\Console\Concerns\AsksOnlyOnATerminal;
+use Martis\Console\Concerns\LoadsPackagesInstalledThisRun;
 use Martis\Stubs\StubResolver;
 use Martis\Support\MigrationTimestamps;
 use Symfony\Component\Process\Process;
@@ -37,6 +37,7 @@ use Symfony\Component\Process\Process;
 class RolesScaffoldCommand extends Command
 {
     use AsksOnlyOnATerminal;
+    use LoadsPackagesInstalledThisRun;
 
     protected $signature = 'martis:roles
                             {--user= : Fully-qualified User model class (default: App\\Models\\User)}
@@ -62,9 +63,11 @@ class RolesScaffoldCommand extends Command
             $this->ensureSpatieInstalled();
         }
 
-        if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
+        // Registered here when Composer installed it during this run: the
+        // application never booted its provider, so there was nothing to publish.
+        if (! $this->loadServiceProvider('Spatie\\Permission\\PermissionServiceProvider')) {
             $this->components->error(
-                'spatie/laravel-permission could not be loaded. If Composer just installed it above, this process\'s autoloader is stale — re-run the same command and it will be picked up. Otherwise install it manually and re-run with --no-install.'
+                'spatie/laravel-permission could not be loaded. If Composer installed it above, re-run the same command and it will be picked up. Otherwise install it manually (composer require spatie/laravel-permission) and re-run with --no-install.'
             );
 
             return self::FAILURE;
@@ -75,32 +78,33 @@ class RolesScaffoldCommand extends Command
             $this->publishSpatieAssets();
         }
 
-        // 3. Run pending migrations.
-        if (! $this->option('no-migrate')) {
-            $this->runMigrations();
-        }
-
-        // 4. Patch the User model with HasRoles.
+        // 3. Patch the User model with HasRoles.
         $userClass = $this->resolveUserClass();
         $this->patchUserModel($userClass);
 
-        // 5. Scaffold the three resources.
+        // 4. Scaffold the three resources.
         $namespace = $this->resolveResourceNamespace();
         foreach (self::RESOURCE_NAMES as $name) {
             $this->scaffoldResource($files, $namespace, $name, $userClass);
         }
 
-        // 5b. Scaffold the BulkAssignRole action wired into the
+        // 4b. Scaffold the BulkAssignRole action wired into the
         // generated UserResource. v1.8.8.
         $this->scaffoldBulkAssignRoleAction($files, $namespace);
 
-        // 5c. With `--with-categories`, publish the migration that
+        // 4c. With `--with-categories`, publish the migration that
         // adds the `category` column to permissions. The PermissionResource
         // stub above already wired the field + filter through the
         // {{ categoryField }} / {{ categoryFilters }} placeholders.
         if ((bool) $this->option('with-categories')) {
             $this->publishCategoryMigration($files);
             $this->scaffoldPermissionCategoryFilter($files);
+        }
+
+        // 5. Run pending migrations, once every migration is published:
+        // Spatie's tables and, with `--with-categories`, the category column.
+        if (! $this->option('no-migrate')) {
+            $this->runMigrations();
         }
 
         // 6. Scaffold the three policies (User / Role / Permission).
@@ -243,35 +247,7 @@ class RolesScaffoldCommand extends Command
             return;
         }
 
-        $this->refreshAutoloader();
-    }
-
-    /**
-     * Re-apply Composer's freshly-written PSR-4 map to this process's
-     * already booted ClassLoader. `composer require` (a subprocess)
-     * rewrites the autoload files on disk, but this parent process cached
-     * its loader at boot; without this, class_exists() for the
-     * just-installed package evaluates the stale pre-install map and
-     * wrongly reports it missing.
-     */
-    protected function refreshAutoloader(): void
-    {
-        $autoloadPath = base_path('vendor/autoload.php');
-        $psr4Path = base_path('vendor/composer/autoload_psr4.php');
-        if (! is_file($autoloadPath) || ! is_file($psr4Path)) {
-            return;
-        }
-
-        $loader = require $autoloadPath; // returns the cached ClassLoader instance
-        if (! $loader instanceof ClassLoader) {
-            return;
-        }
-
-        /** @var array<string, list<string>> $psr4 */
-        $psr4 = require $psr4Path; // freshly written by the composer subprocess
-        foreach ($psr4 as $prefix => $paths) {
-            $loader->setPsr4($prefix, $paths);
-        }
+        $this->refreshComposerAutoloader();
     }
 
     protected function publishSpatieAssets(): void

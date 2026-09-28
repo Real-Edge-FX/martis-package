@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Artisan;
+use Martis\Console\SsoMakeCommand;
 
 beforeEach(function () {
     $this->filesystem = new Filesystem;
@@ -268,4 +271,80 @@ it('publishes the group column migration after the Spatie migration dated one se
 
     expect($group)->toHaveCount(1)
         ->and(strcmp(basename($group[0]), basename($spatie)))->toBeGreaterThan(0);
+});
+
+it('publishes the Spatie config and migration when the app did not boot the Spatie provider', function () {
+    if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
+        $this->markTestSkipped('spatie/laravel-permission not installed');
+    }
+
+    // As after `composer require` inside the same run: Spatie is on disk but
+    // the application never registered its provider, so `vendor:publish
+    // --provider` had no paths to copy.
+    expect(app()->getProviders('Spatie\\Permission\\PermissionServiceProvider'))->toBe([]);
+
+    $this->artisan('martis:sso', [
+        'provider' => 'azure',
+        '--with-spatie' => true,
+        '--no-composer' => true,
+        '--no-listener' => true,
+        '--no-migrate' => true,
+    ])->assertSuccessful();
+
+    expect(glob(database_path('migrations/*_create_permission_tables.php')) ?: [])->toHaveCount(1)
+        ->and(config_path('permission.php'))->toBeFile();
+});
+
+/**
+ * martis:sso with Composer stubbed out and Spatie reported as not loadable,
+ * as when the composer subprocess installed it but this process still
+ * cannot load it.
+ */
+function ssoCommandWithoutSpatie(): void
+{
+    $command = new class extends SsoMakeCommand
+    {
+        protected function installComposerDependencies(string $providerName): void {}
+
+        protected function loadServiceProvider(string $provider): bool
+        {
+            return false;
+        }
+    };
+
+    app(Kernel::class)->registerCommand($command);
+}
+
+it('fails loudly when Spatie was to be installed but still cannot be loaded', function () {
+    ssoCommandWithoutSpatie();
+
+    $exitCode = Artisan::call('martis:sso', [
+        'provider' => 'azure',
+        '--with-spatie' => true,
+        '--with-migration' => true,
+        '--no-listener' => true,
+        '--no-migrate' => true,
+    ]);
+    $output = (string) preg_replace('/\s+/', ' ', Artisan::output());
+
+    expect($exitCode)->toBe(1)
+        ->and($output)->toContain('spatie/laravel-permission could not be loaded')
+        ->and($output)->toContain('re-run the same command');
+
+    // Nothing depending on Spatie's tables is published on a failed run.
+    expect(glob(database_path('migrations/*_add_azure_group_name_to_roles_table.php')) ?: [])->toBe([]);
+});
+
+it('keeps skipping the Spatie publish under --no-composer when Spatie is not installed', function () {
+    ssoCommandWithoutSpatie();
+
+    $this->artisan('martis:sso', [
+        'provider' => 'azure',
+        '--with-spatie' => true,
+        '--no-composer' => true,
+        '--no-listener' => true,
+        '--no-migrate' => true,
+    ])
+        ->expectsOutputToContain('spatie/laravel-permission not installed')
+        ->assertSuccessful();
 });
