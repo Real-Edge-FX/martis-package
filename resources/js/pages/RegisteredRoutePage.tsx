@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react'
+import { Suspense, type ComponentType } from 'react'
 import { useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { WrenchIcon } from '@phosphor-icons/react'
@@ -71,5 +71,10 @@ function PageComponent({ component, props }: { component: RegisteredRoute['compo
     )
   }
 
-  return <Component {...props} />
+  // A `lazy()` page suspends while its chunk loads.
+  return (
+    <Suspense fallback={<MartisLoader />}>
+      <Component {...props} />
+    </Suspense>
+  )
 }

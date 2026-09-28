@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react'
+import { isValidElement, type ComponentType } from 'react'
 import type { ToolDescriptor } from '@/types'
 
 /**
@@ -143,6 +143,9 @@ export class RouteRegistry {
     const problem = pathProblem(path)
     if (problem !== null) return refuse(problem)
 
+    if (isValidElement(route.component)) {
+      return refuse('the component is an element (<Page />): pass the component itself (Page)')
+    }
     if (!isComponent(route.component)) {
       return refuse('the component must be a componentRegistry key or a React component')
     }

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import type { GateLock } from '@/types'
 
 /**
@@ -29,9 +29,13 @@ export function GateProvider({ children }: { children: ReactNode }) {
 
   const open = useCallback((next: GateLock) => setLock(next), [])
   const close = useCallback(() => setLock(null), [])
+  // One value per lock, not per render: a consumer effect that depends on
+  // the gate (the Tool resolution opens it) must not re-run because the
+  // provider re-rendered.
+  const value = useMemo(() => ({ isOpen: lock !== null, lock, open, close }), [lock, open, close])
 
   return (
-    <GateContext.Provider value={{ isOpen: lock !== null, lock, open, close }}>
+    <GateContext.Provider value={value}>
       {children}
     </GateContext.Provider>
   )

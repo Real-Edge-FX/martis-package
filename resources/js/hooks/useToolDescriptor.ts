@@ -29,7 +29,10 @@ export type ToolResolution =
 export function useToolDescriptor(uriKey: string | undefined, prefilled?: ToolDescriptor): ToolResolution {
   const { t } = useTranslation('messages')
   const { addToast } = useToast()
-  const gate = useGateOptional()
+  // Only `open` (a stable callback): the effect below opens the gate, and
+  // depending on the whole context value would make it re-run, and refetch,
+  // whenever the gate's state changes.
+  const openGate = useGateOptional()?.open
   const [resolution, setResolution] = useState<ToolResolution>(
     prefilled ? { status: 'ready', descriptor: prefilled } : { status: 'loading' },
   )
@@ -46,7 +49,7 @@ export function useToolDescriptor(uriKey: string | undefined, prefilled?: ToolDe
         if (cancelled) return
         if ('locked' in data && data.locked === true) {
           setResolution({ status: 'locked', payload: data })
-          if (gate !== null) gate.open(data.lock)
+          openGate?.(data.lock)
           return
         }
         setResolution({ status: 'ready', descriptor: data as ToolDescriptor })
@@ -68,7 +71,7 @@ export function useToolDescriptor(uriKey: string | undefined, prefilled?: ToolDe
       cancelled = true
       ac.abort()
     }
-  }, [uriKey, prefilled, addToast, t, gate])
+  }, [uriKey, prefilled, addToast, t, openGate])
 
   return resolution
 }
