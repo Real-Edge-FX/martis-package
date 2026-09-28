@@ -1,48 +1,13 @@
-import { useEffect, useState } from 'react'
 import { useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { WrenchIcon } from '@phosphor-icons/react'
-import { api, ApiError } from '@/lib/api'
 import { componentRegistry } from '@/lib/componentRegistry'
-import { useToast } from '@/contexts/ToastContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { useToolDescriptor } from '@/hooks/useToolDescriptor'
 import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
-import { useGateOptional } from '@/contexts/GateContext'
 import { MartisLoader } from '@/components/Loader'
-import type { GateLock } from '@/types'
-
-interface ToolDescriptor {
-  type: 'tool'
-  name: string
-  /**
-   * Optional breadcrumb override. When non-null, the panel shell uses
-   * this label for the deepest crumb instead of `name`. Set on the
-   * PHP side via `Tool::withBreadcrumb(...)` (v1.10.3+).
-   */
-  breadcrumb: string | null
-  uriKey: string
-  icon: string | null
-  component: string | null
-  menuSection: string | null
-  /**
-   * True when the tool is docked in the bundled "System" sidebar section
-   * (`Tool::withSystemSection()`, v1.35.0+); `menuSection` is ignored then.
-   * Optional so descriptors built by hand in consumer tests keep compiling.
-   */
-  belongsToSystemSection?: boolean
-  /** Decorative pill (v1.11+). Set via `Tool::withBadge(...)`. */
-  badge?: { text: string; tone: string } | null
-  /** Soft-gate state (v1.11+). Non-null = the user is locked out. */
-  lock?: GateLock | null
-  meta: Record<string, unknown>
-}
-
-/** Locked-tool response shape from the route guard. */
-interface LockedToolResponse {
-  locked: true
-  lock: GateLock
-  tool: ToolDescriptor
-}
+import { ToolHiddenState, ToolLockedState } from '@/components/tools/ToolStates'
+import type { ToolDescriptor } from '@/types'
 
 interface ToolPageProps {
   /** Optional pre-resolved descriptor, useful when the menu already has the metadata. */
@@ -69,9 +34,9 @@ function filenameHintFor(componentKey: string): string {
  * Custom Tools shell (v0.10).
  *
  * Renders a free-form admin page registered through `Martis::tools([...])`.
- * The page fetches `/api/tools/{uriKey}` to learn the tool's identity,
- * then looks up the React component bound to the tool's `component()`
- * key in `componentRegistry`.
+ * `useToolDescriptor` fetches `/api/tools/{uriKey}` to learn the tool's
+ * identity, then the page looks up the React component bound to the
+ * tool's `component()` key in `componentRegistry`.
  *
  * Wiring on the consumer side:
  *
@@ -81,18 +46,19 @@ function filenameHintFor(componentKey: string): string {
  * can read the meta bag and react to authorisation changes.
  *
  * Failure modes:
- *  - 404 on the API → renders "Tool not found" empty state. Same UI for
- *    "this tool's canSee() denies you" — the API does not distinguish.
- *  - Unknown component key → renders a developer-friendly warning so the
+ *  - 404 on the API → the "Tool not found" state (`ToolHiddenState`). Same
+ *    UI for "this tool's canSee() denies you": the API does not distinguish.
+ *  - A soft lock → the full-page lock state (`ToolLockedState`).
+ *  - Unknown component key → a developer-friendly warning so the
  *    consumer knows they forgot the `componentRegistry.register(...)` call.
  */
 /**
  * Thin wrapper that forces a clean unmount/remount of `ToolPageInner`
  * whenever the sidebar navigates to a different tool. Without this,
  * `ToolPageInner` stays mounted across a `uriKey` change (React Router
- * does not remount on param changes by default), so its `descriptor`
- * state — and any in-flight effects, including the previous tool's own
- * `setSearchParams` calls — kept leaking into the newly selected tool.
+ * does not remount on param changes by default), so its resolved state
+ * and any in-flight effects, including the previous tool's own
+ * `setSearchParams` calls, kept leaking into the newly selected tool.
  * Keying on `uriKey` is a no-op for the `prefilled` drawer-hosted path
  * (the key is harmless there since the drawer usually mounts one tool
  * at a time), so that caller keeps working unchanged.
@@ -105,12 +71,8 @@ export function ToolPage(props: ToolPageProps = {}) {
 function ToolPageInner({ descriptor: prefilled }: ToolPageProps = {}) {
   const { uriKey } = useParams<{ uriKey: string }>()
   const { t } = useTranslation('messages')
-  const { addToast } = useToast()
-  const gate = useGateOptional()
-  const [descriptor, setDescriptor] = useState<ToolDescriptor | null>(prefilled ?? null)
-  const [error, setError] = useState<'not-found' | 'unknown-component' | null>(null)
-  // v1.11.0+ soft-gate full-page state.
-  const [lockedPayload, setLockedPayload] = useState<LockedToolResponse | null>(null)
+  const resolution = useToolDescriptor(uriKey, prefilled)
+  const descriptor = resolution.status === 'ready' ? resolution.descriptor : null
 
   usePageTitle(descriptor?.name ?? t('tool_page_title', 'Tool'))
   // Publish the resolved tool name to the breadcrumb so the trail reads
@@ -121,89 +83,10 @@ function ToolPageInner({ descriptor: prefilled }: ToolPageProps = {}) {
   // so the trail and the page heading no longer have to match.
   useDynamicCrumb(descriptor?.breadcrumb ?? descriptor?.name)
 
-  useEffect(() => {
-    if (!uriKey || prefilled) return
+  if (resolution.status === 'hidden') return <ToolHiddenState />
 
-    let cancelled = false
-    const ac = new AbortController()
-    setError(null)
-
-    api
-      .get<ToolDescriptor | LockedToolResponse>(`/api/tools/${encodeURIComponent(uriKey)}`, ac.signal)
-      .then((data) => {
-        if (cancelled) return
-        if ('locked' in data && data.locked === true) {
-          setLockedPayload(data)
-          if (gate !== null) gate.open(data.lock)
-          return
-        }
-        setDescriptor(data as ToolDescriptor)
-      })
-      .catch((e: unknown) => {
-        if (cancelled) return
-        // The remount wrapper (`ToolPage`) aborts this fetch whenever the
-        // sidebar navigates away before it resolves. That is expected
-        // teardown, not a user-facing failure — swallow it silently.
-        if (ac.signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) return
-        if (e instanceof ApiError && e.status === 404) {
-          setError('not-found')
-          return
-        }
-        const message = e instanceof ApiError ? e.errorSummary() : t('tool_load_failed', 'Could not load this tool.')
-        addToast('error', message)
-      })
-
-    return () => {
-      cancelled = true
-      ac.abort()
-    }
-  }, [uriKey, prefilled, addToast, t, gate])
-
-  if (error === 'not-found') {
-    return (
-      <div className="martis-tool-empty" role="status">
-        <WrenchIcon size={36} weight="duotone" />
-        <h1>{t('tool_not_found_title', 'Tool not found')}</h1>
-        <p>{t('tool_not_found_body', 'This tool does not exist or you do not have permission to see it.')}</p>
-      </div>
-    )
-  }
-
-  // v1.11.0+ soft-gate full-page state. The route guard answered
-  // `{ locked: true, lock, tool }`; render the locked card with the
-  // upsell CTA. The GateModal also opened automatically on mount.
-  if (lockedPayload !== null) {
-    const modal = lockedPayload.lock.modal
-    return (
-      <div
-        className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center"
-        style={{
-          backgroundColor: 'var(--martis-surface)',
-          borderColor: 'var(--martis-border)',
-          color: 'var(--martis-text-muted)',
-        }}
-      >
-        <WrenchIcon size={36} weight="duotone" />
-        <h1 className="mt-3 text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>
-          {modal?.title ?? t('gate.default_title', 'Locked feature')}
-        </h1>
-        <p className="mt-2 max-w-md text-sm">
-          {modal?.message ?? t('gate.default_message', 'This tool is not available on your current plan.')}
-        </p>
-        {modal?.cta && (
-          <a
-            href={modal.cta.url}
-            target={modal.cta.target ?? '_self'}
-            rel={modal.cta.target === '_blank' ? 'noopener noreferrer' : undefined}
-            className="mt-4 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium"
-            style={{ backgroundColor: 'var(--martis-accent)', color: 'var(--martis-accent-contrast, #ffffff)' }}
-          >
-            {modal.cta.label}
-          </a>
-        )}
-      </div>
-    )
-  }
+  // v1.11.0+ soft-gate full-page state. The GateModal also opened on mount.
+  if (resolution.status === 'locked') return <ToolLockedState payload={resolution.payload} />
 
   if (!descriptor) {
     return <MartisLoader />

@@ -259,6 +259,44 @@ export interface GateLock {
   } | null
 }
 
+/**
+ * A Tool as `GET /api/tools/{uriKey}` returns it (`Tool::toArray()`): the
+ * prop `ToolPage` passes to a Tool's component, and the `tool` prop of a
+ * registered page bound to the Tool (`routeRegistry`, v2.2.0+).
+ */
+export interface ToolDescriptor {
+  type: 'tool'
+  name: string
+  /**
+   * Optional breadcrumb override. When non-null, the panel shell uses
+   * this label for the deepest crumb instead of `name`. Set on the
+   * PHP side via `Tool::withBreadcrumb(...)` (v1.10.3+).
+   */
+  breadcrumb: string | null
+  uriKey: string
+  icon: string | null
+  component: string | null
+  menuSection: string | null
+  /**
+   * True when the tool is docked in the bundled "System" sidebar section
+   * (`Tool::withSystemSection()`, v1.35.0+); `menuSection` is ignored then.
+   * Optional so descriptors built by hand in consumer tests keep compiling.
+   */
+  belongsToSystemSection?: boolean
+  /** Decorative pill (v1.11+). Set via `Tool::withBadge(...)`. */
+  badge?: { text: string; tone: string } | null
+  /** Soft-gate state (v1.11+). Non-null = the user is locked out. */
+  lock?: GateLock | null
+  meta: Record<string, unknown>
+}
+
+/** The answer of `GET /api/tools/{uriKey}` for a Tool soft-locked for the user (v1.11.0+). */
+export interface LockedToolResponse {
+  locked: true
+  lock: GateLock
+  tool: ToolDescriptor
+}
+
 export interface DashboardData {
   dashboard: DashboardDefinition
   cards: MetricDefinition[]
