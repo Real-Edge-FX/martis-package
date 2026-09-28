@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.1.1] — 2026-09-28
 
-Patch release of four more consumer reports. Nothing needs to change in an app: see [Upgrading to v2.1.1 from v2.1.0](docs/upgrading.md#upgrading-to-v211-from-v210) for two optional checks.
+Patch release of four more consumer reports, plus a fix found while validating them. Nothing needs to change in an app: see [Upgrading to v2.1.1 from v2.1.0](docs/upgrading.md#upgrading-to-v211-from-v210) for two optional checks.
 
 ### Fixed
 

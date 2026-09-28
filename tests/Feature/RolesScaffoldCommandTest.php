@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\ServiceProvider;
 use Martis\Console\RolesScaffoldCommand;
 use Martis\Tests\Support\SkeletonSnapshot;
 use Martis\Tests\TestCase;
@@ -444,6 +445,12 @@ it('publishes the Spatie config and migration when the app did not boot the Spat
     // --provider` had no paths to copy.
     expect(app()->getProviders('Spatie\\Permission\\PermissionServiceProvider'))->toBe([]);
 
+    // ServiceProvider::$publishes is static: a provider registered by an
+    // earlier test would leave Spatie's paths there and hide a missing
+    // registration. Start without them, and put them back afterwards.
+    $publishes = ServiceProvider::$publishes;
+    unset(ServiceProvider::$publishes['Spatie\\Permission\\PermissionServiceProvider']);
+
     $config = config_path('permission.php');
     $configBefore = is_file($config) ? file_get_contents($config) : null;
     $migrationsBefore = glob(database_path('migrations/*.php')) ?: [];
@@ -467,6 +474,8 @@ it('publishes the Spatie config and migration when the app did not boot the Spat
         } else {
             file_put_contents($config, $configBefore);
         }
+
+        ServiceProvider::$publishes = $publishes;
     }
 });
 
