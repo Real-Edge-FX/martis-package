@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router'
 import { layoutRegistry } from '@/lib/layoutRegistry'
 import { ResourceLayout } from '@/components/ResourceLayout'
-import { router } from '@/router'
+import { buildAppRoutes } from '@/router'
 
 /**
  * Per-resource page layouts (v1.38.0): `layoutRegistry.register(uriKey,
@@ -61,9 +61,7 @@ describe('ResourceLayout', () => {
                 if (route.children) visit(route.children, inLayout)
             }
         }
-        // The data router keeps the route objects it was created with,
-        // `element` included; its agnostic type just does not declare it.
-        visit(router.routes as RouteObject[], false)
+        visit(buildAppRoutes([]), false)
 
         expect(resourceRoutes).toEqual({
             'resources/:resource': true,
