@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\ServiceProvider;
 use Martis\Console\SsoMakeCommand;
 
 beforeEach(function () {
@@ -283,16 +284,26 @@ it('publishes the Spatie config and migration when the app did not boot the Spat
     // --provider` had no paths to copy.
     expect(app()->getProviders('Spatie\\Permission\\PermissionServiceProvider'))->toBe([]);
 
-    $this->artisan('martis:sso', [
-        'provider' => 'azure',
-        '--with-spatie' => true,
-        '--no-composer' => true,
-        '--no-listener' => true,
-        '--no-migrate' => true,
-    ])->assertSuccessful();
+    // ServiceProvider::$publishes is static: a provider registered by an
+    // earlier test would leave Spatie's paths there and hide a missing
+    // registration. Start without them, and put them back afterwards.
+    $publishes = ServiceProvider::$publishes;
+    unset(ServiceProvider::$publishes['Spatie\\Permission\\PermissionServiceProvider']);
 
-    expect(glob(database_path('migrations/*_create_permission_tables.php')) ?: [])->toHaveCount(1)
-        ->and(config_path('permission.php'))->toBeFile();
+    try {
+        $this->artisan('martis:sso', [
+            'provider' => 'azure',
+            '--with-spatie' => true,
+            '--no-composer' => true,
+            '--no-listener' => true,
+            '--no-migrate' => true,
+        ])->assertSuccessful();
+
+        expect(glob(database_path('migrations/*_create_permission_tables.php')) ?: [])->toHaveCount(1)
+            ->and(config_path('permission.php'))->toBeFile();
+    } finally {
+        ServiceProvider::$publishes = $publishes;
+    }
 });
 
 /**
