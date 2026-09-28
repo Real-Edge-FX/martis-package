@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useEffect } from 'react'
+import { lazy, useEffect } from 'react'
 import { act, render, screen } from '@testing-library/react'
 import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes, useNavigate, useParams } from 'react-router'
 import { ApiError } from '@/lib/api'
@@ -81,6 +81,14 @@ describe('RegisteredRoutePage', () => {
     componentRegistry.register('page:finding-detail', FindingPage as never)
 
     renderPage(route)
+
+    expect(await screen.findByText('Finding 0192f7c1')).toBeTruthy()
+  })
+
+  it('shows the loader while a lazy page loads, then the page', async () => {
+    const LazyPage = lazy(async () => ({ default: FindingPage }))
+
+    renderPage(registered({ component: LazyPage }))
 
     expect(await screen.findByText('Finding 0192f7c1')).toBeTruthy()
   })

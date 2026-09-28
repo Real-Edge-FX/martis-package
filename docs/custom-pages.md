@@ -24,7 +24,7 @@ routeRegistry.register({ path: 'projects/:projectId/repositories', component: 'p
 | Key | Required | Meaning |
 |---|---|---|
 | `path` | yes | The path below the Martis base path. Leading and trailing slashes are ignored: `findings` and `/findings/` are the same route. |
-| `component` | yes | The React component, or a `componentRegistry` key resolved when the page renders. |
+| `component` | yes | The React component (`FindingsPage`, not `<FindingsPage />`; `lazy()` components work), or a `componentRegistry` key resolved when the page renders. |
 | `crumb` | no | The breadcrumb label, shown as given. Without it, the first segment of the path is used: `project-reports` shows `Project reports`. |
 | `tool` | no | The `uriKey` of a Tool whose `canSee()` and soft lock guard the page. See [Guarding a page with a Tool](#guarding-a-page-with-a-tool). |
 
@@ -34,7 +34,7 @@ Build the bundle as usual (`npm run build:extensions`). A reload of a registered
 
 ### When to register
 
-Martis builds its router once, after every bundle listed in `MARTIS_EXTENSIONS` has loaded. Register routes at the top level of the bundle, as above. A `register()` call that runs later (in an effect, after a click, after an `await`) is refused with `routes must be registered when the extension bundle loads (at its top level): the router was already built`.
+Martis builds its router once, after every bundle listed in `MARTIS_EXTENSIONS` has loaded. Register routes at the top level of the bundle, as above. A `register()` call that runs later (in an effect, after a click, after an `await`) is refused with `routes must be registered when the extension bundle loads (at its top level): the router was already built`. The same refusal shows for a bundle that took longer than the loader's 5-second timeout to load: Martis mounted without it, so check the bundle's size and URL before moving any code.
 
 ## Path rules
 
@@ -113,7 +113,7 @@ Register the Tool with `Martis::tools([Findings::class])`, then pass `tool: 'fin
 - a user the Tool is locked for (`lockedFor()`, see [Gates](gates.md)) gets the lock page, and the lock modal opens;
 - otherwise the page renders and receives the Tool as its `tool` prop (a `ToolDescriptor`, typed on `@martis/runtime`).
 
-One Tool can guard several pages. The Tool needs no component of its own. For its menu entry, point it at your page: `MenuItem::tool(Findings::class)->path('/findings')` shows the entry only to the users the Tool is visible to, and opens `/findings`.
+One Tool can guard several pages. The Tool needs no component of its own. For its menu entry, point it at your page: `MenuItem::tool(Findings::class)->path('/findings')` shows the entry only to the users the Tool is visible to, and opens `/findings`. Without a `Martis::mainMenu()`, the automatic menu lists every Tool at `/tools/{uriKey}`, where a Tool without a component shows only its header, so an app that guards pages this way usually declares its menu.
 
 ## Linking to a page
 

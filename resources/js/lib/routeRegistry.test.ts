@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
-import { memo } from 'react'
+import { createElement, memo } from 'react'
 import { crumbLabelFor, RESERVED_ROUTE_SEGMENTS, RouteRegistry, type RegisteredRoute } from '@/lib/routeRegistry'
 
 function Page() {
@@ -99,6 +99,10 @@ describe('RouteRegistry', () => {
 
   it.each([[42], [''], [{}], [null]])('refuses the component %j', (component) => {
     expectRefused(new RouteRegistry(), { path: 'findings', component: component as never }, /component must be/)
+  })
+
+  it('refuses a rendered element in place of the component, naming the mistake', () => {
+    expectRefused(new RouteRegistry(), { path: 'findings', component: createElement(Page) as never }, /an element .*pass the component itself/)
   })
 
   it('refuses an empty tool or crumb, and trims the ones it keeps', () => {
