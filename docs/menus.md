@@ -110,6 +110,8 @@ Mid-level cluster nested **inside** a `MenuSection`. See [Nested MenuGroup](#nes
 - `canSee(...)`
 - `withMeta([...])`
 
+The same `MenuItem`s and `MenuGroup`s feed the command palette through `Martis::commandPalette()`: see [Components → App commands](components.md#app-commands-v210).
+
 ### Tool menu items
 
 Since v1.8.20, every registered Tool is auto-grouped into the sidebar by default. A Tool that declares `withMenuSection('Operations')` lands in the "Operations" section; everything else goes under the localised "Tools" header (translation key `martis::messages.tools_section`, default English label `Tools`). You only need to call `MenuItem::tool(...)` when you build a fully custom main menu via `Martis::mainMenu(...)` and want a Tool placed alongside hand-rolled links.
@@ -462,6 +464,8 @@ Counts above the configured threshold render in compact notation (`10K`,
 
 Lower the value (e.g. `1000`) to compact earlier, or set it to a very
 large number to disable compaction entirely.
+
+Counts format in the user's Martis locale (v2.1.0): `1234` reads `1234` for `pt_PT` and `1,234` for `en_US`, and the compact form follows the same locale.
 
 ### Live polling
 

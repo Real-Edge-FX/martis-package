@@ -140,13 +140,15 @@ Top navigation bar with:
 
 Global overlay that replaces the old "search sheet". Triggered by **⌘K** (macOS) / **Ctrl+K** (Windows / Linux) anywhere in the app, or by `/` when focus is outside an input. Mirrors the design-system Catalog spec via the `.martis-cmdk-*` CSS family.
 
-Four ordered sections:
+Ordered sections:
 
 | Section | Source | When it shows |
 |---------|--------|---------------|
 | Resources | `/api/command-palette` → `resources` | Always (filtered by query). Each row is the resource label + its navigation group as a hint. |
+| Tools | `/api/command-palette` → `tools` | Every Tool the user may see. |
+| Commands | `/api/command-palette` → `commands` | The entries the app registers with `Martis::commandPalette()` (v2.1.0), with their group as a hint. |
 | Actions | `/api/command-palette` → `actions` | When any registered resource exposes a standalone action (`Action::standalone()`). The hint column shows the owning resource. |
-| Recent | `/api/command-palette` → `recent` | Only when the query is empty. Pulls the authenticated user's latest 8 `martis_action_events` rows. Clicking jumps to the affected record when `model_id` is set. |
+| Recent activity | `/api/command-palette` → `recent` | Only when the query is empty. The user's latest 5 `martis_action_events` rows, when the user may read the log. Clicking jumps to the affected record when `model_id` is set. |
 | Records | `/api/search?q=…` | When the query has 2+ characters. Uses the existing unified record-search endpoint. |
 
 Keyboard:
@@ -155,9 +157,40 @@ Keyboard:
 - `esc` — close.
 - `⌘K` / `Ctrl+K` — toggle open / closed even while typing in a text field.
 
-Backend route: `GET /api/command-palette` (`CommandPaletteController@index`), behind the standard Martis auth + 2FA + locale middleware stack. The aggregate is short-cached client-side for 30 s; the record search is debounced 300 ms and re-queries for every distinct query string.
+Backend route: `GET /api/command-palette` (`CommandPaletteController@index`), behind the protected Martis API stack: authentication, the 2FA challenge, the locale, email verification and the `viewMartis` panel gate when the app defines it. The aggregate is short-cached client-side for 30 s; the record search is debounced 300 ms and re-queries for every distinct query string.
 
-To wire a consumer-specific command into the palette, register a standalone action on any resource — the palette picks it up automatically.
+#### App commands (v2.1.0)
+
+Register commands and deep links with `Martis::commandPalette()` in `app/Providers/MartisServiceProvider.php`. The closure returns `MenuItem`s and `MenuGroup`s, the classes the menu builder uses:
+
+```php
+use Illuminate\Http\Request;
+use Martis\Facades\Martis;
+use Martis\Menu\MenuGroup;
+use Martis\Menu\MenuItem;
+
+Martis::commandPalette(fn (Request $request) => [
+    MenuItem::link('Open analyses', '/tools/analyses')->icon('chart-line'),
+    MenuItem::tool(ReportsTool::class),
+    MenuGroup::make('Reports', [
+        MenuItem::externalLink('Status page', 'https://status.example.com')
+            ->canSee(fn (Request $request) => $request->user()?->is_admin),
+    ]),
+]);
+```
+
+- The entries resolve per request as in the menu: `canSee()` and a Tool's `authorizedToSee()` apply, so a user never sees a command either of them hides. Soft-gate locks do not hide a command: a locked Tool or Dashboard command stays listed and opens its lock page, as its menu item does.
+- A `MenuGroup`'s label becomes the hint of its items.
+- `link()` takes a path inside the panel (`/tools/analyses`, not `/martis/tools/analyses`). `externalLink()` opens in a new tab.
+- Calls accumulate, so a Tool or a package can register its own.
+- The closure may return an array or a Collection. Any other return value (a single `MenuItem`, `null`) throws an `InvalidArgumentException` naming its type, and so does an entry other than a `MenuItem` or a `MenuGroup`.
+- Resolving a resource or Tool item may compute its menu count, as the menu does.
+
+A standalone action on any resource also appears in the palette, under Actions.
+
+### Skip link
+
+The sidebar and topnav layouts start with a "Skip to main content" link (v2.1.0, WCAG 2.2 success criterion 2.4.1). It stays off-screen until it takes keyboard focus, and Enter moves focus to the page content, the `<main id="martis-main">` landmark, without changing the URL. The minimal layout has no navigation to skip, so it has no link, but its `<main>` carries the same id.
 
 ### Footer
 

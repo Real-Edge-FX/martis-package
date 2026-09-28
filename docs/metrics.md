@@ -207,6 +207,10 @@ class WeeklyRevenue extends TrendMetric
 
 The `<Sparkline>` React component used internally is also on `@martis/runtime` (v1.38.0+) for use inside custom cards or framed components: `import { Sparkline } from '@martis/runtime'`.
 
+## Number formatting
+
+Value, trend and progress metrics format their numbers in the user's Martis locale (v2.1.0), with the metric's prefix and suffix around them: `1234.5` reads `1234,5` for `pt_PT` and `1,234.5` for `en_US`. The trend chart's axis and tooltip, and the partition chart's tooltip, use the same locale (Chart.js `locale` option).
+
 ## Custom date column on query helpers
 
 Every query helper (`count`, `sum`, `average`, `max`, `min` on `ValueMetric`; `countByDays` / `countByWeeks` / `countByMonths` / `sumByDays` / `sumByWeeks` / `sumByMonths` / `averageByDays` / `averageByMonths` on `TrendMetric`) accepts an optional `?string $dateColumn = null` final argument that controls which timestamp column the active range filter applies against. Defaults to `created_at`.

@@ -40,14 +40,15 @@ final class RouteMiddleware
     /**
      * A signed-in user who passed the 2FA challenge and, when
      * `martis.auth.email_verification.enabled`, verified their email, with
-     * the locale of their preferences applied. The 2FA challenge route
-     * itself runs without it.
+     * the locale of their preferences applied, and whom the `viewMartis`
+     * gate lets open the panel when the app defines it. The 2FA challenge
+     * route itself runs without it.
      *
      * @return list<string>
      */
     public static function verified(): array
     {
-        return ['martis.2fa', 'martis.locale', 'martis.verified'];
+        return ['martis.2fa', 'martis.locale', 'martis.verified', 'martis.authorize'];
     }
 
     /**

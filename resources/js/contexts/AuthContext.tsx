@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { api } from '@/lib/api'
 import { BASE_PATH } from '@/lib/config'
+import { signOut } from '@/lib/signOut'
 import type { User } from '@/types'
 
 export class TwoFactorRequiredError extends Error {
@@ -99,15 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser((prev) => prev ? { ...prev, ...partial } : prev)
   }, [])
 
-  const logout = useCallback(async () => {
-    try {
-      await api.post('/api/auth/logout')
-    } catch {
-      // ignore — session may already be invalid
-    }
-    // Full page reload ensures server session is cleared and fresh CSRF token
-    window.location.href = BASE_PATH + '/login'
-  }, [])
+  const logout = useCallback(() => signOut(), [])
 
   return (
     <AuthContext.Provider value={{ user, isLoading, login, logout, updateUser }}>

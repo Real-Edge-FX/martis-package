@@ -75,6 +75,7 @@ use Martis\Discovery\ToolDiscovery;
 use Martis\Exceptions\Handler as MartisExceptionHandler;
 use Martis\Facades\Martis;
 use Martis\Http\Middleware\ApplyUserPreferencesLocale;
+use Martis\Http\Middleware\AuthorizePanelAccess;
 use Martis\Http\Middleware\AuthorizeTool;
 use Martis\Http\Middleware\EnforceImpersonationDuration;
 use Martis\Http\Middleware\EnsureEmailIsVerified;
@@ -539,6 +540,8 @@ class MartisServiceProvider extends ServiceProvider
         $router->aliasMiddleware('martis.2fa', EnsureTwoFactorChallenge::class);
         $router->aliasMiddleware('martis.locale', ApplyUserPreferencesLocale::class);
         $router->aliasMiddleware('martis.verified', EnsureEmailIsVerified::class);
+        // Who may open the panel at all: the `viewMartis` gate (PanelAccess).
+        $router->aliasMiddleware('martis.authorize', AuthorizePanelAccess::class);
         $router->aliasMiddleware(
             'martis.impersonation.duration',
             EnforceImpersonationDuration::class,

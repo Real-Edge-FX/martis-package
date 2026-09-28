@@ -288,6 +288,21 @@ toggle `showCreateRelationButton` by hand.
 
 ---
 
+## Panel access
+
+### Optional panel gate (`viewMartis`)
+
+A `viewMartis` gate decides who may open the panel, as Nova's `viewNova` does, with four differences:
+
+- **Open by default.** Undefined, every signed-in user gets in; Nova lets only `local` in until the gate is defined.
+- **No `local` bypass.** Defined, it applies in every environment, so the restriction can be tried locally.
+- **No policy interception.** The user is not passed as a gate argument, so a policy of the user model is never consulted for it.
+- **A way out.** A refused page request gets a standalone 403 screen with a **Sign out** button, and impersonating a refused user answers `422`.
+
+See [Authorization → Panel access](authorization.md#panel-access-viewmartis).
+
+---
+
 ## Tool System
 
 ### Tool routes run behind the Martis API middleware
@@ -959,6 +974,14 @@ Full reference: [sso.md](sso.md).
 
 ---
 
+## Notifications
+
+### Scoped notification centre
+
+`Martis::scopeNotificationsUsing()` narrows every notification endpoint (the list, the counts, mark-read, mark-all-read, delete and clear-all) with one query callback, so a multi-context app does not show one context's activity in another. Nova's notification centre always lists every notification of the user. See [Notifications → Scoping the notification centre](notifications.md#scoping-the-notification-centre).
+
+---
+
 ## Frontend utilities
 
 ### Event bus
@@ -1068,6 +1091,22 @@ php artisan martis:override StatusBadge --type=field
 ```
 
 `martis:card` writes both the PHP class (`app/Martis/Cards/`) and the React component (`resources/js/martis-extensions/cards/{Name}.tsx`); the bundle's filename → key auto-discovery (`{Name}.tsx` → `card:{kebab-name}`) registers it on the next `npm run build:extensions`. `martis:override` writes a TSX-only file under `resources/js/martis-extensions/overrides/` and the bundle auto-registers it on the next build. See [Override System: Auto-registration scope](overrides.md#6-creating-custom-components-artisan) for the full filename → key table.
+
+### Command palette entries
+
+The ⌘K palette lists resources, Tools, standalone actions, recent activity and records, and an app adds its own commands and deep links with `Martis::commandPalette()`. The entries are the menu's `MenuItem`s and `MenuGroup`s, filtered per request by the same visibility rules as the menu. Nova has global search, but no registrable command palette.
+
+```php
+Martis::commandPalette(fn (Request $request) => [
+    MenuItem::link('Open analyses', '/tools/analyses'),
+]);
+```
+
+See [Components → App commands](components.md#app-commands-v210).
+
+### Skip link
+
+The sidebar and topnav layouts start with a translated "Skip to main content" link that moves focus to the `<main id="martis-main">` landmark (WCAG 2.2, 2.4.1). Nova's layout has no skip link.
 
 ---
 

@@ -3,6 +3,7 @@ import { initReactI18next } from "react-i18next"
 import { API_BASE_URL, config } from "./config"
 import { queryClient } from "./query"
 import { beginLocaleSwitch, endLocaleSwitch } from "./localeSwitching"
+import { toBcp47 } from "./formatLocale"
 
 export function getLocale(): string {
   // Resolution order (v1.7.4):
@@ -37,10 +38,11 @@ export function getLocale(): string {
     locale = config.locale ?? "en"
   }
 
-  if (locale === "en_US" || locale === "en_GB") {
-    return "en"
-  }
-
+  // A regional code (`en_GB`, `en_US`) is kept as is: the translations
+  // endpoint answers it through the fallback chain (`en`), and the dates
+  // and numbers format with its region. Collapsing it to `en` here made
+  // i18next boot in `en` (US formats) and the preferences refetch then
+  // re-switch to the saved code on every page load (v2.1.0).
   return locale
 }
 
@@ -87,7 +89,9 @@ export function applyDocumentDirection(locale: string): void {
   const isRtl = normalized.includes(locale.toLowerCase())
 
   document.documentElement.setAttribute("dir", isRtl ? "rtl" : "ltr")
-  document.documentElement.setAttribute("lang", locale)
+  // `lang` takes a BCP 47 tag (`pt-PT`); assistive technology reads it
+  // for pronunciation, and `pt_PT` is not one.
+  document.documentElement.setAttribute("lang", toBcp47(locale) ?? locale)
 }
 
 /**

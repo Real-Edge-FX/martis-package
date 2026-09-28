@@ -192,7 +192,7 @@ $this->canSee(fn (Request $request) =>
 );
 ```
 
-`canSee()` controls **both** menu visibility and route access. Tools that fail `authorizedToSee()` are silently dropped from the menu, and `GET /martis/api/tools/{uriKey}` returns **404** (not 403), intentionally indistinguishable from "tool does not exist" so an unauthorised user cannot probe which tools the app ships. The tool's own routes answer the same 404 to that user when they run [`ToolRoutes::middleware()`](#tool-routes-and-their-middleware), which `loadRoutes()` applies by default (v2.0).
+`canSee()` controls **both** menu visibility and route access. Tools that fail `authorizedToSee()` are silently dropped from the menu, and `GET /martis/api/tools/{uriKey}` returns **404** (not 403), intentionally indistinguishable from "tool does not exist" so an unauthorised user cannot probe which tools the app ships. The tool's own routes answer the same 404 to that user when they run [`ToolRoutes::middleware()`](#tool-routes-and-their-middleware), which `loadRoutes()` applies by default (v2.0). To show a user a permission state instead of hiding the tool, keep it visible and lock it with a soft gate, `lockedFor()` with `lockModal()` or `lockPreset()` ([Soft-gates](gates.md#soft-gates)): the menu shows it with a lock, and a direct visit renders the lock modal as a full page.
 
 | Method | Purpose |
 |---|---|
@@ -281,10 +281,11 @@ A tool's routes run `ToolRoutes::middleware($tool)` (v2.0; `Martis\Tools\ToolRou
 | `martis.2fa` | package | a user who signed in but has not passed the 2FA challenge: `423 {"two_factor_required": true}` (JSON) or a redirect to the challenge |
 | `martis.locale` | package | (applies the user's locale, so `__()` and validation messages follow it) |
 | `martis.verified` | package | when `MARTIS_AUTH_EMAIL_VERIFICATION_ENABLED=true`, an unverified user: `409` (JSON) or a redirect to the notice |
+| `martis.authorize` | package | when the app defines the `viewMartis` gate, a user it refuses: `403` (see [Authorization → Panel access](authorization.md#panel-access-viewmartis)) |
 | `throttle:{max},{decay},martis-api:{guard}:` | config, `martis.throttle.*` | past `MARTIS_THROTTLE_MAX` requests per `MARTIS_THROTTLE_DECAY` minutes per user, shared with the Martis API: `429`. Left out when `MARTIS_THROTTLE_ENABLED=false` |
 | `martis.tool:{uriKey}` | package | a user this tool is hidden from (`canSee()`, its policy): `404` `{"message": "Tool not found."}`, as `GET /api/tools/{uriKey}` answers them |
 
-The first seven are built in one place, `Martis\Http\RouteMiddleware::api()`, which the package's own routes use too, so a tool's route answers a request exactly as `GET /api/tools` does. They are also a middleware group, `martis.api`, built when the application boots, for a route of your own: `Route::middleware(['martis.api', 'can:viewReports'])`.
+The first eight are built in one place, `Martis\Http\RouteMiddleware::api()`, which the package's own routes use too, so a tool's route answers a request exactly as `GET /api/tools` does. They are also a middleware group, `martis.api`, built when the application boots, for a route of your own: `Route::middleware(['martis.api', 'can:viewReports'])`.
 
 The routes live under `ToolRoutes::prefix($tool)`, `{martis.path}/api/tools/{uriKey}` (`martis/api/tools/{uriKey}` by default): the SPA's `api` client prefixes every path with the panel's base path (`window.MartisConfig.basePath`, `/{martis.path}`), so `api.post('/api/tools/finance-imports/upload')` reaches them whatever `MARTIS_PATH` is.
 

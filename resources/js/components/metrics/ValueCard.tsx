@@ -1,11 +1,13 @@
 import { ArrowUpRightIcon, ArrowDownRightIcon, MinusIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
+import { useFormatLocale } from '@/lib/formatLocale'
 
 interface ValueCardProps {
   data: Record<string, unknown>
 }
 
 export function ValueCard({ data }: ValueCardProps) {
+  const locale = useFormatLocale()
   const { t } = useTranslation('resources')
   const value = data.value as number ?? 0
   const previous = data.previous as number | undefined
@@ -13,7 +15,7 @@ export function ValueCard({ data }: ValueCardProps) {
   const prefix = data.prefix as string | undefined
   const suffix = data.suffix as string | undefined
 
-  const formattedValue = `${prefix ?? ''}${value.toLocaleString()}${suffix ?? ''}`
+  const formattedValue = `${prefix ?? ''}${value.toLocaleString(locale)}${suffix ?? ''}`
   const hasDelta = previous !== undefined && value !== previous
   const trend = (change ?? 0) > 0 ? 'up' : (change ?? 0) < 0 ? 'down' : 'flat'
   const deltaClass =
@@ -36,7 +38,7 @@ export function ValueCard({ data }: ValueCardProps) {
             {change !== undefined && <>{change > 0 ? '+' : ''}{change}%</>}
             {previous !== undefined && (
               <span className="martis-kpi-delta-sub">
-                {t('vs', 'vs')} {prefix ?? ''}{previous.toLocaleString()}{suffix ?? ''}
+                {t('vs', 'vs')} {prefix ?? ''}{previous.toLocaleString(locale)}{suffix ?? ''}
               </span>
             )}
           </span>

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import { useLocation } from "react-router"
 import { useQueryClient } from "@tanstack/react-query"
+import { currentFormatLocale } from "@/lib/formatLocale"
 import type {
   NavigationGroup,
   NavigationGroupChild,
@@ -166,13 +167,13 @@ function getCompactThreshold(): number | null {
  * Falls back to a plain string on runtime issues (very old browsers
  * without `Intl` compact support).
  */
-export function formatItemCount(value: number): string {
+export function formatItemCount(value: number, locale: string | undefined = currentFormatLocale()): string {
   try {
     const threshold = getCompactThreshold()
     if (threshold === null || value < threshold) {
-      return new Intl.NumberFormat().format(value)
+      return new Intl.NumberFormat(locale).format(value)
     }
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(locale, {
       notation: 'compact',
       maximumFractionDigits: 1,
     }).format(value)

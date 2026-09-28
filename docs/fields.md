@@ -898,6 +898,8 @@ Number::make('price', 'Price')
 
 **Extra attributes:** `min`, `max`, `step` (only non-null values)
 
+**Input:** the form input takes the decimal separator of the user's Martis locale (v2.1.0). The index and detail pages show the value as stored.
+
 ---
 
 ### Boolean
@@ -1308,6 +1310,8 @@ Date::make('published_at', 'Published')
 **Overrides:** `resolve()` normalizes `Carbon`/`DateTime` to formatted string.
 **Extra attributes:** `withTime`, `displayFormat`
 
+**Display:** the index and detail pages show the date in the user's Martis locale, not the browser's (v2.1.0): `27/09/2026` for `pt_PT`, `9/27/2026` for `en_US`. A value `format()` turned into another string is shown as sent.
+
 ---
 
 ### DateTime
@@ -1325,6 +1329,8 @@ DateTime::make('created_at', 'Created')
 ```
 
 **Specific methods:** None (inherits `withTime()`, `format()` from Date).
+
+**Display:** the date and time in the user's Martis locale (v2.1.0).
 
 ---
 
@@ -1696,7 +1702,7 @@ Currency::make('price')
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `currency` | `currency(CurrencyCode $code): static` | `$this` | Set ISO 4217 currency code (typed enum). Auto-sets step. | `CurrencyCode::USD` |
-| `locale` | `locale(string $locale): static` | `$this` | Override locale for formatting. | app locale |
+| `locale` | `locale(string $locale): static` | `$this` | Fixes the display and input locale of this field (e.g. `de_DE`), whatever the user's Martis locale. | the user's Martis locale |
 | `asMinorUnits` | `asMinorUnits(): static` | `$this` | Treat stored value as minor units (cents). | `false` |
 | `asMajorUnits` | `asMajorUnits(): static` | `$this` | Treat stored value as major units (dollars). | — |
 | `displayMode` | `displayMode(CurrencyDisplayMode $mode): static` | `$this` | Set display mode (typed enum: `Text`, `Badge`, `BadgeText`). Martis extension. | `CurrencyDisplayMode::Text` |
@@ -1713,6 +1719,8 @@ Currency::make('price')
 
 **Supported currencies:** USD, EUR, GBP, BRL, JPY, CNY, CAD, AUD, CHF, INR, MXN, KRW, SEK, NOK, DKK, PLN, THB, ZAR, TRY, RUB, NZD, SGD, HKD, CLP, ARS, COP, PEN
 **Extra attributes:** `currencyCode`, `currencySymbol`, `currencyName`, `currencyDecimals`, `locale`, `minorUnits`, `displayMode`, `badgeColor` + Number extras (`min`, `max`, `step`)
+
+**Display and input:** the amount uses the separators of the user's Martis locale, unless `locale()` sets one, on the index, the detail page and the form input (v2.1.0). The `locale` extra attribute is present only when `locale()` was called.
 
 ---
 
@@ -2081,7 +2089,7 @@ HasOneOfMany::make('Latest Invoice', 'latestInvoice', InvoiceResource::class)
 | *All `HasOne` setters* | — | `$this` | Inherited. | — |
 | `latestByTimestamp` | `latestByTimestamp(string $column = 'created_at'): static` | `$this` | Orders the underlying relation by the timestamp column descending before picking the first row; a tie goes to the highest primary key. The related model's `created_at` / `updated_at` are qualified with its table; another column is used as given, so over a through relation qualify a column both tables have (`'projects.published_at'`). Show, Edit, Delete and the card's writes all target that record. | `'created_at'` |
 | `oldestByTimestamp` | `oldestByTimestamp(string $column = 'created_at'): static` | `$this` | Ascending counterpart of `latestByTimestamp()`; a tie goes to the lowest primary key. | `'created_at'` |
-| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across this parent's full collection (count/sum/min/max/avg), through the relation's own keys (a through relation included). On an Eloquent one-of-many relation (`latestOfMany()`, `ofMany()`), the tile and the "latest of N" pill cover every related row of the parent: the constraints written into that relation do not apply; the global scopes it removes stay removed. | disabled |
+| `aggregateVia` | `aggregateVia(AggregateFunction $function, string $column = '*'): static` | `$this` | Emits a metric tile computed across this parent's full collection (count/sum/min/max/avg), through the relation's own keys (a through relation included). On an Eloquent one-of-many relation (`latestOfMany()`, `ofMany()`), the tile and the "latest of N" pill cover every related row of the parent: the constraints written into that relation do not apply; the global scopes it removes stay removed. The tile formats the value in the user's Martis locale, with up to two decimals and no currency symbol (v2.1.0; it showed EUR for columns named like money). | disabled |
 
 *src/Fields/HasOneOfMany.php*
 

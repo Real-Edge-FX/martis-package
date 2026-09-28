@@ -13,7 +13,7 @@ Add Martis to any existing Laravel application as a Composer package.
 | Database | Any driver Laravel supports — MySQL, PostgreSQL, SQLite, or SQL Server (no specific version required) |
 | Redis | 7+ (optional, for cache/queue) |
 
-Martis is database-agnostic: it issues no driver-specific SQL on its query paths (metric period bucketing, for example, runs in PHP), so any database your Laravel app already uses works. The CI matrix runs Pest against PHP 8.3 and 8.4 on Laravel 12 and 13. End-user apps consume the precompiled frontend assets — no Node toolchain required.
+Martis is database-agnostic: it issues no driver-specific SQL on its query paths (metric period bucketing, for example, runs in PHP), so any database your Laravel app already uses works. The CI matrix runs Pest against PHP 8.3, 8.4 and 8.5 on Laravel 12 and 13. End-user apps consume the precompiled frontend assets — no Node toolchain required.
 
 ## Quick Install
 
@@ -34,7 +34,7 @@ This command performs the following steps automatically:
 4. **Publishes frontend assets** — precompiled React app to `public/vendor/martis/`.
 5. **Publishes the core migrations** — `create_martis_action_events_table`, the two action-events morph id conversions (`alter_martis_action_events_morph_ids_to_string`, `fix_martis_action_events_morph_ids_string_v2`), `create_martis_user_preferences_table`, `drop_dashboards_layout_from_user_preferences_table`, `create_notifications_table` and `create_martis_cache_state_table`. A migration already present (matched by its `*_<name>.php` suffix) is skipped.
 6. **Publishes translation files** — `en`, `pt_BR`, `pt_PT` to `lang/vendor/martis/`.
-7. **Runs database migrations** — `php artisan migrate --force`, which creates the `martis_action_events`, `martis_user_preferences`, `notifications` and `martis_cache_state` tables. Note that it applies **every** pending migration of the application, not only the Martis ones, without the production confirmation prompt.
+7. **Runs database migrations** — `php artisan migrate --force`, which creates the `martis_action_events`, `martis_user_preferences`, `notifications` and `martis_cache_state` tables. Note that it applies **every** pending migration of the application, not only the Martis ones, without the production confirmation prompt. Pass `--no-migrate` to publish the migrations without running them: the command then lists `php artisan migrate` among the next steps.
 
 > **Upgrading from pre-0.7.0**: If you already have an `action_events` table, the new migration detects it and performs an in-place `RENAME` to `martis_action_events`. No data loss. The `martis_` prefix keeps every package-owned table in one namespace so it never collides with an app's own tables.
 
@@ -89,6 +89,7 @@ command fails with `A user with email [...] already exists.`
 | `--no-sessions` | Skip the sessions table migration; wins over `--with-sessions` |
 | `--avatar-column=<column>` | Customize which `users` table column Martis should use for avatar paths |
 | `--existing-avatar-column` | Use an existing avatar column on `users` instead of publishing a migration |
+| `--no-migrate` | Publish the migrations but do not run them; run `php artisan migrate` afterwards |
 
 ### Optional Profile Support
 
@@ -348,7 +349,7 @@ Resources are **auto-discovered** — no manual registration needed. Martis scan
 
 ### Step 9: Access the Admin Panel
 
-Navigate to `http://your-app.test/martis` and log in with any user from your application.
+Navigate to `http://your-app.test/martis` and log in with a user of your application. Every user the Martis guard signs in gets in unless you define the `viewMartis` gate: see [Authorization → Panel access](authorization.md#panel-access-viewmartis).
 
 ## Host MartisServiceProvider
 
@@ -475,7 +476,7 @@ The shims and the scaffold's `index.ts` read this global, so a consumer extensio
 
 ### Configuring multiple bundle URLs
 
-The auto-published `MARTIS_EXTENSIONS` line points at a single bundle (`/vendor/martis-user/extensions.js`). To load additional bundles — e.g. a Composer-distributed package's prebuilt extensions, or a separate dev/staging override — comma-separate them:
+The auto-published `MARTIS_EXTENSIONS` line points at a single bundle (`/vendor/martis-user/extensions.js`). That bundle is optional: the shell leaves it out while `public/vendor/martis-user/extensions.js` does not exist, so an app that never runs `npm run build:extensions` logs no 404 (v2.1.0). Any other URL is loaded as configured. To load additional bundles — e.g. a Composer-distributed package's prebuilt extensions, or a separate dev/staging override — comma-separate them:
 
 ```env
 MARTIS_EXTENSIONS=/vendor/martis-user/extensions.js,/vendor/another/lib.js
@@ -686,7 +687,7 @@ On every run, with or without `--force`:
 
 - it rewrites the profile and 2FA flags in `.env` from the flags you pass (see [Optional Profile Support](#optional-profile-support)) and resets `MARTIS_EXTENSIONS` to `/vendor/martis-user/extensions.js`
 - the asset publish wipes and re-copies `public/vendor/martis/` (see Step 4)
-- it ends with `php artisan migrate --force`, which applies all pending migrations of the app
+- it ends with `php artisan migrate --force`, which applies all pending migrations of the app, unless you pass `--no-migrate`
 
 Commit first and review `git diff` afterwards. If your application uses the optional profile and two-factor migrations, re-run the install command with the same options after upgrading:
 

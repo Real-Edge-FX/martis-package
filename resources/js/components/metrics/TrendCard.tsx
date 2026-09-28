@@ -1,5 +1,6 @@
 import { Chart } from 'primereact/chart'
 import { accentColor as getAccent, mutedTextColor, resolveColor } from '@/lib/themeColors'
+import { useFormatLocale } from '@/lib/formatLocale'
 import { Sparkline } from './Sparkline'
 
 interface TrendCardProps {
@@ -8,6 +9,7 @@ interface TrendCardProps {
 }
 
 export function TrendCard({ data, color }: TrendCardProps) {
+  const locale = useFormatLocale()
   const labels = (data.labels as string[]) ?? []
   const values = (data.values as number[]) ?? []
   const latestValue = data.latestValue as number | undefined
@@ -21,7 +23,7 @@ export function TrendCard({ data, color }: TrendCardProps) {
 
   const displayValue = sumValue ?? latestValue
   const formattedDisplay = displayValue !== undefined
-    ? `${prefix}${displayValue.toLocaleString()}${suffix}`
+    ? `${prefix}${displayValue.toLocaleString(locale)}${suffix}`
     : null
 
   // Use developer-provided color or fall back to theme accent
@@ -46,6 +48,10 @@ export function TrendCard({ data, color }: TrendCardProps) {
   }
 
   const chartOptions = {
+    // Chart.js formats the axis ticks and the tooltip values itself
+    // (`Intl.NumberFormat(options.locale)`); without it they follow the
+    // browser, not the Martis locale of the headline above.
+    locale,
     responsive: true,
     maintainAspectRatio: false,
     plugins: {

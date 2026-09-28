@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-09-27
+
+Minor release built from a consumer's reports. Nothing to change on upgrade: read [Upgrading to v2.1.0 from v2.0.x](docs/upgrading.md#upgrading-to-v210-from-v20x) for the three visible changes.
+
+### Added
+
+- **An optional `viewMartis` gate decides who may open the panel.**
+  - Undefined (the default), every user the Martis guard signs in gets in, as before.
+  - Defined, the new `martis.authorize` middleware checks it after authentication, the 2FA challenge and email verification, in every environment. It guards the shell, the protected API, the Tool routes that run the Martis API stack and any app route on the `martis.api` group.
+  - A refused JSON request gets `403` with a translated message. A refused page request gets a standalone "No access to this panel" screen with a **Sign out** button.
+  - Sign-in, logout, the 2FA challenge and email verification stay reachable. The 2FA challenge page itself also stays reachable, so a refused user sees the refusal only after passing 2FA. `Gate::before()` callbacks apply, and the user is never passed as a gate argument, so a user-model policy cannot intercept the check.
+  - The SPA signs in without reloading, so `GET /api/auth/user` and `POST /api/auth/login` carry `panel_access`, and the layout shows the same screen to a refused user who just signed in.
+  - Impersonating a refused user answers `422`, and a Tool route registered without the gate logs a warning while the gate is defined.
+  - If the gate stops accepting an impersonated user mid-session, `POST /api/impersonation/stop` stays reachable (only that route) and the screen offers **Stop impersonating** instead of **Sign out**, so the session goes back to the operator.
+  - See [Authorization → Panel access](docs/authorization.md#panel-access-viewmartis).
+  - +21 Pest, +8 Vitest.
+- **`martis:install --no-migrate`.** It publishes everything, skips `php artisan migrate --force` and lists the command among the next steps. `docs/upgrading.md` already told scripts to pass it, and the command answered "The --no-migrate option does not exist". +2 Pest.
+- **Apps add commands and deep links to the command palette with `Martis::commandPalette()`.**
+  - The entries are the menu's `MenuItem`s and `MenuGroup`s, resolved per request as the menu resolves them: `canSee()` and Tool visibility hide an entry, and a soft-locked Tool or Dashboard stays listed and opens its lock page.
+  - A group's label becomes the hint, and an external link opens in a new tab.
+  - A resolver must return an iterable (array or Collection) of `MenuItem`/`MenuGroup`; anything else throws an `InvalidArgumentException` naming the given type.
+  - +7 Pest, +4 Vitest.
+- **`Martis::scopeNotificationsUsing()` narrows the notification centre.** One callback scopes the list, both unread counts, mark-read, mark-all-read, delete and clear-all, so a multi-context app can keep one context's notifications out of another. The callback receives a grouped Eloquent builder for the user's notifications, so an `orWhere` inside it stays inside the user's own rows, and only where constraints apply. A second registration replaces the first. While a scope is registered, a real-time `martis:notification-received` makes the bell refetch the scoped count instead of adding one, since the pushed notification may be outside the scope. No scope, no change. +13 Pest, +2 Vitest.
+- **A "Skip to main content" link** is the first focusable element of the sidebar and topnav layouts, and moves focus to the `<main id="martis-main">` landmark (WCAG 2.2, 2.4.1). It is translated in `en`, `pt_PT` and `pt_BR`. +4 Vitest.
+- **CI runs Pest on PHP 8.5** for Laravel 12 and 13.
+
+### Fixed
+
+- **Dates and numbers followed the browser's locale, not the user's Martis language.** A user who picked `pt_PT` on an `en-US` browser saw `9/27/2026` and `1,234.5`. These now format in the Martis locale and re-format on a language switch without a reload:
+  - the Date, DateTime and Currency displays, and the Currency and Number inputs;
+  - the value, trend and progress metrics, the trend chart's axis and tooltip and the partition chart's tooltip;
+  - the `aggregateVia()` tile;
+  - the menu count badges and the notification dates.
+
+  The Currency field also now honours `Currency::locale()` on both the display and the input, as Nova's does; without it the field follows the Martis locale like the other date and number fields.
+
+  +40 Vitest.
+- **The Browser sessions section of the profile failed to render for `pt_PT` and `pt_BR` users.** It passed `pt_PT` to `Intl.RelativeTimeFormat`, which throws on the underscore form. +1 Vitest.
+- **`<html lang>` read `pt_PT` after a language switch**, which is not a valid language tag for assistive technology. It now reads `pt-PT`. +2 Vitest.
+- **A user whose Martis locale is a regional code (`en_GB`, `en_US`) booted in `en`.** The SPA collapsed the code before i18next started, so the first paint used US formats and the preferences refetch then switched to the saved code on every page load, behind the full-screen language overlay and a refetch of every query. The code is now kept: it translates through `en` and formats with its region from the first paint. +11 Vitest.
+- **A fresh install logged a 404 and a console error on every page until the extensions bundle was built.** The shell now leaves the conventional `/vendor/martis-user/extensions.js` out while the file does not exist. `npm run build:extensions` brings it back with no other step, and any other `MARTIS_EXTENSIONS` URL is still loaded as configured. +5 Pest.
+
+### Changed
+
+- **Dates and numbers follow the user's Martis locale, not the browser's.** For `pt_PT` and `pt_BR` users this is the fix above. For `en` users it is a visible change: the bundled `en` locale formats with US rules (`9/27/2026`, `1,234.5`) on every browser, where an `en-GB` browser showed `27/09/2026`. An app whose users expect another English format adds a regional code such as `en_GB` to `martis.preferences.locales`; see [Upgrading to v2.1.0](docs/upgrading.md#upgrading-to-v210-from-v20x).
+- **The `aggregateVia()` tile no longer shows EUR.** A column named like money (`amount`, `revenue`, `price`, `cost`, `total`) was shown as euros whatever the app's currency. It is now a number with up to two decimals, in the user's Martis locale.
+
 ## [2.0.2] — 2026-09-26
 
 ### Fixed

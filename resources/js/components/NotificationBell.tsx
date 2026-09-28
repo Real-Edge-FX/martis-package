@@ -9,6 +9,7 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { martisEventBus, type EventPayload } from '@/lib/eventBus'
 import { useEscapeLayer } from '@/lib/escapeLayers'
 import { isSafeInternalPath } from '@/lib/safeInternalPath'
+import { useFormatLocale } from '@/lib/formatLocale'
 
 interface NotificationItem {
   id: string
@@ -43,6 +44,7 @@ const POLL_DEFAULT = 90_000
  */
 export function NotificationBell() {
   const { t } = useTranslation('messages')
+  const formatLocale = useFormatLocale()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [open, setOpen] = useState(false)
@@ -87,6 +89,14 @@ export function NotificationBell() {
   // path — this effect only updates the cache eagerly on emission.
   useEffect(() => {
     function handleRealtimeNotification(payload: EventPayload) {
+      // An app scope lives on the server only: a pushed notification may
+      // fall outside it, so reconcile through the scoped endpoints instead
+      // of counting it (Martis::scopeNotificationsUsing(), v2.1.0).
+      if (config.notifications?.scoped === true) {
+        void qc.invalidateQueries({ queryKey: ['notifications'] })
+        return
+      }
+
       // Bump the unread badge immediately, matching the real
       // UnreadCountResponse shape ({ unread: number }).
       qc.setQueryData<UnreadCountResponse>(['notifications', 'unread-count'], (prev) => ({
@@ -268,7 +278,7 @@ export function NotificationBell() {
                     <div className="martis-notif-title">{item.title}</div>
                     {item.message && <div className="martis-notif-message">{item.message}</div>}
                     <div className="martis-notif-meta">
-                      {formatRelative(item.created_at, t)}
+                      {formatRelative(item.created_at, t, formatLocale)}
                       {item.action_label && item.action_url && (
                         <span className="martis-notif-action-label">{item.action_label}</span>
                       )}
@@ -310,7 +320,11 @@ function pickIcon(item: NotificationItem) {
   }
 }
 
-function formatRelative(iso: string | null, t: (key: string, fallback: string) => string): string {
+export function formatRelative(
+  iso: string | null,
+  t: (key: string, fallback: string) => string,
+  locale?: string,
+): string {
   if (!iso) return ''
   const created = new Date(iso).getTime()
   const now = Date.now()
@@ -323,5 +337,5 @@ function formatRelative(iso: string | null, t: (key: string, fallback: string) =
   if (hr < 24) return `${hr}h`
   const days = Math.floor(hr / 24)
   if (days < 7) return `${days}d`
-  return new Date(iso).toLocaleDateString()
+  return new Date(iso).toLocaleDateString(locale)
 }

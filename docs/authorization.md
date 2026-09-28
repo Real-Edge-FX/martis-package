@@ -83,6 +83,32 @@ its routes answer `403`, for a user the related resource does not let
 `viewAny`, as in Nova. See
 [Relationships → Panels follow the related resource's `viewAny`](relationships.md#panels-follow-the-related-resources-viewany-v201).
 
+## Panel access (`viewMartis`)
+
+`viewMartis` decides who may open the panel at all (v2.1.0). It is optional:
+
+- **Undefined** (the default): every user who signs in with the Martis guard gets in, as before v2.1.0.
+- **Defined:** only the users it allows get in, in every environment.
+
+Define it in `app/Providers/MartisServiceProvider.php`. The published stub carries the example in `registerGates()`:
+
+```php
+use Illuminate\Support\Facades\Gate;
+
+Gate::define('viewMartis', fn ($user) => in_array($user->email, [
+    'admin@example.com',
+]));
+```
+
+The `martis.authorize` middleware checks it after authentication, the 2FA challenge and email verification. It therefore guards the SPA shell, every protected API route, every Tool route that runs the Martis API stack and any route of yours on the `martis.api` group. The sign-in pages, `POST /logout`, the 2FA challenge (its page and its endpoint), the email verification pages and the translations stay reachable, so a refused user can sign out, and a refused user with a pending 2FA challenge completes it before seeing the refusal.
+
+| Request of a refused user | Answer |
+|---|---|
+| JSON (the SPA's API calls, a Tool route) | `403 {"message": "You do not have access to this panel."}`, translated |
+| A page | `403` with a standalone "No access to this panel" screen and a **Sign out** button |
+
+`Gate::before()` callbacks apply, so a super-admin rule lets its users in. The user is not passed to the gate as an argument, so a policy of your user model is never consulted for it. An operator cannot impersonate a user the gate refuses: `POST /api/impersonation/start/{id}` answers `422`. The gate evaluates the impersonated user during the session, so if it stops accepting that user mid-session, `POST /api/impersonation/stop` stays reachable and the no-access screen offers **Stop impersonating** instead of **Sign out**: the session goes back to the operator. Every other route stays refused.
+
 ## Writing a policy
 
 Martis looks for policies in two places, in order:

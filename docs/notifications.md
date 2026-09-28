@@ -190,6 +190,29 @@ In addition to the keys above, every row carries Laravel's standard notification
 
 **Hiding notifications + the bell.** `enabled` is the single switch for "do I want system notifications in this panel?" Set it to `false` (or `MARTIS_NOTIFICATIONS_ENABLED=false`) and the bell icon next to the user profile disappears, polling stops, and the REST endpoints return empty payloads. There is no separate `user_menu` toggle for the bell — this is it.
 
+## Scoping the notification centre
+
+By default the bell shows every database notification of the signed-in user. An app where one user works in several contexts (tenants, workspaces, product areas) can narrow it with `Martis::scopeNotificationsUsing()` (v2.1.0), in `app/Providers/MartisServiceProvider.php`:
+
+```php
+use Illuminate\Http\Request;
+use Martis\Facades\Martis;
+
+// Illustration: an app that stores the tenant in the notification data.
+Martis::scopeNotificationsUsing(function ($query, Request $request) {
+    $query->where('data->tenant_id', $request->user()->current_tenant_id);
+});
+```
+
+- The closure receives an Eloquent query builder over the user's notifications and adds its constraints to it (its return value is ignored).
+- Its constraints are grouped in parentheses and joined to the user constraint with `AND`, so an `orWhere` (for example `->where('data->tenant_id', 1)->orWhere('data->tenant_id', 2)`) stays inside the signed-in user's notifications.
+- Only where constraints of the closure apply: it runs on a nested builder, so `orderBy()`, `limit()` and joins are ignored.
+- It applies to every endpoint: the list, both unread counts, mark-read, mark-all-read, delete and clear-all.
+- A notification outside the scope is absent from the list and the counts. Mark-read and delete answer `404` for it, and mark-all-read and clear-all leave it untouched.
+- The [real-time feed](#real-time-delivery) forwards whatever your transport emits, and the bell cannot check a pushed notification against a server-side scope. While a scope is registered, `martis:notification-received` therefore makes the bell refetch the scoped count and list instead of adding one to the badge, so an out-of-scope push never shows.
+- There is one scope: a second `scopeNotificationsUsing()` replaces the first (unlike `Martis::commandPalette()`, which accumulates). An app and a package that both narrow the centre combine their conditions in one closure.
+- Without a scope, nothing changes.
+
 ## REST API
 
 All endpoints live under `/{martis-path}/api/notifications`, scope to the authenticated user, and silently no-op when there's no user (keeps polling cheap on the login screen).

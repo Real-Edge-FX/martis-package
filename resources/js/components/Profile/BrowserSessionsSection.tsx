@@ -4,6 +4,7 @@ import { Badge } from 'primereact/badge'
 import { DesktopIcon, DeviceMobileIcon, MonitorIcon, SignOutIcon, TrashIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
+import { toBcp47 } from '@/lib/formatLocale'
 
 /**
  * Browser sessions surface — `Profile > Browser sessions`. Lists every
@@ -59,7 +60,7 @@ function deviceLabel(userAgent: string): string {
   return os ? `${browser} on ${os}` : browser
 }
 
-function relativeTime(timestamp: number, locale = 'en'): string {
+function relativeTime(timestamp: number, locale?: string): string {
   const seconds = Math.floor(Date.now() / 1000) - timestamp
   const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
   if (seconds < 60) return rtf.format(-seconds, 'second')
@@ -216,7 +217,7 @@ export function BrowserSessionsSection(): JSX.Element {
                   <p className="text-xs martis-text-muted mt-0.5">
                     {session.ip_address || t('sessions_unknown_ip', { defaultValue: 'Unknown IP' })}
                     {' · '}
-                    {relativeTime(session.last_active, i18n.language)}
+                    {relativeTime(session.last_active, toBcp47(i18n.language))}
                   </p>
                 </div>
               </div>

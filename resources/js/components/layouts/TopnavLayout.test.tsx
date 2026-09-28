@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -39,5 +40,24 @@ describe('TopnavLayout search button', () => {
 
     expect(screen.getByRole('button', { name: 'translated:search_placeholder' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Search' })).toBeNull()
+  })
+})
+
+describe('TopnavLayout skip link', () => {
+  it('comes first in the Tab order and moves focus to the main landmark', async () => {
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <TopnavLayout />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    await user.tab()
+    expect(document.activeElement?.textContent).toBe('translated:skip_to_content')
+
+    await user.keyboard('{Enter}')
+    expect(document.activeElement?.id).toBe('martis-main')
   })
 })

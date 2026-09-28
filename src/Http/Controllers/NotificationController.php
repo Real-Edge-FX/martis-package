@@ -2,6 +2,9 @@
 
 namespace Martis\Http\Controllers;
 
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
@@ -9,6 +12,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Martis\Http\Resources\JsonErrorResponse;
+use Martis\MartisManager;
 use Martis\Support\TranslatedLine;
 
 /**
@@ -25,6 +29,10 @@ use Martis\Support\TranslatedLine;
  */
 class NotificationController extends Controller
 {
+    public function __construct(
+        private readonly MartisManager $martis,
+    ) {}
+
     /**
      * Paginated index. The bell dropdown only consumes the first page;
      * a future "View all" route may use the rest of the pagination
@@ -55,13 +63,13 @@ class NotificationController extends Controller
         $perPage = max(1, min(50, $perPage));
         $unreadOnly = filter_var($request->query('unread_only', false), FILTER_VALIDATE_BOOLEAN);
 
-        $query = $user->notifications()->latest();
+        $query = $this->scopedNotifications($user, $request)->latest();
         if ($unreadOnly) {
             $query->whereNull('read_at');
         }
 
         $paginated = $query->paginate($perPage);
-        $unread = (int) $user->unreadNotifications()->count();
+        $unread = (int) $this->scopedNotifications($user, $request)->whereNull('read_at')->count();
 
         return new IlluminateJsonResponse([
             'data' => $paginated->getCollection()->map(fn (DatabaseNotification $n) => $this->serialize($n))->all(),
@@ -95,7 +103,7 @@ class NotificationController extends Controller
         }
 
         return new IlluminateJsonResponse([
-            'unread' => (int) $user->unreadNotifications()->count(),
+            'unread' => (int) $this->scopedNotifications($user, $request)->whereNull('read_at')->count(),
         ]);
     }
 
@@ -117,7 +125,7 @@ class NotificationController extends Controller
             return JsonErrorResponse::validation(['notifications' => [$this->notNotifiableReason($user)]], $this->notNotifiableReason($user))->toResponse();
         }
 
-        $notification = $user->notifications()->where('id', $id)->first();
+        $notification = $this->scopedNotifications($user, $request)->where('id', $id)->first();
         if (! $notification instanceof DatabaseNotification) {
             return JsonErrorResponse::notFound()->toResponse();
         }
@@ -144,7 +152,9 @@ class NotificationController extends Controller
             return JsonErrorResponse::validation(['notifications' => [$this->notNotifiableReason($user)]], $this->notNotifiableReason($user))->toResponse();
         }
 
-        $user->unreadNotifications->markAsRead();
+        /** @var Collection<int, DatabaseNotification> $unread */
+        $unread = $this->scopedNotifications($user, $request)->whereNull('read_at')->get();
+        $unread->each(fn (DatabaseNotification $notification) => $notification->markAsRead());
 
         return new IlluminateJsonResponse([
             'data' => null,
@@ -169,7 +179,7 @@ class NotificationController extends Controller
             return JsonErrorResponse::validation(['notifications' => [$this->notNotifiableReason($user)]], $this->notNotifiableReason($user))->toResponse();
         }
 
-        $notification = $user->notifications()->where('id', $id)->first();
+        $notification = $this->scopedNotifications($user, $request)->where('id', $id)->first();
         if (! $notification instanceof DatabaseNotification) {
             return JsonErrorResponse::notFound()->toResponse();
         }
@@ -196,7 +206,7 @@ class NotificationController extends Controller
             return JsonErrorResponse::validation(['notifications' => [$this->notNotifiableReason($user)]], $this->notNotifiableReason($user))->toResponse();
         }
 
-        $user->notifications()->delete();
+        $this->scopedNotifications($user, $request)->delete();
 
         return new IlluminateJsonResponse(['data' => null]);
     }
@@ -204,6 +214,22 @@ class NotificationController extends Controller
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * The user's notifications, narrowed by the scope an app registered
+     * with `Martis::scopeNotificationsUsing()` (none by default).
+     *
+     * @param  mixed  $user  a notifiable user (checked by notifiable())
+     * @return MorphMany<DatabaseNotification, Model>
+     */
+    protected function scopedNotifications(mixed $user, Request $request): MorphMany
+    {
+        $query = $user->notifications();
+
+        $this->martis->applyNotificationScope($query, $request);
+
+        return $query;
+    }
 
     protected function featureEnabled(): bool
     {

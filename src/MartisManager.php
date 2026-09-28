@@ -3,10 +3,16 @@
 namespace Martis;
 
 use Closure;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
+use InvalidArgumentException;
 use Martis\Contracts\DashboardContract;
 use Martis\Contracts\ToolContract;
 use Martis\Menu\Menu;
+use Martis\Menu\MenuGroup;
+use Martis\Menu\MenuItem;
 use Martis\Menu\MenuSection;
 use Martis\Support\ConfigCallable;
 use Martis\Support\InstalledVersion;
@@ -20,6 +26,12 @@ class MartisManager
 
     /** @var Closure(Request): string|null */
     protected ?Closure $pageTitleResolver = null;
+
+    /** @var list<Closure(Request): mixed> checked at resolve time: an iterable of entries */
+    protected array $commandPaletteResolvers = [];
+
+    /** @var (Closure(Builder<Model>, Request): mixed)|null */
+    protected ?Closure $notificationScope = null;
 
     /** @var list<class-string<DashboardContract>|DashboardContract> */
     protected array $dashboards = [];
@@ -447,6 +459,171 @@ class MartisManager
         $registry = app(ResourceRegistry::class);
 
         return $registry instanceof ResourceRegistry ? $registry : null;
+    }
+
+    // -------------------------------------------------------------------------
+    // Command palette
+    // -------------------------------------------------------------------------
+
+    /**
+     * Add entries to the command palette (⌘K). The resolver returns a list
+     * of `MenuItem`s and `MenuGroup`s, resolved per request as the menu
+     * resolves them: `canSee()` and a tool's `authorizedToSee()` hide an
+     * entry; a soft-gate lock keeps it listed and points it at the lock
+     * page, as in the menu. Calls accumulate, so several tools or packages
+     * can each add theirs.
+     *
+     * The resolver may return an array or any other iterable (a
+     * Collection); anything else throws an InvalidArgumentException.
+     *
+     * @param  Closure(Request): mixed  $resolver  an iterable of MenuItem/MenuGroup
+     */
+    public function commandPalette(Closure $resolver): static
+    {
+        $this->commandPaletteResolvers[] = $resolver;
+
+        return $this;
+    }
+
+    public function forgetCommandPalette(): static
+    {
+        $this->commandPaletteResolvers = [];
+
+        return $this;
+    }
+
+    /**
+     * The registered palette entries the request may see, in registration
+     * order. A `MenuGroup` gives its visible items its label as their group.
+     *
+     * @return list<array{key: string, label: string, url: string, external: bool, icon: string|null, group: string|null}>
+     */
+    public function resolveCommandPalette(Request $request): array
+    {
+        $entries = [];
+
+        foreach ($this->commandPaletteResolvers as $resolver) {
+            $items = $resolver($request);
+
+            if (! is_iterable($items)) {
+                throw new InvalidArgumentException(sprintf(
+                    'Martis::commandPalette() resolvers must return an iterable of MenuItem/MenuGroup, %s given.',
+                    get_debug_type($items),
+                ));
+            }
+
+            foreach ($items as $item) {
+                if ($item instanceof MenuItem) {
+                    $resolved = $item->resolve($request);
+                    if ($resolved !== null) {
+                        $entries[] = $this->paletteEntry(count($entries), $resolved, null);
+                    }
+
+                    continue;
+                }
+
+                if ($item instanceof MenuGroup) {
+                    $group = $item->resolve($request);
+                    $groupItems = is_array($group['items'] ?? null) ? $group['items'] : [];
+                    $label = is_string($group['label'] ?? null) ? $group['label'] : null;
+
+                    foreach ($groupItems as $resolved) {
+                        if (is_array($resolved)) {
+                            $entries[] = $this->paletteEntry(count($entries), $resolved, $label);
+                        }
+                    }
+
+                    continue;
+                }
+
+                throw new InvalidArgumentException(sprintf(
+                    'Martis::commandPalette() entries must be %s or %s instances, %s given.',
+                    MenuItem::class,
+                    MenuGroup::class,
+                    get_debug_type($item),
+                ));
+            }
+        }
+
+        return $entries;
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $resolved  a resolved MenuItem
+     * @return array{key: string, label: string, url: string, external: bool, icon: string|null, group: string|null}
+     */
+    protected function paletteEntry(int $index, array $resolved, ?string $group): array
+    {
+        return [
+            'key' => 'command:'.$index,
+            'label' => is_string($resolved['label'] ?? null) ? $resolved['label'] : '',
+            'url' => is_string($resolved['url'] ?? null) ? $resolved['url'] : '',
+            'external' => ($resolved['external'] ?? false) === true,
+            'icon' => is_string($resolved['icon'] ?? null) ? $resolved['icon'] : null,
+            'group' => $group,
+        ];
+    }
+
+    // -------------------------------------------------------------------------
+    // Notifications
+    // -------------------------------------------------------------------------
+
+    /**
+     * Narrow the notification centre: every endpoint (the list, both unread
+     * counts, mark-read, mark-all-read, delete and clear-all) calls
+     * `$scope($query, $request)` with an Eloquent query builder over the
+     * user's notifications. The closure adds its constraints to that
+     * builder; they land inside one parenthesised group joined to the
+     * user constraint with AND, so an `orWhere` never reaches another
+     * user's notifications. Its return value is ignored; `null` removes
+     * the scope. There is one scope: a second call replaces the first
+     * (unlike commandPalette(), which accumulates), so an app and a
+     * package that both narrow the centre combine their conditions in one
+     * closure. The package knows nothing about what the scope filters
+     * on (a tenant, a workspace, a product area).
+     *
+     * @param  (Closure(Builder<Model>, Request): mixed)|null  $scope
+     */
+    public function scopeNotificationsUsing(?Closure $scope): static
+    {
+        $this->notificationScope = $scope;
+
+        return $this;
+    }
+
+    public function forgetNotificationScope(): static
+    {
+        return $this->scopeNotificationsUsing(null);
+    }
+
+    /**
+     * Whether an app registered a notification scope. The shell tells the
+     * bell, which then refetches the scoped count on a real-time
+     * `martis:notification-received` instead of adding one: the pushed
+     * notification may fall outside the scope.
+     */
+    public function hasNotificationScope(): bool
+    {
+        return $this->notificationScope instanceof Closure;
+    }
+
+    /**
+     * Apply the registered notification scope, if any, to `$query` (the
+     * user's `notifications()` relation or a builder over it). The scope
+     * runs on a nested builder, so its constraints stay in one group
+     * AND-ed with the constraints `$query` already carries.
+     *
+     * @param  Builder<Model>|Relation<Model, Model, mixed>  $query
+     */
+    public function applyNotificationScope(Builder|Relation $query, Request $request): void
+    {
+        $scope = $this->notificationScope;
+
+        if ($scope instanceof Closure) {
+            $query->where(function (Builder $nested) use ($scope, $request): void {
+                $scope($nested, $request);
+            });
+        }
     }
 
     // -------------------------------------------------------------------------

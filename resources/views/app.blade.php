@@ -69,6 +69,8 @@
     <script>
         window.MartisConfig = {
             basePath: "/{{ $basePath }}",
+            panelForbidden: {{ ($panelForbidden ?? false) ? 'true' : 'false' }},
+            panelForbiddenImpersonating: {{ ($panelForbiddenImpersonating ?? false) ? 'true' : 'false' }},
             locale: "{{ $prefsPayload['locale'] ?? config('martis.locale', config('app.locale', 'en')) }}",
             preferences: {!! json_encode($prefsConfig) !!},
             brand: "{{ config('martis.brand.name', 'Martis') }}",
@@ -120,10 +122,15 @@
                 'fallbackChain' => array_values((array) config('martis.locales.fallback_chain', ['en'])),
                 'rtlLocales' => array_values((array) config('martis.locales.rtl_locales', [])),
             ]) !!},
-            notifications: {!! json_encode(config('martis.notifications', [
+            notifications: {!! json_encode(array_merge((array) config('martis.notifications', [
                 'enabled' => true,
                 'poll_interval' => 90000,
                 'max_in_dropdown' => 10,
+            ]), [
+                // An app scope (Martis::scopeNotificationsUsing()) is applied
+                // on the server only: the bell refetches instead of counting
+                // a real-time push it cannot check (v2.1.0).
+                'scoped' => app(\Martis\MartisManager::class)->hasNotificationScope(),
             ])) !!},
             stickyViews: {!! json_encode(config('martis.sticky_views', [
                 'enabled' => true,
@@ -200,7 +207,7 @@
                     'email_editable' => (bool) config('martis.profile.account.email_editable', true),
                 ],
             ]) !!},
-            extensions: {!! json_encode((array) config('martis.extensions', [])) !!},
+            extensions: {!! json_encode(\Martis\Support\ExtensionBundles::urls()) !!},
             impersonation: {!! json_encode([
                 // Master switch surfaced at boot so the React banner
                 // can short-circuit its `/api/impersonation/status`

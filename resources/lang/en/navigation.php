@@ -38,6 +38,8 @@ return [
     'palette_placeholder' => 'Type a command or search…',
     'palette_resources' => 'Resources',
     'palette_tools' => 'Tools',
+    'palette_commands' => 'Commands',
+    'skip_to_content' => 'Skip to main content',
     'palette_show_more' => 'Show {{count}} more',
     'palette_actions' => 'Actions',
     'palette_recent' => 'Recent activity',

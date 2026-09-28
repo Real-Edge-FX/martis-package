@@ -1,6 +1,7 @@
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { InputNumber } from 'primereact/inputnumber'
 import { ClearButton } from '@/components/ClearButton'
+import { useFormatLocale } from '@/lib/formatLocale'
 
 export function NumberFieldDisplay({ value }: FieldDisplayProps) {
   if (value === null || value === undefined) {
@@ -12,6 +13,7 @@ export function NumberFieldDisplay({ value }: FieldDisplayProps) {
 }
 
 export function NumberFieldInput({ field, value, onChange, error }: FieldInputProps) {
+  const locale = useFormatLocale()
   const numValue = value === null || value === undefined || value === '' ? null : Number(value)
   const ext = field as unknown as Record<string, unknown>
   const min = ext.min as number | undefined
@@ -24,6 +26,7 @@ export function NumberFieldInput({ field, value, onChange, error }: FieldInputPr
       <div className="relative">
         <InputNumber
           inputId={field.attribute}
+          locale={locale}
           name={field.attribute}
           value={numValue}
           onValueChange={(e) => onChange(e.value ?? null)}

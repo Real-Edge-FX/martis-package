@@ -34,6 +34,9 @@ use Throwable;
  *    Gated by the registered ActionEvent resource's `authorizedToViewAny`
  *    (same policy as the audit-log index); absent when no resource
  *    exposes the model.
+ *  - **Commands**: the entries an app registers with
+ *    `Martis::commandPalette()` (MenuItems / MenuGroups), resolved and
+ *    filtered per request as the menu resolves them (v2.1.0).
  *
  * All arrays come out ordered for deterministic rendering — any
  * fuzzy match / scoring happens client-side.
@@ -51,6 +54,7 @@ class CommandPaletteController extends MartisController
      *   tools: list<array{key: string, uriKey: string, label: string, icon: string|null, group: string|null, url: string}>,
      *   actions: list<array{key: string, label: string, icon: string|null, destructive: bool, resource: string, resourceUriKey: string, url: string}>,
      *   recent: list<array{key: int, label: string, subtitle: string|null, url: string|null, created_at: string}>,
+     *   commands: list<array{key: string, label: string, url: string, external: bool, icon: string|null, group: string|null}>,
      * }
      */
     public function index(Request $request): JsonResponse
@@ -58,6 +62,7 @@ class CommandPaletteController extends MartisController
         return response()->json([
             'resources' => $this->resources($request),
             'tools' => $this->tools($request),
+            'commands' => $this->martis->resolveCommandPalette($request),
             'actions' => $this->actions($request),
             'recent' => $this->recent($request),
         ]);

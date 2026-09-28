@@ -7,6 +7,11 @@ export interface User {
   avatar_initials?: string
   /** Slot (1..16) of the theme's `--martis-avatar-N` tokens behind the initials. */
   avatar_palette?: number
+  /**
+   * False when the `viewMartis` gate refuses this user the panel (v2.1.0).
+   * The SPA signs in without reloading, so the Layout reads this flag.
+   */
+  panel_access?: boolean
   [key: string]: unknown
 }
 

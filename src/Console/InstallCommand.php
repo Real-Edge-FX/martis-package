@@ -7,6 +7,7 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
 use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\StubResolver;
+use Martis\Support\ExtensionBundles;
 use RuntimeException;
 
 class InstallCommand extends Command
@@ -23,6 +24,7 @@ class InstallCommand extends Command
                             {--no-2fa : Disable 2FA support, even when running interactively. Wins over --with-2fa.}
                             {--with-sessions : Publish the key-type-aware sessions table migration for the browser-sessions profile section (requires SESSION_DRIVER=database)}
                             {--no-sessions : Skip the sessions table migration, even when the sessions section is active. Wins over --with-sessions.}
+                            {--no-migrate : Skip running migrations after publishing them}
                             {--avatar-column= : Column on the users table that stores avatar paths}
                             {--existing-avatar-column : Use an existing avatar column instead of publishing a migration}';
 
@@ -44,13 +46,22 @@ class InstallCommand extends Command
         $this->publishExtensionsScaffold();
         $this->writeEnvironmentConfiguration($options);
         $this->clearConfigCache();
-        $this->runMigrations();
+
+        if ($this->option('no-migrate')) {
+            $this->components->twoColumnDetail('<fg=yellow>Skipped</> migrations', 'run php artisan migrate');
+        } else {
+            $this->runMigrations();
+        }
+
         $this->preflightSessions();
 
         $this->newLine();
         $this->components->info('Martis installed successfully.');
         $this->newLine();
         $this->line('  Next steps:');
+        if ($this->option('no-migrate')) {
+            $this->line('  - Run <fg=cyan>php artisan migrate</> to create the Martis tables.');
+        }
         $this->line('  - Run <fg=cyan>php artisan martis:user</> to create an admin account.');
 
         /** @var string $panelUrl */
@@ -684,8 +695,9 @@ class InstallCommand extends Command
             'MARTIS_SHOW_PROFILE_MENU' => $options['profile_enabled'] ? 'true' : 'false',
             // v1.9.0+ runtime extension loader. The default URL points
             // at the bundle `npm run build:extensions` produces in
-            // `public/vendor/martis-user/extensions.js`.
-            'MARTIS_EXTENSIONS' => '/vendor/martis-user/extensions.js',
+            // `public/vendor/martis-user/extensions.js`; the shell leaves
+            // it out until that file exists (ExtensionBundles).
+            'MARTIS_EXTENSIONS' => ExtensionBundles::CONVENTIONAL_URL,
         ];
 
         foreach ($pairs as $key => $value) {

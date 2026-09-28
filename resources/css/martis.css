@@ -8143,3 +8143,31 @@ html[data-density="dense"] .martis-cache-toggle {
   table thead { display: table-header-group; }
   table tr    { page-break-inside: avoid; }
 }
+
+/* Skip link (WCAG 2.2, 2.4.1 Bypass Blocks): the first focusable element of
+   the sidebar and topnav layouts, off-screen until it takes keyboard focus. */
+.martis-skip-link {
+  position: fixed;
+  top: 0.5rem;
+  inset-inline-start: 0.5rem;
+  z-index: 10000;
+  padding: 0.5rem 0.875rem;
+  border-radius: var(--martis-radius-md);
+  background: var(--martis-accent);
+  color: var(--martis-accent-contrast);
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 0 0 3px var(--martis-focus-ring);
+  transform: translateY(calc(-100% - 1rem));
+}
+
+.martis-skip-link:focus,
+.martis-skip-link:focus-visible {
+  transform: none;
+  outline: none;
+}
+
+/* The landmark takes focus from the skip link only; it is not a control. */
+#martis-main:focus {
+  outline: none;
+}
