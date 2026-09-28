@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\Filesystem;
 use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\StubResolver;
+use Martis\Support\MigrationTimestamps;
 use Symfony\Component\Process\Process;
 
 /**
@@ -467,7 +468,7 @@ class RolesScaffoldCommand extends Command
             return;
         }
 
-        $target = $migrationsDir.'/'.date('Y_m_d_His').'_add_category_column_to_permissions_table.php';
+        $target = $migrationsDir.'/'.(new MigrationTimestamps($migrationsDir))->filename('add_category_column_to_permissions_table');
         $files->put($target, (string) file_get_contents($stubFile));
         $this->components->twoColumnDetail('<fg=green>Published</> category migration', $target);
     }

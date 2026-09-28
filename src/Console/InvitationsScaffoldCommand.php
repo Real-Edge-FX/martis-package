@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\StubResolver;
+use Martis\Support\MigrationTimestamps;
 
 /**
  * `martis:invitations` — scaffold the consumer-owned admin UI for the
@@ -165,7 +166,7 @@ class InvitationsScaffoldCommand extends Command
             return;
         }
 
-        $target = $migrationsDir.'/'.date('Y_m_d_His').'_create_invitations_table.php';
+        $target = $migrationsDir.'/'.(new MigrationTimestamps($migrationsDir))->filename('create_invitations_table');
         $files->put($target, (string) file_get_contents($stubFile));
         $this->components->twoColumnDetail('<fg=green>Published</> invitations migration', $target);
     }

@@ -491,3 +491,23 @@ PHP;
     // env token proves the method bailed to the manual path.
     expect($patched)->not->toContain('MARTIS_AUDIT_INVITATIONS');
 });
+
+it('publishes the invitations migration after the newest migration on disk', function () {
+    $future = base_path('database/migrations/'.date('Y_m_d_His', time() + 5).'_create_things_table.php');
+    file_put_contents($future, "<?php\n");
+
+    try {
+        $this->artisan('martis:invitations', [
+            '--namespace' => 'App\\Martis\\Resources',
+            '--no-install' => true,
+            '--no-migrate' => true,
+        ])->run();
+
+        $files = invitationsMigrationFiles();
+
+        expect($files)->toHaveCount(1)
+            ->and(strcmp(basename((string) $files[0]), basename($future)))->toBeGreaterThan(0);
+    } finally {
+        @unlink($future);
+    }
+});

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\StubResolver;
+use Martis\Support\MigrationTimestamps;
 use Symfony\Component\Process\Process;
 
 /**
@@ -538,7 +539,7 @@ class SsoMakeCommand extends Command
 
         $filesystem = new Filesystem;
         $filesystem->ensureDirectoryExists(database_path('migrations'));
-        $target = database_path('migrations/'.date('Y_m_d_His')."_{$migrationName}.php");
+        $target = database_path('migrations/'.(new MigrationTimestamps(database_path('migrations')))->filename($migrationName));
 
         $stub = (string) file_get_contents($stubPath);
         $stub = str_replace('{{column_name}}', "{$name}_group_name", $stub);

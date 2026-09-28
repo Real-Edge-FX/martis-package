@@ -245,3 +245,27 @@ it('martis:sso rejects a provider name that reduces to empty after sanitization'
         '--no-migrate' => true,
     ])->assertFailed();
 });
+
+it('publishes the group column migration after the Spatie migration dated one second ahead', function () {
+    if (! file_exists(config_path('martis.php'))) {
+        $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
+    }
+
+    // Spatie names create_permission_tables when its provider boots, one
+    // second ahead (spatie/laravel-package-tools, bootPackageMigrations()).
+    $spatie = database_path('migrations/'.date('Y_m_d_His', time() + 1).'_create_permission_tables.php');
+    file_put_contents($spatie, "<?php\n");
+
+    $this->artisan('martis:sso', [
+        'provider' => 'azure',
+        '--no-composer' => true,
+        '--no-listener' => true,
+        '--no-migrate' => true,
+        '--with-migration' => true,
+    ])->assertSuccessful();
+
+    $group = glob(database_path('migrations/*_add_azure_group_name_to_roles_table.php')) ?: [];
+
+    expect($group)->toHaveCount(1)
+        ->and(strcmp(basename($group[0]), basename($spatie)))->toBeGreaterThan(0);
+});
