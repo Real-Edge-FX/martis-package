@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **An auth page override registered by the extension bundle never rendered.** The router was built when its module loaded, before the SPA loaded the extension bundles, so it read `auth:login`, `auth:register`, `auth:forgot-password`, `auth:reset-password`, `auth:email-verify-notice` and `auth:invitation-accept` too early and the bundled page always rendered, while `componentRegistry.has('auth:login')` answered `true`. The router is now built after the bundles load. +7 Vitest.
+- **A soft-locked Tool refetched its descriptor in a loop.** Opening a locked Tool (`lockedFor()`) opened the lock modal, which re-rendered the gate provider with a new context value, and the page's request depended on that value, so `GET /api/tools/{uriKey}` ran again and again until the API throttle answered `429` and a "Too many attempts" toast appeared. The gate's context value now changes only with the lock, and the request depends on the gate's stable `open()` only. +1 Vitest.
 
 ## [2.1.1] — 2026-09-28
 
