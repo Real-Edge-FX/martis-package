@@ -22,6 +22,7 @@ use Martis\MartisManager;
  * @method static list<array{key: string, label: string, url: string, external: bool, icon: string|null, group: string|null}> resolveCommandPalette(\Illuminate\Http\Request $request)
  * @method static MartisManager scopeNotificationsUsing(\Closure|null $scope)
  * @method static MartisManager forgetNotificationScope()
+ * @method static bool hasNotificationScope()
  * @method static void applyNotificationScope(\Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>|\Illuminate\Database\Eloquent\Relations\Relation<\Illuminate\Database\Eloquent\Model, \Illuminate\Database\Eloquent\Model, mixed> $query, \Illuminate\Http\Request $request)
  *
  * @see MartisManager

@@ -89,6 +89,14 @@ export function NotificationBell() {
   // path — this effect only updates the cache eagerly on emission.
   useEffect(() => {
     function handleRealtimeNotification(payload: EventPayload) {
+      // An app scope lives on the server only: a pushed notification may
+      // fall outside it, so reconcile through the scoped endpoints instead
+      // of counting it (Martis::scopeNotificationsUsing(), v2.1.0).
+      if (config.notifications?.scoped === true) {
+        void qc.invalidateQueries({ queryKey: ['notifications'] })
+        return
+      }
+
       // Bump the unread badge immediately, matching the real
       // UnreadCountResponse shape ({ unread: number }).
       qc.setQueryData<UnreadCountResponse>(['notifications', 'unread-count'], (prev) => ({

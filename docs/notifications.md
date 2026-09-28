@@ -209,6 +209,8 @@ Martis::scopeNotificationsUsing(function ($query, Request $request) {
 - Only where constraints of the closure apply: it runs on a nested builder, so `orderBy()`, `limit()` and joins are ignored.
 - It applies to every endpoint: the list, both unread counts, mark-read, mark-all-read, delete and clear-all.
 - A notification outside the scope is absent from the list and the counts. Mark-read and delete answer `404` for it, and mark-all-read and clear-all leave it untouched.
+- The [real-time feed](#real-time-delivery) forwards whatever your transport emits, and the bell cannot check a pushed notification against a server-side scope. While a scope is registered, `martis:notification-received` therefore makes the bell refetch the scoped count and list instead of adding one to the badge, so an out-of-scope push never shows.
+- There is one scope: a second `scopeNotificationsUsing()` replaces the first (unlike `Martis::commandPalette()`, which accumulates). An app and a package that both narrow the centre combine their conditions in one closure.
 - Without a scope, nothing changes.
 
 ## REST API

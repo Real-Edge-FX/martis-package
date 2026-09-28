@@ -451,6 +451,12 @@ export interface MartisConfigShape {
    */
   panelForbidden?: boolean
   /**
+   * True when that refusal hit an impersonated user (v2.1.0): the screen
+   * then offers to stop impersonating, which hands the session back to
+   * the operator.
+   */
+  panelForbiddenImpersonating?: boolean
+  /**
    * Developer tooling switches. Today this only carries the gate
    * for the Component Inspector at `/dev/components`; future dev
    * surfaces (route inspector, schema browser, etc.) hang here too.
@@ -520,6 +526,14 @@ export interface MartisNotificationsConfig {
    * 50 server-side regardless of this value.
    */
   max_in_dropdown?: number
+  /**
+   * True when the app narrows the notification centre with
+   * `Martis::scopeNotificationsUsing()` (v2.1.0). The bell then refetches
+   * the scoped count on a real-time `martis:notification-received`
+   * instead of adding one, since the pushed notification may be outside
+   * the scope.
+   */
+  scoped?: boolean
 }
 
 /**
