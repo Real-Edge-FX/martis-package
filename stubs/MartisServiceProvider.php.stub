@@ -105,11 +105,14 @@ class MartisServiceProvider extends ServiceProvider
     }
 
     /**
-     * Gate definitions — tighten the permissive Martis defaults.
+     * Gate definitions.
      *
-     * Out of the box every authenticated user passes
-     * `manage-martis-cache` so the System → Cache page is reachable.
-     * Production deployments typically restrict this to admins.
+     * Four abilities deny every user until you define them here:
+     * `manage-martis-cache` (the System → Cache page and its endpoints),
+     * `bypass-martis-cache` (skipping the per-request cache),
+     * `view-martis-action-events` (the action log) and `martis-invite`
+     * (inviting users). Your definition replaces the package default,
+     * whatever the boot order.
      *
      * `viewMartis` decides who may open the panel at all. Undefined, every
      * user the Martis guard signs in gets in.
