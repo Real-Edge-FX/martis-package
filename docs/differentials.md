@@ -325,6 +325,11 @@ Coming from Nova, expect `404` where the tool is hidden, and `423` / `409` /
 `429` from the 2FA challenge, email verification and the throttle. See
 [Tools → Tool routes and their middleware](tools.md#tool-routes-and-their-middleware).
 
+
+### Pages at URLs of your own
+
+Nova declares a tool's pages in PHP (`Nova::router()` with `routes/inertia.php`) and registers their components in JS (`Nova.inertia()`); the tool's `Authorize` middleware answers `403` to a user `canSee()` refuses, and a tool page shows no breadcrumb ([Nova → Tools](https://nova.laravel.com/docs/v5/customization/tools)). Martis routes on the client, so an app registers the path and the component in one call, `routeRegistry.register()` (v2.2.0+). Bound to a Tool, the page answers as `/tools/{uriKey}` does: `404` where the Tool is hidden, the lock page where it is locked. The page gets a breadcrumb, and a registered path can never take a URL Martis uses. See [Custom pages](custom-pages.md).
+
 ---
 
 ## Lens System

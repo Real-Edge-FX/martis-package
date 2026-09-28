@@ -70,6 +70,10 @@ import { useRevalidateOnFocus } from '@/hooks/useRevalidateOnFocus'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { iconRegistry } from '@/lib/iconRegistry'
 import { layoutRegistry } from '@/lib/layoutRegistry'
+import { routeRegistry } from '@/lib/routeRegistry'
+import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
+import { ForbiddenPage } from '@/pages/Forbidden'
+import { NotFoundPage } from '@/pages/NotFound'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useModalHistoryLock } from '@/lib/historyLock'
 import { useEscapeLayer } from '@/lib/escapeLayers'
@@ -123,6 +127,12 @@ export const martisRuntime = {
   Topbar,
   Footer,
 
+  // The shell's 403 and 404 screens (since v2.2.0), so a page whose API
+  // answers 403 or 404 shows the same screen in place and keeps its URL.
+  // See docs/custom-pages.md.
+  ForbiddenPage,
+  NotFoundPage,
+
   // Field renderer (since v1.14.0). Lets custom Action components,
   // Tools, and cards mount canonical Martis fields without
   // re-implementing behaviour. Pair these with the FieldDefinition
@@ -173,6 +183,13 @@ export const martisRuntime = {
   iconRegistry,
   layoutRegistry,
 
+  // Route registry (since v2.2.0): the pages an application gives URLs of
+  // its own below the Martis base path, rendered inside the shell. The
+  // router reads it once, after every extension bundle has loaded, so an
+  // extension registers at the top level of its bundle. See
+  // docs/custom-pages.md.
+  routeRegistry,
+
   // Page and override hooks (since v1.38.0), the ones the package's own
   // pages and drawers use: the tab title of a custom page, the back-button
   // lock a dialog inside a `DrawerShell` needs (it shares the drawers'
@@ -180,6 +197,9 @@ export const martisRuntime = {
   // context, the unsaved-changes guard of a custom form, and the error
   // state that parses an `ApiError`. See docs/components.md.
   usePageTitle,
+  // The label of the last breadcrumb (since v2.2.0), e.g. the record a
+  // registered page shows, as ToolPage shows the tool's name.
+  useDynamicCrumb,
   useModalHistoryLock,
   useEscapeLayer,
   OverridePropsProvider,
@@ -336,3 +356,11 @@ export type { NavigationGroup, NavigationGroupChild, NavigationItem, NavigationN
  * `runtime.listShortcuts()` returns.
  */
 export type { ShortcutOptions, Shortcut } from '@/lib/keyboardShortcuts'
+
+/**
+ * Registered pages (v2.2.0): what `routeRegistry.register()` takes, the
+ * props the page receives, and the Tool descriptor a page bound to a Tool,
+ * and a Tool's own component, get as their `tool` prop.
+ */
+export type { RouteRegistration, RegisteredRoutePageProps } from '@/lib/routeRegistry'
+export type { ToolDescriptor } from '@/types'

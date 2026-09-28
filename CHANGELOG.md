@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-09-28
+
+Minor release from a consumer's report: applications register pages at URLs of their own, rendered inside the shell, and the auth page overrides of an extension bundle render. Nothing needs to change in an app: see [Upgrading to v2.2.0 from v2.1.x](docs/upgrading.md#upgrading-to-v220-from-v21x).
+
+### Added
+
+- **Applications give their own pages URLs of their own, rendered inside the shell.** `routeRegistry.register({ path, component, crumb, tool })`, on `@martis/runtime`, adds a route below the Martis base path (`findings`, `findings/:findingId`, `projects/:projectId/repositories`). The page renders inside the standard shell: sidebar, topbar, footer, mobile drawer, breadcrumbs and navigation progress bar, in every layout preset. A reload works, and `MenuItem::link()`, the command palette and `recordUrl()` open the page client-side. See [Custom pages](docs/custom-pages.md).
+  - Registered routes sit after the package's own routes and before the 404 route. A path whose first segment Martis uses (`tools`, `resources`, `dashboards`, `profile`, `api`, `login` and the others listed in [Path rules](docs/custom-pages.md#path-rules)) or that starts with a parameter is refused with a console error, so no registered page can take the place of a package page. An unregistered path still renders the 404 page.
+  - `tool: '<uriKey>'` guards the page with that Tool's `canSee()` and soft lock, as `/tools/{uriKey}` is guarded: a user the Tool is hidden from gets its not-found state, a locked user its lock page, and the page receives the Tool as its `tool` prop.
+  - The page sets the last breadcrumb with `useDynamicCrumb()` and renders the shell's error screens in place with `ForbiddenPage` and `NotFoundPage`, also new on `@martis/runtime`. An existing extension imports the new names after refreshing its shims: see [Upgrading to v2.2.0](docs/upgrading.md#upgrading-to-v220-from-v21x).
+  - +63 Vitest, +3 Pest.
+
+### Fixed
+
+- **An auth page override registered by the extension bundle never rendered.** The router was built when its module loaded, before the SPA loaded the extension bundles, so it read `auth:login`, `auth:register`, `auth:forgot-password`, `auth:reset-password`, `auth:email-verify-notice` and `auth:invitation-accept` too early and the bundled page always rendered, while `componentRegistry.has('auth:login')` answered `true`. The router is now built after the bundles load (`bootAppRouter()`, which `app.tsx` runs). +11 Vitest.
+- **A soft-locked Tool refetched its descriptor in a loop.** Opening a locked Tool (`lockedFor()`) opened the lock modal, which re-rendered the gate provider with a new context value, and the page's request depended on that value, so `GET /api/tools/{uriKey}` ran again and again until the API throttle answered `429` and a "Too many attempts" toast appeared. The gate's context value now changes only with the lock, and the request depends on the gate's stable `open()` only. +1 Vitest.
+
 ## [2.1.1] — 2026-09-28
 
 Patch release of four more consumer reports, plus a fix found while validating them. Nothing needs to change in an app: see [Upgrading to v2.1.1 from v2.1.0](docs/upgrading.md#upgrading-to-v211-from-v210) for two optional checks.

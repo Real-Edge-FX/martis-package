@@ -439,6 +439,8 @@ public static function recordUrl(): ?string
 }
 ```
 
+The template can point at any page of the SPA, including a page your app [registered at a URL of its own](custom-pages.md) (`'/findings/{id}'`).
+
 **Anchor example — a headless resource whose records live in a Tool:**
 
 ```php

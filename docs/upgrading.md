@@ -4,6 +4,24 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.2.0 from v2.1.x
+
+Nothing is required.
+
+### New names on `@martis/runtime`
+
+v2.2.0 adds `routeRegistry`, `useDynamicCrumb`, `ForbiddenPage` and `NotFoundPage` (see [Custom pages](custom-pages.md)). `martis:install` publishes the runtime shim once, so an existing extension imports them by name after refreshing it:
+
+```bash
+php artisan vendor:publish --tag=martis-extension-shims --force
+```
+
+Until then, read them from the default export: `import runtime from '@martis/runtime'`, then `runtime.routeRegistry`.
+
+### Auth page overrides now render
+
+An override registered under `auth:login`, `auth:register`, `auth:forgot-password`, `auth:reset-password`, `auth:email-verify-notice` or `auth:invitation-accept` never rendered: the router read those keys before the extension bundle loaded. From v2.2.0 it renders. If your extension still registers one you no longer want (for example `resources/js/martis-extensions/overrides/LoginPage.tsx`, which `martis:component --type=login-page` writes), delete it and run `npm run build:extensions`.
+
 ## Upgrading to v2.1.1 from v2.1.0
 
 Nothing is required. The optional checks below concern apps set up with an earlier version.

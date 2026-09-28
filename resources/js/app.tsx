@@ -20,12 +20,11 @@ import { GateProvider } from '@/contexts/GateContext'
 import { GateModal } from '@/components/GateModal'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-import { router } from '@/router'
+import type { AppRouter } from '@/router'
 import { ToastContainer } from '@/components/Toast'
 import { LanguageSwitchOverlay } from '@/components/LanguageSwitchOverlay/LanguageSwitchOverlay'
 import { registerDefaultFields } from '@/components/fields/FieldRenderer'
-import { initI18n } from '@/lib/i18n'
-import { loadConsumerExtensions } from '@/lib/extensionLoader'
+import { bootAppRouter } from '@/lib/appBoot'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { config } from '@/lib/config'
 import { PanelForbiddenPage } from '@/pages/PanelForbidden'
@@ -90,7 +89,7 @@ window.Martis = {
   version: __MARTIS_VERSION__,
 }
 
-function App() {
+function App({ router }: { router: AppRouter }) {
   return (
     <StrictMode>
       <ErrorBoundary>
@@ -141,10 +140,10 @@ if (container) {
   // black-hole the panel.
   const panelForbidden = config.panelForbidden === true
 
-  Promise.all([
-    initI18n().catch(() => undefined),
-    panelForbidden ? Promise.resolve() : loadConsumerExtensions().catch(() => undefined),
-  ]).then(() => {
-    createRoot(container).render(panelForbidden ? <PanelForbiddenApp /> : <App />)
+  // `bootAppRouter()` builds the router only once the extension bundles
+  // have registered their routes and auth page overrides (v2.2.0; before,
+  // it was built when `@/router` was imported, ahead of every bundle).
+  void bootAppRouter(panelForbidden).then((router) => {
+    createRoot(container).render(router === null ? <PanelForbiddenApp /> : <App router={router} />)
   })
 }

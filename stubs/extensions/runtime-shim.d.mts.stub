@@ -137,6 +137,58 @@ interface FilterDefinition {
     meta: Record<string, unknown>;
 }
 /**
+ * Soft-gate payload — emitted by every menu entity (Dashboard, Tool,
+ * Resource, Card, Lens, Filter) and consumed by `<GateModal>`.
+ */
+interface GateLock {
+    reason: string;
+    modal: {
+        title?: string;
+        message?: string;
+        messageHtml?: boolean;
+        cta?: {
+            label: string;
+            url: string;
+            target?: '_self' | '_blank';
+        };
+        dismiss?: boolean;
+        icon?: string;
+    } | null;
+}
+/**
+ * A Tool as `GET /api/tools/{uriKey}` returns it (`Tool::toArray()`): the
+ * prop `ToolPage` passes to a Tool's component, and the `tool` prop of a
+ * registered page bound to the Tool (`routeRegistry`, v2.2.0+).
+ */
+interface ToolDescriptor {
+    type: 'tool';
+    name: string;
+    /**
+     * Optional breadcrumb override. When non-null, the panel shell uses
+     * this label for the deepest crumb instead of `name`. Set on the
+     * PHP side via `Tool::withBreadcrumb(...)` (v1.10.3+).
+     */
+    breadcrumb: string | null;
+    uriKey: string;
+    icon: string | null;
+    component: string | null;
+    menuSection: string | null;
+    /**
+     * True when the tool is docked in the bundled "System" sidebar section
+     * (`Tool::withSystemSection()`, v1.35.0+); `menuSection` is ignored then.
+     * Optional so descriptors built by hand in consumer tests keep compiling.
+     */
+    belongsToSystemSection?: boolean;
+    /** Decorative pill (v1.11+). Set via `Tool::withBadge(...)`. */
+    badge?: {
+        text: string;
+        tone: string;
+    } | null;
+    /** Soft-gate state (v1.11+). Non-null = the user is locked out. */
+    lock?: GateLock | null;
+    meta: Record<string, unknown>;
+}
+/**
  * The `type` of a field: one of the fields the package ships (each PHP
  * field's `type()`, checked by `fieldDefinition.test.tsx`), or the type of
  * a custom field (`martis:field` generates one).
@@ -1898,6 +1950,10 @@ interface TopbarProps {
 declare function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed }?: TopbarProps): react_jsx_runtime.JSX.Element;
 
 declare function Footer(): react_jsx_runtime.JSX.Element;
+
+declare function ForbiddenPage(): react_jsx_runtime.JSX.Element;
+
+declare function NotFoundPage(): react_jsx_runtime.JSX.Element;
 
 /** Shared props for every field renderer. */
 interface FieldDisplayProps {
@@ -5206,6 +5262,51 @@ declare class LayoutRegistry {
 }
 declare const layoutRegistry: LayoutRegistry;
 
+/** The props a registered page receives: the Tool it is bound to, once resolved. */
+interface RegisteredRoutePageProps {
+    tool?: ToolDescriptor;
+}
+/** What `routeRegistry.register()` takes. */
+interface RouteRegistration {
+    /** The path below the Martis base path, e.g. 'findings/:findingId'. Leading and trailing slashes are ignored. */
+    path: string;
+    /** A componentRegistry key, resolved when the page renders, or the component itself. */
+    component: string | ComponentType<RegisteredRoutePageProps>;
+    /** The breadcrumb label, shown as given (never passed through t()). */
+    crumb?: string;
+    /** The uriKey of the Tool whose visibility and soft lock guard the page. */
+    tool?: string;
+}
+/** A registration the registry accepted, with its path normalised. */
+interface RegisteredRoute {
+    path: string;
+    component: string | ComponentType<RegisteredRoutePageProps>;
+    crumb: string | null;
+    tool: string | null;
+}
+declare class RouteRegistry {
+    private readonly accepted;
+    /** Every shape ever registered, the ones dropped as duplicates included. */
+    private readonly shapes;
+    private sealed;
+    /**
+     * Register a page at a path below the Martis base path. Returns true when
+     * the route is accepted; a refused route logs the reason and returns false.
+     */
+    register(route: RouteRegistration): boolean;
+    /** Whether a route of this path's shape is registered (and not dropped as a duplicate). */
+    has(path: string): boolean;
+    /** The accepted routes, in registration order. */
+    routes(): readonly RegisteredRoute[];
+    /**
+     * Refuse every later registration.
+     *
+     * @internal Called by `createAppRouter()`, which reads the routes once.
+     */
+    seal(): void;
+}
+declare const routeRegistry: RouteRegistry;
+
 /**
  * Update `document.title` while a component is mounted. Pass a single
  * segment (e.g. "Clients", "Edit Invoice") and the hook formats it as
@@ -5217,6 +5318,17 @@ declare const layoutRegistry: LayoutRegistry;
  * by the blade template only fires on full page loads.
  */
 declare function usePageTitle(segment: string | null | undefined): void;
+
+/**
+ * Write-side: pages call this with their resolved title so the breadcrumb
+ * updates in lock-step with the page heading. Pass `null` to fall back to
+ * the static i18n key from the route handle.
+ *
+ * The hook resets to `null` on unmount, so navigating away from a tool that
+ * had set a dynamic label doesn't leak that label into the next page's
+ * breadcrumb.
+ */
+declare function useDynamicCrumb(label: string | null | undefined): void;
 
 /**
  * Install a history lock for a modal. While `open === true` the
@@ -7140,6 +7252,8 @@ declare const martisRuntime: {
     readonly Sidebar: typeof Sidebar;
     readonly Topbar: typeof Topbar;
     readonly Footer: typeof Footer;
+    readonly ForbiddenPage: typeof ForbiddenPage;
+    readonly NotFoundPage: typeof NotFoundPage;
     readonly FieldInput: typeof FieldInput;
     readonly FieldDisplay: typeof FieldDisplay;
     readonly NestedParentProvider: typeof NestedParentProvider;
@@ -7150,7 +7264,9 @@ declare const martisRuntime: {
     readonly componentRegistry: ComponentRegistry;
     readonly iconRegistry: IconRegistry;
     readonly layoutRegistry: LayoutRegistry;
+    readonly routeRegistry: RouteRegistry;
     readonly usePageTitle: typeof usePageTitle;
+    readonly useDynamicCrumb: typeof useDynamicCrumb;
     readonly useModalHistoryLock: typeof useModalHistoryLock;
     readonly useEscapeLayer: typeof useEscapeLayer;
     readonly OverridePropsProvider: React$1.Provider<OverrideProps | null>;
@@ -7191,5 +7307,5 @@ declare const martisRuntime: {
  */
 type MartisRuntime = typeof martisRuntime;
 
-export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, MartisLoader, MultiSelect, NestedParentProvider, OverridePropsProvider, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, resolveColor, useAuth, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard };
-export type { DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, Shortcut, ShortcutOptions, TooltipProps, UseToolFieldsResult };
+export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, resolveColor, routeRegistry, useAuth, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard };
+export type { DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, RouteRegistration, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };
