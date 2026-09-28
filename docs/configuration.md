@@ -735,7 +735,7 @@ The registered resource is closed until you define the `view-martis-action-event
 | **Static config** | Paths, throttle, theme, profile, cache TTLs, drawer widths, sticky-views scope, notifications poll interval, … | `config/martis.php` |
 | **Code registrations** | Main menu resolver, dashboards, custom cache layers, gate definitions, page-title closures | `app/Providers/MartisServiceProvider.php` |
 
-`martis:install` publishes the provider stub to `app/Providers/MartisServiceProvider.php` and wires it into `bootstrap/providers.php` automatically. Re-running `martis:install` is idempotent — the file is preserved and the bootstrap entry is not duplicated. `--force` does not touch it: use `--force-provider` to refresh the stub (this overwrites your registered dashboards, menu and gates).
+`martis:install` publishes the provider stub to `app/Providers/MartisServiceProvider.php` and wires it into `bootstrap/providers.php` automatically, in the file's own style (with a `use` import when the file imports its providers). A file whose providers array the installer cannot find gets a warning with the line to add by hand. Re-running `martis:install` is idempotent — the file is preserved and the bootstrap entry is not duplicated. `--force` does not touch it: use `--force-provider` to refresh the stub (this overwrites your registered dashboards, menu and gates).
 
 The stub ships every section commented-out, so an unmodified provider registers nothing and Martis runs on its built-in defaults. Uncomment what you need:
 
