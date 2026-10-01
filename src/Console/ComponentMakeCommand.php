@@ -31,7 +31,7 @@ class ComponentMakeCommand extends Command
 
     protected $signature = 'martis:component
         {name? : The component class name (e.g. StatusBadge). Optional when --type=complete-layout, ignored when --type maps to a fixed-name shell/auth piece.}
-        {--type=generic : Component type: field | shell | sidebar | topbar | footer | complete-layout | login-page | register-page | forgot-password-page | reset-password-page | email-verify-notice-page | generic}
+        {--type=generic : Component type: field | shell | sidebar | topbar | footer | complete-layout | login-page | register-page | forgot-password-page | reset-password-page | email-verify-notice-page | password-change-page | generic}
         {--force : Overwrite the file if it already exists}';
 
     protected $aliases = ['martis:override'];
@@ -67,6 +67,7 @@ class ComponentMakeCommand extends Command
         'forgot-password-page' => ['filename' => 'ForgotPasswordPage', 'key' => 'auth:forgot-password', 'stub' => 'component-forgot-password-page.tsx.stub'],
         'reset-password-page' => ['filename' => 'ResetPasswordPage', 'key' => 'auth:reset-password', 'stub' => 'component-reset-password-page.tsx.stub'],
         'email-verify-notice-page' => ['filename' => 'EmailVerifyNoticePage', 'key' => 'auth:email-verify-notice', 'stub' => 'component-email-verify-notice-page.tsx.stub'],
+        'password-change-page' => ['filename' => 'PasswordChangePage', 'key' => 'auth:password-change', 'stub' => 'component-password-change-page.tsx.stub'],
     ];
 
     public function handle(): int
@@ -79,7 +80,7 @@ class ComponentMakeCommand extends Command
         $allowedTypes = [
             'field', 'shell', 'sidebar', 'topbar', 'footer', 'complete-layout', 'generic',
             'login-page', 'register-page', 'forgot-password-page', 'reset-password-page',
-            'email-verify-notice-page',
+            'email-verify-notice-page', 'password-change-page',
         ];
         if (! in_array($type, $allowedTypes, true)) {
             $this->error("Invalid type '{$type}'. Allowed: ".implode(', ', $allowedTypes));
@@ -131,6 +132,22 @@ class ComponentMakeCommand extends Command
         ]);
 
         $this->info("Component created: {$relative}");
+
+        // The app keeps its own index.ts (refreshing the shims never rewrites
+        // it), so one written before this type existed maps no key for it:
+        // the override would build, register under its derived key and never
+        // render. Say so, naming the line to add.
+        $index = base_path('resources/js/martis-extensions/index.ts');
+        $indexSource = is_file($index) ? (string) file_get_contents($index) : null;
+
+        if ($indexSource !== null && ! str_contains($indexSource, "'{$piece['key']}'") && ! str_contains($indexSource, "\"{$piece['key']}\"")) {
+            $this->components->error("resources/js/martis-extensions/index.ts does not map '{$piece['key']}', so {$filename}.tsx would never render. Add this line to its OVERRIDE_KEYS:");
+            $this->line("  <comment>{$filename}: '{$piece['key']}',</comment>");
+            $this->line('or rewrite the scaffold with `php artisan martis:install --force`.');
+
+            return self::FAILURE;
+        }
+
         $this->info("Auto-registered as '{$piece['key']}' on next `npm run build:extensions`.");
         $this->newLine();
 

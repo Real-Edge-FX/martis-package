@@ -851,7 +851,7 @@ MARTIS_SSO_AZURE_LOGOUT_URL=https://login.microsoftonline.com/{tenant}/oauth2/v2
 
 The placeholder `{post_logout_redirect_uri}` is replaced at logout time with the urlencoded Martis login URL — Azure (and most OIDC providers) need this to know where to bounce the browser after killing the IdP session.
 
-The marker that says "this user came in via SSO" lives in the session under `martis_sso_provider`. A regular password login wipes it, so a user who switches from SSO to password mid-stream does not get redirected to Azure on logout.
+The marker that says "this user came in via SSO" lives in the session under `martis_sso_provider`, and in a cookie of the same name (v2.3.0). The SSO callback signs in with remember-me, so the session can end while the remember cookie signs the user back in, into a new session: the cookie carries the origin across that re-login, so the logout still goes through the IdP, and the [forced password change](authentication.md#forced-password-change) gate still leaves the session alone. The cookie holds the user's id and the provider, encrypted by Martis (a browser cannot mint one), lives as long as the remember cookie (`auth.guards.{guard}.remember`, else Laravel's 576000 minutes), and counts only for the user it names. A password, magic-link or invitation sign-in, and the sign-out, drop both, so a user who switches from SSO to password mid-stream does not get redirected to Azure on logout. `Martis\Sso\SsoSession` reads and writes them.
 
 The JSON variant of the logout endpoint surfaces the IdP URL as `logout_url`, so a SPA can drive the redirect itself if it needs to add UI between local and federated logout.
 
@@ -977,12 +977,13 @@ The user has no Azure App Role assignment that matches a local role's `azure_gro
 | `tests/Unit/Sso/PermissionAdaptersTest.php` | Spatie / Native / Callable / Auto adapter routing + role attach/detach semantics. |
 | `tests/Unit/Sso/SsoManagerTest.php` | Singleton wiring, hook registration + dispatch, provider extension via `extend()`. |
 | `tests/Feature/SsoControllerTest.php` | End-to-end callback: user create / sync, role map, deny / guest paths, hook firing, disabled-provider redirect, route gating, federated logout, password-login wipe of the SSO marker. |
+| `tests/Feature/SsoSessionMarkerTest.php` | The SSO origin across a remember-me re-login: the forced password change gate and the federated logout still see it; a cookie for another user or not encrypted by Martis counts for nothing; every other sign-in and both sign-outs drop it. |
 | `tests/Feature/SsoMakeCommandTest.php` | Generator idempotency: composer skip, config-block insert, env stub, listener register, Spatie publish, migration publish, role-mapping prompt. |
 
 Run the SSO slice with:
 
 ```bash
-vendor/bin/pest tests/Unit/Sso tests/Feature/SsoControllerTest.php tests/Feature/SsoMakeCommandTest.php
+vendor/bin/pest tests/Unit/Sso tests/Feature/SsoControllerTest.php tests/Feature/SsoSessionMarkerTest.php tests/Feature/SsoMakeCommandTest.php
 ```
 
 The counts grow with each release — see CI output for the live total.

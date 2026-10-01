@@ -629,7 +629,7 @@ const docTypeField = {
 export function CandidateReview() {
     const [docType, setDocType] = useState<string>('note')
     return (
-        <div className="martis-action-form">
+        <div className="martis-form-stack">
             <FieldInput
                 field={docTypeField as any}
                 value={docType}
@@ -661,7 +661,7 @@ export function ReviewTool() {
     if (!open) return <button onClick={() => setOpen(true)}>Review</button>
     return (
         <DrawerShell title="Review candidate" onClose={() => setOpen(false)}>
-            <div className="martis-action-form">
+            <div className="martis-form-body martis-form-stack">
                 <FieldInput
                     field={{ type: 'select', attribute: 'document_type', label: 'Document type', options: [] } as any}
                     value={docType}
@@ -814,6 +814,7 @@ Use the `martis:component` artisan command to scaffold an override TSX (alias: `
 > | `ForgotPasswordPage.tsx` | `auth:forgot-password` |
 > | `ResetPasswordPage.tsx` | `auth:reset-password` |
 > | `EmailVerifyNoticePage.tsx` | `auth:email-verify-notice` |
+> | `PasswordChangePage.tsx` | `auth:password-change` |
 > | *(no fixed-filename scaffold yet)* | `auth:invitation-accept` |
 >
 > The SPA router resolves these hard-coded strings, so the map cannot be filename-derived. `auth:invitation-accept` has no `martis:component --type=` scaffold yet — register a replacement under this key directly from your extension bundle (`componentRegistry.register('auth:invitation-accept', MyScreen)`); the resolution mechanism is identical to the scaffolded slots above, it just skips the auto-discovery step. See [invitations.md § Overriding the screen](invitations.md#overriding-the-screen).
@@ -895,9 +896,10 @@ The command:
 | `forgot-password-page` | Custom "forgot password" page | `auth:forgot-password` |
 | `reset-password-page` | Custom "reset password" page | `auth:reset-password` |
 | `email-verify-notice-page` | Custom email verification notice page | `auth:email-verify-notice` |
+| `password-change-page` | Custom forced password change page (v2.3.0) | `auth:password-change` |
 | `generic` | Free-form component | `{kebab-name}` |
 
-The five auth-page types follow the same wiring as the shell pieces — generate the TSX, build, and the bundled login / register / password-reset / email-verify pages are automatically replaced. The router resolves exactly the keys in the table (`auth:login`, `auth:register`, `auth:forgot-password`, `auth:reset-password`, `auth:email-verify-notice`, plus `auth:invitation-accept` for the invitation page), so a hand-written `register()` call must use them as they are. Each type writes a fixed file name (`overrides/LoginPage.tsx`, ...), whatever name you pass. See [authentication.md](authentication.md) for the broader auth customisation surface (backend handlers, blade templates, OAuth providers). The router reads these keys when it is built, after the extension bundles load (v2.2.0+; before, it read them ahead of the bundle and the bundled page always rendered). To check an override, load its page: `componentRegistry.has()` only shows that the key is registered.
+The six auth-page types follow the same wiring as the shell pieces — generate the TSX, build, and the bundled login / register / password-reset / email-verify pages are automatically replaced. The router resolves exactly the keys in the table (`auth:login`, `auth:register`, `auth:forgot-password`, `auth:reset-password`, `auth:email-verify-notice`, `auth:password-change`, plus `auth:invitation-accept` for the invitation page), so a hand-written `register()` call must use them as they are. Each type writes a fixed file name (`overrides/LoginPage.tsx`, ...), whatever name you pass. See [authentication.md](authentication.md) for the broader auth customisation surface (backend handlers, blade templates, OAuth providers). The router reads these keys when it is built, after the extension bundles load (v2.2.0+; before, it read them ahead of the bundle and the bundled page always rendered). To check an override, load its page: `componentRegistry.has()` only shows that the key is registered.
 
 After creating a component, rebuild the consumer extension bundle:
 

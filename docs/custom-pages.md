@@ -45,7 +45,7 @@ Martis builds its router once, after every bundle listed in `MARTIS_EXTENSIONS` 
   | Reserved first segment | Why |
   |---|---|
   | `dashboards`, `profile`, `system`, `dev`, `tools`, `resources`, `403`, `500` | Pages of the Martis shell |
-  | `login`, `register`, `forgot-password`, `reset-password`, `email`, `invitations`, `2fa` | Sign-in and account pages |
+  | `login`, `register`, `forgot-password`, `reset-password`, `email`, `invitations`, `2fa`, `password` | Sign-in and account pages |
   | `api`, `api-docs`, `sso`, `logout`, `favicon.ico` | Server routes: a reload would never reach the SPA (`api-docs` is the default path of the [API documentation](api/overview.md#enabling-the-openapi-surface)) |
 
   So a registered page can never take the place of a Martis page, and `:slug`, `*` and an empty path are refused.

@@ -14,7 +14,7 @@
  */
 
 // Hooks, auth errors and provider
-export { useAuth, AuthProvider, TwoFactorRequiredError, EmailVerificationRequiredError } from '@/contexts/AuthContext'
+export { useAuth, AuthProvider, TwoFactorRequiredError, EmailVerificationRequiredError, PasswordChangeRequiredError } from '@/contexts/AuthContext'
 export { useToast, useToastSafe } from '@/contexts/ToastContext'
 export { useIsMobile } from '@/hooks/useIsMobile'
 
@@ -96,6 +96,7 @@ export type {
   MartisForm,
   UseToolFieldsResult,
   EventBusEvents,
+  ActionResponseModalProps,
   LayoutProps,
   OverrideProps,
   MartisLoaderProps,

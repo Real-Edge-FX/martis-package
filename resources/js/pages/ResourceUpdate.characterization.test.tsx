@@ -55,6 +55,7 @@ import { useState } from 'react'
 import { ResourceUpdatePage } from '@/pages/ResourceUpdate'
 import { registerDefaultFields } from '@/components/fields/FieldRenderer'
 import { componentRegistry } from '@/lib/componentRegistry'
+import { martisEventBus } from '@/lib/eventBus'
 import type { FieldInputProps } from '@/components/fields/types'
 
 // FieldInput resolves its concrete component through the global registry, so
@@ -290,6 +291,25 @@ describe('ResourceUpdatePage — submitted relation values', () => {
     const [, body] = apiPutMock.mock.calls[0] as [string, Record<string, unknown>]
     expect(body.author).toBe(7)
     expect(body.commentable).toEqual(commentable)
+  })
+})
+
+describe('ResourceUpdatePage: record events', () => {
+  it('emits martis:record-updated with the id of the route, as a string', async () => {
+    mockSchemaAndRecord([titleField], { id: 1, title: 'Existing Title' } as unknown as ResourceRecord)
+    apiPutMock.mockResolvedValue({ data: { id: 1, title: 'Existing Title' } })
+    const listener = vi.fn()
+    martisEventBus.on('martis:record-updated', listener)
+
+    renderUpdatePage()
+    await waitFor(() => {
+      expect((document.getElementById('title') as HTMLInputElement | null)?.value).toBe('Existing Title')
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() => expect(listener).toHaveBeenCalledTimes(1))
+    martisEventBus.off('martis:record-updated', listener)
+    expect(listener).toHaveBeenCalledWith({ resourceKey: 'posts', id: '1' })
   })
 })
 

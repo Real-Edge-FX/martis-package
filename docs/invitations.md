@@ -231,7 +231,7 @@ Two routes, always registered regardless of the master switch (so the route tabl
 | `GET` | `/{martis-path}/invitations/accept/{token}` | Renders the SPA shell — same response for any token state. |
 | `POST` | `/{martis-path}/api/invitations/accept` | Validates the signup payload, delegates to `InvitationManager::accept()`, logs the invitee in (unless `login_after_accept` is `false`), and returns `{ ok, redirect, user? }` (JSON) or a redirect (non-JSON). |
 
-`token`, plus each configured `signup_fields` entry, plus `password` (always `confirmed`, `Password::min(8)`) are the only fields the `POST` endpoint validates. An `InvalidInvitationException` from the manager becomes a neutral `422 { message, errors: { token: [message] } }` (JSON) or a redirect back to `/login` with a flashed error (non-JSON) — the same shape regardless of which invalid state it was.
+`token`, plus each configured `signup_fields` entry, plus `password` (always `confirmed`, and your [password rules](authentication.md#password-rules): `Password::defaults()`, else `Password::min(8)`) are the only fields the `POST` endpoint validates. The password rules are checked once: by the default `RegistersUsers` the accept hands the signup to, or by the endpoint itself when you bind a registrar of your own, which may not check them (so `uncompromised()` asks Have I Been Pwned once per accept). An `InvalidInvitationException` from the manager becomes a neutral `422 { message, errors: { token: [message] } }` (JSON) or a redirect back to `/login` with a flashed error (non-JSON) — the same shape regardless of which invalid state it was.
 
 ## React accept screen
 

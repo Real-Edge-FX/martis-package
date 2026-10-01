@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { DrawerShell } from './DrawerShell'
 import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 import { NestedParentProvider } from '@/components/fields/NestedParentContext'
+import { emitRecordEvent } from '@/lib/recordEvents'
 
 
 
@@ -138,6 +139,7 @@ export function DrawerCreate(props: OverrideProps) {
       initialSnapshot.current = JSON.stringify({})
       setFieldsKey((key) => key + 1)
       setCopyOf(null)
+      emitRecordEvent('created', resource, res.data?.id)
       onCreated(res.data)
     },
     onError: (err) => {

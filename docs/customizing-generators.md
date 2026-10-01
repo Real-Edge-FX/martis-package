@@ -66,6 +66,7 @@ The folder is created at `base_path('stubs/martis/')`. From now on every `martis
 | `forgot-password-page` | `component-forgot-password-page.tsx.stub` | `auth:forgot-password` |
 | `reset-password-page` | `component-reset-password-page.tsx.stub` | `auth:reset-password` |
 | `email-verify-notice-page` | `component-email-verify-notice-page.tsx.stub` | `auth:email-verify-notice` |
+| `password-change-page` | `component-password-change-page.tsx.stub` | `auth:password-change` |
 
 ### Install / SSO / Roles stubs
 

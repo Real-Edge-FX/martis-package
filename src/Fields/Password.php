@@ -5,6 +5,7 @@ namespace Martis\Fields;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
+use Martis\Auth\PasswordPolicy;
 
 /**
  * Password field.
@@ -21,6 +22,7 @@ use Illuminate\Support\Facades\Hash;
  *  - ⭐ `showRequirements()` — opt-in checklist rendered under the meter.
  *    The meter auto-aligns: when every requirement is satisfied, the strength
  *    score is clamped to at least "Good".
+ *  - ⭐ `defaultRules()`: validate with the app's `Password::defaults()` and show its requirements.
  */
 class Password extends Field
 {
@@ -39,6 +41,8 @@ class Password extends Field
     protected bool $requireSymbol = false;
 
     protected bool $disallowCommonPasswords = false;
+
+    protected bool $defaultRules = false;
 
     /**
      * The tiny inline list used for `disallowCommonPasswords()`. Mirrors the
@@ -138,6 +142,23 @@ class Password extends Field
         return $this;
     }
 
+    /**
+     * ⭐ Validate with the app's password policy (`Password::defaults()`, see
+     * `Martis\Auth\PasswordPolicy`) and show its requirements in the
+     * checklist, as Nova's generated User resource validates with
+     * `Password::default()`. The server enforces the policy and the field's
+     * own requirements together, so the checklist shows the stricter of the
+     * two minimums. Require it on create and leave it optional on update
+     * (`->creationRules(['required'])->updateRules(['nullable'])`), as
+     * Nova's User resource does: a blank update keeps the current password.
+     */
+    public function defaultRules(bool $value = true): static
+    {
+        $this->defaultRules = $value;
+
+        return $this;
+    }
+
     public function resolve(Model $model, ?string $attribute = null): mixed
     {
         return null;
@@ -155,9 +176,11 @@ class Password extends Field
     }
 
     /**
-     * Translate the declarative requirements into Laravel rules. Only applied
-     * when the incoming value is non-empty — a password-leave-blank update
-     * remains valid.
+     * Translate the declarative requirements into Laravel rules, with the
+     * checks Laravel's `Password` rule uses (Unicode classes), and the app's
+     * policy when `defaultRules()` asks for it. Only applied when the incoming
+     * value is non-empty, so a password-leave-blank update remains valid on a
+     * `nullable()` field.
      */
     public function buildRules(?string $context = null): array
     {
@@ -167,16 +190,16 @@ class Password extends Field
             $rules[] = 'min:'.$this->minLength;
         }
         if ($this->requireUppercase) {
-            $rules[] = 'regex:/[A-Z]/';
+            $rules[] = 'regex:/\p{Lu}/u';
         }
         if ($this->requireLowercase) {
-            $rules[] = 'regex:/[a-z]/';
+            $rules[] = 'regex:/\p{Ll}/u';
         }
         if ($this->requireNumber) {
-            $rules[] = 'regex:/\d/';
+            $rules[] = 'regex:/\pN/u';
         }
         if ($this->requireSymbol) {
-            $rules[] = 'regex:/[^A-Za-z0-9]/';
+            $rules[] = 'regex:/\p{Z}|\p{S}|\p{P}/u';
         }
         if ($this->disallowCommonPasswords) {
             $blacklist = self::COMMON_PASSWORDS;
@@ -199,6 +222,10 @@ class Password extends Field
             };
         }
 
+        if ($this->defaultRules) {
+            $rules[] = PasswordPolicy::rule();
+        }
+
         return $rules;
     }
 
@@ -207,9 +234,12 @@ class Password extends Field
      */
     protected function extraAttributes(): array
     {
-        $requirements = [];
+        // The server enforces the policy and the field's own rules together,
+        // so the checklist shows the stricter of the two minimums; the
+        // field's other requirements only add rows.
+        $requirements = $this->defaultRules ? (PasswordPolicy::requirements() ?? []) : [];
         if ($this->minLength !== null) {
-            $requirements['minLength'] = $this->minLength;
+            $requirements['minLength'] = max($requirements['minLength'] ?? 0, $this->minLength);
         }
         if ($this->requireUppercase) {
             $requirements['uppercase'] = true;

@@ -11,6 +11,10 @@ import { fieldErrorProps } from '@/lib/fieldErrors'
 import type { ActionMeta } from '@/components/Actions/ActionModal'
 import { ActionDryRunPreview } from '@/components/Actions/ActionDryRunPreview'
 import type { FieldDefinition } from '@/types'
+import { useNavigate } from 'react-router'
+import { martisEventBus } from '@/lib/eventBus'
+import { handleActionResponse } from '@/components/Actions/actionResponse'
+import { useActionResponseModal } from '@/components/Actions/ActionResponseModalHost'
 
 // -------------------------------------------------------------------------
 // Pivot action modal — shared by the BelongsToMany and MorphToMany panels.
@@ -42,6 +46,7 @@ const MODAL_SIZE_MAP: Record<string, string> = {
 
 export function PivotActionModal({
   actionsUrl,
+  resourceKey,
   action,
   selectedIds,
   onSuccess,
@@ -49,6 +54,8 @@ export function PivotActionModal({
 }: {
   /** `/api/resources/{resource}/{id}/{belongs-to-many|morph-to-many}/{relationship}/actions` */
   actionsUrl: string
+  /** The resource of the related records the action runs on, for `martis:action-executed`. */
+  resourceKey: string
   action: ActionMeta
   selectedIds: Array<string | number>
   onSuccess: () => void
@@ -56,6 +63,8 @@ export function PivotActionModal({
 }) {
   const { t } = useTranslation('actions')
   const { addToast } = useToast()
+  const navigate = useNavigate()
+  const showModal = useActionResponseModal()
 
   useModalHistoryLock(true)
 
@@ -119,23 +128,12 @@ export function PivotActionModal({
         return
       }
 
-      const responseData = res?.data
-      if (responseData) {
-        const data = responseData.data
-        switch (responseData.type) {
-          case 'message':
-            addToast('success', (data?.message as string) ?? t('action_success'))
-            break
-          case 'danger':
-            addToast('error', (data?.message as string) ?? t('action_failed'))
-            break
-          default:
-            addToast('success', t('action_success'))
-        }
-      } else {
-        addToast('success', t('action_success'))
-      }
-      onSuccess()
+      martisEventBus.emit('martis:action-executed', { resourceKey, action: action.uriKey, ids: selectedIds.map(String) })
+
+      // The same answers as the resource action modal (v2.3.0); a pivot
+      // panel has no drawer to open, so openCreate/openDetail/openUpdate
+      // fall back to a success toast.
+      handleActionResponse(res?.data, { t, addToast, navigate, hide: onClose, refresh: onSuccess, showModal })
     },
     onError: (err: Error) => {
       if (err instanceof ApiError && err.errors && err.errors.length > 0) {

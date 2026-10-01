@@ -151,3 +151,15 @@ it('does not touch attributes that are not in sync_user_attributes', function ()
     // sync_user_attributes is empty — name is NOT updated.
     expect($user->name)->toBe('Original Name');
 });
+
+it('hashes the random password of a created user with the app hasher', function () {
+    if (! defined('PASSWORD_ARGON2ID')) {
+        $this->markTestSkipped('PHP is built without Argon2id.');
+    }
+    config(['hashing.driver' => 'argon2id', 'hashing.argon' => ['memory' => 1024, 'threads' => 1, 'time' => 1, 'verify' => true]]);
+    app('hash')->forgetDrivers();
+
+    $user = (new IdentityResolver)->resolve(makeIdentity('hashed@example.com'), 'azure');
+
+    expect(password_get_info((string) $user?->getAuthPassword())['algoName'])->toBe('argon2id');
+});

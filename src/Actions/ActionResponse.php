@@ -39,7 +39,7 @@ class ActionResponse implements \JsonSerializable
     }
 
     /**
-     * Internal route redirect.
+     * SPA navigation to a path below the Martis base path, with $params as its query string (as Nova's visit()).
      *
      * @param  array<string, mixed>  $params
      */
@@ -54,14 +54,14 @@ class ActionResponse implements \JsonSerializable
         return new self(ActionResponseType::OpenInNewTab, ['url' => $url]);
     }
 
-    /** Initiates file download. */
+    /** Downloads $url as $filename through a link. */
     public static function download(string $filename, string $url): self
     {
         return new self(ActionResponseType::Download, ['filename' => $filename, 'url' => $url]);
     }
 
     /**
-     * Triggers client-side event.
+     * Emits $eventName with $data on the SPA's Martis event bus (`martisEventBus`), as Nova's emit() uses `Nova.$emit`.
      *
      * @param  array<string, mixed>  $data
      */
@@ -71,7 +71,7 @@ class ActionResponse implements \JsonSerializable
     }
 
     /**
-     * Displays a custom modal component.
+     * Shows the component registered under $componentName (componentRegistry), with $data as its `data` prop.
      *
      * @param  array<string, mixed>  $data
      */
@@ -124,9 +124,18 @@ class ActionResponse implements \JsonSerializable
     /** @return array<string, mixed> */
     public function jsonSerialize(): array
     {
+        $data = $this->data;
+
+        // emit() and modal() hand their data to the SPA as an object (an event
+        // payload, a component's `data` prop); PHP would encode an empty
+        // array as a JSON array.
+        if (in_array($this->type, [ActionResponseType::Emit, ActionResponseType::Modal], true) && ($data['data'] ?? null) === []) {
+            $data['data'] = new \stdClass;
+        }
+
         return [
             'type' => $this->type->value,
-            'data' => $this->data,
+            'data' => $data,
         ];
     }
 }

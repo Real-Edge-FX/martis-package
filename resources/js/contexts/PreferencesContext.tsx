@@ -219,8 +219,26 @@ interface ShowResponse {
   meta: PreferencesMeta
 }
 
-export function PreferencesProvider({ children }: { children: ReactNode }) {
-  const [prefs, setPrefs] = useState<Preferences>(readInitialPrefs)
+interface PreferencesProviderProps {
+  children: ReactNode
+  /**
+   * Preferences to start from, on top of the defaults, instead of the page's
+   * (`window.MartisConfig.preferences`) and the browser's. v2.3.0.
+   */
+  initialPreferences?: Partial<Preferences>
+  /**
+   * `false` keeps the preferences in memory: no `/api/preferences` request
+   * and no localStorage write. For a tree mounted outside the shell, such as
+   * a test (MartisTestProvider). Default `true`. v2.3.0.
+   */
+  syncWithServer?: boolean
+}
+
+export function PreferencesProvider({ children, initialPreferences, syncWithServer = true }: PreferencesProviderProps) {
+  const [prefs, setPrefs] = useState<Preferences>(() =>
+    initialPreferences !== undefined ? { ...DEFAULTS, ...initialPreferences } : readInitialPrefs(),
+  )
+  const initialRef = useRef(initialPreferences)
   const [meta, setMeta] = useState<PreferencesMeta | null>(null)
   const { user } = useAuth()
 
@@ -234,6 +252,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   useEffect(() => { prefsRef.current = prefs }, [prefs])
 
   const enabled = config.preferences?.enabled !== false
+  const remote = enabled && syncWithServer
 
   // Apply preferences to the DOM on every change (reactive). The
   // localStorage write that used to live here was moved into
@@ -257,7 +276,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const signedIn = !!user
   const userId = user?.id
   useEffect(() => {
-    if (!enabled) return
+    if (!remote) return
     // Skip the refetch for guests (v1.7.6). The /api/preferences
     // routes live inside the `martis.auth` middleware group — a
     // guest GET returns 401, the catch below swallows the failure,
@@ -322,7 +341,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         /* offline or preferences disabled — keep local state */
       })
     return () => { active = false }
-  }, [enabled, signedIn, userId])
+  }, [remote, signedIn, userId])
 
   // Re-apply when the OS theme changes, but only if user picked "system".
   useEffect(() => {
@@ -357,6 +376,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     prefsRef.current = nextState
     setPrefs(nextState)
     if (!enabled) return
+    // In memory only (a test): no localStorage write, no server write.
+    if (!syncWithServer) return
     // Persist the user's EXPLICIT choice (v1.7.5). This is the only
     // place that writes to localStorage — the SSR-injected defaults
     // never end up persisted, so a later `MARTIS_DEFAULT_*` env
@@ -391,10 +412,14 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     } catch {
       // Server write failed (2FA mid-flow? offline?) — keep the optimistic local state.
     }
-  }, [enabled, user])
+  }, [enabled, syncWithServer, user])
 
   const reset = useCallback(async () => {
     if (!enabled) return
+    if (!syncWithServer) {
+      setPrefs({ ...DEFAULTS, ...(initialRef.current ?? {}) })
+      return
+    }
     // Reset clears the local override so the SSR / config defaults
     // win again on next mount. Symmetric with the v1.7.5 update()
     // change that only writes to localStorage on explicit picks.
@@ -423,7 +448,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         void loadLocale(DEFAULTS.locale)
       }
     }
-  }, [enabled])
+  }, [enabled, syncWithServer])
 
   return (
     <PreferencesContext.Provider value={{ prefs, meta, update, reset, enabled }}>

@@ -16,25 +16,24 @@ on:
       # Only re-run on changes that could affect the consumer-facing
       # surface. Skips re-running for pure docs / refactor PRs that
       # don't touch the install / generator / shim path.
+      #
+      # The test kit (dist/testing, which the consumer Vitest step runs)
+      # bundles the whole runtime, so every source under resources/js, its
+      # styles, the locked library versions and the committed dist/ count.
       - "src/Console/**"
       - "stubs/**"
-      - "resources/js/app.tsx"
-      - "resources/js/lib/martisRuntime.ts"
-      - "resources/js/lib/componentRegistry.ts"
-      - "resources/js/lib/keyboardShortcuts.ts"
-      - "resources/js/lib/i18n.ts"
-      - "resources/js/lib/config.ts"
-      - "resources/js/lib/api.ts"
-      - "resources/js/contexts/**"
-      - "resources/js/components/**"
-      - "resources/js/hooks/**"
+      - "resources/js/**"
+      - "resources/css/**"
+      - "resources/sass/**"
+      - "dist/**"
       - "config/martis.php"
       - "composer.json"
       - "package.json"
+      - "package-lock.json"
       - "vite.config.ts"
-      - "resources/js/extension-types/**"
-      - "resources/js/types/index.ts"
+      - "vite.testing.config.ts"
       - "scripts/build-extension-types.mjs"
+      - "scripts/build-testing-kit.mjs"
       - ".github/workflows/smoke-fresh-laravel.yml"
 
 jobs:
@@ -116,6 +115,7 @@ jobs:
           test -f resources/js/martis-extensions/.shims/react-router-dom.d.mts
           test -f resources/js/martis-extensions/.shims/react-i18next.d.mts
           test -f resources/js/martis-extensions/.shims/tanstack-react-query.d.mts
+          test -f resources/js/martis-extensions/.shims/i18next.d.mts
           test -d resources/js/martis-extensions/tools
           test -d resources/js/martis-extensions/fields
           test -d resources/js/martis-extensions/cards
@@ -140,6 +140,7 @@ jobs:
           php artisan martis:component --type=forgot-password-page
           php artisan martis:component --type=reset-password-page
           php artisan martis:component --type=email-verify-notice-page
+          php artisan martis:component --type=password-change-page
           # v1.10.1: generic + field-shape overrides auto-register too.
           php artisan martis:component StatusBadge --type=field
           php artisan martis:component InfoPanel --type=generic
@@ -159,6 +160,7 @@ jobs:
           test -f resources/js/martis-extensions/overrides/ForgotPasswordPage.tsx
           test -f resources/js/martis-extensions/overrides/ResetPasswordPage.tsx
           test -f resources/js/martis-extensions/overrides/EmailVerifyNoticePage.tsx
+          test -f resources/js/martis-extensions/overrides/PasswordChangePage.tsx
           test -f resources/js/martis-extensions/overrides/StatusBadge.tsx
           test -f resources/js/martis-extensions/overrides/InfoPanel.tsx
           # B1 regression check: every single-component override TSX
@@ -168,7 +170,8 @@ jobs:
           for f in overrides/Shell.tsx overrides/Sidebar.tsx overrides/Topbar.tsx \
                    overrides/Footer.tsx overrides/LoginPage.tsx overrides/RegisterPage.tsx \
                    overrides/ForgotPasswordPage.tsx overrides/ResetPasswordPage.tsx \
-                   overrides/EmailVerifyNoticePage.tsx overrides/InfoPanel.tsx \
+                   overrides/EmailVerifyNoticePage.tsx overrides/PasswordChangePage.tsx \
+                   overrides/InfoPanel.tsx \
                    tools/Charts.tsx cards/RevenueGauge.tsx; do
             grep -q "^export default function" "resources/js/martis-extensions/$f" \
               || (echo "✗ $f missing export default"; exit 1)
@@ -191,6 +194,50 @@ jobs:
         run: |
           cd test-app
           npx tsc -p tsconfig.extensions.json
+
+      - name: Consumer Vitest with the Martis test kit
+        run: |
+          cd test-app
+          # docs/testing-extensions.md, Setup step 1: martis:install's
+          # `^18 || ^19` gives a fresh app React 19, and the test runtime
+          # refuses a run on another major than the panel's (18).
+          npm install --no-progress --no-audit --no-fund --no-package-lock react@^18 react-dom@^18
+          npm install --no-progress --no-audit --no-fund --no-package-lock --no-save vitest@^3 jsdom@^25 @testing-library/react@^16
+          cat > vitest.config.mjs <<'EOF'
+          import { defineConfig, mergeConfig } from 'vitest/config'
+          import react from '@vitejs/plugin-react'
+          import { martisExtensionTestConfig } from './vendor/martis/martis/dist/testing/vitest.mjs'
+
+          export default mergeConfig(
+            defineConfig({ plugins: [react()], test: { include: ['resources/js/martis-extensions/**/*.test.tsx'] } }),
+            martisExtensionTestConfig(),
+          )
+          EOF
+          mkdir -p resources/js/martis-extensions/__tests__
+          cat > resources/js/martis-extensions/__tests__/Extensions.test.tsx <<'EOF'
+          import { afterEach, describe, expect, it } from 'vitest'
+          import { cleanup, render, screen } from '@testing-library/react'
+          import { MartisTestProvider } from '@martis/testing'
+          import Charts from '../tools/Charts'
+          import EmailVerifyNoticePage from '../overrides/EmailVerifyNoticePage'
+
+          afterEach(cleanup)
+
+          const tool = { name: 'Charts', uriKey: 'charts', icon: null, component: 'tool:charts', menuSection: null, meta: {} }
+
+          describe('generated extensions under the Martis test kit', () => {
+            it('renders the generated Tool component', () => {
+              render(<MartisTestProvider><Charts tool={tool} /></MartisTestProvider>)
+              expect(screen.getByText('Hello from Charts')).toBeTruthy()
+            })
+
+            it('renders a generated auth page override', () => {
+              render(<MartisTestProvider><EmailVerifyNoticePage /></MartisTestProvider>)
+              expect(screen.getByText('Verify your email')).toBeTruthy()
+            })
+          })
+          EOF
+          npx vitest run --config vitest.config.mjs
 
       - name: Bundle assertion — every TSX is bundled and every key static
         run: |
@@ -220,6 +267,7 @@ jobs:
                      overrides/ForgotPasswordPage.tsx \
                      overrides/ResetPasswordPage.tsx \
                      overrides/EmailVerifyNoticePage.tsx \
+                     overrides/PasswordChangePage.tsx \
                      overrides/StatusBadge.tsx overrides/InfoPanel.tsx; do
             grep -q "\"./$path\"" "$BUNDLE" \
               || (echo "✗ bundle missing TSX path: ./$path"; exit 1)
@@ -228,7 +276,8 @@ jobs:
           # 2. Static override keys present in the bundle.
           for key in 'layout:shell' 'layout:sidebar' 'layout:topbar' 'layout:footer' \
                      'auth:login' 'auth:register' 'auth:forgot-password' \
-                     'auth:reset-password' 'auth:email-verify-notice'; do
+                     'auth:reset-password' 'auth:email-verify-notice' \
+                     'auth:password-change'; do
             grep -q "\"$key\"\|'$key'" "$BUNDLE" \
               || (echo "✗ bundle missing override key: $key"; exit 1)
           done

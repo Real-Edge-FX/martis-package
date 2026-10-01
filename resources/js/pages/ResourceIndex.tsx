@@ -28,6 +28,7 @@ import { readStickyView, useStickyView, clearStickyView } from '@/lib/useStickyV
 import { recordHref } from '@/lib/recordHref'
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react'
 import { martisEventBus, type EventPayload } from '@/lib/eventBus'
+import { emitRecordEvent } from '@/lib/recordEvents'
 
 export function ResourceIndexPage() {
   const { resource } = useParams<{ resource: string }>()
@@ -398,7 +399,8 @@ export function ResourceIndexPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}`),
-    onSuccess: (res) => {
+    onSuccess: (res, id) => {
+      emitRecordEvent('deleted', resource, id)
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', res?.meta?.message ?? tMsg('record_deleted'))
       setDeleteTarget(null)
@@ -410,7 +412,8 @@ export function ResourceIndexPage() {
 
   const restoreMutation = useMutation({
     mutationFn: (id: string | number) => api.put<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/restore`),
-    onSuccess: (res) => {
+    onSuccess: (res, id) => {
+      emitRecordEvent('restored', resource, id)
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', res?.meta?.message ?? tMsg('record_restored', 'Record restored.'))
       setRestoreTarget(null)
@@ -422,7 +425,8 @@ export function ResourceIndexPage() {
 
   const forceDeleteMutation = useMutation({
     mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/force`),
-    onSuccess: (res) => {
+    onSuccess: (res, id) => {
+      emitRecordEvent('deleted', resource, id)
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', res?.meta?.message ?? tMsg('record_deleted'))
       setForceDeleteTarget(null)

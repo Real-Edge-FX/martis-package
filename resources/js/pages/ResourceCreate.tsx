@@ -17,6 +17,7 @@ import { useMartisForm } from '@/hooks/useMartisForm'
 import { recordHref } from '@/lib/recordHref'
 import { safeInternalPath } from '@/lib/safeInternalPath'
 import { NestedParentProvider } from '@/components/fields/NestedParentContext'
+import { emitRecordEvent } from '@/lib/recordEvents'
 
 /** Shared fallback while the schema loads: a stable reference keeps the form
  *  fields memo (and the form built on it) from recomputing on every render. */
@@ -222,6 +223,7 @@ function CreateTargetPage() {
       return api.post<{ data: { id: string | number }; meta?: { message?: string; redirectTo?: string } }>(`/api/resources/${resource}`, payload)
     },
     onSuccess: (res) => {
+      emitRecordEvent('created', resource, res.data?.id)
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', res.meta?.message ?? tMsg('record_created'))
       // Suppress the unsaved-changes guard for the post-save redirect.

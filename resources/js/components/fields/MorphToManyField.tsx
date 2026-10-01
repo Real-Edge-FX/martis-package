@@ -377,6 +377,7 @@ function MorphToManyDetailPanel({ field, readOnly = false, formValues }: { field
       {activePivotAction && (
         <PivotActionModal
           actionsUrl={pivotActionsUrl}
+          resourceKey={relatedResource}
           action={activePivotAction}
           selectedIds={selectedRows.map((r) => r.id as string | number)}
           onSuccess={() => {

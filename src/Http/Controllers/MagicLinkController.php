@@ -13,12 +13,14 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Martis\Auth\GuardCatalog;
 use Martis\Auth\MagicLinkNotification;
 use Martis\Auth\MagicLinkService;
+use Martis\Sso\SsoSession;
 
 /**
  * Handles the magic-link (passwordless) sign-in surfaces. Off by
@@ -121,6 +123,12 @@ class MagicLinkController
         Auth::guard(GuardCatalog::martis())->login($user);
         $request->session()->regenerate();
 
+        // A password, magic-link or invitation sign-in is not an SSO one: drop
+        // the SSO origin an earlier SSO sign-in left in this session or in
+        // the browser's cookie (SsoSession), so the forced password change
+        // gate and the federated logout do not read it.
+        SsoSession::forget($request);
+
         $home = '/'.ltrim((string) config('martis.path', 'martis'), '/');
 
         return redirect($home);
@@ -167,7 +175,7 @@ class MagicLinkController
         $user->forceFill([
             'email' => $email,
             'name' => $email,
-            'password' => bcrypt(Str::random(40)),
+            'password' => Hash::make(Str::random(40)),
         ])->save();
 
         return $user instanceof Authenticatable ? $user : null;

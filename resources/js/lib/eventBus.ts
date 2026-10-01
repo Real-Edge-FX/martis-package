@@ -30,19 +30,23 @@
  *
  * // Emit
  * const { emit } = useEventBus()
- * emit('martis:record-created', { resourceKey: 'posts', id: 1 })
+ * emit('martis:record-created', { resourceKey: 'posts', id: '1' })
  * ```
  */
 
 type EventPayload = Record<string, unknown>
 type EventHandler = (payload: EventPayload) => void
 
+/**
+ * The payloads of the built-in events. A record id is always a string, as a
+ * route param is (v2.3.0): the SPA turns a numeric key into its string.
+ */
 interface EventBusEvents {
-  'martis:record-created': { resourceKey: string; id: number | string }
-  'martis:record-updated': { resourceKey: string; id: number | string }
-  'martis:record-deleted': { resourceKey: string; id: number | string }
-  'martis:record-restored': { resourceKey: string; id: number | string }
-  'martis:action-executed': { resourceKey: string; action: string; ids: (number | string)[] }
+  'martis:record-created': { resourceKey: string; id: string }
+  'martis:record-updated': { resourceKey: string; id: string }
+  'martis:record-deleted': { resourceKey: string; id: string }
+  'martis:record-restored': { resourceKey: string; id: string }
+  'martis:action-executed': { resourceKey: string; action: string; ids: string[] }
   'martis:refresh-index': { resourceKey?: string }
   'martis:notification-received': { id?: string | number; title?: string; message?: string }
   'martis:notifications-changed': Record<string, never>

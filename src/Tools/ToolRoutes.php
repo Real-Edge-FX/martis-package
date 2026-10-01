@@ -9,9 +9,11 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Martis\Auth\PanelAccess;
+use Martis\Auth\PasswordChangeRequirement;
 use Martis\Contracts\ToolContract;
 use Martis\Http\Middleware\AuthorizePanelAccess;
 use Martis\Http\Middleware\EnsureEmailIsVerified;
+use Martis\Http\Middleware\EnsurePasswordIsChanged;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
 use Martis\Http\RouteMiddleware;
 
@@ -65,8 +67,9 @@ final class ToolRoutes
      * Warn, once per tool and process, about a middleware list a tool passes
      * to `loadRoutes()` that leaves out a guard of the Martis API that is on:
      * the 2FA challenge (`martis.profile.two_factor.enabled`), email
-     * verification (`martis.auth.email_verification.enabled`) or the panel
-     * gate (an app that defines `viewMartis`). The v1.x
+     * verification (`martis.auth.email_verification.enabled`), the panel
+     * gate (an app that defines `viewMartis`) or the forced password
+     * change (`martis.auth.password_change.enabled`). The v1.x
      * default `['web', 'martis.auth']`, which the docs showed and a tool may
      * pass or forward from an override, always warns. The list still
      * applies as given: nothing tells a copied list from a deliberate one.
@@ -240,6 +243,10 @@ final class ToolRoutes
 
         if (Gate::has(PanelAccess::GATE) && ! in_array(AuthorizePanelAccess::class, $classes, true)) {
             $skipped[] = 'the panel gate (martis.authorize)';
+        }
+
+        if (PasswordChangeRequirement::enabled() && ! in_array(EnsurePasswordIsChanged::class, $classes, true)) {
+            $skipped[] = 'the forced password change (martis.password.changed)';
         }
 
         return $skipped;

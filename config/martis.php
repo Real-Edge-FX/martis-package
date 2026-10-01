@@ -953,6 +953,25 @@ return [
             // absolute path or full URL to redirect off-platform.
             'notice_url' => env('MARTIS_AUTH_EMAIL_VERIFICATION_NOTICE_URL'),
         ],
+
+        // Forced password change (v2.3.0). When true, a user the app flags
+        // (the Martis\Contracts\MustChangePassword contract, else the
+        // boolean `column` below on the Martis guard's users table) is held
+        // on /{martis-path}/password/change until they choose a new
+        // password: every protected JSON route answers 409
+        // {"password_change_required": true} and every page redirects there.
+        // Impersonation and SSO sessions are never held. Without the
+        // contract and the column the gate does nothing. Publish the column
+        // with `php artisan vendor:publish --tag=martis-password-change-migration`.
+        // See docs/authentication.md, "Forced password change".
+        'password_change' => [
+            'enabled' => env('MARTIS_AUTH_PASSWORD_CHANGE_ENABLED', false),
+            'column' => env('MARTIS_AUTH_PASSWORD_CHANGE_COLUMN', 'must_change_password'),
+            // Where a held page request goes. Default `null`: the
+            // Martis-shipped /{martis-path}/password/change page.
+            'url' => env('MARTIS_AUTH_PASSWORD_CHANGE_URL'),
+        ],
+
         // Compact guest-mode controls rendered in the top-right of every
         // auth surface (Login, Register, 2FA challenge, error pages).
         // Each toggle hides its widget without removing the underlying

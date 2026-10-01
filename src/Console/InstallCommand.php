@@ -805,6 +805,10 @@ class InstallCommand extends Command
         'react-router-dom-shim.d.mts.stub' => 'resources/js/martis-extensions/.shims/react-router-dom.d.mts',
         'react-i18next-shim.d.mts.stub' => 'resources/js/martis-extensions/.shims/react-i18next.d.mts',
         'tanstack-react-query-shim.d.mts.stub' => 'resources/js/martis-extensions/.shims/tanstack-react-query.d.mts',
+        // v2.3.0+ the i18next types the react-i18next and runtime declarations
+        // share, so a test's own i18next instance types as the shim's (no
+        // .mjs: nothing imports i18next through a shim at runtime).
+        'i18next-shim.d.mts.stub' => 'resources/js/martis-extensions/.shims/i18next.d.mts',
     ];
 
     /**

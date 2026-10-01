@@ -5,6 +5,7 @@ import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { BASE_PATH } from '@/lib/config'
+import { passwordChangeUrl } from '@/lib/passwordChange'
 import { AuthFrame } from '@/components/auth/AuthFrame'
 
 /** Inactivity timeout for the challenge session — matches the backend TTL. */
@@ -106,12 +107,13 @@ export function TwoFactorChallengePage() {
     setError('')
     setSubmitting(true)
     try {
-      await api.post('/api/2fa/challenge', {
+      const res = await api.post<{ password_change_required?: boolean }>('/api/2fa/challenge', {
         code,
         use_recovery_code: useRecovery,
       })
-      // Full page reload so AuthContext re-fetches the authenticated user.
-      window.location.href = BASE_PATH + '/'
+      // Full page reload so AuthContext re-fetches the authenticated user; a
+      // user the forced password change gate holds goes there next (v2.3.0).
+      window.location.href = res?.password_change_required ? passwordChangeUrl() : BASE_PATH + '/'
     } catch (err) {
       if (err instanceof ApiError) {
         setError(t('2fa_challenge_failed'))

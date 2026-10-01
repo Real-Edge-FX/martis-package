@@ -250,6 +250,13 @@ describe('martisRuntime', () => {
             const imports = consumerFacing.matchAll(/import\s+(type\s+)?((?:\w+\s*,\s*)?(?:\{[^}]*\}|\*\s*as\s+\w+|\w+))\s+from\s+['"]([^'"]+)['"]/g)
 
             for (const [, typeOnly, clause, specifier] of imports) {
+                if (specifier === '@martis/testing') {
+                    const names = (clause.match(/\{([^}]*)\}/)?.[1] ?? '').split(',').map((s) => s.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0]).filter((s) => s !== '')
+                    for (const name of names) {
+                        if (!['MartisTestProvider', 'defaultTestUser', 'MartisTestProviderProps'].includes(name)) problems.push(`${page}: ${name} from '@martis/testing'`)
+                    }
+                    continue
+                }
                 const target = resolveAlias(specifier)
                 if (target === specifier) {
                     if (/^@(\/|martis\/)/.test(specifier)) problems.push(`${page}: '${specifier}' does not resolve`)

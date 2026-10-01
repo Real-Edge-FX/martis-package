@@ -100,7 +100,7 @@ Gate::define('viewMartis', fn ($user) => in_array($user->email, [
 ]));
 ```
 
-The `martis.authorize` middleware checks it after authentication, the 2FA challenge and email verification. It therefore guards the SPA shell, every protected API route, every Tool route that runs the Martis API stack and any route of yours on the `martis.api` group. The sign-in pages, `POST /logout`, the 2FA challenge (its page and its endpoint), the email verification pages and the translations stay reachable, so a refused user can sign out, and a refused user with a pending 2FA challenge completes it before seeing the refusal.
+The `martis.authorize` middleware checks it after authentication, the 2FA challenge and email verification, and before the forced password change (v2.3.0). It therefore guards the SPA shell, every protected API route, every Tool route that runs the Martis API stack and any route of yours on the `martis.api` group. The sign-in pages, `POST /logout`, the 2FA challenge (its page and its endpoint), the email verification pages and the translations stay reachable, so a refused user can sign out, and a refused user with a pending 2FA challenge completes it before seeing the refusal.
 
 | Request of a refused user | Answer |
 |---|---|

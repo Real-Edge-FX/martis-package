@@ -600,6 +600,14 @@ declare class TwoFactorRequiredError extends Error {
 declare class EmailVerificationRequiredError extends Error {
     constructor();
 }
+/**
+ * Thrown by `login()` when the forced password change gate holds the user
+ * (v2.3.0). The session is alive; the SPA must route to the change page
+ * instead of the dashboard. Mirrors TwoFactorRequiredError.
+ */
+declare class PasswordChangeRequiredError extends Error {
+    constructor();
+}
 interface AuthContextValue {
     user: User | null;
     isLoading: boolean;
@@ -607,9 +615,16 @@ interface AuthContextValue {
     logout: () => Promise<void>;
     updateUser: (partial: Partial<User>) => void;
 }
-declare function AuthProvider({ children }: {
+interface AuthProviderProps {
     children: ReactNode;
-}): react_jsx_runtime.JSX.Element;
+    /**
+     * The signed-in user to start with, without the `/api/auth/user` request
+     * (`null`: a guest). For a tree mounted outside the shell, such as a test
+     * (MartisTestProvider). v2.3.0.
+     */
+    initialUser?: User | null;
+}
+declare function AuthProvider({ children, initialUser }: AuthProviderProps): react_jsx_runtime.JSX.Element;
 declare function useAuth(): AuthContextValue;
 
 type RefHandler<
@@ -1576,6 +1591,22 @@ interface MartisAuthCopyConfig {
         subtitle?: MartisAuthCopyEntry;
     };
 }
+/** What a new password must contain. The server sends the app's
+ *  `Password::defaults()` (`Martis\Auth\PasswordPolicy::requirements()`); a
+ *  resource `Password` field sends its own. v2.3.0. */
+interface PasswordRequirements {
+    minLength?: number;
+    maxLength?: number;
+    uppercase?: boolean;
+    lowercase?: boolean;
+    letters?: boolean;
+    number?: boolean;
+    symbol?: boolean;
+    /** Checked by the server only (Have I Been Pwned): the checklist shows it, unticked. */
+    uncompromised?: boolean;
+    /** The `Password` field's `disallowCommonPasswords()` list. */
+    noCommon?: boolean;
+}
 interface MartisAuthConfig {
     /** SSO subsystem. Replaces the legacy `sso` / `google` flat blocks. */
     sso?: MartisSsoConfig;
@@ -1596,6 +1627,15 @@ interface MartisAuthConfig {
      *  notice page when no session is active. v1.8.16. */
     emailVerification?: {
         enabled?: boolean;
+    };
+    /** The app's password policy, for the password checklist of the auth and
+     *  profile pages; null when the app's default rule cannot be read. v2.3.0. */
+    passwordRequirements?: PasswordRequirements | null;
+    /** The forced password change gate: whether it is on, and where a held
+     *  user goes (the built-in `/password/change` page by default). v2.3.0. */
+    passwordChange?: {
+        enabled?: boolean;
+        url?: string;
     };
 }
 interface MartisMagicLinkConfig {
@@ -1832,32 +1872,36 @@ declare const config: MartisConfigShape;
  *
  * // Emit
  * const { emit } = useEventBus()
- * emit('martis:record-created', { resourceKey: 'posts', id: 1 })
+ * emit('martis:record-created', { resourceKey: 'posts', id: '1' })
  * ```
  */
 type EventPayload = Record<string, unknown>;
 type EventHandler = (payload: EventPayload) => void;
+/**
+ * The payloads of the built-in events. A record id is always a string, as a
+ * route param is (v2.3.0): the SPA turns a numeric key into its string.
+ */
 interface EventBusEvents {
     'martis:record-created': {
         resourceKey: string;
-        id: number | string;
+        id: string;
     };
     'martis:record-updated': {
         resourceKey: string;
-        id: number | string;
+        id: string;
     };
     'martis:record-deleted': {
         resourceKey: string;
-        id: number | string;
+        id: string;
     };
     'martis:record-restored': {
         resourceKey: string;
-        id: number | string;
+        id: string;
     };
     'martis:action-executed': {
         resourceKey: string;
         action: string;
-        ids: (number | string)[];
+        ids: string[];
     };
     'martis:refresh-index': {
         resourceKey?: string;
@@ -7225,6 +7269,14 @@ var ReactRouterDom = /*#__PURE__*/_mergeNamespaces({
   RouterProvider: RouterProvider
 }, [reactRouter]);
 
+/** The props of a component an action shows with `ActionResponse::modal($component, $data)`. */
+interface ActionResponseModalProps {
+    /** The `$data` the action passed. */
+    data: Record<string, unknown>;
+    /** Close the modal; the page the action ran from then refreshes. */
+    onClose: () => void;
+}
+
 /**
  * The `@martis/runtime` bag. Exposed on `window.Martis.runtime`
  * by `app.tsx`. Consumer-extension shims re-export from here.
@@ -7236,6 +7288,7 @@ declare const martisRuntime: {
     readonly useIsMobile: typeof useIsMobile;
     readonly TwoFactorRequiredError: typeof TwoFactorRequiredError;
     readonly EmailVerificationRequiredError: typeof EmailVerificationRequiredError;
+    readonly PasswordChangeRequiredError: typeof PasswordChangeRequiredError;
     readonly AuthProvider: typeof AuthProvider;
     readonly api: {
         get: <T>(path: string, signal?: AbortSignal) => Promise<T>;
@@ -7307,5 +7360,5 @@ declare const martisRuntime: {
  */
 type MartisRuntime = typeof martisRuntime;
 
-export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, resolveColor, routeRegistry, useAuth, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard };
-export type { DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, RouteRegistration, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };
+export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, resolveColor, routeRegistry, useAuth, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard };
+export type { ActionResponseModalProps, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, RouteRegistration, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };

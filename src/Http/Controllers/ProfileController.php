@@ -7,7 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Validation\Rules\Password;
+use Martis\Auth\PasswordChanger;
+use Martis\Auth\PasswordPolicy;
 use Martis\Contracts\ProfileResourceContract;
 use Martis\Profile\AvatarService;
 use Martis\Profile\BrowserSessionsService;
@@ -52,24 +53,24 @@ class ProfileController extends MartisController
      * Change the authenticated user's password.
      *
      * @body-param string current_password required
-     * @body-param string password required New password (min 8 chars)
+     * @body-param string password required The new password, validated with the app's Password::defaults() (Password::min(8) without them)
      * @body-param string password_confirmation required
      *
      * @response array{message: string}
      */
-    public function changePassword(Request $request): JsonResponse
+    public function changePassword(Request $request, PasswordChanger $changer): JsonResponse
     {
         $user = $this->resolveUser($request);
 
         $request->validate([
             'current_password' => ['required', 'string', 'current_password'],
-            'password' => ['required', 'string', Password::min(8)->mixedCase()->numbers(), 'confirmed'],
+            'password' => ['required', 'string', PasswordPolicy::rule(), 'confirmed'],
         ]);
 
         assert($user instanceof Model);
-        // @phpstan-ignore-next-line property.notFound
-        $user->password = bcrypt((string) $request->input('password'));
-        $user->save();
+        // The app's hasher, the user's reset tokens deleted, the forced
+        // password change flag cleared, PasswordChanged fired (v2.3.0).
+        $changer->change($user, (string) $request->input('password'), forced: false);
 
         return response()->json(['message' => __('martis::profile.password_updated')]);
     }

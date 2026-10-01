@@ -67,6 +67,9 @@ i18n.use(initReactI18next).init({
         password_req_number: 'One number',
         password_req_symbol: 'One symbol',
         password_req_no_common: 'Not a common password',
+        password_req_max_length: 'At most {{n}} characters',
+        password_req_letters: 'One letter',
+        password_req_uncompromised: 'Not found in a known data leak (checked when you submit)',
       },
       navigation: {
         dashboard: 'Dashboard',
@@ -117,7 +120,6 @@ i18n.use(initReactI18next).init({
         confirm_password: 'Confirm New Password',
         password_updated: 'Password updated successfully.',
         password_mismatch: 'Passwords do not match.',
-        password_min: 'Password must be at least 8 characters.',
         update_password: 'Update Password',
         updating_password: 'Updating…',
         avatar_upload: 'Upload Photo',

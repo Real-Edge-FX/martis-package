@@ -8,9 +8,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Validation\Rules\Password;
+use Martis\Auth\DefaultRegistersUsers;
+use Martis\Auth\PasswordPolicy;
+use Martis\Contracts\RegistersUsers;
 use Martis\Invitations\InvalidInvitationException;
 use Martis\Invitations\InvitationManager;
+use Martis\Sso\SsoSession;
 
 /**
  * The PUBLIC (token-authorized, unauthenticated) surfaces of the
@@ -98,6 +101,12 @@ class InvitationController extends MartisController
             $auth = auth()->guard($guardName);
             $auth->login($user);
             $request->session()->regenerate();
+
+            // A password, magic-link or invitation sign-in is not an SSO one: drop
+            // the SSO origin an earlier SSO sign-in left in this session or in
+            // the browser's cookie (SsoSession), so the forced password change
+            // gate and the federated logout do not read it.
+            SsoSession::forget($request);
         }
 
         $redirectTo = $loginAfterAccept
@@ -124,9 +133,14 @@ class InvitationController extends MartisController
     /**
      * Validation rules for the accept payload: only the configured
      * `signup_fields` (default `name`, `password`) plus `password`
-     * always requiring `confirmed` + the same minimum strength as
-     * the shared registration pipeline. `token` is always required —
-     * it identifies which invitation is being claimed.
+     * always requiring `confirmed`. `token` is always required — it
+     * identifies which invitation is being claimed.
+     *
+     * The app's password policy (`PasswordPolicy`) is checked once: by
+     * `DefaultRegistersUsers`, which the accept hands the signup to, or
+     * here when the app binds a registrar of its own, which may not check
+     * it. Checking it twice asked Have I Been Pwned twice per accept under
+     * `uncompromised()`.
      *
      * @return array<string, list<mixed>>
      */
@@ -145,7 +159,11 @@ class InvitationController extends MartisController
             $rules[$field] = ['required', 'string', 'max:255'];
         }
 
-        $rules['password'] = ['required', 'string', 'confirmed', Password::min(8)];
+        $rules['password'] = ['required', 'string', 'confirmed'];
+
+        if (get_class(app(RegistersUsers::class)) !== DefaultRegistersUsers::class) {
+            $rules['password'][] = PasswordPolicy::rule();
+        }
 
         return $rules;
     }

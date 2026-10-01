@@ -15,6 +15,7 @@ import { updatePayload } from '@/lib/updatePayload'
 import { lockImmutableFields } from '@/lib/lockImmutableFields'
 import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 import { useHiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
+import { emitRecordEvent } from '@/lib/recordEvents'
 
 /** Recursively extract scalar fields from layout containers (Panel, Section, TabGroup) */
 function extractScalarFields(items: Array<Record<string, unknown>>): FieldDefinition[] {
@@ -190,6 +191,7 @@ export function DrawerUpdate(props: OverrideProps) {
       if (submitted && submitted.recordKey === recordKeyRef.current) {
         initialSnapshot.current = submitted.snapshot
       }
+      emitRecordEvent('updated', resource, recordId)
       onUpdated(res.data)
     },
     onError: (err) => {

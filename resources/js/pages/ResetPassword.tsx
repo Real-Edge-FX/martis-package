@@ -1,7 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowRightIcon, EyeIcon, EyeSlashIcon } from '@phosphor-icons/react'
+import { ArrowRightIcon } from '@phosphor-icons/react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { api, ApiError } from '@/lib/api'
@@ -9,6 +9,9 @@ import { config } from '@/lib/config'
 import { useAuthCopy } from '@/lib/authCopy'
 import { AuthFrame } from '@/components/auth/AuthFrame'
 import { FieldError } from '@/components/auth/FieldError'
+import { PasswordFieldInput } from '@/components/fields/PasswordField'
+import { PasswordConfirmationFieldInput } from '@/components/fields/PasswordConfirmationField'
+import { confirmationField, policyPasswordField } from '@/lib/passwordPolicy'
 
 /**
  * Reset password — set the new password using the token from the email.
@@ -34,9 +37,11 @@ export function ResetPasswordPage() {
   const [email, setEmail] = useState(searchParams.get('email') ?? '')
   const [password, setPassword] = useState('')
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+
+  const passwordField = policyPasswordField('password', t('reset_password_new', { defaultValue: 'New password' }))
+  const confirmField = confirmationField('password_confirmation', 'password', t('reset_password_confirm', { defaultValue: 'Confirm password' }))
 
   const passwordReset = config.auth?.passwordReset
   const enabled = passwordReset?.enabled === true && !passwordReset?.url
@@ -140,48 +145,31 @@ export function ResetPasswordPage() {
           <label htmlFor="password" className="martis-label">
             {t('reset_password_new', { defaultValue: 'New password' })}
           </label>
-          <div style={{ position: 'relative' }}>
-            <input
-              id="password"
-              name="password"
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="martis-input"
-              disabled={submitting}
-              required
-              autoFocus
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              className="martis-input-toggle"
-              tabIndex={-1}
-              aria-label={showPassword ? t('reset_password_hide', { defaultValue: 'Hide password' }) : t('reset_password_show', { defaultValue: 'Show password' })}
-            >
-              {showPassword ? <EyeSlashIcon size={14} /> : <EyeIcon size={14} />}
-            </button>
-          </div>
-          <FieldError message={errors.password} />
+          <PasswordFieldInput
+            field={passwordField}
+            value={password}
+            onChange={(v) => setPassword(v === null || v === undefined ? '' : String(v))}
+            error={errors.password}
+            formValues={{ password }}
+            disabled={submitting}
+            announceError
+            autoFocus
+          />
         </div>
 
         <div style={{ marginBottom: 12 }}>
           <label htmlFor="password_confirmation" className="martis-label">
             {t('reset_password_confirm', { defaultValue: 'Confirm password' })}
           </label>
-          <input
-            id="password_confirmation"
-            name="password_confirmation"
-            type={showPassword ? 'text' : 'password'}
-            autoComplete="new-password"
+          <PasswordConfirmationFieldInput
+            field={confirmField}
             value={passwordConfirmation}
-            onChange={(e) => setPasswordConfirmation(e.target.value)}
-            className="martis-input"
+            onChange={(v) => setPasswordConfirmation(v === null || v === undefined ? '' : String(v))}
+            error={errors.password_confirmation}
+            formValues={{ password }}
             disabled={submitting}
-            required
+            announceError
           />
-          <FieldError message={errors.password_confirmation} />
         </div>
 
         <button

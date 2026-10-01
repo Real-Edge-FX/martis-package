@@ -381,6 +381,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
       {activePivotAction && (
         <PivotActionModal
           actionsUrl={pivotActionsUrl}
+          resourceKey={relatedResource}
           action={activePivotAction}
           selectedIds={selectedRows.map((r) => r.id as string | number)}
           onSuccess={() => {

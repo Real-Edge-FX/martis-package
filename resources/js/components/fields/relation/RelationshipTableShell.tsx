@@ -22,6 +22,7 @@ import { isHiddenOn } from '@/lib/hiddenFields'
 import { filterInlineActions } from '@/lib/actionVisibility'
 import { InlineRowActions } from '@/components/Table/Table'
 import { ActionModal, ActionDrawer, type ActionMeta, type ActionVia } from '@/components/Actions'
+import { emitRecordEvent } from '@/lib/recordEvents'
 
 /**
  * Shared toolbar/table/pagination shell for *-Many relationship fields.
@@ -160,7 +161,8 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
       if (!deleteUrl) return Promise.resolve(undefined)
       return api.delete(deleteUrl(relatedId))
     },
-    onSuccess: () => {
+    onSuccess: (_res, relatedId) => {
+      if (deleteUrl) emitRecordEvent('deleted', relatedResource, relatedId)
       void qc.invalidateQueries({ queryKey })
       setDeleteTarget(null)
     },
@@ -169,7 +171,8 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   const restoreMutation = useMutation({
     mutationFn: (relatedId: string | number) =>
       api.put(`/api/resources/${relatedResource}/${relatedId}/restore`),
-    onSuccess: () => {
+    onSuccess: (_res, relatedId) => {
+      emitRecordEvent('restored', relatedResource, relatedId)
       void qc.invalidateQueries({ queryKey })
       setRestoreTarget(null)
     },
@@ -178,7 +181,8 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   const forceDeleteMutation = useMutation({
     mutationFn: (relatedId: string | number) =>
       api.delete(`/api/resources/${relatedResource}/${relatedId}/force`),
-    onSuccess: () => {
+    onSuccess: (_res, relatedId) => {
+      emitRecordEvent('deleted', relatedResource, relatedId)
       void qc.invalidateQueries({ queryKey })
       setForceDeleteTarget(null)
     },

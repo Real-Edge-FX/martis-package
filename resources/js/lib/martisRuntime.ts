@@ -46,7 +46,7 @@
 import * as ReactRouterDom from '@/lib/reactRouterDom'
 import * as ReactI18next from 'react-i18next'
 import * as TanstackReactQuery from '@tanstack/react-query'
-import { useAuth, AuthProvider, TwoFactorRequiredError, EmailVerificationRequiredError } from '@/contexts/AuthContext'
+import { useAuth, AuthProvider, TwoFactorRequiredError, EmailVerificationRequiredError, PasswordChangeRequiredError } from '@/contexts/AuthContext'
 import { useToast, useToastSafe } from '@/contexts/ToastContext'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { api, ApiError } from '@/lib/api'
@@ -104,6 +104,8 @@ export const martisRuntime = {
   // Auth context exceptions (thrown by useAuth().login() under specific conditions).
   TwoFactorRequiredError,
   EmailVerificationRequiredError,
+  // v2.3.0: thrown by login() when the forced password change gate holds the user.
+  PasswordChangeRequiredError,
 
   // Provider — consumer overrides that mount their own React tree need this.
   AuthProvider,
@@ -328,6 +330,12 @@ export type { UseToolFieldsResult } from '@/hooks/useToolFields'
  * names and payloads without reaching into `@/lib/eventBus` directly.
  */
 export type { EventBusEvents } from '@/lib/eventBus'
+
+/**
+ * The props of a component an action shows with `ActionResponse::modal()`
+ * (v2.3.0): register it with `componentRegistry.register(key, Component)`.
+ */
+export type { ActionResponseModalProps } from '@/components/Actions/ActionResponseModalHost'
 
 /**
  * Types for the v1.38.0 members: the props of a layout registered on

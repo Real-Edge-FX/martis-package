@@ -998,7 +998,7 @@ the `martisEventBus` singleton on `@martis/runtime`:
 import { martisEventBus } from '@martis/runtime'
 
 // Emit an event
-martisEventBus.emit('martis:record-created', { resourceKey: 'users', id: 42 })
+martisEventBus.emit('martis:record-created', { resourceKey: 'users', id: '42' })
 
 // Listen for events, and stop with the same handler
 const onCreated = (payload) => console.log('New record:', payload)
@@ -1013,6 +1013,8 @@ singleton, which drops its handlers on unmount (see
 Built-in events: `martis:record-created`, `martis:record-updated`,
 `martis:record-deleted`, `martis:record-restored`,
 `martis:action-executed`, `martis:refresh-index`.
+
+Since v2.3.0 the record events fire from every page, drawer, panel and inline create that writes, and `martis:action-executed` after every action run; dashboard metrics refetch on it, as Nova's metric cards refetch on `action-executed`. A record `id` (and each of the `ids`) is always a string.
 
 ### Configurable loader
 
@@ -1112,6 +1114,10 @@ See [Components → App commands](components.md#app-commands-v210).
 ### Skip link
 
 The sidebar and topnav layouts start with a translated "Skip to main content" link that moves focus to the `<main id="martis-main">` landmark (WCAG 2.2, 2.4.1). Nova's layout has no skip link.
+
+### Test kit for extensions
+
+`vendor/martis/martis/dist/testing/` is a development build of the runtime that renders your Tools, cards, fields and overrides in Vitest or a Playwright page, through the published shims, with `MartisTestProvider` for the user, preferences, config, locale, translations and route (v2.3.0). Nova has no test runtime for its tools' Vue components. See [Testing extensions](testing-extensions.md).
 
 ---
 

@@ -36,6 +36,7 @@ dataset('auth_pages', [
     ['forgot-password-page', 'ForgotPasswordPage', 'auth:forgot-password'],
     ['reset-password-page', 'ResetPasswordPage', 'auth:reset-password'],
     ['email-verify-notice-page', 'EmailVerifyNoticePage', 'auth:email-verify-notice'],
+    ['password-change-page', 'PasswordChangePage', 'auth:password-change'],
 ]);
 
 it('scaffolds the auth-page override TSX in the overrides bucket', function (string $type, string $expectedFilename, string $expectedKey) {
@@ -93,6 +94,7 @@ it('the auth-page key constants stay in sync with the type list', function () {
         'forgot-password-page',
         'reset-password-page',
         'email-verify-notice-page',
+        'password-change-page',
     ]);
 
     // The fixed-filename convention is structural — each entry must
@@ -100,5 +102,50 @@ it('the auth-page key constants stay in sync with the type list', function () {
     // ComponentMakeCommand::generateFixedPiece() can rely on them.
     foreach ($authPages as $type => $meta) {
         expect($meta)->toHaveKeys(['filename', 'key', 'stub']);
+    }
+});
+
+/*
+ * An app keeps its own resources/js/martis-extensions/index.ts: refreshing
+ * the shims never rewrites it. When it predates a fixed-key type (an app
+ * installed before v2.3.0 has no PasswordChangePage in OVERRIDE_KEYS), the
+ * override builds but registers under its derived key and never renders.
+ * The generator says so and names the line to add.
+ */
+function authPageOverrideIndex(?callable $edit = null): void
+{
+    $stub = (string) file_get_contents(__DIR__.'/../../stubs/extensions/index.ts.stub');
+    $path = base_path('resources/js/martis-extensions/index.ts');
+    @mkdir(dirname($path), 0755, true);
+    file_put_contents($path, $edit === null ? $stub : $edit($stub));
+}
+
+it('fails loudly, naming the line to add, when the app index.ts does not map the fixed key', function () {
+    authPageOverrideIndex(fn (string $stub) => str_replace("  PasswordChangePage: 'auth:password-change',\n", '', $stub));
+
+    $this->artisan('martis:component', ['--type' => 'password-change-page'])
+        ->expectsOutputToContain("PasswordChangePage: 'auth:password-change',")
+        ->assertFailed();
+
+    // The component is written all the same: only the wiring is missing.
+    expect(file_exists(base_path('resources/js/martis-extensions/overrides/PasswordChangePage.tsx')))->toBeTrue();
+});
+
+it('passes when the app index.ts maps the fixed key (control)', function (string $type) {
+    authPageOverrideIndex();
+
+    $this->artisan('martis:component', ['--type' => $type])->assertSuccessful();
+})->with(['password-change-page', 'login-page', 'sidebar']);
+
+it('ships an index.ts that maps every fixed-filename type the generator writes', function () {
+    $stub = (string) file_get_contents(__DIR__.'/../../stubs/extensions/index.ts.stub');
+    $reflection = new ReflectionClass(ComponentMakeCommand::class);
+    $pieces = [
+        ...$reflection->getReflectionConstant('SHELL_PIECES')->getValue(),
+        ...$reflection->getReflectionConstant('AUTH_PAGES')->getValue(),
+    ];
+
+    foreach ($pieces as $piece) {
+        expect($stub)->toContain("{$piece['filename']}: '{$piece['key']}'");
     }
 });

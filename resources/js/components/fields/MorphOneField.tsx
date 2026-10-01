@@ -13,6 +13,7 @@ import { buildViaParams } from '@/lib/relationViaParams'
 import { STANDALONE_RELATIONSHIP_TYPES } from '@/lib/relationshipFieldTypes'
 import { useTranslation } from 'react-i18next'
 import { PlusIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
+import { emitRecordEvent } from '@/lib/recordEvents'
 
 /**
  * MorphOne field display.
@@ -91,7 +92,8 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
       api.delete(
         `/api/resources/${parentResource}/${parentId}/morph-one/${relationship}?relatedId=${encodeURIComponent(String(shownId))}`
       ),
-    onSuccess: () => {
+    onSuccess: (_res, shownId) => {
+      emitRecordEvent('deleted', relatedResource, shownId)
       focusAfterDelete.current = true
       void qc.invalidateQueries({ queryKey: ['morph-one', parentResource, parentId, relationship] })
       setDeleteTarget(null)

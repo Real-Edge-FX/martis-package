@@ -1096,6 +1096,22 @@ Passwordless login via signed email links.
 
 When enabled, the package wires Laravel's `verified` middleware into the panel guards and exposes the verification notice page. `notice_url` lets you redirect to a custom page if you don't want the bundled one.
 
+## Forced password change
+
+```php
+'auth' => [
+    'password_change' => [
+        'enabled' => env('MARTIS_AUTH_PASSWORD_CHANGE_ENABLED', false),
+        'column'  => env('MARTIS_AUTH_PASSWORD_CHANGE_COLUMN', 'must_change_password'),
+        'url'     => env('MARTIS_AUTH_PASSWORD_CHANGE_URL'),
+    ],
+],
+```
+
+When enabled, a user flagged by the `column` (or by the `Martis\Contracts\MustChangePassword` contract) is held on the change page until they choose a new password; `url` sends them to a page of your own instead. See [Authentication → Forced password change](authentication.md#forced-password-change).
+
+The SPA reads the state from `window.MartisConfig.auth.passwordChange` (`enabled`, `url`) and the password policy from `window.MartisConfig.auth.passwordRequirements`; see [Authentication → Password rules](authentication.md#passwordpolicy).
+
 ## Auth screen copy (v1.8.5)
 
 Every auth surface (login, register, password forgot, password reset, invitation accept) lets you override the title and subtitle without touching translations.
@@ -1358,6 +1374,9 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_AUTH_MAGIC_LINK_ENABLED` | `false` |
 | `MARTIS_AUTH_MAGIC_LINK_TTL` | `15` |
 | `MARTIS_AUTH_PASSWORD_BROKER` | unset (the broker of the Martis guard's provider) |
+| `MARTIS_AUTH_PASSWORD_CHANGE_COLUMN` | `must_change_password` |
+| `MARTIS_AUTH_PASSWORD_CHANGE_ENABLED` | `false` |
+| `MARTIS_AUTH_PASSWORD_CHANGE_URL` | `(no default)` |
 | `MARTIS_AUTH_PASSWORD_RESET_ENABLED` | `false` |
 | `MARTIS_AUTH_PASSWORD_RESET_URL` | `(no default)` |
 | `MARTIS_AUTH_REGISTER_SUBTITLE` | `(no default)` |

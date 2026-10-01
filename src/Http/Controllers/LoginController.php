@@ -2,6 +2,7 @@
 
 namespace Martis\Http\Controllers;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Database\Eloquent\Model;
@@ -9,7 +10,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Martis\Auth\PasswordChangeRequirement;
 use Martis\Http\Controllers\Concerns\AuthenticatesWithRememberMe;
+use Martis\Sso\SsoSession;
 
 class LoginController extends MartisController
 {
@@ -59,10 +62,26 @@ class LoginController extends MartisController
 
         $request->session()->regenerate();
 
+        // A password, magic-link or invitation sign-in is not an SSO one: drop
+        // the SSO origin an earlier SSO sign-in left in this session or in
+        // the browser's cookie (SsoSession), so the forced password change
+        // gate and the federated logout do not read it.
+        SsoSession::forget($request);
+
         if ($request->expectsJson()) {
             // Filter sensitive fields before returning user data to the client
-            /** @var Model $loginUser */
+            /** @var Model&Authenticatable $loginUser */
             $loginUser = $auth->user();
+
+            // The forced password change gate (v2.3.0), as AuthController::login()
+            // answers it: the SPA goes straight to the change page.
+            if (PasswordChangeRequirement::requiredFor($request, $loginUser)) {
+                return response()->json([
+                    'password_change_required' => true,
+                    'message' => 'Password change required.',
+                ]);
+            }
+
             $safe = array_diff_key(
                 $loginUser->toArray(),
                 array_flip(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])
@@ -86,6 +105,7 @@ class LoginController extends MartisController
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+        SsoSession::forget($request);
 
         return redirect()->route('martis.login');
     }

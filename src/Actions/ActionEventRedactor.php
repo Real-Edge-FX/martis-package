@@ -43,8 +43,9 @@ use WeakMap;
  *    a role change, a custom writer): the model's `$hidden` attributes
  *    are masked, the rest is kept.
  *
- * A masked key stays in the payload with {@see self::MASK} as its value,
- * so the log still tells which attributes changed. Used by the built-in
+ * A key outside the model's `$visible` (when it declares one) is not stored
+ * at all; a `$hidden` key stays in the payload with {@see self::MASK} as its
+ * value, so the log still tells which attributes changed. Used by the built-in
  * `ActionEventResource`; a custom audit resource calls {@see self::redact()}
  * from its own `resolveUsing()`.
  */
@@ -127,6 +128,31 @@ final class ActionEventRedactor
         }
 
         return $values;
+    }
+
+    /**
+     * `$values` (an `original` / `changes` diff about to be stored) as Nova
+     * stores one: when the model's class declares `$visible`, only those
+     * keys are kept, then the `$hidden` values are masked
+     * ({@see self::maskHiddenAttributes()}). Nova builds its diffs through
+     * `Orchestra\Sidekick\Eloquent\model_state()`, whose
+     * `attributesToArray()` on a fresh instance of the model keeps only the
+     * class's `$visible` attributes; a runtime `makeVisible()` does not
+     * count there either.
+     *
+     * @param  array<array-key, mixed>  $values
+     * @param  Model|class-string<Model>  $model  The model (or pivot) whose attributes `$values` holds.
+     * @return array<array-key, mixed>
+     */
+    public static function loggableAttributes(array $values, Model|string $model): array
+    {
+        $visible = self::visibleAttributes($model instanceof Model ? $model::class : $model);
+
+        if ($visible !== []) {
+            $values = array_intersect_key($values, array_flip($visible));
+        }
+
+        return self::maskHiddenAttributes($values, $model);
     }
 
     /**
@@ -389,5 +415,20 @@ final class ActionEventRedactor
         }
 
         return array_values(array_map('strval', (new $modelClass)->getHidden()));
+    }
+
+    /**
+     * The `$visible` attributes a fresh instance of a model class declares,
+     * or none when the class is not a model.
+     *
+     * @return list<string>
+     */
+    private static function visibleAttributes(string $modelClass): array
+    {
+        if (! is_subclass_of($modelClass, Model::class)) {
+            return [];
+        }
+
+        return array_values(array_map('strval', (new $modelClass)->getVisible()));
     }
 }
