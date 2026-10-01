@@ -31,11 +31,11 @@ Martis v2.3.0 ships a test runtime in `vendor/martis/martis/dist/testing/` (abou
 
    `martisExtensionTestConfig()` does four things:
    - it sends `@martis/runtime`, `react-router-dom`, `react-i18next`, `@tanstack/react-query` and the legacy paths to the shims in `resources/js/martis-extensions/.shims/`, as `vite.extensions.config.ts` does;
-   - it leaves React, its JSX runtime and ReactDOM to `node_modules`, so your extension, the runtime and Testing Library share one React (`resolve.dedupe` pins `react` and `react-dom` to your app's copy even when the Martis package, symlinked or not, has its own `node_modules`, and the icon library is inlined so it follows);
+   - it leaves React, its JSX runtime, ReactDOM and Phosphor to `node_modules`, so your extension, the runtime and Testing Library share one React and one icon library (`resolve.dedupe` pins `react`, `react-dom` and `@phosphor-icons/react` to your app's copy even when the Martis package, symlinked or not, has its own `node_modules`, and the icon library is inlined so it follows);
    - it maps `@martis/testing` to the test runtime;
    - it runs the test runtime as a setup file, under `jsdom`.
 
-   Options: `root` (the app's root, the current directory by default) and `packageDir` (`vendor/martis/martis`). It throws, naming the path, when the runtime or the shims are missing.
+   Options: `root` (the app's root, the current directory by default) and `packageDir` (`vendor/martis/martis`). `packageDir` may sit outside the app root: the config lets Vite serve it (`server.fs.allow`). It throws, naming the path, when the runtime or the shims are missing.
 
 3. Register Testing Library's cleanup. Without `globals: true` in the Vitest config, Testing Library does not unmount rendered trees after each test, and a later test finds the markup of an earlier one. Either set `test: { globals: true }` in `vitest.config.mjs`, or call it in every test file (or one setup file listed in `test.setupFiles`):
 
@@ -115,7 +115,9 @@ A harness page served by your app's Vite dev server can render an extension with
 
 ## Symlinked installs
 
-When `vendor/martis/martis` is a symlink (a Composer `path` repository), `martisExtensionTestConfig()` sets `resolve.preserveSymlinks`, so the runtime resolves React from your app's `node_modules`. `resolve.dedupe` backs it up: a symlinked package whose real path holds its own `node_modules/react` still cannot give the run a second React. In an app whose own `node_modules` is symlinked (pnpm), check that your other tests still resolve; the option only switches on for a symlinked Martis.
+When `vendor/martis/martis` is a symlink (a Composer `path` repository), `martisExtensionTestConfig()` sets `resolve.preserveSymlinks`, so the runtime resolves React from your app's `node_modules`. `resolve.dedupe` backs it up: a symlinked package whose real path holds its own `node_modules/react` or `@phosphor-icons/react` still cannot give the run a second copy, so an `IconContext.Provider` in your test reaches the runtime's icons. In an app whose own `node_modules` is symlinked (pnpm), check that your other tests still resolve; the option only switches on for a symlinked Martis.
+
+TypeScript follows the symlink: in such an install, `tsc -p tsconfig.extensions.json` reads the kit's declarations with the package checkout's own `@types/react` next to your app's. Both are on React 18 (`martis:install` pins `@types/react` to `^18`), so the two type-check together. An install of a release (a tag) has no second copy.
 
 ## In CI
 

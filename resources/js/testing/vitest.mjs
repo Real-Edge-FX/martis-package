@@ -14,11 +14,13 @@ import path from 'node:path'
  * It sends the extension specifiers to the shims `martis:install` published,
  * as `vite.extensions.config.ts` does, except React, its JSX runtime and
  * ReactDOM: those stay the app's own, so the extension, the test runtime and
- * Testing Library share one React. `resolve.dedupe` pins `react` and
- * `react-dom` to the app's copy whatever the symlinks, so a Martis package that
- * has its own node_modules cannot bring a second one; the icon library is
- * inlined for the same reason. `@martis/testing` is the test runtime, which
- * also runs as the setup file. See docs/testing-extensions.md.
+ * Testing Library share one React. `resolve.dedupe` pins `react`, `react-dom`
+ * and the icon library (`martis:install` adds `@phosphor-icons/react` to the
+ * app) to the app's copy whatever the symlinks, so a Martis package that has
+ * its own node_modules cannot bring a second one; the icon library is inlined
+ * for the same reason. `server.fs.allow` lets Vite serve the package when
+ * `packageDir` sits outside the app root. `@martis/testing` is the test
+ * runtime, which also runs as the setup file. See docs/testing-extensions.md.
  *
  * @param {{ root?: string, packageDir?: string }} [options]
  *   `root`: the app's root (the current directory by default);
@@ -44,8 +46,11 @@ export function martisExtensionTestConfig(options = {}) {
       // runtime resolves React from the app's node_modules, inside the root.
       preserveSymlinks: lstatSync(packageDir).isSymbolicLink(),
       // The real path of a symlinked package may hold its own React: resolve
-      // react (and its JSX runtime) and react-dom from the app root, always.
-      dedupe: ['react', 'react-dom'],
+      // react (and its JSX runtime), react-dom and the icon library from the
+      // app root, always. Even one copy reached through two paths (the app's
+      // node_modules and the symlinked package's) would load twice, and an
+      // app-level IconContext would not reach the runtime's icons.
+      dedupe: ['react', 'react-dom', '@phosphor-icons/react'],
       alias: [
         { find: /^react-router-dom$/, replacement: path.join(shims, 'react-router-dom.mjs') },
         { find: /^react-router$/, replacement: path.join(shims, 'react-router-dom.mjs') },
@@ -60,6 +65,9 @@ export function martisExtensionTestConfig(options = {}) {
         { find: /^@\/components\/fields\/types$/, replacement: runtime },
       ],
     },
+    // Vitest adds the app's workspace root; a packageDir outside it would be
+    // refused (a misleading "Cannot find module .../testing.mjs").
+    server: { fs: { allow: [root, packageDir] } },
     test: {
       environment: 'jsdom',
       setupFiles: [testing],
