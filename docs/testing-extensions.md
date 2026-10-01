@@ -84,9 +84,9 @@ describe('Reports', () => {
 |---|---|---|
 | `user` | `defaultTestUser` (`{ id: 1, name: 'Test User', email: 'test@example.com', panel_access: true }`) | The user `useAuth()` returns. `null` renders as a guest. No `/api/auth/user` request is made. |
 | `preferences` | none | Preferences on top of the defaults (`theme`, `accent`, `density`, `locale`, `reducedMotion`). `update()` and `reset()` work in memory: no `/api/preferences` request, no `localStorage` write. |
-| `config` | none | Keys merged into `window.MartisConfig` while the provider is mounted (`{ profile: { ... }, auth: { ... } }`), restored when it unmounts. `basePath` is read once when the runtime loads: set it on `window.MartisConfig` in a setup file that runs before the runtime, if you need another one. |
+| `config` | none | Keys merged into `window.MartisConfig` while the provider is mounted (`{ profile: { ... }, auth: { ... } }`), restored when it unmounts. With two providers mounted, the later one wins a key both set, and an unmount gives each key back to the provider still mounted. Under `StrictMode` the keys stay in place. `basePath` is read once when the runtime loads: set it on `window.MartisConfig` in a setup file that runs before the runtime, if you need another one. |
 | `locale` | `'en'` | The i18next language. |
-| `translations` | none | Translations for `locale`, by namespace: `{ reports: { title: 'Reports' } }`. Without them a key renders as the key, and the Martis components render their own keys. |
+| `translations` | none | Translations for `locale`, by namespace: `{ reports: { title: 'Reports' } }`, removed when the provider unmounts: a bundle your setup registered gets its own content back, and a later test without them sees the keys. Without them a key renders as the key, and the Martis components render their own keys. |
 | `queryClient` | a new client, retries off | The React Query client, to read or seed the cache. |
 | `path` | `'*'` | The route pattern the children render at: `'reports/:reportId'` gives them `useParams()`. |
 | `initialPath` | `'/'` | The URL the router starts at. |
