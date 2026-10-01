@@ -344,6 +344,23 @@ export interface MartisAuthCopyConfig {
   }
 }
 
+/** What a new password must contain. The server sends the app's
+ *  `Password::defaults()` (`Martis\Auth\PasswordPolicy::requirements()`); a
+ *  resource `Password` field sends its own. v2.3.0. */
+export interface PasswordRequirements {
+  minLength?: number
+  maxLength?: number
+  uppercase?: boolean
+  lowercase?: boolean
+  letters?: boolean
+  number?: boolean
+  symbol?: boolean
+  /** Checked by the server only (Have I Been Pwned): the checklist shows it, unticked. */
+  uncompromised?: boolean
+  /** The `Password` field's `disallowCommonPasswords()` list. */
+  noCommon?: boolean
+}
+
 export interface MartisAuthConfig {
   /** SSO subsystem. Replaces the legacy `sso` / `google` flat blocks. */
   sso?: MartisSsoConfig
@@ -365,6 +382,9 @@ export interface MartisAuthConfig {
   emailVerification?: {
     enabled?: boolean
   }
+  /** The app's password policy, for the password checklist of the auth and
+   *  profile pages; null when the app's default rule cannot be read. v2.3.0. */
+  passwordRequirements?: PasswordRequirements | null
 }
 
 export interface MartisMagicLinkConfig {

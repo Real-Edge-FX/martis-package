@@ -8,7 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Validation\Rules\Password;
+use Martis\Auth\PasswordPolicy;
 use Martis\Invitations\InvalidInvitationException;
 use Martis\Invitations\InvitationManager;
 
@@ -124,8 +124,8 @@ class InvitationController extends MartisController
     /**
      * Validation rules for the accept payload: only the configured
      * `signup_fields` (default `name`, `password`) plus `password`
-     * always requiring `confirmed` + the same minimum strength as
-     * the shared registration pipeline. `token` is always required —
+     * always requiring `confirmed` + the app's password policy
+     * (`PasswordPolicy`), as the shared registration pipeline. `token` is always required —
      * it identifies which invitation is being claimed.
      *
      * @return array<string, list<mixed>>
@@ -145,7 +145,7 @@ class InvitationController extends MartisController
             $rules[$field] = ['required', 'string', 'max:255'];
         }
 
-        $rules['password'] = ['required', 'string', 'confirmed', Password::min(8)];
+        $rules['password'] = ['required', 'string', 'confirmed', PasswordPolicy::rule()];
 
         return $rules;
     }
