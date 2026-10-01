@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -86,7 +86,26 @@ export default mergeConfig(
 // the real path of where it sits, so it travels with them.
 const OWN_REACT = ['react', 'react-dom', 'scheduler', '@testing-library/react', '@phosphor-icons/react']
 
-function runKit(options: { ownReact: boolean }) {
+/**
+ * Makes the app's own copies of React and ReactDOM report another version,
+ * as a consumer that installed another major has them: the version string of
+ * the development builds a test run loads, and their package.json.
+ */
+function reportReactVersion(app: string, version: string): void {
+  for (const [name, build] of [['react', 'cjs/react.development.js'], ['react-dom', 'cjs/react-dom.development.js']]) {
+    for (const file of [build, 'package.json']) {
+      const target = path.join(app, 'node_modules', name, file)
+      const source = readFileSync(target, 'utf8')
+      const patched = file === 'package.json'
+        ? source.replace(/"version": "[^"]+"/, `"version": "${version}"`)
+        : source.replace(/var ReactVersion = '[^']+';/, `var ReactVersion = '${version}';`)
+      if (patched === source) throw new Error(`testingKit.test.ts: no version to patch in ${target}`)
+      writeFileSync(target, patched)
+    }
+  }
+}
+
+function runKit(options: { ownReact: boolean; reactVersion?: string }) {
   const app = mkdtempSync(path.join(tmpdir(), 'martis-testing-kit-'))
   try {
     const extensions = path.join(app, 'resources/js/martis-extensions')
@@ -108,6 +127,7 @@ function runKit(options: { ownReact: boolean }) {
         }
       }
       for (const name of OWN_REACT) cpSync(path.join(root, 'node_modules', name), path.join(app, 'node_modules', name), { recursive: true, dereference: true })
+      if (options.reactVersion !== undefined) reportReactVersion(app, options.reactVersion)
     } else {
       symlinkSync(path.join(root, 'node_modules'), path.join(app, 'node_modules'))
     }
@@ -145,5 +165,15 @@ describe('the published test kit', () => {
     expect(output).not.toMatch(/Cannot read properties of null/)
     expect(output).toMatch(/Tests\s+2 passed/)
     expect(status).toBe(0)
+  }, 180_000)
+
+  it('fails a run on another React major than the panel\'s, naming the install command', () => {
+    // A fresh app gets React 19 from martis:install's `^18 || ^19`, while the
+    // panel runs the package's React 18 (dist/testing/versions.json).
+    const { output, status } = runKit({ ownReact: true, reactVersion: '19.3.0' })
+    expect(output).toContain('[martis] This test run loads react 19.3.0 and react-dom 19.3.0, but the Martis panel runs React 18.3.1')
+    expect(output).toContain('npm install react@^18 react-dom@^18')
+    expect(output).not.toMatch(/Tests\s+2 passed/)
+    expect(status).not.toBe(0)
   }, 180_000)
 })

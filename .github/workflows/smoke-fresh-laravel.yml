@@ -202,6 +202,10 @@ jobs:
       - name: Consumer Vitest with the Martis test kit
         run: |
           cd test-app
+          # docs/testing-extensions.md, Setup step 1: martis:install's
+          # `^18 || ^19` gives a fresh app React 19, and the test runtime
+          # refuses a run on another major than the panel's (18).
+          npm install --no-progress --no-audit --no-fund --no-package-lock react@^18 react-dom@^18
           npm install --no-progress --no-audit --no-fund --no-package-lock --no-save vitest@^3 jsdom@^25 @testing-library/react@^16
           cat > vitest.config.mjs <<'EOF'
           import { defineConfig, mergeConfig } from 'vitest/config'

@@ -19,6 +19,20 @@ import path from 'path'
 
 const EXTERNAL = /^(?:react|react-dom|@phosphor-icons\/react)(?:\/|$)/
 
+/**
+ * The React the panel runs: the package's own, which `public/` bundles. The
+ * runtime fails a consumer's test run on another major (testing/reactMajor.ts).
+ */
+function readPanelReactVersion(): string {
+    const file = path.join(__dirname, 'node_modules/react/package.json')
+    const version = (JSON.parse(fs.readFileSync(file, 'utf8')) as {version?: unknown}).version
+    if (typeof version !== 'string') {
+        throw new Error(`vite.testing.config.ts: ${file} has no version. Run npm ci in the martis package.`)
+    }
+
+    return version
+}
+
 function readPackageVersion(): string {
     try {
         const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8')) as {version?: string}
@@ -54,6 +68,7 @@ export default defineConfig({
     publicDir: false,
     define: {
         __MARTIS_VERSION__: JSON.stringify(readPackageVersion()),
+        __MARTIS_REACT_VERSION__: JSON.stringify(readPanelReactVersion()),
         // Bundled libraries take their development branches; the library
         // build would otherwise leave process.env for the consumer, and a
         // Playwright page has no `process`.

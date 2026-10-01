@@ -6,9 +6,10 @@ Martis v2.3.0 ships a test runtime in `vendor/martis/martis/dist/testing/` (abou
 
 ## Setup
 
-1. Install the test tools. Your app already has React, ReactDOM, Phosphor and `@vitejs/plugin-react` from `martis:install`:
+1. Put your app's React on the panel's major, then install the test tools. Your app already has React, ReactDOM, Phosphor and `@vitejs/plugin-react` from `martis:install`, but its `^18 || ^19` range gives a fresh app React 19, while the panel runs React 18 (see [Library versions](#library-versions)):
 
    ```bash
+   npm install react@^18 react-dom@^18
    npm install --save-dev vitest@^3 jsdom @testing-library/react
    ```
 
@@ -122,7 +123,15 @@ The kit lives in the Martis package, so a CI job that runs only the frontend tes
 
 ## Library versions
 
-`vendor/martis/martis/dist/testing/versions.json` lists the Martis version and the versions of the libraries the SPA bundles: React, ReactDOM, React Router, react-i18next, i18next, React Query, Phosphor and PrimeReact. The test runtime bundles the same router, i18next and React Query builds, so a test sees what the panel runs. Keep your app's React within the same major as `versions.json`.
+`vendor/martis/martis/dist/testing/versions.json` lists the Martis version and the versions of the libraries the SPA bundles: React, ReactDOM, React Router, react-i18next, i18next, React Query, Phosphor and PrimeReact. The test runtime bundles the same router, i18next and React Query builds, so a test sees what the panel runs.
+
+React is the exception: the test runtime uses your app's React, while the panel serves its own (`versions.json`'s `react`, 18) to every extension. An extension that calls an API of another major (React 19's `use`) would pass its tests and then throw in the panel, so a test run on another major fails before any test runs, naming both versions and the fix:
+
+```text
+Error: [martis] This test run loads react 19.3.0 and react-dom 19.3.0, but the Martis panel runs React 18.3.1: an extension tested on another React major can pass here and fail in the panel. Install the panel's major in your app: npm install react@^18 react-dom@^18 (docs/testing-extensions.md).
+```
+
+An app whose own pages need React 19 cannot run the kit on the same `node_modules`.
 
 ## What the kit does not do
 
