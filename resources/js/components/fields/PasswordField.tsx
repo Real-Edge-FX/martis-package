@@ -2,28 +2,37 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { InputText } from 'primereact/inputtext'
-import { EyeIcon, EyeSlashIcon, CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react'
+import { EyeIcon, EyeSlashIcon, CheckCircleIcon, XCircleIcon, InfoIcon } from '@phosphor-icons/react'
 import { ClearButton } from '@/components/ClearButton'
+import type { PasswordRequirements } from '@/lib/config'
 
 // -----------------------------------------------------------------------------
 // ⭐ Declarative complexity requirements — emitted from PHP Password field.
 // -----------------------------------------------------------------------------
-
-interface PasswordRequirements {
-  minLength?: number
-  uppercase?: boolean
-  lowercase?: boolean
-  number?: boolean
-  symbol?: boolean
-  noCommon?: boolean
-}
 
 const COMMON_PASSWORDS = [
   'password', 'qwerty', '12345', '12345678', '123456789',
   'letmein', 'admin', 'welcome', 'abc123', 'iloveyou',
 ]
 
-type RequirementCheck = { id: keyof PasswordRequirements; label: string; passes: boolean }
+type RequirementCheck = {
+  id: keyof PasswordRequirements
+  label: string
+  /** `null`: the server checks it (`uncompromised`), the browser cannot. */
+  passes: boolean | null
+}
+
+/** Characters, as `mb_strlen` counts them (an emoji is one, not two UTF-16 units). */
+function characterCount(value: string): number {
+  return [...value].length
+}
+
+// The checks of Laravel's `Password` rule, so the checklist and the server agree.
+const UPPERCASE = /\p{Lu}/u
+const LOWERCASE = /\p{Ll}/u
+const LETTER = /\p{L}/u
+const NUMBER = /\p{N}/u
+const SYMBOL = /[\p{Z}\p{S}\p{P}]/u
 
 function evaluateRequirements(
   value: string,
@@ -31,29 +40,35 @@ function evaluateRequirements(
   t: (key: string, opts?: Record<string, unknown>) => string,
 ): RequirementCheck[] {
   const checks: RequirementCheck[] = []
+  const length = characterCount(value)
   if (reqs.minLength !== undefined) {
-    checks.push({
-      id: 'minLength',
-      label: t('password_req_min_length', { n: reqs.minLength }),
-      passes: value.length >= reqs.minLength,
-    })
+    checks.push({ id: 'minLength', label: t('password_req_min_length', { n: reqs.minLength }), passes: length >= reqs.minLength })
+  }
+  if (reqs.maxLength !== undefined) {
+    checks.push({ id: 'maxLength', label: t('password_req_max_length', { n: reqs.maxLength }), passes: length <= reqs.maxLength })
   }
   if (reqs.uppercase) {
-    checks.push({ id: 'uppercase', label: t('password_req_uppercase'), passes: /[A-Z]/.test(value) })
+    checks.push({ id: 'uppercase', label: t('password_req_uppercase'), passes: UPPERCASE.test(value) })
   }
   if (reqs.lowercase) {
-    checks.push({ id: 'lowercase', label: t('password_req_lowercase'), passes: /[a-z]/.test(value) })
+    checks.push({ id: 'lowercase', label: t('password_req_lowercase'), passes: LOWERCASE.test(value) })
+  }
+  if (reqs.letters) {
+    checks.push({ id: 'letters', label: t('password_req_letters'), passes: LETTER.test(value) })
   }
   if (reqs.number) {
-    checks.push({ id: 'number', label: t('password_req_number'), passes: /\d/.test(value) })
+    checks.push({ id: 'number', label: t('password_req_number'), passes: NUMBER.test(value) })
   }
   if (reqs.symbol) {
-    checks.push({ id: 'symbol', label: t('password_req_symbol'), passes: /[^A-Za-z0-9]/.test(value) })
+    checks.push({ id: 'symbol', label: t('password_req_symbol'), passes: SYMBOL.test(value) })
   }
   if (reqs.noCommon) {
     const lower = value.toLowerCase()
     const passes = value.length > 0 && !COMMON_PASSWORDS.some((w) => lower.startsWith(w))
     checks.push({ id: 'noCommon', label: t('password_req_no_common'), passes })
+  }
+  if (reqs.uncompromised) {
+    checks.push({ id: 'uncompromised', label: t('password_req_uncompromised'), passes: null })
   }
   return checks
 }
@@ -68,19 +83,17 @@ export function PasswordFieldDisplay(_props: FieldDisplayProps) {
 // heavy `zxcvbn` npm dependency.
 function scorePassword(pwd: string): number {
   if (pwd.length === 0) return 0
+  const length = characterCount(pwd)
   let score = 0
-  if (pwd.length >= 8) score++
-  if (pwd.length >= 12) score++
+  if (length >= 8) score++
+  if (length >= 12) score++
   // Long passwords are independently strong even without every character
   // class. A 40-char passphrase with lowercase + digits + symbols should read
   // as "Strong", not stop at "Good" because it happens to lack an uppercase.
-  if (pwd.length >= 20) score++
-  const classes = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].reduce(
-    (n, rx) => n + (rx.test(pwd) ? 1 : 0),
-    0,
-  )
+  if (length >= 20) score++
+  const classes = [LOWERCASE, UPPERCASE, NUMBER, SYMBOL].reduce((n, rx) => n + (rx.test(pwd) ? 1 : 0), 0)
   if (classes >= 3) score++
-  if (classes === 4 && pwd.length >= 10) score++
+  if (classes === 4 && length >= 10) score++
   if (/^(password|qwerty|12345|letmein|admin|welcome)/i.test(pwd)) score = Math.max(0, score - 2)
   return Math.min(4, score)
 }
@@ -122,7 +135,8 @@ export function PasswordFieldInput({ field, value, onChange, error }: FieldInput
   const requirementChecks = showRequirements && stringValue !== ''
     ? evaluateRequirements(stringValue, requirements, t as (k: string, opts?: Record<string, unknown>) => string)
     : []
-  const allRequirementsMet = requirementChecks.length > 0 && requirementChecks.every((c) => c.passes)
+  const checkable = requirementChecks.filter((c) => c.passes !== null)
+  const allRequirementsMet = checkable.length > 0 && checkable.every((c) => c.passes === true)
 
   // Strength score — clamped to at least 3 ("Good") when a checklist is
   // present and every requirement passes. Prevents the inconsistent UX of
@@ -203,13 +217,15 @@ export function PasswordFieldInput({ field, value, onChange, error }: FieldInput
               key={check.id}
               className="flex items-center gap-1.5 text-xs"
               style={{
-                color: check.passes ? 'var(--martis-success)' : 'var(--martis-text-muted)',
+                color: check.passes === true ? 'var(--martis-success)' : 'var(--martis-text-muted)',
                 whiteSpace: 'nowrap',
               }}
               data-requirement={check.id}
-              data-passes={check.passes ? 'true' : 'false'}
+              data-passes={check.passes === null ? 'server' : check.passes ? 'true' : 'false'}
             >
-              {check.passes ? (
+              {check.passes === null ? (
+                <InfoIcon size={12} weight="regular" />
+              ) : check.passes ? (
                 <CheckCircleIcon size={12} weight="fill" />
               ) : (
                 <XCircleIcon size={12} weight="regular" />
@@ -223,7 +239,7 @@ export function PasswordFieldInput({ field, value, onChange, error }: FieldInput
       {/* Show the `error` prop only when the checklist isn't already
           surfacing a failing requirement — otherwise we'd render the same
           concern twice (once as a checklist row, once as a red error line). */}
-      {error && !(showRequirements && requirementChecks.some((c) => !c.passes)) && (
+      {error && !(showRequirements && requirementChecks.some((c) => c.passes === false)) && (
         <small className="text-red-500">{error}</small>
       )}
     </div>
