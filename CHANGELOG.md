@@ -32,7 +32,7 @@ Minor release from seven consumer reports: one password policy, an opt-in forced
   - `dist/testing/versions.json` lists the versions of the libraries the SPA bundles.
   - `AuthProvider` gains `initialUser`, and `PreferencesProvider` gains `initialPreferences` and `syncWithServer`.
   - See [Testing extensions](docs/testing-extensions.md).
-- +54 Pest, +75 Vitest.
+- +86 Pest, +141 Vitest.
 
 ### Changed
 
