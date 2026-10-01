@@ -13,6 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
@@ -167,7 +168,7 @@ class MagicLinkController
         $user->forceFill([
             'email' => $email,
             'name' => $email,
-            'password' => bcrypt(Str::random(40)),
+            'password' => Hash::make(Str::random(40)),
         ])->save();
 
         return $user instanceof Authenticatable ? $user : null;

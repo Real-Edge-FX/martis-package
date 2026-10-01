@@ -165,6 +165,11 @@
                     'emailVerification' => [
                         'enabled' => (bool) config('martis.auth.email_verification.enabled', false),
                     ],
+                    // v2.3.0: the app's password policy
+                    // (Password::defaults(), Martis\Auth\PasswordPolicy), which
+                    // the SPA's password checklist draws; null when the app's
+                    // default is a rule the SPA cannot read.
+                    'passwordRequirements' => \Martis\Auth\PasswordPolicy::requirements(),
                 ],
                 [
                     // v1.8.5 — `auth.copy.*` accepts strings OR

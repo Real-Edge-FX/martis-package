@@ -132,3 +132,17 @@ it('registers the new account among the Martis guard users', function () {
         ->and(MagicGuardSiteUser::query()->where('email', 'new@example.com')->exists())->toBeFalse()
         ->and($user['email'] ?? null)->toBe('new@example.com');
 });
+
+it('hashes the password of an auto-registered account with the app hasher', function () {
+    if (! defined('PASSWORD_ARGON2ID')) {
+        $this->markTestSkipped('PHP is built without Argon2id.');
+    }
+    config()->set('martis.auth.magic_link.auto_register', true);
+    config(['hashing.driver' => 'argon2id', 'hashing.argon' => ['memory' => 1024, 'threads' => 1, 'time' => 1, 'verify' => true]]);
+    app('hash')->forgetDrivers();
+
+    magicGuardConsume('argon-new@example.com');
+
+    $password = (string) MagicGuardAdmin::query()->where('email', 'argon-new@example.com')->value('password');
+    expect(password_get_info($password)['algoName'])->toBe('argon2id');
+});

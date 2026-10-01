@@ -6,6 +6,7 @@ namespace Martis\Sso;
 
 use Closure;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Support\Facades\Hash;
 
 /**
  * Find-or-create the local user that corresponds to an external SSO
@@ -118,7 +119,7 @@ class IdentityResolver
             // Random unguessable password — the user authenticates via
             // SSO, but Laravel's user table requires a non-null
             // password column on most installs.
-            'password' => bcrypt(bin2hex(random_bytes(32))),
+            'password' => Hash::make(bin2hex(random_bytes(32))),
         ])->save();
 
         return $user;

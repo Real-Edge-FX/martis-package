@@ -9,7 +9,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules\Password as PasswordRule;
 use Martis\Contracts\ResetsUserPasswords;
 
 /**
@@ -29,7 +28,7 @@ class DefaultResetsUserPasswords implements ResetsUserPasswords
         $request->validate([
             'token' => ['required', 'string'],
             'email' => ['required', 'email'],
-            'password' => ['required', 'string', 'confirmed', PasswordRule::min(8)],
+            'password' => ['required', 'string', 'confirmed', PasswordPolicy::rule()],
         ]);
 
         $broker = GuardCatalog::martisPasswordBroker();

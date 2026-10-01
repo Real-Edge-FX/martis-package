@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rules\Password;
 use Martis\Contracts\RegistersUsers;
 use Martis\Support\ModelUniqueRule;
 
@@ -38,7 +37,7 @@ class DefaultRegistersUsers implements RegistersUsers
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email:rfc', 'max:255', ModelUniqueRule::make(new $modelClass, 'email')],
-            'password' => ['required', 'string', 'confirmed', Password::min(8)],
+            'password' => ['required', 'string', 'confirmed', PasswordPolicy::rule()],
         ]);
 
         /** @var Authenticatable&Model $user */

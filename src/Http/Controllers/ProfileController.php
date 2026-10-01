@@ -7,7 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Facades\Hash;
+use Martis\Auth\PasswordPolicy;
 use Martis\Contracts\ProfileResourceContract;
 use Martis\Profile\AvatarService;
 use Martis\Profile\BrowserSessionsService;
@@ -52,7 +53,7 @@ class ProfileController extends MartisController
      * Change the authenticated user's password.
      *
      * @body-param string current_password required
-     * @body-param string password required New password (min 8 chars)
+     * @body-param string password required The new password, validated with the app's Password::defaults() (Password::min(8) without them)
      * @body-param string password_confirmation required
      *
      * @response array{message: string}
@@ -63,13 +64,13 @@ class ProfileController extends MartisController
 
         $request->validate([
             'current_password' => ['required', 'string', 'current_password'],
-            'password' => ['required', 'string', Password::min(8)->mixedCase()->numbers(), 'confirmed'],
+            'password' => ['required', 'string', PasswordPolicy::rule(), 'confirmed'],
         ]);
 
         assert($user instanceof Model);
-        // @phpstan-ignore-next-line property.notFound
-        $user->password = bcrypt((string) $request->input('password'));
-        $user->save();
+        // The app's hasher (HASH_DRIVER): bcrypt() always made a bcrypt hash,
+        // which an Argon app's next password check refused with a 500.
+        $user->forceFill([$user->getAuthPasswordName() => Hash::make((string) $request->input('password'))])->save();
 
         return response()->json(['message' => __('martis::profile.password_updated')]);
     }

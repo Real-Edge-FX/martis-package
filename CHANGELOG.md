@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+- **Every password a user sets follows the app's password policy.** Profile, registration, password reset and invitation accept validate the new password with `Password::default()`, the app's `Password::defaults(...)`, as Nova 5 does; without app defaults that is Laravel's `Password::min(8)`. Profile no longer requires mixed case and numbers of its own: an app that wants them declares `Password::defaults(fn () => Password::min(8)->mixedCase()->numbers())`. See [Upgrading to v2.3.0](docs/upgrading.md#upgrading-to-v230-from-v22x).
+
+### Fixed
+
+- **A password changed from Profile no longer breaks the next sign-in on an Argon app.** Profile, SSO-created users and magic-link registrations hashed with `bcrypt()`, which ignores `HASH_DRIVER`; with `argon2id` and Laravel's default `hashing.verify=true` the next password check failed with a 500. They now use `Hash::make()`.
+
 ## [2.2.0] — 2026-09-28
 
 Minor release from a consumer's report: applications register pages at URLs of their own, rendered inside the shell, and the auth page overrides of an extension bundle render. Nothing needs to change in an app: see [Upgrading to v2.2.0 from v2.1.x](docs/upgrading.md#upgrading-to-v220-from-v21x).
