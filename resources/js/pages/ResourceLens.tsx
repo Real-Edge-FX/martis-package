@@ -239,7 +239,7 @@ function LensPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}`),
     onSuccess: (res, id) => {
-        emitRecordEvent('deleted', resource, id)
+      emitRecordEvent('deleted', resource, id)
       void qc.invalidateQueries({ queryKey: ['lens', resource, lensKey] })
       void qc.refetchQueries({ queryKey: ['lens', resource, lensKey], type: 'active' })
       addToast('success', res?.meta?.message ?? tMsg('record_deleted'))

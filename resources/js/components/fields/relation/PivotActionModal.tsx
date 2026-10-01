@@ -128,7 +128,7 @@ export function PivotActionModal({
         return
       }
 
-      martisEventBus.emit('martis:action-executed', { resourceKey, action: action.uriKey, ids: [...selectedIds] })
+      martisEventBus.emit('martis:action-executed', { resourceKey, action: action.uriKey, ids: selectedIds.map(String) })
 
       // The same answers as the resource action modal (v2.3.0); a pivot
       // panel has no drawer to open, so openCreate/openDetail/openUpdate

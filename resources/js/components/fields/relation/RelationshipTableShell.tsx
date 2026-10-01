@@ -162,7 +162,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
       return api.delete(deleteUrl(relatedId))
     },
     onSuccess: (_res, relatedId) => {
-        if (deleteUrl) emitRecordEvent('deleted', relatedResource, relatedId)
+      if (deleteUrl) emitRecordEvent('deleted', relatedResource, relatedId)
       void qc.invalidateQueries({ queryKey })
       setDeleteTarget(null)
     },
@@ -172,7 +172,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
     mutationFn: (relatedId: string | number) =>
       api.put(`/api/resources/${relatedResource}/${relatedId}/restore`),
     onSuccess: (_res, relatedId) => {
-        emitRecordEvent('restored', relatedResource, relatedId)
+      emitRecordEvent('restored', relatedResource, relatedId)
       void qc.invalidateQueries({ queryKey })
       setRestoreTarget(null)
     },
@@ -182,7 +182,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
     mutationFn: (relatedId: string | number) =>
       api.delete(`/api/resources/${relatedResource}/${relatedId}/force`),
     onSuccess: (_res, relatedId) => {
-        emitRecordEvent('deleted', relatedResource, relatedId)
+      emitRecordEvent('deleted', relatedResource, relatedId)
       void qc.invalidateQueries({ queryKey })
       setForceDeleteTarget(null)
     },

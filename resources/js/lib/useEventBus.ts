@@ -18,7 +18,7 @@ import { martisEventBus, type EventBusEvents, type EventHandler } from '@/lib/ev
  * }, [on])
  *
  * // Emit elsewhere:
- * emit('martis:record-created', { resourceKey: 'posts', id: 1 })
+ * emit('martis:record-created', { resourceKey: 'posts', id: '1' })
  * ```
  */
 export function useEventBus() {

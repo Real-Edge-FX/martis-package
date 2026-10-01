@@ -400,7 +400,7 @@ export function ResourceIndexPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}`),
     onSuccess: (res, id) => {
-        emitRecordEvent('deleted', resource, id)
+      emitRecordEvent('deleted', resource, id)
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', res?.meta?.message ?? tMsg('record_deleted'))
       setDeleteTarget(null)
@@ -413,7 +413,7 @@ export function ResourceIndexPage() {
   const restoreMutation = useMutation({
     mutationFn: (id: string | number) => api.put<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/restore`),
     onSuccess: (res, id) => {
-        emitRecordEvent('restored', resource, id)
+      emitRecordEvent('restored', resource, id)
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', res?.meta?.message ?? tMsg('record_restored', 'Record restored.'))
       setRestoreTarget(null)
@@ -426,7 +426,7 @@ export function ResourceIndexPage() {
   const forceDeleteMutation = useMutation({
     mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/force`),
     onSuccess: (res, id) => {
-        emitRecordEvent('deleted', resource, id)
+      emitRecordEvent('deleted', resource, id)
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', res?.meta?.message ?? tMsg('record_deleted'))
       setForceDeleteTarget(null)

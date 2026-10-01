@@ -127,7 +127,29 @@ describe('action answers', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(listener).toHaveBeenCalledTimes(1))
-    expect(listener).toHaveBeenCalledWith({ resourceKey: 'users', action: 'issue-token', ids: [3, 5] })
+    // The selected ids come from API data as numbers; the event carries strings.
+    expect(listener).toHaveBeenCalledWith({ resourceKey: 'users', action: 'issue-token', ids: ['3', '5'] })
+  })
+
+  it('emits martis:action-executed with string ids for a pivot action', async () => {
+    apiPostMock.mockResolvedValue({ data: { type: 'message', data: { message: 'Done.' } } })
+    const listener = vi.fn()
+    martisEventBus.on('martis:action-executed', listener)
+    renderInShell(
+      <PivotActionModal
+        actionsUrl="/api/resources/users/7/belongs-to-many/roles/actions"
+        resourceKey="roles"
+        action={{ ...action, isPivotAction: true, supportsDryRun: false }}
+        selectedIds={[3, '018f7c1e-9b1d-7c2a-8f3e-2b4d6a8c0e1f']}
+        onSuccess={() => {}}
+        onClose={() => {}}
+      />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Run' }))
+
+    await waitFor(() => expect(listener).toHaveBeenCalledTimes(1))
+    expect(listener).toHaveBeenCalledWith({ resourceKey: 'roles', action: 'issue-token', ids: ['3', '018f7c1e-9b1d-7c2a-8f3e-2b4d6a8c0e1f'] })
   })
 
   it('runs a pivot action answer through the same dispatcher', async () => {

@@ -154,7 +154,7 @@ describe('DrawerCreate — a host keeps it open for the next record', () => {
   })
 })
 
-it('emits martis:record-created with the new record id', async () => {
+it('emits martis:record-created with the new record id, as a string', async () => {
   const listener = vi.fn()
   martisEventBus.on('martis:record-created', listener)
   const props = renderStaying([field('title', 'Title', 'text')])
@@ -162,5 +162,6 @@ it('emits martis:record-created with the new record id', async () => {
   await create(props)
   martisEventBus.off('martis:record-created', listener)
 
-  expect(listener).toHaveBeenCalledWith({ resourceKey: 'posts', id: 9 })
+  // The API answers the id as a number; the event carries it as a string.
+  expect(listener).toHaveBeenCalledWith({ resourceKey: 'posts', id: '9' })
 })
