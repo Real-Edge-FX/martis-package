@@ -5,8 +5,11 @@ namespace Martis\Console;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 use Martis\Auth\GuardCatalog;
+use Martis\Auth\PasswordPolicy;
 use Martis\Console\Concerns\AsksOnlyOnATerminal;
+use Symfony\Component\Console\Input\StreamableInputInterface;
 
 class UserCommand extends Command
 {
@@ -16,6 +19,7 @@ class UserCommand extends Command
                             {--name= : The full name of the admin user}
                             {--email= : The email address of the admin user}
                             {--password= : The password for the admin user}
+                            {--password-stdin : Read the password from the first line of standard input, so it never appears in the process list}
                             {--if-missing : Exit successfully without changes when a user with this email already exists}
                             {--update : Update the name (when given) and password of an existing user instead of failing}';
 
@@ -122,16 +126,29 @@ class UserCommand extends Command
     }
 
     /**
-     * Read the password from the option, or ask for it on a terminal; null
-     * (with the error already printed) when it is empty or, without a
-     * terminal, not given.
+     * Read the password from `--password`, from the first line of standard
+     * input (`--password-stdin`), or ask for it on a terminal; then validate
+     * it with the app's password policy, as nova:user does. Null (with the
+     * error already printed) when it is missing, empty, given twice or too
+     * weak.
      */
     private function resolvePassword(): ?string
     {
         $password = $this->option('password');
-        if (! is_string($password)) {
+        $fromStdin = (bool) $this->option('password-stdin');
+
+        if ($fromStdin && is_string($password)) {
+            $this->components->error('Pass either --password or --password-stdin, not both.');
+
+            return null;
+        }
+
+        if ($fromStdin) {
+            $password = $this->readPasswordFromStdin();
+        } elseif (! is_string($password)) {
             if (! $this->canPrompt()) {
                 $this->missingOption('password');
+                $this->components->info('Pipe it with --password-stdin to keep it out of the process list: printf \'%s\n\' "$PASSWORD" | php artisan martis:user --password-stdin ...');
 
                 return null;
             }
@@ -144,7 +161,36 @@ class UserCommand extends Command
             return null;
         }
 
+        $validator = Validator::make(['password' => $password], ['password' => [PasswordPolicy::rule()]]);
+
+        if ($validator->fails()) {
+            foreach ($validator->errors()->get('password') as $message) {
+                $this->components->error((string) $message);
+            }
+
+            return null;
+        }
+
         return $password;
+    }
+
+    /**
+     * The first line of standard input without its line ending: the stream
+     * Symfony reads input from when one is set, else STDIN. Read only when
+     * --password-stdin asks for it, so a pipe still never answers a question.
+     */
+    private function readPasswordFromStdin(): string
+    {
+        $stream = $this->input instanceof StreamableInputInterface ? $this->input->getStream() : null;
+        $stream ??= defined('STDIN') ? STDIN : null;
+
+        if (! is_resource($stream)) {
+            return '';
+        }
+
+        $line = fgets($stream);
+
+        return $line === false ? '' : rtrim($line, "\r\n");
     }
 
     /** The error for an option a run without a terminal cannot ask for; exit 1. */

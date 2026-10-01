@@ -10,12 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **`Password::make()->defaultRules()`** validates a resource's password field with the app's `Password::defaults()` and shows its requirements in the field's checklist, as Nova's generated User resource validates with `Password::default()`. Pair it with `->nullable()` on update forms.
+- **`martis:user --password-stdin`** reads the password from the first line of standard input, as `docker login --password-stdin` does, so a script never puts it in the process list: `printf '%s\n' "$MARTIS_ADMIN_PASSWORD" | php artisan martis:user --no-interaction --email=... --password-stdin`. It cannot be combined with `--password`; an empty line exits 1.
 
 ### Changed
 
 - **Every password a user sets follows the app's password policy.** Profile, registration, password reset and invitation accept validate the new password with `Password::default()`, the app's `Password::defaults(...)`, as Nova 5 does; without app defaults that is Laravel's `Password::min(8)`. Profile no longer requires mixed case and numbers of its own: an app that wants them declares `Password::defaults(fn () => Password::min(8)->mixedCase()->numbers())`. See [Upgrading to v2.3.0](docs/upgrading.md#upgrading-to-v230-from-v22x).
 
 - **The `Password` field checks what Laravel's `Password` rule checks.** `requireUppercase()`, `requireLowercase()`, `requireNumber()` and `requireSymbol()` use Unicode classes (`\p{Lu}`, `\p{Ll}`, `\pN`, `\p{Z}|\p{S}|\p{P}`) in the server rule and the checklist: an accented capital counts as uppercase, and an accented letter no longer counts as a symbol. Lengths count characters. The checklist gains maximum length, "one letter" and the server-only "not in a known data leak" rows.
+- **`martis:user` validates the password with the app's password policy**, as `nova:user` does: without `Password::defaults()`, a password shorter than 8 characters exits 1 and creates or changes nothing.
 
 ### Fixed
 

@@ -100,7 +100,7 @@ it('martis:user fails when the password is empty', function () {
  * the email and the password must come as options (exit 1 naming the
  * missing one, no user written); the name defaults to "Martis Admin".
  */
-function userCommandOnTerminal(bool $tty, array $options): UserCommand
+function userCommandOnTerminal(bool $tty, array $options, ?string $stdin = null): UserCommand
 {
     $command = new class($tty) extends UserCommand
     {
@@ -141,6 +141,13 @@ function userCommandOnTerminal(bool $tty, array $options): UserCommand
     $command->setLaravel(app());
     $input = new ArrayInput($options, $command->getDefinition());
     $input->setInteractive(true);
+    if ($stdin !== null) {
+        // What a pipe would send: the stream Symfony reads input from.
+        $stream = fopen('php://memory', 'r+');
+        fwrite($stream, $stdin);
+        rewind($stream);
+        $input->setStream($stream);
+    }
     $buffer = new BufferedOutput;
     (function () use ($input, $buffer) {
         $this->input = $input;
@@ -191,4 +198,71 @@ it('asks for the email, the name and the password on a TTY (control)', function 
     $user = UserCommandTestUser::query()->where('email', 'asked@example.com')->first();
     expect($user?->name)->toBe('Asked Admin')
         ->and(Hash::check('asked-secret', (string) $user?->password))->toBeTrue();
+});
+
+/*
+ * --password-stdin (v2.3.0): without a terminal the password could only come
+ * from --password, where `ps` shows it to every local user for the life of
+ * the command. The flag reads the first line of standard input instead, as
+ * `docker login --password-stdin` does; the password is validated with the
+ * app's Password::defaults(), as nova:user validates it.
+ */
+it('creates the user from the first line of standard input', function (string $stdin) {
+    $command = userCommandOnTerminal(false, ['--email' => 'stdin@example.com', '--password-stdin' => true], $stdin);
+
+    expect($command->handle())->toBe(0)->and($command->asked)->toBe([]);
+    $user = UserCommandTestUser::query()->where('email', 'stdin@example.com')->first();
+    expect(Hash::check('Stdin-Secret-1', (string) $user?->password))->toBeTrue();
+})->with([
+    'LF' => ["Stdin-Secret-1\n"],
+    'CRLF' => ["Stdin-Secret-1\r\n"],
+    'no line ending' => ['Stdin-Secret-1'],
+    'more lines' => ["Stdin-Secret-1\nnot the password\n"],
+]);
+
+it('refuses an empty line on standard input and creates no user', function () {
+    $command = userCommandOnTerminal(false, ['--email' => 'empty@example.com', '--password-stdin' => true], "\n");
+
+    expect($command->handle())->toBe(1)
+        ->and($command->buffer->fetch())->toContain('Password cannot be empty.')
+        ->and(UserCommandTestUser::query()->count())->toBe(0);
+});
+
+it('refuses --password and --password-stdin together', function () {
+    $command = userCommandOnTerminal(false, ['--email' => 'both@example.com', '--password' => 'Option-Secret-1', '--password-stdin' => true], "Stdin-Secret-1\n");
+
+    expect($command->handle())->toBe(1)
+        ->and($command->buffer->fetch())->toContain('Pass either --password or --password-stdin, not both.')
+        ->and(UserCommandTestUser::query()->count())->toBe(0);
+});
+
+it('updates an existing user from standard input', function () {
+    UserCommandTestUser::query()->create(['name' => 'Kept', 'email' => 'kept@example.com', 'password' => Hash::make('old-secret')]);
+    $command = userCommandOnTerminal(false, ['--email' => 'kept@example.com', '--password-stdin' => true, '--update' => true], "Rotated-Secret-1\n");
+
+    expect($command->handle())->toBe(0)
+        ->and(Hash::check('Rotated-Secret-1', (string) UserCommandTestUser::query()->first()?->password))->toBeTrue();
+});
+
+it('leaves an existing user alone with --if-missing, without reading the input', function () {
+    UserCommandTestUser::query()->create(['name' => 'Kept', 'email' => 'kept@example.com', 'password' => Hash::make('old-secret')]);
+    $command = userCommandOnTerminal(false, ['--email' => 'kept@example.com', '--password-stdin' => true, '--if-missing' => true], "\n");
+
+    expect($command->handle())->toBe(0)
+        ->and(Hash::check('old-secret', (string) UserCommandTestUser::query()->first()?->password))->toBeTrue();
+});
+
+it('validates the password with the app policy, as nova:user does', function () {
+    $command = userCommandOnTerminal(false, ['--email' => 'weak@example.com', '--password-stdin' => true], "short\n");
+
+    expect($command->handle())->toBe(1)
+        ->and($command->buffer->fetch())->toContain('at least 8 characters')
+        ->and(UserCommandTestUser::query()->count())->toBe(0);
+});
+
+it('names --password-stdin when a terminal-less run has no password', function () {
+    $command = userCommandOnTerminal(false, ['--email' => 'piped@example.com']);
+
+    expect($command->handle())->toBe(1)
+        ->and($command->buffer->fetch())->toContain('--password-stdin');
 });
