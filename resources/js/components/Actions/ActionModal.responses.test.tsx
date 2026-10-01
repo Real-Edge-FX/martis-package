@@ -89,6 +89,21 @@ describe('action answers', () => {
     expect(screen.queryByText('Token: s3cret')).toBeNull()
   })
 
+  it('hands the component an object when the action passed no data', async () => {
+    // What PHP sends for ActionResponse::modal('generated-token'): the empty
+    // array serialises as [].
+    apiPostMock.mockResolvedValue({ data: JSON.parse('{"type":"modal","data":{"component":"generated-token","data":[]}}') })
+    function DataShape({ data }: ActionResponseModalProps) {
+      return <p>{Array.isArray(data) ? 'data is a list' : `data keys: ${Object.keys(data).length}`}</p>
+    }
+    componentRegistry.register('generated-token', DataShape)
+    renderInShell(<ActionModal resource="users" action={action} selectedIds={[3]} visible onHide={() => {}} onSuccess={() => {}} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Run' }))
+
+    expect(await screen.findByText('data keys: 0')).toBeTruthy()
+  })
+
   it('navigates inside the SPA on a visit answer', async () => {
     apiPostMock.mockResolvedValue({ data: { type: 'visit', data: { path: '/resources/users', params: { view: 'open' } } } })
     renderInShell(<ActionModal resource="users" action={action} selectedIds={[3]} visible onHide={() => {}} onSuccess={() => {}} />)

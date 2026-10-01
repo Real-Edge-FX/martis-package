@@ -27,9 +27,11 @@ export interface ActionResponseContext {
 
 /**
  * The path a `visit` answer navigates to, below the Martis base path, with
- * its params as a query string. Null, undefined, `false` and `''` params
- * are left out, as Nova's `Nova.url()` drops falsy ones. Returns null when
- * the result is not a safe same-origin path.
+ * its params added to the query string. The query the path already has is
+ * kept as written, the params follow it, and a `#fragment` stays at the end.
+ * Null, undefined, `false` and `''` params are left out, as Nova's
+ * `Nova.url()` drops falsy ones. Returns null when the result is not a safe
+ * same-origin path.
  */
 export function actionVisitTarget(path: unknown, params: unknown): string | null {
   if (typeof path !== 'string' || path === '') return null
@@ -41,9 +43,27 @@ export function actionVisitTarget(path: unknown, params: unknown): string | null
       query.append(key, String(value))
     }
   }
-  const search = query.toString()
 
-  return safeInternalPath(`/${path.replace(/^\/+/, '')}${search !== '' ? `?${search}` : ''}`)
+  const target = `/${path.replace(/^\/+/, '')}`
+  const hashAt = target.indexOf('#')
+  const fragment = hashAt === -1 ? '' : target.slice(hashAt)
+  const beforeFragment = hashAt === -1 ? target : target.slice(0, hashAt)
+  const queryAt = beforeFragment.indexOf('?')
+  const pathname = queryAt === -1 ? beforeFragment : beforeFragment.slice(0, queryAt)
+  const search = [queryAt === -1 ? '' : beforeFragment.slice(queryAt + 1), query.toString()].filter((part) => part !== '').join('&')
+
+  return safeInternalPath(`${pathname}${search !== '' ? `?${search}` : ''}${fragment}`)
+}
+
+/**
+ * The `$data` of a `modal` or `emit` answer as an object. PHP serialises an
+ * empty array as `[]`, so anything that is not a plain object reaches the
+ * component or the listener as `{}`.
+ */
+function answerData(value: unknown): Record<string, unknown> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return {}
+  const proto = Object.getPrototypeOf(value) as unknown
+  return proto === Object.prototype || proto === null ? (value as Record<string, unknown>) : {}
 }
 
 /** Download `url` as `filename` through a temporary link, as Nova does. */
@@ -115,7 +135,7 @@ export function handleActionResponse(response: ActionResponsePayload | undefined
     case 'emit': {
       const event = text(data.event)
       if (event !== null) {
-        martisEventBus.emit(event, (data.data ?? {}) as Record<string, unknown>)
+        martisEventBus.emit(event, answerData(data.data))
       }
       success()
       done()
@@ -125,7 +145,7 @@ export function handleActionResponse(response: ActionResponsePayload | undefined
       const component = text(data.component) ?? ''
       success()
       ctx.hide()
-      if (ctx.showModal !== null && component !== '' && ctx.showModal(component, (data.data ?? {}) as Record<string, unknown>, ctx.refresh)) {
+      if (ctx.showModal !== null && component !== '' && ctx.showModal(component, answerData(data.data), ctx.refresh)) {
         return
       }
       console.warn(`[martis] action response: no component is registered for "${component}"`)
