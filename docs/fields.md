@@ -1389,7 +1389,7 @@ Each requirement method adds a matching Laravel validation rule AND publishes to
 - `requireLowercase(bool $value = true): static` — adds `regex:/\p{Ll}/u`.
 - `requireNumber(bool $value = true): static` — adds `regex:/\pN/u`.
 - `requireSymbol(bool $value = true): static` — adds `regex:/\p{Z}|\p{S}|\p{P}/u`.
-- `defaultRules(bool $value = true): static`: validates with the app's `Password::defaults()` and shows its requirements in the checklist (v2.3.0), as Nova's generated User resource validates with `Password::default()`. A requirement set on the field wins on the same key. Pair it with `->nullable()` on an update form, so a blank field keeps the current password.
+- `defaultRules(bool $value = true): static`: validates with the app's `Password::defaults()` and shows its requirements in the checklist (v2.3.0), as Nova's generated User resource validates with `Password::default()`. The server enforces the policy and the field's own requirements together, so the checklist shows the stricter of the two minimums. On a resource that creates and updates users, require it on create and leave it optional on update, as Nova's User resource does: `->creationRules(['required'])->updateRules(['nullable'])`; a blank update keeps the current password.
 - `disallowCommonPasswords(bool $value = true): static` — rejects a small inline list (`password`, `qwerty`, `12345…`, `letmein`, `admin`, `welcome`, `abc123`, `iloveyou`) via a closure rule.
 - `showRequirements(bool $value = true): static` — opt-in. Renders the ✓/✗ checklist under the strength meter. When every requirement passes, the meter is clamped to at least "Good" (score ≥ 3) so "all checks green" never reads as "Weak".
 
@@ -1412,8 +1412,9 @@ Or follow the app's policy (v2.3.0):
 
 ```php
 Password::make('password')
-    ->nullable()
     ->defaultRules()
+    ->creationRules(['required'])
+    ->updateRules(['nullable'])
     ->withStrengthMeter()
     ->showRequirements()
 ```

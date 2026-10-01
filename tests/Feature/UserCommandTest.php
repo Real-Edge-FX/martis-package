@@ -266,3 +266,46 @@ it('names --password-stdin when a terminal-less run has no password', function (
     expect($command->handle())->toBe(1)
         ->and($command->buffer->fetch())->toContain('--password-stdin');
 });
+
+/*
+ * What --password-stdin must refuse rather than store. On a terminal it would
+ * echo the password as it is typed (the prompt hides it). From a descriptor
+ * that is not a pipe of text, PHP can read unrelated bytes: with fd 0 closed,
+ * PHP on macOS reads 408 bytes of random data, and the command then created
+ * the user, or with --update replaced an administrator's password, with a
+ * password nobody knows, and exited 0.
+ */
+it('refuses --password-stdin on a terminal, without reading it', function () {
+    $command = userCommandOnTerminal(true, ['--email' => 'tty@example.com', '--name' => 'Tty', '--password-stdin' => true]);
+
+    expect($command->handle())->toBe(1)
+        ->and($command->buffer->fetch())->toContain('--password-stdin reads a pipe')
+        ->and($command->asked)->not->toContain('Password')
+        ->and(UserCommandTestUser::query()->count())->toBe(0);
+});
+
+it('refuses a line from standard input that is not text, and changes no user', function (string $stdin) {
+    UserCommandTestUser::query()->create(['name' => 'Kept', 'email' => 'kept@example.com', 'password' => Hash::make('old-secret')]);
+    $command = userCommandOnTerminal(false, ['--email' => 'kept@example.com', '--password-stdin' => true, '--update' => true], $stdin);
+
+    expect($command->handle())->toBe(1)
+        ->and($command->buffer->fetch())->toContain('--password-stdin read a line that is not text')
+        ->and(Hash::check('old-secret', (string) UserCommandTestUser::query()->first()?->password))->toBeTrue();
+})->with([
+    'random bytes, as a closed descriptor gives' => ["\x16\x7b\xbd\x4c\xfb\x13\xde\xe9\x99\x59\x4f\xb5\x00\x66\x04\x1e\x41\xd4\xd3\x7b\x01\xa1\x0b\x9e\x8f\x2d\x77\xc0\x5e\x31"],
+    'invalid UTF-8' => ["Secret-Pass-\xff\xfe1\n"],
+    'NUL' => ["Secret-\x00Pass-1\n"],
+    'escape' => ["Secret-\x1bPass-1\n"],
+    'tab' => ["Secret-\tPass-1\n"],
+    'DEL' => ["Secret-Pass-1\x7f\n"],
+    'C1 control' => ["Secret-Pass-1\u{85}\n"],
+    'a carriage return left before the line ending' => ["Secret-Pass-1\r\r\n"],
+]);
+
+it('keeps spaces and non-ASCII letters that are part of a password from standard input (control)', function () {
+    $command = userCommandOnTerminal(false, ['--email' => 'text@example.com', '--password-stdin' => true], " Pässwörd Ünï 1 \r\n");
+
+    expect($command->handle())->toBe(0);
+    $user = UserCommandTestUser::query()->where('email', 'text@example.com')->first();
+    expect(Hash::check(' Pässwörd Ünï 1 ', (string) $user?->password))->toBeTrue();
+});

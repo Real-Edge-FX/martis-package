@@ -2,13 +2,18 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Validation\Rule;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Password as PasswordBroker;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rules\Password;
 use Martis\Auth\PasswordPolicy;
+use Martis\Contracts\RegistersUsers;
 use Martis\Invitations\InvitationManager;
 use Martis\Stubs\StubResolver;
 
@@ -102,6 +107,39 @@ it('leaves custom rules to the server, and has no requirements for a rule it can
         ->and(PasswordPolicy::requirements())->toBeNull();
 });
 
+/*
+ * Password::default() replaces anything Password::defaults() gives that is
+ * not an Illuminate\Contracts\Validation\Rule with Password::min(8): an
+ * array of rules, or a ValidationRule (what `php artisan make:rule` makes).
+ * The app's own rule would then be enforced nowhere, silently. Martis
+ * refuses it, naming Password::defaults() and what it gave.
+ */
+it('refuses a Password::defaults() it cannot use instead of falling back to min(8)', function (Closure $defaults, string $given) {
+    Password::defaults($defaults);
+
+    expect(fn () => PasswordPolicy::rule())->toThrow(InvalidArgumentException::class, 'Password::defaults() gave '.$given)
+        ->and(fn () => PasswordPolicy::requirements())->toThrow(InvalidArgumentException::class, 'Password::defaults()');
+})->with([
+    'an array of rules' => [fn () => ['required', 'min:12'], 'array'],
+    'a ValidationRule' => [fn () => new class implements ValidationRule
+    {
+        public function validate(string $attribute, mixed $value, Closure $fail): void
+        {
+            if (strlen((string) $value) < 12) {
+                $fail('too short');
+            }
+        }
+    }, 'Illuminate\\Contracts\\Validation\\ValidationRule@anonymous'],
+    'a string' => [fn () => 'min:12', 'string'],
+]);
+
+it('reads a Password::defaults() that gives null as unset, as Laravel does (control)', function () {
+    Password::defaults(fn () => null);
+
+    expect(PasswordPolicy::rule())->toBeInstanceOf(Password::class)
+        ->and(PasswordPolicy::requirements())->toBe(['minLength' => 8]);
+});
+
 it('applies the policy to the Profile password change', function () {
     Password::defaults(fn () => Password::min(12)->mixedCase()->numbers());
     $user = passwordPolicyUser('profile@example.com');
@@ -157,6 +195,50 @@ it('applies the policy to the invitation accept', function () {
 
     $post('Abcdefghij1')->assertUnprocessable()->assertJsonValidationErrors('password');
     $post('Abcdefghijk1')->assertOk();
+});
+
+/*
+ * The invitation accept and the RegistersUsers it hands the signup to both
+ * validated the password with the policy, so with uncompromised() every
+ * accept asked Have I Been Pwned twice. The default registrar validates it;
+ * the accept checks it itself only for a registrar of the app's own, which
+ * may not (the guarantee the accept always gave).
+ */
+it('checks the policy of an invitation accept once, so uncompromised() asks Have I Been Pwned once', function () {
+    config(['martis.invitations.enabled' => true]);
+    Schema::dropIfExists('invitations');
+    (require StubResolver::path('create_invitations_table.php.stub'))->up();
+    Password::defaults(fn () => Password::min(8)->uncompromised());
+    Http::fake(['api.pwnedpasswords.com/*' => Http::response('', 200)]);
+    $invitation = app(InvitationManager::class)->invite('invitee@example.com');
+
+    $this->postJson('/martis/api/invitations/accept', ['token' => $invitation->rawToken, 'name' => 'Ann Invitee', 'password' => 'Brand-New-Pass-1', 'password_confirmation' => 'Brand-New-Pass-1'])
+        ->assertOk();
+
+    Http::assertSentCount(1);
+});
+
+it('still checks the policy of an invitation accept when the app registrar does not (control)', function () {
+    config(['martis.invitations.enabled' => true]);
+    Schema::dropIfExists('invitations');
+    (require StubResolver::path('create_invitations_table.php.stub'))->up();
+    Password::defaults(fn () => Password::min(12));
+    app()->bind(RegistersUsers::class, fn () => new class implements RegistersUsers
+    {
+        public function register(Request $request): Authenticatable
+        {
+            return PasswordPolicyTestUser::query()->create([
+                'name' => (string) $request->input('name'),
+                'email' => (string) $request->input('email'),
+                'password' => Hash::make((string) $request->input('password')),
+            ]);
+        }
+    });
+    $invitation = app(InvitationManager::class)->invite('invitee@example.com');
+    $post = fn (string $password) => $this->postJson('/martis/api/invitations/accept', ['token' => $invitation->rawToken, 'name' => 'Ann Invitee', 'password' => $password, 'password_confirmation' => $password]);
+
+    $post('Short-Pass1')->assertUnprocessable()->assertJsonValidationErrors('password');
+    $post('Long-Enough-Pass-1')->assertOk();
 });
 
 it('hashes a Profile password with the app hasher, so an Argon app still signs in', function () {

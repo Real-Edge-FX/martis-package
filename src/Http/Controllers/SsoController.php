@@ -13,6 +13,7 @@ use Martis\Sso\IdentityResolver;
 use Martis\Sso\RoleMapper;
 use Martis\Sso\SsoIdentity;
 use Martis\Sso\SsoManager;
+use Martis\Sso\SsoSession;
 
 /**
  * SSO entry points — generic over every registered provider.
@@ -133,12 +134,12 @@ class SsoController extends Controller
         $guard = config('martis.guard') ?: config('auth.defaults.guard');
         Auth::guard($guard)->login($user, true);
 
-        // Stash the provider name in the session so a later logout can
-        // optionally redirect through the IdP's federated logout URL
-        // (see AuthController::logout for the consumption side). Stays
-        // around for the lifetime of the session — cleared on logout
-        // and on a non-SSO login.
-        $request->session()->put('martis_sso_provider', $provider);
+        // Record the SSO origin (SsoSession): a later logout redirects
+        // through the IdP's federated logout URL (AuthController::logout)
+        // and the forced password change gate never holds the session. It
+        // survives a remember-me re-login and is dropped on sign-out and
+        // on a non-SSO sign-in.
+        SsoSession::start($request, $user, $provider, is_string($guard) ? $guard : null);
 
         $redirectTo = (string) (config("martis.auth.sso.providers.{$provider}.redirect_to") ?? '/'.config('martis.path', 'martis'));
 

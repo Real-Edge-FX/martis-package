@@ -20,6 +20,7 @@ use Illuminate\Support\Str;
 use Martis\Auth\GuardCatalog;
 use Martis\Auth\MagicLinkNotification;
 use Martis\Auth\MagicLinkService;
+use Martis\Sso\SsoSession;
 
 /**
  * Handles the magic-link (passwordless) sign-in surfaces. Off by
@@ -123,10 +124,10 @@ class MagicLinkController
         $request->session()->regenerate();
 
         // A password, magic-link or invitation sign-in is not an SSO one: drop
-        // a marker an earlier SSO sign-in left in this session (as
-        // AuthController::login() does), so the forced password change gate
-        // and the federated logout do not read it.
-        $request->session()->forget('martis_sso_provider');
+        // the SSO origin an earlier SSO sign-in left in this session or in
+        // the browser's cookie (SsoSession), so the forced password change
+        // gate and the federated logout do not read it.
+        SsoSession::forget($request);
 
         $home = '/'.ltrim((string) config('martis.path', 'martis'), '/');
 

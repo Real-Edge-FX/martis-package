@@ -124,9 +124,18 @@ class ActionResponse implements \JsonSerializable
     /** @return array<string, mixed> */
     public function jsonSerialize(): array
     {
+        $data = $this->data;
+
+        // emit() and modal() hand their data to the SPA as an object (an event
+        // payload, a component's `data` prop); PHP would encode an empty
+        // array as a JSON array.
+        if (in_array($this->type, [ActionResponseType::Emit, ActionResponseType::Modal], true) && ($data['data'] ?? null) === []) {
+            $data['data'] = new \stdClass;
+        }
+
         return [
             'type' => $this->type->value,
-            'data' => $this->data,
+            'data' => $data,
         ];
     }
 }
