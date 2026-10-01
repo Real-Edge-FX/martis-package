@@ -615,9 +615,16 @@ interface AuthContextValue {
     logout: () => Promise<void>;
     updateUser: (partial: Partial<User>) => void;
 }
-declare function AuthProvider({ children }: {
+interface AuthProviderProps {
     children: ReactNode;
-}): react_jsx_runtime.JSX.Element;
+    /**
+     * The signed-in user to start with, without the `/api/auth/user` request
+     * (`null`: a guest). For a tree mounted outside the shell, such as a test
+     * (MartisTestProvider). v2.3.0.
+     */
+    initialUser?: User | null;
+}
+declare function AuthProvider({ children, initialUser }: AuthProviderProps): react_jsx_runtime.JSX.Element;
 declare function useAuth(): AuthContextValue;
 
 type RefHandler<

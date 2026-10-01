@@ -35,6 +35,9 @@ on:
       - "resources/js/extension-types/**"
       - "resources/js/types/index.ts"
       - "scripts/build-extension-types.mjs"
+      - "resources/js/testing/**"
+      - "vite.testing.config.ts"
+      - "scripts/build-testing-kit.mjs"
       - ".github/workflows/smoke-fresh-laravel.yml"
 
 jobs:
@@ -194,6 +197,46 @@ jobs:
         run: |
           cd test-app
           npx tsc -p tsconfig.extensions.json
+
+      - name: Consumer Vitest with the Martis test kit
+        run: |
+          cd test-app
+          npm install --no-progress --no-audit --no-fund --no-package-lock --no-save vitest@^3 jsdom@^25 @testing-library/react@^16
+          cat > vitest.config.mjs <<'EOF'
+          import { defineConfig, mergeConfig } from 'vitest/config'
+          import react from '@vitejs/plugin-react'
+          import { martisExtensionTestConfig } from './vendor/martis/martis/dist/testing/vitest.mjs'
+
+          export default mergeConfig(
+            defineConfig({ plugins: [react()], test: { include: ['resources/js/martis-extensions/**/*.test.tsx'] } }),
+            martisExtensionTestConfig(),
+          )
+          EOF
+          mkdir -p resources/js/martis-extensions/__tests__
+          cat > resources/js/martis-extensions/__tests__/Extensions.test.tsx <<'EOF'
+          import { afterEach, describe, expect, it } from 'vitest'
+          import { cleanup, render, screen } from '@testing-library/react'
+          import { MartisTestProvider } from '@martis/testing'
+          import Charts from '../tools/Charts'
+          import EmailVerifyNoticePage from '../overrides/EmailVerifyNoticePage'
+
+          afterEach(cleanup)
+
+          const tool = { name: 'Charts', uriKey: 'charts', icon: null, component: 'tool:charts', menuSection: null, meta: {} }
+
+          describe('generated extensions under the Martis test kit', () => {
+            it('renders the generated Tool component', () => {
+              render(<MartisTestProvider><Charts tool={tool} /></MartisTestProvider>)
+              expect(screen.getByText('Hello from Charts')).toBeTruthy()
+            })
+
+            it('renders a generated auth page override', () => {
+              render(<MartisTestProvider><EmailVerifyNoticePage /></MartisTestProvider>)
+              expect(screen.getByText('Verify your email')).toBeTruthy()
+            })
+          })
+          EOF
+          npx vitest run --config vitest.config.mjs
 
       - name: Bundle assertion — every TSX is bundled and every key static
         run: |
