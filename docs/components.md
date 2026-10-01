@@ -684,14 +684,16 @@ useEffect(() => {
 
 | Event | Payload | Fired when |
 |-------|---------|------------|
-| `martis:record-created` | `{ resourceKey, id }` | After a record is created |
-| `martis:record-updated` | `{ resourceKey, id }` | After a record is updated |
-| `martis:record-deleted` | `{ resourceKey, id }` | After a record is deleted |
-| `martis:record-restored` | `{ resourceKey, id }` | After a soft-deleted record is restored |
-| `martis:action-executed` | `{ actionKey, resourceKey }` | After an action completes |
+| `martis:record-created` | `{ resourceKey, id }` | After a record is created, by the page, drawer, panel or inline create that wrote it (v2.3.0) |
+| `martis:record-updated` | `{ resourceKey, id }` | After a record is updated, by the page, drawer, panel or inline create that wrote it (v2.3.0) |
+| `martis:record-deleted` | `{ resourceKey, id }` | After a record is deleted, by the page, drawer, panel or inline create that wrote it (v2.3.0) |
+| `martis:record-restored` | `{ resourceKey, id }` | After a soft-deleted record is restored, by the page, drawer, panel or inline create that wrote it (v2.3.0) |
+| `martis:action-executed` | `{ resourceKey, action, ids }` | After an action run that is not a dry run (v2.3.0); dashboard metrics refetch on it |
 | `martis:refresh-index` | `{ resourceKey? }` | Request a Resource index to revalidate. Any transport (a consumer's own ws-gateway, SSE, or an Echo listener) can emit this to tell a `ResourceIndexPage` "another session mutated this resource — refetch." The index invalidates its `['resources', <uriKey>]` query when the payload's `resourceKey` matches its own resource, or on every index when `resourceKey` is omitted. |
 | `martis:notification-received` | `{ id?, title?, message? }` | Pluggable real-time feed for the notification bell — emit this from any transport (a consumer's own ws-gateway, SSE, or an Echo listener) to push a notification into the bell instantly. See `docs/notifications.md` "Real-time delivery". |
 | `martis:notifications-changed` | `{}` (no payload) | Ask the notification bell to re-fetch its unread count + open list (reconcile after a read / read-all / delete happened elsewhere — the down-direction mirror of `martis:notification-received`). See `docs/notifications.md` "Reconciling reads across sessions". |
+
+An override that writes a record through its own API call emits the event itself: `martisEventBus.emit('martis:record-created', { resourceKey: 'reports', id })`.
 
 Custom events can use any string key. Martis prefixes built-in events with `martis:`.
 

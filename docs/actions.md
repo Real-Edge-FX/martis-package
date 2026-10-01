@@ -887,14 +887,69 @@ class PostResource extends Resource
 
 | Response | Effect |
 |----------|--------|
-| `ActionResponse::message('Done')` | Green success toast |
-| `ActionResponse::danger('Failed')` | Red error toast |
+| `ActionResponse::message('Done')` | Green success toast, then the page refreshes |
+| `ActionResponse::danger('Failed')` | Red error toast, then the page refreshes |
 | `ActionResponse::redirect($url)` | Full-page browser redirect |
-| `ActionResponse::visit($path)` | SPA navigation (no reload) |
-| `ActionResponse::openInNewTab($url)` | Opens URL in new tab |
-| `ActionResponse::download($filename, $url)` | Triggers file download |
-| `ActionResponse::emit($event, $data)` | Fires a client-side event |
-| `ActionResponse::modal($component, $props)` | Opens a custom modal |
+| `ActionResponse::visit($path, $params)` | SPA navigation (no reload) to `$path` below the Martis base path, with `$params` as the query string (`visit('/resources/users', ['view' => 'open'])`) |
+| `ActionResponse::openInNewTab($url)` | Opens the URL in a new tab |
+| `ActionResponse::download($filename, $url)` | Downloads the file as `$filename` |
+| `ActionResponse::emit($event, $data)` | Emits `$event` with `$data` on `martisEventBus`, then the success toast (see [Client-side events](#client-side-events)) |
+| `ActionResponse::modal($component, $data)` | Shows the component registered under `$component` (see [Custom modal responses](#custom-modal-responses)) |
+| `ActionResponse::openCreate()` / `openDetail()` / `openUpdate()` | Opens the matching drawer |
+
+Every successful run fires `martis:action-executed` on `martisEventBus`, and dashboard metrics refetch on it, as Nova's do (v2.3.0). Pivot actions handle every response above but the three drawers, which fall back to the success toast.
+
+### Custom modal responses
+
+`ActionResponse::modal($component, $data)` shows a React component you register in your extension bundle, with `$data` as its `data` prop, as Nova renders a modal response (v2.3.0). The component draws its own dialog and calls `onClose`; the page the action ran from refreshes when it closes. Use it to show a value once, such as a generated password or a new API token:
+
+```php
+public function handle(ActionFields $fields, Collection $models): ActionResponse
+{
+    $token = Str::random(40);
+    $models->first()->forceFill(['api_token' => hash('sha256', $token)])->save();
+
+    return ActionResponse::modal('api-token-issued', ['token' => $token]);
+}
+```
+
+```tsx
+// A module your extension entry (resources/js/martis-extensions/index.ts) imports.
+import { componentRegistry, type ActionResponseModalProps } from '@martis/runtime'
+
+function ApiTokenIssued({ data, onClose }: ActionResponseModalProps) {
+  return (
+    <div role="dialog" aria-modal="true" className="martis-modal">
+      <p>Copy the token now: it is shown once.</p>
+      <code>{String(data.token)}</code>
+      <button type="button" className="martis-btn-primary" onClick={onClose}>Done</button>
+    </div>
+  )
+}
+
+componentRegistry.register('api-token-issued', ApiTokenIssued)
+```
+
+A key with no registered component logs a console warning and refreshes the page.
+
+### Client-side events
+
+`ActionResponse::emit($event, $data)` emits `$event` on the Martis event bus with `$data` as its payload, as Nova emits on `Nova.$emit`. Listen from your extension:
+
+```tsx
+import { useEffect } from 'react'
+import { martisEventBus } from '@martis/runtime'
+
+export function ReportsCounter() {
+  useEffect(() => {
+    const onRefresh = (payload: Record<string, unknown>) => console.log('Reports changed', payload)
+    martisEventBus.on('reports:refresh', onRefresh)
+    return () => martisEventBus.off('reports:refresh', onRefresh)
+  }, [])
+
+  return null
+}
+```
 
 ---
 
@@ -1259,6 +1314,10 @@ The stored row keeps every other value: code that reads `ActionEvent` directly g
 
 When an action changes an attribute its model hides (`$hidden`: a password hash, a token), the event stores `******` for it in `original` and `changes`, keeping the key; a pivot action does the same with the pivot model's `$hidden` columns. This applies to synchronous and queued actions and to pivot actions, and to rows written from v2.0.1 on (older rows keep their values, still masked on read). Nova does the same: its action events store their diffs through `Orchestra\Sidekick\Eloquent\model_state()`, which replaces each `$hidden` attribute with a value serialised as `******`. A custom writer masks its own diffs with `ActionEventRedactor::maskHiddenAttributes($values, $model)`.
 
+#### `$visible` attributes only (v2.3.0+)
+
+When a model (or a pivot model) declares `$visible`, its action events store only those attributes in `original` and `changes`; the others are left out, as Nova's do (`Orchestra\Sidekick\Eloquent\model_state()` builds its diffs from the model's `attributesToArray()`). `$hidden` attributes inside `$visible` are still stored as `******`. Only the class's `$visible` counts, not a runtime `makeVisible()`. Rows written before v2.3.0 keep what they stored.
+
 #### Hide from Navigation
 
 To hide the ActionEvent resource from the sidebar, set the config option:
@@ -1384,7 +1443,7 @@ Replace the default fields form inside the action modal with a custom React comp
 MyCustomAction::make()->component('my-custom-component', ['param' => 'value'])
 ```
 
-Register the component in the frontend registry. The component receives `action`, `selectedIds`, `props`, and `onSuccess`/`onHide` callbacks.
+Register the component in the frontend registry. It takes over the whole action UI and receives `CustomActionComponentProps`: `action`, `resource`, `selectedIds`, `componentProps` (the array passed to `->component()`), `onFieldsChange(fields)`, `onExecute(extraFields?)`, `onClose()` and `isExecuting`. The run's answer is handled as any other action's: a `modal()` answer closes your component and shows its own.
 
 ---
 

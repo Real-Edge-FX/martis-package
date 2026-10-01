@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Minor release from seven consumer reports: one password policy, an opt-in forced password change, action responses that do what the docs say, action events that honour `$visible`, `martis:user --password-stdin` and a test kit for extensions. Read [Upgrading to v2.3.0 from v2.2.x](docs/upgrading.md#upgrading-to-v230-from-v22x): Profile's default password rule, `martis:user` and `ActionResponse::visit()` paths change.
+
 ### Added
 
 - **`Password::make()->defaultRules()`** validates a resource's password field with the app's `Password::defaults()` and shows its requirements in the field's checklist, as Nova's generated User resource validates with `Password::default()`. Pair it with `->nullable()` on update forms.
