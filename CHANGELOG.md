@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **A password changed from Profile no longer breaks the next sign-in on an Argon app.** Profile, SSO-created users and magic-link registrations hashed with `bcrypt()`, which ignores `HASH_DRIVER`; with `argon2id` and Laravel's default `hashing.verify=true` the next password check failed with a 500. They now use `Hash::make()`.
 
+- **The password checklists show the server's rules, and Profile shows a refused password on the field.** Profile, registration, reset password and invitation accept draw their checklist from the app's password policy (`window.MartisConfig.auth.passwordRequirements`) instead of a hard-coded list. Profile no longer refuses to submit a password without a symbol the server never asked for. A `422` on the new password now shows under the field: Profile read the keys `new_password` and `confirm_password`, the server answers `password` and `password_confirmation`. Reset password and invitation accept gain the strength meter and the match indicator. The unused `PasswordChecklist` component and its translations are gone.
+
 ## [2.2.0] — 2026-09-28
 
 Minor release from a consumer's report: applications register pages at URLs of their own, rendered inside the shell, and the auth page overrides of an extension bundle render. Nothing needs to change in an app: see [Upgrading to v2.2.0 from v2.1.x](docs/upgrading.md#upgrading-to-v220-from-v21x).
