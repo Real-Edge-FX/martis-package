@@ -105,6 +105,43 @@ vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: [{ 
 })))
 ```
 
+## i18next
+
+`tsconfig.extensions.json` maps `i18next` to declarations only (`.shims/i18next.d.mts`), with no module behind them:
+
+- **Types work anywhere.** `import type { i18n, TFunction } from 'i18next'` type-checks in an extension source or a test.
+- **An extension source never imports i18next as a value.** It reaches the panel's instance through `useTranslation()` (from `react-i18next` or `@martis/runtime`). A value import such as `import i18next from 'i18next'` type-checks, then fails `npm run build:extensions` with a misleading `[MISSING_EXPORT] "default" is not exported by ".shims/i18next.d.mts"`.
+- **A test that creates its own instance installs i18next.** Without it, Vitest stops at `Failed to resolve import "i18next"`. Install the version the panel bundles, the `i18next` entry of `versions.json` (26.0.4 in Martis 2.3.0), as a dev dependency:
+
+  ```bash
+  npm install --save-dev i18next@26.0.4
+  ```
+
+```tsx
+// resources/js/martis-extensions/__tests__/Greeting.test.tsx
+import { afterEach, expect, it } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import i18next from 'i18next'
+import { I18nextProvider, useTranslation } from 'react-i18next'
+import { MartisTestProvider } from '@martis/testing'
+
+afterEach(cleanup)
+
+function Greeting() {
+  const { t } = useTranslation('reports')
+  return <p>{t('hello')}</p>
+}
+
+it('renders with its own i18next instance', () => {
+  const i18n = i18next.createInstance()
+  void i18n.init({ lng: 'en', initAsync: false, resources: { en: { reports: { hello: 'Hello' } } } })
+
+  render(<MartisTestProvider><I18nextProvider i18n={i18n}><Greeting /></I18nextProvider></MartisTestProvider>)
+
+  expect(screen.getByText('Hello')).toBeTruthy()
+})
+```
+
 ## Routes and links
 
 The children render at `path` inside a data router, so `Link`, `useNavigate()`, `useParams()` and `useUnsavedChangesGuard()` work. Under jsdom the test runtime lets the router navigate: when the global `Request` refuses jsdom's `AbortSignal`, it is replaced by one that drops the signal, which the router only uses to abort loaders.
@@ -139,6 +176,6 @@ An app whose own pages need React 19 cannot run the kit on the same `node_module
 
 - **It runs no server.** Pages that need `/api/...` answers get them from your `fetch` stub.
 - **It ships no translations.** Pass the keys your component reads in `translations`.
-- **It renders no shell.** The sidebar, topbar and Layout are not mounted; render them yourself (they are on `@martis/runtime`) when a test needs them.
+- **It renders no shell.** The Layout and its sidebar, topbar and footer are not mounted. `Sidebar`, `Topbar` and `Footer` are on `@martis/runtime`: render them yourself when a test needs them. The Layout that composes them is not exported (only its `LayoutProps` type is).
 
 Nova has no equivalent: its tools' Vue components have no supported test runtime.

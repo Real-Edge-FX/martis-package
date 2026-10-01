@@ -244,6 +244,17 @@ function declaredShape(): Record<string, string> {
   return shape
 }
 
+describe('docs/testing-extensions.md', () => {
+  const docs = readFileSync(path.join(root, 'docs/testing-extensions.md'), 'utf8')
+  const versions = JSON.parse(readFileSync(path.join(root, 'dist/testing/versions.json'), 'utf8')) as Record<string, string>
+
+  it('installs the React major and the i18next version the panel bundles', () => {
+    const react = versions.react.split('.')[0]
+    expect(docs).toContain(`npm install react@^${react} react-dom@^${react}`)
+    expect(docs).toContain(`npm install --save-dev i18next@${versions.i18next}`)
+  })
+})
+
 describe('martisExtensionTestConfig()', () => {
   /** An app root with the shims, and a package with the test runtime, as files only. */
   function scaffold(): { app: string; packageDir: string } {
