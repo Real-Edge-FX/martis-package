@@ -10,10 +10,21 @@ export interface MartisExtensionTestConfigOptions {
 export function martisExtensionTestConfig(options?: MartisExtensionTestConfigOptions): {
   resolve: {
     preserveSymlinks: boolean
+    dedupe: string[]
     alias: Array<{ find: string | RegExp; replacement: string }>
+  }
+  server: {
+    fs: {
+      allow: string[]
+    }
   }
   test: {
     environment: 'jsdom'
     setupFiles: string[]
+    server: {
+      deps: {
+        inline: RegExp[]
+      }
+    }
   }
 }
