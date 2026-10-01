@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent, type KeyboardEvent } from "react"
 import { Link, useNavigate } from "react-router"
-import { useAuth, TwoFactorRequiredError, EmailVerificationRequiredError } from "@/contexts/AuthContext"
+import { useAuth, TwoFactorRequiredError, EmailVerificationRequiredError, PasswordChangeRequiredError } from "@/contexts/AuthContext"
+import { isBuiltInPasswordChangeUrl, passwordChangeUrl, PASSWORD_CHANGE_ROUTE } from "@/lib/passwordChange"
 import { useToast } from "@/contexts/ToastContext"
 import { api, ApiError } from "@/lib/api"
 import { config } from "@/lib/config"
@@ -121,6 +122,12 @@ export function LoginPage() {
       }
       if (err instanceof EmailVerificationRequiredError) {
         navigate('/email/verify', { replace: true })
+        return
+      }
+      if (err instanceof PasswordChangeRequiredError) {
+        // The built-in page opens client-side; an app page of its own loads.
+        if (isBuiltInPasswordChangeUrl()) navigate(PASSWORD_CHANGE_ROUTE, { replace: true })
+        else window.location.href = passwordChangeUrl()
         return
       }
       if (err instanceof ApiError) {

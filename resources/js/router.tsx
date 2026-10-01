@@ -8,6 +8,7 @@ import { ForgotPasswordPage } from '@/pages/ForgotPassword'
 import { ResetPasswordPage } from '@/pages/ResetPassword'
 import { EmailVerifyNoticePage } from '@/pages/EmailVerifyNotice'
 import { InvitationAcceptPage } from '@/pages/InvitationAccept'
+import { PasswordChangeRequiredPage } from '@/pages/PasswordChangeRequired'
 import { DashboardPage } from '@/pages/Dashboard'
 import { NotFoundPage } from '@/pages/NotFound'
 import { ForbiddenPage } from '@/pages/Forbidden'
@@ -25,7 +26,8 @@ import { crumbLabelFor, inRouterOrder, routeRegistry, type RegisteredRoute, type
  * Mirrors `Layout.tsx:resolveShellComponent`. Registered overrides come
  * from `php artisan martis:component MyLogin --type=login-page` (and
  * the matching --type values for register, forgot-password,
- * reset-password, and email-verify-notice). `auth:invitation-accept`
+ * reset-password, email-verify-notice, and password-change, whose key is
+ * `auth:password-change`). `auth:invitation-accept`
  * has no dedicated `--type` scaffold yet; a consumer overrides it the
  * same way, by calling `componentRegistry.register('auth:invitation-accept', MyScreen)`
  * directly; the registry key works for any string, scaffold or not.
@@ -72,6 +74,7 @@ export function buildAppRoutes(registered: readonly RegisteredRoute[]): RouteObj
   const ResetPassword = resolveAuthPage('auth:reset-password', ResetPasswordPage)
   const EmailVerifyNotice = resolveAuthPage('auth:email-verify-notice', EmailVerifyNoticePage)
   const InvitationAccept = resolveAuthPage('auth:invitation-accept', InvitationAcceptPage)
+  const PasswordChange = resolveAuthPage('auth:password-change', PasswordChangeRequiredPage)
 
   return [
     {
@@ -93,6 +96,10 @@ export function buildAppRoutes(registered: readonly RegisteredRoute[]): RouteObj
     {
       path: '/email/verify',
       element: createElement(EmailVerifyNotice),
+    },
+    {
+      path: '/password/change',
+      element: createElement(PasswordChange),
     },
     {
       path: '/invitations/accept/:token',

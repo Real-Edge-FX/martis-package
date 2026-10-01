@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **What clears the flag:** this change, a change from Profile and a password reset by email.
   - **Who is never held:** impersonation and SSO sessions.
   - Nova 5 and Fortify have no equivalent. See [authentication.md](docs/authentication.md#forced-password-change).
+- **The SPA side of the forced password change.**
+  - A `409 {"password_change_required": true}` from any request, uploads included, sends the browser to the change page. A page reached from the login, the 2FA challenge or a reload goes there too.
+  - `PasswordChangeRequiredError` joins `@martis/runtime`.
+  - The page at `/{martis-path}/password/change` can be replaced under `auth:password-change` (`php artisan martis:component --type=password-change-page`). `password` is now a reserved first segment for registered routes.
 
 ### Changed
 
@@ -33,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The password checklists show the server's rules, and Profile shows a refused password on the field.** Profile, registration, reset password and invitation accept draw their checklist from the app's password policy (`window.MartisConfig.auth.passwordRequirements`) instead of a hard-coded list. Profile no longer refuses to submit a password without a symbol the server never asked for. A `422` on the new password now shows under the field: Profile read the keys `new_password` and `confirm_password`, the server answers `password` and `password_confirmation`. Reset password and invitation accept gain the strength meter and the match indicator. The unused `PasswordChecklist` component and its translations are gone.
 - **A password, magic-link or invitation sign-in forgets the SSO marker of an earlier SSO sign-in in the same session**, as the SPA login already did, so the federated logout and the new password gate no longer read a stale one.
+- **An upload answered with the email-verification `409` now sends the user to the verify notice**, as every other request did.
 
 ## [2.2.0] — 2026-09-28
 

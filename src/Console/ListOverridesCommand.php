@@ -272,6 +272,7 @@ class ListOverridesCommand extends Command
             'ForgotPasswordPage' => 'auth:forgot-password',
             'ResetPasswordPage' => 'auth:reset-password',
             'EmailVerifyNoticePage' => 'auth:email-verify-notice',
+            'PasswordChangePage' => 'auth:password-change',
         ];
         $overridesPath = $extensionsDir.'/overrides';
         if (is_dir($overridesPath)) {
