@@ -26,6 +26,12 @@ Minor release from seven consumer reports: one password policy, an opt-in forced
   - A `409 {"password_change_required": true}` from any request, uploads included, sends the browser to the change page. A page reached from the login, the 2FA challenge or a reload goes there too.
   - `PasswordChangeRequiredError` joins `@martis/runtime`.
   - The page at `/{martis-path}/password/change` can be replaced under `auth:password-change` (`php artisan martis:component --type=password-change-page`). `password` is now a reserved first segment for registered routes.
+- **A test kit for consumer extensions.** `vendor/martis/martis/dist/testing/` is a development build of the Martis runtime that a consumer's Vitest run (or a Playwright harness page) loads. The published shims then work in tests, under the consumer's own development React.
+  - `martisExtensionTestConfig()` (`dist/testing/vitest.mjs`) is the Vitest config fragment.
+  - `MartisTestProvider` (`@martis/testing`) mounts the real auth, preferences, theme, toast, crumb and gate providers, React Query, a data router and i18next. It takes the user, preferences, config, locale, translations, query client and route as props.
+  - `dist/testing/versions.json` lists the versions of the libraries the SPA bundles.
+  - `AuthProvider` gains `initialUser`, and `PreferencesProvider` gains `initialPreferences` and `syncWithServer`.
+  - See [Testing extensions](docs/testing-extensions.md).
 - +54 Pest, +74 Vitest.
 
 ### Changed
@@ -55,12 +61,6 @@ Minor release from seven consumer reports: one password policy, an opt-in forced
   - `martis:action-executed` fires after each run.
   - See [Upgrading to v2.3.0](docs/upgrading.md#upgrading-to-v230-from-v22x) for `visit()` paths that included the base path.
 - **The built-in bus events fire.** `martis:record-created`, `martis:record-updated`, `martis:record-deleted` and `martis:record-restored` were documented, typed and never emitted. The resource pages, the built-in drawers, the relationship panels and the inline create modal now emit them after each write; an override that writes through its own API call emits them itself. Dashboard metrics refetch after an action runs, as Nova's do.
-- **A test kit for consumer extensions.** `vendor/martis/martis/dist/testing/` is a development build of the Martis runtime that a consumer's Vitest run (or a Playwright harness page) loads. The published shims then work in tests, under the consumer's own development React.
-  - `martisExtensionTestConfig()` (`dist/testing/vitest.mjs`) is the Vitest config fragment.
-  - `MartisTestProvider` (`@martis/testing`) mounts the real auth, preferences, theme, toast, crumb and gate providers, React Query, a data router and i18next. It takes the user, preferences, config, locale, translations, query client and route as props.
-  - `dist/testing/versions.json` lists the versions of the libraries the SPA bundles.
-  - `AuthProvider` gains `initialUser`, and `PreferencesProvider` gains `initialPreferences` and `syncWithServer`.
-  - See [Testing extensions](docs/testing-extensions.md).
 
 ## [2.2.0] — 2026-09-28
 
