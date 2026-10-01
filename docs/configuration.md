@@ -1110,6 +1110,8 @@ When enabled, the package wires Laravel's `verified` middleware into the panel g
 
 When enabled, a user flagged by the `column` (or by the `Martis\Contracts\MustChangePassword` contract) is held on the change page until they choose a new password; `url` sends them to a page of your own instead. See [Authentication → Forced password change](authentication.md#forced-password-change).
 
+The SPA reads the state from `window.MartisConfig.auth.passwordChange` (`enabled`, `url`) and the password policy from `window.MartisConfig.auth.passwordRequirements`; see [Authentication → Password rules](authentication.md#passwordpolicy).
+
 ## Auth screen copy (v1.8.5)
 
 Every auth surface (login, register, password forgot, password reset, invitation accept) lets you override the title and subtitle without touching translations.
