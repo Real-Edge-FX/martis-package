@@ -4,6 +4,60 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.3.0 from v2.2.x
+
+Nothing is required unless one of the changes below concerns your app.
+
+### Password rules follow `Password::defaults()`
+
+Every Martis surface that sets a password validates with your app's `Password::defaults()`: Profile, registration, password reset, invitation accept and `martis:user` (see [Authentication → Password rules](authentication.md#password-rules)). Without app defaults:
+- **Profile** accepts any password of 8 or more characters. It required mixed case and numbers; declare them to keep that: `Password::defaults(fn () => Password::min(8)->mixedCase()->numbers())`.
+- **`martis:user`** refuses a password shorter than 8 characters. A boot script that sets a shorter one exits 1.
+
+The `require*` methods of the `Password` field check Unicode classes, as Laravel's `Password` rule does: an accented capital counts as uppercase, and an accented letter no longer counts as a symbol.
+
+### `martis:user` reads the password from standard input
+
+`--password=...` stays, but `ps` shows it. Pipe it instead:
+
+```bash
+printf '%s\n' "$MARTIS_ADMIN_PASSWORD" | php artisan martis:user --no-interaction --email="$MARTIS_ADMIN_EMAIL" --password-stdin --if-missing
+```
+
+### Action responses
+
+- **`ActionResponse::visit($path)`** navigates inside the SPA, to `$path` below the Martis base path, with its `$params` as the query string. It used to load the page in full and drop the params. Drop the base path from your calls: `visit('/martis/resources/users')` becomes `visit('/resources/users')`.
+- **`modal()`** shows its component and **`emit()`** emits on `martisEventBus`; both used to show the generic success toast. Register the component of a `modal()` answer (see [Actions → Custom modal responses](actions.md#custom-modal-responses)).
+- **`download()`** names the file after `$filename`.
+- **The built-in bus events fire.** `martis:record-created/updated/deleted/restored` and `martis:action-executed` were documented and never emitted. A listener that never ran will now run.
+
+### Action events honour `$visible`
+
+A model that declares `$visible` logs only those attributes in its action events (`$hidden` ones stay masked).
+
+### Forced password change (opt-in)
+
+New, off by default: see [Authentication → Forced password change](authentication.md#forced-password-change). A Tool whose routes pass their own middleware list gets a log warning when the list leaves out `martis.password.changed` while the gate is on; leave the list out, or add the alias.
+
+### Refresh the extension scaffold
+
+v2.3.0 adds `PasswordChangeRequiredError` and the type `ActionResponseModalProps` to `@martis/runtime`, and `.shims/i18next.d.mts`, the i18next types the shims share. Refresh the shims:
+
+```bash
+php artisan vendor:publish --tag=martis-extension-shims --force
+```
+
+Then add two entries to the `paths` of your `tsconfig.extensions.json` (or republish it with `php artisan martis:install --force`, which rewrites the whole scaffold):
+
+```json
+"i18next": ["./resources/js/martis-extensions/.shims/i18next.d.mts"],
+"@martis/testing": ["./vendor/martis/martis/dist/testing/testing.d.mts"]
+```
+
+### Test your extensions
+
+New: [Testing extensions](testing-extensions.md).
+
 ## Upgrading to v2.2.0 from v2.1.x
 
 Nothing is required.

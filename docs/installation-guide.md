@@ -46,9 +46,9 @@ php artisan martis:user
 ```
 
 On a terminal the command prompts for the email, name and password it does
-not receive as options (`--email`, `--name`, `--password`). Without one (CI, a
+not receive as options (`--email`, `--name`, `--password` or `--password-stdin`). Without one (CI, a
 container entrypoint, a pipe, `--no-interaction`) it asks nothing: `--email`
-and `--password` are required (a missing one is named, the command exits 1 and
+and a password (`--password`, or `--password-stdin`) are required (a missing one is named, the command exits 1 and
 no user is created or changed) and the name defaults to `Martis Admin`, since
 v2.0.0. By default it is **create-only**:
 when a user with that email already exists it prints an error and exits with a
@@ -58,18 +58,21 @@ Two flags change what happens when the email already exists, which is what a
 container entrypoint or a provisioning script needs to bootstrap the first
 administrator on every boot:
 
-| Flag | When the email already exists |
-|------|-------------------------------|
-| `--if-missing` | Exit `0` with an info line and change nothing. Safe to call unconditionally at boot. |
-| `--update` | Re-hash the password from `--password` (or the prompt) and, only when `--name` is given, replace the name. `email_verified_at` is left untouched. When the email does not exist yet the user is created, so the flag behaves like an upsert. |
+| Flag | What it does |
+|------|--------------|
+| `--password-stdin` | (v2.3.0) Reads the password from the first line of standard input, so it never appears in the process list, as `docker login --password-stdin` does. Cannot be combined with `--password`; an empty line exits 1. |
+| `--if-missing` | When the email already exists: exit `0` with an info line and change nothing. Safe to call unconditionally at boot. |
+| `--update` | When the email already exists: re-hash the password from `--password` (or the prompt) and, only when `--name` is given, replace the name. `email_verified_at` is left untouched. When the email does not exist yet the user is created, so the flag behaves like an upsert. |
 
 ```bash
 # Guarantee an administrator exists, never touch it afterwards
-php artisan martis:user --email="$MARTIS_ADMIN_EMAIL" --name="Admin" --password="$MARTIS_ADMIN_PASSWORD" --if-missing
+printf '%s\n' "$MARTIS_ADMIN_PASSWORD" | php artisan martis:user --no-interaction --email="$MARTIS_ADMIN_EMAIL" --name="Admin" --password-stdin --if-missing
 
 # Converge the administrator to the current environment (rotated password)
-php artisan martis:user --email="$MARTIS_ADMIN_EMAIL" --password="$MARTIS_ADMIN_PASSWORD" --update
+printf '%s\n' "$MARTIS_ADMIN_PASSWORD" | php artisan martis:user --no-interaction --email="$MARTIS_ADMIN_EMAIL" --password-stdin --update
 ```
+
+`printf` is a shell builtin, so the password reaches the command through a pipe and never appears in a process's argument list, where `ps` shows `--password=...` to every local user. The password is validated with your [password rules](authentication.md#password-rules), as `nova:user` validates it.
 
 Without either flag the behaviour is unchanged: the second run of the same
 command fails with `A user with email [...] already exists.`
@@ -209,6 +212,7 @@ The package ships its migration stubs under several publish tags so consumers ca
 | `martis-preferences-drop-dashboards-layout-migration` | `drop_dashboards_layout_from_user_preferences_table` |
 | `martis-cache-state-migration` | `create_martis_cache_state_table` (persisted cache versions and runtime kill-switches) |
 | `martis-2fa-migration` | `add_two_factor_columns` to `users` (TOTP secret + recovery codes) |
+| `martis-password-change-migration` | `add_must_change_password_column` to the Martis guard's users table (the [forced password change](authentication.md#forced-password-change) flag, v2.3.0) |
 | `martis-avatar-migration` | `add_profile_picture_column` to `users` (filename of the uploaded avatar) |
 | `martis-sessions-migration` | `create_sessions_table` (browser-sessions profile section, `SESSION_DRIVER=database`) |
 | `martis-invitations-migration` | `create_invitations_table` |
@@ -537,6 +541,10 @@ Your extension build resolves `@martis/runtime` to `.shims/runtime.mjs`, which r
 | `useRevalidateOnFocus` | v1.22.0 |
 | `NestedParentProvider`, `Dropdown`, `MultiSelect`, `createPortal`, the registries (`componentRegistry`, `iconRegistry`, `layoutRegistry`), `usePageTitle`, `useModalHistoryLock`, `OverridePropsProvider`, `useOverrideProps`, `useOverridePropsOptional`, `useUnsavedChangesGuard`, `useError`, `cssVar`, `accentColor`, `mutedTextColor`, `chartPalette`, `resolveColor`, `avatarColorForSeed`, `Sparkline`, `ClearButton`, `MartisLoader`, `usePreferences`, `usePreferencesOptional`, `loadLocale`, `applyDocumentDirection`, `usePrefersReducedMotion`, `addShortcut`, `disableShortcut`, `listShortcuts` | v1.38.0 |
 | `flushSync` (also in the `react-dom` shim) | v1.38.2 |
+| `routeRegistry`, `useDynamicCrumb`, `ForbiddenPage`, `NotFoundPage` | v2.2.0 |
+| `PasswordChangeRequiredError` | v2.3.0 |
+
+v2.3.0 also publishes `.shims/i18next.d.mts`, the i18next types the shims share; republishing the shims adds it.
 
 Three ways to get a missing name, from the narrowest:
 
@@ -715,6 +723,7 @@ The package exposes the following `--tag` values for `vendor:publish`:
 | `martis-preferences-drop-dashboards-layout-migration` | Drops the legacy `dashboards_layout` preferences column | `database/migrations/*_drop_dashboards_layout_from_user_preferences_table.php` |
 | `martis-cache-state-migration` | Cache state table | `database/migrations/*_create_martis_cache_state_table.php` |
 | `martis-2fa-migration` | 2FA columns on `users` | `database/migrations/*_add_two_factor_columns.php` |
+| `martis-password-change-migration` | Forced password change column | `database/migrations/*_add_must_change_password_column.php` |
 | `martis-avatar-migration` | Profile picture column on `users` | `database/migrations/*_add_profile_picture_column.php` |
 | `martis-sessions-migration` | Sessions table (browser-sessions profile section) | `database/migrations/*_create_sessions_table.php` |
 | `martis-invitations-migration` | Invitations table | `database/migrations/*_create_invitations_table.php` |

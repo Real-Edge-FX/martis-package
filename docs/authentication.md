@@ -34,6 +34,7 @@ Content-Type: application/json
 | `200` | `{ "id": 1, "name": "Maria", "email": "...", "avatar_url": "...", ... }` | Successful login. The user object is returned flat (no `user` wrapper). Authentication is session-cookie based, so there is no `token` to track. |
 | `200` | `{ "two_factor_required": true, "message": "..." }` | 2FA enabled on the account — the frontend redirects to the challenge screen. |
 | `200` | `{ "email_verification_required": true, "message": "..." }` | (v1.8.14+) Email verification is enabled (`MARTIS_AUTH_EMAIL_VERIFICATION_ENABLED=true`) and the user has not confirmed yet. The session is still established so the resend-link endpoint behind `auth:` works — the frontend redirects to `/{martis-path}/email/verify` instead of the dashboard. The same gate appears on `GET /api/auth/user` as `email_verification_pending: true` so a refresh / deep-link reload bootstraps on the verify page rather than the SPA shell. |
+| `200` | `{ "password_change_required": true, "message": "..." }` | (v2.3.0) The [forced password change](#forced-password-change) holds the user: the session is established and the frontend goes to the change page. `GET /api/auth/user` answers `password_change_pending: true` for the same user, so a reload lands on the page too. |
 | `422` | `{ "message": "...", "errors": {...} }` | Validation error. |
 | `429` | `{ "message": "Too many attempts" }` | Rate limited. Default: `MARTIS_LOGIN_THROTTLE_ATTEMPTS=20` per `MARTIS_LOGIN_THROTTLE_MINUTES=1`. The same envelope applies to register, password-reset and 2FA challenge endpoints. Per-email throttle in addition to per-IP — see [Per-email throttle](#per-email-throttle) below. |
 
@@ -240,6 +241,7 @@ Same notation extends to every auth surface:
 | `forgot-password-page` | `auth:forgot-password` | `pages/ForgotPassword.tsx` |
 | `reset-password-page` | `auth:reset-password` | `pages/ResetPassword.tsx` |
 | `email-verify-notice-page` | `auth:email-verify-notice` | `pages/EmailVerifyNotice.tsx` |
+| `password-change-page` | `auth:password-change` | `pages/PasswordChangeRequired.tsx` |
 
 After generating the override, build your extension bundle **in your application root** (never inside `vendor/martis/martis`, whose precompiled SPA does not include consumer code since v1.8.19):
 
@@ -618,6 +620,83 @@ Same mechanism as Login/Register/Forgot/Reset — see the table in "Customising 
 | `enabled=true`, user unverified | 302 → notice (or `notice_url`) | 200 (themed page) | Marks verified, 302 → dashboard | 200 |
 | `enabled=true`, JSON request | 409 with `{message}` | 409 | normal | normal |
 
+## Password rules
+
+Every Martis surface that sets a password validates it with your app's password policy, `Password::defaults()`, as Nova 5 does (v2.3.0): Profile, registration, password reset, invitation accept, the [forced password change](#forced-password-change) and `martis:user`. Without app defaults the rule is Laravel's `Password::min(8)`. Declare yours once, in a service provider:
+
+```php
+use Illuminate\Validation\Rules\Password;
+
+public function boot(): void
+{
+    Password::defaults(fn () => Password::min(12)->mixedCase()->numbers()->uncompromised());
+}
+```
+
+The password checklist of those pages draws the same rules. The Blade shell sends them to the SPA as `window.MartisConfig.auth.passwordRequirements`: minimum and maximum length, mixed case, letters, numbers, symbols, and "not in a known data leak", which only the server checks. A rule other than `Password` (your own `Rule` class) shows no checklist; the server still enforces it, and its message shows under the field. A resource's `Password` field follows the policy with `->defaultRules()` (see [Fields → Password](fields.md#password)).
+
+Every password is hashed with your app's hasher (`HASH_DRIVER`), `Hash::make()`.
+
+## Forced password change
+
+Hold a user on a password change page until they choose a new password, for example after an administrator set a temporary one (v2.3.0). Off by default. Nova 5 has no equivalent; the gate mirrors the [email verification](#email-verification) gate.
+
+### Enable it
+
+1. Publish the column and migrate:
+
+   ```bash
+   php artisan vendor:publish --tag=martis-password-change-migration
+   php artisan migrate
+   ```
+
+   The migration adds the boolean column `must_change_password` (`MARTIS_AUTH_PASSWORD_CHANGE_COLUMN`), default `false`, to the table of the users the Martis guard signs in.
+
+2. Turn the gate on: `MARTIS_AUTH_PASSWORD_CHANGE_ENABLED=true`.
+
+3. Flag a user: `$user->forceFill(['must_change_password' => true])->save()`. An action can do it while it sets a temporary password, and show that password once with a [custom modal response](actions.md#custom-modal-responses).
+
+Without the column, and without the contract below, the gate holds nobody: a missing column never locks your users out.
+
+### Your own rule: `MustChangePassword`
+
+A user model that implements `Martis\Contracts\MustChangePassword` decides itself, and Martis then ignores the column:
+
+```php
+use Martis\Contracts\MustChangePassword;
+
+class User extends Authenticatable implements MustChangePassword
+{
+    public function mustChangePassword(): bool
+    {
+        return $this->password_expires_at?->isPast() ?? false;
+    }
+
+    public function markPasswordChanged(): void
+    {
+        // Martis saves the user right after this call, with the new password.
+        $this->password_expires_at = now()->addDays(90);
+    }
+}
+```
+
+### What the gate does
+
+- **Where it runs.** `martis.password.changed` runs last in the stack of every protected route, after the 2FA challenge, email verification and the panel gate (see [Middleware](#middleware)), so a user with 2FA passes the challenge first.
+- **What a held user gets.**
+  - A JSON request answers `409 {"password_change_required": true, "message": "Password change required."}`, and the SPA leaves for the change page.
+  - A page redirects to `/{martis-path}/password/change`, or to `MARTIS_AUTH_PASSWORD_CHANGE_URL` when you host your own page.
+  - The sign-in answer carries `password_change_required`, and so does the 2FA challenge answer. `GET /api/auth/user` carries `password_change_pending`. The dashboard never paints behind the gate.
+- **The page.** `/{martis-path}/password/change` asks for the current password and a new one that follows your [password rules](#password-rules) and differs from the current one. Replace it under `auth:password-change` (`php artisan martis:component --type=password-change-page`).
+- **The endpoint.** `POST /{martis-path}/api/auth/password/change` takes `current_password`, `password` and `password_confirmation`. It answers `403` to a user the gate does not hold, and shares the sign-in throttle.
+- **Who is never held.** An impersonation (the operator must never choose the user's password), and a session opened through SSO (the user knows no password). Sign-out, `GET /api/auth/user` and the translations stay reachable.
+- **What clears the flag.** The change itself, a change from Profile, and a password reset by email: a listener on `Illuminate\Auth\Events\PasswordReset` clears it, so it keeps working if you rebind `ResetsUserPasswords` and still fire the event.
+- **After a change.** As Fortify (behind Nova 5's User Security page) does:
+  - the user's pending reset tokens are deleted;
+  - `Martis\Events\PasswordChanged` fires, with `$event->user` and `$event->forced` (true on the change page, false from Profile);
+  - the remember token is not rotated;
+  - other sessions are not signed out unless `auth.session` (Laravel's `AuthenticateSession`) is in `martis.auth_middleware`, which signs them out on their next request.
+
 ## Magic-link (passwordless) sign-in
 
 Off by default. When enabled, the Login page exposes a "Email me a sign-in link" button that issues a one-shot token and emails it. Clicking the link signs the user in and redirects to the dashboard — no password required.
@@ -823,7 +902,7 @@ so a hand-crafted `PATCH /martis/api/profile` request cannot bypass the locked f
 |--------|------|-------------|
 | `GET` | `/martis/api/profile` | Get current user profile data |
 | `PATCH` | `/martis/api/profile` | Update name and email |
-| `POST` | `/martis/api/profile/password` | Change password |
+| `POST` | `/martis/api/profile/password` | Change password (validated with your [password rules](#password-rules)) |
 | `POST` | `/martis/api/profile/avatar` | Upload avatar (multipart/form-data) |
 | `DELETE` | `/martis/api/profile/avatar` | Remove avatar |
 
@@ -990,10 +1069,12 @@ Martis registers these middleware:
 | `martis.2fa` | Ensures users with 2FA enabled have completed the challenge: `423` for a JSON request, a redirect to the challenge screen otherwise. Applied to every protected route but the challenge itself. |
 | `martis.locale` | Applies the user's saved language before the controller runs. |
 | `martis.verified` | When email verification is enabled, refuses an unverified user: `409` for a JSON request, a redirect to the notice otherwise. |
+| `martis.authorize` | When the app defines the `viewMartis` gate, refuses a user it denies (`403`). |
+| `martis.password.changed` | When the forced password change is enabled, holds a flagged user: `409` for a JSON request, a redirect to the change page otherwise (v2.3.0). |
 | `martis.tool:{uriKey}` | Answers `404` to a user the tool `{uriKey}` is hidden from. Applied to a Tool's routes (v2.0). |
 | `martis.api` (group) | The whole stack of a protected API route, from `martis.middleware` to the API throttle, built when the application boots (v2.0). |
 
-These are applied automatically by the Martis route definitions. You do not need to register them manually. The stack of a protected API route is built in one place, `Martis\Http\RouteMiddleware::api()`: `martis.middleware`, `martis.auth_middleware`, `martis.impersonation.duration`, `martis.2fa`, `martis.locale`, `martis.verified`, then the API throttle. A Tool's routes run it too, followed by `martis.tool:{uriKey}` (see [Tools → Tool routes and their middleware](tools.md#tool-routes-and-their-middleware)). It is also the `martis.api` middleware group (v2.0), so a route of your own gets the same guard with `Route::middleware('martis.api')`: `martis.auth` alone lets a user who has not passed the 2FA challenge through.
+These are applied automatically by the Martis route definitions. You do not need to register them manually. The stack of a protected API route is built in one place, `Martis\Http\RouteMiddleware::api()`: `martis.middleware`, `martis.auth_middleware`, `martis.impersonation.duration`, `martis.2fa`, `martis.locale`, `martis.verified`, `martis.authorize`, `martis.password.changed`, then the API throttle. A Tool's routes run it too, followed by `martis.tool:{uriKey}` (see [Tools → Tool routes and their middleware](tools.md#tool-routes-and-their-middleware)). It is also the `martis.api` middleware group (v2.0), so a route of your own gets the same guard with `Route::middleware('martis.api')`: `martis.auth` alone lets a user who has not passed the 2FA challenge through.
 
 ## Next Steps
 
