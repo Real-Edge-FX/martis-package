@@ -71,6 +71,9 @@ return [
     'password_req_number' => 'Um número',
     'password_req_symbol' => 'Um símbolo',
     'password_req_no_common' => 'Não é uma senha comum',
+    'password_req_max_length' => 'No máximo :n caracteres',
+    'password_req_letters' => 'Uma letra',
+    'password_req_uncompromised' => 'Não aparece em nenhum vazamento de dados conhecido (verificado ao enviar)',
     'password_req_common_fail' => 'A :attribute é comum demais — escolha algo menos previsível.',
     // Campo Timezone
     'timezone_select_placeholder' => 'Selecione um fuso horário…',

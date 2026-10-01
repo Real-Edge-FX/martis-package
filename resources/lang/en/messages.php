@@ -71,6 +71,9 @@ return [
     'password_req_number' => 'One number',
     'password_req_symbol' => 'One symbol',
     'password_req_no_common' => 'Not a common password',
+    'password_req_max_length' => 'At most :n characters',
+    'password_req_letters' => 'One letter',
+    'password_req_uncompromised' => 'Not found in a known data leak (checked when you submit)',
     'password_req_common_fail' => 'The :attribute is too common — choose something less predictable.',
     // Timezone field
     'timezone_select_placeholder' => 'Select a timezone…',

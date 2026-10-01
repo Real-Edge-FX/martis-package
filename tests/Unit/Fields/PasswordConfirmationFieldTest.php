@@ -129,10 +129,10 @@ it('Password requirements add matching Laravel rules to buildRules()', function 
     $stringRules = array_values(array_filter($rules, 'is_string'));
 
     expect($stringRules)->toContain('min:10')
-        ->and($stringRules)->toContain('regex:/[A-Z]/')
-        ->and($stringRules)->toContain('regex:/[a-z]/')
-        ->and($stringRules)->toContain('regex:/\d/')
-        ->and($stringRules)->toContain('regex:/[^A-Za-z0-9]/');
+        ->and($stringRules)->toContain('regex:/\p{Lu}/u')
+        ->and($stringRules)->toContain('regex:/\p{Ll}/u')
+        ->and($stringRules)->toContain('regex:/\pN/u')
+        ->and($stringRules)->toContain('regex:/\p{Z}|\p{S}|\p{P}/u');
 });
 
 it('Password::disallowCommonPasswords rejects a common value and passes a strong one', function () {
