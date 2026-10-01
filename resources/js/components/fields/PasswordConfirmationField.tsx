@@ -4,6 +4,8 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 import { InputText } from 'primereact/inputtext'
 import { EyeIcon, EyeSlashIcon, CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react'
 import { ClearButton } from '@/components/ClearButton'
+import { FieldError } from '@/components/auth/FieldError'
+import type { PasswordPageInputProps } from './PasswordField'
 
 // Companion field — never renders on index/detail. Displayed as the second
 // password input with ⭐ live match indicator against the paired Password.
@@ -12,7 +14,7 @@ export function PasswordConfirmationFieldDisplay(_props: FieldDisplayProps) {
   return null
 }
 
-export function PasswordConfirmationFieldInput({ field, value, onChange, error, formValues }: FieldInputProps) {
+export function PasswordConfirmationFieldInput({ field, value, onChange, error, formValues, autoFocus, disabled, announceError }: FieldInputProps & PasswordPageInputProps) {
   const { t } = useTranslation('messages')
   const [show, setShow] = useState(false)
   const stringValue = value === null || value === undefined ? '' : String(value)
@@ -47,7 +49,8 @@ export function PasswordConfirmationFieldInput({ field, value, onChange, error, 
           required={field.required}
           onChange={(e) => onChange(e.target.value)}
           invalid={!!error || matchState === 'mismatch'}
-          disabled={field.readonly}
+          disabled={field.readonly || disabled === true}
+          autoFocus={autoFocus}
           className="w-full"
           style={{ paddingRight: showClear ? '4rem' : '2.5rem' }}
           placeholder={field.placeholder ?? t('password_confirm_placeholder')}
@@ -94,8 +97,11 @@ export function PasswordConfirmationFieldInput({ field, value, onChange, error, 
       )}
 
       {/* The live mismatch indicator above already signals non-matching —
-          don't duplicate the same concern as a red error line. */}
-      {error && matchState !== 'mismatch' && <small className="text-red-500">{error}</small>}
+          don't duplicate the same concern as a red error line. A
+          set-password page announces it anyway (`announceError`). */}
+      {announceError === true
+        ? <FieldError message={error} />
+        : error && matchState !== 'mismatch' && <small className="text-red-500">{error}</small>}
     </div>
   )
 }

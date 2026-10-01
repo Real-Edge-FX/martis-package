@@ -22,5 +22,5 @@
     }
   },
   "include": ["resources/js/**/*", "resources/images/**/*"],
-  "exclude": ["node_modules", "public", "resources/js/testing/testingKit.test.ts"]
+  "exclude": ["node_modules", "public", "resources/js/testing/testingKit.test.ts", "resources/js/docsCssClasses.test.ts"]
 }

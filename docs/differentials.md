@@ -998,7 +998,7 @@ the `martisEventBus` singleton on `@martis/runtime`:
 import { martisEventBus } from '@martis/runtime'
 
 // Emit an event
-martisEventBus.emit('martis:record-created', { resourceKey: 'users', id: 42 })
+martisEventBus.emit('martis:record-created', { resourceKey: 'users', id: '42' })
 
 // Listen for events, and stop with the same handler
 const onCreated = (payload) => console.log('New record:', payload)
@@ -1014,7 +1014,7 @@ Built-in events: `martis:record-created`, `martis:record-updated`,
 `martis:record-deleted`, `martis:record-restored`,
 `martis:action-executed`, `martis:refresh-index`.
 
-Since v2.3.0 the record events fire from every page, drawer, panel and inline create that writes, and `martis:action-executed` after every action run; dashboard metrics refetch on it, as Nova's metric cards refetch on `action-executed`.
+Since v2.3.0 the record events fire from every page, drawer, panel and inline create that writes, and `martis:action-executed` after every action run; dashboard metrics refetch on it, as Nova's metric cards refetch on `action-executed`. A record `id` (and each of the `ids`) is always a string.
 
 ### Configurable loader
 

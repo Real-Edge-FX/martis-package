@@ -93,7 +93,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
         `/api/resources/${parentResource}/${parentId}/morph-one/${relationship}?relatedId=${encodeURIComponent(String(shownId))}`
       ),
     onSuccess: (_res, shownId) => {
-        emitRecordEvent('deleted', relatedResource, shownId)
+      emitRecordEvent('deleted', relatedResource, shownId)
       focusAfterDelete.current = true
       void qc.invalidateQueries({ queryKey: ['morph-one', parentResource, parentId, relationship] })
       setDeleteTarget(null)

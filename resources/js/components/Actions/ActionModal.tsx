@@ -180,7 +180,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
       }
 
       // After every run, as Nova fires `action-executed` (v2.3.0).
-      martisEventBus.emit('martis:action-executed', { resourceKey: resource, action: action?.uriKey ?? '', ids: [...selectedIds] })
+      martisEventBus.emit('martis:action-executed', { resourceKey: resource, action: action?.uriKey ?? '', ids: selectedIds.map(String) })
 
       handleActionResponse(res?.data, {
         t,

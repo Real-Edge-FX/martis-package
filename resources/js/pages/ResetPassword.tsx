@@ -151,6 +151,9 @@ export function ResetPasswordPage() {
             onChange={(v) => setPassword(v === null || v === undefined ? '' : String(v))}
             error={errors.password}
             formValues={{ password }}
+            disabled={submitting}
+            announceError
+            autoFocus
           />
         </div>
 
@@ -164,6 +167,8 @@ export function ResetPasswordPage() {
             onChange={(v) => setPasswordConfirmation(v === null || v === undefined ? '' : String(v))}
             error={errors.password_confirmation}
             formValues={{ password }}
+            disabled={submitting}
+            announceError
           />
         </div>
 

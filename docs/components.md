@@ -660,7 +660,7 @@ useEffect(() => {
 }, [])
 
 // Emit:
-martisEventBus.emit('martis:record-created', { resourceKey: 'posts', id: 1 })
+martisEventBus.emit('martis:record-created', { resourceKey: 'posts', id: '1' })
 ```
 
 A built-in event types its payload in `on`, `once`, `off` and `emit` (`EventBusEvents`, v1.38.0): a handler written inline, `martisEventBus.on('martis:record-created', ({ resourceKey, id }) => …)`, gets both typed.
@@ -693,7 +693,9 @@ useEffect(() => {
 | `martis:notification-received` | `{ id?, title?, message? }` | Pluggable real-time feed for the notification bell — emit this from any transport (a consumer's own ws-gateway, SSE, or an Echo listener) to push a notification into the bell instantly. See `docs/notifications.md` "Real-time delivery". |
 | `martis:notifications-changed` | `{}` (no payload) | Ask the notification bell to re-fetch its unread count + open list (reconcile after a read / read-all / delete happened elsewhere — the down-direction mirror of `martis:notification-received`). See `docs/notifications.md` "Reconciling reads across sessions". |
 
-An override that writes a record through its own API call emits the event itself: `martisEventBus.emit('martis:record-created', { resourceKey: 'reports', id })`.
+The `id` of a record event, and each of the `ids` of `martis:action-executed`, is always a string (v2.3.0), as the route param of a record page is: an integer key arrives as `'42'`, and a UUID or ULID key as it is. Compare it with `String(record.id)`.
+
+An override that writes a record through its own API call emits the event itself, with the id as a string: `martisEventBus.emit('martis:record-created', { resourceKey: 'reports', id: String(id) })`.
 
 Custom events can use any string key. Martis prefixes built-in events with `martis:`.
 
@@ -954,7 +956,7 @@ import { Tooltip } from '@martis/runtime' // shim → window.Martis.runtime.Tool
 
 <button ref={ref}>Re-index</button>
 <Tooltip target={ref} position="top"
-  content={<div className="martis-…"><b>Re-index</b><br/>Rebuilds the index.</div>} />
+  content={<div><b>Re-index</b><br/>Rebuilds the index.</div>} />
 ```
 
 ### Long text and viewport edges

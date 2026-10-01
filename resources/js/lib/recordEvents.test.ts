@@ -42,13 +42,28 @@ const SITES: [string, string[]][] = [
 afterEach(() => vi.restoreAllMocks())
 
 describe('emitRecordEvent', () => {
-  it('emits martis:record-<kind> with the resource and the id', () => {
+  it('emits martis:record-<kind> with the resource and the id, as a string', () => {
+    // A number from API data and a string from a route param name the same
+    // record: listeners always get the string (v2.3.0).
     const listener = vi.fn()
     martisEventBus.on('martis:record-restored', listener)
     emitRecordEvent('restored', 'posts', 3)
+    emitRecordEvent('restored', 'posts', 0)
     martisEventBus.off('martis:record-restored', listener)
 
-    expect(listener).toHaveBeenCalledWith({ resourceKey: 'posts', id: 3 })
+    expect(listener).toHaveBeenNthCalledWith(1, { resourceKey: 'posts', id: '3' })
+    expect(listener).toHaveBeenNthCalledWith(2, { resourceKey: 'posts', id: '0' })
+  })
+
+  it('emits a string id as it came', () => {
+    const listener = vi.fn()
+    martisEventBus.on('martis:record-updated', listener)
+    emitRecordEvent('updated', 'posts', '3')
+    emitRecordEvent('updated', 'posts', '018f7c1e-9b1d-7c2a-8f3e-2b4d6a8c0e1f')
+    martisEventBus.off('martis:record-updated', listener)
+
+    expect(listener).toHaveBeenNthCalledWith(1, { resourceKey: 'posts', id: '3' })
+    expect(listener).toHaveBeenNthCalledWith(2, { resourceKey: 'posts', id: '018f7c1e-9b1d-7c2a-8f3e-2b4d6a8c0e1f' })
   })
 
   it('emits nothing without a resource or an id', () => {

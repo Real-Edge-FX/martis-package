@@ -133,7 +133,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
         `/api/resources/${parentResource}/${parentId}/has-one/${relationship}?relatedId=${encodeURIComponent(String(shownId))}`
       ),
     onSuccess: (_res, shownId) => {
-        emitRecordEvent('deleted', relatedResource, shownId)
+      emitRecordEvent('deleted', relatedResource, shownId)
       focusAfterDelete.current = true
       void qc.invalidateQueries({ queryKey: ['has-one', parentResource, parentId, relationship] })
       setDeleteTarget(null)

@@ -629,7 +629,7 @@ const docTypeField = {
 export function CandidateReview() {
     const [docType, setDocType] = useState<string>('note')
     return (
-        <div className="martis-action-form">
+        <div className="martis-form-stack">
             <FieldInput
                 field={docTypeField as any}
                 value={docType}
@@ -661,7 +661,7 @@ export function ReviewTool() {
     if (!open) return <button onClick={() => setOpen(true)}>Review</button>
     return (
         <DrawerShell title="Review candidate" onClose={() => setOpen(false)}>
-            <div className="martis-action-form">
+            <div className="martis-form-body martis-form-stack">
                 <FieldInput
                     field={{ type: 'select', attribute: 'document_type', label: 'Document type', options: [] } as any}
                     value={docType}
