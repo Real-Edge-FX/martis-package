@@ -56,11 +56,23 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+interface AuthProviderProps {
+  children: ReactNode
+  /**
+   * The signed-in user to start with, without the `/api/auth/user` request
+   * (`null`: a guest). For a tree mounted outside the shell, such as a test
+   * (MartisTestProvider). v2.3.0.
+   */
+  initialUser?: User | null
+}
+
+export function AuthProvider({ children, initialUser }: AuthProviderProps) {
+  const [user, setUser] = useState<User | null>(initialUser ?? null)
+  const [fetchOnMount] = useState(initialUser === undefined)
+  const [isLoading, setIsLoading] = useState(fetchOnMount)
 
   useEffect(() => {
+    if (!fetchOnMount) return
     api
       .get<User & { two_factor_pending?: boolean; email_verification_pending?: boolean; password_change_pending?: boolean } | null>('/api/auth/user')
       .then((u) => {
@@ -97,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {})
       .finally(() => setIsLoading(false))
-  }, [])
+  }, [fetchOnMount])
 
   const login = useCallback(async (email: string, password: string, keepSignedIn = false) => {
     const res = await api.post<User & {

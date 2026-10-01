@@ -7,7 +7,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && npm run build:types",
+    "build": "tsc && vite build && npm run build:testing && npm run build:types",
+    "build:testing": "node scripts/build-testing-kit.mjs",
     "build:types": "node scripts/build-extension-types.mjs",
     "test": "vitest run",
     "test:watch": "vitest",

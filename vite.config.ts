@@ -112,5 +112,13 @@ export default defineConfig({
         // parallel run) can stretch past the 5 s default. The async
         // utilities give up at 3 s (test-setup.ts), well inside this.
         testTimeout: 10_000,
+        alias: [
+            // React Router ships a CJS and an ESM build and `react-router/dom`
+            // reaches the ESM one: left to the resolver, a test that renders
+            // both (MartisTestProvider) loads two copies and two sets of
+            // contexts. Pin both specifiers to the ESM build.
+            { find: /^react-router$/, replacement: path.resolve(__dirname, 'node_modules/react-router/dist/development/index.mjs') },
+            { find: /^react-router\/dom$/, replacement: path.resolve(__dirname, 'node_modules/react-router/dist/development/dom-export.mjs') },
+        ],
     },
 })
