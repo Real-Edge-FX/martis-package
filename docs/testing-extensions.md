@@ -30,7 +30,7 @@ Martis v2.3.0 ships a test runtime in `vendor/martis/martis/dist/testing/` (abou
 
    `martisExtensionTestConfig()` does four things:
    - it sends `@martis/runtime`, `react-router-dom`, `react-i18next`, `@tanstack/react-query` and the legacy paths to the shims in `resources/js/martis-extensions/.shims/`, as `vite.extensions.config.ts` does;
-   - it leaves React, its JSX runtime and ReactDOM to `node_modules`, so your extension, the runtime and Testing Library share one React;
+   - it leaves React, its JSX runtime and ReactDOM to `node_modules`, so your extension, the runtime and Testing Library share one React (`resolve.dedupe` pins `react` and `react-dom` to your app's copy even when the Martis package, symlinked or not, has its own `node_modules`, and the icon library is inlined so it follows);
    - it maps `@martis/testing` to the test runtime;
    - it runs the test runtime as a setup file, under `jsdom`.
 
@@ -114,7 +114,7 @@ A harness page served by your app's Vite dev server can render an extension with
 
 ## Symlinked installs
 
-When `vendor/martis/martis` is a symlink (a Composer `path` repository), `martisExtensionTestConfig()` sets `resolve.preserveSymlinks`, so the runtime resolves React from your app's `node_modules`. In an app whose own `node_modules` is symlinked (pnpm), check that your other tests still resolve; the option only switches on for a symlinked Martis.
+When `vendor/martis/martis` is a symlink (a Composer `path` repository), `martisExtensionTestConfig()` sets `resolve.preserveSymlinks`, so the runtime resolves React from your app's `node_modules`. `resolve.dedupe` backs it up: a symlinked package whose real path holds its own `node_modules/react` still cannot give the run a second React. In an app whose own `node_modules` is symlinked (pnpm), check that your other tests still resolve; the option only switches on for a symlinked Martis.
 
 ## In CI
 

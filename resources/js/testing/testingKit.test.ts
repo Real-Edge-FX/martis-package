@@ -81,36 +81,69 @@ export default mergeConfig(
 )
 `
 
+// Packages an app that installs its own React owns as real copies, apart from
+// the package's node_modules: Testing Library imports react and react-dom from
+// the real path of where it sits, so it travels with them.
+const OWN_REACT = ['react', 'react-dom', 'scheduler', '@testing-library/react', '@phosphor-icons/react']
+
+function runKit(options: { ownReact: boolean }) {
+  const app = mkdtempSync(path.join(tmpdir(), 'martis-testing-kit-'))
+  try {
+    const extensions = path.join(app, 'resources/js/martis-extensions')
+    for (const dir of ['.shims', 'tools', '__tests__']) mkdirSync(path.join(extensions, dir), { recursive: true })
+    mkdirSync(path.join(app, 'vendor/martis'), { recursive: true })
+    symlinkSync(root, path.join(app, 'vendor/martis/martis'))
+    if (options.ownReact) {
+      // The package keeps its own node_modules (with a React), so the real path
+      // of the symlinked package resolves a different React than the app root.
+      mkdirSync(path.join(app, 'node_modules'), { recursive: true })
+      for (const entry of readdirSync(path.join(root, 'node_modules'))) {
+        if (entry.startsWith('@')) {
+          mkdirSync(path.join(app, 'node_modules', entry), { recursive: true })
+          for (const inner of readdirSync(path.join(root, 'node_modules', entry)).filter((name) => !OWN_REACT.includes(`${entry}/${name}`))) {
+            symlinkSync(path.join(root, 'node_modules', entry, inner), path.join(app, 'node_modules', entry, inner))
+          }
+        } else if (!OWN_REACT.includes(entry)) {
+          symlinkSync(path.join(root, 'node_modules', entry), path.join(app, 'node_modules', entry))
+        }
+      }
+      for (const name of OWN_REACT) cpSync(path.join(root, 'node_modules', name), path.join(app, 'node_modules', name), { recursive: true, dereference: true })
+    } else {
+      symlinkSync(path.join(root, 'node_modules'), path.join(app, 'node_modules'))
+    }
+    for (const stub of readdirSync(path.join(root, 'stubs/extensions')).filter((file) => file.endsWith('-shim.mjs.stub'))) {
+      cpSync(path.join(root, 'stubs/extensions', stub), path.join(extensions, '.shims', stub.replace('-shim.mjs.stub', '.mjs')))
+    }
+    writeFileSync(path.join(extensions, 'tools/Findings.tsx'), TOOL)
+    writeFileSync(path.join(extensions, '__tests__/Findings.test.tsx'), TEST)
+    writeFileSync(path.join(app, 'vitest.config.mjs'), CONFIG)
+
+    const run = spawnSync(process.execPath, [path.join(root, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.config.mjs'], {
+      cwd: app,
+      encoding: 'utf8',
+      // A clean environment: the outer Vitest's VITEST_* variables would
+      // make the inner run believe it is one of its workers.
+      env: { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('VITEST'))), CI: 'true', NODE_ENV: 'test' },
+    })
+
+    // Without the colour codes, which split "Tests" from its count.
+    return { output: `${run.stdout}\n${run.stderr}`.replace(/\u001b\[[0-9;]*m/g, ''), status: run.status }
+  } finally {
+    rmSync(app, { recursive: true, force: true })
+  }
+}
+
 describe('the published test kit', () => {
   it('renders an extension in a consumer Vitest run, through the published shims', () => {
-    const app = mkdtempSync(path.join(tmpdir(), 'martis-testing-kit-'))
-    try {
-      const extensions = path.join(app, 'resources/js/martis-extensions')
-      for (const dir of ['.shims', 'tools', '__tests__']) mkdirSync(path.join(extensions, dir), { recursive: true })
-      mkdirSync(path.join(app, 'vendor/martis'), { recursive: true })
-      symlinkSync(root, path.join(app, 'vendor/martis/martis'))
-      symlinkSync(path.join(root, 'node_modules'), path.join(app, 'node_modules'))
-      for (const stub of readdirSync(path.join(root, 'stubs/extensions')).filter((file) => file.endsWith('-shim.mjs.stub'))) {
-        cpSync(path.join(root, 'stubs/extensions', stub), path.join(extensions, '.shims', stub.replace('-shim.mjs.stub', '.mjs')))
-      }
-      writeFileSync(path.join(extensions, 'tools/Findings.tsx'), TOOL)
-      writeFileSync(path.join(extensions, '__tests__/Findings.test.tsx'), TEST)
-      writeFileSync(path.join(app, 'vitest.config.mjs'), CONFIG)
+    const { output, status } = runKit({ ownReact: false })
+    expect(output).toMatch(/Tests\s+2 passed/)
+    expect(status).toBe(0)
+  }, 180_000)
 
-      const run = spawnSync(process.execPath, [path.join(root, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.config.mjs'], {
-        cwd: app,
-        encoding: 'utf8',
-        // A clean environment: the outer Vitest's VITEST_* variables would
-        // make the inner run believe it is one of its workers.
-        env: { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('VITEST'))), CI: 'true', NODE_ENV: 'test' },
-      })
-
-      // Without the colour codes, which split "Tests" from its count.
-      const output = `${run.stdout}\n${run.stderr}`.replace(/\u001b\[[0-9;]*m/g, '')
-      expect(output).toMatch(/Tests\s+2 passed/)
-      expect(run.status).toBe(0)
-    } finally {
-      rmSync(app, { recursive: true, force: true })
-    }
+  it('keeps one React when the app and the symlinked package each install their own', () => {
+    const { output, status } = runKit({ ownReact: true })
+    expect(output).not.toMatch(/Cannot read properties of null/)
+    expect(output).toMatch(/Tests\s+2 passed/)
+    expect(status).toBe(0)
   }, 180_000)
 })
