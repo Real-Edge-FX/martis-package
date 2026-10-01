@@ -5339,31 +5339,6 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   cursor: not-allowed;
 }
 
-/* Password complexity checklist */
-.martis-password-checklist {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-top: 0.25rem;
-  font-size: var(--martis-font-size-xs);
-  color: var(--martis-text-muted);
-}
-.martis-password-checklist-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: color 0.15s;
-}
-.martis-password-checklist-item.is-met {
-  color: var(--martis-success);
-}
-.martis-password-checklist-icon {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
 /* Hover state — subtle accent border for all input-like elements */
 .martis-input:hover:not(:disabled):not([readonly]),
 .martis-resource-search:hover,

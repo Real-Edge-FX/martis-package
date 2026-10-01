@@ -120,7 +120,6 @@ i18n.use(initReactI18next).init({
         confirm_password: 'Confirm New Password',
         password_updated: 'Password updated successfully.',
         password_mismatch: 'Passwords do not match.',
-        password_min: 'Password must be at least 8 characters.',
         update_password: 'Update Password',
         updating_password: 'Updating…',
         avatar_upload: 'Upload Photo',

@@ -1,12 +1,15 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowRightIcon, EyeIcon, EyeSlashIcon } from '@phosphor-icons/react'
+import { ArrowRightIcon } from '@phosphor-icons/react'
 import { useToast } from '@/contexts/ToastContext'
 import { api, ApiError } from '@/lib/api'
 import { useAuthCopy } from '@/lib/authCopy'
 import { AuthFrame } from '@/components/auth/AuthFrame'
 import { FieldError } from '@/components/auth/FieldError'
+import { PasswordFieldInput } from '@/components/fields/PasswordField'
+import { PasswordConfirmationFieldInput } from '@/components/fields/PasswordConfirmationField'
+import { confirmationField, policyPasswordField } from '@/lib/passwordPolicy'
 
 /**
  * Invitation accept — the invitee's set-password screen reached from the
@@ -47,9 +50,11 @@ export function InvitationAcceptPage() {
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+
+  const passwordField = policyPasswordField('password', t('password', { defaultValue: 'Password' }))
+  const confirmField = confirmationField('password_confirmation', 'password', t('invitation_accept_confirm', { defaultValue: 'Confirm password' }))
   const [invalid, setInvalid] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
@@ -152,49 +157,26 @@ export function InvitationAcceptPage() {
           <label htmlFor="password" className="martis-label">
             {t('password', { defaultValue: 'Password' })}
           </label>
-          <div style={{ position: 'relative' }}>
-            <input
-              id="password"
-              name="password"
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="martis-input"
-              disabled={submitting}
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              className="martis-input-toggle"
-              tabIndex={-1}
-              aria-label={showPassword
-                ? t('invitation_accept_hide', { defaultValue: 'Hide password' })
-                : t('invitation_accept_show', { defaultValue: 'Show password' })}
-            >
-              {showPassword ? <EyeSlashIcon size={14} /> : <EyeIcon size={14} />}
-            </button>
-          </div>
-          <FieldError message={errors.password} />
+          <PasswordFieldInput
+            field={passwordField}
+            value={password}
+            onChange={(v) => setPassword(v === null || v === undefined ? '' : String(v))}
+            error={errors.password}
+            formValues={{ password }}
+          />
         </div>
 
         <div style={{ marginBottom: 12 }}>
           <label htmlFor="password_confirmation" className="martis-label">
             {t('invitation_accept_confirm', { defaultValue: 'Confirm password' })}
           </label>
-          <input
-            id="password_confirmation"
-            name="password_confirmation"
-            type={showPassword ? 'text' : 'password'}
-            autoComplete="new-password"
+          <PasswordConfirmationFieldInput
+            field={confirmField}
             value={passwordConfirmation}
-            onChange={(e) => setPasswordConfirmation(e.target.value)}
-            className="martis-input"
-            disabled={submitting}
-            required
+            onChange={(v) => setPasswordConfirmation(v === null || v === undefined ? '' : String(v))}
+            error={errors.password_confirmation}
+            formValues={{ password }}
           />
-          <FieldError message={errors.password_confirmation} />
         </div>
 
         <button

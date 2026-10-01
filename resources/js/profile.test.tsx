@@ -43,6 +43,9 @@ vi.mock('@/lib/config', () => ({
       two_factor: { enabled: true },
       menu: { enabled: true },
     },
+    auth: {
+      passwordRequirements: { minLength: 8, uppercase: true, lowercase: true, number: true, symbol: true },
+    },
   },
   BASE_PATH: '/martis',
   API_BASE_URL: 'http://localhost/martis',

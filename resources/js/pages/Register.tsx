@@ -11,54 +11,7 @@ import { AuthFrame } from '@/components/auth/AuthFrame'
 import { FieldError } from '@/components/auth/FieldError'
 import { PasswordFieldInput } from '@/components/fields/PasswordField'
 import { PasswordConfirmationFieldInput } from '@/components/fields/PasswordConfirmationField'
-import type { FieldDefinition } from '@/types'
-
-/** v1.8.2 — share the FieldDefinition shape with PasswordSection so
- *  Register's password block has the same strength meter, live
- *  checklist, and confirmation-match indicator as the rest of the
- *  product. */
-function buildRegisterPasswordField(): FieldDefinition {
-  return {
-    attribute: 'password',
-    label: '',
-    type: 'password',
-    nullable: false,
-    readonly: false,
-    required: true,
-    sortable: false,
-    searchable: false,
-    showOnIndex: false,
-    showOnDetail: false,
-    showOnForms: true,
-    strengthMeter: true,
-    showRequirements: true,
-    requirements: {
-      minLength: 8,
-      uppercase: true,
-      lowercase: true,
-      number: true,
-      symbol: true,
-      noCommon: true,
-    },
-  } as unknown as FieldDefinition
-}
-
-function buildRegisterConfirmField(): FieldDefinition {
-  return {
-    attribute: 'password_confirmation',
-    label: '',
-    type: 'password_confirmation',
-    nullable: true,
-    readonly: false,
-    required: true,
-    sortable: false,
-    searchable: false,
-    showOnIndex: false,
-    showOnDetail: false,
-    showOnForms: true,
-    confirms: 'password',
-  } as unknown as FieldDefinition
-}
+import { confirmationField, policyPasswordField } from '@/lib/passwordPolicy'
 
 /**
  * Self-service registration page.
@@ -92,8 +45,10 @@ export function RegisterPage() {
 
   // Reuse the same field stack as the Profile password section —
   // strength meter, live requirements checklist, match indicator. v1.8.2.
-  const passwordField = buildRegisterPasswordField()
-  const confirmField = buildRegisterConfirmField()
+  // The field stack of the Profile password section, with the checklist of
+  // the app's password policy (v1.8.2; v2.3.0).
+  const passwordField = policyPasswordField('password', '')
+  const confirmField = confirmationField('password_confirmation', 'password', '')
 
   const registration = config.auth?.registration
   const enabled = registration?.enabled === true
