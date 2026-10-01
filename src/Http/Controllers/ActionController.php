@@ -907,10 +907,10 @@ class ActionController extends MartisController
                     }
                 }
 
-                // The model's $hidden attributes are stored masked, as Nova
-                // stores them (see ActionEventRedactor::maskHiddenAttributes()).
-                $originalDiff = ActionEventRedactor::maskHiddenAttributes($originalDiff, $model);
-                $changesDiff = ActionEventRedactor::maskHiddenAttributes($changesDiff, $model);
+                // Stored as Nova stores them: only the model's $visible attributes,
+                // $hidden ones masked (see ActionEventRedactor::loggableAttributes()).
+                $originalDiff = ActionEventRedactor::loggableAttributes($originalDiff, $model);
+                $changesDiff = ActionEventRedactor::loggableAttributes($changesDiff, $model);
 
                 ActionEvent::create([
                     'batch_id' => $batchId,
