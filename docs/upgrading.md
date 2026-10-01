@@ -31,7 +31,7 @@ printf '%s\n' "$MARTIS_ADMIN_PASSWORD" | php artisan martis:user --no-interactio
 - **`ActionResponse::visit($path)`** navigates inside the SPA, to `$path` below the Martis base path, with its `$params` as the query string. It used to load the page in full and drop the params. Drop the base path from your calls: `visit('/martis/resources/users')` becomes `visit('/resources/users')`.
 - **`modal()`** shows its component and **`emit()`** emits on `martisEventBus`; both used to show the generic success toast. Register the component of a `modal()` answer (see [Actions → Custom modal responses](actions.md#custom-modal-responses)).
 - **`download()`** names the file after `$filename`.
-- **The built-in bus events fire.** `martis:record-created/updated/deleted/restored` and `martis:action-executed` were documented and never emitted. A listener that never ran will now run.
+- **The built-in bus events fire.** `martis:record-created/updated/deleted/restored` and `martis:action-executed` were documented and never emitted. A listener that never ran will now run. Their `id` (and the `ids` of `martis:action-executed`) is always a string, whatever emitted it: compare with `String(record.id)`, not a number.
 
 ### Action events honour `$visible`
 
@@ -68,7 +68,7 @@ Without it the override builds but never renders: `php artisan martis:component 
 
 ### Test your extensions
 
-New: [Testing extensions](testing-extensions.md).
+New: [Testing extensions](testing-extensions.md). The kit needs your app's React on the panel's major. `martis:install` writes `^18 || ^19`, which gives a fresh app React 19, so run `npm install react@^18 react-dom@^18` first: a test run on another major fails before any test, naming that command. A test that creates its own i18next instance also needs `npm install --save-dev i18next@26.0.4`.
 
 ## Upgrading to v2.2.0 from v2.1.x
 
