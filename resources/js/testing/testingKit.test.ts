@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { spawnSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -123,7 +123,29 @@ function reportReactVersion(app: string, version: string): void {
  * passes the package, outside its root, as `packageDir`, instead of having
  * it symlinked at vendor/martis/martis.
  */
-function runKit(options: { ownReact: boolean; reactVersion?: string; packageOutside?: boolean }) {
+/**
+ * The consumer's `vitest run`, without blocking this worker: a synchronous
+ * run of half a minute on a loaded machine kept the worker from answering
+ * Vitest's RPC ("Timeout calling onTaskUpdate").
+ */
+function runVitest(app: string): Promise<{ output: string; status: number | null }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [path.join(root, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.config.mjs'], {
+      cwd: app,
+      // A clean environment: the outer Vitest's VITEST_* variables would
+      // make the inner run believe it is one of its workers.
+      env: { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('VITEST'))), CI: 'true', NODE_ENV: 'test' },
+    })
+    let output = ''
+    child.stdout.on('data', (chunk: Buffer) => { output += chunk.toString('utf8') })
+    child.stderr.on('data', (chunk: Buffer) => { output += chunk.toString('utf8') })
+    child.on('error', reject)
+    // Without the colour codes, which split "Tests" from its count.
+    child.on('close', (status) => resolve({ output: output.replace(/\u001b\[[0-9;]*m/g, ''), status }))
+  })
+}
+
+async function runKit(options: { ownReact: boolean; reactVersion?: string; packageOutside?: boolean }): Promise<{ output: string; status: number | null }> {
   const app = mkdtempSync(path.join(tmpdir(), 'martis-testing-kit-'))
   try {
     const extensions = path.join(app, 'resources/js/martis-extensions')
@@ -158,46 +180,37 @@ function runKit(options: { ownReact: boolean; reactVersion?: string; packageOuts
     writeFileSync(path.join(extensions, '__tests__/Findings.test.tsx'), TEST)
     writeFileSync(path.join(app, 'vitest.config.mjs'), config(options.packageOutside === true ? root : undefined))
 
-    const run = spawnSync(process.execPath, [path.join(root, 'node_modules/vitest/vitest.mjs'), 'run', '--config', 'vitest.config.mjs'], {
-      cwd: app,
-      encoding: 'utf8',
-      // A clean environment: the outer Vitest's VITEST_* variables would
-      // make the inner run believe it is one of its workers.
-      env: { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('VITEST'))), CI: 'true', NODE_ENV: 'test' },
-    })
-
-    // Without the colour codes, which split "Tests" from its count.
-    return { output: `${run.stdout}\n${run.stderr}`.replace(/\u001b\[[0-9;]*m/g, ''), status: run.status }
+    return await runVitest(app)
   } finally {
     rmSync(app, { recursive: true, force: true })
   }
 }
 
 describe('the published test kit', () => {
-  it('renders an extension in a consumer Vitest run, through the published shims', () => {
-    const { output, status } = runKit({ ownReact: false })
+  it('renders an extension in a consumer Vitest run, through the published shims', async () => {
+    const { output, status } = await runKit({ ownReact: false })
     expect(output).toMatch(/Tests\s+3 passed/)
     expect(status).toBe(0)
   }, 180_000)
 
-  it('keeps one React and one icon library when the app and the symlinked package each install their own', () => {
-    const { output, status } = runKit({ ownReact: true })
+  it('keeps one React and one icon library when the app and the symlinked package each install their own', async () => {
+    const { output, status } = await runKit({ ownReact: true })
     expect(output).not.toMatch(/Cannot read properties of null/)
     expect(output).toMatch(/Tests\s+3 passed/)
     expect(status).toBe(0)
   }, 180_000)
 
-  it('runs with a packageDir outside the app root', () => {
-    const { output, status } = runKit({ ownReact: true, packageOutside: true })
+  it('runs with a packageDir outside the app root', async () => {
+    const { output, status } = await runKit({ ownReact: true, packageOutside: true })
     expect(output).not.toMatch(/Cannot find module|Failed to resolve import/)
     expect(output).toMatch(/Tests\s+3 passed/)
     expect(status).toBe(0)
   }, 180_000)
 
-  it('fails a run on another React major than the panel\'s, naming the install command', () => {
+  it('fails a run on another React major than the panel\'s, naming the install command', async () => {
     // A fresh app gets React 19 from martis:install's `^18 || ^19`, while the
     // panel runs the package's React 18 (dist/testing/versions.json).
-    const { output, status } = runKit({ ownReact: true, reactVersion: '19.3.0' })
+    const { output, status } = await runKit({ ownReact: true, reactVersion: '19.3.0' })
     expect(output).toContain('[martis] This test run loads react 19.3.0 and react-dom 19.3.0, but the Martis panel runs React 18.3.1')
     expect(output).toContain('npm install react@^18 react-dom@^18')
     expect(output).not.toMatch(/Tests\s+\d+ passed/)
