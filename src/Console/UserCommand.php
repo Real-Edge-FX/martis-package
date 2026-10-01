@@ -164,8 +164,8 @@ class UserCommand extends Command
         $validator = Validator::make(['password' => $password], ['password' => [PasswordPolicy::rule()]]);
 
         if ($validator->fails()) {
-            foreach ($validator->errors()->get('password') as $message) {
-                $this->components->error((string) $message);
+            foreach ($validator->errors()->all() as $message) {
+                $this->components->error($message);
             }
 
             return null;
