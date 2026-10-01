@@ -254,6 +254,7 @@ it('gives a tool route the middleware of the protected API routes, then the tool
             'martis.locale',
             'martis.verified',
             'martis.authorize',
+            'martis.password.changed',
             'throttle:120,1,martis-api:web:',
         ]);
 });
@@ -272,6 +273,7 @@ it('builds the tool route stack from martis.auth_middleware and martis.throttle.
         'martis.locale',
         'martis.verified',
         'martis.authorize',
+        'martis.password.changed',
         'martis.tool:tool-route-default',
     ]);
 });
@@ -601,4 +603,13 @@ it('leaves out routes outside the tool path', function () {
     bootToolRoutes(new ToolRouteInlineTool('tool-route-inline-elsewhere', prefix: 'reports/tool-route-inline-elsewhere'));
 
     expect($warnings)->toHaveCount(0);
+});
+
+it('warns when a list leaves out the forced password change while it is on', function () {
+    config()->set('martis.auth.password_change.enabled', true);
+    $warnings = toolRouteWarnings('tool-route-no-password-change');
+    bootToolRoutes(new ToolRouteListTool('tool-route-no-password-change', $this->routesFile, ['web', 'martis.auth', 'martis.2fa']));
+
+    expect($warnings)->toHaveCount(1)
+        ->and($warnings[0])->toContain('leaves out the forced password change (martis.password.changed), which is on');
 });

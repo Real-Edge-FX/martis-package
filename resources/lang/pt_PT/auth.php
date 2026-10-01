@@ -50,6 +50,18 @@ return [
     'verify_back_to_login' => 'Voltar ao início de sessão',
     'verify_success' => 'Email verificado. Já pode iniciar sessão.',
 
+    // Página de mudança obrigatória de palavra-passe (v2.3.0)
+    'password_change_title' => 'Escolha uma nova palavra-passe',
+    'password_change_sub' => 'A sua conta precisa de uma nova palavra-passe antes de continuar.',
+    'password_change_current' => 'Palavra-passe atual',
+    'password_change_new' => 'Nova palavra-passe',
+    'password_change_confirm' => 'Confirmar a nova palavra-passe',
+    'password_change_submit' => 'Guardar a nova palavra-passe',
+    'password_change_submitting' => 'A guardar…',
+    'password_change_sign_out' => 'Terminar sessão',
+    'password_change_mismatch' => 'As palavras-passe não coincidem.',
+    'password_change_done' => 'A sua palavra-passe foi alterada.',
+
     // Recuperação de palavra-passe (v1.8.0)
     'forgot_password_title' => 'Repor a sua palavra-passe',
     'forgot_password_sub' => 'Indique o seu email e enviamos-lhe uma ligação para definir uma nova palavra-passe.',

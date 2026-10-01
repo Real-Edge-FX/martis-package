@@ -50,6 +50,18 @@ return [
     'verify_back_to_login' => 'Voltar para o login',
     'verify_success' => 'E-mail verificado. Você já pode fazer login.',
 
+    // Página de troca obrigatória de senha (v2.3.0)
+    'password_change_title' => 'Escolha uma nova senha',
+    'password_change_sub' => 'Sua conta precisa de uma nova senha antes de continuar.',
+    'password_change_current' => 'Senha atual',
+    'password_change_new' => 'Nova senha',
+    'password_change_confirm' => 'Confirmar a nova senha',
+    'password_change_submit' => 'Salvar a nova senha',
+    'password_change_submitting' => 'Salvando…',
+    'password_change_sign_out' => 'Sair',
+    'password_change_mismatch' => 'As senhas não coincidem.',
+    'password_change_done' => 'Sua senha foi alterada.',
+
     // Recuperação de senha (v1.8.0)
     'forgot_password_title' => 'Recuperar sua senha',
     'forgot_password_sub' => 'Informe seu e-mail e enviaremos um link para definir uma nova senha.',

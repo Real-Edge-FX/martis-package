@@ -5,6 +5,7 @@ namespace Martis\Http\Controllers;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Martis\Auth\PasswordChangeRequirement;
 use Martis\Profile\TwoFactorService;
 
 /**
@@ -18,7 +19,7 @@ class TwoFactorController extends MartisController
      * @body-param string code required The 6-digit OTP or a recovery code.
      * @body-param bool use_recovery_code Whether to treat code as a recovery code.
      *
-     * @response 200 array{message: string}
+     * @response 200 array{message: string, password_change_required?: bool}
      * @response 422 array{message: string, errors: array<string, string[]>}
      */
     public function challenge(Request $request, TwoFactorService $twoFactor): JsonResponse
@@ -51,6 +52,13 @@ class TwoFactorController extends MartisController
         // Mark this session as 2FA-passed
         $request->session()->put('martis_two_factor_passed', true);
 
-        return response()->json(['message' => 'Authenticated.']);
+        $payload = ['message' => 'Authenticated.'];
+
+        // A user the forced password change gate holds goes there next (v2.3.0).
+        if (PasswordChangeRequirement::requiredFor($request, $user)) {
+            $payload['password_change_required'] = true;
+        }
+
+        return response()->json($payload);
     }
 }

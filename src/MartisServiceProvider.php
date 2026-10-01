@@ -5,6 +5,7 @@ namespace Martis;
 use Dedoc\Scramble\Scramble;
 use Illuminate\Auth\Access\Events\GateEvaluated;
 use Illuminate\Auth\AuthManager;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -23,6 +24,7 @@ use Martis\Auth\DefaultRegistersUsers;
 use Martis\Auth\DefaultResetsUserPasswords;
 use Martis\Auth\DefaultSendsEmailVerification;
 use Martis\Auth\DefaultSendsPasswordResetLinks;
+use Martis\Auth\Listeners\ClearPasswordChangeRequirement;
 use Martis\Auth\Listeners\RecordAuthorizationDenial;
 use Martis\Auth\Listeners\RecordImpersonation;
 use Martis\Auth\Listeners\RecordRoleChange;
@@ -79,6 +81,7 @@ use Martis\Http\Middleware\AuthorizePanelAccess;
 use Martis\Http\Middleware\AuthorizeTool;
 use Martis\Http\Middleware\EnforceImpersonationDuration;
 use Martis\Http\Middleware\EnsureEmailIsVerified;
+use Martis\Http\Middleware\EnsurePasswordIsChanged;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Http\RouteMiddleware;
@@ -240,6 +243,7 @@ class MartisServiceProvider extends ServiceProvider
         $this->registerInvitationAcceptUrl();
         $this->registerRateLimiters();
         $this->registerRoleAuditListeners();
+        $this->registerPasswordChangeListeners();
 
         // Boot every registered Tool's lifecycle hook AFTER Martis
         // itself has loaded routes / views / config. Tools can hook
@@ -323,6 +327,13 @@ class MartisServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../stubs/add_two_factor_columns.php.stub' => database_path('migrations/'.date('Y_m_d').'_000002_add_two_factor_columns.php'),
             ], 'martis-2fa-migration');
+
+            // Forced password change: the boolean column the gate reads
+            // (martis.auth.password_change.column), on the Martis guard's
+            // users table. v2.3.0.
+            $this->publishes([
+                __DIR__.'/../stubs/add_must_change_password_column.php.stub' => database_path('migrations/'.date('Y_m_d').'_000006_add_must_change_password_column.php'),
+            ], 'martis-password-change-migration');
 
             // Profile: profile picture column migration stub
             // (published dynamically by InstallCommand based on user-chosen column name)
@@ -542,6 +553,8 @@ class MartisServiceProvider extends ServiceProvider
         $router->aliasMiddleware('martis.verified', EnsureEmailIsVerified::class);
         // Who may open the panel at all: the `viewMartis` gate (PanelAccess).
         $router->aliasMiddleware('martis.authorize', AuthorizePanelAccess::class);
+        // The forced password change gate (v2.3.0), last in RouteMiddleware::verified().
+        $router->aliasMiddleware('martis.password.changed', EnsurePasswordIsChanged::class);
         $router->aliasMiddleware(
             'martis.impersonation.duration',
             EnforceImpersonationDuration::class,
@@ -900,5 +913,11 @@ class MartisServiceProvider extends ServiceProvider
                 ]);
             }
         }
+    }
+
+    /** A password reset by email clears the forced password change flag (v2.3.0). */
+    protected function registerPasswordChangeListeners(): void
+    {
+        Event::listen(PasswordReset::class, [ClearPasswordChangeRequirement::class, 'handle']);
     }
 }

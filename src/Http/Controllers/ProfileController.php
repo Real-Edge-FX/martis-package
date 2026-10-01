@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Hash;
+use Martis\Auth\PasswordChanger;
 use Martis\Auth\PasswordPolicy;
 use Martis\Contracts\ProfileResourceContract;
 use Martis\Profile\AvatarService;
@@ -58,7 +58,7 @@ class ProfileController extends MartisController
      *
      * @response array{message: string}
      */
-    public function changePassword(Request $request): JsonResponse
+    public function changePassword(Request $request, PasswordChanger $changer): JsonResponse
     {
         $user = $this->resolveUser($request);
 
@@ -68,9 +68,9 @@ class ProfileController extends MartisController
         ]);
 
         assert($user instanceof Model);
-        // The app's hasher (HASH_DRIVER): bcrypt() always made a bcrypt hash,
-        // which an Argon app's next password check refused with a 500.
-        $user->forceFill([$user->getAuthPasswordName() => Hash::make((string) $request->input('password'))])->save();
+        // The app's hasher, the user's reset tokens deleted, the forced
+        // password change flag cleared, PasswordChanged fired (v2.3.0).
+        $changer->change($user, (string) $request->input('password'), forced: false);
 
         return response()->json(['message' => __('martis::profile.password_updated')]);
     }

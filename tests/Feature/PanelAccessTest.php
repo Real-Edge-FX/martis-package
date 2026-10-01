@@ -163,3 +163,15 @@ it('tells the SPA on sign-in whether the user may open the panel', function () {
         ->assertOk()
         ->assertJsonPath('panel_access', false);
 });
+
+it('runs the forced password change last, and keeps its own page and endpoint out of it', function () {
+    Route::getRoutes()->refreshNameLookups();
+    $middleware = fn (string $name): array => Route::getRoutes()->getByName($name)?->gatherMiddleware() ?? [];
+
+    expect($middleware('martis.spa'))->toContain('martis.password.changed')
+        ->and($middleware('martis.api.command-palette'))->toContain('martis.password.changed');
+
+    foreach (['martis.password.change', 'martis.api.auth.password.change'] as $name) {
+        expect($middleware($name))->toContain('martis.authorize')->not->toContain('martis.password.changed');
+    }
+});

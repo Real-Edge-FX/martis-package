@@ -41,14 +41,27 @@ final class RouteMiddleware
      * A signed-in user who passed the 2FA challenge and, when
      * `martis.auth.email_verification.enabled`, verified their email, with
      * the locale of their preferences applied, and whom the `viewMartis`
-     * gate lets open the panel when the app defines it. The 2FA challenge
-     * route itself runs without it.
+     * gate lets open the panel when the app defines it: the stack of the
+     * forced password change page and endpoint, which a held user must
+     * reach (v2.3.0).
+     *
+     * @return list<string>
+     */
+    public static function passwordChange(): array
+    {
+        return ['martis.2fa', 'martis.locale', 'martis.verified', 'martis.authorize'];
+    }
+
+    /**
+     * passwordChange(), then the forced password change gate
+     * (`martis.auth.password_change.enabled`). The 2FA challenge route
+     * itself runs without it.
      *
      * @return list<string>
      */
     public static function verified(): array
     {
-        return ['martis.2fa', 'martis.locale', 'martis.verified', 'martis.authorize'];
+        return [...self::passwordChange(), 'martis.password.changed'];
     }
 
     /**

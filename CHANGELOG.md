@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`Password::make()->defaultRules()`** validates a resource's password field with the app's `Password::defaults()` and shows its requirements in the field's checklist, as Nova's generated User resource validates with `Password::default()`. Pair it with `->nullable()` on update forms.
 - **`martis:user --password-stdin`** reads the password from the first line of standard input, as `docker login --password-stdin` does, so a script never puts it in the process list: `printf '%s\n' "$MARTIS_ADMIN_PASSWORD" | php artisan martis:user --no-interaction --email=... --password-stdin`. It cannot be combined with `--password`; an empty line exits 1.
+- **A forced password change gate (opt-in).** With `MARTIS_AUTH_PASSWORD_CHANGE_ENABLED=true`, a user the app flags is held on `/{martis-path}/password/change` until they choose a new password.
+  - **Flagging a user:** the `Martis\Contracts\MustChangePassword` contract, or the boolean column `must_change_password`, published with `php artisan vendor:publish --tag=martis-password-change-migration`.
+  - **The gate:** the `martis.password.changed` middleware runs after the 2FA challenge, email verification and the panel gate. JSON routes answer `409 {"password_change_required": true}`, pages redirect. The login, the 2FA challenge and `/api/auth/user` tell the SPA, so the dashboard never paints.
+  - **The change:** `POST /{martis-path}/api/auth/password/change` checks the current password and the app's password policy, deletes the user's reset tokens and fires `Martis\Events\PasswordChanged`.
+  - **What clears the flag:** this change, a change from Profile and a password reset by email.
+  - **Who is never held:** impersonation and SSO sessions.
+  - Nova 5 and Fortify have no equivalent. See [authentication.md](docs/authentication.md#forced-password-change).
 
 ### Changed
 
@@ -25,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A password changed from Profile no longer breaks the next sign-in on an Argon app.** Profile, SSO-created users and magic-link registrations hashed with `bcrypt()`, which ignores `HASH_DRIVER`; with `argon2id` and Laravel's default `hashing.verify=true` the next password check failed with a 500. They now use `Hash::make()`.
 
 - **The password checklists show the server's rules, and Profile shows a refused password on the field.** Profile, registration, reset password and invitation accept draw their checklist from the app's password policy (`window.MartisConfig.auth.passwordRequirements`) instead of a hard-coded list. Profile no longer refuses to submit a password without a symbol the server never asked for. A `422` on the new password now shows under the field: Profile read the keys `new_password` and `confirm_password`, the server answers `password` and `password_confirmation`. Reset password and invitation accept gain the strength meter and the match indicator. The unused `PasswordChecklist` component and its translations are gone.
+- **A password, magic-link or invitation sign-in forgets the SSO marker of an earlier SSO sign-in in the same session**, as the SPA login already did, so the federated logout and the new password gate no longer read a stale one.
 
 ## [2.2.0] — 2026-09-28
 

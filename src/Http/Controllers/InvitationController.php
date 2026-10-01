@@ -98,6 +98,12 @@ class InvitationController extends MartisController
             $auth = auth()->guard($guardName);
             $auth->login($user);
             $request->session()->regenerate();
+
+            // A password, magic-link or invitation sign-in is not an SSO one: drop
+            // a marker an earlier SSO sign-in left in this session (as
+            // AuthController::login() does), so the forced password change gate
+            // and the federated logout do not read it.
+            $request->session()->forget('martis_sso_provider');
         }
 
         $redirectTo = $loginAfterAccept

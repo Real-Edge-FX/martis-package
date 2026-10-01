@@ -50,6 +50,18 @@ return [
     'verify_back_to_login' => 'Back to sign in',
     'verify_success' => 'Email verified. You can sign in now.',
 
+    // Forced password change page (v2.3.0)
+    'password_change_title' => 'Choose a new password',
+    'password_change_sub' => 'Your account needs a new password before you continue.',
+    'password_change_current' => 'Current password',
+    'password_change_new' => 'New password',
+    'password_change_confirm' => 'Confirm new password',
+    'password_change_submit' => 'Save new password',
+    'password_change_submitting' => 'Saving…',
+    'password_change_sign_out' => 'Sign out',
+    'password_change_mismatch' => 'Passwords do not match.',
+    'password_change_done' => 'Your password was changed.',
+
     // Forgot password (v1.8.0)
     'forgot_password_title' => 'Reset your password',
     'forgot_password_sub' => "Enter your email and we'll send you a link to set a new password.",

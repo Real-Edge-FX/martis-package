@@ -170,6 +170,12 @@
                     // the SPA's password checklist draws; null when the app's
                     // default is a rule the SPA cannot read.
                     'passwordRequirements' => \Martis\Auth\PasswordPolicy::requirements(),
+                    // v2.3.0: the forced password change gate, where the
+                    // SPA sends a held user (the Martis page by default).
+                    'passwordChange' => [
+                        'enabled' => \Martis\Auth\PasswordChangeRequirement::enabled(),
+                        'url' => \Martis\Auth\PasswordChangeRequirement::pageUrl(),
+                    ],
                 ],
                 [
                     // v1.8.5 — `auth.copy.*` accepts strings OR
