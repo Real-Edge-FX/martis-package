@@ -38,6 +38,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The password checklists show the server's rules, and Profile shows a refused password on the field.** Profile, registration, reset password and invitation accept draw their checklist from the app's password policy (`window.MartisConfig.auth.passwordRequirements`) instead of a hard-coded list. Profile no longer refuses to submit a password without a symbol the server never asked for. A `422` on the new password now shows under the field: Profile read the keys `new_password` and `confirm_password`, the server answers `password` and `password_confirmation`. Reset password and invitation accept gain the strength meter and the match indicator. The unused `PasswordChecklist` component and its translations are gone.
 - **A password, magic-link or invitation sign-in forgets the SSO marker of an earlier SSO sign-in in the same session**, as the SPA login already did, so the federated logout and the new password gate no longer read a stale one.
 - **An upload answered with the email-verification `409` now sends the user to the verify notice**, as every other request did.
+- **Action answers do what the docs say, as in Nova.**
+  - `ActionResponse::modal($component, $data)` shows the component registered under `$component`, with `{ data, onClose }`, and refreshes the page when it closes; it used to show the generic success toast. The component's props type is `ActionResponseModalProps` on `@martis/runtime`.
+  - `ActionResponse::emit($event, $data)` emits on `martisEventBus`.
+  - `visit($path, $params)` navigates inside the SPA, below the Martis base path, with `$params` as the query string. It was a full page load that dropped the params.
+  - `download($filename, $url)` uses the file name.
+  - Pivot actions handle every answer, not only `message` and `danger`.
+  - `martis:action-executed` fires after each run.
+  - See [Upgrading to v2.3.0](docs/upgrading.md#upgrading-to-v230-from-v22x) for `visit()` paths that included the base path.
 
 ## [2.2.0] — 2026-09-28
 

@@ -13,6 +13,10 @@ import { LightningIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { useModalHistoryLock } from '@/lib/historyLock'
 import { ActionDryRunPreview } from './ActionDryRunPreview'
+import { useNavigate } from 'react-router'
+import { martisEventBus } from '@/lib/eventBus'
+import { handleActionResponse } from './actionResponse'
+import { useActionResponseModal } from './ActionResponseModalHost'
 
 export interface ActionMeta {
   uriKey: string
@@ -96,6 +100,8 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   const actionUrl = action ? `/api/resources/${resource}${lens ? `/lenses/${lens}` : ''}/actions/${action.uriKey}` : ''
   const { addToast } = useToast()
   const { t } = useTranslation('actions')
+  const navigate = useNavigate()
+  const showModal = useActionResponseModal()
   const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({})
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   // The last dry-run answer (`undefined` until Preview is used). A field
@@ -173,58 +179,20 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
         return
       }
 
-      const responseData = res?.data
-      if (responseData) {
-        const data = responseData.data
+      // After every run, as Nova fires `action-executed` (v2.3.0).
+      martisEventBus.emit('martis:action-executed', { resourceKey: resource, action: action?.uriKey ?? '', ids: [...selectedIds] })
 
-        switch (responseData.type) {
-          case 'message':
-            addToast('success', (data?.message as string) ?? t('action_success'))
-            break
-          case 'danger':
-            addToast('error', (data?.message as string) ?? t('action_failed'))
-            break
-          case 'redirect':
-            if (data?.url) window.location.href = data.url as string
-            return
-          case 'visit':
-            if (data?.path) window.location.href = data.path as string
-            return
-          case 'openInNewTab':
-            if (data?.url) window.open(data.url as string, '_blank')
-            break
-          case 'openCreate':
-            if (data?.resource) {
-              onHide()
-              onOpenCreate?.(data.resource as string)
-              return
-            }
-            break
-          case 'openDetail':
-            if (data?.resource && data?.recordId != null) {
-              onHide()
-              onOpenDetail?.(data.resource as string, data.recordId as string | number)
-              return
-            }
-            break
-          case 'openUpdate':
-            if (data?.resource && data?.recordId != null) {
-              onHide()
-              onOpenUpdate?.(data.resource as string, data.recordId as string | number)
-              return
-            }
-            break
-          case 'download':
-            if (data?.url) window.location.href = data.url as string
-            break
-          default:
-            addToast('success', t('action_success'))
-        }
-      } else {
-        addToast('success', t('action_success'))
-      }
-      onHide()
-      onSuccess()
+      handleActionResponse(res?.data, {
+        t,
+        addToast,
+        navigate,
+        hide: onHide,
+        refresh: onSuccess,
+        showModal,
+        onOpenCreate,
+        onOpenDetail,
+        onOpenUpdate,
+      })
     },
     onError: (err: Error) => {
       if (err instanceof ApiError && err.errors && err.errors.length > 0) {

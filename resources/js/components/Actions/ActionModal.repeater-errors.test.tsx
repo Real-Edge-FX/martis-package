@@ -102,7 +102,7 @@ describe('PivotActionModal Repeater errors', () => {
         <ToastProvider>
           <MemoryRouter>
             <PivotActionModal
-              actionsUrl="/api/resources/projects/7/belongs-to-many/members/actions"
+              actionsUrl="/api/resources/projects/7/belongs-to-many/members/actions" resourceKey="roles"
               action={{ ...action, isPivotAction: true }}
               selectedIds={[1]}
               onSuccess={() => {}}

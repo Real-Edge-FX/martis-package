@@ -1,4 +1,5 @@
 import { Outlet, Navigate, useLocation } from "react-router"
+import { ActionResponseModalProvider } from "@/components/Actions/ActionResponseModalHost"
 import { MartisTooltip } from "@/components/MartisTooltip"
 import { MAIN_CONTENT_ID, SkipLink } from "@/components/SkipLink"
 import { PanelForbiddenPage } from "@/pages/PanelForbidden"
@@ -181,12 +182,13 @@ export function Layout() {
 
   // The global tooltip is mounted once, above the shell switch, so every
   // shell (a preset, a `layout:shell` override or the one the config key
-  // names) turns its `data-pr-tooltip` attributes into tooltips.
+  // names) turns its `data-pr-tooltip` attributes into tooltips. The action
+  // response modal host wraps every shell too (v2.3.0).
   return (
-    <>
+    <ActionResponseModalProvider>
       <MartisTooltip />
       {renderShell()}
-    </>
+    </ActionResponseModalProvider>
   )
 
   function renderShell() {

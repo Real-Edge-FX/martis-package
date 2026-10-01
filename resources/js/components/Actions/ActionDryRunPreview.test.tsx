@@ -96,7 +96,7 @@ describe('PivotActionModal dry run', () => {
   it('offers Preview for a dry-run action and shows the preview without running it', async () => {
     const onSuccess = vi.fn()
     renderWithProviders(
-      <PivotActionModal actionsUrl={actionsUrl} action={{ ...action, isPivotAction: true }} selectedIds={[3, 5]} onSuccess={onSuccess} onClose={() => {}} />,
+      <PivotActionModal actionsUrl={actionsUrl} resourceKey="roles" action={{ ...action, isPivotAction: true }} selectedIds={[3, 5]} onSuccess={onSuccess} onClose={() => {}} />,
     )
 
     fireEvent.click(await screen.findByRole('button', { name: /preview/i }))
@@ -113,7 +113,7 @@ describe('PivotActionModal dry run', () => {
   it('has no Preview button when the action does not support a dry run', async () => {
     renderWithProviders(
       <PivotActionModal
-        actionsUrl={actionsUrl}
+        actionsUrl={actionsUrl} resourceKey="roles"
         action={{ ...action, supportsDryRun: false, withConfirmation: true }}
         selectedIds={[3]}
         onSuccess={() => {}}
