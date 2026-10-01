@@ -55,11 +55,16 @@ interface MartisTestProviderProps {
      * Keys merged into `window.MartisConfig` while the provider is mounted
      * (`{ profile: { ... }, auth: { ... } }`), restored when it unmounts.
      * Values the runtime read once on load (`basePath`) keep their defaults.
+     * Read once, when the provider mounts.
      */
     config?: Record<string, unknown>;
     /** The i18next language, `en` by default. */
     locale?: string;
-    /** Translations for `locale`, by namespace: `{ reports: { title: 'Reports' } }`. A key without one renders as the key. */
+    /**
+     * Translations for `locale`, by namespace: `{ reports: { title: 'Reports' } }`,
+     * removed when the provider unmounts. A key without one renders as the key.
+     * Read once, when the provider mounts.
+     */
     translations?: Record<string, Record<string, unknown>>;
     /** The React Query client; a new one with retries off by default. */
     queryClient?: QueryClient;
@@ -79,7 +84,7 @@ interface MartisTestProviderProps {
  * Nothing reaches a server unless the component calls the API, which a test
  * stubs (`fetch`) or spies (`runtime.api`). See docs/testing-extensions.md.
  */
-declare function MartisTestProvider({ children, user, preferences, config, locale, translations, queryClient, path, initialPath, }: MartisTestProviderProps): react_jsx_runtime.JSX.Element;
+declare function MartisTestProvider({ children, user, preferences, config, locale, translations, queryClient, path, initialPath, }: MartisTestProviderProps): react_jsx_runtime.JSX.Element | null;
 
 export { MartisTestProvider, defaultTestUser };
 export type { MartisTestProviderProps };
