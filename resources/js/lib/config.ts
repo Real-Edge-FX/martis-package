@@ -385,6 +385,12 @@ export interface MartisAuthConfig {
   /** The app's password policy, for the password checklist of the auth and
    *  profile pages; null when the app's default rule cannot be read. v2.3.0. */
   passwordRequirements?: PasswordRequirements | null
+  /** The forced password change gate: whether it is on, and where a held
+   *  user goes (the built-in `/password/change` page by default). v2.3.0. */
+  passwordChange?: {
+    enabled?: boolean
+    url?: string
+  }
 }
 
 export interface MartisMagicLinkConfig {

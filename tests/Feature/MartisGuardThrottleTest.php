@@ -12,6 +12,7 @@ use Martis\Http\Middleware\ApplyUserPreferencesLocale;
 use Martis\Http\Middleware\AuthorizePanelAccess;
 use Martis\Http\Middleware\EnforceImpersonationDuration;
 use Martis\Http\Middleware\EnsureEmailIsVerified;
+use Martis\Http\Middleware\EnsurePasswordIsChanged;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Http\RouteMiddleware;
@@ -109,6 +110,7 @@ it('runs MartisAuthenticate before the throttle and keeps the order of the Marti
         ApplyUserPreferencesLocale::class,
         EnsureEmailIsVerified::class,
         AuthorizePanelAccess::class,
+        EnsurePasswordIsChanged::class,
     ]);
 
     // The public auth routes do not authenticate: their throttles keep

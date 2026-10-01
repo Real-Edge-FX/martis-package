@@ -25,6 +25,7 @@ use Martis\Http\Controllers\MorphOneController;
 use Martis\Http\Controllers\MorphToManyController;
 use Martis\Http\Controllers\NavigationController;
 use Martis\Http\Controllers\NotificationController;
+use Martis\Http\Controllers\PasswordChangeController;
 use Martis\Http\Controllers\PreferencesController;
 use Martis\Http\Controllers\ProfileController;
 use Martis\Http\Controllers\ResourceController;
@@ -212,6 +213,26 @@ Route::middleware(RouteMiddleware::base())
                         Route::post('/2fa/challenge', [TwoFactorController::class, 'challenge'])
                             ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1).','.RouteMiddleware::throttlePrefix('2fa'))
                             ->name('2fa.challenge');
+                    });
+
+                // ── Forced password change (v2.3.0): the protected stack without the gate ──
+                // A user the gate holds must reach the change page and its
+                // endpoint: RouteMiddleware::passwordChange() is verified()
+                // without `martis.password.changed`. Registered before the SPA
+                // catch-all, which would answer the page inside the gate.
+                Route::middleware(RouteMiddleware::passwordChange())
+                    ->group(function () use ($throttle) {
+                        Route::get('/password/change', [PasswordChangeController::class, 'show'])
+                            ->name('password.change');
+
+                        Route::prefix('api')
+                            ->name('api.')
+                            ->middleware($throttle)
+                            ->group(function () {
+                                Route::post('/auth/password/change', [PasswordChangeController::class, 'update'])
+                                    ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1).','.RouteMiddleware::throttlePrefix('password-change'))
+                                    ->name('auth.password.change');
+                            });
                     });
 
                 // ── All other protected routes — require completed 2FA ──

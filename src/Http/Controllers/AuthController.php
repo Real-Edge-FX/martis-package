@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
 use Martis\Auth\PanelAccess;
 use Martis\Auth\PasswordBrokerConfigurationException;
+use Martis\Auth\PasswordChangeRequirement;
 use Martis\Contracts\ProfileResourceContract;
 use Martis\Contracts\RegistersUsers;
 use Martis\Contracts\ResetsUserPasswords;
@@ -77,6 +78,15 @@ class AuthController extends MartisController
             return response()->json([
                 'email_verification_pending' => true,
                 'message' => 'Email verification required.',
+            ]);
+        }
+
+        // A user the forced password change gate holds (v2.3.0): the SPA
+        // bootstraps on the change page instead of the shell.
+        if (PasswordChangeRequirement::requiredFor($request, $user)) {
+            return response()->json([
+                'password_change_pending' => true,
+                'message' => 'Password change required.',
             ]);
         }
 
@@ -155,6 +165,15 @@ class AuthController extends MartisController
             return response()->json([
                 'email_verification_required' => true,
                 'message' => 'Email verification required.',
+            ]);
+        }
+
+        // The forced password change gate (v2.3.0): the SPA goes straight to
+        // the change page, so the dashboard never paints behind the gate.
+        if ($user && PasswordChangeRequirement::requiredFor($request, $user)) {
+            return response()->json([
+                'password_change_required' => true,
+                'message' => 'Password change required.',
             ]);
         }
 
