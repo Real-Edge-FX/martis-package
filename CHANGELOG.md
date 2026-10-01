@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] — 2026-10-01
+
 Minor release from seven consumer reports: one password policy, an opt-in forced password change, action responses that do what the docs say, action events that honour `$visible`, `martis:user --password-stdin` and a test kit for extensions. Read [Upgrading to v2.3.0 from v2.2.x](docs/upgrading.md#upgrading-to-v230-from-v22x): Profile's default password rule, `martis:user` and `ActionResponse::visit()` paths change.
 
 ### Added
@@ -24,6 +26,7 @@ Minor release from seven consumer reports: one password policy, an opt-in forced
   - A `409 {"password_change_required": true}` from any request, uploads included, sends the browser to the change page. A page reached from the login, the 2FA challenge or a reload goes there too.
   - `PasswordChangeRequiredError` joins `@martis/runtime`.
   - The page at `/{martis-path}/password/change` can be replaced under `auth:password-change` (`php artisan martis:component --type=password-change-page`). `password` is now a reserved first segment for registered routes.
+- +54 Pest, +74 Vitest.
 
 ### Changed
 
