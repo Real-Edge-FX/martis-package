@@ -332,6 +332,12 @@ export type { UseToolFieldsResult } from '@/hooks/useToolFields'
 export type { EventBusEvents } from '@/lib/eventBus'
 
 /**
+ * The props of a component an action shows with `ActionResponse::modal()`
+ * (v2.3.0): register it with `componentRegistry.register(key, Component)`.
+ */
+export type { ActionResponseModalProps } from '@/components/Actions/ActionResponseModalHost'
+
+/**
  * Types for the v1.38.0 members: the props of a layout registered on
  * `runtime.layoutRegistry`, of an override component (what
  * `runtime.useOverrideProps()` returns), and of a loader registered

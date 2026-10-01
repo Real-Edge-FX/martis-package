@@ -7258,6 +7258,14 @@ var ReactRouterDom = /*#__PURE__*/_mergeNamespaces({
   RouterProvider: RouterProvider
 }, [reactRouter]);
 
+/** The props of a component an action shows with `ActionResponse::modal($component, $data)`. */
+interface ActionResponseModalProps {
+    /** The `$data` the action passed. */
+    data: Record<string, unknown>;
+    /** Close the modal; the page the action ran from then refreshes. */
+    onClose: () => void;
+}
+
 /**
  * The `@martis/runtime` bag. Exposed on `window.Martis.runtime`
  * by `app.tsx`. Consumer-extension shims re-export from here.
@@ -7342,4 +7350,4 @@ declare const martisRuntime: {
 type MartisRuntime = typeof martisRuntime;
 
 export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, resolveColor, routeRegistry, useAuth, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard };
-export type { DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, RouteRegistration, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };
+export type { ActionResponseModalProps, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, RouteRegistration, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };

@@ -39,7 +39,7 @@ class ActionResponse implements \JsonSerializable
     }
 
     /**
-     * Internal route redirect.
+     * SPA navigation to a path below the Martis base path, with $params as its query string (as Nova's visit()).
      *
      * @param  array<string, mixed>  $params
      */
@@ -54,14 +54,14 @@ class ActionResponse implements \JsonSerializable
         return new self(ActionResponseType::OpenInNewTab, ['url' => $url]);
     }
 
-    /** Initiates file download. */
+    /** Downloads $url as $filename through a link. */
     public static function download(string $filename, string $url): self
     {
         return new self(ActionResponseType::Download, ['filename' => $filename, 'url' => $url]);
     }
 
     /**
-     * Triggers client-side event.
+     * Emits $eventName with $data on the SPA's Martis event bus (`martisEventBus`), as Nova's emit() uses `Nova.$emit`.
      *
      * @param  array<string, mixed>  $data
      */
@@ -71,7 +71,7 @@ class ActionResponse implements \JsonSerializable
     }
 
     /**
-     * Displays a custom modal component.
+     * Shows the component registered under $componentName (componentRegistry), with $data as its `data` prop.
      *
      * @param  array<string, mixed>  $data
      */

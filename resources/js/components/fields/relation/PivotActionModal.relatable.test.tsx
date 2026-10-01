@@ -69,7 +69,7 @@ describe('PivotActionModal pickers', () => {
                   path="/resources/:resource/:id"
                   element={
                     <PivotActionModal
-                      actionsUrl={actionsUrl}
+                      actionsUrl={actionsUrl} resourceKey="roles"
                       action={action}
                       selectedIds={[1]}
                       onSuccess={() => {}}
