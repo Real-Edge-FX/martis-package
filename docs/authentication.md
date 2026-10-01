@@ -663,6 +663,8 @@ Hold a user on a password change page until they choose a new password, for exam
 
 2. Turn the gate on: `MARTIS_AUTH_PASSWORD_CHANGE_ENABLED=true`.
 
+   If you published `config/martis.php` before v2.3.0, it has no `password_change` entry under `auth`, so the variable is never read and the gate stays off: copy the `password_change` block from the package's `config/martis.php` into yours (or republish the config and merge your changes).
+
 3. Flag a user: `$user->forceFill(['must_change_password' => true])->save()`. An action can do it while it sets a temporary password, and show that password once with a [custom modal response](actions.md#custom-modal-responses).
 
 Without the column, and without the contract below, the gate holds nobody: a missing column never locks your users out.
