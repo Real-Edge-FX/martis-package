@@ -115,9 +115,9 @@ class ExecuteAction implements ShouldQueue
                     }
                 }
 
-                // Masked like the synchronous run's event (ActionController).
-                $originalDiff = ActionEventRedactor::maskHiddenAttributes($originalDiff, $model);
-                $changesDiff = ActionEventRedactor::maskHiddenAttributes($changesDiff, $model);
+                // Stored like the synchronous run's event (ActionController).
+                $originalDiff = ActionEventRedactor::loggableAttributes($originalDiff, $model);
+                $changesDiff = ActionEventRedactor::loggableAttributes($changesDiff, $model);
 
                 ActionEvent::where('name', $actionName)
                     ->where('actionable_type', get_class($model))

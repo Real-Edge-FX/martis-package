@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The `Password` field checks what Laravel's `Password` rule checks.** `requireUppercase()`, `requireLowercase()`, `requireNumber()` and `requireSymbol()` use Unicode classes (`\p{Lu}`, `\p{Ll}`, `\pN`, `\p{Z}|\p{S}|\p{P}`) in the server rule and the checklist: an accented capital counts as uppercase, and an accented letter no longer counts as a symbol. Lengths count characters. The checklist gains maximum length, "one letter" and the server-only "not in a known data leak" rows.
 - **`martis:user` validates the password with the app's password policy**, as `nova:user` does: without `Password::defaults()`, a password shorter than 8 characters exits 1 and creates or changes nothing.
+- **Action events honour `$visible`.** When a model (or a pivot model) declares `$visible`, an action's event stores only those attributes in `original` and `changes`; the others are left out, as Nova stores them (`Orchestra\Sidekick\Eloquent\model_state()`). `$hidden` attributes are still stored as `******`. Events written earlier are unchanged.
 
 ### Fixed
 
