@@ -956,7 +956,7 @@ import { Tooltip } from '@martis/runtime' // shim → window.Martis.runtime.Tool
 
 <button ref={ref}>Re-index</button>
 <Tooltip target={ref} position="top"
-  content={<div className="martis-…"><b>Re-index</b><br/>Rebuilds the index.</div>} />
+  content={<div><b>Re-index</b><br/>Rebuilds the index.</div>} />
 ```
 
 ### Long text and viewport edges

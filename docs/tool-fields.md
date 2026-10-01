@@ -189,11 +189,12 @@ export function CreateProjectTool() {
   if (!open) return <button onClick={() => setOpen(true)}>New project</button>
 
   return (
-    <DrawerShell title="Create project" onClose={() => setOpen(false)}>
+    <DrawerShell
+      title="Create project"
+      onClose={() => setOpen(false)}
+      footer={<button type="button" className="martis-btn-primary" onClick={save}>Create</button>}
+    >
       <FieldsForm form={form} />
-      <div className="martis-form-actions">
-        <button onClick={save}>Create</button>
-      </div>
     </DrawerShell>
   )
 }
@@ -220,7 +221,7 @@ export function CreateProjectTool() {
       <FieldInput {...form.fieldProps(titleField)} />
 
       {/* Your own UI in between — the fields still share form state. */}
-      <p className="martis-help">Pick a URL-safe slug:</p>
+      <p className="martis-text-muted">Pick a URL-safe slug:</p>
 
       <FieldInput {...form.fieldProps(slugField)} />
     </div>

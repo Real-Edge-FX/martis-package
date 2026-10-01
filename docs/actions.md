@@ -890,7 +890,7 @@ class PostResource extends Resource
 | `ActionResponse::message('Done')` | Green success toast, then the page refreshes |
 | `ActionResponse::danger('Failed')` | Red error toast, then the page refreshes |
 | `ActionResponse::redirect($url)` | Full-page browser redirect |
-| `ActionResponse::visit($path, $params)` | SPA navigation (no reload) to `$path` below the Martis base path, with `$params` as the query string (`visit('/resources/users', ['view' => 'open'])`) |
+| `ActionResponse::visit($path, $params)` | SPA navigation (no reload) to `$path` below the Martis base path, with `$params` added to its query string (`visit('/resources/users', ['view' => 'open'])`); a query or `#fragment` the path already has is kept (`visit('/resources/users?view=open#top', ['page' => 2])` goes to `/resources/users?view=open&page=2#top`) |
 | `ActionResponse::openInNewTab($url)` | Opens the URL in a new tab |
 | `ActionResponse::download($filename, $url)` | Downloads the file as `$filename` |
 | `ActionResponse::emit($event, $data)` | Emits `$event` with `$data` on `martisEventBus`, then the success toast (see [Client-side events](#client-side-events)) |
@@ -901,7 +901,7 @@ Every successful run fires `martis:action-executed` on `martisEventBus`, and das
 
 ### Custom modal responses
 
-`ActionResponse::modal($component, $data)` shows a React component you register in your extension bundle, with `$data` as its `data` prop, as Nova renders a modal response (v2.3.0). The component draws its own dialog and calls `onClose`; the page the action ran from refreshes when it closes. Use it to show a value once, such as a generated password or a new API token:
+`ActionResponse::modal($component, $data)` shows a React component you register in your extension bundle, with `$data` as its `data` prop, as Nova renders a modal response (v2.3.0). The component draws its own dialog and calls `onClose`; the page the action ran from refreshes when it closes. Use it to show a value once, such as a generated password or a new API token. Draw the dialog in the modal shell the built-in modals use (`martis-modal-scrim`, `martis-modal-surface`, see [components.md](components.md)): the host renders the component after the page, and the scrim is what lays it over the screen:
 
 ```php
 public function handle(ActionFields $fields, Collection $models): ActionResponse
@@ -919,10 +919,19 @@ import { componentRegistry, type ActionResponseModalProps } from '@martis/runtim
 
 function ApiTokenIssued({ data, onClose }: ActionResponseModalProps) {
   return (
-    <div role="dialog" aria-modal="true" className="martis-modal">
-      <p>Copy the token now: it is shown once.</p>
-      <code>{String(data.token)}</code>
-      <button type="button" className="martis-btn-primary" onClick={onClose}>Done</button>
+    <div className="martis-modal-scrim">
+      <div role="dialog" aria-modal="true" aria-labelledby="api-token-issued-title" className="martis-modal-surface">
+        <div className="martis-modal-head">
+          <h3 id="api-token-issued-title" className="martis-modal-head-title">New API token</h3>
+        </div>
+        <div className="martis-modal-body">
+          <p>Copy the token now: it is shown once.</p>
+          <code>{String(data.token)}</code>
+        </div>
+        <div className="martis-modal-foot">
+          <button type="button" className="martis-btn-primary" onClick={onClose}>Done</button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -930,7 +939,7 @@ function ApiTokenIssued({ data, onClose }: ActionResponseModalProps) {
 componentRegistry.register('api-token-issued', ApiTokenIssued)
 ```
 
-A key with no registered component logs a console warning and refreshes the page.
+`data` is always an object: an action that passes no `$data` gives `{}`. A key with no registered component logs a console warning and refreshes the page. A component that throws while it renders logs `[martis] action response component "<key>" threw` with the error, closes, and the page refreshes; the rest of the panel stays. A second modal answer closes the one still open (its page refreshes) before it shows.
 
 ### Client-side events
 
@@ -1312,7 +1321,7 @@ The stored row keeps every other value: code that reads `ActionEvent` directly g
 
 #### `$hidden` attributes are stored masked (v2.0.1+)
 
-When an action changes an attribute its model hides (`$hidden`: a password hash, a token), the event stores `******` for it in `original` and `changes`, keeping the key; a pivot action does the same with the pivot model's `$hidden` columns. This applies to synchronous and queued actions and to pivot actions, and to rows written from v2.0.1 on (older rows keep their values, still masked on read). Nova does the same: its action events store their diffs through `Orchestra\Sidekick\Eloquent\model_state()`, which replaces each `$hidden` attribute with a value serialised as `******`. A custom writer masks its own diffs with `ActionEventRedactor::maskHiddenAttributes($values, $model)`.
+When an action changes an attribute its model hides (`$hidden`: a password hash, a token), the event stores `******` for it in `original` and `changes`, keeping the key; a pivot action does the same with the pivot model's `$hidden` columns. The mask reads the instance's `getHidden()`, as Nova's Sidekick reads `$model->getHidden()`, so a runtime `makeVisible()` of a `$hidden` attribute on a model the action changes stores that value in clear: read the secret without it (`$model->api_token` needs no `makeVisible()`), or call `makeVisible()` on a copy (`clone $model`). This applies to synchronous and queued actions and to pivot actions, and to rows written from v2.0.1 on (older rows keep their values, still masked on read). Nova does the same: its action events store their diffs through `Orchestra\Sidekick\Eloquent\model_state()`, which replaces each `$hidden` attribute with a value serialised as `******`. A custom writer masks its own diffs with `ActionEventRedactor::maskHiddenAttributes($values, $model)`.
 
 #### `$visible` attributes only (v2.3.0+)
 
