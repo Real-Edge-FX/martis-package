@@ -4,7 +4,26 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 import { InputText } from 'primereact/inputtext'
 import { EyeIcon, EyeSlashIcon, CheckCircleIcon, XCircleIcon, InfoIcon } from '@phosphor-icons/react'
 import { ClearButton } from '@/components/ClearButton'
+import { FieldError } from '@/components/auth/FieldError'
 import type { PasswordRequirements } from '@/lib/config'
+
+/**
+ * What a set-password page (register, reset password, invitation accept, the
+ * forced password change) adds to the resource-form input. A resource form
+ * passes none of them.
+ */
+export interface PasswordPageInputProps {
+  /** Focus the input on mount. */
+  autoFocus?: boolean
+  /** Disable the input, for example while the form submits. */
+  disabled?: boolean
+  /**
+   * Render `error` as the auth pages render a field error (`FieldError`,
+   * `role="alert"`), always: a screen reader hears it even when a checklist
+   * row or the match indicator shows the same concern.
+   */
+  announceError?: boolean
+}
 
 // -----------------------------------------------------------------------------
 // ⭐ Declarative complexity requirements — emitted from PHP Password field.
@@ -113,7 +132,7 @@ function strengthLabel(score: number, t: (k: string) => string): string {
   return t('password_strength_strong')
 }
 
-export function PasswordFieldInput({ field, value, onChange, error }: FieldInputProps) {
+export function PasswordFieldInput({ field, value, onChange, error, autoFocus, disabled, announceError }: FieldInputProps & PasswordPageInputProps) {
   const { t } = useTranslation('messages')
   const [show, setShow] = useState(false)
   const stringValue = value === null || value === undefined ? '' : String(value)
@@ -166,7 +185,8 @@ export function PasswordFieldInput({ field, value, onChange, error }: FieldInput
           required={field.required}
           onChange={(e) => onChange(e.target.value)}
           invalid={!!error}
-          disabled={field.readonly}
+          disabled={field.readonly || disabled === true}
+          autoFocus={autoFocus}
           className="w-full"
           style={{ paddingRight: showClear ? '4rem' : '2rem' }}
           placeholder={field.placeholder ?? (field.required ? '' : t('password_leave_blank_hint'))}
@@ -238,8 +258,11 @@ export function PasswordFieldInput({ field, value, onChange, error }: FieldInput
 
       {/* Show the `error` prop only when the checklist isn't already
           surfacing a failing requirement — otherwise we'd render the same
-          concern twice (once as a checklist row, once as a red error line). */}
-      {error && !(showRequirements && requirementChecks.some((c) => c.passes === false)) && (
+          concern twice (once as a checklist row, once as a red error line).
+          A set-password page announces it whatever the checklist shows. */}
+      {announceError === true ? (
+        <FieldError message={error} />
+      ) : error && !(showRequirements && requirementChecks.some((c) => c.passes === false)) && (
         <small className="text-red-500">{error}</small>
       )}
     </div>

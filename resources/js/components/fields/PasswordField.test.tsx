@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
 import { PasswordFieldInput } from './PasswordField'
+import { PasswordConfirmationFieldInput } from './PasswordConfirmationField'
 import type { FieldDefinition } from '@/types'
 import type { PasswordRequirements } from '@/lib/config'
 
@@ -53,5 +54,37 @@ describe('PasswordFieldInput requirements', () => {
     expect(container.querySelector('[data-requirement="minLength"]')!.getAttribute('data-passes')).toBe('false')
     rerender(<PasswordFieldInput field={field({ minLength: 3 })} value="abc" onChange={() => {}} />)
     expect(container.querySelector('[data-requirement="minLength"]')!.getAttribute('data-passes')).toBe('true')
+  })
+})
+
+// The set-password pages pass `announceError`, `autoFocus` and `disabled`
+// (v2.3.0); a resource form passes none, and keeps what it had.
+describe('the password inputs in a resource form', () => {
+  it('shows the error as a plain line, behind a failing checklist row', () => {
+    const shown = render(<PasswordFieldInput field={field({ minLength: 2 })} value="ok" onChange={() => {}} error="Taken." />)
+    expect(shown.container.querySelector('small')!.textContent).toBe('Taken.')
+    expect(shown.queryByRole('alert')).toBeNull()
+    shown.unmount()
+
+    const hidden = render(<PasswordFieldInput field={field({ minLength: 12 })} value="short" onChange={() => {}} error="Too short." />)
+    expect(hidden.container.textContent).not.toContain('Too short.')
+    hidden.unmount()
+  })
+
+  it('hides the confirmation error behind the mismatch indicator', () => {
+    const confirm = { attribute: 'password_confirmation', type: 'password_confirmation', confirms: 'password', nullable: true, readonly: false, required: true } as unknown as FieldDefinition
+    const { container, queryByRole } = render(<PasswordConfirmationFieldInput field={confirm} value="a" formValues={{ password: 'b' }} onChange={() => {}} error="Does not match." />)
+
+    expect(container.textContent).not.toContain('Does not match.')
+    expect(queryByRole('alert')).toBeNull()
+  })
+
+  it('disables a readonly field, and only it', () => {
+    const editable = render(<PasswordFieldInput field={field({})} value="" onChange={() => {}} />)
+    expect((editable.container.querySelector('input') as HTMLInputElement).disabled).toBe(false)
+    editable.unmount()
+
+    const readonly = render(<PasswordFieldInput field={{ ...field({}), readonly: true } as FieldDefinition} value="" onChange={() => {}} />)
+    expect((readonly.container.querySelector('input') as HTMLInputElement).disabled).toBe(true)
   })
 })

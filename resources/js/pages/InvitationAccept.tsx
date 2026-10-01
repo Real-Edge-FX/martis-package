@@ -163,6 +163,8 @@ export function InvitationAcceptPage() {
             onChange={(v) => setPassword(v === null || v === undefined ? '' : String(v))}
             error={errors.password}
             formValues={{ password }}
+            disabled={submitting}
+            announceError
           />
         </div>
 
@@ -176,6 +178,8 @@ export function InvitationAcceptPage() {
             onChange={(v) => setPasswordConfirmation(v === null || v === undefined ? '' : String(v))}
             error={errors.password_confirmation}
             formValues={{ password }}
+            disabled={submitting}
+            announceError
           />
         </div>
 

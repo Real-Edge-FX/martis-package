@@ -192,6 +192,7 @@ export function RegisterPage() {
             onChange={(v) => setPassword(v === null || v === undefined ? '' : String(v))}
             error={errors.password}
             formValues={{ password }}
+            announceError
           />
         </div>
 
@@ -208,6 +209,7 @@ export function RegisterPage() {
             onChange={(v) => setPasswordConfirmation(v === null || v === undefined ? '' : String(v))}
             error={errors.password_confirmation}
             formValues={{ password }}
+            announceError
           />
         </div>
 
