@@ -36,6 +36,7 @@ dataset('auth_pages', [
     ['forgot-password-page', 'ForgotPasswordPage', 'auth:forgot-password'],
     ['reset-password-page', 'ResetPasswordPage', 'auth:reset-password'],
     ['email-verify-notice-page', 'EmailVerifyNoticePage', 'auth:email-verify-notice'],
+    ['password-change-page', 'PasswordChangePage', 'auth:password-change'],
 ]);
 
 it('scaffolds the auth-page override TSX in the overrides bucket', function (string $type, string $expectedFilename, string $expectedKey) {
@@ -93,6 +94,7 @@ it('the auth-page key constants stay in sync with the type list', function () {
         'forgot-password-page',
         'reset-password-page',
         'email-verify-notice-page',
+        'password-change-page',
     ]);
 
     // The fixed-filename convention is structural — each entry must

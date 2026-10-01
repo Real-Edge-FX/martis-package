@@ -1,5 +1,6 @@
 import { API_BASE_URL, BASE_PATH } from "@/lib/config"
 import i18n from "@/lib/i18n"
+import { isOnPage, passwordChangeUrl } from "@/lib/passwordChange"
 
 export interface ValidationError {
   field: string
@@ -127,6 +128,23 @@ function isEmailUnverifiedResponse(status: number, payload: unknown): boolean {
   const msg = (payload as { message?: string } | null)?.message
   return typeof msg === 'string' && /email.*not.*verified/i.test(msg)
 }
+
+/**
+ * Send the browser to the forced password change page when the server
+ * signals `409 {"password_change_required": true}` (`EnsurePasswordIsChanged`,
+ * v2.3.0), matched by its key, not by the message. Skipped on the page
+ * itself, so a 409 there cannot loop.
+ */
+function redirectOnPasswordChangeRequired(): void {
+  const target = passwordChangeUrl()
+  if (isOnPage(target)) return
+  window.location.href = target
+}
+
+/** Match the envelope produced by `EnsurePasswordIsChanged`. */
+function isPasswordChangeRequiredResponse(status: number, payload: unknown): boolean {
+  return status === 409 && (payload as { password_change_required?: unknown } | null)?.password_change_required === true
+}
 async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const csrfToken = getCsrfToken()
 
@@ -175,6 +193,9 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
     }
     if (isEmailUnverifiedResponse(res.status, json)) {
       redirectOnEmailUnverified()
+    }
+    if (isPasswordChangeRequiredResponse(res.status, json)) {
+      redirectOnPasswordChangeRequired()
     }
     const err = (json ?? {}) as { message?: string; errors?: unknown }
     // 403: surface a distinct "not authorized" message so the UI can show a
@@ -324,6 +345,12 @@ async function uploadRequest<T>(method: string, path: string, values: Record<str
   if (!res.ok) {
     if (res.status === 401 && !PUBLIC_PROBES.includes(path)) {
       redirectOnSessionExpiry()
+    }
+    if (isEmailUnverifiedResponse(res.status, json)) {
+      redirectOnEmailUnverified()
+    }
+    if (isPasswordChangeRequiredResponse(res.status, json)) {
+      redirectOnPasswordChangeRequired()
     }
     const err = (json ?? {}) as { message?: string; errors?: unknown }
     // For status codes that typically come back as a non-JSON page from

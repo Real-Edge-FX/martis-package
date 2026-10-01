@@ -48,6 +48,7 @@ export const useIsMobile = R.useIsMobile
 // Auth context exceptions
 export const TwoFactorRequiredError = R.TwoFactorRequiredError
 export const EmailVerificationRequiredError = R.EmailVerificationRequiredError
+export const PasswordChangeRequiredError = R.PasswordChangeRequiredError
 
 // Provider
 export const AuthProvider = R.AuthProvider

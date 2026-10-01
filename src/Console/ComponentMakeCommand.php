@@ -31,7 +31,7 @@ class ComponentMakeCommand extends Command
 
     protected $signature = 'martis:component
         {name? : The component class name (e.g. StatusBadge). Optional when --type=complete-layout, ignored when --type maps to a fixed-name shell/auth piece.}
-        {--type=generic : Component type: field | shell | sidebar | topbar | footer | complete-layout | login-page | register-page | forgot-password-page | reset-password-page | email-verify-notice-page | generic}
+        {--type=generic : Component type: field | shell | sidebar | topbar | footer | complete-layout | login-page | register-page | forgot-password-page | reset-password-page | email-verify-notice-page | password-change-page | generic}
         {--force : Overwrite the file if it already exists}';
 
     protected $aliases = ['martis:override'];
@@ -67,6 +67,7 @@ class ComponentMakeCommand extends Command
         'forgot-password-page' => ['filename' => 'ForgotPasswordPage', 'key' => 'auth:forgot-password', 'stub' => 'component-forgot-password-page.tsx.stub'],
         'reset-password-page' => ['filename' => 'ResetPasswordPage', 'key' => 'auth:reset-password', 'stub' => 'component-reset-password-page.tsx.stub'],
         'email-verify-notice-page' => ['filename' => 'EmailVerifyNoticePage', 'key' => 'auth:email-verify-notice', 'stub' => 'component-email-verify-notice-page.tsx.stub'],
+        'password-change-page' => ['filename' => 'PasswordChangePage', 'key' => 'auth:password-change', 'stub' => 'component-password-change-page.tsx.stub'],
     ];
 
     public function handle(): int
@@ -79,7 +80,7 @@ class ComponentMakeCommand extends Command
         $allowedTypes = [
             'field', 'shell', 'sidebar', 'topbar', 'footer', 'complete-layout', 'generic',
             'login-page', 'register-page', 'forgot-password-page', 'reset-password-page',
-            'email-verify-notice-page',
+            'email-verify-notice-page', 'password-change-page',
         ];
         if (! in_array($type, $allowedTypes, true)) {
             $this->error("Invalid type '{$type}'. Allowed: ".implode(', ', $allowedTypes));
