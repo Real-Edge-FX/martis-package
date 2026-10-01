@@ -119,6 +119,7 @@ jobs:
           test -f resources/js/martis-extensions/.shims/react-router-dom.d.mts
           test -f resources/js/martis-extensions/.shims/react-i18next.d.mts
           test -f resources/js/martis-extensions/.shims/tanstack-react-query.d.mts
+          test -f resources/js/martis-extensions/.shims/i18next.d.mts
           test -d resources/js/martis-extensions/tools
           test -d resources/js/martis-extensions/fields
           test -d resources/js/martis-extensions/cards

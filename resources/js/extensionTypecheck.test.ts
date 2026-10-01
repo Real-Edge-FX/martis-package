@@ -91,7 +91,7 @@ function docsBlocks(): Record<string, string> {
     for (const [page, source] of Object.entries(docs)) {
         for (const match of source.matchAll(/```(?:tsx?|typescript)\n([\s\S]*?)```/g)) {
             const block = match[1]
-            if (!(block.includes('@martis/runtime') || SHIMMED_IMPORT.test(block) || /\bwindow\.Martis\b/.test(block)) || block.includes('Package-internal')) continue
+            if (!(block.includes('@martis/runtime') || SHIMMED_IMPORT.test(block) || block.includes('@martis/testing') || /\bwindow\.Martis\b/.test(block)) || block.includes('Package-internal')) continue
             const name = `docs-examples/${page.replace(/\.md$/, '')}_${source.slice(0, match.index).split('\n').length}`
             if (ENTRY_BLOCK.test(block)) blocks[`${name}.index.ts`] = `${extensionStubs['index.ts.stub']}\n${block}`
             else blocks[`${name}.tsx`] = asModule(block)
@@ -130,6 +130,8 @@ put(`${EXT}/index.ts`, extensionStubs['index.ts.stub'])
 for (const [stub, source] of Object.entries(extensionStubs)) {
     if (stub.endsWith('-shim.d.mts.stub')) put(`${EXT}/.shims/${stub.replace('-shim.d.mts.stub', '.d.mts')}`, source)
 }
+const testingDeclarations = raw(import.meta.glob('../../dist/testing/testing.d.mts', { query: '?raw', import: 'default', eager: true }) as Record<string, string>)
+put('vendor/martis/martis/dist/testing/testing.d.mts', testingDeclarations['testing.d.mts'] ?? '')
 for (const [file, source] of Object.entries(generatorOutputs())) put(file, source)
 put(ENTRY_WITH_RUNTIME, entryWithRuntime)
 for (const [file, source] of Object.entries(docsBlocks())) put(file, source)
@@ -244,6 +246,31 @@ put(REACT_DOM_PROBE, [
     '',
 ].join('\n'))
 
+/**
+ * A test that hands its own i18next instance to the shim's I18nextProvider
+ * (v2.3.0): the tsconfig sends `i18next` to the declarations the shims share,
+ * so the instance is the type the provider takes, without a cast. And the
+ * test kit's provider takes a QueryClient made from the shimmed module.
+ */
+const I18NEXT_PROBE = `${EXT}/__tests__/I18nextProbe.tsx`
+put(I18NEXT_PROBE, [
+    "import i18next from 'i18next'",
+    "import { I18nextProvider } from 'react-i18next'",
+    "import { QueryClient } from '@tanstack/react-query'",
+    "import { MartisTestProvider, defaultTestUser } from '@martis/testing'",
+    '',
+    'const i18n = i18next.createInstance()',
+    '',
+    'export default function I18nextProbe() {',
+    '  return (',
+    '    <MartisTestProvider user={defaultTestUser} queryClient={new QueryClient()} locale="pt_PT">',
+    '      <I18nextProvider i18n={i18n}><span /></I18nextProvider>',
+    '    </MartisTestProvider>',
+    '  )',
+    '}',
+    '',
+].join('\n'))
+
 describe('a consumer extension type-checks against the published declarations', () => {
     it('fills every placeholder of the generator stubs', () => {
         // The placeholders the generators substitute (`'{{ class }}' => ...` in
@@ -264,6 +291,10 @@ describe('a consumer extension type-checks against the published declarations', 
 
     it('types react-dom as the shim the build sends it to, strict', () => {
         expect(typecheck('tsconfig.extensions.json', [REACT_DOM_PROBE])).toEqual([])
+    }, 120_000)
+
+    it('takes a real i18next instance and the test kit provider, with no cast, strict', () => {
+        expect(typecheck('tsconfig.extensions.json', [I18NEXT_PROBE])).toEqual([])
     }, 120_000)
 
     it('types each shimmed library\'s own types from the declarations, and no class the shim does not export, strict', () => {
