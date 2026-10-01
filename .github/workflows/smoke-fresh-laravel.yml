@@ -16,27 +16,23 @@ on:
       # Only re-run on changes that could affect the consumer-facing
       # surface. Skips re-running for pure docs / refactor PRs that
       # don't touch the install / generator / shim path.
+      #
+      # The test kit (dist/testing, which the consumer Vitest step runs)
+      # bundles the whole runtime, so every source under resources/js, its
+      # styles, the locked library versions and the committed dist/ count.
       - "src/Console/**"
       - "stubs/**"
-      - "resources/js/app.tsx"
-      - "resources/js/lib/martisRuntime.ts"
-      - "resources/js/lib/componentRegistry.ts"
-      - "resources/js/lib/keyboardShortcuts.ts"
-      - "resources/js/lib/i18n.ts"
-      - "resources/js/lib/config.ts"
-      - "resources/js/lib/api.ts"
-      - "resources/js/contexts/**"
-      - "resources/js/components/**"
-      - "resources/js/hooks/**"
+      - "resources/js/**"
+      - "resources/css/**"
+      - "resources/sass/**"
+      - "dist/**"
       - "config/martis.php"
       - "composer.json"
       - "package.json"
+      - "package-lock.json"
       - "vite.config.ts"
-      - "resources/js/extension-types/**"
-      - "resources/js/types/index.ts"
-      - "scripts/build-extension-types.mjs"
-      - "resources/js/testing/**"
       - "vite.testing.config.ts"
+      - "scripts/build-extension-types.mjs"
       - "scripts/build-testing-kit.mjs"
       - ".github/workflows/smoke-fresh-laravel.yml"
 
@@ -202,6 +198,10 @@ jobs:
       - name: Consumer Vitest with the Martis test kit
         run: |
           cd test-app
+          # docs/testing-extensions.md, Setup step 1: martis:install's
+          # `^18 || ^19` gives a fresh app React 19, and the test runtime
+          # refuses a run on another major than the panel's (18).
+          npm install --no-progress --no-audit --no-fund --no-package-lock react@^18 react-dom@^18
           npm install --no-progress --no-audit --no-fund --no-package-lock --no-save vitest@^3 jsdom@^25 @testing-library/react@^16
           cat > vitest.config.mjs <<'EOF'
           import { defineConfig, mergeConfig } from 'vitest/config'

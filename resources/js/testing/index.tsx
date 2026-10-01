@@ -1,4 +1,6 @@
-// installGlobals runs first: the rest of the runtime reads window.MartisConfig when it loads.
+// checkReactMajor runs first: a test run on another React major than the panel's fails before anything loads.
+import './checkReactMajor'
+// installGlobals runs next: the rest of the runtime reads window.MartisConfig when it loads.
 import './installGlobals'
 import '../../css/martis.css'
 import '../../sass/primereact/theme.scss'

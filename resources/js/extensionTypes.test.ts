@@ -179,6 +179,22 @@ describe('the extension shim declarations', () => {
         expect(declaration.modules).not.toContain(specifier)
     })
 
+    it('name in their header the module they declare: a shim that exists, or none for a types-only entry', () => {
+        const header = (shim: string): string => /^\/\*\*[\s\S]*?\*\//.exec(stub(`${shim}-shim.d.mts.stub`))?.[0] ?? ''
+        for (const { shim } of SHIMS) {
+            expect(stub(`${shim}-shim.mjs.stub`), `${shim}-shim.mjs.stub`).not.toBe('')
+            expect(header(shim)).toContain(`\`.shims/${shim}.mjs\``)
+        }
+        for (const { shim, specifier } of TYPES_ONLY) {
+            // No `.shims/<shim>.mjs` exists and no build resolves the specifier to one.
+            expect(stub(`${shim}-shim.mjs.stub`)).toBe('')
+            expect(header(shim)).not.toContain(`.shims/${shim}.mjs`)
+            expect(header(shim)).toContain('Types only')
+            expect(header(shim)).toContain(`import type`)
+            expect(header(shim)).toContain(`'${specifier}'`)
+        }
+    })
+
     it('declare i18next\'s own types and values, importing nothing, for the shims and the consumer to share', async () => {
         const declaration = declarationExports(stub('i18next-shim.d.mts.stub'))
         const i18next = await import('i18next')
