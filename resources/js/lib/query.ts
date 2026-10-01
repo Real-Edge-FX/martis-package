@@ -1,5 +1,6 @@
 import { QueryClient, MutationCache } from '@tanstack/react-query'
 import { ApiError } from '@/lib/api'
+import { martisEventBus } from '@/lib/eventBus'
 
 /**
  * Refresh the navigation count badges after any successful write.
@@ -27,3 +28,8 @@ export const queryClient = new QueryClient({
   },
 })
 
+// Dashboard metrics refetch after an action ran, wherever it ran, as Nova's
+// metric cards refetch on `action-executed` (v2.3.0).
+martisEventBus.on('martis:action-executed', () => {
+  void queryClient.invalidateQueries({ queryKey: ['metric'] })
+})

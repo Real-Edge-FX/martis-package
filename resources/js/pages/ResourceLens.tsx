@@ -29,6 +29,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { recordHref } from '@/lib/recordHref'
 import { filterIndexActions, filterInlineActions } from '@/lib/actionVisibility'
+import { emitRecordEvent } from '@/lib/recordEvents'
 
 /**
  * Page: `/resources/{resource}/lens/{lens}`.
@@ -237,7 +238,8 @@ function LensPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}`),
-    onSuccess: (res) => {
+    onSuccess: (res, id) => {
+        emitRecordEvent('deleted', resource, id)
       void qc.invalidateQueries({ queryKey: ['lens', resource, lensKey] })
       void qc.refetchQueries({ queryKey: ['lens', resource, lensKey], type: 'active' })
       addToast('success', res?.meta?.message ?? tMsg('record_deleted'))

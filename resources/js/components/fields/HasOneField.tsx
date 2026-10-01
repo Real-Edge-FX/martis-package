@@ -14,6 +14,7 @@ import { DeleteModal } from '@/components/DeleteModal'
 import { useTranslation } from 'react-i18next'
 import { PlusIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react'
 import { useFormatLocale } from '@/lib/formatLocale'
+import { emitRecordEvent } from '@/lib/recordEvents'
 
 /** ⭐ Martis differential helper — human labels for OfMany aggregate tile.
  *  Falls through `t(...)` against the resources locale so each label
@@ -131,7 +132,8 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
       api.delete(
         `/api/resources/${parentResource}/${parentId}/has-one/${relationship}?relatedId=${encodeURIComponent(String(shownId))}`
       ),
-    onSuccess: () => {
+    onSuccess: (_res, shownId) => {
+        emitRecordEvent('deleted', relatedResource, shownId)
       focusAfterDelete.current = true
       void qc.invalidateQueries({ queryKey: ['has-one', parentResource, parentId, relationship] })
       setDeleteTarget(null)
