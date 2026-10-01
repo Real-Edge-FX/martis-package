@@ -55,6 +55,7 @@ vi.mock('./DrawerShell', () => ({
 
 import { DrawerCreate } from './DrawerCreate'
 import { api } from '@/lib/api'
+import { martisEventBus } from '@/lib/eventBus'
 import { registerDefaultFields } from '@/components/fields/FieldRenderer'
 import { componentRegistry } from '@/lib/componentRegistry'
 
@@ -151,4 +152,15 @@ describe('DrawerCreate — a host keeps it open for the next record', () => {
     await waitFor(() => expect(props.onClose).toHaveBeenCalled())
     expect(screen.queryByTestId('unsaved-changes-dialog')).toBeNull()
   })
+})
+
+it('emits martis:record-created with the new record id', async () => {
+  const listener = vi.fn()
+  martisEventBus.on('martis:record-created', listener)
+  const props = renderStaying([field('title', 'Title', 'text')])
+
+  await create(props)
+  martisEventBus.off('martis:record-created', listener)
+
+  expect(listener).toHaveBeenCalledWith({ resourceKey: 'posts', id: 9 })
 })

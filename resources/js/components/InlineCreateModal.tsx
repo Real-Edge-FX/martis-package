@@ -11,6 +11,7 @@ import { ResourceIcon } from "@/components/ResourceIcon"
 import { useModalHistoryLock } from "@/lib/historyLock"
 import { NestedParentProvider } from "@/components/fields/NestedParentContext"
 import { fieldErrorProps, isFieldErrorKey } from "@/lib/fieldErrors"
+import { emitRecordEvent } from "@/lib/recordEvents"
 
 /** Modal size — maps to a max-width in pixels so the panel scales
  *  beyond the 480px default of `.martis-modal-surface`. */
@@ -103,6 +104,7 @@ export function InlineCreateModal({
       addToast("success", res?.meta?.message ?? tMsg("record_created"))
       setValues({})
       setErrors({})
+      emitRecordEvent('created', relatedResource, res.data.id)
       onCreated({ id: res.data.id, title: res.data.title })
     },
     onError: (err) => {

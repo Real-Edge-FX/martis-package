@@ -26,6 +26,7 @@ import { useResourceLoaderConfig } from "@/contexts/LoaderConfigContext"
 import { recordHref } from "@/lib/recordHref"
 import { STANDALONE_RELATIONSHIP_TYPES } from "@/lib/relationshipFieldTypes"
 import { hiddenAttributes, withoutHiddenFields } from "@/lib/hiddenFields"
+import { emitRecordEvent } from "@/lib/recordEvents"
 
 export function ResourceDetailPage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -74,6 +75,7 @@ export function ResourceDetailPage() {
   const deleteMutation = useMutation({
     mutationFn: () => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}`),
     onSuccess: (res) => {
+        emitRecordEvent('deleted', resource, id)
       void qc.invalidateQueries({ queryKey: ["resources"] })
       addToast("success", res?.meta?.message ?? tMsg("record_deleted"))
       navigate(`/resources/${resource}`)
@@ -84,6 +86,7 @@ export function ResourceDetailPage() {
   const restoreMutation = useMutation({
     mutationFn: () => api.put<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/restore`),
     onSuccess: (res) => {
+        emitRecordEvent('restored', resource, id)
       void qc.invalidateQueries({ queryKey: ["resource", resource, id] })
       void qc.invalidateQueries({ queryKey: ["resources"] })
       addToast("success", res?.meta?.message ?? tMsg("record_restored"))
@@ -103,6 +106,7 @@ export function ResourceDetailPage() {
   const forceDeleteMutation = useMutation({
     mutationFn: () => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/force`),
     onSuccess: (res) => {
+        emitRecordEvent('deleted', resource, id)
       void qc.invalidateQueries({ queryKey: ["resources"] })
       addToast("success", res?.meta?.message ?? tMsg("record_deleted"))
       navigate(`/resources/${resource}`)

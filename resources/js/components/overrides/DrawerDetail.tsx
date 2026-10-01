@@ -14,6 +14,7 @@ import { DrawerShell } from './DrawerShell'
 import { STANDALONE_RELATIONSHIP_TYPES } from '@/lib/relationshipFieldTypes'
 import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 import { hiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
+import { emitRecordEvent } from '@/lib/recordEvents'
 
 /**
  * Built-in drawer override for the DETAIL context.
@@ -45,6 +46,7 @@ export function DrawerDetail(props: OverrideProps) {
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', res?.meta?.message ?? tMsg('record_deleted'))
+      emitRecordEvent('deleted', resource, recordId)
       onDeleted()
     },
     onError: () => addToast('error', tMsg('error_delete')),

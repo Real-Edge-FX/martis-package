@@ -19,6 +19,7 @@ import { recordHref } from '@/lib/recordHref'
 import { safeInternalPath } from '@/lib/safeInternalPath'
 import { updatePayload } from '@/lib/updatePayload'
 import { useHiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
+import { emitRecordEvent } from '@/lib/recordEvents'
 
 export function ResourceUpdatePage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
@@ -153,6 +154,7 @@ function RecordUpdatePage() {
       return api.put<{ data: ResourceRecord; meta?: { message?: string; redirectTo?: string } }>(`/api/resources/${resource}/${id}`, data)
     },
     onSuccess: (res) => {
+      emitRecordEvent('updated', resource, id)
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       void qc.invalidateQueries({ queryKey: ['resource', resource, id] })
       addToast('success', res.meta?.message ?? tMsg('record_updated'))

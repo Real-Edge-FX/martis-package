@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Pivot actions handle every answer, not only `message` and `danger`.
   - `martis:action-executed` fires after each run.
   - See [Upgrading to v2.3.0](docs/upgrading.md#upgrading-to-v230-from-v22x) for `visit()` paths that included the base path.
+- **The built-in bus events fire.** `martis:record-created`, `martis:record-updated`, `martis:record-deleted` and `martis:record-restored` were documented, typed and never emitted. The resource pages, the built-in drawers, the relationship panels and the inline create modal now emit them after each write; an override that writes through its own API call emits them itself. Dashboard metrics refetch after an action runs, as Nova's do.
 
 ## [2.2.0] — 2026-09-28
 
