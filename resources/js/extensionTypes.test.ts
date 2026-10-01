@@ -143,11 +143,13 @@ function libraryTypeExports(specifiers: string[]): Record<string, string[]> {
     }))
 }
 
+const TYPES_ONLY = [{ shim: 'i18next', specifier: 'i18next' }]
+
 describe('the extension shim declarations', () => {
     // One program reads the four libraries: seconds on a loaded machine.
     let libraryTypes: Record<string, string[]> = {}
     beforeAll(() => {
-        libraryTypes = libraryTypeExports(SHIMS.filter(({ shim }) => shim !== 'runtime').map(({ specifier, library }) => library ?? specifier))
+        libraryTypes = libraryTypeExports([...SHIMS.filter(({ shim }) => shim !== 'runtime').map(({ specifier, library }) => library ?? specifier), 'i18next'])
     }, 120_000)
 
     it('ship for exactly the shims that have a type entry', () => {
@@ -155,7 +157,7 @@ describe('the extension shim declarations', () => {
             .map((path) => /\/([\w-]+)-shim\.d\.mts\.stub$/.exec(path)?.[1])
             .filter((shim): shim is string => shim !== undefined)
             .sort()
-        expect(declared).toEqual(SHIMS.map(({ shim }) => shim).sort())
+        expect(declared).toEqual([...SHIMS, ...TYPES_ONLY].map(({ shim }) => shim).sort())
     })
 
     it.each(SHIMS)('declare exactly what the $shim shim exports, and import only what a consumer installs', ({ shim, specifier, library }) => {
@@ -170,11 +172,24 @@ describe('the extension shim declarations', () => {
         // consumer; the runtime reaches the third-party types through the
         // sibling shims' declarations.
         for (const module of declaration.modules) {
-            expect(module).toMatch(/^(?:react(?:-dom)?(?:\/[\w-]+)?|@phosphor-icons\/react|\.\/(?:react-dom|react-router-dom|react-i18next|tanstack-react-query)\.mjs)$/)
+            expect(module).toMatch(/^(?:react(?:-dom)?(?:\/[\w-]+)?|@phosphor-icons\/react|\.\/(?:react-dom|react-router-dom|react-i18next|tanstack-react-query|i18next)\.mjs)$/)
         }
         // The consumer's tsconfig sends the shim's specifier to these very
         // declarations, so they cannot take anything from it.
         expect(declaration.modules).not.toContain(specifier)
+    })
+
+    it('declare i18next\'s own types and values, importing nothing, for the shims and the consumer to share', async () => {
+        const declaration = declarationExports(stub('i18next-shim.d.mts.stub'))
+        const i18next = await import('i18next')
+
+        // i18next's types brand strings with two `declare const` symbols that
+        // only the declarations export (`$PluralBrand`, `$SelectorKeyBrand`).
+        const brands = declaration.values.filter((name) => name.startsWith('$'))
+        expect(brands).toEqual(['$PluralBrand', '$SelectorKeyBrand'])
+        expect(declaration.values.filter((name) => !name.startsWith('$'))).toEqual(Object.keys(i18next).sort())
+        expect(declaration.types).toEqual(libraryTypes.i18next ?? [])
+        expect(declaration.modules).toEqual([])
     })
 })
 
@@ -234,7 +249,12 @@ describe('the published tsconfig.extensions.json', () => {
             expected[specifier] = [`./resources/js/martis-extensions/.shims/${shim}.d.mts`]
         }
 
-        expect(Object.keys(expected)).toHaveLength(11)
+        // Types-only entries no Vite alias names (v2.3.0): the shared i18next
+        // declarations, and the test kit's in the installed package.
+        expected.i18next = ['./resources/js/martis-extensions/.shims/i18next.d.mts']
+        expected['@martis/testing'] = ['./vendor/martis/martis/dist/testing/testing.d.mts']
+
+        expect(Object.keys(expected)).toHaveLength(13)
         expect(tsconfig.compilerOptions.paths).toEqual(expected)
     })
 
