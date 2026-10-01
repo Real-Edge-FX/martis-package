@@ -14,8 +14,11 @@ import path from 'node:path'
  * It sends the extension specifiers to the shims `martis:install` published,
  * as `vite.extensions.config.ts` does, except React, its JSX runtime and
  * ReactDOM: those stay the app's own, so the extension, the test runtime and
- * Testing Library share one React. `@martis/testing` is the test runtime,
- * which also runs as the setup file. See docs/testing-extensions.md.
+ * Testing Library share one React. `resolve.dedupe` pins `react` and
+ * `react-dom` to the app's copy whatever the symlinks, so a Martis package that
+ * has its own node_modules cannot bring a second one; the icon library is
+ * inlined for the same reason. `@martis/testing` is the test runtime, which
+ * also runs as the setup file. See docs/testing-extensions.md.
  *
  * @param {{ root?: string, packageDir?: string }} [options]
  *   `root`: the app's root (the current directory by default);
@@ -40,6 +43,9 @@ export function martisExtensionTestConfig(options = {}) {
       // A path repository symlinks the package: keep the link's path, so the
       // runtime resolves React from the app's node_modules, inside the root.
       preserveSymlinks: lstatSync(packageDir).isSymbolicLink(),
+      // The real path of a symlinked package may hold its own React: resolve
+      // react (and its JSX runtime) and react-dom from the app root, always.
+      dedupe: ['react', 'react-dom'],
       alias: [
         { find: /^react-router-dom$/, replacement: path.join(shims, 'react-router-dom.mjs') },
         { find: /^react-router$/, replacement: path.join(shims, 'react-router-dom.mjs') },
@@ -57,6 +63,10 @@ export function martisExtensionTestConfig(options = {}) {
     test: {
       environment: 'jsdom',
       setupFiles: [testing],
+      // Vitest runs a dependency under Node unless it is inlined, and Node
+      // resolves its react from the dependency's real path, the package's own
+      // node_modules. Inlined, it goes through the dedupe above.
+      server: { deps: { inline: [/@phosphor-icons\/react/] } },
     },
   }
 }
