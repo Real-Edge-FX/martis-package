@@ -37,7 +37,7 @@ A model that declares `$visible` logs only those attributes in its action events
 
 ### Forced password change (opt-in)
 
-New, off by default: see [Authentication → Forced password change](authentication.md#forced-password-change). A Tool whose routes pass their own middleware list gets a log warning when the list leaves out `martis.password.changed` while the gate is on; leave the list out, or add the alias.
+New, off by default: see [Authentication → Forced password change](authentication.md#forced-password-change). An app with a published `config/martis.php` must copy the new `password_change` block into `auth` first: without it `MARTIS_AUTH_PASSWORD_CHANGE_ENABLED` is never read. A Tool whose routes pass their own middleware list gets a log warning when the list leaves out `martis.password.changed` while the gate is on; leave the list out, or add the alias.
 
 ### Refresh the extension scaffold
 
