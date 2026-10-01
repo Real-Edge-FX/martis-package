@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use InvalidArgumentException;
 use Martis\Contracts\MustChangePassword;
 use Martis\Impersonation\ImpersonationManager;
+use Martis\Sso\SsoSession;
 
 /**
  * Who the forced password change gate holds (`martis.auth.password_change`,
@@ -17,9 +18,6 @@ use Martis\Impersonation\ImpersonationManager;
  */
 final class PasswordChangeRequirement
 {
-    /** The session key the SSO callback sets (SsoController). */
-    private const SSO_SESSION_KEY = 'martis_sso_provider';
-
     public static function enabled(): bool
     {
         return (bool) config('martis.auth.password_change.enabled', false);
@@ -63,7 +61,9 @@ final class PasswordChangeRequirement
             return false;
         }
 
-        return ! ($request->hasSession() && $request->session()->has(self::SSO_SESSION_KEY));
+        // SsoSession reads the session, then the SSO cookie of this user,
+        // so a remember-me re-login of an SSO session stays unheld.
+        return SsoSession::provider($request, $user) === null;
     }
 
     /**

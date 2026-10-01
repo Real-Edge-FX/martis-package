@@ -117,4 +117,23 @@ class ActionResponseTest extends TestCase
         $this->assertEquals('posts', $data['data']['resource']);
         $this->assertEquals('abc-123', $data['data']['recordId']);
     }
+
+    /**
+     * `emit()` and `modal()` hand their data to the SPA as an object (an event
+     * payload, a component's `data` prop). PHP encodes an empty array as a
+     * JSON array, so without data the SPA received `[]`.
+     */
+    public function test_emit_and_modal_without_data_encode_an_object(): void
+    {
+        $this->assertSame('{"type":"emit","data":{"event":"reports:refresh","data":{}}}', json_encode(ActionResponse::emit('reports:refresh')));
+        $this->assertSame('{"type":"modal","data":{"component":"token-issued","data":{}}}', json_encode(ActionResponse::modal('token-issued')));
+    }
+
+    public function test_emit_and_modal_with_data_encode_it_unchanged(): void
+    {
+        $this->assertSame('{"type":"emit","data":{"event":"reports:refresh","data":{"id":7}}}', json_encode(ActionResponse::emit('reports:refresh', ['id' => 7])));
+        $this->assertSame('{"type":"modal","data":{"component":"token-issued","data":{"token":"t"}}}', json_encode(ActionResponse::modal('token-issued', ['token' => 't'])));
+        // Another response's empty data is left alone.
+        $this->assertSame('{"type":"message","data":{"message":"Done"}}', json_encode(ActionResponse::message('Done')));
+    }
 }

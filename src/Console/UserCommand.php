@@ -145,6 +145,10 @@ class UserCommand extends Command
 
         if ($fromStdin) {
             $password = $this->readPasswordFromStdin();
+
+            if ($password === null) {
+                return null;
+            }
         } elseif (! is_string($password)) {
             if (! $this->canPrompt()) {
                 $this->missingOption('password');
@@ -178,19 +182,42 @@ class UserCommand extends Command
      * The first line of standard input without its line ending: the stream
      * Symfony reads input from when one is set, else STDIN. Read only when
      * --password-stdin asks for it, so a pipe still never answers a question.
+     * Null, with the error printed, on a terminal (it would echo what is
+     * typed; the prompt hides it) and for a line that is not text: not UTF-8,
+     * or holding a control character, which is what PHP reads from a closed
+     * descriptor on some systems (random bytes on macOS).
      */
-    private function readPasswordFromStdin(): string
+    private function readPasswordFromStdin(): ?string
     {
         $stream = $this->input instanceof StreamableInputInterface ? $this->input->getStream() : null;
+        $fromStdin = $stream === null;
         $stream ??= defined('STDIN') ? STDIN : null;
 
         if (! is_resource($stream)) {
             return '';
         }
 
+        if ($fromStdin ? $this->stdinIsTty() : (function_exists('stream_isatty') && @stream_isatty($stream))) {
+            $this->components->error('--password-stdin reads a pipe, not a terminal, where the password would show as it is typed. On a terminal, leave the option out: the command asks for the password without showing it. No user was created or changed.');
+
+            return null;
+        }
+
         $line = fgets($stream);
 
-        return $line === false ? '' : rtrim($line, "\r\n");
+        if ($line === false) {
+            return '';
+        }
+
+        $password = (string) preg_replace('/\r?\n\z/', '', $line);
+
+        if (! mb_check_encoding($password, 'UTF-8') || preg_match('/\p{Cc}/u', $password) === 1) {
+            $this->components->error('--password-stdin read a line that is not text (invalid UTF-8 or a control character). Pipe the password itself: printf \'%s\n\' "$PASSWORD" | php artisan martis:user --password-stdin ... No user was created or changed.');
+
+            return null;
+        }
+
+        return $password;
     }
 
     /** The error for an option a run without a terminal cannot ask for; exit 1. */

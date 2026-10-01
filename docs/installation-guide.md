@@ -60,9 +60,9 @@ administrator on every boot:
 
 | Flag | What it does |
 |------|--------------|
-| `--password-stdin` | (v2.3.0) Reads the password from the first line of standard input, so it never appears in the process list, as `docker login --password-stdin` does. Cannot be combined with `--password`; an empty line exits 1. |
+| `--password-stdin` | (v2.3.0) Reads the password from the first line of standard input, so it never appears in the process list, as `docker login --password-stdin` does. Cannot be combined with `--password`; an empty line exits 1. It refuses a terminal (leave the option out: the prompt hides what you type) and a line that is not text (invalid UTF-8 or a control character, which is what a closed descriptor can give), so neither ever becomes a password. |
 | `--if-missing` | When the email already exists: exit `0` with an info line and change nothing. Safe to call unconditionally at boot. |
-| `--update` | When the email already exists: re-hash the password from `--password` (or the prompt) and, only when `--name` is given, replace the name. `email_verified_at` is left untouched. When the email does not exist yet the user is created, so the flag behaves like an upsert. |
+| `--update` | When the email already exists: re-hash the password from `--password`, `--password-stdin` (or the prompt) and, only when `--name` is given, replace the name. `email_verified_at` is left untouched. When the email does not exist yet the user is created, so the flag behaves like an upsert. |
 
 ```bash
 # Guarantee an administrator exists, never touch it afterwards

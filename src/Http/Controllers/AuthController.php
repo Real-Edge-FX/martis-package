@@ -21,6 +21,7 @@ use Martis\Contracts\ResetsUserPasswords;
 use Martis\Contracts\SendsPasswordResetLinks;
 use Martis\Http\Controllers\Concerns\AuthenticatesWithRememberMe;
 use Martis\Profile\TwoFactorService;
+use Martis\Sso\SsoSession;
 use Martis\Support\Initials;
 
 class AuthController extends MartisController
@@ -137,10 +138,11 @@ class AuthController extends MartisController
 
         $request->session()->regenerate();
 
-        // Drop any stale SSO marker from a previous session so a
-        // password-based login does not later redirect through the
-        // IdP federated-logout URL on logout.
-        $request->session()->forget('martis_sso_provider');
+        // Drop the SSO origin of an earlier SSO sign-in, in the session or
+        // in the browser's cookie (SsoSession), so a password sign-in is
+        // neither sent through the IdP's federated logout nor exempt from
+        // the forced password change gate.
+        SsoSession::forget($request);
 
         // Check if 2FA is active — reset the challenge flag on new login
         $user = $auth->user();
@@ -205,21 +207,25 @@ class AuthController extends MartisController
 
         /** @var StatefulGuard $auth */
         $auth = auth()->guard($guardName);
-        $auth->logout();
 
         // Federated logout — when the user came in via SSO and the
         // matching provider declared `logout_url`, redirect them
         // through the IdP's logout endpoint so the IdP session is
         // also cleared. Without this the local session ends but the
         // user stays signed in at the IdP, and re-clicking "Sign in
-        // with Microsoft" silently reuses the SSO session.
-        $ssoProvider = (string) ($request->session()->get('martis_sso_provider') ?? '');
+        // with Microsoft" silently reuses the SSO session. Read before
+        // signing out: after a remember-me re-login the origin is in
+        // the SSO cookie of this user (SsoSession).
+        $ssoProvider = (string) (SsoSession::provider($request, $auth->user()) ?? '');
         $logoutUrl = $ssoProvider !== ''
             ? (string) (config("martis.auth.sso.providers.{$ssoProvider}.logout_url") ?? '')
             : '';
 
+        $auth->logout();
+
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+        SsoSession::forget($request);
 
         if ($logoutUrl !== '') {
             // Replace `{post_logout_redirect_uri}` with the canonical

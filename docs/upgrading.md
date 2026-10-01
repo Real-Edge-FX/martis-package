@@ -14,6 +14,8 @@ Every Martis surface that sets a password validates with your app's `Password::d
 - **Profile** accepts any password of 8 or more characters. It required mixed case and numbers; declare them to keep that: `Password::defaults(fn () => Password::min(8)->mixedCase()->numbers())`.
 - **`martis:user`** refuses a password shorter than 8 characters. A boot script that sets a shorter one exits 1.
 
+**A `Password::defaults()` that Laravel cannot use now fails loudly.** `Password::default()` replaces anything that is not an `Illuminate\Contracts\Validation\Rule` with `Password::min(8)`, silently: a closure that returns an array of rules, a string, or a `ValidationRule` (what `php artisan make:rule` generates) was enforced nowhere. Martis now throws an `InvalidArgumentException` naming what the closure gave. Return a `Password` rule (`Password::min(12)->mixedCase()`) or another `Rule`. A closure that returns `null` still means "unset".
+
 The `require*` methods of the `Password` field check Unicode classes, as Laravel's `Password` rule does: an accented capital counts as uppercase, and an accented letter no longer counts as a symbol.
 
 ### `martis:user` reads the password from standard input
@@ -39,6 +41,8 @@ A model that declares `$visible` logs only those attributes in its action events
 
 New, off by default: see [Authentication → Forced password change](authentication.md#forced-password-change). An app with a published `config/martis.php` must copy the new `password_change` block into `auth` first: without it `MARTIS_AUTH_PASSWORD_CHANGE_ENABLED` is never read. A Tool whose routes pass their own middleware list gets a log warning when the list leaves out `martis.password.changed` while the gate is on; leave the list out, or add the alias.
 
+`password` is now a reserved first segment for [registered routes](custom-pages.md#path-rules): the change page lives at `/{martis-path}/password/change`. A page you registered under `password/...` is refused with a console error; move it under another first segment.
+
 ### Refresh the extension scaffold
 
 v2.3.0 adds `PasswordChangeRequiredError` and the type `ActionResponseModalProps` to `@martis/runtime`, and `.shims/i18next.d.mts`, the i18next types the shims share. Refresh the shims:
@@ -53,6 +57,14 @@ Then add two entries to the `paths` of your `tsconfig.extensions.json` (or repub
 "i18next": ["./resources/js/martis-extensions/.shims/i18next.d.mts"],
 "@martis/testing": ["./vendor/martis/martis/dist/testing/testing.d.mts"]
 ```
+
+Your own `resources/js/martis-extensions/index.ts` is not refreshed either. To override the new [forced password change](authentication.md#forced-password-change) page, add its key to `OVERRIDE_KEYS`, next to `EmailVerifyNoticePage`:
+
+```ts
+PasswordChangePage: 'auth:password-change',
+```
+
+Without it the override builds but never renders: `php artisan martis:component --type=password-change-page` writes the component, then fails naming this line.
 
 ### Test your extensions
 

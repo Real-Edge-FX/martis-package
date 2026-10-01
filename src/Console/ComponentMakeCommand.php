@@ -132,6 +132,22 @@ class ComponentMakeCommand extends Command
         ]);
 
         $this->info("Component created: {$relative}");
+
+        // The app keeps its own index.ts (refreshing the shims never rewrites
+        // it), so one written before this type existed maps no key for it:
+        // the override would build, register under its derived key and never
+        // render. Say so, naming the line to add.
+        $index = base_path('resources/js/martis-extensions/index.ts');
+        $indexSource = is_file($index) ? (string) file_get_contents($index) : null;
+
+        if ($indexSource !== null && ! str_contains($indexSource, "'{$piece['key']}'") && ! str_contains($indexSource, "\"{$piece['key']}\"")) {
+            $this->components->error("resources/js/martis-extensions/index.ts does not map '{$piece['key']}', so {$filename}.tsx would never render. Add this line to its OVERRIDE_KEYS:");
+            $this->line("  <comment>{$filename}: '{$piece['key']}',</comment>");
+            $this->line('or rewrite the scaffold with `php artisan martis:install --force`.');
+
+            return self::FAILURE;
+        }
+
         $this->info("Auto-registered as '{$piece['key']}' on next `npm run build:extensions`.");
         $this->newLine();
 

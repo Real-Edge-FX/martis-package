@@ -146,9 +146,11 @@ class Password extends Field
      * ⭐ Validate with the app's password policy (`Password::defaults()`, see
      * `Martis\Auth\PasswordPolicy`) and show its requirements in the
      * checklist, as Nova's generated User resource validates with
-     * `Password::default()`. A requirement set on the field itself wins on
-     * the same key. Pair it with `->nullable()` on an update form, so a blank
-     * field keeps the current password.
+     * `Password::default()`. The server enforces the policy and the field's
+     * own requirements together, so the checklist shows the stricter of the
+     * two minimums. Require it on create and leave it optional on update
+     * (`->creationRules(['required'])->updateRules(['nullable'])`), as
+     * Nova's User resource does: a blank update keeps the current password.
      */
     public function defaultRules(bool $value = true): static
     {
@@ -232,9 +234,12 @@ class Password extends Field
      */
     protected function extraAttributes(): array
     {
+        // The server enforces the policy and the field's own rules together,
+        // so the checklist shows the stricter of the two minimums; the
+        // field's other requirements only add rows.
         $requirements = $this->defaultRules ? (PasswordPolicy::requirements() ?? []) : [];
         if ($this->minLength !== null) {
-            $requirements['minLength'] = $this->minLength;
+            $requirements['minLength'] = max($requirements['minLength'] ?? 0, $this->minLength);
         }
         if ($this->requireUppercase) {
             $requirements['uppercase'] = true;

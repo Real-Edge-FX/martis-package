@@ -6,6 +6,7 @@ namespace Martis\Auth;
 
 use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use InvalidArgumentException;
 
 /**
  * The password policy of every Martis surface that sets a password: the
@@ -19,10 +20,35 @@ use Illuminate\Validation\Rules\Password;
  */
 final class PasswordPolicy
 {
-    /** The rule a new password must pass. */
+    /**
+     * The rule a new password must pass: what `Password::defaults()` gives,
+     * read as `Password::default()` reads it, null meaning unset.
+     *
+     * `Password::default()` silently replaces anything that is not an
+     * `Illuminate\Contracts\Validation\Rule` (an array of rules, a
+     * `ValidationRule`) with `Password::min(8)`, so the app's own rule would
+     * be enforced nowhere. That is refused here, naming what it gave.
+     *
+     * @throws InvalidArgumentException when Password::defaults() gives something it cannot use
+     */
     public static function rule(): Rule
     {
-        return Password::default();
+        $callback = Password::$defaultCallback;
+        $default = is_callable($callback) ? $callback() : $callback;
+
+        if ($default === null) {
+            return Password::min(8);
+        }
+
+        if (! $default instanceof Rule) {
+            throw new InvalidArgumentException(sprintf(
+                'Password::defaults() gave %s, which Laravel replaces with Password::min(8): the rule you set would be enforced nowhere. Give an %s, such as Password::min(12)->mixedCase().',
+                get_debug_type($default),
+                Rule::class,
+            ));
+        }
+
+        return $default;
     }
 
     /**

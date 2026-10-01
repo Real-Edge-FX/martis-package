@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
@@ -17,6 +18,7 @@ use Martis\Events\PasswordChanged;
 use Martis\Invitations\InvitationManager;
 use Martis\MartisServiceProvider;
 use Martis\Profile\TwoFactorService;
+use Martis\Sso\SsoSession;
 use Martis\Stubs\StubResolver;
 
 // ===========================================================================
@@ -272,29 +274,43 @@ it('tells the SPA a password change is required on the JSON login of LoginContro
         ->assertJson(['email' => 'held@example.com']);
 });
 
-it('forgets a stale SSO marker on a password, magic-link or invitation sign-in', function () {
+it('forgets a stale SSO origin, session marker and cookie, on a password, magic-link or invitation sign-in', function () {
     heldUser(['must_change_password' => false]);
+    $cookie = Crypt::encryptString('1|azure');
+    // The test app keeps the cookie jar between requests, and Laravel never
+    // empties its queue: flush it so each answer shows only its own cookies.
+    $cleared = fn ($response): bool => collect($response->headers->getCookies())
+        ->contains(fn ($c) => $c->getName() === SsoSession::COOKIE && $c->isCleared());
 
-    $this->withSession(['martis_sso_provider' => 'azure'])
+    $login = $this->withSession(['martis_sso_provider' => 'azure'])
+        ->withCookie(SsoSession::COOKIE, $cookie)
         ->post('/martis/login', ['email' => 'held@example.com', 'password' => 'Temporary-Pass-1'])
         ->assertSessionMissing('martis_sso_provider');
+    expect($cleared($login))->toBeTrue();
 
     auth()->logout();
+    app('cookie')->flushQueuedCookies();
     config(['martis.auth.magic_link.enabled' => true]);
     $token = app(MagicLinkService::class)->issue('held@example.com');
-    $this->withSession(['martis_sso_provider' => 'azure'])
+    $magic = $this->withSession(['martis_sso_provider' => 'azure'])
+        ->withCookie(SsoSession::COOKIE, $cookie)
         ->get('/martis/api/auth/magic-link/consume?email=held%40example.com&token='.$token)
         ->assertSessionMissing('martis_sso_provider');
+    expect($cleared($magic))->toBeTrue();
 
     auth()->logout();
+    app('cookie')->flushQueuedCookies();
     config(['martis.invitations.enabled' => true]);
     Schema::dropIfExists('invitations');
     (require StubResolver::path('create_invitations_table.php.stub'))->up();
     $invitation = app(InvitationManager::class)->invite('invitee@example.com');
-    $this->withSession(['martis_sso_provider' => 'azure'])
+    $accept = $this->withSession(['martis_sso_provider' => 'azure'])
+        ->withCredentials()
+        ->withCookie(SsoSession::COOKIE, $cookie)
         ->postJson('/martis/api/invitations/accept', ['token' => $invitation->rawToken, 'name' => 'Ann', 'password' => 'Brand-New-Pass-1', 'password_confirmation' => 'Brand-New-Pass-1'])
         ->assertOk()
         ->assertSessionMissing('martis_sso_provider');
+    expect($cleared($accept))->toBeTrue();
 });
 
 it('reads the MustChangePassword contract before the column', function () use ($change) {
