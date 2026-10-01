@@ -234,12 +234,42 @@ it('clears the flag on a password reset by email', function () {
     expect($user->fresh()?->must_change_password)->toBeFalse();
 });
 
-it('never holds an impersonation or an SSO session', function () {
+it('never holds an impersonation session', function () {
     config(['martis.impersonation.enabled' => true, 'martis.impersonation.session_key' => 'martis.impersonation']);
     $user = heldUser();
 
+    asHeld($user)->getJson('/martis/api/tools')->assertStatus(409); // control: held
+    $this->flushSession();
     asHeld($user, ['martis.impersonation' => ['operator_id' => 99]])->getJson('/martis/api/tools')->assertOk();
+});
+
+it('never holds an SSO session', function () {
+    $user = heldUser();
+
+    asHeld($user)->getJson('/martis/api/tools')->assertStatus(409); // control: held
+    $this->flushSession();
     asHeld($user, ['martis_sso_provider' => 'azure'])->getJson('/martis/api/tools')->assertOk();
+    asHeld($user, ['martis_sso_provider' => 'azure'])->getJson('/martis/api/auth/user')
+        ->assertJsonMissing(['password_change_pending' => true]);
+    $this->flushSession();
+    asHeld($user)->getJson('/martis/api/auth/user')->assertJson(['password_change_pending' => true]);
+});
+
+it('tells the SPA a password change is required on the JSON login of LoginController, as AuthController does', function () {
+    heldUser();
+
+    $this->postJson('/martis/login', ['email' => 'held@example.com', 'password' => 'Temporary-Pass-1'])
+        ->assertOk()
+        ->assertJson(['password_change_required' => true])
+        ->assertJsonMissing(['email' => 'held@example.com']);
+
+    auth()->logout();
+    $this->flushSession();
+    PasswordChangeGateUser::query()->update(['must_change_password' => false]);
+    $this->postJson('/martis/login', ['email' => 'held@example.com', 'password' => 'Temporary-Pass-1'])
+        ->assertOk()
+        ->assertJsonMissing(['password_change_required' => true])
+        ->assertJson(['email' => 'held@example.com']);
 });
 
 it('forgets a stale SSO marker on a password, magic-link or invitation sign-in', function () {

@@ -635,6 +635,15 @@ public function boot(): void
 
 The password checklist of those pages draws the same rules. The Blade shell sends them to the SPA as `window.MartisConfig.auth.passwordRequirements`: minimum and maximum length, mixed case, letters, numbers, symbols, and "not in a known data leak", which only the server checks. A rule other than `Password` (your own `Rule` class) shows no checklist; the server still enforces it, and its message shows under the field. A resource's `Password` field follows the policy with `->defaultRules()` (see [Fields → Password](fields.md#password)).
 
+### `PasswordPolicy`
+
+`Martis\Auth\PasswordPolicy` is the single source of that policy: every Martis surface, and your own code, reads it from there instead of calling `Password::default()` again.
+
+- `PasswordPolicy::rule()` returns the rule a new password must pass (`Illuminate\Contracts\Validation\Rule`): your `Password::defaults()` result, else `Password::min(8)`. Use it in your own validation to follow the same policy: `'password' => ['required', 'confirmed', PasswordPolicy::rule()]`.
+- `PasswordPolicy::requirements()` returns the same policy as the array the SPA's checklist reads (`minLength`, `maxLength`, `uppercase`, `lowercase`, `letters`, `number`, `symbol`, `uncompromised`, each present only when the rule demands it), or `null` when the app's default is a rule other than `Password`. It is what the shell sends as `passwordRequirements`. The custom rules of a `Password` (`->rules([...])`) are not in it; the server still enforces them.
+
+The SPA reads two keys of `window.MartisConfig.auth`: `passwordRequirements` (the array above, or `null`) and `passwordChange`, `{ enabled, url }`: whether the [forced password change](#forced-password-change) gate is on, and where a held user goes (the built-in `/{martis-path}/password/change` page unless `MARTIS_AUTH_PASSWORD_CHANGE_URL` names another one, which may be an absolute URL on another origin).
+
 Every password is hashed with your app's hasher (`HASH_DRIVER`), `Hash::make()`.
 
 ## Forced password change
@@ -690,6 +699,9 @@ class User extends Authenticatable implements MustChangePassword
 - **The page.** `/{martis-path}/password/change` asks for the current password and a new one that follows your [password rules](#password-rules) and differs from the current one. Replace it under `auth:password-change` (`php artisan martis:component --type=password-change-page`).
 - **The endpoint.** `POST /{martis-path}/api/auth/password/change` takes `current_password`, `password` and `password_confirmation`. It answers `403` to a user the gate does not hold, and shares the sign-in throttle.
 - **Who is never held.** An impersonation (the operator must never choose the user's password), and a session opened through SSO (the user knows no password). Sign-out, `GET /api/auth/user` and the translations stay reachable.
+- **Limitation: the gate is per session.** The bypass for impersonation and SSO is a marker in the session, not a property of the user.
+  - A flagged user who signs in through SSO or a magic link knows no password: do not flag such users.
+  - A remember-me restore opens a fresh session without the SSO marker. A flagged user who signed in through SSO is then held, and cannot satisfy `current_password`, which they never knew.
 - **What clears the flag.** The change itself, a change from Profile, and a password reset by email: a listener on `Illuminate\Auth\Events\PasswordReset` clears it, so it keeps working if you rebind `ResetsUserPasswords` and still fire the event.
 - **After a change.** As Fortify (behind Nova 5's User Security page) does:
   - the user's pending reset tokens are deleted;

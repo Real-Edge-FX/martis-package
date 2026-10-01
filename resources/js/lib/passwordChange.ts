@@ -17,7 +17,9 @@ export function isBuiltInPasswordChangeUrl(url: string = passwordChangeUrl()): b
   return url === BASE_PATH + PASSWORD_CHANGE_ROUTE
 }
 
-/** Whether the browser already shows the page `url` names. */
+/** Whether the browser already shows the page `url` names: same origin and
+ *  same path (a relative URL resolves against the current origin). */
 export function isOnPage(url: string): boolean {
-  return window.location.pathname === new URL(url, window.location.origin).pathname
+  const target = new URL(url, window.location.origin)
+  return window.location.origin === target.origin && window.location.pathname === target.pathname
 }
