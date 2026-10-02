@@ -1826,7 +1826,7 @@ class ResourceController extends MartisController
 
         // A picker row is what a picker renders (see pickerRow()), not the
         // related resource's index row.
-        $pickerAttributes = $this->pickerAttributes($request, $relationField);
+        $pickerAttributes = $this->pickerAttributes($request, $relationField, $relatedResourceClass);
 
         /** @var list<array<string, mixed>> $data */
         $data = array_values(
@@ -1861,28 +1861,27 @@ class ResourceController extends MartisController
      * The attributes of the related record a picker reads besides its key
      * and title: the title and subtitle attributes of the field the picker
      * renders for (`ProvidesPickerAttributes`). The context-free call
-     * (`/resources/_/_/relatable/...`) has no field to read them from, so
-     * the picker names them in `?title_attribute=` and `?subtitle_attribute=`;
-     * pickerRow() still serialises only the ones that are index fields the
-     * user may see.
+     * (`/resources/_/_/relatable/...`) has no field to read them from, and the
+     * names a client sends in `?title_attribute=` / `?subtitle_attribute=` are
+     * its own: only the one the related resource declares itself
+     * (`titleAttribute()`) is honoured, so the endpoint cannot be used to
+     * read another column of rows the resource's `relatableQuery()` does not
+     * fence. The subtitle has no declaration on the resource and is dropped.
+     * pickerRow() still serialises only an index field the user may see.
      *
+     * @param  class-string<resource>  $relatedResourceClass
      * @return list<string>
      */
-    private function pickerAttributes(Request $request, ?FieldContract $relationField): array
+    private function pickerAttributes(Request $request, ?FieldContract $relationField, string $relatedResourceClass): array
     {
         if ($relationField !== null) {
             return $relationField instanceof ProvidesPickerAttributes ? $relationField->pickerAttributes() : [];
         }
 
-        $attributes = [];
-        foreach (['title_attribute', 'subtitle_attribute'] as $parameter) {
-            $name = $request->query($parameter);
-            if (is_string($name) && $name !== '' && mb_strlen($name) <= 191) {
-                $attributes[] = $name;
-            }
-        }
+        $declared = $relatedResourceClass::titleAttribute();
+        $requested = $request->query('title_attribute');
 
-        return $attributes;
+        return is_string($requested) && $requested !== '' && $requested === $declared ? [$declared] : [];
     }
 
     /**

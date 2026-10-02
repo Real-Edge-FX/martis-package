@@ -206,15 +206,25 @@ it('serialises only id and title on the context-free endpoint', function () {
         ->and($row['_title'])->toBe('Acme');
 });
 
-it('serialises the title and subtitle attributes a context-free picker names, from the visible index fields only', function () {
-    $url = '/martis/api/resources/_/_/relatable/account_id?related_resource=rpr-accounts&title_attribute=name&subtitle_attribute=region';
-
+it('serialises only the related resource\'s declared title attribute on the context-free endpoint, whatever the request names', function () {
+    // The title attribute the resource declares (`titleAttribute()`) is the one column a
+    // context-free picker may ask for.
+    $url = '/martis/api/resources/_/_/relatable/account_id?related_resource=rpr-accounts&title_attribute=name';
     $row = $this->getJson($url)->assertOk()->json('data.0');
 
-    expect(collect(array_keys($row))->sort()->values()->all())->toBe(['_title', 'id', 'name', 'region']);
+    expect(collect(array_keys($row))->sort()->values()->all())->toBe(['_title', 'id', 'name']);
 
-    // A column no index field shows is never read, whatever the request names.
-    $row = $this->getJson('/martis/api/resources/_/_/relatable/account_id?related_resource=rpr-accounts&title_attribute=name&subtitle_attribute=secret_column')
+    // Any other visible index column the client names is not serialised: it is a read of
+    // the rows `relatableQuery()` does not fence (title/subtitle attribute are client-supplied).
+    foreach (['region', 'revenue', 'owner_email', 'secret_column'] as $column) {
+        $row = $this->getJson('/martis/api/resources/_/_/relatable/account_id?related_resource=rpr-accounts&title_attribute='.$column.'&subtitle_attribute='.$column)
+            ->assertOk()->json('data.0');
+
+        expect(collect(array_keys($row))->sort()->values()->all())->toBe(['_title', 'id'], $column);
+    }
+
+    // The subtitle has no declaration on the resource: the context-free endpoint drops it.
+    $row = $this->getJson('/martis/api/resources/_/_/relatable/account_id?related_resource=rpr-accounts&title_attribute=name&subtitle_attribute=region')
         ->assertOk()->json('data.0');
 
     expect(collect(array_keys($row))->sort()->values()->all())->toBe(['_title', 'id', 'name']);

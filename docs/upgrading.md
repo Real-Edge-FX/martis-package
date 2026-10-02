@@ -84,7 +84,7 @@ The values in the events of a record that no longer exists (hard-deleted) are ma
 - A custom BooleanFilter `apply()` receives only the keys its `options()` declares: read explicit keys, never use them as column names.
 - A metric `?range=` outside `ranges()` falls back to the default; Sparkline writes above `maxPoints` or with non-numeric items fail validation.
 - `ActionResponse::redirect()`, `download()` and `openInNewTab()` refuse `javascript:`, `data:` and other non-http(s) URLs.
-- A custom picker that read another column from a relatable row names it as the field's title or subtitle attribute; a caller of the context-free relatable endpoint sends `title_attribute` / `subtitle_attribute`.
+- A custom picker that read another column from a relatable row names it as the field's title or subtitle attribute; the context-free relatable endpoint serialises only the related resource's declared `titleAttribute()` (when sent as `title_attribute`) and ignores `subtitle_attribute` and any other column.
 - `api_docs.middleware` defaults to `null`, the Martis stack; a published `['web', 'auth']` is completed with the Martis guards.
 
 ### Extensions
