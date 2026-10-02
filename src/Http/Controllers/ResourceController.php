@@ -27,6 +27,7 @@ use Martis\Fields\MorphTo;
 use Martis\Fields\MorphToMany as MorphToManyField;
 use Martis\Fields\Tag as TagField;
 use Martis\Filters\Filter;
+use Martis\Filters\FilterValue;
 use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
 use Martis\Http\Controllers\Concerns\ResolvesPivotActions;
@@ -2108,6 +2109,13 @@ class ResourceController extends MartisController
             // safe "empty selection shows all" behaviour is the default, not
             // something each consumer must remember to reimplement.
             if ($value === null || $value === '' || $value === []) {
+                continue;
+            }
+
+            // A boolean filter only receives the options it declares.
+            $value = FilterValue::resolve($filter, $request, $value);
+
+            if ($value === null) {
                 continue;
             }
 
