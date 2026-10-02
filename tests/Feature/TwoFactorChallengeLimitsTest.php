@@ -290,6 +290,29 @@ describe('lockout', function () {
         tflChallenge('not-a-recovery-code', recovery: true)->assertForbidden();
     });
 
+    it('holds the lockout for the full time from the failure that reached the limit, not from the first one', function () {
+        $user = tflUser('a@example.com');
+        $this->freezeTime();
+
+        // One wrong code at t0, four more 14 minutes later: the 5th locks the user out.
+        expect(TwoFactorChallengeLockout::recordFailure($user))->toBeFalse();
+        $this->travel(14)->minutes();
+        foreach (range(1, 3) as $ignored) {
+            expect(TwoFactorChallengeLockout::recordFailure($user))->toBeFalse();
+        }
+        expect(TwoFactorChallengeLockout::recordFailure($user))->toBeTrue()
+            ->and(TwoFactorChallengeLockout::locked($user))->toBeTrue();
+
+        // t0 + 15m01s: the window of the first failure is over, the lockout is not.
+        $this->travel(61)->seconds();
+        expect(TwoFactorChallengeLockout::locked($user))->toBeTrue();
+
+        // 15 minutes after the failure that locked, it ends, and the count starts over.
+        $this->travel(14)->minutes();
+        expect(TwoFactorChallengeLockout::locked($user))->toBeFalse();
+        expect(TwoFactorChallengeLockout::recordFailure($user))->toBeFalse();
+    });
+
     it('locks out the user who failed, not the others', function () {
         $a = tflUser('a@example.com');
         $b = tflUser('b@example.com');
