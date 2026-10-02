@@ -22,6 +22,7 @@ use Martis\Fields\MorphOne;
 use Martis\Fields\MorphOneOfMany;
 use Martis\Fields\MorphTo;
 use Martis\Fields\Tag;
+use Martis\Gates\SoftGate;
 use Martis\RelationshipQueryResolver;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -224,7 +225,12 @@ final class Relatable implements DataAwareRule, ValidationRule
     {
         $failed = 'martis::validation.relatable';
 
-        if (! (new $relatedResourceClass)->authorizedToViewAny($this->request)) {
+        $related = new $relatedResourceClass;
+
+        // `viewAny`, and a lock (`lockedFor()`, `requirePlan()`): a picker
+        // lists no record of a resource the user is locked from, so a write
+        // cannot name one.
+        if (! $related->authorizedToViewAny($this->request) || SoftGate::isLocked($related, $this->request)) {
             return $failed;
         }
 

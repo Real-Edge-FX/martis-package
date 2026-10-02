@@ -22,9 +22,11 @@ use Martis\Gates\PlanRanker;
  * the sidebar paints a lock icon + the configured badge, and the
  * click is intercepted client-side: instead of navigating, the SPA
  * opens a modal driven by `lockModal(...)` data — typically an
- * upsell with a CTA to the upgrade flow. Direct URL access is
- * stopped server-side too via the route guard layer that ships in
- * the same release.
+ * upsell with a CTA to the upgrade flow. Direct URL access is stopped
+ * server-side too: the page endpoints of a dashboard and a tool answer `200`
+ * with the lock payload, and every endpoint that serves the entity's data
+ * answers `403` with it (`SoftGate`, the `martis.gate` and `martis.tool`
+ * middleware). See docs/gates.md, "What a lock stops on the server".
  *
  * The two mechanisms compose with explicit precedence: `canSee()`
  * wins. When `canSee()` returns false, `lockedFor()` is never

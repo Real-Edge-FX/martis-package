@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Martis\Gates\SoftGate;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\SearchResolver;
@@ -89,6 +90,12 @@ class SearchController extends MartisController
             $instance = new $resourceClass;
 
             if (! $instance->authorizedToViewAny($request)) {
+                continue;
+            }
+
+            // A resource the user is soft-locked from (`lockedFor()`,
+            // `requirePlan()`) is not searched: its records are not served.
+            if (SoftGate::isLocked($instance, $request)) {
                 continue;
             }
 

@@ -128,6 +128,34 @@ class AEADocPolicy
     }
 }
 
+/** An owner-based policy: only the owner views a document. */
+class AEAOwnerDocPolicy
+{
+    public function viewAny(User $user): bool
+    {
+        return true;
+    }
+
+    public function view(User $user, AEADoc $doc): bool
+    {
+        return (int) $doc->getAttribute('owner_id') === (int) $user->getKey();
+    }
+}
+
+/** An owner-based policy that reads a relation of the record (it throws on a record without one). */
+class AEARelationDocPolicy
+{
+    public function viewAny(User $user): bool
+    {
+        return true;
+    }
+
+    public function view(User $user, AEADoc $doc): bool
+    {
+        return $doc->author->name === 'Ann';
+    }
+}
+
 /** An ActionEvent policy that opens the log to the agent only. */
 class AEAActionEventPolicy
 {
@@ -194,6 +222,7 @@ beforeEach(function () {
         $t->string('token')->nullable();
         $t->string('internal_note')->nullable();
         $t->unsignedBigInteger('author_id')->nullable();
+        $t->unsignedBigInteger('owner_id')->nullable();
     });
 
     Schema::dropIfExists('martis_action_events');
@@ -427,4 +456,88 @@ it('still applies the field visibility when the record was deleted', function ()
 
     expect($changes['title'])->toBe('New');
     expect($changes['salary'])->toBe(ActionEventRedactor::MASK);
+});
+
+// --- A record that no longer exists ----------------------------------------
+
+it('requires the view policy on a model hydrated from the event when the record was hard-deleted', function () {
+    Gate::policy(AEADoc::class, AEAOwnerDocPolicy::class);
+    aeaOpenLog();
+
+    // The owner's id is part of what the action changed, so the deleted
+    // record can still be judged by the policy.
+    $event = aeaEvent([
+        'actionable_id' => '7',
+        'model_id' => '7',
+        'original' => ['title' => 'Old', 'owner_id' => $this->operator->getKey()],
+        'changes' => ['title' => 'New', 'owner_id' => $this->operator->getKey()],
+    ]);
+    expect(AEADoc::query()->whereKey(7)->exists())->toBeFalse();
+
+    // Not the owner: every value is masked, as when the record existed.
+    $this->actingAs($this->agent, 'web');
+    $response = $this->getJson('/martis/api/resources/action-events/'.$event->getKey())->assertOk();
+    expect(array_unique(array_values(aeaDetailValue($response, 'changes'))))->toBe([ActionEventRedactor::MASK])
+        ->and(array_unique(array_values(aeaDetailValue($response, 'original'))))->toBe([ActionEventRedactor::MASK]);
+
+    // The owner keeps the values the detail page would show.
+    ActionEventRedactor::flush();
+    $this->actingAs($this->operator, 'web');
+    $response = $this->getJson('/martis/api/resources/action-events/'.$event->getKey())->assertOk();
+    expect(aeaDetailValue($response, 'changes')['title'])->toBe('New')
+        ->and(aeaDetailValue($response, 'original')['title'])->toBe('Old');
+});
+
+it('masks the values of a hard-deleted record the event holds no owner for under an owner-based policy', function () {
+    Gate::policy(AEADoc::class, AEAOwnerDocPolicy::class);
+    aeaOpenLog();
+    $this->actingAs($this->operator, 'web');
+
+    // The action did not change the owner column, so the stored diff cannot
+    // prove the viewer owns the deleted record: fail closed, as the blank
+    // model the log used to judge instead let every viewer through.
+    $event = aeaEvent([
+        'actionable_id' => '7',
+        'model_id' => '7',
+        'changes' => ['title' => 'New'],
+    ]);
+
+    $response = $this->getJson('/martis/api/resources/action-events/'.$event->getKey())->assertOk();
+
+    expect(aeaDetailValue($response, 'changes'))->toBe(['title' => ActionEventRedactor::MASK]);
+});
+
+it('masks every value of a hard-deleted record whose policy cannot judge the hydrated model', function () {
+    Gate::policy(AEADoc::class, AEARelationDocPolicy::class);
+    aeaOpenLog();
+    $this->actingAs($this->agent, 'web');
+
+    // The policy reads `$doc->author`, which the hydrated model has no row
+    // for: the exception denies, it never answers 500.
+    $event = aeaEvent([
+        'actionable_id' => '7',
+        'model_id' => '7',
+        'changes' => ['title' => 'New'],
+    ]);
+
+    $response = $this->getJson('/martis/api/resources/action-events/'.$event->getKey())->assertOk();
+
+    expect(aeaDetailValue($response, 'changes'))->toBe(['title' => ActionEventRedactor::MASK]);
+});
+
+it('keeps judging an event that names no record by viewAny and field visibility', function () {
+    Gate::policy(AEADoc::class, AEAOwnerDocPolicy::class);
+    aeaOpenLog();
+    $this->actingAs($this->agent, 'web');
+
+    // A class-level event (no record id) has no record to apply `view` to.
+    $event = aeaEvent([
+        'actionable_id' => null,
+        'model_id' => null,
+        'changes' => ['title' => 'New'],
+    ]);
+
+    $response = $this->getJson('/martis/api/resources/action-events/'.$event->getKey())->assertOk();
+
+    expect(aeaDetailValue($response, 'changes'))->toBe(['title' => 'New']);
 });

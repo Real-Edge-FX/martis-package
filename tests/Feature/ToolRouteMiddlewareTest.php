@@ -245,8 +245,12 @@ it('gives a tool route the middleware of the protected API routes, then the tool
 
     $api = toolRouteByUri('martis/api/tools')->gatherMiddleware();
 
+    // The tool gate (`martis.tool`) enforces the soft lock itself, so a tool route
+    // does not carry `martis.gate` (the lock of the entities the API routes name).
+    $withoutGate = array_values(array_diff($api, ['martis.gate']));
+
     expect(toolRouteByUri('martis/api/tools/tool-route-default/ping')->gatherMiddleware())
-        ->toBe([...$api, 'martis.tool:tool-route-default'])
+        ->toBe([...$withoutGate, 'martis.tool:tool-route-default'])
         ->and($api)->toBe([
             'web',
             'martis.auth',
@@ -257,6 +261,7 @@ it('gives a tool route the middleware of the protected API routes, then the tool
             'martis.authorize',
             'martis.password.changed',
             'throttle:120,1,martis-api:web:',
+            'martis.gate',
         ]);
 });
 

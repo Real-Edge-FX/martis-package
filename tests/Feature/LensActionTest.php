@@ -184,6 +184,12 @@ class LensActionInheritingLens extends Lens
 /** A lens the user cannot see, with an action of its own. */
 class LensActionForbiddenLens extends LensActionOwnLens {}
 
+/** A lens that lists across the resource's scopes() on purpose. */
+class LensActionUnscopedLens extends LensActionOwnLens
+{
+    public static bool $withoutIndexScope = true;
+}
+
 class LensActionItemResource extends Resource
 {
     public static function model(): string
@@ -223,6 +229,7 @@ class LensActionItemResource extends Resource
             new LensActionInheritingLens,
             new LensActionAggregateLens,
             new LensActionPaginatingLens,
+            new LensActionUnscopedLens,
             (new LensActionForbiddenLens)->canSee(fn (): bool => false),
         ];
     }
@@ -328,13 +335,25 @@ it('refuses the actions of a lens the user cannot see, or that does not exist', 
 // ── The records a lens action runs on ───────────────────────────────────────
 //
 // As in Nova (`LensActionRequest`), the selected records are the ones the
-// lens's query lists, not the resource index's: the resource's scopes() do
-// not apply, and a record the lens does not list does not resolve.
+// lens's query lists, and a record the lens does not list does not resolve.
+// The query starts from what the resource's index lists (its scopes() and
+// indexQuery(), v2.4.0), so an action never runs on a record the index
+// hides; a lens opts out with `$withoutIndexScope`.
 
-it('runs a lens action on a record the lens lists, whatever the resource scopes() hide', function () {
+it('answers 404 for a record the resource scopes() hide, as the lens lists none of those', function () {
     $theirs = LensActionItem::create(['name' => 'Theirs', 'tenant_id' => 2]);
 
     $this->postJson(LENS_ACTION_BASE.'/lenses/lens-action-own/actions/lens-action-lens-only', [
+        'resources' => [$theirs->id],
+    ])->assertNotFound();
+
+    expect($theirs->fresh()->name)->toBe('Theirs');
+});
+
+it('runs a lens action on a record the resource scopes() hide when the lens opts out of them', function () {
+    $theirs = LensActionItem::create(['name' => 'Theirs', 'tenant_id' => 2]);
+
+    $this->postJson(LENS_ACTION_BASE.'/lenses/lens-action-unscoped/actions/lens-action-lens-only', [
         'resources' => [$theirs->id],
     ])->assertOk();
 
@@ -369,7 +388,7 @@ it('reads the records through the lens filters the request carries', function ()
 });
 
 it('hands the action whole records from a lens that lists aggregates', function () {
-    $item = LensActionItem::create(['name' => 'Ada', 'tenant_id' => 7]);
+    $item = LensActionItem::create(['name' => 'Ada', 'tenant_id' => 1, 'locked' => true]);
 
     $this->postJson(LENS_ACTION_BASE.'/lenses/lens-action-aggregate/actions/lens-action-lens-only', [
         'resources' => [$item->id],
@@ -377,7 +396,7 @@ it('hands the action whole records from a lens that lists aggregates', function 
 
     // The action read the record's own columns, not the lens's aggregate row.
     expect(LensActionRename::$received)->toHaveCount(1)
-        ->and(LensActionRename::$received[0])->toMatchArray(['name' => 'Ada', 'tenant_id' => 7])
+        ->and(LensActionRename::$received[0])->toMatchArray(['name' => 'Ada', 'tenant_id' => 1, 'locked' => 1])
         ->and(LensActionRename::$received[0])->not->toHaveKey('weight')
         ->and($item->fresh()->name)->toBe('by lens');
 });

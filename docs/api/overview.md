@@ -205,7 +205,7 @@ GET /martis/api/resources/{resource}/{id}/relatable/{field}
 GET /martis/api/resources/{resource}/{id}/relatable/{field}?search=term
 ```
 
-Returns the option list for a BelongsTo / MorphTo / Tag picker, filtered by the resource's `relatableQuery()` if defined. The field is looked up on the form the picker renders in: `fieldsForUpdate()` (on the resource bound to the record) when `{id}` names a record the user may update (`authorizedToUpdate()`), otherwise `fieldsForCreate()` then `fieldsForInlineCreate()` (`{id}` = `_` on a create form; a record the user may not update is answered like a missing one); `fields()` comes last. A picker declared on one form only resolves (v1.38.0). A create form nested in another resource's page (the inline-create modal) sends `_`, the pickers of an action modal use the action's own endpoint (see [Actions](#actions)), and the pickers among a relationship's pivot fields the panel's (below). A picker in a Repeater row adds `&repeater={attribute}&repeatable={type}` to any of them and is read from that row type's `fields()` (v1.38.0). On every one of them a picker the user cannot see answers 404 exactly like an undeclared one (v1.38.0): its field's `canSee()`, or `canSeeForModel()` for the record the form edits (the new one a create fills, the pivot row for a pivot field), a row field's `canSee()` and the `canSee()` of the Repeater holding the row. See [Relationships → Relation fields declared on one form only](../relationships.md#relation-fields-declared-on-one-form-only).
+Returns the option list for a BelongsTo / MorphTo / Tag picker, filtered by the resource's `relatableQuery()` if defined. Each row is `id`, `_title` and the attributes the picker reads (the field's title attribute and, with subtitles, its subtitle attribute, when they are index fields the user may see), not the full index row (v2.4.0). The context-free form `GET /martis/api/resources/_/_/relatable/{field}?related_resource={uriKey}` has no field to read them from: it takes `title_attribute` and `subtitle_attribute` query parameters, and answers only `id`, `_title` and those that are visible index fields; it applies the related resource's `relatableQuery()` alone (see [Resources → relatableQuery()](../resources.md#relatablequery)). The field is looked up on the form the picker renders in: `fieldsForUpdate()` (on the resource bound to the record) when `{id}` names a record the user may update (`authorizedToUpdate()`), otherwise `fieldsForCreate()` then `fieldsForInlineCreate()` (`{id}` = `_` on a create form; a record the user may not update is answered like a missing one); `fields()` comes last. A picker declared on one form only resolves (v1.38.0). A create form nested in another resource's page (the inline-create modal) sends `_`, the pickers of an action modal use the action's own endpoint (see [Actions](#actions)), and the pickers among a relationship's pivot fields the panel's (below). A picker in a Repeater row adds `&repeater={attribute}&repeatable={type}` to any of them and is read from that row type's `fields()` (v1.38.0). On every one of them a picker the user cannot see answers 404 exactly like an undeclared one (v1.38.0): its field's `canSee()`, or `canSeeForModel()` for the record the form edits (the new one a create fills, the pivot row for a pivot field), a row field's `canSee()` and the `canSee()` of the Repeater holding the row. See [Relationships → Relation fields declared on one form only](../relationships.md#relation-fields-declared-on-one-form-only).
 
 ### HasMany / HasOne / BelongsToMany / MorphMany / MorphOne / MorphToMany
 
@@ -299,6 +299,8 @@ GET  /martis/api/dashboards                              List visible dashboards
 GET  /martis/api/dashboards/{uriKey}                     Single dashboard descriptor + cards.
 GET  /martis/api/dashboards/{uriKey}/cards/{card}        Compute a single metric card.
 ```
+
+A dashboard soft-locked for the user answers `200 { "locked": true, "lock": {...} }` on its page endpoint (no cards, no filters) and `403` with the lock on the card endpoint (see [Locked (403)](#locked-403)); so does a locked card.
 
 The single dashboard endpoint returns the layout type (`cards` or `default`), the list of metric cards, dashboard-level filters, and any `withMeta()` data set on the PHP class.
 
@@ -478,6 +480,19 @@ Laravel's own shape instead, a map of messages per field:
 ```
 
 The `errors` array is intentionally empty so the SPA can route the same envelope through its generic 422-style error renderer; consumer overrides can populate it for richer messaging.
+
+### Locked (403)
+
+```json
+{
+    "message": "This feature is locked for your account.",
+    "errors": [],
+    "locked": true,
+    "lock": { "reason": "plan:pro", "modal": { "title": "This is a Pro feature", "message": "..." } }
+}
+```
+
+Every endpoint that serves the data of an entity soft-locked for the user (`lockedFor()`, `requirePlan()`) answers it, a resource's records, a lens, a card, a tool's fields and routes included; only the page endpoints of a dashboard and a tool answer `200 { "locked": true, "lock": {...} }`. The message is translated (`martis::messages.feature_locked`). See [Soft-gates → What a lock stops on the server](../gates.md#what-a-lock-stops-on-the-server) (v2.4.0).
 
 ### Conflict (409)
 

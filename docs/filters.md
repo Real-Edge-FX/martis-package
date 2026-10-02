@@ -265,6 +265,8 @@ When a filter is hidden via `canSee()`:
 - It is excluded from the schema response (frontend never sees it)
 - Even if a client sends the filter in query params, it is ignored on the backend
 
+A filter soft-locked for the user (`lockedFor()`, `requirePlan()`, see [Soft-gates](gates.md#soft-gates)) stays in the schema with its `lock`, but it is **not applied** (v2.4.0): a `?filters=` that names it is ignored on the resource index, on a lens and on the cards of a dashboard, as one a `canSee()` hides is. The dashboard card routes also ignore a filter the user may not see (`canSee()`); before v2.4.0 they applied it.
+
 ## Excluding a Filter from Lenses
 
 > **Martis extension** — keep a filter on the default index but skip it on lenses.

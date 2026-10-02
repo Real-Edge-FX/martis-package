@@ -33,7 +33,11 @@ use WeakMap;
  *    `BelongsTo` / `MorphTo`) that the viewer may see (`canSee()`,
  *    `canSeeForModel()`) through a resource that lets the viewer
  *    `viewAny` and `view` the record. A record that still exists but is
- *    out of the viewer's global scopes (another tenant) masks every key.
+ *    out of the viewer's global scopes (another tenant) masks every key. A
+ *    record that no longer exists (hard-deleted) is judged on a model
+ *    hydrated from the attributes the event stored: the `view` policy must
+ *    allow it, and an attribute the policy needs that the action did not
+ *    change is missing from it, so the values stay masked.
  *  - a pivot action's event (its `model_type` is the pivot, not the
  *    record): the viewer must be able to view the parent record, and the
  *    pivot model's `$hidden` attributes are masked, as are the pivot
@@ -280,7 +284,13 @@ final class ActionEventRedactor
             return ['mode' => 'none', 'keys' => []];
         }
 
-        $record ??= new $type;
+        // A record the event names that no longer exists (hard-deleted) is
+        // judged like one that does: the policy runs on a model hydrated
+        // from what the event stored, so the `view` ability cannot be
+        // skipped by deleting the row. An event that names no record has no
+        // record to judge, only its resource's `viewAny`.
+        $hydrated = $record === null && self::namesRecord($event);
+        $record ??= $hydrated ? self::hydrate($type, $event) : new $type;
 
         $isPivotEvent = is_string($event->model_type) && $event->model_type !== $type;
         $keys = [];
@@ -294,7 +304,7 @@ final class ActionEventRedactor
                 continue;
             }
 
-            if ($record->exists && ! $resource->authorizedToView($request)) {
+            if ($record->exists && ! self::mayView($resource, $request, $hydrated)) {
                 continue;
             }
 
@@ -447,6 +457,75 @@ final class ActionEventRedactor
         }
 
         return $modelClass::query()->withoutGlobalScopes()->whereKey($id)->exists() ? false : null;
+    }
+
+    /**
+     * Whether the event names a record (a model class and a key).
+     */
+    private static function namesRecord(ActionEvent $event): bool
+    {
+        $id = $event->actionable_id;
+
+        return $id !== null && $id !== '';
+    }
+
+    /**
+     * A model of `$modelClass` rebuilt from what the event stored: its key,
+     * the attributes of `original`, then those of `changes` (what the record
+     * held last). It holds only the attributes the action changed (the log
+     * stores the diff, minus the model's `$hidden` values), so a policy that
+     * needs another one (an owner or tenant column the action did not touch)
+     * cannot prove the viewer may view it, and the values stay masked.
+     *
+     * @param  class-string<Model>  $modelClass
+     */
+    private static function hydrate(string $modelClass, ActionEvent $event): Model
+    {
+        $attributes = [];
+        foreach (['original', 'changes'] as $column) {
+            $stored = $event->getAttribute($column);
+
+            if (is_string($stored)) {
+                $stored = json_decode($stored, true);
+            }
+
+            if (! is_array($stored)) {
+                continue;
+            }
+
+            foreach ($stored as $key => $value) {
+                // A masked value ({@see self::MASK}) is not the attribute's.
+                if (is_string($key) && $value !== self::MASK) {
+                    $attributes[$key] = $value;
+                }
+            }
+        }
+
+        $model = new $modelClass;
+        $model->forceFill($attributes);
+        $model->setAttribute($model->getKeyName(), $event->actionable_id);
+        $model->exists = true;
+        $model->syncOriginal();
+
+        return $model;
+    }
+
+    /**
+     * The resource's `view` ability on its record. A model hydrated from an
+     * event is partial, so a policy written for a complete record can fail on
+     * it (a relation of a missing foreign key): that denies, it never raises.
+     */
+    private static function mayView(Resource $resource, Request $request, bool $hydrated): bool
+    {
+        if (! $hydrated) {
+            return $resource->authorizedToView($request);
+        }
+
+        try {
+            return $resource->authorizedToView($request);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**

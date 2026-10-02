@@ -134,6 +134,7 @@ return [
     'panel_forbidden' => 'You do not have access to this panel.',
     'panel_forbidden_title' => 'No access to this panel',
     'panel_forbidden_desc' => 'Your account cannot open this panel. Sign out and sign in with another account, or ask an administrator for access.',
+    'feature_locked' => 'This feature is locked for your account.',
     'server_error_title' => 'Something went wrong',
     'server_error_desc' => 'An unexpected error occurred on our end. The team has been notified and is investigating.',
     'error_back_to_dashboard' => 'Back to dashboard',

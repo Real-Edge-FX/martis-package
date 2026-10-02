@@ -152,9 +152,9 @@ it('applies the filters it may see and ignores the hidden one named beside them'
 });
 
 it('does not compute the metric of a locked dashboard', function () {
-    $response = dashFilterAuthzValue($this, [], 'dash-filter-authz-locked')->assertOk();
+    $response = dashFilterAuthzValue($this, [], 'dash-filter-authz-locked')->assertForbidden();
 
-    expect($response->json('data.locked'))->toBeTrue();
-    expect($response->json('data.result'))->toBeNull();
+    expect($response->json('locked'))->toBeTrue();
+    expect($response->json('lock'))->toBeArray();
     expect($response->getContent())->not->toContain('"value"');
 });
