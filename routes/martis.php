@@ -170,6 +170,11 @@ Route::middleware(RouteMiddleware::base())
         Route::get('/magic-link/confirm', [MagicLinkController::class, 'show'])
             ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
             ->name('magic-link.confirm');
+        // A link emailed before v2.4.0 pointed at a GET of the consume URL:
+        // it now leads to the confirmation page, never to a sign-in.
+        Route::get('/api/auth/magic-link/consume', [MagicLinkController::class, 'legacyLink'])
+            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->name('api.auth.magic-link.legacy');
         Route::post('/api/auth/magic-link/consume', [MagicLinkController::class, 'consume'])
             ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
             ->name('api.auth.magic-link.consume');

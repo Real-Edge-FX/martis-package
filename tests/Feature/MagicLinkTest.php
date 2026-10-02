@@ -192,6 +192,17 @@ it('GET /magic-link/confirm leaves the token valid however many times a prefetch
     expect(auth()->guard(config('martis.guard'))->id())->toBe($user->id);
 });
 
+it('sends a link emailed before v2.4.0 (GET of the consume URL) to the confirmation page without signing in', function () {
+    [$user, $token] = magicLinkFor();
+
+    $response = $this->get('/martis/api/auth/magic-link/consume?email=Pedro@example.com&token='.$token);
+
+    $response->assertRedirect('/martis/magic-link/confirm?email=pedro%40example.com&token='.$token)
+        ->assertHeader('Referrer-Policy', 'no-referrer');
+    $this->assertGuest(config('martis.guard'));
+    expect(magicLinkTokenRows())->toBe(1);
+});
+
 it('GET /magic-link/confirm redirects an expired, invalid or missing token to login, as the old consume did', function () {
     [$user, $token] = magicLinkFor();
 
@@ -252,16 +263,6 @@ it('POST /api/auth/magic-link/consume answers 404 while magic links are off', fu
 
     $this->postJson('/martis/api/auth/magic-link/consume', ['email' => 'pedro@example.com', 'token' => $token])
         ->assertNotFound();
-
-    $this->assertGuest(config('martis.guard'));
-    expect(magicLinkTokenRows())->toBe(1);
-});
-
-it('does not answer the old GET consume URL: only the POST signs in', function () {
-    [$user, $token] = magicLinkFor();
-
-    $this->get('/martis/api/auth/magic-link/consume?email=pedro@example.com&token='.$token)
-        ->assertStatus(405);
 
     $this->assertGuest(config('martis.guard'));
     expect(magicLinkTokenRows())->toBe(1);

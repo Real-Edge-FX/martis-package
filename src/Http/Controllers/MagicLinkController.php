@@ -130,6 +130,21 @@ class MagicLinkController
     }
 
     /**
+     * A link emailed before v2.4.0 (`GET /api/auth/magic-link/consume`):
+     * sent on to the confirmation page with its email and token, so a link
+     * still in an inbox at the upgrade keeps working. It signs no one in and
+     * leaves the token untouched; the page checks it and POSTs the sign-in.
+     */
+    public function legacyLink(Request $request): RedirectResponse
+    {
+        [$email, $token] = $this->linkParameters($request->query('email', ''), $request->query('token', ''));
+
+        return redirect(route('martis.magic-link.confirm', ['email' => $email, 'token' => $token], false))
+            ->header('Cache-Control', 'no-store, private')
+            ->header('Referrer-Policy', 'no-referrer');
+    }
+
+    /**
      * Sign in with the emailed token, once the page confirmed it.
      *
      * Answers 422 for an invalid or expired token, and 409
