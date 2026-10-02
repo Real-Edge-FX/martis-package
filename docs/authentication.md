@@ -997,6 +997,16 @@ When a user with 2FA enabled logs in:
 3. User enters their 6-digit TOTP code (or a recovery code)
 4. On success, the session is fully authenticated
 
+### The 2FA pass is bound to the user (v2.4.0)
+
+Completing the challenge (or confirming the setup on the profile page) leaves a **pass** in the session: the auth identifier of the user who earned it, under the `martis_two_factor_passed_for` session key (`Martis\Auth\TwoFactorPass`). `martis.2fa` and `GET /api/auth/user` accept the pass only for that user, and every sign-in of the Martis guard forgets it: the password sign-ins (`POST /login` and `POST /api/auth/login`), a magic link, an invitation accept, SSO, the remember-me cookie and the start and stop of an impersonation all fire Laravel's `Illuminate\Auth\Events\Login`, which `Martis\Auth\Listeners\ResetTwoFactorPass` listens to. A user who has 2FA therefore meets the challenge again on every sign-in, and a pass earned by one account never reaches another account signed in later from the same browser session.
+
+Up to v2.3.0 the session held a bare `martis_two_factor_passed` flag that only `POST /api/auth/login` reset: someone who held a victim's password (or mailbox, with magic links on) and any panel account of their own could pass 2FA on their own account, then sign in as the victim through `POST /login` from the same browser session and skip the victim's challenge. A session that still carries the old flag is not trusted: its user meets the challenge once after the upgrade.
+
+An impersonation hands the operator's pass to the target while it lasts (the operator passed their own challenge to start it, and a target who has 2FA cannot be asked for a code the operator does not hold) and gives it back to the operator on stop. An operator the challenge has not cleared (a programmatic `ImpersonationManager::start()`) hands over nothing: the target meets their own challenge.
+
+If you write your own sign-in route, sign the user in through the Martis guard (`Auth::guard(config('martis.guard'))->login($user)`) and the pass is reset for you. If you grant a pass yourself, for instance in a test, use `TwoFactorPass::grant($request->session(), $user)`, or put `[TwoFactorPass::SESSION_KEY => (string) $user->getAuthIdentifier()]` in the session.
+
 ### Recovery Codes
 
 When 2FA is enabled, the system generates one-time recovery codes (default: 8). These codes can be used instead of the TOTP code if the user loses access to their authenticator app. Each recovery code can only be used once.

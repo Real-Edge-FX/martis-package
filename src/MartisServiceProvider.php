@@ -5,6 +5,7 @@ namespace Martis;
 use Dedoc\Scramble\Scramble;
 use Illuminate\Auth\Access\Events\GateEvaluated;
 use Illuminate\Auth\AuthManager;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
@@ -28,6 +29,7 @@ use Martis\Auth\Listeners\ClearPasswordChangeRequirement;
 use Martis\Auth\Listeners\RecordAuthorizationDenial;
 use Martis\Auth\Listeners\RecordImpersonation;
 use Martis\Auth\Listeners\RecordRoleChange;
+use Martis\Auth\Listeners\ResetTwoFactorPass;
 use Martis\Authorization\PolicyResolver;
 use Martis\Authorization\RequestScopedAbilityCache;
 use Martis\Cache\MartisCache;
@@ -244,6 +246,7 @@ class MartisServiceProvider extends ServiceProvider
         $this->registerRateLimiters();
         $this->registerRoleAuditListeners();
         $this->registerPasswordChangeListeners();
+        $this->registerTwoFactorListeners();
 
         // Boot every registered Tool's lifecycle hook AFTER Martis
         // itself has loaded routes / views / config. Tools can hook
@@ -919,5 +922,11 @@ class MartisServiceProvider extends ServiceProvider
     protected function registerPasswordChangeListeners(): void
     {
         Event::listen(PasswordReset::class, [ClearPasswordChangeRequirement::class, 'handle']);
+    }
+
+    /** Every sign-in of the Martis guard starts without a 2FA pass (v2.4.0). */
+    protected function registerTwoFactorListeners(): void
+    {
+        Event::listen(Login::class, [ResetTwoFactorPass::class, 'handle']);
     }
 }

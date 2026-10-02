@@ -6,6 +6,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Martis\Auth\PasswordChangeRequirement;
+use Martis\Auth\TwoFactorPass;
 use Martis\Profile\TwoFactorService;
 
 /**
@@ -49,8 +50,8 @@ class TwoFactorController extends MartisController
             ], 422);
         }
 
-        // Mark this session as 2FA-passed
-        $request->session()->put('martis_two_factor_passed', true);
+        // Mark this session as 2FA-passed, for this user
+        TwoFactorPass::grant($request->session(), $user);
 
         $payload = ['message' => 'Authenticated.'];
 

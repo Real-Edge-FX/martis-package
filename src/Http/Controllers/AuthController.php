@@ -15,6 +15,7 @@ use Illuminate\Validation\ValidationException;
 use Martis\Auth\PanelAccess;
 use Martis\Auth\PasswordBrokerConfigurationException;
 use Martis\Auth\PasswordChangeRequirement;
+use Martis\Auth\TwoFactorPass;
 use Martis\Contracts\ProfileResourceContract;
 use Martis\Contracts\RegistersUsers;
 use Martis\Contracts\ResetsUserPasswords;
@@ -58,13 +59,11 @@ class AuthController extends MartisController
         }
 
         // Indicate pending 2FA challenge so the SPA can redirect without API calls.
-        // Treat any non-true session value as "not yet passed": the initial
-        // state is null (never set), and the old `=== false` check skipped it,
-        // so a 2FA-enabled user who had not cleared the challenge was reported
-        // as fully authenticated instead of pending.
-        $twoFactorPassed = $request->session()->get('martis_two_factor_passed');
+        // Anything but a pass this user earned reads as "not yet passed": the
+        // initial state is no pass at all, and a pass earned by another user
+        // earlier in the same browser session does not count.
         $twoFactor = app(TwoFactorService::class);
-        if ($twoFactor->isEnabled($user) && $twoFactorPassed !== true) {
+        if ($twoFactor->isEnabled($user) && ! TwoFactorPass::holds($request->session(), $user)) {
             return response()->json([
                 'two_factor_pending' => true,
                 'message' => 'Two-factor authentication required.',
@@ -144,11 +143,13 @@ class AuthController extends MartisController
         // the forced password change gate.
         SsoSession::forget($request);
 
-        // Check if 2FA is active — reset the challenge flag on new login
+        // Every sign-in starts without a 2FA pass (the Login listener
+        // forgets it too; this keeps a guard that does not fire Login honest).
+        TwoFactorPass::revoke($request->session());
+
+        // Check if 2FA is active: the challenge is pending
         $user = $auth->user();
         if ($user && app(TwoFactorService::class)->isEnabled($user)) {
-            $request->session()->put('martis_two_factor_passed', false);
-
             return response()->json([
                 'two_factor_required' => true,
                 'message' => 'Two-factor authentication required.',
