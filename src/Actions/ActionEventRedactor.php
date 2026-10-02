@@ -7,10 +7,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo as EloquentBelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo as EloquentMorphTo;
 use Illuminate\Http\Request;
+use Martis\Contracts\FieldContract;
 use Martis\FieldContext;
 use Martis\Fields\BelongsToMany as BelongsToManyField;
 use Martis\Fields\Field;
 use Martis\Fields\MorphToMany as MorphToManyField;
+use Martis\Fields\Repeater;
 use Martis\Models\ActionEvent;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -153,6 +155,84 @@ final class ActionEventRedactor
         }
 
         return self::maskHiddenAttributes($values, $model);
+    }
+
+    /**
+     * The values of an action's fields as its event stores them.
+     *
+     * An action run used to log the raw `fields` input of the request: every
+     * value the user typed, a `Password` field included, the values for
+     * fields the user cannot see and keys that name no field. The event now
+     * keeps the values the run resolved for the fields the user may see
+     * (`canSee()`), in plain text for what a reader of the log may use, and
+     * {@see self::MASK} for a secret:
+     *
+     *  - a `Password` field, and any field that declares itself `sensitive()`,
+     *    stores the mask instead of a value (an empty value stays empty);
+     *  - inside a `Repeater` row, the fields its repeatables mark sensitive are
+     *    masked the same way;
+     *  - a key that names no visible field (a field the user cannot see, a value
+     *    a custom component posted under a name of its own) is left out. The
+     *    action still receives it in `handle()`.
+     *
+     * A pivot action's event stores its fields the same way.
+     *
+     * @param  list<FieldContract>  $fields  The action's declared fields.
+     * @param  array<string, mixed>  $values  The values the run resolved (`ActionFields::all()`).
+     * @return array<string, mixed>
+     */
+    public static function loggableFields(array $fields, array $values, Request $request): array
+    {
+        $logged = [];
+
+        foreach ($fields as $field) {
+            $attribute = $field->attribute();
+
+            if (! $field->isAuthorizedToSee($request) || ! array_key_exists($attribute, $values)) {
+                continue;
+            }
+
+            $value = $values[$attribute];
+
+            if ($field instanceof Field && $field->isSensitive()) {
+                $logged[$attribute] = $value === null || $value === '' || $value === [] ? $value : self::MASK;
+
+                continue;
+            }
+
+            if ($field instanceof Repeater && is_array($value)) {
+                $value = self::maskRows($value, $field->sensitiveRowAttributes($request));
+            }
+
+            $logged[$attribute] = $value;
+        }
+
+        return $logged;
+    }
+
+    /**
+     * `$value` with the value of each key named in `$sensitive` replaced by
+     * the mask, at any depth.
+     *
+     * @param  array<array-key, mixed>  $value
+     * @param  list<string>  $sensitive
+     * @return array<array-key, mixed>
+     */
+    private static function maskRows(array $value, array $sensitive): array
+    {
+        if ($sensitive === []) {
+            return $value;
+        }
+
+        foreach ($value as $key => $item) {
+            if (in_array((string) $key, $sensitive, true) && $item !== null && $item !== '' && $item !== []) {
+                $value[$key] = self::MASK;
+            } elseif (is_array($item)) {
+                $value[$key] = self::maskRows($item, $sensitive);
+            }
+        }
+
+        return $value;
     }
 
     /**

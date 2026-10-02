@@ -317,7 +317,7 @@ class MorphTo extends Field
         }
 
         if ($value === null || $value === '') {
-            if ($this->nullable) {
+            if ($this->isNullable()) {
                 $model->setAttribute($this->morphTypeColumn, null);
                 $model->setAttribute($this->morphIdColumn, null);
             }

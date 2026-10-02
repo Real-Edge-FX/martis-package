@@ -1078,7 +1078,17 @@ What passes without a check:
 
 **A batch attach** checks every record first: one record outside the picker fails the whole batch (422 on `related_ids`) before anything is attached. Records that do not exist, that `attach{Model}` refuses, or that are already attached keep their v2.0 handling (listed in `meta.errors`, skipped).
 
-A value the write cannot validate this way is still written as before when the field has no related resource (`relatedResource()` unset, or a resource that is not registered). In a `Repeater` row the value is stored in the row, not as a relationship of the record: the query, `viewAny` and `add{Model}` apply, the full inverse and the `Tag` attach / detach abilities do not.
+**The resource a `BelongsTo` is checked against** (v2.4.0+). The check needs the related resource, which the field names with `relatedResource()`:
+
+- **`relatedResource('users')`** names it. A URI key that no registered resource has throws an `InvalidArgumentException` that names the field and the key, when a non-empty value is written: a typo in the key used to let every id through, and now fails loudly.
+- **No `relatedResource()`**: the resource is the one registered for the model of the relationship (`BelongsTo::make('team')` reads `Task::team()`, takes its related model and finds the resource registered for it), as Nova finds a `BelongsTo` resource when none is given. The full check above runs against it: its `relatableQuery()`, the source's `relatable{PluralModelName}()`, the field's `relatableQueryUsing()` and `withoutTrashed()`, `viewAny`, the `add{SourceModel}` policy and the full inverse.
+- **Neither names exactly one resource**: the relationship is not defined on the record (an Action field or a Repeater row whose host model has no such relationship), the related model has no registered resource, or several resources are registered for it. The value is refused with **422** (`martis::validation.relatable_unresolved`, "The :attribute has no related resource to check the selected record against. Declare relatedResource() on the field.") instead of being written unchecked. Declare `relatedResource()` on the field.
+
+Before v2.4.0 a field with no related resource, or one that named an unregistered key, wrote any submitted id with no check: a crafted request could point the foreign key at another tenant's record. The picker still needs `relatedResource()` (the frontend renders a numeric id input without it, and the picker endpoint reads the key from the field), so declare it on every `BelongsTo`.
+
+A `Tag` is checked only when it names its related resource with `relatedResource()`: without one the ids it syncs are written as the request sends them.
+
+In a `Repeater` row the value is stored in the row, not as a relationship of the record: the query, `viewAny` and `add{Model}` apply, the full inverse and the `Tag` attach / detach abilities do not.
 
 ### Polymorphic cross-type isolation
 

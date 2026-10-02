@@ -216,6 +216,8 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
 | `nullable` | `nullable(bool\|Closure $value = true): static` | `$this` | Mark as nullable (adds `nullable` validation rule). Accepts a closure for request-time resolution. |
+| `sensitive` | `sensitive(bool $value = true): static` | `$this` | Mark the value as a secret: an Action's field that collects an API key or a token. The [action event log](actions.md#action-field-values-in-the-log) stores `******` for it instead of the value. `Password` and `PasswordConfirmation` are sensitive by default. See [Sensitive fields](#sensitive-fields). v2.4.0+. |
+| `isSensitive` | `isSensitive(): bool` | `bool` | Whether the value is a secret. |
 | `readonly` | `readonly(bool\|Closure $value = true): static` | `$this` | Prevent modification through UI. `fill()` becomes a no-op. Accepts a closure for request-time resolution. Every bundled input renders the field read-only (`Avatar`, `BooleanGroup`, `Repeater`, `File`, `Image` and the inline-create "+" of `BelongsTo` / `MorphTo` since v1.38.0, see [Immutable fields](#immutable-fields)). A readonly pivot field is never written from the request either: the attach stores its `default()` and the pivot update leaves it alone (v1.38.0+, see [Immutable fields](#immutable-fields)). Nor is a readonly field inside a `Repeater` row: a stored row keeps its value and a new row stores its `default()` (v1.38.0+, see [Repeater](repeater.md#readonly-computed-hidden-and-immutable-row-fields)). |
 | `required` | `required(bool\|Closure $value = true): static` | `$this` | Require a non-null value (adds `required` validation rule). Accepts a closure for request-time resolution. **v1.8.3**: declaring `'required'` (or any `required_*` variant) inside `->rules([...])` is enough — the visual asterisk now auto-detects it. Calling `->required()` explicitly is still supported and required when you want a Closure-resolved flag. |
 | `placeholder` | `placeholder(string\|Closure $text): static` | `$this` | Set placeholder text for the input. Accepts a closure for request-time resolution. |
@@ -388,6 +390,16 @@ Every bundled input renders a readonly field read-only, so the lock holds whatev
 The pivot endpoints write each pivot field (in the `fields()` of a `BelongsToMany` / `MorphToMany`) through its `fill()`, and `readonly()` holds there too: a readonly pivot field never takes its value from the request. The attach stores its `default()` instead, as it does for any pivot field the request omits, and the pivot update leaves the column alone. See [Relationships → With Pivot Fields](relationships.md#with-pivot-fields).
 
 Up to v1.37.3 only the resource's own update skipped an immutable field: the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne` and the pivot update wrote it like any other field, and the attach and the pivot update also wrote a readonly pivot field from the request.
+
+### Sensitive fields
+
+`sensitive()` marks the value a field carries as a secret (v2.4.0+): an API key, a token or a one-time code that an Action collects in its modal under a plain `Text` field. The [action event log](actions.md#action-field-values-in-the-log) keeps `******` (`ActionEventRedactor::MASK`) in place of the value, in the event of a run, a failed run, a queued run and a pivot action. `Password` and `PasswordConfirmation` are sensitive without the call (`Password::make('x')->sensitive(false)` turns it off); `isSensitive()` reads the flag.
+
+```php
+Text::make('api_key')->sensitive();
+```
+
+The flag changes nothing else: the action receives the value, the field is validated and rendered as before.
 
 ### Reactive fields — `dependsOn(['field'], Closure)`
 
@@ -964,7 +976,17 @@ BooleanGroup::make('permissions')
 > ⚠️ When `options()` is given a closure, `requireAll()` cannot pre-compute its target at field declaration time — the closure has not run yet. Pair the closure form with `minChecked(int)` directly, or use `requireAny()` (always `1`).
 
 **Storage format:** `{"flag":true,"other":false}` on a plain column, or the map itself through an `array` / `json` cast.
-**Overrides:** `resolve()` decodes a JSON string or array to the normalised `{key: bool}` map; `fill()` decodes a JSON string to the map before writing (the multipart path, or a direct call) and writes an array as received.
+**Overrides:** `resolve()` decodes a JSON string or array to the normalised `{key: bool}` map; `fill()` decodes a JSON string to the map (the multipart path, or a direct call) and writes only the flags `options()` offers (below).
+
+**What a write stores.** The options a user is offered are the set of flags that user may change (an `options()` closure can scope them to the authenticated user), so `fill()` projects the submitted map onto them (since v2.4.0):
+
+- a submitted key the options do not name is ignored, so a crafted request cannot store `{"admin": true}` next to the flags it was shown;
+- each offered value becomes a boolean (`true`, `1`, `'1'`, `'true'`, `'on'`, `'yes'` are on, everything else is off), and an offered flag the submission leaves out is off;
+- a flag already stored that the user was **not** offered keeps its stored value, so an editor who sees a subset of the flags can neither switch on a flag they were not shown nor erase one an administrator set;
+- an empty value (`null`, `''`) switches every offered flag off and stores `null` when no hidden flag is left to keep;
+- a `fillUsing()` callback receives the offered flags only (the same projection), and a readonly or `computed()` field writes nothing, as for every field.
+
+On a column without an `array` / `json` cast the map is stored as a JSON string, as for `KeyValue` and `MultiSelect` (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
 
 **⭐ Martis differentials:** grouped sections, min/max live counter, `requireAny/All` presets.
 
@@ -1405,7 +1427,7 @@ Password::make('password')
 
 **Overrides:**
 - `resolve()` always returns `null` (never expose password hashes).
-- `fill()` hashes with `Hash::make()`. Skips empty/null values (no update if blank).
+- `fill()` hashes with `Hash::make()`. Skips empty/null values (no update if blank). A `fillUsing()` callback takes the write over and receives the plain value (hashing is then its decision); an empty value never reaches it. Its value is never stored in the [action event log](actions.md#action-field-values-in-the-log) either: an action's `Password` field is logged as `******`.
 
 **Specific methods:**
 - `withStrengthMeter(bool $enabled = true): static` — ⭐ **Martis extension.** Shows a 0–4 strength meter below the input (length + character-class heuristic). Pairs naturally with `PasswordConfirmation` to share the same UI cue. No extra dependency — zxcvbn-lite is inlined in the React component.
@@ -1599,7 +1621,7 @@ Icon::make('state')->icon(fn ($model) => $model->is_active ? 'check' : 'x')
 
 **Behavioural notes:**
 - Mode A defaults to `showOnForms = false`. `->stored()` re-enables form exposure.
-- `fill()` is a no-op for Mode A / Mode C — only Mode B hydrates the model.
+- `fill()` is a no-op for Mode A / Mode C — only Mode B hydrates the model. Mode B respects `readonly()` (a closure is evaluated per request, so `readonly(fn ($request) => ! $request->user()->isAdmin())` locks the write too, not only the input) and `fillUsing()`, as every field does.
 - Index rendering respects `size()` — put a small Icon at the start of `fieldsForIndex()` to get a visual marker on each row.
 
 ---
@@ -1809,7 +1831,7 @@ BelongsTo::make('category_id', 'Category')
 | `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Attribute on related model for display label. | `'name'` |
 | `displayColumn` | `displayColumn(string $column): static` | `$this` | Alias for `titleAttribute()`. Sets which column appears in index/table cells. | `'name'` |
 | `foreignKey` | `foreignKey(string $key): static` | `$this` | Override FK column name. | `{relationship}_id` |
-| `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource for dropdown API. | `null` |
+| `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource for dropdown API, and the resource a write is checked against. A key no registered resource has throws (naming the field and the key) when a value is written. Without it the write is checked against the resource registered for the relationship's model, and refused (422) when that names no single resource. See [Relationships → Writes follow the pickers](relationships.md#writes-follow-the-pickers). | `null` |
 | `placeholder` | `placeholder(string\|\Closure $text): static` | `$this` | Custom placeholder shown when no value is selected. Closure receives `(?Request $r)` for per-request resolution. | translated `'Select {field}...'` |
 | `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable/disable text search in dropdown. Without it the dropdown has no search box and lists up to 100 records, or the related resource's `$relatableSearchResults` (v1.38.0+; before, the flag was ignored and the search box always showed). | `true` |
 | `relatableQueryUsing` | `relatableQueryUsing(\Closure $closure): static` | `$this` | Per-field constraint on the picker query. Closure receives `(Request $request, Builder $query, BelongsTo $field)` and must return a `Builder`. Runs after the resource's static `relatableQuery()`. | `null` |
@@ -2599,7 +2621,9 @@ File::make('attachment', 'Attachment')
 | `getDisk` | `getDisk(): string` | `string` | Get disk name. | — |
 | `storagePath` | `storagePath(string $path): static` | `$this` | Set subdirectory within disk. | `'uploads'` |
 | `maxSize` | `maxSize(int $kb): static` | `$this` | Set max file size in KB. | `null` |
-| `acceptedTypes` | `acceptedTypes(array $mimes): static` | `$this` | Restrict accepted file extensions. | `[]` |
+| `acceptedTypes` | `acceptedTypes(array $mimes): static` | `$this` | Restrict accepted file extensions. A security control, see [Active content](#file-active-content): listing an active type (`'svg'`, `'html'`) accepts it. | `[]` |
+| `allowActiveContent` | `allowActiveContent(bool $value = true): static` | `$this` | Accept HTML, SVG, XML and script files, which are refused by default. v2.4.0+. | `false` |
+| `allowsActiveContent` | `allowsActiveContent(): bool` | `bool` | Whether the field accepts active content. | — |
 | `multiple` | `multiple(bool $value = true): static` | `$this` | Enable multiple file uploads (stores JSON array). | `false` |
 | `isMultiple` | `isMultiple(): bool` | `bool` | Check if multiple mode. | — |
 | `preserveOriginalName` | `preserveOriginalName(bool $value = true): static` | `$this` | Keep original filename (with unique suffix). | `false` |
@@ -2612,9 +2636,31 @@ File::make('attachment', 'Attachment')
 **Overrides:**
 - `resolve()` returns `{path, url, name}` (single) or `[{path, url, name}]` (multiple).
 - `fill()` stores uploaded file, deletes old, supports multiple mode. In multiple mode the path list is JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)), and only `existing` paths the record already owns are kept: the list is client-supplied, so an injected path (another record's upload, a traversal) is dropped and an owned path the client omits is deleted from disk.
-- `buildRules()` adds `file`, `mimes:...`, `max:...` rules.
+- `buildRules()` adds `file`, `mimes:...`, `max:...` rules, and the active-content rule below (`Martis\Rules\NoActiveContent`) unless `allowActiveContent()` is set. `buildItemRules()` adds the same to each upload of a multiple field.
 
 **Extra attributes:** `disk`, `storagePath`, `maxSize`, `acceptedTypes`, `multiple`, `showFileInfo`
+
+<a id="file-active-content"></a>
+#### Active content is refused (v2.4.0+)
+
+The default disk is `public`, which the web server serves from the application's own origin (`APP_URL/storage`). An HTML or SVG document served from there runs its script in that origin, with the session of whoever opens the link: a panel user who may upload to a `File` field could plant a page that an administrator later opens, and the script can read the CSRF token and drive the panel API as that administrator. So a `File` (and an `Image`, an `Avatar`, an `Audio`, which extend it) answers `422` to an upload that a browser or the web server would run, unless the developer opts in:
+
+- **by extension**: the extension the file is stored with, every segment of it (`html`, `htm`, `xhtml`, `shtml`, `svg`, `svgz`, `xml`, `xsl`, `js`, `mjs`, `php`, `php3` to `php8`, `phtml`, `pht`, `phar`, `asp`, `aspx`, `jsp`, `cgi`, `htaccess` and the like, see `Martis\Rules\NoActiveContent::EXTENSIONS`). That is the one the field gives it: the hash name takes it from the content's MIME type, and `preserveOriginalName()` keeps the client's own (so a GIF with a script in it kept as `logo.html` is refused);
+- **by content**: the MIME type the server reads from the file's bytes, never the one the client claims (`text/html`, `image/svg+xml`, `application/xml` and every other `+xml` type, JavaScript and PHP types), so an HTML document named `report.pdf` is refused as well.
+
+The opt-in is explicit, per field:
+
+```php
+File::make('attachment')->acceptedTypes(['pdf', 'docx']);   // active content refused (it is not listed)
+File::make('logo')->acceptedTypes(['svg', 'png']);          // listing 'svg' accepts SVG, and nothing else active
+File::make('snippet')->allowActiveContent();                // accepts every active type
+```
+
+**`acceptedTypes()` is a security control, not a convenience.** Without it a field takes any file that is not active content; list the types the field is for. Accept active content only when the uploads are never served from the application's origin: a private disk behind a download route that sends `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`, a separate domain, or a web-server rule for the upload directory.
+
+The refusal also holds at `fill()` for a caller that skips validation: the field throws a `ValidationException` before it deletes the file it replaces or stores a new one, in single and multiple mode alike. The message is `martis::validation.active_content` (translated in `en`, `pt_PT`, `pt_BR`).
+
+An `Image` never accepted SVG; what changes for it is the kept name: `Image::make('x')->preserveOriginalName()` now refuses an image uploaded under an active extension (a polyglot).
 
 ---
 
@@ -2761,9 +2807,9 @@ KeyValue::make('metadata', 'Metadata')
 | `keyLabel` | `keyLabel(string $label): static` | `$this` | Label for key column header. | `'Key'` |
 | `valueLabel` | `valueLabel(string $label): static` | `$this` | Label for value column header. | `'Value'` |
 | `actionText` | `actionText(string $text): static` | `$this` | Label for "add row" button. | `'Add Row'` |
-| `disableEditingKeys` | `disableEditingKeys(): static` | `$this` | Prevent editing existing keys. | `false` |
-| `disableAddingRows` | `disableAddingRows(): static` | `$this` | Prevent adding new rows. | `false` |
-| `disableDeletingRows` | `disableDeletingRows(): static` | `$this` | Prevent deleting rows: no row renders a delete button. v1.38.0+. | `false` |
+| `disableEditingKeys` | `disableEditingKeys(): static` | `$this` | Prevent editing existing keys; a write drops any key outside the stored (or default) key set (v2.4.0+). | `false` |
+| `disableAddingRows` | `disableAddingRows(): static` | `$this` | Prevent adding new rows; a write drops any key outside the stored (or default) key set (v2.4.0+). | `false` |
+| `disableDeletingRows` | `disableDeletingRows(): static` | `$this` | Prevent deleting rows: no row renders a delete button, and a write that leaves a stored (or default) key out gets its value back (v2.4.0+). v1.38.0+. | `false` |
 | `getKeyLabel` | `getKeyLabel(): string` | `string` | Get key label. | — |
 | `getValueLabel` | `getValueLabel(): string` | `string` | Get value label. | — |
 | `getActionText` | `getActionText(): string` | `string` | Get action text. | — |
@@ -2786,9 +2832,14 @@ KeyValue::make('opening_hours', 'Opening hours')
     ->disableDeletingRows()
 ```
 
-The flags shape the form only. The server stores the rows it receives, so a
-payload sent outside the form is not held to the fixed key set; enforce it
-with a validation rule when that matters.
+**The server enforces the flags** (v2.4.0+, hardening: Nova leaves them to the form). A request does not have to go through the form, so `fill()` holds a payload to the key set the flags fix. That set is the stored map's keys for a record that exists, and the field's `default()` keys for a new record (a closure or rows are read as the form reads them):
+
+| Flag | What a write does |
+|---|---|
+| `disableEditingKeys()` or `disableAddingRows()` | A submitted key outside the set is dropped: a new row, and a key edited into another name. The values of the keys in the set are the user's. |
+| `disableDeletingRows()` | A key of the set the submission leaves out (a deleted row, or a key edited into another name) takes its stored (or default) value back, and an empty value restores the whole set. |
+
+Nothing changes for a field without these flags: any key is stored. A key edited into another name is a new key plus a missing one, so with only `disableEditingKeys()` the renamed key is dropped and the old one is deleted (the form offers no way to type a key then); with `disableDeletingRows()` too, the old key stays. The stored order of the set is kept, and a restored row keeps its stored value as it was (a nested value included).
 
 **Storage format:** `{"key1":"value1","key2":"value2"}`
 **Overrides:** `resolve()` decodes to `[{key, value}]` rows; `fill()` normalizes to the associative map and stores it, JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
@@ -3010,7 +3061,7 @@ Status::make('job_status', 'Job Status')
 **Extends:** `Field`
 **File:** `src/Fields/Gravatar.php`
 
-Display-only avatar from Gravatar. Generates URL from email hash. Hidden from forms by default.
+Display-only avatar from Gravatar. Generates URL from email hash. Hidden from forms by default. `fromUrl()` switches it to a stored avatar URL, the one mode that writes.
 
 ```php
 Gravatar::make()               // default: attribute='email', label='Avatar'
@@ -3028,7 +3079,7 @@ Gravatar::make('user_email')   // custom attribute
 | `getSize` | `getSize(): int` | `int` | Get size in pixels. | — |
 | `gravatarUrl` | `static gravatarUrl(string $email, int $size = 40): string` | `string` | Generate Gravatar URL from email. | — |
 
-**Overrides:** `resolve()` returns Gravatar URL (not raw email); `fill()` is a no-op.
+**Overrides:** `resolve()` returns Gravatar URL (not raw email) in email mode and the stored URL in URL mode. `fill()` is a no-op in email mode (the field never writes the generated URL over the email column). In URL mode (`fromUrl()`) it writes the submitted URL, after the seams of every field: a readonly field (a `readonly()` closure included) writes nothing and a `fillUsing()` callback takes the write over. `buildRules()` adds a rule in URL mode (a field that is not readonly or computed): the value must be an absolute `https://` URL (`martis::validation.https_url`), because it is rendered as an `<img src>` for every viewer; an empty value passes and writes nothing. A stored `http://` avatar fails the rule when the form sends it back until it is replaced (since v2.4.0).
 **Extra attributes:** `shape`, `avatarSize`
 
 ---
@@ -3063,7 +3114,7 @@ Sparkline::make('trend', 'Revenue Trend')
 | `getChartWidth` | `getChartWidth(): ?int` | `?int` | Get width. | — |
 | `getChartColor` | `getChartColor(): string` | `string` | Get color. | — |
 
-**Overrides:** `resolve()` returns data array (invokes callable if set, falls back to model attribute); `fill()` is a no-op.
+**Overrides:** `resolve()` returns data array (invokes callable if set, falls back to model attribute); `fill()` writes the submitted points (the field is hidden from forms by default, so it only runs after `showOnForms()`), and honours `readonly()` (a closure included) and `fillUsing()` like every field.
 **Extra attributes:** `chartType`, `chartHeight`, `chartWidth`, `chartColor`
 
 ---

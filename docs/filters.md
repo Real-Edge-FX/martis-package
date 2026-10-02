@@ -137,20 +137,30 @@ class UserFlagsFilter extends BooleanFilter
 
     public function apply(Request $request, Builder $query, mixed $value): Builder
     {
-        if (is_array($value)) {
-            foreach ($value as $column => $enabled) {
-                if ($enabled) {
-                    $query->where($column, true);
-                }
-            }
-        }
+        $value = is_array($value) ? $value : [];
 
-        return $query;
+        return $query
+            ->when($value['is_admin'] ?? false, fn (Builder $q) => $q->where('is_admin', true))
+            ->when($value['is_verified'] ?? false, fn (Builder $q) => $q->where('is_verified', true));
     }
 }
 ```
 
 The `$value` passed to `apply()` is an associative array where keys are option values and values are booleans indicating checked state.
+
+**The keys come from the request, and the package keeps them to your options** (v2.4.0+). The `filters` query parameter is client input, so before `apply()` runs, the package drops every key that is not one of the option values `options()` declares (flat or grouped), turns each remaining value into a boolean (`true`, `1`, `'1'`, `'true'`, `'on'` and `'yes'` are checked) and, when no declared key is left, skips the filter as an empty selection. This holds on the index, in a [lens](lenses.md) and for the filters of a [dashboard](dashboards.md) (`ResourceController`, `LensRequest::withFilters()`, `MetricController`), for every filter whose `filterType()` is `boolean`, a hand-written one included.
+
+Read the keys you declared explicitly, as above, instead of looping over `$value` and using each key as a column name. A loop like `foreach ($value as $column => $enabled) $query->where($column, true)`, which this page used to show, turns a key into a column name: with a request that names `is_admin` or `settings->flag` it filters on a column the filter never offered, and it answers a hidden column's value or a SQL error. The package's guard makes such a loop safe for the declared options only; a filter that has to loop does so over the list `options()` gives, as the `martis:filter --boolean` scaffold does:
+
+```php
+$allowed = array_values($this->options($request));
+
+foreach ($value as $column => $enabled) {
+    if ($enabled && in_array($column, $allowed, true)) {
+        $query->where($column, true);
+    }
+}
+```
 
 ### DateFilter
 

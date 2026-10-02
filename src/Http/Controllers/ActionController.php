@@ -312,7 +312,7 @@ class ActionController extends MartisController
             $models->each(fn (Model $m) => $m->exists && $m->refresh());
 
             if ($actionInstance instanceof Action && $actionInstance->shouldLogEvents() && config('martis.action_events.enabled', true)) {
-                $this->logActionEvent($actionInstance, $models, $request, 'completed', null, $snapshots);
+                $this->logActionEvent($actionInstance, $models, $request, $fields, 'completed', null, $snapshots);
             }
 
             if ($actionInstance instanceof Action) {
@@ -338,7 +338,7 @@ class ActionController extends MartisController
             ]);
 
             if ($actionInstance instanceof Action && $actionInstance->shouldLogEvents() && config('martis.action_events.enabled', true)) {
-                $this->logActionEvent($actionInstance, $models, $request, 'failed', $e->getMessage(), $snapshots);
+                $this->logActionEvent($actionInstance, $models, $request, $fields, 'failed', $e->getMessage(), $snapshots);
             }
 
             if ($e instanceof MartisException) {
@@ -855,7 +855,7 @@ class ActionController extends MartisController
         // that runs at once (the `sync` connection, a fast worker) would
         // otherwise find none, leaving the log at `queued` with no diff.
         if ($action->shouldLogEvents() && config('martis.action_events.enabled', true)) {
-            $this->logActionEvent($action, $models, $request, 'queued', null, $snapshots);
+            $this->logActionEvent($action, $models, $request, $fields, 'queued', null, $snapshots);
         }
 
         dispatch($job);
@@ -870,17 +870,21 @@ class ActionController extends MartisController
      * Log action events to the database.
      *
      * Creates one event per model in the collection, capturing the
-     * before/after attribute diff in the original/changes columns.
+     * before/after attribute diff in the original/changes columns, and the
+     * values of the action's fields as `ActionEventRedactor::loggableFields()`
+     * keeps them (a `Password` or `sensitive()` field masked, a key that
+     * names no visible field left out), not the raw request input.
      *
      * @param  Collection<int, Model>  $models
+     * @param  ActionFields  $fields  The values the run resolved for the action's fields.
      * @param  Collection<int|string, array<string, mixed>>|null  $snapshots  Model attributes captured before action execution
      */
-    private function logActionEvent(Action $action, Collection $models, Request $request, string $status, ?string $exception = null, ?Collection $snapshots = null): void
+    private function logActionEvent(Action $action, Collection $models, Request $request, ActionFields $fields, string $status, ?string $exception = null, ?Collection $snapshots = null): void
     {
         try {
             $batchId = (string) Str::uuid();
             $userId = $request->user()?->getAuthIdentifier();
-            $fieldData = $request->input('fields', []);
+            $fieldData = ActionEventRedactor::loggableFields($action->fields($request), $fields->all(), $request);
 
             if ($models->isEmpty()) {
                 // Standalone action — no models to diff
@@ -1223,8 +1227,9 @@ class ActionController extends MartisController
             return $fields;
         }
 
-        /** @var array<string, mixed> $rawFields */
-        $rawFields = $request->input('fields', []);
+        // What the log keeps of the fields: the resolved values of the
+        // visible fields, secrets masked (see ActionEventRedactor::loggableFields()).
+        $loggedFields = ActionEventRedactor::loggableFields($actionInstance->fields($request), $fields->all(), $request);
 
         if ($request->boolean('dryRun') && $actionInstance->hasDryRun()) {
             return JsonResponse::make(['preview' => $actionInstance->dryRun($fields, $models)])->toResponse();
@@ -1247,7 +1252,7 @@ class ActionController extends MartisController
             }
 
             if ($logEvents) {
-                PivotActionEventLog::record($actionInstance, $parentModel, $relation, $models, $userId, $rawFields, 'completed', null, $before, PivotActionEventLog::pivotRows($relation, $models));
+                PivotActionEventLog::record($actionInstance, $parentModel, $relation, $models, $userId, $loggedFields, 'completed', null, $before, PivotActionEventLog::pivotRows($relation, $models));
             }
 
             $thenCallback = $actionInstance->getThenCallback();
@@ -1272,7 +1277,7 @@ class ActionController extends MartisController
             ]);
 
             if ($logEvents) {
-                PivotActionEventLog::record($actionInstance, $parentModel, $relation, $models, $userId, $rawFields, 'failed', $e->getMessage(), $before, PivotActionEventLog::pivotRows($relation, $models));
+                PivotActionEventLog::record($actionInstance, $parentModel, $relation, $models, $userId, $loggedFields, 'failed', $e->getMessage(), $before, PivotActionEventLog::pivotRows($relation, $models));
             }
 
             if ($e instanceof MartisException) {
@@ -1330,9 +1335,7 @@ class ActionController extends MartisController
         // Written before the dispatch: a sync queue runs the job at once and
         // settles these rows.
         if ($logEvents) {
-            /** @var array<string, mixed> $rawFields */
-            $rawFields = $request->input('fields', []);
-            PivotActionEventLog::record($action, $parentModel, $relation, $models, $userId, $rawFields, 'queued');
+            PivotActionEventLog::record($action, $parentModel, $relation, $models, $userId, ActionEventRedactor::loggableFields($action->fields($request), $fields->all(), $request), 'queued');
         }
 
         dispatch($job);

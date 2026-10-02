@@ -98,6 +98,23 @@ class ResourceRegistry
     }
 
     /**
+     * The registered resources that expose a model class, in registration
+     * order. Empty when none does; more than one when several resources are
+     * defined over the same model.
+     *
+     * @return list<class-string<\Martis\Resource>>
+     */
+    public function forModel(string $modelClass): array
+    {
+        $modelClass = ltrim($modelClass, '\\');
+
+        return array_values(array_filter(
+            $this->resources,
+            static fn (string $resourceClass): bool => ltrim($resourceClass::model(), '\\') === $modelClass,
+        ));
+    }
+
+    /**
      * Return the number of registered resources.
      */
     public function count(): int

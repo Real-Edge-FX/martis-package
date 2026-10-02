@@ -10,6 +10,7 @@ use Martis\Contracts\DashboardContract;
 use Martis\Contracts\FilterContract;
 use Martis\Contracts\MetricContract;
 use Martis\Filters\Filter;
+use Martis\Filters\FilterValue;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\MartisManager;
@@ -337,6 +338,12 @@ class MetricController
 
                 $value = $decoded[$key];
                 if ($value === null || $value === '') {
+                    continue;
+                }
+
+                // A boolean filter only receives the options it declares.
+                $value = FilterValue::resolve($filter, $request, $value);
+                if ($value === null) {
                     continue;
                 }
 

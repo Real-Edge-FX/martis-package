@@ -1064,7 +1064,7 @@ id  batch_id (UUID)          user_id  name           actionable_type  id  status
 Key points:
 - All 3 rows share the same `batch_id` — they came from one action run
 - `original` and `changes` store **only the diff** — unchanged attributes are not stored
-- `fields` holds the values the user submitted in the action modal
+- `fields` holds the values the run resolved for the action's visible fields, with a `Password` or [`sensitive()`](fields.md#sensitive-fields) field masked as `******` (see [Action field values in the log](#action-field-values-in-the-log))
 - For standalone actions, `actionable_type/id` are `null` (no model targeted)
 - For a [pivot action](#pivot-actions), one row per selected related record with Nova's mapping: `actionable` is the record whose relationship panel ran the action, `target` the related record, `model` its pivot row (the pivot class, and the pivot key when the table has one), and `original` / `changes` hold the pivot columns the action changed (v1.38.0+)
 
@@ -1132,7 +1132,7 @@ php artisan migrate
 | `target_id` | `int\|null` | Target model ID; for a pivot action, the related record's ID |
 | `model_type` | `string\|null` | Source model class; for a pivot action, the pivot class |
 | `model_id` | `int\|null` | Source model ID; for a pivot action, the pivot row's key (`null` when the pivot table has none) |
-| `fields` | `json` | Submitted action field values |
+| `fields` | `json` | The action's field values as the run resolved them: the visible fields only, secrets masked (see [Action field values in the log](#action-field-values-in-the-log)) |
 | `status` | `string` | `completed`, `failed`, or `queued` |
 | `exception` | `text` | Error message on failure (empty string on success) |
 | `original` | `json` | Changed attributes with their values **before** the action (diff only) |
@@ -1322,6 +1322,21 @@ The stored row keeps every other value: code that reads `ActionEvent` directly g
 #### `$hidden` attributes are stored masked (v2.0.1+)
 
 When an action changes an attribute its model hides (`$hidden`: a password hash, a token), the event stores `******` for it in `original` and `changes`, keeping the key; a pivot action does the same with the pivot model's `$hidden` columns. The mask reads the instance's `getHidden()`, as Nova's Sidekick reads `$model->getHidden()`, so a runtime `makeVisible()` of a `$hidden` attribute on a model the action changes stores that value in clear: read the secret without it (`$model->api_token` needs no `makeVisible()`), or call `makeVisible()` on a copy (`clone $model`). This applies to synchronous and queued actions and to pivot actions, and to rows written from v2.0.1 on (older rows keep their values, still masked on read). Nova does the same: its action events store their diffs through `Orchestra\Sidekick\Eloquent\model_state()`, which replaces each `$hidden` attribute with a value serialised as `******`. A custom writer masks its own diffs with `ActionEventRedactor::maskHiddenAttributes($values, $model)`.
+
+#### Action field values in the log (v2.4.0+)
+
+The `fields` column used to store the raw `fields` input of the request: every value the user typed in the modal, a `Password` field included (a "Set new password" or "Rotate API key" action left the secret in plain text in the database and its backups), the values of fields the user cannot see, and any key that names no field. An event now stores the values the run resolved for the fields the user may see, as `handle()` receives them:
+
+- a `Password` or `PasswordConfirmation` field, and any field marked [`sensitive()`](fields.md#sensitive-fields), stores `******` (`ActionEventRedactor::MASK`) in place of its value; an empty value stays empty, so the log does not claim a secret was set. Inside a `Repeater` row the fields its repeatables mark sensitive are masked the same way, nested Repeaters included;
+- a field the user cannot see (`canSee()`) and a key that names no field of the action (the extra values a custom component posts) are left out. The action still receives them in `handle()`; only the log drops them;
+- a pivot action's event stores its fields the same way, queued or not, and so do a failed run and a queued run's `queued` event.
+
+```php
+Text::make('api_key')->sensitive();   // logged as ******
+Password::make('new_password');       // logged as ******, with no flag
+```
+
+Nova stores action fields as submitted. The mask applies to rows written from v2.4.0 on; older rows keep what they stored (the built-in `ActionEventResource` never shows the column). A custom writer applies the same rule with `ActionEventRedactor::loggableFields($fields, $values, $request)`. The values a queued action hands its job (`ExecuteAction`, `ExecutePivotAction`) are not part of the log: the job payload carries them as the queue driver stores it.
 
 #### `$visible` attributes only (v2.3.0+)
 

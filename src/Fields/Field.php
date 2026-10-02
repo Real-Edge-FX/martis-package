@@ -160,6 +160,13 @@ abstract class Field implements FieldContract
     protected bool $immutable = false;
 
     /**
+     * Whether the value the field carries is a secret (a password, an API
+     * key) that no log may keep. Set by `sensitive()`; `Password` and
+     * `PasswordConfirmation` are sensitive by default.
+     */
+    protected bool $sensitive = false;
+
+    /**
      * List of OTHER field attributes whose values this field reacts to.
      * Set by `dependsOn(array $fields, Closure $cb)`. The schema
      * surfaces this list so the frontend knows which inputs to watch
@@ -628,6 +635,27 @@ abstract class Field implements FieldContract
     public function isImmutable(): bool
     {
         return $this->immutable;
+    }
+
+    /**
+     * Mark the value the field carries as a secret: an Action's field that
+     * collects an API key, a token or a password under another name. The
+     * action event log stores `******` (`ActionEventRedactor::MASK`) for it
+     * instead of the value, as it does for a `Password` field.
+     */
+    public function sensitive(bool $value = true): static
+    {
+        $this->sensitive = $value;
+
+        return $this;
+    }
+
+    /**
+     * Whether the field's value is a secret (see `sensitive()`).
+     */
+    public function isSensitive(): bool
+    {
+        return $this->sensitive;
     }
 
     // -------------------------------------------------------------------------

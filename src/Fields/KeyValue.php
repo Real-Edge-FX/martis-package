@@ -2,6 +2,8 @@
 
 namespace Martis\Fields;
 
+use ArrayObject;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -74,7 +76,8 @@ class KeyValue extends Field
     }
 
     /**
-     * Prevent the user from editing existing keys.
+     * Prevent the user from editing existing keys. A write keeps the key set
+     * too: a key that is not one of the stored (or default) keys is dropped.
      */
     public function disableEditingKeys(): static
     {
@@ -84,7 +87,8 @@ class KeyValue extends Field
     }
 
     /**
-     * Prevent the user from adding new rows.
+     * Prevent the user from adding new rows. A write keeps the key set too: a
+     * key that is not one of the stored (or default) keys is dropped.
      */
     public function disableAddingRows(): static
     {
@@ -95,9 +99,11 @@ class KeyValue extends Field
 
     /**
      * Prevent the user from deleting rows: the form renders no delete
-     * button on any row. Together with `disableEditingKeys()` and
+     * button on any row, and a write that leaves a stored (or default) key
+     * out gets its value back. Together with `disableEditingKeys()` and
      * `disableAddingRows()` this presents a fixed set of keys whose values
-     * are the only editable part (Nova's `disableDeletingRows()`).
+     * are the only editable part (Nova's `disableDeletingRows()`), and
+     * `fill()` holds a request to that set as well, which Nova does not.
      */
     public function disableDeletingRows(): static
     {
@@ -191,10 +197,106 @@ class KeyValue extends Field
             return;
         }
 
+        $map = $this->normalizeForStorage($value);
+
+        if ($this->editingKeysDisabled || $this->addingRowsDisabled || $this->deletingRowsDisabled) {
+            $map = $this->enforceKeySet($model, $map ?? []);
+        }
+
         $model->setAttribute(
             $this->attribute,
-            $this->storableStructuredValue($model, $this->attribute, $this->normalizeForStorage($value)),
+            $this->storableStructuredValue($model, $this->attribute, $map),
         );
+    }
+
+    /**
+     * Hold a submitted map to the key set the field's flags fix.
+     *
+     * `disableEditingKeys()`, `disableAddingRows()` and `disableDeletingRows()`
+     * shape the form, and a request does not have to go through the form, so
+     * `fill()` enforces them. The keys the user may rely on are the stored
+     * map's for a record that exists, the field's `default()` keys for a new
+     * one:
+     *
+     * - a key outside that set (a new row, or a key edited into another name)
+     *   is dropped while keys cannot be edited or rows cannot be added;
+     * - a key of that set the submission leaves out (a deleted row, or a key
+     *   edited into another name) takes its stored (or default) value back
+     *   while rows cannot be deleted.
+     *
+     * The values of the keys that stay are the user's: they are the editable
+     * part.
+     *
+     * @param  array<string, mixed>  $submitted
+     * @return array<string, mixed>|null
+     */
+    protected function enforceKeySet(Model $model, array $submitted): ?array
+    {
+        $fixed = $model->exists
+            ? $this->mapOf($model->getAttribute($this->attribute))
+            : $this->mapOf($this->getDefaultValue());
+
+        $map = [];
+
+        foreach ($fixed as $key => $current) {
+            if (array_key_exists($key, $submitted)) {
+                $map[$key] = $submitted[$key];
+            } elseif ($this->deletingRowsDisabled) {
+                $map[$key] = $current;
+            }
+        }
+
+        if (! $this->editingKeysDisabled && ! $this->addingRowsDisabled) {
+            foreach ($submitted as $key => $row) {
+                if (! array_key_exists($key, $fixed)) {
+                    $map[$key] = $row;
+                }
+            }
+        }
+
+        return $map === [] ? null : $map;
+    }
+
+    /**
+     * The map a stored value (or a default) holds: a JSON string, rows
+     * `[{key, value}]`, an associative array or the object a cast hands
+     * back. Values are kept as stored, so a restored row is not rewritten.
+     *
+     * @return array<string, mixed>
+     */
+    private function mapOf(mixed $raw): array
+    {
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        if ($raw instanceof Arrayable) {
+            $raw = $raw->toArray();
+        } elseif ($raw instanceof ArrayObject) {
+            $raw = $raw->getArrayCopy();
+        }
+
+        if (! is_array($raw) || $raw === []) {
+            return [];
+        }
+
+        $map = [];
+
+        if (isset($raw[0])) {
+            foreach ($raw as $row) {
+                if (is_array($row) && isset($row['key'])) {
+                    $map[(string) $row['key']] = $row['value'] ?? '';
+                }
+            }
+
+            return $map;
+        }
+
+        foreach ($raw as $key => $value) {
+            $map[(string) $key] = $value;
+        }
+
+        return $map;
     }
 
     /**
