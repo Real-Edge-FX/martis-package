@@ -7,7 +7,6 @@ use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Martis\Rules\NoActiveContent;
 
 /**
  * Image upload field.
@@ -415,7 +414,7 @@ class Image extends File
     /**
      * Item rules for multiple mode — use 'image' instead of 'file'.
      *
-     * @return list<string|NoActiveContent>
+     * @return list<string|\Closure>
      */
     public function buildItemRules(): array
     {

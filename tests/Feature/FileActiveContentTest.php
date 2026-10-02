@@ -294,7 +294,10 @@ it('keeps the stored file when an update uploads active content', function () {
 // ---- the rule and the field, without the controller ------------------------
 
 it('builds the rule into the field rules and the item rules, unless the field opts in', function () {
-    $find = fn (array $rules) => collect($rules)->contains(fn ($rule) => $rule instanceof NoActiveContent);
+    // The rule reaches the validator as a closure bound to the rule object.
+    $find = fn (array $rules) => collect($rules)->contains(
+        fn ($rule) => $rule instanceof Closure && (new ReflectionFunction($rule))->getClosureThis() instanceof NoActiveContent,
+    );
 
     expect($find(File::make('f')->buildRules()))->toBeTrue()
         ->and($find(File::make('f')->multiple()->buildItemRules()))->toBeTrue()

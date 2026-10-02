@@ -2,6 +2,7 @@
 
 namespace Martis\Fields;
 
+use Closure;
 use Illuminate\Contracts\Filesystem\Cloud;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
@@ -624,11 +625,14 @@ class File extends Field
 
     /**
      * The rule that refuses active content (see `NoActiveContent`), checked
-     * against the name the upload would be stored under.
+     * against the name the upload would be stored under. Handed to the
+     * validator as a closure, like the other rules a field builds.
+     *
+     * @return Closure(string, mixed, Closure): void
      */
-    private function noActiveContentRule(): NoActiveContent
+    private function noActiveContentRule(): Closure
     {
-        return new NoActiveContent($this->acceptedTypes, $this->generateStorageFilename(...));
+        return (new NoActiveContent($this->acceptedTypes, $this->generateStorageFilename(...)))->validate(...);
     }
 
     /**
@@ -636,7 +640,7 @@ class File extends Field
      *
      * Only meaningful when multiple() is enabled.
      *
-     * @return list<string|NoActiveContent>
+     * @return list<string|Closure>
      */
     public function buildItemRules(): array
     {
