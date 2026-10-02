@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -95,6 +96,38 @@ class LensFenceAcrossLens extends LensFenceDefaultLens
     public static bool $withoutIndexScope = true;
 }
 
+/**
+ * Returns a Paginator: the SQL runs inside the lens, before anything can group
+ * its clauses, so an `orWhere()` here must still not OR the fence away.
+ */
+class LensFencePageLens extends Lens
+{
+    public function fields(Request $request): array
+    {
+        return [Text::make('name')];
+    }
+
+    public function query(LensRequest $request, Builder $query): Builder|Paginator
+    {
+        return $query->where('name', 'Mine')->orWhere('name', 'Theirs')->orWhere('name', 'Hidden')->orderBy('id')->paginate(10);
+    }
+}
+
+/** A Paginator lens that only ANDs: the control that must keep working. */
+class LensFencePlainPageLens extends LensFencePageLens
+{
+    public function query(LensRequest $request, Builder $query): Builder|Paginator
+    {
+        return $query->where('amount', '>', 0)->orderBy('id')->paginate(10);
+    }
+}
+
+/** A Paginator lens that opts out of the fence. */
+class LensFenceAcrossPageLens extends LensFencePageLens
+{
+    public static bool $withoutIndexScope = true;
+}
+
 class LensFenceItemResource extends Resource
 {
     public static function model(): string
@@ -139,7 +172,7 @@ class LensFenceItemResource extends Resource
 
     public function lenses(Request $request): array
     {
-        return [new LensFenceDefaultLens, new LensFenceOrLens, new LensFenceAcrossLens];
+        return [new LensFenceDefaultLens, new LensFenceOrLens, new LensFenceAcrossLens, new LensFencePageLens, new LensFencePlainPageLens, new LensFenceAcrossPageLens];
     }
 }
 
@@ -206,6 +239,28 @@ it('keeps the fence on a lens whose own query ORs a constraint', function () {
     expect(collect($response->json('data'))->pluck('name')->all())->toBe(['Mine'])
         ->and($response->json('meta.total'))->toBe(1)
         ->and($response->json('meta.summary.count.value'))->toBe(1);
+});
+
+it('keeps the fence on a lens whose query() returns an already paginated result and ORs a constraint', function () {
+    // The paginator runs the SQL inside the lens: `fence AND name = Mine OR name = Theirs ...`
+    // would list the other tenant's record and the one indexQuery() hides.
+    $response = $this->getJson(LENS_FENCE_BASE.'/lenses/lens-fence-page')->assertOk();
+
+    expect(collect($response->json('data'))->pluck('name')->all())->toBe(['Mine'])
+        ->and($response->json('meta.total'))->toBe(1);
+});
+
+it('still lists the fenced records of a paginator lens that only ANDs its constraints', function () {
+    $response = $this->getJson(LENS_FENCE_BASE.'/lenses/lens-fence-plain-page')->assertOk();
+
+    expect(collect($response->json('data'))->pluck('name')->all())->toBe(['Mine'])
+        ->and($response->json('meta.total'))->toBe(1);
+});
+
+it('lets a paginator lens that opts out list across the fence', function () {
+    $response = $this->getJson(LENS_FENCE_BASE.'/lenses/lens-fence-across-page')->assertOk();
+
+    expect(collect($response->json('data'))->pluck('name')->all())->toBe(['Mine', 'Theirs', 'Hidden']);
 });
 
 it('fences the trashed records a lens lists as the index fences them', function () {
