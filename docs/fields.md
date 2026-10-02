@@ -1469,6 +1469,7 @@ Slug::make('slug')
     ->separator('-')                               // default: '-'
     ->reserved(['admin', 'api', 'login'])          // rejected values
     ->lockAfter(fn ($post) => $post->is_published) // freeze after publish
+    ->withinIndexScope()                           // probe uniqueness per tenant (see below)
 ```
 
 **Specific methods:**
@@ -1476,6 +1477,7 @@ Slug::make('slug')
 - `separator(string $separator): static` — Token separator (default: `'-'`).
 - `reserved(array $reserved): static` — ⭐ **Martis extension.** Reject these exact values (system paths). Validation emits `slug_reserved` error; the `/slug-check` endpoint returns `{ reserved: true, suggestion }`.
 - `lockAfter(Closure $condition): static` — ⭐ **Martis extension.** Freezes the slug on existing records once the condition holds. `Slug::fill()` becomes a no-op in that case — SEO protection.
+- `withinIndexScope(bool $within = true): static` — ⭐ **Martis extension.** Run the slug-check uniqueness probe through the resource's `scopes()` and `indexQuery()` instead of the whole table. Enable it when uniqueness is per tenant or per owner (a composite unique index such as `tenant_id, slug`), so the check answers for the records the user can list and never reveals that a slug exists in another scope. See [Live collision detection](#slug-collision-detection).
 - `badgeVariant(string $variant): static` — Read-only display badge variant. Accepts `'default'` (alias `'muted'`), `'accent'`, `'success'`, `'warning'`, `'danger'`, `'custom'`. Unknown values fall back to `'default'`.
 - `badgeAccent(): static` — Sugar for `badgeVariant('accent')`. Reads cleanly when the slug IS the row identity (Permission name, Role name).
 - `badgeColor(string $color): static` — Custom CSS colour for the badge. Accepts any browser-recognised colour (hex, `rgb()`, `hsl()`, `oklch()`, named). The frontend tints the background as a 14% mix with the surface so it stays subtle in both themes; the foreground uses the colour verbatim. Implies `badgeVariant('custom')`.
@@ -1484,7 +1486,7 @@ Slug::make('slug')
 
 **⭐ Martis extensions (UI, automatic):**
 - **Live preview** — the React input regenerates the slug as the user types in the source field (i18n-aware transliteration), until the slug is edited by hand. On a create form, a replicated record included, the slug follows the source from the source's first change, as in Nova: the slug the form opens with, copied or empty, stays until then (v1.38.0+). On an edit form (the update page or the update drawer) a stored slug counts as set: changing the source leaves it alone, so renaming a record does not silently change its URL, and an empty stored slug follows the source at once. Edit the slug directly, or clear it (a `nullable()` slug shows a clear button) to regenerate it from the source and follow it again. A slug the user empties by hand stays empty while the source has text, and follows the source again once the source is empty too, so the next record's slug follows its title after "Create & add another" (v1.38.0+). Before v1.38.0 a create form took a slug it opened with for one set by hand, so a replicated slug never followed the title, and filled an empty slug from a source that already had text.
-- **Live collision detection** — debounced probe against
+- <a id="slug-collision-detection"></a>**Live collision detection** — debounced probe against
   `GET /martis/api/resources/{resource}/slug-check/{field}?value=…&id=…`.
   Response envelope:
   ```json
@@ -1498,6 +1500,8 @@ Slug::make('slug')
   ```
   The UI renders a clickable suggestion when `suggestion` is non-null.
   The check uses the Slug declared on the form it comes from: `fieldsForUpdate()` when `id` names a record the user may update (`authorizedToUpdate()`), otherwise `fieldsForCreate()` and then `fieldsForInlineCreate()`, then `fields()`. A Slug declared on one form only is found, and that declaration's `separator()` and `reserved()` apply (v1.38.0: the check read `fields()` first and never the inline-create form). The record being edited is left out of the uniqueness probe, so its own slug reads as available; an `id` the user may not update is answered like one that names no record (v1.38.0: any record `id` named was bound and left out of the probe, which told the slug of a record the user could not edit apart).
+
+  The check answers whether a slug is taken, so it needs the ability to write one, not `viewAny` alone: `authorizedToUpdate()` on the record `id` names, otherwise `authorizedToCreate()` (a user who may only list the resource gets 403, for any `id`, so it cannot be used to test which slugs exist; before v2.4.0 `viewAny` was enough). The probe reads the whole table by default, which is right for a slug that is unique across it (a plain unique index): the answer then reflects records in every tenant or owner scope, including ones the user cannot list, exactly as saving the slug would, so a user who may create or update records can learn that a slug exists elsewhere. Where the host scopes records per tenant and the slug is unique per tenant, declare the field `->withinIndexScope()`: the probe (and its `-2`, `-3` suggestions) then runs through the resource's `scopes()` and `indexQuery()` and only the records the user can list count as taken.
 
 **Validation:** a closure rule verifies the submitted value is already in its slugified form (so the server rejects mismatched case / spaces) and that it is not in the `reserved` list.
 
