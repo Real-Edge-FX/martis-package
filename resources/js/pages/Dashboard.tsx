@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { apiPath, routePath } from '@/lib/apiPath'
 import { config } from '@/lib/config'
 import { getNavigationResourceItems } from '@/lib/navigation'
 import type { NavigationGroup, DashboardDefinition, DashboardData, ActiveFilters, GateLock } from '@/types'
@@ -177,7 +178,7 @@ function DashboardView({
     | { data: { locked: true; lock: GateLock; dashboard: DashboardDefinition } }
   const dashboardQuery = useQuery({
     queryKey: ['dashboard', currentKey],
-    queryFn: () => api.get<DashboardResponse>(`/api/dashboards/${currentKey}`),
+    queryFn: () => api.get<DashboardResponse>(apiPath`/api/dashboards/${currentKey}`),
     enabled: !!currentKey && !isDefaultLayout,
   })
 
@@ -302,7 +303,7 @@ function DashboardView({
                         <MetricCard
                           key={card.uriKey}
                           metric={card}
-                          endpoint={`/api/dashboards/${currentKey}/cards/${card.uriKey}`}
+                          endpoint={apiPath`/api/dashboards/${currentKey}/cards/${card.uriKey}`}
                           filters={activeFilters}
                           customContent={<C card={card} filters={activeFilters} />}
                         />
@@ -319,7 +320,7 @@ function DashboardView({
                   <MetricCard
                     key={card.uriKey}
                     metric={card}
-                    endpoint={`/api/dashboards/${currentKey}/cards/${card.uriKey}`}
+                    endpoint={apiPath`/api/dashboards/${currentKey}/cards/${card.uriKey}`}
                     filters={activeFilters}
                   />
                 )
@@ -373,7 +374,7 @@ function DefaultDashboardView({ groups }: { groups: NavigationGroup[] }) {
           <h2 className="mb-3 text-lg font-semibold" style={{ color: 'var(--martis-text)' }}>{t('registered')}</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {navigationResources.map((r) => (
-              <Link key={r.uriKey} to={`/resources/${r.uriKey}`} className="block h-full">
+              <Link key={r.uriKey} to={routePath`/resources/${r.uriKey}`} className="block h-full">
                 <Card className="martis-resource-card transition-all hover:shadow-md cursor-pointer h-full">
                   <div className="flex items-center gap-4 min-h-[2.5rem]">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-martis-accent-bg-light">

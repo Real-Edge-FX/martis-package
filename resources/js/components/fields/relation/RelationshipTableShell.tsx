@@ -11,6 +11,7 @@ import {
 } from '@phosphor-icons/react'
 
 import { api } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, FieldDefinition } from '@/types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
 import { DeleteModal } from '@/components/DeleteModal'
@@ -136,7 +137,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
 
   const schemaQuery = useQuery({
     queryKey: ['schema', relatedResource],
-    queryFn: () => api.get<{ data: ResourceSchema }>(`/api/resources/${relatedResource}/schema`),
+    queryFn: () => api.get<{ data: ResourceSchema }>(apiPath`/api/resources/${relatedResource}/schema`),
     enabled: !!relatedResource,
   })
 
@@ -170,7 +171,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
 
   const restoreMutation = useMutation({
     mutationFn: (relatedId: string | number) =>
-      api.put(`/api/resources/${relatedResource}/${relatedId}/restore`),
+      api.put(apiPath`/api/resources/${relatedResource}/${relatedId}/restore`),
     onSuccess: (_res, relatedId) => {
       emitRecordEvent('restored', relatedResource, relatedId)
       void qc.invalidateQueries({ queryKey })
@@ -180,7 +181,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
 
   const forceDeleteMutation = useMutation({
     mutationFn: (relatedId: string | number) =>
-      api.delete(`/api/resources/${relatedResource}/${relatedId}/force`),
+      api.delete(apiPath`/api/resources/${relatedResource}/${relatedId}/force`),
     onSuccess: (_res, relatedId) => {
       emitRecordEvent('deleted', relatedResource, relatedId)
       void qc.invalidateQueries({ queryKey })

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { withQuery } from '@/lib/apiPath'
 import { ArrowClockwiseIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { ResourceIcon } from '@/components/ResourceIcon'
@@ -44,7 +45,7 @@ export function MetricCard({ metric, endpoint, filters, customContent }: MetricC
         params.set('filters', JSON.stringify(filters))
       }
       return api.get<{ data: { result: Record<string, unknown> } }>(
-        `${endpoint}?${params.toString()}`,
+        withQuery(endpoint, params.toString()),
       )
     },
     enabled: isFetchableMetric,

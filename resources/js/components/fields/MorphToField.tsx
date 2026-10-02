@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
 import { api } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
 import { ArrowSquareOutIcon, CaretDownIcon, MagnifyingGlassIcon, XIcon, CheckIcon, PlusIcon } from '@phosphor-icons/react'
@@ -89,7 +90,7 @@ function PeekCard({ resourceKey, recordId, top, left }: PeekCardProps) {
 
   useEffect(() => {
     let cancelled = false
-    api.get<PeekResponse>(`/api/resources/${resourceKey}/${recordId}/peek`)
+    api.get<PeekResponse>(apiPath`/api/resources/${resourceKey}/${recordId}/peek`)
       .then((res) => {
         if (!cancelled) {
           setData(res.data)
@@ -344,8 +345,8 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     try {
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
       const endpoint = scopedUrl
-        ? withQuery(scopedUrl, `per_page=${perPage}&related_resource=${selectedType}${searchParam}`)
-        : `/api/resources/_/_/relatable/${field.attribute}?per_page=${perPage}&related_resource=${selectedType}${searchParam}`
+        ? withQuery(scopedUrl, `per_page=${perPage}&related_resource=${encodeURIComponent(selectedType)}${searchParam}`)
+        : withQuery(apiPath`/api/resources/_/_/relatable/${field.attribute}`, `per_page=${perPage}&related_resource=${encodeURIComponent(selectedType)}${searchParam}`)
       const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
     } catch {

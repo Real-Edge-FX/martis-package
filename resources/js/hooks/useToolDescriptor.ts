@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, ApiError } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
 import { useToast } from '@/contexts/ToastContext'
 import { useGateOptional } from '@/contexts/GateContext'
 import type { LockedToolResponse, ToolDescriptor } from '@/types'
@@ -44,7 +45,7 @@ export function useToolDescriptor(uriKey: string | undefined, prefilled?: ToolDe
     const ac = new AbortController()
 
     api
-      .get<ToolDescriptor | LockedToolResponse>(`/api/tools/${encodeURIComponent(uriKey)}`, ac.signal)
+      .get<ToolDescriptor | LockedToolResponse>(apiPath`/api/tools/${uriKey}`, ac.signal)
       .then((data) => {
         if (cancelled) return
         if ('locked' in data && data.locked === true) {

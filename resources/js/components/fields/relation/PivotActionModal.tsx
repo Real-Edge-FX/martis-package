@@ -4,6 +4,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { LightningIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
+import { pathSegment } from '@/lib/apiPath'
 import { useModalHistoryLock } from '@/lib/historyLock'
 import { useToast } from '@/contexts/ToastContext'
 import { FieldInput } from '@/components/fields/FieldRenderer'
@@ -98,7 +99,7 @@ export function PivotActionModal({
     return () => document.removeEventListener('keydown', handleKey)
   }, [onClose])
 
-  const actionUrl = `${actionsUrl}/${action.uriKey}`
+  const actionUrl = `${actionsUrl}/${pathSegment(action.uriKey)}`
 
   const fieldsQuery = useQuery({
     queryKey: ['pivot-action-fields', actionsUrl, action.uriKey],

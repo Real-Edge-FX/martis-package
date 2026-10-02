@@ -3,6 +3,7 @@ import { useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlassIcon, XIcon, PlusIcon, PlusCircleIcon, CheckIcon } from '@phosphor-icons/react'
 import { api } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
 import { InlineCreateModal } from '@/components/InlineCreateModal'
 import { PeekCard } from './BelongsToField'
 import type { FieldDisplayProps, FieldInputProps } from './types'
@@ -202,7 +203,7 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
       // Always use relatable endpoint - applies query hooks server-side
       const endpoint = scopedUrl
         ? withQuery(scopedUrl, `per_page=${perPage}${searchParam}`)
-        : `/api/resources/_/_/relatable/${field.attribute}?per_page=${perPage}&related_resource=${relatedResource}${searchParam}`
+        : withQuery(apiPath`/api/resources/_/_/relatable/${field.attribute}`, `per_page=${perPage}&related_resource=${encodeURIComponent(relatedResource)}${searchParam}`)
       const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
     } catch {

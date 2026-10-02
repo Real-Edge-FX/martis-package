@@ -47,3 +47,15 @@ it('omits the id when the form is not bound to a record', async () => {
   const body = apiPostMock.mock.calls[0][1] as Record<string, unknown>
   expect('id' in body).toBe(false)
 })
+
+it('keeps the resource key as one path segment of the sync request', async () => {
+  const { rerender } = renderHook(
+    ({ formValues }) => useDependsOnSync({ resource: '../users', context: 'create', fields, formValues }),
+    { initialProps: { formValues: { plan: 'free' } as Record<string, unknown> } },
+  )
+
+  act(() => { rerender({ formValues: { plan: 'paid' } }) })
+
+  await waitFor(() => expect(apiPostMock).toHaveBeenCalled())
+  expect(apiPostMock.mock.calls[0][0]).toBe('/api/resources/..%252Fusers/sync-field')
+})

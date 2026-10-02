@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
-import { repeaterRowQuery, withQuery } from '@/lib/relatableEndpoint'
+import { apiPath, withQuery } from '@/lib/apiPath'
+import { repeaterRowQuery } from '@/lib/relatableEndpoint'
 import type { RepeaterRowScope } from '@/components/fields/types'
 
 /** One option as the field-options endpoint returns it, value coerced to string. */
@@ -54,15 +55,15 @@ export function remoteOptionsEndpoint(
     repeaterRow?: RepeaterRowScope
   },
 ): string | null {
-  const attr = encodeURIComponent(attribute)
   const row = scope.repeaterRow ? repeaterRowQuery(scope.repeaterRow) : ''
   if (scope.toolKey) {
-    return withQuery(`/api/tools/${encodeURIComponent(scope.toolKey)}/fields/${attr}/options`, row)
+    return withQuery(apiPath`/api/tools/${scope.toolKey}/fields/${attribute}/options`, row)
   }
   if (scope.resourceKey) {
     const context = scope.context ?? 'create'
+    const options = apiPath`/api/resources/${scope.resourceKey}/fields/${attribute}/options?context=${context}`
     const id = context === 'update' && scope.recordId != null ? `&id=${encodeURIComponent(String(scope.recordId))}` : ''
-    return withQuery(`/api/resources/${encodeURIComponent(scope.resourceKey)}/fields/${attr}/options?context=${context}${id}`, row)
+    return withQuery(`${options}${id}`, row)
   }
   return null
 }

@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router"
 import { api } from "@/lib/api"
+import { apiPath, routePath } from "@/lib/apiPath"
 import { componentRegistry } from "@/lib/componentRegistry"
 import { useToast } from "@/contexts/ToastContext"
 import type { OverrideProps, ResourceSchema } from "@/types"
@@ -34,7 +35,7 @@ export function ActionDrawer({ type, resource, recordId, onClose, onSuccess, onS
 
   const schemaQuery = useQuery({
     queryKey: ["schema", resource],
-    queryFn: () => api.get<{ data: ResourceSchema }>(`/api/resources/${resource}/schema`),
+    queryFn: () => api.get<{ data: ResourceSchema }>(apiPath`/api/resources/${resource}/schema`),
   })
 
   if (schemaQuery.isLoading) {
@@ -92,7 +93,7 @@ export function ActionDrawer({ type, resource, recordId, onClose, onSuccess, onS
         onSwitchTo({ type: "update", resource, recordId: id })
         return
       }
-      navigate(`/resources/${resource}/${id}/edit`)
+      navigate(routePath`/resources/${resource}/${id}/edit`)
     },
     onView: (id) => {
       if (onSwitchTo) {

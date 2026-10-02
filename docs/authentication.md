@@ -351,6 +351,8 @@ When both flags are `false`, the strip itself doesn't render, so a single-locale
 
 A guest's choice on the strip persists in `localStorage` (`martis-preferences` key) and survives a hard refresh. The picker NEVER calls the server — `/api/preferences` is `martis.auth`-protected and would 401 for a guest, polluting the console. Once the user signs in, `readInitialPrefs` keeps their localStorage choice (priority over the server "default" payload) and the next explicit `update()` call writes it server-side.
 
+**Whose picks they are (v2.4.0).** A guest's picks are carried to the account that signs in with one `PUT /api/preferences` only when they were made in the tab session of the person signing in: a marker (`martis-preferences-guest-modified`) is set in `sessionStorage` when a guest changes a preference, and consumed by the sign-in that follows in that tab (it survives the full page load a redirect brings). On a shared browser, picks a previous visitor left in `localStorage` never reach the next account: that sign-in reads the account's own saved preferences. Before v2.4.0 the marker was a `localStorage` flag, bound to no one; a leftover one is ignored and removed. Signing out also drops the cached preferences (`martis-preferences`) and the marker, so the login page that follows starts from the panel defaults.
+
 Both controls render with the global PrimeReact tooltip (`data-pr-tooltip`), so styling matches the rest of the shell.
 
 ### Customising the auth copy

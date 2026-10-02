@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
 import type { OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
 import { FieldInput } from '@/components/fields/FieldRenderer'
 import { FieldWrapper } from '@/components/fields/FieldWrapper'
@@ -39,7 +40,7 @@ export function DrawerCreate(props: OverrideProps) {
   const replicateQuery = useQuery({
     queryKey: ['replicate', resource, replicateId],
     queryFn: () => api.get<{ data: { values?: Record<string, unknown> } }>(
-      `/api/resources/${resource}/${replicateId}/replicate`,
+      apiPath`/api/resources/${resource}/${replicateId}/replicate`,
     ),
     enabled: replicateId !== null,
     retry: false,
@@ -121,12 +122,12 @@ export function DrawerCreate(props: OverrideProps) {
       if (hasFileValues(data)) {
         return api.upload<{ data: { id: string | number }; meta?: { message?: string } }>(
           'POST',
-          `/api/resources/${resource}`,
+          apiPath`/api/resources/${resource}`,
           data,
         )
       }
       return api.post<{ data: { id: string | number }; meta?: { message?: string } }>(
-        `/api/resources/${resource}`,
+        apiPath`/api/resources/${resource}`,
         data,
       )
     },

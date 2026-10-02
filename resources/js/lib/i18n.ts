@@ -1,6 +1,7 @@
 import i18n, { type Resource, type ResourceLanguage } from "i18next"
 import { initReactI18next } from "react-i18next"
 import { API_BASE_URL, config } from "./config"
+import { apiPath } from "./apiPath"
 import { queryClient } from "./query"
 import { beginLocaleSwitch, endLocaleSwitch } from "./localeSwitching"
 import { toBcp47 } from "./formatLocale"
@@ -48,7 +49,7 @@ export function getLocale(): string {
 
 async function fetchTranslations(locale: string): Promise<ResourceLanguage> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/translations/${locale}`, {
+    const res = await fetch(`${API_BASE_URL}${apiPath`/api/translations/${locale}`}`, {
       cache: "no-store",
       credentials: "same-origin",
       headers: { Accept: "application/json" },

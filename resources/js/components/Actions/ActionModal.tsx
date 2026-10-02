@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, ApiError } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
 import type { FieldDefinition } from '@/types'
 import { FieldInput } from '@/components/fields/FieldRenderer'
 import { fieldErrorProps } from '@/lib/fieldErrors'
@@ -97,7 +98,11 @@ export interface ActionVia {
 function DefaultActionModal({ resource, action, selectedIds, visible, onHide, onSuccess, onOpenCreate, onOpenDetail, onOpenUpdate, via, lens }: ActionModalProps) {
   // A lens's actions live under its own routes: an action only the lens
   // declares is unknown to the resource's.
-  const actionUrl = action ? `/api/resources/${resource}${lens ? `/lenses/${lens}` : ''}/actions/${action.uriKey}` : ''
+  const actionUrl = !action
+    ? ''
+    : lens
+      ? apiPath`/api/resources/${resource}/lenses/${lens}/actions/${action.uriKey}`
+      : apiPath`/api/resources/${resource}/actions/${action.uriKey}`
   const { addToast } = useToast()
   const { t } = useTranslation('actions')
   const navigate = useNavigate()

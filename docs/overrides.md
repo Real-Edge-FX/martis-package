@@ -777,7 +777,7 @@ upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrad
     value={values[field.attribute] ?? null}
     onChange={(v) => setValue(field.attribute, v)}
     context="create"
-    actionEndpoint={`/api/resources/${resource}/actions/${action.uriKey}`}
+    actionEndpoint={`/api/resources/${encodeURIComponent(resource)}/actions/${encodeURIComponent(action.uriKey)}`}
 />
 ```
 

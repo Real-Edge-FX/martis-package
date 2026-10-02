@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
 import type { FieldDefinition } from '@/types'
 
 /**
@@ -102,7 +103,7 @@ export function useDependsOnSync({
         // map identity to avoid clobbering an even-newer override).
         void api
           .post<FieldDefinition>(
-            `/api/resources/${resource}/sync-field`,
+            apiPath`/api/resources/${resource}/sync-field`,
             { field: attribute, formData: formValues, context, ...(recordId != null ? { id: recordId } : {}) },
             ac.signal,
           )
