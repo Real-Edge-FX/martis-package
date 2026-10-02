@@ -1,6 +1,9 @@
 <?php
 
+use App\Martis\Policies\DenyByDefaultProbePolicy;
+use App\Models\User;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\Filesystem;
 use Martis\Console\PolicyMakeCommand;
 
@@ -60,17 +63,17 @@ it('martis:policy generates a policy file under the configured namespace', funct
 it('martis:policy generates a deny-by-default policy: every ability returns false', function () {
     // The generated file type-hints the app's User model; the testbench
     // skeleton has none, so alias the framework's.
-    if (! class_exists(\App\Models\User::class)) {
-        class_alias(\Illuminate\Foundation\Auth\User::class, 'App\Models\User');
+    if (! class_exists(User::class)) {
+        class_alias(Illuminate\Foundation\Auth\User::class, 'App\Models\User');
     }
 
     $this->artisan('martis:policy', ['name' => 'DenyByDefaultProbePolicy'])->assertSuccessful();
 
     require_once $this->policyDir.'/DenyByDefaultProbePolicy.php';
 
-    $policy = new \App\Martis\Policies\DenyByDefaultProbePolicy;
-    $user = new \App\Models\User;
-    $record = new class extends \Illuminate\Database\Eloquent\Model {};
+    $policy = new DenyByDefaultProbePolicy;
+    $user = new User;
+    $record = new class extends Model {};
 
     $abilities = array_map(
         static fn (ReflectionMethod $method): string => $method->getName(),
