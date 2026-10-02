@@ -4,6 +4,8 @@ namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo as EloquentBelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo as EloquentMorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -11,6 +13,7 @@ use Martis\Enums\ModalSize;
 use Martis\Enums\PhosphorIcon;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Resource;
+use Martis\ResourceRegistry;
 
 /**
  * BelongsTo relationship field.
@@ -606,6 +609,92 @@ class BelongsTo extends Field
     public function getRelatedResource(): ?string
     {
         return $this->relatedUriKey;
+    }
+
+    /**
+     * The name of the Eloquent relationship the field writes the key of.
+     */
+    public function getRelationship(): string
+    {
+        return $this->relationship;
+    }
+
+    /**
+     * The resource a write of this field is checked against (see
+     * `Martis\Rules\Relatable`).
+     *
+     * `relatedResource()` names it, and a URI key no registered resource has
+     * is a mistake that fails loudly instead of letting every id through.
+     * Without one the resource is the one registered for the model of the
+     * relationship, read from the record the field is declared on, as Nova
+     * finds a `BelongsTo` resource when none is given. `null` when that
+     * cannot name exactly one: the relationship is not on the record, its
+     * model has no registered resource, or several have it.
+     *
+     * @param  Model|null  $source  The record the field is declared on.
+     * @return class-string<\Martis\Resource>|null
+     *
+     * @throws \InvalidArgumentException When `relatedResource()` names a URI key no resource registers.
+     */
+    public function relatedResourceClass(?Model $source): ?string
+    {
+        $registry = app(ResourceRegistry::class);
+
+        if ($this->relatedUriKey !== null) {
+            if (! $registry->has($this->relatedUriKey)) {
+                throw new \InvalidArgumentException(
+                    "The BelongsTo field '{$this->foreignKey}' names the related resource '{$this->relatedUriKey}' with relatedResource(), "
+                    .'but no registered resource has that URI key. Register the resource, or fix the key.'
+                );
+            }
+
+            return $registry->get($this->relatedUriKey);
+        }
+
+        $modelClass = $this->relatedModelClass($source);
+
+        if ($modelClass === null) {
+            return null;
+        }
+
+        $resources = $registry->forModel($modelClass);
+
+        return count($resources) === 1 ? $resources[0] : null;
+    }
+
+    /**
+     * The model class of the relationship on `$source`, or `null` when the
+     * record has no such BelongsTo relationship.
+     *
+     * @return class-string<Model>|null
+     */
+    private function relatedModelClass(?Model $source): ?string
+    {
+        if ($source === null) {
+            return null;
+        }
+
+        // The relationship method is camelCase by Eloquent convention.
+        foreach (array_unique([$this->relationship, Str::camel($this->relationship)]) as $method) {
+            if (! method_exists($source, $method)) {
+                continue;
+            }
+
+            try {
+                $relation = $source->{$method}();
+            } catch (\Throwable) {
+                return null;
+            }
+
+            // A MorphTo is a BelongsTo to Eloquent, but it has no related model of its own.
+            if ($relation instanceof EloquentBelongsTo && ! $relation instanceof EloquentMorphTo) {
+                return $relation->getRelated()::class;
+            }
+
+            return null;
+        }
+
+        return null;
     }
 
     /**

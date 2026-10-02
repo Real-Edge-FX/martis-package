@@ -13,4 +13,7 @@ return [
     // An upload a browser runs when it is opened (HTML, SVG, XML, script files); a File
     // field accepts one only when acceptedTypes() lists it or allowActiveContent() is set.
     'active_content' => 'The :attribute must not be an HTML, SVG, XML or script file.',
+    // A BelongsTo with no relatedResource() whose relationship names no single registered
+    // resource: the value cannot be checked against a picker, so it is refused.
+    'relatable_unresolved' => 'The :attribute has no related resource to check the selected record against. Declare relatedResource() on the field.',
 ];
