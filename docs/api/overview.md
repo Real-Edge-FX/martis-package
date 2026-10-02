@@ -29,7 +29,7 @@ That registers two routes:
 - `GET /{martis-path}/api-docs` — Stoplight Elements UI.
 - `GET /{martis-path}/api-docs.json` — raw OpenAPI 3.1 document.
 
-Both go through `martis.api_docs.middleware` (default `['web', 'auth']`). When the env is `false`, **the routes are not registered at all** — `php artisan route:list --path=api-docs` returns nothing, and a request hits the SPA catch-all (302 to `/martis`) rather than Scramble. That is the intended security envelope.
+Both go through `martis.api_docs.middleware`. The default (v2.4.0) is `null`: the Martis protected stack, the Martis guard (`martis.auth`, so `MARTIS_GUARD` counts, not the app's default guard) plus the 2FA, email verification, `viewMartis` and forced password change gates. A list you set is kept and then completed with any of those guards it leaves out, so a published `['web', 'auth']` from v2.3 or earlier never lets a user of another guard read the schema of the admin API. When the env is `false`, **the routes are not registered at all** — `php artisan route:list --path=api-docs` returns nothing, and a request hits the SPA catch-all (302 to `/martis`) rather than Scramble. That is the intended security envelope.
 
 To tighten further (e.g. admin-only) override the middleware in your published `config/martis.php`:
 
@@ -37,7 +37,7 @@ To tighten further (e.g. admin-only) override the middleware in your published `
 'api_docs' => [
     'enabled' => env('MARTIS_API_DOCS_ENABLED', false),
     'path'    => env('MARTIS_API_DOCS_PATH', 'api-docs'),
-    'middleware' => ['web', 'auth', 'can:manage-martis-cache'],
+    'middleware' => ['web', 'can:manage-martis-cache'], // added to the Martis stack
 ],
 ```
 
