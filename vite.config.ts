@@ -90,7 +90,12 @@ export default defineConfig({
     },
     server: {
         base: '/vendor/martis/',
-        cors: true,
+        // No `cors: true`: that answers every origin with
+        // `Access-Control-Allow-Origin: *`, so any page open in the
+        // maintainer's browser could read the sources the dev server
+        // transforms. Vite's default allows localhost origins only, which
+        // covers a Playground served from localhost. A Playground on another
+        // host adds it explicitly, e.g. `cors: { origin: 'http://martis.test' }`.
     },
     resolve: {
         alias: {
