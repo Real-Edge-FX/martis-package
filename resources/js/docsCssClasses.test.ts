@@ -16,7 +16,9 @@ import path from 'node:path'
  * built at runtime is not checked.
  */
 
-const docs = import.meta.glob('../../docs/**/*.md', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+// docs/superpowers/ holds local, git-ignored working notes (plans, specs),
+// not published pages: a checkout that has them must not fail on them.
+const docs = import.meta.glob(['../../docs/**/*.md', '!../../docs/superpowers/**'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>
 const css = readFileSync(path.resolve(process.cwd(), 'resources/css/martis.css'), 'utf8')
 
 /** The class selectors martis.css defines, comments left out. */
