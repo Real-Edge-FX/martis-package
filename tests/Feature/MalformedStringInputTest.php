@@ -103,13 +103,20 @@ it('lists the actions of a resource when the context is not a string', function 
     $this->getJson('/martis/api/resources/m-s-i-posts/actions?context[]=index')->assertOk();
 });
 
-it('answers the magic-link consume when the email or the token is not a string', function () {
+it('answers the magic-link confirmation and consume when the email or the token is not a string', function () {
     config()->set('martis.auth.magic_link.enabled', true);
 
-    $this->get('/martis/api/auth/magic-link/consume?email[]=a@b.test&token=x')
+    $this->get('/martis/magic-link/confirm?email[]=a@b.test&token=x')
         ->assertRedirect('/martis/login?magic_link=invalid');
-    $this->get('/martis/api/auth/magic-link/consume?email=a@b.test&token[]=x')
+    $this->get('/martis/magic-link/confirm?email=a@b.test&token[]=x')
         ->assertRedirect('/martis/login?magic_link=invalid');
+
+    $this->postJson('/martis/api/auth/magic-link/consume', ['email' => ['a@b.test'], 'token' => 'x'])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.code', 'invalid');
+    $this->postJson('/martis/api/auth/magic-link/consume', ['email' => 'a@b.test', 'token' => ['x']])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.code', 'invalid');
 });
 
 it('answers the cache admin endpoints when the type is not a string', function () {

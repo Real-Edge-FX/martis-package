@@ -2,6 +2,8 @@
 
 namespace Martis\Invitations;
 
+use Martis\Support\CanonicalUrl;
+
 /**
  * Static, overridable seam that builds the URL an invitation
  * notification (Task 10) puts in the invite email/notification. Mirrors
@@ -12,11 +14,12 @@ namespace Martis\Invitations;
  * signup page, or to append extra query parameters.
  *
  * `MartisServiceProvider::registerInvitationAcceptUrl()` seeds the
- * default (`route('martis.invitations.accept', $rawToken)`) at boot
- * time, but only when no consumer has already registered their own
- * callback — and `url()` below falls back to the same route builder
- * even if that registration never ran, so this class is safe to call
- * standalone (e.g. from tests) without booting the full provider.
+ * default (`CanonicalUrl::route('martis.invitations.accept', $rawToken)`,
+ * on `APP_URL`, never on the request's host) at boot time, but only when
+ * no consumer has already registered their own callback — and `url()`
+ * below falls back to the same route builder even if that registration
+ * never ran, so this class is safe to call standalone (e.g. from tests)
+ * without booting the full provider.
  */
 class InvitationUrl
 {
@@ -25,7 +28,7 @@ class InvitationUrl
 
     /**
      * Replace the default URL builder. Pass `null` to reset to the
-     * package default (`route('martis.invitations.accept', $rawToken)`).
+     * package default (`CanonicalUrl::route('martis.invitations.accept', $rawToken)`).
      *
      * @param  (callable(Invitation, string): string)|null  $callback
      */
@@ -47,6 +50,6 @@ class InvitationUrl
             return call_user_func(static::$createUrlCallback, $invitation, $rawToken);
         }
 
-        return route('martis.invitations.accept', $rawToken);
+        return CanonicalUrl::route('martis.invitations.accept', $rawToken);
     }
 }

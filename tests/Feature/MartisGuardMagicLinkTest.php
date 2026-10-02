@@ -78,7 +78,7 @@ afterEach(function () {
 function magicGuardConsume(string $email): array
 {
     $token = app(MagicLinkService::class)->issue($email);
-    $consume = test()->get('/martis/api/auth/magic-link/consume?email='.urlencode($email).'&token='.$token);
+    $consume = test()->postJson('/martis/api/auth/magic-link/consume', ['email' => $email, 'token' => $token]);
 
     // The next request resolves the Martis guard's user from the session
     // (the endpoint answers a raw `null` to a guest).
@@ -91,7 +91,7 @@ function magicGuardConsume(string $email): array
 it('does not sign anyone into the panel with the link of a site user email', function () {
     [$consume, $user] = magicGuardConsume('site@example.com');
 
-    $consume->assertRedirect('/martis/login?magic_link=expired');
+    $consume->assertStatus(422)->assertJsonPath('errors.0.code', 'expired');
     expect(session()->has(auth()->guard('admin')->getName()))->toBeFalse()
         ->and($user)->toBeNull();
 });
@@ -99,7 +99,7 @@ it('does not sign anyone into the panel with the link of a site user email', fun
 it('signs the admin in with the link of the admin email', function () {
     [$consume, $user] = magicGuardConsume('admin@example.com');
 
-    $consume->assertRedirect('/martis');
+    $consume->assertOk()->assertJsonPath('redirect', '/martis');
     expect($user['email'] ?? null)->toBe('admin@example.com');
 });
 
@@ -127,7 +127,7 @@ it('registers the new account among the Martis guard users', function () {
 
     [$consume, $user] = magicGuardConsume('new@example.com');
 
-    $consume->assertRedirect('/martis');
+    $consume->assertOk()->assertJsonPath('redirect', '/martis');
     expect(MagicGuardAdmin::query()->where('email', 'new@example.com')->exists())->toBeTrue()
         ->and(MagicGuardSiteUser::query()->where('email', 'new@example.com')->exists())->toBeFalse()
         ->and($user['email'] ?? null)->toBe('new@example.com');

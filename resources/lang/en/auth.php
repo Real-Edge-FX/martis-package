@@ -89,6 +89,13 @@ return [
     'magic_link_expired' => 'This sign-in link has expired or already been used. Please request a new one.',
     'magic_link_invalid' => 'This sign-in link is invalid. Please request a new one.',
     'magic_link_email_placeholder' => 'admin@example.com',
+    'magic_link_session_conflict' => 'This browser is signed in as :current. Confirm to replace that session.',
+    'magic_link_confirm_title' => 'Confirm sign-in',
+    'magic_link_confirm_sub' => 'You are about to sign in as {{email}}.',
+    'magic_link_confirm_submit' => 'Sign in as {{email}}',
+    'magic_link_confirm_submitting' => 'Signing in…',
+    'magic_link_confirm_replace' => 'This browser is signed in as {{current}}. Continuing signs that session out and signs you in as {{email}}.',
+    'magic_link_confirm_replace_submit' => 'Sign out and sign in as {{email}}',
 
     // Reset password (v1.8.0)
     'reset_password_title' => 'Set a new password',
