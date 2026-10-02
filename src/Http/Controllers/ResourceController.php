@@ -28,6 +28,7 @@ use Martis\Fields\MorphTo;
 use Martis\Fields\MorphToMany as MorphToManyField;
 use Martis\Fields\Tag as TagField;
 use Martis\Filters\Filter;
+use Martis\Gates\SoftGate;
 use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
 use Martis\Http\Controllers\Concerns\ResolvesPivotActions;
@@ -975,6 +976,12 @@ class ResourceController extends MartisController
         $cache = app(MartisCache::class);
         $userKey = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
         $cacheKey = 'schema:'.$resource.':'.$userKey.':'.app()->getLocale();
+        // A locked card's `meta` is left out of the payload, so the lock state
+        // of the cards is part of the key: a plan change shows at once.
+        $lockedCards = SoftGate::fingerprint($instance->cards($request), $request);
+        if ($lockedCards !== '') {
+            $cacheKey .= ':locked-'.$lockedCards;
+        }
 
         $data = $cache->remember('schema', $cacheKey, function () use ($request, $resourceClass, $instance): array {
             $raw = $this->buildSchema($request, $resourceClass, $instance);
@@ -1714,6 +1721,12 @@ class ResourceController extends MartisController
             if (! $relatedCheck->authorizedToViewAny($request)) {
                 return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
             }
+
+            // A related resource the user is soft-locked from (`lockedFor()`,
+            // `requirePlan()`) lists no records in a picker either.
+            if ($locked = SoftGate::refusalFor($relatedCheck, $request)) {
+                return $locked;
+            }
         }
 
         if ($relatedUriKey === null || ! $this->registry->has($relatedUriKey)) {
@@ -2157,8 +2170,10 @@ class ResourceController extends MartisController
                 continue;
             }
 
-            // Skip unauthorized filters (Martis extension)
-            if (! $filter->authorizedToSee($request)) {
+            // Skip unauthorized filters (Martis extension), and a filter the
+            // user is soft-locked from (`lockedFor()`, `requirePlan()`): a
+            // locked filter is not applied through `?filters=`.
+            if (! $filter->authorizedToSee($request) || SoftGate::isLocked($filter, $request)) {
                 continue;
             }
 

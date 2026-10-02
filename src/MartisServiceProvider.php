@@ -80,6 +80,7 @@ use Martis\Http\Middleware\ApplyUserPreferencesLocale;
 use Martis\Http\Middleware\AuthorizePanelAccess;
 use Martis\Http\Middleware\AuthorizeTool;
 use Martis\Http\Middleware\EnforceImpersonationDuration;
+use Martis\Http\Middleware\EnforceSoftGate;
 use Martis\Http\Middleware\EnsureEmailIsVerified;
 use Martis\Http\Middleware\EnsurePasswordIsChanged;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
@@ -562,6 +563,9 @@ class MartisServiceProvider extends ServiceProvider
         // The gate of a Tool's routes (`martis.tool:{uriKey}`), see
         // ToolRoutes::middleware().
         $router->aliasMiddleware('martis.tool', AuthorizeTool::class);
+        // The soft lock (`lockedFor()`, `requirePlan()`) on the routes that
+        // serve an entity's data, see EnforceSoftGate.
+        $router->aliasMiddleware('martis.gate', EnforceSoftGate::class);
         // The stack of the protected API routes as one group, for a route
         // of the host app and for Tool::DEFAULT_ROUTE_MIDDLEWARE.
         $router->middlewareGroup('martis.api', RouteMiddleware::api());

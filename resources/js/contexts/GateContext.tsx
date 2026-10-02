@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { LOCKED_EVENT } from '@/lib/lockEvent'
 import type { GateLock } from '@/types'
 
 /**
@@ -7,7 +8,9 @@ import type { GateLock } from '@/types'
  *
  * The Sidebar opens it on click of a locked item; the per-page guard
  * (`<DashboardLockedView>` / `<ToolLockedView>`) opens it as the
- * default render when the API returns `{ locked: true, lock: ... }`.
+ * default render when the API returns `{ locked: true, lock: ... }`, and
+ * the API client opens it when a data endpoint answers 403 with that
+ * payload (`LOCKED_EVENT`).
  *
  * The provider owns the open/closed state and the active payload.
  * The actual modal component (`<GateModal>`) reads from this context.
@@ -29,6 +32,16 @@ export function GateProvider({ children }: { children: ReactNode }) {
 
   const open = useCallback((next: GateLock) => setLock(next), [])
   const close = useCallback(() => setLock(null), [])
+
+  // A data endpoint that answers 403 with a lock payload (a locked
+  // resource's URL, a locked tool's route, v2.4.0) opens the same modal.
+  useEffect(() => {
+    const onLocked = (event: Event) => setLock((event as CustomEvent<GateLock>).detail)
+
+    window.addEventListener(LOCKED_EVENT, onLocked)
+    return () => window.removeEventListener(LOCKED_EVENT, onLocked)
+  }, [])
+
   // One value per lock, not per render: a consumer effect that depends on
   // the gate (the Tool resolution opens it) must not re-run because the
   // provider re-rendered.

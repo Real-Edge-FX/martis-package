@@ -505,6 +505,8 @@ GET /api/dashboards/{dashboard}/cards/{card}?range=30
 GET /api/resources/{resource}/cards/{card}?range=30
 ```
 
+Both answer `403` with the lock payload when the dashboard, the resource or the card is soft-locked for the user (`lockedFor()`, `requirePlan()`, v2.4.0; see [Soft-gates → What a lock stops on the server](gates.md#what-a-lock-stops-on-the-server)). A metric class has no lock of its own: lock the dashboard, the resource or the `Card` that holds it.
+
 ---
 
 ## MetricResult — base class

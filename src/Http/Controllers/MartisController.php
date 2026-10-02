@@ -23,6 +23,7 @@ use Martis\Fields\HasMany;
 use Martis\Fields\MorphMany;
 use Martis\Fields\MorphToMany;
 use Martis\Fields\Repeater;
+use Martis\Gates\SoftGate;
 use Martis\Http\Requests\LensRequest;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Lenses\Lens;
@@ -278,7 +279,10 @@ abstract class MartisController extends Controller
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        return null;
+        // A resource the user is soft-locked from (`lockedFor()`,
+        // `requirePlan()`), whether it is the route's resource or the related
+        // one a relationship route reads, serves no records either.
+        return SoftGate::refusalFor($instance, $request);
     }
 
     /**
@@ -689,6 +693,7 @@ abstract class MartisController extends Controller
      * clauses run grouped, as a filter does (`IndexScope::grouped()`): an
      * `orWhere()` in the lens's query cannot OR the resource's fence away.
      *
+     * @param  LensRequest<Model>  $lensRequest
      * @param  Builder<Model>  $base
      * @return Builder<Model>|Paginator<int, Model>
      */
@@ -726,6 +731,11 @@ abstract class MartisController extends Controller
                 continue;
             }
             if (! $filter->authorizedToSee($request)) {
+                continue;
+            }
+            // A filter the user is soft-locked from (`lockedFor()`,
+            // `requirePlan()`) is not applied.
+            if (SoftGate::isLocked($filter, $request)) {
                 continue;
             }
             // Martis extension: the resource can tag filters as

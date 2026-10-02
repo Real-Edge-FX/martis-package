@@ -345,6 +345,12 @@ direct GET to `/resources/{r}/lenses/{lens}` responds with HTTP 403.
 See [authorization.md](authorization.md) for the broader policy
 contract.
 
+A lens soft-locked for the user (`lockedFor()`, `requirePlan()`, see
+[Soft-gates](gates.md#soft-gates)) answers 403 with its lock payload on its
+page and on its action routes, and its filters that are locked are not
+applied (v2.4.0; see [What a lock stops on the
+server](gates.md#what-a-lock-stops-on-the-server)).
+
 ## Martis extensions
 
 ### Sticky summary row

@@ -246,10 +246,14 @@ Route::middleware(RouteMiddleware::base())
                 // in.
                 Route::middleware(RouteMiddleware::verified())
                     ->group(function () use ($throttle) {
-                        // API routes
+                        // API routes. `martis.gate` is the soft lock (`lockedFor()`,
+                        // `requirePlan()`): a route that names a locked entity answers
+                        // 403 with its lock payload, so the data a lock withholds from a
+                        // page is not served through its data URLs. The two page
+                        // endpoints below opt out: they answer the lock themselves.
                         Route::prefix('api')
                             ->name('api.')
-                            ->middleware($throttle)
+                            ->middleware([...$throttle, 'martis.gate'])
                             ->group(function () {
                                 Route::get('/navigation', [NavigationController::class, 'index'])->name('navigation');
                                 Route::get('/navigation/badges', [NavigationController::class, 'badges'])->name('navigation.badges');
@@ -265,7 +269,9 @@ Route::middleware(RouteMiddleware::base())
                                 // component bound to the tool's component()
                                 // key.
                                 Route::get('/tools', [ToolsController::class, 'index'])->name('tools.index');
-                                Route::get('/tools/{uriKey}', [ToolsController::class, 'show'])->name('tools.show');
+                                Route::get('/tools/{uriKey}', [ToolsController::class, 'show'])
+                                    ->withoutMiddleware('martis.gate')
+                                    ->name('tools.show');
                                 Route::get('/tools/{uriKey}/fields', [ToolFieldsController::class, 'fields'])->name('tools.fields');
                                 // Server-side option search for a Tool select (v1.37.0)
                                 Route::get('/tools/{uriKey}/fields/{field}/options', [FieldOptionsController::class, 'tool'])
@@ -328,6 +334,7 @@ Route::middleware(RouteMiddleware::base())
                                 Route::get('/dashboards', [MetricController::class, 'dashboards'])
                                     ->name('dashboards.index');
                                 Route::get('/dashboards/{dashboard}', [MetricController::class, 'show'])
+                                    ->withoutMiddleware('martis.gate')
                                     ->name('dashboards.show');
                                 Route::get('/dashboards/{dashboard}/cards/{card}', [MetricController::class, 'computeDashboardMetric'])
                                     ->name('dashboards.cards.compute');

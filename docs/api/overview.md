@@ -300,6 +300,8 @@ GET  /martis/api/dashboards/{uriKey}                     Single dashboard descri
 GET  /martis/api/dashboards/{uriKey}/cards/{card}        Compute a single metric card.
 ```
 
+A dashboard soft-locked for the user answers `200 { "locked": true, "lock": {...} }` on its page endpoint (no cards, no filters) and `403` with the lock on the card endpoint (see [Locked (403)](#locked-403)); so does a locked card.
+
 The single dashboard endpoint returns the layout type (`cards` or `default`), the list of metric cards, dashboard-level filters, and any `withMeta()` data set on the PHP class.
 
 ## Tools
@@ -478,6 +480,19 @@ Laravel's own shape instead, a map of messages per field:
 ```
 
 The `errors` array is intentionally empty so the SPA can route the same envelope through its generic 422-style error renderer; consumer overrides can populate it for richer messaging.
+
+### Locked (403)
+
+```json
+{
+    "message": "This feature is locked for your account.",
+    "errors": [],
+    "locked": true,
+    "lock": { "reason": "plan:pro", "modal": { "title": "This is a Pro feature", "message": "..." } }
+}
+```
+
+Every endpoint that serves the data of an entity soft-locked for the user (`lockedFor()`, `requirePlan()`) answers it, a resource's records, a lens, a card, a tool's fields and routes included; only the page endpoints of a dashboard and a tool answer `200 { "locked": true, "lock": {...} }`. The message is translated (`martis::messages.feature_locked`). See [Soft-gates → What a lock stops on the server](../gates.md#what-a-lock-stops-on-the-server) (v2.4.0).
 
 ### Conflict (409)
 

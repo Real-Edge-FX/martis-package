@@ -329,3 +329,5 @@ GET /api/dashboards/{dashboard}
 ```
 GET /api/dashboards/{dashboard}/cards/{card}?range=30&filters={...}
 ```
+
+A dashboard soft-locked for the user (`lockedFor()`, `requirePlan()`) answers `403` with its lock payload here, as does a locked card; its page endpoint answers `200 { locked: true, lock }` and withholds the cards (v2.4.0, see [Soft-gates → What a lock stops on the server](gates.md#what-a-lock-stops-on-the-server)). A filter the user may not see, or is locked from, is not applied to the card.
