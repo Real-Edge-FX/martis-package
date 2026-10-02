@@ -104,7 +104,8 @@ return [
     | `viewNova` does with `local`; anywhere else the panel stays shut (403)
     | until the gate is defined. Before v2.4.0 an undefined gate was open in
     | every environment. `testing` is listed so a consumer's own test suite
-    | keeps working. Comma-separated in the env; an empty list opens none.
+    | keeps working, and the published provider's gate lets `local` and
+    | `testing` in too. Comma-separated in the env; an empty list opens none.
     |
     | Resources without a policy stay permissive, as in Nova; outside these
     | environments each one is logged once a day (see docs/authorization.md).
@@ -988,8 +989,10 @@ return [
         // Magic-link (passwordless) login. Off by default. When
         // enabled, the Login page exposes a "Email me a sign-in link"
         // button that POSTs to /api/auth/magic-link/request. The
-        // emailed link points at /api/auth/magic-link/consume which
-        // logs the user in and redirects to the dashboard.
+        // emailed link opens the confirmation page (GET /magic-link/confirm),
+        // which signs nobody in: the sign-in is the CSRF-protected
+        // POST /api/auth/magic-link/consume that page sends when the person
+        // clicks, and it redirects to the dashboard.
         // Tokens are persisted in the same `password_reset_tokens`
         // table Laravel ships with, scoped by a `martis-magic:` prefix
         // so they never clash with reset-password tokens. TTL defaults

@@ -19,7 +19,7 @@ php artisan optimize:clear
 When the app defines no `viewMartis` gate, the panel now answers `403` outside the `local` and `testing` environments, as Nova's `viewNova` does. Define it in `app/Providers/MartisServiceProvider.php`; the stub `martis:install` publishes ships it active:
 
 ```php
-Gate::define('viewMartis', fn ($user) => app()->environment('local') || in_array($user->email, [
+Gate::define('viewMartis', fn ($user) => app()->environment(['local', 'testing']) || in_array($user->email, [
     // 'admin@example.com',
 ], true));
 ```
@@ -55,7 +55,8 @@ The emailed link opens a confirmation page, and the sign-in is `POST /api/auth/m
 ### SSO
 
 - `identity_match_attribute => 'email'` adopts a local account only when its email is verified (`email_verified_at`) or `martis.auth.registration.enabled` is `false`. With registration open, an existing row with an unverified address now refuses the SSO sign-in (`sso_account_unverified`) instead of being adopted: verify it, link it by `external_id`, or remove it. Models without an `email_verified_at` column are unchanged.
-- Sign-in no longer sets a remember-me cookie. Set `'remember' => true` on a provider to restore it; access then outlives the IdP session.
+- Sign-in no longer sets a remember-me cookie. Set `'remember' => true` on a provider to restore it; access then outlives the IdP session. Remember-me cookies issued while SSO always remembered (v2.3 and earlier) are **not revoked** by the upgrade: they stay valid until they expire (`auth.guards.{guard}.remember`, 576000 minutes by default) or the user's `remember_token` rotates, so access removed at the IdP does not end those sessions. To end them at once, rotate the `remember_token` column of the SSO users (`UPDATE users SET remember_token = NULL`) or sign them out.
+- The SSO origin cookie written by v2.3 (no server-held nonce) no longer counts: a user who comes back through a remember-me cookie loses the SSO origin until the next SSO sign-in, so the forced password change gate may meet them as a password user, and the federated logout is skipped.
 - Azure: set `tenant` (`AZURE_TENANT_ID`) so identities of other tenants are rejected; `martis:sso azure` scaffolds it. A multi-tenant registration should match accounts by `external_id`.
 
 ### Two-factor authentication and sign-in limits
@@ -64,7 +65,7 @@ The emailed link opens a confirmation page, and the sign-in is `POST /api/auth/m
 - Regenerating recovery codes needs `current_password`; the user is emailed.
 - New limits, all configurable: `MARTIS_LOGIN_THROTTLE_EMAIL_ATTEMPTS` / `_MINUTES` (100 wrong passwords in 15 minutes per account, whatever the IP, counted until a right one clears them; the magic-link request has a bucket of its own; 0 turns it off), `MARTIS_2FA_THROTTLE_ATTEMPTS` (5), `MARTIS_2FA_THROTTLE_IP_ATTEMPTS` (15), `MARTIS_2FA_THROTTLE_MINUTES` (1), `MARTIS_2FA_LOCKOUT_ATTEMPTS` (5, 0 turns it off) and `MARTIS_2FA_LOCKOUT_MINUTES` (15).
 - Forgot password answers `200` for an unknown email too.
-- The browser sessions API returns a `handle`, sent back to revoke a session.
+- The `id` of a row of the browser sessions API is now an opaque handle (an HMAC of the session id), sent back to revoke a session; the raw session id revokes nothing.
 
 ### Impersonation
 
@@ -232,7 +233,7 @@ v2.1.0 adds optional features and fixes. Nothing needs changing unless one of th
 
 New and optional:
 
-- **Restrict the panel** with the `viewMartis` gate ([Authorization → Panel access](authorization.md#panel-access-viewmartis)). Without it every signed-in user gets in, as before.
+- **Restrict the panel** with the `viewMartis` gate ([Authorization → Panel access](authorization.md#panel-access-viewmartis)). Without it the panel is open only in the `local` and `testing` environments (v2.4.0; before, every signed-in user got in).
 - **Install without migrating:** `php artisan martis:install --no-migrate`, then `php artisan migrate`.
 - **Add palette commands** with `Martis::commandPalette()` ([Components → App commands](components.md#app-commands-v210)).
 - **Scope the notification centre** with `Martis::scopeNotificationsUsing()` ([Notifications → Scoping the notification centre](notifications.md#scoping-the-notification-centre)).

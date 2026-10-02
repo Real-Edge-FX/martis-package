@@ -75,7 +75,7 @@ function martisProviderStubInstance(): object
 it('ships the viewMartis gate active: local is let in, anywhere else only the listed addresses', function () {
     expect(martisProviderStub())
         ->toMatch("/^\s*Gate::define\('viewMartis'/m")
-        ->toContain("app()->environment('local')");
+        ->toContain("app()->environment(['local', 'testing'])");
     expect(martisRegisterGatesDocblock())->toContain('`viewMartis`')->toContain('shut')->not->toContain('every user the Martis guard signs in gets in');
 });
 
@@ -92,5 +92,9 @@ it('registers a viewMartis gate that lets local in and an empty allow-list refus
     expect(Gate::forUser($user)->check('viewMartis'))->toBeFalse();
 
     app()['env'] = 'local';
+    expect(Gate::forUser($user)->check('viewMartis'))->toBeTrue();
+
+    // `testing` is open too, as config/martis.php says: a consumer's own suite keeps working.
+    app()['env'] = 'testing';
     expect(Gate::forUser($user)->check('viewMartis'))->toBeTrue();
 });
