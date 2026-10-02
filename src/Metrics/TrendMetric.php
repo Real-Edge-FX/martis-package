@@ -127,7 +127,9 @@ abstract class TrendMetric extends Metric
         TrendPeriod $unit,
     ): TrendResult {
         $dateColumn = $dateColumn ?? 'created_at';
-        $range = (int) $request->query('range', '30');
+        // One of the metric's declared ranges, held to MAX_RANGE: the window
+        // fixes the rows read and the buckets built.
+        $range = self::rangeWindow($this->requestedRange($request));
         $now = CarbonImmutable::now();
 
         $startDate = match ($unit) {
@@ -144,7 +146,7 @@ abstract class TrendMetric extends Metric
         // bucket key is built with the SAME Carbon formats as the label
         // loop below, so there is no SQL-vs-PHP key mismatch — notably for
         // ISO week (`o-W`), which SQLite's strftime cannot express at all.
-        // Trend ranges are bounded, so the fetched row set is small.
+        // The range is bounded (requestedRange(), MAX_RANGE), so the fetched row set is too.
         $baseQuery = $this->applyFilterScope($model::query())
             ->where($dateColumn, '>=', $startDate)
             ->where($dateColumn, '<=', $now);
