@@ -389,7 +389,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
     }
 
     if (item.kind === 'command' && item.external) {
-      openExternal(item.url)
+      openExternal(item.url, { contact: true })
       onClose()
       return
     }
