@@ -114,15 +114,20 @@ class MartisServiceProvider extends ServiceProvider
      * (inviting users). Your definition replaces the package default,
      * whatever the boot order.
      *
-     * `viewMartis` decides who may open the panel at all. Undefined, every
-     * user the Martis guard signs in gets in.
+     * `viewMartis` decides who may open the panel at all. The gate below ships
+     * active: it lets the `local` environment in and, anywhere else, only the
+     * addresses you list. Without a `viewMartis` gate the panel stays shut
+     * outside the local environments (`martis.panel_access.open_environments`),
+     * as Nova's `viewNova` does, so a guard that also signs in customers never
+     * opens the admin to them by omission. Replace the list with your own rule
+     * (a role, a column, a Spatie permission).
      */
     protected function registerGates(): void
     {
         // Gate::define('manage-martis-cache', fn ($user) => $user->is_admin);
 
-        // Gate::define('viewMartis', fn ($user) => in_array($user->email, [
-        //     'admin@example.com',
-        // ]));
+        Gate::define('viewMartis', fn ($user) => app()->environment('local') || in_array($user->email, [
+            // 'admin@example.com',
+        ], true));
     }
 }

@@ -6,7 +6,6 @@ namespace Martis\Tools;
 
 use Illuminate\Routing\MiddlewareNameResolver;
 use Illuminate\Routing\Router;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Martis\Auth\PanelAccess;
 use Martis\Auth\PasswordChangeRequirement;
@@ -68,7 +67,8 @@ final class ToolRoutes
      * to `loadRoutes()` that leaves out a guard of the Martis API that is on:
      * the 2FA challenge (`martis.profile.two_factor.enabled`), email
      * verification (`martis.auth.email_verification.enabled`), the panel
-     * gate (an app that defines `viewMartis`) or the forced password
+     * gate (an app that defines `viewMartis`, or runs outside the
+     * `martis.panel_access.open_environments`) or the forced password
      * change (`martis.auth.password_change.enabled`). The v1.x
      * default `['web', 'martis.auth']`, which the docs showed and a tool may
      * pass or forward from an override, always warns. The list still
@@ -241,7 +241,7 @@ final class ToolRoutes
             $skipped[] = 'email verification (martis.verified)';
         }
 
-        if (Gate::has(PanelAccess::GATE) && ! in_array(AuthorizePanelAccess::class, $classes, true)) {
+        if (PanelAccess::enforced() && ! in_array(AuthorizePanelAccess::class, $classes, true)) {
             $skipped[] = 'the panel gate (martis.authorize)';
         }
 

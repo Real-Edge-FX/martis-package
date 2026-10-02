@@ -491,6 +491,15 @@ it('warns when a list leaves out the panel gate while viewMartis is defined', fu
         ->and($warnings[0])->toContain('leaves out the panel gate (martis.authorize), which is on');
 });
 
+it('warns when a list leaves out the panel gate while no gate is defined outside the open environments', function () {
+    app()['env'] = 'production';
+    $warnings = toolRouteWarnings('tool-route-shut-panel');
+    bootToolRoutes(new ToolRouteListTool('tool-route-shut-panel', $this->routesFile, ['web', 'martis.auth', 'martis.2fa']));
+
+    expect($warnings)->toHaveCount(1)
+        ->and($warnings[0])->toContain('leaves out the panel gate (martis.authorize), which is on');
+});
+
 it('does not warn about a list without the panel gate while viewMartis is undefined', function () {
     $warnings = toolRouteWarnings('tool-route-panel-gate-off');
     bootToolRoutes(new ToolRouteListTool('tool-route-panel-gate-off', $this->routesFile, ['web', 'martis.auth', 'martis.2fa']));

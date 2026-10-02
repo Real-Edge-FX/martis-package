@@ -293,8 +293,10 @@ it('forgets a stale SSO origin, session marker and cookie, on a password, magic-
     config(['martis.auth.magic_link.enabled' => true]);
     $token = app(MagicLinkService::class)->issue('held@example.com');
     $magic = $this->withSession(['martis_sso_provider' => 'azure'])
+        ->withCredentials()
         ->withCookie(SsoSession::COOKIE, $cookie)
-        ->get('/martis/api/auth/magic-link/consume?email=held%40example.com&token='.$token)
+        ->postJson('/martis/api/auth/magic-link/consume', ['email' => 'held@example.com', 'token' => $token])
+        ->assertOk()
         ->assertSessionMissing('martis_sso_provider');
     expect($cleared($magic))->toBeTrue();
 

@@ -92,6 +92,32 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Panel access
+    |--------------------------------------------------------------------------
+    |
+    | The `viewMartis` gate decides who may open the panel at all: define it in
+    | app/Providers/MartisServiceProvider.php (`martis:install` publishes it
+    | with the gate defined) and it decides per user, in every environment.
+    |
+    | When the app does NOT define the gate, every user the Martis guard signs
+    | in may open the panel only in the environments listed here, as Nova's
+    | `viewNova` does with `local`; anywhere else the panel stays shut (403)
+    | until the gate is defined. Before v2.4.0 an undefined gate was open in
+    | every environment. `testing` is listed so a consumer's own test suite
+    | keeps working. Comma-separated in the env; an empty list opens none.
+    |
+    | Resources without a policy stay permissive, as in Nova; outside these
+    | environments each one is logged once a day (see docs/authorization.md).
+    */
+    'panel_access' => [
+        'open_environments' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('MARTIS_PANEL_OPEN_ENVIRONMENTS', 'local,testing')),
+        ))),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | OpenAPI / Swagger UI surface
     |--------------------------------------------------------------------------
     |
@@ -100,9 +126,14 @@ return [
     |   GET /{martis-path}/api-docs        → Swagger / Stoplight Elements UI
     |   GET /{martis-path}/api-docs.json   → raw OpenAPI 3.1 document
     |
-    | Both routes go through the configured `middleware`. The default
-    | (`['web', 'auth']`) means only authenticated users reach them, which
-    | matches the rest of the Martis admin surface.
+    | Both routes go through `middleware`. The default, null, is the Martis
+    | protected stack: `martis.middleware`, then `martis.auth_middleware` (the
+    | Martis guard) and the 2FA, email verification, panel (`viewMartis`) and
+    | forced password change gates, so only a user the panel lets in reads the
+    | schema of the admin API. A list you set is kept, then given every
+    | middleware of that stack it leaves out: the plain `auth` middleware reads
+    | the app's default guard, not MARTIS_GUARD, so it never stands in for them.
+    | Set a list only to add to the stack (a rate limit, an IP allow-list).
     |
     | Default `enabled = false` so a fresh `composer require martis/martis`
     | does not expose the schema publicly. Flip the env in local/staging to
@@ -116,8 +147,10 @@ return [
         // makes the surface live at `/{martis-path}/api-docs`.
         'path' => env('MARTIS_API_DOCS_PATH', 'api-docs'),
 
-        // Middleware applied to both the UI and JSON routes.
-        'middleware' => ['web', 'auth'],
+        // Middleware applied to both the UI and JSON routes. Null: the
+        // Martis protected stack (see above). A list from v2.3 or earlier
+        // (`['web', 'auth']`) is completed with the stack's guards.
+        'middleware' => null,
     ],
 
     /*
@@ -836,6 +869,15 @@ return [
                 //     'role_source' => 'app_role_assignments',
                 //     'resource_id' => env('AZURE_RESOURCE_ID'),
                 //
+                //     // The tenant the app registration is tied to (v2.4.0): a
+                //     // tenant id, or a verified domain. An identity whose `tid`
+                //     // claim names another tenant is rejected, and so is one whose
+                //     // tenant cannot be read. Leave it empty (or `common`,
+                //     // `organizations`, `consumers`) and any tenant may sign in:
+                //     // then match local accounts by `external_id`, not by email.
+                //     // Unset, it reads `services.azure.tenant` of the Socialite driver.
+                //     'tenant' => env('AZURE_TENANT_ID'),
+                //
                 //     'role_strategy' => 'column',
                 //     'role_column' => 'azure_group_name',
                 //
@@ -848,6 +890,14 @@ return [
                 //
                 //     'on_no_role_match' => 'deny',
                 //     'redirect_to' => null,
+                //
+                //     // Remember-me after an SSO sign-in (v2.4.0). Off by default:
+                //     // the session then follows SESSION_LIFETIME and a fresh IdP
+                //     // round-trip decides after it, so revoking access at the IdP
+                //     // ends the panel access. On, the remember cookie signs the
+                //     // user back in for `auth.guards.{guard}.remember` minutes
+                //     // (576000 by default) whatever the IdP says meanwhile.
+                //     'remember' => false,
                 //
                 //     // Federated logout (v1.8.8). Optional. When set,
                 //     // POST /api/auth/logout redirects through the IdP's
@@ -1365,6 +1415,13 @@ return [
         'two_factor' => [
             'enabled' => env('MARTIS_2FA_ENABLED', true),
             'recovery_codes' => (int) env('MARTIS_2FA_RECOVERY_CODES', 8),
+        ],
+        'email_change' => [
+            // Minutes the confirmation link of a new email address stays
+            // valid (v2.4.0). The profile asks the current password, mails the
+            // link to the new address and a notice to the old one, and the
+            // address switches only when the link is followed.
+            'ttl_minutes' => (int) env('MARTIS_PROFILE_EMAIL_CHANGE_TTL', 60),
         ],
         'account' => [
             // When false, the built-in Account section renders the e-mail field
