@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
+use Martis\Actions\ActionEventRedactor;
 use Martis\Auth\DefaultRegistersUsers;
 use Martis\Auth\DefaultResetsUserPasswords;
 use Martis\Auth\DefaultSendsEmailVerification;
@@ -484,6 +485,13 @@ class MartisServiceProvider extends ServiceProvider
         // Secure default: deny. The host must explicitly grant this ability.
         if (! Gate::has(ActionEventResource::GATE)) {
             Gate::define(ActionEventResource::GATE, static fn ($user = null): bool => false);
+        }
+
+        // The values of the events of a hard-deleted record stay masked until the
+        // host opens them with `martis-view-deleted-audit` ($user, $resourceClass,
+        // $uriKey): the record's policy and global scopes are gone with the row.
+        if (! Gate::has(ActionEventRedactor::DELETED_RECORD_GATE)) {
+            Gate::define(ActionEventRedactor::DELETED_RECORD_GATE, static fn ($user = null, ?string $resourceClass = null, ?string $uriKey = null): bool => false);
         }
     }
 

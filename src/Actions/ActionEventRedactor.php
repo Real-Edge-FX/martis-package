@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo as EloquentBelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo as EloquentMorphTo;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Martis\Contracts\FieldContract;
 use Martis\FieldContext;
 use Martis\Fields\BelongsToMany as BelongsToManyField;
@@ -59,6 +60,12 @@ final class ActionEventRedactor
 {
     /** The value a masked key shows. */
     public const MASK = '******';
+
+    /**
+     * The gate that lets a viewer read the values of the events of a
+     * resource's hard-deleted records (`($user, $resourceClass, $uriKey)`).
+     */
+    public const DELETED_RECORD_GATE = 'martis-view-deleted-audit';
 
     /**
      * Per-event visibility, computed once for the `original` and the
@@ -284,13 +291,15 @@ final class ActionEventRedactor
             return ['mode' => 'none', 'keys' => []];
         }
 
-        // A record the event names that no longer exists (hard-deleted) is
-        // judged like one that does: the policy runs on a model hydrated
-        // from what the event stored, so the `view` ability cannot be
-        // skipped by deleting the row. An event that names no record has no
-        // record to judge, only its resource's `viewAny`.
-        $hydrated = $record === null && self::namesRecord($event);
-        $record ??= $hydrated ? self::hydrate($type, $event) : new $type;
+        // A record the event names that no longer exists (hard-deleted) cannot
+        // be judged: its policy, its global scopes (a tenant fence) and its
+        // owner are gone with the row. Every value stays masked unless the
+        // record-independent `martis-view-deleted-audit` gate lets the viewer
+        // read the events of that resource's deleted records (v2.4.0). An
+        // event that names no record has no record to judge, only its
+        // resource's `viewAny`.
+        $deleted = $record === null && self::namesRecord($event);
+        $record ??= $deleted ? self::hydrate($type, $event) : new $type;
 
         $isPivotEvent = is_string($event->model_type) && $event->model_type !== $type;
         $keys = [];
@@ -304,7 +313,11 @@ final class ActionEventRedactor
                 continue;
             }
 
-            if ($record->exists && ! self::mayView($resource, $request, $hydrated)) {
+            if ($deleted) {
+                if (! self::mayViewDeleted($resourceClass, $request)) {
+                    continue;
+                }
+            } elseif ($record->exists && ! $resource->authorizedToView($request)) {
                 continue;
             }
 
@@ -511,18 +524,21 @@ final class ActionEventRedactor
     }
 
     /**
-     * The resource's `view` ability on its record. A model hydrated from an
-     * event is partial, so a policy written for a complete record can fail on
-     * it (a relation of a missing foreign key): that denies, it never raises.
+     * Whether the viewer may read the events of this resource's hard-deleted
+     * records: the `martis-view-deleted-audit` gate, which receives the user,
+     * the resource class and its uri key and nothing about the record (it is
+     * gone). Undefined, it denies; a gate that raises denies.
+     *
+     * @param  class-string<resource>  $resourceClass
      */
-    private static function mayView(Resource $resource, Request $request, bool $hydrated): bool
+    private static function mayViewDeleted(string $resourceClass, Request $request): bool
     {
-        if (! $hydrated) {
-            return $resource->authorizedToView($request);
+        if (! Gate::has(self::DELETED_RECORD_GATE)) {
+            return false;
         }
 
         try {
-            return $resource->authorizedToView($request);
+            return Gate::forUser($request->user())->allows(self::DELETED_RECORD_GATE, [$resourceClass, $resourceClass::uriKey()]);
         } catch (\Throwable) {
             return false;
         }

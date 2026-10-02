@@ -68,6 +68,10 @@ The emailed link opens a confirmation page, and the sign-in is `POST /api/auth/m
 
 The `martis-impersonate` gate receives the target as its second argument; a one-argument closure keeps working, and a two-argument one can refuse a target that outranks the operator. A closure that needs the target refuses an id that does not exist. `canImpersonate()` on the operator and `canBeImpersonated()` on the target are honoured. `Impersonation::start()` throws `ImpersonationRefusedException`, still a `RuntimeException`.
 
+### Audit log of a hard-deleted record
+
+The values in the events of a record that no longer exists (hard-deleted) are masked for everybody. Before, they were judged on a model hydrated from the event (or, in earlier builds, skipped `view`), so a tenant fence kept in a global scope did not hold after the delete. To let some viewers read them, define the record-independent gate: `Gate::define('martis-view-deleted-audit', fn ($user, string $resourceClass, string $uriKey) => $user->is_auditor)`. The `viewAny` of the resource and the field visibility still apply when it allows. Soft-deleted records are unchanged: they are still loaded and judged.
+
 ### Plan locks
 
 `lockedFor()` and `requirePlan()` now answer `403` with `locked: true` and the `lock` on every data endpoint, the dashboard card compute route included (it answered `200 { locked: true }`). A route of your own that names a Martis resource, dashboard or tool adds the `martis.gate` middleware to be gated the same way.
