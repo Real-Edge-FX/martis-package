@@ -57,10 +57,12 @@ class MetricController
         // orphaned entries and lets the cached shape itself converge.
         $cache = app(MartisCache::class);
         $userKey = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
+        // The lock state of each dashboard is part of it: a locked dashboard's
+        // `meta` is left out of the payload, so a plan change lands at once.
         $fingerprint = substr(sha1(implode('|', array_map(
             fn (DashboardContract $d): string => $d::class.'@'.$d->uriKey(),
             $instances,
-        ))), 0, 16);
+        )).'#'.SoftGate::fingerprint($instances, $request)), 0, 16);
         $cached = $cache->remember('dashboards', 'list:'.$userKey.':'.app()->getLocale().':'.$fingerprint, function () use ($instances): array {
             return array_map(function (DashboardContract $d): array {
                 $arr = $d->toArray();
@@ -128,7 +130,8 @@ class MetricController
         $cacheKey = 'show:'.$dashboard.':'.$userKey.':'.app()->getLocale();
         // A locked card's `meta` is left out of the payload, so the lock state
         // of the cards is part of the key: a plan change shows at once.
-        $lockedCards = SoftGate::fingerprint($instance->cards($request), $request);
+        // The same holds for the dashboard's filters (their options and meta).
+        $lockedCards = SoftGate::fingerprint([...$instance->cards($request), ...$instance->filters($request)], $request);
         if ($lockedCards !== '') {
             $cacheKey .= ':locked-'.$lockedCards;
         }

@@ -996,7 +996,8 @@ class ResourceController extends MartisController
         $cacheKey = 'schema:'.$resource.':'.$userKey.':'.app()->getLocale();
         // A locked card's `meta` is left out of the payload, so the lock state
         // of the cards is part of the key: a plan change shows at once.
-        $lockedCards = SoftGate::fingerprint($instance->cards($request), $request);
+        // The same holds for the filters (their options and meta).
+        $lockedCards = SoftGate::fingerprint([...$instance->cards($request), ...$instance->filters($request)], $request);
         if ($lockedCards !== '') {
             $cacheKey .= ':locked-'.$lockedCards;
         }

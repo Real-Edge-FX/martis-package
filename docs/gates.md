@@ -67,12 +67,12 @@ A lock withholds the entity's **data**, not only its page. For a user the lock c
 
 | Entity | Page endpoint | Data endpoints (`403` with the lock) |
 |--------|---------------|--------------------------------------|
-| `Dashboard` | `GET /api/dashboards/{uriKey}`: `200 { locked: true, lock }`, no cards or filters | `GET /api/dashboards/{uriKey}/cards/{card}` |
-| `Tool` | `GET /api/tools/{uriKey}`: `200 { locked: true, lock }` | `GET /api/tools/{uriKey}/fields`, `GET /api/tools/{uriKey}/fields/{field}/options`, and every route the tool loads itself (`martis.tool`, see [Tools](tools.md#tool-routes-and-their-middleware)); a request that does not expect JSON gets a plain `403` |
+| `Dashboard` | `GET /api/dashboards/{uriKey}`: `200 { locked: true, lock }`, no cards or filters; its `meta` is left out of that page and of the dashboard list | `GET /api/dashboards/{uriKey}/cards/{card}` |
+| `Tool` | `GET /api/tools/{uriKey}`: `200 { locked: true, lock }`; its `meta` is left out of that page and of the tool list | `GET /api/tools/{uriKey}/fields`, `GET /api/tools/{uriKey}/fields/{field}/options`, and every route the tool loads itself (`martis.tool`, see [Tools](tools.md#tool-routes-and-their-middleware)); a request that does not expect JSON gets a plain `403` |
 | `Resource` | none: the sidebar intercepts the click, and the SPA opens the modal when a page's request answers the lock | every route under `/api/resources/{resource}`: the schema, the list, a record's read and write (create, update, delete, restore, replicate, peek), its relationship routes (panels, attach, detach, pivot), its actions, lenses and cards, its pickers and option searches, inline create, sync and the slug check |
 | `Lens` | | `GET /api/resources/{resource}/lenses/{lens}` and the lens action routes (list, fields, pickers, run) |
 | `Card` | | `GET /api/resources/{resource}/cards/{card}` and `GET /api/dashboards/{uriKey}/cards/{card}`; the card's `meta` is left out of the dashboard and schema payloads |
-| `Filter` | | none: a locked filter is **not applied**, whatever `?filters=` names (resource index, lens, dashboard cards) |
+| `Filter` | | none: a locked filter is **not applied**, whatever `?filters=` names (resource index, lens, dashboard cards); its `options` (`options()` is not even called) and `meta` are left out of the schema and dashboard payloads, the descriptor and the `lock` staying |
 
 A `Resource` declares its lock in its constructor (the middleware builds it without a record, as the sidebar does):
 
@@ -103,7 +103,7 @@ The SPA raises the window event `martis:locked` (`detail` is the `lock`) when a 
 
 The records of a locked resource are also withheld where **another** resource lists them: the global search leaves the resource out, a picker (`BelongsTo`, `MorphTo`, `Tag`) and an attach list that would list its records answer `403`, a write that names one of its records answers `422` (the picker never offered it), a relationship panel (`HasMany`, `BelongsToMany`, ...) that lists them is left out of the detail page and its routes answer `403`, and the sidebar shows no live count for it. What a parent resource shows of a related record inside its own row (the title a `BelongsTo` column prints) is the parent's data: hide it with the field's `canSee()`.
 
-The lock is evaluated on every request, never cached, so a plan change lands on the next one. The payloads cached per user that depend on it carry the lock state in their cache key (a dashboard's and a resource's schema, which leave a locked card's `meta` out), and a metric's cached result is keyed on the dashboard filters that are applied, never on one a lock skips. The sidebar's count badges follow the [navigation cache](cache.md): a locked resource shows none once its entry expires.
+The lock is evaluated on every request, never cached, so a plan change lands on the next one. The payloads cached per user that depend on it carry the lock state in their cache key (the dashboard list, a dashboard and a resource's schema, which leave a locked card's, tool's, dashboard's or filter's `meta` and a locked filter's `options` out), and a metric's cached result is keyed on the dashboard filters that are applied, never on one a lock skips. The sidebar's count badges follow the [navigation cache](cache.md): a locked resource shows none once its entry expires.
 
 `canSee()` and the policies win over the lock, as in [`canSee` vs `lockedFor` precedence](#cansee-vs-lockedfor-precedence): a user who may not see the entity (a Resource's `viewAny`, a Dashboard's, Tool's, Lens's or card's `authorizedToSee()`) is answered as before, a `404` or a `403` without a lock, and the lock is only told to a user who may see it. An entity that is not locked answers as before.
 
