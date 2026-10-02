@@ -189,16 +189,10 @@ class BooleanGroup extends Field
         }
 
         $empty = $value === null || $value === '';
-
-        if (is_string($value)) {
-            $decoded = json_decode($value, true);
-            if (is_array($decoded)) {
-                $value = $decoded;
-            }
-        }
+        $value = $this->decodedSubmission($value);
 
         $submitted = is_array($value) ? $value : [];
-        $offered = array_map('strval', array_keys($this->getOptions()));
+        $offered = $this->offeredKeys();
 
         if ($this->fillCallback !== null) {
             ($this->fillCallback)($model, $empty ? $value : $this->offeredFlags($submitted, $offered), $this->attribute, $this->safeRequest());
@@ -232,6 +226,47 @@ class BooleanGroup extends Field
             $this->attribute,
             $this->storableStructuredValue($model, $this->attribute, $flags === [] ? null : $flags),
         );
+    }
+
+    /**
+     * The submitted value as a map when it is a JSON map in a string (the
+     * multipart path), otherwise as it is.
+     */
+    private function decodedSubmission(mixed $value): mixed
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return $value;
+    }
+
+    /**
+     * The keys of the flags the field offers the user now.
+     *
+     * @return list<string>
+     */
+    private function offeredKeys(): array
+    {
+        return array_map('strval', array_keys($this->getOptions()));
+    }
+
+    /**
+     * How many flags a submission switches on: the count of the flags
+     * `fill()` would store as on. The one projection the `minChecked()` /
+     * `maxChecked()` rule and `fill()` share, so the constraint binds the
+     * stored value: keys the options do not name do not count, and every
+     * boolean spelling `fill()` accepts does.
+     */
+    private function checkedCount(mixed $value): int
+    {
+        $value = $this->decodedSubmission($value);
+
+        return count(array_filter($this->offeredFlags(is_array($value) ? $value : [], $this->offeredKeys())));
     }
 
     /**
@@ -387,10 +422,7 @@ class BooleanGroup extends Field
         $label = $this->label;
 
         $rules[] = function (string $attribute, mixed $value, \Closure $fail) use ($min, $max, $label): void {
-            if (! is_array($value)) {
-                $value = [];
-            }
-            $checked = count(array_filter($value, static fn ($v) => $v === true || $v === 1 || $v === '1' || $v === 'true'));
+            $checked = $this->checkedCount($value);
 
             if ($min !== null && $checked < $min) {
                 $fail(self::translateRuleMessage(

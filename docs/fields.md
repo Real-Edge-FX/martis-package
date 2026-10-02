@@ -976,6 +976,8 @@ BooleanGroup::make('permissions')
 | `requireAny()` ⭐ | Sugar for `minChecked(1)` |
 | `requireAll()` ⭐ | Sugar for `minChecked(count(options))` |
 
+The server enforces the limits on the set `fill()` stores (v2.4.0): the submitted keys the field offers, each read as a boolean the way `fill()` reads it (`true`, `1`, `'1'`, `'true'`, `'on'`, `'yes'` are on, in any letter case), so a key the options do not name never counts toward either limit and a truthy spelling never escapes `maxChecked()`.
+
 > ⚠️ When `options()` is given a closure, `requireAll()` cannot pre-compute its target at field declaration time — the closure has not run yet. Pair the closure form with `minChecked(int)` directly, or use `requireAny()` (always `1`).
 
 **Storage format:** `{"flag":true,"other":false}` on a plain column, or the map itself through an `array` / `json` cast.
