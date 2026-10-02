@@ -476,6 +476,57 @@ it('warns about the health endpoint on 0.0.0.0 even when a token is set', functi
     expect($stderr)->toContain('[martis:mcp-serve] WARNING: /health endpoint is bound to 0.0.0.0 without authentication.');
 });
 
+// The warning used to compare the host with the single string '0.0.0.0', so a
+// bind to '::', '[::]' or a LAN/public address started silently (F118). The
+// warning is written before the socket is bound, so a host this machine cannot
+// bind (an address it does not own, IPv6 switched off) stops the server right
+// after it, which is all these runs need.
+it('warns whenever the host is not a loopback address, not only for 0.0.0.0', function (string $host) {
+    $port = pickPort();
+    $process = spawnServe(['--transport=http', "--host={$host}", "--port={$port}"]);
+
+    waitUntil(
+        $process,
+        fn (): bool => str_contains($process->getErrorOutput(), 'WARNING: bound to'),
+        "the server did not warn about binding {$host} without a token",
+    );
+    stopServe($process);
+
+    expect($process->getErrorOutput())
+        ->toContain("[martis:mcp-serve] WARNING: bound to {$host} without MARTIS_MCP_HTTP_TOKEN. Anyone reaching this port can call the docs API.");
+})->with([
+    'every IPv6 interface' => ['::'],
+    'every IPv6 interface in brackets' => ['[::]'],
+    'a routable address (TEST-NET-1)' => ['192.0.2.10'],
+]);
+
+it('silences the public bind warning for a host other than 0.0.0.0 with --no-warn-on-public', function () {
+    $port = pickPort();
+    $process = spawnServe(['--transport=http', '--host=192.0.2.10', "--port={$port}", '--no-warn-on-public']);
+
+    waitUntil(
+        $process,
+        fn (): bool => str_contains($process->getErrorOutput(), 'is up and listening') || str_contains($process->getErrorOutput(), 'critical:'),
+        'the server neither came up nor stopped',
+    );
+    stopServe($process);
+
+    expect($process->getErrorOutput())->not->toContain('WARNING: bound to');
+});
+
+it('stays silent on the default loopback bind', function () {
+    $port = pickPort();
+    $process = spawnServe(['--transport=http', "--port={$port}"]);
+
+    waitForPort($process, '127.0.0.1', $port);
+    waitForServeReady($process);
+    $stderr = $process->getIncrementalErrorOutput();
+    mcpRoundTrip($process, $port);
+    stopServe($process);
+
+    expect($stderr)->not->toContain('WARNING');
+});
+
 it('stdio default keeps producing the three tools (regression guard)', function () {
     $process = mcpServeProcess();
     $process->setInput(mcpHandshake().'{"jsonrpc":"2.0","id":2,"method":"tools/list"}'."\n");

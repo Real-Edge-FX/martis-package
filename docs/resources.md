@@ -1133,6 +1133,8 @@ Policies support a before() method that runs before any specific ability check. 
 
 Use php artisan martis:policy PolicyName --model=ModelName to generate a complete policy stub. The historical `martis:make-policy` name is kept as a hidden alias for backwards compatibility.
 
+The generated policy is **deny-by-default** (v2.4.0+): the ten resource and action abilities (`viewAny`, `view`, `create`, `update`, `replicate`, `delete`, `restore`, `forceDelete`, `runAction`, `runDestructiveAction`) each return `false` and carry a `// TODO` naming the decision to make, so a policy registered without an edit fails closed: nobody can list, read, create, change or delete the resource, and nobody can permanently delete a record by accident. Replace each `return false;` with the rule that fits (a role check, an ownership test) and delete the TODO. Keep the methods you do not mean to open: a method removed from the class falls back to the Martis default, which allows `viewAny` and the relationship abilities. Policies generated before v2.4.0 returned `true` from every ability; they are yours and were not touched, so review them if you registered one unedited. The commented relationship examples at the bottom of the file deny too.
+
 ### Disabling Specific Action Buttons
 
 To hide a specific button (Edit, Delete, Replicate, etc.) from the UI and enforce it on the backend, override the corresponding `authorizedTo*()` method directly in your Resource class:
