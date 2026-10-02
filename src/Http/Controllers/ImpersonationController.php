@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Martis\Impersonation\ImpersonationManager;
 use RuntimeException;
+use Throwable;
 
 /**
  * REST surface for the v0.10 impersonation subsystem.
@@ -123,8 +124,14 @@ class ImpersonationController extends MartisController
         if ($target === null) {
             try {
                 return Gate::allows('martis-impersonate');
-            } catch (ArgumentCountError) {
-                return false;
+            } catch (Throwable $e) {
+                // PHP raises ArgumentCountError for the missing second
+                // argument of a user closure; anything else is a real error.
+                if ($e instanceof ArgumentCountError) {
+                    return false;
+                }
+
+                throw $e;
             }
         }
 

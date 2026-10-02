@@ -3,6 +3,7 @@
 namespace Martis\Http\Controllers;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -94,7 +95,9 @@ class TwoFactorController extends MartisController
             'ip' => $request->ip(),
         ]);
 
-        auth()->guard($guard)->logout();
+        /** @var StatefulGuard $auth */
+        $auth = auth()->guard($guard);
+        $auth->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         SsoSession::forget($request);

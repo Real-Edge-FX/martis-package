@@ -82,7 +82,7 @@ Content-Type: application/json
 | `GET` | `/martis/email/verify/{id}/{hash}` | Signed verify link target — marks `email_verified_at`. |
 | `POST` | `/martis/api/auth/magic-link/request` | **v1.8.8.** Issue a passwordless sign-in token + email it. Returns `200 {ok: true}` whether or not the email exists (account-enumeration safe). |
 | `GET` | `/martis/api/auth/magic-link/consume?email=…&token=…` | **v1.8.8.** Verify the token, sign the user in, redirect to `/{martis-path}`. |
-| `POST` | `/martis/api/2fa/challenge` | Submit the 6-digit TOTP (or recovery) code during the 2FA challenge. |
+| `POST` | `/martis/api/2fa/challenge` | Submit the 6-digit TOTP (or recovery) code during the 2FA challenge. `422` wrong code, `429` rate limited (5 a minute per user, v2.4.0), `403 { two_factor_locked: true }` after consecutive wrong codes (the session ends). |
 | `GET` | `/martis/sso/{provider}/redirect` | Kick off the OAuth flow. Routes only registered when `auth.sso.enabled`. |
 | `GET` | `/martis/sso/{provider}/callback` | Handle the IdP callback. |
 
@@ -372,7 +372,7 @@ DELETE  /martis/api/profile/avatar            Remove avatar
 POST    /martis/api/profile/2fa/setup         Initialize 2FA (returns QR code SVG + secret)
 POST    /martis/api/profile/2fa/confirm       Verify the OTP code and activate 2FA
 DELETE  /martis/api/profile/2fa               Disable 2FA
-POST    /martis/api/profile/2fa/recovery-codes  Regenerate the recovery-code set
+POST    /martis/api/profile/2fa/recovery-codes  Regenerate the recovery-code set (needs current_password, v2.4.0; 403 while impersonating)
 GET     /martis/api/profile/sessions                v1.8.8 — list active sessions for the current user
 DELETE  /martis/api/profile/sessions/others        v1.8.8 — revoke every session except the current one
 DELETE  /martis/api/profile/sessions/{id}          v1.8.8 — revoke a single session by the opaque `id` of the list (v2.4.0; the current session is a no-op)
@@ -395,9 +395,9 @@ Error matrix:
 | HTTP | Cause |
 |---|---|
 | 503 | Master switch off. |
-| 403 | `martis-impersonate` Gate returned false. |
+| 403 | `martis-impersonate` Gate returned false for this target (it receives the operator and the target, v2.4.0), or the operator model's `canImpersonate()` hook returned false. A missing target id answers 403 too when the gate refuses the operator. |
 | 404 | Target user id does not exist on the configured guard's user provider. |
-| 422 | Self-impersonation OR impersonation already active OR target implements `Martis\Contracts\NotImpersonable` (v1.8.8). |
+| 422 | Self-impersonation OR impersonation already active OR target implements `Martis\Contracts\NotImpersonable` (v1.8.8) OR target's `canBeImpersonated()` hook returned false (v2.4.0). |
 | 200 | Started — body is the active snapshot. |
 
 See [Impersonation](../impersonation.md).
