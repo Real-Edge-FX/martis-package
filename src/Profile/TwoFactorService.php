@@ -2,10 +2,12 @@
 
 namespace Martis\Profile;
 
+use Carbon\Carbon;
 use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\SvgWriter;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
@@ -29,6 +31,13 @@ class TwoFactorService
      * @var array<string, bool>
      */
     private array $lastUsedColumnCache = [];
+
+    /**
+     * Tables a missing replay column was already reported for.
+     *
+     * @var array<string, true>
+     */
+    private array $warnedReplayGuardIsOff = [];
 
     /**
      * Generate a new TOTP secret and return setup data.
@@ -133,7 +142,11 @@ class TwoFactorService
     /**
      * Verify a recovery code against the user's stored hashed codes.
      *
-     * If valid, the code is consumed (removed from the list).
+     * If valid, the code is consumed (removed from the list). A code is
+     * single-use even when two requests carry it at once: the matching hash
+     * is found first (bcrypt is slow, so no lock is held for it), then the
+     * list is read again under a row lock and the hash is removed only if
+     * it is still there. The request that finds it gone fails.
      */
     public function verifyRecoveryCode(Authenticatable $user, string $code): bool
     {
@@ -142,21 +155,42 @@ class TwoFactorService
             return false;
         }
 
-        /** @var list<string> $hashed */
-        $hashed = (array) json_decode((string) decrypt($user->two_factor_recovery_codes), true);
-
-        foreach ($hashed as $index => $hash) {
+        $matched = null;
+        foreach ($this->storedRecoveryHashes($user->two_factor_recovery_codes) as $hash) {
             if (password_verify($code, $hash)) {
-                // Consume the recovery code
-                unset($hashed[$index]);
-                $user->two_factor_recovery_codes = encrypt(json_encode(array_values($hashed)));
-                $user->save();
+                $matched = $hash;
 
-                return true;
+                break;
             }
         }
 
-        return false;
+        if ($matched === null) {
+            return false;
+        }
+
+        return $user->getConnection()->transaction(function () use ($user, $matched): bool {
+            /** @var (Model&Authenticatable)|null $fresh */
+            $fresh = $user->newModelQuery()->whereKey($user->getKey())->lockForUpdate()->first();
+            if ($fresh === null || ! $fresh->two_factor_recovery_codes) {
+                return false;
+            }
+
+            $hashed = $this->storedRecoveryHashes($fresh->two_factor_recovery_codes);
+            $index = array_search($matched, $hashed, true);
+            if ($index === false) {
+                return false; // consumed by another request, or regenerated, since
+            }
+
+            unset($hashed[$index]);
+            $fresh->two_factor_recovery_codes = encrypt(json_encode(array_values($hashed)));
+            $fresh->save();
+
+            // The instance of this request follows the row.
+            $user->setAttribute('two_factor_recovery_codes', $fresh->two_factor_recovery_codes);
+            $user->syncOriginalAttribute('two_factor_recovery_codes');
+
+            return true;
+        });
     }
 
     /**
@@ -262,7 +296,7 @@ class TwoFactorService
         }
 
         $key = $this->base32Decode($secret);
-        $timestamp = (int) floor(time() / 30);
+        $timestamp = $this->currentStep();
 
         for ($i = -self::WINDOW; $i <= self::WINDOW; $i++) {
             if ($this->hotp($key, $timestamp + $i) === $code) {
@@ -273,16 +307,33 @@ class TwoFactorService
         return false;
     }
 
+    /** The TOTP time step now (30 seconds each). */
+    private function currentStep(): int
+    {
+        return (int) floor(now()->getTimestamp() / 30);
+    }
+
     /**
      * Verify a TOTP code with replay protection.
      *
-     * Tracks the last successfully used time step in .
-     * Rejects codes from time steps at or before the last successful step,
-     * preventing replay attacks within the ±WINDOW interval (~90 seconds).
+     * Records the time step a code was accepted for in
+     * `two_factor_last_used_at`, stored as the start time of that step
+     * (`step * 30`) in UTC, and rejects any step at or before it. A code accepted
+     * for the step after the current one (a client clock running ahead, a
+     * code seen before it was current) therefore cannot be used again while
+     * that step is current, which a recorded wall-clock time allowed.
      *
-     * Requires the user model to have a  column
-     * (timestamp, nullable). If the column is absent the check degrades
-     * gracefully to plain TOTP verification.
+     * The step is consumed with one conditional update (`WHERE
+     * two_factor_last_used_at IS NULL OR two_factor_last_used_at < step`):
+     * when two requests carry the same code at once, both read the old
+     * value and both find the code valid, but only one update changes a
+     * row, and a request whose update changes none fails. Any error while
+     * recording the step fails the code too: a replay guard that cannot
+     * record is not one to authenticate through.
+     *
+     * Requires the user model to have a `two_factor_last_used_at` column
+     * (timestamp, nullable). If the column is absent the check degrades to
+     * plain TOTP verification and logs a warning.
      *
      * @param  Model&Authenticatable  $user  The authenticated user.
      * @param  string  $secret  Base32-encoded TOTP secret.
@@ -295,22 +346,20 @@ class TwoFactorService
         }
 
         $key = $this->base32Decode($secret);
-        $timestamp = (int) floor(time() / 30);
+        $timestamp = $this->currentStep();
 
         // Probe the schema once per install. Older installs shipped the
         // 2FA migration without this column (it was added alongside replay
-        // protection); on those rows any attempt to `save()` the replay
+        // protection); on those rows any attempt to write the replay
         // timestamp throws a SQL error and the whole verify turns into a
         // generic "Invalid code". Skip replay tracking when the column is
-        // missing so legitimate codes still authenticate.
+        // missing so legitimate codes still authenticate, and say so.
         $hasColumn = $this->hasLastUsedColumn($user);
+        if (! $hasColumn) {
+            $this->warnReplayGuardIsOff($user);
+        }
 
-        // Determine the last used time step.
-        $lastUsedAt = $hasColumn ? ($user->two_factor_last_used_at ?? null) : null;
-
-        $lastStep = $lastUsedAt instanceof \DateTimeInterface
-            ? (int) floor($lastUsedAt->getTimestamp() / 30)
-            : -PHP_INT_MAX;
+        $lastStep = $hasColumn ? $this->lastConsumedStep($user) : -PHP_INT_MAX;
 
         for ($i = -self::WINDOW; $i <= self::WINDOW; $i++) {
             $step = $timestamp + $i;
@@ -320,24 +369,105 @@ class TwoFactorService
                 continue;
             }
 
-            if ($this->hotp($key, $step) === $code) {
-                if ($hasColumn) {
-                    try {
-                        $user->two_factor_last_used_at = now();
-                        $user->save();
-                    } catch (Throwable) {
-                        // Swallow persistence errors — we prefer letting the
-                        // user authenticate over denying a valid code when
-                        // the replay-tracking column is absent or the row is
-                        // momentarily locked.
-                    }
-                }
-
-                return true;
+            if (hash_equals($this->hotp($key, $step), $code)) {
+                return ! $hasColumn || $this->consumeStep($user, $step);
             }
         }
 
         return false;
+    }
+
+    /**
+     * The TOTP step the user's last accepted code was for, from the start
+     * time `two_factor_last_used_at` holds; `-PHP_INT_MAX` for none. A value
+     * written before v2.4.0 is the wall-clock time of the acceptance, which
+     * falls in the step the code was used in: the next acceptance rewrites
+     * it as a step start.
+     */
+    private function lastConsumedStep(Model $user): int
+    {
+        // The stored attribute, before any cast: a `datetime` cast would read
+        // the UTC string as app-timezone time.
+        $value = $user->getAttributes()['two_factor_last_used_at'] ?? null;
+
+        if ($value instanceof \DateTimeInterface) {
+            return (int) floor($value->getTimestamp() / 30);
+        }
+
+        if (is_string($value) && $value !== '') {
+            try {
+                return (int) floor(Carbon::parse($value, 'UTC')->getTimestamp() / 30);
+            } catch (Throwable) {
+                return -PHP_INT_MAX;
+            }
+        }
+
+        return is_int($value) ? intdiv($value, 30) : -PHP_INT_MAX;
+    }
+
+    /**
+     * Record `$step` as consumed, once: the update changes the row only while
+     * no step at or after this one is recorded, and the answer is whether it
+     * did.
+     */
+    private function consumeStep(Model $user, int $step): bool
+    {
+        $column = 'two_factor_last_used_at';
+        // In UTC, never in the app timezone: a local wall-clock string is
+        // ambiguous for the hour a daylight-saving change repeats, and the
+        // `<` below would then refuse a newer step as an older one.
+        $stored = Carbon::createFromTimestampUTC($step * 30)->format($user->getDateFormat());
+
+        try {
+            $changed = $user->newModelQuery()
+                ->whereKey($user->getKey())
+                ->where(fn ($query) => $query->whereNull($column)->orWhere($column, '<', $stored))
+                ->update([$column => $stored]);
+        } catch (Throwable $e) {
+            report($e);
+
+            return false;
+        }
+
+        if ($changed !== 1) {
+            return false; // the code was accepted by another request first
+        }
+
+        // The instance of this request follows the row.
+        $user->setAttribute($column, $stored);
+        $user->syncOriginalAttribute($column);
+
+        return true;
+    }
+
+    /**
+     * Say, once per service instance and table, that the users table has no
+     * `two_factor_last_used_at` column: codes are accepted without replay
+     * protection until it is added.
+     */
+    private function warnReplayGuardIsOff(Model $user): void
+    {
+        $table = $user->getConnectionName().':'.$user->getTable();
+        if (isset($this->warnedReplayGuardIsOff[$table])) {
+            return;
+        }
+        $this->warnedReplayGuardIsOff[$table] = true;
+
+        Log::warning('Martis: the two_factor_last_used_at column is missing from the users table, so a TOTP code can be used again within its time window. Run `php artisan martis:install --with-2fa` or add a nullable timestamp column named two_factor_last_used_at.', [
+            'table' => $user->getTable(),
+        ]);
+    }
+
+    /**
+     * The recovery code hashes stored in an encrypted list.
+     *
+     * @return list<string>
+     */
+    private function storedRecoveryHashes(mixed $encrypted): array
+    {
+        $decoded = json_decode((string) decrypt($encrypted), true);
+
+        return is_array($decoded) ? array_values(array_filter($decoded, 'is_string')) : [];
     }
 
     /** Resolves once per process whether the users table carries the replay

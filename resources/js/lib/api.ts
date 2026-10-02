@@ -1,47 +1,14 @@
 import { API_BASE_URL, BASE_PATH } from "@/lib/config"
 import i18n from "@/lib/i18n"
 import { isOnPage, passwordChangeUrl } from "@/lib/passwordChange"
+import { hasDotSegment } from "@/lib/apiPath"
+import { ApiError, type ValidationError } from "@/lib/apiError"
 
-export interface ValidationError {
-  field: string
-  message: string
-  code: string
-}
-
-export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string,
-    public readonly errors?: ValidationError[],
-  ) {
-    super(message)
-    this.name = 'ApiError'
-  }
-
-  /** Whether the server denied the action on authorization grounds (HTTP 403). */
-  isForbidden(): boolean {
-    return this.status === 403
-  }
-
-  /** Group errors by field name for inline display. */
-  errorsByField(): Record<string, string> {
-    const result: Record<string, string> = {}
-    if (this.errors) {
-      for (const err of this.errors) {
-        if (err.field && !result[err.field]) {
-          result[err.field] = err.message
-        }
-      }
-    }
-    return result
-  }
-
-  /** Get all error messages as a single string for toast display. */
-  errorSummary(): string {
-    if (!this.errors || this.errors.length === 0) return this.message
-    return this.errors.map(e => e.message).join('. ')
-  }
-}
+export { apiPath, routePath, pathSegment, withQuery } from "@/lib/apiPath"
+export { ApiError }
+export type { ValidationError }
+import { LOCKED_EVENT } from "@/lib/lockEvent"
+import type { GateLock } from "@/types"
 
 function translateIfKey(message: string): string {
   if (!message.includes('.')) return message
@@ -145,7 +112,35 @@ function redirectOnPasswordChangeRequired(): void {
 function isPasswordChangeRequiredResponse(status: number, payload: unknown): boolean {
   return status === 409 && (payload as { password_change_required?: unknown } | null)?.password_change_required === true
 }
+
+/**
+ * Refuse a path the browser would rewrite before sending it: one with a dot
+ * segment (`/api/resources/posts/../users/5`) names another endpoint than the
+ * one the caller built. Build paths with `apiPath` so a value stays one
+ * segment; this is the last line of defence for a path assembled by hand
+ * (an extension's, for one). The request is not sent.
+ */
+function assertNoDotSegment(path: string): void {
+  if (hasDotSegment(path)) {
+    throw new ApiError(400, translateIfKey('Request failed'), [])
+  }
+}
+
+/** Match the 403 a data endpoint answers for a soft-locked entity (`SoftGate::refusal()`). */
+function lockOfResponse(status: number, payload: unknown): GateLock | null {
+  if (status !== 403 || payload === null || typeof payload !== 'object') return null
+
+  const { locked, lock } = payload as { locked?: unknown; lock?: unknown }
+  return locked === true && lock !== null && typeof lock === 'object' ? (lock as GateLock) : null
+}
+
+/** Raise `LOCKED_EVENT` for a lock payload (`request()` and `uploadRequest()` do, on a 403 that carries one). */
+function announceLock(lock: GateLock | null): void {
+  if (lock !== null) window.dispatchEvent(new CustomEvent<GateLock>(LOCKED_EVENT, { detail: lock }))
+}
+
 async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  assertNoDotSegment(path)
   const csrfToken = getCsrfToken()
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -197,6 +192,7 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
     if (isPasswordChangeRequiredResponse(res.status, json)) {
       redirectOnPasswordChangeRequired()
     }
+    announceLock(lockOfResponse(res.status, json))
     const err = (json ?? {}) as { message?: string; errors?: unknown }
     // 403: surface a distinct "not authorized" message so the UI can show a
     // policy-specific toast instead of the generic action failure. The server
@@ -311,6 +307,7 @@ export function buildFormData(values: Record<string, unknown>, methodOverride?: 
  * For PUT/PATCH methods, uses POST with _method spoofing (Laravel convention).
  */
 async function uploadRequest<T>(method: string, path: string, values: Record<string, unknown>): Promise<T> {
+  assertNoDotSegment(path)
   const csrfToken = getCsrfToken()
   const actualMethod = method === 'PUT' || method === 'PATCH' ? 'POST' : method
   const methodOverride = method === 'PUT' || method === 'PATCH' ? method : undefined
@@ -352,6 +349,7 @@ async function uploadRequest<T>(method: string, path: string, values: Record<str
     if (isPasswordChangeRequiredResponse(res.status, json)) {
       redirectOnPasswordChangeRequired()
     }
+    announceLock(lockOfResponse(res.status, json))
     const err = (json ?? {}) as { message?: string; errors?: unknown }
     // For status codes that typically come back as a non-JSON page from
     // the proxy / web server (413 Request Entity Too Large from Nginx,

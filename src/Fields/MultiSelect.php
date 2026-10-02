@@ -139,6 +139,48 @@ class MultiSelect extends Field
     }
 
     /**
+     * {@inheritdoc}
+     *
+     * With {@see self::validateAgainstOptions()}, adds a closure rule that
+     * checks every selected value against `getOptions()` when the request is
+     * validated (a closure, not `Rule::in()`, so a closure of options runs
+     * then and not while the schema is built). Anything but a list of
+     * strings and integers fails, as a value the options do not hold.
+     */
+    public function buildRules(?string $context = null): array
+    {
+        $rules = parent::buildRules($context);
+
+        if (! $this->validatesAgainstOptions) {
+            return $rules;
+        }
+
+        $rules[] = function (string $attribute, mixed $value, \Closure $fail): void {
+            // An empty value is for `required` and `nullable` to judge (create: `required`
+            // refuses it; update drops `required` for every field, see BuildsFieldRules).
+            if ($value === null) {
+                return;
+            }
+
+            if (is_array($value)) {
+                foreach ($value as $item) {
+                    if (! $this->optionsContain($item)) {
+                        $fail('martis::validation.not_in_options')->translate();
+
+                        return;
+                    }
+                }
+
+                return;
+            }
+
+            $fail('martis::validation.not_in_options')->translate();
+        };
+
+        return $rules;
+    }
+
+    /**
      * Decode raw value to a flat list of scalars.
      *
      * @return list<scalar>

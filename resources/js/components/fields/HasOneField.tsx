@@ -6,6 +6,7 @@ import { buildViaParams } from '@/lib/relationViaParams'
 import { STANDALONE_RELATIONSHIP_TYPES } from '@/lib/relationshipFieldTypes'
 import { useNavigate } from 'react-router'
 import { api } from '@/lib/api'
+import { apiPath, routePath, withQuery } from '@/lib/apiPath'
 import type { ResourceRecord, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
@@ -102,7 +103,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
   // Fetch related resource schema for field definitions
   const schemaQuery = useQuery({
     queryKey: ['schema', relatedResource],
-    queryFn: () => api.get<{ data: { fieldsForDetail?: FieldDefinition[]; singularLabel?: string; softDeletes?: boolean } }>(`/api/resources/${relatedResource}/schema`),
+    queryFn: () => api.get<{ data: { fieldsForDetail?: FieldDefinition[]; singularLabel?: string; softDeletes?: boolean } }>(apiPath`/api/resources/${relatedResource}/schema`),
     enabled: !!relatedResource,
   })
 
@@ -120,7 +121,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
           throughBreadcrumb?: { enabled?: boolean; relationship?: string; text?: string | null }
         }
       }>(
-        `/api/resources/${parentResource}/${parentId}/has-one/${relationship}`
+        apiPath`/api/resources/${parentResource}/${parentId}/has-one/${relationship}`
       ),
     enabled: !!parentResource && !!parentId && !!relationship,
   })
@@ -130,7 +131,10 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
   const deleteMutation = useMutation({
     mutationFn: (shownId: string | number) =>
       api.delete(
-        `/api/resources/${parentResource}/${parentId}/has-one/${relationship}?relatedId=${encodeURIComponent(String(shownId))}`
+        withQuery(
+          apiPath`/api/resources/${parentResource}/${parentId}/has-one/${relationship}`,
+          `relatedId=${encodeURIComponent(String(shownId))}`,
+        )
       ),
     onSuccess: (_res, shownId) => {
       emitRecordEvent('deleted', relatedResource, shownId)
@@ -254,7 +258,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
               type="button"
               onClick={() =>
                 navigate(
-                  `/resources/${relatedResource}/${record.id as string | number}/edit${viaParams}`
+                  `${routePath`/resources/${relatedResource}/${record.id as string | number}/edit`}${viaParams}`
                 )
               }
               className="martis-btn-secondary"
@@ -316,7 +320,7 @@ function HasOneDetailPanel({ field }: { field: FieldDefinition }) {
                   ref={createRef}
                   type="button"
                   onClick={() =>
-                    navigate(`/resources/${relatedResource}/create${viaParams}`)
+                    navigate(`${routePath`/resources/${relatedResource}/create`}${viaParams}`)
                   }
                   className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-martis-accent-contrast"
                   style={{ backgroundColor: 'var(--martis-accent)' }}

@@ -437,9 +437,18 @@ class Tool implements ToolContract
     // Serialization
     // -------------------------------------------------------------------------
 
-    /** {@inheritdoc} */
+    /**
+     * {@inheritdoc}
+     *
+     * A tool soft-locked for the user (`lockedFor()`, `requirePlan()`) keeps
+     * its descriptor and its `lock` payload but carries no `meta`: it is where
+     * a custom tool component holds its data, which the lock withholds
+     * (v2.4.0, as for a Card).
+     */
     public function toArray(): array
     {
+        $lock = $this->lockPayloadNow();
+
         return [
             'type' => 'tool',
             'name' => $this->name(),
@@ -450,8 +459,8 @@ class Tool implements ToolContract
             'menuSection' => $this->menuSection(),
             'belongsToSystemSection' => $this->belongsToSystemSection(),
             'badge' => $this->badge(),
-            'lock' => $this->lockPayloadNow(),
-            'meta' => $this->meta(),
+            'lock' => $lock,
+            'meta' => $lock === null ? $this->meta() : [],
         ];
     }
 }

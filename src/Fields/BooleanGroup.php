@@ -2,6 +2,8 @@
 
 namespace Martis\Fields;
 
+use ArrayObject;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 
@@ -166,21 +168,147 @@ class BooleanGroup extends Field
     }
 
     /**
-     * Write the flag map. A JSON string (the shape the multipart request
-     * path carries, and what `resolve()` already reads) is decoded to the
-     * map first so the attribute, or its `array` cast, stores a map rather
-     * than the encoded text; any other value is written as received.
+     * Write the flag map the user may set.
+     *
+     * A JSON string (the shape the multipart request path carries, and what
+     * `resolve()` already reads) is decoded to the map first. The map is then
+     * projected onto the flags `getOptions()` offers the user: a submitted
+     * key the options do not name is ignored, each offered value becomes a
+     * boolean (an offered flag the submission leaves out is off), and the
+     * stored flags the user was not offered (an `options()` closure scoped to
+     * the user) keep their stored value, so an editor can neither switch on a
+     * flag they were not shown nor erase one an administrator set.
+     *
+     * An empty value (`null`, `''`) switches the offered flags off: the
+     * attribute becomes `null` when no stored flag is left to keep.
      */
     public function fill(Model $model, mixed $value): void
     {
+        if ($this->isReadonly()) {
+            return;
+        }
+
+        $empty = $value === null || $value === '';
+        $value = $this->decodedSubmission($value);
+
+        $submitted = is_array($value) ? $value : [];
+        $offered = $this->offeredKeys();
+
+        if ($this->fillCallback !== null) {
+            ($this->fillCallback)($model, $empty ? $value : $this->offeredFlags($submitted, $offered), $this->attribute, $this->safeRequest());
+
+            return;
+        }
+
+        // A computed field has no backing attribute to write (see Field::fill()).
+        if ($this->computed) {
+            return;
+        }
+
+        // A value that is not a map (the controllers reject one before it
+        // gets here) writes nothing but the empty one, which clears.
+        if (! $empty && ! is_array($value)) {
+            return;
+        }
+
+        $flags = $this->storedFlags($model);
+        foreach ($this->offeredFlags($submitted, $offered) as $key => $enabled) {
+            $flags[$key] = $enabled;
+        }
+
+        if ($empty) {
+            // Clearing switches the offered flags off; only the flags the
+            // user cannot see stay.
+            $flags = array_diff_key($flags, array_flip($offered));
+        }
+
+        $model->setAttribute(
+            $this->attribute,
+            $this->storableStructuredValue($model, $this->attribute, $flags === [] ? null : $flags),
+        );
+    }
+
+    /**
+     * The submitted value as a map when it is a JSON map in a string (the
+     * multipart path), otherwise as it is.
+     */
+    private function decodedSubmission(mixed $value): mixed
+    {
         if (is_string($value)) {
             $decoded = json_decode($value, true);
+
             if (is_array($decoded)) {
-                $value = $decoded;
+                return $decoded;
             }
         }
 
-        parent::fill($model, $value);
+        return $value;
+    }
+
+    /**
+     * The keys of the flags the field offers the user now.
+     *
+     * @return list<string>
+     */
+    private function offeredKeys(): array
+    {
+        return array_map('strval', array_keys($this->getOptions()));
+    }
+
+    /**
+     * How many flags a submission switches on: the count of the flags
+     * `fill()` would store as on. The one projection the `minChecked()` /
+     * `maxChecked()` rule and `fill()` share, so the constraint binds the
+     * stored value: keys the options do not name do not count, and every
+     * boolean spelling `fill()` accepts does.
+     */
+    private function checkedCount(mixed $value): int
+    {
+        $value = $this->decodedSubmission($value);
+
+        return count(array_filter($this->offeredFlags(is_array($value) ? $value : [], $this->offeredKeys())));
+    }
+
+    /**
+     * The submitted flags the field offers, each as a boolean, in the order
+     * of the options; an offered flag the submission leaves out is off.
+     *
+     * @param  array<array-key, mixed>  $submitted
+     * @param  list<string>  $offered
+     * @return array<string, bool>
+     */
+    private function offeredFlags(array $submitted, array $offered): array
+    {
+        $flags = [];
+        foreach ($offered as $key) {
+            $raw = $submitted[$key] ?? false;
+            $flags[$key] = is_scalar($raw) && filter_var($raw, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        return $flags;
+    }
+
+    /**
+     * The flags the record stores now, as a map (a JSON string, an array or
+     * the object a cast hands back are all read), or none.
+     *
+     * @return array<array-key, mixed>
+     */
+    private function storedFlags(Model $model): array
+    {
+        $raw = $model->getAttribute($this->attribute);
+
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        if ($raw instanceof Arrayable) {
+            $raw = $raw->toArray();
+        } elseif ($raw instanceof ArrayObject) {
+            $raw = $raw->getArrayCopy();
+        }
+
+        return is_array($raw) ? $raw : [];
     }
 
     public function resolve(Model $model, ?string $attribute = null): mixed
@@ -294,10 +422,7 @@ class BooleanGroup extends Field
         $label = $this->label;
 
         $rules[] = function (string $attribute, mixed $value, \Closure $fail) use ($min, $max, $label): void {
-            if (! is_array($value)) {
-                $value = [];
-            }
-            $checked = count(array_filter($value, static fn ($v) => $v === true || $v === 1 || $v === '1' || $v === 'true'));
+            $checked = $this->checkedCount($value);
 
             if ($min !== null && $checked < $min) {
                 $fail(self::translateRuleMessage(

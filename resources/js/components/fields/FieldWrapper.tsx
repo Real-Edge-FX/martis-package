@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { WarningCircleIcon } from '@phosphor-icons/react'
 import { FieldLabelTooltip } from './FieldLabelTooltip'
+import { sanitizeMarkup } from '@/lib/sanitizeHtml'
 
 interface FieldWrapperProps {
   /** HTML id of the wrapped input — binds the label via `htmlFor`. */
@@ -11,7 +12,12 @@ interface FieldWrapperProps {
   required?: boolean
   /** Optional tooltip text — renders the `?` icon next to the label with the Martis tooltip styling. HTML allowed. */
   tooltip?: string | null
-  /** Help text rendered beneath the input. Hidden while `error` is set so both never stack. */
+  /**
+   * Help text rendered beneath the input, as HTML (`Field::help()` documents
+   * links, bold and code). It goes through the sanitiser's `markup` profile,
+   * which keeps that markup and removes what would execute. Hidden while
+   * `error` is set so both never stack.
+   */
   help?: string | null
   /** Error message rendered beneath the input with a leading warning icon. */
   error?: string | null
@@ -42,6 +48,8 @@ export function FieldWrapper({
   className,
   children,
 }: FieldWrapperProps) {
+  const helpHtml = useMemo(() => (help ? sanitizeMarkup(help) : ''), [help])
+
   return (
     <div className={className ? `martis-input-wrap ${className}` : 'martis-input-wrap'}>
       {label && (
@@ -64,7 +72,7 @@ export function FieldWrapper({
       ) : help ? (
         <span
           className="martis-input-help"
-          dangerouslySetInnerHTML={{ __html: help }}
+          dangerouslySetInnerHTML={{ __html: helpHtml }}
         />
       ) : null}
     </div>

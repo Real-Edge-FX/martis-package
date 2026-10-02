@@ -12,9 +12,11 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
+use Martis\Auth\AccountLoginThrottle;
 use Martis\Auth\PanelAccess;
 use Martis\Auth\PasswordBrokerConfigurationException;
 use Martis\Auth\PasswordChangeRequirement;
+use Martis\Auth\TwoFactorPass;
 use Martis\Contracts\ProfileResourceContract;
 use Martis\Contracts\RegistersUsers;
 use Martis\Contracts\ResetsUserPasswords;
@@ -58,13 +60,11 @@ class AuthController extends MartisController
         }
 
         // Indicate pending 2FA challenge so the SPA can redirect without API calls.
-        // Treat any non-true session value as "not yet passed": the initial
-        // state is null (never set), and the old `=== false` check skipped it,
-        // so a 2FA-enabled user who had not cleared the challenge was reported
-        // as fully authenticated instead of pending.
-        $twoFactorPassed = $request->session()->get('martis_two_factor_passed');
+        // Anything but a pass this user earned reads as "not yet passed": the
+        // initial state is no pass at all, and a pass earned by another user
+        // earlier in the same browser session does not count.
         $twoFactor = app(TwoFactorService::class);
-        if ($twoFactor->isEnabled($user) && $twoFactorPassed !== true) {
+        if ($twoFactor->isEnabled($user) && ! TwoFactorPass::holds($request->session(), $user)) {
             return response()->json([
                 'two_factor_pending' => true,
                 'message' => 'Two-factor authentication required.',
@@ -129,26 +129,40 @@ class AuthController extends MartisController
         /** @var StatefulGuard $auth */
         $auth = auth()->guard($guardName);
 
+        // The per-account limit: wrong passwords for one account, from any
+        // address, spend one bucket (AccountLoginThrottle).
+        $email = (string) $request->input('email');
+        $account = AccountLoginThrottle::userFor($auth, $email);
+        if (AccountLoginThrottle::tooMany(AccountLoginThrottle::PASSWORD, $email, $account)) {
+            throw AccountLoginThrottle::exception(AccountLoginThrottle::PASSWORD, $email, $account);
+        }
+
         if (! $this->attemptLogin($auth, $request)) {
+            AccountLoginThrottle::hit(AccountLoginThrottle::PASSWORD, $email, $account);
+
             return response()->json([
                 'message' => __('auth.failed'),
                 'errors' => ['email' => [__('auth.failed')]],
             ], 422);
         }
 
+        AccountLoginThrottle::clear(AccountLoginThrottle::PASSWORD, $email, $account);
+
         $request->session()->regenerate();
 
         // Drop the SSO origin of an earlier SSO sign-in, in the session or
-        // in the browser's cookie (SsoSession), so a password sign-in is
-        // neither sent through the IdP's federated logout nor exempt from
-        // the forced password change gate.
-        SsoSession::forget($request);
+        // in the browser's cookie (SsoSession), and every cookie of it the
+        // user kept, so a password sign-in is neither sent through the IdP's
+        // federated logout nor exempt from the forced password change gate.
+        SsoSession::forget($request, $auth->user());
 
-        // Check if 2FA is active — reset the challenge flag on new login
+        // Every sign-in starts without a 2FA pass (the Login listener
+        // forgets it too; this keeps a guard that does not fire Login honest).
+        TwoFactorPass::revoke($request->session());
+
+        // Check if 2FA is active: the challenge is pending
         $user = $auth->user();
         if ($user && app(TwoFactorService::class)->isEnabled($user)) {
-            $request->session()->put('martis_two_factor_passed', false);
-
             return response()->json([
                 'two_factor_required' => true,
                 'message' => 'Two-factor authentication required.',
@@ -303,7 +317,11 @@ class AuthController extends MartisController
      * Resolves the bound `Martis\Contracts\SendsPasswordResetLinks`
      * implementation. Maps Laravel's broker status constants to HTTP:
      *   - `RESET_LINK_SENT` → 200
-     *   - `INVALID_USER` → 422 (revealed in dev, neutral in prod)
+     *   - every other status (`INVALID_USER`, `RESET_THROTTLED`) → the same
+     *     200 outside `app.debug`, so the answer never tells an anonymous
+     *     caller whether the address has an account (an unknown address and
+     *     a known one asked twice within the throttle window would
+     *     otherwise differ); with `app.debug` on, the detailed 422.
      *
      * @body-param string email required
      */
@@ -345,6 +363,17 @@ class AuthController extends MartisController
             ]);
         }
 
+        // Anything else says something about the address: no account, or a
+        // link sent a moment ago. Outside debug it answers exactly like a
+        // sent link, as the magic-link request does, so this guest endpoint
+        // cannot confirm which addresses are panel accounts.
+        if (! config('app.debug')) {
+            return response()->json([
+                'ok' => true,
+                'status' => __(Password::RESET_LINK_SENT),
+            ]);
+        }
+
         return response()->json([
             'message' => __($status),
             'errors' => ['email' => [__($status)]],
@@ -358,7 +387,10 @@ class AuthController extends MartisController
      * Resolves the bound `Martis\Contracts\ResetsUserPasswords`. Maps
      * status constants to HTTP:
      *   - `PASSWORD_RESET` → 200
-     *   - `INVALID_TOKEN`, `INVALID_USER`, `RESET_THROTTLED` → 422
+     *   - `INVALID_TOKEN`, `INVALID_USER`, `RESET_THROTTLED` → 422. Outside
+     *     `app.debug`, `INVALID_USER` answers as `INVALID_TOKEN`: an unknown
+     *     address and a known one with a wrong token are otherwise told
+     *     apart, which confirms the address has an account.
      *
      * @body-param string token required
      * @body-param string email required
@@ -378,6 +410,10 @@ class AuthController extends MartisController
                 'ok' => true,
                 'status' => __($status),
             ]);
+        }
+
+        if ($status === Password::INVALID_USER && ! config('app.debug')) {
+            $status = Password::INVALID_TOKEN;
         }
 
         return response()->json([

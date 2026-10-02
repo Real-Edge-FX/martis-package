@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
 import type { FieldDefinition } from '@/types'
 
 export interface UseToolFieldsResult {
@@ -24,7 +25,7 @@ export function useToolFields(toolKey: string): UseToolFieldsResult {
     // action-fields consumer (ActionModal). Reading `data.fields` here would
     // silently always yield `[]`.
     queryKey: ['martis', 'tool-fields', toolKey],
-    queryFn: () => api.get<{ data: { fields: FieldDefinition[] } }>(`/api/tools/${toolKey}/fields`),
+    queryFn: () => api.get<{ data: { fields: FieldDefinition[] } }>(apiPath`/api/tools/${toolKey}/fields`),
     enabled: Boolean(toolKey),
   })
   return { fields: data?.data?.fields ?? [], isLoading, error }

@@ -298,7 +298,9 @@ class BelongsToMany extends Field
     }
 
     /**
-     * Configure whether the "Attach" button is shown.
+     * Allow or refuse attaching records through this panel. Off hides the
+     * "Attach" button, and the attachable list, the attach (single and
+     * batch) and the attach modal's pivot pickers answer 403.
      */
     public function canAttach(bool $value = true): static
     {
@@ -308,13 +310,26 @@ class BelongsToMany extends Field
     }
 
     /**
-     * Configure whether the "Detach" button is shown.
+     * Allow or refuse detaching records through this panel. Off hides the
+     * "Detach" button and the detach endpoint answers 403.
      */
     public function canDetach(bool $value = true): static
     {
         $this->canDetach = $value;
 
         return $this;
+    }
+
+    /** Whether the field leaves attaching through the panel on (see `canAttach()`). */
+    public function allowsAttach(): bool
+    {
+        return $this->canAttach;
+    }
+
+    /** Whether the field leaves detaching through the panel on (see `canDetach()`). */
+    public function allowsDetach(): bool
+    {
+        return $this->canDetach;
     }
 
     /** Return the Eloquent relationship method name. */

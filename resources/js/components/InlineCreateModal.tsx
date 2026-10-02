@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { api, ApiError, hasFileValues } from "@/lib/api"
+import { apiPath } from "@/lib/apiPath"
 import { FieldInput } from "@/components/fields/FieldRenderer"
 import { useToast } from "@/contexts/ToastContext"
 import { useTranslation } from "react-i18next"
@@ -83,7 +84,7 @@ export function InlineCreateModal({
           iconColor?: string | null
           subtitle?: string | null
         }
-      }>(`/api/resources/${relatedResource}/inline-create-schema`),
+      }>(apiPath`/api/resources/${relatedResource}/inline-create-schema`),
     enabled: open,
   })
 
@@ -93,12 +94,12 @@ export function InlineCreateModal({
         return api.upload<{
           data: { id: string | number; title: string | null }
           meta?: { message?: string }
-        }>("POST", `/api/resources/${relatedResource}/inline-create`, data)
+        }>("POST", apiPath`/api/resources/${relatedResource}/inline-create`, data)
       }
       return api.post<{
         data: { id: string | number; title: string | null }
         meta?: { message?: string }
-      }>(`/api/resources/${relatedResource}/inline-create`, data)
+      }>(apiPath`/api/resources/${relatedResource}/inline-create`, data)
     },
     onSuccess: (res) => {
       addToast("success", res?.meta?.message ?? tMsg("record_created"))

@@ -26,6 +26,9 @@ use Martis\Auth\PasswordPolicy;
  */
 class Password extends Field
 {
+    /** A password is a secret: no log keeps it (see `Field::sensitive()`). */
+    protected bool $sensitive = true;
+
     protected bool $strengthMeter = false;
 
     protected bool $showRequirements = false;
@@ -170,9 +173,21 @@ class Password extends Field
             return;
         }
 
-        if ($value !== null && $value !== '') {
-            $model->setAttribute($this->attribute, Hash::make($value));
+        // An empty password never overwrites the stored one (an update form
+        // sends the field empty when it is left alone).
+        if ($value === null || $value === '') {
+            return;
         }
+
+        // A fillUsing() callback takes the write over, and receives the
+        // plain value: hashing is the callback's decision then.
+        if ($this->fillCallback !== null) {
+            ($this->fillCallback)($model, $value, $this->attribute, $this->safeRequest());
+
+            return;
+        }
+
+        $model->setAttribute($this->attribute, Hash::make($value));
     }
 
     /**

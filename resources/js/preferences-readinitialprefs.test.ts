@@ -3,11 +3,14 @@
  */
 import { describe, expect, it, beforeEach, afterEach } from 'vitest'
 
+import { readInitialPrefs } from '@/contexts/PreferencesContext'
+
 const STORAGE_KEY = 'martis-preferences'
 const GUEST_MODIFIED_KEY = 'martis-preferences-guest-modified'
 
 beforeEach(() => {
   localStorage.clear()
+  sessionStorage.clear()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(window as any).MartisConfig = undefined
   delete document.documentElement.dataset.theme
@@ -16,56 +19,20 @@ beforeEach(() => {
 
 afterEach(() => {
   localStorage.clear()
+  sessionStorage.clear()
 })
 
-/**
- * The function under test isn't exported, so the spec runs the same
- * priority logic inline and asserts the produced state. The point of
- * the spec is to lock in the v1.8.8 fix: `GUEST_MODIFIED_KEY=1` makes
- * localStorage win over a `source=user` SSR payload, because the
- * guest just picked something and the post-login PUT will sync it.
+/*
+ * The priority chain of `readInitialPrefs()`. The spec locks in the v1.8.8
+ * fix: the guest-pick marker makes the cached preferences win over a
+ * `source=user` SSR payload, because the guest just picked something and the
+ * post-login PUT will sync it. Since v2.4.0 (F095) the marker is a
+ * sessionStorage value (this tab session), not a localStorage one: a flag
+ * left by a previous visitor of a shared browser is not honoured.
  */
-function readInitialPrefs(): Record<string, unknown> {
-  const DEFAULTS = {
-    theme: 'dark',
-    accent: 'martis',
-    brandColor: null,
-    density: 'comfortable',
-    locale: 'en',
-    reducedMotion: false,
-  }
-
-  const injected = (window as unknown as {
-    MartisConfig?: { preferences?: { initial?: Record<string, unknown> & { source?: string } } }
-  }).MartisConfig?.preferences?.initial
-
-  let guestModified = false
-  let cached: Record<string, unknown> | null = null
-  try {
-    guestModified = localStorage.getItem(GUEST_MODIFIED_KEY) === '1'
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      if (parsed && typeof parsed === 'object') cached = parsed
-    }
-  } catch { /* ignore */ }
-
-  if (guestModified && cached) return { ...DEFAULTS, ...cached }
-
-  const isPersisted =
-    injected !== undefined &&
-    injected !== null &&
-    typeof injected === 'object' &&
-    (injected.source === 'user' || injected.source === 'preset')
-
-  if (isPersisted) return { ...DEFAULTS, ...injected }
-  if (cached) return { ...DEFAULTS, ...cached }
-  if (injected && typeof injected === 'object') return { ...DEFAULTS, ...injected }
-  return DEFAULTS
-}
 
 describe('readInitialPrefs priority chain', () => {
-  it('honours guest-modified localStorage over source=user SSR (v1.8.8 regression)', () => {
+  it('honours the guest-pick marker over source=user SSR (v1.8.8 regression)', () => {
     // Returning user has dark/en saved on the server. SSR injects them.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).MartisConfig = {
@@ -73,11 +40,24 @@ describe('readInitialPrefs priority chain', () => {
     }
     // But on /login the guest picked light/pt_PT.
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ theme: 'light', locale: 'pt_PT' }))
-    localStorage.setItem(GUEST_MODIFIED_KEY, '1')
+    sessionStorage.setItem(GUEST_MODIFIED_KEY, '1')
 
     const prefs = readInitialPrefs()
     expect(prefs.theme).toBe('light')
     expect(prefs.locale).toBe('pt_PT')
+  })
+
+  it('ignores a guest-modified flag left in localStorage (a previous visitor of a shared browser, F095)', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).MartisConfig = {
+      preferences: { initial: { theme: 'dark', locale: 'en', source: 'user' } },
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ theme: 'light', locale: 'pt_PT' }))
+    localStorage.setItem(GUEST_MODIFIED_KEY, '1')
+
+    const prefs = readInitialPrefs()
+    expect(prefs.theme).toBe('dark')
+    expect(prefs.locale).toBe('en')
   })
 
   it('SSR source=user wins when guest-modified flag is absent', () => {
@@ -139,7 +119,7 @@ describe('readInitialPrefs priority chain', () => {
     ;(window as any).MartisConfig = {
       preferences: { initial: { theme: 'dark', source: 'user' } },
     }
-    localStorage.setItem(GUEST_MODIFIED_KEY, '1') // flag set but no cache
+    sessionStorage.setItem(GUEST_MODIFIED_KEY, '1') // flag set but no cache
 
     const prefs = readInitialPrefs()
     // Falls through to SSR source=user.

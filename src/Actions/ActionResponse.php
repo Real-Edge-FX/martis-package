@@ -32,10 +32,16 @@ class ActionResponse implements \JsonSerializable
         return new self(ActionResponseType::Danger, ['message' => $message]);
     }
 
-    /** External URL redirect. */
+    /**
+     * External URL redirect. `$url` is an `http(s)` URL or a path: any other
+     * scheme (`javascript:`, `data:`, ...) throws, as the SPA would refuse to
+     * follow it.
+     *
+     * @throws \InvalidArgumentException
+     */
     public static function redirect(string $url): self
     {
-        return new self(ActionResponseType::Redirect, ['url' => $url]);
+        return new self(ActionResponseType::Redirect, ['url' => self::webUrl($url, 'redirect')]);
     }
 
     /**
@@ -48,16 +54,25 @@ class ActionResponse implements \JsonSerializable
         return new self(ActionResponseType::Visit, ['path' => $path, 'params' => $params]);
     }
 
-    /** Opens URL in new browser tab. */
+    /**
+     * Opens URL in new browser tab. `$url` is an `http(s)` URL or a path (see `redirect()`).
+     *
+     * @throws \InvalidArgumentException
+     */
     public static function openInNewTab(string $url): self
     {
-        return new self(ActionResponseType::OpenInNewTab, ['url' => $url]);
+        return new self(ActionResponseType::OpenInNewTab, ['url' => self::webUrl($url, 'openInNewTab')]);
     }
 
-    /** Downloads $url as $filename through a link. */
+    /**
+     * Downloads $url as $filename through a link. `$url` is an `http(s)` URL
+     * or a path (see `redirect()`).
+     *
+     * @throws \InvalidArgumentException
+     */
     public static function download(string $filename, string $url): self
     {
-        return new self(ActionResponseType::Download, ['filename' => $filename, 'url' => $url]);
+        return new self(ActionResponseType::Download, ['filename' => $filename, 'url' => self::webUrl($url, 'download')]);
     }
 
     /**
@@ -111,6 +126,31 @@ class ActionResponse implements \JsonSerializable
     public static function openUpdate(string $resourceName, string|int $recordId): self
     {
         return new self(ActionResponseType::OpenUpdate, ['resource' => $resourceName, 'recordId' => $recordId]);
+    }
+
+    /**
+     * `$url` when it is an `http(s)` URL or a relative one, else an exception.
+     *
+     * The SPA hands the URL to the browser (a redirect, a link to click, a new
+     * tab), and a `javascript:` URL there runs script in the panel with the
+     * viewer's session, so only web URLs and paths pass, and the SPA refuses
+     * anything else too. The browser ignores leading control characters and
+     * spaces and drops tabs and newlines inside a URL (`java\tscript:` is
+     * `javascript:`), so the scheme is read from the URL without them.
+     *
+     * @throws \InvalidArgumentException
+     */
+    private static function webUrl(string $url, string $method): string
+    {
+        $bare = preg_replace('/[\x00-\x20]+/', '', $url) ?? '';
+
+        if (preg_match('/^([a-z][a-z0-9+.\-]*):/i', $bare, $match) === 1 && ! in_array(strtolower($match[1]), ['http', 'https'], true)) {
+            throw new \InvalidArgumentException(
+                "ActionResponse::{$method}() takes an http(s) URL or a path, not a \"".strtolower($match[1]).':" URL.'
+            );
+        }
+
+        return $url;
     }
 
     /**

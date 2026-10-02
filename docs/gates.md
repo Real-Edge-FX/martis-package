@@ -57,7 +57,59 @@ class ProLabDashboard extends Dashboard
 }
 ```
 
-`lockedFor`'s closure returns `true` when the user **is locked**. The lock state propagates into the descriptor (`lock: { reason, modal }`); the SPA paints the lock icon, intercepts the click, and shows the modal. Direct URL access is stopped server-side: `MetricController::show` and `ToolsController::show` return `{ locked: true, lock: {...} }` so the page renders the same lock state full-page.
+`lockedFor`'s closure returns `true` when the user **is locked**. The lock state propagates into the descriptor (`lock: { reason, modal }`); the SPA paints the lock icon, intercepts the click, and shows the modal. Direct URL access is stopped server-side, on the page endpoint and on every endpoint that serves the entity's data: the page endpoints of a dashboard and a tool return `{ locked: true, lock: {...} }` so the page renders the same lock state full-page, and the data endpoints answer `403` with the same `lock` (see [What a lock stops](#what-a-lock-stops-on-the-server)).
+
+### What a lock stops on the server
+
+> Every data endpoint refuses a locked entity since v2.4.0. Before, only the two page endpoints (`GET /api/dashboards/{uriKey}` and `GET /api/tools/{uriKey}`) did: a user a plan locked out of an entity could still read its data, and write through it, with the URLs the page never calls.
+
+A lock withholds the entity's **data**, not only its page. For a user the lock closes out:
+
+| Entity | Page endpoint | Data endpoints (`403` with the lock) |
+|--------|---------------|--------------------------------------|
+| `Dashboard` | `GET /api/dashboards/{uriKey}`: `200 { locked: true, lock }`, no cards or filters; its `meta` is left out of that page and of the dashboard list | `GET /api/dashboards/{uriKey}/cards/{card}` |
+| `Tool` | `GET /api/tools/{uriKey}`: `200 { locked: true, lock }`; its `meta` is left out of that page and of the tool list | `GET /api/tools/{uriKey}/fields`, `GET /api/tools/{uriKey}/fields/{field}/options`, and every route the tool loads itself (`martis.tool`, see [Tools](tools.md#tool-routes-and-their-middleware)); a request that does not expect JSON gets a plain `403` |
+| `Resource` | none: the sidebar intercepts the click, and the SPA opens the modal when a page's request answers the lock | every route under `/api/resources/{resource}`: the schema, the list, a record's read and write (create, update, delete, restore, replicate, peek), its relationship routes (panels, attach, detach, pivot), its actions, lenses and cards, its pickers and option searches, inline create, sync and the slug check |
+| `Lens` | | `GET /api/resources/{resource}/lenses/{lens}` and the lens action routes (list, fields, pickers, run) |
+| `Card` | | `GET /api/resources/{resource}/cards/{card}` and `GET /api/dashboards/{uriKey}/cards/{card}`; the card's `meta` is left out of the dashboard and schema payloads |
+| `Filter` | | none: a locked filter is **not applied**, whatever `?filters=` names (resource index, lens, dashboard cards); its `options` (`options()` is not even called) and `meta` are left out of the schema and dashboard payloads, the descriptor and the `lock` staying |
+
+A `Resource` declares its lock in its constructor (the middleware builds it without a record, as the sidebar does):
+
+```php
+class ForecastResource extends Resource
+{
+    public function __construct(?Model $model = null)
+    {
+        parent::__construct($model);
+
+        $this->requirePlan('pro')->lockPreset('pro');
+    }
+}
+```
+
+The refusal is one shape on every data endpoint: `403` with the error envelope and the lock, so a client reads the same `lock` it reads on the page endpoint:
+
+```json
+{
+    "message": "This feature is locked for your account.",
+    "errors": [],
+    "locked": true,
+    "lock": { "reason": "plan:pro", "modal": { "title": "...", "message": "...", "cta": { "label": "...", "url": "..." } } }
+}
+```
+
+The SPA raises the window event `martis:locked` (`detail` is the `lock`) when a request answers it, and the gate modal opens, so a user who lands on a locked resource's URL sees the upsell the sidebar shows.
+
+The records of a locked resource are also withheld where **another** resource lists them: the global search leaves the resource out, a picker (`BelongsTo`, `MorphTo`, `Tag`) and an attach list that would list its records answer `403`, a write that names one of its records answers `422` (the picker never offered it), a relationship panel (`HasMany`, `BelongsToMany`, ...) that lists them is left out of the detail page and its routes answer `403` with the lock payload (`locked: true`, `lock`), as every endpoint of the locked resource does (a user who may not list the related resource, its `viewAny`, gets the plain `403` instead), and the sidebar shows no live count for it. What a parent resource shows of a related record inside its own row (the title a `BelongsTo` column prints) is the parent's data: hide it with the field's `canSee()`.
+
+The lock of a card is looked up only on a route that names the card (`/cards/{card}`): `cards()` is not built on the index, show or write routes of a resource or dashboard for the lock's sake.
+
+The lock is evaluated on every request, never cached, so a plan change lands on the next one. The payloads cached per user that depend on it carry the lock state in their cache key (the dashboard list, a dashboard and a resource's schema, which leave a locked card's, tool's, dashboard's or filter's `meta` and a locked filter's `options` out), and a metric's cached result is keyed on the dashboard filters that are applied, never on one a lock skips, nor on a `filters` value that applies nothing (not JSON, not a map, empty, an unknown key): those leave the key as it is with no filters. The sidebar's count badges follow the [navigation cache](cache.md): a locked resource shows none once its entry expires.
+
+`canSee()` and the policies win over the lock, as in [`canSee` vs `lockedFor` precedence](#cansee-vs-lockedfor-precedence): a user who may not see the entity (a Resource's `viewAny`, a Dashboard's, Tool's, Lens's or card's `authorizedToSee()`) is answered as before, a `404` or a `403` without a lock, and the lock is only told to a user who may see it. An entity that is not locked answers as before.
+
+The routes of your own that name a Martis resource, dashboard or tool (`Route::get('/x/{resource}', ...)` on the [`martis.api`](tools.md#tool-routes-and-their-middleware) group) are not gated: add the `martis.gate` middleware to a route whose `{resource}`, `{lens}`, `{card}`, `{dashboard}` or `{uriKey}` parameter names the entity, and it refuses a locked one. A `Metric` class has no lock API of its own: lock the dashboard, the resource or the `Card` that holds it. A custom card class that uses `Martis\Concerns\HasGate` is refused on its compute route like a `Card`.
 
 ### Modal payload
 
@@ -65,8 +117,8 @@ class ProLabDashboard extends Dashboard
 |-----|------|---------|-------|
 | `title` | string | `Locked feature` (i18n) | Header text |
 | `message` | string | i18n default | Body copy |
-| `messageHtml` | bool | `false` | When `true`, the body is rendered with `dangerouslySetInnerHTML`. Trusted source only. |
-| `cta` | `{label, url, target?}` | none | Primary action button; opens the URL on click |
+| `messageHtml` | bool | `false` | When `true`, the body is rendered as HTML. Links, bold, code, lists and line breaks stay; scripts, event handlers, unsafe URLs, the `style` attribute, `id`, `name`, forms and form controls are removed (v2.4.0), but keep user data out of it. |
+| `cta` | `{label, url, target?}` | none | Primary action button; opens the URL on click. The URL is a web link (`http(s)`), a path, or `mailto:` / `tel:`: since v2.4.0 a link with any other scheme (`javascript:`, `data:`, ...) is rendered without an `href`. |
 | `dismiss` | bool | `true` | When `false` the modal can only be closed via the CTA |
 | `icon` | string (Phosphor name) | `lock` | Header icon |
 
@@ -203,7 +255,7 @@ In those cases, `lockedFor(fn ($r) => ! $r->user()?->canAccessFeature('pro-lab')
 Two mechanisms for two different intents. They compose with explicit precedence: **`canSee` wins**.
 
 - `canSee` returns `false` → entry filtered out before the menu is built. User never sees it. `lockedFor` is not evaluated.
-- `canSee` returns `true` AND `lockedFor` returns `true` → entry visible with badge + lock. Click shows modal. Direct URL → locked payload.
+- `canSee` returns `true` AND `lockedFor` returns `true` → entry visible with badge + lock. Click shows modal. Direct URL → locked payload, and the data endpoints answer `403` with it ([What a lock stops](#what-a-lock-stops-on-the-server)).
 - `canSee` returns `true` AND `lockedFor` returns `false` → normal access.
 
 Pick one per entity:

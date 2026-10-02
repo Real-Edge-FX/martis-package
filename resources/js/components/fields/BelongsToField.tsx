@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
 import { api } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
 import { ArrowSquareOutIcon, CaretDownIcon, MagnifyingGlassIcon, XIcon, CheckIcon, PlusIcon } from '@phosphor-icons/react'
@@ -11,7 +12,7 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { useQueryClient } from '@tanstack/react-query'
 import { recordHref } from '@/lib/recordHref'
 import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
-import { relatableUrl, withQuery } from '@/lib/relatableEndpoint'
+import { pickerAttributesQuery, relatableUrl, withQuery } from '@/lib/relatableEndpoint'
 import { useEscapeLayer } from '@/lib/escapeLayers'
 // Tooltip handled by global <Tooltip> in Layout.tsx
 
@@ -98,7 +99,7 @@ export function PeekCard({ resourceKey, recordId, triggerRect, onFlipChange }: P
 
   useEffect(() => {
     let cancelled = false
-    api.get<PeekResponse>(`/api/resources/${resourceKey}/${recordId}/peek`)
+    api.get<PeekResponse>(apiPath`/api/resources/${resourceKey}/${recordId}/peek`)
       .then((res) => {
         if (!cancelled) {
           setData(res.data)
@@ -428,7 +429,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
       const endpoint = scopedUrl
         ? withQuery(scopedUrl, `per_page=${perPage}${searchParam}`)
-        : `/api/resources/_/_/relatable/${field.attribute}?per_page=${perPage}&related_resource=${relatedResource}${searchParam}`
+        : withQuery(apiPath`/api/resources/_/_/relatable/${field.attribute}`, `per_page=${perPage}&related_resource=${encodeURIComponent(relatedResource)}${pickerAttributesQuery(titleAttribute, withSubtitles ? subtitleAttribute : undefined)}${searchParam}`)
       const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
     } catch {
@@ -436,7 +437,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     } finally {
       setLoading(false)
     }
-  }, [relatedResource, scopedUrl, field.attribute, perPage])
+  }, [relatedResource, scopedUrl, field.attribute, perPage, titleAttribute, withSubtitles, subtitleAttribute])
 
   // Load the options of the current scope while the dropdown is open: when
   // it opens, and again if the scope changes under it.

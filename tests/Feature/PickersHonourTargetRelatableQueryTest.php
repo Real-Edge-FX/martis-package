@@ -369,7 +369,7 @@ it('keeps the target fence when a source declares relatable{PluralModelName}() (
 });
 
 it('still fences the context-free relatable form with the target relatableQuery()', function () {
-    $response = $this->getJson('/martis/api/resources/_/_/relatable/owner_id?related_resource=ptq-users');
+    $response = $this->getJson('/martis/api/resources/_/_/relatable/owner_id?related_resource=ptq-users&title_attribute=name');
 
     expect(ptqNames($response))->toBe(['Ana', 'Bruno']);
 });

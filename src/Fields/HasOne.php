@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne as EloquentHasOne;
 use Illuminate\Support\Str;
 use Martis\Fields\Concerns\AuthorizesRelatedResource;
+use Martis\Fields\Concerns\ControlsRelatedWrites;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Fields\Concerns\ResolvesRelatableOptions;
 
@@ -30,6 +31,7 @@ use Martis\Fields\Concerns\ResolvesRelatableOptions;
 class HasOne extends Field
 {
     use AuthorizesRelatedResource;
+    use ControlsRelatedWrites;
     use ControlsRelationshipToolbar;
     use ResolvesRelatableOptions;
 
@@ -111,7 +113,10 @@ class HasOne extends Field
         return $this;
     }
 
-    /** Configure whether the "Create" button is shown when no related record exists. */
+    /**
+     * Allow or refuse creating the related record through this panel. Off
+     * hides the "Create" button and the create endpoint answers 403.
+     */
     public function canCreate(bool $value = true): static
     {
         $this->canCreateRelated = $value;
@@ -119,7 +124,10 @@ class HasOne extends Field
         return $this;
     }
 
-    /** Configure whether the "Edit" button is shown for the related record. */
+    /**
+     * Allow or refuse editing the related record through this panel. Off
+     * hides the "Edit" button and the update endpoint answers 403.
+     */
     public function canUpdate(bool $value = true): static
     {
         $this->canUpdateRelated = $value;
@@ -127,7 +135,10 @@ class HasOne extends Field
         return $this;
     }
 
-    /** Configure whether the "Delete" button is shown for the related record. */
+    /**
+     * Allow or refuse deleting the related record through this panel. Off
+     * hides the "Delete" button and the delete endpoint answers 403.
+     */
     public function canDelete(bool $value = true): static
     {
         $this->canDeleteRelated = $value;

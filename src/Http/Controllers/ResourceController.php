@@ -15,9 +15,11 @@ use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\FilterContract;
 use Martis\Contracts\LayoutContract;
+use Martis\Contracts\ProvidesPickerAttributes;
 use Martis\Contracts\UnsavedChangesConfigContract;
 use Martis\Enums\SortDirection;
 use Martis\Enums\TrashedFilter;
+use Martis\Exceptions\Handler as MartisExceptionHandler;
 use Martis\FieldContext;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\BelongsToMany as BelongsToManyField;
@@ -27,6 +29,8 @@ use Martis\Fields\MorphTo;
 use Martis\Fields\MorphToMany as MorphToManyField;
 use Martis\Fields\Tag as TagField;
 use Martis\Filters\Filter;
+use Martis\Filters\FilterValue;
+use Martis\Gates\SoftGate;
 use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
 use Martis\Http\Controllers\Concerns\ResolvesPivotActions;
@@ -40,6 +44,7 @@ use Martis\ResourceRegistry;
 use Martis\Rules\RelatableWrite;
 use Martis\SearchResolver;
 use Martis\Support\IndexScope;
+use Martis\Support\TranslatedLine;
 
 /**
  * Generic CRUD controller for all registered Martis resources.
@@ -61,6 +66,9 @@ class ResourceController extends MartisController
     use DecodesStructuredValues;
     use ResolvesPivotActions;
     use SyncsDeferredWrites;
+
+    /** What a relation picker falls back to for a label when the title is blank (see `relatedRecordLabel()`). */
+    private const PICKER_FALLBACK_ATTRIBUTES = ['name', 'title', 'label', 'email'];
 
     /** Create the controller and inject the resource registry. */
     public function __construct(
@@ -501,13 +509,17 @@ class ResourceController extends MartisController
 
             return $this->handleDatabaseError($e);
         } catch (\Throwable $e) {
-            // v1.8.2 — broaden the catch beyond QueryException so non-DB
-            // failures (Spatie permission cache invalidation, observer
-            // hook errors, third-party policy listeners) don't bubble
-            // up as a vague 500 "Error deleting record". The original
-            // message reaches the toast so the operator sees what
-            // actually broke; the throwable still goes through report()
-            // for monitoring.
+            // A hook that stops the delete on purpose throws a user-facing
+            // exception (see UserFacingException): its message and status
+            // reach the client. Anything else (Spatie permission cache
+            // invalidation, observer hook errors, storage driver errors,
+            // third-party policy listeners) is internal: its message can
+            // hold a path, a bucket or a class name, so the client gets the
+            // generic one, and the details stay in the log and in report().
+            if (MartisExceptionHandler::isUserFacing($e) && ($response = MartisExceptionHandler::render($request, $e)) !== null) {
+                return $response;
+            }
+
             Log::error('Martis: error on delete', [
                 'resource' => $resource,
                 'id' => $id,
@@ -516,7 +528,12 @@ class ResourceController extends MartisController
             ]);
             report($e);
 
-            return JsonErrorResponse::serverError($e->getMessage() ?: 'Error deleting record.')->toResponse();
+            // `app.debug` is the developer's choice to see the raw message.
+            $message = config('app.debug') === true && $e->getMessage() !== ''
+                ? $e->getMessage()
+                : TranslatedLine::get('martis::messages.error_delete');
+
+            return JsonErrorResponse::serverError($message)->toResponse();
         }
 
         return new IlluminateJsonResponse(['data' => [], 'meta' => ['message' => $resourceClass::deletedMessage()], 'links' => []], 200);
@@ -679,6 +696,12 @@ class ResourceController extends MartisController
         }
 
         $res = new $resourceClass($model);
+
+        // The prefill hands back the record's field values, so it needs the
+        // view ability show() asks for, before the replicate ability.
+        if (! $res->authorizedToView($request)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
 
         if (! $res->authorizedToReplicate($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
@@ -971,6 +994,13 @@ class ResourceController extends MartisController
         $cache = app(MartisCache::class);
         $userKey = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
         $cacheKey = 'schema:'.$resource.':'.$userKey.':'.app()->getLocale();
+        // A locked card's `meta` is left out of the payload, so the lock state
+        // of the cards is part of the key: a plan change shows at once.
+        // The same holds for the filters (their options and meta).
+        $lockedCards = SoftGate::fingerprint([...$instance->cards($request), ...$instance->filters($request)], $request);
+        if ($lockedCards !== '') {
+            $cacheKey .= ':locked-'.$lockedCards;
+        }
 
         $data = $cache->remember('schema', $cacheKey, function () use ($request, $resourceClass, $instance): array {
             $raw = $this->buildSchema($request, $resourceClass, $instance);
@@ -1623,7 +1653,8 @@ class ResourceController extends MartisController
         $pivotRow = $relation->newPivot();
 
         if ($relatedId === null) {
-            $authorized = $parentResource->authorizedToAttachAny($request, $related::class);
+            // The attach modal's picker, which `canAttach(false)` turns off.
+            $authorized = $field->allowsAttach() && $parentResource->authorizedToAttachAny($request, $related::class);
         } else {
             // Only a record the relationship attaches has a pivot row to
             // edit, so any other id answers 404 like a missing one (no
@@ -1710,6 +1741,12 @@ class ResourceController extends MartisController
             if (! $relatedCheck->authorizedToViewAny($request)) {
                 return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
             }
+
+            // A related resource the user is soft-locked from (`lockedFor()`,
+            // `requirePlan()`) lists no records in a picker either.
+            if ($locked = SoftGate::refusalFor($relatedCheck, $request)) {
+                return $locked;
+            }
         }
 
         if ($relatedUriKey === null || ! $this->registry->has($relatedUriKey)) {
@@ -1788,17 +1825,18 @@ class ResourceController extends MartisController
 
         $paginator = $query->paginate($perPage);
 
+        // A picker row is what a picker renders (see pickerRow()), not the
+        // related resource's index row.
+        $pickerAttributes = $this->pickerAttributes($request, $relationField, $relatedResourceClass);
+
         /** @var list<array<string, mixed>> $data */
         $data = array_values(
-            collect($paginator->items())->map(function (Model $model) use ($relatedResourceClass, $request): array {
-                $res = new $relatedResourceClass($model);
-
-                return $this->serializeModel(
-                    $res,
-                    Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX),
-                    $model,
-                );
-            })->all()
+            collect($paginator->items())->map(fn (Model $model): array => $this->pickerRow(
+                new $relatedResourceClass($model),
+                $model,
+                $request,
+                $pickerAttributes,
+            ))->all()
         );
 
         return JsonPaginatedResponse::make(
@@ -1818,6 +1856,69 @@ class ResourceController extends MartisController
                 'next' => $paginator->nextPageUrl(),
             ],
         )->toResponse();
+    }
+
+    /**
+     * The attributes of the related record a picker reads besides its key
+     * and title: the title and subtitle attributes of the field the picker
+     * renders for (`ProvidesPickerAttributes`). The context-free call
+     * (`/resources/_/_/relatable/...`) has no field to read them from, and the
+     * names a client sends in `?title_attribute=` / `?subtitle_attribute=` are
+     * its own: only the one the related resource declares itself
+     * (`titleAttribute()`) is honoured, so the endpoint cannot be used to
+     * read another column of rows the resource's `relatableQuery()` does not
+     * fence. The subtitle has no declaration on the resource and is dropped.
+     * pickerRow() still serialises only an index field the user may see.
+     *
+     * @param  class-string<resource>  $relatedResourceClass
+     * @return list<string>
+     */
+    private function pickerAttributes(Request $request, ?FieldContract $relationField, string $relatedResourceClass): array
+    {
+        if ($relationField !== null) {
+            return $relationField instanceof ProvidesPickerAttributes ? $relationField->pickerAttributes() : [];
+        }
+
+        $declared = $relatedResourceClass::titleAttribute();
+        $requested = $request->query('title_attribute');
+
+        return is_string($requested) && $requested !== '' && $requested === $declared ? [$declared] : [];
+    }
+
+    /**
+     * One row of a relation picker: the record's key and title (`id`,
+     * `_title`) and the display value of each of `$attributes` that is an
+     * index field of the related resource the user may see, for the record
+     * (`canSee()`, `canSeeForModel()`). When the title is blank the picker
+     * falls back to `name`, `title`, `label` and `email`, so those are
+     * serialised then. Nothing else of the index row (its other columns, the
+     * `_authorization` block, the `_resource` descriptor) reaches a picker.
+     *
+     * @param  list<string>  $attributes
+     * @return array<string, mixed>
+     */
+    private function pickerRow(Resource $resource, Model $model, Request $request, array $attributes): array
+    {
+        $row = ['id' => $model->getKey(), '_title' => $resource->title()];
+
+        $wanted = $row['_title'] === '' ? [...$attributes, ...self::PICKER_FALLBACK_ATTRIBUTES] : $attributes;
+        if ($wanted === []) {
+            return $row;
+        }
+
+        $fields = Field::filterForModel(
+            Field::filterForContext($resource->fieldsForIndex($request), FieldContext::INDEX),
+            $request,
+            $model,
+        );
+
+        foreach ($fields as $field) {
+            if ($field instanceof Field && in_array($field->attribute(), $wanted, true)) {
+                $row[$field->attribute()] = $field->resolveForDisplay($model);
+            }
+        }
+
+        return $row;
     }
 
     /**
@@ -2088,8 +2189,10 @@ class ResourceController extends MartisController
                 continue;
             }
 
-            // Skip unauthorized filters (Martis extension)
-            if (! $filter->authorizedToSee($request)) {
+            // Skip unauthorized filters (Martis extension), and a filter the
+            // user is soft-locked from (`lockedFor()`, `requirePlan()`): a
+            // locked filter is not applied through `?filters=`.
+            if (! $filter->authorizedToSee($request) || SoftGate::isLocked($filter, $request)) {
                 continue;
             }
 
@@ -2108,6 +2211,13 @@ class ResourceController extends MartisController
             // safe "empty selection shows all" behaviour is the default, not
             // something each consumer must remember to reimplement.
             if ($value === null || $value === '' || $value === []) {
+                continue;
+            }
+
+            // A boolean filter only receives the options it declares.
+            $value = FilterValue::resolve($filter, $request, $value);
+
+            if ($value === null) {
                 continue;
             }
 

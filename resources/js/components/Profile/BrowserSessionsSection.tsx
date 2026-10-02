@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Badge } from 'primereact/badge'
 import { DesktopIcon, DeviceMobileIcon, MonitorIcon, SignOutIcon, TrashIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
 import { useToast } from '@/contexts/ToastContext'
 import { toBcp47 } from '@/lib/formatLocale'
 
@@ -22,6 +23,11 @@ import { toBcp47 } from '@/lib/formatLocale'
  */
 
 interface BrowserSession {
+  /**
+   * An opaque handle of the session (v2.4.0), not its `sessions.id`: the
+   * server never sends the credential of a device's session. It is the key
+   * of the row and what `DELETE /api/profile/sessions/{id}` takes back.
+   */
   id: string
   ip_address: string
   user_agent: string
@@ -133,7 +139,7 @@ export function BrowserSessionsSection(): JSX.Element {
   async function handleRevoke(id: string): Promise<void> {
     setRevokingId(id)
     try {
-      await api.delete(`/api/profile/sessions/${encodeURIComponent(id)}`)
+      await api.delete(apiPath`/api/profile/sessions/${id}`)
       addToast('success', t('sessions_revoke_success', {
         defaultValue: 'Session revoked.',
       }))

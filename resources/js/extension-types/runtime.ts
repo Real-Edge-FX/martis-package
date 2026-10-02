@@ -20,6 +20,7 @@ export { useIsMobile } from '@/hooks/useIsMobile'
 
 // Lib
 export { api, ApiError } from '@/lib/api'
+export { apiPath, pathSegment, routePath, withQuery } from '@/lib/apiPath'
 export { config } from '@/lib/config'
 export { martisEventBus } from '@/lib/eventBus'
 
@@ -35,6 +36,7 @@ export { NotFoundPage } from '@/pages/NotFound'
 export { FieldInput, FieldDisplay } from '@/components/fields/FieldRenderer'
 export { DrawerShell } from '@/components/overrides/DrawerShell'
 export { Tooltip } from 'primereact/tooltip'
+export { htmlTooltip, trustHtmlTooltip } from '@/lib/htmlTooltip'
 export { Dropdown } from 'primereact/dropdown'
 export { MultiSelect } from 'primereact/multiselect'
 export { createPortal, flushSync } from 'react-dom'
@@ -90,6 +92,7 @@ export type {
   NestedParent,
   DrawerShellProps,
   TooltipProps,
+  HtmlTooltipProps,
   DropdownProps,
   MultiSelectProps,
   MartisFormOptions,

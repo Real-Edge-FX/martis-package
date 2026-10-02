@@ -9,7 +9,7 @@
  */
 import * as react_jsx_runtime from 'react/jsx-runtime';
 import * as React$1 from 'react';
-import { ReactNode, JSX as JSX$1, ComponentType } from 'react';
+import { ReactNode, RefCallback, JSX as JSX$1, ComponentType } from 'react';
 import { createPortal, flushSync } from './react-dom.mjs';
 export { createPortal, flushSync } from './react-dom.mjs';
 import { IconProps } from '@phosphor-icons/react';
@@ -1282,6 +1282,38 @@ declare class ApiError extends Error {
     /** Get all error messages as a single string for toast display. */
     errorSummary(): string;
 }
+
+/**
+ * A value that can fill a path segment. A missing one (a route param the
+ * router has not resolved) becomes the text `undefined`, as in a template
+ * literal: it names no endpoint, and the server answers 404.
+ */
+type PathValue = string | number | null | undefined;
+/**
+ * One value as one segment of an API path, as the server will read it: `?`,
+ * `#`, `%` and `\` are encoded, and a slash is spelt `%252F` because Laravel
+ * decodes the path before it routes (a plain `%2F` would split the route).
+ * Throws an `ApiError` (400) for a value that holds a literal `%2F`, which
+ * would collide with a slash.
+ */
+declare function pathSegment(value: PathValue): string;
+/**
+ * Tag for a panel API path: every interpolated value is encoded as one path
+ * segment, or as one query value once the literal text has opened the query
+ * string (`?q=${term}`: a slash there stays a plain `%2F`, as the server
+ * decodes a query value once).
+ */
+declare function apiPath(strings: TemplateStringsArray, ...values: ReadonlyArray<PathValue>): string;
+/**
+ * Tag for a path of the SPA's own router (`/resources/${resource}/${id}/edit`):
+ * a record keyed `a/b` or `5?x` stays one segment of the link, and React
+ * Router decodes it back when the page reads its params (the SPA's router is
+ * the browser's, not Laravel's: a plain `%2F` is right here).
+ */
+declare function routePath(strings: TemplateStringsArray, ...values: ReadonlyArray<PathValue>): string;
+/** `url` with `query` appended to the query string it may already have. */
+declare function withQuery(url: string, query: string): string;
+
 declare const api: {
     get: <T>(path: string, signal?: AbortSignal) => Promise<T>;
     post: <T>(path: string, body?: unknown, signal?: AbortSignal) => Promise<T>;
@@ -2737,6 +2769,48 @@ declare class Tooltip extends React$1.Component<TooltipProps, any> {
      */
     public hide(event?: TooltipEvent): null;
 }
+
+/**
+ * Placement of the global tooltip bubble (`MartisTooltip`).
+ *
+ * The bubble is laid out at the viewport origin, measured, and only then
+ * moved next to its trigger with the position computed here, so its width
+ * never depends on where the trigger sits. The placement:
+ *
+ *   1. keeps the requested side when the bubble fits there, flips to the
+ *      opposite side when only that one has room, and otherwise keeps
+ *      whichever of the two has more room (a left / right bubble with room
+ *      on neither side goes above or below the trigger instead);
+ *   2. centres the bubble on the trigger along the other axis and clamps
+ *      it inside the viewport, `TOOLTIP_MARGIN` px from every edge;
+ *   3. reports where the arrow meets the bubble edge so it keeps pointing
+ *      at the trigger after the clamp moved the bubble.
+ */
+type TooltipSide = 'top' | 'bottom' | 'left' | 'right';
+
+/** Ref callback that registers the element as a trigger whose tooltip may be HTML. */
+declare function trustHtmlTooltip(element: HTMLElement | null): void;
+/** The props {@link htmlTooltip} returns, spread onto the trigger element. */
+interface HtmlTooltipProps {
+    'data-pr-tooltip': string;
+    'data-pr-tooltip-html': 'true';
+    'data-pr-position'?: TooltipSide;
+    ref: RefCallback<HTMLElement>;
+}
+/**
+ * Props that make an element a tooltip trigger whose body is HTML (line
+ * breaks, bold, lists, links) written by the application, never by a user:
+ *
+ *     <span {...htmlTooltip('<strong>Re-index</strong><br/>Rebuilds the index.', 'top')}>
+ *       <InfoIcon size={14} />
+ *     </span>
+ *
+ * The markup is sanitised before it is shown, but keep record data out of it.
+ * An element that has a ref of its own registers it with
+ * {@link trustHtmlTooltip} instead and sets the three `data-pr-*` attributes
+ * itself.
+ */
+declare function htmlTooltip(markup: string, position?: TooltipSide): HtmlTooltipProps;
 
 /**
  *
@@ -7299,6 +7373,10 @@ declare const martisRuntime: {
         upload: <T>(method: string, path: string, values: Record<string, unknown>) => Promise<T>;
     };
     readonly ApiError: typeof ApiError;
+    readonly apiPath: typeof apiPath;
+    readonly pathSegment: typeof pathSegment;
+    readonly routePath: typeof routePath;
+    readonly withQuery: typeof withQuery;
     readonly config: MartisConfigShape;
     readonly martisEventBus: EventBus;
     readonly AuthFrame: typeof AuthFrame;
@@ -7346,6 +7424,8 @@ declare const martisRuntime: {
     readonly listShortcuts: () => readonly Shortcut[];
     readonly DrawerShell: typeof DrawerShell;
     readonly Tooltip: typeof Tooltip;
+    readonly htmlTooltip: typeof htmlTooltip;
+    readonly trustHtmlTooltip: typeof trustHtmlTooltip;
     readonly Dropdown: typeof Dropdown;
     readonly MultiSelect: typeof MultiSelect;
     readonly createPortal: typeof createPortal;
@@ -7360,5 +7440,5 @@ declare const martisRuntime: {
  */
 type MartisRuntime = typeof martisRuntime;
 
-export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, resolveColor, routeRegistry, useAuth, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard };
-export type { ActionResponseModalProps, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, RouteRegistration, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };
+export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, pathSegment, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
+export type { ActionResponseModalProps, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, RouteRegistration, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };

@@ -13,6 +13,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Martis\Auth\MagicLinkService;
 use Martis\Auth\PasswordChangeRequirement;
+use Martis\Auth\TwoFactorPass;
 use Martis\Contracts\MustChangePassword;
 use Martis\Events\PasswordChanged;
 use Martis\Invitations\InvitationManager;
@@ -75,7 +76,7 @@ function heldUser(array $attributes = []): PasswordChangeGateUser
 /** A signed-in session of $user that passed the 2FA challenge, plus $session. */
 function asHeld(User $user, array $session = []): mixed
 {
-    return test()->actingAs($user)->withSession(['martis_two_factor_passed' => true, ...$session]);
+    return test()->actingAs($user)->withSession([TwoFactorPass::SESSION_KEY => (string) $user->getKey(), ...$session]);
 }
 
 beforeEach(function () {
@@ -162,7 +163,7 @@ it('sends a flagged user from the login answer', function () {
 
 it('lets the 2FA challenge come first', function () {
     $user = heldUser(['two_factor_confirmed_at' => now()]);
-    $pending = ['martis_two_factor_passed' => false];
+    $pending = [];
 
     test()->actingAs($user)->withSession($pending)->postJson('/martis/api/auth/password/change', [])->assertStatus(423);
     test()->actingAs($user)->withSession($pending)->get('/martis/2fa/challenge')->assertOk();
@@ -172,7 +173,7 @@ it('adds the gate to the 2FA challenge answer', function () {
     $this->mock(TwoFactorService::class, fn ($mock) => $mock->shouldReceive('verifyForUser')->andReturn(true));
     $user = heldUser(['two_factor_confirmed_at' => now()]);
 
-    test()->actingAs($user)->withSession(['martis_two_factor_passed' => false])
+    test()->actingAs($user)
         ->postJson('/martis/api/2fa/challenge', ['code' => '123456'])
         ->assertOk()
         ->assertJson(['message' => 'Authenticated.', 'password_change_required' => true]);
@@ -293,8 +294,10 @@ it('forgets a stale SSO origin, session marker and cookie, on a password, magic-
     config(['martis.auth.magic_link.enabled' => true]);
     $token = app(MagicLinkService::class)->issue('held@example.com');
     $magic = $this->withSession(['martis_sso_provider' => 'azure'])
+        ->withCredentials()
         ->withCookie(SsoSession::COOKIE, $cookie)
-        ->get('/martis/api/auth/magic-link/consume?email=held%40example.com&token='.$token)
+        ->postJson('/martis/api/auth/magic-link/consume', ['email' => 'held@example.com', 'token' => $token])
+        ->assertOk()
         ->assertSessionMissing('martis_sso_provider');
     expect($cleared($magic))->toBeTrue();
 

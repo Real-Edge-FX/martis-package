@@ -284,7 +284,7 @@ it('round-trips attach + index + detach on a BelongsToMany', function () {
         "/martis/api/resources/r-h-project-models/{$project->id}/belongs-to-many/tags/attach",
         ['related_id' => $tag->id],
     );
-    expect($attach->status())->toBeIn([200, 201]);
+    $attach->assertCreated();
 
     $index = $this->getJson("/martis/api/resources/r-h-project-models/{$project->id}/belongs-to-many/tags");
     expect($index->json('meta.total'))->toBe(1);
@@ -292,7 +292,7 @@ it('round-trips attach + index + detach on a BelongsToMany', function () {
     $detach = $this->deleteJson(
         "/martis/api/resources/r-h-project-models/{$project->id}/belongs-to-many/tags/{$tag->id}/detach",
     );
-    expect($detach->status())->toBeIn([200, 204]);
+    $detach->assertOk();
 
     $afterDetach = $this->getJson("/martis/api/resources/r-h-project-models/{$project->id}/belongs-to-many/tags");
     expect($afterDetach->json('meta.total'))->toBe(0);
@@ -302,7 +302,7 @@ it('round-trips attach + index + detach on a BelongsToMany', function () {
 // Detach idempotency — detaching twice should not 500
 // ---------------------------------------------------------------------------
 
-it('detaching a tag that is not attached returns a clean error or no-op', function () {
+it('detaching a tag that is not attached is a no-op', function () {
     $project = RHProjectModel::create(['title' => 'Project']);
     $tag = RHTagModel::create(['name' => 'never-attached']);
 
@@ -310,9 +310,7 @@ it('detaching a tag that is not attached returns a clean error or no-op', functi
         "/martis/api/resources/r-h-project-models/{$project->id}/belongs-to-many/tags/{$tag->id}/detach",
     );
 
-    expect($response->status())->toBeIn([200, 204, 404, 422]);
-    // Must never crash with 500.
-    expect($response->status())->toBeLessThan(500);
+    $response->assertOk();
 });
 
 // ---------------------------------------------------------------------------

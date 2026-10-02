@@ -16,6 +16,8 @@ use Martis\Impersonation\ImpersonationManager;
  * @method static bool enabled()
  * @method static string guard()
  * @method static array snapshot()
+ * @method static bool operatorMayImpersonate(\Illuminate\Contracts\Auth\Authenticatable $operator)
+ * @method static bool targetMayBeImpersonated(\Illuminate\Contracts\Auth\Authenticatable $target)
  *
  * @see ImpersonationManager
  */

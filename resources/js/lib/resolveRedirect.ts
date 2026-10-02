@@ -1,4 +1,5 @@
 import { recordHref } from '@/lib/recordHref'
+import { routePath } from '@/lib/apiPath'
 
 /**
  * Resolves the target path after a create/update action, based on the
@@ -23,11 +24,11 @@ export function resolveRedirect(
     case 'detail':
       return recordHref(resource, recordId)
     case 'index':
-      return `/resources/${resource}`
+      return routePath`/resources/${resource}`
     case 'edit':
-      return `/resources/${resource}/${recordId}/edit`
+      return routePath`/resources/${resource}/${recordId}/edit`
     case 'create':
-      return `/resources/${resource}/create`
+      return routePath`/resources/${resource}/create`
     case 'dashboard':
       return '/'
     case 'stay':
@@ -35,7 +36,7 @@ export function resolveRedirect(
     default:
       // Custom URL — replace placeholders
       return target
-        .replace(/\{id\}/g, String(recordId))
-        .replace(/\{resource\}/g, resource)
+        .replace(/\{id\}/g, encodeURIComponent(String(recordId)))
+        .replace(/\{resource\}/g, encodeURIComponent(resource))
   }
 }

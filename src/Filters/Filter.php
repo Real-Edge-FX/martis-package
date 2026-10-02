@@ -226,8 +226,16 @@ abstract class Filter implements FilterContract
      */
     public function resolveForSchema(Request $request): static
     {
-        $raw = $this->options($request);
         $this->resolvedOptions = [];
+
+        // A filter soft-locked for the user (`lockedFor()`, `requirePlan()`)
+        // withholds its options (v2.4.0): they are data, and `options()` may
+        // query for them, so it is not even called.
+        if ($this->lockPayloadFor($request) !== null) {
+            return $this;
+        }
+
+        $raw = $this->options($request);
 
         foreach ($raw as $label => $value) {
             if (is_array($value)) {
@@ -254,23 +262,29 @@ abstract class Filter implements FilterContract
     /**
      * {@inheritdoc}
      *
+     * A filter soft-locked for the user (`lockedFor()`, `requirePlan()`) keeps
+     * its descriptor and its `lock` payload but carries no `options` and no
+     * `meta`: they are the data the lock withholds (v2.4.0, as for a Card).
+     *
      * @return array<string, mixed>
      */
     public function toArray(): array
     {
+        $lock = $this->lockPayloadNow();
+
         return [
             'type' => 'filter',
             'filterType' => $this->filterType()->value,
             'name' => $this->name(),
             'uriKey' => $this->uriKey(),
             'component' => $this->component(),
-            'options' => $this->resolvedOptions,
+            'options' => $lock === null ? $this->resolvedOptions : [],
             'default' => $this->default(),
             'span' => $this->span,
             'placeholder' => $this->placeholder,
             'badge' => $this->badge(),
-            'lock' => $this->lockPayloadNow(),
-            'meta' => $this->meta(),
+            'lock' => $lock,
+            'meta' => $lock === null ? $this->meta() : [],
         ];
     }
 }

@@ -48,19 +48,20 @@ php artisan martis:user
 On a terminal the command prompts for the email, name and password it does
 not receive as options (`--email`, `--name`, `--password` or `--password-stdin`). Without one (CI, a
 container entrypoint, a pipe, `--no-interaction`) it asks nothing: `--email`
-and a password (`--password`, or `--password-stdin`) are required (a missing one is named, the command exits 1 and
+and a password (`--password-stdin`, or the deprecated `--password`) are required (a missing one is named, the command exits 1 and
 no user is created or changed) and the name defaults to `Martis Admin`, since
 v2.0.0. By default it is **create-only**:
 when a user with that email already exists it prints an error and exits with a
 non-zero status, so a script cannot accidentally overwrite an account.
 
-Two flags change what happens when the email already exists, which is what a
-container entrypoint or a provisioning script needs to bootstrap the first
-administrator on every boot:
+These flags change how the password reaches the command and what happens when
+the email already exists, which is what a container entrypoint or a provisioning
+script needs to bootstrap the first administrator on every boot:
 
 | Flag | What it does |
 |------|--------------|
 | `--password-stdin` | (v2.3.0) Reads the password from the first line of standard input, so it never appears in the process list, as `docker login --password-stdin` does. Cannot be combined with `--password`; an empty line exits 1. It refuses a terminal (leave the option out: the prompt hides what you type) and a line that is not text (invalid UTF-8 or a control character, which is what a closed descriptor can give), so neither ever becomes a password. |
+| `--password` | **Deprecated since v2.4.0**: still accepted, but it prints a warning on every run. The value is part of the command line, so every other local user reads it through the process list (`ps`, `/proc/<pid>/cmdline`) for as long as the command runs, and shell history and CI logs keep it. Use `--password-stdin` (or the prompt on a terminal). An empty value exits 1 without the warning. |
 | `--if-missing` | When the email already exists: exit `0` with an info line and change nothing. Safe to call unconditionally at boot. |
 | `--update` | When the email already exists: re-hash the password from `--password`, `--password-stdin` (or the prompt) and, only when `--name` is given, replace the name. `email_verified_at` is left untouched. When the email does not exist yet the user is created, so the flag behaves like an upsert. |
 
@@ -353,7 +354,7 @@ Resources are **auto-discovered** — no manual registration needed. Martis scan
 
 ### Step 9: Access the Admin Panel
 
-Navigate to `http://your-app.test/martis` and log in with a user of your application. Every user the Martis guard signs in gets in unless you define the `viewMartis` gate: see [Authorization → Panel access](authorization.md#panel-access-viewmartis).
+Navigate to `http://your-app.test/martis` and log in with a user of your application. `martis:install` publishes `app/Providers/MartisServiceProvider.php` with the `viewMartis` gate active: it lets the `local` environment in and, anywhere else, only the addresses you list in `registerGates()`. Edit that list before you deploy. Without a `viewMartis` gate the panel answers `403` to everyone outside the `local` and `testing` environments (`martis.panel_access.open_environments`); the installer prints a notice about it. Set `APP_URL` to the URL the panel is served on: the links Martis emails (sign-in, password reset, invitation, email change) are built on it, never on the request's host. See [Authorization → Panel access](authorization.md#panel-access-viewmartis).
 
 ## Host MartisServiceProvider
 
@@ -732,7 +733,7 @@ The package exposes the following `--tag` values for `vendor:publish`:
 
 ## Available Artisan Commands
 
-The package ships 35 commands (plus the aliases `martis:override` → `martis:component` and `martis:make-policy` → `martis:policy`). The full list:
+The package ships 36 commands (plus the aliases `martis:override` → `martis:component` and `martis:make-policy` → `martis:policy`). The full list:
 
 ### Setup & maintenance
 
@@ -745,6 +746,7 @@ The package ships 35 commands (plus the aliases `martis:override` → `martis:co
 | `martis:stubs` | Publish all generator stubs into `stubs/martis/` for customisation (`--force` overwrites existing ones) |
 | `martis:list-overrides` | Print the component keys the PHP layer declares (Tools, Actions with a custom component, resources); `--frontend` checks that your extension registers them |
 | `martis:list-env-vars` | List every `MARTIS_*` env var the published config reads, with its default and config key (`--json` for machine output) |
+| `martis:attachments:prune` | Delete the Trix / Markdown uploads no record references any more (`--dry-run`, `--hours`, `--disk`; v2.4.0) |
 | `martis:agents` | Generate guidelines for AI coding agents (`AGENTS.md`, `CLAUDE.md`, ...) and optionally wire the Martis MCP server. With `--no-interaction` it overwrites existing files without asking |
 | `martis:mcp-serve` | Serve the Martis docs as an MCP server (stdio or HTTP transport) |
 | `martis:invitations` | Scaffold the consumer-owned invitations admin UI (resource, actions, policy, notification); `--no-migrate` / `--no-publish` skip the migration steps |

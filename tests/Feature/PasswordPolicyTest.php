@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Password as PasswordBroker;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rules\Password;
 use Martis\Auth\PasswordPolicy;
+use Martis\Auth\TwoFactorPass;
 use Martis\Contracts\RegistersUsers;
 use Martis\Invitations\InvitationManager;
 use Martis\Stubs\StubResolver;
@@ -143,7 +144,7 @@ it('reads a Password::defaults() that gives null as unset, as Laravel does (cont
 it('applies the policy to the Profile password change', function () {
     Password::defaults(fn () => Password::min(12)->mixedCase()->numbers());
     $user = passwordPolicyUser('profile@example.com');
-    $post = fn (string $password) => $this->actingAs($user)->withSession(['martis_two_factor_passed' => true])
+    $post = fn (string $password) => $this->actingAs($user)->withSession([TwoFactorPass::SESSION_KEY => (string) $user->getKey()])
         ->postJson('/martis/api/profile/password', ['current_password' => 'Current-Pass-1', 'password' => $password, 'password_confirmation' => $password]);
 
     $post('Abcdefghij1')->assertUnprocessable()->assertJsonValidationErrors('password');
@@ -155,7 +156,7 @@ it('applies the policy to the Profile password change', function () {
 it('no longer asks Profile for mixed case and numbers the app policy does not require', function () {
     $user = passwordPolicyUser('plain@example.com');
 
-    $this->actingAs($user)->withSession(['martis_two_factor_passed' => true])
+    $this->actingAs($user)->withSession([TwoFactorPass::SESSION_KEY => (string) $user->getKey()])
         ->postJson('/martis/api/profile/password', ['current_password' => 'Current-Pass-1', 'password' => 'abcdefgh', 'password_confirmation' => 'abcdefgh'])
         ->assertOk();
 });
@@ -248,7 +249,7 @@ it('hashes a Profile password with the app hasher, so an Argon app still signs i
     passwordPolicyArgon();
     $user = passwordPolicyUser('argon@example.com', 'Old-Password-1');
 
-    $this->actingAs($user)->withSession(['martis_two_factor_passed' => true])
+    $this->actingAs($user)->withSession([TwoFactorPass::SESSION_KEY => (string) $user->getKey()])
         ->postJson('/martis/api/profile/password', ['current_password' => 'Old-Password-1', 'password' => 'New-Password-2', 'password_confirmation' => 'New-Password-2'])
         ->assertOk();
 

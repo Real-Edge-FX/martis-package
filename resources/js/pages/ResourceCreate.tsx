@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
+import { apiPath, routePath } from '@/lib/apiPath'
+import { nestedStoreKind } from '@/lib/relationViaParams'
 import type { ResourceSchema, OverrideProps, FieldDefinition, DetailItem } from '@/types'
 import { FieldsForm } from '@/components/fields/FieldsForm'
 import { useToast } from '@/contexts/ToastContext'
@@ -44,8 +46,12 @@ function CreateTargetPage() {
   const viaResource = searchParams.get('viaResource')
   const viaResourceId = searchParams.get('viaResourceId')
   const viaRelationship = searchParams.get('viaRelationship')
-  const viaRelationshipType = searchParams.get('viaRelationshipType') ?? 'has-many'
-  const isViaRelation = !!(viaResource && viaResourceId && viaRelationship)
+  // The endpoint kind comes from the link's query string: only the kinds that
+  // store a nested record name an endpoint (see `nestedStoreKind`). Any other
+  // value ignores the via* params, so the form creates a plain record and a
+  // crafted link cannot steer the request to another endpoint.
+  const viaRelationshipType = nestedStoreKind(searchParams.get('viaRelationshipType') ?? 'has-many')
+  const isViaRelation = !!(viaResource && viaResourceId && viaRelationship && viaRelationshipType)
   const redirectMode = searchParams.get('redirectMode') ?? 'parent'
   const fromResourceId = searchParams.get('fromResourceId')
   const isReplicate = !!fromResourceId
@@ -54,7 +60,7 @@ function CreateTargetPage() {
 
   const schemaQuery = useQuery({
     queryKey: ['schema', resource],
-    queryFn: () => api.get<{ data: ResourceSchema }>(`/api/resources/${resource}/schema`),
+    queryFn: () => api.get<{ data: ResourceSchema }>(apiPath`/api/resources/${resource}/schema`),
     enabled: !!resource,
   })
 
@@ -62,7 +68,7 @@ function CreateTargetPage() {
   const replicateQuery = useQuery({
     queryKey: ['replicate', resource, fromResourceId],
     queryFn: () => api.get<{ data: { values: Record<string, unknown>; fromResourceId: string | number } }>(
-      `/api/resources/${resource}/${fromResourceId}/replicate`
+      apiPath`/api/resources/${resource}/${fromResourceId}/replicate`
     ),
     enabled: !!resource && isReplicate,
   })
@@ -167,7 +173,7 @@ function CreateTargetPage() {
     // instead of just "#id".
     api
       .get<{ data: { id: string | number; _title?: string } }>(
-        `/api/resources/${viaResource}/${viaResourceId}`,
+        apiPath`/api/resources/${viaResource}/${viaResourceId}`,
       )
       .then((res) => {
         if (cancelled) return
@@ -210,7 +216,7 @@ function CreateTargetPage() {
         // The relationship's endpoint takes a file the way the resource's
         // does: multipart when the form carries one (a File serialises to
         // `{}` in JSON).
-        const url = `/api/resources/${viaResource}/${viaResourceId}/${viaRelationshipType}/${viaRelationship}`
+        const url = apiPath`/api/resources/${viaResource}/${viaResourceId}/${viaRelationshipType}/${viaRelationship}`
         if (hasFileValues(data)) {
           return api.upload<{ data: { id: string | number }; meta?: { message?: string; redirectTo?: string } }>('POST', url, data)
         }
@@ -218,9 +224,9 @@ function CreateTargetPage() {
       }
       const payload = isReplicate ? { ...data, fromResourceId } : data
       if (hasFileValues(payload)) {
-        return api.upload<{ data: { id: string | number }; meta?: { message?: string; redirectTo?: string } }>('POST', `/api/resources/${resource}`, payload)
+        return api.upload<{ data: { id: string | number }; meta?: { message?: string; redirectTo?: string } }>('POST', apiPath`/api/resources/${resource}`, payload)
       }
-      return api.post<{ data: { id: string | number }; meta?: { message?: string; redirectTo?: string } }>(`/api/resources/${resource}`, payload)
+      return api.post<{ data: { id: string | number }; meta?: { message?: string; redirectTo?: string } }>(apiPath`/api/resources/${resource}`, payload)
     },
     onSuccess: (res) => {
       emitRecordEvent('created', resource, res.data?.id)
@@ -253,7 +259,7 @@ function CreateTargetPage() {
       // list view.
       if (mode === 'list') {
         submitModeRef.current = 'detail'
-        navigate(`/resources/${resource}`)
+        navigate(routePath`/resources/${resource}`)
         return
       }
 
@@ -337,7 +343,7 @@ function CreateTargetPage() {
         recordId: null,
         fromResourceId: isReplicate ? fromResourceId : null,
         navigate: (to: string) => navigate(to),
-        onClose: () => navigate(`/resources/${resource}`),
+        onClose: () => navigate(routePath`/resources/${resource}`),
         onCreated: (rec) => {
           void qc.invalidateQueries({ queryKey: ['resources', resource] })
           addToast('success', (isReplicate ? schema.messages?.replicated : undefined) ?? schema.messages?.created ?? 'Record created successfully.')
@@ -353,9 +359,9 @@ function CreateTargetPage() {
         onDeleted: () => {
           void qc.invalidateQueries({ queryKey: ['resources', resource] })
           addToast('success', schema.messages?.deleted ?? 'Record deleted successfully.')
-          navigate(`/resources/${resource}`)
+          navigate(routePath`/resources/${resource}`)
         },
-        onEdit: (id) => { if (id) navigate(`/resources/${resource}/${id}/edit`) },
+        onEdit: (id) => { if (id) navigate(routePath`/resources/${resource}/${id}/edit`) },
         onView: (id) => navigate(recordHref(resource!, id)),
         addToast,
       }
@@ -375,7 +381,7 @@ function CreateTargetPage() {
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm">
         <Link
-          to={`/resources/${resource}`}
+          to={routePath`/resources/${resource}`}
           className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-medium transition-colors no-underline"
           style={{
             color: "var(--martis-accent)",
@@ -430,7 +436,7 @@ function CreateTargetPage() {
                   } else if (isViaRelation) {
                     navigate(recordHref(viaResource!, viaResourceId!))
                   } else {
-                    navigate(`/resources/${resource}`)
+                    navigate(routePath`/resources/${resource}`)
                   }
                 }}
                 className="martis-btn-secondary"

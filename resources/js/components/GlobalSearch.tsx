@@ -3,6 +3,7 @@ import { createPortal } from "react-dom"
 import { useNavigate } from "react-router"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
+import { apiPath } from "@/lib/apiPath"
 import { useTranslation } from "react-i18next"
 import {
   MagnifyingGlassIcon,
@@ -208,7 +209,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
   const { data: searchResponse, isFetching: searchingRecords } = useQuery<SearchRecordsResponse>({
     queryKey: ["global-search", debouncedQuery],
     queryFn: () =>
-      api.get<SearchRecordsResponse>(`/api/search?q=${encodeURIComponent(debouncedQuery)}`),
+      api.get<SearchRecordsResponse>(apiPath`/api/search?q=${debouncedQuery}`),
     enabled: debouncedQuery.length >= MIN_QUERY_LEN_RECORDS,
     staleTime: 1000 * 10,
   })
@@ -388,7 +389,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
     }
 
     if (item.kind === 'command' && item.external) {
-      openExternal(item.url)
+      openExternal(item.url, { contact: true })
       onClose()
       return
     }

@@ -8,7 +8,17 @@
     @php
         $faviconPath = config('martis.brand.favicon');
         $basePath = config('martis.path', 'martis');
+        // The Content-Security-Policy nonce of the request (`Vite::useCspNonce()`),
+        // stamped on every inline <script> / <style> and on the stylesheet and
+        // module <script> tags below, so a policy without 'unsafe-inline' can
+        // run the panel. Empty (no attribute at all) when the app sets none.
+        $cspNonce = app(\Illuminate\Foundation\Vite::class)->cspNonce();
+        $nonceAttribute = is_string($cspNonce) && $cspNonce !== '' ? ' nonce="'.e($cspNonce).'"' : '';
     @endphp
+    @if($nonceAttribute !== '')
+        {{-- Read by the SPA for what it injects at run time (PrimeReact and CodeMirror styles, Trix's). --}}
+        <meta name="csp-nonce" content="{{ $cspNonce }}">
+    @endif
     @if($faviconPath)
         <link rel="icon" type="image/x-icon" href="{{ asset($faviconPath) }}">
         <link rel="icon" type="image/png" sizes="32x32" href="{{ asset($faviconPath) }}">
@@ -55,7 +65,7 @@
         $menuLogoHeight = max(20, min(56, (int) (config('martis.brand.logo_height.menu') ?? 40)));
         $authLogoHeight = max(24, min(80, (int) (config('martis.brand.logo_height.auth') ?? 48)));
     @endphp
-    <style>
+    <style{!! $nonceAttribute !!}>
         /* v1.7.0 — brand asset sizing knobs. The CSS rules in martis.css
            read these variables, so the consumer tunes the asset height
            by editing .env without touching the bundled CSS. Safe to
@@ -66,7 +76,7 @@
             --martis-brand-logo-height-auth: {{ $authLogoHeight }}px;
         }
     </style>
-    <script>
+    <script{!! $nonceAttribute !!}>
         window.MartisConfig = {
             basePath: "/{{ $basePath }}",
             panelForbidden: {{ ($panelForbidden ?? false) ? 'true' : 'false' }},
@@ -332,8 +342,8 @@
         @php
             $hotUrl = rtrim((string) file_get_contents($hotFile), '/');
         @endphp
-        <script type="module" src="{{ $hotUrl }}/@vite/client"></script>
-        <script type="module" src="{{ $hotUrl }}/resources/js/app.tsx"></script>
+        <script type="module"{!! $nonceAttribute !!} src="{{ $hotUrl }}/@@vite/client"></script>
+        <script type="module"{!! $nonceAttribute !!} src="{{ $hotUrl }}/resources/js/app.tsx"></script>
     @elseif(file_exists($manifestPath))
         @php
             $manifest = json_decode((string) file_get_contents($manifestPath), true) ?: [];
@@ -344,14 +354,14 @@
 
         @if($entry)
             @foreach($cssFiles as $cssFile)
-                <link rel="stylesheet" href="{{ asset('vendor/martis/' . ltrim($cssFile, '/')) }}">
+                <link rel="stylesheet"{!! $nonceAttribute !!} href="{{ asset('vendor/martis/' . ltrim($cssFile, '/')) }}">
             @endforeach
-            <script type="module" src="{{ asset('vendor/martis/' . ltrim($entryFile, '/')) }}"></script>
+            <script type="module"{!! $nonceAttribute !!} src="{{ asset('vendor/martis/' . ltrim($entryFile, '/')) }}"></script>
         @endif
     @endif
     {{-- Theme overrides must load AFTER app.css to win CSS specificity --}}
     @if(!empty($themeName))
-        <link rel="stylesheet" href="{{ asset('vendor/martis/themes/' . $themeName . '.css') }}">
+        <link rel="stylesheet"{!! $nonceAttribute !!} href="{{ asset('vendor/martis/themes/' . $themeName . '.css') }}">
     @endif
     {{-- v1.7.2 — Custom-accent rules MUST load AFTER app.css. The bundle
          declares `html:not(.dark) { --martis-accent: ... }` and
@@ -362,7 +372,7 @@
          custom accent actually re-tints the UI instead of being
          silently overridden by the bundle defaults. --}}
     @if(!empty($customAccents))
-        <style>
+        <style{!! $nonceAttribute !!}>
             @foreach($customAccents as $accentName => $accent)
             @php($accentHex = $accent['color'])
             /* v1.7.0 — custom accent ‘{{ $accentName }}’ ({{ $accentHex }}).

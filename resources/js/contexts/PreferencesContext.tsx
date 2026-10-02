@@ -4,6 +4,7 @@ import { config } from '@/lib/config'
 import { useAuth } from '@/contexts/AuthContext'
 import i18n, { loadLocale } from '@/lib/i18n'
 import { accentContrastFor } from '@/lib/accentContrast'
+import { PREFERENCES_CACHE_KEY, clearGuestPick, hasGuestPick, markGuestPick } from '@/lib/preferencesStorage'
 
 export type ThemeMode = 'dark' | 'light' | 'system'
 /** Bundled accent values shipped by Martis. Custom accents declared via
@@ -62,20 +63,20 @@ const DEFAULTS: Preferences = {
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)
 
-const STORAGE_KEY = 'martis-preferences'
-/**
- * Companion flag in `localStorage` that records whether the most recent
- * `update()` happened while the user was unauthenticated. Set true on
- * any guest pick (theme cycle, locale select, …) and consumed by the
- * post-login effect, which promotes the cached preferences to the
- * server with a single PUT and clears the flag.
- *
- * Without this signal, a guest who picks `theme=light` on the login
- * page would silently revert to whatever was server-saved before once
- * they authenticate — confusing because the change "disappeared" from
- * their POV. v1.8.5.
- */
-const GUEST_MODIFIED_KEY = 'martis-preferences-guest-modified'
+const STORAGE_KEY = PREFERENCES_CACHE_KEY
+// The companion marker (`hasGuestPick()` / `markGuestPick()` /
+// `clearGuestPick()`, lib/preferencesStorage.ts) records that the most
+// recent `update()` happened while the user was unauthenticated. Set on any
+// guest pick (theme cycle, locale select, …) and consumed by the post-login
+// effect, which promotes the cached preferences to the server with a single
+// PUT and clears it.
+//
+// Without this signal, a guest who picks `theme=light` on the login
+// page would silently revert to whatever was server-saved before once
+// they authenticate — confusing because the change "disappeared" from
+// their POV. v1.8.5. It lives in sessionStorage, so only the sign-in made
+// in the tab where the picks were made promotes them: on a shared browser
+// the next visitor's account never takes a previous visitor's picks.
 
 /** Map the `theme=system` preference into a concrete dark/light at runtime. */
 export function resolveTheme(theme: ThemeMode): 'dark' | 'light' {
@@ -160,7 +161,7 @@ function applyToDom(prefs: Preferences): void {
  * fresh users (no server row); v1.8.8 closes the same hole for
  * returning users with an existing server row.
  */
-function readInitialPrefs(): Preferences {
+export function readInitialPrefs(): Preferences {
   const injected = (window as unknown as {
     MartisConfig?: { preferences?: { initial?: Partial<Preferences> & { source?: string } } }
   }).MartisConfig?.preferences?.initial
@@ -169,10 +170,9 @@ function readInitialPrefs(): Preferences {
   // The post-login PUT will sync the choice to the server; this
   // branch keeps the visual state coherent during the round-trip
   // and across the login redirect.
-  let guestModified = false
+  const guestModified = hasGuestPick()
   let cached: Partial<Preferences> | null = null
   try {
-    guestModified = localStorage.getItem(GUEST_MODIFIED_KEY) === '1'
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
@@ -296,16 +296,15 @@ export function PreferencesProvider({ children, initialPreferences, syncWithServ
     // the (potentially older) server row. The flag is cleared as soon
     // as the round-trip succeeds so a future hard refresh resumes the
     // normal GET-on-mount behaviour.
-    let guestModified = false
-    try {
-      guestModified = localStorage.getItem(GUEST_MODIFIED_KEY) === '1'
-    } catch { /* localStorage blocked — fall through to plain GET */ }
+    // Only the picks made in this tab session are carried over (see
+    // lib/preferencesStorage.ts): a previous visitor's never are.
+    const guestModified = hasGuestPick()
 
     if (guestModified) {
       api.put<ShowResponse>('/api/preferences', prefsRef.current)
         .then((resp) => {
           if (!active) return
-          try { localStorage.removeItem(GUEST_MODIFIED_KEY) } catch {}
+          clearGuestPick()
           if (resp?.data) setPrefs((prev) => ({ ...prev, ...resp.data }))
           if (resp?.meta) setMeta(resp.meta)
           if (resp?.data.locale && resp.data.locale !== i18n.language) {
@@ -317,7 +316,7 @@ export function PreferencesProvider({ children, initialPreferences, syncWithServ
           // anyway — keeping it would re-fire the same broken PUT on
           // every mount. The local state is still correct from the
           // optimistic update() that set the flag in the first place.
-          try { localStorage.removeItem(GUEST_MODIFIED_KEY) } catch {}
+          clearGuestPick()
         })
       return () => { active = false }
     }
@@ -391,7 +390,7 @@ export function PreferencesProvider({ children, initialPreferences, syncWithServ
       // shell instead of getting silently overwritten by the
       // server-saved row.
       if (!user) {
-        localStorage.setItem(GUEST_MODIFIED_KEY, '1')
+        markGuestPick()
       }
     } catch {}
     // Skip the server PUT for guests. The /api/preferences route lives
@@ -426,6 +425,8 @@ export function PreferencesProvider({ children, initialPreferences, syncWithServ
     try {
       localStorage.removeItem(STORAGE_KEY)
     } catch {}
+    // No guest pick is left to carry over once the cache is gone.
+    clearGuestPick()
     try {
       const resp = await api.delete<ShowResponse>('/api/preferences')
       if (resp?.data) setPrefs({ ...DEFAULTS, ...resp.data })

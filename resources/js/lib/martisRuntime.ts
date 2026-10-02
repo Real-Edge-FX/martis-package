@@ -50,6 +50,7 @@ import { useAuth, AuthProvider, TwoFactorRequiredError, EmailVerificationRequire
 import { useToast, useToastSafe } from '@/contexts/ToastContext'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { api, ApiError } from '@/lib/api'
+import { apiPath, pathSegment, routePath, withQuery } from '@/lib/apiPath'
 import { config } from '@/lib/config'
 import { martisEventBus } from '@/lib/eventBus'
 import { AuthFrame } from '@/components/auth/AuthFrame'
@@ -61,6 +62,7 @@ import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 import { FieldsForm } from '@/components/fields/FieldsForm'
 import { DrawerShell } from '@/components/overrides/DrawerShell'
 import { Tooltip } from 'primereact/tooltip'
+import { htmlTooltip, trustHtmlTooltip } from '@/lib/htmlTooltip'
 import { Dropdown } from 'primereact/dropdown'
 import { MultiSelect } from 'primereact/multiselect'
 import { createPortal, flushSync } from 'react-dom'
@@ -113,6 +115,18 @@ export const martisRuntime = {
   // Lib
   api,
   ApiError,
+  // Path builders (v2.4.0+). A route param, a search param or a record key put
+  // in an API path must stay ONE segment: `encodeURIComponent()` is not
+  // enough (Laravel decodes `%2F` before it routes, so `5%2Fforce` reaches the
+  // force-delete route of record 5). Tag the template, `api.get(apiPath`/api/
+  // findings/${id}`)`, or encode one value with `pathSegment(id)`; `withQuery`
+  // appends a built query string, `routePath` builds a link of the SPA's own
+  // router. A path value holding a literal `%2F` throws an `ApiError` (400).
+  // See docs/custom-pages.md and docs/components.md.
+  apiPath,
+  pathSegment,
+  routePath,
+  withQuery,
   config,
 
   // Singleton pub/sub event bus (since v1.x). Lets a consumer's own
@@ -258,11 +272,24 @@ export const martisRuntime = {
   // PrimeReact Tooltip, the ref-based component for React content (JSX
   // `content`: components, or values JSX escapes). Plain text, and markup
   // the extension writes, go through the global `[data-pr-tooltip]`
-  // provider instead, the markup with `data-pr-tooltip-html="true"` on the
-  // trigger (rendered as HTML, unsanitised). See docs/components.md
-  // "Tooltip Standard". Consumer Tools can't import `primereact/tooltip`
-  // (the extension build doesn't alias `primereact`), so it is exposed here.
+  // provider instead, the markup through `htmlTooltip()` below. See
+  // docs/components.md "Tooltip Standard". Consumer Tools can't import
+  // `primereact/tooltip` (the extension build doesn't alias `primereact`),
+  // so it is exposed here.
   Tooltip,
+
+  // The two ways to make an element a trigger of the global tooltip that
+  // shows HTML (line breaks, bold, lists, links) written by the extension,
+  // sanitised before it is rendered. `htmlTooltip(markup, position?)`
+  // returns the `data-pr-*` props to spread onto the element, with a ref
+  // that registers it; `trustHtmlTooltip` is that ref callback, for an
+  // element that already has a ref. The global tooltip shows
+  // `data-pr-tooltip` as plain text for every element not registered this
+  // way, whatever `data-pr-tooltip-html` says: record content rendered as
+  // HTML can write that attribute, and must never make it render markup.
+  // Never put user or record data in the markup. v2.4.0+.
+  htmlTooltip,
+  trustHtmlTooltip,
 
   // PrimeReact filter controls + a portal primitive (since v1.29.0). A
   // consumer Tool can't `import { Dropdown } from 'primereact/dropdown'`
@@ -307,6 +334,7 @@ export type { FieldDisplayProps, FieldInputProps } from '@/components/fields/typ
 export type { NestedParent } from '@/components/fields/NestedParentContext'
 export type { DrawerShellProps } from '@/components/overrides/DrawerShell'
 export type { TooltipProps } from 'primereact/tooltip'
+export type { HtmlTooltipProps } from '@/lib/htmlTooltip'
 export type { DropdownProps } from 'primereact/dropdown'
 export type { MultiSelectProps } from 'primereact/multiselect'
 

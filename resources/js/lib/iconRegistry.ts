@@ -1,5 +1,6 @@
 import { lazy, Suspense, createElement, type ComponentType } from 'react'
 import type { IconProps } from '@phosphor-icons/react'
+import { hasOwnEntry, ownEntry } from './ownEntry'
 
 import {
   ActivityIcon,
@@ -373,7 +374,12 @@ export class IconRegistry {
     const customMatch = this.custom.get(key)
     if (customMatch) return customMatch
 
-    if (key in builtIns) return builtIns[key]
+    // Own entries only: the name is stored data (an Icon field value), and
+    // `key in builtIns` also finds what every object inherits, so a name such
+    // as `constructor` resolved to `Object` and crashed the page that
+    // rendered it.
+    const builtInMatch = ownEntry(builtIns, key)
+    if (builtInMatch) return builtInMatch
 
     const cached = dynamicCache.get(key)
     if (cached) return cached
@@ -394,7 +400,7 @@ export class IconRegistry {
   has(name: string | null | undefined): boolean {
     if (!name) return false
     const key = normalise(name)
-    return this.custom.has(key) || key in builtIns
+    return this.custom.has(key) || hasOwnEntry(builtIns, key)
   }
 }
 

@@ -7,6 +7,7 @@ namespace Martis\Sso;
 use Closure;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Find-or-create the local user that corresponds to an external SSO
@@ -17,6 +18,16 @@ use Illuminate\Support\Facades\Hash;
  *  • host-app override         — closure registered via
  *                                `MartisSso::resolveUserUsing(...)` replaces
  *                                the entire find-or-create logic.
+ *
+ * The `email` strategy adopts an existing local row only when it can trust
+ * the row's email: it is verified (`email_verified_at` set) or self-registration
+ * is off (`martis.auth.registration.enabled` false), so every row was
+ * provisioned by an administrator. With registration open and the row
+ * unverified, anyone could have registered the IdP user's address first and
+ * kept the password; a model with no `email_verified_at` column cannot prove a
+ * verified address at all, so it counts as unverified. The sign-in is refused with
+ * {@see SsoAdoptionRefusedException} instead (v2.4.0). The `external_id`
+ * strategy matches an id the IdP issued and is unaffected.
  *
  * `auto_create_user` is opt-in per-provider. When `false`, missing
  * users get a `null` return and the controller short-circuits with a
@@ -65,6 +76,14 @@ class IdentityResolver
             if (! $autoCreate) {
                 return null;
             }
+
+            // The address may be held by a row this strategy did not match
+            // (external_id, or an address in another case): creating beside it
+            // would collide on the unique email or duplicate the account.
+            if ($identity->email !== null && $userClass::query()->where('email', $identity->email)->exists()) {
+                throw new SsoAdoptionRefusedException($provider, $identity->email);
+            }
+
             $user = $this->create($userClass, $identity);
         }
 
@@ -86,6 +105,10 @@ class IdentityResolver
             /** @var User|null $user */
             $user = $userClass::query()->where('email', $identity->email)->first();
 
+            if ($user !== null && ! $this->mayAdoptByEmail($user)) {
+                throw new SsoAdoptionRefusedException($identity->provider, $identity->email);
+            }
+
             return $user;
         }
 
@@ -103,6 +126,32 @@ class IdentityResolver
         }
 
         return null;
+    }
+
+    /**
+     * Whether a local row found by the IdP's address may be signed in as that
+     * identity: its email is verified, or nobody can self-register rows. A
+     * model with no `email_verified_at` column cannot prove a verified address,
+     * so with registration open it is refused like an unverified row.
+     */
+    protected function mayAdoptByEmail(User $user): bool
+    {
+        if (! (bool) config('martis.auth.registration.enabled', false)) {
+            return true;
+        }
+
+        $column = 'email_verified_at';
+        $hasColumn = array_key_exists($column, $user->getAttributes())
+            || Schema::connection($user->getConnectionName())->hasColumn($user->getTable(), $column);
+
+        // With registration open a model with no verification column cannot
+        // tell a self-registered row from a provisioned one, and cannot prove
+        // the address was verified: refuse, as for an unverified row.
+        if (! $hasColumn) {
+            return false;
+        }
+
+        return $user->getAttribute($column) !== null;
     }
 
     /**

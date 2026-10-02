@@ -156,6 +156,25 @@ it('martis:install --no-migrate publishes the migrations without running them', 
         ->and(Schema::hasTable('martis_action_events'))->toBeFalse();
 });
 
+it('martis:install says that the provider it publishes defines the viewMartis gate', function () {
+    $this->artisan('martis:install', ['--no-interaction' => true, '--no-migrate' => true])
+        ->expectsOutputToContain('Panel access: the viewMartis gate is defined')
+        ->assertSuccessful();
+
+    expect((string) file_get_contents(app_path('Providers/MartisServiceProvider.php')))
+        ->toMatch("/^\\s*Gate::define\\('viewMartis'/m");
+});
+
+it('martis:install warns that the panel is shut outside local while no viewMartis gate is defined', function () {
+    // A provider the app already had, without the gate: the install leaves it alone.
+    (new Filesystem)->ensureDirectoryExists(app_path('Providers'));
+    file_put_contents(app_path('Providers/MartisServiceProvider.php'), "<?php\n\nnamespace App\\Providers;\n\nclass MartisServiceProvider {}\n");
+
+    $this->artisan('martis:install', ['--no-interaction' => true, '--no-migrate' => true])
+        ->expectsOutputToContain('answers 403 to every user until you define it')
+        ->assertSuccessful();
+});
+
 it('martis:install without --no-migrate runs the published migrations', function () {
     $this->artisan('martis:install', ['--no-interaction' => true])->assertSuccessful();
 

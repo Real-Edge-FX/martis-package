@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
 import type { OverrideProps, ResourceRecord, FieldDefinition } from '@/types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
 import { FieldLabelTooltip } from '@/components/fields/FieldLabelTooltip'
@@ -38,7 +39,7 @@ export function DrawerQuick(props: OverrideProps) {
 
   const recordQuery = useQuery({
     queryKey: ['resource', resource, recordId],
-    queryFn: () => api.get<{ data: ResourceRecord }>(`/api/resources/${resource}/${recordId}`),
+    queryFn: () => api.get<{ data: ResourceRecord }>(apiPath`/api/resources/${resource}/${recordId}`),
     enabled: !!recordId && !record,
   })
 

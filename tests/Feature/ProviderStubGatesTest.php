@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Auth\GenericUser;
 use Illuminate\Support\Facades\Gate;
 use Martis\Stubs\StubResolver;
+use MartisStubGateTest\StubProvider;
 
 /*
  * The provider martis:install publishes tells the host which abilities
@@ -50,4 +51,50 @@ it('no longer tells the host that the Martis defaults are open', function () {
     expect(martisProviderStub())
         ->not->toContain('every authenticated user passes')
         ->not->toContain('tighten the permissive Martis defaults');
+});
+
+// -----------------------------------------------------------------------------
+// v2.4.0: the stub ships the panel gate active (F019)
+// -----------------------------------------------------------------------------
+
+/** The provider stub as a class of its own, so its gates can be registered. */
+function martisProviderStubInstance(): object
+{
+    if (! class_exists('MartisStubGateTest\\StubProvider', false)) {
+        $code = str_replace(
+            ['namespace App\\Providers;', 'class MartisServiceProvider'],
+            ['namespace MartisStubGateTest;', 'class StubProvider'],
+            martisProviderStub(),
+        );
+        eval('?>'.$code);
+    }
+
+    return new StubProvider(app());
+}
+
+it('ships the viewMartis gate active: local is let in, anywhere else only the listed addresses', function () {
+    expect(martisProviderStub())
+        ->toMatch("/^\s*Gate::define\('viewMartis'/m")
+        ->toContain("app()->environment(['local', 'testing'])");
+    expect(martisRegisterGatesDocblock())->toContain('`viewMartis`')->toContain('shut')->not->toContain('every user the Martis guard signs in gets in');
+});
+
+it('registers a viewMartis gate that lets local in and an empty allow-list refuse everyone elsewhere', function () {
+    martisProviderStubInstance()->boot();
+    $user = new GenericUser(['id' => 1, 'email' => 'someone@example.com']);
+
+    expect(Gate::has('viewMartis'))->toBeTrue();
+
+    app()['env'] = 'production';
+    expect(Gate::forUser($user)->check('viewMartis'))->toBeFalse();
+
+    app()['env'] = 'staging';
+    expect(Gate::forUser($user)->check('viewMartis'))->toBeFalse();
+
+    app()['env'] = 'local';
+    expect(Gate::forUser($user)->check('viewMartis'))->toBeTrue();
+
+    // `testing` is open too, as config/martis.php says: a consumer's own suite keeps working.
+    app()['env'] = 'testing';
+    expect(Gate::forUser($user)->check('viewMartis'))->toBeTrue();
 });

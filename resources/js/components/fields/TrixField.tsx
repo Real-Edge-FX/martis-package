@@ -1,10 +1,13 @@
-import { useState, useEffect, useId, useRef } from "react"
+import { useState, useEffect, useId, useMemo, useRef } from "react"
+import { withQuery } from "@/lib/apiPath"
 import { createPortal } from "react-dom"
 import type { FieldDisplayProps, FieldInputProps } from "./types"
 import { EyeIcon, EyeSlashIcon, XIcon } from "@phosphor-icons/react"
 import { BASE_PATH } from "@/lib/config"
 import { useTranslation } from 'react-i18next'
 import { useModalHistoryBackToClose } from "@/lib/historyLock"
+import { sanitizeRichText } from "@/lib/sanitizeHtml"
+import { safeNavigationUrl, urlProtocol } from "@/lib/safeUrl"
 import "trix/dist/trix.css"
 import "trix"
 
@@ -72,6 +75,16 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
   // value there is no content element, so the effect below does nothing.
   const [expanded, setExpanded] = useState(alwaysShow)
 
+  // The stored value is raw HTML written by whoever may update the record
+  // (the JSON API takes any string), so it is sanitised before it is
+  // injected: scripts, handlers and unsafe URLs go, and so do the attributes
+  // the global tooltip and the page's own styles would read from it. The
+  // attachments keep their figure markup and `data-trix-*` attributes.
+  const html = useMemo(
+    () => (value === null || value === undefined || value === "" ? "" : sanitizeRichText(String(value))),
+    [value],
+  )
+
   // Intercept image + attachment link clicks inside trix content
   useEffect(() => {
     if (!expanded || !contentRef.current) return
@@ -101,27 +114,46 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
         const inlineImg = fig.querySelector('img') as HTMLImageElement | null
         if (!attachmentUrl && inlineImg) attachmentUrl = inlineImg.src
 
-        if (attachmentUrl) {
+        // The attachment URL comes from stored content, so only an http(s)
+        // URL (or a path of this app) is followed: a `javascript:` URL in
+        // the JSON would otherwise run script in this origin on click. Any
+        // other value is dropped, and the click on the figure does nothing.
+        const safeUrl = safeNavigationUrl(attachmentUrl)
+
+        if (safeUrl !== null) {
           e.preventDefault()
           e.stopPropagation()
           const isImage = fig.classList.contains('attachment--preview')
           if (isImage && imageClickBehavior === 'modal') {
-            setModalSrc(attachmentUrl)
+            setModalSrc(safeUrl)
           } else if (linkClickBehavior === 'same_page') {
-            window.location.href = attachmentUrl
+            window.location.href = safeUrl
           } else {
-            window.open(attachmentUrl, '_blank', 'noopener,noreferrer')
+            window.open(safeUrl, '_blank', 'noopener,noreferrer')
           }
           return
         }
       }
 
       // 1) Bare <a href> outside any attachment figure (plain inline links).
+      //    Only an http(s) link is opened by this handler; `mailto:` / `tel:`
+      //    are left to the browser, and any other scheme is stopped.
       const anchor = target.closest('a[href]') as HTMLAnchorElement | null
-      if (anchor && linkClickBehavior !== 'same_page') {
-        e.preventDefault()
-        e.stopPropagation()
-        window.open(anchor.href, '_blank', 'noopener,noreferrer')
+      if (anchor) {
+        const safeHref = safeNavigationUrl(anchor.href)
+        if (safeHref === null) {
+          const protocol = urlProtocol(anchor.href)
+          if (protocol !== 'mailto:' && protocol !== 'tel:') {
+            e.preventDefault()
+            e.stopPropagation()
+          }
+          return
+        }
+        if (linkClickBehavior !== 'same_page') {
+          e.preventDefault()
+          e.stopPropagation()
+          window.open(safeHref, '_blank', 'noopener,noreferrer')
+        }
       }
     }
 
@@ -168,7 +200,7 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
     })
 
     return () => el.removeEventListener('click', handleClick)
-  }, [expanded, imageClickBehavior, linkClickBehavior, value])
+  }, [expanded, imageClickBehavior, linkClickBehavior, html])
 
   if (value === null || value === undefined || value === "") {
     return <span className="martis-text-muted">&mdash;</span>
@@ -203,7 +235,7 @@ export function TrixFieldDisplay({ field, value }: FieldDisplayProps) {
         ref={contentRef}
         className="martis-trix-detail prose dark:prose-invert max-w-none text-sm trix-content"
         style={{ cursor: imageClickBehavior !== 'same_page' ? 'default' : undefined }}
-        dangerouslySetInnerHTML={{ __html: String(value) }}
+        dangerouslySetInnerHTML={{ __html: html }}
       />
       {modalSrc && <ImageModal src={modalSrc} onClose={() => setModalSrc(null)} />}
     </div>
@@ -215,6 +247,12 @@ export function TrixFieldInput({
   value,
   onChange,
   error,
+  resourceKey,
+  recordId,
+  repeaterRow,
+  actionEndpoint,
+  pivotEndpoint,
+  toolKey,
 }: FieldInputProps) {
   const { t } = useTranslation('messages')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -272,7 +310,22 @@ export function TrixFieldInput({
   const extras = field as Record<string, unknown>
   const readonly = !!field.readonly
   const toolbarSize = extras.toolbarSize as string | undefined
-  const withFiles = !!extras.withFiles
+  // Attachments go to an endpoint that authorises them like the resource
+  // form the field is on, so only a field of a resource form uploads: an
+  // Action's, a pivot's or a Tool's fields (and a field with no resource)
+  // accept no file.
+  const withFiles =
+    !!extras.withFiles &&
+    resourceKey !== undefined &&
+    actionEndpoint === undefined &&
+    pivotEndpoint === undefined &&
+    toolKey === undefined
+
+  // What the upload names, read at upload time: the editor outlives the
+  // render that built it, and a rebuild per record or row change would drop
+  // its content.
+  const uploadScopeRef = useRef({ resourceKey, recordId, attribute: field.attribute, repeaterRow })
+  uploadScopeRef.current = { resourceKey, recordId, attribute: field.attribute, repeaterRow }
 
   // Build the Trix editor, again only when its configuration changes. The
   // cleanup tears it down, so a rebuild (and StrictMode's second run of the
@@ -398,7 +451,17 @@ export function TrixFieldInput({
 
         attachment.setUploadProgress(10)
 
-        fetch(`${BASE_PATH}/api/attachments/upload`, {
+        // The upload names the form it comes from, so the server authorises
+        // it like that form and takes the disk from the field.
+        const scope = uploadScopeRef.current
+        const query = new URLSearchParams({ resource: String(scope.resourceKey), field: scope.attribute })
+        if (scope.recordId !== undefined && scope.recordId !== null) query.set("id", String(scope.recordId))
+        if (scope.repeaterRow) {
+          query.set("repeater", scope.repeaterRow.repeater)
+          query.set("repeatable", scope.repeaterRow.repeatable)
+        }
+
+        fetch(withQuery(`${BASE_PATH}/api/attachments/upload`, query.toString()), {
           method: "POST",
           body: formData,
           credentials: "same-origin",

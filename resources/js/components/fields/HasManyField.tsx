@@ -3,6 +3,7 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
 import { useRelationParent } from './NestedParentContext'
 import { recordHref } from '@/lib/recordHref'
+import { apiPath, routePath, withQuery } from "@/lib/apiPath"
 
 /**
  * HasMany field display — renders differently based on context:
@@ -66,8 +67,8 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
   // or drawer's record when nested, else the one in the URL.
   const { resource: parentResource, id: parentId } = useRelationParent()
 
-  const viaBaseParams = `viaResource=${parentResource}&viaResourceId=${parentId}&viaRelationship=${relationship}`
-  const viaParams = `?${viaBaseParams}&redirectMode=${redirectAfterSave}`
+  const viaBaseParams = `viaResource=${encodeURIComponent(parentResource)}&viaResourceId=${encodeURIComponent(String(parentId))}&viaRelationship=${encodeURIComponent(relationship)}`
+  const viaParams = `?${viaBaseParams}&redirectMode=${encodeURIComponent(redirectAfterSave)}`
 
   return (
     <RelationshipTableShell
@@ -79,13 +80,13 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
       collapsedByDefault={!!field.collapsedByDefault}
       queryKey={['has-many', parentResource, parentId, relationship]}
       fetchUrl={(params) =>
-        `/api/resources/${parentResource}/${parentId}/has-many/${relationship}?${params.toString()}`
+        withQuery(apiPath`/api/resources/${parentResource}/${parentId}/has-many/${relationship}`, params.toString())
       }
       deleteUrl={(relatedId) =>
-        `/api/resources/${parentResource}/${parentId}/has-many/${relationship}/${relatedId}`
+        apiPath`/api/resources/${parentResource}/${parentId}/has-many/${relationship}/${relatedId}`
       }
-      createUrl={`/resources/${relatedResource}/create${viaParams}`}
-      editUrl={(id) => `/resources/${relatedResource}/${id}/edit${viaParams}`}
+      createUrl={`${routePath`/resources/${relatedResource}/create`}${viaParams}`}
+      editUrl={(id) => `${routePath`/resources/${relatedResource}/${id}/edit`}${viaParams}`}
       viewUrl={(id) => recordHref(relatedResource, id)}
       perPage={meta?.perPage ?? 10}
       perPageOptions={meta?.perPageOptions ?? [10, 25, 50]}

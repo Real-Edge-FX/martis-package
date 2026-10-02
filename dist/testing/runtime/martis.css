@@ -12,6 +12,7 @@
     font-weight: normal;
     font-style: normal;
 }
+
 .pi {
     font-family: 'primeicons';
     speak: none;
@@ -24,17 +25,21 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
+
 .pi:before {
     --webkit-backface-visibility:hidden;
     backface-visibility: hidden;
 }
+
 .pi-fw {
     width: 1.28571429em;
     text-align: center;
 }
+
 .pi-spin {
     animation: fa-spin 2s infinite linear;
 }
+
 @media (prefers-reduced-motion: reduce) {
   .pi-spin {
     animation-delay: -1ms;
@@ -44,6 +49,7 @@
     transition-duration: 0s;
   }
 }
+
 @keyframes fa-spin {
     0% {
         transform: rotate(0deg);
@@ -52,948 +58,1263 @@
         transform: rotate(359deg);
     }
 }
+
 .pi-folder-plus:before {
     content: "\ea05";
 }
+
 .pi-receipt:before {
     content: "\ea06";
 }
+
 .pi-asterisk:before {
     content: "\ea07";
 }
+
 .pi-face-smile:before {
     content: "\ea08";
 }
+
 .pi-pinterest:before {
     content: "\ea09";
 }
+
 .pi-expand:before {
     content: "\ea0a";
 }
+
 .pi-pen-to-square:before {
     content: "\ea0b";
 }
+
 .pi-wave-pulse:before {
     content: "\ea0c";
 }
+
 .pi-turkish-lira:before {
     content: "\ea0d";
 }
+
 .pi-spinner-dotted:before {
     content: "\ea0e";
 }
+
 .pi-crown:before {
     content: "\ea0f";
 }
+
 .pi-pause-circle:before {
     content: "\ea10";
 }
+
 .pi-warehouse:before {
     content: "\ea11";
 }
+
 .pi-objects-column:before {
     content: "\ea12";
 }
+
 .pi-clipboard:before {
     content: "\ea13";
 }
+
 .pi-play-circle:before {
     content: "\ea14";
 }
+
 .pi-venus:before {
     content: "\ea15";
 }
+
 .pi-cart-minus:before {
     content: "\ea16";
 }
+
 .pi-file-plus:before {
     content: "\ea17";
 }
+
 .pi-microchip:before {
     content: "\ea18";
 }
+
 .pi-twitch:before {
     content: "\ea19";
 }
+
 .pi-building-columns:before {
     content: "\ea1a";
 }
+
 .pi-file-check:before {
     content: "\ea1b";
 }
+
 .pi-microchip-ai:before {
     content: "\ea1c";
 }
+
 .pi-trophy:before {
     content: "\ea1d";
 }
+
 .pi-barcode:before {
     content: "\ea1e";
 }
+
 .pi-file-arrow-up:before {
     content: "\ea1f";
 }
+
 .pi-mars:before {
     content: "\ea20";
 }
+
 .pi-tiktok:before {
     content: "\ea21";
 }
+
 .pi-arrow-up-right-and-arrow-down-left-from-center:before {
     content: "\ea22";
 }
+
 .pi-ethereum:before {
     content: "\ea23";
 }
+
 .pi-list-check:before {
     content: "\ea24";
 }
+
 .pi-thumbtack:before {
     content: "\ea25";
 }
+
 .pi-arrow-down-left-and-arrow-up-right-to-center:before {
     content: "\ea26";
 }
+
 .pi-equals:before {
     content: "\ea27";
 }
+
 .pi-lightbulb:before {
     content: "\ea28";
 }
+
 .pi-star-half:before {
     content: "\ea29";
 }
+
 .pi-address-book:before {
     content: "\ea2a";
 }
+
 .pi-chart-scatter:before {
     content: "\ea2b";
 }
+
 .pi-indian-rupee:before {
     content: "\ea2c";
 }
+
 .pi-star-half-fill:before {
     content: "\ea2d";
 }
+
 .pi-cart-arrow-down:before {
     content: "\ea2e";
 }
+
 .pi-calendar-clock:before {
     content: "\ea2f";
 }
+
 .pi-sort-up-fill:before {
     content: "\ea30";
 }
+
 .pi-sparkles:before {
     content: "\ea31";
 }
+
 .pi-bullseye:before {
     content: "\ea32";
 }
+
 .pi-sort-down-fill:before {
     content: "\ea33";
 }
+
 .pi-graduation-cap:before {
     content: "\ea34";
 }
+
 .pi-hammer:before {
     content: "\ea35";
 }
+
 .pi-bell-slash:before {
     content: "\ea36";
 }
+
 .pi-gauge:before {
     content: "\ea37";
 }
+
 .pi-shop:before {
     content: "\ea38";
 }
+
 .pi-headphones:before {
     content: "\ea39";
 }
+
 .pi-eraser:before {
     content: "\ea04";
 }
+
 .pi-stopwatch:before {
     content: "\ea01";
 }
+
 .pi-verified:before {
     content: "\ea02";
 }
+
 .pi-delete-left:before {
     content: "\ea03";
 }
+
 .pi-hourglass:before {
     content: "\e9fe";
 }
+
 .pi-truck:before {
     content: "\ea00";
 }
+
 .pi-wrench:before {
     content: "\e9ff";
 }
+
 .pi-microphone:before {
     content: "\e9fa";
 }
+
 .pi-megaphone:before {
     content: "\e9fb";
 }
+
 .pi-arrow-right-arrow-left:before {
     content: "\e9fc";
 }
+
 .pi-bitcoin:before {
     content: "\e9fd";
 }
+
 .pi-file-edit:before {
     content: "\e9f6";
 }
+
 .pi-language:before {
     content: "\e9f7";
 }
+
 .pi-file-export:before {
     content: "\e9f8";
 }
+
 .pi-file-import:before {
     content: "\e9f9";
 }
+
 .pi-file-word:before {
     content: "\e9f1";
 }
+
 .pi-gift:before {
     content: "\e9f2";
 }
+
 .pi-cart-plus:before {
     content: "\e9f3";
 }
+
 .pi-thumbs-down-fill:before {
     content: "\e9f4";
 }
+
 .pi-thumbs-up-fill:before {
     content: "\e9f5";
 }
+
 .pi-arrows-alt:before {
     content: "\e9f0";
 }
+
 .pi-calculator:before {
     content: "\e9ef";
 }
+
 .pi-sort-alt-slash:before {
     content: "\e9ee";
 }
+
 .pi-arrows-h:before {
     content: "\e9ec";
 }
+
 .pi-arrows-v:before {
     content: "\e9ed";
 }
+
 .pi-pound:before {
     content: "\e9eb";
 }
+
 .pi-prime:before {
     content: "\e9ea";
 }
+
 .pi-chart-pie:before {
     content: "\e9e9";
 }
+
 .pi-reddit:before {
     content: "\e9e8";
 }
+
 .pi-code:before {
     content: "\e9e7";
 }
+
 .pi-sync:before {
     content: "\e9e6";
 }
+
 .pi-shopping-bag:before {
     content: "\e9e5";
 }
+
 .pi-server:before {
     content: "\e9e4";
 }
+
 .pi-database:before {
     content: "\e9e3";
 }
+
 .pi-hashtag:before {
     content: "\e9e2";
 }
+
 .pi-bookmark-fill:before {
     content: "\e9df";
 }
+
 .pi-filter-fill:before {
     content: "\e9e0";
 }
+
 .pi-heart-fill:before {
     content: "\e9e1";
 }
+
 .pi-flag-fill:before {
     content: "\e9de";
 }
+
 .pi-circle:before {
     content: "\e9dc";
 }
+
 .pi-circle-fill:before {
     content: "\e9dd";
 }
+
 .pi-bolt:before {
     content: "\e9db";
 }
+
 .pi-history:before {
     content: "\e9da";
 }
+
 .pi-box:before {
     content: "\e9d9";
 }
+
 .pi-at:before {
     content: "\e9d8";
 }
+
 .pi-arrow-up-right:before {
     content: "\e9d4";
 }
+
 .pi-arrow-up-left:before {
     content: "\e9d5";
 }
+
 .pi-arrow-down-left:before {
     content: "\e9d6";
 }
+
 .pi-arrow-down-right:before {
     content: "\e9d7";
 }
+
 .pi-telegram:before {
     content: "\e9d3";
 }
+
 .pi-stop-circle:before {
     content: "\e9d2";
 }
+
 .pi-stop:before {
     content: "\e9d1";
 }
+
 .pi-whatsapp:before {
     content: "\e9d0";
 }
+
 .pi-building:before {
     content: "\e9cf";
 }
+
 .pi-qrcode:before {
     content: "\e9ce";
 }
+
 .pi-car:before {
     content: "\e9cd";
 }
+
 .pi-instagram:before {
     content: "\e9cc";
 }
+
 .pi-linkedin:before {
     content: "\e9cb";
 }
+
 .pi-send:before {
     content: "\e9ca";
 }
+
 .pi-slack:before {
     content: "\e9c9";
 }
+
 .pi-sun:before {
     content: "\e9c8";
 }
+
 .pi-moon:before {
     content: "\e9c7";
 }
+
 .pi-vimeo:before {
     content: "\e9c6";
 }
+
 .pi-youtube:before {
     content: "\e9c5";
 }
+
 .pi-flag:before {
     content: "\e9c4";
 }
+
 .pi-wallet:before {
     content: "\e9c3";
 }
+
 .pi-map:before {
     content: "\e9c2";
 }
+
 .pi-link:before {
     content: "\e9c1";
 }
+
 .pi-credit-card:before {
     content: "\e9bf";
 }
+
 .pi-discord:before {
     content: "\e9c0";
 }
+
 .pi-percentage:before {
     content: "\e9be";
 }
+
 .pi-euro:before {
     content: "\e9bd";
 }
+
 .pi-book:before {
     content: "\e9ba";
 }
+
 .pi-shield:before {
     content: "\e9b9";
 }
+
 .pi-paypal:before {
     content: "\e9bb";
 }
+
 .pi-amazon:before {
     content: "\e9bc";
 }
+
 .pi-phone:before {
     content: "\e9b8";
 }
+
 .pi-filter-slash:before {
     content: "\e9b7";
 }
+
 .pi-facebook:before {
     content: "\e9b4";
 }
+
 .pi-github:before {
     content: "\e9b5";
 }
+
 .pi-twitter:before {
     content: "\e9b6";
 }
+
 .pi-step-backward-alt:before {
     content: "\e9ac";
 }
+
 .pi-step-forward-alt:before {
     content: "\e9ad";
 }
+
 .pi-forward:before {
     content: "\e9ae";
 }
+
 .pi-backward:before {
     content: "\e9af";
 }
+
 .pi-fast-backward:before {
     content: "\e9b0";
 }
+
 .pi-fast-forward:before {
     content: "\e9b1";
 }
+
 .pi-pause:before {
     content: "\e9b2";
 }
+
 .pi-play:before {
     content: "\e9b3";
 }
+
 .pi-compass:before {
     content: "\e9ab";
 }
+
 .pi-id-card:before {
     content: "\e9aa";
 }
+
 .pi-ticket:before {
     content: "\e9a9";
 }
+
 .pi-file-o:before {
     content: "\e9a8";
 }
+
 .pi-reply:before {
     content: "\e9a7";
 }
+
 .pi-directions-alt:before {
     content: "\e9a5";
 }
+
 .pi-directions:before {
     content: "\e9a6";
 }
+
 .pi-thumbs-up:before {
     content: "\e9a3";
 }
+
 .pi-thumbs-down:before {
     content: "\e9a4";
 }
+
 .pi-sort-numeric-down-alt:before {
     content: "\e996";
 }
+
 .pi-sort-numeric-up-alt:before {
     content: "\e997";
 }
+
 .pi-sort-alpha-down-alt:before {
     content: "\e998";
 }
+
 .pi-sort-alpha-up-alt:before {
     content: "\e999";
 }
+
 .pi-sort-numeric-down:before {
     content: "\e99a";
 }
+
 .pi-sort-numeric-up:before {
     content: "\e99b";
 }
+
 .pi-sort-alpha-down:before {
     content: "\e99c";
 }
+
 .pi-sort-alpha-up:before {
     content: "\e99d";
 }
+
 .pi-sort-alt:before {
     content: "\e99e";
 }
+
 .pi-sort-amount-up:before {
     content: "\e99f";
 }
+
 .pi-sort-amount-down:before {
     content: "\e9a0";
 }
+
 .pi-sort-amount-down-alt:before {
     content: "\e9a1";
 }
+
 .pi-sort-amount-up-alt:before {
     content: "\e9a2";
 }
+
 .pi-palette:before {
     content: "\e995";
 }
+
 .pi-undo:before {
     content: "\e994";
 }
+
 .pi-desktop:before {
     content: "\e993";
 }
+
 .pi-sliders-v:before {
     content: "\e991";
 }
+
 .pi-sliders-h:before {
     content: "\e992";
 }
+
 .pi-search-plus:before {
     content: "\e98f";
 }
+
 .pi-search-minus:before {
     content: "\e990";
 }
+
 .pi-file-excel:before {
     content: "\e98e";
 }
+
 .pi-file-pdf:before {
     content: "\e98d";
 }
+
 .pi-check-square:before {
     content: "\e98c";
 }
+
 .pi-chart-line:before {
     content: "\e98b";
 }
+
 .pi-user-edit:before {
     content: "\e98a";
 }
+
 .pi-exclamation-circle:before {
     content: "\e989";
 }
+
 .pi-android:before {
     content: "\e985";
 }
+
 .pi-google:before {
     content: "\e986";
 }
+
 .pi-apple:before {
     content: "\e987";
 }
+
 .pi-microsoft:before {
     content: "\e988";
 }
+
 .pi-heart:before {
     content: "\e984";
 }
+
 .pi-mobile:before {
     content: "\e982";
 }
+
 .pi-tablet:before {
     content: "\e983";
 }
+
 .pi-key:before {
     content: "\e981";
 }
+
 .pi-shopping-cart:before {
     content: "\e980";
 }
+
 .pi-comments:before {
     content: "\e97e";
 }
+
 .pi-comment:before {
     content: "\e97f";
 }
+
 .pi-briefcase:before {
     content: "\e97d";
 }
+
 .pi-bell:before {
     content: "\e97c";
 }
+
 .pi-paperclip:before {
     content: "\e97b";
 }
+
 .pi-share-alt:before {
     content: "\e97a";
 }
+
 .pi-envelope:before {
     content: "\e979";
 }
+
 .pi-volume-down:before {
     content: "\e976";
 }
+
 .pi-volume-up:before {
     content: "\e977";
 }
+
 .pi-volume-off:before {
     content: "\e978";
 }
+
 .pi-eject:before {
     content: "\e975";
 }
+
 .pi-money-bill:before {
     content: "\e974";
 }
+
 .pi-images:before {
     content: "\e973";
 }
+
 .pi-image:before {
     content: "\e972";
 }
+
 .pi-sign-in:before {
     content: "\e970";
 }
+
 .pi-sign-out:before {
     content: "\e971";
 }
+
 .pi-wifi:before {
     content: "\e96f";
 }
+
 .pi-sitemap:before {
     content: "\e96e";
 }
+
 .pi-chart-bar:before {
     content: "\e96d";
 }
+
 .pi-camera:before {
     content: "\e96c";
 }
+
 .pi-dollar:before {
     content: "\e96b";
 }
+
 .pi-lock-open:before {
     content: "\e96a";
 }
+
 .pi-table:before {
     content: "\e969";
 }
+
 .pi-map-marker:before {
     content: "\e968";
 }
+
 .pi-list:before {
     content: "\e967";
 }
+
 .pi-eye-slash:before {
     content: "\e965";
 }
+
 .pi-eye:before {
     content: "\e966";
 }
+
 .pi-folder-open:before {
     content: "\e964";
 }
+
 .pi-folder:before {
     content: "\e963";
 }
+
 .pi-video:before {
     content: "\e962";
 }
+
 .pi-inbox:before {
     content: "\e961";
 }
+
 .pi-lock:before {
     content: "\e95f";
 }
+
 .pi-unlock:before {
     content: "\e960";
 }
+
 .pi-tags:before {
     content: "\e95d";
 }
+
 .pi-tag:before {
     content: "\e95e";
 }
+
 .pi-power-off:before {
     content: "\e95c";
 }
+
 .pi-save:before {
     content: "\e95b";
 }
+
 .pi-question-circle:before {
     content: "\e959";
 }
+
 .pi-question:before {
     content: "\e95a";
 }
+
 .pi-copy:before {
     content: "\e957";
 }
+
 .pi-file:before {
     content: "\e958";
 }
+
 .pi-clone:before {
     content: "\e955";
 }
+
 .pi-calendar-times:before {
     content: "\e952";
 }
+
 .pi-calendar-minus:before {
     content: "\e953";
 }
+
 .pi-calendar-plus:before {
     content: "\e954";
 }
+
 .pi-ellipsis-v:before {
     content: "\e950";
 }
+
 .pi-ellipsis-h:before {
     content: "\e951";
 }
+
 .pi-bookmark:before {
     content: "\e94e";
 }
+
 .pi-globe:before {
     content: "\e94f";
 }
+
 .pi-replay:before {
     content: "\e94d";
 }
+
 .pi-filter:before {
     content: "\e94c";
 }
+
 .pi-print:before {
     content: "\e94b";
 }
+
 .pi-align-right:before {
     content: "\e946";
 }
+
 .pi-align-left:before {
     content: "\e947";
 }
+
 .pi-align-center:before {
     content: "\e948";
 }
+
 .pi-align-justify:before {
     content: "\e949";
 }
+
 .pi-cog:before {
     content: "\e94a";
 }
+
 .pi-cloud-download:before {
     content: "\e943";
 }
+
 .pi-cloud-upload:before {
     content: "\e944";
 }
+
 .pi-cloud:before {
     content: "\e945";
 }
+
 .pi-pencil:before {
     content: "\e942";
 }
+
 .pi-users:before {
     content: "\e941";
 }
+
 .pi-clock:before {
     content: "\e940";
 }
+
 .pi-user-minus:before {
     content: "\e93e";
 }
+
 .pi-user-plus:before {
     content: "\e93f";
 }
+
 .pi-trash:before {
     content: "\e93d";
 }
+
 .pi-external-link:before {
     content: "\e93c";
 }
+
 .pi-window-maximize:before {
     content: "\e93b";
 }
+
 .pi-window-minimize:before {
     content: "\e93a";
 }
+
 .pi-refresh:before {
     content: "\e938";
 }
+  
 .pi-user:before {
     content: "\e939";
 }
+
 .pi-exclamation-triangle:before {
     content: "\e922";
 }
+
 .pi-calendar:before {
     content: "\e927";
 }
+
 .pi-chevron-circle-left:before {
     content: "\e928";
 }
+
 .pi-chevron-circle-down:before {
     content: "\e929";
 }
+
 .pi-chevron-circle-right:before {
     content: "\e92a";
 }
+
 .pi-chevron-circle-up:before {
     content: "\e92b";
 }
+
 .pi-angle-double-down:before {
     content: "\e92c";
 }
+
 .pi-angle-double-left:before {
     content: "\e92d";
 }
+
 .pi-angle-double-right:before {
     content: "\e92e";
 }
+
 .pi-angle-double-up:before {
     content: "\e92f";
 }
+
 .pi-angle-down:before {
     content: "\e930";
 }
+
 .pi-angle-left:before {
     content: "\e931";
 }
+
 .pi-angle-right:before {
     content: "\e932";
 }
+
 .pi-angle-up:before {
     content: "\e933";
 }
+
 .pi-upload:before {
     content: "\e934";
 }
+
 .pi-download:before {
     content: "\e956";
 }
+
 .pi-ban:before {
     content: "\e935";
 }
+
 .pi-star-fill:before {
     content: "\e936";
 }
+
 .pi-star:before {
     content: "\e937";
 }
+
 .pi-chevron-left:before {
     content: "\e900";
 }
+
 .pi-chevron-right:before {
     content: "\e901";
 }
+
 .pi-chevron-down:before {
     content: "\e902";
 }
+
 .pi-chevron-up:before {
     content: "\e903";
 }
+
 .pi-caret-left:before {
     content: "\e904";
 }
+
 .pi-caret-right:before {
     content: "\e905";
 }
+
 .pi-caret-down:before {
     content: "\e906";
 }
+
 .pi-caret-up:before {
     content: "\e907";
 }
+
 .pi-search:before {
     content: "\e908";
 }
+
 .pi-check:before {
     content: "\e909";
 }
+
 .pi-check-circle:before {
     content: "\e90a";
 }
+
 .pi-times:before {
     content: "\e90b";
 }
+
 .pi-times-circle:before {
     content: "\e90c";
 }
+
 .pi-plus:before {
     content: "\e90d";
 }
+
 .pi-plus-circle:before {
     content: "\e90e";
 }
+
 .pi-minus:before {
     content: "\e90f";
 }
+
 .pi-minus-circle:before {
     content: "\e910";
 }
+
 .pi-circle-on:before {
     content: "\e911";
 }
+
 .pi-circle-off:before {
     content: "\e912";
 }
+
 .pi-sort-down:before {
     content: "\e913";
 }
+
 .pi-sort-up:before {
     content: "\e914";
 }
+
 .pi-sort:before {
     content: "\e915";
 }
+
 .pi-step-backward:before {
     content: "\e916";
 }
+
 .pi-step-forward:before {
     content: "\e917";
 }
+
 .pi-th-large:before {
     content: "\e918";
 }
+
 .pi-arrow-down:before {
     content: "\e919";
 }
+
 .pi-arrow-left:before {
     content: "\e91a";
 }
+
 .pi-arrow-right:before {
     content: "\e91b";
 }
+
 .pi-arrow-up:before {
     content: "\e91c";
 }
+
 .pi-bars:before {
     content: "\e91d";
 }
+
 .pi-arrow-circle-down:before {
     content: "\e91e";
 }
+
 .pi-arrow-circle-left:before {
     content: "\e91f";
 }
+
 .pi-arrow-circle-right:before {
     content: "\e920";
 }
+
 .pi-arrow-circle-up:before {
     content: "\e921";
 }
+
 .pi-info:before {
     content: "\e923";
 }
+
 .pi-info-circle:before {
     content: "\e924";
 }
+
 .pi-home:before {
     content: "\e925";
 }
+
 .pi-spinner:before {
     content: "\e926";
 }
+
 /* Tailwind (preflight disabled — PrimeReact provides its own reset) */
 *, ::before, ::after {
     --tw-border-spacing-x: 0;
@@ -2272,10 +2593,12 @@
 .\[a-zA-Z0-9_\:\.\/\\-\@\] {
     a-z-a--z0-9_: ./\-@;
 }
+
 /* Minimal reset compatible with PrimeReact */
 *, ::before, ::after {
   box-sizing: border-box;
 }
+
 /* The bundled PrimeReact theme (lara-dark-indigo, `@layer primereact`)
    ships unscoped placeholder rules (`::-webkit-input-placeholder { color:
    rgba(255,255,255,.6) }`): right for its dark palette, invisible on the
@@ -2292,6 +2615,7 @@
   color: var(--martis-text-muted);
   opacity: 1;
 }
+
 /* ============================================================
    MARTIS DESIGN TOKENS — v0.7 (Task 07.1 Fase 1)
    94 variáveis em 13 categorias alinhadas ao /design-system/.
@@ -2307,6 +2631,7 @@
    Retrocompat: todos os nomes antigos (--martis-font-size-*,
    --martis-font-weight-*) continuam disponíveis como aliases.
    ============================================================ */
+
 :root {
   --sidebar-width: 240px;
 
@@ -2368,6 +2693,7 @@
   --martis-ease-linear: linear;
   --martis-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
 /* ── DARK THEME (default) ───────────────────────────────────
    Warm-neutral graphite. Not pure black — slate with tiny blue tint.
    Surfaces step up in ~2–3% luminance increments.
@@ -2562,6 +2888,7 @@
   --border-radius: var(--martis-radius-md);
   --maskbg: var(--martis-overlay);
 }
+
 /* ── LIGHT THEME ────────────────────────────────────────────
    Cool off-white com graphite text, borders hairline.
    ─────────────────────────────────────────────────────────── */
@@ -2704,11 +3031,13 @@ html:not(.dark) {
 
   color-scheme: light;
 }
+
 /* ============================================================
    ACCENT VARIANTS
    Override dos 6 accent tokens. Default = "martis" (já definido
    acima). Aplicar via html[data-accent="blue|teal|violet|amber"].
    ============================================================ */
+
 /* BLUE — clássico, neutral */
 html[data-accent="blue"].dark, html[data-accent="blue"]:not(.dark) ~ * {}
 html.dark[data-accent="blue"] {
@@ -2727,6 +3056,7 @@ html:not(.dark)[data-accent="blue"] {
   --martis-accent-bg:       #DBE7FE;
   --martis-focus-ring:      rgba(37, 99, 235, 0.35);
 }
+
 /* TEAL */
 html.dark[data-accent="teal"] {
   --martis-accent:          #14B8A6;
@@ -2744,6 +3074,7 @@ html:not(.dark)[data-accent="teal"] {
   --martis-accent-bg:       #CCF6EC;
   --martis-focus-ring:      rgba(13, 148, 136, 0.35);
 }
+
 /* VIOLET */
 html.dark[data-accent="violet"] {
   --martis-accent:          #8B5CF6;
@@ -2761,6 +3092,7 @@ html:not(.dark)[data-accent="violet"] {
   --martis-accent-bg:       #E4D8FE;
   --martis-focus-ring:      rgba(124, 58, 237, 0.35);
 }
+
 /* AMBER */
 html.dark[data-accent="amber"] {
   --martis-accent:          #F59E0B;
@@ -2778,6 +3110,7 @@ html:not(.dark)[data-accent="amber"] {
   --martis-accent-bg:       #FDE6B5;
   --martis-focus-ring:      rgba(217, 119, 6, 0.35);
 }
+
 /* ============================================================
    PER-RESOURCE ACCENT OVERRIDE (v1.8.8)
    Applied as `data-resource-accent` on a wrapper inside the
@@ -2785,6 +3118,7 @@ html:not(.dark)[data-accent="amber"] {
    the page content. Sidebar/topbar/badges sitting outside the
    wrapper keep the user's global accent.
    ============================================================ */
+
 html.dark [data-resource-accent="blue"] {
   --martis-accent:          #3B82F6;
   --martis-accent-hover:    #2563EB;
@@ -2801,6 +3135,7 @@ html:not(.dark) [data-resource-accent="blue"] {
   --martis-accent-bg:       #DBE7FE;
   --martis-focus-ring:      rgba(37, 99, 235, 0.35);
 }
+
 html.dark [data-resource-accent="teal"] {
   --martis-accent:          #14B8A6;
   --martis-accent-hover:    #0D9488;
@@ -2817,6 +3152,7 @@ html:not(.dark) [data-resource-accent="teal"] {
   --martis-accent-bg:       #CCF6EC;
   --martis-focus-ring:      rgba(13, 148, 136, 0.35);
 }
+
 html.dark [data-resource-accent="violet"] {
   --martis-accent:          #8B5CF6;
   --martis-accent-hover:    #7C3AED;
@@ -2833,6 +3169,7 @@ html:not(.dark) [data-resource-accent="violet"] {
   --martis-accent-bg:       #E4D8FE;
   --martis-focus-ring:      rgba(124, 58, 237, 0.35);
 }
+
 html.dark [data-resource-accent="amber"] {
   --martis-accent:          #F59E0B;
   --martis-accent-hover:    #D97706;
@@ -2849,6 +3186,7 @@ html:not(.dark) [data-resource-accent="amber"] {
   --martis-accent-bg:       #FDE6B5;
   --martis-focus-ring:      rgba(217, 119, 6, 0.35);
 }
+
 /* "martis" (default) — explicitly scoped so a resource can
    force the bundled brand accent on top of a user preference. */
 html.dark [data-resource-accent="martis"] {
@@ -2867,6 +3205,7 @@ html:not(.dark) [data-resource-accent="martis"] {
   --martis-accent-bg:       #D7E1FD;
   --martis-focus-ring:      rgba(59, 106, 240, 0.35);
 }
+
 /* ============================================================
    DENSITY TOKENS
    Global scaffolding para Martis components. Override per-surface
@@ -2892,6 +3231,7 @@ html[data-density="dense"],
   --martis-pad-y:       12px;
   --martis-gap:         10px;
 }
+
 /* ── Density-driven overrides for shell components ─────────────────
    Shell elements use fixed Tailwind utilities (py-2.5, h-14, etc.)
    which don't react to `[data-density]` by themselves. These
@@ -2921,6 +3261,7 @@ html[data-density="dense"] .martis-btn {
   padding-top: 0.3rem;
   padding-bottom: 0.3rem;
 }
+
 /* Dashboard tabs — the inline-styled buttons in `Dashboard.tsx` only
    set background + border + colour. Hover, focus-visible and the
    non-active idle state need to match the rest of the interactive
@@ -2936,6 +3277,7 @@ html[data-density="dense"] .martis-btn {
   outline: 2px solid var(--martis-accent);
   outline-offset: 2px;
 }
+
 /* Dashboard surfaces — StatCard, MetricCard, resource shortcuts, and the
    welcome hero all use fixed padding that ignores `[data-density]`. These
    overrides tighten them so the Dense preference has a visible effect
@@ -2960,6 +3302,7 @@ html[data-density="dense"] .mwc-root {
   --mwc-pad-x: 1.75rem;
   --mwc-min-h: 88px;
 }
+
 /* ============================================================
    AUTH SURFACES
    Shared shell for unauthenticated entry points (Login, 2FA
@@ -3032,6 +3375,7 @@ html[data-density="dense"] .mwc-root {
   max-height: var(--martis-brand-logo-height-auth, 48px);
   max-width: 240px;
 }
+
 /* v1.7.0 / v1.7.6 — theme-aware brand variants. When the consumer
    ships separate light/dark assets, both `<img>` tags render in
    the DOM and we hide one based on `<html data-theme>`. The toggle
@@ -3107,6 +3451,7 @@ html[data-theme="dark"]  .martis-brand-img--light { display: none !important; }
   background: var(--martis-hover);
   color: var(--martis-text);
 }
+
 /* Guest-mode mini controls — theme + language pickers pinned at the
    top-right of every auth surface. Intentionally tiny: only the two
    knobs an unauthenticated visitor might want to change. */
@@ -3167,6 +3512,7 @@ html[data-theme="dark"]  .martis-brand-img--light { display: none !important; }
   cursor: pointer;
 }
 .martis-auth-forgot:hover { text-decoration: underline; }
+
 /* Toggle switch — used on Login ("Keep me signed in") to mirror the
    spec instead of the square checkbox. Accessible via the underlying
    native checkbox which stays tab-focusable + keyboard-toggleable. */
@@ -3225,6 +3571,7 @@ html[data-theme="dark"]  .martis-brand-img--light { display: none !important; }
 .martis-auth-toggle input:focus-visible + .martis-auth-toggle-track {
   box-shadow: 0 0 0 3px var(--martis-focus-ring);
 }
+
 /* 6-digit OTP row — each cell is a 48×56 mono-font square with an
    accent focus ring when the caret lands inside it. */
 .martis-auth-otp-row {
@@ -3255,6 +3602,7 @@ html[data-theme="dark"]  .martis-brand-img--light { display: none !important; }
   opacity: 0.6;
   cursor: not-allowed;
 }
+
 /* Command palette (⌘K / "/") — global overlay that mirrors the
    design-system Catalog spec. Scrim + surface + grouped list with
    accent-tinted active row, footer carrying kbd hints on the left and
@@ -3449,6 +3797,7 @@ html[data-mobile="true"] { --sidebar-width: 0px; }
   color: var(--martis-text-muted);
   margin-right: 4px;
 }
+
 /* Error screens — 404 / 403 / 500 */
 .martis-error-screen {
   position: relative;
@@ -3521,6 +3870,7 @@ html[data-mobile="true"] { --sidebar-width: 0px; }
   position: relative;
   z-index: 1;
 }
+
 /* Inline query error state — failed listing fetch (index / lens /
    relationship panels). Scoped to the table body so the toolbar stays
    usable; sibling of the full-page error screens above. */
@@ -3591,6 +3941,7 @@ html[data-mobile="true"] { --sidebar-width: 0px; }
     margin-top: 4px;
   }
 }
+
 /* ============================================================
    REDUCED MOTION (⭐ D3)
    When the user prefers reduced motion (the OS setting, or the
@@ -3614,6 +3965,7 @@ html[data-reduced-motion="true"] {
   --martis-dur-medium: 1ms;
   --martis-dur-slow: 1ms;
 }
+
 /* Universal clamp — any transition or animation not driven by the Martis
    duration tokens (PrimeReact internals, raw Tailwind utilities, inline
    styles, third-party SVG animations) would otherwise ignore the user's
@@ -3636,6 +3988,7 @@ html[data-reduced-motion="true"] *::after {
   transition-duration: 1ms !important;
   scroll-behavior: auto !important;
 }
+
 /* Indeterminate progress indicators (loader spinners, logo pulse,
    skeleton placeholders that already opt-in via class) MUST keep
    moving even under `prefers-reduced-motion`. The motion is the
@@ -3674,11 +4027,13 @@ html[data-reduced-motion="true"] .mwc-blob {
 html[data-reduced-motion="true"] .mwc-blob {
   --mwc-keep-duration: 14s;
 }
+
 /* ============================================================
    SHELL — Sidebar
    Flat utilitarian navigation. Hairline borders, accent pill on the
    active item, animated sub-group expansion. Density-aware heights.
    ============================================================ */
+
 .martis-shell {
   display: grid;
   grid-template-columns: var(--sidebar-width, 248px) 1fr;
@@ -3699,6 +4054,7 @@ html[data-reduced-motion="true"] .mwc-blob {
 .martis-shell[data-mobile="true"] .martis-shell-content {
   grid-column: 1;
 }
+
 .martis-sb {
   grid-column: 1;
   grid-row: 1 / -1;
@@ -3716,6 +4072,7 @@ html[data-reduced-motion="true"] .mwc-blob {
      mount snaps to `translate(0)` instead of `translate(-100%)`. */
   transform: translateX(0);
 }
+
 .martis-sb-logo {
   height: 56px;
   min-height: 56px;
@@ -3771,6 +4128,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .martis-sb-scroll {
   flex: 1;
   overflow-y: auto;
@@ -3785,6 +4143,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   background: var(--martis-border);
   border-radius: 3px;
 }
+
 .martis-sb-group {
   margin-bottom: 14px;
 }
@@ -3810,6 +4169,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   margin-top: 0;
   padding-top: 4px;
 }
+
 .martis-sb-group-label {
   display: flex;
   align-items: center;
@@ -3840,6 +4200,7 @@ html[data-reduced-motion="true"] .mwc-blob {
 .martis-sb-group[data-open="true"] .caret {
   transform: rotate(90deg);
 }
+
 .martis-sb-item {
   display: flex;
   align-items: center;
@@ -3897,6 +4258,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   background: var(--martis-accent-bg);
   color: var(--martis-accent);
 }
+
 /* Decorative tag chip on a sidebar item ("New", "Beta", "Pro" — distinct
  * from the count badge above). Tones map to the same semantic palette as
  * the Badge field. */
@@ -3917,6 +4279,7 @@ html[data-reduced-motion="true"] .mwc-blob {
 .martis-sb-item-tag[data-tone="warning"] { background: var(--martis-warning-bg); color: var(--martis-warning); }
 .martis-sb-item-tag[data-tone="danger"]  { background: var(--martis-danger-bg);  color: var(--martis-danger); }
 .martis-sb-item-tag[data-tone="accent"]  { background: var(--martis-accent-bg);  color: var(--martis-accent); }
+
 /* Section / group header — split layout: label area (link or button)
  * on the left, optional chevron toggle on the right. Allows path() and
  * collapse to coexist on the same header. */
@@ -3957,6 +4320,7 @@ html[data-reduced-motion="true"] .mwc-blob {
 .martis-sb-subgroup[data-open="true"] .martis-sb-subgroup-toggle .caret {
   transform: rotate(90deg);
 }
+
 /* When MenuSection::path() / MenuGroup::path() is set, the label area
  * becomes a NavLink. Inherit typography, gain active styling. */
 .martis-sb-group-label--link,
@@ -3968,6 +4332,7 @@ html[data-reduced-motion="true"] .mwc-blob {
 .martis-sb-subgroup-label--link.active {
   color: var(--martis-accent);
 }
+
 /* Nested MenuGroup inside a section: smaller header, indented items. */
 .martis-sb-subgroup {
   margin: 4px 0 4px 8px;
@@ -4007,6 +4372,7 @@ html[data-reduced-motion="true"] .mwc-blob {
 .martis-sb-subgroup[data-open="false"] .martis-sb-subgroup-items {
   display: none;
 }
+
 .martis-sb-footer {
   border-top: 1px solid var(--martis-border);
   height: 44px;
@@ -4029,6 +4395,7 @@ html[data-reduced-motion="true"] .mwc-blob {
 .martis-sb-footer-link:hover {
   color: var(--martis-text);
 }
+
 /* Collapsed mode — 64px rail, icons only */
 .martis-sb[data-collapsed="true"] {
   width: 64px;
@@ -4060,6 +4427,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   justify-content: center;
   padding: 10px 0;
 }
+
 /* Mobile drawer — fixed, slides in from the left.
    Uses `[data-mobile]` (any value) for layout so the open state inherits
    `position: fixed` + width; the `="open"` selector only flips the
@@ -4092,6 +4460,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   opacity: 1;
   pointer-events: auto;
 }
+
 /* ============================================================
    SHELL — Topbar
    ============================================================ */
@@ -4109,6 +4478,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   top: 0;
   z-index: 10;
 }
+
 .martis-tb-menu-btn,
 .martis-tb-collapse-btn {
   display: none;
@@ -4141,6 +4511,7 @@ html[data-reduced-motion="true"] .mwc-blob {
 .martis-tb[data-mobile="true"] .martis-tb-collapse-btn {
   display: none;
 }
+
 .martis-tb-breadcrumbs {
   display: flex;
   align-items: center;
@@ -4149,6 +4520,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   min-width: 0;
   flex-shrink: 1;
 }
+
 .martis-tb-search {
   /* Absolute-centered inside the topbar so the search geometry stops
      depending on the flex-sibling widths. `margin: 0 auto` + `flex: 1`
@@ -4190,6 +4562,7 @@ html[data-reduced-motion="true"] .mwc-blob {
               background var(--martis-dur-fast) var(--martis-ease-standard),
               width var(--martis-dur-fast) var(--martis-ease-standard);
 }
+
 /* Mid-width topbars (≤1100px) — drop the keyboard hint chip first so
    the placeholder text keeps its room. */
 @media (max-width: 1100px) {
@@ -4198,6 +4571,7 @@ html[data-reduced-motion="true"] .mwc-blob {
     display: none;
   }
 }
+
 /* Default: the right-cluster narrow-mode search icon is hidden when
    the absolute-centered bar is shown. The bar is the canonical search
    trigger at ≥1025 px. Specificity bumped to win over the generic
@@ -4206,6 +4580,7 @@ html[data-reduced-motion="true"] .mwc-blob {
 .martis-tb-icon-btn.martis-tb-search-icon--narrow {
   display: none;
 }
+
 /* Narrow topbars (≤1024px) — hide the absolute-centered bar entirely
    (it would otherwise collapse to a 36 px icon at the geometric centre
    of the topbar, where the right cluster's bell visually overlaps it).
@@ -4253,6 +4628,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   color: var(--martis-text-muted);
   line-height: 1;
 }
+
 .martis-tb-search kbd,
 .martis-tb-search .martis-kbd {
   font-family: var(--martis-font-mono);
@@ -4263,12 +4639,14 @@ html[data-reduced-motion="true"] .mwc-blob {
   border: 1px solid var(--martis-border);
   color: var(--martis-text-muted);
 }
+
 .martis-tb-right {
   display: flex;
   align-items: center;
   gap: 6px;
   margin-left: auto;
 }
+
 .martis-tb-icon-btn {
   width: 34px;
   height: 34px;
@@ -4339,12 +4717,14 @@ html[data-reduced-motion="true"] .mwc-blob {
   background: var(--martis-danger);
   border-radius: 50%;
 }
+
 .martis-tb-divider {
   width: 1px;
   height: 22px;
   background: var(--martis-border);
   margin: 0 4px;
 }
+
 .martis-tb-user {
   height: 34px;
   display: flex;
@@ -4388,6 +4768,7 @@ html[data-reduced-motion="true"] .mwc-blob {
     display: none;
   }
 }
+
 /* ============================================================
    SHELL — Topnav preset
    Horizontal top-navigation used when `config.layout.preset = 'topnav'`.
@@ -4404,6 +4785,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   border-bottom: 1px solid var(--martis-border);
   flex-shrink: 0;
 }
+
 .martis-topnav-brand {
   display: flex;
   align-items: center;
@@ -4441,6 +4823,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   letter-spacing: -0.01em;
   color: var(--martis-text);
 }
+
 .martis-topnav-links {
   display: flex;
   align-items: center;
@@ -4469,6 +4852,7 @@ html[data-reduced-motion="true"] .mwc-blob {
 .martis-topnav-links:hover::-webkit-scrollbar-thumb {
   background: var(--martis-border);
 }
+
 .martis-topnav-link {
   display: inline-flex;
   align-items: center;
@@ -4495,9 +4879,11 @@ html[data-reduced-motion="true"] .mwc-blob {
   background: var(--martis-accent-bg-light);
   color: var(--martis-accent);
 }
+
 .martis-topnav-group {
   position: relative;
 }
+
 .martis-topnav-dropdown-item {
   display: flex;
   align-items: center;
@@ -4521,6 +4907,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   background: var(--martis-accent-bg-light);
   color: var(--martis-accent);
 }
+
 .martis-topnav-right {
   display: flex;
   align-items: center;
@@ -4528,6 +4915,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   flex-shrink: 0;
   margin-left: auto;
 }
+
 .martis-topnav-breadcrumbs {
   display: flex;
   align-items: center;
@@ -4536,6 +4924,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   border-bottom: 1px solid var(--martis-border);
   background: var(--martis-bg);
 }
+
 /* Content area — single scroll container. The footer sits at the
    tail of this element as a flex child, so short pages push the footer
    to the viewport bottom while long pages let it scroll into view
@@ -4569,6 +4958,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   flex: 0 0 auto;
   margin-top: auto;
 }
+
 body {
   margin: 0;
   font-family: var(--martis-font-sans);
@@ -4580,15 +4970,18 @@ body {
   background-color: var(--martis-bg);
   color: var(--martis-text);
 }
+
 img, video {
   max-width: 100%;
   height: auto;
 }
+
 /* Remove default link underline globally */
 a {
   text-decoration: none;
   color: inherit;
 }
+
 /* Reset bare button elements */
 button {
   border: none;
@@ -4597,11 +4990,13 @@ button {
   cursor: pointer;
   padding: 0;
 }
+
 /* ── PrimeReact Dark theme import (conditional) ────────────────── */
 .dark body,
 html.dark body {
   color-scheme: dark;
 }
+
 /* ── DataTable ─────────────────────────────────────────────────── */
 .p-datatable {
   background: transparent;
@@ -4654,11 +5049,13 @@ html.dark body {
 .p-datatable .p-datatable-thead > tr > th button {
   cursor: pointer;
 }
+
 /* ── Checkbox ──────────────────────────────────────────────────── */
 .p-checkbox .p-checkbox-box.p-highlight {
   background-color: var(--martis-accent);
   border-color: var(--martis-accent);
 }
+
 /* ── Card ──────────────────────────────────────────────────────── */
 .p-card {
   background-color: var(--martis-card);
@@ -4669,6 +5066,7 @@ html.dark body {
 .p-card:hover {
   border-color: var(--martis-accent);
 }
+
 /* ── InputText ─────────────────────────────────────────────────── */
 .p-inputtext {
   background-color: var(--martis-input-bg);
@@ -4685,6 +5083,7 @@ html.dark body {
 .p-inputtext::placeholder {
   color: var(--martis-text-muted);
 }
+
 /* ── Button ────────────────────────────────────────────────────── */
 /* Primary filled button (default — not outlined, not text) */
 .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link):not(.p-button-danger) {
@@ -4699,6 +5098,7 @@ html.dark body {
 .p-button:focus {
   box-shadow: 0 0 0 2px var(--martis-bg), 0 0 0 4px var(--martis-accent);
 }
+
 /* Outlined button (accent variant) */
 .p-button.p-button-outlined:not(.p-button-danger) {
   background: transparent;
@@ -4710,6 +5110,7 @@ html.dark body {
   border-color: var(--martis-accent);
   color: var(--martis-accent);
 }
+
 /* Danger filled button */
 .p-button.p-button-danger:not(.p-button-outlined):not(.p-button-text) {
   background-color: var(--martis-danger);
@@ -4720,6 +5121,7 @@ html.dark body {
   background-color: var(--martis-danger-hover);
   border-color: var(--martis-danger-hover);
 }
+
 /* Danger outlined button */
 .p-button.p-button-danger.p-button-outlined {
   background: transparent;
@@ -4731,6 +5133,7 @@ html.dark body {
   border-color: var(--martis-danger);
   color: var(--martis-danger);
 }
+
 /* Button text variant */
 .p-button.p-button-text {
   background: transparent;
@@ -4741,6 +5144,7 @@ html.dark body {
   background-color: var(--martis-hover);
   border-color: transparent;
 }
+
 /* ── Fix: Bell / icon-only button — subtle focus & hover ───────── */
 .p-button.p-button-rounded.p-button-text:focus,
 .p-button.p-button-rounded.p-button-text:focus-visible {
@@ -4755,10 +5159,12 @@ html.dark body {
   box-shadow: none !important;
   outline: none !important;
 }
+
 /* ── Icon-only button sizing ───────────────────────────────────── */
 .p-button.p-button-icon-only.p-button-text {
     padding: 0.5rem;
 }
+
 /* ── Dialog / Modal ────────────────────────────────────────────── */
 .p-dialog {
   background-color: var(--martis-sidebar);
@@ -4775,6 +5181,7 @@ html.dark body {
 .p-dialog .p-dialog-footer {
   background-color: var(--martis-sidebar);
 }
+
 /* ── Dropdown ──────────────────────────────────────────────────── */
 .p-dropdown-panel {
   background-color: var(--martis-sidebar);
@@ -4783,11 +5190,13 @@ html.dark body {
 .p-dropdown-panel .p-dropdown-items .p-dropdown-item:hover {
   background-color: var(--martis-surface);
 }
+
 /* A Select that mixes grouped and ungrouped options (v2.0.0) puts the
    ungrouped ones in a leading group with no heading: hide that heading. */
 .p-dropdown-panel .p-dropdown-items .p-dropdown-item-group:has(> .p-dropdown-item-group-label:empty) {
   display: none;
 }
+
 /* ── Toast ─────────────────────────────────────────────────────── */
 /* F7-39 — PrimeReact Toast aligned to the design-system Catalog spec.
    320px minimum, surface + border + token shadow, severity colour
@@ -4845,6 +5254,7 @@ html.dark body {
   background: var(--martis-hover) !important;
   color: var(--martis-text) !important;
 }
+
 /* ── Menu popup — Fix text visibility ──────────────────────────── */
 .p-menu {
   background-color: var(--martis-card);
@@ -4874,6 +5284,7 @@ html.dark body {
 .p-menu .p-menuitem-link.p-disabled {
   opacity: 1 !important;
 }
+
 /* ── Martis Layout Helpers ─────────────────────────────────────── */
 .martis-bg { background-color: var(--martis-bg); }
 .martis-surface { background-color: var(--martis-surface); }
@@ -4885,6 +5296,7 @@ html.dark body {
 .martis-border { border-color: var(--martis-border); }
 .martis-input-bg { background-color: var(--martis-input-bg); }
 .martis-surface-alt { background-color: var(--martis-surface-alt); }
+
 /* ── Custom Input — aligned to design-system `.input` spec ─────
    Fixed 36px height with radius-md, horizontal padding `10px`, and a
    focus glow (3px accent ring) matching Catalog.html:1265-1280. Error
@@ -4937,6 +5349,7 @@ html.dark body {
   resize: vertical;
   line-height: 1.5;
 }
+
 /* ── Form wrapper — colocates label + input + help/error ──────
    Vertical stack with 6px gap. Matches Catalog `.input-wrap` spec
    (label 12px/500, help + error-text 12px, error with icon). Every
@@ -4987,6 +5400,7 @@ html.dark body {
 .martis-input-error svg {
   flex-shrink: 0;
 }
+
 /* ── Global Search Modal ───────────────────────────────────────── */
 .martis-search-overlay {
   position: fixed;
@@ -5043,6 +5457,7 @@ html.dark body {
 .martis-search-item.active {
   background-color: var(--martis-hover);
 }
+
 /* ── Toast Notifications (custom) ──────────────────────────────── */
 .martis-toast-container {
   position: fixed;
@@ -5059,6 +5474,7 @@ html.dark body {
 .martis-toast-container.pos-bottom-left { bottom: 16px; left: 16px; }
 .martis-toast-container.pos-top-center { top: 16px; left: 50%; transform: translateX(-50%); }
 .martis-toast-container.pos-bottom-center { bottom: 16px; left: 50%; transform: translateX(-50%); }
+
 /* F7-39 — Toast spec aligned to the design system Catalog. 320px
    minimum width, surface bg, design-token shadow, icon bubble + title +
    message + close + optional progress bar. */
@@ -5146,14 +5562,17 @@ html.dark body {
 .martis-toast-error { border-left: 4px solid var(--martis-danger); }
 .martis-toast-warning { border-left: 4px solid var(--martis-warning); }
 .martis-toast-info { border-left: 4px solid var(--martis-info); }
+
 @keyframes martis-toast-in {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
 /* ── PrimeReact Light Theme Overrides ──────────────────────────── */
 html:not(.dark) .p-component {
   color-scheme: light;
 }
+
 html:not(.dark),
 html:not(.dark) body {
   color-scheme: light;
@@ -5189,6 +5608,7 @@ html:not(.dark) .p-datatable .p-datatable-tbody > tr {
   color: var(--martis-text);
   border-color: var(--martis-border);
 }
+
 /* Light theme menu — ensure text is dark and visible */
 html:not(.dark) .p-menu {
   background-color: var(--martis-card);
@@ -5209,6 +5629,7 @@ html:not(.dark) .p-menu .p-menuitem.p-disabled .p-menuitem-link,
 html:not(.dark) .p-menu .p-menuitem-link.p-disabled {
   opacity: 1 !important;
 }
+
 /* ── Light Theme — Menu focus/highlight fix ─────────────────────── */
 html:not(.dark) .p-menu .p-menuitem-link:focus,
 html:not(.dark) .p-menu .p-menuitem-link.p-focus,
@@ -5240,6 +5661,7 @@ html:not(.dark) .p-menu .p-menuitem:hover > .p-menuitem-content .p-menuitem-link
 html:not(.dark) .p-menu .p-menu-separator {
   border-color: var(--martis-border);
 }
+
 /* Light theme — InputSwitch (toggle) */
 html:not(.dark) .p-inputswitch .p-inputswitch-slider {
   background: color-mix(in srgb, var(--martis-text-muted) 25%, var(--martis-border));
@@ -5259,6 +5681,7 @@ html:not(.dark) .p-inputswitch:not(.p-disabled):has(.p-inputswitch-input:hover) 
 html:not(.dark) .p-inputswitch:not(.p-disabled):has(.p-inputswitch-input:hover).p-highlight .p-inputswitch-slider {
   background: var(--martis-accent-hover);
 }
+
 /* Light theme — Dialog/Modal */
 html:not(.dark) .p-dialog {
   background-color: var(--martis-surface);
@@ -5272,12 +5695,14 @@ html:not(.dark) .p-dialog .p-dialog-content {
   background-color: var(--martis-surface);
   color: var(--martis-text);
 }
+
 /* Light theme — Dropdown panel */
 html:not(.dark) .p-dropdown-panel .p-dropdown-items .p-dropdown-item:hover,
 html:not(.dark) .p-dropdown-panel .p-dropdown-items .p-dropdown-item.p-focus {
   background-color: var(--martis-hover) !important;
   color: var(--martis-text) !important;
 }
+
 /* Light theme — InputText */
 html:not(.dark) .p-inputtext::-moz-placeholder {
   color: var(--martis-text-muted);
@@ -5285,6 +5710,8 @@ html:not(.dark) .p-inputtext::-moz-placeholder {
 html:not(.dark) .p-inputtext::placeholder {
   color: var(--martis-text-muted);
 }
+
+
 /* ── Login Button — prominent styling ──────────────────────────── */
 .p-button.p-button-raised {
   font-weight: 700;
@@ -5300,11 +5727,13 @@ html:not(.dark) .p-inputtext::placeholder {
   padding: 0.875rem 1.5rem;
   font-size: 1rem;
 }
+
 /* ── Menu Separator — thicker divider lines ────────────────────── */
 .p-menu .p-menu-separator {
   border-top: 1px solid var(--martis-border);
   margin: 4px 0;
 }
+
 /* ── Menu items — comfortable padding and readable text ────────── */
 .p-menu .p-menuitem > .p-menuitem-content {
   padding: 0;
@@ -5313,6 +5742,7 @@ html:not(.dark) .p-inputtext::placeholder {
   padding: 0.625rem 1rem;
   gap: 0.625rem;
 }
+
 /* ── Light Theme — Calendar / DatePicker (REA-1140) ────────────── */
 /* The popup surfaces and text come from the token theme; these rules
    keep the Martis navigation, hover and time-picker states.        */
@@ -5360,6 +5790,8 @@ html:not(.dark) .p-calendar .p-datepicker-trigger:hover {
   background-color: var(--martis-accent-hover);
   border-color: var(--martis-accent-hover);
 }
+
+
 /* ── Fix #3: Light Theme — File/Image upload zones (REA-1140) ──── */
 /* Dashed border + stronger color for upload zones in light mode    */
 html:not(.dark) .martis-dropzone {
@@ -5367,10 +5799,13 @@ html:not(.dark) .martis-dropzone {
   border-color: #cbd5e1 !important;
   background-color: #f8fafc !important;
 }
+
 /* ── Themed dividers (uses CSS variables for border color) ──── */
 .martis-divide > * + * {
   border-top: 1px solid var(--martis-border);
 }
+
+
 /* ── BelongsTo Dropdown ────────────────────────────────────────── */
 .martis-belongs-to-trigger {
   display: flex;
@@ -5493,6 +5928,8 @@ html:not(.dark) .martis-dropzone {
   font-size: 0.875rem;
   color: var(--martis-text-muted);
 }
+
+
 /* Resource search input placeholder */
 .martis-resource-search::-moz-placeholder {
   color: var(--martis-text-muted);
@@ -5502,6 +5939,7 @@ html:not(.dark) .martis-dropzone {
   color: var(--martis-text-muted);
   opacity: 0.7;
 }
+
 /* DataTable — mirrors `.table` in Martis Shell.html (line 862+).
    Any deviation here is a spec regression, not a choice. */
 .martis-datatable {
@@ -5511,6 +5949,7 @@ html:not(.dark) .martis-dropzone {
   background-color: var(--martis-card);
   font-family: var(--martis-font-sans);
 }
+
 .martis-datatable table,
 .martis-datatable .p-datatable-table {
   width: 100%;
@@ -5519,6 +5958,7 @@ html:not(.dark) .martis-dropzone {
   font-family: var(--martis-font-sans);
   font-size: var(--martis-text-sm);
 }
+
 .martis-datatable thead th {
   height: 38px;
   padding: 0 14px;
@@ -5532,12 +5972,15 @@ html:not(.dark) .martis-dropzone {
   text-align: left;
   white-space: nowrap;
 }
+
 .martis-datatable tbody tr {
   transition: background-color 0.15s ease;
 }
+
 .martis-datatable tbody tr:last-child {
   border-bottom: none;
 }
+
 /* Shell spec: hover + zebra applied to TD so they override the (transparent)
    TR background without colliding with the selected-row tint. */
 .martis-datatable tbody tr:nth-child(even) td {
@@ -5548,6 +5991,7 @@ html:not(.dark) .martis-dropzone {
   background-color: var(--martis-row-hover);
   cursor: pointer;
 }
+
 /* Default cell typography — mirrors `.table .cell-mono` in Martis Shell
    as the project's table-wide default: JetBrains Mono, 12px, muted.
    Badges and links below override this with Inter + accent respectively. */
@@ -5578,21 +6022,25 @@ html:not(.dark) .martis-dropzone {
 .martis-datatable tbody td a:hover {
   text-decoration: underline;
 }
+
 /* Checkbox column */
 .martis-datatable th.martis-select-column,
 .martis-datatable td.martis-select-column {
   width: 3rem;
   text-align: center;
 }
+
 /* Sort icon */
 .martis-datatable .martis-sort-icon {
   display: inline-flex;
   margin-left: 0.25rem;
   opacity: 0.4;
 }
+
 .martis-datatable th:hover .martis-sort-icon {
   opacity: 0.8;
 }
+
 /* Sortable-column hint — tiny double caret shown next to the label on
    columns that can be sorted. Discreet at rest (0.3) so it doesn't
    compete with the data; brighter on hover so the affordance is
@@ -5605,6 +6053,7 @@ html:not(.dark) .martis-dropzone {
 .martis-th-sortable:hover .martis-th-sort-hint {
   opacity: 0.7;
 }
+
 /* ── Fix: Checkbox check-mark visibility in dark theme (REA-1140) ── */
 /* PrimeReact checkbox checked icon inherits text color — force white */
 .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,
@@ -5676,6 +6125,7 @@ html:not(.dark) .martis-dropzone {
   opacity: 0.55;
   cursor: not-allowed;
 }
+
 /* ============================================================
    Fase 7 F7-29 — Radio
    16×16 circular, 1px border on input-bg at rest; accent border
@@ -5744,6 +6194,7 @@ html:not(.dark) .martis-dropzone {
   flex-direction: column;
   gap: 8px;
 }
+
 /* ============================================================
    Fase 7 F7-30 — Switch / Toggle
    Track 32×18 rounded pill on `--martis-border`, 14×14 white knob
@@ -5810,6 +6261,7 @@ html:not(.dark) .martis-dropzone {
 .martis-switch-input:disabled ~ .martis-switch-label {
   opacity: 0.55;
 }
+
 /* Checkbox — matches the design-system spec: 16x16, radius-sm, border
    on input-bg at rest, accent-filled when checked with a white "L"
    check drawn via borders (so no SVG stroke mismatch across themes). */
@@ -5846,17 +6298,20 @@ html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-icon {
   color: var(--martis-accent-contrast, #ffffff) !important;
   fill: var(--martis-accent-contrast, #ffffff) !important;
 }
+
 /* Header colours live in `.martis-datatable .p-datatable-thead > tr > th`
    below (Shell spec: 38px, 12px semibold, 1px border). Keep TR borderless
    in both themes so the TD-level separators stay authoritative. */
 .martis-datatable tbody tr {
   border-bottom: 0 !important;
 }
+
 /* Row separators now live on the TD (see DataTable row border overrides
    block further below) — keep the TR border off in both themes. */
 html:not(.dark) .martis-datatable tbody tr {
   border-bottom: 0 !important;
 }
+
 /* PrimeReact DataTable header overrides — Shell spec (`.table thead th`):
    38px tall, 12px semibold, 0.04em, 1px bottom border, 0 14px padding. */
 .martis-datatable .p-datatable-thead > tr > th {
@@ -5870,6 +6325,7 @@ html:not(.dark) .martis-datatable tbody tr {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+
 /* Row separator lives on the TD (mirrors design-system `.table tbody td`)
    so the hairline stays visible above zebra stripes and selected rows. */
 .martis-datatable .p-datatable-tbody > tr {
@@ -5885,6 +6341,7 @@ html:not(.dark) .martis-datatable tbody tr {
 .martis-datatable .p-datatable-tbody > tr:last-child > td {
   border-bottom: 0 !important;
 }
+
 /* ── Per-page selector styling ─────────────────────────────────── */
 .martis-perpage-select {
   -moz-appearance: none;
@@ -5913,6 +6370,7 @@ html:not(.dark) .martis-datatable tbody tr {
   outline: none;
   box-shadow: none;
 }
+
 /* ── Fix: Paginator full light theme override (REA-1140) ─────────
    PrimeReact lara-dark-indigo bleeds dark styles into light mode.
    Force correct colors on all paginator interactive elements.
@@ -5945,6 +6403,7 @@ html:not(.dark) .p-paginator .p-paginator-last:hover {
   background-color: var(--martis-hover) !important;
   color: var(--martis-text) !important;
 }
+
 /* ── Fix: Light theme striped rows visibility (REA-1140) ─────────
    --martis-surface in light = #ffffff = same as row bg → invisible.
    Use a slightly tinted background for even rows in light mode.
@@ -5956,6 +6415,7 @@ html:not(.dark) .martis-datatable-striped .p-datatable-tbody > tr:nth-child(even
 html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even):hover > td {
   background-color: var(--martis-row-hover) !important;
 }
+
 /* ── DataTable gridlines support (REA-1140) ──────────────────────
    Applied via .martis-datatable-gridlines class from Resource PHP  */
 .martis-datatable-gridlines .p-datatable-tbody > tr > td,
@@ -5974,6 +6434,7 @@ html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even):hover > td {
 .martis-datatable-gridlines thead th:last-child {
   border-right: none !important;
 }
+
 /* ── DataTable loading spinner fix (REA-1109) ────────────────────
    PrimeReact DataTable loading spinner uses black by default.
    Override to use --martis-accent for both themes.                 */
@@ -5988,6 +6449,7 @@ html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even):hover > td {
   width: 2rem;
   height: 2rem;
 }
+
 /* ── DataTable size variants (REA-1140) ──────────────────────────
    .martis-datatable-sm / .martis-datatable-lg for compact/large    */
 .martis-datatable-sm .p-datatable-tbody > tr > td,
@@ -6008,6 +6470,7 @@ html:not(.dark) .martis-datatable-striped tbody tr:nth-child(even):hover > td {
 .martis-datatable-lg thead th {
   padding: 1rem 1.25rem !important;
 }
+
 /* Index surface — single card container that holds the DataTable
    header, rows AND the pagination footer. Matches the design-system
    spec where "N selected · X of Y" and the paginator read as the
@@ -6053,6 +6516,7 @@ html[data-density="dense"] .martis-index-toolbar {
      top, no extra border below. */
   border-top: 1px solid var(--martis-border);
 }
+
 /* Standalone pagination (outside `.martis-index-surface`) keeps its
    legacy clean transition. */
 .martis-pagination-wrapper {
@@ -6127,6 +6591,7 @@ html[data-density="dense"] .martis-index-toolbar {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
 /* Compact paginator buttons — applied globally so inline paginators
    in drawers / dialogs stay tight. Sidebar-level polish lives in the
    `.martis-paginator` rules above. */
@@ -6148,6 +6613,7 @@ html[data-density="dense"] .martis-index-toolbar {
   width: 0.75rem !important;
   height: 0.75rem !important;
 }
+
 /* ── DataTable no-hover variant (REA-1140) ──────────────────────
    Disable row hover effect when tableRowHover is false             */
 .martis-datatable-no-hover .p-datatable-tbody > tr:hover,
@@ -6155,36 +6621,43 @@ html[data-density="dense"] .martis-index-toolbar {
   background-color: inherit !important;
   cursor: default !important;
 }
+
 /* == Trix Editor — Dark Mode & Theme Integration ==========================
    Ensures Trix toolbar, dialogs, and content area integrate
    with the Martis dark/light theme system.
    ========================================================================= */
+
 /* Wrapper styling */
 .martis-trix-wrapper {
   border: 1px solid var(--martis-border);
   border-radius: 0.375rem;
   overflow: hidden;
 }
+
 /* Trix toolbar */
 .martis-trix-wrapper trix-toolbar {
   background-color: var(--martis-surface-alt, var(--martis-surface));
   border-bottom: 1px solid var(--martis-border);
   padding: 0.25rem;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-button-row {
   display: flex;
   flex-wrap: wrap;
   gap: 0;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-button-group {
   border: 1px solid var(--martis-border);
   border-radius: 0.25rem;
   margin: 0.125rem 0.25rem 0.125rem 0;
   overflow: hidden;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-button-group:not(:first-child) {
   margin-left: 0;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-button {
   background-color: transparent;
   border: none;
@@ -6194,23 +6667,29 @@ html[data-density="dense"] .martis-index-toolbar {
   min-width: 2rem;
   height: 2rem;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-button::before {
   filter: var(--martis-trix-icon-filter, none);
 }
+
 .martis-trix-wrapper trix-toolbar .trix-button:hover {
   background-color: var(--martis-hover);
 }
+
 .martis-trix-wrapper trix-toolbar .trix-button.trix-active {
   background-color: var(--martis-active);
   color: var(--martis-accent);
 }
+
 .martis-trix-wrapper trix-toolbar .trix-button:not(:first-child) {
   border-left: 1px solid var(--martis-border);
 }
+
 /* Trix dialogs (link dialog, etc.) */
 .martis-trix-wrapper trix-toolbar .trix-dialogs {
   position: relative;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-dialog {
   background-color: var(--martis-card);
   border: 1px solid var(--martis-border);
@@ -6219,11 +6698,13 @@ html[data-density="dense"] .martis-index-toolbar {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
   margin-top: 0.25rem;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-dialog__link-fields {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-dialog input[type="url"],
 .martis-trix-wrapper trix-toolbar .trix-dialog input[type="text"] {
   background-color: var(--martis-input-bg);
@@ -6236,20 +6717,24 @@ html[data-density="dense"] .martis-index-toolbar {
   min-width: 200px;
   outline: none;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-dialog input[type="url"]:focus,
 .martis-trix-wrapper trix-toolbar .trix-dialog input[type="text"]:focus {
   border-color: var(--martis-accent);
   box-shadow: 0 0 0 2px var(--martis-focus-ring);
 }
+
 .martis-trix-wrapper trix-toolbar .trix-dialog input[type="url"].martis-invalid,
 .martis-trix-wrapper trix-toolbar .trix-dialog input[type="text"].martis-invalid {
   border-color: #ef4444;
   box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
 }
+
 .martis-trix-wrapper trix-toolbar .trix-dialog .trix-button-group {
   margin: 0;
   border: none;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-dialog .trix-button-group .trix-button {
   background-color: var(--martis-accent);
   color: var(--martis-accent-contrast, #ffffff);
@@ -6263,13 +6748,16 @@ html[data-density="dense"] .martis-index-toolbar {
   height: auto;
   border: none;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-dialog .trix-button-group .trix-button:hover {
   background-color: var(--martis-accent-hover);
 }
+
 .martis-trix-wrapper trix-toolbar .trix-dialog .trix-button-group .trix-button:not(:first-child) {
   border-left: none;
   margin-left: 0.25rem;
 }
+
 /* Trix editor content area */
 .martis-trix-wrapper trix-editor {
   background-color: var(--martis-input-bg);
@@ -6281,19 +6769,23 @@ html[data-density="dense"] .martis-index-toolbar {
   line-height: 1.5;
   outline: none;
 }
+
 .martis-trix-wrapper trix-editor:empty::before {
   color: var(--martis-text-muted);
 }
+
 .martis-trix-wrapper trix-editor a {
   color: var(--martis-accent);
   text-decoration: underline;
 }
+
 .martis-trix-wrapper trix-editor blockquote {
   border-left: 3px solid var(--martis-border);
   padding-left: 0.75rem;
   color: var(--martis-text-muted);
   margin: 0.5rem 0;
 }
+
 .martis-trix-wrapper trix-editor pre {
   background-color: var(--martis-surface);
   border: 1px solid var(--martis-border);
@@ -6302,60 +6794,75 @@ html[data-density="dense"] .martis-index-toolbar {
   font-size: 0.8125rem;
   overflow-x: auto;
 }
+
 .martis-trix-wrapper trix-editor ul,
 .martis-trix-wrapper trix-editor ol {
   padding-left: 1.5rem;
 }
+
 .martis-trix-wrapper trix-editor h1 {
   font-size: 1.25rem;
   font-weight: 700;
   margin: 0.75rem 0 0.375rem;
 }
+
 /* Attachment (image) styling within trix */
 .martis-trix-wrapper trix-editor figure.attachment {
   margin: 0.5rem 0;
 }
+
 .martis-trix-wrapper trix-editor figure.attachment img {
   max-width: 100%;
   border-radius: 0.25rem;
 }
+
 .martis-trix-wrapper trix-editor figure.attachment .attachment__caption {
   color: var(--martis-text-muted);
   font-size: 0.75rem;
   text-align: center;
   padding: 0.25rem 0;
 }
+
 /* Progress bar for uploading attachments */
 .martis-trix-wrapper trix-editor figure.attachment .attachment__progress {
   height: 3px;
   background-color: var(--martis-accent);
 }
+
 /* Dark mode icon filter — invert the trix button icons */
 :root {
   --martis-trix-icon-filter: invert(0.85);
 }
+
 html:not(.dark) {
   --martis-trix-icon-filter: none;
 }
+
 /* Light mode overrides */
 html:not(.dark) .martis-trix-wrapper trix-toolbar {
   background-color: #f9fafb;
 }
+
 html:not(.dark) .martis-trix-wrapper trix-editor {
   background-color: #ffffff;
 }
+
 /* == Trix Detail View — Link Styling ====================================
    Ensures links in rendered Trix HTML content (detail page) are visible
    and distinguishable from regular text.
    ======================================================================= */
+
 .martis-trix-detail a {
   color: var(--martis-accent, #6366f1);
   text-decoration: underline;
   cursor: pointer;
 }
+
 .martis-trix-detail a:hover {
   color: var(--martis-accent-hover, #4f46e5);
 }
+
+
 /* == F7-41 — CodeMirror theme aligned to Martis design tokens.
    Surface, gutter, mono font and selection rgba all resolve from
    `--martis-*` tokens so the editor follows accent / theme overrides
@@ -6367,38 +6874,48 @@ html:not(.dark) .martis-trix-wrapper trix-editor {
   font-size: var(--martis-text-sm, 13px) !important;
   border-radius: var(--martis-radius-md);
 }
+
 .cm-editor .cm-gutters {
   background-color: var(--martis-surface) !important;
   border-right-color: var(--martis-border) !important;
   color: var(--martis-text-muted) !important;
 }
+
 html:not(.dark) .cm-editor {
   background-color: var(--martis-input-bg) !important;
 }
+
 html:not(.dark) .cm-editor .cm-gutters {
   background-color: var(--martis-surface) !important;
   border-right-color: var(--martis-border) !important;
 }
+
+
 /* == Bug 2+7: Global text selection — legible in both themes (REA-1163) ====
    Without explicit selection colors, browser defaults can produce
    dark-on-dark or light-on-light selection in the wrong theme.
    ======================================================================= */
+
 ::-moz-selection {
   background-color: color-mix(in srgb, var(--martis-accent) 25%, transparent);
   color: var(--martis-text);
 }
+
 ::selection {
   background-color: color-mix(in srgb, var(--martis-accent) 25%, transparent);
   color: var(--martis-text);
 }
+
 html:not(.dark) ::-moz-selection {
   background-color: color-mix(in srgb, var(--martis-accent) 20%, transparent);
   color: var(--martis-text);
 }
+
 html:not(.dark) ::selection {
   background-color: color-mix(in srgb, var(--martis-accent) 20%, transparent);
   color: var(--martis-text);
 }
+
 /* Textarea / code editors explicit selection */
 textarea::-moz-selection, .cm-editor .cm-content ::-moz-selection, .martis-trix-wrapper trix-editor ::-moz-selection {
   background-color: color-mix(in srgb, var(--martis-accent) 25%, transparent);
@@ -6410,84 +6927,106 @@ textarea::selection,
   background-color: color-mix(in srgb, var(--martis-accent) 25%, transparent);
   color: var(--martis-text);
 }
+
 html:not(.dark) textarea::-moz-selection, html:not(.dark) .cm-editor .cm-content ::-moz-selection, html:not(.dark) .martis-trix-wrapper trix-editor ::-moz-selection {
   background-color: color-mix(in srgb, var(--martis-accent) 20%, transparent);
   color: var(--martis-text);
 }
+
 html:not(.dark) textarea::selection,
 html:not(.dark) .cm-editor .cm-content ::selection,
 html:not(.dark) .martis-trix-wrapper trix-editor ::selection {
   background-color: color-mix(in srgb, var(--martis-accent) 20%, transparent);
   color: var(--martis-text);
 }
+
 /* == Bug 4: Country dropdown — light theme panel background (REA-1163) ====
    PrimeReact dropdown filter input and overlay inherit from dark theme.
    Force proper light backgrounds on all dropdown sub-elements.
    ======================================================================= */
+
 html:not(.dark) .p-dropdown-panel .p-dropdown-header {
   background-color: var(--martis-surface);
   border-bottom-color: var(--martis-border);
 }
+
 html:not(.dark) .p-dropdown-panel .p-dropdown-header .p-dropdown-filter {
   background-color: var(--martis-input-bg);
   color: var(--martis-text);
   border-color: var(--martis-border);
 }
+
 html:not(.dark) .p-dropdown-panel .p-dropdown-header .p-dropdown-filter::-moz-placeholder {
   color: var(--martis-text-muted);
 }
+
 html:not(.dark) .p-dropdown-panel .p-dropdown-header .p-dropdown-filter::placeholder {
   color: var(--martis-text-muted);
 }
+
 /* Dropdown overlay — ensure it uses z-index above other elements */
 .p-dropdown-panel {
   z-index: 1100 !important;
 }
+
 /* == Bug 5: CodeMirror — light theme active line & cursor (REA-1163) ======
    The dark theme extension sets dark active-line highlight.
    In light mode ensure visible but subtle active line.
    ======================================================================= */
+
 html:not(.dark) .cm-editor .cm-activeLine {
   background-color: color-mix(in srgb, var(--martis-accent) 6%, transparent) !important;
 }
+
 html:not(.dark) .cm-editor .cm-activeLineGutter {
   background-color: color-mix(in srgb, var(--martis-accent) 8%, transparent) !important;
 }
+
 html:not(.dark) .cm-editor .cm-cursor {
   border-left-color: var(--martis-text) !important;
 }
+
 html:not(.dark) .cm-editor .cm-gutterElement {
   color: var(--martis-text-muted) !important;
 }
+
 html:not(.dark) .cm-editor .cm-content {
   color: var(--martis-text) !important;
 }
+
 /* CodeMirror selection — accent-tinted in both themes. */
 html:not(.dark) .cm-editor .cm-selectionBackground {
   background-color: color-mix(in srgb, var(--martis-accent) 15%, transparent) !important;
 }
+
 .cm-editor .cm-selectionBackground {
   background-color: color-mix(in srgb, var(--martis-accent) 30%, transparent) !important;
 }
+
 /* == Bug 6: Color picker popup — light theme (REA-1163) ===================
    Native color input popup doesn't need CSS, but the container border
    and text should follow theme variables properly.
    ======================================================================= */
+
 input[type="color"] {
   border-color: var(--martis-border);
   background-color: var(--martis-input-bg);
 }
+
 input[type="color"]::-webkit-color-swatch-wrapper {
   padding: 2px;
 }
+
 input[type="color"]::-webkit-color-swatch {
   border: 1px solid var(--martis-border);
   border-radius: 2px;
 }
+
 /* == Bug 8: Trix toolbar buttons — constrained sizing (REA-1163) ==========
    Trix default CSS creates oversized toolbar buttons.
    Constrain icons and button dimensions for a clean toolbar.
    ======================================================================= */
+
 .martis-trix-wrapper trix-toolbar .trix-button::before {
   width: 1rem;
   height: 1rem;
@@ -6495,6 +7034,7 @@ input[type="color"]::-webkit-color-swatch {
   max-height: 1rem;
   background-size: contain;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-button {
   width: 2rem;
   max-width: 2rem;
@@ -6505,9 +7045,11 @@ input[type="color"]::-webkit-color-swatch {
   align-items: center;
   justify-content: center;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-button-group {
   display: inline-flex;
 }
+
 /* Trix file tools button group — also constrain */
 .martis-trix-wrapper trix-toolbar .trix-button-group--file-tools .trix-button {
   width: 2rem;
@@ -6515,35 +7057,44 @@ input[type="color"]::-webkit-color-swatch {
   height: 2rem;
   max-height: 2rem;
 }
+
 /* == Fix: Trix attachment caption editor — theme-aware (REA-1163 v2) ======
    The caption editor input inside figure.attachment needs theme colors.
    ======================================================================= */
+
 .martis-trix-wrapper trix-editor figure.attachment .attachment__caption-editor {
   color: var(--martis-text-muted);
   background-color: transparent;
   border: none;
   outline: none;
 }
+
 .martis-trix-wrapper trix-editor figure.attachment figcaption {
   color: var(--martis-text-muted);
   background-color: var(--martis-surface);
   border-top: 1px solid var(--martis-border);
 }
+
 html:not(.dark) .martis-trix-wrapper trix-editor figure.attachment figcaption {
   background-color: #f9fafb;
 }
+
 /* == Fix: Trix dialog link-fields layout — prevent button overflow ========
    Ensure the link dialog buttons wrap properly and don't overflow.
    ======================================================================= */
+
 .martis-trix-wrapper trix-toolbar .trix-dialog__link-fields {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
+
+
 /* == Trix toolbar size variants — user-configurable via toolbarSize() =====
    sm = compact, md = default, lg = large.
    ======================================================================= */
+
 .martis-trix-toolbar-sm .trix-button {
   width: 1.5rem !important;
   max-width: 1.5rem !important;
@@ -6551,12 +7102,14 @@ html:not(.dark) .martis-trix-wrapper trix-editor figure.attachment figcaption {
   max-height: 1.5rem !important;
   padding: 0.25rem !important;
 }
+
 .martis-trix-toolbar-sm .trix-button::before {
   width: 0.75rem !important;
   height: 0.75rem !important;
   max-width: 0.75rem !important;
   max-height: 0.75rem !important;
 }
+
 .martis-trix-toolbar-lg .trix-button {
   width: 2.5rem !important;
   max-width: 2.5rem !important;
@@ -6564,12 +7117,14 @@ html:not(.dark) .martis-trix-wrapper trix-editor figure.attachment figcaption {
   max-height: 2.5rem !important;
   padding: 0.5rem !important;
 }
+
 .martis-trix-toolbar-lg .trix-button::before {
   width: 1.25rem !important;
   height: 1.25rem !important;
   max-width: 1.25rem !important;
   max-height: 1.25rem !important;
 }
+
 /* Dialog buttons inside sized toolbars — always auto width */
 .martis-trix-toolbar-sm .trix-dialog .trix-button,
 .martis-trix-toolbar-lg .trix-dialog .trix-button {
@@ -6578,41 +7133,50 @@ html:not(.dark) .martis-trix-wrapper trix-editor figure.attachment figcaption {
   height: auto !important;
   max-height: none !important;
 }
+
 /* == Fix: Trix caption font consistency (REA-1163 v3) =====================
    The caption editor (input) and the display caption must use the same
    font so text doesn't visually shift between editing and saved state.
    ======================================================================= */
+
 .martis-trix-wrapper trix-editor figure.attachment figcaption {
   font-family: inherit;
   font-size: 0.75rem;
   font-style: italic;
 }
+
 .martis-trix-wrapper trix-editor figure.attachment .attachment__caption-editor {
   font-family: inherit;
   font-size: 0.75rem;
   font-style: italic;
 }
+
 .martis-trix-wrapper trix-editor figure.attachment .attachment__caption {
   font-family: inherit;
 }
+
 .martis-trix-wrapper trix-editor figure.attachment .attachment__name {
   color: var(--martis-text-muted);
   font-size: 0.6875rem;
 }
+
 /* == Fix: Trix toolbar buttons — icon centering (REA-1163 v3) =============
    Default Trix uses float:left + absolute positioning for icons.
    Override with transform-based centering for pixel-perfect alignment.
    ======================================================================= */
+
 .martis-trix-wrapper trix-toolbar .trix-button-row {
   display: flex;
   flex-wrap: wrap;
   gap: 0;
   align-items: stretch;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-button-group {
   display: inline-flex !important;
   align-items: stretch;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-button {
   float: none !important;
   display: inline-flex !important;
@@ -6621,10 +7185,12 @@ html:not(.dark) .martis-trix-wrapper trix-editor figure.attachment figcaption {
   position: relative;
   box-sizing: border-box;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-button--icon {
   text-indent: -9999px;
   overflow: hidden;
 }
+
 .martis-trix-wrapper trix-toolbar .trix-button--icon::before {
   position: absolute !important;
   top: 50% !important;
@@ -6637,19 +7203,23 @@ html:not(.dark) .martis-trix-wrapper trix-editor figure.attachment figcaption {
   max-width: 1rem !important;
   max-height: 1rem !important;
 }
+
 /* == Fix: Dropdown empty-message + clear icon — light theme (REA-1166) ====
    PrimeReact "No results found." text inherits white from dark theme.
    Clear icon also invisible in light mode.
    ======================================================================= */
+
 html:not(.dark) .p-dropdown-panel .p-dropdown-empty-message {
   color: var(--martis-text-muted) !important;
   padding: 0.75rem 1rem;
 }
+
 /* == REA-1166 v6: Country dropdown — complete fix ========================
    Fixes: focus border, clear button alignment at same level as chevron,
    no inner border on click, dropdown resize on clear, placeholder config,
    panel gap.
    ======================================================================= */
+
 /* -- Base: consistent sizing -------------------------------------------- */
 .p-dropdown {
   min-height: 2.5rem !important;
@@ -6664,6 +7234,7 @@ html:not(.dark) .p-dropdown-panel .p-dropdown-empty-message {
   align-items: center !important;
   min-height: 1.5rem !important;
 }
+
 /* -- Focus/active: clean single border, NO inner ring/shadow ------------ */
 .p-dropdown:not(.p-disabled).p-focus,
 .p-dropdown:not(.p-disabled):focus,
@@ -6689,6 +7260,7 @@ html:not(.dark) .p-dropdown-panel .p-dropdown-empty-message {
   box-shadow: none !important;
   border: none !important;
 }
+
 /* -- Clear icon: inline flex sibling of trigger, vertically centered ----- */
 .p-dropdown .p-dropdown-clear-icon {
   position: static !important;
@@ -6719,6 +7291,7 @@ html:not(.dark) .p-dropdown-panel .p-dropdown-empty-message {
   box-shadow: none !important;
   border: none !important;
 }
+
 /* -- Trigger (chevron): fixed width, vertically centered ---------------- */
 .p-dropdown .p-dropdown-trigger {
   width: 2rem !important;
@@ -6727,12 +7300,14 @@ html:not(.dark) .p-dropdown-panel .p-dropdown-empty-message {
   align-items: center !important;
   justify-content: center !important;
 }
+
 /* -- Panel: detached with all corners rounded, softer shadow (P6) ------- */
 .p-dropdown-panel {
   margin-top: 4px !important;
   border-radius: 0.375rem !important;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.06) !important;
 }
+
 /* -- Panel header: search input styling --------------------------------- */
 .p-dropdown-panel .p-dropdown-header {
   padding: 0.5rem !important;
@@ -6742,16 +7317,19 @@ html:not(.dark) .p-dropdown-panel .p-dropdown-empty-message {
   width: 100% !important;
   padding: 0.5rem 0.75rem 0.5rem 2rem !important;
 }
+
 /* -- Items: consistent spacing ------------------------------------------ */
 .p-dropdown-panel .p-dropdown-items .p-dropdown-item {
   padding: 0.5rem 0.75rem !important;
 }
+
 /* -- Empty message ------------------------------------------------------ */
 .p-dropdown-panel .p-dropdown-empty-message {
   padding: 0.75rem 1rem !important;
   text-align: center !important;
   color: var(--martis-text-muted) !important;
 }
+
 /* -- Light theme overrides ---------------------------------------------- */
 html:not(.dark) .p-dropdown .p-dropdown-trigger .p-dropdown-trigger-icon {
   color: var(--martis-text-muted) !important;
@@ -6778,6 +7356,8 @@ html:not(.dark) .p-dropdown-panel .p-dropdown-header .p-dropdown-filter:focus {
 html:not(.dark) .p-dropdown-panel .p-dropdown-empty-message {
   color: var(--martis-text-muted) !important;
 }
+
+
 /* ── Filter dropdown — compact size for filter panel ─────────────── */
 .martis-filter-dropdown.p-dropdown {
   min-height: 2rem !important;
@@ -6806,6 +7386,7 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
   color: var(--martis-danger-hover) !important;
   fill: var(--martis-danger-hover) !important;
 }
+
 /* Dark theme checkbox — keep the white tick colour, defer every other
    visual (size, border, bg) to the base rule so we stay aligned with
    the design-system spec (1px border, `--martis-border`, input-bg). */
@@ -6820,6 +7401,7 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
   background-color: var(--martis-accent) !important;
   border-color: var(--martis-accent) !important;
 }
+
 /* ── Fix: PrimeReact overlay panels z-index above action modals (REA-1102) ── */
 .p-dropdown-panel,
 .p-multiselect-panel,
@@ -6829,6 +7411,7 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
 .p-overlaypanel {
   z-index: 10000 !important;
 }
+
 /* ── OverlayPanel arrow: align with Martis surface tokens (Bug 8) ──
    PrimeReact's default arrow has hardcoded colors that clash with the
    light theme. Override with surface/border tokens so it adapts to
@@ -6845,6 +7428,7 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
 .p-overlaypanel.p-overlaypanel-flipped::after {
   border-top-color: var(--martis-surface) !important;
 }
+
 /* Reduced-motion edge case: PrimeReact may add the
    `p-overlaypanel-flipped` class even when the panel does not
    actually flip — the entrance transition is clamped to 1ms and
@@ -6875,6 +7459,7 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
   border-bottom-color: var(--martis-surface) !important;
   border-width: 0 8px 8px 8px !important;
 }
+
 /* ── PrimeReact Tooltip overlay z-index + max width.
    Visual styling (font / padding / border / arrow / duration) lives in
    the F7-38 spec block further down.
@@ -6893,11 +7478,13 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
   overflow-wrap: anywhere;
   max-width: min(360px, calc(100vw - 16px));
 }
+
 /* ── Fix: Inline action icons — larger hit target (REA-1102) ── */
 .martis-action-btn {
   min-width: 2rem;
   min-height: 2rem;
 }
+
 /* ── Sidebar scrollbar: show only on hover (Problem 9) ──────────── */
 .martis-sidebar-bg nav {
   scrollbar-width: none; /* Firefox */
@@ -6917,6 +7504,7 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
 .martis-sidebar-bg:hover nav::-webkit-scrollbar-thumb {
   background: var(--martis-border);
 }
+
 /* ── PrimeReact native checkbox dark theme fix (Problem 7) ──────── */
 .p-checkbox .p-checkbox-box .p-checkbox-icon {
   color: var(--martis-accent-contrast, #ffffff) !important;
@@ -6951,6 +7539,7 @@ html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon {
 .p-datatable .p-datatable-tbody > tr.martis-row-selected:hover > td {
   background-color: var(--martis-row-hover) !important;
 }
+
 /* ── F7-38 — PrimeReact Tooltip theming aligned to the design system.
    12px text on `--martis-surface-alt` with a 1px `--martis-border`,
    8px arrow that matches the bubble fill, and a fast fade controlled
@@ -6996,6 +7585,7 @@ html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon {
 .p-tooltip-right .p-tooltip-arrow {
   border-right-color: var(--martis-surface-alt) !important;
 }
+
 /* F7-39 — Severity ribbon + icon bubble paint with design tokens so
    they follow accent / theme overrides automatically. */
 .p-toast .p-toast-message.p-toast-message-success {
@@ -7022,6 +7612,7 @@ html:not(.dark) .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon {
 .p-toast .p-toast-message.p-toast-message-info .p-toast-message-icon {
   background: var(--martis-info);
 }
+
 /* Light-theme checkbox — honours the base spec (1px, `--martis-border`,
    `--martis-input-bg`); only the hover accent is surfaced here since
    it's specific to the input-on-card contrast in the light palette. */
@@ -7057,6 +7648,9 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   color: var(--martis-accent-contrast, #ffffff) !important;
   fill: var(--martis-accent-contrast, #ffffff) !important;
 }
+
+
+
 /* ── Table horizontal scrollbar — visible on hover (REA-1188) ───── */
 /* `overflow-x: auto` avoids reserving a permanent scrollbar gutter
  * when the columns fit. When content does overflow, the scrollbar
@@ -7083,6 +7677,8 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-datatable:hover .p-datatable-wrapper::-webkit-scrollbar-thumb {
   background-color: var(--martis-border);
 }
+
+
 /* ── Field grid — responsive spans (v1.38.0) ─────────────── */
 /* Every form and detail field grid (the body of a Section, a Panel or a
    Tab) carries this class. The grid writes its track count as
@@ -7116,6 +7712,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
     grid-column: span var(--martis-field-span-lg, var(--martis-field-span-md, var(--martis-field-columns, 12)));
   }
 }
+
 /* ── Dashboard cards grid — responsive spans (v1.37.2) ────── */
 /* The SPA writes each card's resolved spans as custom properties on the
    grid item (`--martis-card-span` = `width()`, `--martis-card-span-md` =
@@ -7147,6 +7744,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
     grid-column: span var(--martis-card-span-lg, var(--martis-card-span-md, 12));
   }
 }
+
 /* ── Filter panel grid — responsive spans (v1.38.0) ───────── */
 /* FilterPanel writes each filter's span as `--martis-filter-span`
    (`Filter::span()`, else 3, or 6 for a date range; see
@@ -7168,10 +7766,12 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
     grid-column: span var(--martis-filter-span, 3);
   }
 }
+
 /* ════════════════════════════════════════════════════════════════════
    Standardized focus state — applies to ALL input-like elements
    Must come last to override any other focus rules
    ════════════════════════════════════════════════════════════════════ */
+
 /* Smooth transition for all interactive inputs */
 .martis-input,
 .martis-resource-search,
@@ -7182,6 +7782,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .p-multiselect {
   transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
 }
+
 /* ──────────────────────────────────────────────────────────────────
    STANDARDIZED HEIGHT — 2.25rem (36px) for all interactive inputs
    ────────────────────────────────────────────────────────────────── */
@@ -7201,6 +7802,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   padding-bottom: 0 !important;
   font-size: 0.875rem !important;
 }
+
 /* Textarea/code/markdown: keep custom heights but match font-size */
 .p-inputtextarea,
 .martis-input.p-inputtextarea {
@@ -7210,6 +7812,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   padding-bottom: 0.5rem !important;
   font-size: 0.875rem !important;
 }
+
 /* Dropdown label/multiselect label inherits the height */
 .p-dropdown .p-dropdown-label,
 .p-multiselect .p-multiselect-label {
@@ -7220,6 +7823,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   align-items: center !important;
   font-size: 0.875rem !important;
 }
+
 /* ──────────────────────────────────────────────────────────────────
    STANDARDIZED CLEAR BUTTON — red (#ef4444) for all fields
    ────────────────────────────────────────────────────────────────── */
@@ -7269,6 +7873,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   box-shadow: 0 0 0 3px var(--martis-focus-ring) !important;
   outline: none !important;
 }
+
 /* Calendar wrapper: no own border/shadow — only the inner input has it */
 .p-calendar,
 .p-calendar:focus-within {
@@ -7277,6 +7882,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   outline: none !important;
   background: transparent !important;
 }
+
 /* Override PrimeReact lara-dark-indigo focus ring on calendar input */
 .p-calendar.p-focus > .p-inputtext,
 .p-calendar:not(.p-calendar-disabled).p-focus > .p-inputtext,
@@ -7286,11 +7892,13 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   outline-offset: 0 !important;
   border-color: var(--martis-accent) !important;
 }
+
 /* Unified field error color — theme-aware instead of PrimeReact default pink */
 .p-error,
 .martis-field-error {
   color: var(--martis-danger) !important;
 }
+
 /* v1.8.3 — Inline error for the auth surfaces. Aligned with
    `.martis-input-error` used by FieldWrapper across every resource
    form, so guest pages and authenticated forms share the same look.
@@ -7317,6 +7925,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   border-color: var(--martis-danger) !important;
   box-shadow: 0 0 0 3px var(--martis-danger-bg) !important;
 }
+
 /* Non-clickable rows — cursor reverts to default when row-click is disabled.
  * Applied when ResourceIndex passes `onClickRow={undefined}`
  * (e.g. rowClickOpensDetail=false). */
@@ -7324,6 +7933,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-row-no-click td {
   cursor: default !important;
 }
+
 /* Row action buttons — professional ghost style used by default row actions
  * (view/edit/delete) and inline actions in the DataTable last column. */
 .martis-row-actions {
@@ -7376,6 +7986,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   opacity: 0.3;
   cursor: not-allowed;
 }
+
 /* Hover state — subtle accent border for all input-like elements */
 .martis-input:hover:not(:disabled):not([readonly]),
 .martis-resource-search:hover,
@@ -7386,6 +7997,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .p-multiselect:not(.p-disabled):hover {
   border-color: var(--martis-accent) !important;
 }
+
 /* ── Badges ─────────────────────────────────────────────────────
    Shared chip class for status pills, tag markers and inline
    meta. The `BadgeField` already ships inline styles for each
@@ -7475,6 +8087,8 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   opacity: 0.85;
   flex-shrink: 0;
 }
+
+
 /* ⭐ Standardized button classes used across dialogs, drawers, modals
    and pages. Every variant shares the same chip shape, typography,
    subtle resting shadow and deepening hover shadow so the whole
@@ -7545,6 +8159,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   outline: 2px solid var(--martis-accent);
   outline-offset: 2px;
 }
+
 /* Secondary / cancel: neutral chip with a subtle border. Hover keeps
    the border the same colour (never jumps to a harsh near-black) —
    feedback comes from the shared elevation and a gentle background
@@ -7558,6 +8173,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   background-color: var(--martis-hover);
   border-color: var(--martis-border);
 }
+
 /* Primary / accent: solid brand colour, shifts to accent-hover. */
 .martis-btn-primary {
   background-color: var(--martis-accent);
@@ -7568,6 +8184,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   background-color: var(--martis-accent-hover);
   border-color: var(--martis-accent-hover);
 }
+
 /* Danger: solid red, shifts to danger-hover. */
 .martis-btn-danger {
   background-color: var(--martis-danger);
@@ -7578,6 +8195,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   background-color: var(--martis-danger-hover);
   border-color: var(--martis-danger-hover);
 }
+
 /* Warning: solid amber, shifts to warning-hover. */
 .martis-btn-warning {
   background-color: var(--martis-warning);
@@ -7588,6 +8206,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   background-color: var(--martis-warning-hover);
   border-color: var(--martis-warning-hover);
 }
+
 /* Success: solid green, used for Restore confirmations. */
 .martis-btn-success {
   background-color: var(--martis-success);
@@ -7597,6 +8216,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-btn-success:hover:not(:disabled) {
   filter: brightness(0.93);
 }
+
 /* Ghost: transparent chip used inline in toolbars, row-actions and
    dialogs where a full chip would feel heavy. Inherits base button
    sizing so it mixes freely with other variants. */
@@ -7635,6 +8255,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   outline: 2px solid var(--martis-accent);
   outline-offset: 2px;
 }
+
 /* Icon-only chip — square, no text. Pairs with any variant via
    composition (e.g. `class="martis-btn-ghost martis-btn-icon"`).
    Default size matches `.martis-btn-md` (34px). */
@@ -7653,6 +8274,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   width: 2.5rem;
   height: 2.5rem;
 }
+
 /* Size tokens — apply alongside any variant to swap heights/padding
    without rewriting colours. Default (no size class) stays at 36px
    to keep existing call sites unchanged. */
@@ -7668,6 +8290,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   line-height: 1.375rem;
   border-radius: 0.4375rem;
 }
+
 /* ──────────────────────────────────────────────────────────────────
    Relationship panel toolbar — responsive with container queries.
    Narrow (< 48rem container): heading + search + criar on row 1;
@@ -7709,6 +8332,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
     margin-left: 0;
   }
 }
+
 /* Filled: for buttons whose background is set via inline style (e.g.
    UnsavedChangesDialog honouring a user-provided confirmColor). The
    shared hover lift applies; a brightness filter gives the colour
@@ -7719,6 +8343,8 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-btn-filled:hover:not(:disabled) {
   filter: brightness(0.92);
 }
+
+
 /* ─────────────────────────────────────────────────────────────────────
    Stack + Line — composite display field
 
@@ -7759,6 +8385,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   background-color: var(--martis-border);
   opacity: 0.5;
 }
+
 /* Row = (primary line) [+ optional subtitle]. Children shrink to their
    content width (align-items: flex-start) so inline pills like
    .martis-line-code never stretch to the full cell width. */
@@ -7776,6 +8403,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .martis-line-heading {
   font-weight: 600;
   font-size: 0.9375rem;
@@ -7801,6 +8429,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   color: var(--martis-text-muted);
   line-height: 1.35;
 }
+
 /* Compact, inline monospace pill — hugs its text. */
 .martis-line-code {
   display: inline-flex;
@@ -7814,12 +8443,15 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   border: 1px solid var(--martis-border);
   line-height: 1.4;
 }
+
 .martis-line-subtitle {
   font-size: 0.75rem;
   color: var(--martis-text-muted);
   line-height: 1.25;
   font-weight: 400;
 }
+
+
 /* ─────────────────────────────────────────────────────────────────────
    BooleanGroup — permission matrix with PrimeReact checkboxes,
    grouped sections, and a live min/max chip counter.
@@ -7836,6 +8468,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   flex-direction: column;
   gap: 0.75rem;
 }
+
 /* Counter chip — pinned top-right, colour shifts with state. */
 .martis-boolgroup-counter {
   align-self: flex-end;
@@ -7868,6 +8501,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   border-color: color-mix(in srgb, var(--martis-danger) 35%, var(--martis-border));
 }
 .martis-boolgroup-counter-value { line-height: 1; }
+
 /* Section card — soft border, tight header. */
 .martis-boolgroup-section {
   border: 1px solid var(--martis-border);
@@ -7895,6 +8529,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   letter-spacing: 0.02em;
   color: var(--martis-text-muted);
 }
+
 /* Options grid — each row becomes an interactive pill. */
 .martis-boolgroup-options {
   display: grid;
@@ -7932,6 +8567,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   opacity: 0.55;
 }
 .martis-boolgroup-option-label { flex: 1; min-width: 0; }
+
 /* PrimeReact Checkbox — bring its look closer to the package tokens. */
 .martis-boolgroup-option .p-checkbox,
 .martis-boolgroup-option .p-checkbox-box {
@@ -7983,6 +8619,8 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-boolgroup-pill.is-on .martis-boolgroup-dot {
   background-color: var(--martis-success);
 }
+
+
 /* ─────────────────────────────────────────────────────────────────────
    Avatar + UiAvatar — shared shape classes so the two fields are
    interchangeable as row identity pictures. (⭐ Task 07 PR B)
@@ -8014,6 +8652,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-avatar-circle { border-radius: 999px; }
 .martis-avatar-rounded { border-radius: 0.5rem; }
 .martis-avatar-squared { border-radius: 0.125rem; }
+
 /* F7-36 — generic fallback when a record has no avatar AND no initials
    seed. Muted background + user glyph. Sits in for the bare em-dash so
    row layouts stay aligned. */
@@ -8022,18 +8661,15 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   color: var(--martis-text-muted);
   border: 1px solid var(--martis-border);
 }
+
 /* Size tokens — apply alongside the shape class. Default (no size) stays
    at the legacy 36px so existing call sites are unaffected. */
-.martis-avatar-xs { width: 1.25rem; height: 1.25rem; font-size: 0.5625rem; }
-/* 20px */
-.martis-avatar-sm { width: 1.5rem;  height: 1.5rem;  font-size: 0.625rem;  }
-/* 24px */
-.martis-avatar-md { width: 1.75rem; height: 1.75rem; font-size: 0.6875rem; }
-/* 28px — row cells */
-.martis-avatar-lg { width: 2.5rem;  height: 2.5rem;  font-size: 0.8125rem; }
-/* 40px */
-.martis-avatar-xl { width: 3.5rem;  height: 3.5rem;  font-size: 1rem;       }
-/* 56px — detail / profile */
+.martis-avatar-xs { width: 1.25rem; height: 1.25rem; font-size: 0.5625rem; } /* 20px */
+.martis-avatar-sm { width: 1.5rem;  height: 1.5rem;  font-size: 0.625rem;  } /* 24px */
+.martis-avatar-md { width: 1.75rem; height: 1.75rem; font-size: 0.6875rem; } /* 28px — row cells */
+.martis-avatar-lg { width: 2.5rem;  height: 2.5rem;  font-size: 0.8125rem; } /* 40px */
+.martis-avatar-xl { width: 3.5rem;  height: 3.5rem;  font-size: 1rem;       } /* 56px — detail / profile */
+
 /* Stacked avatars — overlap siblings with a subtle ring so the pile
    reads clearly against any background. Used for team / assignee
    summaries in index cells and detail headers. */
@@ -8051,9 +8687,11 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-avatar-stack > .martis-avatar-sm + .martis-avatar-sm {
   margin-left: -0.375rem;
 }
+
 .martis-ui-avatar {
   /* colour + shape set inline by the component */
 }
+
 .martis-avatar-input {
   display: flex;
   align-items: center;
@@ -8102,6 +8740,8 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   gap: 0.375rem;
   align-items: flex-start;
 }
+
+
 /* ─────────────────────────────────────────────────────────────────────
    Audio — custom player (play/pause + waveform/progress + timestamps +
    download) and dropzone empty state. Bypasses the native `<audio>`
@@ -8187,6 +8827,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   background: var(--martis-hover);
   color: var(--martis-text);
 }
+
 /* Input wrapper — adds dropzone + action row on top of the player. */
 .martis-audio-input {
   display: flex;
@@ -8228,6 +8869,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   color: var(--martis-text);
 }
 .martis-audio-input-controls .martis-audio-remove:hover { color: var(--martis-danger); }
+
 /* Dropzone empty state — dashed card that accepts drag-and-drop. */
 .martis-audio-dropzone {
   display: flex;
@@ -8287,6 +8929,8 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   border-radius: var(--martis-radius-sm);
   background: color-mix(in srgb, var(--martis-accent) 10%, transparent);
 }
+
+
 /* ─────────────────────────────────────────────────────────────────────
    OfMany / Through affordances — pill + aggregate tile + breadcrumb hint
    (⭐ Task 07 PR D Martis differentials)
@@ -8305,6 +8949,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   text-transform: uppercase;
   line-height: 1.2;
 }
+
 .martis-through-hint {
   display: inline-flex;
   align-items: center;
@@ -8317,6 +8962,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   letter-spacing: 0.02em;
   cursor: help;
 }
+
 .martis-ofmany-tile {
   display: inline-flex;
   flex-direction: column;
@@ -8345,6 +8991,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   font-size: 0.6875rem;
   color: var(--martis-text-muted);
 }
+
 /* Table column truncation — applied via bodyClassName when the field
    declares ->truncate() or inherits it from a type default (URL, Email).
    `max-width` is set inline from the column metadata; this just clips
@@ -8355,6 +9002,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 /* Shared pill / status badge — matches `.badge` in Martis Shell (height 22,
    11px, weight medium, rounded-full, 1px transparent border). Every
    inline-pill across the table, detail, and relation fields should use
@@ -8391,6 +9039,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   font-size: var(--martis-text-xs);
   color: var(--martis-text-muted);
 }
+
 /* =================================================================
    MODAL — mirrors design-system Catalog#modal so every dialog in
    the package reads as the same component. Panel sits on `surface`,
@@ -8473,6 +9122,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .martis-modal-surface.is-lg { max-width: 640px; }
 .martis-modal-surface.is-xl { max-width: 800px; }
 .martis-modal-surface.is-2xl { max-width: 960px; }
+
 /* =================================================================
    Fase 7 F7-27 — PrimeReact Dropdown aligned to the Catalog `.input`
    spec (Catalog.html:1265-1320). Height 36, padding 0 10, focus glow
@@ -8564,6 +9214,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .p-dropdown-panel .p-dropdown-items .p-dropdown-item.p-highlight:hover {
   background-color: var(--martis-accent-bg-light) !important;
 }
+
 /* =================================================================
    Fase 7 F7-31 — Tabs
    Catalog `.tabs` spec (Catalog.html:1401-1433): horizontal row with
@@ -8629,6 +9280,7 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
   background: var(--martis-accent-bg);
   color: var(--martis-accent);
 }
+
 /* =================================================================
    Fase 7 F7-32 — Segmented control
    Catalog `.seg` spec (Catalog.html:1105-1128): input-bg container
@@ -8699,6 +9351,7 @@ html[data-theme="light"] .martis-segmented {
   display: flex;
   width: 100%;
 }
+
 /* =================================================================
    Fase 7 F7-33 — Skeleton
    Catalog `.skeleton` spec (Catalog.html:1609-1618): 3-stop linear
@@ -8729,6 +9382,7 @@ html[data-theme="light"] .martis-segmented {
   .martis-skeleton { animation: none !important; }
 }
 html[data-reduced-motion="true"] .martis-skeleton { animation: none !important; }
+
 /* =================================================================
    Fase 7 — Density wiring for form surfaces
    The density tokens (`--martis-input-h`, `--martis-pad-x/y`,
@@ -8737,6 +9391,7 @@ html[data-reduced-motion="true"] .martis-skeleton { animation: none !important; 
    classes below plug into those tokens so the Dense preference has a
    visible effect end-to-end instead of stopping at the shell chrome.
    ================================================================ */
+
 /* Form body — replaces the hand-rolled `p-6 space-y-4` pairs on
    Create / Update pages and drawer forms. Comfortable keeps the 24px
    padding + 16px gap the package shipped; Dense compresses to 16px +
@@ -8762,6 +9417,7 @@ html[data-density="dense"] .martis-form-stack {
 html[data-density="dense"] .martis-form-grid {
   gap: 10px;
 }
+
 /* Input controls — `.martis-input` and `.p-dropdown` both lock a
    36px height today. Dense shrinks them to 30px (matches
    `--martis-input-h` dense token). Textareas opt out via their
@@ -8783,6 +9439,7 @@ html[data-density="dense"] .martis-input-wrap {
 html[data-density="dense"] .martis-section-grid {
   gap: 10px;
 }
+
 /* =================================================================
    Fase 7 F7-1 → F7-7 — DrawerShell to Catalog + drawers.jsx spec
    Spec references:
@@ -8885,6 +9542,7 @@ html[data-density="dense"] .martis-drawer-icon {
   width: 32px;
   height: 32px;
 }
+
 /* =================================================================
    Fase 7 F7-8 / F7-9 / F7-10 — Detail field panel
    Spec references:
@@ -8982,6 +9640,7 @@ html[data-density="dense"] .martis-drawer-icon {
     position: static;
   }
 }
+
 html[data-density="dense"] .martis-detail-row {
   padding: 10px 0;
   gap: 14px;
@@ -9001,6 +9660,7 @@ html[data-density="dense"] .martis-detail-panel {
     align-items: start;
   }
 }
+
 /* =================================================================
    Fase 7 F7-14 / F7-15 / F7-16 — KPI / Metric card typography
    Spec: Dashboard.html:1659-1681.
@@ -9066,6 +9726,7 @@ html[data-density="dense"] .martis-detail-panel {
 html[data-density="dense"] .martis-kpi-value {
   font-size: 24px;
 }
+
 /* Fase 7 — pulsating live status dot (canonical shell pattern). Mirrors
    the design-system `.status-dot` + `.pulse` from Martis Shell.html. Used
    wherever we want to signal "this value auto-refreshes in the
@@ -9107,6 +9768,7 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
     animation: none;
   }
 }
+
 /* Fase 7 F7-19 — Dashboard layout helpers
    Matches `.dash-kpis` + `.dash-grid` from Dashboard.html:
    - `.martis-dash-kpis` → 4-col row of KPI cards, collapses to 2 cols
@@ -9132,6 +9794,7 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   .martis-dash-grid > .span-2,
   .martis-dash-grid > .span-3 { grid-column: auto; }
 }
+
 /* F7-40 — Public dropzone used by File / Image / Upload fields. Two
    shapes:
      - default (`.martis-dropzone`)            — compact inline row,
@@ -9217,6 +9880,7 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   border-radius: var(--martis-radius-sm);
   background: color-mix(in srgb, var(--martis-accent) 10%, transparent);
 }
+
 /* F7-42 — Filter chip used by `<FilterPanel>` to render active filters
    alongside the toggle. Matches the Catalog `.chip` spec: 24px height,
    12px font, hover bg, radius-sm, 1px border, optional dismiss `.x`
@@ -9263,6 +9927,7 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   background: var(--martis-surface);
   color: var(--martis-text);
 }
+
 /* Public card chrome — used by `martis:card` scaffolds and by any
    custom dashboard panel that wants to follow the canonical Martis
    chrome (border, padded body, kicker-style head) without reaching
@@ -9288,6 +9953,7 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   gap: 12px;
   min-width: 0;
 }
+
 /* Fase 7 F7-17 — TrendCard sparkline mode
    Compact inline chart (under 40px tall) rendered next to the KPI value
    instead of the full 160px line chart. Opt-in via `sparkline` prop. */
@@ -9301,6 +9967,7 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   width: 96px;
   height: 28px;
 }
+
 /* Fase 7 F7-18 — ActivityFeed card
    Stream of events with a coloured avatar square, actor/verb/target line,
    and a mono timestamp. Spec mirrors `.activity-feed` / `.activity-item`
@@ -9343,6 +10010,7 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   color: var(--martis-text-muted);
   font-family: var(--martis-font-mono);
 }
+
 /* Fase 7 F7-18 — EndpointTable card
    Compact mono-numeric route table with coloured HTTP method chips and a
    thin progress bar for the share column. Mirrors `.endpoint-table` +
@@ -9401,6 +10069,8 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   background: var(--martis-accent);
   border-radius: inherit;
 }
+
+
 /* v0.8 — Task 12: in-app notifications bell + dropdown.
    The bell button itself reuses `.martis-tb-icon-btn` + the public
    `.martis-notif-dot` set up in v0.7. The styles here are scoped to
@@ -9599,6 +10269,8 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
   background: var(--martis-hover);
   color: var(--martis-danger);
 }
+
+
 /* v0.8 — Task 17: cache admin page styles. Renders the four Martis
    cache layers in a status table with toggle/clear/reset controls.
    Reuses existing `.martis-card` / `.martis-btn-ghost` primitives;
@@ -9749,6 +10421,7 @@ html[data-density="dense"] .martis-cache-admin {
   gap: 4px;
   justify-content: flex-end;
 }
+
 /* Mobile / narrow viewports: the page already scrolls horizontally
    inside the table wrap, but the page chrome itself can still tighten
    so the title stops crowding the "Clear all" button on phone-width
@@ -9803,9 +10476,11 @@ html[data-density="dense"] .martis-cache-toggle {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
 /* -------------------------------------------------------------------------
  * Custom Tools (v0.10)
  * ----------------------------------------------------------------------- */
+
 .martis-tool-empty,
 .martis-tool-missing-component {
   max-width: 520px;
@@ -9822,6 +10497,7 @@ html[data-density="dense"] .martis-cache-toggle {
   margin: 1rem 0 0.5rem;
   color: var(--martis-text);
 }
+
 .martis-tool-system-status {
   display: flex;
   flex-direction: column;
@@ -9937,9 +10613,11 @@ html[data-density="dense"] .martis-cache-toggle {
   color: #dc2626;
   font-size: 0.8125rem;
 }
+
 /* -------------------------------------------------------------------------
  * Impersonation banner (v0.10)
  * ----------------------------------------------------------------------- */
+
 .martis-impersonation-banner {
   position: sticky;
   top: 0;
@@ -10014,6 +10692,7 @@ html[data-density="dense"] .martis-cache-toggle {
   font-weight: 600;
   color: var(--martis-text-muted);
 }
+
 /* ─────────────────────────────────────────────────────────────────
  * Print stylesheet — `@media print` overrides for admin reports,
  * record exports, and any "print this page" workflow.
@@ -10029,6 +10708,7 @@ html[data-density="dense"] .martis-cache-toggle {
  * Override any token in your theme CSS to tune; override the rules
  * themselves only when the defaults can't be reconciled via tokens.
  * ────────────────────────────────────────────────────────────────── */
+
 :root {
   --martis-print-bg: #ffffff;
   --martis-print-text: #000000;
@@ -10036,6 +10716,7 @@ html[data-density="dense"] .martis-cache-toggle {
   --martis-print-link-color: #000000;
   --martis-print-muted: #444444;
 }
+
 @media print {
   :root,
   html.dark,
@@ -10090,6 +10771,7 @@ html[data-density="dense"] .martis-cache-toggle {
   table thead { display: table-header-group; }
   table tr    { page-break-inside: avoid; }
 }
+
 /* Skip link (WCAG 2.2, 2.4.1 Bypass Blocks): the first focusable element of
    the sidebar and topnav layouts, off-screen until it takes keyboard focus. */
 .martis-skip-link {
@@ -10106,11 +10788,13 @@ html[data-density="dense"] .martis-cache-toggle {
   box-shadow: 0 0 0 3px var(--martis-focus-ring);
   transform: translateY(calc(-100% - 1rem));
 }
+
 .martis-skip-link:focus,
 .martis-skip-link:focus-visible {
   transform: none;
   outline: none;
 }
+
 /* The landmark takes focus from the skip link only; it is not a control. */
 #martis-main:focus {
   outline: none;

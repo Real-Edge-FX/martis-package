@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
+import { deleteErrorMessage } from '@/lib/deleteError'
 import type { OverrideProps, ResourceRecord, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
 import { FieldLabelTooltip } from '@/components/fields/FieldLabelTooltip'
@@ -33,7 +35,7 @@ export function DrawerDetail(props: OverrideProps) {
   // Fetch record if not provided in props
   const recordQuery = useQuery({
     queryKey: ['resource', resource, recordId],
-    queryFn: () => api.get<{ data: ResourceRecord }>(`/api/resources/${resource}/${recordId}`),
+    queryFn: () => api.get<{ data: ResourceRecord }>(apiPath`/api/resources/${resource}/${recordId}`),
     enabled: !!recordId && !record,
   })
 
@@ -42,14 +44,14 @@ export function DrawerDetail(props: OverrideProps) {
   const canDelete = activeRecord?._authorization?.authorizedToDelete !== false && !!activeRecord
 
   const deleteMutation = useMutation({
-    mutationFn: () => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${recordId}`),
+    mutationFn: () => api.delete<{ meta?: { message?: string } }>(apiPath`/api/resources/${resource}/${recordId}`),
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       addToast('success', res?.meta?.message ?? tMsg('record_deleted'))
       emitRecordEvent('deleted', resource, recordId)
       onDeleted()
     },
-    onError: () => addToast('error', tMsg('error_delete')),
+    onError: (e: unknown) => addToast('error', deleteErrorMessage(e, tMsg('error_delete'))),
   })
 
   // Partition fieldsForDetail the same way ResourceDetail does — keeps panels,

@@ -45,7 +45,7 @@ Martis builds its router once, after every bundle listed in `MARTIS_EXTENSIONS` 
   | Reserved first segment | Why |
   |---|---|
   | `dashboards`, `profile`, `system`, `dev`, `tools`, `resources`, `403`, `500` | Pages of the Martis shell |
-  | `login`, `register`, `forgot-password`, `reset-password`, `email`, `invitations`, `2fa`, `password` | Sign-in and account pages |
+  | `login`, `register`, `forgot-password`, `reset-password`, `email`, `invitations`, `magic-link`, `2fa`, `password` | Sign-in and account pages |
   | `api`, `api-docs`, `sso`, `logout`, `favicon.ico` | Server routes: a reload would never reach the SPA (`api-docs` is the default path of the [API documentation](api/overview.md#enabling-the-openapi-surface)) |
 
   So a registered page can never take the place of a Martis page, and `:slug`, `*` and an empty path are refused.
@@ -61,13 +61,13 @@ The page is an ordinary React component. Read the route parameters with `usePara
 
 ```tsx
 // resources/js/martis-extensions/pages/FindingDetailPage.tsx
-import { ApiError, ForbiddenPage, MartisLoader, NotFoundPage, api, useDynamicCrumb, usePageTitle, useParams, useQuery } from '@martis/runtime'
+import { ApiError, ForbiddenPage, MartisLoader, NotFoundPage, api, apiPath, useDynamicCrumb, usePageTitle, useParams, useQuery } from '@martis/runtime'
 
 export default function FindingDetailPage() {
   const { findingId } = useParams<{ findingId: string }>()
   const finding = useQuery({
     queryKey: ['finding', findingId],
-    queryFn: () => api.get<{ id: string; title: string }>(`/api/findings/${findingId}`),
+    queryFn: () => api.get<{ id: string; title: string }>(apiPath`/api/findings/${findingId!}`),
   })
 
   usePageTitle(finding.data?.title)
@@ -86,6 +86,7 @@ export default function FindingDetailPage() {
 - **Breadcrumb.** The trail reads Home, then the route's crumb. `useDynamicCrumb(label)` replaces that crumb while the page is mounted, for example with the record's title; `null` or `undefined` keeps the registered one. The trail has one level: `findings/:findingId` does not link back to `findings`.
 - **Error screens.** `NotFoundPage` and `ForbiddenPage` render the shell's 404 and 403 screens in place and keep the URL. Navigating to `/403` would change it.
 - **Data.** `api` calls paths below the Martis base path, so `api.get('/api/findings/...')` reaches an API route of your app under `/{martis-path}/api/`, on the `martis.api` middleware group, which runs the same authentication as the Martis API.
+- **Encode what you put in a path.** A route parameter is URL-decoded (`useParams()` returns `..%2Fusers%2F5` as `../users/5`), and so is a value from `useSearchParams()`. Interpolated raw into `api.get(`/api/findings/${id}`)`, a crafted link or a record keyed `../users/5` rewrites the request to another endpoint of the panel, with the signed-in user's session and CSRF token (client-side path traversal). Build the path with `apiPath` from `@martis/runtime` (v2.4.0+): `api.get(apiPath`/api/findings/${id}`)` encodes every interpolated value as one path segment, and `withQuery(path, query)` appends a built query string. Do not use `encodeURIComponent()` for this: Laravel decodes `%2F` before it routes, so an id `5/force` sent as `5%2Fforce` reaches the `/5/force` route. `apiPath` spells a slash `%252F`, which no route splits (the request answers 404). For a single value use `pathSegment(id)`. A path value that holds a literal `%2F` (either case) makes `apiPath` / `pathSegment` throw an `ApiError` (status 400), because its spelling would collide with a slash and address another record; a record keyed that way cannot be addressed from the panel, as one keyed `..` cannot. Use `routePath` for a link of the SPA's own router (`navigate(routePath`/findings/${id}`)`), which keeps a plain `%2F`. As a last line of defence `api` refuses a path that holds a dot segment (`.` or `..`, also spelt `%2e`) with an `ApiError` (status 400) and sends nothing.
 
 ## Guarding a page with a Tool
 

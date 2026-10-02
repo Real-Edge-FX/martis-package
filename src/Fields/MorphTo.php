@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
+use Martis\Contracts\ProvidesPickerAttributes;
 use Martis\Enums\ModalSize;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Resource;
@@ -33,7 +34,7 @@ use Martis\Resource;
  *
  * @phpstan-consistent-constructor
  */
-class MorphTo extends Field
+class MorphTo extends Field implements ProvidesPickerAttributes
 {
     use ControlsRelationshipToolbar;
 
@@ -128,6 +129,14 @@ class MorphTo extends Field
         $this->titleAttribute = $attribute;
 
         return $this;
+    }
+
+    /** {@inheritdoc} */
+    public function pickerAttributes(): array
+    {
+        return $this->withSubtitles
+            ? [$this->titleAttribute, $this->subtitleAttribute]
+            : [$this->titleAttribute];
     }
 
     /**
@@ -317,7 +326,7 @@ class MorphTo extends Field
         }
 
         if ($value === null || $value === '') {
-            if ($this->nullable) {
+            if ($this->isNullable()) {
                 $model->setAttribute($this->morphTypeColumn, null);
                 $model->setAttribute($this->morphIdColumn, null);
             }
@@ -325,20 +334,15 @@ class MorphTo extends Field
             return;
         }
 
-        // Value should be {type: 'App\Models\Post', id: 42} or {resourceType: 'posts', id: 42}
-        if (is_array($value)) {
-            $morphType = $this->allowedMorphType($value['type'] ?? null);
-            $morphId = $value['id'] ?? null;
+        // Value should be {type: 'App\Models\Post', id: 42} or {resourceType: 'posts', id: 42}.
+        // The target is read once, as the Relatable rule reads it: a type the
+        // field does not offer or an id that is not a non-empty int or string
+        // writes nothing.
+        $target = $this->submittedTarget($value);
 
-            // If resourceType provided instead of full class, resolve it
-            if ($morphType === null && isset($value['resourceType'])) {
-                $morphType = $this->resolveModelClass($value['resourceType']);
-            }
-
-            if ($morphType !== null && $morphId !== null) {
-                $model->setAttribute($this->morphTypeColumn, $morphType);
-                $model->setAttribute($this->morphIdColumn, $morphId);
-            }
+        if ($target !== null) {
+            $model->setAttribute($this->morphTypeColumn, $target['type']);
+            $model->setAttribute($this->morphIdColumn, $target['id']);
         }
     }
 
@@ -383,6 +387,23 @@ class MorphTo extends Field
     public function getMorphIdColumn(): string
     {
         return $this->morphIdColumn;
+    }
+
+    /**
+     * Whether a submitted target map names an id that is neither empty nor an
+     * int or a string (a JSON boolean or float, a list, a nested map): the
+     * Relatable rule refuses it, and `fill()` writes nothing for it (see
+     * submittedTarget()).
+     */
+    public function submitsMalformedId(mixed $value): bool
+    {
+        if (! is_array($value)) {
+            return false;
+        }
+
+        $id = $value['id'] ?? null;
+
+        return $id !== null && $id !== '' && ! is_int($id) && ! is_string($id);
     }
 
     /**

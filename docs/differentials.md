@@ -292,9 +292,9 @@ toggle `showCreateRelationButton` by hand.
 
 ### Optional panel gate (`viewMartis`)
 
-A `viewMartis` gate decides who may open the panel, as Nova's `viewNova` does, with four differences:
+A `viewMartis` gate decides who may open the panel, as Nova's `viewNova` does, with three differences:
 
-- **Open by default.** Undefined, every signed-in user gets in; Nova lets only `local` in until the gate is defined.
+- **Closed outside `local` and `testing` by default (v2.4.0).** Undefined, every signed-in user gets in only in the environments of `martis.panel_access.open_environments` (default `local` and `testing`, a documented config key); anywhere else the panel stays shut until the gate is defined, like Nova. `martis:install` publishes the gate active.
 - **No `local` bypass.** Defined, it applies in every environment, so the restriction can be tried locally.
 - **No policy interception.** The user is not passed as a gate argument, so a policy of the user model is never consulted for it.
 - **A way out.** A refused page request gets a standalone 403 screen with a **Sign out** button, and impersonating a refused user answers `422`.
@@ -430,13 +430,13 @@ uniformly to every field via the base class — Panel, Section, TabGroup,
 ResourceCreate, ResourceUpdate, and detail labels rendered inside
 Sections/TabGroups.
 
-The label renderer sets `data-pr-tooltip-html="true"` on the `(?)`
-icon, and the global `MartisTooltip` provider renders any trigger with
-that attribute as HTML: a field tooltip, a metric's `help()`, or a
-trigger of your own. A trigger without it keeps the plain-text escape.
-The markup is not sanitised, so it must be trusted: authors are
-responsible for producing safe markup, and user or record data never
-goes into it.
+The label renderer registers the `(?)` icon with `htmlTooltip()`, and the
+global `MartisTooltip` provider renders a registered trigger as HTML: a
+field tooltip, a metric's `help()`, or a trigger of your own (see
+[Tooltip Standard](components.md#tooltip-standard-primereact)). Any other
+trigger keeps the plain-text escape, whatever attributes it carries. The
+markup is sanitised before it is shown, but authors are still responsible
+for producing it: user or record data never goes into it.
 
 A `Tooltip` field class was deliberately rejected — a `Field`
 represents a value, not a decoration. See

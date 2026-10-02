@@ -26,15 +26,23 @@ class {{ class }} extends BooleanFilter
      * Apply the filter to the given query.
      *
      * The $value is an associative array of option values mapped
-     * to their checked state (true/false).
+     * to their checked state (true/false). The package only passes the
+     * option values options() declares; the whitelist below keeps the
+     * filter safe when it runs without that guarantee. The keys come from
+     * the request, so never use one as a column name without it.
      *
      * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
      */
     public function apply(Request $request, Builder $query, mixed $value): Builder
     {
+        // Compared as strings: PHP turns the array key "1" into the integer 1,
+        // so a strict comparison of an integer key with the string option value
+        // would drop an option whose value looks like a number.
+        $allowed = array_map('strval', array_values($this->options($request)));
+
         if (is_array($value)) {
             foreach ($value as $column => $enabled) {
-                if ($enabled) {
+                if ($enabled && in_array((string) $column, $allowed, true)) {
                     $query->where($column, true);
                 }
             }

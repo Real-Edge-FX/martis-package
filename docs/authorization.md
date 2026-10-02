@@ -20,7 +20,7 @@ When **no policy** resolves for the resource, every row below permits. When a po
 | Delete / soft-delete | `authorizedToDelete` | `delete` | deny |
 | Restore | `authorizedToRestore` | `restore` | deny |
 | Force delete | `authorizedToForceDelete` | `forceDelete` | deny |
-| Replicate | `authorizedToReplicate` | `replicate` | falls back to `create` AND `update` |
+| Replicate | `authorizedToReplicate` | `replicate` | falls back to `create` AND `update`; the prefill route (`GET /api/resources/{resource}/{id}/replicate`) also needs `view` of the record, as the detail page does |
 | Run action | `authorizedToRunAction` | `runAction` | falls back to `update` |
 | Run destructive action | `authorizedToRunDestructiveAction` | `runDestructiveAction` | falls back to `delete` |
 | Attach related | `authorizedToAttach` | `attach{Model}` | permit |
@@ -85,20 +85,26 @@ its routes answer `403`, for a user the related resource does not let
 
 ## Panel access (`viewMartis`)
 
-`viewMartis` decides who may open the panel at all (v2.1.0). It is optional:
+`viewMartis` decides who may open the panel at all (v2.1.0). Since v2.4.0 the panel is closed by default outside the local environments:
 
-- **Undefined** (the default): every user who signs in with the Martis guard gets in, as before v2.1.0.
 - **Defined:** only the users it allows get in, in every environment.
+- **Undefined:** every user the Martis guard signs in gets in only in the environments of `martis.panel_access.open_environments` (`local` and `testing` by default, env `MARTIS_PANEL_OPEN_ENVIRONMENTS`, comma-separated, an empty list opens none), as Nova's `viewNova` does with `local`. Anywhere else the panel answers `403` to everyone until you define the gate. Up to v2.3.x an undefined gate was open in every environment, so a guard that also signs in customers or other non-staff users opened the admin to them by omission.
 
-Define it in `app/Providers/MartisServiceProvider.php`. The published stub carries the example in `registerGates()`:
+Define it in `app/Providers/MartisServiceProvider.php`. `martis:install` publishes the provider with the gate active (it lets `local` and `testing` in (so a test suite run as `APP_ENV=testing` keeps working) and, anywhere else, only the addresses you list), and prints a notice about it:
 
 ```php
 use Illuminate\Support\Facades\Gate;
 
-Gate::define('viewMartis', fn ($user) => in_array($user->email, [
+Gate::define('viewMartis', fn ($user) => app()->environment(['local', 'testing']) || in_array($user->email, [
     'admin@example.com',
-]));
+], true));
 ```
+
+Edit the list (or replace the rule with a role, a column or a permission) before you deploy. The first time the panel refuses a user because the gate is missing, Martis logs one warning a day (not one per request) that names the fix.
+
+### Resources without a policy
+
+A resource with no policy still lets every user the panel admits view, create, update and delete its records, as in Nova. Outside the environments the panel is open in, Martis logs a warning once a day for each resource found without a policy (`Martis\Auth\PolicyCoverage`), so the gap shows up in the logs without a line per request. Add a policy (`php artisan martis:policy`) to close it.
 
 The `martis.authorize` middleware checks it after authentication, the 2FA challenge and email verification, and before the forced password change (v2.3.0). It therefore guards the SPA shell, every protected API route, every Tool route that runs the Martis API stack and any route of yours on the `martis.api` group. The sign-in pages, `POST /logout`, the 2FA challenge (its page and its endpoint), the email verification pages and the translations stay reachable, so a refused user can sign out, and a refused user with a pending 2FA challenge completes it before seeing the refusal.
 
@@ -263,7 +269,7 @@ Every dashboard primitive supports a `canSee(Closure)` callback.
   decides per record (a batch attach skips the records it denies),
   `detach{Model}` decides the detach, and `updatePivot{Model}` (falling
   back to `update`) the pivot update and the pickers of the pivot edit
-  modal. The Attach button follows the field's `canAttach()` toggle.
+  modal. The field's `canAttach(false)` turns all of those off too, and `canDetach(false)` the detach (403, v2.4.0): the toggles narrow the policies, never widen them.
   Before v1.38.0 the attach and the list of records to attach did not
   check `attachAny{Model}`, so a user it denied could still attach.
 
@@ -387,7 +393,7 @@ Wherever Martis runs `indexQuery()`, it runs `scopes()` first (v2.0):
 
 Before v2.0 the global search and those parent lookups ran `indexQuery()` alone, so a tenant confined with `scopes()` still found another tenant's records in the palette (title, subtitle, link and count) and reached the pivot panels of their records.
 
-Neither hook applies to the relationship pickers (BelongsTo dropdowns, attach pickers): they list through [`relatableQuery()`](resources.md#relatablequery), as Nova's pickers do ([Nova → Relatable Filtering](https://nova.laravel.com/docs/v5/resources/authorization#relatable-filtering)), so declare the tenant predicate there too. The detail, update and delete endpoints rely on the policies, and so does the parent record of the `HasMany`, `HasOne`, `MorphMany` and `MorphOne` panels and of the `MorphToMany` panel's own endpoints (see [Relationships → How a panel finds its parent record](relationships.md#how-a-panel-finds-its-parent-record)); a lens owns its query.
+Neither hook applies to the relationship pickers (BelongsTo dropdowns, attach pickers): they list through [`relatableQuery()`](resources.md#relatablequery), as Nova's pickers do ([Nova → Relatable Filtering](https://nova.laravel.com/docs/v5/resources/authorization#relatable-filtering)), so declare the tenant predicate there too. The detail, update and delete endpoints rely on the policies, and so does the parent record of the `HasMany`, `HasOne`, `MorphMany` and `MorphOne` panels and of the `MorphToMany` panel's own endpoints (see [Relationships → How a panel finds its parent record](relationships.md#how-a-panel-finds-its-parent-record)). A lens starts from the index query, so both hooks apply to it too (v2.4.0), unless the lens opts out ([Lenses](lenses.md#the-lens-lists-what-the-index-lists)).
 
 Wherever they run (the index page and its count badge since v2.0.1, and the three surfaces above since v2.0) the hooks run as Eloquent runs a local scope: what they add is wrapped in one group when it contains an `orWhere()`, so the filters, the search term, the selected ids or the key added after it bind to all of it. After `where('tenant_id', 1)->orWhere('shared', true)` the parent lookup reads `(tenant_id = 1 or shared) and id = ?`; ungrouped, it would read `tenant_id = 1 or (shared and id = ?)` and find another record of the tenant, an action would run on every record of the tenant, and the index would list every record of the tenant whatever the filters and the search said. A hook that starts with `orWhere()` reads as `and`, as it does on a query with no clause before it, so `?trashed=only` still lists trashed records only. Each index filter's `apply()` and the resource's `searchQuery()` run grouped too (v2.0.1): an `orWhere()` in them cannot OR the hooks away. Hooks that add only `and` clauses produce the same SQL as before.
 
@@ -428,7 +434,7 @@ Since v1.36.0 the **outcome of that walk** (the policy class) is memoised per en
 
 ## Per-request Gate cache
 
-Off by default. Flip `MARTIS_AUTHZ_REQUEST_CACHE=true` and `Martis\Authorization\RequestScopedAbilityCache` records every Gate result keyed on `(user class, user id, ability, model_class, model_id)` for the duration of the request, by listening to `GateEvaluated`. It only **observes**: it does not short-circuit the Gate, and the package does not read it back yet, so enabling it does not by itself save any policy call. Resource checks (the sidebar, the schema authorization block, the per-record `_authorization` block, action visibility) call the policy directly and are not recorded at all. Host code can read the cache before a redundant check:
+Off by default. Flip `MARTIS_AUTHZ_REQUEST_CACHE=true` and `Martis\Authorization\RequestScopedAbilityCache` records every Gate result keyed on `(user class, user id, ability, every argument)` for the duration of the request, by listening to `GateEvaluated`. It only **observes**: it does not short-circuit the Gate, and the package does not read it back yet, so enabling it does not by itself save any policy call. Resource checks (the sidebar, the schema authorization block, the per-record `_authorization` block, action visibility) call the policy directly and are not recorded at all. Host code can read the cache before a redundant check:
 
 ```php
 $cached = app(\Martis\Authorization\RequestScopedAbilityCache::class)->lookup($user, $ability, $model);
@@ -440,11 +446,23 @@ if ($cached === null) {
 
 `lookup()` takes the user, not its id (v2.0.1): the key holds the user's morph class as well as its identifier, so an admin and a site user who share an id (an `admins` guard beside the site's `users`) never read each other's answers. A call written for v2.0.0, `lookup($user->id, ...)`, now throws a `TypeError`: pass the user.
 
+Every argument of the call is part of the key (v2.4.0): each model by class and key, each string, number or boolean by value, in order. An ability that takes several models, such as `attach{Model}($user, $parent, $related)` or `detach{Model}`, keeps one answer per combination, so the answer for one related record is never returned for another. Before v2.4.0 the key held the first model argument only, and the extra models of such an ability were left out of it. A call that holds an argument the cache cannot key is not cached and `lookup()` returns `null` for it: a model with no key or not stored (two different new records would share one key, and a policy reads their attributes), an array, a closure or any other object.
+
 The cache is request-scoped — never spans requests, never persisted. Closure-only gates that depend on `Request` state are skipped (the cache key would be ambiguous). `null` results (no policy registered) are not cached so the next call still falls through to the default behaviour.
 
 ## Revoke sessions on demote
 
-Off by default. When `MARTIS_AUTHZ_REVOKE_SESSIONS_ON_DEMOTE=true` and the host app uses Laravel's `database` session driver, a Spatie `RoleDetachedEvent` or `PermissionDetachedEvent` triggers a session sweep on the demoted user — every active session row for that user (across all devices) is dropped. The operator (admin) stays signed in because their session row belongs to them, not to the demoted user.
+Off by default. When `MARTIS_AUTHZ_REVOKE_SESSIONS_ON_DEMOTE=true` and the host app uses Laravel's `database` session driver, a Spatie `RoleDetachedEvent` or `PermissionDetachedEvent` triggers a session sweep on the demoted users — every active session row of theirs (across all devices) is dropped. The request's own session is never dropped: the operator (admin) stays signed in, also when they hold the role they just changed.
+
+Who is swept depends on the model the Spatie event names (v2.4.0):
+
+| Event | Model | Swept |
+|---|---|---|
+| `RoleDetachedEvent`, `PermissionDetachedEvent` | a user of the Martis guard (a role or a permission removed from them) | that user |
+| `PermissionDetachedEvent` | a **role** (a permission revoked from a role) | the users who hold the role (`Role::users()`), if they are the Martis guard's users |
+| any | another model, or a role whose users are not the Martis guard's (a role of another guard) | nobody: the sweep is skipped and a warning names the model |
+
+Up to v2.3.0 the sweep deleted the sessions whose `user_id` equalled the id of whatever model the event named. Revoking a permission from role 7 therefore signed out the unrelated user with id 7 and left the holders of the role, who had just lost the permission, signed in. A user is recognised as the Martis guard's by the model of the guard's provider, or by its table, so an app's `Staff` model beside its `User` on one table counts.
 
 Use this in regulated apps where a demotion must take immediate effect on every device the user is signed in on, without waiting for the session cookie to expire.
 

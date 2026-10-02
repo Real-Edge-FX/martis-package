@@ -92,6 +92,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Panel access
+    |--------------------------------------------------------------------------
+    |
+    | The `viewMartis` gate decides who may open the panel at all: define it in
+    | app/Providers/MartisServiceProvider.php (`martis:install` publishes it
+    | with the gate defined) and it decides per user, in every environment.
+    |
+    | When the app does NOT define the gate, every user the Martis guard signs
+    | in may open the panel only in the environments listed here, as Nova's
+    | `viewNova` does with `local`; anywhere else the panel stays shut (403)
+    | until the gate is defined. Before v2.4.0 an undefined gate was open in
+    | every environment. `testing` is listed so a consumer's own test suite
+    | keeps working, and the published provider's gate lets `local` and
+    | `testing` in too. Comma-separated in the env; an empty list opens none.
+    |
+    | Resources without a policy stay permissive, as in Nova; outside these
+    | environments each one is logged once a day (see docs/authorization.md).
+    */
+    'panel_access' => [
+        'open_environments' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('MARTIS_PANEL_OPEN_ENVIRONMENTS', 'local,testing')),
+        ))),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | OpenAPI / Swagger UI surface
     |--------------------------------------------------------------------------
     |
@@ -100,9 +127,14 @@ return [
     |   GET /{martis-path}/api-docs        → Swagger / Stoplight Elements UI
     |   GET /{martis-path}/api-docs.json   → raw OpenAPI 3.1 document
     |
-    | Both routes go through the configured `middleware`. The default
-    | (`['web', 'auth']`) means only authenticated users reach them, which
-    | matches the rest of the Martis admin surface.
+    | Both routes go through `middleware`. The default, null, is the Martis
+    | protected stack: `martis.middleware`, then `martis.auth_middleware` (the
+    | Martis guard) and the 2FA, email verification, panel (`viewMartis`) and
+    | forced password change gates, so only a user the panel lets in reads the
+    | schema of the admin API. A list you set is kept, then given every
+    | middleware of that stack it leaves out: the plain `auth` middleware reads
+    | the app's default guard, not MARTIS_GUARD, so it never stands in for them.
+    | Set a list only to add to the stack (a rate limit, an IP allow-list).
     |
     | Default `enabled = false` so a fresh `composer require martis/martis`
     | does not expose the schema publicly. Flip the env in local/staging to
@@ -116,8 +148,10 @@ return [
         // makes the surface live at `/{martis-path}/api-docs`.
         'path' => env('MARTIS_API_DOCS_PATH', 'api-docs'),
 
-        // Middleware applied to both the UI and JSON routes.
-        'middleware' => ['web', 'auth'],
+        // Middleware applied to both the UI and JSON routes. Null: the
+        // Martis protected stack (see above). A list from v2.3 or earlier
+        // (`['web', 'auth']`) is completed with the stack's guards.
+        'middleware' => null,
     ],
 
     /*
@@ -527,6 +561,28 @@ return [
         'decay_minutes' => (int) env('MARTIS_THROTTLE_DECAY', 1),
         'login_attempts' => (int) env('MARTIS_LOGIN_THROTTLE_ATTEMPTS', 20),
         'login_minutes' => (int) env('MARTIS_LOGIN_THROTTLE_MINUTES', 1),
+        // The per-account limit of the sign-in (v2.4.0), applied by the login
+        // controllers (AccountLoginThrottle): wrong passwords per account,
+        // whatever the source IP, counted until a right one clears them. It
+        // bounds guessing at one account from many IPs, which the per-email +
+        // per-IP limit above cannot (every IP gets a bucket of its own there).
+        // A higher threshold over a longer window than the login throttle;
+        // 0 attempts turns it off. The bucket follows the account the email
+        // matches, and the magic-link request has a bucket of its own.
+        'login_email_attempts' => (int) env('MARTIS_LOGIN_THROTTLE_EMAIL_ATTEMPTS', 100),
+        'login_email_minutes' => (int) env('MARTIS_LOGIN_THROTTLE_EMAIL_MINUTES', 15),
+        // The 2FA challenge (v2.4.0): its own limiter, tighter than the login
+        // throttle. `two_factor_attempts` per user and `two_factor_ip_attempts`
+        // per IP, per `two_factor_minutes`; past it the route answers 429.
+        'two_factor_attempts' => (int) env('MARTIS_2FA_THROTTLE_ATTEMPTS', 5),
+        'two_factor_ip_attempts' => (int) env('MARTIS_2FA_THROTTLE_IP_ATTEMPTS', 15),
+        'two_factor_minutes' => (int) env('MARTIS_2FA_THROTTLE_MINUTES', 1),
+        // After `two_factor_lockout_attempts` consecutive wrong codes the
+        // pending session ends and the user is locked out of the challenge
+        // for `two_factor_lockout_minutes` (a new password sign-in is needed
+        // after it). 0 attempts turns the lockout off.
+        'two_factor_lockout_attempts' => (int) env('MARTIS_2FA_LOCKOUT_ATTEMPTS', 5),
+        'two_factor_lockout_minutes' => (int) env('MARTIS_2FA_LOCKOUT_MINUTES', 15),
     ],
 
     /*
@@ -836,10 +892,24 @@ return [
                 //     'role_source' => 'app_role_assignments',
                 //     'resource_id' => env('AZURE_RESOURCE_ID'),
                 //
+                //     // The tenant the app registration is tied to (v2.4.0): a
+                //     // tenant id, or a verified domain. An identity whose `tid`
+                //     // claim names another tenant is rejected, and so is one whose
+                //     // tenant cannot be read. Leave it empty (or `common`,
+                //     // `organizations`, `consumers`) and any tenant may sign in:
+                //     // then match local accounts by `external_id`, not by email.
+                //     // Unset, it reads `services.azure.tenant` of the Socialite driver.
+                //     'tenant' => env('AZURE_TENANT_ID'),
+                //
                 //     'role_strategy' => 'column',
                 //     'role_column' => 'azure_group_name',
                 //
                 //     'auto_create_user' => true,
+                //     // 'email' adopts the local row holding the IdP's address only
+                //     // when its email is verified (email_verified_at set) or
+                //     // martis.auth.registration.enabled is false (v2.4.0); an
+                //     // unverified row with registration open refuses the sign-in.
+                //     // 'external_id' matches an id the IdP issued and is unaffected.
                 //     'identity_match_attribute' => 'email',
                 //     'sync_user_attributes' => ['name', 'email'],
                 //
@@ -848,6 +918,14 @@ return [
                 //
                 //     'on_no_role_match' => 'deny',
                 //     'redirect_to' => null,
+                //
+                //     // Remember-me after an SSO sign-in (v2.4.0). Off by default:
+                //     // the session then follows SESSION_LIFETIME and a fresh IdP
+                //     // round-trip decides after it, so revoking access at the IdP
+                //     // ends the panel access. On, the remember cookie signs the
+                //     // user back in for `auth.guards.{guard}.remember` minutes
+                //     // (576000 by default) whatever the IdP says meanwhile.
+                //     'remember' => false,
                 //
                 //     // Federated logout (v1.8.8). Optional. When set,
                 //     // POST /api/auth/logout redirects through the IdP's
@@ -911,8 +989,10 @@ return [
         // Magic-link (passwordless) login. Off by default. When
         // enabled, the Login page exposes a "Email me a sign-in link"
         // button that POSTs to /api/auth/magic-link/request. The
-        // emailed link points at /api/auth/magic-link/consume which
-        // logs the user in and redirects to the dashboard.
+        // emailed link opens the confirmation page (GET /magic-link/confirm),
+        // which signs nobody in: the sign-in is the CSRF-protected
+        // POST /api/auth/magic-link/consume that page sends when the person
+        // clicks, and it redirects to the dashboard.
         // Tokens are persisted in the same `password_reset_tokens`
         // table Laravel ships with, scoped by a `martis-magic:` prefix
         // so they never clash with reset-password tokens. TTL defaults
@@ -1293,14 +1373,28 @@ return [
     |--------------------------------------------------------------------------
     | Attachments
     |--------------------------------------------------------------------------
-    | Configure allowed MIME types and disks for Trix/Markdown file uploads.
-    | Add or remove extensions to control what can be uploaded inline.
-    | Allowed disks restricts which storage disks the upload endpoint accepts.
+    | Configure the file types, size and rate of Trix/Markdown file uploads.
+    | An upload names the resource, the field and (editing) the record, is
+    | authorised like the form it comes from, and is stored on the disk the
+    | field declares with `withFiles($disk)` (the `storage.disk` above without
+    | one), never on a disk the request names.
+    |
+    | allowed_mimes   - Extensions an upload may have. Add or remove entries to
+    |                   control what can be uploaded inline.
+    | max_size        - Largest file, in kilobytes.
+    | throttle_max    - Uploads one user may make per `throttle_decay` minutes,
+    |                   on top of the API limit (the `throttle` block). Ignored
+    |                   when `throttle.enabled` is false.
+    | throttle_decay  - The window of `throttle_max`, in minutes.
+    |
+    | `php artisan martis:attachments:prune` deletes the uploaded files no
+    | record references any more.
     |*/
     'attachments' => [
         'allowed_mimes' => explode(',', env('MARTIS_ATTACHMENT_MIMES', 'jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,mp4,mp3')),
-        'allowed_disks' => ['public', 'local'],
         'max_size' => (int) env('MARTIS_ATTACHMENT_MAX_SIZE', 10240),
+        'throttle_max' => (int) env('MARTIS_ATTACHMENT_THROTTLE_MAX', 20),
+        'throttle_decay' => (int) env('MARTIS_ATTACHMENT_THROTTLE_DECAY', 1),
     ],
 
     /*
@@ -1365,6 +1459,18 @@ return [
         'two_factor' => [
             'enabled' => env('MARTIS_2FA_ENABLED', true),
             'recovery_codes' => (int) env('MARTIS_2FA_RECOVERY_CODES', 8),
+        ],
+        'email_change' => [
+            // Minutes the confirmation link of a new email address stays
+            // valid (v2.4.0). The profile asks the current password, mails the
+            // link to the new address and a notice to the old one, and the
+            // address switches only when the link is followed.
+            'ttl_minutes' => (int) env('MARTIS_PROFILE_EMAIL_CHANGE_TTL', 60),
+            // How many confirmation mails one user may ask for, and one
+            // address may be sent, per `throttle_minutes` (5 per hour); past
+            // it the profile answers 429. 0 turns the limit off.
+            'throttle_attempts' => (int) env('MARTIS_PROFILE_EMAIL_CHANGE_ATTEMPTS', 5),
+            'throttle_minutes' => (int) env('MARTIS_PROFILE_EMAIL_CHANGE_ATTEMPTS_MINUTES', 60),
         ],
         'account' => [
             // When false, the built-in Account section renders the e-mail field

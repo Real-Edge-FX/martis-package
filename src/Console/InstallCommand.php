@@ -4,7 +4,9 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
+use Martis\Auth\PanelAccess;
 use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Stubs\StubResolver;
 use Martis\Support\BootstrapProvidersPatcher;
@@ -65,6 +67,7 @@ class InstallCommand extends Command
 
         $this->newLine();
         $this->components->info('Martis installed successfully.');
+        $this->noticePanelAccess();
         $this->newLine();
         $this->line('  Next steps:');
         if ($this->option('no-migrate')) {
@@ -78,6 +81,38 @@ class InstallCommand extends Command
         $this->newLine();
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Say who may open the panel once Martis is installed: the `viewMartis`
+     * gate. Without it the panel is shut outside the local environments, so
+     * a fresh install that stops being local must not find that out from a
+     * 403. The provider just published is not booted in this process, so its
+     * file is read as well as the gate.
+     */
+    protected function noticePanelAccess(): void
+    {
+        $provider = app_path('Providers/MartisServiceProvider.php');
+        $defined = Gate::has(PanelAccess::GATE)
+            || (is_file($provider) && preg_match('/^\s*Gate::define\(\s*[\'"]'.PanelAccess::GATE.'[\'"]/m', (string) file_get_contents($provider)) === 1);
+
+        $this->newLine();
+
+        if ($defined) {
+            $this->components->info(
+                'Panel access: the '.PanelAccess::GATE.' gate is defined, so it decides who may open the panel, in every environment. '
+                .'The one martis:install publishes lets the local environment in and, anywhere else, only the addresses you list '
+                .'in app/Providers/MartisServiceProvider.php: edit that list before you deploy.'
+            );
+
+            return;
+        }
+
+        $this->components->warn(
+            'Panel access: no '.PanelAccess::GATE.' gate is defined. Outside the '.implode(' and ', PanelAccess::openEnvironments()).' environments the panel '
+            .'answers 403 to every user until you define it in app/Providers/MartisServiceProvider.php (registerGates()). '
+            .'See docs/authorization.md, "Panel access".'
+        );
     }
 
     /**

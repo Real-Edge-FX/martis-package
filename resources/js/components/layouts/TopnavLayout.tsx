@@ -25,6 +25,7 @@ import { ResourceIcon } from "@/components/ResourceIcon"
 import { useTranslation } from "react-i18next"
 import { useRef, useState, useEffect, useMemo } from "react"
 import { addShortcut } from "@/lib/keyboardShortcuts"
+import { safeHref } from "@/lib/safeUrl"
 import logoSrcDefault from "@images/martis-icon.png"
 import {
   SquaresFourIcon,
@@ -241,7 +242,7 @@ export function TopnavLayout() {
                 return item.external ? (
                   <a
                     key={`${groupKey}-${item.label}-${item.url}`}
-                    href={item.url}
+                    href={safeHref(item.url)}
                     target="_blank"
                     rel="noreferrer"
                     className="martis-topnav-link"
@@ -299,7 +300,7 @@ export function TopnavLayout() {
                     return item.external ? (
                       <a
                         key={`${groupKey}-${item.label}-${item.url}`}
-                        href={item.url}
+                        href={safeHref(item.url)}
                         target="_blank"
                         rel="noreferrer"
                         className="martis-topnav-dropdown-item"

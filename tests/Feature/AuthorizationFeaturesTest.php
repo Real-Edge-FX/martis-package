@@ -244,6 +244,108 @@ it('request-scoped ability cache keys a user by its morph class', function () {
     }
 });
 
+it('request-scoped ability cache keys a multi-model ability on every model, not the first alone', function () {
+    config()->set('martis.authz.request_cache', true);
+
+    $user = AuthzTestUser::create(['email' => 'attach@example.com']);
+    $parent = AuthzTestPost::create(['title' => 'parent']);
+    $allowed = AuthzTestPost::create(['title' => 'allowed']);
+    $denied = AuthzTestPost::create(['title' => 'denied']);
+
+    /** @var RequestScopedAbilityCache $cache */
+    $cache = app(RequestScopedAbilityCache::class);
+    $cache->clear();
+
+    // attach{Model}($user, $parent, $related): the answer for one related
+    // record is not the answer for another.
+    $cache->handle(new GateEvaluated($user, 'attach-test-post', true, [$parent, $allowed]));
+
+    expect($cache->lookup($user, 'attach-test-post', $parent, $allowed))->toBeTrue()
+        ->and($cache->lookup($user, 'attach-test-post', $parent, $denied))->toBeNull()
+        ->and($cache->lookup($user, 'attach-test-post', $allowed, $parent))->toBeNull()
+        ->and($cache->lookup($user, 'attach-test-post', $parent))->toBeNull();
+
+    $cache->handle(new GateEvaluated($user, 'attach-test-post', false, [$parent, $denied]));
+
+    expect($cache->lookup($user, 'attach-test-post', $parent, $denied))->toBeFalse()
+        ->and($cache->lookup($user, 'attach-test-post', $parent, $allowed))->toBeTrue();
+});
+
+it('request-scoped ability cache keys the scalar arguments of an ability too', function () {
+    config()->set('martis.authz.request_cache', true);
+
+    $user = AuthzTestUser::create(['email' => 'scalars@example.com']);
+    $post = AuthzTestPost::create(['title' => 'public']);
+
+    /** @var RequestScopedAbilityCache $cache */
+    $cache = app(RequestScopedAbilityCache::class);
+    $cache->clear();
+    $cache->handle(new GateEvaluated($user, 'publish-test-post', true, [$post, 'draft', 3]));
+
+    expect($cache->lookup($user, 'publish-test-post', $post, 'draft', 3))->toBeTrue()
+        ->and($cache->lookup($user, 'publish-test-post', $post, 'draft', 4))->toBeNull()
+        ->and($cache->lookup($user, 'publish-test-post', $post, 'final', 3))->toBeNull()
+        ->and($cache->lookup($user, 'publish-test-post', $post, 'draft'))->toBeNull()
+        // The class-string form (`can('create', Post::class)`) still keys.
+        ->and($cache->lookup($user, 'publish-test-post', AuthzTestPost::class))->toBeNull();
+
+    $cache->handle(new GateEvaluated($user, 'create-test-post', false, [AuthzTestPost::class]));
+    expect($cache->lookup($user, 'create-test-post', AuthzTestPost::class))->toBeFalse();
+});
+
+it('request-scoped ability cache keeps string arguments that contain the separator apart', function () {
+    config()->set('martis.authz.request_cache', true);
+
+    $user = AuthzTestUser::create(['email' => 'separator@example.com']);
+
+    /** @var RequestScopedAbilityCache $cache */
+    $cache = app(RequestScopedAbilityCache::class);
+    $cache->clear();
+    $cache->handle(new GateEvaluated($user, 'tag', true, ['a|b', 'c']));
+
+    expect($cache->lookup($user, 'tag', 'a|b', 'c'))->toBeTrue()
+        ->and($cache->lookup($user, 'tag', 'a', 'b|c'))->toBeNull()
+        ->and($cache->lookup($user, 'tag', 'a', 'b', 'c'))->toBeNull();
+});
+
+it('request-scoped ability cache skips a call that holds a model with no key', function () {
+    config()->set('martis.authz.request_cache', true);
+
+    $user = AuthzTestUser::create(['email' => 'keyless@example.com']);
+    $parent = AuthzTestPost::create(['title' => 'parent']);
+    $unsaved = new AuthzTestPost(['title' => 'unsaved']);
+
+    /** @var RequestScopedAbilityCache $cache */
+    $cache = app(RequestScopedAbilityCache::class);
+    $cache->clear();
+
+    // A model with no key (a create check on a new record) is not cached: two
+    // different new records would share the class-wide key.
+    $cache->handle(new GateEvaluated($user, 'create-test-post', true, [$unsaved]));
+    $cache->handle(new GateEvaluated($user, 'attach-test-post', true, [$parent, $unsaved]));
+
+    expect($cache->lookup($user, 'create-test-post', $unsaved))->toBeNull()
+        ->and($cache->lookup($user, 'create-test-post', new AuthzTestPost(['title' => 'another'])))->toBeNull()
+        ->and($cache->lookup($user, 'attach-test-post', $parent, $unsaved))->toBeNull()
+        ->and((fn (): array => $this->cache)->call($cache))->toBe([]);
+});
+
+it('request-scoped ability cache skips a call with an argument it cannot key', function () {
+    config()->set('martis.authz.request_cache', true);
+
+    $user = AuthzTestUser::create(['email' => 'opaque@example.com']);
+    $post = AuthzTestPost::create(['title' => 'public']);
+
+    /** @var RequestScopedAbilityCache $cache */
+    $cache = app(RequestScopedAbilityCache::class);
+    $cache->clear();
+    $cache->handle(new GateEvaluated($user, 'view-test-post', true, [$post, ['an' => 'array']]));
+    $cache->handle(new GateEvaluated($user, 'view-test-post', true, [$post, fn () => true]));
+
+    expect($cache->lookup($user, 'view-test-post', $post, ['an' => 'array']))->toBeNull()
+        ->and((fn (): array => $this->cache)->call($cache))->toBe([]);
+});
+
 // -----------------------------------------------------------------------------
 // C4 — AssertsAuthorization trait
 // -----------------------------------------------------------------------------

@@ -699,10 +699,17 @@ class BelongsToManyController extends MartisController
      * records to attach, the attach modal's pivot pickers and the attach
      * need it; `canAttach()` then decides per record.
      *
-     * @param  array{relation: EloquentBelongsToMany<Model, Model>, parentResourceClass: class-string<\Martis\Resource>}  $ctx
+     * The field must leave attaching on too (`canAttach(false)` turns the
+     * attach endpoints off, not only the button).
+     *
+     * @param  array{relation: EloquentBelongsToMany<Model, Model>, parentResourceClass: class-string<\Martis\Resource>, field: BelongsToMany}  $ctx
      */
     private function canAttachAny(Request $request, Model $parentModel, array $ctx): bool
     {
+        if (! $ctx['field']->allowsAttach()) {
+            return false;
+        }
+
         $parentInstance = new $ctx['parentResourceClass']($parentModel);
 
         return $parentInstance->authorizedToAttachAny($request, $ctx['relation']->getRelated()::class);
@@ -725,13 +732,18 @@ class BelongsToManyController extends MartisController
     }
 
     /**
-     * Check detach authorization on the parent resource.
-     */
-    /**
+     * Check detach authorization on the parent resource, and that the field
+     * leaves detaching on (`canDetach(false)` turns the endpoint off, not
+     * only the button).
+     *
      * @param  array<string, mixed>  $ctx
      */
     private function canDetach(Request $request, Model $parentModel, Model $relatedModel, array $ctx): bool
     {
+        if (! $ctx['field']->allowsDetach()) {
+            return false;
+        }
+
         $parentInstance = new $ctx['parentResourceClass']($parentModel);
         if (method_exists($parentInstance, 'authorizedToDetach')) {
             return $parentInstance->authorizedToDetach($request, $relatedModel);

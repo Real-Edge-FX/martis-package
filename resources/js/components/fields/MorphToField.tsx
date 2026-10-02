@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
 import { api } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
 import { ArrowSquareOutIcon, CaretDownIcon, MagnifyingGlassIcon, XIcon, CheckIcon, PlusIcon } from '@phosphor-icons/react'
@@ -10,7 +11,7 @@ import { InlineCreateModal } from '@/components/InlineCreateModal'
 import { useQueryClient } from '@tanstack/react-query'
 import { recordHref } from '@/lib/recordHref'
 import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
-import { relatableUrl, withQuery } from '@/lib/relatableEndpoint'
+import { pickerAttributesQuery, relatableUrl, withQuery } from '@/lib/relatableEndpoint'
 import { useEscapeLayer } from '@/lib/escapeLayers'
 // Tooltip handled by global <Tooltip> in Layout.tsx
 
@@ -89,7 +90,7 @@ function PeekCard({ resourceKey, recordId, top, left }: PeekCardProps) {
 
   useEffect(() => {
     let cancelled = false
-    api.get<PeekResponse>(`/api/resources/${resourceKey}/${recordId}/peek`)
+    api.get<PeekResponse>(apiPath`/api/resources/${resourceKey}/${recordId}/peek`)
       .then((res) => {
         if (!cancelled) {
           setData(res.data)
@@ -344,8 +345,8 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     try {
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
       const endpoint = scopedUrl
-        ? withQuery(scopedUrl, `per_page=${perPage}&related_resource=${selectedType}${searchParam}`)
-        : `/api/resources/_/_/relatable/${field.attribute}?per_page=${perPage}&related_resource=${selectedType}${searchParam}`
+        ? withQuery(scopedUrl, `per_page=${perPage}&related_resource=${encodeURIComponent(selectedType)}${searchParam}`)
+        : withQuery(apiPath`/api/resources/_/_/relatable/${field.attribute}`, `per_page=${perPage}&related_resource=${encodeURIComponent(selectedType)}${pickerAttributesQuery(titleAttribute, withSubtitles ? subtitleAttribute : undefined)}${searchParam}`)
       const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
     } catch {
@@ -353,7 +354,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     } finally {
       setLoading(false)
     }
-  }, [selectedType, scopedUrl, field.attribute, perPage])
+  }, [selectedType, scopedUrl, field.attribute, perPage, titleAttribute, withSubtitles, subtitleAttribute])
 
   // Load the options of the picked type while the dropdown is open: when it
   // opens, and again if the type or the scope changes under it.

@@ -51,6 +51,19 @@ abstract class Lens implements LensContract
     /** Show a UI toggle to pause polling. */
     public static bool $showPollingToggle = false;
 
+    /**
+     * Opt out of the resource's index scope. By default a lens lists the
+     * records the resource's index lists: the resource's `scopes()` and
+     * `indexQuery()` (the tenant / ownership fence) run on the query handed
+     * to `query()`, so a lens that does not repeat the constraint never
+     * lists another tenant's rows, field values or summary aggregates, and
+     * its actions never run on them. Set it to `true` only for a lens that
+     * aggregates across the fence on purpose (a cross-tenant report for
+     * staff): the lens then starts from the bare model query and confines
+     * its own.
+     */
+    public static bool $withoutIndexScope = false;
+
     /** Authorization callback. */
     protected ?Closure $canSeeCallback = null;
 

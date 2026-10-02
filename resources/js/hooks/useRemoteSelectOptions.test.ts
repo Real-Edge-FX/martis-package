@@ -64,7 +64,9 @@ describe('remoteOptionsEndpoint', () => {
   })
 
   it('URL-encodes the keys and the attribute', () => {
-    expect(remoteOptionsEndpoint('a b', { toolKey: 'x/y' })).toBe('/api/tools/x%2Fy/fields/a%20b/options')
+    // A slash in a key is spelt `%252F`: Laravel decodes `%2F` before it
+    // matches a route, so a plain one would split the segment (see lib/apiPath.ts).
+    expect(remoteOptionsEndpoint('a b', { toolKey: 'x/y' })).toBe('/api/tools/x%252Fy/fields/a%20b/options')
   })
 })
 

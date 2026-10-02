@@ -10,7 +10,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Martis\Auth\AccountLoginThrottle;
 use Martis\Auth\PasswordChangeRequirement;
+use Martis\Auth\TwoFactorPass;
 use Martis\Http\Controllers\Concerns\AuthenticatesWithRememberMe;
 use Martis\Sso\SsoSession;
 
@@ -45,11 +47,21 @@ class LoginController extends MartisController
         /** @var StatefulGuard $auth */
         $auth = auth()->guard($guardName);
 
+        // The per-account limit: wrong passwords for one account, from any
+        // address, spend one bucket (AccountLoginThrottle).
+        $email = (string) $request->input('email');
+        $account = AccountLoginThrottle::userFor($auth, $email);
+        if (AccountLoginThrottle::tooMany(AccountLoginThrottle::PASSWORD, $email, $account)) {
+            throw AccountLoginThrottle::exception(AccountLoginThrottle::PASSWORD, $email, $account);
+        }
+
         // "Keep me signed in" — attemptLogin() forwards the toggle to attempt()
         // so Laravel issues the long-lived remember-me cookie. Without it the
         // session only lives for config('session.lifetime') and the toggle is
         // a no-op. Shared with AuthController so the two cannot diverge again.
         if (! $this->attemptLogin($auth, $request)) {
+            AccountLoginThrottle::hit(AccountLoginThrottle::PASSWORD, $email, $account);
+
             if ($request->expectsJson()) {
                 return response()->json([
                     'message' => __('auth.failed'),
@@ -60,13 +72,22 @@ class LoginController extends MartisController
             return back()->withErrors(['email' => __('auth.failed')])->withInput($request->only('email'));
         }
 
+        AccountLoginThrottle::clear(AccountLoginThrottle::PASSWORD, $email, $account);
+
         $request->session()->regenerate();
+
+        // Every sign-in starts without a 2FA pass. The pass names the user
+        // who earned it and the Login listener forgets it, so a pass of the
+        // account signed in before cannot reach this one; this keeps a guard
+        // that does not fire Login honest.
+        TwoFactorPass::revoke($request->session());
 
         // A password, magic-link or invitation sign-in is not an SSO one: drop
         // the SSO origin an earlier SSO sign-in left in this session or in
-        // the browser's cookie (SsoSession), so the forced password change
-        // gate and the federated logout do not read it.
-        SsoSession::forget($request);
+        // the browser's cookie (SsoSession), and every cookie of it the user
+        // kept, so the forced password change gate and the federated logout
+        // do not read it.
+        SsoSession::forget($request, $auth->user());
 
         if ($request->expectsJson()) {
             // Filter sensitive fields before returning user data to the client

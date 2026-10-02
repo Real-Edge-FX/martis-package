@@ -10,6 +10,8 @@ use Martis\Contracts\DashboardContract;
 use Martis\Contracts\FilterContract;
 use Martis\Contracts\MetricContract;
 use Martis\Filters\Filter;
+use Martis\Filters\FilterValue;
+use Martis\Gates\SoftGate;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\MartisManager;
@@ -55,10 +57,12 @@ class MetricController
         // orphaned entries and lets the cached shape itself converge.
         $cache = app(MartisCache::class);
         $userKey = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
+        // The lock state of each dashboard is part of it: a locked dashboard's
+        // `meta` is left out of the payload, so a plan change lands at once.
         $fingerprint = substr(sha1(implode('|', array_map(
             fn (DashboardContract $d): string => $d::class.'@'.$d->uriKey(),
             $instances,
-        ))), 0, 16);
+        )).'#'.SoftGate::fingerprint($instances, $request)), 0, 16);
         $cached = $cache->remember('dashboards', 'list:'.$userKey.':'.app()->getLocale().':'.$fingerprint, function () use ($instances): array {
             return array_map(function (DashboardContract $d): array {
                 $arr = $d->toArray();
@@ -124,6 +128,13 @@ class MetricController
         $cache = app(MartisCache::class);
         $userKey = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
         $cacheKey = 'show:'.$dashboard.':'.$userKey.':'.app()->getLocale();
+        // A locked card's `meta` is left out of the payload, so the lock state
+        // of the cards is part of the key: a plan change shows at once.
+        // The same holds for the dashboard's filters (their options and meta).
+        $lockedCards = SoftGate::fingerprint([...$instance->cards($request), ...$instance->filters($request)], $request);
+        if ($lockedCards !== '') {
+            $cacheKey .= ':locked-'.$lockedCards;
+        }
 
         $payload = $cache->remember('dashboards', $cacheKey, function () use ($instance, $request): array {
             return [
@@ -146,6 +157,13 @@ class MetricController
 
         if ($instance === null) {
             return JsonErrorResponse::notFound('Dashboard not found.')->toResponse();
+        }
+
+        // A locked dashboard computes nothing. The `martis.gate` middleware
+        // refuses the route first; this answers the same `403` with the lock
+        // when the action is reached without it (a route of the app's own).
+        if ($refusal = SoftGate::refusalFor($instance, $request)) {
+            return $refusal;
         }
 
         $metric = $this->findMetric($instance->cards($request), $card, $request);
@@ -295,35 +313,76 @@ class MetricController
             return;
         }
 
+        // The metric caches its result under the request's `filters`: a value
+        // that applies nothing (not JSON, not a map, empty, an array parameter)
+        // is removed, or any string would mint a cache entry of its own.
         $rawFilters = $request->query('filters', '');
         if (! is_string($rawFilters) || $rawFilters === '') {
+            $request->query->remove('filters');
+
             return;
         }
 
         /** @var array<string, mixed>|null $decoded */
         $decoded = json_decode($rawFilters, true);
         if (! is_array($decoded) || $decoded === []) {
+            $request->query->remove('filters');
+
             return;
         }
 
-        $filterInstances = $dashboard->filters($request);
+        // The filters the request applies: the ones the user may see and is
+        // not soft-locked from (`lockedFor()`, `requirePlan()`), named with a
+        // value.
+        /** @var array<string, array{FilterContract, mixed}> $applicable */
+        $applicable = [];
 
-        $metric->withFilterScope(function (Builder $query) use ($filterInstances, $decoded, $request): Builder {
-            foreach ($filterInstances as $filter) {
-                if (! $filter instanceof FilterContract) {
-                    continue;
-                }
+        foreach ($dashboard->filters($request) as $filter) {
+            if (! $filter instanceof FilterContract) {
+                continue;
+            }
 
-                $key = $filter->uriKey();
-                if (! array_key_exists($key, $decoded)) {
-                    continue;
-                }
+            // The gate the dashboard payload (serializeFilters()) and the
+            // resource index apply: a filter the user may not see, or is
+            // soft-locked from, is not applied, whatever the `filters`
+            // parameter names.
+            if (! $filter->authorizedToSee($request) || SoftGate::isLocked($filter, $request)) {
+                continue;
+            }
 
-                $value = $decoded[$key];
-                if ($value === null || $value === '') {
-                    continue;
-                }
+            $key = $filter->uriKey();
+            if (! array_key_exists($key, $decoded)) {
+                continue;
+            }
 
+            $value = $decoded[$key];
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            // A boolean filter only receives the options it declares.
+            $value = FilterValue::resolve($filter, $request, $value);
+            if ($value === null) {
+                continue;
+            }
+
+            $applicable[$key] = [$filter, $value];
+        }
+
+        // The metric caches its result under the request's `filters`, so the
+        // request keeps only the ones applied, with the values applied: the
+        // result of a filter that is not applied (a locked one) is never
+        // served to, or from, one that is.
+        if ($applicable === []) {
+            $request->query->remove('filters');
+
+            return;
+        }
+
+        $request->query->set('filters', (string) json_encode(array_map(fn (array $pair): mixed => $pair[1], $applicable)));
+
+        $metric->withFilterScope(function (Builder $query) use ($applicable, $request): Builder {
+            foreach ($applicable as [$filter, $value]) {
                 $filter->apply($request, $query, $value);
             }
 

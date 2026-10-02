@@ -124,7 +124,7 @@ MARTIS_MCP_TRANSPORT=http
 MARTIS_MCP_HOST=0.0.0.0
 MARTIS_MCP_PORT=8091
 MARTIS_MCP_HEALTH_PORT=8092
-MARTIS_MCP_HTTP_TOKEN=  # optional bearer token (recommended when host=0.0.0.0)
+MARTIS_MCP_HTTP_TOKEN=  # optional bearer token (recommended whenever the host is not a loopback address)
 
 # 1. Wire each agent's .mcp.json with the URL entry
 php artisan martis:agents --with-mcp
@@ -192,7 +192,7 @@ The docs are public (anyone can `composer require martis/martis` and read them).
 MARTIS_MCP_HTTP_TOKEN=$(openssl rand -hex 32)
 ```
 
-When `host=0.0.0.0` without a token, `martis:mcp-serve` prints a warning at boot. Suppress with `--no-warn-on-public` if you front the server with an authenticated reverse proxy.
+Whenever the host is not a loopback address and no token is set, `martis:mcp-serve` prints a warning at boot (v2.4.0+; before, only the literal `0.0.0.0` did). A loopback address is `127.0.0.0/8`, `::1` (also written `[::1]`, in full, or IPv4-mapped) or `localhost`; everything else counts as public: `0.0.0.0`, `::`, `[::]`, a LAN or public address and any host name. The `/health` endpoint has no authentication, so with `MARTIS_MCP_HEALTH_PORT` set a public host earns a second warning about it, token or not. Suppress both with `--no-warn-on-public` if you front the server with an authenticated reverse proxy; the option only silences the warnings, it does not change what the server accepts.
 
 ### `/health` endpoint
 

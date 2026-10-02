@@ -53,7 +53,40 @@ Gate::define('martis-impersonate', function ($user) {
 });
 ```
 
-The closure receives the **operator** (not the target). The package does not pass the target to the gate — that check happens server-side after the user is loaded so the gate can stay simple.
+The closure receives the **operator** first and, since v2.4.0, the **target** as its second argument. A gate that only judges the operator keeps working as it is (`fn ($user) => ...` ignores the second argument), but it then admits every target: in one `users` table that holds both support staff and super-admins, an operator the gate lets in could borrow the identity of any user, a super-admin included, and act with that user's authority. `NotImpersonable` is per model class, so it cannot protect one row of a shared table. Judge the pair instead:
+
+```php
+Gate::define('martis-impersonate', function ($operator, $target) {
+    // A support operator may impersonate users that do not outrank them.
+    return $operator->hasRole('support-lead')
+        && $target->roles->max('level') <= $operator->roles->max('level');
+});
+```
+
+The gate runs after the target is loaded. For an id that does not exist it runs with the operator alone: a gate that needs the target answers `403` there, like any other denial (and so does one that raises any error on the missing target, such as a `$target = null` closure that reads `$target->rank`: an error there is a refusal, never a `500`), and a gate that only judges the operator (and refuses) answers `403` too, so an operator who may not impersonate learns nothing about which ids exist from a `404`. Give the second parameter a default (`$target = null`) if the same gate also serves a call without a target. Up to v2.3.0 the gate never saw the target; a one-argument gate written then is still called the same way, and still lets the operator impersonate whoever they ask for: add the second argument to restrict that.
+
+### Per-instance hooks
+
+Like Nova's `canImpersonate()` and `canBeImpersonated()`, two optional methods on the user model decide per row (v2.4.0):
+
+```php
+class User extends Authenticatable
+{
+    // The operator: false answers 403, whatever the gate says.
+    public function canImpersonate(): bool
+    {
+        return $this->is_support;
+    }
+
+    // The target: false answers 422, as NotImpersonable does.
+    public function canBeImpersonated(): bool
+    {
+        return ! $this->is_super_admin;
+    }
+}
+```
+
+They are checked on top of the gate and `NotImpersonable`, and again inside `ImpersonationManager::start()`, so a programmatic `Impersonation::start($user)` cannot go around them (it throws `Martis\Impersonation\ImpersonationRefusedException`, a `RuntimeException`).
 
 ## REST surface
 
@@ -82,9 +115,9 @@ The closure receives the **operator** (not the target). The package does not pas
 | HTTP | Cause |
 |---|---|
 | 503 | Master switch off. |
-| 403 | `martis-impersonate` gate returned false. |
+| 403 | `martis-impersonate` gate returned false (for this target: the gate receives it as its second argument, v2.4.0), or the operator model's `canImpersonate()` hook returned false. |
 | 404 | Target user id does not exist on the configured guard's user provider. |
-| 422 | Operator tried to impersonate themselves, **or** impersonation is already active (chaining is not supported on purpose), **or** the target fails the `viewMartis` panel gate (v2.1.0). |
+| 422 | Operator tried to impersonate themselves, **or** impersonation is already active (chaining is not supported on purpose), **or** the target is `NotImpersonable` or its `canBeImpersonated()` hook returned false, **or** the target fails the `viewMartis` panel gate (v2.1.0). |
 | 200 | Started — body is the active snapshot. |
 
 If the `viewMartis` gate stops accepting the impersonated user during the session, every panel route refuses them except `POST /api/impersonation/stop`, and the no-access screen offers **Stop impersonating** (v2.1.0). See [Authorization → Panel access](authorization.md#panel-access-viewmartis).
@@ -142,7 +175,7 @@ class SystemAccount extends Authenticatable implements NotImpersonable
 }
 ```
 
-`ImpersonationManager::start()` checks for the interface before mutating the session and rejects with `RuntimeException`, which the controller surfaces as `422 { message: "This user cannot be impersonated." }`. The check runs server-side; the operator's UI is unchanged. You typically pair this with a `canSee()` clause on the trigger button (the row never shows the option) for the cleanest UX.
+`ImpersonationManager::start()` checks for the interface before mutating the session and rejects with `ImpersonationRefusedException` (a `RuntimeException`), which the controller surfaces as `422 { message: "This user cannot be impersonated." }`. To protect some rows of a table and not others, use the target-aware gate or `canBeImpersonated()` above. The check runs server-side; the operator's UI is unchanged. You typically pair this with a `canSee()` clause on the trigger button (the row never shows the option) for the cleanest UX. Only that exception type is shown to the client: any other failure while starting (a database or session error) goes to the normal exception handler and never reaches the response body.
 
 ## Audit logging
 
@@ -158,6 +191,7 @@ Each row carries:
 - `user_id`: the operator (the user issuing the impersonation, even after the auth guard switched to the target), when the impersonation guard signs in the Martis guard's users (the default). When `guard` names a guard of other users (the site's), the log's `user()`, which resolves the Martis guard's model, would name someone else: `user_id` is null and the operator goes to `fields.operator_type` / `fields.operator_id` (v2.0.0+).
 - `model_id` / `target_id`: the target user.
 - `fields.target_label`: the target's `name`, falling back to `email` (mirrors the snapshot label).
+- `fields.operator_id` / `fields.operator_label`: the operator beside the target, whoever the impersonation guard signs in, so a row names both people even when `user_id` cannot (v2.4.0).
 
 Browse them under `/martis/system/action-events` (or whatever URL the bundled `ActionEventResource` lives at), once the `view-martis-action-events` gate lets you (see [Actions → Who can read the audit log](actions.md#who-can-read-the-audit-log-v201)). Toggle the audit-row write per-environment via `MARTIS_AUDIT_IMPERSONATION=false`: the events still fire so any custom listeners you attach keep firing; only the Martis row is suppressed.
 
@@ -182,10 +216,11 @@ The two events live under `Martis\Impersonation\Events\*` and carry both `operat
 ## Security notes
 
 - The package never bypasses the gate. Removing the gate definition disables impersonation entirely.
+- While an impersonation runs, the profile endpoints that change the target's second factor or password (2FA setup, confirm and disable, the recovery codes, the password change) answer `403` and change nothing: an operator cannot leave themselves a way into the account that outlives the session (v2.4.0). See [Authentication → Recovery Codes](authentication.md#recovery-codes).
 - `start()` rejects self-impersonation and chaining (impersonator A starting impersonation as B while already impersonating C). Either path is a sign of a confused state — fail loud.
 - The session marker is namespace-prefixed (`martis.impersonation`) so it cannot accidentally collide with host-app session data.
 - The frontend banner must read `/martis/api/impersonation/status` on every page load. Do not cache the snapshot — a session can be stopped server-side at any moment.
 
 ## Tests
 
-Behaviour-level coverage lives in `tests/Feature/ImpersonationControllerTest.php` (14 cases — full error matrix, NotImpersonable rejection, max-duration auto-stop via the middleware, event dispatch on start + stop). The ParitySurface tripwire (`tests/Feature/ParitySurfaceTest.php`) asserts the public surface — `ImpersonationManager::start/stop/isActive/isExpired/originalUser/currentTarget/enabled/guard/snapshot` — keeps its contract.
+Behaviour-level coverage lives in `tests/Feature/ImpersonationControllerTest.php` (the full error matrix, NotImpersonable rejection, the target-aware gate and the `canImpersonate` / `canBeImpersonated` hooks, max-duration auto-stop via the middleware, event dispatch and audit rows on start + stop). The ParitySurface tripwire (`tests/Feature/ParitySurfaceTest.php`) asserts the public surface — `ImpersonationManager::start/stop/isActive/isExpired/originalUser/currentTarget/enabled/guard/snapshot` — keeps its contract.

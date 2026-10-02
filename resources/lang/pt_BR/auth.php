@@ -89,6 +89,13 @@ return [
     'magic_link_expired' => 'Este link de acesso expirou ou já foi utilizado. Solicite um novo.',
     'magic_link_invalid' => 'Este link de acesso é inválido. Solicite um novo.',
     'magic_link_email_placeholder' => 'admin@example.com',
+    'magic_link_session_conflict' => 'Este navegador está conectado como :current. Confirme para substituir essa sessão.',
+    'magic_link_confirm_title' => 'Confirmar o login',
+    'magic_link_confirm_sub' => 'Você está prestes a entrar como {{email}}.',
+    'magic_link_confirm_submit' => 'Entrar como {{email}}',
+    'magic_link_confirm_submitting' => 'Entrando…',
+    'magic_link_confirm_replace' => 'Este navegador está conectado como {{current}}. Continuar encerra essa sessão e entra como {{email}}.',
+    'magic_link_confirm_replace_submit' => 'Sair e entrar como {{email}}',
 
     // Definir nova senha (v1.8.0)
     'reset_password_title' => 'Definir uma nova senha',

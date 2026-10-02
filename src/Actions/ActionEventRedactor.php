@@ -7,10 +7,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo as EloquentBelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo as EloquentMorphTo;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Martis\Contracts\FieldContract;
 use Martis\FieldContext;
 use Martis\Fields\BelongsToMany as BelongsToManyField;
 use Martis\Fields\Field;
 use Martis\Fields\MorphToMany as MorphToManyField;
+use Martis\Fields\Repeater;
 use Martis\Models\ActionEvent;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -31,7 +34,11 @@ use WeakMap;
  *    `BelongsTo` / `MorphTo`) that the viewer may see (`canSee()`,
  *    `canSeeForModel()`) through a resource that lets the viewer
  *    `viewAny` and `view` the record. A record that still exists but is
- *    out of the viewer's global scopes (another tenant) masks every key.
+ *    out of the viewer's global scopes (another tenant) masks every key. A
+ *    record that no longer exists (hard-deleted) is judged on a model
+ *    hydrated from the attributes the event stored: the `view` policy must
+ *    allow it, and an attribute the policy needs that the action did not
+ *    change is missing from it, so the values stay masked.
  *  - a pivot action's event (its `model_type` is the pivot, not the
  *    record): the viewer must be able to view the parent record, and the
  *    pivot model's `$hidden` attributes are masked, as are the pivot
@@ -53,6 +60,12 @@ final class ActionEventRedactor
 {
     /** The value a masked key shows. */
     public const MASK = '******';
+
+    /**
+     * The gate that lets a viewer read the values of the events of a
+     * resource's hard-deleted records (`($user, $resourceClass, $uriKey)`).
+     */
+    public const DELETED_RECORD_GATE = 'martis-view-deleted-audit';
 
     /**
      * Per-event visibility, computed once for the `original` and the
@@ -156,6 +169,118 @@ final class ActionEventRedactor
     }
 
     /**
+     * The values of an action's fields as its event stores them.
+     *
+     * An action run used to log the raw `fields` input of the request: every
+     * value the user typed, a `Password` field included, the values for
+     * fields the user cannot see and keys that name no field. The event now
+     * keeps the values the run resolved for the fields the user may see
+     * (`canSee()`), in plain text for what a reader of the log may use, and
+     * {@see self::MASK} for a secret:
+     *
+     *  - a `Password` field, and any field that declares itself `sensitive()`,
+     *    stores the mask instead of a value (an empty value stays empty);
+     *  - inside a `Repeater` row, the fields its repeatables mark sensitive are
+     *    masked the same way;
+     *  - a key that names no visible field (a field the user cannot see, a value
+     *    a custom component posted under a name of its own) is left out. The
+     *    action still receives it in `handle()`.
+     *
+     * A pivot action's event stores its fields the same way.
+     *
+     * @param  list<FieldContract>  $fields  The action's declared fields.
+     * @param  array<string, mixed>  $values  The values the run resolved (`ActionFields::all()`).
+     * @return array<string, mixed>
+     */
+    public static function loggableFields(array $fields, array $values, Request $request): array
+    {
+        $logged = [];
+
+        foreach ($fields as $field) {
+            $attribute = $field->attribute();
+
+            if (! $field->isAuthorizedToSee($request) || ! array_key_exists($attribute, $values)) {
+                continue;
+            }
+
+            $value = $values[$attribute];
+
+            if ($field instanceof Field && $field->isSensitive()) {
+                $logged[$attribute] = $value === null || $value === '' || $value === [] ? $value : self::MASK;
+
+                continue;
+            }
+
+            if ($field instanceof Repeater && is_array($value)) {
+                $value = self::maskRows($value, $field->sensitiveRowAttributes($request));
+            }
+
+            $logged[$attribute] = $value;
+        }
+
+        return $logged;
+    }
+
+    /**
+     * Whether `$values` holds a secret the action's `$fields` declare: a
+     * non-empty value of a `Password` or `sensitive()` field, or of a
+     * `sensitive` attribute of a Repeater row. The values a queued run hands
+     * its job are such a payload: the queue driver stores them (a database
+     * row, a Redis key), so the job is encrypted when this says so.
+     *
+     * Unlike {@see self::loggableFields()} it does not filter by what the user
+     * may see: the job receives every value the run resolved.
+     *
+     * @param  list<FieldContract>  $fields  The action's declared fields.
+     * @param  array<string, mixed>  $values  The values the run resolved (`ActionFields::all()`).
+     */
+    public static function carriesSecret(array $fields, array $values, Request $request): bool
+    {
+        foreach ($fields as $field) {
+            $value = $values[$field->attribute()] ?? null;
+
+            if ($value === null || $value === '' || $value === []) {
+                continue;
+            }
+
+            if ($field instanceof Field && $field->isSensitive()) {
+                return true;
+            }
+
+            if ($field instanceof Repeater && is_array($value) && self::maskRows($value, $field->sensitiveRowAttributes($request)) !== $value) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * `$value` with the value of each key named in `$sensitive` replaced by
+     * the mask, at any depth.
+     *
+     * @param  array<array-key, mixed>  $value
+     * @param  list<string>  $sensitive
+     * @return array<array-key, mixed>
+     */
+    private static function maskRows(array $value, array $sensitive): array
+    {
+        if ($sensitive === []) {
+            return $value;
+        }
+
+        foreach ($value as $key => $item) {
+            if (in_array((string) $key, $sensitive, true) && $item !== null && $item !== '' && $item !== []) {
+                $value[$key] = self::MASK;
+            } elseif (is_array($item)) {
+                $value[$key] = self::maskRows($item, $sensitive);
+            }
+        }
+
+        return $value;
+    }
+
+    /**
      * Forget the per-event visibility computed so far (tests, long-lived
      * workers that switch the authenticated user).
      */
@@ -200,7 +325,15 @@ final class ActionEventRedactor
             return ['mode' => 'none', 'keys' => []];
         }
 
-        $record ??= new $type;
+        // A record the event names that no longer exists (hard-deleted) cannot
+        // be judged: its policy, its global scopes (a tenant fence) and its
+        // owner are gone with the row. Every value stays masked unless the
+        // record-independent `martis-view-deleted-audit` gate lets the viewer
+        // read the events of that resource's deleted records (v2.4.0). An
+        // event that names no record has no record to judge, only its
+        // resource's `viewAny`.
+        $deleted = $record === null && self::namesRecord($event);
+        $record ??= $deleted ? self::hydrate($type, $event) : new $type;
 
         $isPivotEvent = is_string($event->model_type) && $event->model_type !== $type;
         $keys = [];
@@ -214,7 +347,11 @@ final class ActionEventRedactor
                 continue;
             }
 
-            if ($record->exists && ! $resource->authorizedToView($request)) {
+            if ($deleted) {
+                if (! self::mayViewDeleted($resourceClass, $request)) {
+                    continue;
+                }
+            } elseif ($record->exists && ! $resource->authorizedToView($request)) {
                 continue;
             }
 
@@ -367,6 +504,78 @@ final class ActionEventRedactor
         }
 
         return $modelClass::query()->withoutGlobalScopes()->whereKey($id)->exists() ? false : null;
+    }
+
+    /**
+     * Whether the event names a record (a model class and a key).
+     */
+    private static function namesRecord(ActionEvent $event): bool
+    {
+        $id = $event->actionable_id;
+
+        return $id !== null && $id !== '';
+    }
+
+    /**
+     * A model of `$modelClass` rebuilt from what the event stored: its key,
+     * the attributes of `original`, then those of `changes` (what the record
+     * held last). It holds only the attributes the action changed (the log
+     * stores the diff, minus the model's `$hidden` values), so a policy that
+     * needs another one (an owner or tenant column the action did not touch)
+     * cannot prove the viewer may view it, and the values stay masked.
+     *
+     * @param  class-string<Model>  $modelClass
+     */
+    private static function hydrate(string $modelClass, ActionEvent $event): Model
+    {
+        $attributes = [];
+        foreach (['original', 'changes'] as $column) {
+            $stored = $event->getAttribute($column);
+
+            if (is_string($stored)) {
+                $stored = json_decode($stored, true);
+            }
+
+            if (! is_array($stored)) {
+                continue;
+            }
+
+            foreach ($stored as $key => $value) {
+                // A masked value ({@see self::MASK}) is not the attribute's.
+                if (is_string($key) && $value !== self::MASK) {
+                    $attributes[$key] = $value;
+                }
+            }
+        }
+
+        $model = new $modelClass;
+        $model->forceFill($attributes);
+        $model->setAttribute($model->getKeyName(), $event->actionable_id);
+        $model->exists = true;
+        $model->syncOriginal();
+
+        return $model;
+    }
+
+    /**
+     * Whether the viewer may read the events of this resource's hard-deleted
+     * records: the `martis-view-deleted-audit` gate, which receives the user,
+     * the resource class and its uri key and nothing about the record (it is
+     * gone). Undefined, it denies; a gate that raises denies.
+     *
+     * @param  class-string<resource>  $resourceClass
+     */
+    private static function mayViewDeleted(string $resourceClass, Request $request): bool
+    {
+        if (! Gate::has(self::DELETED_RECORD_GATE)) {
+            return false;
+        }
+
+        try {
+            return Gate::forUser($request->user())->allows(self::DELETED_RECORD_GATE, [$resourceClass, $resourceClass::uriKey()]);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**

@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laravel\Scout\Searchable;
+use Martis\Auth\PolicyCoverage;
 use Martis\Authorization\PolicyResolver;
 use Martis\Concerns\Actionable;
 use Martis\Concerns\HasBadge;
@@ -639,10 +640,17 @@ abstract class Resource implements ResourceContract
      */
     public static function resolvePolicy(): ?object
     {
-        return app(PolicyResolver::class)->resolve(
+        $policy = app(PolicyResolver::class)->resolve(
             static::class,
             static fn (): ?string => static::discoverPolicyClass(),
         );
+
+        if ($policy === null && static::authorizable()) {
+            // Permissive, as in Nova, but not unseen outside local (v2.4.0).
+            PolicyCoverage::noteMissing(static::class);
+        }
+
+        return $policy;
     }
 
     /**

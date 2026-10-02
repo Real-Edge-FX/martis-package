@@ -9,8 +9,10 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Martis\Auth\TwoFactorPass;
 use Martis\Sso\IdentityResolver;
 use Martis\Sso\RoleMapper;
+use Martis\Sso\SsoAdoptionRefusedException;
 use Martis\Sso\SsoIdentity;
 use Martis\Sso\SsoManager;
 use Martis\Sso\SsoSession;
@@ -30,7 +32,8 @@ use Martis\Sso\SsoSession;
  *   4. IdentityResolver finds-or-creates the local user.
  *   5. PermissionAdapter syncs the resolved roles onto the user.
  *   6. AfterLogin hook fires (audit log, user-type rules, etc.).
- *   7. Auth::login() + redirect to the configured target.
+ *   7. Auth::login() (remember-me only when the provider sets `remember`)
+ *      + redirect to the configured target.
  */
 class SsoController extends Controller
 {
@@ -79,7 +82,18 @@ class SsoController extends Controller
         // Step 1: resolve user (find-or-create). Run BEFORE roles when
         // `auto_create_user = true` so the role mapper has the user
         // available for column lookups that depend on it.
-        $user = $this->identityResolver->resolve($identity, $provider);
+        try {
+            $user = $this->identityResolver->resolve($identity, $provider);
+        } catch (SsoAdoptionRefusedException $e) {
+            Log::channel(config('logging.default'))->warning('SSO sign-in refused: unverified local account holds the address', [
+                'provider' => $provider,
+                'email' => $e->email,
+            ]);
+
+            return redirect()
+                ->route('martis.login')
+                ->withErrors(['sso' => __('martis::messages.sso_account_unverified')]);
+        }
 
         if ($user === null) {
             return redirect()
@@ -130,16 +144,26 @@ class SsoController extends Controller
         // Step 4: post-login side effects.
         $this->manager->fireAfterLogin($user, $identity, $provider);
 
-        // Step 5: log the user in via the Martis-configured guard.
+        // Step 5: log the user in via the Martis-configured guard. The
+        // remember-me cookie is the provider's opt-in (`remember`, default
+        // false): with it, the panel stays open after the IdP session ends
+        // or the IdP deprovisions the user, until the remember cookie
+        // expires or its token is rotated, so the session follows the normal
+        // session lifetime and a fresh IdP round-trip decides after it.
         $guard = config('martis.guard') ?: config('auth.defaults.guard');
-        Auth::guard($guard)->login($user, true);
+        $remember = (bool) config("martis.auth.sso.providers.{$provider}.remember", false);
+        Auth::guard($guard)->login($user, $remember);
+
+        // Every sign-in starts without a 2FA pass: an SSO sign-in must not
+        // inherit the pass of an earlier sign-in of this browser session.
+        TwoFactorPass::revoke($request->session());
 
         // Record the SSO origin (SsoSession): a later logout redirects
         // through the IdP's federated logout URL (AuthController::logout)
-        // and the forced password change gate never holds the session. It
-        // survives a remember-me re-login and is dropped on sign-out and
-        // on a non-SSO sign-in.
-        SsoSession::start($request, $user, $provider, is_string($guard) ? $guard : null);
+        // and the forced password change gate never holds the session. With
+        // remember-me it survives a remember-me re-login (the cookie), and
+        // it is dropped on sign-out and on a non-SSO sign-in.
+        SsoSession::start($request, $user, $provider, is_string($guard) ? $guard : null, $remember);
 
         $redirectTo = (string) (config("martis.auth.sso.providers.{$provider}.redirect_to") ?? '/'.config('martis.path', 'martis'));
 

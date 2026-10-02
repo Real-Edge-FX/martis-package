@@ -62,8 +62,8 @@ describe('RouteRegistry', () => {
   it('reserves the shell pages, the account pages and the server routes', () => {
     expect([...RESERVED_ROUTE_SEGMENTS].sort()).toEqual([
       '2fa', '403', '500', 'api', 'api-docs', 'dashboards', 'dev', 'email', 'favicon.ico', 'forgot-password',
-      'invitations', 'login', 'logout', 'password', 'profile', 'register', 'reset-password', 'resources', 'sso',
-      'system', 'tools',
+      'invitations', 'login', 'logout', 'magic-link', 'password', 'profile', 'register', 'reset-password',
+      'resources', 'sso', 'system', 'tools',
     ])
     expect(Object.isFrozen(RESERVED_ROUTE_SEGMENTS)).toBe(true)
   })

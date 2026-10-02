@@ -8,6 +8,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -22,6 +23,7 @@ use Martis\Fields\MorphOne;
 use Martis\Fields\MorphOneOfMany;
 use Martis\Fields\MorphTo;
 use Martis\Fields\Tag;
+use Martis\Gates\SoftGate;
 use Martis\RelationshipQueryResolver;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -43,6 +45,13 @@ use Martis\ResourceRegistry;
  * As in Nova the value the request sends is checked on every write, an
  * update that sends the stored value back included: a record whose target
  * left the query since answers 422 until the target changes.
+ *
+ * A `BelongsTo` checks against the resource `relatedResource()` names (a URI
+ * key no registered resource has throws, naming the field and the key) or,
+ * without one, the single resource registered for the model of its
+ * relationship. When that names none, or several, the value is refused
+ * (`martis::validation.relatable_unresolved`): a write is never left
+ * unchecked because the field did not say what it points at.
  *
  * On top of the query:
  *
@@ -144,12 +153,27 @@ final class Relatable implements DataAwareRule, ValidationRule
     {
         $field = $this->field;
 
+        // An id that is not an int or a string is not one, whatever the
+        // casts would make of it (`true` is key 1): refuse it, as `fill()`
+        // ignores it.
+        if (($field instanceof BelongsTo || $field instanceof MorphTo) && $field->submitsMalformedId($value)) {
+            return 'martis::validation.relatable';
+        }
+
         if ($field instanceof BelongsTo) {
             $id = $field->submittedId($value);
-            $relatedResourceClass = $this->resourceFor($field->getRelatedResource());
 
-            if ($id === null || $relatedResourceClass === null) {
+            if ($id === null) {
                 return null;
+            }
+
+            // The resource relatedResource() names, or the one registered for
+            // the relationship's model. A write never goes unchecked for want
+            // of one: without it the value is refused.
+            $relatedResourceClass = $field->relatedResourceClass($this->sourceModel());
+
+            if ($relatedResourceClass === null) {
+                return 'martis::validation.relatable_unresolved';
             }
 
             return $this->checkTargets($relatedResourceClass, [$id], $attribute, $value);
@@ -209,7 +233,12 @@ final class Relatable implements DataAwareRule, ValidationRule
     {
         $failed = 'martis::validation.relatable';
 
-        if (! (new $relatedResourceClass)->authorizedToViewAny($this->request)) {
+        $related = new $relatedResourceClass;
+
+        // `viewAny`, and a lock (`lockedFor()`, `requirePlan()`): a picker
+        // lists no record of a resource the user is locked from, so a write
+        // cannot name one.
+        if (! $related->authorizedToViewAny($this->request) || SoftGate::isLocked($related, $this->request)) {
             return $failed;
         }
 
@@ -471,6 +500,22 @@ final class Relatable implements DataAwareRule, ValidationRule
         }
 
         return $synced;
+    }
+
+    /**
+     * The record whose relationship a `BelongsTo` without `relatedResource()`
+     * names: the pivot row for a pivot field (the relationship lives on the
+     * pivot model, `Pivot::approver()`, not on the parent record the panel
+     * belongs to), otherwise a new record of the source resource's model, the
+     * record the field is declared on.
+     */
+    private function sourceModel(): ?Model
+    {
+        if ($this->record instanceof Pivot) {
+            return $this->record;
+        }
+
+        return $this->sourceResourceClass !== null ? $this->sourceResourceClass::newModel() : null;
     }
 
     /**

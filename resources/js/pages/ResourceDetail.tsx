@@ -2,6 +2,8 @@ import { useEffect, useState } from "react"
 import { useParams, useNavigate, Link } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
+import { apiPath, routePath } from "@/lib/apiPath"
+import { deleteErrorMessage } from "@/lib/deleteError"
 import type { ResourceRecord, ResourceSchema, OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from "@/types"
 import { FieldDisplay } from "@/components/fields/FieldRenderer"
 import { PanelDisplay } from "@/components/fields/PanelRenderer"
@@ -58,13 +60,13 @@ export function ResourceDetailPage() {
 
   const schemaQuery = useQuery({
     queryKey: ["schema", resource],
-    queryFn: () => api.get<{ data: ResourceSchema }>(`/api/resources/${resource}/schema`),
+    queryFn: () => api.get<{ data: ResourceSchema }>(apiPath`/api/resources/${resource}/schema`),
     enabled: !!resource,
   })
 
   const recordQuery = useQuery({
     queryKey: ["resource", resource, id],
-    queryFn: () => api.get<{ data: ResourceRecord }>(`/api/resources/${resource}/${id}`),
+    queryFn: () => api.get<{ data: ResourceRecord }>(apiPath`/api/resources/${resource}/${id}`),
     enabled: !!resource && !!id,
   })
 
@@ -73,18 +75,18 @@ export function ResourceDetailPage() {
   const detailActions = allActions.filter((a) => a.showOnDetail)
 
   const deleteMutation = useMutation({
-    mutationFn: () => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}`),
+    mutationFn: () => api.delete<{ meta?: { message?: string } }>(apiPath`/api/resources/${resource}/${id}`),
     onSuccess: (res) => {
       emitRecordEvent('deleted', resource, id)
       void qc.invalidateQueries({ queryKey: ["resources"] })
       addToast("success", res?.meta?.message ?? tMsg("record_deleted"))
-      navigate(`/resources/${resource}`)
+      navigate(routePath`/resources/${resource}`)
     },
-    onError: () => addToast("error", tMsg("error_delete")),
+    onError: (e: unknown) => addToast("error", deleteErrorMessage(e, tMsg("error_delete"))),
   })
 
   const restoreMutation = useMutation({
-    mutationFn: () => api.put<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/restore`),
+    mutationFn: () => api.put<{ meta?: { message?: string } }>(apiPath`/api/resources/${resource}/${id}/restore`),
     onSuccess: (res) => {
       emitRecordEvent('restored', resource, id)
       void qc.invalidateQueries({ queryKey: ["resource", resource, id] })
@@ -99,19 +101,19 @@ export function ResourceDetailPage() {
     if (schema?.overrides?.create) {
       setShowCreateOverride(true)
     } else {
-      navigate(`/resources/${resource}/create?fromResourceId=${id}`)
+      navigate(routePath`/resources/${resource}/create?fromResourceId=${id}`)
     }
   }
 
   const forceDeleteMutation = useMutation({
-    mutationFn: () => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/force`),
+    mutationFn: () => api.delete<{ meta?: { message?: string } }>(apiPath`/api/resources/${resource}/${id}/force`),
     onSuccess: (res) => {
       emitRecordEvent('deleted', resource, id)
       void qc.invalidateQueries({ queryKey: ["resources"] })
       addToast("success", res?.meta?.message ?? tMsg("record_deleted"))
-      navigate(`/resources/${resource}`)
+      navigate(routePath`/resources/${resource}`)
     },
-    onError: () => addToast("error", tMsg("error_delete")),
+    onError: (e: unknown) => addToast("error", deleteErrorMessage(e, tMsg("error_delete"))),
   })
 
   function handleActionSuccess() {
@@ -173,7 +175,7 @@ export function ResourceDetailPage() {
         record,
         recordId: id ?? null,
         navigate: (to: string) => navigate(to),
-        onClose: () => navigate(`/resources/${resource}`),
+        onClose: () => navigate(routePath`/resources/${resource}`),
         onCreated: (rec) => {
           void qc.invalidateQueries({ queryKey: ["resources", resource] })
           addToast("success", schema.messages?.created ?? "Record created successfully.")
@@ -189,7 +191,7 @@ export function ResourceDetailPage() {
         onDeleted: () => {
           void qc.invalidateQueries({ queryKey: ["resources", resource] })
           addToast("success", schema.messages?.deleted ?? "Record deleted successfully.")
-          navigate(`/resources/${resource}`)
+          navigate(routePath`/resources/${resource}`)
         },
         onEdit: (editId) => {
           const targetId = editId ?? id
@@ -202,7 +204,7 @@ export function ResourceDetailPage() {
             setShowUpdateOverride(true)
             return
           }
-          navigate(`/resources/${resource}/${targetId}/edit`)
+          navigate(routePath`/resources/${resource}/${targetId}/edit`)
         },
         onView: (viewId) => navigate(recordHref(resource!, viewId)),
         addToast,
@@ -251,7 +253,7 @@ export function ResourceDetailPage() {
     if (schema!.overrides?.update) {
       setShowUpdateOverride(true)
     } else {
-      navigate(`/resources/${resource}/${id}/edit`)
+      navigate(routePath`/resources/${resource}/${id}/edit`)
     }
   }
 
@@ -291,7 +293,7 @@ export function ResourceDetailPage() {
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm">
         <Link
-          to={`/resources/${resource}`}
+          to={routePath`/resources/${resource}`}
           className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-medium transition-colors no-underline"
           style={{
             color: "var(--martis-accent)",
@@ -464,11 +466,11 @@ export function ResourceDetailPage() {
           onDeleted: () => {
             void qc.invalidateQueries({ queryKey: ["resources", resource] })
             addToast("success", schema.messages?.deleted ?? "Record deleted successfully.")
-            navigate(`/resources/${resource}`)
+            navigate(routePath`/resources/${resource}`)
           },
           onEdit: (editId) => {
             const targetId = editId ?? id
-            if (targetId) navigate(`/resources/${resource}/${targetId}/edit`)
+            if (targetId) navigate(routePath`/resources/${resource}/${targetId}/edit`)
           },
           onView: (viewId) => navigate(recordHref(resource!, viewId)),
           addToast,
@@ -499,7 +501,7 @@ export function ResourceDetailPage() {
           },
           onUpdated: () => {},
           onDeleted: () => {},
-          onEdit: (editId) => { if (editId) navigate(`/resources/${resource}/${editId}/edit`) },
+          onEdit: (editId) => { if (editId) navigate(routePath`/resources/${resource}/${editId}/edit`) },
           onView: (viewId) => navigate(recordHref(resource!, viewId)),
           addToast,
         }

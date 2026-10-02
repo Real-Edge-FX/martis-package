@@ -4,6 +4,110 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.4.0 from v2.3.x
+
+v2.4.0 closes a security audit. Several defaults now fail closed. Go through the list below: the first five concern most apps. Then republish the config, the language files and the assets:
+
+```bash
+php artisan vendor:publish --tag=martis-config --force   # or add the new keys by hand
+php artisan martis:publish-assets
+php artisan optimize:clear
+```
+
+### Define the `viewMartis` gate
+
+When the app defines no `viewMartis` gate, the panel now answers `403` outside the `local` and `testing` environments, as Nova's `viewNova` does. Define it in `app/Providers/MartisServiceProvider.php`; the stub `martis:install` publishes ships it active:
+
+```php
+Gate::define('viewMartis', fn ($user) => app()->environment(['local', 'testing']) || in_array($user->email, [
+    // 'admin@example.com',
+], true));
+```
+
+To keep a non-local environment open without a gate, list it in `MARTIS_PANEL_OPEN_ENVIRONMENTS` (default `local,testing`). A resource without a policy stays open to every panel user, as in Nova, and now logs a warning outside those environments. See [Authorization → Panel access](authorization.md#panel-access-viewmartis).
+
+### Set `APP_URL`
+
+Every emailed link (magic link, password reset, invitation, email verification, email change) is built from `APP_URL`, never from the request's host. Set it to the URL the panel is served on, as an absolute `http(s)` URL; Martis throws a clear error otherwise. Signed links are signed over that host, so serve them there.
+
+### File uploads refuse active content
+
+A `File` field answers `422` for HTML, SVG, XML, script and PHP files (`html`, `htm`, `xhtml`, `shtml`, `svg`, `svgz`, `xml`, `xsl`, `js`, `mjs`, `php`, `phtml`, `phar`, `php3`-`php8`, `pht` and similar). A field that must accept one lists it in `acceptedTypes()` or calls `allowActiveContent()`; serve such files from another origin or as downloads. `Image` is unchanged.
+
+### Lenses start from the resource's index scope
+
+A lens query now applies the resource's `scopes()` and `indexQuery()`, as the index does, for its rows, actions, filters, counts and cards. A lens that deliberately shows what the index hides (an all-tenants view for staff) opts out with `public static bool $withoutIndexScope = true;` (see [Lenses](lenses.md)).
+
+### A BelongsTo without `relatedResource()`
+
+It now resolves the resource of the related model and runs the relatable checks, `viewAny` and the policies on writes. A related model with no registered resource is refused (`422`); a `relatedResource()` key that is not registered throws, naming the field and the key. Declare `relatedResource()` or register the resource.
+
+A `BelongsTo` or `MorphTo` value whose id is a JSON boolean, a non-integer number, a list or a nested map answers `422` and is never written (a boolean `true` used to reach the foreign key as `1`, past the relatable checks).
+
+### Magic links
+
+The emailed link opens a confirmation page, and the sign-in is `POST /api/auth/magic-link/consume`. Links mailed before the upgrade still work: a `GET` of the old URL is redirected to the confirmation page. A custom client posts `email` and `token` (and `replace_session: true` to replace another user's session).
+
+### Profile email change
+
+`PATCH /api/profile` needs `current_password` when the email changes and answers `pending_email`: the address changes when the user follows the link sent to it (`MARTIS_PROFILE_EMAIL_CHANGE_TTL`, 60 minutes by default). A custom profile client sends the password and shows the pending state. The mailed link opens a confirmation page and changes nothing; the change is a CSRF-protected `POST` to the same signed URL (a client that followed the link with a `GET` must now post). Asking for the mail is limited to 5 per hour per user and per address (`MARTIS_PROFILE_EMAIL_CHANGE_ATTEMPTS`, `0` turns it off), answering `429` past it.
+
+### SSO
+
+- `identity_match_attribute => 'email'` adopts a local account only when its email is verified (`email_verified_at`) or `martis.auth.registration.enabled` is `false`. With registration open, an existing row with an unverified address now refuses the SSO sign-in (`sso_account_unverified`) instead of being adopted: verify it, link it by `external_id`, or remove it. A model without an `email_verified_at` column cannot prove a verified address, so with registration open it is refused too: add the column (and verify the rows), or use `identity_match_attribute => 'external_id'`. With registration disabled nothing changes.
+- Sign-in no longer sets a remember-me cookie. Set `'remember' => true` on a provider to restore it; access then outlives the IdP session. Remember-me cookies issued while SSO always remembered (v2.3 and earlier) are **not revoked** by the upgrade: they stay valid until they expire (`auth.guards.{guard}.remember`, 576000 minutes by default) or the user's `remember_token` rotates, so access removed at the IdP does not end those sessions. To end them at once, rotate the `remember_token` column of the SSO users (`UPDATE users SET remember_token = NULL`) or sign them out.
+- The SSO origin cookie written by v2.3 (no server-held nonce) no longer counts: a user who comes back through a remember-me cookie loses the SSO origin until the next SSO sign-in, so the forced password change gate may meet them as a password user, and the federated logout is skipped.
+- Azure: set `tenant` (`AZURE_TENANT_ID`) so identities of other tenants are rejected; `martis:sso azure` scaffolds it. A multi-tenant registration should match accounts by `external_id`.
+
+### Two-factor authentication and sign-in limits
+
+- Users with 2FA meet the challenge once after the upgrade (the old session flag is not trusted).
+- Regenerating recovery codes needs `current_password`; the user is emailed.
+- New limits, all configurable: `MARTIS_LOGIN_THROTTLE_EMAIL_ATTEMPTS` / `_MINUTES` (100 wrong passwords in 15 minutes per account, whatever the IP, counted until a right one clears them; the magic-link request has a bucket of its own; 0 turns it off), `MARTIS_2FA_THROTTLE_ATTEMPTS` (5), `MARTIS_2FA_THROTTLE_IP_ATTEMPTS` (15), `MARTIS_2FA_THROTTLE_MINUTES` (1), `MARTIS_2FA_LOCKOUT_ATTEMPTS` (5, 0 turns it off) and `MARTIS_2FA_LOCKOUT_MINUTES` (15).
+- Forgot password answers `200` for an unknown email too.
+- The `id` of a row of the browser sessions API is now an opaque handle (an HMAC of the session id), sent back to revoke a session; the raw session id revokes nothing.
+
+### Impersonation
+
+The `martis-impersonate` gate receives the target as its second argument; a one-argument closure keeps working, and a two-argument one can refuse a target that outranks the operator. A closure that needs the target refuses an id that does not exist. `canImpersonate()` on the operator and `canBeImpersonated()` on the target are honoured. `Impersonation::start()` throws `ImpersonationRefusedException`, still a `RuntimeException`.
+
+### Queued actions with a secret field
+
+A queued action (`ShouldQueue`) whose `Password` or `sensitive()` field has a value is dispatched with an encrypted payload: workers need the app's `APP_KEY` to read it (they already do for sessions and any `ShouldBeEncrypted` job). Jobs already queued before the upgrade keep their plain payload.
+
+### Audit log of a hard-deleted record
+
+The values in the events of a record that no longer exists (hard-deleted) are masked for everybody. Before, they were judged on a model hydrated from the event (or, in earlier builds, skipped `view`), so a tenant fence kept in a global scope did not hold after the delete. To let some viewers read them, define the record-independent gate: `Gate::define('martis-view-deleted-audit', fn ($user, string $resourceClass, string $uriKey) => $user->is_auditor)`. The `viewAny` of the resource and the field visibility still apply when it allows. Soft-deleted records are unchanged: they are still loaded and judged.
+
+### Plan locks
+
+`lockedFor()` and `requirePlan()` now answer `403` with `locked: true` and the `lock` on every data endpoint, the dashboard card compute route included (it answered `200 { locked: true }`). A route of your own that names a Martis resource, dashboard or tool adds the `martis.gate` middleware to be gated the same way.
+
+### Relationships, actions and fields
+
+- Relationship flags (`canCreate`, `canUpdate`, `canDelete`, `canAttach`, `canDetach`) are enforced by the server: a request through a relationship whose flag is off answers `403`.
+- A Trix or Markdown field that accepts attachments declares `withFiles()` (with a disk when not the panel's storage disk). Schedule `martis:attachments:prune`. A custom caller of `POST /api/attachments/upload` sends the resource, field and record.
+- A hook that wants its message shown to the user throws `Martis\Exceptions\UserFacingException`; any other exception gives a generic message outside `app.debug`.
+- A custom BooleanFilter `apply()` receives only the keys its `options()` declares: read explicit keys, never use them as column names.
+- A metric `?range=` outside `ranges()` falls back to the default; Sparkline writes above `maxPoints` or with non-numeric items fail validation.
+- `ActionResponse::redirect()`, `download()` and `openInNewTab()` refuse `javascript:`, `data:` and other non-http(s) URLs.
+- A custom picker that read another column from a relatable row names it as the field's title or subtitle attribute; the context-free relatable endpoint serialises only the related resource's declared `titleAttribute()` (when sent as `title_attribute`) and ignores `subtitle_attribute` and any other column.
+- `api_docs.middleware` defaults to `null`, the Martis stack; a published `['web', 'auth']` is completed with the Martis guards.
+- Field `help()`, HTML tooltips and gate messages (`messageHtml`) lose `style`, `id`, `name`, forms and form controls when rendered (scripts, handlers and unsafe URLs were already removed). An inline `style="color:red"` no longer applies: use a `class` (kept for this developer-written markup) or plain text.
+- Markdown and Trix content keeps only the classes legitimate content carries (`language-*` on Markdown code, the Trix attachment classes) and loses `label`, `fieldset`, `legend`, `datalist`, `output` and every `<input>` but the disabled task-list checkbox. A document that relied on utility classes (`class="text-red-500"`) loses them.
+- A notification `action_url` and an external menu link in the command palette may be `mailto:` / `tel:` and open in a new tab, as in the sidebar.
+
+### Extensions
+
+- An element that set `data-pr-tooltip-html="true"` by hand shows its text literally: use `{...htmlTooltip(text, position)}` or `trustHtmlTooltip(el)` from `@martis/runtime`.
+- To run the panel under a Content-Security-Policy, set a nonce (`Vite::useCspNonce()`) and send `script-src` / `style-src` with it: see [Configuration → Content Security Policy](configuration.md#content-security-policy-v240).
+- `vite.extensions.config.ts` is copied once: set `build.sourcemap` to `false` in yours and delete `public/vendor/martis-user/extensions.js.map`.
+- Build API paths with `apiPath` / `pathSegment` from `@martis/runtime`, not `encodeURIComponent()`: Laravel decodes `%2F` before routing, so an encoded slash in a record key could reach another route. Refresh the shim with `php artisan vendor:publish --tag=martis-extension-shims --force` to import the named exports (the default export `runtime.apiPath` works without it). A path value holding a literal `%2F` now throws `ApiError` (400) and sends nothing.
+
+### Scaffolds
+
+Generated code is yours and keeps its old behaviour. Review policies generated by `martis:policy` before v2.4.0 (they allowed everything). Regenerate the invitation and role actions (`martis:invitations --force`, `martis:roles --force`) or apply their role check by hand; republish customised stubs (`martis:stubs`). `martis:user --password` warns: use `--password-stdin`.
+
 ## Upgrading to v2.3.0 from v2.2.x
 
 Nothing is required unless one of the changes below concerns your app.
@@ -137,7 +241,7 @@ v2.1.0 adds optional features and fixes. Nothing needs changing unless one of th
 
 New and optional:
 
-- **Restrict the panel** with the `viewMartis` gate ([Authorization → Panel access](authorization.md#panel-access-viewmartis)). Without it every signed-in user gets in, as before.
+- **Restrict the panel** with the `viewMartis` gate ([Authorization → Panel access](authorization.md#panel-access-viewmartis)). Without it the panel is open only in the `local` and `testing` environments (v2.4.0; before, every signed-in user got in).
 - **Install without migrating:** `php artisan martis:install --no-migrate`, then `php artisan migrate`.
 - **Add palette commands** with `Martis::commandPalette()` ([Components → App commands](components.md#app-commands-v210)).
 - **Scope the notification centre** with `Martis::scopeNotificationsUsing()` ([Notifications → Scoping the notification centre](notifications.md#scoping-the-notification-centre)).

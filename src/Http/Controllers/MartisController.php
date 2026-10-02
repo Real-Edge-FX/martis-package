@@ -2,6 +2,7 @@
 
 namespace Martis\Http\Controllers;
 
+use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
@@ -22,15 +23,21 @@ use Martis\Fields\HasMany;
 use Martis\Fields\MorphMany;
 use Martis\Fields\MorphToMany;
 use Martis\Fields\Repeater;
+use Martis\Gates\SoftGate;
+use Martis\Http\Requests\LensRequest;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Lenses\Lens;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\IndexScope;
 use Martis\Support\RelationScope;
 use Martis\Support\TranslatedLine;
 
 abstract class MartisController extends Controller
 {
+    /** The global scope that repeats the index fence on a lens query at execution (see `lensBaseQuery()`). */
+    protected const LENS_FENCE_SCOPE = 'martis.lens.index_fence';
+
     /**
      * Resolve a resource class from its URI key.
      *
@@ -275,7 +282,10 @@ abstract class MartisController extends Controller
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        return null;
+        // A resource the user is soft-locked from (`lockedFor()`,
+        // `requirePlan()`), whether it is the route's resource or the related
+        // one a relationship route reads, serves no records either.
+        return SoftGate::refusalFor($instance, $request);
     }
 
     /**
@@ -313,7 +323,14 @@ abstract class MartisController extends Controller
             }
 
             if (! $field->relatedResourceAuthorizedToViewAny($request)) {
-                return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+                // A related resource the user is soft-locked from answers the lock,
+                // as every endpoint of a locked resource does; one they may not list
+                // (`viewAny`) the plain 403.
+                $lock = method_exists($field, 'relatedResourceLock') ? $field->relatedResourceLock($request) : null;
+
+                return $lock !== null
+                    ? SoftGate::refusal($lock)
+                    : JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
             }
         }
 
@@ -662,6 +679,71 @@ abstract class MartisController extends Controller
     }
 
     /**
+     * The base query a lens starts from: `$base` confined as the resource's
+     * index confines its own (its `scopes()`, then `indexQuery()`, grouped),
+     * unless the lens opts out (`Lens::$withoutIndexScope`). The lens page,
+     * its summary and the records its actions run on all start from it, so a
+     * lens never lists what the index hides.
+     *
+     * The same fence also rides on the query as a global scope
+     * (`LENS_FENCE_SCOPE`): a lens whose `query()` returns a Paginator runs
+     * its SQL inside the lens, before `runLensQuery()` can group the lens's
+     * clauses, and Eloquent ANDs a global scope around them at execution, so
+     * an `orWhere()` there cannot OR the fence away. `runLensQuery()` drops
+     * it again from a Builder result, which it has already grouped.
+     *
+     * @param  class-string<resource>  $resourceClass
+     * @param  Builder<Model>  $base
+     * @return Builder<Model>
+     */
+    protected function lensBaseQuery(Request $request, string $resourceClass, Lens $lens, Builder $base): Builder
+    {
+        if ($lens::$withoutIndexScope) {
+            return $base;
+        }
+
+        return IndexScope::apply($request, $resourceClass, $base)
+            ->withGlobalScope(self::LENS_FENCE_SCOPE, static function (Builder $builder) use ($request, $resourceClass): void {
+                $model = $builder->getModel();
+                $key = $model->getQualifiedKeyName();
+
+                // The records the fence lets through, by key, read from a fresh query that
+                // carries the hooks only (the model's own global scopes stay on `$builder`):
+                // an `indexQuery()` that joins or selects cannot collide with the lens's.
+                $fenced = IndexScope::apply($request, $resourceClass, $model->newQuery()->withoutGlobalScopes())
+                    ->reorder()
+                    ->select($key);
+
+                $builder->whereIn($key, $fenced);
+            });
+    }
+
+    /**
+     * Run `Lens::query()` on `$base` (see `lensBaseQuery()`). The lens's own
+     * clauses run grouped, as a filter does (`IndexScope::grouped()`): an
+     * `orWhere()` in the lens's query cannot OR the resource's fence away.
+     * A lens that returns a Paginator is held by the fence's global scope
+     * instead (see `lensBaseQuery()`).
+     *
+     * @param  LensRequest<Model>  $lensRequest
+     * @param  Builder<Model>  $base
+     * @return Builder<Model>|Paginator<int, Model>
+     */
+    protected function runLensQuery(Lens $lens, LensRequest $lensRequest, Builder $base): Builder|Paginator
+    {
+        if ($lens::$withoutIndexScope) {
+            return $lens->query($lensRequest, $base);
+        }
+
+        /** @var Builder<Model>|Paginator<int, Model> $result */
+        $result = IndexScope::grouped($base, static fn (Builder $scoped): Builder|Paginator => $lens->query($lensRequest, $scoped));
+
+        // A Builder was grouped around the fence's clauses: the scope that
+        // would repeat the fence at execution is then redundant.
+        return $result instanceof Builder ? $result->withoutGlobalScope(self::LENS_FENCE_SCOPE) : $result;
+    }
+
+    /**
      * Collect filters available inside the lens, indexed by uriKey, and
      * stripping those the user is not allowed to see.
      *
@@ -685,6 +767,11 @@ abstract class MartisController extends Controller
                 continue;
             }
             if (! $filter->authorizedToSee($request)) {
+                continue;
+            }
+            // A filter the user is soft-locked from (`lockedFor()`,
+            // `requirePlan()`) is not applied.
+            if (SoftGate::isLocked($filter, $request)) {
                 continue;
             }
             // Martis extension: the resource can tag filters as

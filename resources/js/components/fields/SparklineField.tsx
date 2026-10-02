@@ -12,16 +12,56 @@ function getExt(field: Record<string, unknown>): SparklineExt {
   return field as unknown as SparklineExt
 }
 
-function SparklineChart({ data, ext }: { data: number[]; ext: SparklineExt }) {
+/**
+ * The most points the chart draws. A series is stored data the user may have
+ * written, and a sparkline is a few hundred pixels wide: a longer series is
+ * downsampled to this many points (the mean of each slice) before it is drawn.
+ */
+const MAX_SPARKLINE_POINTS = 300
+
+/**
+ * The finite numbers of `data`, at most MAX_SPARKLINE_POINTS of them. A
+ * stored value is not trusted to be a list of numbers: anything else is
+ * skipped instead of drawn as NaN.
+ */
+function seriesOf(data: unknown[]): number[] {
+  const numbers: number[] = []
+  for (const point of data) {
+    if (typeof point === "number" && Number.isFinite(point)) numbers.push(point)
+  }
+  if (numbers.length <= MAX_SPARKLINE_POINTS) return numbers
+
+  const sampled: number[] = []
+  const slice = numbers.length / MAX_SPARKLINE_POINTS
+  for (let i = 0; i < MAX_SPARKLINE_POINTS; i++) {
+    const from = Math.floor(i * slice)
+    const to = Math.max(from + 1, Math.floor((i + 1) * slice))
+    let sum = 0
+    for (let j = from; j < to; j++) sum += numbers[j]
+    sampled.push(sum / (to - from))
+  }
+
+  return sampled
+}
+
+function SparklineChart({ data: stored, ext }: { data: unknown[]; ext: SparklineExt }) {
   const chartType = ext.chartType ?? "line"
   const height = ext.chartHeight ?? 30
   const width = ext.chartWidth ?? 120
   const color = ext.chartColor ?? "var(--martis-accent)"
 
+  const data = useMemo(() => seriesOf(stored), [stored])
+
   const normalized = useMemo(() => {
     if (data.length === 0) return []
-    const min = Math.min(...data)
-    const max = Math.max(...data)
+    // A loop, not Math.min(...data): spreading a long array into a call
+    // throws a RangeError (about 125,000 elements in V8).
+    let min = Infinity
+    let max = -Infinity
+    for (const v of data) {
+      if (v < min) min = v
+      if (v > max) max = v
+    }
     const range = max - min || 1
     return data.map((v) => ((v - min) / range) * (height - 4) + 2)
   }, [data, height])
@@ -70,14 +110,14 @@ function SparklineChart({ data, ext }: { data: number[]; ext: SparklineExt }) {
 
 export function SparklineFieldDisplay({ field, value }: FieldDisplayProps) {
   const ext = getExt(field as unknown as Record<string, unknown>)
-  const data = Array.isArray(value) ? (value as number[]) : []
+  const data: unknown[] = Array.isArray(value) ? value : []
 
   return <SparklineChart data={data} ext={ext} />
 }
 
 export function SparklineFieldInput({ field, value, onChange, error }: FieldInputProps) {
   const ext = getExt(field as unknown as Record<string, unknown>)
-  const data = Array.isArray(value) ? (value as number[]) : []
+  const data: unknown[] = Array.isArray(value) ? value : []
 
   // Use local state for the raw text so the user can freely type/edit
   const [rawText, setRawText] = useState(() => JSON.stringify(data))

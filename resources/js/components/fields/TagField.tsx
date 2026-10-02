@@ -3,12 +3,13 @@ import { useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlassIcon, XIcon, PlusIcon, PlusCircleIcon, CheckIcon } from '@phosphor-icons/react'
 import { api } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
 import { InlineCreateModal } from '@/components/InlineCreateModal'
 import { PeekCard } from './BelongsToField'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
 import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
-import { relatableUrl, withQuery } from '@/lib/relatableEndpoint'
+import { pickerAttributesQuery, relatableUrl, withQuery } from '@/lib/relatableEndpoint'
 import { useEscapeLayer } from '@/lib/escapeLayers'
 
 interface TagValue {
@@ -202,7 +203,7 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
       // Always use relatable endpoint - applies query hooks server-side
       const endpoint = scopedUrl
         ? withQuery(scopedUrl, `per_page=${perPage}${searchParam}`)
-        : `/api/resources/_/_/relatable/${field.attribute}?per_page=${perPage}&related_resource=${relatedResource}${searchParam}`
+        : withQuery(apiPath`/api/resources/_/_/relatable/${field.attribute}`, `per_page=${perPage}&related_resource=${encodeURIComponent(relatedResource)}${pickerAttributesQuery(titleAttribute)}${searchParam}`)
       const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
     } catch {
@@ -210,7 +211,7 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
     } finally {
       setLoading(false)
     }
-  }, [relatedResource, scopedUrl, field.attribute, perPage])
+  }, [relatedResource, scopedUrl, field.attribute, perPage, titleAttribute])
 
   // Preload all options on mount if preload=true
   useEffect(() => {

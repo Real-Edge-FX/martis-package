@@ -42,6 +42,21 @@ record carries those answers under `_authorization`, and a record without them
 keeps the action, as on the resource index. The id column links to the record
 only when its `authorizedToView` allows it (v2.0).
 
+**The `canCreate()` / `canUpdate()` / `canDelete()` setters (`HasMany`,
+`HasOne`, `MorphMany`, `MorphOne`) and `canAttach()` / `canDetach()`
+(`BelongsToMany`, `MorphToMany`) are enforced on the server (v2.4.0).** A
+field that turns a write off does not only hide its button: a request that
+names the relationship directly (`POST`, `PUT` or `DELETE
+/api/resources/{resource}/{id}/has-many/{relationship}`, the `has-one`,
+`morph-many` and `morph-one` routes, and the `belongs-to-many` and
+`morph-to-many` `attach` (one record or a batch), `attachable`, pivot picker
+and `detach` routes) answers 403 and writes nothing. The setters narrow the
+policies, they never widen them: a write a flag leaves on still needs the
+policy abilities. Before v2.4.0 the flags only hid the button, so a panel
+configured read-only (`HasMany::make('Invoices')->canDelete(false)`) still
+deleted through the endpoint for a user whose policy allowed it. Hiding a
+control with the `hideXxx()` setters stays cosmetic.
+
 When the related resource denies `viewAny`, the panel is not on the detail
 page at all (v2.0.1+, see below), so it offers no Create, Edit, Delete,
 Restore or Force delete either: every one of those writes needs the related
@@ -204,6 +219,15 @@ ignores it and returns to its default destination. A link crafted with
 save (React Router 6 does not filter these values, GHSA-wrjc-x8rr-h8h6).
 That form posts to the relationship's endpoint, as multipart when it carries a
 file (v1.38.0+; before, it always posted JSON and a picked file was lost).
+Since **v2.4.0** the endpoint is built from the link's query string safely:
+`viaResource`, `viaResourceId` and `viaRelationship` are each encoded as one
+path segment, and `viaRelationshipType` must be one of the endpoints that store
+a nested record (`has-many`, `has-one`, `morph-many`, `morph-one`; `has-many`
+when the link names none). A link with another type is treated as a plain
+create: the `via*` parameters are ignored and the form posts to the resource
+itself. A crafted link could otherwise turn the click on Create into a
+credentialed POST to any other endpoint of the panel (client-side path
+traversal).
 Since **v1.38.0**: before it, only the `HasOne` / `MorphOne` cards honoured the
 enclosing card, so a `HasMany`, `MorphMany`, `BelongsToMany` or `MorphToMany`
 nested in a card or rendered in a drawer asked the page's record (404, or the
@@ -441,7 +465,7 @@ BelongsToMany::make('Roles', 'roles', RoleResource::class)
 
 ### Authorization
 
-`canAttach()` / `canDetach()` are **static toggles** (defaults to `true` — pass `false` to hide the affordance for everyone). They do not accept closures. For dynamic, request-aware authorization, override the matching method on the parent Resource:
+`canAttach()` / `canDetach()` are **static toggles** (defaults to `true` — pass `false` to turn the write off for everyone: the button is hidden and the endpoints answer 403, v2.4.0). They do not accept closures. For dynamic, request-aware authorization, override the matching method on the parent Resource:
 
 ```php
 // In your Resource class:
@@ -825,8 +849,9 @@ What to do:
   it (`php artisan martis:cache:clear schema`): until it is rebuilt a panel
   keeps the actions it offered in 1.x.
 - To keep the 1.x panel, hide Edit and Delete on the field:
-  `->canUpdate(false)->canDelete(false)`. The endpoints still follow the
-  policies: deny `update` / `delete` there to refuse those writes.
+  `->canUpdate(false)->canDelete(false)`. Since v2.4.0 those setters refuse
+  the writes on the endpoints too (403); before, the endpoints followed the
+  policies only, so deny `update` / `delete` there.
 - Create the related records from their own resource (its create page, or
   `POST /api/resources/{related}`). An API client that created them through
   `…/has-many/{relationship}` or `…/has-one/{relationship}` of a Through
@@ -1062,7 +1087,20 @@ What passes without a check:
 
 **A batch attach** checks every record first: one record outside the picker fails the whole batch (422 on `related_ids`) before anything is attached. Records that do not exist, that `attach{Model}` refuses, or that are already attached keep their v2.0 handling (listed in `meta.errors`, skipped).
 
-A value the write cannot validate this way is still written as before when the field has no related resource (`relatedResource()` unset, or a resource that is not registered). In a `Repeater` row the value is stored in the row, not as a relationship of the record: the query, `viewAny` and `add{Model}` apply, the full inverse and the `Tag` attach / detach abilities do not.
+**The resource a `BelongsTo` is checked against** (v2.4.0+). The check needs the related resource, which the field names with `relatedResource()`:
+
+- **`relatedResource('users')`** names it. A URI key that no registered resource has throws an `InvalidArgumentException` that names the field and the key, when a non-empty value is written: a typo in the key used to let every id through, and now fails loudly.
+- **No `relatedResource()`**: the resource is the one registered for the model of the relationship (`BelongsTo::make('team')` reads `Task::team()`, takes its related model and finds the resource registered for it), as Nova finds a `BelongsTo` resource when none is given. The full check above runs against it: its `relatableQuery()`, the source's `relatable{PluralModelName}()`, the field's `relatableQueryUsing()` and `withoutTrashed()`, `viewAny`, the `add{SourceModel}` policy and the full inverse.
+- **A pivot field** of a `BelongsToMany` / `MorphToMany` panel reads its relationship from the **pivot model** (`->using(Assignment::class)` with an `approver()` method on it), not from the parent record the panel belongs to: a same-named relation of the parent is never the one checked (v2.4.0; before, the parent's relation, if any, decided which resource the write was checked against). A plain pivot has no relationship methods, so declare `relatedResource()` on such a field.
+- **Neither names exactly one resource**: the relationship is not defined on the record (an Action field or a Repeater row whose host model has no such relationship), the related model has no registered resource, or several resources are registered for it. The value is refused with **422** (`martis::validation.relatable_unresolved`, "The :attribute has no related resource to check the selected record against. Declare relatedResource() on the field.") instead of being written unchecked. Declare `relatedResource()` on the field.
+
+**An id that is not an int or a string** (v2.4.0+). A `BelongsTo` or `MorphTo` value names its id as a raw value or an `{id: ...}` map. A JSON boolean, a non-integer number, a list or a nested map is not an id (a boolean `true` would be stored as key `1`), so the same reading refuses it in both places: the `Relatable` rule answers **422** (`martis::validation.relatable`) and `fill()` writes nothing for it. The empty string and `null` still clear a nullable field.
+
+Before v2.4.0 a field with no related resource, or one that named an unregistered key, wrote any submitted id with no check: a crafted request could point the foreign key at another tenant's record. The picker still needs `relatedResource()` (the frontend renders a numeric id input without it, and the picker endpoint reads the key from the field), so declare it on every `BelongsTo`.
+
+A `Tag` is checked only when it names its related resource with `relatedResource()`: without one the ids it syncs are written as the request sends them.
+
+In a `Repeater` row the value is stored in the row, not as a relationship of the record: the query, `viewAny` and `add{Model}` apply, the full inverse and the `Tag` attach / detach abilities do not.
 
 ### Polymorphic cross-type isolation
 

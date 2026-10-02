@@ -31,6 +31,7 @@ import {
   LockKeyIcon,
 } from "@phosphor-icons/react"
 import { ResourceIcon } from "./ResourceIcon"
+import { safeHref } from "@/lib/safeUrl"
 
 function getBrand(): string {
   return config.brand ?? "Martis"
@@ -163,7 +164,7 @@ function LeafItem({
   if (item.external) {
     return (
       <a
-        href={item.url}
+        href={safeHref(item.url)}
         target="_blank"
         rel="noreferrer"
         className="martis-sb-item"
@@ -615,7 +616,7 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
           )}
           {config.docsUrl && (
             <a
-              href={config.docsUrl}
+              href={safeHref(config.docsUrl)}
               target="_blank"
               rel="noreferrer"
               className="martis-sb-footer-link"

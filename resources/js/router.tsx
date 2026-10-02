@@ -8,6 +8,8 @@ import { ForgotPasswordPage } from '@/pages/ForgotPassword'
 import { ResetPasswordPage } from '@/pages/ResetPassword'
 import { EmailVerifyNoticePage } from '@/pages/EmailVerifyNotice'
 import { InvitationAcceptPage } from '@/pages/InvitationAccept'
+import { MagicLinkConfirmPage } from '@/pages/MagicLinkConfirm'
+import { EmailChangeConfirmPage } from '@/pages/EmailChangeConfirm'
 import { PasswordChangeRequiredPage } from '@/pages/PasswordChangeRequired'
 import { DashboardPage } from '@/pages/Dashboard'
 import { NotFoundPage } from '@/pages/NotFound'
@@ -104,6 +106,19 @@ export function buildAppRoutes(registered: readonly RegisteredRoute[]): RouteObj
     {
       path: '/invitations/accept/:token',
       element: createElement(InvitationAccept),
+    },
+    {
+      // The page the emailed sign-in link opens: it asks to confirm, and
+      // only its POST signs in (v2.4.0).
+      path: '/magic-link/confirm',
+      element: <MagicLinkConfirmPage />,
+    },
+    {
+      // The page the link mailed to the new address of an email change
+      // opens: it asks to confirm, and only its POST changes the address
+      // (v2.4.0). Public: the signed URL is the proof.
+      path: '/profile/email/confirm/:id',
+      element: <EmailChangeConfirmPage />,
     },
     {
       path: '/2fa/challenge',

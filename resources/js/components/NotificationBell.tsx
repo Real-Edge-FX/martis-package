@@ -4,11 +4,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { BellIcon, CheckCircleIcon, WarningIcon, WarningCircleIcon, InfoIcon, TrashIcon } from '@phosphor-icons/react'
 import { api } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
 import { config } from '@/lib/config'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { martisEventBus, type EventPayload } from '@/lib/eventBus'
 import { useEscapeLayer } from '@/lib/escapeLayers'
 import { isSafeInternalPath } from '@/lib/safeInternalPath'
+import { openExternal } from '@/lib/openExternal'
 import { useFormatLocale } from '@/lib/formatLocale'
 
 interface NotificationItem {
@@ -155,7 +157,7 @@ export function NotificationBell() {
   const items = listQuery.data?.data ?? []
 
   const markRead = useMutation({
-    mutationFn: (id: string) => api.post(`/api/notifications/${id}/read`),
+    mutationFn: (id: string) => api.post(apiPath`/api/notifications/${id}/read`),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['notifications'] })
     },
@@ -169,7 +171,7 @@ export function NotificationBell() {
   })
 
   const dismiss = useMutation({
-    mutationFn: (id: string) => api.delete(`/api/notifications/${id}`),
+    mutationFn: (id: string) => api.delete(apiPath`/api/notifications/${id}`),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['notifications'] })
     },
@@ -255,11 +257,13 @@ export function NotificationBell() {
                   setOpen(false)
                   // Only a same-origin path goes through the SPA router: a
                   // `//host` or `/\host` value is another origin and opens
-                  // in a new tab like any absolute URL.
+                  // in a new tab like any absolute URL, provided it is an
+                  // http(s) or `mailto:` / `tel:` one (`openExternal()` refuses
+                  // `javascript:` and the like).
                   if (isSafeInternalPath(item.action_url)) {
                     navigate(item.action_url)
                   } else {
-                    window.open(item.action_url, '_blank', 'noopener,noreferrer')
+                    openExternal(item.action_url, { contact: true })
                   }
                 }
               }
