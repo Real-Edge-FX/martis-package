@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { WrenchIcon } from '@phosphor-icons/react'
 import type { LockedToolResponse } from '@/types'
+import { safeHref } from '@/lib/safeUrl'
 
 /**
  * What `/tools/{uriKey}` and a registered page bound to a Tool render when
@@ -47,7 +48,7 @@ export function ToolLockedState({ payload }: { payload: LockedToolResponse }) {
       </p>
       {modal?.cta && (
         <a
-          href={modal.cta.url}
+          href={safeHref(modal.cta.url)}
           target={modal.cta.target ?? '_self'}
           rel={modal.cta.target === '_blank' ? 'noopener noreferrer' : undefined}
           className="mt-4 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium"

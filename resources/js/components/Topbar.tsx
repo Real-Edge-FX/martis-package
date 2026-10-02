@@ -17,6 +17,7 @@ import type { MenuItem } from "primereact/menuitem"
 import { useTranslation } from "react-i18next"
 import { MagnifyingGlassIcon, CaretDownIcon, SignOutIcon, UserCircleIcon, ListIcon, CaretDoubleLeftIcon, CaretDoubleRightIcon } from "@phosphor-icons/react"
 import { useIsMobile } from "@/hooks/useIsMobile"
+import { safeHref } from "@/lib/safeUrl"
 
 interface TopbarProps {
   /** Callback for the mobile hamburger — undefined on desktop. */
@@ -100,7 +101,7 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
         ) => (
           <a
             className={options.className}
-            href={url}
+            href={safeHref(url)}
             role="menuitem"
             target={httpExternal ? "_blank" : undefined}
             rel={httpExternal ? "noopener noreferrer" : undefined}

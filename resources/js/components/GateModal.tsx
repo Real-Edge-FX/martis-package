@@ -5,6 +5,8 @@ import { LockKeyIcon, XIcon } from '@phosphor-icons/react'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { useGate } from '@/contexts/GateContext'
 import { useModalHistoryLock } from '@/lib/historyLock'
+import { safeHref } from '@/lib/safeUrl'
+import { sanitizeMarkup } from '@/lib/sanitizeHtml'
 
 /**
  * Soft-gate modal — opens whenever a user clicks a locked entry in
@@ -114,10 +116,10 @@ export function GateModal() {
             <p
               className="text-sm leading-relaxed"
               style={{ color: 'var(--martis-text-muted)' }}
-              // Trusted source: the message comes from PHP-side config,
-              // never from user input. Hosts that put untrusted text here
-              // are responsible for sanitising upstream.
-              dangerouslySetInnerHTML={{ __html: message }}
+              // The message comes from PHP-side config, not from user input,
+              // and is sanitised anyway (links, bold and code stay): a host
+              // that interpolates untrusted text into it still gets no script.
+              dangerouslySetInnerHTML={{ __html: sanitizeMarkup(message) }}
             />
           ) : (
             <p
@@ -141,7 +143,7 @@ export function GateModal() {
               </button>
             )}
             <a
-              href={cta.url}
+              href={safeHref(cta.url)}
               target={cta.target ?? '_self'}
               rel={cta.target === '_blank' ? 'noopener noreferrer' : undefined}
               onClick={close}

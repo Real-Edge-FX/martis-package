@@ -9,6 +9,7 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { martisEventBus, type EventPayload } from '@/lib/eventBus'
 import { useEscapeLayer } from '@/lib/escapeLayers'
 import { isSafeInternalPath } from '@/lib/safeInternalPath'
+import { openExternal } from '@/lib/openExternal'
 import { useFormatLocale } from '@/lib/formatLocale'
 
 interface NotificationItem {
@@ -255,11 +256,13 @@ export function NotificationBell() {
                   setOpen(false)
                   // Only a same-origin path goes through the SPA router: a
                   // `//host` or `/\host` value is another origin and opens
-                  // in a new tab like any absolute URL.
+                  // in a new tab like any absolute URL, provided it is an
+                  // http(s) one (`openExternal()` refuses `javascript:` and
+                  // the like).
                   if (isSafeInternalPath(item.action_url)) {
                     navigate(item.action_url)
                   } else {
-                    window.open(item.action_url, '_blank', 'noopener,noreferrer')
+                    openExternal(item.action_url)
                   }
                 }
               }
