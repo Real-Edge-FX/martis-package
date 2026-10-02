@@ -79,6 +79,10 @@ Security release: every finding of the October 2026 security audit of `main` (12
 - `martis:attachments:prune`.
 - Config keys: `panel_access.open_environments`, `profile.email_change.ttl_minutes`, `throttle.login_email_attempts` / `login_email_minutes`, `throttle.two_factor_attempts` / `two_factor_ip_attempts` / `two_factor_minutes`, `throttle.two_factor_lockout_attempts` / `two_factor_lockout_minutes`, `auth.sso.providers.*.remember`, `auth.sso.providers.azure.tenant`.
 
+### Fixed
+
+- **The (?) icon of a field label tooltip is named with plain text.** Its `aria-label` carried the tooltip's HTML, so a screen reader spelt out the tags; the tooltip itself still shows the sanitised HTML.
+
 ### Changed
 
 - Magic-link sign-in is `POST /api/auth/magic-link/consume`; the emailed link is `GET /{path}/magic-link/confirm`.
@@ -88,7 +92,7 @@ Security release: every finding of the October 2026 security audit of `main` (12
 - Relatable rows no longer carry `_authorization`, `_resource` or other index columns.
 - Vitest 4.
 
-- +832 Pest, +440 Vitest.
+- +832 Pest, +443 Vitest.
 
 ## [2.3.0] — 2026-10-01
 
