@@ -889,15 +889,19 @@ class PostResource extends Resource
 |----------|--------|
 | `ActionResponse::message('Done')` | Green success toast, then the page refreshes |
 | `ActionResponse::danger('Failed')` | Red error toast, then the page refreshes |
-| `ActionResponse::redirect($url)` | Full-page browser redirect |
+| `ActionResponse::redirect($url)` | Full-page browser redirect to an `http(s)` URL or a path (see [Response URLs](#response-urls)) |
 | `ActionResponse::visit($path, $params)` | SPA navigation (no reload) to `$path` below the Martis base path, with `$params` added to its query string (`visit('/resources/users', ['view' => 'open'])`); a query or `#fragment` the path already has is kept (`visit('/resources/users?view=open#top', ['page' => 2])` goes to `/resources/users?view=open&page=2#top`) |
-| `ActionResponse::openInNewTab($url)` | Opens the URL in a new tab |
-| `ActionResponse::download($filename, $url)` | Downloads the file as `$filename` |
+| `ActionResponse::openInNewTab($url)` | Opens the URL in a new tab (an `http(s)` URL or a path) |
+| `ActionResponse::download($filename, $url)` | Downloads the file as `$filename` (an `http(s)` URL or a path) |
 | `ActionResponse::emit($event, $data)` | Emits `$event` with `$data` on `martisEventBus`, then the success toast (see [Client-side events](#client-side-events)) |
 | `ActionResponse::modal($component, $data)` | Shows the component registered under `$component` (see [Custom modal responses](#custom-modal-responses)) |
 | `ActionResponse::openCreate()` / `openDetail()` / `openUpdate()` | Opens the matching drawer |
 
 Every successful run fires `martis:action-executed` on `martisEventBus`, and dashboard metrics refetch on it, as Nova's do (v2.3.0). Pivot actions handle every response above but the three drawers, which fall back to the success toast.
+
+### Response URLs
+
+`redirect()`, `openInNewTab()` and `download()` hand their URL to the browser, and a `javascript:` URL there would run script in the panel with the viewer's session. They take an `http(s)` URL or a path (`/exports/posts.csv`, `//cdn.example.com/file`, `exports/posts.csv`) and, since v2.4.0, throw an `InvalidArgumentException` for any other scheme (`javascript:`, `data:`, `vbscript:`, `file:`, `mailto:`, `blob:`, ...), however it is spelled (leading spaces, tabs inside the scheme). The panel refuses the same URLs on its side too (a console error, nothing navigates), as `visit()` already refuses a path outside the app. A URL built from record data is therefore safe to pass; a `data:` download is not supported, serve the file from a route or a signed URL instead.
 
 ### Custom modal responses
 
@@ -1064,7 +1068,7 @@ id  batch_id (UUID)          user_id  name           actionable_type  id  status
 Key points:
 - All 3 rows share the same `batch_id` — they came from one action run
 - `original` and `changes` store **only the diff** — unchanged attributes are not stored
-- `fields` holds the values the user submitted in the action modal
+- `fields` holds the values the run resolved for the action's visible fields, with a `Password` or [`sensitive()`](fields.md#sensitive-fields) field masked as `******` (see [Action field values in the log](#action-field-values-in-the-log))
 - For standalone actions, `actionable_type/id` are `null` (no model targeted)
 - For a [pivot action](#pivot-actions), one row per selected related record with Nova's mapping: `actionable` is the record whose relationship panel ran the action, `target` the related record, `model` its pivot row (the pivot class, and the pivot key when the table has one), and `original` / `changes` hold the pivot columns the action changed (v1.38.0+)
 
@@ -1132,7 +1136,7 @@ php artisan migrate
 | `target_id` | `int\|null` | Target model ID; for a pivot action, the related record's ID |
 | `model_type` | `string\|null` | Source model class; for a pivot action, the pivot class |
 | `model_id` | `int\|null` | Source model ID; for a pivot action, the pivot row's key (`null` when the pivot table has none) |
-| `fields` | `json` | Submitted action field values |
+| `fields` | `json` | The action's field values as the run resolved them: the visible fields only, secrets masked (see [Action field values in the log](#action-field-values-in-the-log)) |
 | `status` | `string` | `completed`, `failed`, or `queued` |
 | `exception` | `text` | Error message on failure (empty string on success) |
 | `original` | `json` | Changed attributes with their values **before** the action (diff only) |
@@ -1303,7 +1307,7 @@ The denied gate check runs with every navigation build, so the [authorization-de
 
 `original` and `changes` store the raw attributes an action changed, whatever the record's resource shows. The detail page shows a value only when the viewer could read that attribute on the record's own detail page; any other value reads `******` (`ActionEventRedactor::MASK`), so the log still tells which attributes changed:
 
-- **The record has a resource.** A key keeps its value when it is the attribute of a detail field the viewer may see (`canSee()`, `canSeeForModel()`), or the foreign key / morph type of a visible `BelongsTo` / `MorphTo`, through a resource that lets the viewer `viewAny` and `view` the record. Attributes no field shows (`password`, `remember_token`, internal columns) are masked. A viewer who may not view the record sees every value masked, and so does one whose global scopes hide it (another tenant's record). A deleted record is judged by the field visibility alone.
+- **The record has a resource.** A key keeps its value when it is the attribute of a detail field the viewer may see (`canSee()`, `canSeeForModel()`), or the foreign key / morph type of a visible `BelongsTo` / `MorphTo`, through a resource that lets the viewer `viewAny` and `view` the record. Attributes no field shows (`password`, `remember_token`, internal columns) are masked. A viewer who may not view the record sees every value masked, and so does one whose global scopes hide it (another tenant's record). A hard-deleted record is judged on a model hydrated from the attributes the event stored (its key, then `original`, then `changes`): the resource's `view` policy must allow it, as it must for a record that still exists, and the field visibility applies on top (v2.4.0; before, a deleted record skipped `view`). The log stores only the attributes an action changed, so a policy that reads an attribute the action did not touch (an owner or tenant column) finds it missing on the hydrated model and denies, and every value stays masked; a policy that raises on the partial model denies too. A global scope cannot be checked on a row that is gone, so a tenant fence that lives in a global scope alone does not mask the events of a deleted record: put the fence in the `view` policy as well. An event that names no record (no `actionable_id`) has none to judge, only the resource's `viewAny`.
 - **A pivot action's event** (`model_type` is the pivot): the values show when the viewer may view the parent record, but the pivot model's `$hidden` attributes and the attributes of the pivot fields the viewer may not see (`canSee()`) on the `BelongsToMany` / `MorphToMany` field that lists the row. When the parent's detail page declares such a field but the viewer may see none of them, every value is masked.
 - **No resource exposes the model** (a standalone action, a role change, a custom writer): the values show, but the model's `$hidden` attributes.
 
@@ -1322,6 +1326,21 @@ The stored row keeps every other value: code that reads `ActionEvent` directly g
 #### `$hidden` attributes are stored masked (v2.0.1+)
 
 When an action changes an attribute its model hides (`$hidden`: a password hash, a token), the event stores `******` for it in `original` and `changes`, keeping the key; a pivot action does the same with the pivot model's `$hidden` columns. The mask reads the instance's `getHidden()`, as Nova's Sidekick reads `$model->getHidden()`, so a runtime `makeVisible()` of a `$hidden` attribute on a model the action changes stores that value in clear: read the secret without it (`$model->api_token` needs no `makeVisible()`), or call `makeVisible()` on a copy (`clone $model`). This applies to synchronous and queued actions and to pivot actions, and to rows written from v2.0.1 on (older rows keep their values, still masked on read). Nova does the same: its action events store their diffs through `Orchestra\Sidekick\Eloquent\model_state()`, which replaces each `$hidden` attribute with a value serialised as `******`. A custom writer masks its own diffs with `ActionEventRedactor::maskHiddenAttributes($values, $model)`.
+
+#### Action field values in the log (v2.4.0+)
+
+The `fields` column used to store the raw `fields` input of the request: every value the user typed in the modal, a `Password` field included (a "Set new password" or "Rotate API key" action left the secret in plain text in the database and its backups), the values of fields the user cannot see, and any key that names no field. An event now stores the values the run resolved for the fields the user may see, as `handle()` receives them:
+
+- a `Password` or `PasswordConfirmation` field, and any field marked [`sensitive()`](fields.md#sensitive-fields), stores `******` (`ActionEventRedactor::MASK`) in place of its value; an empty value stays empty, so the log does not claim a secret was set. Inside a `Repeater` row the fields its repeatables mark sensitive are masked the same way, nested Repeaters included;
+- a field the user cannot see (`canSee()`) and a key that names no field of the action (the extra values a custom component posts) are left out. The action still receives them in `handle()`; only the log drops them;
+- a pivot action's event stores its fields the same way, queued or not, and so do a failed run and a queued run's `queued` event.
+
+```php
+Text::make('api_key')->sensitive();   // logged as ******
+Password::make('new_password');       // logged as ******, with no flag
+```
+
+Nova stores action fields as submitted. The mask applies to rows written from v2.4.0 on; older rows keep what they stored (the built-in `ActionEventResource` never shows the column). A custom writer applies the same rule with `ActionEventRedactor::loggableFields($fields, $values, $request)`. The values a queued action hands its job (`ExecuteAction`, `ExecutePivotAction`) are not part of the log: the job payload carries them as the queue driver stores it.
 
 #### `$visible` attributes only (v2.3.0+)
 
@@ -1540,6 +1559,8 @@ The pivot action routes (see the [API Reference](#api-reference)) resolve `{rela
 ---
 
 ## API Reference
+
+Every route below answers 403 when the user may not `viewAny` the resource, as running an action does: a resource the user cannot list does not disclose the actions it declares nor their field definitions (labels, defaults and the option lists a `Select` is filled with). The lens routes (`/api/resources/{resource}/lenses/{lens}/actions...`) follow the same rule, and the pivot routes check `viewAny` on the parent resource.
 
 | Method | Path | Description |
 |--------|------|-------------|

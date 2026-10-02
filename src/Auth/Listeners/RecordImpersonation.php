@@ -31,6 +31,10 @@ use Martis\Models\ActionEvent;
  *   - `actionable_type` / `actionable_id` — the target user
  *   - `fields.target_label` / `target_id` — convenience copy for the
  *                                           audit-log row in the UI
+ *   - `fields.operator_label` / `operator_id` — the operator, beside the
+ *                                           target (`operator_type` too
+ *                                           when the guard is not the
+ *                                           Martis one)
  *
  * Defensive: skips silently when the audit table is missing
  * (`martis_action_events`) or when the consumer flips
@@ -76,9 +80,13 @@ class RecordImpersonation
             'fields' => [
                 'target_id' => $targetId,
                 'target_label' => $targetLabel,
+                // Both identities in the row, whoever the guard signs in: the
+                // operator beside the target, so the row names the two
+                // people even when `user_id` cannot (v2.4.0).
+                'operator_id' => $this->extractId($operator),
+                'operator_label' => $this->describeLabel($operator),
             ] + ($operatorIsMartisUser ? [] : [
                 'operator_type' => $operator::class,
-                'operator_id' => $this->extractId($operator),
             ]),
             'status' => 'finished',
             'exception' => '',

@@ -160,9 +160,18 @@ class Card implements CardContract
         return $this->meta;
     }
 
-    /** {@inheritdoc} */
+    /**
+     * {@inheritdoc}
+     *
+     * A card soft-locked for the user (`lockedFor()`, `requirePlan()`) keeps
+     * its descriptor and its `lock` payload but carries no `meta`: the
+     * card's data is what the lock withholds, and `meta` is where a custom
+     * card holds it (v2.4.0).
+     */
     public function toArray(): array
     {
+        $lock = $this->lockPayloadNow();
+
         return [
             'type' => 'card',
             'name' => $this->name(),
@@ -173,8 +182,8 @@ class Card implements CardContract
             'widthLg' => $this->widthLg,
             'framed' => $this->framed,
             'badge' => $this->badge(),
-            'lock' => $this->lockPayloadNow(),
-            'meta' => $this->meta(),
+            'lock' => $lock,
+            'meta' => $lock === null ? $this->meta() : [],
         ];
     }
 }

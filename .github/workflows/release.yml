@@ -36,45 +36,60 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
+      # The dispatch inputs reach the shell only through `env:` (never expanded
+      # inline in a script), and are validated before any use: a value
+      # such as `1.0.0"; curl ...` would otherwise run in a job that holds a
+      # contents: write token.
       - name: Resolve tag / version
         id: r
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "push" ]; then
-            TAG="${GITHUB_REF_NAME}"
-          else
-            TAG="v${{ inputs.version }}"
+          if ! [[ "$INPUT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::version must look like 1.17.2 (digits and dots, no v prefix)"
+            exit 1
           fi
-          echo "tag=$TAG"      >> "$GITHUB_OUTPUT"
-          echo "ver=${TAG#v}"  >> "$GITHUB_OUTPUT"
+          echo "tag=v${INPUT_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "ver=${INPUT_VERSION}"  >> "$GITHUB_OUTPUT"
 
-      - name: Ensure the tag exists (dispatch/backfill only)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Ensure the tag exists
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.r.outputs.tag }}
+          REPO: ${{ github.repository }}
+          INPUT_SHA: ${{ inputs.sha }}
         run: |
           set -euo pipefail
-          TAG="${{ steps.r.outputs.tag }}"; REPO="${{ github.repository }}"
+          if [ -n "$INPUT_SHA" ] && ! [[ "$INPUT_SHA" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "::error::sha must be 7 to 40 lowercase hex characters (or empty for the current HEAD)"
+            exit 1
+          fi
           if ! gh api "repos/$REPO/git/refs/tags/$TAG" >/dev/null 2>&1; then
-            SHA="${{ inputs.sha }}"; [ -z "$SHA" ] && SHA="$(git rev-parse HEAD)"
+            # The refs API takes a full SHA: resolve an abbreviated one here,
+            # which also proves it names a commit of this repository.
+            SHA="$(git rev-parse --verify "${INPUT_SHA:-HEAD}^{commit}")"
             gh api -X POST "repos/$REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$SHA"
             echo "Created tag $TAG at $SHA"
           fi
 
       - name: Extract CHANGELOG notes
+        env:
+          VERSION: ${{ steps.r.outputs.ver }}
         run: |
           set -euo pipefail
-          awk -v v="${{ steps.r.outputs.ver }}" '
-            $0 ~ "^## \\[" v "\\]" { f=1; next }
+          # Literal prefix match (the version is never read as a regex).
+          awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 { f=1; next }
             f && /^## \[/ { exit }
             f { print }
           ' CHANGELOG.md > NOTES.md
           if [ ! -s NOTES.md ]; then
-            echo "::error::No CHANGELOG.md section for [${{ steps.r.outputs.ver }}]"
+            echo "::error::No CHANGELOG.md section for [$VERSION]"
             exit 1
           fi
           echo "----- notes -----"; cat NOTES.md
@@ -82,9 +97,9 @@ jobs:
       - name: Create or update the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.r.outputs.tag }}
         run: |
           set -euo pipefail
-          TAG="${{ steps.r.outputs.tag }}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TAG" --notes-file NOTES.md
           else

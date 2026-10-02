@@ -431,7 +431,9 @@ public function afterSave(Model $model, Request $request, bool $creating): void
 public function beforeDelete(Model $model, Request $request): void
 {
     if ($model->status === 'published') {
-        throw new \RuntimeException('Cannot delete published posts.');
+        // The message reaches the user as it is. A plain \RuntimeException
+        // would answer a generic message in production.
+        throw new \Martis\Exceptions\UserFacingException('Cannot delete published posts.');
     }
     parent::beforeDelete($model, $request); // fires BeforeDelete event
 }
@@ -599,7 +601,9 @@ Since v1.14.0, `@martis/runtime` exposes:
 | `FieldDisplayProps`, `FieldInputProps` (types) | Re-exported for the same reason. |
 | `DrawerShell` | Generic slide-over drawer shell. Host edit/add/detail forms (composed from `FieldInput`) in a native drawer; you control open/close from your own state, like a modal. |
 | `DrawerShellProps` (type) | Props for `DrawerShell`: `title`, `subtitle?`, `icon?`, `onClose`, `children`, … |
-| `Tooltip` | The PrimeReact `Tooltip` component, for React content in a tooltip (JSX `content`), since the extension build doesn't alias `primereact`. The global `[data-pr-tooltip]` provider renders plain text, or markup you write when the trigger sets `data-pr-tooltip-html="true"` (unsanitised): see [Tooltip Standard](components.md#tooltip-standard-primereact). |
+| `Tooltip` | The PrimeReact `Tooltip` component, for React content in a tooltip (JSX `content`), since the extension build doesn't alias `primereact`. The global `[data-pr-tooltip]` provider renders plain text, or markup you write when the trigger is registered with `htmlTooltip()` (sanitised): see [Tooltip Standard](components.md#tooltip-standard-primereact). |
+| `htmlTooltip`, `trustHtmlTooltip` (v2.4.0) | `htmlTooltip(markup, position?)` returns the props (`data-pr-tooltip`, `data-pr-tooltip-html`, `data-pr-position` and a registering `ref`) that make an element a trigger of the global tooltip that shows HTML. `trustHtmlTooltip` is the ref callback for an element that has a ref of its own. An element that is not registered shows its `data-pr-tooltip` as plain text, whatever `data-pr-tooltip-html` says. |
+| `HtmlTooltipProps` (type) | The props `htmlTooltip()` returns. |
 | `Dropdown`, `MultiSelect` (v1.29.0) | The exact PrimeReact controls Martis's own filters use. Apply the `martis-filter-dropdown` class for the compact filter look. Lets a Tool render pixel-identical single/multi filters without bundling a second copy of PrimeReact. |
 | `createPortal` (v1.29.0) | `react-dom`'s `createPortal`, for overlays: the host's, so the portal renders with the host's React DOM. Since v1.38.0 `import { createPortal } from 'react-dom'` reaches the same function: the extension build sends `react-dom` to a shim that carries it and `flushSync`, nothing else of `react-dom`. |
 | `flushSync` (v1.38.2) | `react-dom`'s synchronous flush, the host's. Third-party libraries import it from `react-dom` (`@tanstack/react-virtual` calls it while scrolling a virtualised list), and the `react-dom` shim re-exports it; in v1.38.0 and v1.38.1 the shim did not, and such a library stopped the build. |
@@ -908,6 +912,8 @@ npm run build:extensions
 ```
 
 That runs `vite build --config vite.extensions.config.ts`, which is published into your app by `martis:install`. The bundle is emitted at `public/vendor/martis-user/extensions.js` and Martis loads it at runtime through the URL listed in `MARTIS_EXTENSIONS` (also set by `martis:install`). The auto-discovery entry walks the four buckets under `resources/js/martis-extensions/` and registers every `.tsx` against `window.Martis.componentRegistry` — no manual `boot.ts`, no `MARTIS_USER_DIR`, no symlink.
+
+**No source map by default (v2.4.0+).** The bundle lands under `public/`, the web root, so a source map written beside it (`extensions.js.map`) would be served to everyone and hand them the original TSX of every tool, field, card and override, comments included. The published config sets `build.sourcemap: false`. To debug a build, set it to `true` (the map is written and linked from the bundle) or to `'hidden'` (the map is written, the bundle does not link it: upload it to your error tracker, then delete it from `public/vendor/martis-user/` before deploying). An app that published the config before v2.4.0 keeps `sourcemap: true` (the scaffold is copied once): set `build.sourcemap` to `false` in `vite.extensions.config.ts`, rebuild, and delete the `extensions.js.map` already under `public/vendor/martis-user/`.
 
 ### Shell piece-by-piece overrides
 

@@ -351,7 +351,11 @@ it('scaffolds the BulkAssignRole action wired into UserResource', function () {
 
     $action = (string) file_get_contents($actionPath);
     expect($action)->toContain('class BulkAssignRole')
-        ->and($action)->toContain('Role::query()->find')
+        // The lookup goes through the picker's query, which leaves out the
+        // SSO-managed roles (F106), and the Select validates the id against it.
+        ->and($action)->toContain('$this->assignableRoles()->find($roleId)')
+        ->and($action)->toContain("whereNull('provider_group_name')")
+        ->and($action)->toContain('->validateAgainstOptions()')
         ->and($action)->toContain('assignRole($role)');
 
     $userResource = (string) file_get_contents($userResourcePath);

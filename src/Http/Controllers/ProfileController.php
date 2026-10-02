@@ -7,9 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Martis\Auth\PasswordChanger;
 use Martis\Auth\PasswordPolicy;
+use Martis\Auth\RecoveryCodesRegeneratedNotification;
+use Martis\Auth\TwoFactorPass;
 use Martis\Contracts\ProfileResourceContract;
+use Martis\Impersonation\ImpersonationManager;
 use Martis\Profile\AvatarService;
 use Martis\Profile\BrowserSessionsService;
 use Martis\Profile\TwoFactorService;
@@ -57,9 +61,14 @@ class ProfileController extends MartisController
      * @body-param string password_confirmation required
      *
      * @response array{message: string}
+     * @response 403 array{message: string}
      */
     public function changePassword(Request $request, PasswordChanger $changer): JsonResponse
     {
+        if ($refusal = $this->refuseWhileImpersonating()) {
+            return $refusal;
+        }
+
         $user = $this->resolveUser($request);
 
         $request->validate([
@@ -116,9 +125,14 @@ class ProfileController extends MartisController
      * Generate a new TOTP secret and return QR code SVG + secret for setup.
      *
      * @response array{secret: string, qr_code_svg: string, otpauth_uri: string}
+     * @response 403 array{message: string}
      */
     public function twoFactorSetup(Request $request, TwoFactorService $twoFactor): JsonResponse
     {
+        if ($refusal = $this->refuseWhileImpersonating()) {
+            return $refusal;
+        }
+
         $user = $this->resolveUser($request);
         $data = $twoFactor->generateSetup($user);
 
@@ -131,9 +145,14 @@ class ProfileController extends MartisController
      * @body-param string code required 6-digit TOTP code from authenticator app.
      *
      * @response array{recovery_codes: list<string>}
+     * @response 403 array{message: string}
      */
     public function twoFactorConfirm(Request $request, TwoFactorService $twoFactor): JsonResponse
     {
+        if ($refusal = $this->refuseWhileImpersonating()) {
+            return $refusal;
+        }
+
         $request->validate([
             'code' => ['required', 'string', 'digits:6'],
         ]);
@@ -149,9 +168,10 @@ class ProfileController extends MartisController
             ], 422);
         }
 
-        // Mark session as 2FA-passed so the user is not forced to challenge
-        // immediately after enabling 2FA (fresh session already authenticated).
-        $request->session()->put('martis_two_factor_passed', true);
+        // Mark session as 2FA-passed, for this user, so they are not forced to
+        // challenge immediately after enabling 2FA (fresh session already
+        // authenticated).
+        TwoFactorPass::grant($request->session(), $user);
 
         return response()->json($result);
     }
@@ -165,9 +185,14 @@ class ProfileController extends MartisController
      * @body-param string current_password required
      *
      * @response array{message: string}
+     * @response 403 array{message: string}
      */
     public function twoFactorDisable(Request $request, TwoFactorService $twoFactor): JsonResponse
     {
+        if ($refusal = $this->refuseWhileImpersonating()) {
+            return $refusal;
+        }
+
         $request->validate([
             'current_password' => ['required', 'string', 'current_password'],
         ]);
@@ -175,8 +200,8 @@ class ProfileController extends MartisController
         $user = $this->resolveUser($request);
         $twoFactor->disable($user);
 
-        // Clear the 2FA-passed session flag so it does not linger
-        $request->session()->forget('martis_two_factor_passed');
+        // Clear the 2FA pass so it does not linger
+        TwoFactorPass::revoke($request->session());
 
         return response()->json(['message' => __('martis::profile.2fa_disabled_success')]);
     }
@@ -185,12 +210,27 @@ class ProfileController extends MartisController
      * Regenerate recovery codes for the authenticated user.
      *
      * Generates a new set of recovery codes (invalidating old ones) and returns
-     * the plain-text codes for the user to save.
+     * the plain-text codes for the user to save. Recovery codes stand in for
+     * the TOTP factor at the challenge, so, like disabling 2FA, regenerating
+     * them needs the current password: a stolen or left-open session must not
+     * be able to mint itself a second factor and lock the owner out of theirs.
+     * The user is told by email.
+     *
+     * @body-param string current_password required
      *
      * @response array{recovery_codes: list<string>}
+     * @response 403 array{message: string}
      */
     public function twoFactorRegenerateCodes(Request $request, TwoFactorService $twoFactor): JsonResponse
     {
+        if ($refusal = $this->refuseWhileImpersonating()) {
+            return $refusal;
+        }
+
+        $request->validate([
+            'current_password' => ['required', 'string', 'current_password'],
+        ]);
+
         $user = $this->resolveUser($request);
 
         try {
@@ -200,6 +240,8 @@ class ProfileController extends MartisController
                 'message' => $e->getMessage(),
             ], 422);
         }
+
+        $this->notifyRecoveryCodesRegenerated($user);
 
         return response()->json($result);
     }
@@ -241,9 +283,10 @@ class ProfileController extends MartisController
     }
 
     /**
-     * Revoke a single session by ID. The current session ID is always
-     * preserved — pointing the endpoint at it is a no-op rather than a
-     * footgun that signs the user out of the device they are using.
+     * Revoke a single session by the opaque `id` the session list gave it
+     * (never the raw session id, which names nothing). The current session
+     * is always preserved — pointing the endpoint at it is a no-op rather
+     * than a footgun that signs the user out of the device they are using.
      */
     public function destroySession(Request $request, BrowserSessionsService $sessions, string $id): JsonResponse
     {
@@ -256,6 +299,56 @@ class ProfileController extends MartisController
     // ──────────────────────────────────────────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * The answer to a factor- or identity-changing request made while an
+     * operator impersonates the user, or null when none is running.
+     *
+     * The profile endpoints that change the account's second factor or
+     * password (2FA setup, confirm, disable, the recovery codes, the password
+     * change) act on whoever the guard signed in, which is the target while
+     * an impersonation runs. Letting the operator through would hand them a
+     * persistent takeover of the target's account that outlives the
+     * impersonation: a recovery code, a new authenticator secret, a password
+     * the target does not know.
+     */
+    private function refuseWhileImpersonating(): ?JsonResponse
+    {
+        if (! app(ImpersonationManager::class)->isActive()) {
+            return null;
+        }
+
+        return response()->json([
+            'message' => __('martis::profile.refused_while_impersonating'),
+        ], 403);
+    }
+
+    /**
+     * Tell the user, by email, that their recovery codes were regenerated, so
+     * an owner whose session someone else used finds out. The mail is the
+     * user's own when the model is Notifiable, else a mail to the address on
+     * the account. A mailer that is down never breaks the request: the codes
+     * are already regenerated, and the failure goes to the exception handler.
+     */
+    private function notifyRecoveryCodesRegenerated(Authenticatable $user): void
+    {
+        try {
+            $notification = new RecoveryCodesRegeneratedNotification;
+
+            if (method_exists($user, 'routeNotificationFor')) {
+                Notification::send($user, $notification);
+
+                return;
+            }
+
+            $email = $user instanceof Model ? $user->getAttribute('email') : null;
+            if (is_string($email) && $email !== '') {
+                Notification::route('mail', $email)->notify($notification);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
 
     private function resolveUser(Request $request): Authenticatable
     {

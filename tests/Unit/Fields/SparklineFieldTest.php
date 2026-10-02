@@ -98,3 +98,21 @@ it('Sparkline toArray contains chart attributes', function () {
         ->and($arr['chartWidth'])->toBe(200)
         ->and($arr['chartColor'])->toBe('#ff0000');
 });
+
+it('Sparkline limits a written series to 1000 numbers unless maxPoints() says otherwise (F081)', function () {
+    expect(Sparkline::make('points')->getMaxPoints())->toBe(1000)
+        ->and(Sparkline::DEFAULT_MAX_POINTS)->toBe(1000)
+        ->and(Sparkline::make('points')->maxPoints(5000)->getMaxPoints())->toBe(5000)
+        ->and(Sparkline::make('points')->maxPoints(0)->getMaxPoints())->toBe(1);
+});
+
+it('Sparkline leaves a field the package does not fill to its own rules (F081)', function () {
+    $filledByApp = Sparkline::make('points')->fillUsing(fn () => null);
+    $readonly = Sparkline::make('points')->readonly();
+    $computed = Sparkline::make('points')->computed(fn () => [1, 2]);
+
+    expect($filledByApp->buildRules('update'))->not->toContain('array')
+        ->and($readonly->buildRules('update'))->not->toContain('array')
+        ->and($computed->buildRules('update'))->not->toContain('array')
+        ->and(Sparkline::make('points')->buildRules('update'))->toContain('array', 'max:1000');
+});

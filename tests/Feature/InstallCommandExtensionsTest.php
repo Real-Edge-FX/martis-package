@@ -87,6 +87,20 @@ it('martis:install publishes the extension scaffold tree', function () {
         ->toContain('OVERRIDE_KEYS');
 });
 
+it('martis:install publishes a vite config that does not put source maps under the web root (F115)', function () {
+    $this->artisan('martis:install', ['--force' => true])->assertSuccessful();
+
+    $viteContents = (string) $this->fs->get($this->paths['vite']);
+
+    // `outDir` is public/vendor/martis-user: a source map beside the bundle is
+    // served to everyone and carries the original TSX of every extension,
+    // comments included. The default is off; the comment says how to opt in.
+    expect($viteContents)
+        ->toMatch('/^\s*sourcemap:\s*false,/m')
+        ->not->toMatch('/^\s*sourcemap:\s*(true|[\'"]inline[\'"]),/m')
+        ->toContain("'hidden'");
+});
+
 it('martis:install does not overwrite a customised vite.extensions.config.ts without --force', function () {
     $this->fs->ensureDirectoryExists(dirname($this->paths['vite']));
     $this->fs->put($this->paths['vite'], '// existing custom content — DO NOT TOUCH');

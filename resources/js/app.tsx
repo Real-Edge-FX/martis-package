@@ -27,6 +27,7 @@ import { registerDefaultFields } from '@/components/fields/FieldRenderer'
 import { bootAppRouter } from '@/lib/appBoot'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { config } from '@/lib/config'
+import { readCspNonce } from '@/lib/cspNonce'
 import { PanelForbiddenPage } from '@/pages/PanelForbidden'
 import { DrawerCreate } from '@/components/overrides/DrawerCreate'
 import { DrawerUpdate } from '@/components/overrides/DrawerUpdate'
@@ -89,11 +90,16 @@ window.Martis = {
   version: __MARTIS_VERSION__,
 }
 
+// PrimeReact injects its component styles as <style> elements at run time; a
+// Content-Security-Policy nonce (published by the shell) goes on them.
+const cspNonce = readCspNonce()
+const primeReactOptions = cspNonce !== null ? { nonce: cspNonce } : undefined
+
 function App({ router }: { router: AppRouter }) {
   return (
     <StrictMode>
       <ErrorBoundary>
-        <PrimeReactProvider>
+        <PrimeReactProvider value={primeReactOptions}>
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
               <PreferencesProvider>

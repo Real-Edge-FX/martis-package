@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace {{ namespace }};
 
 use App\Notifications\UserInvitation;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -34,6 +35,23 @@ use Martis\Invitations\InvitationUrl;
  * may invite in your `AuthServiceProvider`:
  *
  *     Gate::define('martis-invite', fn ($user) => $user->hasRole('admin'));
+ *
+ * The role is the sensitive input: accepting the invitation assigns it, so
+ * the role list is enforced here on the server, not only by the picker.
+ * `assignableRoles()` is the one list behind the picker, the Select's
+ * validation (`validateAgainstOptions()`) and the re-check in `handle()`:
+ *
+ *   - SSO-managed roles (a non-null `provider_group_name`) are never offered
+ *     or accepted: group sync owns them and would overwrite them at the next
+ *     sign-in.
+ *   - An admin (the `hasRole('admin')` check `InvitationPolicy` makes) or
+ *     anyone who passes the `martis-invite-any-role` ability may invite into
+ *     any of the remaining roles. Every other inviter is a delegate and may
+ *     only hand out the roles they hold themselves, so delegating
+ *     `martis-invite` to a non-admin role cannot be used to mint an invitation
+ *     for a role above their own. Grant the wider list explicitly:
+ *
+ *         Gate::define('martis-invite-any-role', fn ($user) => $user->hasRole('hr-manager'));
  *
  * Customise freely. This file is yours.
  */
@@ -78,6 +96,13 @@ class InviteUser extends Action
         $role = $fields->get('role');
         $role = is_string($role) && $role !== '' ? $role : null;
 
+        // The Role select validates against the same list, but the field
+        // values are client input and handle() is the last line before the
+        // invitation is stored: check the role again.
+        if ($role !== null && ! array_key_exists($role, $this->assignableRoles())) {
+            return ActionResponse::danger(__('That role cannot be assigned through an invitation.'));
+        }
+
         // The manager hashes the token, sets expiry, records the audit
         // event, and returns the invitation carrying a transient
         // `$invitation->rawToken` for the notification URL.
@@ -93,6 +118,59 @@ class InviteUser extends Action
     }
 
     /**
+     * The roles the current inviter may hand out, as `[name => name]`: what
+     * the picker lists, what the Select accepts and what `handle()` allows.
+     *
+     * @return array<string, string>
+     */
+    private function assignableRoles(): array
+    {
+        // spatie/laravel-permission is optional. With no roles package
+        // installed the list is simply empty and the invitation carries no role.
+        if (! class_exists(\Spatie\Permission\Models\Role::class)) {
+            return [];
+        }
+
+        $query = \Spatie\Permission\Models\Role::query();
+
+        // SSO-managed roles (non-null `provider_group_name`) are excluded —
+        // they are owned by group sync and would be overwritten on the next
+        // sign-in.
+        if (Schema::hasColumn('roles', 'provider_group_name')) {
+            $query->whereNull('provider_group_name');
+        }
+
+        // A delegate may only hand out the roles they hold themselves.
+        $inviter = auth()->guard(config('martis.guard'))->user();
+
+        if (! $this->mayInviteIntoAnyRole($inviter)) {
+            $held = $inviter !== null && method_exists($inviter, 'getRoleNames')
+                ? $inviter->getRoleNames()->all()
+                : [];
+
+            $query->whereIn('name', $held);
+        }
+
+        /** @var array<string, string> */
+        return $query->orderBy('name')->pluck('name', 'name')->all();
+    }
+
+    /**
+     * Whether the inviter may invite into roles they do not hold: an admin
+     * (the check `InvitationPolicy` makes) or anyone who passes the
+     * `martis-invite-any-role` ability. Edit it to match how your app
+     * delegates inviting.
+     */
+    private function mayInviteIntoAnyRole(?Authenticatable $inviter): bool
+    {
+        if (Gate::forUser($inviter)->allows('martis-invite-any-role')) {
+            return true;
+        }
+
+        return $inviter !== null && method_exists($inviter, 'hasRole') && $inviter->hasRole('admin');
+    }
+
+    /**
      * @return list<FieldContract>
      */
     public function fields(Request $request): array
@@ -104,25 +182,10 @@ class InviteUser extends Action
 
             Select::make('role', __('Role'))
                 ->rules(['nullable', 'string', 'max:125'])
-                ->options(function () {
-                    // spatie/laravel-permission is optional. With no roles
-                    // package installed the picker is simply empty and the
-                    // invitation carries no role.
-                    if (! class_exists(\Spatie\Permission\Models\Role::class)) {
-                        return [];
-                    }
-
-                    $query = \Spatie\Permission\Models\Role::query();
-
-                    // SSO-managed roles (non-null `provider_group_name`) are
-                    // excluded — they are owned by group sync and would be
-                    // overwritten on the next sign-in.
-                    if (Schema::hasColumn('roles', 'provider_group_name')) {
-                        $query->whereNull('provider_group_name');
-                    }
-
-                    return $query->orderBy('name')->pluck('name', 'name')->all();
-                })
+                ->options(fn () => $this->assignableRoles())
+                // Select never checks the value against its options on its
+                // own: without this a forged `fields.role` is stored as sent.
+                ->validateAgainstOptions()
                 ->help(__('Optional. Assigned to the account when the invitation is accepted.')),
         ];
     }

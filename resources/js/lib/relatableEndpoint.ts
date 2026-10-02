@@ -69,6 +69,22 @@ function relatablePath(attribute: string, scope: RelatableScope, route: Relatabl
   return apiPath`/api/resources/${resource}/${id}/relatable/${attribute}`
 }
 
+/**
+ * The query string the context-free relatable URL (`/api/resources/_/_/relatable/...`)
+ * adds to say which attributes the picker reads: the server has no field to
+ * read them from there, and serialises a picker row as its key, its title and
+ * these attributes only (the ones that are index fields the user may see).
+ * Starts with `&`, to follow the URL's own parameters.
+ */
+export function pickerAttributesQuery(titleAttribute?: string, subtitleAttribute?: string): string {
+  const query = new URLSearchParams()
+  if (titleAttribute) query.set('title_attribute', titleAttribute)
+  if (subtitleAttribute) query.set('subtitle_attribute', subtitleAttribute)
+
+  const encoded = query.toString()
+  return encoded === '' ? '' : `&${encoded}`
+}
+
 /** The query string that names a Repeater row to the server: `repeater=...&repeatable=...`. */
 export function repeaterRowQuery(row: RepeaterRowScope): string {
   return new URLSearchParams({ repeater: row.repeater, repeatable: row.repeatable }).toString()

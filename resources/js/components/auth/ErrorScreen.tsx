@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeftIcon, BookOpenIcon, CopyIcon, CheckIcon } from '@phosphor-icons/react'
 import { config } from '@/lib/config'
+import { safeHref } from '@/lib/safeUrl'
 
 export interface ErrorScreenProps {
   /** HTTP status code displayed as the faint watermark behind the icon. */
@@ -106,7 +107,7 @@ export function ErrorScreen({
         </button>
         {resolvedSecondaryHref && (
           <a
-            href={resolvedSecondaryHref}
+            href={safeHref(resolvedSecondaryHref)}
             target="_blank"
             rel="noreferrer"
             className="martis-btn-secondary"

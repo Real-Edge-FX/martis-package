@@ -43,7 +43,7 @@ The folder is created at `base_path('stubs/martis/')`. From now on every `martis
 | `card.stub`, `component-card.tsx.stub` | `martis:card` |
 | `tool.stub`, `tool-component.tsx.stub` | `martis:tool` |
 | `field.stub`, `field.tsx.stub` | `martis:field` |
-| `policy.stub` | `martis:policy` |
+| `policy.stub` | `martis:policy`: deny-by-default since v2.4.0 (every ability returns `false` with a `// TODO`); keep that default in a published copy so a forgotten edit fails closed |
 | `theme.css.stub` | `martis:theme` |
 | `component-{type}.tsx.stub` (12 variants) | `martis:component --type={type}` (see table below) |
 | `agents/AGENTS.md.stub` | `martis:agents`: the guidelines primer for AI coding agents, published to `stubs/martis/agents/` (v1.38.1+; see [Agent guidelines → Customising the primer](agent-guidelines.md#customising-the-primer)) |

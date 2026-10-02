@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { apiPath, routePath } from "@/lib/apiPath"
+import { deleteErrorMessage } from "@/lib/deleteError"
 import type { ResourceRecord, ResourceSchema, OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from "@/types"
 import { FieldDisplay } from "@/components/fields/FieldRenderer"
 import { PanelDisplay } from "@/components/fields/PanelRenderer"
@@ -81,7 +82,7 @@ export function ResourceDetailPage() {
       addToast("success", res?.meta?.message ?? tMsg("record_deleted"))
       navigate(routePath`/resources/${resource}`)
     },
-    onError: () => addToast("error", tMsg("error_delete")),
+    onError: (e: unknown) => addToast("error", deleteErrorMessage(e, tMsg("error_delete"))),
   })
 
   const restoreMutation = useMutation({
@@ -112,7 +113,7 @@ export function ResourceDetailPage() {
       addToast("success", res?.meta?.message ?? tMsg("record_deleted"))
       navigate(routePath`/resources/${resource}`)
     },
-    onError: () => addToast("error", tMsg("error_delete")),
+    onError: (e: unknown) => addToast("error", deleteErrorMessage(e, tMsg("error_delete"))),
   })
 
   function handleActionSuccess() {

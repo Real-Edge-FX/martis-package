@@ -1,6 +1,7 @@
 import { martisEventBus } from '@/lib/eventBus'
 import { openExternal } from '@/lib/openExternal'
 import { safeInternalPath } from '@/lib/safeInternalPath'
+import { safeNavigationUrl } from '@/lib/safeUrl'
 
 /** The answer of an action run: `ActionResponse::jsonSerialize()`, `{ type, data }`. */
 export interface ActionResponsePayload {
@@ -66,10 +67,21 @@ function answerData(value: unknown): Record<string, unknown> {
   return proto === Object.prototype || proto === null ? (value as Record<string, unknown>) : {}
 }
 
-/** Download `url` as `filename` through a temporary link, as Nova does. */
+/**
+ * Download `url` as `filename` through a temporary link, as Nova does. An
+ * `http(s)` URL, a same-origin path and a `blob:` URL the page built itself
+ * download; any other URL (`javascript:`, `data:`, ...) is refused with a
+ * console error, since clicking it would run in the panel origin.
+ */
 export function triggerDownload(url: string, filename: string | null): void {
+  const safe = safeNavigationUrl(url, { blob: true })
+  if (safe === null) {
+    console.error('[martis] action response: refused to download a URL that is not http(s) or a path', url)
+    return
+  }
+
   const link = document.createElement('a')
-  link.href = url
+  link.href = safe
   link.setAttribute('download', filename ?? '')
   link.style.display = 'none'
   document.body.appendChild(link)
@@ -103,7 +115,12 @@ export function handleActionResponse(response: ActionResponsePayload | undefined
     case 'redirect': {
       const url = text(data.url)
       if (url !== null) {
-        window.location.href = url
+        const safe = safeNavigationUrl(url)
+        if (safe === null) {
+          console.error('[martis] action response: refused to redirect to a URL that is not http(s) or a path', url)
+          break
+        }
+        window.location.href = safe
         return
       }
       break

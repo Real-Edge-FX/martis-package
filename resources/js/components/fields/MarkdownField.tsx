@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { marked } from 'marked'
-import DOMPurify from 'dompurify'
+import { sanitizeMarkdownHtml } from '@/lib/sanitizeHtml'
 import { EyeIcon, EyeSlashIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 
@@ -13,7 +13,13 @@ import { useTranslation } from 'react-i18next'
  * (`<script>`, event-handler attributes like `onerror`, `javascript:`
  * URLs) passes through verbatim and would execute as stored XSS once
  * injected via `dangerouslySetInnerHTML`. Every code path that reaches
- * `dangerouslySetInnerHTML` must therefore run through DOMPurify here.
+ * `dangerouslySetInnerHTML` must therefore run through the `markdown`
+ * profile of the shared sanitiser (`lib/sanitizeHtml.ts`) here. That profile
+ * is stricter than DOMPurify's defaults, which keep every `data-*` attribute
+ * and the `style` attribute: a span carrying `data-pr-tooltip` (an HTML
+ * payload for the global tooltip), `data-pr-tooltip-html="true"` and a
+ * full-viewport `position: fixed` style survived them intact, so the
+ * profile drops all of those, form controls and `<style>` elements.
  *
  * Exported for direct unit testing of the sanitization contract.
  */
@@ -33,7 +39,7 @@ export function renderMarkdown(content: string, preset: string): string {
 
   const raw = marked.parse(content, { async: false }) as string
 
-  return DOMPurify.sanitize(raw)
+  return sanitizeMarkdownHtml(raw)
 }
 
 export function MarkdownFieldDisplay({ field, value }: FieldDisplayProps) {

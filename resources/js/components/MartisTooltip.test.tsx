@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, act, fireEvent, cleanup } from '@testing-library/react'
 import { MartisTooltip } from './MartisTooltip'
 import { TOOLTIP_GAP, TOOLTIP_MARGIN } from '@/lib/tooltipPlacement'
+import { trustHtmlTooltip } from '@/lib/htmlTooltip'
 
 /*
  * Global tooltip (`[data-pr-tooltip]`, event delegation).
@@ -54,9 +55,12 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function hover(attributes: Record<string, string>) {
+function hover(attributes: Record<string, string>, { trusted = false }: { trusted?: boolean } = {}) {
   const trigger = document.createElement('button')
   for (const [name, value] of Object.entries(attributes)) trigger.setAttribute(name, value)
+  // A trigger shows HTML only when the code that rendered it registered it
+  // (`htmlTooltip()` does that in a component); see MartisTooltip.html-trust.test.tsx.
+  if (trusted) trustHtmlTooltip(trigger)
   trigger.textContent = 'probe'
   document.body.appendChild(trigger)
   triggers.push(trigger)
@@ -87,14 +91,14 @@ describe('MartisTooltip text', () => {
     expect(content.style.minWidth).toBe('')
   })
 
-  it('renders plain text literally and HTML only behind the opt-in', () => {
+  it('renders plain text literally and HTML only behind the opt-in of a registered trigger', () => {
     const plain = hover({ 'data-pr-tooltip': '<b>x</b>' })
     expect(plain.content.querySelector('b')).toBeNull()
     expect(plain.content.textContent).toBe('<b>x</b>')
 
     reset()
 
-    const html = hover({ 'data-pr-tooltip': '<b>x</b>', 'data-pr-tooltip-html': 'true' })
+    const html = hover({ 'data-pr-tooltip': '<b>x</b>', 'data-pr-tooltip-html': 'true' }, { trusted: true })
     expect(html.content.querySelector('b')?.textContent).toBe('x')
     expect(html.content.style.fontSize).toBe('12px')
   })

@@ -330,7 +330,9 @@ When the audit table is missing (apps that opted out of the v0.7 install migrati
 
 The generated `UserResource` now ships an action — `BulkAssignRole` — that exposes a single Role dropdown in its confirmation modal and assigns the chosen role to every selected user in one click. The action lives at `app/Martis/Resources/Actions/BulkAssignRole.php`; it is yours to customise (rename the role pool, broadcast a notification, deny self-assignment, etc.).
 
-The Role picker excludes any role whose `provider_group_name` is set — those are owned by an SSO provider and would be overwritten on the next sign-in. Drop the clause in the action's `fields()` method to expose every role, or tighten the predicate further to scope per tenant.
+The Role picker excludes any role whose `provider_group_name` is set — those are owned by an SSO provider and would be overwritten on the next sign-in. The exclusion is enforced on the server too (v2.4.0+), not only by the dropdown: the `role_id` the modal posts is client input, so the action's `assignableRoles()` method holds the query once and the picker, the Select's [`validateAgainstOptions()`](fields.md#validating-against-the-options) rule and the lookup in `handle()` all read it. A request that names an SSO-managed role, or an id that is not in the list, answers `422` on the field and assigns nothing. To expose every role, drop the `whereNull('provider_group_name')` clause from `assignableRoles()` (one place); to scope per tenant, tighten the same query.
+
+An action generated before v2.4.0 keeps the old behaviour (the lookup took any id): regenerate it with `php artisan martis:roles --force` after merging your edits, or add the two changes by hand (`->validateAgainstOptions()` on the Select, and the `whereNull('provider_group_name')` clause on the `Role::query()->find($roleId)` lookup in `handle()`).
 
 Each `assignRole()` call inside the action fires Spatie's `RoleAttachedEvent`, which the audit listener captures into `martis_action_events`. A bulk run of 50 users assigning `editor` produces 50 audit rows tagged with the operator and the role id — perfect for compliance review.
 

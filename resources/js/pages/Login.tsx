@@ -12,6 +12,7 @@ import { AuthFrame } from "@/components/auth/AuthFrame"
 import { FieldError } from "@/components/auth/FieldError"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { BASE_PATH } from "@/lib/config"
+import { safeHref } from "@/lib/safeUrl"
 
 /** Tiny helper so the same rule applies to every optional auth flow:
  *  a flow is "active" when the consumer has flipped its `enabled` flag.
@@ -364,7 +365,7 @@ export function LoginPage() {
             {t('register_prompt', { defaultValue: "Don't have an account?" })}{' '}
             {registration?.url?.trim() ? (
               <a
-                href={registration.url}
+                href={safeHref(registration.url)}
                 style={{ color: 'var(--martis-accent)', textDecoration: 'none' }}
               >
                 {t('register_link', { defaultValue: 'Create an account' })}

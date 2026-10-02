@@ -451,7 +451,9 @@ test('schema endpoint still works after query hooks addition', function () {
 // ---------------------------------------------------------------------------
 
 test('relatable endpoint works without source resource using related_resource param', function () {
-    $response = $this->getJson('/martis/api/resources/_/_/relatable/team_id?related_resource=integration-teams');
+    // The context-free form has no field to read the picker's attributes from:
+    // the picker names its title attribute (v2.4.0), or a row is `id` and `_title`.
+    $response = $this->getJson('/martis/api/resources/_/_/relatable/team_id?related_resource=integration-teams&title_attribute=name');
 
     $response->assertOk();
     $data = $response->json('data');
@@ -459,6 +461,7 @@ test('relatable endpoint works without source resource using related_resource pa
     // Should apply IntegrationTeamResource::relatableQuery (is_active = true)
     expect($data)->toHaveCount(1);
     expect($data[0]['name'])->toBe('Active Team');
+    expect($data[0]['_title'])->toBe('Active Team');
 });
 
 test('context-free relatable returns 404 for unknown related_resource', function () {

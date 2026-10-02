@@ -2,6 +2,7 @@
 
 namespace Martis\Http\Controllers;
 
+use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
@@ -22,10 +23,13 @@ use Martis\Fields\HasMany;
 use Martis\Fields\MorphMany;
 use Martis\Fields\MorphToMany;
 use Martis\Fields\Repeater;
+use Martis\Gates\SoftGate;
+use Martis\Http\Requests\LensRequest;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Lenses\Lens;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\IndexScope;
 use Martis\Support\RelationScope;
 use Martis\Support\TranslatedLine;
 
@@ -275,7 +279,10 @@ abstract class MartisController extends Controller
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        return null;
+        // A resource the user is soft-locked from (`lockedFor()`,
+        // `requirePlan()`), whether it is the route's resource or the related
+        // one a relationship route reads, serves no records either.
+        return SoftGate::refusalFor($instance, $request);
     }
 
     /**
@@ -662,6 +669,45 @@ abstract class MartisController extends Controller
     }
 
     /**
+     * The base query a lens starts from: `$base` confined as the resource's
+     * index confines its own (its `scopes()`, then `indexQuery()`, grouped),
+     * unless the lens opts out (`Lens::$withoutIndexScope`). The lens page,
+     * its summary and the records its actions run on all start from it, so a
+     * lens never lists what the index hides.
+     *
+     * @param  class-string<resource>  $resourceClass
+     * @param  Builder<Model>  $base
+     * @return Builder<Model>
+     */
+    protected function lensBaseQuery(Request $request, string $resourceClass, Lens $lens, Builder $base): Builder
+    {
+        if ($lens::$withoutIndexScope) {
+            return $base;
+        }
+
+        return IndexScope::apply($request, $resourceClass, $base);
+    }
+
+    /**
+     * Run `Lens::query()` on `$base` (see `lensBaseQuery()`). The lens's own
+     * clauses run grouped, as a filter does (`IndexScope::grouped()`): an
+     * `orWhere()` in the lens's query cannot OR the resource's fence away.
+     *
+     * @param  LensRequest<Model>  $lensRequest
+     * @param  Builder<Model>  $base
+     * @return Builder<Model>|Paginator<int, Model>
+     */
+    protected function runLensQuery(Lens $lens, LensRequest $lensRequest, Builder $base): Builder|Paginator
+    {
+        if ($lens::$withoutIndexScope) {
+            return $lens->query($lensRequest, $base);
+        }
+
+        /** @var Builder<Model>|Paginator<int, Model> */
+        return IndexScope::grouped($base, static fn (Builder $scoped): Builder|Paginator => $lens->query($lensRequest, $scoped));
+    }
+
+    /**
      * Collect filters available inside the lens, indexed by uriKey, and
      * stripping those the user is not allowed to see.
      *
@@ -685,6 +731,11 @@ abstract class MartisController extends Controller
                 continue;
             }
             if (! $filter->authorizedToSee($request)) {
+                continue;
+            }
+            // A filter the user is soft-locked from (`lockedFor()`,
+            // `requirePlan()`) is not applied.
+            if (SoftGate::isLocked($filter, $request)) {
                 continue;
             }
             // Martis extension: the resource can tag filters as

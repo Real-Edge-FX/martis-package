@@ -23,6 +23,11 @@ import { toBcp47 } from '@/lib/formatLocale'
  */
 
 interface BrowserSession {
+  /**
+   * An opaque handle of the session (v2.4.0), not its `sessions.id`: the
+   * server never sends the credential of a device's session. It is the key
+   * of the row and what `DELETE /api/profile/sessions/{id}` takes back.
+   */
   id: string
   ip_address: string
   user_agent: string

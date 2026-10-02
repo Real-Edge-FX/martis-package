@@ -37,7 +37,7 @@ class McpServeCommand extends Command
         {--port= : HTTP port. Overrides MARTIS_MCP_PORT (default 8091)}
         {--path= : HTTP MCP endpoint path. Overrides MARTIS_MCP_PATH (default /mcp)}
         {--health-port= : Enable /health on this port. Overrides MARTIS_MCP_HEALTH_PORT (default 0 = off)}
-        {--no-warn-on-public : Skip the "exposed without token" warning when host=0.0.0.0}';
+        {--no-warn-on-public : Skip the "exposed without token" warnings when the host is not a loopback address}';
 
     protected $description = 'Serve the Martis docs as an MCP server (stdio or HTTP transport).';
 
@@ -121,7 +121,7 @@ class McpServeCommand extends Command
 
     private function buildHttpTransport(): AuthenticatedStreamableHttpTransport
     {
-        $host = (string) ($this->option('host') ?: config('martis.mcp.host', '127.0.0.1'));
+        $host = $this->bindHost();
         $port = (int) ($this->option('port') ?: config('martis.mcp.port', 8091));
         $path = (string) ($this->option('path') ?: config('martis.mcp.path', '/mcp'));
         $token = (string) config('martis.mcp.token', '');
@@ -142,7 +142,7 @@ class McpServeCommand extends Command
             return null;
         }
 
-        $host = (string) ($this->option('host') ?: config('martis.mcp.host', '127.0.0.1'));
+        $host = $this->bindHost();
         $server = new HealthServer(Loop::get(), $host, $port, $this->packageVersion(), 'http');
         $server->start();
 
@@ -154,30 +154,88 @@ class McpServeCommand extends Command
         if ((bool) $this->option('no-warn-on-public')) {
             return;
         }
-        $host = (string) ($this->option('host') ?: config('martis.mcp.host', '127.0.0.1'));
-        if ($host !== '0.0.0.0') {
-            return;
-        }
-
-        $token = (string) config('martis.mcp.token', '');
-        if ($token === '') {
-            fwrite(
-                STDERR,
-                '[martis:mcp-serve] WARNING: bound to 0.0.0.0 without MARTIS_MCP_HTTP_TOKEN. '
-                .'Anyone reaching this port can call the docs API. Set the token or front '
-                ."the server with an authenticated reverse proxy.\n"
-            );
-        }
 
         $healthPort = (int) ($this->option('health-port') ?: config('martis.mcp.health_port', 0));
-        if ($healthPort > 0) {
-            fwrite(
-                STDERR,
-                '[martis:mcp-serve] WARNING: /health endpoint is bound to 0.0.0.0 without authentication. '
-                .'Operational metadata (version, uptime, tool count) is visible to any network peer. '
-                ."Front this port with an authenticated reverse proxy or restrict access with a firewall rule.\n"
-            );
+
+        foreach (self::publicBindWarnings($this->bindHost(), (string) config('martis.mcp.token', '') !== '', $healthPort) as $warning) {
+            fwrite(STDERR, $warning."\n");
         }
+    }
+
+    /**
+     * The warnings a bind to `$host` earns: none on a loopback address, and
+     * on any other (0.0.0.0, '::', '[::]', a LAN or a public address, a host
+     * name) one about the MCP endpoint when no token guards it and one about
+     * /health, which never has authentication, when it is enabled.
+     *
+     * @return list<string>
+     */
+    public static function publicBindWarnings(string $host, bool $hasToken, int $healthPort): array
+    {
+        if (self::isLoopbackHost($host)) {
+            return [];
+        }
+
+        $warnings = [];
+
+        if (! $hasToken) {
+            $warnings[] = "[martis:mcp-serve] WARNING: bound to {$host} without MARTIS_MCP_HTTP_TOKEN. "
+                .'Anyone reaching this port can call the docs API. Set the token or front '
+                .'the server with an authenticated reverse proxy.';
+        }
+
+        if ($healthPort > 0) {
+            $warnings[] = "[martis:mcp-serve] WARNING: /health endpoint is bound to {$host} without authentication. "
+                .'Operational metadata (version, uptime, tool count) is visible to any network peer. '
+                .'Front this port with an authenticated reverse proxy or restrict access with a firewall rule.';
+        }
+
+        return $warnings;
+    }
+
+    /**
+     * Whether a bind host is a loopback address: 127.0.0.0/8, ::1 (also
+     * written in brackets or in full, or IPv4-mapped) and `localhost`. It is
+     * the one definition of "not public", so every other host counts as
+     * public, one this check cannot read (an empty host, a short form such as
+     * `127.1`, an address with a port) included: a warning that is not needed
+     * costs a line on stderr, a loopback verdict that is wrong hides a
+     * network bind.
+     */
+    public static function isLoopbackHost(string $host): bool
+    {
+        $host = strtolower(trim($host));
+
+        if (str_starts_with($host, '[') && str_ends_with($host, ']')) {
+            $host = substr($host, 1, -1);
+        }
+
+        if ($host === 'localhost' || $host === 'localhost.') {
+            return true;
+        }
+
+        $address = filter_var($host, FILTER_VALIDATE_IP) === false ? false : inet_pton($host);
+
+        if ($address === false) {
+            return false;
+        }
+
+        if (strlen($address) === 4) {
+            return ord($address[0]) === 127;
+        }
+
+        // ::1, and an IPv4-mapped address (::ffff:a.b.c.d) of 127.0.0.0/8.
+        if ($address === str_repeat("\0", 15)."\1") {
+            return true;
+        }
+
+        return str_starts_with($address, str_repeat("\0", 10)."\xff\xff") && ord($address[12]) === 127;
+    }
+
+    /** The HTTP bind host: `--host`, else `martis.mcp.host`, else 127.0.0.1. */
+    private function bindHost(): string
+    {
+        return (string) ($this->option('host') ?: config('martis.mcp.host', '127.0.0.1'));
     }
 
     private function registerSignalHandlers(?HealthServer $health): void

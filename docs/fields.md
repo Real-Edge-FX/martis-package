@@ -216,10 +216,12 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
 | `nullable` | `nullable(bool\|Closure $value = true): static` | `$this` | Mark as nullable (adds `nullable` validation rule). Accepts a closure for request-time resolution. |
+| `sensitive` | `sensitive(bool $value = true): static` | `$this` | Mark the value as a secret: an Action's field that collects an API key or a token. The [action event log](actions.md#action-field-values-in-the-log) stores `******` for it instead of the value. `Password` and `PasswordConfirmation` are sensitive by default. See [Sensitive fields](#sensitive-fields). v2.4.0+. |
+| `isSensitive` | `isSensitive(): bool` | `bool` | Whether the value is a secret. |
 | `readonly` | `readonly(bool\|Closure $value = true): static` | `$this` | Prevent modification through UI. `fill()` becomes a no-op. Accepts a closure for request-time resolution. Every bundled input renders the field read-only (`Avatar`, `BooleanGroup`, `Repeater`, `File`, `Image` and the inline-create "+" of `BelongsTo` / `MorphTo` since v1.38.0, see [Immutable fields](#immutable-fields)). A readonly pivot field is never written from the request either: the attach stores its `default()` and the pivot update leaves it alone (v1.38.0+, see [Immutable fields](#immutable-fields)). Nor is a readonly field inside a `Repeater` row: a stored row keeps its value and a new row stores its `default()` (v1.38.0+, see [Repeater](repeater.md#readonly-computed-hidden-and-immutable-row-fields)). |
 | `required` | `required(bool\|Closure $value = true): static` | `$this` | Require a non-null value (adds `required` validation rule). Accepts a closure for request-time resolution. **v1.8.3**: declaring `'required'` (or any `required_*` variant) inside `->rules([...])` is enough — the visual asterisk now auto-detects it. Calling `->required()` explicitly is still supported and required when you want a Closure-resolved flag. |
 | `placeholder` | `placeholder(string\|Closure $text): static` | `$this` | Set placeholder text for the input. Accepts a closure for request-time resolution. |
-| `help` | `help(string\|Closure $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension). Accepts a closure for request-time resolution. |
+| `help` | `help(string\|Closure $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension): the panel sanitises it (links, bold, code and line breaks stay; scripts, event handlers and `javascript:` URLs are removed), but it is still output you author, so never interpolate unescaped user or record data into it (use `e()`). Accepts a closure for request-time resolution. |
 | `tooltip` | `tooltip(string\|Closure\|null $text): static` | `$this` | ⭐ Martis differential. Attach a hover tooltip to the field label — shown via a `(?)` icon next to the label. Supports raw HTML so authors can use `<br />`, `<strong>`, `<em>`, `<ul>`, etc. for multi-line rich hints. Accepts a closure for request-time resolution. Pass `null` to clear. See [Tooltips](#tooltips-martis-differential). |
 | `withLabel` | `withLabel(string\|Closure $value): static` | `$this` | Override the constructor label after construction. Accepts a closure for request-time resolution. |
 | `fullWidth` | `fullWidth(bool $fullWidth = true): static` | `$this` | Make the field span the full width of the form. |
@@ -389,6 +391,16 @@ The pivot endpoints write each pivot field (in the `fields()` of a `BelongsToMan
 
 Up to v1.37.3 only the resource's own update skipped an immutable field: the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne` and the pivot update wrote it like any other field, and the attach and the pivot update also wrote a readonly pivot field from the request.
 
+### Sensitive fields
+
+`sensitive()` marks the value a field carries as a secret (v2.4.0+): an API key, a token or a one-time code that an Action collects in its modal under a plain `Text` field. The [action event log](actions.md#action-field-values-in-the-log) keeps `******` (`ActionEventRedactor::MASK`) in place of the value, in the event of a run, a failed run, a queued run and a pivot action. `Password` and `PasswordConfirmation` are sensitive without the call (`Password::make('x')->sensitive(false)` turns it off); `isSensitive()` reads the flag.
+
+```php
+Text::make('api_key')->sensitive();
+```
+
+The flag changes nothing else: the action receives the value, the field is validated and rendered as before.
+
 ### Reactive fields — `dependsOn(['field'], Closure)`
 
 ⭐ **Martis differential** — declare that a field reacts to one or more sibling fields. The frontend watches the listed attributes and, every time the user edits any of them, posts the live form payload to `POST /api/resources/{r}/sync-field`. The backend re-runs the closure with the fresh data and returns the updated field descriptor (visibility, readonly, required, options, placeholder, help, default, meta, …) — the live form replaces its local descriptor with the response.
@@ -481,9 +493,10 @@ Text::make('greeting')
     ->withLabel(fn () => __('fields.greeting.label'))
     ->placeholder(fn () => __('fields.greeting.placeholder'));
 
-// Help text that reads live state from the user
+// Help text that reads live state from the user. help() is HTML: escape
+// anything that is not yours with e() (the panel sanitises it too).
 Text::make('quota')
-    ->help(fn ($request) => "Quota left: {$request?->user()?->quota()}");
+    ->help(fn ($request) => 'Quota left: '.e($request?->user()?->quota()));
 
 // Options pulled from the database: Select / MultiSelect / BooleanGroup.
 // All three read [value => label], as in Nova, so pluck('name', 'id') stores the id.
@@ -740,14 +753,16 @@ ResourceUpdate) **and** on detail labels rendered inside Sections/TabGroups.
 
 ### HTML support
 
-The label renderer opts in with the `data-pr-tooltip-html="true"` attribute,
-which makes the global `MartisTooltip` provider render the text as HTML; a
-`data-pr-tooltip` trigger without it keeps the default plain-text escape (the
-metric `help()` tooltip and an extension's own triggers can opt in the same
-way, see [Tooltip Standard](components.md#tooltip-standard-primereact)).
+The label renderer registers its `(?)` icon as a trigger that may show HTML
+(`htmlTooltip()`, see [Tooltip Standard](components.md#tooltip-standard-primereact)),
+which makes the global `MartisTooltip` provider render the text as HTML; any
+other `data-pr-tooltip` trigger keeps the default plain-text escape, whatever
+attributes it carries (the metric `help()` tooltip and an extension's own
+triggers register the same way).
 Allowed markup: any inline HTML (`<br />`, `<strong>`, `<em>`, `<ul>`/`<li>`,
-`<code>`, `<a>`). The markup is not sanitised: the author is responsible for
-producing safe markup and never puts user or record data in it; prefer
+`<code>`, `<a>`). The markup is sanitised before it is shown (scripts, event
+handlers, unsafe URLs and `data-*` attributes are removed), but the author is
+still responsible for producing it and never puts user or record data in it; prefer
 localised strings from `__()` / i18n dictionaries to keep content reviewable.
 
 ### When to use `tooltip()` vs `help()`
@@ -776,7 +791,7 @@ Both can coexist on the same field: `->help('Must be unique')->tooltip('<strong>
   out of the bubble.
 - Plain text stays plain whatever its length: a sentence in `data-pr-tooltip`
   wraps without the HTML opt-in, and markup in it renders literally. Use
-  `data-pr-tooltip-html="true"` only for content that needs markup.
+  `htmlTooltip()` only for content that needs markup.
 - Position respects the trigger's `data-pr-position` (defaults to `top`). The
   bubble is measured first, flips to the opposite side when the requested one
   has no room for it (a `left` / `right` bubble with room on neither side goes
@@ -964,7 +979,17 @@ BooleanGroup::make('permissions')
 > ⚠️ When `options()` is given a closure, `requireAll()` cannot pre-compute its target at field declaration time — the closure has not run yet. Pair the closure form with `minChecked(int)` directly, or use `requireAny()` (always `1`).
 
 **Storage format:** `{"flag":true,"other":false}` on a plain column, or the map itself through an `array` / `json` cast.
-**Overrides:** `resolve()` decodes a JSON string or array to the normalised `{key: bool}` map; `fill()` decodes a JSON string to the map before writing (the multipart path, or a direct call) and writes an array as received.
+**Overrides:** `resolve()` decodes a JSON string or array to the normalised `{key: bool}` map; `fill()` decodes a JSON string to the map (the multipart path, or a direct call) and writes only the flags `options()` offers (below).
+
+**What a write stores.** The options a user is offered are the set of flags that user may change (an `options()` closure can scope them to the authenticated user), so `fill()` projects the submitted map onto them (since v2.4.0):
+
+- a submitted key the options do not name is ignored, so a crafted request cannot store `{"admin": true}` next to the flags it was shown;
+- each offered value becomes a boolean (`true`, `1`, `'1'`, `'true'`, `'on'`, `'yes'` are on, everything else is off), and an offered flag the submission leaves out is off;
+- a flag already stored that the user was **not** offered keeps its stored value, so an editor who sees a subset of the flags can neither switch on a flag they were not shown nor erase one an administrator set;
+- an empty value (`null`, `''`) switches every offered flag off and stores `null` when no hidden flag is left to keep;
+- a `fillUsing()` callback receives the offered flags only (the same projection), and a readonly or `computed()` field writes nothing, as for every field.
+
+On a column without an `array` / `json` cast the map is stored as a JSON string, as for `KeyValue` and `MultiSelect` (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
 
 **⭐ Martis differentials:** grouped sections, min/max live counter, `requireAny/All` presets.
 
@@ -1128,7 +1153,9 @@ Select::make('status')
 | `getOptions` | `getOptions(): array` | `array` | Get normalized options `[{label, value, group?}]` (resolves the closure if one was set). |
 | `searchableOptions` | `searchableOptions(bool $value = true): static` | `$this` | Render a search box above the option list so the user can narrow it by label or value (v1.37.0). Not the same as `searchable()`, which makes the column part of the resource search. |
 | `hasSearchableOptions` | `hasSearchableOptions(): bool` | `bool` | Whether the option list renders with a search box. |
-| `allowCustomValues` | `allowCustomValues(bool $value = true): static` | `$this` | Accept a typed value that is not one of the options (v1.37.0). The stored value may then fall outside `getOptions()`; index and detail render it raw. Validation against the list stays yours (`Rule::in`). |
+| `allowCustomValues` | `allowCustomValues(bool $value = true): static` | `$this` | Accept a typed value that is not one of the options (v1.37.0). The stored value may then fall outside `getOptions()`; index and detail render it raw. Validation against the list stays yours (`Rule::in`, or `validateAgainstOptions()` when the list must be closed after all). |
+| `validateAgainstOptions` | `validateAgainstOptions(bool $value = true): static` | `$this` | Reject, on the server, a value that is not one of the options (v2.4.0, Martis extension). Off by default: a `Select` has never validated against its options. See [Validating against the options](#validating-against-the-options). |
+| `validatesAgainstOptions` | `validatesAgainstOptions(): bool` | `bool` | Whether the field rejects a value that is not one of its options. |
 | `allowsCustomValues` | `allowsCustomValues(): bool` | `bool` | Whether the control accepts values outside the option list. |
 | `searchOptionsUsing` | `searchOptionsUsing(Closure $resolver): static` | `$this` | Search the options on the server as the user types (v1.37.0). The closure receives `(string $term, ?Request $request)` and returns the same shapes `options()` accepts. Implies `searchableOptions()`. Resource forms and Tools implementing `ProvidesFields` only; see below. |
 | `hasRemoteOptionsSearch` | `hasRemoteOptionsSearch(): bool` | `bool` | Whether a server-side resolver is registered. |
@@ -1174,6 +1201,32 @@ Select::make('country_code')
 
 **Stored labels (Martis extension).** Reading a record whose stored value matches the label of a static option and the value of none logs a warning, in production too, at most once per request for each model class and field: the options array is still written label first, or the record was saved while it was, and saving it again would store the wrong value. For options given as a list, a stored value that is the label of another option warns too (`options([1, 2, 3])` holding a 1 saved under v1.x, which now shows as "2"). The check reads the stored value, before `resolveUsing()`. It skips options from a closure (so it never runs a query of its own), computed fields, and a `Select` with `allowCustomValues()`, where a typed label is a legitimate value. Both warnings assume the stored value is stale v1.x data, but a field can legitimately store a valid 0-based position that reads as another option's label, for example a Nova rating that stores `0..4` on purpose and shows `"1".."5"`: call `withoutOptionOrderWarnings()` on the field (Martis extension) to silence both warnings for it once the array is confirmed right.
 
+#### Validating against the options
+
+**A `Select` does not check, on the server, that the submitted value is one of its options.** The dropdown only offers them, but a request can carry any value, and the field writes it as sent: a forged `role_id`, a status the list never showed, an option the picker hides from this user. Nova's `Select` behaves the same, so `options()` alone is a UI constraint, not a rule.
+
+When the list must be closed, opt in:
+
+```php
+Select::make('status')
+    ->options(['draft' => 'Draft', 'live' => 'Live'])
+    ->validateAgainstOptions();
+
+// A closure of options: the query runs when a request is validated, not while the schema is built
+Select::make('role_id')
+    ->options(fn () => Role::query()->whereNull('provider_group_name')->pluck('name', 'id'))
+    ->required()
+    ->validateAgainstOptions();
+```
+
+- **One rule, over `getOptions()`**, with the options as they are when the request is validated. A value fails with Laravel's own `in` message (`The selected Status is invalid.`) as a `422` on the field, before anything is written. It applies wherever the field's rules do: the resource's create and update, the inline creates, and the fields of an [Action](actions.md) modal.
+- **By value, not by label,** and only as a string or an integer: an option keyed `7` accepts `7` and `'7'`, not `'07'`, `'7.0'`, `7.0`, `true` or an array. Grouped options count by their value; a list (`['Small', 'Large']`) accepts `0` and `1`; an enum class accepts its case values.
+- **An empty value is left to `required()` and `nullable()`**, as for every other field.
+- **Not for a list that is only a first page.** A field with `searchOptionsUsing()` loads the rest of its options from the server, so a value the search returns is not in `getOptions()` and would be rejected: validate that field with a rule of your own. With `allowCustomValues()` the closed list wins and a typed value is rejected, so pick one of the two.
+- A rule that depends on who asks (the roles this user may hand out) belongs in the `options()` closure, which receives the request: the same list then feeds the dropdown and the rule. The scaffolded `InviteUser` and `BulkAssignRole` actions do exactly that (see [Invitations](invitations.md#the-invite-role-picker) and [Roles](roles.md)).
+
+`MultiSelect::validateAgainstOptions()` is the same option for a selection: every selected value must be an option (one stray value fails the whole field), and anything that is not a list of strings and integers fails too.
+
 **Clear (X) icon.** On a `nullable()` select, the clear icon appears only once a value is selected — an empty select has nothing to clear, so no X shows on the placeholder state.
 
 **Searchable options, custom values and server-side search (v1.37.0).**
@@ -1193,7 +1246,7 @@ Select::make('model')
 ```
 
 - **`searchableOptions()`** renders PrimeReact's filter box inside the panel; filtering happens in the browser over the serialised `options`. Coming from Nova: Nova's `Select::searchable()` is this method. In Martis, `searchable()` on any field (including `Select`) means "the column takes part in the resource search", and it is serialised as `searchable`; the option search box is a separate flag, `searchableOptions`.
-- **`allowCustomValues()`** makes the control editable. A typed value reaches the form state on every keystroke, exactly like a `Text` field, and is stored as-is; `SelectFieldDisplay` renders a value with no matching option as the raw string. The field adds no `Rule::in` validation, so add one yourself when the list must be closed after all.
+- **`allowCustomValues()`** makes the control editable. A typed value reaches the form state on every keystroke, exactly like a `Text` field, and is stored as-is; `SelectFieldDisplay` renders a value with no matching option as the raw string. The field adds no `Rule::in` validation, so add one yourself when the list must be closed after all (`validateAgainstOptions()` is that rule, but it rejects a typed value, which defeats this flag: use one or the other).
 - **`searchOptionsUsing()`** moves the search to the server. When the panel opens the frontend calls the field-options endpoint with an empty term (return your "first page" there), then again after each typing pause (300 ms), aborting the previous request; the initial `options()` list is shown until the first response lands. The endpoint is derived from the form's scope: `GET /api/resources/{resource}/fields/{attribute}/options?context=create|update&id=<record>` for a Resource form (gated on the create ability, or on the update ability with the edited record bound, like `sync-field`) and `GET /api/tools/{uriKey}/fields/{attribute}/options` for a Tool implementing `ProvidesFields` whose form passes `toolKey` (see [Tool fields](tool-fields.md#server-side-option-search)). A select in a `Repeater` row asks the same endpoints with the form's own context and names its row (`&repeater={attribute}&repeatable={type}`), where the server finds it (v1.38.0+; see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)). Outside those two scopes (Action modals, a relationship's pivot fields, a frontend-only Tool form) the select falls back to local filtering over `options()`. The server decides what matches: results are shown as returned, never re-filtered in the browser. A stored value that is not in the current list is still shown in the control and can be cleared. An option picked from the results keeps its label in the control once the panel closes, a `''` ("None") option included. Index and detail read labels from `options()` only, so a value that only the search returns shows raw there, and a `''` shows the dash: list such an option in `options()` too when it must show its label. The term is trimmed and clamped to 255 characters before it reaches your closure. On a Resource form the select is looked up on the form of the context only: `fieldsForUpdate()`, or `fieldsForCreate()` and then the inline-create modal's `fieldsForInlineCreate()` (v1.38.0: a select declared on the inline-create form alone used to answer 422).
 
 **Filter variant + custom class (v1.29.0).** When rendering a select through the runtime `FieldInput` (e.g. a filter bar inside a [Tool](tool-fields.md)), the frontend honours two extra keys on the field definition:
@@ -1279,6 +1332,8 @@ MultiSelect::make('technologies')
 | `displayUsingLabels` | `displayUsingLabels(): static` | `$this` | Show labels instead of raw values on index/detail. |
 | `getOptions` | `getOptions(): array` | `array` | Get normalized options `[{label, value, group?}]` (resolves the closure if one was set). |
 | `isDisplayingLabels` | `isDisplayingLabels(): bool` | `bool` | Check if displaying labels. |
+| `validateAgainstOptions` | `validateAgainstOptions(bool $value = true): static` | `$this` | Reject, on the server, a selection that holds a value outside the options (v2.4.0, Martis extension). Off by default: like `Select`, a `MultiSelect` never validated against its options. Every selected value must be an option, matched by value as a string or an integer; an empty selection is left to `required()` and `nullable()`. See [Validating against the options](#validating-against-the-options). |
+| `validatesAgainstOptions` | `validatesAgainstOptions(): bool` | `bool` | Whether the field rejects a selection that holds a value outside its options. |
 
 **Storage format:** JSON array, e.g. `["php","react"]`
 **Overrides:** `resolve()` decodes JSON/array to list; `fill()` writes the list, JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
@@ -1375,7 +1430,7 @@ Password::make('password')
 
 **Overrides:**
 - `resolve()` always returns `null` (never expose password hashes).
-- `fill()` hashes with `Hash::make()`. Skips empty/null values (no update if blank).
+- `fill()` hashes with `Hash::make()`. Skips empty/null values (no update if blank). A `fillUsing()` callback takes the write over and receives the plain value (hashing is then its decision); an empty value never reaches it. Its value is never stored in the [action event log](actions.md#action-field-values-in-the-log) either: an action's `Password` field is logged as `******`.
 
 **Specific methods:**
 - `withStrengthMeter(bool $enabled = true): static` — ⭐ **Martis extension.** Shows a 0–4 strength meter below the input (length + character-class heuristic). Pairs naturally with `PasswordConfirmation` to share the same UI cue. No extra dependency — zxcvbn-lite is inlined in the React component.
@@ -1469,6 +1524,7 @@ Slug::make('slug')
     ->separator('-')                               // default: '-'
     ->reserved(['admin', 'api', 'login'])          // rejected values
     ->lockAfter(fn ($post) => $post->is_published) // freeze after publish
+    ->withinIndexScope()                           // probe uniqueness per tenant (see below)
 ```
 
 **Specific methods:**
@@ -1476,6 +1532,7 @@ Slug::make('slug')
 - `separator(string $separator): static` — Token separator (default: `'-'`).
 - `reserved(array $reserved): static` — ⭐ **Martis extension.** Reject these exact values (system paths). Validation emits `slug_reserved` error; the `/slug-check` endpoint returns `{ reserved: true, suggestion }`.
 - `lockAfter(Closure $condition): static` — ⭐ **Martis extension.** Freezes the slug on existing records once the condition holds. `Slug::fill()` becomes a no-op in that case — SEO protection.
+- `withinIndexScope(bool $within = true): static` — ⭐ **Martis extension.** Run the slug-check uniqueness probe through the resource's `scopes()` and `indexQuery()` instead of the whole table. Enable it when uniqueness is per tenant or per owner (a composite unique index such as `tenant_id, slug`), so the check answers for the records the user can list and never reveals that a slug exists in another scope. See [Live collision detection](#slug-collision-detection).
 - `badgeVariant(string $variant): static` — Read-only display badge variant. Accepts `'default'` (alias `'muted'`), `'accent'`, `'success'`, `'warning'`, `'danger'`, `'custom'`. Unknown values fall back to `'default'`.
 - `badgeAccent(): static` — Sugar for `badgeVariant('accent')`. Reads cleanly when the slug IS the row identity (Permission name, Role name).
 - `badgeColor(string $color): static` — Custom CSS colour for the badge. Accepts any browser-recognised colour (hex, `rgb()`, `hsl()`, `oklch()`, named). The frontend tints the background as a 14% mix with the surface so it stays subtle in both themes; the foreground uses the colour verbatim. Implies `badgeVariant('custom')`.
@@ -1484,7 +1541,7 @@ Slug::make('slug')
 
 **⭐ Martis extensions (UI, automatic):**
 - **Live preview** — the React input regenerates the slug as the user types in the source field (i18n-aware transliteration), until the slug is edited by hand. On a create form, a replicated record included, the slug follows the source from the source's first change, as in Nova: the slug the form opens with, copied or empty, stays until then (v1.38.0+). On an edit form (the update page or the update drawer) a stored slug counts as set: changing the source leaves it alone, so renaming a record does not silently change its URL, and an empty stored slug follows the source at once. Edit the slug directly, or clear it (a `nullable()` slug shows a clear button) to regenerate it from the source and follow it again. A slug the user empties by hand stays empty while the source has text, and follows the source again once the source is empty too, so the next record's slug follows its title after "Create & add another" (v1.38.0+). Before v1.38.0 a create form took a slug it opened with for one set by hand, so a replicated slug never followed the title, and filled an empty slug from a source that already had text.
-- **Live collision detection** — debounced probe against
+- <a id="slug-collision-detection"></a>**Live collision detection** — debounced probe against
   `GET /martis/api/resources/{resource}/slug-check/{field}?value=…&id=…`.
   Response envelope:
   ```json
@@ -1498,6 +1555,8 @@ Slug::make('slug')
   ```
   The UI renders a clickable suggestion when `suggestion` is non-null.
   The check uses the Slug declared on the form it comes from: `fieldsForUpdate()` when `id` names a record the user may update (`authorizedToUpdate()`), otherwise `fieldsForCreate()` and then `fieldsForInlineCreate()`, then `fields()`. A Slug declared on one form only is found, and that declaration's `separator()` and `reserved()` apply (v1.38.0: the check read `fields()` first and never the inline-create form). The record being edited is left out of the uniqueness probe, so its own slug reads as available; an `id` the user may not update is answered like one that names no record (v1.38.0: any record `id` named was bound and left out of the probe, which told the slug of a record the user could not edit apart).
+
+  The check answers whether a slug is taken, so it needs the ability to write one, not `viewAny` alone: `authorizedToUpdate()` on the record `id` names, otherwise `authorizedToCreate()` (a user who may only list the resource gets 403, for any `id`, so it cannot be used to test which slugs exist; before v2.4.0 `viewAny` was enough). The probe reads the whole table by default, which is right for a slug that is unique across it (a plain unique index): the answer then reflects records in every tenant or owner scope, including ones the user cannot list, exactly as saving the slug would, so a user who may create or update records can learn that a slug exists elsewhere. Where the host scopes records per tenant and the slug is unique per tenant, declare the field `->withinIndexScope()`: the probe (and its `-2`, `-3` suggestions) then runs through the resource's `scopes()` and `indexQuery()` and only the records the user can list count as taken.
 
 **Validation:** a closure rule verifies the submitted value is already in its slugified form (so the server rejects mismatched case / spaces) and that it is not in the `reserved` list.
 
@@ -1565,7 +1624,7 @@ Icon::make('state')->icon(fn ($model) => $model->is_active ? 'check' : 'x')
 
 **Behavioural notes:**
 - Mode A defaults to `showOnForms = false`. `->stored()` re-enables form exposure.
-- `fill()` is a no-op for Mode A / Mode C — only Mode B hydrates the model.
+- `fill()` is a no-op for Mode A / Mode C — only Mode B hydrates the model. Mode B respects `readonly()` (a closure is evaluated per request, so `readonly(fn ($request) => ! $request->user()->isAdmin())` locks the write too, not only the input) and `fillUsing()`, as every field does.
 - Index rendering respects `size()` — put a small Icon at the start of `fieldsForIndex()` to get a visual marker on each row.
 
 ---
@@ -1775,7 +1834,7 @@ BelongsTo::make('category_id', 'Category')
 | `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Attribute on related model for display label. | `'name'` |
 | `displayColumn` | `displayColumn(string $column): static` | `$this` | Alias for `titleAttribute()`. Sets which column appears in index/table cells. | `'name'` |
 | `foreignKey` | `foreignKey(string $key): static` | `$this` | Override FK column name. | `{relationship}_id` |
-| `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource for dropdown API. | `null` |
+| `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource for dropdown API, and the resource a write is checked against. A key no registered resource has throws (naming the field and the key) when a value is written. Without it the write is checked against the resource registered for the relationship's model, and refused (422) when that names no single resource. See [Relationships → Writes follow the pickers](relationships.md#writes-follow-the-pickers). | `null` |
 | `placeholder` | `placeholder(string\|\Closure $text): static` | `$this` | Custom placeholder shown when no value is selected. Closure receives `(?Request $r)` for per-request resolution. | translated `'Select {field}...'` |
 | `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable/disable text search in dropdown. Without it the dropdown has no search box and lists up to 100 records, or the related resource's `$relatableSearchResults` (v1.38.0+; before, the flag was ignored and the search box always showed). | `true` |
 | `relatableQueryUsing` | `relatableQueryUsing(\Closure $closure): static` | `$this` | Per-field constraint on the picker query. Closure receives `(Request $request, Builder $query, BelongsTo $field)` and must return a `Builder`. Runs after the resource's static `relatableQuery()`. | `null` |
@@ -1980,8 +2039,8 @@ BelongsToMany::make('Tags', 'tags', TagResource::class)
 | `dontReorderAttachables` | `dontReorderAttachables(bool $value = true): static` | `$this` | Disable auto-sort of attachables (keep DB order). | `false` |
 | `withSubtitles` | `withSubtitles(bool $value = true): static` | `$this` | Show subtitles in the attach modal search results. | `false` |
 | `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
-| `canAttach` | `canAttach(bool $value = true): static` | `$this` | Control visibility of the Attach button. | `true` |
-| `canDetach` | `canDetach(bool $value = true): static` | `$this` | Control visibility of the Detach button per row. | `true` |
+| `canAttach` | `canAttach(bool $value = true): static` | `$this` | Allow attaching records through the panel. Off hides the Attach button, and the attachable list, the attach (single and batch) and the attach modal's pivot pickers answer 403 (v2.4.0). | `true` |
+| `canDetach` | `canDetach(bool $value = true): static` | `$this` | Allow detaching records through the panel. Off hides the Detach button and the detach endpoint answers 403 (v2.4.0). | `true` |
 
 #### API Endpoints
 
@@ -2055,9 +2114,9 @@ HasOne::make('Profile', 'profile', ProfileResource::class)
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
-| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button when no related record exists. | `true` |
-| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit button for the existing related record. | `true` |
-| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete button for the existing related record. | `true` |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Allow creating the related record through the panel. Off hides the Create button and the create endpoint answers 403 (v2.4.0). | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Allow editing the related record through the panel. Off hides the Edit button and the update endpoint answers 403 (v2.4.0). | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Allow deleting the related record through the panel. Off hides the Delete button and the delete endpoint answers 403 (v2.4.0). | `true` |
 
 Static factory `HasOne::ofMany($name, $relationship, $resourceClass)`
 promotes a `hasMany()->latestOfMany()` relation into a
@@ -2199,9 +2258,9 @@ HasMany::make('Comments', 'comments')
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
 | `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
 | `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
-| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button. | `true` |
-| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit action per row. | `true` |
-| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete action per row. | `true` |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Allow creating a related record through the panel. Off hides the Create button and the create endpoint answers 403 (v2.4.0). | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Allow editing a related record through the panel. Off hides the Edit action and the update endpoint answers 403 (v2.4.0). | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Allow deleting a related record through the panel. Off hides the Delete action and the delete endpoint answers 403 (v2.4.0). | `true` |
 | `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable the search input in the panel toolbar. | `false` |
 | `indexDisplay` | `indexDisplay(HasManyIndexDisplay $mode): static` | `$this` | Configure how the field renders when shown on the index page. | — |
 | `showRelationIcon` | `showRelationIcon(bool $value = true): static` | `$this` | Show the related-resource icon in the panel heading. | `true` |
@@ -2293,9 +2352,9 @@ MorphOne::make('Thumbnail', 'thumbnail', ThumbnailResource::class)
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
-| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button. | `true` |
-| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit button. | `true` |
-| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete button. | `true` |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Allow creating a related record through the panel. Off hides the Create button and the create endpoint answers 403 (v2.4.0). | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Allow editing the related record through the panel. Off hides the Edit button and the update endpoint answers 403 (v2.4.0). | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Allow deleting the related record through the panel. Off hides the Delete button and the delete endpoint answers 403 (v2.4.0). | `true` |
 
 *src/Fields/MorphOne.php*
 
@@ -2378,9 +2437,9 @@ MorphMany::make('Comments', 'comments', CommentResource::class)
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
 | `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
 | `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
-| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button. | `true` |
-| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit action per row. | `true` |
-| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete action per row. | `true` |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Allow creating a related record through the panel. Off hides the Create button and the create endpoint answers 403 (v2.4.0). | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Allow editing a related record through the panel. Off hides the Edit action and the update endpoint answers 403 (v2.4.0). | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Allow deleting a related record through the panel. Off hides the Delete action and the delete endpoint answers 403 (v2.4.0). | `true` |
 | `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable the search input in the panel toolbar. | `false` |
 | `indexDisplay` | `indexDisplay(HasManyIndexDisplay $mode): static` | `$this` | Configure how the field renders when shown on the index page. | — |
 | `showRelationIcon` | `showRelationIcon(bool $value = true): static` | `$this` | Show the related-resource icon in the panel heading. | `true` |
@@ -2516,8 +2575,8 @@ MorphToMany::make('Tags', 'tags', TagResource::class)
 | `subtitleAttribute` | `subtitleAttribute(string $attribute): static` | `$this` | Column used as the subtitle. | — |
 | `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
 | `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
-| `canAttach` | `canAttach(bool $value = true): static` | `$this` | Control visibility of the Attach button. | `true` |
-| `canDetach` | `canDetach(bool $value = true): static` | `$this` | Control visibility of the Detach button per row. | `true` |
+| `canAttach` | `canAttach(bool $value = true): static` | `$this` | Allow attaching records through the panel. Off hides the Attach button, and the attachable list, the attach (single and batch) and the attach modal's pivot pickers answer 403 (v2.4.0). | `true` |
+| `canDetach` | `canDetach(bool $value = true): static` | `$this` | Allow detaching records through the panel. Off hides the Detach button and the detach endpoint answers 403 (v2.4.0). | `true` |
 
 A relation picker among the pivot fields asks the panel, under `/api/resources/{resource}/{id}/morph-to-many/{relationship}/pivot-fields/relatable/{attribute}` in the attach modal and `.../pivot-fields/{relatedId}/relatable/{attribute}` in the pivot edit modal (v1.38.0+), gated like a `BelongsToMany`'s (see [Relationships → Relation pickers among the pivot fields](relationships.md#relation-pickers-among-the-pivot-fields)).
 
@@ -2565,7 +2624,9 @@ File::make('attachment', 'Attachment')
 | `getDisk` | `getDisk(): string` | `string` | Get disk name. | — |
 | `storagePath` | `storagePath(string $path): static` | `$this` | Set subdirectory within disk. | `'uploads'` |
 | `maxSize` | `maxSize(int $kb): static` | `$this` | Set max file size in KB. | `null` |
-| `acceptedTypes` | `acceptedTypes(array $mimes): static` | `$this` | Restrict accepted file extensions. | `[]` |
+| `acceptedTypes` | `acceptedTypes(array $mimes): static` | `$this` | Restrict accepted file extensions. A security control, see [Active content](#file-active-content): listing an active type (`'svg'`, `'html'`) accepts it. | `[]` |
+| `allowActiveContent` | `allowActiveContent(bool $value = true): static` | `$this` | Accept HTML, SVG, XML and script files, which are refused by default. v2.4.0+. | `false` |
+| `allowsActiveContent` | `allowsActiveContent(): bool` | `bool` | Whether the field accepts active content. | — |
 | `multiple` | `multiple(bool $value = true): static` | `$this` | Enable multiple file uploads (stores JSON array). | `false` |
 | `isMultiple` | `isMultiple(): bool` | `bool` | Check if multiple mode. | — |
 | `preserveOriginalName` | `preserveOriginalName(bool $value = true): static` | `$this` | Keep original filename (with unique suffix). | `false` |
@@ -2578,9 +2639,31 @@ File::make('attachment', 'Attachment')
 **Overrides:**
 - `resolve()` returns `{path, url, name}` (single) or `[{path, url, name}]` (multiple).
 - `fill()` stores uploaded file, deletes old, supports multiple mode. In multiple mode the path list is JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)), and only `existing` paths the record already owns are kept: the list is client-supplied, so an injected path (another record's upload, a traversal) is dropped and an owned path the client omits is deleted from disk.
-- `buildRules()` adds `file`, `mimes:...`, `max:...` rules.
+- `buildRules()` adds `file`, `mimes:...`, `max:...` rules, and the active-content rule below (`Martis\Rules\NoActiveContent`) unless `allowActiveContent()` is set. `buildItemRules()` adds the same to each upload of a multiple field.
 
 **Extra attributes:** `disk`, `storagePath`, `maxSize`, `acceptedTypes`, `multiple`, `showFileInfo`
+
+<a id="file-active-content"></a>
+#### Active content is refused (v2.4.0+)
+
+The default disk is `public`, which the web server serves from the application's own origin (`APP_URL/storage`). An HTML or SVG document served from there runs its script in that origin, with the session of whoever opens the link: a panel user who may upload to a `File` field could plant a page that an administrator later opens, and the script can read the CSRF token and drive the panel API as that administrator. So a `File` (and an `Image`, an `Avatar`, an `Audio`, which extend it) answers `422` to an upload that a browser or the web server would run, unless the developer opts in:
+
+- **by extension**: the extension the file is stored with, every segment of it (`html`, `htm`, `xhtml`, `shtml`, `svg`, `svgz`, `xml`, `xsl`, `js`, `mjs`, `php`, `php3` to `php8`, `phtml`, `pht`, `phar`, `asp`, `aspx`, `jsp`, `cgi`, `htaccess` and the like, see `Martis\Rules\NoActiveContent::EXTENSIONS`). That is the one the field gives it: the hash name takes it from the content's MIME type, and `preserveOriginalName()` keeps the client's own (so a GIF with a script in it kept as `logo.html` is refused);
+- **by content**: the MIME type the server reads from the file's bytes, never the one the client claims (`text/html`, `image/svg+xml`, `application/xml` and every other `+xml` type, JavaScript and PHP types), so an HTML document named `report.pdf` is refused as well.
+
+The opt-in is explicit, per field:
+
+```php
+File::make('attachment')->acceptedTypes(['pdf', 'docx']);   // active content refused (it is not listed)
+File::make('logo')->acceptedTypes(['svg', 'png']);          // listing 'svg' accepts SVG, and nothing else active
+File::make('snippet')->allowActiveContent();                // accepts every active type
+```
+
+**`acceptedTypes()` is a security control, not a convenience.** Without it a field takes any file that is not active content; list the types the field is for. Accept active content only when the uploads are never served from the application's origin: a private disk behind a download route that sends `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`, a separate domain, or a web-server rule for the upload directory.
+
+The refusal also holds at `fill()` for a caller that skips validation: the field throws a `ValidationException` before it deletes the file it replaces or stores a new one, in single and multiple mode alike. The message is `martis::validation.active_content` (translated in `en`, `pt_PT`, `pt_BR`).
+
+An `Image` never accepted SVG; what changes for it is the kept name: `Image::make('x')->preserveOriginalName()` now refuses an image uploaded under an active extension (a polyglot).
 
 ---
 
@@ -2658,6 +2741,16 @@ Code::make('config', 'Configuration')
 
 Markdown editor with preview. Stores raw Markdown. Hidden from index by default.
 
+The panel renders the Markdown in the browser (`marked`) and sanitises the HTML
+before it reaches the page, so raw HTML a user wrote in the Markdown cannot run
+script for whoever opens the record. Scripts, event handlers and `javascript:`
+URLs are removed, and so are the things that would restyle or impersonate the
+panel around the content: every `data-*` attribute (the global tooltip reads
+`data-pr-*` ones), the `style` attribute and element, `id` and `name`, forms and
+form controls other than the checkboxes of a task list. The `zero` preset
+escapes HTML instead. The stored value is the Markdown as written: sanitise it
+yourself if you render it outside the panel.
+
 ```php
 Markdown::make('content')
     ->alwaysShow()
@@ -2669,10 +2762,10 @@ Markdown::make('content')
 |--------|-----------|---------|-------------|---------|
 | `alwaysShow` | `alwaysShow(): static` | `$this` | Always expand content on detail (skip "Show Content" toggle). | `false` |
 | `preset` | `preset(string $preset): static` | `$this` | Markdown rendering preset: `'default'` (GFM), `'commonmark'`, `'zero'`. | `'default'` |
-| `withFiles` | `withFiles(string $disk = 'public'): static` | `$this` | Enable file uploads in editor. | `null` |
+| `withFiles` | `withFiles(?string $disk = null): static` | `$this` | Enable file uploads in the editor, stored on `$disk` (the panel's `martis.storage.disk` without one). The upload endpoint takes the disk from the field and authorises the upload like the form the field is on (v2.4.0); see [Resources → Attachment Uploads](resources.md#attachment-uploads-trix--markdown). | disabled |
 | `isAlwaysShow` | `isAlwaysShow(): bool` | `bool` | Check if always showing. | — |
 | `getPreset` | `getPreset(): string` | `string` | Get preset. | — |
-| `getWithFilesDisk` | `getWithFilesDisk(): ?string` | `?string` | Get uploads disk. | — |
+| `getWithFilesDisk` | `getWithFilesDisk(): ?string` | `?string` | The uploads disk, or `null` when the field does not accept files. | — |
 
 **Extra attributes:** `alwaysShow`, `preset`, `withFiles`
 
@@ -2686,6 +2779,19 @@ Markdown::make('content')
 
 Rich text HTML editor (Trix). Stores raw HTML. Hidden from index by default.
 
+The stored value is the HTML the editor produced, and the JSON API accepts any
+string for the attribute, so the panel sanitises it before it renders the
+detail view: scripts, event handlers and `javascript:` URLs are removed, and so
+are every `data-*` attribute except the three a Trix attachment uses
+(`data-trix-attachment`, `data-trix-content-type`, `data-trix-attributes`), the
+`style` attribute and element, `id` and `name`, and forms and form controls.
+An attachment whose JSON names a `url` / `href` that is not an `http(s)` URL or
+a path of the app loses its `data-trix-attachment`, and clicking an attachment
+or a link only follows an `http(s)` URL. **The package does not purify the HTML
+on the server**: the value is stored as received, so sanitise it (for example
+with `mews/purifier` or `symfony/html-sanitizer`) wherever you render it outside
+the panel.
+
 ```php
 Trix::make('body', 'Body')
     ->alwaysShow()
@@ -2696,10 +2802,10 @@ Trix::make('body', 'Body')
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `alwaysShow` | `alwaysShow(): static` | `$this` | Always expand content on detail. | `false` |
-| `withFiles` | `withFiles(string $disk = 'public'): static` | `$this` | Enable file uploads in editor. | `null` |
+| `withFiles` | `withFiles(?string $disk = null): static` | `$this` | Enable file uploads in the editor, stored on `$disk` (the panel's `martis.storage.disk` without one). The upload endpoint takes the disk from the field and authorises the upload like the form the field is on (v2.4.0); see [Resources → Attachment Uploads](resources.md#attachment-uploads-trix--markdown). | disabled |
 | `toolbarSize` | `toolbarSize(string $size): static` | `$this` | Toolbar button size: `'sm'`, `'md'`, `'lg'`. | `null` |
 | `isAlwaysShow` | `isAlwaysShow(): bool` | `bool` | Check if always showing. | — |
-| `getWithFilesDisk` | `getWithFilesDisk(): ?string` | `?string` | Get uploads disk. | — |
+| `getWithFilesDisk` | `getWithFilesDisk(): ?string` | `?string` | The uploads disk, or `null` when the field does not accept files. | — |
 
 **Extra attributes:** `alwaysShow`, `withFiles`, `toolbarSize`
 
@@ -2727,9 +2833,9 @@ KeyValue::make('metadata', 'Metadata')
 | `keyLabel` | `keyLabel(string $label): static` | `$this` | Label for key column header. | `'Key'` |
 | `valueLabel` | `valueLabel(string $label): static` | `$this` | Label for value column header. | `'Value'` |
 | `actionText` | `actionText(string $text): static` | `$this` | Label for "add row" button. | `'Add Row'` |
-| `disableEditingKeys` | `disableEditingKeys(): static` | `$this` | Prevent editing existing keys. | `false` |
-| `disableAddingRows` | `disableAddingRows(): static` | `$this` | Prevent adding new rows. | `false` |
-| `disableDeletingRows` | `disableDeletingRows(): static` | `$this` | Prevent deleting rows: no row renders a delete button. v1.38.0+. | `false` |
+| `disableEditingKeys` | `disableEditingKeys(): static` | `$this` | Prevent editing existing keys; a write drops any key outside the stored (or default) key set (v2.4.0+). | `false` |
+| `disableAddingRows` | `disableAddingRows(): static` | `$this` | Prevent adding new rows; a write drops any key outside the stored (or default) key set (v2.4.0+). | `false` |
+| `disableDeletingRows` | `disableDeletingRows(): static` | `$this` | Prevent deleting rows: no row renders a delete button, and a write that leaves a stored (or default) key out gets its value back (v2.4.0+). v1.38.0+. | `false` |
 | `getKeyLabel` | `getKeyLabel(): string` | `string` | Get key label. | — |
 | `getValueLabel` | `getValueLabel(): string` | `string` | Get value label. | — |
 | `getActionText` | `getActionText(): string` | `string` | Get action text. | — |
@@ -2752,9 +2858,14 @@ KeyValue::make('opening_hours', 'Opening hours')
     ->disableDeletingRows()
 ```
 
-The flags shape the form only. The server stores the rows it receives, so a
-payload sent outside the form is not held to the fixed key set; enforce it
-with a validation rule when that matters.
+**The server enforces the flags** (v2.4.0+, hardening: Nova leaves them to the form). A request does not have to go through the form, so `fill()` holds a payload to the key set the flags fix. That set is the stored map's keys for a record that exists, and the field's `default()` keys for a new record (a closure or rows are read as the form reads them):
+
+| Flag | What a write does |
+|---|---|
+| `disableEditingKeys()` or `disableAddingRows()` | A submitted key outside the set is dropped: a new row, and a key edited into another name. The values of the keys in the set are the user's. |
+| `disableDeletingRows()` | A key of the set the submission leaves out (a deleted row, or a key edited into another name) takes its stored (or default) value back, and an empty value restores the whole set. |
+
+Nothing changes for a field without these flags: any key is stored. A key edited into another name is a new key plus a missing one, so with only `disableEditingKeys()` the renamed key is dropped and the old one is deleted (the form offers no way to type a key then); with `disableDeletingRows()` too, the old key stays. The stored order of the set is kept, and a restored row keeps its stored value as it was (a nested value included).
 
 **Storage format:** `{"key1":"value1","key2":"value2"}`
 **Overrides:** `resolve()` decodes to `[{key, value}]` rows; `fill()` normalizes to the associative map and stores it, JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
@@ -2793,7 +2904,7 @@ Heading::make('media_section', 'Media')
 Hidden form input. Invisible in UI — never shown on index or detail.
 
 ```php
-Hidden::make('user_id')
+Hidden::make('return_to')
 ```
 
 **Default overrides:**
@@ -2801,6 +2912,34 @@ Hidden::make('user_id')
 - `showOnDetail = false`
 
 **Specific methods:** None.
+
+> **A Hidden value is client-controlled.** A hidden input is not a trust boundary: `fill()` writes whatever the request posts for the attribute, so anyone who may create or update the record can edit the request and send another value. `Hidden::make('tenant_id')->default(fn ($request) => $request->user()->tenant_id)` pre-fills the form, it does not protect the column: a user with create rights posts another tenant's id and the record lands there. Use `Hidden` for values the user may legitimately choose (a UI hint, a return URL), never for a tenant, an owner or any other column that scopes access. Set those on the server:
+>
+> ```php
+> // 1. A model event: the column never comes from the request.
+> protected static function booted(): void
+> {
+>     static::creating(function (self $model): void {
+>         $model->tenant_id ??= auth()->user()?->tenant_id;
+>     });
+> }
+>
+> // 2. The resource's beforeSave(): runs after the fields are filled, before the save.
+> public function beforeSave(Model $model, Request $request, bool $creating): void
+> {
+>     if ($creating) {
+>         $model->tenant_id = $request->user()->tenant_id;
+>     }
+>
+>     parent::beforeSave($model, $request, $creating);
+> }
+>
+> // 3. A field that ignores the posted value (fillUsing()), or never takes one (readonly()):
+> Hidden::make('tenant_id')->fillUsing(fn (Model $model) => $model->tenant_id = auth()->user()->tenant_id);
+> Text::make('tenant_id')->readonly(); // fill() writes nothing; the application sets the column
+> ```
+>
+> The same holds for any field a user can edit: validate or overwrite on the server what the request must not decide. A model event is the broadest of the three (it also covers the inline creates of a relationship panel and anything else that saves the model); see [Lifecycle hooks](resources.md#lifecycle-hooks) and [Authorization](resources.md#authorization).
 
 ---
 
@@ -2948,7 +3087,7 @@ Status::make('job_status', 'Job Status')
 **Extends:** `Field`
 **File:** `src/Fields/Gravatar.php`
 
-Display-only avatar from Gravatar. Generates URL from email hash. Hidden from forms by default.
+Display-only avatar from Gravatar. Generates URL from email hash. Hidden from forms by default. `fromUrl()` switches it to a stored avatar URL, the one mode that writes.
 
 ```php
 Gravatar::make()               // default: attribute='email', label='Avatar'
@@ -2966,7 +3105,7 @@ Gravatar::make('user_email')   // custom attribute
 | `getSize` | `getSize(): int` | `int` | Get size in pixels. | — |
 | `gravatarUrl` | `static gravatarUrl(string $email, int $size = 40): string` | `string` | Generate Gravatar URL from email. | — |
 
-**Overrides:** `resolve()` returns Gravatar URL (not raw email); `fill()` is a no-op.
+**Overrides:** `resolve()` returns Gravatar URL (not raw email) in email mode and the stored URL in URL mode. `fill()` is a no-op in email mode (the field never writes the generated URL over the email column). In URL mode (`fromUrl()`) it writes the submitted URL, after the seams of every field: a readonly field (a `readonly()` closure included) writes nothing and a `fillUsing()` callback takes the write over. `buildRules()` adds a rule in URL mode (a field that is not readonly or computed): the value must be an absolute `https://` URL (`martis::validation.https_url`), because it is rendered as an `<img src>` for every viewer; an empty value passes and writes nothing. A stored `http://` avatar fails the rule when the form sends it back until it is replaced (since v2.4.0).
 **Extra attributes:** `shape`, `avatarSize`
 
 ---
@@ -2978,6 +3117,14 @@ Gravatar::make('user_email')   // custom attribute
 **File:** `src/Fields/Sparkline.php`
 
 Inline mini chart for trend visualization. Display-only (hidden from forms by default).
+
+The chart draws at most 300 points: a longer stored series is downsampled
+(the mean of each slice) in the browser, and a value that is not a finite
+number is skipped. When you show the field on a form (`showOnForms()`), a
+written series is validated: an `array` of at most `maxPoints()` numbers
+(1000 unless you raise it), so an unbounded series is refused with a 422
+instead of being stored. A readonly or computed field, and one with
+`fillUsing()`, keep their own rules.
 
 ```php
 Sparkline::make('trend', 'Revenue Trend')
@@ -2996,12 +3143,14 @@ Sparkline::make('trend', 'Revenue Trend')
 | `height` | `height(int $px): static` | `$this` | Chart height in pixels. | `30` |
 | `chartWidth` | `chartWidth(int $px): static` | `$this` | SVG canvas width in pixels. Renamed from `width()` — the base `Field::width(string)` now controls the index column width. | `null` |
 | `color` | `color(string $color): static` | `$this` | Chart line/bar color (CSS color). | `'#6366f1'` |
+| `maxPoints` | `maxPoints(int $max): static` | `$this` | Most numbers a written series may hold (validated when the field is shown on a form). | `1000` |
+| `getMaxPoints` | `getMaxPoints(): int` | `int` | Get the limit. | — |
 | `getChartType` | `getChartType(): string` | `string` | Get chart type. | — |
 | `getChartHeight` | `getChartHeight(): int` | `int` | Get height. | — |
 | `getChartWidth` | `getChartWidth(): ?int` | `?int` | Get width. | — |
 | `getChartColor` | `getChartColor(): string` | `string` | Get color. | — |
 
-**Overrides:** `resolve()` returns data array (invokes callable if set, falls back to model attribute); `fill()` is a no-op.
+**Overrides:** `resolve()` returns data array (invokes callable if set, falls back to model attribute); `fill()` writes the submitted points (a JSON string is decoded first; the field is hidden from forms by default, so it only runs after `showOnForms()`), and honours `readonly()` (a closure included) and `fillUsing()` like every field; `buildRules()` adds `array`, `max:{maxPoints}` and a numbers-only check.
 **Extra attributes:** `chartType`, `chartHeight`, `chartWidth`, `chartColor`
 
 ---

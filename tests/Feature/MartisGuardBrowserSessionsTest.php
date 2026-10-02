@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Martis\Auth\GuardCatalog;
 use Martis\Auth\Listeners\RecordRoleChange;
+use Martis\Profile\BrowserSessionsService;
 use Martis\Tests\Fixtures\GuardUsers\Admin;
 use Martis\Tests\Fixtures\GuardUsers\SiteUser;
 
@@ -118,7 +119,7 @@ it('revokes no session by an id that can name another person', function () {
     $session = sessionGuardAs($this->admin, 'admin');
 
     $this->withSession($session)->deleteJson('/martis/api/profile/sessions/others')->assertNoContent();
-    $this->withSession($session)->deleteJson('/martis/api/profile/sessions/'.SESSION_GUARD_SITE_ROW)->assertNoContent();
+    $this->withSession($session)->deleteJson('/martis/api/profile/sessions/'.app(BrowserSessionsService::class)->handle($this->admin, SESSION_GUARD_SITE_ROW))->assertNoContent();
 
     expect(DB::table('sessions')->whereIn('id', [SESSION_GUARD_ADMIN_ROW, SESSION_GUARD_SITE_ROW])->count())->toBe(2);
 });
@@ -127,17 +128,20 @@ it('lists and revokes the sessions when the guards share one table', function ()
     config()->set('auth.providers.staff', ['driver' => 'eloquent', 'model' => SessionGuardStaff::class]);
     config()->set('auth.guards.admin.provider', 'staff');
     $session = sessionGuardAs($this->site, 'admin');
+    $handles = app(BrowserSessionsService::class);
 
     $this->withSession($session)
         ->getJson('/martis/api/profile/sessions')
         ->assertOk()
         ->assertJsonPath('supported', true)
         ->assertJsonMissingPath('reason')
-        ->assertJsonPath('sessions.0.id', SESSION_GUARD_ADMIN_ROW)
-        ->assertJsonPath('sessions.1.id', SESSION_GUARD_SITE_ROW);
+        ->assertJsonPath('sessions.0.id', $handles->handle($this->site, SESSION_GUARD_ADMIN_ROW))
+        ->assertJsonPath('sessions.1.id', $handles->handle($this->site, SESSION_GUARD_SITE_ROW))
+        ->assertDontSee(SESSION_GUARD_ADMIN_ROW)
+        ->assertDontSee(SESSION_GUARD_SITE_ROW);
 
     $this->withSession($session)
-        ->deleteJson('/martis/api/profile/sessions/'.SESSION_GUARD_SITE_ROW)
+        ->deleteJson('/martis/api/profile/sessions/'.$handles->handle($this->site, SESSION_GUARD_SITE_ROW))
         ->assertOk()
         ->assertJsonPath('revoked', 1);
 });

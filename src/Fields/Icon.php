@@ -294,9 +294,22 @@ class Icon extends Field
 
     public function fill(Model $model, mixed $value): void
     {
+        // The seams of Field::fill(): `isReadonly()` evaluates a readonly()
+        // closure, the static flag alone would let a request write what the
+        // form shows locked.
+        if ($this->isReadonly()) {
+            return;
+        }
+
+        if ($this->fillCallback !== null) {
+            ($this->fillCallback)($model, $value, $this->attribute, $this->safeRequest());
+
+            return;
+        }
+
         // Only stored icons hydrate the model — every other mode is display
         // only and ignores incoming data silently.
-        if ($this->readonly || ! $this->stored) {
+        if (! $this->stored) {
             return;
         }
         if (is_string($value) && $value !== '') {

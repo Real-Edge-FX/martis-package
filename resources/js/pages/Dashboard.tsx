@@ -21,6 +21,7 @@ import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
 import { useGateOptional } from '@/contexts/GateContext'
 import { WelcomeCard } from '@/components/dashboard/WelcomeCard'
 import { NotFoundPage } from '@/pages/NotFound'
+import { safeHref } from '@/lib/safeUrl'
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -467,7 +468,7 @@ function DashboardLockedView({ lock, dashboard }: { lock: GateLock; dashboard: D
         </p>
         {modal?.cta && (
           <a
-            href={modal.cta.url}
+            href={safeHref(modal.cta.url)}
             target={modal.cta.target ?? '_self'}
             rel={modal.cta.target === '_blank' ? 'noopener noreferrer' : undefined}
             className="mt-4 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium"

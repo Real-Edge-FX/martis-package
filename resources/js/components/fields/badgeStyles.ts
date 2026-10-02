@@ -7,6 +7,8 @@
  * props can reuse it.
  */
 
+import { ownEntry } from '@/lib/ownEntry'
+
 export type BadgeStyle = { bg: string; text: string; border: string }
 
 export const BADGE_TYPE_STYLES: Record<string, BadgeStyle> = {
@@ -56,7 +58,10 @@ export function styleFromHex(hex: string): BadgeStyle {
 export function resolveBadgeStyle(color: string | null | undefined): BadgeStyle {
   if (!color) return BADGE_DEFAULT_STYLE
   if (color === 'neutral') return BADGE_NEUTRAL_STYLE
-  if (BADGE_TYPE_STYLES[color]) return BADGE_TYPE_STYLES[color]
+  // The colour may be a record value (a Badge with no `types()` map uses the
+  // value itself): own entries only, so `constructor` is not a style.
+  const known = ownEntry(BADGE_TYPE_STYLES, color)
+  if (known) return known
   if (isHexColor(color)) return styleFromHex(color)
   return BADGE_DEFAULT_STYLE
 }

@@ -22,6 +22,7 @@ use Martis\Fields\MorphOne;
 use Martis\Fields\MorphOneOfMany;
 use Martis\Fields\MorphTo;
 use Martis\Fields\Tag;
+use Martis\Gates\SoftGate;
 use Martis\RelationshipQueryResolver;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -43,6 +44,13 @@ use Martis\ResourceRegistry;
  * As in Nova the value the request sends is checked on every write, an
  * update that sends the stored value back included: a record whose target
  * left the query since answers 422 until the target changes.
+ *
+ * A `BelongsTo` checks against the resource `relatedResource()` names (a URI
+ * key no registered resource has throws, naming the field and the key) or,
+ * without one, the single resource registered for the model of its
+ * relationship. When that names none, or several, the value is refused
+ * (`martis::validation.relatable_unresolved`): a write is never left
+ * unchecked because the field did not say what it points at.
  *
  * On top of the query:
  *
@@ -146,10 +154,18 @@ final class Relatable implements DataAwareRule, ValidationRule
 
         if ($field instanceof BelongsTo) {
             $id = $field->submittedId($value);
-            $relatedResourceClass = $this->resourceFor($field->getRelatedResource());
 
-            if ($id === null || $relatedResourceClass === null) {
+            if ($id === null) {
                 return null;
+            }
+
+            // The resource relatedResource() names, or the one registered for
+            // the relationship's model. A write never goes unchecked for want
+            // of one: without it the value is refused.
+            $relatedResourceClass = $field->relatedResourceClass($this->sourceModel());
+
+            if ($relatedResourceClass === null) {
+                return 'martis::validation.relatable_unresolved';
             }
 
             return $this->checkTargets($relatedResourceClass, [$id], $attribute, $value);
@@ -209,7 +225,12 @@ final class Relatable implements DataAwareRule, ValidationRule
     {
         $failed = 'martis::validation.relatable';
 
-        if (! (new $relatedResourceClass)->authorizedToViewAny($this->request)) {
+        $related = new $relatedResourceClass;
+
+        // `viewAny`, and a lock (`lockedFor()`, `requirePlan()`): a picker
+        // lists no record of a resource the user is locked from, so a write
+        // cannot name one.
+        if (! $related->authorizedToViewAny($this->request) || SoftGate::isLocked($related, $this->request)) {
             return $failed;
         }
 
@@ -471,6 +492,15 @@ final class Relatable implements DataAwareRule, ValidationRule
         }
 
         return $synced;
+    }
+
+    /**
+     * A new record of the source resource's model: the record the field is
+     * declared on, to read the relationship its related model comes from.
+     */
+    private function sourceModel(): ?Model
+    {
+        return $this->sourceResourceClass !== null ? $this->sourceResourceClass::newModel() : null;
     }
 
     /**

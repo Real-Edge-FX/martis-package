@@ -501,6 +501,13 @@ class HasManyController extends MartisController
             return JsonErrorResponse::forbidden('Records cannot be created through a hasManyThrough relationship.')->toResponse();
         }
 
+        // The field turned this write off (`canCreate(false)`,
+        // `canUpdate(false)`, `canDelete(false)`): the setters hold on the
+        // endpoint, not only on the panel's buttons.
+        if ($action !== null && ! $hasManyField->allowsRelatedWrite($action)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
         // Check authorization for the action
         if ($action === 'create') {
             $relatedCheck = new $relatedResourceClass;

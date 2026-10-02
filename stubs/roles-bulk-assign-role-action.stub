@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 use Martis\Actions\Action;
 use Martis\Actions\ActionFields;
 use Martis\Actions\ActionResponse;
@@ -22,6 +24,12 @@ use Spatie\Permission\Models\Role;
  * table (excluding any role tied to an SSO provider — those are
  * managed by group sync and editing them here would be overwritten
  * on next sign-in).
+ *
+ * The exclusion is enforced on the server, not only by the dropdown: the
+ * `role_id` field value is client input. `assignableRoles()` is the one
+ * query behind the picker, the Select's validation
+ * (`validateAgainstOptions()`) and the lookup in `handle()`, so a forged id
+ * for an SSO-managed role is refused.
  *
  * Customise freely. This file is yours.
  */
@@ -42,8 +50,10 @@ class BulkAssignRole extends Action
             return ActionResponse::danger(__('Select a role to assign.'));
         }
 
+        // Look the role up through the same query as the picker, so an id the
+        // picker never offered (an SSO-managed role) is not found.
         /** @var Role|null $role */
-        $role = Role::query()->find($roleId);
+        $role = is_int($roleId) || is_string($roleId) ? $this->assignableRoles()->find($roleId) : null;
         if ($role === null) {
             return ActionResponse::danger(__('That role no longer exists.'));
         }
@@ -64,6 +74,24 @@ class BulkAssignRole extends Action
     }
 
     /**
+     * The roles this action may assign: the local ones. SSO-managed roles
+     * (a non-null `provider_group_name`) are owned by group sync and would
+     * be overwritten on the next sign-in.
+     *
+     * @return Builder<Role>
+     */
+    private function assignableRoles(): Builder
+    {
+        $query = Role::query();
+
+        if (Schema::hasColumn('roles', 'provider_group_name')) {
+            $query->whereNull('provider_group_name');
+        }
+
+        return $query;
+    }
+
+    /**
      * @return list<FieldContract>
      */
     public function fields(Request $request): array
@@ -76,14 +104,10 @@ class BulkAssignRole extends Action
             // `Select::options()` reads [value => label], as Nova does, so
             // pluck('name', 'id') stores the role id and shows its name.
             Select::make('role_id', __('Role'))
-                ->options(function () {
-                    $query = Role::query();
-                    if (\Illuminate\Support\Facades\Schema::hasColumn('roles', 'provider_group_name')) {
-                        $query->whereNull('provider_group_name');
-                    }
-
-                    return $query->orderBy('name')->pluck('name', 'id')->all();
-                })
+                ->options(fn () => $this->assignableRoles()->orderBy('name')->pluck('name', 'id')->all())
+                // Select never checks the value against its options on its
+                // own: without this a forged `role_id` is looked up as sent.
+                ->validateAgainstOptions()
                 ->required()
                 ->help(__('Roles tied to an SSO provider are excluded — they are managed by group sync.')),
         ];
