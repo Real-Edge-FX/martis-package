@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlassIcon, XIcon, PulseIcon } from '@phosphor-icons/react'
 import { api } from '@/lib/api'
+import { apiPath, withQuery, routePath } from '@/lib/apiPath'
 import type {
   ActiveFilters,
   FieldDefinition,
@@ -82,7 +83,7 @@ function LensPage() {
   // ── Schema (needed for label + filter definitions) ────────────────
   const schemaQuery = useQuery({
     queryKey: ['schema', resource],
-    queryFn: () => api.get<{ data: ResourceSchema }>(`/api/resources/${resource}/schema`),
+    queryFn: () => api.get<{ data: ResourceSchema }>(apiPath`/api/resources/${resource}/schema`),
     enabled: !!resource,
   })
 
@@ -176,7 +177,7 @@ function LensPage() {
       const f = searchParams.get('filters')
       if (f) params.set('filters', f)
       if (trashedFilter) params.set('trashed', trashedFilter)
-      return api.get<LensResponse>(`/api/resources/${resource}/lenses/${lensKey}?${params.toString()}`)
+      return api.get<LensResponse>(withQuery(apiPath`/api/resources/${resource}/lenses/${lensKey}`, params.toString()))
     },
     refetchInterval: lens?.polling ? Math.max(1, lens.pollingInterval) * 1000 : false,
     placeholderData: (prev) => prev,
@@ -237,7 +238,7 @@ function LensPage() {
   }, [])
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}`),
+    mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(apiPath`/api/resources/${resource}/${id}`),
     onSuccess: (res, id) => {
       emitRecordEvent('deleted', resource, id)
       void qc.invalidateQueries({ queryKey: ['lens', resource, lensKey] })
@@ -315,8 +316,8 @@ function LensPage() {
             lenses={schema.lenses ?? []}
             currentUriKey={lens.uriKey}
             onSelect={(next) => {
-              if (next === null) navigate(`/resources/${resource}`)
-              else if (next.uriKey !== lens.uriKey) navigate(`/resources/${resource}/lens/${next.uriKey}`)
+              if (next === null) navigate(routePath`/resources/${resource}`)
+              else if (next.uriKey !== lens.uriKey) navigate(routePath`/resources/${resource}/lens/${next.uriKey}`)
             }}
           />
           {standaloneActions.length > 0 && (
@@ -506,7 +507,7 @@ function LensPage() {
             if (schema.overrides?.update) {
               setActionDrawer({ type: 'update', resource: resource!, recordId: row.id })
             } else {
-              navigate(`/resources/${resource}/${row.id}/edit`)
+              navigate(routePath`/resources/${resource}/${row.id}/edit`)
             }
           }}
           onDefaultDelete={(row) => setDeleteTarget(row)}

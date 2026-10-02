@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useParams, useNavigate, useLocation, useNavigationType } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { apiPath, withQuery, routePath } from '@/lib/apiPath'
 import { deleteErrorMessage } from '@/lib/deleteError'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, OverrideProps, ActiveFilters } from '@/types'
 import { Table } from '@/components/Table'
@@ -26,6 +27,7 @@ import { usePageTitle } from '@/hooks/usePageTitle'
 import { useResourceAccent } from '@/lib/useResourceAccent'
 import { useResourceLoaderConfig } from '@/contexts/LoaderConfigContext'
 import { readStickyView, useStickyView, clearStickyView } from '@/lib/useStickyView'
+import { useAuthOptional } from '@/contexts/AuthContext'
 import { recordHref } from '@/lib/recordHref'
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react'
 import { martisEventBus, type EventPayload } from '@/lib/eventBus'
@@ -40,6 +42,8 @@ export function ResourceIndexPage() {
   const navigationType = useNavigationType()
   const qc = useQueryClient()
   const { addToast } = useToast()
+  // The saved view belongs to the signed-in user (lib/useStickyView.ts).
+  const stickyOwner = useAuthOptional()?.user?.id ?? null
   const { t } = useTranslation('resources')
   const { t: tMsg } = useTranslation('messages')
   const { t: tAct } = useTranslation('actions')
@@ -100,7 +104,7 @@ export function ResourceIndexPage() {
 
   // Restore sticky view state when navigating between resources, or
   // fall back to defaults when no saved state exists. Each resource
-  // gets its own sessionStorage entry (`martis:view:{uriKey}`) so
+  // gets its own sessionStorage entry (`martis:view:{userId}:{uriKey}`) so
   // page / sort / filter state never leaks across resources, but
   // navigating to a record's detail and clicking back DOES preserve
   // the view. See `lib/useStickyView.ts`.
@@ -183,7 +187,7 @@ export function ResourceIndexPage() {
     //     reliably contains only state the user committed via the UI.
     //   - REPLACE — internal `navigate({...}, {replace:true})` calls,
     //     same treatment as POP.
-    const saved = readStickyView(resource)
+    const saved = readStickyView(stickyOwner, resource)
     if (saved) {
       setViewIsUrlDriven(false)
       setSearch(typeof saved.search === 'string' ? saved.search : '')
@@ -216,7 +220,7 @@ export function ResourceIndexPage() {
     // longer used in the body of this hook but we keep it here so a
     // cleanly-typed POP-vs-PUSH distinction is available if a future
     // edge case needs it.
-  }, [resource, location.search, navigationType])
+  }, [resource, location.search, navigationType, stickyOwner])
   // Debounce search
   const handleSearchChange = useCallback((value: string) => {
     markUserDriven()
@@ -231,7 +235,7 @@ export function ResourceIndexPage() {
   // Schema
   const schemaQuery = useQuery({
     queryKey: ['schema', resource],
-    queryFn: () => api.get<{ data: ResourceSchema }>(`/api/resources/${resource}/schema`),
+    queryFn: () => api.get<{ data: ResourceSchema }>(apiPath`/api/resources/${resource}/schema`),
     enabled: !!resource,
   })
 
@@ -253,12 +257,13 @@ export function ResourceIndexPage() {
   useResourceLoaderConfig((schema as { loaderConfig?: Record<string, unknown> } | undefined)?.loaderConfig)
 
   // Sticky view writer — every meaningful state change rolls into
-  // sessionStorage under `martis:view:{uriKey}` so the next visit to
+  // sessionStorage under `martis:view:{userId}:{uriKey}` so the next visit to
   // this resource (e.g. via "Back" from a record's detail page)
   // restores the table exactly as the user left it. Gated on the
   // schema's `stickyView` flag so opted-out resources never write.
   const stickyEnabled = schema !== undefined && schema.stickyView !== false
   useStickyView(
+    stickyOwner,
     resource ?? '',
     {
       page,
@@ -282,7 +287,7 @@ export function ResourceIndexPage() {
   const handleResetView = useCallback(() => {
     if (!resource) return
     markUserDriven()
-    clearStickyView(resource)
+    clearStickyView(stickyOwner, resource)
     setSearch('')
     setDebouncedSearch('')
     setActiveFilters({})
@@ -292,7 +297,7 @@ export function ResourceIndexPage() {
     setSortDir(schema?.defaultSortDirection ?? 'asc')
     setTrashedFilter('')
     setFiltersOpen(false)
-  }, [resource, schema?.defaultSort, schema?.defaultSortDirection, markUserDriven])
+  }, [resource, stickyOwner, schema?.defaultSort, schema?.defaultSortDirection, markUserDriven])
 
   /**
    * Clear ONLY the active filters — keeps sort, search, pagination,
@@ -331,7 +336,7 @@ export function ResourceIndexPage() {
         params.set('filters', JSON.stringify(activeFilters))
       }
       return api.get<PaginatedResponse<ResourceRecord>>(
-        `/api/resources/${resource}?${params.toString()}`,
+        withQuery(apiPath`/api/resources/${resource}`, params.toString()),
       )
     },
     enabled: !!resource,
@@ -399,7 +404,7 @@ export function ResourceIndexPage() {
   const hasActions = indexActions.length > 0
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}`),
+    mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(apiPath`/api/resources/${resource}/${id}`),
     onSuccess: (res, id) => {
       emitRecordEvent('deleted', resource, id)
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
@@ -412,7 +417,7 @@ export function ResourceIndexPage() {
   })
 
   const restoreMutation = useMutation({
-    mutationFn: (id: string | number) => api.put<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/restore`),
+    mutationFn: (id: string | number) => api.put<{ meta?: { message?: string } }>(apiPath`/api/resources/${resource}/${id}/restore`),
     onSuccess: (res, id) => {
       emitRecordEvent('restored', resource, id)
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
@@ -425,7 +430,7 @@ export function ResourceIndexPage() {
   })
 
   const forceDeleteMutation = useMutation({
-    mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(`/api/resources/${resource}/${id}/force`),
+    mutationFn: (id: string | number) => api.delete<{ meta?: { message?: string } }>(apiPath`/api/resources/${resource}/${id}/force`),
     onSuccess: (res, id) => {
       emitRecordEvent('deleted', resource, id)
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
@@ -534,7 +539,7 @@ export function ResourceIndexPage() {
         void qc.invalidateQueries({ queryKey: ['resources', resource] })
         addToast('success', schema!.messages?.deleted ?? tMsg('record_deleted'))
       },
-      onEdit: (id) => { if (id) navigate(`/resources/${resource}/${id}/edit`) },
+      onEdit: (id) => { if (id) navigate(routePath`/resources/${resource}/${id}/edit`) },
       onView: (id) => navigate(recordHref(resource!, id)),
       addToast,
       ...extra,
@@ -637,7 +642,7 @@ export function ResourceIndexPage() {
               lenses={schema.lenses}
               currentUriKey={null}
               onSelect={(next) => {
-                if (next) navigate(`/resources/${resource}/lens/${next.uriKey}`)
+                if (next) navigate(routePath`/resources/${resource}/lens/${next.uriKey}`)
               }}
             />
           )}
@@ -661,7 +666,7 @@ export function ResourceIndexPage() {
               if (schema.overrides?.create) {
                 setShowCreateOverride(true)
               } else {
-                navigate(`/resources/${resource}/create`)
+                navigate(routePath`/resources/${resource}/create`)
               }
             }}
             className="rounded-lg px-4 py-2 text-sm font-medium text-martis-accent-contrast hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--martis-focus-ring)]"
@@ -866,7 +871,7 @@ export function ResourceIndexPage() {
           if (schema.overrides?.update) {
             setActionDrawer({ type: 'update', resource: resource!, recordId: row.id })
           } else {
-            navigate(`/resources/${resource}/${row.id}/edit`)
+            navigate(routePath`/resources/${resource}/${row.id}/edit`)
           }
         }}
         onDefaultDelete={(row) => setDeleteTarget(row)}

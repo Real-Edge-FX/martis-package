@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { pathSegment } from '@/lib/apiPath'
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import { BrowserSessionsSection } from './BrowserSessionsSection'
 
@@ -69,7 +70,7 @@ describe('BrowserSessionsSection: opaque handles', () => {
 
     fireEvent.click(await findByLabelText('Revoke session'))
 
-    await waitFor(() => expect(del).toHaveBeenCalledWith(`/api/profile/sessions/${encodeURIComponent(handleB)}`))
+    await waitFor(() => expect(del).toHaveBeenCalledWith(`/api/profile/sessions/${pathSegment(handleB)}`))
     expect(del).toHaveBeenCalledTimes(1)
   })
 

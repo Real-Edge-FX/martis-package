@@ -67,7 +67,7 @@ export default function FindingDetailPage() {
   const { findingId } = useParams<{ findingId: string }>()
   const finding = useQuery({
     queryKey: ['finding', findingId],
-    queryFn: () => api.get<{ id: string; title: string }>(`/api/findings/${findingId}`),
+    queryFn: () => api.get<{ id: string; title: string }>(`/api/findings/${encodeURIComponent(findingId!)}`),
   })
 
   usePageTitle(finding.data?.title)
@@ -86,6 +86,7 @@ export default function FindingDetailPage() {
 - **Breadcrumb.** The trail reads Home, then the route's crumb. `useDynamicCrumb(label)` replaces that crumb while the page is mounted, for example with the record's title; `null` or `undefined` keeps the registered one. The trail has one level: `findings/:findingId` does not link back to `findings`.
 - **Error screens.** `NotFoundPage` and `ForbiddenPage` render the shell's 404 and 403 screens in place and keep the URL. Navigating to `/403` would change it.
 - **Data.** `api` calls paths below the Martis base path, so `api.get('/api/findings/...')` reaches an API route of your app under `/{martis-path}/api/`, on the `martis.api` middleware group, which runs the same authentication as the Martis API.
+- **Encode what you put in a path.** A route parameter is URL-decoded (`useParams()` returns `..%2Fusers%2F5` as `../users/5`), and so is a value from `useSearchParams()`. Interpolated raw into `api.get(`/api/findings/${id}`)`, a crafted link or a record keyed `../users/5` rewrites the request to another endpoint of the panel, with the signed-in user's session and CSRF token (client-side path traversal). Wrap each value in `encodeURIComponent()` so it stays one path segment. As a last line of defence `api` refuses a path that holds a dot segment (`.` or `..`, also spelt `%2e`) with an `ApiError` (status 400) and sends nothing.
 
 ## Guarding a page with a Tool
 

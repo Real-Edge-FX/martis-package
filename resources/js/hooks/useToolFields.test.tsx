@@ -3,6 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import type { FieldDefinition } from '@/types'
+import { apiSegments, resolveApiPath } from '@/test-support/apiPaths'
 
 const apiGetMock = vi.fn()
 
@@ -57,5 +58,19 @@ describe('useToolFields', () => {
     renderHook(() => useToolFields(''), { wrapper })
 
     expect(apiGetMock).not.toHaveBeenCalled()
+  })
+
+  // F096: a Tool that passes a route param (React Router decodes `%2F` and
+  // `%3F`) as the key must not steer the request to another endpoint.
+  it('keeps a Tool key that traverses to one path segment', async () => {
+    apiGetMock.mockResolvedValue({ data: { fields: [] } })
+
+    renderHook(() => useToolFields('../resources/users?x=1'), { wrapper })
+
+    await waitFor(() => expect(apiGetMock).toHaveBeenCalledTimes(1))
+    const path = apiGetMock.mock.calls[0]![0] as string
+    expect(path).toBe('/api/tools/..%252Fresources%252Fusers%3Fx%3D1/fields')
+    expect(apiSegments(path)).toEqual(['tools', '..%252Fresources%252Fusers%3Fx%3D1', 'fields'])
+    expect(resolveApiPath(path).search).toBe('')
   })
 })

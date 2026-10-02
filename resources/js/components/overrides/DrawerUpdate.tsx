@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
 import type { OverrideProps, ResourceRecord, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
 import { FieldInput } from '@/components/fields/FieldRenderer'
 import { FieldWrapper } from '@/components/fields/FieldWrapper'
@@ -68,7 +69,7 @@ export function DrawerUpdate(props: OverrideProps) {
   // Fetch record if not already provided in props
   const recordQuery = useQuery({
     queryKey: ['resource', resource, recordId, 'update'],
-    queryFn: () => api.get<{ data: ResourceRecord }>(`/api/resources/${resource}/${recordId}?context=update`),
+    queryFn: () => api.get<{ data: ResourceRecord }>(apiPath`/api/resources/${resource}/${recordId}?context=update`),
     enabled: !!recordId && !record,
   })
 
@@ -172,12 +173,12 @@ export function DrawerUpdate(props: OverrideProps) {
       if (hasFileValues(data)) {
         return api.upload<{ data: ResourceRecord; meta?: { message?: string } }>(
           'PUT',
-          `/api/resources/${resource}/${recordId}`,
+          apiPath`/api/resources/${resource}/${recordId}`,
           data,
         )
       }
       return api.put<{ data: ResourceRecord; meta?: { message?: string } }>(
-        `/api/resources/${resource}/${recordId}`,
+        apiPath`/api/resources/${resource}/${recordId}`,
         data,
       )
     },

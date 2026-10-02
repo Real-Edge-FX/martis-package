@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '@/lib/api'
+import { apiPath, withQuery } from '@/lib/apiPath'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay, FieldInput } from '@/components/fields/FieldRenderer'
@@ -135,7 +136,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
 
   // Listed here; PivotActionModal reads each action's fields and runs it
   // under the same endpoint, so actions declared on the field resolve too.
-  const pivotActionsUrl = `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/actions`
+  const pivotActionsUrl = apiPath`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/actions`
 
   const pivotActionsQuery = useQuery({
     queryKey: ['pivot-actions', parentResource, parentId, relationship],
@@ -166,7 +167,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
   const detachMutation = useMutation({
     mutationFn: (relatedId: string | number) =>
       api.delete(
-        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/${relatedId}/detach`
+        apiPath`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/${relatedId}/detach`
       ),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['belongs-to-many', parentResource, parentId, relationship] })
@@ -204,7 +205,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
         collapsedByDefault={collapsedByDefault}
         queryKey={['belongs-to-many', parentResource, parentId, relationship]}
         fetchUrl={(params) =>
-          `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}?${params.toString()}`
+          withQuery(apiPath`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}`, params.toString())
         }
         viewUrl={(id) => recordHref(relatedResource, id)}
         pivotFields={pivotFields}
@@ -365,8 +366,8 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
       {editTarget && (
         <EditPivotModal
           title={editTarget.title ?? String(editTarget.id)}
-          endpoint={`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/${editTarget.id}/pivot`}
-          pivotEndpoint={`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/pivot-fields/${editTarget.id}`}
+          endpoint={apiPath`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/${editTarget.id}/pivot`}
+          pivotEndpoint={apiPath`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/pivot-fields/${editTarget.id}`}
           pivotFields={pivotFields}
           initialValues={editTarget.pivot}
           onSuccess={() => {
@@ -576,7 +577,7 @@ function AttachModal({
   // Fetch related resource schema for DataTable columns
   const schemaQuery = useQuery({
     queryKey: ['schema', relatedResource],
-    queryFn: ({ signal }) => api.get<{ data: ResourceSchema }>(`/api/resources/${relatedResource}/schema`, signal),
+    queryFn: ({ signal }) => api.get<{ data: ResourceSchema }>(apiPath`/api/resources/${relatedResource}/schema`, signal),
     enabled: !!relatedResource,
   })
 
@@ -591,7 +592,7 @@ function AttachModal({
       if (debouncedSearch) params.set('search', debouncedSearch)
       appendFormDraft(params)
       return api.get<PaginatedResponse<ResourceRecord>>(
-        `/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/attachable?${params.toString()}`,
+        withQuery(apiPath`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/attachable`, params.toString()),
         signal
       )
     },
@@ -601,7 +602,7 @@ function AttachModal({
   const attachMutation = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
       api.post(
-        withFormDraft(`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/attach`, appendFormDraft),
+        withFormDraft(apiPath`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/attach`, appendFormDraft),
         payload
       ),
     onSuccess: () => { onSuccess() },
@@ -814,7 +815,7 @@ function AttachModal({
                     context="create"
                     // The parent's forms do not declare pivot fields: the
                     // relation pickers ask the panel.
-                    pivotEndpoint={`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/pivot-fields`}
+                    pivotEndpoint={apiPath`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}/pivot-fields`}
                     nestedErrors={nestedErrorsOf(fieldErrors, pf.attribute)}
                   />
                   {fieldError && (

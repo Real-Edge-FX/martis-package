@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToastSafe } from '@/contexts/ToastContext'
 import { useNavigate } from 'react-router'
 import { api } from '@/lib/api'
+import { apiPath, routePath, withQuery } from '@/lib/apiPath'
 import type { ResourceRecord, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
@@ -71,7 +72,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
   // Fetch related resource schema for field definitions
   const schemaQuery = useQuery({
     queryKey: ['schema', relatedResource],
-    queryFn: () => api.get<{ data: { fieldsForDetail?: FieldDefinition[]; singularLabel?: string; softDeletes?: boolean } }>(`/api/resources/${relatedResource}/schema`),
+    queryFn: () => api.get<{ data: { fieldsForDetail?: FieldDefinition[]; singularLabel?: string; softDeletes?: boolean } }>(apiPath`/api/resources/${relatedResource}/schema`),
     enabled: !!relatedResource,
   })
 
@@ -80,7 +81,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
     queryKey: ['morph-one', parentResource, parentId, relationship],
     queryFn: () =>
       api.get<{ data: ResourceRecord | null }>(
-        `/api/resources/${parentResource}/${parentId}/morph-one/${relationship}`
+        apiPath`/api/resources/${parentResource}/${parentId}/morph-one/${relationship}`
       ),
     enabled: !!parentResource && !!parentId && !!relationship,
   })
@@ -90,7 +91,10 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
   const deleteMutation = useMutation({
     mutationFn: (shownId: string | number) =>
       api.delete(
-        `/api/resources/${parentResource}/${parentId}/morph-one/${relationship}?relatedId=${encodeURIComponent(String(shownId))}`
+        withQuery(
+          apiPath`/api/resources/${parentResource}/${parentId}/morph-one/${relationship}`,
+          `relatedId=${encodeURIComponent(String(shownId))}`,
+        )
       ),
     onSuccess: (_res, shownId) => {
       emitRecordEvent('deleted', relatedResource, shownId)
@@ -179,7 +183,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
               type="button"
               onClick={() =>
                 navigate(
-                  `/resources/${relatedResource}/${record.id as string | number}/edit${viaParams}`
+                  `${routePath`/resources/${relatedResource}/${record.id as string | number}/edit`}${viaParams}`
                 )
               }
               className="martis-btn-secondary"
@@ -218,7 +222,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
                   ref={createRef}
                   type="button"
                   onClick={() =>
-                    navigate(`/resources/${relatedResource}/create${viaParams}`)
+                    navigate(`${routePath`/resources/${relatedResource}/create`}${viaParams}`)
                   }
                   className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-martis-accent-contrast"
                   style={{ backgroundColor: 'var(--martis-accent)' }}

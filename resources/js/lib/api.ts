@@ -1,6 +1,9 @@
 import { API_BASE_URL, BASE_PATH } from "@/lib/config"
 import i18n from "@/lib/i18n"
 import { isOnPage, passwordChangeUrl } from "@/lib/passwordChange"
+import { hasDotSegment } from "@/lib/apiPath"
+
+export { apiPath, routePath, pathSegment, withQuery } from "@/lib/apiPath"
 import { LOCKED_EVENT } from "@/lib/lockEvent"
 import type { GateLock } from "@/types"
 
@@ -148,6 +151,19 @@ function isPasswordChangeRequiredResponse(status: number, payload: unknown): boo
   return status === 409 && (payload as { password_change_required?: unknown } | null)?.password_change_required === true
 }
 
+/**
+ * Refuse a path the browser would rewrite before sending it: one with a dot
+ * segment (`/api/resources/posts/../users/5`) names another endpoint than the
+ * one the caller built. Build paths with `apiPath` so a value stays one
+ * segment; this is the last line of defence for a path assembled by hand
+ * (an extension's, for one). The request is not sent.
+ */
+function assertNoDotSegment(path: string): void {
+  if (hasDotSegment(path)) {
+    throw new ApiError(400, translateIfKey('Request failed'), [])
+  }
+}
+
 /** Match the 403 a data endpoint answers for a soft-locked entity (`SoftGate::refusal()`). */
 function lockOfResponse(status: number, payload: unknown): GateLock | null {
   if (status !== 403 || payload === null || typeof payload !== 'object') return null
@@ -162,6 +178,7 @@ function announceLock(lock: GateLock | null): void {
 }
 
 async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  assertNoDotSegment(path)
   const csrfToken = getCsrfToken()
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -328,6 +345,7 @@ export function buildFormData(values: Record<string, unknown>, methodOverride?: 
  * For PUT/PATCH methods, uses POST with _method spoofing (Laravel convention).
  */
 async function uploadRequest<T>(method: string, path: string, values: Record<string, unknown>): Promise<T> {
+  assertNoDotSegment(path)
   const csrfToken = getCsrfToken()
   const actualMethod = method === 'PUT' || method === 'PATCH' ? 'POST' : method
   const methodOverride = method === 'PUT' || method === 'PATCH' ? method : undefined

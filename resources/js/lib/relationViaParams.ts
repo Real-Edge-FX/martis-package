@@ -21,11 +21,27 @@
 
 const BASENAME = '/martis'
 
+/**
+ * The endpoint kinds that store a record nested under a parent
+ * (`POST /api/resources/{resource}/{id}/{kind}/{relationship}`). The create
+ * page reads `viaRelationshipType` from the link's query string and puts it
+ * into that path, so it only accepts these (a many-to-many relationship
+ * attaches, it does not store).
+ */
+export const NESTED_STORE_KINDS = ['has-many', 'has-one', 'morph-many', 'morph-one'] as const
+
+export type NestedStoreKind = typeof NESTED_STORE_KINDS[number]
+
+/** The nested-store kind `value` names, or `null` when it names none. */
+export function nestedStoreKind(value: string | null | undefined): NestedStoreKind | null {
+  return NESTED_STORE_KINDS.find((kind) => kind === value) ?? null
+}
+
 export interface ViaParamsInput {
   parentResource: string
   parentId: string | number | null | undefined
   relationship: string
-  relationshipType: 'has-many' | 'has-one' | 'morph-many' | 'morph-one' | 'morph-to-many'
+  relationshipType: NestedStoreKind
   /** When it matches the backend default `parent`, the param is omitted. */
   redirectMode?: string | null
 }

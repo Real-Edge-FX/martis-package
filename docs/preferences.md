@@ -41,6 +41,8 @@ When the user logs in client-side (no hard reload), `PreferencesProvider` refetc
 
 The refetch and the optimistic PUT are BOTH skipped when `user` is null (v1.7.6). The endpoints live behind `martis.auth`, so a guest mount or guest theme/locale tweak would otherwise log a 401 in the browser console. localStorage and the SSR payload are already authoritative for guests; the server has nothing extra to add until the user signs in.
 
+A pick made while signed out is carried to the account that signs in next only from the same tab session (v2.4.0): `update()` sets a `martis-preferences-guest-modified` marker in `sessionStorage` for a guest, the post-login effect consumes it with a single PUT, and a marker or cache a previous visitor of a shared browser left in `localStorage` is never promoted (see [Authentication → Guest persistence](authentication.md#guest-persistence-v176)). Sign-out clears the cache and the marker.
+
 ### Persistence guarantees
 
 `PreferencesProvider` exposes `update(patch)` for partial writes. The patch can be a plain object **or** a function `(prev) => Partial<Preferences>` so callers can derive the next value from the LATEST committed state. The function form is required for chained updates that must compound (e.g. a theme cycle on rapid clicks) — the plain object form captures the current value in the render closure, which under React 18 batching can stay stale across multiple back-to-back invocations.

@@ -4,6 +4,7 @@ import { InputText } from 'primereact/inputtext'
 import { CheckCircleIcon, XCircleIcon, LockSimpleIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { api, ApiError } from '@/lib/api'
+import { apiPath, withQuery } from '@/lib/apiPath'
 import { ClearButton } from '@/components/ClearButton'
 
 // -----------------------------------------------------------------------------
@@ -272,7 +273,7 @@ export function SlugFieldInput({
         if (recordId !== undefined && recordId !== null) qs.set('id', String(recordId))
         const res = await api.get<{
           data: { available: boolean; suggestion: string | null; reserved: boolean }
-        }>(`/api/resources/${resourceKey}/slug-check/${field.attribute}?${qs.toString()}`)
+        }>(withQuery(apiPath`/api/resources/${resourceKey}/slug-check/${field.attribute}`, qs.toString()))
         if (res.data.reserved) {
           setCheckState({ kind: 'reserved', suggestion: res.data.suggestion })
         } else if (res.data.available) {

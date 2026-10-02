@@ -219,6 +219,15 @@ ignores it and returns to its default destination. A link crafted with
 save (React Router 6 does not filter these values, GHSA-wrjc-x8rr-h8h6).
 That form posts to the relationship's endpoint, as multipart when it carries a
 file (v1.38.0+; before, it always posted JSON and a picked file was lost).
+Since **v2.4.0** the endpoint is built from the link's query string safely:
+`viaResource`, `viaResourceId` and `viaRelationship` are each encoded as one
+path segment, and `viaRelationshipType` must be one of the endpoints that store
+a nested record (`has-many`, `has-one`, `morph-many`, `morph-one`; `has-many`
+when the link names none). A link with another type is treated as a plain
+create: the `via*` parameters are ignored and the form posts to the resource
+itself. A crafted link could otherwise turn the click on Create into a
+credentialed POST to any other endpoint of the panel (client-side path
+traversal).
 Since **v1.38.0**: before it, only the `HasOne` / `MorphOne` cards honoured the
 enclosing card, so a `HasMany`, `MorphMany`, `BelongsToMany` or `MorphToMany`
 nested in a card or rendered in a drawer asked the page's record (404, or the

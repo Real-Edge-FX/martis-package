@@ -10,6 +10,7 @@ import { api } from '@/lib/api'
 import { BASE_PATH } from '@/lib/config'
 import { signOut } from '@/lib/signOut'
 import { isOnPage, passwordChangeUrl } from '@/lib/passwordChange'
+import { purgeForeignStickyViews } from '@/lib/useStickyView'
 import type { User } from '@/types'
 
 export class TwoFactorRequiredError extends Error {
@@ -111,6 +112,16 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
       .finally(() => setIsLoading(false))
   }, [fetchOnMount])
 
+  // The saved index views (search terms, filter values) belong to the user
+  // who wrote them. When the session names a user, whatever another user (or
+  // the format before entries named theirs) left in the browser's storage is
+  // dropped, so an account switch, an expired session or a closed tab never
+  // hands one person's view to the next. `signOut()` clears them all.
+  const userId = user?.id
+  useEffect(() => {
+    if (userId !== undefined && userId !== null) purgeForeignStickyViews(userId)
+  }, [userId])
+
   const login = useCallback(async (email: string, password: string, keepSignedIn = false) => {
     const res = await api.post<User & {
       two_factor_required?: boolean
@@ -153,4 +164,13 @@ export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth must be used within AuthProvider')
   return ctx
+}
+
+/**
+ * Like {@link useAuth}, but `null` outside an AuthProvider instead of
+ * throwing: for a page that only wants to know who is signed in (the
+ * index's saved view) and renders in trees without the shell.
+ */
+export function useAuthOptional(): AuthContextValue | null {
+  return useContext(AuthContext)
 }

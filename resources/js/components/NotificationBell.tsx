@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { BellIcon, CheckCircleIcon, WarningIcon, WarningCircleIcon, InfoIcon, TrashIcon } from '@phosphor-icons/react'
 import { api } from '@/lib/api'
+import { apiPath } from '@/lib/apiPath'
 import { config } from '@/lib/config'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { martisEventBus, type EventPayload } from '@/lib/eventBus'
@@ -156,7 +157,7 @@ export function NotificationBell() {
   const items = listQuery.data?.data ?? []
 
   const markRead = useMutation({
-    mutationFn: (id: string) => api.post(`/api/notifications/${id}/read`),
+    mutationFn: (id: string) => api.post(apiPath`/api/notifications/${id}/read`),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['notifications'] })
     },
@@ -170,7 +171,7 @@ export function NotificationBell() {
   })
 
   const dismiss = useMutation({
-    mutationFn: (id: string) => api.delete(`/api/notifications/${id}`),
+    mutationFn: (id: string) => api.delete(apiPath`/api/notifications/${id}`),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['notifications'] })
     },

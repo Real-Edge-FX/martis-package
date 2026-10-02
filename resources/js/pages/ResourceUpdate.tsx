@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
+import { apiPath, routePath } from '@/lib/apiPath'
 import type { ResourceRecord, ResourceSchema, OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition } from '@/types'
 import { FieldsForm } from '@/components/fields/FieldsForm'
 import { useToast } from '@/contexts/ToastContext'
@@ -52,13 +53,13 @@ function RecordUpdatePage() {
 
   const schemaQuery = useQuery({
     queryKey: ['schema', resource],
-    queryFn: () => api.get<{ data: ResourceSchema }>(`/api/resources/${resource}/schema`),
+    queryFn: () => api.get<{ data: ResourceSchema }>(apiPath`/api/resources/${resource}/schema`),
     enabled: !!resource,
   })
 
   const recordQuery = useQuery({
     queryKey: ['resource', resource, id, 'update'],
-    queryFn: () => api.get<{ data: ResourceRecord }>(`/api/resources/${resource}/${id}?context=update`),
+    queryFn: () => api.get<{ data: ResourceRecord }>(apiPath`/api/resources/${resource}/${id}?context=update`),
     enabled: !!resource && !!id,
   })
 
@@ -149,9 +150,9 @@ function RecordUpdatePage() {
   const updateMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
       if (hasFileValues(data)) {
-        return api.upload<{ data: ResourceRecord; meta?: { message?: string; redirectTo?: string } }>('PUT', `/api/resources/${resource}/${id}`, data)
+        return api.upload<{ data: ResourceRecord; meta?: { message?: string; redirectTo?: string } }>('PUT', apiPath`/api/resources/${resource}/${id}`, data)
       }
-      return api.put<{ data: ResourceRecord; meta?: { message?: string; redirectTo?: string } }>(`/api/resources/${resource}/${id}`, data)
+      return api.put<{ data: ResourceRecord; meta?: { message?: string; redirectTo?: string } }>(apiPath`/api/resources/${resource}/${id}`, data)
     },
     onSuccess: (res) => {
       emitRecordEvent('updated', resource, id)
@@ -190,7 +191,7 @@ function RecordUpdatePage() {
       // "Save & view list" jumps back to the resource index.
       if (mode === 'list') {
         submitModeRef.current = 'detail'
-        navigate(`/resources/${resource}`)
+        navigate(routePath`/resources/${resource}`)
         return
       }
 
@@ -290,11 +291,11 @@ function RecordUpdatePage() {
         onDeleted: () => {
           void qc.invalidateQueries({ queryKey: ['resources', resource] })
           addToast('success', schema.messages?.deleted ?? 'Record deleted successfully.')
-          navigate(`/resources/${resource}`)
+          navigate(routePath`/resources/${resource}`)
         },
         onEdit: (editId) => {
           const targetId = editId ?? id
-          if (targetId) navigate(`/resources/${resource}/${targetId}/edit`)
+          if (targetId) navigate(routePath`/resources/${resource}/${targetId}/edit`)
         },
         onView: (viewId) => navigate(recordHref(resource!, viewId)),
         addToast,
