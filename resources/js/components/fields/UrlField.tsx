@@ -1,23 +1,7 @@
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { InputText } from 'primereact/inputtext'
 import { ClearButton } from '@/components/ClearButton'
-
-/**
- * Only these schemes are safe to place in an href. A stored value with a
- * `javascript:`, `data:`, or `vbscript:` scheme would execute script when
- * clicked (stored XSS), so anything outside this allowlist is rendered as
- * plain text rather than a link. No scheme at all (relative path,
- * scheme-relative `//host`, bare domain) is treated as safe.
- */
-const SAFE_URL_SCHEMES = ['http:', 'https:', 'mailto:', 'tel:']
-
-export function isSafeHref(raw: string): boolean {
-  const schemeMatch = /^([a-z][a-z0-9+.-]*):/i.exec(raw.trim())
-  if (!schemeMatch) {
-    return true
-  }
-  return SAFE_URL_SCHEMES.includes(schemeMatch[1].toLowerCase() + ':')
-}
+import { safeHref } from '@/lib/safeUrl'
 
 export function UrlFieldDisplay({ field, value }: FieldDisplayProps) {
   if (value === null || value === undefined || value === '') {
@@ -27,15 +11,19 @@ export function UrlFieldDisplay({ field, value }: FieldDisplayProps) {
   const url = String(value)
   const displayText = (field as Record<string, unknown>).displayText as string | undefined
 
-  // Never emit a link for an unsafe scheme — render the raw value as text
-  // so the data stays visible without being clickable/executable.
-  if (!isSafeHref(url)) {
+  // A stored `javascript:`, `data:` or `vbscript:` URL would run script when
+  // clicked (stored XSS), so only a link the browser itself reads as web,
+  // relative, `mailto:` or `tel:` is emitted (`safeHref`: the URL parser
+  // decides the scheme, so `java\tscript:` does not slip past). Anything else
+  // is rendered as plain text, the data visible without being clickable.
+  const href = safeHref(url)
+  if (href === undefined) {
     return <span className="text-gray-700 dark:text-gray-300">{displayText || url}</span>
   }
 
   return (
     <a
-      href={url}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"

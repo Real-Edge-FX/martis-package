@@ -1692,7 +1692,7 @@ The Stack emits `{ __martisStack: true, entries: [{ text, variant, subtitle }], 
 **Extends:** `Field`
 **File:** `src/Fields/Url.php`
 
-URL field with clickable link on index/detail and `url` validation.
+URL field with clickable link on index/detail and `url` validation. A stored value is a link only when the browser itself reads it as a web URL, a path, `mailto:` or `tel:` (v2.4.0: the same check the sidebar uses, so `java<TAB>script:` and other padded schemes are not links); anything else is shown as plain text.
 
 ```php
 Url::make('website')
