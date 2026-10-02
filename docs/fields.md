@@ -1128,7 +1128,9 @@ Select::make('status')
 | `getOptions` | `getOptions(): array` | `array` | Get normalized options `[{label, value, group?}]` (resolves the closure if one was set). |
 | `searchableOptions` | `searchableOptions(bool $value = true): static` | `$this` | Render a search box above the option list so the user can narrow it by label or value (v1.37.0). Not the same as `searchable()`, which makes the column part of the resource search. |
 | `hasSearchableOptions` | `hasSearchableOptions(): bool` | `bool` | Whether the option list renders with a search box. |
-| `allowCustomValues` | `allowCustomValues(bool $value = true): static` | `$this` | Accept a typed value that is not one of the options (v1.37.0). The stored value may then fall outside `getOptions()`; index and detail render it raw. Validation against the list stays yours (`Rule::in`). |
+| `allowCustomValues` | `allowCustomValues(bool $value = true): static` | `$this` | Accept a typed value that is not one of the options (v1.37.0). The stored value may then fall outside `getOptions()`; index and detail render it raw. Validation against the list stays yours (`Rule::in`, or `validateAgainstOptions()` when the list must be closed after all). |
+| `validateAgainstOptions` | `validateAgainstOptions(bool $value = true): static` | `$this` | Reject, on the server, a value that is not one of the options (v2.4.0, Martis extension). Off by default: a `Select` has never validated against its options. See [Validating against the options](#validating-against-the-options). |
+| `validatesAgainstOptions` | `validatesAgainstOptions(): bool` | `bool` | Whether the field rejects a value that is not one of its options. |
 | `allowsCustomValues` | `allowsCustomValues(): bool` | `bool` | Whether the control accepts values outside the option list. |
 | `searchOptionsUsing` | `searchOptionsUsing(Closure $resolver): static` | `$this` | Search the options on the server as the user types (v1.37.0). The closure receives `(string $term, ?Request $request)` and returns the same shapes `options()` accepts. Implies `searchableOptions()`. Resource forms and Tools implementing `ProvidesFields` only; see below. |
 | `hasRemoteOptionsSearch` | `hasRemoteOptionsSearch(): bool` | `bool` | Whether a server-side resolver is registered. |
@@ -1174,6 +1176,32 @@ Select::make('country_code')
 
 **Stored labels (Martis extension).** Reading a record whose stored value matches the label of a static option and the value of none logs a warning, in production too, at most once per request for each model class and field: the options array is still written label first, or the record was saved while it was, and saving it again would store the wrong value. For options given as a list, a stored value that is the label of another option warns too (`options([1, 2, 3])` holding a 1 saved under v1.x, which now shows as "2"). The check reads the stored value, before `resolveUsing()`. It skips options from a closure (so it never runs a query of its own), computed fields, and a `Select` with `allowCustomValues()`, where a typed label is a legitimate value. Both warnings assume the stored value is stale v1.x data, but a field can legitimately store a valid 0-based position that reads as another option's label, for example a Nova rating that stores `0..4` on purpose and shows `"1".."5"`: call `withoutOptionOrderWarnings()` on the field (Martis extension) to silence both warnings for it once the array is confirmed right.
 
+#### Validating against the options
+
+**A `Select` does not check, on the server, that the submitted value is one of its options.** The dropdown only offers them, but a request can carry any value, and the field writes it as sent: a forged `role_id`, a status the list never showed, an option the picker hides from this user. Nova's `Select` behaves the same, so `options()` alone is a UI constraint, not a rule.
+
+When the list must be closed, opt in:
+
+```php
+Select::make('status')
+    ->options(['draft' => 'Draft', 'live' => 'Live'])
+    ->validateAgainstOptions();
+
+// A closure of options: the query runs when a request is validated, not while the schema is built
+Select::make('role_id')
+    ->options(fn () => Role::query()->whereNull('provider_group_name')->pluck('name', 'id'))
+    ->required()
+    ->validateAgainstOptions();
+```
+
+- **One rule, over `getOptions()`**, with the options as they are when the request is validated. A value fails with Laravel's own `in` message (`The selected Status is invalid.`) as a `422` on the field, before anything is written. It applies wherever the field's rules do: the resource's create and update, the inline creates, and the fields of an [Action](actions.md) modal.
+- **By value, not by label,** and only as a string or an integer: an option keyed `7` accepts `7` and `'7'`, not `'07'`, `'7.0'`, `7.0`, `true` or an array. Grouped options count by their value; a list (`['Small', 'Large']`) accepts `0` and `1`; an enum class accepts its case values.
+- **An empty value is left to `required()` and `nullable()`**, as for every other field.
+- **Not for a list that is only a first page.** A field with `searchOptionsUsing()` loads the rest of its options from the server, so a value the search returns is not in `getOptions()` and would be rejected: validate that field with a rule of your own. With `allowCustomValues()` the closed list wins and a typed value is rejected, so pick one of the two.
+- A rule that depends on who asks (the roles this user may hand out) belongs in the `options()` closure, which receives the request: the same list then feeds the dropdown and the rule. The scaffolded `InviteUser` and `BulkAssignRole` actions do exactly that (see [Invitations](invitations.md#the-invite-role-picker) and [Roles](roles.md)).
+
+`MultiSelect::validateAgainstOptions()` is the same option for a selection: every selected value must be an option (one stray value fails the whole field), and anything that is not a list of strings and integers fails too.
+
 **Clear (X) icon.** On a `nullable()` select, the clear icon appears only once a value is selected — an empty select has nothing to clear, so no X shows on the placeholder state.
 
 **Searchable options, custom values and server-side search (v1.37.0).**
@@ -1193,7 +1221,7 @@ Select::make('model')
 ```
 
 - **`searchableOptions()`** renders PrimeReact's filter box inside the panel; filtering happens in the browser over the serialised `options`. Coming from Nova: Nova's `Select::searchable()` is this method. In Martis, `searchable()` on any field (including `Select`) means "the column takes part in the resource search", and it is serialised as `searchable`; the option search box is a separate flag, `searchableOptions`.
-- **`allowCustomValues()`** makes the control editable. A typed value reaches the form state on every keystroke, exactly like a `Text` field, and is stored as-is; `SelectFieldDisplay` renders a value with no matching option as the raw string. The field adds no `Rule::in` validation, so add one yourself when the list must be closed after all.
+- **`allowCustomValues()`** makes the control editable. A typed value reaches the form state on every keystroke, exactly like a `Text` field, and is stored as-is; `SelectFieldDisplay` renders a value with no matching option as the raw string. The field adds no `Rule::in` validation, so add one yourself when the list must be closed after all (`validateAgainstOptions()` is that rule, but it rejects a typed value, which defeats this flag: use one or the other).
 - **`searchOptionsUsing()`** moves the search to the server. When the panel opens the frontend calls the field-options endpoint with an empty term (return your "first page" there), then again after each typing pause (300 ms), aborting the previous request; the initial `options()` list is shown until the first response lands. The endpoint is derived from the form's scope: `GET /api/resources/{resource}/fields/{attribute}/options?context=create|update&id=<record>` for a Resource form (gated on the create ability, or on the update ability with the edited record bound, like `sync-field`) and `GET /api/tools/{uriKey}/fields/{attribute}/options` for a Tool implementing `ProvidesFields` whose form passes `toolKey` (see [Tool fields](tool-fields.md#server-side-option-search)). A select in a `Repeater` row asks the same endpoints with the form's own context and names its row (`&repeater={attribute}&repeatable={type}`), where the server finds it (v1.38.0+; see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)). Outside those two scopes (Action modals, a relationship's pivot fields, a frontend-only Tool form) the select falls back to local filtering over `options()`. The server decides what matches: results are shown as returned, never re-filtered in the browser. A stored value that is not in the current list is still shown in the control and can be cleared. An option picked from the results keeps its label in the control once the panel closes, a `''` ("None") option included. Index and detail read labels from `options()` only, so a value that only the search returns shows raw there, and a `''` shows the dash: list such an option in `options()` too when it must show its label. The term is trimmed and clamped to 255 characters before it reaches your closure. On a Resource form the select is looked up on the form of the context only: `fieldsForUpdate()`, or `fieldsForCreate()` and then the inline-create modal's `fieldsForInlineCreate()` (v1.38.0: a select declared on the inline-create form alone used to answer 422).
 
 **Filter variant + custom class (v1.29.0).** When rendering a select through the runtime `FieldInput` (e.g. a filter bar inside a [Tool](tool-fields.md)), the frontend honours two extra keys on the field definition:
@@ -1279,6 +1307,8 @@ MultiSelect::make('technologies')
 | `displayUsingLabels` | `displayUsingLabels(): static` | `$this` | Show labels instead of raw values on index/detail. |
 | `getOptions` | `getOptions(): array` | `array` | Get normalized options `[{label, value, group?}]` (resolves the closure if one was set). |
 | `isDisplayingLabels` | `isDisplayingLabels(): bool` | `bool` | Check if displaying labels. |
+| `validateAgainstOptions` | `validateAgainstOptions(bool $value = true): static` | `$this` | Reject, on the server, a selection that holds a value outside the options (v2.4.0, Martis extension). Off by default: like `Select`, a `MultiSelect` never validated against its options. Every selected value must be an option, matched by value as a string or an integer; an empty selection is left to `required()` and `nullable()`. See [Validating against the options](#validating-against-the-options). |
+| `validatesAgainstOptions` | `validatesAgainstOptions(): bool` | `bool` | Whether the field rejects a selection that holds a value outside its options. |
 
 **Storage format:** JSON array, e.g. `["php","react"]`
 **Overrides:** `resolve()` decodes JSON/array to list; `fill()` writes the list, JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).

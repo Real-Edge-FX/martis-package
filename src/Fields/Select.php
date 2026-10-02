@@ -43,7 +43,8 @@ class Select extends Field
      * options (PrimeReact `editable`). The stored value may then fall
      * outside `getOptions()`; index and detail render the raw value when no
      * option matches. Validating against the option list stays the
-     * consumer's call (`Rule::in`), the field never adds it. v1.37.0.
+     * consumer's call (`Rule::in`, or {@see self::validateAgainstOptions()}),
+     * the field never adds it on its own. v1.37.0.
      */
     protected bool $allowCustomValues = false;
 
@@ -153,6 +154,35 @@ class Select extends Field
     public function allowsCustomValues(): bool
     {
         return $this->allowCustomValues;
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * With {@see self::validateAgainstOptions()}, adds a closure rule that
+     * checks the value against `getOptions()` when the request is validated.
+     * A closure and not `Rule::in()`: the rules are also built for the
+     * schema, and `Rule::in()` would need the options now, which may be a
+     * query.
+     */
+    public function buildRules(?string $context = null): array
+    {
+        $rules = parent::buildRules($context);
+
+        if (! $this->validatesAgainstOptions) {
+            return $rules;
+        }
+
+        $rules[] = function (string $attribute, mixed $value, \Closure $fail): void {
+            // An empty value is for `required` and `nullable` to judge.
+            if ($value === null || $this->optionsContain($value)) {
+                return;
+            }
+
+            $fail('validation.in')->translate();
+        };
+
+        return $rules;
     }
 
     /**
