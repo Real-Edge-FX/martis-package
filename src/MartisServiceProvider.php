@@ -17,7 +17,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
 use Martis\Auth\DefaultRegistersUsers;
@@ -99,6 +98,7 @@ use Martis\Profile\ProfileResource;
 use Martis\Profile\TwoFactorService;
 use Martis\Resources\ActionEventResource;
 use Martis\Sso\SsoManager;
+use Martis\Support\CanonicalUrl;
 use Martis\Support\InstalledVersion;
 use Spatie\Permission\Events\PermissionAttachedEvent;
 use Spatie\Permission\Events\PermissionDetachedEvent;
@@ -517,7 +517,10 @@ class MartisServiceProvider extends ServiceProvider
 
         $martisPath = trim((string) config('martis.path', 'martis'), '/');
         $apiDocsPath = trim((string) config('martis.api_docs.path', 'api-docs'), '/');
-        $middleware = (array) config('martis.api_docs.middleware', ['web', 'auth']);
+        // The Martis protected stack, whatever is published: a list from an
+        // earlier release (`['web', 'auth']`) keeps its entries and gets the
+        // Martis guards it leaves out (RouteMiddleware::apiDocs()).
+        $middleware = RouteMiddleware::apiDocs(config('martis.api_docs.middleware'));
 
         Scramble::routes(function ($route) use ($martisPath) {
             $uri = ltrim((string) $route->uri(), '/');
@@ -693,7 +696,9 @@ class MartisServiceProvider extends ServiceProvider
                 ? (string) $notifiable->getEmailForPasswordReset()
                 : (string) ($notifiable->email ?? '');
 
-            return route('martis.password.reset', [
+            // On APP_URL, never on the request's host: a reset requested with a
+            // forged Host header must not mail the token to the attacker's domain.
+            return CanonicalUrl::route('martis.password.reset', [
                 'token' => $token,
                 'email' => $email,
             ]);
@@ -744,7 +749,7 @@ class MartisServiceProvider extends ServiceProvider
                 ? (string) $notifiable->getEmailForVerification()
                 : (string) ($notifiable->email ?? '');
 
-            return URL::temporarySignedRoute(
+            return CanonicalUrl::temporarySignedRoute(
                 'martis.email.verify',
                 Carbon::now()->addMinutes($expireMinutes),
                 [
@@ -778,7 +783,7 @@ class MartisServiceProvider extends ServiceProvider
         }
 
         InvitationUrl::createUrlUsing(static function (Invitation $invitation, string $rawToken): string {
-            return route('martis.invitations.accept', $rawToken);
+            return CanonicalUrl::route('martis.invitations.accept', $rawToken);
         });
     }
 
