@@ -909,6 +909,8 @@ npm run build:extensions
 
 That runs `vite build --config vite.extensions.config.ts`, which is published into your app by `martis:install`. The bundle is emitted at `public/vendor/martis-user/extensions.js` and Martis loads it at runtime through the URL listed in `MARTIS_EXTENSIONS` (also set by `martis:install`). The auto-discovery entry walks the four buckets under `resources/js/martis-extensions/` and registers every `.tsx` against `window.Martis.componentRegistry` — no manual `boot.ts`, no `MARTIS_USER_DIR`, no symlink.
 
+**No source map by default (v2.4.0+).** The bundle lands under `public/`, the web root, so a source map written beside it (`extensions.js.map`) would be served to everyone and hand them the original TSX of every tool, field, card and override, comments included. The published config sets `build.sourcemap: false`. To debug a build, set it to `true` (the map is written and linked from the bundle) or to `'hidden'` (the map is written, the bundle does not link it: upload it to your error tracker, then delete it from `public/vendor/martis-user/` before deploying). An app that published the config before v2.4.0 keeps `sourcemap: true` (the scaffold is copied once): set `build.sourcemap` to `false` in `vite.extensions.config.ts`, rebuild, and delete the `extensions.js.map` already under `public/vendor/martis-user/`.
+
 ### Shell piece-by-piece overrides
 
 Replace any of the three shell pieces (`Sidebar`, `Topbar`, `Footer`) without touching the rest. Two equivalent wiring options — pick the one that matches your workflow:
