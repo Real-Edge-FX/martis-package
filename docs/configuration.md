@@ -1061,7 +1061,7 @@ The denial listener dedupes the same `(ability, model_class, model_id)` tuple wi
 | Key | Default | Effect |
 |---|---|---|
 | `request_cache` | `false` | Memoises `(user, ability, model)` gate results for the current request. Wins when a single request evaluates the same gate from many surfaces (sidebar, schema authorization block, action visibility). Per-request only — never crosses request boundaries. Closure gates with non-Model arguments are skipped. |
-| `revoke_sessions_on_demote` | `false` | When a role is detached from a user, force-logs out their existing browser sessions. Useful when promoting/demoting between admin tiers. Skipped, with a warning, when the session guards sign in users of more than one table (a custom `MARTIS_GUARD` with its own model): the session rows cannot be told apart by id. |
+| `revoke_sessions_on_demote` | `false` | When a role or a permission is detached from a user, or a permission from a role (the users who hold it, v2.4.0), force-logs out their existing browser sessions, the request's own one excepted. Useful when promoting/demoting between admin tiers. Skipped, with a warning, when the session guards sign in users of more than one table (a custom `MARTIS_GUARD` with its own model): the session rows cannot be told apart by id. See [Authorization → Revoke sessions on demote](authorization.md#revoke-sessions-on-demote). |
 
 ## Magic-link sign-in (v1.8.8)
 
