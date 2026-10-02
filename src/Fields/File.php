@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use Martis\Rules\NoActiveContent;
 
 /**
  * File upload field.
@@ -19,7 +21,7 @@ use Illuminate\Support\Str;
  *       ->disk('s3')
  *       ->storagePath('uploads/docs')
  *       ->maxSize(10240)   // 10MB in KB
- *       ->acceptedTypes(['pdf', 'doc', 'docx'])
+ *       ->acceptedTypes(['pdf', 'doc', 'docx'])   // a security control, see below
  *       ->preserveOriginalName()
  *       ->sanitizeFileName()
  *       ->nullable()
@@ -29,6 +31,13 @@ use Illuminate\Support\Str;
  *       ->disk('public')
  *       ->storagePath('uploads/docs')
  *       ->maxSize(5120)
+ *
+ * Active content (HTML, SVG, XML, script files) is refused unless the
+ * developer opts in: a file the web server serves from the application's own
+ * origin runs in it when a user opens the link. `acceptedTypes()` is
+ * therefore a security control, not a convenience: list the types the field
+ * is for. Listing an active type (`'svg'`, `'html'`) or calling
+ * `allowActiveContent()` is the opt-in. See {@see NoActiveContent}.
  */
 class File extends Field
 {
@@ -42,6 +51,12 @@ class File extends Field
     protected array $acceptedTypes = [];
 
     protected bool $multiple = false;
+
+    /**
+     * When true, the field accepts HTML, SVG, XML and script files whatever
+     * `acceptedTypes()` lists (see `allowActiveContent()`).
+     */
+    protected bool $allowActiveContent = false;
 
     /**
      * When true, store files with their original name instead of a random hash.
@@ -117,6 +132,11 @@ class File extends Field
     /**
      * Restrict accepted file MIME extensions (e.g. ['pdf', 'png', 'jpg']).
      *
+     * This is a security control: without it the field takes any file that
+     * is not active content (see `allowActiveContent()`). List the types the
+     * field is for. Listing an active type (`'svg'`, `'html'`, `'xml'`)
+     * accepts it: the type is an explicit opt-in.
+     *
      * @param  list<string>  $mimes
      */
     public function acceptedTypes(array $mimes): static
@@ -124,6 +144,33 @@ class File extends Field
         $this->acceptedTypes = $mimes;
 
         return $this;
+    }
+
+    /**
+     * Accept active content: HTML, SVG, XML and script files, which a browser
+     * runs when they are opened.
+     *
+     * A file the web server serves from the application's origin (the
+     * `public` disk, the default) runs there with the session of whoever
+     * opens it, so the field refuses such files by default (a 422). Opt in
+     * only when the uploads are never served from that origin: a private disk
+     * behind a download route, another domain, or a server rule that sends
+     * `Content-Disposition: attachment` and `Content-Security-Policy: sandbox`.
+     * Listing the type in `acceptedTypes()` opts in for that type alone.
+     */
+    public function allowActiveContent(bool $value = true): static
+    {
+        $this->allowActiveContent = $value;
+
+        return $this;
+    }
+
+    /**
+     * Whether the field accepts active content whatever `acceptedTypes()` lists.
+     */
+    public function allowsActiveContent(): bool
+    {
+        return $this->allowActiveContent;
     }
 
     /**
@@ -202,6 +249,27 @@ class File extends Field
     // -------------------------------------------------------------------------
     // Filename handling
     // -------------------------------------------------------------------------
+
+    /**
+     * The name an upload is stored under, once it is checked.
+     *
+     * Throws a validation error for active content the field does not
+     * accept, so a caller that writes a file without validating it first
+     * never stores one (see `NoActiveContent`). A subclass that changes the
+     * naming overrides `generateStorageFilename()`, and is checked too.
+     *
+     * @throws ValidationException
+     */
+    protected function storageFilename(UploadedFile $file): string
+    {
+        $filename = $this->generateStorageFilename($file);
+
+        if (! $this->allowActiveContent && NoActiveContent::refuses($file, $this->acceptedTypes, $filename)) {
+            throw ValidationException::withMessages([$this->attribute => [NoActiveContent::message($this->label)]]);
+        }
+
+        return $filename;
+    }
 
     /**
      * Generate the storage filename for an uploaded file.
@@ -286,8 +354,10 @@ class File extends Field
         }
 
         if ($value instanceof UploadedFile) {
+            // The name first: it refuses active content before the stored
+            // file it replaces is deleted.
+            $filename = $this->storageFilename($value);
             $this->deleteStoredFile($model);
-            $filename = $this->generateStorageFilename($value);
             $path = $value->storeAs($this->storagePath, $filename, $this->disk);
             $model->setAttribute($this->attribute, $path ?: null);
 
@@ -326,6 +396,15 @@ class File extends Field
         /** @var array<mixed> $rawExisting */
         $rawExisting = $value['existing'] ?? [];
 
+        // Name every upload before anything is deleted or stored: an upload
+        // the field refuses (active content) must leave the record as it was.
+        $filenames = [];
+        foreach ($rawFiles as $index => $file) {
+            if ($file instanceof UploadedFile) {
+                $filenames[$index] = $this->storageFilename($file);
+            }
+        }
+
         // Only honour "existing" paths the model actually owns. The list is
         // client-supplied, so without this guard a caller could inject
         // arbitrary disk paths (another record's uploads, a traversal) into
@@ -347,10 +426,9 @@ class File extends Field
 
         // Store new uploads
         $newPaths = [];
-        foreach ($rawFiles as $file) {
+        foreach ($rawFiles as $index => $file) {
             if ($file instanceof UploadedFile) {
-                $filename = $this->generateStorageFilename($file);
-                $path = $file->storeAs($this->storagePath, $filename, $this->disk);
+                $path = $file->storeAs($this->storagePath, $filenames[$index], $this->disk);
                 if ($path) {
                     $newPaths[] = $path;
                 }
@@ -537,7 +615,20 @@ class File extends Field
             $rules[] = 'max:'.$this->maxSize;
         }
 
+        if (! $this->allowActiveContent) {
+            $rules[] = $this->noActiveContentRule();
+        }
+
         return $rules;
+    }
+
+    /**
+     * The rule that refuses active content (see `NoActiveContent`), checked
+     * against the name the upload would be stored under.
+     */
+    private function noActiveContentRule(): NoActiveContent
+    {
+        return new NoActiveContent($this->acceptedTypes, $this->generateStorageFilename(...));
     }
 
     /**
@@ -545,7 +636,7 @@ class File extends Field
      *
      * Only meaningful when multiple() is enabled.
      *
-     * @return list<string>
+     * @return list<string|NoActiveContent>
      */
     public function buildItemRules(): array
     {
@@ -561,6 +652,10 @@ class File extends Field
 
         if ($this->maxSize !== null) {
             $rules[] = 'max:'.$this->maxSize;
+        }
+
+        if (! $this->allowActiveContent) {
+            $rules[] = $this->noActiveContentRule();
         }
 
         return $rules;

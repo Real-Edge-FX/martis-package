@@ -2575,7 +2575,9 @@ File::make('attachment', 'Attachment')
 | `getDisk` | `getDisk(): string` | `string` | Get disk name. | — |
 | `storagePath` | `storagePath(string $path): static` | `$this` | Set subdirectory within disk. | `'uploads'` |
 | `maxSize` | `maxSize(int $kb): static` | `$this` | Set max file size in KB. | `null` |
-| `acceptedTypes` | `acceptedTypes(array $mimes): static` | `$this` | Restrict accepted file extensions. | `[]` |
+| `acceptedTypes` | `acceptedTypes(array $mimes): static` | `$this` | Restrict accepted file extensions. A security control, see [Active content](#file-active-content): listing an active type (`'svg'`, `'html'`) accepts it. | `[]` |
+| `allowActiveContent` | `allowActiveContent(bool $value = true): static` | `$this` | Accept HTML, SVG, XML and script files, which are refused by default. v2.4.0+. | `false` |
+| `allowsActiveContent` | `allowsActiveContent(): bool` | `bool` | Whether the field accepts active content. | — |
 | `multiple` | `multiple(bool $value = true): static` | `$this` | Enable multiple file uploads (stores JSON array). | `false` |
 | `isMultiple` | `isMultiple(): bool` | `bool` | Check if multiple mode. | — |
 | `preserveOriginalName` | `preserveOriginalName(bool $value = true): static` | `$this` | Keep original filename (with unique suffix). | `false` |
@@ -2588,9 +2590,31 @@ File::make('attachment', 'Attachment')
 **Overrides:**
 - `resolve()` returns `{path, url, name}` (single) or `[{path, url, name}]` (multiple).
 - `fill()` stores uploaded file, deletes old, supports multiple mode. In multiple mode the path list is JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)), and only `existing` paths the record already owns are kept: the list is client-supplied, so an injected path (another record's upload, a traversal) is dropped and an owned path the client omits is deleted from disk.
-- `buildRules()` adds `file`, `mimes:...`, `max:...` rules.
+- `buildRules()` adds `file`, `mimes:...`, `max:...` rules, and the active-content rule below (`Martis\Rules\NoActiveContent`) unless `allowActiveContent()` is set. `buildItemRules()` adds the same to each upload of a multiple field.
 
 **Extra attributes:** `disk`, `storagePath`, `maxSize`, `acceptedTypes`, `multiple`, `showFileInfo`
+
+<a id="file-active-content"></a>
+#### Active content is refused (v2.4.0+)
+
+The default disk is `public`, which the web server serves from the application's own origin (`APP_URL/storage`). An HTML or SVG document served from there runs its script in that origin, with the session of whoever opens the link: a panel user who may upload to a `File` field could plant a page that an administrator later opens, and the script can read the CSRF token and drive the panel API as that administrator. So a `File` (and an `Image`, an `Avatar`, an `Audio`, which extend it) answers `422` to an upload that a browser or the web server would run, unless the developer opts in:
+
+- **by extension**: the extension the file is stored with, every segment of it (`html`, `htm`, `xhtml`, `shtml`, `svg`, `svgz`, `xml`, `xsl`, `js`, `mjs`, `php`, `php3` to `php8`, `phtml`, `pht`, `phar`, `asp`, `aspx`, `jsp`, `cgi`, `htaccess` and the like, see `Martis\Rules\NoActiveContent::EXTENSIONS`). That is the one the field gives it: the hash name takes it from the content's MIME type, and `preserveOriginalName()` keeps the client's own (so a GIF with a script in it kept as `logo.html` is refused);
+- **by content**: the MIME type the server reads from the file's bytes, never the one the client claims (`text/html`, `image/svg+xml`, `application/xml` and every other `+xml` type, JavaScript and PHP types), so an HTML document named `report.pdf` is refused as well.
+
+The opt-in is explicit, per field:
+
+```php
+File::make('attachment')->acceptedTypes(['pdf', 'docx']);   // active content refused (it is not listed)
+File::make('logo')->acceptedTypes(['svg', 'png']);          // listing 'svg' accepts SVG, and nothing else active
+File::make('snippet')->allowActiveContent();                // accepts every active type
+```
+
+**`acceptedTypes()` is a security control, not a convenience.** Without it a field takes any file that is not active content; list the types the field is for. Accept active content only when the uploads are never served from the application's origin: a private disk behind a download route that sends `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`, a separate domain, or a web-server rule for the upload directory.
+
+The refusal also holds at `fill()` for a caller that skips validation: the field throws a `ValidationException` before it deletes the file it replaces or stores a new one, in single and multiple mode alike. The message is `martis::validation.active_content` (translated in `en`, `pt_PT`, `pt_BR`).
+
+An `Image` never accepted SVG; what changes for it is the kept name: `Image::make('x')->preserveOriginalName()` now refuses an image uploaded under an active extension (a polyglot).
 
 ---
 

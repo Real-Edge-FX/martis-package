@@ -10,4 +10,7 @@ return [
     'detachable' => 'This :attribute may not detach one of its records.',
     // An image URL a field writes must be an absolute https:// URL.
     'https_url' => 'The :attribute must be a valid URL that starts with https://.',
+    // An upload a browser runs when it is opened (HTML, SVG, XML, script files); a File
+    // field accepts one only when acceptedTypes() lists it or allowActiveContent() is set.
+    'active_content' => 'The :attribute must not be an HTML, SVG, XML or script file.',
 ];

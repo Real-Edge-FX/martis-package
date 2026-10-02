@@ -10,4 +10,7 @@ return [
     'detachable' => 'Este :attribute não pode desvincular um dos seus registros.',
     // An image URL a field writes must be an absolute https:// URL.
     'https_url' => 'O campo :attribute precisa ser uma URL válida que comece com https://.',
+    // An upload a browser runs when it is opened (HTML, SVG, XML, script files); a File
+    // field accepts one only when acceptedTypes() lists it or allowActiveContent() is set.
+    'active_content' => 'O campo :attribute não pode ser um arquivo HTML, SVG, XML ou de script.',
 ];

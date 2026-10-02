@@ -7,6 +7,7 @@ use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Martis\Rules\NoActiveContent;
 
 /**
  * Image upload field.
@@ -162,9 +163,11 @@ class Image extends File
         }
 
         if ($value instanceof UploadedFile) {
+            // The name first: it refuses active content (a polyglot kept
+            // under an `.html` name) before the stored image is deleted.
+            $filename = $this->storageFilename($value);
             $this->deleteStoredFile($model);
 
-            $filename = $this->generateStorageFilename($value);
             $path = $value->storeAs($this->storagePath, $filename, $this->disk);
 
             if ($path) {
@@ -211,6 +214,15 @@ class Image extends File
         /** @var array<mixed> $rawExisting */
         $rawExisting = $value['existing'] ?? [];
 
+        // Name every upload before anything is deleted or stored (see
+        // File::fillMultiple()).
+        $filenames = [];
+        foreach ($rawFiles as $index => $file) {
+            if ($file instanceof UploadedFile) {
+                $filenames[$index] = $this->storageFilename($file);
+            }
+        }
+
         // Only honour "existing" paths the model actually owns, the same
         // guard File::fillMultiple() applies. The list is client-supplied,
         // so without it a caller could inject arbitrary disk paths (another
@@ -233,10 +245,9 @@ class Image extends File
 
         // Store new uploads with thumbnails
         $newPaths = [];
-        foreach ($rawFiles as $file) {
+        foreach ($rawFiles as $index => $file) {
             if ($file instanceof UploadedFile) {
-                $filename = $this->generateStorageFilename($file);
-                $path = $file->storeAs($this->storagePath, $filename, $this->disk);
+                $path = $file->storeAs($this->storagePath, $filenames[$index], $this->disk);
                 if ($path) {
                     $newPaths[] = $path;
                     if ($this->thumbnailWidth !== null || $this->thumbnailHeight !== null) {
@@ -404,7 +415,7 @@ class Image extends File
     /**
      * Item rules for multiple mode — use 'image' instead of 'file'.
      *
-     * @return list<string>
+     * @return list<string|NoActiveContent>
      */
     public function buildItemRules(): array
     {

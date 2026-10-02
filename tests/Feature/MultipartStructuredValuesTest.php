@@ -447,10 +447,10 @@ it('BooleanGroup::fill() decodes a JSON string into the map before writing', fun
         ->and($model->getAttributes()['effects'])->toBe('{"blur":true,"grain":false}');
 });
 
-it('BooleanGroup::fill() writes an array as received', function () {
+it('BooleanGroup::fill() writes an array of the flags it offers as an array', function () {
     $model = new MSVSiteModel;
 
-    BooleanGroup::make('effects')->fill($model, ['blur' => false]);
+    BooleanGroup::make('effects')->options(['blur' => 'Blur'])->fill($model, ['blur' => false]);
 
     expect($model->effects)->toBe(['blur' => false]);
 });
