@@ -20,7 +20,7 @@ When **no policy** resolves for the resource, every row below permits. When a po
 | Delete / soft-delete | `authorizedToDelete` | `delete` | deny |
 | Restore | `authorizedToRestore` | `restore` | deny |
 | Force delete | `authorizedToForceDelete` | `forceDelete` | deny |
-| Replicate | `authorizedToReplicate` | `replicate` | falls back to `create` AND `update` |
+| Replicate | `authorizedToReplicate` | `replicate` | falls back to `create` AND `update`; the prefill route (`GET /api/resources/{resource}/{id}/replicate`) also needs `view` of the record, as the detail page does |
 | Run action | `authorizedToRunAction` | `runAction` | falls back to `update` |
 | Run destructive action | `authorizedToRunDestructiveAction` | `runDestructiveAction` | falls back to `delete` |
 | Attach related | `authorizedToAttach` | `attach{Model}` | permit |

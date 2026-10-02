@@ -690,6 +690,12 @@ class ResourceController extends MartisController
 
         $res = new $resourceClass($model);
 
+        // The prefill hands back the record's field values, so it needs the
+        // view ability show() asks for, before the replicate ability.
+        if (! $res->authorizedToView($request)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
         if (! $res->authorizedToReplicate($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
