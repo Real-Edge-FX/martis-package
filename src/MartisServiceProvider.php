@@ -809,17 +809,14 @@ class MartisServiceProvider extends ServiceProvider
      * Register the named rate limiters Martis applies on top of the
      * generic per-IP `throttle:N,1` middleware.
      *
-     * `martis-login` holds two limits for a request that names an email:
-     *
-     *   - the lowercased email AND the client IP
-     *     (`login_attempts` per `login_minutes`): a noisy machine, and one
-     *     machine's guesses at one account, without one user's typos
-     *     counting against another IP's attempts at the same account;
-     *   - the lowercased email ALONE (`login_email_attempts` per
-     *     `login_email_minutes`, a higher threshold over a longer window):
-     *     the only limit that bounds guessing at one account from many
-     *     addresses, since every source IP has a bucket of its own in the
-     *     first. `0` attempts turns it off.
+     * `martis-login` holds one limit for a request that names an email: the
+     * lowercased email AND the client IP (`login_attempts` per
+     * `login_minutes`), a noisy machine and one machine's guesses at one
+     * account, without one user's typos counting against another IP's
+     * attempts at the same account. Guessing at one account from many
+     * addresses is bounded by the per-account limit (AccountLoginThrottle),
+     * which the controllers apply: it counts wrong passwords only and
+     * keys on the account, not on the spelling of the email.
      *
      * A request without an email (no payload) is limited per IP only.
      * The limits are read per request, so a changed config takes effect
@@ -833,8 +830,6 @@ class MartisServiceProvider extends ServiceProvider
         RateLimiter::for('martis-login', function (Request $request) {
             $attempts = (int) config('martis.throttle.login_attempts', 20);
             $minutes = (int) config('martis.throttle.login_minutes', 1);
-            $accountAttempts = (int) config('martis.throttle.login_email_attempts', 100);
-            $accountMinutes = (int) config('martis.throttle.login_email_minutes', 15);
 
             // The limiter runs before validation: an email sent as an
             // array reads as empty, and the login answers its 422.
@@ -848,15 +843,9 @@ class MartisServiceProvider extends ServiceProvider
                 return [Limit::perMinutes($minutes, $attempts)->by('martis-login|ip|'.$request->ip())];
             }
 
-            $limits = [
+            return [
                 Limit::perMinutes($minutes, $attempts)->by('martis-login|email|'.sha1($email).'|ip|'.$request->ip()),
             ];
-
-            if ($accountAttempts > 0) {
-                $limits[] = Limit::perMinutes($accountMinutes, $accountAttempts)->by('martis-login|account|'.sha1($email));
-            }
-
-            return $limits;
         });
 
         // The 2FA challenge guards a second factor of 6 digits, so it gets a

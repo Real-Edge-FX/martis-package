@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
+use Martis\Auth\AccountLoginThrottle;
 use Martis\Auth\PanelAccess;
 use Martis\Auth\PasswordBrokerConfigurationException;
 use Martis\Auth\PasswordChangeRequirement;
@@ -128,12 +129,24 @@ class AuthController extends MartisController
         /** @var StatefulGuard $auth */
         $auth = auth()->guard($guardName);
 
+        // The per-account limit: wrong passwords for one account, from any
+        // address, spend one bucket (AccountLoginThrottle).
+        $email = (string) $request->input('email');
+        $account = AccountLoginThrottle::userFor($auth, $email);
+        if (AccountLoginThrottle::tooMany(AccountLoginThrottle::PASSWORD, $email, $account)) {
+            throw AccountLoginThrottle::exception(AccountLoginThrottle::PASSWORD, $email, $account);
+        }
+
         if (! $this->attemptLogin($auth, $request)) {
+            AccountLoginThrottle::hit(AccountLoginThrottle::PASSWORD, $email, $account);
+
             return response()->json([
                 'message' => __('auth.failed'),
                 'errors' => ['email' => [__('auth.failed')]],
             ], 422);
         }
+
+        AccountLoginThrottle::clear(AccountLoginThrottle::PASSWORD, $email, $account);
 
         $request->session()->regenerate();
 

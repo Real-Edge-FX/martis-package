@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
+use Martis\Auth\AccountLoginThrottle;
 use Martis\Auth\GuardCatalog;
 use Martis\Auth\MagicLinkNotification;
 use Martis\Auth\MagicLinkService;
@@ -72,6 +73,16 @@ class MagicLinkController
 
         $email = strtolower((string) $payload['email']);
         $user = $this->resolveUser($email);
+
+        // The request mails a link: it counts against a per-account bucket of
+        // its own (AccountLoginThrottle), whether or not the address matches
+        // an account, so password noise cannot starve it and it cannot
+        // starve the password sign-in. It also bounds the mail one address
+        // can be sent.
+        if (AccountLoginThrottle::tooMany(AccountLoginThrottle::MAGIC_LINK, $email, $user)) {
+            throw AccountLoginThrottle::exception(AccountLoginThrottle::MAGIC_LINK, $email, $user);
+        }
+        AccountLoginThrottle::hit(AccountLoginThrottle::MAGIC_LINK, $email, $user);
 
         if ($user === null && ! (bool) config('martis.auth.magic_link.auto_register', false)) {
             // Behave identically whether the email exists or not — no

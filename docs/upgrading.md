@@ -62,7 +62,7 @@ The emailed link opens a confirmation page, and the sign-in is `POST /api/auth/m
 
 - Users with 2FA meet the challenge once after the upgrade (the old session flag is not trusted).
 - Regenerating recovery codes needs `current_password`; the user is emailed.
-- New limits, all configurable: `MARTIS_LOGIN_THROTTLE_EMAIL_ATTEMPTS` / `_MINUTES` (100 in 15 minutes per email, 0 turns it off), `MARTIS_2FA_THROTTLE_ATTEMPTS` (5), `MARTIS_2FA_THROTTLE_IP_ATTEMPTS` (15), `MARTIS_2FA_THROTTLE_MINUTES` (1), `MARTIS_2FA_LOCKOUT_ATTEMPTS` (5, 0 turns it off) and `MARTIS_2FA_LOCKOUT_MINUTES` (15).
+- New limits, all configurable: `MARTIS_LOGIN_THROTTLE_EMAIL_ATTEMPTS` / `_MINUTES` (100 wrong passwords in 15 minutes per account, whatever the IP, counted until a right one clears them; the magic-link request has a bucket of its own; 0 turns it off), `MARTIS_2FA_THROTTLE_ATTEMPTS` (5), `MARTIS_2FA_THROTTLE_IP_ATTEMPTS` (15), `MARTIS_2FA_THROTTLE_MINUTES` (1), `MARTIS_2FA_LOCKOUT_ATTEMPTS` (5, 0 turns it off) and `MARTIS_2FA_LOCKOUT_MINUTES` (15).
 - Forgot password answers `200` for an unknown email too.
 - The browser sessions API returns a `handle`, sent back to revoke a session.
 
