@@ -153,6 +153,7 @@ return [
     'query_error_generic' => 'The request failed. Try again, or adjust the filters and search.',
     'boolean_group_min_checked' => ':attribute requires at least :min checked option(s); only :count are checked.',
     'boolean_group_max_checked' => ':attribute allows at most :max checked option(s); :count are checked.',
+    'sparkline_numbers' => 'The :attribute must be a list of numbers.',
     'copy' => 'Copy',
     'error_boundary_title' => 'Unexpected error',
     'error_boundary_message' => 'An error occurred while rendering this section.',

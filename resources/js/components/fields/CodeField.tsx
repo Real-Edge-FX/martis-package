@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import type { FieldDisplayProps, FieldInputProps } from "./types"
-import CodeMirror from "@uiw/react-codemirror"
+import CodeMirror, { EditorView } from "@uiw/react-codemirror"
 import { javascript } from "@codemirror/lang-javascript"
 import { html } from "@codemirror/lang-html"
 import { css } from "@codemirror/lang-css"
@@ -15,6 +15,16 @@ import { sass } from "@codemirror/lang-sass"
 import { vue } from "@codemirror/lang-vue"
 import { oneDark } from "@codemirror/theme-one-dark"
 import type { Extension } from "@codemirror/state"
+import { readCspNonce } from "@/lib/cspNonce"
+
+/**
+ * CodeMirror mounts its theme as <style> elements; under a
+ * Content-Security-Policy without 'unsafe-inline' they need the page's nonce.
+ */
+function nonceExtensions(): Extension[] {
+  const nonce = readCspNonce()
+  return nonce !== null ? [EditorView.cspNonce.of(nonce)] : []
+}
 
 /**
  * Detect whether the current page is in dark mode by checking
@@ -77,7 +87,7 @@ export function CodeFieldDisplay({ field, value }: FieldDisplayProps) {
   const langExt = useMemo(() => getLanguageExtension(language), [language])
   const dark = useMemo(() => isDarkMode(), [])
   const extensions = useMemo(() => {
-    const exts: Extension[] = []
+    const exts: Extension[] = nonceExtensions()
     if (langExt) exts.push(langExt)
     if (dark) exts.push(oneDark)
     return exts
@@ -113,7 +123,7 @@ export function CodeFieldInput({
   const langExt = useMemo(() => getLanguageExtension(language), [language])
   const dark = useMemo(() => isDarkMode(), [])
   const extensions = useMemo(() => {
-    const exts: Extension[] = []
+    const exts: Extension[] = nonceExtensions()
     if (langExt) exts.push(langExt)
     if (dark) exts.push(oneDark)
     return exts
