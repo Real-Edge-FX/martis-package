@@ -20,10 +20,14 @@
 #   scripts/test.sh                          # full suite
 #   scripts/test.sh tests/Feature/Foo.php    # subset (args pass through to pest)
 #   scripts/test.sh --filter='keep_signed_in'
+#
+# MARTIS_PEST_IMAGE names the image (default martis-pest:8.3). Git worktrees
+# whose .docker/pest.Dockerfile differs would otherwise re-tag one image under
+# each other's feet, so a worktree that changes the Dockerfile sets its own.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-IMAGE="martis-pest:8.3"
+IMAGE="${MARTIS_PEST_IMAGE:-martis-pest:8.3}"
 
 # Build once; Docker layer caching makes subsequent runs instant.
 docker build -q -t "$IMAGE" -f "$ROOT/.docker/pest.Dockerfile" "$ROOT/.docker" >/dev/null
