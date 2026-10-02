@@ -1,5 +1,6 @@
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { resolveBadgeStyle, type BadgeStyle } from './badgeStyles'
+import { ownEntry } from '@/lib/ownEntry'
 
 // ---------------------------------------------------------------------------
 // Color mapping: badge type → CSS color vars / class
@@ -11,8 +12,10 @@ function resolveBadgeType(
   types: Record<string, string>,
 ): { type: string; style: BadgeStyle } {
   const strVal = String(value ?? '')
-  const badgeType = map[strVal] ?? strVal
-  const colorKey = types[badgeType] ?? badgeType
+  // The value is record data: only the tables' own entries count, never what
+  // every object inherits (`constructor`, `__proto__`).
+  const badgeType = ownEntry(map, strVal) ?? strVal
+  const colorKey = ownEntry(types, badgeType) ?? badgeType
   return { type: badgeType, style: resolveBadgeStyle(colorKey) }
 }
 
@@ -56,8 +59,8 @@ export function BadgeFieldDisplay({ field, value }: FieldDisplayProps) {
   }
 
   const { type, style } = resolveBadgeType(resolved?.type ?? rawValue, map, types)
-  const icon = resolved?.icon ?? (withIcons ? icons[type] : null)
-  const label = resolved?.label ?? labels[String(rawValue)] ?? String(rawValue)
+  const icon = resolved?.icon ?? (withIcons ? (ownEntry(icons, type) ?? null) : null)
+  const label = resolved?.label ?? ownEntry(labels, String(rawValue)) ?? String(rawValue)
 
   const withDot = ((field as Record<string, unknown>).withDot as boolean | undefined) ?? true
 

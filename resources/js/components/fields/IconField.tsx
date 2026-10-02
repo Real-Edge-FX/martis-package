@@ -4,6 +4,7 @@ import { MagnifyingGlassIcon, XIcon, CaretDownIcon, SmileyBlankIcon } from '@pho
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { useEscapeLayer } from '@/lib/escapeLayers'
+import { ownEntry } from '@/lib/ownEntry'
 
 // -----------------------------------------------------------------------------
 // Semantic color tokens — map friendly names to Martis CSS vars.
@@ -25,7 +26,8 @@ function resolveIconColor(input: string | null | undefined): string | undefined 
   const trimmed = input.trim()
   if (trimmed === '') return undefined
   const key = trimmed.toLowerCase()
-  if (SEMANTIC_TOKENS[key]) return SEMANTIC_TOKENS[key]
+  const token = ownEntry(SEMANTIC_TOKENS, key)
+  if (token) return token
   // `var(--…)`, `#hex`, `rgb(…)`, named color → use as-is.
   return trimmed
 }
@@ -79,7 +81,7 @@ function coerceToPair(value: unknown, extras: IconExtras): IconPair {
 
   // Raw string (stored field, resolved via base toArray without model).
   if (typeof value === 'string' && value !== '') {
-    const mapped = extras.map?.[value]
+    const mapped = ownEntry(extras.map, value)
     if (mapped) {
       return { icon: mapped.icon, color: mapped.color ?? extras.color ?? null }
     }
