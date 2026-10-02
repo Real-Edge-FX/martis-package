@@ -215,8 +215,11 @@ Route::middleware(RouteMiddleware::base())
                     ->name('api.')
                     ->middleware($throttle)
                     ->group(function () {
+                        // A limiter of its own (per user and per IP, tighter than
+                        // the login's), registered in
+                        // MartisServiceProvider::registerRateLimiters().
                         Route::post('/2fa/challenge', [TwoFactorController::class, 'challenge'])
-                            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1).','.RouteMiddleware::throttlePrefix('2fa'))
+                            ->middleware('throttle:martis-2fa-challenge')
                             ->name('2fa.challenge');
                     });
 

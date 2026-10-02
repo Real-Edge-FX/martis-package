@@ -77,6 +77,8 @@ return [
     '2fa_recovery_placeholder' => 'Código de recuperação',
     '2fa_otp_placeholder' => 'Código de 6 dígitos',
     '2fa_challenge_failed' => 'Código inválido. Tente novamente.',
+    '2fa_challenge_throttled' => 'Demasiadas tentativas. Aguarde um momento antes de tentar novamente.',
+    '2fa_challenge_locked' => 'Demasiados códigos incorretos. Por segurança, a sessão foi terminada. Tente novamente dentro de alguns minutos.',
     '2fa_cancel' => 'Cancelar',
     'current_password_wrong' => 'Palavra-passe incorrecta. Tente novamente.',
     '2fa_disable_confirm_title' => 'Desativar Autenticação de Dois Fatores',

@@ -990,7 +990,7 @@ Martis includes TOTP-based two-factor authentication with a guided setup wizard.
 | `POST` | `/martis/api/profile/2fa/confirm` | Verify OTP code and activate 2FA |
 | `POST` | `/martis/api/profile/2fa/recovery-codes` | Regenerate the recovery-code set for an already-active 2FA account. Takes `current_password` (v2.4.0), and the user is told by email |
 | `DELETE` | `/martis/api/profile/2fa` | Disable 2FA for current user. Takes `current_password` |
-| `POST` | `/martis/api/2fa/challenge` | Submit 2FA code during login (rate limited via `MARTIS_LOGIN_THROTTLE_*`) |
+| `POST` | `/martis/api/2fa/challenge` | Submit 2FA code during login. Rate limited per user and per IP (`MARTIS_2FA_THROTTLE_*`, 5 a minute per user by default) and locks the user out after consecutive wrong codes (`MARTIS_2FA_LOCKOUT_*`), v2.4.0. `422` wrong code, `429` rate limited, `403` locked out |
 
 ### 2FA Challenge on Login
 
@@ -1000,6 +1000,15 @@ When a user with 2FA enabled logs in:
 2. The frontend redirects to the 2FA challenge screen
 3. User enters their 6-digit TOTP code (or a recovery code)
 4. On success, the session is fully authenticated
+
+### The 2FA challenge is rate limited and locks out (v2.4.0)
+
+The challenge guards a 6-digit code (with the one step of tolerance either side, about 3 valid codes in a million at any moment), so it has a limiter and a lockout of its own, both in the `throttle` block of `config/martis.php` ([2FA challenge throttle](configuration.md#2fa-challenge-throttle)):
+
+1. **A limiter** (`martis-2fa-challenge`): 5 requests a minute per user and 15 per IP by default. Past either limit the route answers `429` and does not look at the code, so a right code sent at the 6th attempt is not accepted either. Up to v2.3.0 the challenge shared the login throttle, 20 a minute per user.
+2. **A lockout.** After 5 consecutive wrong codes (a TOTP code or a recovery code; a right code starts the count over) the pending session ends (the user is signed out, the session is invalidated) and the route answers `403` with `{"two_factor_locked": true, "message": "..."}`. The SPA shows the message and goes to the login page. The user is then **locked out of the challenge for 15 minutes**: a fresh password sign-in is needed, and during the lockout the challenge refuses every code, the right one and the recovery codes included, and ends the session again. The count belongs to the user, not to the session, so signing in again does not start it over: that is what gives guessing a ceiling for someone who holds the password. The lockout is written to the log (`warning`).
+
+The lockout trades availability for that ceiling: whoever holds the password can keep the owner out of the challenge by failing five times every 15 minutes. If that is a worse risk for your users than the guessing it stops, raise `MARTIS_2FA_LOCKOUT_ATTEMPTS`, shorten `MARTIS_2FA_LOCKOUT_MINUTES`, or set the attempts to `0` to turn the lockout off and keep the limiter. The counters live in the cache (the rate limiter's store), so a cache flush clears them, and a lockout can be cleared by hand with `RateLimiter::clear('martis-2fa-lockout:{guard}:{user id}')`.
 
 ### The 2FA pass is bound to the user (v2.4.0)
 

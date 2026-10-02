@@ -77,6 +77,8 @@ return [
     '2fa_recovery_placeholder' => 'Recovery code',
     '2fa_otp_placeholder' => '6-digit code',
     '2fa_challenge_failed' => 'Invalid code. Please try again.',
+    '2fa_challenge_throttled' => 'Too many attempts. Wait a moment before you try again.',
+    '2fa_challenge_locked' => 'Too many incorrect codes. For your security you were signed out. Try again in a few minutes.',
     '2fa_cancel' => 'Cancel',
     'current_password_wrong' => 'Incorrect password. Please try again.',
     '2fa_disable_confirm_title' => 'Disable Two-Factor Authentication',

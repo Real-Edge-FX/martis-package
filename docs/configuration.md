@@ -482,7 +482,7 @@ Shipped locales: `en` (English), `pt_BR` (Brazilian Portuguese), `pt_PT` (Europe
 | `max_attempts` | `int` | `120` | Maximum requests per window, per signed-in user of the Martis guard, counted across the Martis API and every Tool's routes (v2.0). |
 | `decay_minutes` | `int` | `1` | Rate limit window in minutes. |
 
-The limit is Laravel's `throttle` middleware with a key prefix, `throttle:{max},{decay},martis-api:{guard}:` (`RouteMiddleware::throttlePrefix('api')`, v2.0.1). Laravel keys a signed-in user's bucket on `sha1()` of the identifier alone, so without the prefix the Martis guard's user 5 shared a bucket with a site route's plain `throttle` for the site user 5 (an `admins` guard beside the site's `users`), or for the same person. The 2FA challenge (`martis-2fa:{guard}:`) and the verification email resend (`martis-verification:{guard}:`) keep their own limits in their own buckets: before v2.0.1 they counted in the API's, so a resend answered `429` after three API requests in the same minute.
+The limit is Laravel's `throttle` middleware with a key prefix, `throttle:{max},{decay},martis-api:{guard}:` (`RouteMiddleware::throttlePrefix('api')`, v2.0.1). Laravel keys a signed-in user's bucket on `sha1()` of the identifier alone, so without the prefix the Martis guard's user 5 shared a bucket with a site route's plain `throttle` for the site user 5 (an `admins` guard beside the site's `users`), or for the same person. The verification email resend (`martis-verification:{guard}:`) keeps its own limit in its own bucket: before v2.0.1 it counted in the API's, so a resend answered `429` after three API requests in the same minute. The 2FA challenge has a named limiter of its own since v2.4.0 (`martis-2fa-challenge`, see [2FA challenge throttle](#2fa-challenge-throttle)), with the Martis guard in its keys.
 
 ## Theme
 
@@ -1188,6 +1188,30 @@ These keys live in the same `throttle` block as the global panel limits (`MARTIS
 
 `login_email_attempts` / `login_email_minutes` (v2.4.0) are the second limit of the `martis-login` limiter, keyed on the email alone: at most 100 requests per 15 minutes for one email, whatever the source IPs. It bounds guessing at one account from many addresses, which the per-IP limit cannot, and has a higher threshold over a longer window than `login_*`, so a user who mistypes a password never reaches it. `0` attempts turns it off. See [Authentication → Per-email throttle](authentication.md#per-email-throttle) for what each limit stops and the cost of a per-account limit. It applies to `POST /{martis-path}/login` (new in v2.4.0), `POST /api/auth/login` and the magic-link request. Add the new variables to a published `config/martis.php` (or republish it).
 
+## 2FA challenge throttle
+
+```php
+'throttle' => [
+    'two_factor_attempts'        => (int) env('MARTIS_2FA_THROTTLE_ATTEMPTS', 5),
+    'two_factor_ip_attempts'     => (int) env('MARTIS_2FA_THROTTLE_IP_ATTEMPTS', 15),
+    'two_factor_minutes'         => (int) env('MARTIS_2FA_THROTTLE_MINUTES', 1),
+    'two_factor_lockout_attempts' => (int) env('MARTIS_2FA_LOCKOUT_ATTEMPTS', 5),
+    'two_factor_lockout_minutes'  => (int) env('MARTIS_2FA_LOCKOUT_MINUTES', 15),
+],
+```
+
+`POST /api/2fa/challenge` guards a 6-digit code, so since v2.4.0 it has a limiter of its own (`throttle:martis-2fa-challenge`, registered in `MartisServiceProvider::registerRateLimiters()`), tighter than the login throttle it used to share (20 a minute per user, with no ceiling):
+
+| Key | Default | Effect |
+|---|---|---|
+| `two_factor_attempts` | `5` | Requests per user per `two_factor_minutes`: the account being guessed at. Past it the route answers `429`, without checking the code. |
+| `two_factor_ip_attempts` | `15` | Requests per IP per `two_factor_minutes`: one machine guessing at many accounts. Higher than the per-user limit so a team behind one NAT signing in together is not stopped. |
+| `two_factor_minutes` | `1` | The window of both limits. |
+| `two_factor_lockout_attempts` | `5` | Consecutive wrong codes (TOTP or recovery) that lock the user out. `0` turns the lockout off. |
+| `two_factor_lockout_minutes` | `15` | How long the lockout lasts. |
+
+The lockout is what sets a ceiling on guessing for someone who holds the user's password and can sign in again and again: see [Authentication → The 2FA challenge is rate limited and locks out](authentication.md#the-2fa-challenge-is-rate-limited-and-locks-out-v240).
+
 ## Impersonation extras
 
 In addition to `MARTIS_IMPERSONATION_ENABLED` (covered above), the impersonation subsystem exposes:
@@ -1448,6 +1472,11 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_LOADER_DISABLED` | `false` |
 | `MARTIS_LOCALE` | `env('APP_LOCALE', 'en')` |
 | `MARTIS_LOCALE_FALLBACK_CHAIN` | `'en'` |
+| `MARTIS_2FA_LOCKOUT_ATTEMPTS` | `5` |
+| `MARTIS_2FA_LOCKOUT_MINUTES` | `15` |
+| `MARTIS_2FA_THROTTLE_ATTEMPTS` | `5` |
+| `MARTIS_2FA_THROTTLE_IP_ATTEMPTS` | `15` |
+| `MARTIS_2FA_THROTTLE_MINUTES` | `1` |
 | `MARTIS_LOGIN_THROTTLE_ATTEMPTS` | `20` |
 | `MARTIS_LOGIN_THROTTLE_EMAIL_ATTEMPTS` | `100` |
 | `MARTIS_LOGIN_THROTTLE_EMAIL_MINUTES` | `15` |

@@ -25,6 +25,7 @@ use Martis\Auth\DefaultRegistersUsers;
 use Martis\Auth\DefaultResetsUserPasswords;
 use Martis\Auth\DefaultSendsEmailVerification;
 use Martis\Auth\DefaultSendsPasswordResetLinks;
+use Martis\Auth\GuardCatalog;
 use Martis\Auth\Listeners\ClearPasswordChangeRequirement;
 use Martis\Auth\Listeners\RecordAuthorizationDenial;
 use Martis\Auth\Listeners\RecordImpersonation;
@@ -834,6 +835,28 @@ class MartisServiceProvider extends ServiceProvider
 
             if ($accountAttempts > 0) {
                 $limits[] = Limit::perMinutes($accountMinutes, $accountAttempts)->by('martis-login|account|'.sha1($email));
+            }
+
+            return $limits;
+        });
+
+        // The 2FA challenge guards a second factor of 6 digits, so it gets a
+        // limiter of its own, tighter than the login's: per user (the
+        // account being guessed at) and per IP (one machine guessing at
+        // many accounts), read per request. Past the limit the route
+        // answers 429; TwoFactorChallengeLockout ends the session after
+        // consecutive wrong codes.
+        RateLimiter::for('martis-2fa-challenge', function (Request $request) {
+            $minutes = max(1, (int) config('martis.throttle.two_factor_minutes', 1));
+            $perUser = (int) config('martis.throttle.two_factor_attempts', 5);
+            $perIp = (int) config('martis.throttle.two_factor_ip_attempts', 15);
+            $guard = GuardCatalog::martis();
+
+            $limits = [Limit::perMinutes($minutes, $perIp)->by('martis-2fa-challenge|'.$guard.'|ip|'.$request->ip())];
+
+            $user = auth()->guard($guard)->user();
+            if ($user !== null) {
+                $limits[] = Limit::perMinutes($minutes, $perUser)->by('martis-2fa-challenge|'.$guard.'|user|'.$user->getAuthIdentifier());
             }
 
             return $limits;
