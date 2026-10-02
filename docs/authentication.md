@@ -984,8 +984,8 @@ Martis includes TOTP-based two-factor authentication with a guided setup wizard.
 |--------|------|-------------|
 | `POST` | `/martis/api/profile/2fa/setup` | Initialize 2FA (returns QR code SVG + secret) |
 | `POST` | `/martis/api/profile/2fa/confirm` | Verify OTP code and activate 2FA |
-| `POST` | `/martis/api/profile/2fa/recovery-codes` | Regenerate the recovery-code set for an already-active 2FA account |
-| `DELETE` | `/martis/api/profile/2fa` | Disable 2FA for current user |
+| `POST` | `/martis/api/profile/2fa/recovery-codes` | Regenerate the recovery-code set for an already-active 2FA account. Takes `current_password` (v2.4.0), and the user is told by email |
+| `DELETE` | `/martis/api/profile/2fa` | Disable 2FA for current user. Takes `current_password` |
 | `POST` | `/martis/api/2fa/challenge` | Submit 2FA code during login (rate limited via `MARTIS_LOGIN_THROTTLE_*`) |
 
 ### 2FA Challenge on Login
@@ -1010,6 +1010,12 @@ If you write your own sign-in route, sign the user in through the Martis guard (
 ### Recovery Codes
 
 When 2FA is enabled, the system generates one-time recovery codes (default: 8). These codes can be used instead of the TOTP code if the user loses access to their authenticator app. Each recovery code can only be used once.
+
+Recovery codes stand in for the TOTP factor at the challenge, so changing them is as sensitive as disabling 2FA (v2.4.0):
+
+- **`POST /api/profile/2fa/recovery-codes` needs `current_password`**, as `DELETE /api/profile/2fa` does. A wrong or missing password answers `422` and leaves the codes alone. The profile page asks for the password in a dialog before it calls the endpoint. Before v2.4.0 the session alone was enough, so whoever held a session that was not the owner's (a stolen or left-open one) could mint a permanent second factor and lock the owner out of their saved codes.
+- **The user is told by email** that their recovery codes were regenerated (`Martis\Auth\RecoveryCodesRegeneratedNotification`, a mail notification: extend it to change the wording). The mail goes to the user when the model uses `Illuminate\Notifications\Notifiable`, else to the `email` of the account. A mailer that is down never breaks the request: the codes are already regenerated, and the failure is reported to the exception handler. The subject and lines are the `2fa_regen_mail_*` keys of the `profile` translations (en, pt_PT, pt_BR).
+- **The factor- and password-changing endpoints refuse an impersonation.** While an operator impersonates a user ([Impersonation](impersonation.md)), `POST /api/profile/2fa/setup`, `POST /api/profile/2fa/confirm`, `DELETE /api/profile/2fa`, `POST /api/profile/2fa/recovery-codes` and `POST /api/profile/password` answer `403` (`refused_while_impersonating`) and change nothing. They act on whoever the guard signed in, which is the target during an impersonation, and a recovery code, an authenticator secret or a password the operator set would outlive the session.
 
 ### Database Requirements
 

@@ -23,10 +23,14 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
   const [recoveryOpen, setRecoveryOpen] = useState(false)
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
   const [regenerating, setRegenerating] = useState(false)
+  const [regenConfirmOpen, setRegenConfirmOpen] = useState(false)
+  const [regenPassword, setRegenPassword] = useState('')
+  const [regenPasswordError, setRegenPasswordError] = useState('')
   const [copied, setCopied] = useState(false)
   const [passwordError, setPasswordError] = useState('')
 
   useModalHistoryLock(disableConfirmOpen)
+  useModalHistoryLock(regenConfirmOpen)
   useModalHistoryLock(recoveryOpen)
 
   function openDisableConfirm() {
@@ -60,16 +64,41 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
     }
   }
 
-  async function handleViewRecoveryCodes() {
+  function openRegenConfirm() {
+    setRegenPassword('')
+    setRegenPasswordError('')
+    setRegenConfirmOpen(true)
+  }
+
+  function closeRegenConfirm() {
+    setRegenPassword('')
+    setRegenPasswordError('')
+    setRegenConfirmOpen(false)
+  }
+
+  // Regenerating the recovery codes needs the current password, as disabling
+  // 2FA does: a stolen or left-open session must not mint a second factor.
+  async function handleRegenerate() {
+    setRegenPasswordError('')
     setRegenerating(true)
     setRecoveryCodes([])
     try {
-      const res = await api.post<{ recovery_codes: string[] }>('/api/profile/2fa/recovery-codes')
+      const res = await api.post<{ recovery_codes: string[] }>('/api/profile/2fa/recovery-codes', {
+        current_password: regenPassword,
+      })
       setRecoveryCodes(res.recovery_codes ?? [])
+      closeRegenConfirm()
       setRecoveryOpen(true)
       addToast('success', t('2fa_regen_success'))
-    } catch {
-      addToast('error', t('error'))
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 422) {
+        setRegenPasswordError(t('current_password_wrong', { defaultValue: 'Incorrect password. Please try again.' }))
+      } else if (err instanceof ApiError && err.status === 403) {
+        // Refused while impersonating: the server says why.
+        addToast('error', err.message || t('error'))
+      } else {
+        addToast('error', t('error'))
+      }
     } finally {
       setRegenerating(false)
     }
@@ -121,7 +150,7 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
               <button
                 type="button"
                 disabled={regenerating}
-                onClick={() => void handleViewRecoveryCodes()}
+                onClick={openRegenConfirm}
                 className="martis-btn-secondary"
               >
                 <ArrowsClockwiseIcon size={14} />
@@ -223,6 +252,86 @@ export function SecuritySection({ twoFactorEnabled, onUpdate }: SecuritySectionP
               >
                 <TrashIcon size={14} />
                 {disabling ? t('saving') : t('2fa_disable_confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      ), document.body)}
+
+      {/* Confirm regenerate recovery codes: asks for the current password */}
+      {regenConfirmOpen && createPortal((
+        <div className="martis-modal-scrim" onClick={closeRegenConfirm}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="martis-modal-surface"
+            style={{ maxWidth: '420px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="martis-modal-head">
+              <div className="flex items-center gap-3">
+                <ArrowsClockwiseIcon size={18} />
+                <h3 className="martis-modal-head-title">
+                  {t('2fa_regen_confirm_title', { defaultValue: 'Generate new recovery codes' })}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={closeRegenConfirm}
+                className="martis-modal-close"
+                aria-label={t('2fa_cancel')}
+              >
+                <XIcon size={16} />
+              </button>
+            </div>
+
+            <div className="martis-modal-body space-y-4">
+              <p>
+                {t('2fa_regen_confirm_body', {
+                  defaultValue: 'Enter your current password to generate a new set of recovery codes. Your current codes will stop working.',
+                })}
+              </p>
+              <div>
+                <label
+                  htmlFor="regen-2fa-password"
+                  className="block text-sm font-medium martis-text mb-1"
+                >
+                  {t('current_password')}
+                </label>
+                <input
+                  id="regen-2fa-password"
+                  type="password"
+                  value={regenPassword}
+                  onChange={(e) => { setRegenPassword(e.target.value); setRegenPasswordError('') }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && regenPassword && !regenerating) void handleRegenerate() }}
+                  className="w-full rounded-lg border border-solid px-3 py-2 text-sm martis-text martis-card-bg focus:outline-none focus:ring-2"
+                  style={{ borderColor: regenPasswordError ? 'var(--martis-danger)' : 'var(--martis-border)' }}
+                  autoComplete="current-password"
+                />
+                {regenPasswordError && (
+                  <p className="mt-1 text-xs" style={{ color: 'var(--martis-danger)' }}>{regenPasswordError}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="martis-modal-foot">
+              <button
+                type="button"
+                disabled={regenerating}
+                onClick={closeRegenConfirm}
+                className="martis-btn-secondary"
+              >
+                <XIcon size={14} />
+                {t('2fa_cancel')}
+              </button>
+              <button
+                type="button"
+                disabled={regenerating || !regenPassword}
+                onClick={() => void handleRegenerate()}
+                className="martis-btn-primary"
+              >
+                <ArrowsClockwiseIcon size={14} />
+                {regenerating ? t('2fa_regenerating') : t('2fa_regen_confirm', { defaultValue: 'Generate new codes' })}
               </button>
             </div>
           </div>

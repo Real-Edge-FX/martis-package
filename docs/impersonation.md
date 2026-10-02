@@ -182,6 +182,7 @@ The two events live under `Martis\Impersonation\Events\*` and carry both `operat
 ## Security notes
 
 - The package never bypasses the gate. Removing the gate definition disables impersonation entirely.
+- While an impersonation runs, the profile endpoints that change the target's second factor or password (2FA setup, confirm and disable, the recovery codes, the password change) answer `403` and change nothing: an operator cannot leave themselves a way into the account that outlives the session (v2.4.0). See [Authentication → Recovery Codes](authentication.md#recovery-codes).
 - `start()` rejects self-impersonation and chaining (impersonator A starting impersonation as B while already impersonating C). Either path is a sign of a confused state — fail loud.
 - The session marker is namespace-prefixed (`martis.impersonation`) so it cannot accidentally collide with host-app session data.
 - The frontend banner must read `/martis/api/impersonation/status` on every page load. Do not cache the snapshot — a session can be stopped server-side at any moment.
