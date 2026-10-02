@@ -232,8 +232,9 @@ it('does not carry the pass of one user to another through a magic link', functi
     $token = app(MagicLinkService::class)->issue('b@example.com');
 
     $this->actingAs($a)->withSession(tfpPass($a));
-    $this->get('/martis/api/auth/magic-link/consume?'.http_build_query(['email' => 'b@example.com', 'token' => $token]))
-        ->assertRedirect('/martis');
+    $this->postJson('/martis/api/auth/magic-link/consume', ['email' => 'b@example.com', 'token' => $token, 'replace_session' => true])
+        ->assertOk()
+        ->assertJson(['redirect' => '/martis']);
     $this->assertAuthenticatedAs($b);
 
     tfpNextRequest();

@@ -6,6 +6,7 @@ namespace Martis\Http\Controllers;
 
 use Illuminate\Auth\EloquentUserProvider;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Contracts\Auth\UserProvider;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -157,6 +158,7 @@ class MagicLinkController
             return $this->tokenRefused('expired');
         }
 
+        /** @var StatefulGuard $guard */
         $guard = Auth::guard(GuardCatalog::martis());
         $current = $guard->user();
 

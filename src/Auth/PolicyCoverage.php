@@ -34,6 +34,7 @@ final class PolicyCoverage
 
         // A resource run without a Laravel application (a bare container) has no environment.
         $app = app();
+        // @phpstan-ignore instanceof.alwaysTrue (a bare container is not an Application)
         if (! $app instanceof Application || PanelAccess::environmentIsOpen()) {
             return;
         }

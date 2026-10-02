@@ -72,7 +72,7 @@ final class PanelAccess
      */
     public static function environmentIsOpen(): bool
     {
-        return app()->environment(self::openEnvironments());
+        return (bool) app()->environment(self::openEnvironments());
     }
 
     /**
