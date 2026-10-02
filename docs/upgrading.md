@@ -42,6 +42,8 @@ A lens query now applies the resource's `scopes()` and `indexQuery()`, as the in
 
 It now resolves the resource of the related model and runs the relatable checks, `viewAny` and the policies on writes. A related model with no registered resource is refused (`422`); a `relatedResource()` key that is not registered throws, naming the field and the key. Declare `relatedResource()` or register the resource.
 
+A `BelongsTo` or `MorphTo` value whose id is a JSON boolean, a non-integer number, a list or a nested map answers `422` and is never written (a boolean `true` used to reach the foreign key as `1`, past the relatable checks).
+
 ### Magic links
 
 The emailed link opens a confirmation page, and the sign-in is `POST /api/auth/magic-link/consume`. Links mailed before the upgrade still work: a `GET` of the old URL is redirected to the confirmation page. A custom client posts `email` and `token` (and `replace_session: true` to replace another user's session).

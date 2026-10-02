@@ -334,20 +334,15 @@ class MorphTo extends Field implements ProvidesPickerAttributes
             return;
         }
 
-        // Value should be {type: 'App\Models\Post', id: 42} or {resourceType: 'posts', id: 42}
-        if (is_array($value)) {
-            $morphType = $this->allowedMorphType($value['type'] ?? null);
-            $morphId = $value['id'] ?? null;
+        // Value should be {type: 'App\Models\Post', id: 42} or {resourceType: 'posts', id: 42}.
+        // The target is read once, as the Relatable rule reads it: a type the
+        // field does not offer or an id that is not a non-empty int or string
+        // writes nothing.
+        $target = $this->submittedTarget($value);
 
-            // If resourceType provided instead of full class, resolve it
-            if ($morphType === null && isset($value['resourceType'])) {
-                $morphType = $this->resolveModelClass($value['resourceType']);
-            }
-
-            if ($morphType !== null && $morphId !== null) {
-                $model->setAttribute($this->morphTypeColumn, $morphType);
-                $model->setAttribute($this->morphIdColumn, $morphId);
-            }
+        if ($target !== null) {
+            $model->setAttribute($this->morphTypeColumn, $target['type']);
+            $model->setAttribute($this->morphIdColumn, $target['id']);
         }
     }
 
@@ -392,6 +387,23 @@ class MorphTo extends Field implements ProvidesPickerAttributes
     public function getMorphIdColumn(): string
     {
         return $this->morphIdColumn;
+    }
+
+    /**
+     * Whether a submitted target map names an id that is neither empty nor an
+     * int or a string (a JSON boolean or float, a list, a nested map): the
+     * Relatable rule refuses it, and `fill()` writes nothing for it (see
+     * submittedTarget()).
+     */
+    public function submitsMalformedId(mixed $value): bool
+    {
+        if (! is_array($value)) {
+            return false;
+        }
+
+        $id = $value['id'] ?? null;
+
+        return $id !== null && $id !== '' && ! is_int($id) && ! is_string($id);
     }
 
     /**

@@ -152,6 +152,13 @@ final class Relatable implements DataAwareRule, ValidationRule
     {
         $field = $this->field;
 
+        // An id that is not an int or a string is not one, whatever the
+        // casts would make of it (`true` is key 1): refuse it, as `fill()`
+        // ignores it.
+        if (($field instanceof BelongsTo || $field instanceof MorphTo) && $field->submitsMalformedId($value)) {
+            return 'martis::validation.relatable';
+        }
+
         if ($field instanceof BelongsTo) {
             $id = $field->submittedId($value);
 

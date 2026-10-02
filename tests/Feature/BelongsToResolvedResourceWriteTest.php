@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo as EloquentMorphTo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Martis\Fields\BelongsTo;
+use Martis\Fields\MorphTo;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Resource;
@@ -203,6 +204,24 @@ class BtrClosureTaskResource extends Resource
     }
 }
 
+class BtrMorphTaskResource extends Resource
+{
+    public static function model(): string
+    {
+        return BtrTask::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'btr-morph-tasks';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title'), MorphTo::make('subject')->types([BtrTeamResource::class])->nullable()];
+    }
+}
+
 beforeEach(function () {
     $this->withoutMiddleware(MartisAuthenticate::class);
 
@@ -241,7 +260,7 @@ beforeEach(function () {
 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
-    foreach ([BtrTeamResource::class, BtrTwiceResource::class, BtrOtherTwiceResource::class, BtrInferredTaskResource::class, BtrTypoTaskResource::class, BtrClosureTaskResource::class] as $class) {
+    foreach ([BtrTeamResource::class, BtrTwiceResource::class, BtrOtherTwiceResource::class, BtrInferredTaskResource::class, BtrTypoTaskResource::class, BtrClosureTaskResource::class, BtrMorphTaskResource::class] as $class) {
         $registry->register($class);
     }
 });
@@ -381,4 +400,85 @@ it('lists the resources registered for a model', function () {
     expect($registry->forModel(BtrTeam::class))->toBe([BtrTeamResource::class])
         ->and($registry->forModel('\\'.BtrTwice::class))->toBe([BtrTwiceResource::class, BtrOtherTwiceResource::class])
         ->and($registry->forModel(BtrOrphan::class))->toBe([]);
+});
+
+// ---- an id that is not an int or a string -----------------------------------
+
+// A JSON boolean (or a nested non-scalar) is not an id. It used to skip the
+// relatable check yet reach the foreign key (`true` became `1`), so it pointed
+// the field at record 1 with none of the picker's query, `viewAny` or policies.
+
+it('refuses a boolean or non-scalar id on a BelongsTo store, whatever the picker excludes', function (mixed $value) {
+    // Team 1 is excluded by the field's own closure.
+    $this->postJson('/martis/api/resources/btr-closure-tasks', ['title' => 'New', 'team_id' => $value])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.field', 'team_id')
+        ->assertJsonPath('errors.0.code', 'relatable');
+
+    expect(BtrTask::query()->count())->toBe(0);
+})->with([
+    'true' => [true],
+    'false' => [false],
+    'map with true' => [['id' => true]],
+    'map with a list' => [['id' => [1]]],
+    'map with a map' => [['id' => ['id' => 1]]],
+    'float' => [1.5],
+    'map with a float' => [['id' => 1.5]],
+]);
+
+it('refuses a boolean id on a BelongsTo update and leaves the stored id alone', function (mixed $value) {
+    $task = BtrTask::query()->create(['title' => 'Ship', 'team_id' => 2]);
+
+    $this->putJson("/martis/api/resources/btr-closure-tasks/{$task->id}", ['title' => 'Ship', 'team_id' => $value])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.field', 'team_id');
+
+    expect($task->fresh()->team_id)->toBe(2);
+})->with([[true], [['id' => true]]]);
+
+it('keeps accepting the ids a BelongsTo may take: int, numeric string, id map, empty', function (mixed $value, ?int $stored) {
+    $this->postJson('/martis/api/resources/btr-closure-tasks', ['title' => 'New', 'team_id' => $value])->assertCreated();
+
+    expect(BtrTask::query()->value('team_id'))->toBe($stored);
+})->with([[2, 2], ['2', 2], [['id' => 2], 2], [null, null], ['', null], [['id' => ''], null]]);
+
+it('writes nothing for a malformed id when a caller fills the field without validating', function () {
+    $field = BelongsTo::make('team', 'Team');
+    $task = new BtrTask(['title' => 'x', 'team_id' => 2]);
+
+    foreach ([true, ['id' => true], ['id' => [1]], 1.0] as $value) {
+        $field->fill($task, $value);
+        expect($task->team_id)->toBe(2);
+    }
+
+    $field->fill($task, '');
+    expect($task->team_id)->toBeNull();
+});
+
+it('refuses a boolean or non-scalar id on a MorphTo and stores no target', function (mixed $id) {
+    $this->postJson('/martis/api/resources/btr-morph-tasks', ['title' => 'New', 'subject' => ['type' => BtrTeam::class, 'id' => $id]])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.field', 'subject');
+
+    expect(BtrTask::query()->count())->toBe(0);
+})->with(['true' => [true], 'list' => [[1]], 'map' => [['id' => 1]], 'float' => [1.5]]);
+
+it('keeps accepting the target a MorphTo may take, and still refuses one the picker excludes', function () {
+    $this->postJson('/martis/api/resources/btr-morph-tasks', ['title' => 'New', 'subject' => ['type' => BtrTeam::class, 'id' => 2]])->assertCreated();
+    expect(BtrTask::query()->first()->only(['subject_type', 'subject_id']))->toBe(['subject_type' => BtrTeam::class, 'subject_id' => 2]);
+
+    // Team 3 is tenant 2: the nearest case the shared reading must not let through.
+    $this->postJson('/martis/api/resources/btr-morph-tasks', ['title' => 'Other', 'subject' => ['type' => BtrTeam::class, 'id' => 3]])
+        ->assertStatus(422);
+    expect(BtrTask::query()->count())->toBe(1);
+});
+
+it('writes nothing for a malformed MorphTo id when a caller fills the field without validating', function () {
+    $field = MorphTo::make('subject')->types([BtrTeamResource::class]);
+    $task = new BtrTask(['title' => 'x', 'subject_type' => BtrTeam::class, 'subject_id' => 2]);
+
+    foreach ([true, [1], ['id' => 1]] as $id) {
+        $field->fill($task, ['type' => BtrTeam::class, 'id' => $id]);
+        expect($task->subject_id)->toBe(2);
+    }
 });
