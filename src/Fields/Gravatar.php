@@ -200,8 +200,10 @@ class Gravatar extends Field
      * {@inheritdoc}
      *
      * In URL mode the value is rendered as an `<img src>` for every viewer,
-     * so a write accepts an absolute `https://` URL only (an empty value
-     * passes: it writes nothing). The email mode writes nothing.
+     * so a write accepts an absolute `https://` URL only. An empty value
+     * passes the rule: `null` writes nothing, and an empty string (which the
+     * default middleware stack turns into `null` first) is stored as it is,
+     * clearing the URL. The email mode writes nothing.
      */
     public function buildRules(?string $context = null): array
     {
