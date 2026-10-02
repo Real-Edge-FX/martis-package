@@ -266,6 +266,33 @@ class SgItemResource extends Resource
     }
 }
 
+/** The plan tier gate, `requirePlan()`: the lock follows the plan the resolver returns. */
+class SgPlanItemResource extends Resource
+{
+    public static string $plan = 'free';
+
+    public function __construct(?Model $model = null)
+    {
+        parent::__construct($model);
+        $this->requirePlan('pro')->lockModal(SG_MODAL);
+    }
+
+    public static function model(): string
+    {
+        return SgItem::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'sg-plan-items';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('name')];
+    }
+}
+
 class SgLockedDashboard extends Dashboard
 {
     public function __construct()
@@ -458,6 +485,25 @@ it('refuses every data endpoint of a locked resource with the lock payload', fun
     'morph to many' => ['GET', '/{id}/morph-to-many/tags'],
     'morph one' => ['GET', '/{id}/morph-one/image'],
 ]);
+
+it('follows requirePlan(): a plan below the tier is refused on the data endpoints, a plan at it is served', function () {
+    app(ResourceRegistry::class)->register(SgPlanItemResource::class);
+    config()->set('martis.gates.plan_rank', ['free' => 0, 'pro' => 1]);
+    config()->set('martis.gates.plan_resolver', fn () => SgPlanItemResource::$plan);
+
+    SgPlanItemResource::$plan = 'free';
+    $this->getJson(SG_BASE.'/resources/sg-plan-items')
+        ->assertForbidden()
+        ->assertJsonPath('locked', true)
+        ->assertJsonPath('lock.reason', 'plan:pro')
+        ->assertJsonPath('lock.modal.title', 'Pro feature');
+    $this->postJson(SG_BASE.'/resources/sg-plan-items', ['name' => 'New'])->assertForbidden();
+    expect(SgItem::query()->count())->toBe(2);
+
+    SgPlanItemResource::$plan = 'pro';
+    $this->getJson(SG_BASE.'/resources/sg-plan-items')->assertOk()->assertJsonCount(2, 'data');
+    $this->postJson(SG_BASE.'/resources/sg-plan-items', ['name' => 'New'])->assertCreated();
+});
 
 it('serves the same endpoints once the resource is unlocked', function () {
     SgState::$locked = false;
