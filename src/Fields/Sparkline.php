@@ -2,6 +2,7 @@
 
 namespace Martis\Fields;
 
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Martis\Enums\ChartType;
 
@@ -17,9 +18,17 @@ use Martis\Enums\ChartType;
  *   - width($px)      — chart width in pixels
  *
  * Contexts: index (yes), detail (yes), create/update (no — display-only).
+ *
+ * When the field is shown on a form, a written series is validated: a list
+ * of at most `maxPoints($n)` numbers (1000 unless raised). An unbounded
+ * series would be stored as sent and then drawn by every page that renders
+ * the record.
  */
 class Sparkline extends Field
 {
+    /** The most numbers a written series may hold unless `maxPoints()` says otherwise. */
+    public const DEFAULT_MAX_POINTS = 1000;
+
     /** @var list<int|float>|callable|null */
     protected mixed $chartData = null;
 
@@ -32,6 +41,8 @@ class Sparkline extends Field
 
     /** @var string Color for the sparkline */
     protected string $chartColor = '#6366f1';
+
+    protected int $maxPoints = self::DEFAULT_MAX_POINTS;
 
     /** {@inheritdoc} */
     public function type(): string
@@ -107,6 +118,25 @@ class Sparkline extends Field
         $this->chartColor = $color;
 
         return $this;
+    }
+
+    /**
+     * Set the most numbers a written series may hold (default 1000). A
+     * longer series fails validation when the field is written.
+     */
+    public function maxPoints(int $max): static
+    {
+        $this->maxPoints = max(1, $max);
+
+        return $this;
+    }
+
+    /**
+     * Get the most numbers a written series may hold.
+     */
+    public function getMaxPoints(): int
+    {
+        return $this->maxPoints;
     }
 
     /**
@@ -198,6 +228,83 @@ class Sparkline extends Field
             }
         }
         $model->setAttribute($this->attribute, $value);
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * A written series is a list of at most `maxPoints()` numbers. `fill()`
+     * stores whatever array it is given, and the chart draws every point of
+     * what is stored, so an unbounded or non-numeric series would fail the
+     * pages that render the record for everyone who opens it. A field the
+     * package does not fill (readonly, computed, `fillUsing()`) keeps its own
+     * rules.
+     */
+    public function buildRules(?string $context = null): array
+    {
+        $rules = parent::buildRules($context);
+
+        if ($this->fillCallback !== null || $this->computed || $this->isReadonly()) {
+            return $rules;
+        }
+
+        $rules[] = 'array';
+        $rules[] = 'max:'.$this->maxPoints;
+        $rules[] = function (string $attribute, mixed $value, Closure $fail): void {
+            if (! is_array($value) || $this->isListOfNumbers($value)) {
+                return;
+            }
+
+            $label = $this->label();
+
+            $fail(self::translate(
+                'martis::messages.sparkline_numbers',
+                ['attribute' => $label],
+                "The {$label} must be a list of numbers.",
+            ));
+        };
+
+        return $rules;
+    }
+
+    /**
+     * Whether `$value` is a list whose entries are all finite numbers.
+     *
+     * @param  array<array-key, mixed>  $value
+     */
+    private function isListOfNumbers(array $value): bool
+    {
+        if (! array_is_list($value)) {
+            return false;
+        }
+
+        foreach ($value as $point) {
+            if (! is_int($point) && ! (is_float($point) && is_finite($point))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Resolve a translation with a hard-coded English fallback when the
+     * translator binding is unavailable (unit tests outside the container).
+     *
+     * @param  array<string, string>  $replace
+     */
+    private static function translate(string $key, array $replace, string $fallback): string
+    {
+        try {
+            $translated = trans($key, $replace);
+        } catch (\Throwable) {
+            return $fallback;
+        }
+        if (! is_string($translated) || $translated === $key) {
+            return $fallback;
+        }
+
+        return $translated;
     }
 
     /**
