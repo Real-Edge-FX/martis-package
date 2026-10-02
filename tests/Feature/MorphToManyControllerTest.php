@@ -291,7 +291,7 @@ it('attaches a tag to a polymorphic parent', function () {
         ['related_id' => $tag->id],
     );
 
-    expect($response->status())->toBeIn([200, 201]);
+    $response->assertCreated();
     expect($post->tags()->count())->toBe(1);
 });
 
@@ -304,7 +304,7 @@ it('attaches a tag with pivot data', function () {
         ['related_id' => $tag->id, 'weight' => 12],
     );
 
-    expect($response->status())->toBeIn([200, 201]);
+    $response->assertCreated();
     $pivotRow = DB::table('mtm_test_taggables')
         ->where('taggable_type', MTMPostModel::class)
         ->where('taggable_id', $post->id)
@@ -338,8 +338,9 @@ it('detach is scoped — does not detach from another morph type', function () {
         "/martis/api/resources/m-t-m-post-models/{$post->id}/morph-to-many/tags/{$tag->id}/detach",
     );
 
-    expect($response->status())->toBeIn([200, 404]);
-    // The Video's attachment must still exist regardless of the response code.
+    // The post holds no such attachment: the detach is a no-op.
+    $response->assertOk();
+    // The Video's attachment is untouched.
     expect($video->tags()->count())->toBe(1);
 });
 
@@ -357,7 +358,7 @@ it('updates pivot data for a polymorphic attachment', function () {
         ['weight' => 99],
     );
 
-    expect($response->status())->toBeIn([200, 204]);
+    $response->assertOk();
 
     $pivotRow = DB::table('mtm_test_taggables')
         ->where('taggable_type', MTMPostModel::class)

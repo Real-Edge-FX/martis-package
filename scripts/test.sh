@@ -20,15 +20,25 @@
 #   scripts/test.sh                          # full suite
 #   scripts/test.sh tests/Feature/Foo.php    # subset (args pass through to pest)
 #   scripts/test.sh --filter='keep_signed_in'
+#
+# MARTIS_PEST_IMAGE names the image (default martis-pest:8.3). Git worktrees
+# whose .docker/pest.Dockerfile differs would otherwise re-tag one image under
+# each other's feet, so a worktree that changes the Dockerfile sets its own.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-IMAGE="martis-pest:8.3"
+IMAGE="${MARTIS_PEST_IMAGE:-martis-pest:8.3}"
 
 # Build once; Docker layer caching makes subsequent runs instant.
 docker build -q -t "$IMAGE" -f "$ROOT/.docker/pest.Dockerfile" "$ROOT/.docker" >/dev/null
 
+# The container runs as the caller's uid:gid, not root: what Pest writes into
+# the bind-mounted checkout stays owned by the caller, and the suite never
+# holds more privilege than the person running it. The uid has no passwd entry
+# in the image, so HOME points at the container's world-writable /tmp.
 exec docker run --rm \
+  --user "$(id -u):$(id -g)" \
+  -e HOME=/tmp \
   -v "$ROOT":/martis-package -w /martis-package \
   -e MARTIS_TEST_PROCESS_TIMEOUT \
   "$IMAGE" \

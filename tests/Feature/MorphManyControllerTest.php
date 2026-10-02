@@ -98,10 +98,27 @@ class MMCommentResource extends Resource
     }
 }
 
-// No-create variant for authorization tests.
+// No-create variant for authorization tests. It answers to the key the parent's
+// MorphMany field targets, so registering it replaces MMCommentResource for the
+// relation endpoint whatever the model is called.
 class MMNoCreateCommentResource extends MMCommentResource
 {
+    public static function uriKey(): string
+    {
+        return 'm-m-comment-models';
+    }
+
     public function authorizedToCreate(Request $request): bool
+    {
+        return false;
+    }
+}
+
+// A parent that refuses to take a comment (the `addComment` ability), while the
+// related resource itself allows the create.
+class MMNoAddPostResource extends MMPostResource
+{
+    public function authorizedToAdd(Request $request, string $relatedModelClass): bool
     {
         return false;
     }
@@ -405,14 +422,61 @@ it('blocks store when the related resource forbids creation', function () {
     $registry->register(MMVideoResource::class);
     $registry->register(MMNoCreateCommentResource::class);
 
+    // The resource the relation endpoint asks is the denying one.
+    expect($registry->get('m-m-comment-models'))->toBe(MMNoCreateCommentResource::class);
+
     $post = MMPostModel::create(['title' => 'Post']);
 
-    $response = $this->postJson(
+    $this->postJson(
         "/martis/api/resources/m-m-post-models/{$post->id}/morph-many/comments",
         ['body' => 'Forbidden'],
-    );
+    )->assertForbidden();
 
-    expect($response->status())->toBeIn([201, 403]);
+    expect(MMCommentModel::count())->toBe(0);
+
+    // Control: the same request is accepted once the related resource allows
+    // the create, so the refusal above is its authorizedToCreate() and nothing else.
+    $registry->flush();
+    $registry->register(MMPostResource::class);
+    $registry->register(MMVideoResource::class);
+    $registry->register(MMCommentResource::class);
+
+    $this->postJson(
+        "/martis/api/resources/m-m-post-models/{$post->id}/morph-many/comments",
+        ['body' => 'Allowed'],
+    )->assertCreated();
+
+    expect(MMCommentModel::count())->toBe(1);
+});
+
+it('blocks store when the parent resource forbids adding the related model', function () {
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register(MMNoAddPostResource::class);
+    $registry->register(MMVideoResource::class);
+    $registry->register(MMCommentResource::class);
+
+    $post = MMPostModel::create(['title' => 'Post']);
+
+    $this->postJson(
+        "/martis/api/resources/m-m-post-models/{$post->id}/morph-many/comments",
+        ['body' => 'Forbidden'],
+    )->assertForbidden();
+
+    expect(MMCommentModel::count())->toBe(0);
+
+    // Control: the unrestricted parent takes the same comment.
+    $registry->flush();
+    $registry->register(MMPostResource::class);
+    $registry->register(MMVideoResource::class);
+    $registry->register(MMCommentResource::class);
+
+    $this->postJson(
+        "/martis/api/resources/m-m-post-models/{$post->id}/morph-many/comments",
+        ['body' => 'Allowed'],
+    )->assertCreated();
+
+    expect(MMCommentModel::count())->toBe(1);
 });
 
 /**
