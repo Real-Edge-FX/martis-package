@@ -93,12 +93,16 @@ The values in the events of a record that no longer exists (hard-deleted) are ma
 - `ActionResponse::redirect()`, `download()` and `openInNewTab()` refuse `javascript:`, `data:` and other non-http(s) URLs.
 - A custom picker that read another column from a relatable row names it as the field's title or subtitle attribute; the context-free relatable endpoint serialises only the related resource's declared `titleAttribute()` (when sent as `title_attribute`) and ignores `subtitle_attribute` and any other column.
 - `api_docs.middleware` defaults to `null`, the Martis stack; a published `['web', 'auth']` is completed with the Martis guards.
+- Field `help()`, HTML tooltips and gate messages (`messageHtml`) lose `style`, `id`, `name`, forms and form controls when rendered (scripts, handlers and unsafe URLs were already removed). An inline `style="color:red"` no longer applies: use a `class` (kept for this developer-written markup) or plain text.
+- Markdown and Trix content keeps only the classes legitimate content carries (`language-*` on Markdown code, the Trix attachment classes) and loses `label`, `fieldset`, `legend`, `datalist`, `output` and every `<input>` but the disabled task-list checkbox. A document that relied on utility classes (`class="text-red-500"`) loses them.
+- A notification `action_url` and an external menu link in the command palette may be `mailto:` / `tel:` and open in a new tab, as in the sidebar.
 
 ### Extensions
 
 - An element that set `data-pr-tooltip-html="true"` by hand shows its text literally: use `{...htmlTooltip(text, position)}` or `trustHtmlTooltip(el)` from `@martis/runtime`.
 - To run the panel under a Content-Security-Policy, set a nonce (`Vite::useCspNonce()`) and send `script-src` / `style-src` with it: see [Configuration → Content Security Policy](configuration.md#content-security-policy-v240).
 - `vite.extensions.config.ts` is copied once: set `build.sourcemap` to `false` in yours and delete `public/vendor/martis-user/extensions.js.map`.
+- Build API paths with `apiPath` / `pathSegment` from `@martis/runtime`, not `encodeURIComponent()`: Laravel decodes `%2F` before routing, so an encoded slash in a record key could reach another route. Refresh the shim with `php artisan vendor:publish --tag=martis-extension-shims --force` to import the named exports (the default export `runtime.apiPath` works without it). A path value holding a literal `%2F` now throws `ApiError` (400) and sends nothing.
 
 ### Scaffolds
 
