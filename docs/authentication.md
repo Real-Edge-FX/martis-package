@@ -1051,7 +1051,13 @@ Schema::table('users', function (Blueprint $table) {
 });
 ```
 
-The `martis:install` command includes this migration automatically. Installs that predate the `two_factor_last_used_at` column still verify codes — `TwoFactorService::verifyAndTrack()` probes the schema on first use and skips replay tracking when the column is missing.
+The `martis:install` command includes this migration automatically. Installs that predate the `two_factor_last_used_at` column still verify codes — `TwoFactorService::verifyAndTrack()` probes the schema on first use and skips replay tracking when the column is missing, **logging a warning** (`the two_factor_last_used_at column is missing ...`) so the gap is visible: without the column a TOTP code can be used again for as long as it is valid (about 90 seconds). Add the column to close it. The check does not fail closed: a missing column never locks users out.
+
+### A code is single-use (v2.4.0)
+
+- **A TOTP code.** `two_factor_last_used_at` holds the **start time of the 30-second step** the last accepted code was for (`step * 30`), and any step at or before it is refused. Up to v2.3.0 it held the wall-clock time of the acceptance, so a code accepted for the step after the current one (a client clock running ahead, a code seen before it became current) was accepted again once that step was current. A value written by an earlier version reads as the step it fell in, and the next acceptance rewrites it.
+- **The step is consumed with one conditional update** (`UPDATE ... WHERE two_factor_last_used_at IS NULL OR two_factor_last_used_at < step`). Two requests that carry the same code at once both find it valid, but only one update changes a row; the other is refused. An error while recording the step also refuses the code: a replay guard that cannot record is not one to authenticate through.
+- **A recovery code** is consumed inside a transaction that reads the user's row again `FOR UPDATE`, and removes the matching hash only if it is still in the list. Two requests with one recovery code cannot both pass, and a request that read the list before another consumed a different code cannot write the old list back. On SQLite the lock is a no-op (writes are serialised anyway).
 
 ## User Menu
 
