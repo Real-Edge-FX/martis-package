@@ -10,22 +10,28 @@ if (! function_exists('rmtree')) {
      * Recursively remove a directory and its contents. Test-only helper
      * shared by the agents / MCP support tests; defined here so any
      * single-file pest run can use it.
+     *
+     * A symlink is unlinked, never followed: is_dir() is true for a link to a
+     * directory, and entering it would empty what it points at.
      */
     function rmtree(string $path): void
     {
-        if (! is_dir($path)) {
-            if (is_file($path)) {
-                unlink($path);
-            }
+        if (is_link($path) || is_file($path)) {
+            unlink($path);
 
             return;
         }
+
+        if (! is_dir($path)) {
+            return;
+        }
+
         foreach (scandir($path) ?: [] as $entry) {
             if ($entry === '.' || $entry === '..') {
                 continue;
             }
-            $full = $path.'/'.$entry;
-            is_dir($full) ? rmtree($full) : unlink($full);
+
+            rmtree($path.'/'.$entry);
         }
         rmdir($path);
     }

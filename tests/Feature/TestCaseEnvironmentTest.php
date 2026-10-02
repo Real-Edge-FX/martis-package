@@ -280,13 +280,29 @@ it('never follows a symlink while sweeping orphan skeleton copies', function () 
             ->and(is_dir($root.'/'.$dead.'-real'))->toBeFalse()
             ->and(glob($root.'/.*.claimed-*') ?: [])->toBe([]);
     } finally {
-        // rmtree() follows symlinks, so drop the planted ones first.
-        foreach (scandir($root) ?: [] as $entry) {
-            if (is_link($root.'/'.$entry)) {
-                unlink($root.'/'.$entry);
-            }
-        }
+        rmtree($base);
+    }
+});
 
+// The helper the tests clean up with must not do what the sweep must not.
+it('removes a symlink with rmtree() without emptying what it points at', function () {
+    $base = sys_get_temp_dir().'/martis-rmtree-probe-'.bin2hex(random_bytes(6));
+
+    mkdir($base.'/victim', 0777, true);
+    mkdir($base.'/tree');
+    file_put_contents($base.'/victim/canary', 'keep');
+    symlink($base.'/victim', $base.'/tree/link');
+    symlink($base.'/victim', $base.'/direct');
+    symlink($base.'/nowhere', $base.'/tree/dangling');
+
+    try {
+        rmtree($base.'/tree');
+        rmtree($base.'/direct');
+
+        expect(file_exists($base.'/tree'))->toBeFalse()
+            ->and(is_link($base.'/direct'))->toBeFalse()
+            ->and($base.'/victim/canary')->toBeFile();
+    } finally {
         rmtree($base);
     }
 });
@@ -344,12 +360,6 @@ it('refuses a skeleton root that is not the current user\'s alone', function () 
         expect(fn () => $prepare->invoke(null, $base.'/file', $uid))
             ->toThrow(RuntimeException::class, 'is not a directory');
     } finally {
-        foreach (['link', 'dangling'] as $link) {
-            if (is_link($base.'/'.$link)) {
-                unlink($base.'/'.$link);
-            }
-        }
-
         rmtree($base);
     }
 });
