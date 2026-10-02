@@ -221,7 +221,7 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 | `readonly` | `readonly(bool\|Closure $value = true): static` | `$this` | Prevent modification through UI. `fill()` becomes a no-op. Accepts a closure for request-time resolution. Every bundled input renders the field read-only (`Avatar`, `BooleanGroup`, `Repeater`, `File`, `Image` and the inline-create "+" of `BelongsTo` / `MorphTo` since v1.38.0, see [Immutable fields](#immutable-fields)). A readonly pivot field is never written from the request either: the attach stores its `default()` and the pivot update leaves it alone (v1.38.0+, see [Immutable fields](#immutable-fields)). Nor is a readonly field inside a `Repeater` row: a stored row keeps its value and a new row stores its `default()` (v1.38.0+, see [Repeater](repeater.md#readonly-computed-hidden-and-immutable-row-fields)). |
 | `required` | `required(bool\|Closure $value = true): static` | `$this` | Require a non-null value (adds `required` validation rule). Accepts a closure for request-time resolution. **v1.8.3**: declaring `'required'` (or any `required_*` variant) inside `->rules([...])` is enough — the visual asterisk now auto-detects it. Calling `->required()` explicitly is still supported and required when you want a Closure-resolved flag. |
 | `placeholder` | `placeholder(string\|Closure $text): static` | `$this` | Set placeholder text for the input. Accepts a closure for request-time resolution. |
-| `help` | `help(string\|Closure $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension): the panel sanitises it (links, bold, code and line breaks stay; scripts, event handlers and `javascript:` URLs are removed), but it is still output you author, so never interpolate unescaped user or record data into it (use `e()`). Accepts a closure for request-time resolution. |
+| `help` | `help(string\|Closure $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension): the panel sanitises it (links, bold, code, lists and line breaks stay; scripts, event handlers, `javascript:` URLs, the `style` attribute and element, `id`, `name`, forms and form controls are removed), but it is still output you author, so never interpolate unescaped user or record data into it (use `e()`). Accepts a closure for request-time resolution. |
 | `tooltip` | `tooltip(string\|Closure\|null $text): static` | `$this` | ⭐ Martis differential. Attach a hover tooltip to the field label — shown via a `(?)` icon next to the label. Supports raw HTML so authors can use `<br />`, `<strong>`, `<em>`, `<ul>`, etc. for multi-line rich hints. Accepts a closure for request-time resolution. Pass `null` to clear. See [Tooltips](#tooltips-martis-differential). |
 | `withLabel` | `withLabel(string\|Closure $value): static` | `$this` | Override the constructor label after construction. Accepts a closure for request-time resolution. |
 | `fullWidth` | `fullWidth(bool $fullWidth = true): static` | `$this` | Make the field span the full width of the form. |
@@ -761,7 +761,8 @@ attributes it carries (the metric `help()` tooltip and an extension's own
 triggers register the same way).
 Allowed markup: any inline HTML (`<br />`, `<strong>`, `<em>`, `<ul>`/`<li>`,
 `<code>`, `<a>`). The markup is sanitised before it is shown (scripts, event
-handlers, unsafe URLs and `data-*` attributes are removed), but the author is
+handlers, unsafe URLs, `data-*` attributes, the `style` attribute and element,
+`id`, `name`, forms and form controls are removed), but the author is
 still responsible for producing it and never puts user or record data in it; prefer
 localised strings from `__()` / i18n dictionaries to keep content reviewable.
 
@@ -2747,7 +2748,11 @@ script for whoever opens the record. Scripts, event handlers and `javascript:`
 URLs are removed, and so are the things that would restyle or impersonate the
 panel around the content: every `data-*` attribute (the global tooltip reads
 `data-pr-*` ones), the `style` attribute and element, `id` and `name`, forms and
-form controls other than the checkboxes of a task list. The `zero` preset
+form controls other than the disabled checkbox of a task list (`label`,
+`fieldset`, `datalist`, `output` and every other `input` go), and the `class`
+attribute except `language-<name>`, the class a fenced code block carries (the
+stylesheet defines layout utilities such as `fixed` and `z-50`, which content
+must not be able to use to paint a fake panel over the page). The `zero` preset
 escapes HTML instead. The stored value is the Markdown as written: sanitise it
 yourself if you render it outside the panel.
 
@@ -2784,8 +2789,11 @@ string for the attribute, so the panel sanitises it before it renders the
 detail view: scripts, event handlers and `javascript:` URLs are removed, and so
 are every `data-*` attribute except the three a Trix attachment uses
 (`data-trix-attachment`, `data-trix-content-type`, `data-trix-attributes`), the
-`style` attribute and element, `id` and `name`, and forms and form controls.
-An attachment whose JSON names a `url` / `href` that is not an `http(s)` URL or
+`style` attribute and element, `id` and `name`, forms and form controls (`label`,
+`fieldset`, `datalist`, `output` and every `input` included), and every `class`
+except the ones Trix writes for an attachment (`attachment`, `attachment--*`,
+`attachment__*`, `attachment-gallery`, `attachment-gallery--*`), so content
+cannot borrow a layout utility class of the panel to paint over it. An attachment whose JSON names a `url` / `href` that is not an `http(s)` URL or
 a path of the app loses its `data-trix-attachment`, and clicking an attachment
 or a link only follows an `http(s)` URL. **The package does not purify the HTML
 on the server**: the value is stored as received, so sanitise it (for example

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { marked } from 'marked'
 import {
   isSafeTrixAttachment,
   sanitizeHtml,
@@ -98,6 +99,75 @@ describe.each([
 
     expect(html).toContain('type="checkbox"')
   })
+
+  it('removes the inputs that would impersonate a prompt, whatever their type', () => {
+    for (const input of [
+      '<input type="password" placeholder="Re-enter password">',
+      '<input placeholder="Email">',
+      '<input type="text" value="x">',
+      '<input type="submit" value="Sign in">',
+      '<input type="image" src="https://evil.example/x.png">',
+      '<input type="hidden" name="a" value="b">',
+    ]) {
+      const html = sanitize(`<p>before</p>${input}<p>after</p>`)
+
+      expect(html, input).not.toContain('<input')
+      expect(html).toContain('<p>before</p>')
+      expect(html).toContain('<p>after</p>')
+    }
+  })
+
+  it('keeps nothing of a checkbox but its type, its checked state and disabled', () => {
+    const html = sanitize('<input type="checkbox" checked name="a" value="b" form="martis-form" id="x" class="fixed" style="position:fixed">')
+
+    expect(html).toBe('<input type="checkbox" checked="" disabled="">')
+  })
+
+  it('removes the label, fieldset, legend, datalist and output elements, keeping their text', () => {
+    const html = sanitize('<label for="x">Password</label><fieldset><legend>Sign in</legend>body</fieldset><datalist id="d"></datalist><output>out</output>')
+
+    for (const tag of ['<label', '<fieldset', '<legend', '<datalist', '<output']) {
+      expect(html).not.toContain(tag)
+    }
+    expect(html).toContain('Password')
+    expect(html).toContain('body')
+  })
+
+  it('removes the layout classes that paint a fake panel over the page, whatever the element', () => {
+    const html = sanitize('<div class="fixed inset-0 z-50 bg-white">overlay</div><span class="absolute top-0 left-0">x</span><p class="text-red-500">y</p>')
+
+    expect(html).not.toContain('class=')
+    expect(html).not.toContain('fixed')
+    expect(html).toContain('overlay')
+    expect(html).toContain('<p>y</p>')
+  })
+})
+
+describe('markdown profile: classes', () => {
+  it('keeps the language class of a fenced code block, as marked writes it', () => {
+    const raw = marked.parse('```php\n<?php echo 1;\n```\n\n- [x] done\n- [ ] todo\n', { async: false, gfm: true }) as string
+    expect(raw).toContain('class="language-php"')
+
+    const html = sanitizeMarkdownHtml(raw)
+
+    expect(html).toContain('<code class="language-php">')
+    expect(html).toContain('type="checkbox"')
+    expect(html.match(/<input/g)).toHaveLength(2)
+    expect(html.match(/disabled/g)).toHaveLength(2)
+  })
+
+  it('keeps only the language class when a code block carries others as well', () => {
+    const html = sanitizeMarkdownHtml('<pre><code class="language-js fixed inset-0 z-50">x</code></pre>')
+
+    expect(html).toBe('<pre><code class="language-js">x</code></pre>')
+  })
+
+  it.each(['fixed', 'language', 'language-', 'attachment', 'x language-js'])('does not keep the class %s', (cls) => {
+    const html = sanitizeMarkdownHtml(`<div class="${cls}">x</div>`)
+
+    // Only a whole `language-<name>` token survives.
+    expect(html).toBe(cls === 'x language-js' ? '<div class="language-js">x</div>' : '<div>x</div>')
+  })
 })
 
 describe('richText profile: Trix', () => {
@@ -154,6 +224,41 @@ describe('richText profile: Trix', () => {
     expect(isSafeTrixAttachment('')).toBe(false)
   })
 
+  it('keeps the classes of the attachment markup Trix serialises (an image, a file, a gallery)', () => {
+    // The shape of Trix's own output: `AttachmentView` / `PreviewableAttachmentView` / `AttachmentGalleryView`.
+    const trix =
+      '<div class="attachment-gallery attachment-gallery--2">'
+      + `<figure data-trix-attachment='${attachment}' data-trix-content-type="image/png" class="attachment attachment--preview attachment--png">`
+      + '<a href="https://cdn.example.com/a.png"><img src="https://cdn.example.com/a.png" width="120" height="80">'
+      + '<figcaption class="attachment__caption attachment__caption--edited">a</figcaption></a></figure>'
+      + '<figure data-trix-attachment=\'{"contentType":"application/pdf","filename":"r.pdf","filesize":10,"href":"https://cdn.example.com/r.pdf"}\' class="attachment attachment--file attachment--pdf">'
+      + '<figcaption class="attachment__caption"><span class="attachment__name">r.pdf</span> <span class="attachment__size">10 Bytes</span></figcaption></figure></div>'
+
+    const html = sanitizeRichText(trix)
+
+    for (const cls of [
+      'attachment-gallery attachment-gallery--2',
+      'attachment attachment--preview attachment--png',
+      'attachment__caption attachment__caption--edited',
+      'attachment attachment--file attachment--pdf',
+      'attachment__name',
+      'attachment__size',
+    ]) {
+      expect(html).toContain(`class="${cls}"`)
+    }
+    expect(html).toContain('data-trix-attachment')
+  })
+
+  it('keeps only the attachment classes of an element that carries others as well', () => {
+    const html = sanitizeRichText('<figure class="attachment fixed inset-0 z-50 attachment--preview">x</figure>')
+
+    expect(html).toBe('<figure class="attachment attachment--preview">x</figure>')
+  })
+
+  it.each(['fixed inset-0 z-50', 'language-js', 'attachments', 'attachment-x', 'attachment__', 'myattachment'])('does not keep the class %s', (cls) => {
+    expect(sanitizeRichText(`<div class="${cls}">x</div>`)).toBe('<div>x</div>')
+  })
+
   it('does not let the Trix attributes through the other profiles', () => {
     expect(sanitizeMarkdownHtml(figure(attachment))).not.toContain('data-trix')
     expect(sanitizeMarkup(figure(attachment))).not.toContain('data-trix')
@@ -161,14 +266,32 @@ describe('richText profile: Trix', () => {
 })
 
 describe('markup profile: developer-written fragments', () => {
-  it('keeps what help text documents: links, bold, code, line breaks, inline style', () => {
-    const html = sanitizeMarkup('Use <a href="https://example.com/docs">the docs</a>, <b>bold</b>, <code>code</code><br>and <span style="color:red">red</span>')
+  it('keeps what help text documents: links, bold, code, line breaks, lists, classes', () => {
+    const html = sanitizeMarkup('Use <a href="https://example.com/docs">the docs</a>, <b>bold</b>, <code>code</code><br>and <span class="font-semibold">more</span><ul><li>x</li></ul>')
 
     expect(html).toContain('<a href="https://example.com/docs">the docs</a>')
     expect(html).toContain('<b>bold</b>')
     expect(html).toContain('<code>code</code>')
     expect(html).toContain('<br>')
-    expect(html).toContain('style="color:red"')
+    expect(html).toContain('class="font-semibold"')
+    expect(html).toContain('<li>x</li>')
+  })
+
+  it('refuses what restyles or impersonates the panel: style, id, name, forms and form controls', () => {
+    const html = sanitizeMarkup(
+      '<span style="position:fixed;inset:0">overlay</span><a id="martis-root" name="x" href="https://example.com">k</a>'
+      + '<form action="https://evil.example" method="post"><input name="a"><button>go</button></form>'
+      + '<label>l</label><fieldset>f</fieldset><output>o</output><select><option>a</option></select>',
+    )
+
+    expect(html).not.toContain('style')
+    expect(html).not.toContain('id=')
+    expect(html).not.toContain('name=')
+    for (const tag of ['<form', '<input', '<button', '<label', '<fieldset', '<output', '<select']) {
+      expect(html).not.toContain(tag)
+    }
+    expect(html).toContain('overlay')
+    expect(html).toContain('href="https://example.com"')
   })
 
   it('keeps a link that opens in a new tab, and never lets it keep the opener', () => {
@@ -222,7 +345,8 @@ describe('svg profile', () => {
 describe('sanitizeHtml', () => {
   it('takes the profile by name', () => {
     expect(sanitizeHtml('<p style="color:red" onclick="x()">a</p>', 'markdown')).toBe('<p>a</p>')
-    expect(sanitizeHtml('<p style="color:red" onclick="x()">a</p>', 'markup')).toBe('<p style="color:red">a</p>')
+    expect(sanitizeHtml('<p class="note" onclick="x()">a</p>', 'markup')).toBe('<p class="note">a</p>')
+    expect(sanitizeHtml('<p class="note" onclick="x()">a</p>', 'markdown')).toBe('<p>a</p>')
   })
 
   it('keeps one profile\'s hooks out of another: the Trix attachment rule is the richText profile\'s own', () => {

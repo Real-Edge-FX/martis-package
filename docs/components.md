@@ -915,7 +915,7 @@ is made of:
   the same bubble, with the same placement and delay as a plain tooltip and a
   roomier layout for paragraphs. The field label tooltips (`->tooltip()`), the
   metric help and the cache page use it. The markup is sanitised before it is
-  shown (scripts, handlers, unsafe URLs and `data-*` attributes are removed),
+  shown (scripts, handlers, unsafe URLs, `data-*` attributes, `style`, `id`, `name`, forms and form controls are removed),
   but it is still markup you author: use your own strings and translations,
   never text that comes from users or records.
 
