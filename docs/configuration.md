@@ -1179,10 +1179,14 @@ Off by default. When on, exposes the register link and form. `default_role` (Spa
 'throttle' => [
     'login_attempts' => (int) env('MARTIS_LOGIN_THROTTLE_ATTEMPTS', 20),
     'login_minutes'  => (int) env('MARTIS_LOGIN_THROTTLE_MINUTES', 1),
+    'login_email_attempts' => (int) env('MARTIS_LOGIN_THROTTLE_EMAIL_ATTEMPTS', 100),
+    'login_email_minutes'  => (int) env('MARTIS_LOGIN_THROTTLE_EMAIL_MINUTES', 15),
 ],
 ```
 
-These keys live in the same `throttle` block as the global panel limits (`MARTIS_THROTTLE_*`), but the `login_*` bucket is a separate brute-force guard on the login endpoint. Defaults to 20 attempts per minute.
+These keys live in the same `throttle` block as the global panel limits (`MARTIS_THROTTLE_*`), but the `login_*` bucket is a separate brute-force guard on the login endpoints. Defaults to 20 attempts per minute, per IP.
+
+`login_email_attempts` / `login_email_minutes` (v2.4.0) are the second limit of the `martis-login` limiter, keyed on the email alone: at most 100 requests per 15 minutes for one email, whatever the source IPs. It bounds guessing at one account from many addresses, which the per-IP limit cannot, and has a higher threshold over a longer window than `login_*`, so a user who mistypes a password never reaches it. `0` attempts turns it off. See [Authentication → Per-email throttle](authentication.md#per-email-throttle) for what each limit stops and the cost of a per-account limit. It applies to `POST /{martis-path}/login` (new in v2.4.0), `POST /api/auth/login` and the magic-link request. Add the new variables to a published `config/martis.php` (or republish it).
 
 ## Impersonation extras
 
@@ -1445,6 +1449,8 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_LOCALE` | `env('APP_LOCALE', 'en')` |
 | `MARTIS_LOCALE_FALLBACK_CHAIN` | `'en'` |
 | `MARTIS_LOGIN_THROTTLE_ATTEMPTS` | `20` |
+| `MARTIS_LOGIN_THROTTLE_EMAIL_ATTEMPTS` | `100` |
+| `MARTIS_LOGIN_THROTTLE_EMAIL_MINUTES` | `15` |
 | `MARTIS_LOGIN_THROTTLE_MINUTES` | `1` |
 | `MARTIS_NAV_BADGES_POLL_MS` | `300000` |
 | `MARTIS_NAV_COUNTS` | `true` |

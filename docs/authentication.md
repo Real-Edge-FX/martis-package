@@ -42,12 +42,16 @@ Content-Type: application/json
 
 ### Per-email throttle
 
-In addition to the per-IP `throttle:N,1` envelope (configured via `MARTIS_LOGIN_THROTTLE_ATTEMPTS` / `_MINUTES`), the `/api/auth/login` route runs a second named limiter — `martis-login` — keyed on `lower(email) + ip`. The composition catches credential-stuffing attacks distributed across many IPs that the per-IP layer alone cannot stop:
+Besides the per-IP `throttle:N,1` envelope (configured via `MARTIS_LOGIN_THROTTLE_ATTEMPTS` / `_MINUTES`), both password sign-in routes (`POST /{martis-path}/login` since v2.4.0, and `POST /api/auth/login`) and the magic-link request run a second named limiter, `martis-login`, that holds two limits for a request that names an email (lowercased and trimmed):
 
-- Per-IP layer (`throttle:20,1`): kills a noisy single machine.
-- Per-email layer (`throttle:martis-login`): kills a slow distributed brute-force against a known account, even when each request comes from a fresh IP.
+| Limit | Key | Default | What it stops |
+|---|---|---|---|
+| Per email **and IP** | `lower(email)` + client IP | `MARTIS_LOGIN_THROTTLE_ATTEMPTS` (20) per `MARTIS_LOGIN_THROTTLE_MINUTES` (1) | One machine guessing at one account, without one IP's attempts counting against another's. |
+| Per email **alone** (v2.4.0) | `lower(email)` | `MARTIS_LOGIN_THROTTLE_EMAIL_ATTEMPTS` (100) per `MARTIS_LOGIN_THROTTLE_EMAIL_MINUTES` (15) | Guessing at one account from many addresses. |
 
-The named limiter is registered in `MartisServiceProvider::registerRateLimiters()`. Empty-payload requests (no `email` field at all) fall back to per-IP keying so an unfocused script still hits the rate limit. Override the default by re-registering `RateLimiter::for('martis-login', ...)` in your own service provider — last definition wins.
+The first limit gives every source IP a bucket of its own for the same email, so on its own it behaves like the per-IP throttle: an attacker spreading guesses over N addresses got N x 20 guesses a minute at one account. The second is the layer that bounds an attack on one account whatever the botnet's addresses, and it has a higher threshold over a longer window so a user who mistypes a password never meets it. The cost of any per-account limit is that someone who sends that many requests for an email can keep its owner from signing in for the rest of the window; raise the threshold, or set `MARTIS_LOGIN_THROTTLE_EMAIL_ATTEMPTS=0` to turn the per-account limit off and keep the first. Up to v2.3.0 `POST /{martis-path}/login` carried the per-IP throttle only and the `martis-login` limiter had no per-account limit at all.
+
+The named limiter is registered in `MartisServiceProvider::registerRateLimiters()` and reads its config per request. Empty-payload requests (no `email` field at all) fall back to per-IP keying so an unfocused script still hits the rate limit. Override the default by re-registering `RateLimiter::for('martis-login', ...)` in your own service provider — last definition wins.
 
 ### Logout
 

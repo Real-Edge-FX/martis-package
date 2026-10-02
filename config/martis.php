@@ -527,6 +527,13 @@ return [
         'decay_minutes' => (int) env('MARTIS_THROTTLE_DECAY', 1),
         'login_attempts' => (int) env('MARTIS_LOGIN_THROTTLE_ATTEMPTS', 20),
         'login_minutes' => (int) env('MARTIS_LOGIN_THROTTLE_MINUTES', 1),
+        // The `martis-login` limiter's second limit (v2.4.0), keyed on the
+        // email alone: it bounds guessing at one account from many IPs,
+        // which the per-email + per-IP limit above cannot (every IP gets a
+        // bucket of its own there). A higher threshold over a longer window
+        // than the login throttle; 0 attempts turns it off.
+        'login_email_attempts' => (int) env('MARTIS_LOGIN_THROTTLE_EMAIL_ATTEMPTS', 100),
+        'login_email_minutes' => (int) env('MARTIS_LOGIN_THROTTLE_EMAIL_MINUTES', 15),
     ],
 
     /*
