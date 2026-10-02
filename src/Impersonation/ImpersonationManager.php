@@ -50,7 +50,9 @@ class ImpersonationManager
      *
      * Throws RuntimeException when the feature is disabled, no user
      * is currently authenticated, the operator and target are the
-     * same person, the target fails the `viewMartis` gate, or
+     * same person, the operator's `canImpersonate()` or the target's
+     * `canBeImpersonated()` hook says no, the target is
+     * `NotImpersonable` or fails the `viewMartis` gate, or
      * impersonation is already active (chaining is not supported on
      * purpose — it would be a foot-gun).
      */
@@ -75,11 +77,19 @@ class ImpersonationManager
             throw new RuntimeException('Cannot impersonate yourself.');
         }
 
+        // Per-instance hooks (v2.4.0, Nova's canImpersonate / canBeImpersonated):
+        // an operator model that says it cannot impersonate, and a target
+        // that says it cannot be impersonated, are refused here too, so a
+        // programmatic start() cannot go around the controller's checks.
+        if (! $this->operatorMayImpersonate($operator)) {
+            throw new RuntimeException('This user cannot impersonate other users.');
+        }
+
         // Per-target opt-out (v1.8.8). Models that implement
         // `NotImpersonable` are off-limits — system accounts, API users,
         // super-admins, etc. The check runs before the session is
         // mutated so a denied attempt has no side-effect.
-        if ($target instanceof NotImpersonable) {
+        if (! $this->targetMayBeImpersonated($target)) {
             throw new RuntimeException('This user cannot be impersonated.');
         }
 
@@ -111,6 +121,33 @@ class ImpersonationManager
         }
 
         Event::dispatch(new ImpersonationStarted($operator, $target));
+    }
+
+    /**
+     * Whether the operator's model allows impersonating at all: true unless
+     * it has a `canImpersonate(): bool` method that answers false (Nova's
+     * per-instance hook; v2.4.0). The `martis-impersonate` gate is the
+     * other half and lives in the controller.
+     */
+    public function operatorMayImpersonate(Authenticatable $operator): bool
+    {
+        return ! method_exists($operator, 'canImpersonate') || (bool) $operator->canImpersonate();
+    }
+
+    /**
+     * Whether the target's model allows being impersonated: not a
+     * {@see NotImpersonable}, and true unless it has a
+     * `canBeImpersonated(): bool` method that answers false (Nova's
+     * per-instance hook; v2.4.0), which can tell one row from another in a
+     * table that holds support staff and super-admins alike.
+     */
+    public function targetMayBeImpersonated(Authenticatable $target): bool
+    {
+        if ($target instanceof NotImpersonable) {
+            return false;
+        }
+
+        return ! method_exists($target, 'canBeImpersonated') || (bool) $target->canBeImpersonated();
     }
 
     /**
