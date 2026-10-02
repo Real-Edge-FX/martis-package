@@ -135,19 +135,73 @@ it('refuses to create beside an unlinked row holding the address (external_id, a
     expect(IdentityAdoptionUser::query()->count())->toBe(1);
 });
 
-it('adopts when the user model has no email_verified_at column, as before', function () {
-    config()->set('martis.auth.registration.enabled', true);
+function recreateUsersWithoutVerificationColumn(): void
+{
     Schema::dropIfExists('users');
     Schema::create('users', function ($table) {
         $table->id();
         $table->string('name');
         $table->string('email')->unique();
         $table->string('password');
+        $table->string('azure_external_id')->nullable();
         $table->timestamps();
     });
+}
+
+it('refuses to adopt a row of a model with no email_verified_at column while self-registration is open', function () {
+    config()->set('martis.auth.registration.enabled', true);
+    recreateUsersWithoutVerificationColumn();
+    $attacker = IdentityAdoptionUser::query()->create([
+        'name' => 'Local',
+        'email' => 'victim@corp.example',
+        'password' => bcrypt('attacker-password'),
+    ]);
+    $passwordBefore = $attacker->password;
+
+    expect(fn () => (new IdentityResolver)->resolve(adoptionIdentity('victim@corp.example'), 'azure'))
+        ->toThrow(SsoAdoptionRefusedException::class);
+
+    // No row was adopted or synced, none was created beside it, and the
+    // attacker's password is untouched.
+    $attacker->refresh();
+    expect($attacker->name)->toBe('Local');
+    expect($attacker->password)->toBe($passwordBefore);
+    expect(IdentityAdoptionUser::query()->count())->toBe(1);
+});
+
+it('refuses the column-less row even when auto_create_user is off', function () {
+    config()->set('martis.auth.registration.enabled', true);
+    config()->set('martis.auth.sso.providers.azure.auto_create_user', false);
+    recreateUsersWithoutVerificationColumn();
+    IdentityAdoptionUser::query()->create(['name' => 'L', 'email' => 'victim@corp.example', 'password' => 'x']);
+
+    expect(fn () => (new IdentityResolver)->resolve(adoptionIdentity('victim@corp.example'), 'azure'))
+        ->toThrow(SsoAdoptionRefusedException::class);
+});
+
+it('adopts a row of a model with no email_verified_at column when self-registration is off', function () {
+    config()->set('martis.auth.registration.enabled', false);
+    recreateUsersWithoutVerificationColumn();
     $row = IdentityAdoptionUser::query()->create(['name' => 'L', 'email' => 'old@corp.example', 'password' => 'x']);
 
     $user = (new IdentityResolver)->resolve(adoptionIdentity('old@corp.example'), 'azure');
+
+    expect($user?->getKey())->toBe($row->getKey());
+});
+
+it('leaves the external_id strategy alone on a model with no email_verified_at column', function () {
+    config()->set('martis.auth.registration.enabled', true);
+    config()->set('martis.auth.sso.providers.azure.identity_match_attribute', 'external_id');
+    config()->set('martis.auth.sso.providers.azure.identity_external_id_column', 'azure_external_id');
+    recreateUsersWithoutVerificationColumn();
+    $row = IdentityAdoptionUser::query()->create([
+        'name' => 'L',
+        'email' => 'linked@corp.example',
+        'password' => 'x',
+        'azure_external_id' => adoptionIdentity('linked@corp.example')->externalId,
+    ]);
+
+    $user = (new IdentityResolver)->resolve(adoptionIdentity('linked@corp.example'), 'azure');
 
     expect($user?->getKey())->toBe($row->getKey());
 });

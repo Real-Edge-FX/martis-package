@@ -20,11 +20,12 @@ use Illuminate\Support\Facades\Schema;
  *                                the entire find-or-create logic.
  *
  * The `email` strategy adopts an existing local row only when it can trust
- * the row's email: it is verified (`email_verified_at` set, when the model has
- * the column) or self-registration is off (`martis.auth.registration.enabled`
- * false), so every row was provisioned by an administrator. With registration
- * open and the row unverified, anyone could have registered the IdP user's
- * address first and kept the password; the sign-in is refused with
+ * the row's email: it is verified (`email_verified_at` set) or self-registration
+ * is off (`martis.auth.registration.enabled` false), so every row was
+ * provisioned by an administrator. With registration open and the row
+ * unverified, anyone could have registered the IdP user's address first and
+ * kept the password; a model with no `email_verified_at` column cannot prove a
+ * verified address at all, so it counts as unverified. The sign-in is refused with
  * {@see SsoAdoptionRefusedException} instead (v2.4.0). The `external_id`
  * strategy matches an id the IdP issued and is unaffected.
  *
@@ -129,7 +130,9 @@ class IdentityResolver
 
     /**
      * Whether a local row found by the IdP's address may be signed in as that
-     * identity: its email is verified, or nobody can self-register rows.
+     * identity: its email is verified, or nobody can self-register rows. A
+     * model with no `email_verified_at` column cannot prove a verified address,
+     * so with registration open it is refused like an unverified row.
      */
     protected function mayAdoptByEmail(User $user): bool
     {
@@ -141,10 +144,11 @@ class IdentityResolver
         $hasColumn = array_key_exists($column, $user->getAttributes())
             || Schema::connection($user->getConnectionName())->hasColumn($user->getTable(), $column);
 
-        // A model with no verification column cannot tell a registered row
-        // from a provisioned one: it keeps the old behaviour.
+        // With registration open a model with no verification column cannot
+        // tell a self-registered row from a provisioned one, and cannot prove
+        // the address was verified: refuse, as for an unverified row.
         if (! $hasColumn) {
-            return true;
+            return false;
         }
 
         return $user->getAttribute($column) !== null;
