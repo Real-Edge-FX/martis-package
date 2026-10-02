@@ -26,7 +26,8 @@ use Throwable;
  * `martis-attachments/` that none of them holds and that were written more
  * than `--hours` ago (24 by default, so an upload from a form still open is
  * never taken). A file referenced from a table no registered resource
- * writes to is not seen: run it with `--dry-run` first.
+ * writes to is not seen: run it with `--dry-run` first. It refuses (and
+ * deletes nothing) when no registered resource has a table it can scan.
  */
 class AttachmentsPruneCommand extends Command
 {
@@ -54,9 +55,19 @@ class AttachmentsPruneCommand extends Command
         // A table that cannot be read cannot be ruled out: stop before
         // deleting a file it may reference.
         try {
-            $referenced = $this->referencedNames($registry);
+            [$referenced, $scanned] = $this->referencedNames($registry);
         } catch (Throwable $e) {
             $this->components->error('Could not read the records that reference the attachments, nothing was deleted: '.$e->getMessage());
+
+            return self::FAILURE;
+        }
+
+        // With nothing scanned every file looks unreferenced: a console that
+        // booted without the app's resources (another `resources_path`, a
+        // discovery that failed, resources registered conditionally) would
+        // delete every attachment. Refuse rather than guess.
+        if ($scanned === 0) {
+            $this->components->error('No registered resource has a table with a text or JSON column to scan, so every file would look unreferenced. Nothing was deleted. Check that the console registers the panel\'s resources (martis.resources_path) and run it with --dry-run.');
 
             return self::FAILURE;
         }
@@ -183,12 +194,16 @@ class AttachmentsPruneCommand extends Command
      * columns of the table of each registered resource's model. The URL
      * and the JSON escaping around a name do not matter, only the name.
      *
-     * @return array<string, true>
+     * Returns the names and how many tables were scanned: none means the
+     * names prove nothing (see `handle()`).
+     *
+     * @return array{array<string, true>, int}
      */
     private function referencedNames(ResourceRegistry $registry): array
     {
         $names = [];
         $seen = [];
+        $scanned = 0;
 
         foreach ($registry->list() as $resourceClass) {
             $modelClass = $resourceClass::model();
@@ -208,6 +223,8 @@ class AttachmentsPruneCommand extends Command
                 continue;
             }
 
+            $scanned++;
+
             foreach ($connection->table($table)->select($columns)->cursor() as $row) {
                 foreach ((array) $row as $value) {
                     if (is_string($value) && preg_match_all('/([A-Za-z0-9]{40})\.[A-Za-z0-9]{1,10}/', $value, $matches) > 0) {
@@ -219,7 +236,7 @@ class AttachmentsPruneCommand extends Command
             }
         }
 
-        return $names;
+        return [$names, $scanned];
     }
 
     /**
