@@ -96,7 +96,7 @@ Mid-level cluster nested **inside** a `MenuSection`. See [Nested MenuGroup](#nes
 
 - `MenuItem::make($label, $url)` — alias for `link()`
 - `MenuItem::link($label, $url)`: a path below the Martis base path, opened without a full reload. It can be a page your app [registered](custom-pages.md) (v2.2.0+); for a page a Tool guards, `MenuItem::tool(ToolClass::class)->path('/findings')` shows the entry only to the users the Tool is visible to.
-- `MenuItem::externalLink($label, $url)`
+- `MenuItem::externalLink($label, $url)`: a link to another site. The panel renders the URL as the link's `href` only when it is a web URL (`http(s)`), a path, or `mailto:` / `tel:`; since v2.4.0 any other scheme (`javascript:`, `data:`, ...) leaves the link without an `href`.
 - `MenuItem::resource(ResourceClass::class)`
 - `MenuItem::tool(ToolClass::class | $toolInstance)` — see [Tool menu items](#tool-menu-items)
 - `MenuItem::dashboard(DashboardClass::class | $dashboardInstance)` — see [Dashboard, Lens & Filter items](#dashboard-lens--filter-items)

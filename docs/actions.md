@@ -889,15 +889,19 @@ class PostResource extends Resource
 |----------|--------|
 | `ActionResponse::message('Done')` | Green success toast, then the page refreshes |
 | `ActionResponse::danger('Failed')` | Red error toast, then the page refreshes |
-| `ActionResponse::redirect($url)` | Full-page browser redirect |
+| `ActionResponse::redirect($url)` | Full-page browser redirect to an `http(s)` URL or a path (see [Response URLs](#response-urls)) |
 | `ActionResponse::visit($path, $params)` | SPA navigation (no reload) to `$path` below the Martis base path, with `$params` added to its query string (`visit('/resources/users', ['view' => 'open'])`); a query or `#fragment` the path already has is kept (`visit('/resources/users?view=open#top', ['page' => 2])` goes to `/resources/users?view=open&page=2#top`) |
-| `ActionResponse::openInNewTab($url)` | Opens the URL in a new tab |
-| `ActionResponse::download($filename, $url)` | Downloads the file as `$filename` |
+| `ActionResponse::openInNewTab($url)` | Opens the URL in a new tab (an `http(s)` URL or a path) |
+| `ActionResponse::download($filename, $url)` | Downloads the file as `$filename` (an `http(s)` URL or a path) |
 | `ActionResponse::emit($event, $data)` | Emits `$event` with `$data` on `martisEventBus`, then the success toast (see [Client-side events](#client-side-events)) |
 | `ActionResponse::modal($component, $data)` | Shows the component registered under `$component` (see [Custom modal responses](#custom-modal-responses)) |
 | `ActionResponse::openCreate()` / `openDetail()` / `openUpdate()` | Opens the matching drawer |
 
 Every successful run fires `martis:action-executed` on `martisEventBus`, and dashboard metrics refetch on it, as Nova's do (v2.3.0). Pivot actions handle every response above but the three drawers, which fall back to the success toast.
+
+### Response URLs
+
+`redirect()`, `openInNewTab()` and `download()` hand their URL to the browser, and a `javascript:` URL there would run script in the panel with the viewer's session. They take an `http(s)` URL or a path (`/exports/posts.csv`, `//cdn.example.com/file`, `exports/posts.csv`) and, since v2.4.0, throw an `InvalidArgumentException` for any other scheme (`javascript:`, `data:`, `vbscript:`, `file:`, `mailto:`, `blob:`, ...), however it is spelled (leading spaces, tabs inside the scheme). The panel refuses the same URLs on its side too (a console error, nothing navigates), as `visit()` already refuses a path outside the app. A URL built from record data is therefore safe to pass; a `data:` download is not supported, serve the file from a route or a signed URL instead.
 
 ### Custom modal responses
 

@@ -430,13 +430,13 @@ uniformly to every field via the base class — Panel, Section, TabGroup,
 ResourceCreate, ResourceUpdate, and detail labels rendered inside
 Sections/TabGroups.
 
-The label renderer sets `data-pr-tooltip-html="true"` on the `(?)`
-icon, and the global `MartisTooltip` provider renders any trigger with
-that attribute as HTML: a field tooltip, a metric's `help()`, or a
-trigger of your own. A trigger without it keeps the plain-text escape.
-The markup is not sanitised, so it must be trusted: authors are
-responsible for producing safe markup, and user or record data never
-goes into it.
+The label renderer registers the `(?)` icon with `htmlTooltip()`, and the
+global `MartisTooltip` provider renders a registered trigger as HTML: a
+field tooltip, a metric's `help()`, or a trigger of your own (see
+[Tooltip Standard](components.md#tooltip-standard-primereact)). Any other
+trigger keeps the plain-text escape, whatever attributes it carries. The
+markup is sanitised before it is shown, but authors are still responsible
+for producing it: user or record data never goes into it.
 
 A `Tooltip` field class was deliberately rejected — a `Field`
 represents a value, not a decoration. See
