@@ -573,7 +573,7 @@ await api.upload('POST', '/api/posts', formValues) // handles file uploads
 **Features:**
 - Automatic CSRF token injection (cookie or meta tag)
 - Same-origin credentials
-- Refuses a path with a dot segment (`.` or `..`, also spelt `%2e`) before it sends anything, with an `ApiError` (status 400): the browser would resolve it to another endpoint. Encode every value you put in a path with `encodeURIComponent()`, so a route param or a record key such as `../users/5` stays one segment (v2.4.0)
+- Refuses a path with a dot segment (`.` or `..`, also spelt `%2e`) before it sends anything, with an `ApiError` (status 400): the browser would resolve it to another endpoint. Build every path that holds a route param or a record key with `apiPath` (or `pathSegment` for one value), exported by `@martis/runtime`, so a value such as `../users/5` or `5/force` stays one segment: `encodeURIComponent()` is not enough, since Laravel decodes `%2F` before it routes. A value holding a literal `%2F` throws an `ApiError` (status 400) (v2.4.0)
 - File detection and FormData conversion (`hasFileValues()` / `buildFormData()`): on the multipart path booleans travel as `1` / `0` and arrays or plain objects as JSON strings, which the resource controllers decode back for structured fields, so a Repeater, MultiSelect, BooleanGroup, KeyValue, Tag, MorphTo or Sparkline value saved alongside a file keeps its shape (see [Fields → Structured values and file uploads](fields.md#structured-values-and-file-uploads))
 - Laravel validation error normalization
 - `ApiError` class with `errorsByField()` for inline display

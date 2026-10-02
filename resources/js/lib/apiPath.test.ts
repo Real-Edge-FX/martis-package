@@ -197,3 +197,63 @@ describe('the request helpers refuse a path the browser would rewrite', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
+
+// B-D6: the slash is spelt `%252F`, which the server decodes to the text
+// `%2F`. A value that already holds the text `%2F` encoded to the same wire
+// segment, so a request meant for the record keyed `a/b` also addressed the
+// record keyed `a%2Fb`, and the other way round. The encoding cannot tell them
+// apart (the server decodes once), so a value holding a literal `%2F` is
+// refused, with the error `request()` answers a dot segment with.
+describe('pathSegment is injective: a value that holds a literal %2F is refused', () => {
+  it.each(['a%2Fb', 'a%2fb', '%2F', '%2f', 'x%2F', 'a%2Fb%2Fc', '5%2Fforce', '..%2Fusers%2F5'])('refuses %j in a path segment, with an ApiError (400)', (value) => {
+    let thrown: unknown
+    try {
+      pathSegment(value)
+    } catch (error) {
+      thrown = error
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError)
+    expect((thrown as ApiError).status).toBe(400)
+  })
+
+  it('refuses it through the template tag, and sends nothing', async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+
+    expect(() => apiPath`/api/resources/${'posts'}/${'a%2Fb'}`).toThrow(ApiError)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('never gives two distinct values the same wire segment', () => {
+    const values = ['a/b', 'a%252Fb', 'a%25b', 'a%b', 'a%2', 'a%2G', 'a%F', 'a\\b', 'a b', 'ab', '%', '%%', '/', '%25', '%252F', '..', '.', '5']
+    const wires = values.map((value) => pathSegment(value))
+
+    expect(new Set(wires).size).toBe(values.length)
+  })
+
+  // The nearest neighbours of `%2F` that stay accepted and keep their encoding.
+  it.each([
+    ['a/b', 'a%252Fb'],
+    ['a%252Fb', 'a%25252Fb'],
+    ['a%2', 'a%252'],
+    ['a%2G', 'a%252G'],
+    ['a%F2', 'a%25F2'],
+    ['%', '%25'],
+    ['2F', '2F'],
+    ['a%25b', 'a%2525b'],
+  ])('still encodes %j as %j', (value, expected) => {
+    expect(pathSegment(value)).toBe(expected)
+  })
+
+  it('does not refuse a literal %2F in a query value: the server decodes a query value once, so it is injective there', () => {
+    expect(apiPath`/api/search?q=${'a%2Fb'}`).toBe('/api/search?q=a%252Fb')
+    expect(apiPath`/api/search?q=${'a/b'}`).toBe('/api/search?q=a%2Fb')
+  })
+
+  it('does not refuse it in a path of the SPA router: React Router decodes once, so it is injective there too', () => {
+    expect(routePath`/resources/${'posts'}/${'a%2Fb'}`).toBe('/resources/posts/a%252Fb')
+    expect(routePath`/resources/${'posts'}/${'a/b'}`).toBe('/resources/posts/a%2Fb')
+  })
+})
+

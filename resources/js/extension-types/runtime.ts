@@ -20,6 +20,7 @@ export { useIsMobile } from '@/hooks/useIsMobile'
 
 // Lib
 export { api, ApiError } from '@/lib/api'
+export { apiPath, pathSegment, routePath, withQuery } from '@/lib/apiPath'
 export { config } from '@/lib/config'
 export { martisEventBus } from '@/lib/eventBus'
 

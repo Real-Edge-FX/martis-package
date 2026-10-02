@@ -50,6 +50,7 @@ import { useAuth, AuthProvider, TwoFactorRequiredError, EmailVerificationRequire
 import { useToast, useToastSafe } from '@/contexts/ToastContext'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { api, ApiError } from '@/lib/api'
+import { apiPath, pathSegment, routePath, withQuery } from '@/lib/apiPath'
 import { config } from '@/lib/config'
 import { martisEventBus } from '@/lib/eventBus'
 import { AuthFrame } from '@/components/auth/AuthFrame'
@@ -114,6 +115,18 @@ export const martisRuntime = {
   // Lib
   api,
   ApiError,
+  // Path builders (v2.4.0+). A route param, a search param or a record key put
+  // in an API path must stay ONE segment: `encodeURIComponent()` is not
+  // enough (Laravel decodes `%2F` before it routes, so `5%2Fforce` reaches the
+  // force-delete route of record 5). Tag the template, `api.get(apiPath`/api/
+  // findings/${id}`)`, or encode one value with `pathSegment(id)`; `withQuery`
+  // appends a built query string, `routePath` builds a link of the SPA's own
+  // router. A path value holding a literal `%2F` throws an `ApiError` (400).
+  // See docs/custom-pages.md and docs/components.md.
+  apiPath,
+  pathSegment,
+  routePath,
+  withQuery,
   config,
 
   // Singleton pub/sub event bus (since v1.x). Lets a consumer's own
