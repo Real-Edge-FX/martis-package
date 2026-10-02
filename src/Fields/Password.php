@@ -26,6 +26,9 @@ use Martis\Auth\PasswordPolicy;
  */
 class Password extends Field
 {
+    /** A password is a secret: no log keeps it (see `Field::sensitive()`). */
+    protected bool $sensitive = true;
+
     protected bool $strengthMeter = false;
 
     protected bool $showRequirements = false;

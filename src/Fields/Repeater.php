@@ -485,6 +485,30 @@ class Repeater extends Field
     }
 
     /**
+     * The attributes of the sensitive fields (see `Field::sensitive()`) in
+     * the rows of this Repeater, the rows of a Repeater nested in it
+     * included. The action event log masks their values.
+     *
+     * @return list<string>
+     */
+    public function sensitiveRowAttributes(Request $request): array
+    {
+        $attributes = [];
+
+        foreach ($this->repeatables as $repeatable) {
+            foreach ($repeatable->fields($request) as $field) {
+                if ($field instanceof self) {
+                    array_push($attributes, ...$field->sensitiveRowAttributes($request));
+                } elseif ($field instanceof Field && $field->isSensitive()) {
+                    $attributes[] = $field->attribute();
+                }
+            }
+        }
+
+        return array_values(array_unique($attributes));
+    }
+
+    /**
      * Whether a write stores the rows it sends for this Repeater: not for a
      * readonly Repeater, an immutable one on update (every update skips it),
      * or a computed one without a `fillUsing()` callback.

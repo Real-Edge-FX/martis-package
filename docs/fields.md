@@ -216,6 +216,8 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 | Method | Signature | Returns | Description |
 |--------|-----------|---------|-------------|
 | `nullable` | `nullable(bool\|Closure $value = true): static` | `$this` | Mark as nullable (adds `nullable` validation rule). Accepts a closure for request-time resolution. |
+| `sensitive` | `sensitive(bool $value = true): static` | `$this` | Mark the value as a secret: an Action's field that collects an API key or a token. The [action event log](actions.md#action-field-values-in-the-log) stores `******` for it instead of the value. `Password` and `PasswordConfirmation` are sensitive by default. See [Sensitive fields](#sensitive-fields). v2.4.0+. |
+| `isSensitive` | `isSensitive(): bool` | `bool` | Whether the value is a secret. |
 | `readonly` | `readonly(bool\|Closure $value = true): static` | `$this` | Prevent modification through UI. `fill()` becomes a no-op. Accepts a closure for request-time resolution. Every bundled input renders the field read-only (`Avatar`, `BooleanGroup`, `Repeater`, `File`, `Image` and the inline-create "+" of `BelongsTo` / `MorphTo` since v1.38.0, see [Immutable fields](#immutable-fields)). A readonly pivot field is never written from the request either: the attach stores its `default()` and the pivot update leaves it alone (v1.38.0+, see [Immutable fields](#immutable-fields)). Nor is a readonly field inside a `Repeater` row: a stored row keeps its value and a new row stores its `default()` (v1.38.0+, see [Repeater](repeater.md#readonly-computed-hidden-and-immutable-row-fields)). |
 | `required` | `required(bool\|Closure $value = true): static` | `$this` | Require a non-null value (adds `required` validation rule). Accepts a closure for request-time resolution. **v1.8.3**: declaring `'required'` (or any `required_*` variant) inside `->rules([...])` is enough — the visual asterisk now auto-detects it. Calling `->required()` explicitly is still supported and required when you want a Closure-resolved flag. |
 | `placeholder` | `placeholder(string\|Closure $text): static` | `$this` | Set placeholder text for the input. Accepts a closure for request-time resolution. |
@@ -388,6 +390,16 @@ Every bundled input renders a readonly field read-only, so the lock holds whatev
 The pivot endpoints write each pivot field (in the `fields()` of a `BelongsToMany` / `MorphToMany`) through its `fill()`, and `readonly()` holds there too: a readonly pivot field never takes its value from the request. The attach stores its `default()` instead, as it does for any pivot field the request omits, and the pivot update leaves the column alone. See [Relationships → With Pivot Fields](relationships.md#with-pivot-fields).
 
 Up to v1.37.3 only the resource's own update skipped an immutable field: the inline update of a `HasMany` / `HasOne` / `MorphMany` / `MorphOne` and the pivot update wrote it like any other field, and the attach and the pivot update also wrote a readonly pivot field from the request.
+
+### Sensitive fields
+
+`sensitive()` marks the value a field carries as a secret (v2.4.0+): an API key, a token or a one-time code that an Action collects in its modal under a plain `Text` field. The [action event log](actions.md#action-field-values-in-the-log) keeps `******` (`ActionEventRedactor::MASK`) in place of the value, in the event of a run, a failed run, a queued run and a pivot action. `Password` and `PasswordConfirmation` are sensitive without the call (`Password::make('x')->sensitive(false)` turns it off); `isSensitive()` reads the flag.
+
+```php
+Text::make('api_key')->sensitive();
+```
+
+The flag changes nothing else: the action receives the value, the field is validated and rendered as before.
 
 ### Reactive fields — `dependsOn(['field'], Closure)`
 
