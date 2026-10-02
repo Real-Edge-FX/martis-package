@@ -1,4 +1,5 @@
 import { useState, useEffect, useId, useMemo, useRef } from "react"
+import { withQuery } from "@/lib/apiPath"
 import { createPortal } from "react-dom"
 import type { FieldDisplayProps, FieldInputProps } from "./types"
 import { EyeIcon, EyeSlashIcon, XIcon } from "@phosphor-icons/react"
@@ -460,7 +461,7 @@ export function TrixFieldInput({
           query.set("repeatable", scope.repeaterRow.repeatable)
         }
 
-        fetch(`${BASE_PATH}/api/attachments/upload?${query.toString()}`, {
+        fetch(withQuery(`${BASE_PATH}/api/attachments/upload`, query.toString()), {
           method: "POST",
           body: formData,
           credentials: "same-origin",
