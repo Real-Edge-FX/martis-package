@@ -86,7 +86,7 @@ class User extends Authenticatable
 }
 ```
 
-They are checked on top of the gate and `NotImpersonable`, and again inside `ImpersonationManager::start()`, so a programmatic `Impersonation::start($user)` cannot go around them (it throws a `RuntimeException`).
+They are checked on top of the gate and `NotImpersonable`, and again inside `ImpersonationManager::start()`, so a programmatic `Impersonation::start($user)` cannot go around them (it throws `Martis\Impersonation\ImpersonationRefusedException`, a `RuntimeException`).
 
 ## REST surface
 
@@ -175,7 +175,7 @@ class SystemAccount extends Authenticatable implements NotImpersonable
 }
 ```
 
-`ImpersonationManager::start()` checks for the interface before mutating the session and rejects with `RuntimeException`, which the controller surfaces as `422 { message: "This user cannot be impersonated." }`. To protect some rows of a table and not others, use the target-aware gate or `canBeImpersonated()` above. The check runs server-side; the operator's UI is unchanged. You typically pair this with a `canSee()` clause on the trigger button (the row never shows the option) for the cleanest UX.
+`ImpersonationManager::start()` checks for the interface before mutating the session and rejects with `ImpersonationRefusedException` (a `RuntimeException`), which the controller surfaces as `422 { message: "This user cannot be impersonated." }`. To protect some rows of a table and not others, use the target-aware gate or `canBeImpersonated()` above. The check runs server-side; the operator's UI is unchanged. You typically pair this with a `canSee()` clause on the trigger button (the row never shows the option) for the cleanest UX. Only that exception type is shown to the client: any other failure while starting (a database or session error) goes to the normal exception handler and never reaches the response body.
 
 ## Audit logging
 

@@ -486,3 +486,16 @@ it('records both identities in the audit rows of a start and a stop', function (
 
     Schema::dropIfExists('martis_action_events');
 });
+
+it('keeps the message of a non-refusal failure out of the response body (F027)', function () {
+    Gate::define('martis-impersonate', fn () => true);
+    Event::listen(ImpersonationStarted::class, function () {
+        throw new RuntimeException('SQLSTATE[HY000]: General error: no such table secret_internal');
+    });
+
+    $response = $this->actingAs($this->operator, 'web')
+        ->postJson('/martis/api/impersonation/start/'.$this->target->id);
+
+    $response->assertStatus(500);
+    expect($response->getContent())->not->toContain('SQLSTATE')->not->toContain('secret_internal');
+});
