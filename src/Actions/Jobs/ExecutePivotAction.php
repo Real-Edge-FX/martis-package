@@ -33,6 +33,14 @@ class ExecutePivotAction implements ShouldQueue
     use SerializesModels;
 
     /**
+     * Encrypt the serialized job in the queue store (Laravel reads this
+     * property as it does `ShouldBeEncrypted`). Set when the fields carry a
+     * secret (a `Password` or `sensitive()` field): the payload then never
+     * holds it in plain text in a database row or a Redis key.
+     */
+    public bool $shouldBeEncrypted = false;
+
+    /**
      * @param  class-string<Action>  $actionClass
      * @param  array<string, mixed>  $fields
      * @param  class-string<Model>  $parentModelClass

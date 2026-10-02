@@ -6,6 +6,8 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
 use Illuminate\Http\Request;
+use Illuminate\Queue\Connectors\ConnectorInterface;
+use Illuminate\Queue\NullQueue;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Martis\Actions\Action;
@@ -108,6 +110,37 @@ class AEFQueuedRotate extends AEFRotate implements ShouldQueue
     public ?string $name = 'Queued Rotate';
 }
 
+/** A queued action whose fields hold no secret. */
+class AEFQueuedPlain extends Action implements ShouldQueue
+{
+    public ?string $name = 'Queued Plain';
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('note')->nullable()];
+    }
+
+    /** @param Collection<int, Model> $models */
+    public function handle(ActionFields $fields, Collection $models): ActionResponse
+    {
+        return ActionResponse::message('Done.');
+    }
+}
+
+/** A queue connection that keeps the payloads it is handed, as a real driver would store them. */
+class AEFCaptureQueue extends NullQueue
+{
+    /** @var list<string> */
+    public static array $payloads = [];
+
+    public function push($job, $data = '', $queue = null)
+    {
+        self::$payloads[] = $this->createPayload($job, (string) ($queue ?? 'default'), $data);
+
+        return null;
+    }
+}
+
 class AEFFailingRotate extends AEFRotate
 {
     public ?string $name = 'Failing Rotate';
@@ -151,13 +184,13 @@ class AEFAccountResource extends Resource
         return [
             Text::make('name'),
             BelongsToMany::make('Tags', 'tags', AEFTagResource::class)
-                ->actions(fn () => [AEFPivotRotate::make(), AEFQueuedPivotRotate::make()]),
+                ->actions(fn () => [AEFPivotRotate::make(), AEFQueuedPivotRotate::make(), AEFQueuedPlain::make()]),
         ];
     }
 
     public function actions(Request $request): array
     {
-        return [AEFRotate::make(), AEFQueuedRotate::make(), AEFFailingRotate::make(), AEFStandaloneRotate::make()->standalone()->onlyOnIndex()];
+        return [AEFRotate::make(), AEFQueuedRotate::make(), AEFQueuedPlain::make(), AEFFailingRotate::make(), AEFStandaloneRotate::make()->standalone()->onlyOnIndex()];
     }
 }
 
@@ -402,3 +435,71 @@ it('masks inside the rows of a Repeater, and a nested Repeater too', function ()
         'children' => [['type' => 'a-e-f-row', 'fields' => ['pin' => ActionEventRedactor::MASK, 'token' => ActionEventRedactor::MASK, 'label' => 'l']]],
     ]);
 });
+
+// ---- a queued run: the job payload is stored by the queue driver --------------------------
+
+/** Run a queued action with a driver that keeps the payload, and return what it was handed. */
+function aefQueuedPayload(string $uri, array $fields, ?string $pivotTag = null): array
+{
+    AEFCaptureQueue::$payloads = [];
+    config()->set('queue.default', 'aef-capture');
+    config()->set('queue.connections.aef-capture', ['driver' => 'aef-capture']);
+    app('queue')->addConnector('aef-capture', fn () => new class implements ConnectorInterface
+    {
+        public function connect(array $config)
+        {
+            return new AEFCaptureQueue;
+        }
+    });
+
+    $url = $pivotTag === null
+        ? "/martis/api/resources/aef-accounts/actions/{$uri}"
+        : '/martis/api/resources/aef-accounts/'.test()->account->id."/belongs-to-many/tags/actions/{$uri}";
+
+    test()->postJson($url, ['resources' => [$pivotTag ?? test()->account->id], 'fields' => $fields])->assertOk();
+
+    expect(AEFCaptureQueue::$payloads)->toHaveCount(1);
+
+    return json_decode(AEFCaptureQueue::$payloads[0], true);
+}
+
+it('encrypts the payload of a queued run that carries a secret, so no queue store holds it in plain text', function (string $uri, ?bool $pivot) {
+    $payload = aefQueuedPayload($uri, AEF_INPUT, $pivot ? (string) $this->tag->id : null);
+
+    // What the driver stores holds none of the secrets: not the password, the sensitive text or the row's pin ...
+    $stored = json_encode($payload);
+    foreach (['Sup3r-secret!', 'sk_live_123', '4821', 'tok-1'] as $secret) {
+        expect($stored)->not->toContain($secret);
+    }
+    expect($stored)->not->toContain('new_password');
+
+    // ... and the worker still reads them: the command decrypts to the job with the real values.
+    $job = unserialize(decrypt($payload['data']['command']));
+    expect($job->fields['new_password'])->toBe('Sup3r-secret!')
+        ->and($job->fields['api_key'])->toBe('sk_live_123')
+        ->and($job->fields['rows'][0]['fields']['pin'])->toBe('4821');
+})->with([
+    'resource action' => ['a-e-f-queued-rotate', null],
+    'pivot action' => ['a-e-f-queued-pivot-rotate', true],
+]);
+
+it('encrypts a queued run whose only secret is a sensitive() text field or a sensitive row attribute', function (array $fields) {
+    $payload = aefQueuedPayload('a-e-f-queued-rotate', $fields);
+
+    expect(json_encode($payload))->not->toContain('sk_live_123')->not->toContain('tok-9')
+        ->and(unserialize(decrypt($payload['data']['command'])))->toBeObject();
+})->with([
+    'sensitive text' => [['api_key' => 'sk_live_123']],
+    'sensitive row attribute' => [['rows' => [['type' => 'a-e-f-row', 'fields' => ['label' => 'x', 'token' => 'tok-9']]]]],
+]);
+
+it('leaves the payload of a queued run with no secret as it was, and when the secret fields are empty', function (string $uri, array $fields) {
+    $payload = aefQueuedPayload($uri, $fields);
+
+    // Plain serialized command: the worker needs no key, nothing was encrypted without cause.
+    expect($payload['data']['command'])->toStartWith('O:')
+        ->and($payload['data']['command'])->toContain('rotated by ops');
+})->with([
+    'an action with no sensitive field' => ['a-e-f-queued-plain', ['note' => 'rotated by ops']],
+    'sensitive fields left empty' => ['a-e-f-queued-rotate', ['note' => 'rotated by ops', 'new_password' => '', 'api_key' => '']],
+]);

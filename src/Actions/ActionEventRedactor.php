@@ -222,6 +222,40 @@ final class ActionEventRedactor
     }
 
     /**
+     * Whether `$values` holds a secret the action's `$fields` declare: a
+     * non-empty value of a `Password` or `sensitive()` field, or of a
+     * `sensitive` attribute of a Repeater row. The values a queued run hands
+     * its job are such a payload: the queue driver stores them (a database
+     * row, a Redis key), so the job is encrypted when this says so.
+     *
+     * Unlike {@see self::loggableFields()} it does not filter by what the user
+     * may see: the job receives every value the run resolved.
+     *
+     * @param  list<FieldContract>  $fields  The action's declared fields.
+     * @param  array<string, mixed>  $values  The values the run resolved (`ActionFields::all()`).
+     */
+    public static function carriesSecret(array $fields, array $values, Request $request): bool
+    {
+        foreach ($fields as $field) {
+            $value = $values[$field->attribute()] ?? null;
+
+            if ($value === null || $value === '' || $value === []) {
+                continue;
+            }
+
+            if ($field instanceof Field && $field->isSensitive()) {
+                return true;
+            }
+
+            if ($field instanceof Repeater && is_array($value) && self::maskRows($value, $field->sensitiveRowAttributes($request)) !== $value) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * `$value` with the value of each key named in `$sensitive` replaced by
      * the mask, at any depth.
      *

@@ -438,6 +438,8 @@ class GenerateReportPdf extends Action implements ShouldQueue
 6. The queue worker picks up the job and calls `handle()` with all 200 models
 7. After processing, `ActionEvent` records update to `status = "completed"` (or `"failed"`)
 
+**The job payload is encrypted when the fields carry a secret (v2.4.0).** The values the run resolved travel in the job, and the queue driver stores the serialized job (a `jobs` row, a Redis key, an SQS message). When a `Password` or `sensitive()` field of the action, or a `sensitive` attribute of a Repeater row, has a non-empty value, `ExecuteAction` and `ExecutePivotAction` are dispatched with `$shouldBeEncrypted = true` (the property Laravel reads like `ShouldBeEncrypted`): the payload is encrypted with `APP_KEY` and the worker decrypts it, so the secret is not in plain text in the queue store. An action with no secret keeps a plain payload, and the worker needs no key for it. The workers and the app must share `APP_KEY`. The audit log already masks these values (see [Hidden values](#hidden-values-in-original-and-changes-v201)).
+
 **Testing locally:**
 
 ```bash
