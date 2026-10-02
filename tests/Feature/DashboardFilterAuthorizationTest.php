@@ -11,7 +11,9 @@ use Martis\Dashboards\Dashboard;
 use Martis\Enums\FilterType;
 use Martis\Facades\Martis;
 use Martis\Filters\Filter;
+use Martis\Http\Controllers\MetricController;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Metrics\Metric;
 use Martis\Metrics\ValueMetric;
 use Martis\Metrics\ValueResult;
 
@@ -157,4 +159,31 @@ it('does not compute the metric of a locked dashboard', function () {
     expect($response->json('locked'))->toBeTrue();
     expect($response->json('lock'))->toBeArray();
     expect($response->getContent())->not->toContain('"value"');
+});
+
+it('does not let a filters value that applies nothing mint a metric cache key of its own', function () {
+    $controller = app(MetricController::class);
+    $apply = new ReflectionMethod($controller, 'applyDashboardFiltersToMetric');
+    $keyOf = new ReflectionMethod(Metric::class, 'resultCacheKey');
+
+    $cacheKey = function (mixed $raw) use ($controller, $apply, $keyOf): string {
+        $metric = DashFilterAuthzMetric::make('Rows', 'rows');
+        $request = Request::create('/x', 'GET', $raw === null ? [] : ['filters' => $raw]);
+        $apply->invoke($controller, $metric, new DashFilterAuthzDashboard, $request);
+
+        return (string) $keyOf->invoke($metric, $request);
+    };
+
+    $none = $cacheKey(null);
+
+    // Each of these applies nothing (not JSON, not a map, empty, an unknown key, a hidden filter,
+    // a value the filter leaves out, an array parameter): the same key as no filters at all.
+    foreach (['garbage', 'other garbage', '{', '[1]', '"x"', '{}', '[]', '{"unknown":"v"}', '{"owner":"alice"}', '{"status":""}', '{"status":null}', ['a'], ['a', 'b']] as $raw) {
+        expect($cacheKey($raw))->toBe($none, json_encode($raw));
+    }
+
+    // The control: a filter that applies still keys the result on its value.
+    expect($cacheKey('{"status":"open"}'))->not->toBe($none)
+        ->and($cacheKey('{"status":"open"}'))->not->toBe($cacheKey('{"status":"closed"}'))
+        ->and($cacheKey('{"status":"open","owner":"alice"}'))->toBe($cacheKey('{"status":"open"}'));
 });

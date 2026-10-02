@@ -313,14 +313,21 @@ class MetricController
             return;
         }
 
+        // The metric caches its result under the request's `filters`: a value
+        // that applies nothing (not JSON, not a map, empty, an array parameter)
+        // is removed, or any string would mint a cache entry of its own.
         $rawFilters = $request->query('filters', '');
         if (! is_string($rawFilters) || $rawFilters === '') {
+            $request->query->remove('filters');
+
             return;
         }
 
         /** @var array<string, mixed>|null $decoded */
         $decoded = json_decode($rawFilters, true);
         if (! is_array($decoded) || $decoded === []) {
+            $request->query->remove('filters');
+
             return;
         }
 
