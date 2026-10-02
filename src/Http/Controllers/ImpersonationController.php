@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Martis\Impersonation\ImpersonationManager;
-use RuntimeException;
+use Martis\Impersonation\ImpersonationRefusedException;
 use Throwable;
 
 /**
@@ -101,7 +101,7 @@ class ImpersonationController extends MartisController
 
         try {
             $this->impersonation->start($target);
-        } catch (RuntimeException $e) {
+        } catch (ImpersonationRefusedException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
 

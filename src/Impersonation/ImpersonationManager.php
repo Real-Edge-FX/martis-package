@@ -16,7 +16,6 @@ use Martis\Auth\TwoFactorPass;
 use Martis\Contracts\NotImpersonable;
 use Martis\Impersonation\Events\ImpersonationStarted;
 use Martis\Impersonation\Events\ImpersonationStopped;
-use RuntimeException;
 
 /**
  * Impersonation service.
@@ -48,7 +47,7 @@ class ImpersonationManager
      * the session so `stop()` can restore them. The auth guard is
      * then logged in as the target.
      *
-     * Throws RuntimeException when the feature is disabled, no user
+     * Throws ImpersonationRefusedException when the feature is disabled, no user
      * is currently authenticated, the operator and target are the
      * same person, the operator's `canImpersonate()` or the target's
      * `canBeImpersonated()` hook says no, the target is
@@ -59,22 +58,22 @@ class ImpersonationManager
     public function start(Authenticatable $target): void
     {
         if (! $this->enabled()) {
-            throw new RuntimeException('Impersonation is disabled. Set `martis.impersonation.enabled` to true.');
+            throw new ImpersonationRefusedException('Impersonation is disabled. Set `martis.impersonation.enabled` to true.');
         }
 
         $guard = $this->guard();
         $operator = $this->auth->guard($guard)->user();
 
         if ($operator === null) {
-            throw new RuntimeException('Cannot start impersonation without an authenticated operator.');
+            throw new ImpersonationRefusedException('Cannot start impersonation without an authenticated operator.');
         }
 
         if ($this->isActive()) {
-            throw new RuntimeException('Impersonation is already active. Stop it before starting a new session.');
+            throw new ImpersonationRefusedException('Impersonation is already active. Stop it before starting a new session.');
         }
 
         if ($operator->getAuthIdentifier() === $target->getAuthIdentifier()) {
-            throw new RuntimeException('Cannot impersonate yourself.');
+            throw new ImpersonationRefusedException('Cannot impersonate yourself.');
         }
 
         // Per-instance hooks (v2.4.0, Nova's canImpersonate / canBeImpersonated):
@@ -82,7 +81,7 @@ class ImpersonationManager
         // that says it cannot be impersonated, are refused here too, so a
         // programmatic start() cannot go around the controller's checks.
         if (! $this->operatorMayImpersonate($operator)) {
-            throw new RuntimeException('This user cannot impersonate other users.');
+            throw new ImpersonationRefusedException('This user cannot impersonate other users.');
         }
 
         // Per-target opt-out (v1.8.8). Models that implement
@@ -90,13 +89,13 @@ class ImpersonationManager
         // super-admins, etc. The check runs before the session is
         // mutated so a denied attempt has no side-effect.
         if (! $this->targetMayBeImpersonated($target)) {
-            throw new RuntimeException('This user cannot be impersonated.');
+            throw new ImpersonationRefusedException('This user cannot be impersonated.');
         }
 
         // A target the `viewMartis` gate refuses could not use the panel,
         // and the operator could not stop the session from it either.
         if (! PanelAccess::allows($target)) {
-            throw new RuntimeException('This user cannot access the panel.');
+            throw new ImpersonationRefusedException('This user cannot access the panel.');
         }
 
         // The operator's 2FA pass crosses the switch (below): the operator
