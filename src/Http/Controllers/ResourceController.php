@@ -15,6 +15,7 @@ use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\FilterContract;
 use Martis\Contracts\LayoutContract;
+use Martis\Contracts\ProvidesPickerAttributes;
 use Martis\Contracts\UnsavedChangesConfigContract;
 use Martis\Enums\SortDirection;
 use Martis\Enums\TrashedFilter;
@@ -61,6 +62,9 @@ class ResourceController extends MartisController
     use DecodesStructuredValues;
     use ResolvesPivotActions;
     use SyncsDeferredWrites;
+
+    /** What a relation picker falls back to for a label when the title is blank (see `relatedRecordLabel()`). */
+    private const PICKER_FALLBACK_ATTRIBUTES = ['name', 'title', 'label', 'email'];
 
     /** Create the controller and inject the resource registry. */
     public function __construct(
@@ -1788,17 +1792,18 @@ class ResourceController extends MartisController
 
         $paginator = $query->paginate($perPage);
 
+        // A picker row is what a picker renders (see pickerRow()), not the
+        // related resource's index row.
+        $pickerAttributes = $this->pickerAttributes($request, $relationField);
+
         /** @var list<array<string, mixed>> $data */
         $data = array_values(
-            collect($paginator->items())->map(function (Model $model) use ($relatedResourceClass, $request): array {
-                $res = new $relatedResourceClass($model);
-
-                return $this->serializeModel(
-                    $res,
-                    Field::filterForContext($res->fieldsForIndex($request), FieldContext::INDEX),
-                    $model,
-                );
-            })->all()
+            collect($paginator->items())->map(fn (Model $model): array => $this->pickerRow(
+                new $relatedResourceClass($model),
+                $model,
+                $request,
+                $pickerAttributes,
+            ))->all()
         );
 
         return JsonPaginatedResponse::make(
@@ -1818,6 +1823,70 @@ class ResourceController extends MartisController
                 'next' => $paginator->nextPageUrl(),
             ],
         )->toResponse();
+    }
+
+    /**
+     * The attributes of the related record a picker reads besides its key
+     * and title: the title and subtitle attributes of the field the picker
+     * renders for (`ProvidesPickerAttributes`). The context-free call
+     * (`/resources/_/_/relatable/...`) has no field to read them from, so
+     * the picker names them in `?title_attribute=` and `?subtitle_attribute=`;
+     * pickerRow() still serialises only the ones that are index fields the
+     * user may see.
+     *
+     * @return list<string>
+     */
+    private function pickerAttributes(Request $request, ?FieldContract $relationField): array
+    {
+        if ($relationField !== null) {
+            return $relationField instanceof ProvidesPickerAttributes ? $relationField->pickerAttributes() : [];
+        }
+
+        $attributes = [];
+        foreach (['title_attribute', 'subtitle_attribute'] as $parameter) {
+            $name = $request->query($parameter);
+            if (is_string($name) && $name !== '' && mb_strlen($name) <= 191) {
+                $attributes[] = $name;
+            }
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * One row of a relation picker: the record's key and title (`id`,
+     * `_title`) and the display value of each of `$attributes` that is an
+     * index field of the related resource the user may see, for the record
+     * (`canSee()`, `canSeeForModel()`). When the title is blank the picker
+     * falls back to `name`, `title`, `label` and `email`, so those are
+     * serialised then. Nothing else of the index row (its other columns, the
+     * `_authorization` block, the `_resource` descriptor) reaches a picker.
+     *
+     * @param  list<string>  $attributes
+     * @return array<string, mixed>
+     */
+    private function pickerRow(Resource $resource, Model $model, Request $request, array $attributes): array
+    {
+        $row = ['id' => $model->getKey(), '_title' => $resource->title()];
+
+        $wanted = $row['_title'] === '' ? [...$attributes, ...self::PICKER_FALLBACK_ATTRIBUTES] : $attributes;
+        if ($wanted === []) {
+            return $row;
+        }
+
+        $fields = Field::filterForModel(
+            Field::filterForContext($resource->fieldsForIndex($request), FieldContext::INDEX),
+            $request,
+            $model,
+        );
+
+        foreach ($fields as $field) {
+            if ($field instanceof Field && in_array($field->attribute(), $wanted, true)) {
+                $row[$field->attribute()] = $field->resolveForDisplay($model);
+            }
+        }
+
+        return $row;
     }
 
     /**

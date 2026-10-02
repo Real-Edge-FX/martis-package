@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Martis\Contracts\ProvidesPickerAttributes;
 use Martis\Enums\ModalSize;
 use Martis\Enums\PhosphorIcon;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
@@ -26,7 +27,7 @@ use Martis\Resource;
  *
  * @phpstan-consistent-constructor
  */
-class BelongsTo extends Field
+class BelongsTo extends Field implements ProvidesPickerAttributes
 {
     use ControlsRelationshipToolbar;
 
@@ -208,6 +209,14 @@ class BelongsTo extends Field
         $this->titleAttribute = $attribute;
 
         return $this;
+    }
+
+    /** {@inheritdoc} */
+    public function pickerAttributes(): array
+    {
+        return $this->withSubtitles
+            ? [$this->titleAttribute, $this->subtitleAttribute]
+            : [$this->titleAttribute];
     }
 
     /**
