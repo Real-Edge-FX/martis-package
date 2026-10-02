@@ -115,7 +115,21 @@ export function TwoFactorChallengePage() {
       // user the forced password change gate holds goes there next (v2.3.0).
       window.location.href = res?.password_change_required ? passwordChangeUrl() : BASE_PATH + '/'
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof ApiError && err.status === 403) {
+        // Too many consecutive wrong codes: the server ended the session and
+        // locked the challenge for a while, so only a new password sign-in
+        // (later) gets back here.
+        addToast('error', t('2fa_challenge_locked', {
+          defaultValue: 'Too many incorrect codes. For your security you were signed out. Try again in a few minutes.',
+        }))
+        window.location.href = BASE_PATH + '/login'
+        return
+      }
+      if (err instanceof ApiError && err.status === 429) {
+        setError(t('2fa_challenge_throttled', {
+          defaultValue: 'Too many attempts. Wait a moment before you try again.',
+        }))
+      } else if (err instanceof ApiError) {
         setError(t('2fa_challenge_failed'))
       } else {
         addToast('error', t('error'))

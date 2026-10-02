@@ -444,7 +444,17 @@ The cache is request-scoped — never spans requests, never persisted. Closure-o
 
 ## Revoke sessions on demote
 
-Off by default. When `MARTIS_AUTHZ_REVOKE_SESSIONS_ON_DEMOTE=true` and the host app uses Laravel's `database` session driver, a Spatie `RoleDetachedEvent` or `PermissionDetachedEvent` triggers a session sweep on the demoted user — every active session row for that user (across all devices) is dropped. The operator (admin) stays signed in because their session row belongs to them, not to the demoted user.
+Off by default. When `MARTIS_AUTHZ_REVOKE_SESSIONS_ON_DEMOTE=true` and the host app uses Laravel's `database` session driver, a Spatie `RoleDetachedEvent` or `PermissionDetachedEvent` triggers a session sweep on the demoted users — every active session row of theirs (across all devices) is dropped. The request's own session is never dropped: the operator (admin) stays signed in, also when they hold the role they just changed.
+
+Who is swept depends on the model the Spatie event names (v2.4.0):
+
+| Event | Model | Swept |
+|---|---|---|
+| `RoleDetachedEvent`, `PermissionDetachedEvent` | a user of the Martis guard (a role or a permission removed from them) | that user |
+| `PermissionDetachedEvent` | a **role** (a permission revoked from a role) | the users who hold the role (`Role::users()`), if they are the Martis guard's users |
+| any | another model, or a role whose users are not the Martis guard's (a role of another guard) | nobody: the sweep is skipped and a warning names the model |
+
+Up to v2.3.0 the sweep deleted the sessions whose `user_id` equalled the id of whatever model the event named. Revoking a permission from role 7 therefore signed out the unrelated user with id 7 and left the holders of the role, who had just lost the permission, signed in. A user is recognised as the Martis guard's by the model of the guard's provider, or by its table, so an app's `Staff` model beside its `User` on one table counts.
 
 Use this in regulated apps where a demotion must take immediate effect on every device the user is signed in on, without waiting for the session cookie to expire.
 

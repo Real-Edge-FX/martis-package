@@ -48,7 +48,10 @@ Route::middleware(RouteMiddleware::base())
         // Public routes — no authentication required
         Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
         Route::post('/login', [LoginController::class, 'login'])
-            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->middleware([
+                'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
+                'throttle:martis-login',
+            ])
             ->name('login.attempt');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
@@ -113,10 +116,12 @@ Route::middleware(RouteMiddleware::base())
         })->name('favicon');
 
         // API auth — public (exempt from CSRF via playground bootstrap/app.php)
-        // Two throttles compose: per-IP (generic) and per-email (named limiter
-        // registered in MartisServiceProvider::registerRateLimiters()). The
-        // per-email layer catches credential-stuffing distributed across IPs
-        // that the generic per-IP throttle alone cannot stop.
+        // Two throttles compose, as on POST /login above: per-IP (generic) and
+        // the named limiter registered in
+        // MartisServiceProvider::registerRateLimiters(), which holds a limit
+        // per email + IP and a higher one per email alone. The per-email
+        // layer is what bounds guessing at one account from many IPs, which
+        // the generic per-IP throttle cannot.
         Route::post('/api/auth/login', [AuthController::class, 'login'])
             ->middleware([
                 'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
@@ -210,8 +215,11 @@ Route::middleware(RouteMiddleware::base())
                     ->name('api.')
                     ->middleware($throttle)
                     ->group(function () {
+                        // A limiter of its own (per user and per IP, tighter than
+                        // the login's), registered in
+                        // MartisServiceProvider::registerRateLimiters().
                         Route::post('/2fa/challenge', [TwoFactorController::class, 'challenge'])
-                            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1).','.RouteMiddleware::throttlePrefix('2fa'))
+                            ->middleware('throttle:martis-2fa-challenge')
                             ->name('2fa.challenge');
                     });
 

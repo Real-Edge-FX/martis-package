@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Schema;
+use Martis\Auth\TwoFactorPass;
 use Martis\Sso\Facades\MartisSso;
 use Martis\Sso\Providers\AzureProvider;
 use Martis\Sso\SsoIdentity;
@@ -150,6 +151,33 @@ it('callback creates a new user on first SSO login', function () {
     $response->assertRedirect();
     expect(SsoTestUser::query()->where('email', 'newuser@example.com')->exists())->toBeTrue();
     expect(auth()->check())->toBeTrue();
+});
+
+it('callback forgets the 2FA pass an earlier sign-in of the browser session earned', function () {
+    $earlier = SsoTestUser::query()->create(['name' => 'Earlier', 'email' => 'earlier@example.com', 'password' => bcrypt('x')]);
+    $identity = stubIdentity('victim@example.com', ['PMI ADMIN']);
+
+    MartisSso::resolveUserUsing(fn (SsoIdentity $id) => SsoTestUser::query()->updateOrCreate(['email' => $id->email], ['name' => $id->name, 'password' => bcrypt('x')]));
+    $this->app->instance(AzureProvider::class, new class($identity) extends AzureProvider
+    {
+        public function __construct(private SsoIdentity $stub) {}
+
+        public function resolveIdentity(Request $request): SsoIdentity
+        {
+            return $this->stub;
+        }
+
+        public function redirect(Request $request): RedirectResponse
+        {
+            return redirect('/');
+        }
+    });
+
+    $this->actingAs($earlier)->withSession([TwoFactorPass::SESSION_KEY => (string) $earlier->getKey()]);
+    $this->get('/martis/sso/azure/callback')->assertRedirect();
+
+    expect(auth()->user()->email)->toBe('victim@example.com')
+        ->and(session(TwoFactorPass::SESSION_KEY))->toBeNull();
 });
 
 it('callback updates existing user attributes from the SSO identity', function () {
@@ -356,7 +384,7 @@ it('logout redirects through the IdP logout URL when the provider declared one',
 
     $user = SsoTestUser::query()->create(['name' => 'F', 'email' => 'f@example.com', 'password' => bcrypt('x')]);
     $this->actingAs($user)
-        ->withSession(['martis_sso_provider' => 'azure', 'martis_two_factor_passed' => true]);
+        ->withSession(['martis_sso_provider' => 'azure', TwoFactorPass::SESSION_KEY => (string) $user->getKey()]);
 
     $response = $this->post('/martis/api/auth/logout');
 
@@ -372,7 +400,7 @@ it('logout falls through to the local login page when no IdP logout_url is set',
 
     $user = SsoTestUser::query()->create(['name' => 'G', 'email' => 'g@example.com', 'password' => bcrypt('x')]);
     $this->actingAs($user)
-        ->withSession(['martis_sso_provider' => 'azure', 'martis_two_factor_passed' => true]);
+        ->withSession(['martis_sso_provider' => 'azure', TwoFactorPass::SESSION_KEY => (string) $user->getKey()]);
 
     $response = $this->post('/martis/api/auth/logout');
 
@@ -386,7 +414,7 @@ it('logout JSON envelope includes the IdP logout_url when present', function () 
 
     $user = SsoTestUser::query()->create(['name' => 'H', 'email' => 'h@example.com', 'password' => bcrypt('x')]);
     $this->actingAs($user)
-        ->withSession(['martis_sso_provider' => 'azure', 'martis_two_factor_passed' => true]);
+        ->withSession(['martis_sso_provider' => 'azure', TwoFactorPass::SESSION_KEY => (string) $user->getKey()]);
 
     $response = $this->postJson('/martis/api/auth/logout');
 

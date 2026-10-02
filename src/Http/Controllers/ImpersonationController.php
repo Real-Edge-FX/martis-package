@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Martis\Http\Controllers;
 
+use ArgumentCountError;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Martis\Impersonation\ImpersonationManager;
 use RuntimeException;
+use Throwable;
 
 /**
  * REST surface for the v0.10 impersonation subsystem.
@@ -58,9 +61,14 @@ class ImpersonationController extends MartisController
      *
      * Returns:
      *   - 503 when impersonation is disabled by config.
-     *   - 403 when the `martis-impersonate` gate denies the request.
-     *   - 404 when the target user does not exist.
-     *   - 422 when the target is the current user, or impersonation
+     *   - 403 when the `martis-impersonate` gate denies the request, for
+     *         this target (the gate receives it as its second argument,
+     *         v2.4.0) or at all, or the operator's `canImpersonate()`
+     *         hook says no.
+     *   - 404 when the target user does not exist (and the gate would
+     *         not have refused the operator anyway).
+     *   - 422 when the target is the current user, is `NotImpersonable`
+     *         or says so through `canBeImpersonated()`, or impersonation
      *         is already active.
      *   - 200 with the snapshot when the start succeeds.
      */
@@ -70,12 +78,22 @@ class ImpersonationController extends MartisController
             return response()->json(['message' => 'Impersonation is disabled.'], 503);
         }
 
-        if (! Gate::allows('martis-impersonate')) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+        $guard = $this->impersonation->guard();
+        $operator = Auth::guard($guard)->user();
+
+        if ($operator !== null && ! $this->impersonation->operatorMayImpersonate($operator)) {
+            return $this->forbidden();
         }
 
-        $guard = $this->impersonation->guard();
         $target = Auth::guard($guard)->getProvider()->retrieveById($userId);
+
+        // The gate judges the pair, so the target is loaded first. A target
+        // that does not exist is answered like one the gate refuses, as long
+        // as the gate refuses the operator: an operator who may not
+        // impersonate must not learn which ids exist from a 404.
+        if (! $this->gateAllows($target)) {
+            return $this->forbidden();
+        }
 
         if ($target === null) {
             return response()->json(['message' => 'User not found.'], 404);
@@ -88,6 +106,41 @@ class ImpersonationController extends MartisController
         }
 
         return response()->json($this->impersonation->snapshot());
+    }
+
+    /**
+     * The `martis-impersonate` gate, with the target as its second argument
+     * (`fn ($operator, $target)`, v2.4.0), so a consumer can refuse a target
+     * that outranks the operator. A one-argument closure (`fn ($operator)`)
+     * ignores the argument, as before.
+     *
+     * With no target (an id that does not exist) the gate runs as it did
+     * before v2.4.0, with the operator alone: a closure that needs the
+     * target cannot be called that way, which refuses the request like any
+     * other denial.
+     */
+    private function gateAllows(?Authenticatable $target): bool
+    {
+        if ($target === null) {
+            try {
+                return Gate::allows('martis-impersonate');
+            } catch (Throwable $e) {
+                // PHP raises ArgumentCountError for the missing second
+                // argument of a user closure; anything else is a real error.
+                if ($e instanceof ArgumentCountError) {
+                    return false;
+                }
+
+                throw $e;
+            }
+        }
+
+        return Gate::allows('martis-impersonate', [$target]);
+    }
+
+    private function forbidden(): JsonResponse
+    {
+        return response()->json(['message' => 'Forbidden.'], 403);
     }
 
     /**
