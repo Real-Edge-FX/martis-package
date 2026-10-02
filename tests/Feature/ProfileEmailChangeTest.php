@@ -414,3 +414,54 @@ it('answers isChange() by the letters of the address, not their case', function 
         ->and($change->isChange($this->user, ''))->toBeFalse()
         ->and($change->isChange($this->user, ['new@example.com']))->toBeFalse();
 });
+
+// ── The limit on the mail it sends ──────────────────────────────────────────
+
+it('limits the confirmation mails one user can ask for, and sends none past the limit', function () {
+    config()->set('martis.profile.email_change.throttle_attempts', 3);
+
+    foreach (['a@example.com', 'b@example.com', 'c@example.com'] as $new) {
+        emailChangePatch(['name' => 'Ada', 'email' => $new, 'current_password' => 'Correct-Horse-1'])->assertOk();
+    }
+    Notification::assertSentOnDemandTimes(EmailChangeConfirmationNotification::class, 3);
+
+    // The 4th is refused with the throttle's 429 and Retry-After, before the name is saved or any mail goes.
+    emailChangePatch(['name' => 'Ada Lovelace', 'email' => 'd@example.com', 'current_password' => 'Correct-Horse-1'])
+        ->assertStatus(429)
+        ->assertHeader('Retry-After');
+
+    Notification::assertSentOnDemandTimes(EmailChangeConfirmationNotification::class, 3);
+    expect($this->user->fresh()->name)->toBe('Ada');
+
+    // The nearest cases stay open: a save that changes no address, and the same user after the window.
+    emailChangePatch(['name' => 'Ada Lovelace', 'email' => 'ada@example.com'])->assertOk();
+    expect($this->user->fresh()->name)->toBe('Ada Lovelace');
+
+    $this->travel(61)->minutes();
+    emailChangePatch(['name' => 'Ada', 'email' => 'd@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();
+});
+
+it('limits the mails one address can be sent, whoever asks, and keeps another user free', function () {
+    config()->set('martis.profile.email_change.throttle_attempts', 2);
+    $other = EmailChangeUser::create(['name' => 'Bob', 'email' => 'bob@example.com', 'password' => bcrypt('Correct-Horse-1'), 'email_verified_at' => now()]);
+
+    // Two different users name the same victim address: its bucket is spent.
+    emailChangePatch(['name' => 'Ada', 'email' => 'victim@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();
+    $this->user = $other;
+    emailChangePatch(['name' => 'Bob', 'email' => 'victim@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();
+
+    $third = EmailChangeUser::create(['name' => 'Cy', 'email' => 'cy@example.com', 'password' => bcrypt('Correct-Horse-1'), 'email_verified_at' => now()]);
+    $this->user = $third;
+    emailChangePatch(['name' => 'Cy', 'email' => 'Victim@Example.com', 'current_password' => 'Correct-Horse-1'])->assertStatus(429);
+
+    // ... while the same user asking for another address is not held by it.
+    emailChangePatch(['name' => 'Cy', 'email' => 'cy2@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();
+});
+
+it('turns the email change limit off with zero attempts', function () {
+    config()->set('martis.profile.email_change.throttle_attempts', 0);
+
+    foreach (range(1, 8) as $i) {
+        emailChangePatch(['name' => 'Ada', 'email' => "n{$i}@example.com", 'current_password' => 'Correct-Horse-1'])->assertOk();
+    }
+});

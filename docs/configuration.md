@@ -945,6 +945,11 @@ Per-subsystem cache layer with three control planes (config / env / runtime), by
         // Minutes the confirmation link mailed to a new address stays
         // valid (env MARTIS_PROFILE_EMAIL_CHANGE_TTL).
         'ttl_minutes' => 60,
+        // Confirmation mails one user may ask for, and one address may be
+        // sent, per throttle_minutes; past it the profile answers 429 (env
+        // MARTIS_PROFILE_EMAIL_CHANGE_ATTEMPTS / _ATTEMPTS_MINUTES; 0 = off).
+        'throttle_attempts' => 5,
+        'throttle_minutes' => 60,
     ],
     'sections' => ['avatar', 'account', 'password', 'security', 'sessions'],
 ],

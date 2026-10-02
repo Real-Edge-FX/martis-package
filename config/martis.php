@@ -1466,6 +1466,11 @@ return [
             // link to the new address and a notice to the old one, and the
             // address switches only when the link is followed.
             'ttl_minutes' => (int) env('MARTIS_PROFILE_EMAIL_CHANGE_TTL', 60),
+            // How many confirmation mails one user may ask for, and one
+            // address may be sent, per `throttle_minutes` (5 per hour); past
+            // it the profile answers 429. 0 turns the limit off.
+            'throttle_attempts' => (int) env('MARTIS_PROFILE_EMAIL_CHANGE_ATTEMPTS', 5),
+            'throttle_minutes' => (int) env('MARTIS_PROFILE_EMAIL_CHANGE_ATTEMPTS_MINUTES', 60),
         ],
         'account' => [
             // When false, the built-in Account section renders the e-mail field
