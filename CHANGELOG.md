@@ -7,6 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] — 2026-10-02
+
+Security release: every finding of the October 2026 security audit of `main` (126 findings, from high to informational) is closed. Several defaults change to fail closed. Read [Upgrading to v2.4.0 from v2.3.x](docs/upgrading.md#upgrading-to-v240-from-v23x) before upgrading: the panel gate, `APP_URL`, File uploads, lenses, BelongsTo without a resource, magic links, SSO remember-me and the profile email change concern most apps.
+
+### Security
+
+**Authentication and sessions**
+
+- **The 2FA pass is bound to the user who earned it** and reset on every sign-in path (password, magic link, SSO, invitation, impersonation start and stop, the SPA login) through one `Login` listener, `Martis\Auth\TwoFactorPass`. A pass earned on one account no longer carries into a sign-in as another user on the same browser. A session holding the old `martis_two_factor_passed` key is not trusted.
+- **Regenerating 2FA recovery codes requires the current password** and emails the user. The factor- and identity-changing profile endpoints (recovery codes, 2FA setup, confirm and disable, password change) are refused while impersonating.
+- **The 2FA challenge has its own limiter** (5 a minute per user, 15 per IP) **and a lockout**: after 5 consecutive wrong codes the pending session ends and the account is locked out of the challenge for 15 minutes, recovery codes included.
+- **The TOTP replay guard records the consumed time step** with a conditional update, so a code is accepted once, also under concurrent requests; recovery codes are consumed under a row lock. A missing `two_factor_last_used_at` column logs a warning.
+- **A per-email login limit** (100 attempts in 15 minutes by default) bounds guessing at one account from many IPs, and `throttle:martis-login` now also covers `POST /{path}/login`.
+- **Forgot and reset password answer the same neutral response** for known and unknown addresses; the broker's detail only with `app.debug`.
+- **Emailed token URLs are built from `APP_URL`** (`Martis\Support\CanonicalUrl`): magic link, password reset, invitation, email verification and the email-change confirmation never take the host from the request's `Host` or `X-Forwarded-Host`.
+- **Magic-link sign-in needs a confirmation.** The emailed link opens a confirmation page that does not consume the token; the sign-in is a CSRF-protected `POST /api/auth/magic-link/consume`, which replaces the session of another signed-in user only when the page confirms it. A mail scanner or a link preview can no longer burn the token or swap a browser into another account, and consuming is atomic. A link mailed before the upgrade is redirected to the confirmation page.
+- **A profile email change needs the current password and a confirmation from the new address**: the address changes only when the signed link sent to it is followed (uniqueness re-checked then), the old address is told, and verification is reset when the app verifies email. This also closes the SSO pre-hijack of an address a colleague had not used yet.
+- **The Azure provider rejects an identity of another tenant** when a concrete tenant is configured (`tenant`, `AZURE_TENANT_ID`).
+- **SSO remember-me is opt-in per provider** (`remember`, default `false`), so panel access follows the IdP session.
+- **The SSO-origin cookie carries an issue time and a server-side nonce**, dropped on every non-SSO sign-in, so a replayed old cookie no longer exempts a session from the forced password change.
+- **`revoke_sessions_on_demote` revokes the right sessions**: only users of the Martis guard's model, and for a permission removed from a role, the sessions of the users holding the role.
+- **The browser sessions list returns opaque handles**, not the raw session ids of the user's other devices.
+
+**Panel access and authorization**
+
+- **The panel is closed outside `local` and `testing` when the app defines no `viewMartis` gate** (`martis.panel_access.open_environments`), as Nova's `viewNova`. `martis:install` publishes the gate active, and a resource without a policy logs a warning outside those environments.
+- **The impersonation gate receives the target** (`martis-impersonate` with `[$operator, $target]`), the `canImpersonate()` / `canBeImpersonated()` hooks are honoured, both identities are logged, and a refused operator cannot tell which user ids exist. Only a deliberate refusal (`ImpersonationRefusedException`) reaches the response body.
+- **A plan lock (`lockedFor()`, `requirePlan()`) is enforced on every endpoint that serves data**, through the `martis.gate` middleware: dashboard cards, metrics, tool fields and tool routes, every route of a locked resource, lenses, pickers, relationship panels and search answer `403` with the lock. A locked filter is not applied.
+- **Lenses are fenced by the resource's `scopes()` and `indexQuery()`** by default, their actions, filters, counts and cards included, with a per-lens opt-out (`public static bool $withoutIndexScope = true;`).
+- **Relationship write flags are enforced by the server**: `canCreate`, `canUpdate`, `canDelete` on HasMany, HasOne, MorphMany and MorphOne, `canAttach` and `canDetach` on BelongsToMany and MorphToMany answer `403`.
+- **Listing actions and reading their fields require `viewAny`** on resource, lens and pivot routes; the command palette honours an action's `authorizedToSee()`, `displayInNavigation()` and lock.
+- **The replicate prefill requires view of the record**, and the slug check requires the create or update ability (with an opt-in scoped probe on the Slug field).
+- **Dashboard metrics skip filters the user may not see.**
+- **The events of a hard-deleted record are judged by its view policy** on the stored original; every value is masked when it fails.
+- **Relatable picker rows carry only what the picker renders**: the id, the title and the subtitle.
+- **The request ability cache is keyed on every argument** and skips models without a key.
+- **`api_docs.middleware` defaults to the Martis protected stack**, and a published weaker list is completed with the Martis guards.
+
+**Input and rendering**
+
+- **Rich text, Markdown and field help are sanitised before rendering**, through one shared DOMPurify module with per-use profiles: Trix keeps its attachments with validated URLs, Markdown drops `data-*`, `style` and form controls.
+- **The global tooltip renders `data-pr-tooltip` as text** unless a package component registered the element (`htmlTooltip()`, `trustHtmlTooltip()`), and its HTML branch is sanitised.
+- **Navigations accept only http(s), same-origin paths and, for downloads, `blob:`**: Trix attachment and link clicks, action redirect, download and openInNewTab, `openExternal()`, notification `action_url`, the gate CTA and the navigation hrefs. `ActionResponse` validates the scheme in PHP.
+- **Every API URL built from a route parameter, a record id or a key encodes each segment**, so a crafted link or a record key such as `../users/5` cannot send a request to another endpoint; the nested create form also validates the relationship type.
+- **File fields refuse active content by default** (HTML, SVG, XML, script and PHP files, by MIME and extension, single and multiple uploads), unless `acceptedTypes()` lists the type or the field calls `allowActiveContent()`.
+- **Rich-text attachment uploads are authorised like the form**: the request names the resource, field and record, the field must declare `withFiles()`, the disk comes from the field and the route has its own per-user throttle. `martis:attachments:prune` deletes uploads no record holds.
+- **BelongsTo writes are checked against the resource of the related model** when the field names none; an unregistered `relatedResource()` key fails loudly, a model with no resource is refused.
+- **Field `fill()` overrides honour `readonly()` and `fillUsing()`** (Icon, Gravatar, Password, Repeater, Sparkline, MorphTo); Gravatar URL mode validates the URL; BooleanGroup stores only offered keys and keeps the ones the user was not offered; KeyValue enforces `disableEditingKeys()`, `disableAddingRows()` and `disableDeletingRows()`.
+- **BooleanFilter values are intersected with the filter's `options()`** before `apply()` on the index, lenses and metrics, and the `martis:filter --boolean` scaffold reads whitelisted keys.
+- **Metric `?range=` accepts only the declared `ranges()`**; Sparkline values are bounded and validated, and the chart no longer spreads them into `Math.min`/`Math.max`.
+- **Icon, badge and multi-select lookups use own properties**, so a stored `constructor` or `__proto__` no longer breaks a page.
+- **Action events store the resolved action fields** with Password and sensitive values masked and unknown keys dropped, pivot actions included.
+- **API catch-alls return a generic message in production**; a hook shows its reason to the user with `Martis\Exceptions\UserFacingException`.
+- **The panel shell supports a Content-Security-Policy nonce** on every inline script and style and on the Vite tags.
+- **Resource index search and filters are kept per user** and cleared at sign-out, and a previous visitor's guest preferences are no longer promoted to the next account.
+
+**Scaffolds, console and tooling**
+
+- **`martis:policy` generates a deny-by-default policy.** The `InviteUser` and `BulkAssignRole` scaffolds validate the role on the server (SSO-managed roles and, for a delegated inviter, roles above their own are refused).
+- **`martis:mcp-serve` warns for every non-loopback bind** without a token; **`martis:user --password` is deprecated** in favour of `--password-stdin`.
+- **The extensions Vite config is published without source maps.**
+- **CI pins every action to a commit SHA** and runs with a read-only token; the release workflow validates its inputs; Dependabot keeps the pins current.
+- **44 npm advisories closed** (Vitest 4, Vite 6.4.3, PostCSS 8.5.23 and transitive updates): `npm audit` reports 0 vulnerabilities. The Pest Docker image runs as a non-root user and the test harness's skeleton copy lives in a private per-user directory.
+
+### Added
+
+- `Select::validateAgainstOptions()` and `MultiSelect::validateAgainstOptions()`: an opt-in rule that every submitted value is one of `options()`.
+- `File::allowActiveContent()`, `Martis\Rules\NoActiveContent`, `Martis\Exceptions\UserFacingException`, `Martis\Impersonation\ImpersonationRefusedException`, `Martis\Gates\SoftGate` and the `martis.gate` middleware.
+- `htmlTooltip()` and `trustHtmlTooltip()` in `@martis/runtime`, for an extension's trusted HTML tooltip.
+- `martis:attachments:prune`.
+- Config keys: `panel_access.open_environments`, `profile.email_change.ttl_minutes`, `throttle.login_email_attempts` / `login_email_minutes`, `throttle.two_factor_attempts` / `two_factor_ip_attempts` / `two_factor_minutes`, `throttle.two_factor_lockout_attempts` / `two_factor_lockout_minutes`, `auth.sso.providers.*.remember`, `auth.sso.providers.azure.tenant`.
+
+### Changed
+
+- Magic-link sign-in is `POST /api/auth/magic-link/consume`; the emailed link is `GET /{path}/magic-link/confirm`.
+- `PATCH /api/profile` answers with `pending_email` when the email changes, and needs `current_password`.
+- Recovery-code regeneration needs `current_password`; the browser sessions API returns a `handle`.
+- A locked dashboard card answers `403` with the lock (it answered `200 { locked: true }`).
+- Relatable rows no longer carry `_authorization`, `_resource` or other index columns.
+- Vitest 4.
+
+- +832 Pest, +440 Vitest.
+
 ## [2.3.0] — 2026-10-01
 
 Minor release from seven consumer reports: one password policy, an opt-in forced password change, action responses that do what the docs say, action events that honour `$visible`, `martis:user --password-stdin` and a test kit for extensions. Read [Upgrading to v2.3.0 from v2.2.x](docs/upgrading.md#upgrading-to-v230-from-v22x): Profile's default password rule, `martis:user` and `ActionResponse::visit()` paths change.
