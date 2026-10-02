@@ -57,7 +57,7 @@ class ProLabDashboard extends Dashboard
 }
 ```
 
-`lockedFor`'s closure returns `true` when the user **is locked**. The lock state propagates into the descriptor (`lock: { reason, modal }`); the SPA paints the lock icon, intercepts the click, and shows the modal. Direct URL access is stopped server-side: `MetricController::show` and `ToolsController::show` return `{ locked: true, lock: {...} }` so the page renders the same lock state full-page.
+`lockedFor`'s closure returns `true` when the user **is locked**. The lock state propagates into the descriptor (`lock: { reason, modal }`); the SPA paints the lock icon, intercepts the click, and shows the modal. Direct URL access is stopped server-side: `MetricController::show`, the dashboard card compute route (`GET /api/dashboards/{dashboard}/cards/{card}`) and `ToolsController::show` return `{ locked: true, lock: {...} }` so the page renders the same lock state full-page and no metric is computed.
 
 ### Modal payload
 
