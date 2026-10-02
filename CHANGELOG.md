@@ -114,7 +114,7 @@ Security release: every finding of the October 2026 security audit of `main` (12
 - `EnforceSoftGate` builds a resource's `cards()` only for a card route.
 - Vitest 4.
 
-- +832 Pest, +443 Vitest.
+- +967 Pest, +572 Vitest.
 
 ## [2.3.0] — 2026-10-01
 
