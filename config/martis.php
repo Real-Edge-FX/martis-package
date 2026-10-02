@@ -901,6 +901,11 @@ return [
                 //     'role_column' => 'azure_group_name',
                 //
                 //     'auto_create_user' => true,
+                //     // 'email' adopts the local row holding the IdP's address only
+                //     // when its email is verified (email_verified_at set) or
+                //     // martis.auth.registration.enabled is false (v2.4.0); an
+                //     // unverified row with registration open refuses the sign-in.
+                //     // 'external_id' matches an id the IdP issued and is unaffected.
                 //     'identity_match_attribute' => 'email',
                 //     'sync_user_attributes' => ['name', 'email'],
                 //

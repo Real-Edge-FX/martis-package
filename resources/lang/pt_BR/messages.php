@@ -290,6 +290,7 @@ return [
     'sso_provider_disabled' => 'Este método de login não está disponível no momento.',
     'sso_callback_failed' => 'Falha no login. Tente novamente ou entre em contato com o administrador.',
     'sso_user_not_provisioned' => 'Sua conta ainda não está provisionada neste workspace. Contate o administrador.',
+    'sso_account_unverified' => 'Já existe uma conta com este e-mail que não pode ser associada a este login. Contate o administrador.',
     'sso_no_role_match' => 'Sua conta não tem as roles necessárias para acessar este workspace.',
     'reset_to_defaults' => 'Restaurar padrões',
     'theme' => 'Tema',

@@ -52,6 +52,7 @@ The emailed link opens a confirmation page, and the sign-in is `POST /api/auth/m
 
 ### SSO
 
+- `identity_match_attribute => 'email'` adopts a local account only when its email is verified (`email_verified_at`) or `martis.auth.registration.enabled` is `false`. With registration open, an existing row with an unverified address now refuses the SSO sign-in (`sso_account_unverified`) instead of being adopted: verify it, link it by `external_id`, or remove it. Models without an `email_verified_at` column are unchanged.
 - Sign-in no longer sets a remember-me cookie. Set `'remember' => true` on a provider to restore it; access then outlives the IdP session.
 - Azure: set `tenant` (`AZURE_TENANT_ID`) so identities of other tenants are rejected; `martis:sso azure` scaffolds it. A multi-tenant registration should match accounts by `external_id`.
 
