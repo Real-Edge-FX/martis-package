@@ -1,6 +1,6 @@
 # Sticky Views
 
-> Per-user view state persistence on resource index pages — filters, sort, pagination, per-page selector and search query survive navigation.
+> Per-user view state persistence on resource index pages: filters, sort, pagination, per-page selector and search query survive navigation, for the user who set them and nobody else.
 
 ## What it does
 
@@ -17,9 +17,17 @@ Most admin panels forget the user's setup the moment they navigate away. It's sm
 The implementation uses a hybrid model:
 
 1. **State lives in React** as today (`page`, `sortBy`, `activeFilters`, etc.).
-2. On every meaningful change, `useStickyView()` writes the state into `sessionStorage` under `martis:view:{uriKey}` (one entry per resource).
+2. On every meaningful change, `useStickyView()` writes the state into `sessionStorage` under `martis:view:{userId}:{uriKey}` (one entry per resource and signed-in user).
 3. When the user lands back on the index page, the saved state is restored before the first render — no flicker.
 4. Closing the tab wipes `sessionStorage` so a fresh window starts clean.
+
+### Whose view it is (v2.4.0)
+
+A search term or a filter value can be personal data (a customer's name or e-mail, an owner), and a browser's storage outlives a sign-out: the tab's `sessionStorage` survives the reload on the login page, and `localStorage` (`scope=local`) the whole browser profile. So an entry belongs to the user who wrote it, and nobody else reads it:
+
+- **The key names the user.** `martis:view:{userId}:{uriKey}` (the id is URL-encoded). A reader asks for the signed-in user's entry; with nobody signed in nothing is read or written.
+- **Sign-out clears them all.** The user menu's sign-out drops every `martis:view:*` entry, of every user, from **both** `sessionStorage` and `localStorage`, whichever `scope` is configured, before it leaves for the login page.
+- **A new session purges the rest.** When `/api/auth/user` names a user, every entry that is not theirs is dropped from both storages: the ones another user left (the session expired, the tab was closed, the account switched, an impersonation started) and the keys of the earlier, unscoped format (`martis:view:{uriKey}`). After upgrading to v2.4.0 each user starts without a saved view once.
 
 Filter state, sort and pagination are already reflected in the URL — every view is deep-linkable. Sticky Views complement this by restoring the last-used URL parameters when the user lands on an index page without explicit URL state (for example, from the sidebar link or a fresh tab).
 
@@ -84,7 +92,7 @@ The frontend respects this via the `stickyView` flag in the schema payload — w
 
 When the saved view differs from the resource defaults, an `Reset view` button appears on the index toolbar. Clicking it:
 
-1. Drops the `martis:view:{uriKey}` storage entry.
+1. Drops the `martis:view:{userId}:{uriKey}` storage entry of the signed-in user.
 2. Resets every state bucket back to the resource's defaults (`defaultSort`, `defaultSortDirection`, no filters, page 1, etc.).
 
 The button is hidden when nothing would change.
@@ -96,7 +104,7 @@ The persistence logic lives in an internal module (`lib/useStickyView`). Most de
 The two affordances exposed to consumers are:
 
 - **"Reset view" button** — built into the index toolbar, visible when saved state differs from resource defaults.
-- **"Clear saved views"** — available in the user profile / preferences panel; clears all sticky-view entries from storage.
+- **Sign-out** clears every sticky-view entry (all users, both storages) before it redirects to the login page.
 
 If you are building a fully custom index component and need to read or write sticky state programmatically, open an issue — a stable public API is planned once the `scope=server` iteration is complete.
 

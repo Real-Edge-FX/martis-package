@@ -7,6 +7,15 @@ import { config } from './config'
  * table exactly as they left it. Backed by sessionStorage (or
  * localStorage, depending on `config.stickyViews.scope`).
  *
+ * An entry belongs to the signed-in user who wrote it: its key is
+ * `martis:view:{userId}:{uriKey}`, and every reader and writer names that
+ * user. A search term or a filter value can be personal data, and the
+ * storage outlives a sign-out (the tab's sessionStorage survives the
+ * reload on the login page, localStorage the browser), so another user of
+ * the same browser must never read it: `signOut()` drops every entry, and
+ * `purgeForeignStickyViews()` drops the ones of any other user (and the
+ * keys of the earlier, unscoped format) when the session boots.
+ *
  * The hook is intentionally generic — pass any serialisable shape
  * and it'll round-trip. `useStickyView` writes; `readStickyView` /
  * `clearStickyView` are the imperative escape hatches.
@@ -15,6 +24,21 @@ import { config } from './config'
 const STORAGE_KEY_PREFIX = 'martis:view:'
 
 type StickyState = Record<string, unknown>
+
+/** The signed-in user an entry belongs to; `null` when nobody is signed in. */
+export type StickyOwner = string | number | null | undefined
+
+/** `martis:view:{userId}:`, the prefix of every entry of one user. The id is
+ *  encoded, so no id can run into another's prefix. */
+function ownerPrefix(owner: string | number): string {
+  return `${STORAGE_KEY_PREFIX}${encodeURIComponent(String(owner))}:`
+}
+
+/** The storage key of one resource's view for one user, or `null` without a user. */
+function stickyKey(owner: StickyOwner, uriKey: string): string | null {
+  if (owner === null || owner === undefined || owner === '') return null
+  return ownerPrefix(owner) + uriKey
+}
 
 function isFeatureEnabled(): boolean {
   return config.stickyViews?.enabled !== false
@@ -64,15 +88,16 @@ function applyPersistFilter(state: StickyState): StickyState {
 
 /**
  * Imperative reader. Returns null when the feature is disabled, the
- * resource opted out, or no state has ever been written for that
- * uriKey.
+ * resource opted out, nobody is signed in, or no state has ever been
+ * written for that user and uriKey.
  */
-export function readStickyView(uriKey: string, enabled = true): StickyState | null {
+export function readStickyView(owner: StickyOwner, uriKey: string, enabled = true): StickyState | null {
   if (!enabled || !isFeatureEnabled()) return null
   const storage = getStorage()
-  if (!storage) return null
+  const key = stickyKey(owner, uriKey)
+  if (!storage || key === null) return null
   try {
-    const raw = storage.getItem(STORAGE_KEY_PREFIX + uriKey)
+    const raw = storage.getItem(key)
     if (!raw) return null
     const parsed = JSON.parse(raw) as unknown
     return typeof parsed === 'object' && parsed !== null ? (parsed as StickyState) : null
@@ -86,12 +111,13 @@ export function readStickyView(uriKey: string, enabled = true): StickyState | nu
  * writing so a flag change in `config.stickyViews.persist` takes
  * effect on the next render without manual cleanup.
  */
-export function writeStickyView(uriKey: string, state: StickyState, enabled = true): void {
+export function writeStickyView(owner: StickyOwner, uriKey: string, state: StickyState, enabled = true): void {
   if (!enabled || !isFeatureEnabled()) return
   const storage = getStorage()
-  if (!storage) return
+  const key = stickyKey(owner, uriKey)
+  if (!storage || key === null) return
   try {
-    storage.setItem(STORAGE_KEY_PREFIX + uriKey, JSON.stringify(applyPersistFilter(state)))
+    storage.setItem(key, JSON.stringify(applyPersistFilter(state)))
   } catch {
     // Quota exceeded or storage disabled — silently drop. The next
     // navigation re-tries automatically.
@@ -102,29 +128,40 @@ export function writeStickyView(uriKey: string, state: StickyState, enabled = tr
  * Imperative clear — drops the saved state for one resource. Used by
  * the "Reset view" button on the index toolbar.
  */
-export function clearStickyView(uriKey: string): void {
+export function clearStickyView(owner: StickyOwner, uriKey: string): void {
   const storage = getStorage()
-  if (!storage) return
+  const key = stickyKey(owner, uriKey)
+  if (!storage || key === null) return
   try {
-    storage.removeItem(STORAGE_KEY_PREFIX + uriKey)
+    storage.removeItem(key)
   } catch {
     // ignore
   }
 }
 
-/**
- * Drop every Martis sticky-view entry across all resources. Wired to
- * the "Clear saved views" affordance in the user profile / preferences
- * surface.
- */
-export function clearAllStickyViews(): void {
-  const storage = getStorage()
-  if (!storage) return
+/** Both web storages, whichever `scope` is configured: a sign-out must not
+ *  leave an entry behind in the one the configuration no longer reads (the
+ *  scope can change between two deployments, or between two visits). */
+function allStorages(): Storage[] {
+  if (typeof window === 'undefined') return []
+  const storages: Storage[] = []
+  for (const name of ['sessionStorage', 'localStorage'] as const) {
+    try {
+      storages.push(window[name])
+    } catch {
+      // Storage blocked (a private window, a policy): nothing to clear there.
+    }
+  }
+  return storages
+}
+
+/** Remove every sticky-view entry of `storage` that `keep` does not spare. */
+function removeStickyEntries(storage: Storage, keep: (key: string) => boolean): void {
   try {
     const keys: string[] = []
     for (let i = 0; i < storage.length; i++) {
       const key = storage.key(i)
-      if (key && key.startsWith(STORAGE_KEY_PREFIX)) keys.push(key)
+      if (key && key.startsWith(STORAGE_KEY_PREFIX) && !keep(key)) keys.push(key)
     }
     keys.forEach((key) => storage.removeItem(key))
   } catch {
@@ -133,11 +170,34 @@ export function clearAllStickyViews(): void {
 }
 
 /**
+ * Drop every Martis sticky-view entry, of every user and resource, from
+ * both `sessionStorage` and `localStorage`. `signOut()` calls it before it
+ * leaves the page, so the next person to sign in on this browser starts
+ * clean.
+ */
+export function clearAllStickyViews(): void {
+  allStorages().forEach((storage) => removeStickyEntries(storage, () => false))
+}
+
+/**
+ * Drop every sticky-view entry that does not belong to `owner`, from both
+ * storages: the entries another user left (the session ended without a
+ * `signOut()`: it expired, the tab was closed, the account was switched),
+ * and the keys of the format before entries named their user
+ * (`martis:view:{uriKey}`). Runs when the session boots with a user.
+ */
+export function purgeForeignStickyViews(owner: StickyOwner): void {
+  if (owner === null || owner === undefined || owner === '') return
+  const prefix = ownerPrefix(owner)
+  allStorages().forEach((storage) => removeStickyEntries(storage, (key) => key.startsWith(prefix)))
+}
+
+/**
  * React hook that mirrors a state object into sessionStorage / localStorage
- * keyed by `uriKey`. Pass `enabled = false` (e.g. when the resource opted
+ * keyed by the signed-in user and `uriKey`. Pass `enabled = false` (e.g. when the resource opted
  * out via `protected static bool $stickyView = false`) to short-circuit.
  */
-export function useStickyView(uriKey: string, state: StickyState, enabled = true): void {
+export function useStickyView(owner: StickyOwner, uriKey: string, state: StickyState, enabled = true): void {
   // Track the last serialised payload so we don't write on every render
   // when the parent re-renders without semantic state changes.
   const lastSerialised = useRef<string>('')
@@ -145,9 +205,11 @@ export function useStickyView(uriKey: string, state: StickyState, enabled = true
   useEffect(() => {
     if (!enabled || !isFeatureEnabled()) return
     const filtered = applyPersistFilter(state)
-    const next = JSON.stringify(filtered)
+    // The payload and who it is written for: the same state under another
+    // user (the session changed while the page stayed mounted) is a new write.
+    const next = JSON.stringify([owner ?? null, filtered])
     if (next === lastSerialised.current) return
     lastSerialised.current = next
-    writeStickyView(uriKey, state, enabled)
-  }, [uriKey, enabled, state])
+    writeStickyView(owner, uriKey, state, enabled)
+  }, [owner, uriKey, enabled, state])
 }
