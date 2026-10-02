@@ -201,10 +201,16 @@ Route::middleware(RouteMiddleware::base())
         // The link mailed to the new address of an email change (v2.4.0). Public
         // and signed, like the verification link: the mailbox is often on
         // another device. Always registered; the controller refuses it while
-        // `martis.profile.enabled` is false.
-        Route::get('/profile/email/confirm/{id}', [ProfileEmailChangeController::class, 'confirm'])
+        // `martis.profile.enabled` is false. The mailed GET opens the
+        // confirmation page and changes nothing (a mail scanner or a prefetch
+        // loads it); the change is the POST to the same signed URL, behind the
+        // CSRF check of the `web` group.
+        Route::get('/profile/email/confirm/{id}', [ProfileEmailChangeController::class, 'show'])
             ->middleware('throttle:6,1')
             ->name('profile.email.confirm');
+        Route::post('/profile/email/confirm/{id}', [ProfileEmailChangeController::class, 'confirm'])
+            ->middleware('throttle:6,1')
+            ->name('profile.email.confirm.apply');
         // Resend throttle dropped from 6/min to 3/min after a user
         // reported clicking >5 times in a row without being blocked.
         // 3/min is the conventional ceiling for password-reset and

@@ -48,7 +48,7 @@ The emailed link opens a confirmation page, and the sign-in is `POST /api/auth/m
 
 ### Profile email change
 
-`PATCH /api/profile` needs `current_password` when the email changes and answers `pending_email`: the address changes when the user follows the link sent to it (`MARTIS_PROFILE_EMAIL_CHANGE_TTL`, 60 minutes by default). A custom profile client sends the password and shows the pending state.
+`PATCH /api/profile` needs `current_password` when the email changes and answers `pending_email`: the address changes when the user follows the link sent to it (`MARTIS_PROFILE_EMAIL_CHANGE_TTL`, 60 minutes by default). A custom profile client sends the password and shows the pending state. The mailed link opens a confirmation page and changes nothing; the change is a CSRF-protected `POST` to the same signed URL (a client that followed the link with a `GET` must now post).
 
 ### SSO
 

@@ -926,7 +926,7 @@ The address is the identity of the account: it receives the password reset and t
 
 1. A request that changes the address must send `current_password` (`422` without it or with a wrong one, nothing written). The same address in another letter case is no change.
 2. The name is saved at once. The address stays as it is, a temporary signed link on `APP_URL` is mailed to the NEW address and a notice to the OLD one, and the answer carries `pending_email`. The profile page then shows "check your new inbox".
-3. Following the link checks again that the address is still free, switches it, resets `email_verified_at` for an app that verifies email (and sends the verification link to the new address) and notifies the old address. The link works once; one issued before another change is dead. `martis.profile.email_change.ttl_minutes` (env `MARTIS_PROFILE_EMAIL_CHANGE_TTL`, default 60) sets its lifetime.
+3. Opening the link only shows a confirmation page (`GET`, signed): a mail scanner, a link preview or a prefetch loads a mailed link, and an attacker may name someone else's address as the new one, so a bare `GET` never applies the change. Clicking the button on that page sends a CSRF-protected `POST` to the same signed URL, and that checks again that the address is still free, switches it, resets `email_verified_at` for an app that verifies email (and sends the verification link to the new address) and notifies the old address. The link works once; one issued before another change is dead. `martis.profile.email_change.ttl_minutes` (env `MARTIS_PROFILE_EMAIL_CHANGE_TTL`, default 60) sets its lifetime.
 
 Nothing is stored for the pending change (no migration): the link carries the user's id, the new address and a fingerprint of the old one.
 
@@ -947,7 +947,8 @@ so a hand-crafted `PATCH /martis/api/profile` request cannot bypass the locked f
 |--------|------|-------------|
 | `GET` | `/martis/api/profile` | Get current user profile data |
 | `PATCH` | `/martis/api/profile` | Update the name. A new email needs `current_password` and is applied only after the confirmation link is followed (see [Changing the email address](#changing-the-email-address-v240)) |
-| `GET` | `/martis/profile/email/confirm/{id}` | The signed, temporary confirmation link mailed to the new address |
+| `GET` | `/martis/profile/email/confirm/{id}` | The signed, temporary link mailed to the new address: opens the confirmation page, changes nothing |
+| `POST` | `/martis/profile/email/confirm/{id}` | Applies the change (same signed URL and query string, CSRF-protected). Answers `{outcome, redirect}`: `changed`, `invalid` or `rejected` |
 | `POST` | `/martis/api/profile/password` | Change password (validated with your [password rules](#password-rules)) |
 | `POST` | `/martis/api/profile/avatar` | Upload avatar (multipart/form-data) |
 | `DELETE` | `/martis/api/profile/avatar` | Remove avatar |
