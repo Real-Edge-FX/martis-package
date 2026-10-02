@@ -895,7 +895,7 @@ public function beforeDelete(Model $model, Request $request): void
 }
 ```
 
-`UserFacingException` answers 422 by default; pass another status as the second argument (`new UserFacingException('Locked by another user.', 409)`). The typed `ValidationException`, `AuthorizationException` and `ResourceNotFoundException` (see [Exception Handling](#exception-handling)) keep their message and status too.
+`UserFacingException` answers 422 by default; pass another status as the second argument (`new UserFacingException('Locked by another user.', 409)`). The panel shows the message of a failed delete in its toast (on the index, the detail page, the drawer and a lens), so the reason reaches the user. The typed `ValidationException`, `AuthorizationException` and `ResourceNotFoundException` (see [Exception Handling](#exception-handling)) keep their message and status too.
 
 Any other exception that escapes the delete (a `RuntimeException` from a hook, an observer, a model event, a storage or cache driver) is internal: its message can hold a path, a bucket name or a class name. In production the endpoint answers 500 with the generic `martis::messages.error_delete` message and sends the details to the log (`Martis: error on delete`) and to `report()`. With `app.debug` on, the raw message is returned, so a developer still sees what broke. Never put an internal detail in the message of a `UserFacingException`: the user sees it.
 

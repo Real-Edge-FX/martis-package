@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { deleteErrorMessage } from '@/lib/deleteError'
 import type { OverrideProps, ResourceRecord, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
 import { FieldLabelTooltip } from '@/components/fields/FieldLabelTooltip'
@@ -49,7 +50,7 @@ export function DrawerDetail(props: OverrideProps) {
       emitRecordEvent('deleted', resource, recordId)
       onDeleted()
     },
-    onError: () => addToast('error', tMsg('error_delete')),
+    onError: (e: unknown) => addToast('error', deleteErrorMessage(e, tMsg('error_delete'))),
   })
 
   // Partition fieldsForDetail the same way ResourceDetail does — keeps panels,
