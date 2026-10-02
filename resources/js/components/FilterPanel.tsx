@@ -8,6 +8,7 @@ import { FunnelIcon, XIcon } from '@phosphor-icons/react'
 import { useTranslation } from 'react-i18next'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { filterGridSpanStyle } from '@/lib/filterGridSpan'
+import { ownEntry } from '@/lib/ownEntry'
 import type { FilterDefinition, ActiveFilters } from '@/types'
 
 interface FilterPanelProps {
@@ -378,7 +379,7 @@ function FilterInput({ filter, value, onChange }: FilterInputProps) {
         <div className="flex flex-col gap-2 pt-1">
           {filter.options.map((option) => {
             const boolMap = (value ?? {}) as Record<string, boolean>
-            const checked = !!boolMap[String(option.value)]
+            const checked = !!ownEntry(boolMap, String(option.value))
             return (
               <div key={String(option.value)} className="flex items-center gap-2">
                 <InputSwitch

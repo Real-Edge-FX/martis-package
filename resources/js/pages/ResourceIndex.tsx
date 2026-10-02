@@ -6,6 +6,7 @@ import { apiPath, withQuery, routePath } from '@/lib/apiPath'
 import { deleteErrorMessage } from '@/lib/deleteError'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, OverrideProps, ActiveFilters } from '@/types'
 import { Table } from '@/components/Table'
+import { rowActionAuthorization } from '@/components/Table/Table'
 import { Pagination } from '@/components/Pagination'
 import { DeleteModal } from '@/components/DeleteModal'
 import { ActionModal, ActionDropdown, ActionDrawer } from '@/components/Actions'
@@ -606,9 +607,8 @@ export function ResourceIndexPage() {
         continue
       }
       const allDisabled = bulkSelectedRows.length > 0 && bulkSelectedRows.every(row => {
-        const perAction = row._actionAuthorization
-        if (perAction && action.uriKey in perAction) return !perAction[action.uriKey]
-        return false
+        const verdict = rowActionAuthorization(row, action)
+        return verdict === undefined ? false : !verdict
       })
       if (allDisabled) bulkDisabledActions.add(action.uriKey)
     }
