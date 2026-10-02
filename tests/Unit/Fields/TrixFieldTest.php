@@ -63,6 +63,14 @@ it('Trix withFiles() sets disk', function () {
         ->and($field->toArray()['withFiles'])->toBe('public');
 });
 
+it('Trix withFiles() with no disk takes the panel storage disk', function () {
+    $field = Trix::make('bio_html')->withFiles();
+
+    // 'public' outside an application; the Feature suite reads martis.storage.disk.
+    expect($field->getWithFilesDisk())->toBe('public')
+        ->and($field->toArray()['withFiles'])->toBe('public');
+});
+
 it('Trix without withFiles does not include it', function () {
     $field = Trix::make('bio_html');
 

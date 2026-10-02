@@ -34,6 +34,7 @@ use Martis\Cache\MartisCache;
 use Martis\Console\ActionMakeCommand;
 use Martis\Console\ActivityFeedMakeCommand;
 use Martis\Console\AgentsCommand;
+use Martis\Console\AttachmentsPruneCommand;
 use Martis\Console\CacheClearCommand;
 use Martis\Console\CacheDisableCommand;
 use Martis\Console\CacheEnableCommand;
@@ -283,6 +284,7 @@ class MartisServiceProvider extends ServiceProvider
                 CacheStatusCommand::class,
                 CacheClearCommand::class,
                 CachePruneCommand::class,
+                AttachmentsPruneCommand::class,
                 CacheDisableCommand::class,
                 CacheEnableCommand::class,
                 ListOverridesCommand::class,

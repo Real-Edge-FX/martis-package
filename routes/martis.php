@@ -337,6 +337,7 @@ Route::middleware(RouteMiddleware::base())
 
                                 // Attachment upload (Trix / Markdown file uploads)
                                 Route::post('/attachments/upload', [AttachmentController::class, 'upload'])
+                                    ->middleware(RouteMiddleware::attachmentUpload())
                                     ->name('attachments.upload');
 
                                 // ──────────────────────────────────────────────────────

@@ -1293,14 +1293,28 @@ return [
     |--------------------------------------------------------------------------
     | Attachments
     |--------------------------------------------------------------------------
-    | Configure allowed MIME types and disks for Trix/Markdown file uploads.
-    | Add or remove extensions to control what can be uploaded inline.
-    | Allowed disks restricts which storage disks the upload endpoint accepts.
+    | Configure the file types, size and rate of Trix/Markdown file uploads.
+    | An upload names the resource, the field and (editing) the record, is
+    | authorised like the form it comes from, and is stored on the disk the
+    | field declares with `withFiles($disk)` (the `storage.disk` above without
+    | one), never on a disk the request names.
+    |
+    | allowed_mimes   - Extensions an upload may have. Add or remove entries to
+    |                   control what can be uploaded inline.
+    | max_size        - Largest file, in kilobytes.
+    | throttle_max    - Uploads one user may make per `throttle_decay` minutes,
+    |                   on top of the API limit (the `throttle` block). Ignored
+    |                   when `throttle.enabled` is false.
+    | throttle_decay  - The window of `throttle_max`, in minutes.
+    |
+    | `php artisan martis:attachments:prune` deletes the uploaded files no
+    | record references any more.
     |*/
     'attachments' => [
         'allowed_mimes' => explode(',', env('MARTIS_ATTACHMENT_MIMES', 'jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,mp4,mp3')),
-        'allowed_disks' => ['public', 'local'],
         'max_size' => (int) env('MARTIS_ATTACHMENT_MAX_SIZE', 10240),
+        'throttle_max' => (int) env('MARTIS_ATTACHMENT_THROTTLE_MAX', 20),
+        'throttle_decay' => (int) env('MARTIS_ATTACHMENT_THROTTLE_DECAY', 1),
     ],
 
     /*

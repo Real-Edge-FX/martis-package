@@ -2673,10 +2673,10 @@ Markdown::make('content')
 |--------|-----------|---------|-------------|---------|
 | `alwaysShow` | `alwaysShow(): static` | `$this` | Always expand content on detail (skip "Show Content" toggle). | `false` |
 | `preset` | `preset(string $preset): static` | `$this` | Markdown rendering preset: `'default'` (GFM), `'commonmark'`, `'zero'`. | `'default'` |
-| `withFiles` | `withFiles(string $disk = 'public'): static` | `$this` | Enable file uploads in editor. | `null` |
+| `withFiles` | `withFiles(?string $disk = null): static` | `$this` | Enable file uploads in the editor, stored on `$disk` (the panel's `martis.storage.disk` without one). The upload endpoint takes the disk from the field and authorises the upload like the form the field is on (v2.4.0); see [Resources → Attachment Uploads](resources.md#attachment-uploads-trix--markdown). | disabled |
 | `isAlwaysShow` | `isAlwaysShow(): bool` | `bool` | Check if always showing. | — |
 | `getPreset` | `getPreset(): string` | `string` | Get preset. | — |
-| `getWithFilesDisk` | `getWithFilesDisk(): ?string` | `?string` | Get uploads disk. | — |
+| `getWithFilesDisk` | `getWithFilesDisk(): ?string` | `?string` | The uploads disk, or `null` when the field does not accept files. | — |
 
 **Extra attributes:** `alwaysShow`, `preset`, `withFiles`
 
@@ -2700,10 +2700,10 @@ Trix::make('body', 'Body')
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `alwaysShow` | `alwaysShow(): static` | `$this` | Always expand content on detail. | `false` |
-| `withFiles` | `withFiles(string $disk = 'public'): static` | `$this` | Enable file uploads in editor. | `null` |
+| `withFiles` | `withFiles(?string $disk = null): static` | `$this` | Enable file uploads in the editor, stored on `$disk` (the panel's `martis.storage.disk` without one). The upload endpoint takes the disk from the field and authorises the upload like the form the field is on (v2.4.0); see [Resources → Attachment Uploads](resources.md#attachment-uploads-trix--markdown). | disabled |
 | `toolbarSize` | `toolbarSize(string $size): static` | `$this` | Toolbar button size: `'sm'`, `'md'`, `'lg'`. | `null` |
 | `isAlwaysShow` | `isAlwaysShow(): bool` | `bool` | Check if always showing. | — |
-| `getWithFilesDisk` | `getWithFilesDisk(): ?string` | `?string` | Get uploads disk. | — |
+| `getWithFilesDisk` | `getWithFilesDisk(): ?string` | `?string` | The uploads disk, or `null` when the field does not accept files. | — |
 
 **Extra attributes:** `alwaysShow`, `withFiles`, `toolbarSize`
 

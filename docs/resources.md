@@ -1186,14 +1186,37 @@ Available methods: `authorizedToView`, `authorizedToCreate`, `authorizedToUpdate
 
 ### Attachment Uploads (Trix / Markdown)
 
-The `AttachmentController` handles file uploads from Trix and Markdown rich text editors. Allowed MIME types, storage disks, and max size are configurable via `config/martis.php`:
+The `AttachmentController` handles file uploads from Trix and Markdown rich text editors. A field accepts files when it declares `withFiles()`:
+
+```php
+Trix::make('body')->withFiles();            // the panel's martis.storage.disk ('public' by default)
+Trix::make('body')->withFiles('s3');        // a disk of its own
+Markdown::make('notes')->withFiles('public');
+```
+
+An upload names the field it belongs to, as the form it comes from does, and is authorised like that form (v2.4.0):
+
+```
+POST /martis/api/attachments/upload?resource={uriKey}&field={attribute}[&id={recordId}][&repeater={attribute}&repeatable={shortName}]
+file = the uploaded file (multipart)
+```
+
+- `resource` and `field` are required (422 without them; 404 for an unknown resource). `id` names the record an edit form is editing; leave it out on a create form. `repeater` and `repeatable` name the row when the field is inside a Repeater (the same parameters the relation pickers send).
+- The user must be allowed to list the resource (`viewAny`), and either update the record `id` names (the field is looked up on the update form) or, without a record the user may update, create the resource (the create forms, the inline-create modal included). Otherwise the answer is 403 and nothing is stored: a signed-in user who may write no record cannot host files on the application's origin. An `id` the user may not update is answered like a missing one.
+- The field must be on that form and visible to the user (404 otherwise, like any attribute no form declares), and must declare `withFiles()` (403 when it does not).
+- The file goes to the disk the field declares, never to one the request names: a `disk` parameter is ignored. A field that calls `withFiles()` with no disk uses `config('martis.storage.disk')`.
+- Uploads are stored under `martis-attachments/` on that disk, as `{40 random characters}.{extension}`, and the response is `{ "url": "...", "href": "..." }` for the editor to embed.
+- Only the fields of a resource form upload: the SPA offers no attachment on the fields of an Action, a Tool or a many-to-many pivot, which this endpoint cannot resolve.
+
+Allowed extensions, the maximum size and the upload rate are configurable via `config/martis.php`:
 
 ```php
 // config/martis.php
 'attachments' => [
-    'allowed_mimes' => explode(',' , env('MARTIS_ATTACHMENT_MIMES', 'jpg,jpeg,png,gif,webp,svg,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,mp4,mp3')),
-    'allowed_disks' => ['public', 'local'],
+    'allowed_mimes' => explode(',' , env('MARTIS_ATTACHMENT_MIMES', 'jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,mp4,mp3')),
     'max_size' => (int) env('MARTIS_ATTACHMENT_MAX_SIZE', 10240), // KB
+    'throttle_max' => (int) env('MARTIS_ATTACHMENT_THROTTLE_MAX', 20),     // uploads per user...
+    'throttle_decay' => (int) env('MARTIS_ATTACHMENT_THROTTLE_DECAY', 1),  // ...per this many minutes
 ],
 ```
 
@@ -1201,7 +1224,21 @@ To allow additional file types (e.g., `.ai`, `.psd`), either:
 1. Set the `MARTIS_ATTACHMENT_MIMES` env variable with a comma-separated list
 2. Or publish and edit `config/martis.php` directly
 
-Uploads are stored under `martis-attachments/` on the selected disk.
+The extensions list is a deny-by-omission fence: keep script-capable types (`svg`, `html`) out of it, since the files are served from the application's own origin.
+
+The route carries a dedicated per-user throttle (`throttle_max` uploads per `throttle_decay` minutes, in a bucket of its own, `martis-attachments:{guard}:`) on top of the API's, which `martis.throttle.enabled = false` turns off with it. Over the limit the answer is 429.
+
+#### Removing the files no record references
+
+An editor saves the URL of a file inside the content of the field, and there is no table of uploads, so a file the editor never saved (a closed form, a removed image) stays on the disk. `martis:attachments:prune` deletes them:
+
+```bash
+php artisan martis:attachments:prune --dry-run   # list what would go
+php artisan martis:attachments:prune             # delete it
+php artisan martis:attachments:prune --hours=72 --disk=s3 --disk=public
+```
+
+It reads the text and JSON columns of the table of every registered resource's model (Repeater rows and soft-deleted records included) for the stored file names, and deletes the files of `martis-attachments/` that none holds and that were written more than `--hours` ago (24 by default, at least 1, so an upload from a form that is still open is never taken). Only files with the names the endpoint writes are touched. `--disk` (repeatable) names the disks to sweep; without it, the panel's `martis.storage.disk`. A file referenced from a table no registered resource writes to is not seen, so run it with `--dry-run` first. It stops without deleting anything when a resource's table cannot be read. Nothing runs it for you: schedule it (`$schedule->command('martis:attachments:prune')->daily()`) once you have checked a dry run.
 
 For field-specific MIME restrictions (on File/Image fields in forms), use the `acceptedTypes()` method on the field:
 

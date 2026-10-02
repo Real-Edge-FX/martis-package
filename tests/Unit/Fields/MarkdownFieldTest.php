@@ -88,6 +88,13 @@ it('Markdown withFiles() sets disk', function () {
         ->and($field->toArray()['withFiles'])->toBe('public');
 });
 
+it('Markdown withFiles() with no disk takes the panel storage disk', function () {
+    $field = Markdown::make('description_md')->withFiles();
+
+    expect($field->getWithFilesDisk())->toBe('public')
+        ->and($field->toArray()['withFiles'])->toBe('public');
+});
+
 it('Markdown without withFiles does not include it', function () {
     $field = Markdown::make('description_md');
 
