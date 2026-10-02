@@ -477,12 +477,13 @@ class ActionController extends MartisController
      * The records a lens lists, as Nova's `LensActionRequest` reads them:
      * the lens's `query()` run on a query of the resource's model, with the
      * lens's filters (the ones the user may see, from the request's
-     * `?filters=`) and search. The resource's `scopes()` and `indexQuery()`
-     * do not apply, as they do not on the lens's page: the lens owns its
-     * query. The trashed records the lens lists are included, as on the
-     * index. The rows are read by key from the model's own table, so an
-     * action receives whole records even from a lens that selects
-     * aggregates or joins another table.
+     * `?filters=`) and search. The query starts from what the resource's
+     * index lists (its `scopes()` and `indexQuery()`), as the lens's page
+     * does, unless the lens opts out (`Lens::$withoutIndexScope`), so an
+     * action never runs on a record the index hides. The trashed records
+     * the lens lists are included, as on the index. The rows are read by key
+     * from the model's own table, so an action receives whole records even
+     * from a lens that selects aggregates or joins another table.
      *
      * @return Builder<Model>
      */
@@ -501,7 +502,7 @@ class ActionController extends MartisController
         }
 
         $lensRequest = LensRequest::fromRequest($request, $this->collectAuthorizedFilters($lens, $resource, $request));
-        $listed = $lens->query($lensRequest, $base);
+        $listed = $this->runLensQuery($lens, $lensRequest, $this->lensBaseQuery($request, $resource::class, $lens, $base));
 
         if (! $listed instanceof Builder) {
             throw new \LogicException(sprintf(

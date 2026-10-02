@@ -606,7 +606,7 @@ Static query hooks wrap every Eloquent query built by Martis for this resource. 
 
 ### indexQuery()
 
-Constrains the index listing query and the queries Martis builds like it: the count badge, the global search (its results and `total`), the records an action runs on, and the parent record of a `BelongsToMany` panel and of the pivot routes. The canonical place for multi-tenancy, ownership scoping, or any other structural filter. The declarative [`scopes()`](authorization.md#declarative-query-scopes) run first wherever it runs. A lens owns its query, as in Nova, so repeat such a filter in the lens's `query()`; the relationship pickers use `relatableQuery()` below.
+Constrains the index listing query and the queries Martis builds like it: the count badge, the global search (its results and `total`), the records an action runs on, and the parent record of a `BelongsToMany` panel and of the pivot routes. The canonical place for multi-tenancy, ownership scoping, or any other structural filter. The declarative [`scopes()`](authorization.md#declarative-query-scopes) run first wherever it runs. A lens starts from the same query (v2.4.0), so it never lists what the index hides, unless it opts out with `Lens::$withoutIndexScope` (see [Lenses](lenses.md#the-lens-lists-what-the-index-lists)); the relationship pickers use `relatableQuery()` below.
 
 ```php
 public static function indexQuery(Request $request, Builder $query): Builder

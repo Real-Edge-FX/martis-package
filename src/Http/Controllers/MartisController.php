@@ -2,6 +2,7 @@
 
 namespace Martis\Http\Controllers;
 
+use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
@@ -22,10 +23,12 @@ use Martis\Fields\HasMany;
 use Martis\Fields\MorphMany;
 use Martis\Fields\MorphToMany;
 use Martis\Fields\Repeater;
+use Martis\Http\Requests\LensRequest;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Lenses\Lens;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\IndexScope;
 use Martis\Support\RelationScope;
 use Martis\Support\TranslatedLine;
 
@@ -659,6 +662,44 @@ abstract class MartisController extends Controller
             : $resource->actions($request);
 
         return $actions;
+    }
+
+    /**
+     * The base query a lens starts from: `$base` confined as the resource's
+     * index confines its own (its `scopes()`, then `indexQuery()`, grouped),
+     * unless the lens opts out (`Lens::$withoutIndexScope`). The lens page,
+     * its summary and the records its actions run on all start from it, so a
+     * lens never lists what the index hides.
+     *
+     * @param  class-string<resource>  $resourceClass
+     * @param  Builder<Model>  $base
+     * @return Builder<Model>
+     */
+    protected function lensBaseQuery(Request $request, string $resourceClass, Lens $lens, Builder $base): Builder
+    {
+        if ($lens::$withoutIndexScope) {
+            return $base;
+        }
+
+        return IndexScope::apply($request, $resourceClass, $base);
+    }
+
+    /**
+     * Run `Lens::query()` on `$base` (see `lensBaseQuery()`). The lens's own
+     * clauses run grouped, as a filter does (`IndexScope::grouped()`): an
+     * `orWhere()` in the lens's query cannot OR the resource's fence away.
+     *
+     * @param  Builder<Model>  $base
+     * @return Builder<Model>|Paginator<int, Model>
+     */
+    protected function runLensQuery(Lens $lens, LensRequest $lensRequest, Builder $base): Builder|Paginator
+    {
+        if ($lens::$withoutIndexScope) {
+            return $lens->query($lensRequest, $base);
+        }
+
+        /** @var Builder<Model>|Paginator<int, Model> */
+        return IndexScope::grouped($base, static fn (Builder $scoped): Builder|Paginator => $lens->query($lensRequest, $scoped));
     }
 
     /**
