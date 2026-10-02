@@ -2737,9 +2737,9 @@ KeyValue::make('metadata', 'Metadata')
 | `keyLabel` | `keyLabel(string $label): static` | `$this` | Label for key column header. | `'Key'` |
 | `valueLabel` | `valueLabel(string $label): static` | `$this` | Label for value column header. | `'Value'` |
 | `actionText` | `actionText(string $text): static` | `$this` | Label for "add row" button. | `'Add Row'` |
-| `disableEditingKeys` | `disableEditingKeys(): static` | `$this` | Prevent editing existing keys. | `false` |
-| `disableAddingRows` | `disableAddingRows(): static` | `$this` | Prevent adding new rows. | `false` |
-| `disableDeletingRows` | `disableDeletingRows(): static` | `$this` | Prevent deleting rows: no row renders a delete button. v1.38.0+. | `false` |
+| `disableEditingKeys` | `disableEditingKeys(): static` | `$this` | Prevent editing existing keys; a write drops any key outside the stored (or default) key set (v2.4.0+). | `false` |
+| `disableAddingRows` | `disableAddingRows(): static` | `$this` | Prevent adding new rows; a write drops any key outside the stored (or default) key set (v2.4.0+). | `false` |
+| `disableDeletingRows` | `disableDeletingRows(): static` | `$this` | Prevent deleting rows: no row renders a delete button, and a write that leaves a stored (or default) key out gets its value back (v2.4.0+). v1.38.0+. | `false` |
 | `getKeyLabel` | `getKeyLabel(): string` | `string` | Get key label. | — |
 | `getValueLabel` | `getValueLabel(): string` | `string` | Get value label. | — |
 | `getActionText` | `getActionText(): string` | `string` | Get action text. | — |
@@ -2762,9 +2762,14 @@ KeyValue::make('opening_hours', 'Opening hours')
     ->disableDeletingRows()
 ```
 
-The flags shape the form only. The server stores the rows it receives, so a
-payload sent outside the form is not held to the fixed key set; enforce it
-with a validation rule when that matters.
+**The server enforces the flags** (v2.4.0+, hardening: Nova leaves them to the form). A request does not have to go through the form, so `fill()` holds a payload to the key set the flags fix. That set is the stored map's keys for a record that exists, and the field's `default()` keys for a new record (a closure or rows are read as the form reads them):
+
+| Flag | What a write does |
+|---|---|
+| `disableEditingKeys()` or `disableAddingRows()` | A submitted key outside the set is dropped: a new row, and a key edited into another name. The values of the keys in the set are the user's. |
+| `disableDeletingRows()` | A key of the set the submission leaves out (a deleted row, or a key edited into another name) takes its stored (or default) value back, and an empty value restores the whole set. |
+
+Nothing changes for a field without these flags: any key is stored. A key edited into another name is a new key plus a missing one, so with only `disableEditingKeys()` the renamed key is dropped and the old one is deleted (the form offers no way to type a key then); with `disableDeletingRows()` too, the old key stays. The stored order of the set is kept, and a restored row keeps its stored value as it was (a nested value included).
 
 **Storage format:** `{"key1":"value1","key2":"value2"}`
 **Overrides:** `resolve()` decodes to `[{key, value}]` rows; `fill()` normalizes to the associative map and stores it, JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
