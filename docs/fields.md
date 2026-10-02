@@ -2793,7 +2793,7 @@ Heading::make('media_section', 'Media')
 Hidden form input. Invisible in UI — never shown on index or detail.
 
 ```php
-Hidden::make('user_id')
+Hidden::make('return_to')
 ```
 
 **Default overrides:**
@@ -2801,6 +2801,34 @@ Hidden::make('user_id')
 - `showOnDetail = false`
 
 **Specific methods:** None.
+
+> **A Hidden value is client-controlled.** A hidden input is not a trust boundary: `fill()` writes whatever the request posts for the attribute, so anyone who may create or update the record can edit the request and send another value. `Hidden::make('tenant_id')->default(fn ($request) => $request->user()->tenant_id)` pre-fills the form, it does not protect the column: a user with create rights posts another tenant's id and the record lands there. Use `Hidden` for values the user may legitimately choose (a UI hint, a return URL), never for a tenant, an owner or any other column that scopes access. Set those on the server:
+>
+> ```php
+> // 1. A model event: the column never comes from the request.
+> protected static function booted(): void
+> {
+>     static::creating(function (self $model): void {
+>         $model->tenant_id ??= auth()->user()?->tenant_id;
+>     });
+> }
+>
+> // 2. The resource's beforeSave(): runs after the fields are filled, before the save.
+> public function beforeSave(Model $model, Request $request, bool $creating): void
+> {
+>     if ($creating) {
+>         $model->tenant_id = $request->user()->tenant_id;
+>     }
+>
+>     parent::beforeSave($model, $request, $creating);
+> }
+>
+> // 3. A field that ignores the posted value (fillUsing()), or never takes one (readonly()):
+> Hidden::make('tenant_id')->fillUsing(fn (Model $model) => $model->tenant_id = auth()->user()->tenant_id);
+> Text::make('tenant_id')->readonly(); // fill() writes nothing; the application sets the column
+> ```
+>
+> The same holds for any field a user can edit: validate or overwrite on the server what the request must not decide. A model event is the broadest of the three (it also covers the inline creates of a relationship panel and anything else that saves the model); see [Lifecycle hooks](resources.md#lifecycle-hooks) and [Authorization](resources.md#authorization).
 
 ---
 
