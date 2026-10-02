@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Martis\Fields\MultiSelect;
 use Martis\Fields\Select;
 use Martis\Http\Middleware\MartisAuthenticate;
@@ -46,6 +47,20 @@ function validateSelect(Select|MultiSelect $field, mixed $value, ?string $contex
 
     return ['passes' => $validator->passes(), 'errors' => $validator->errors()->get($field->attribute())];
 }
+
+it('words the refusal with a Martis string of its own, in the panel language and with the label', function (string $locale, string $expected) {
+    app()->setLocale($locale);
+
+    $select = Select::make('status', 'Estado')->options(['draft' => 'Draft'])->validateAgainstOptions();
+    $multi = MultiSelect::make('tags', 'Etiquetas')->options(['php' => 'PHP'])->validateAgainstOptions();
+
+    expect(validateSelect($select, 'forged')['errors'])->toBe([str_replace(':attribute', 'Estado', $expected)])
+        ->and(validateSelect($multi, ['php', 'forged'])['errors'])->toBe([str_replace(':attribute', 'Etiquetas', $expected)]);
+})->with([
+    'en' => ['en', 'The selected :attribute is invalid.'],
+    'pt_PT' => ['pt_PT', 'O valor selecionado em :attribute é inválido.'],
+    'pt_BR' => ['pt_BR', 'O valor selecionado em :attribute é inválido.'],
+]);
 
 it('does not validate against the options by default (documented, unchanged)', function () {
     $field = Select::make('status')->options(['draft' => 'Draft', 'live' => 'Live']);
@@ -308,6 +323,23 @@ class CfvPostResource extends Resource
     }
 }
 
+class CfvRequiredPostResource extends CfvPostResource
+{
+    public static function uriKey(): string
+    {
+        return 'cfv-required-posts';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Select::make('status')->options(['draft' => 'Draft', 'live' => 'Live'])->required()->validateAgainstOptions(),
+            // The guard the docs name: a rule object survives where the string `required` is dropped on update.
+            Select::make('guarded')->options(['a' => 'A'])->nullable()->updateRules([Rule::requiredIf(true)]),
+        ];
+    }
+}
+
 describe('on the resource endpoints', function () {
     beforeEach(function () {
         $this->withoutMiddleware(MartisAuthenticate::class);
@@ -315,6 +347,7 @@ describe('on the resource endpoints', function () {
         Schema::dropIfExists('cfv_posts');
         Schema::create('cfv_posts', function ($table) {
             $table->id();
+            $table->string('guarded')->nullable();
             $table->string('status')->nullable();
             $table->string('free_status')->nullable();
             $table->json('tags')->nullable();
@@ -323,6 +356,7 @@ describe('on the resource endpoints', function () {
         $registry = app(ResourceRegistry::class);
         $registry->flush();
         $registry->register(CfvPostResource::class);
+        $registry->register(CfvRequiredPostResource::class);
     });
 
     afterEach(function () {
@@ -373,5 +407,26 @@ describe('on the resource endpoints', function () {
         $this->postJson('/martis/api/resources/cfv-posts', ['free_status' => 'whatever'])->assertStatus(201);
 
         expect(CfvPost::query()->sole()->free_status)->toBe('whatever');
+    });
+
+    it('leaves an empty value to required() on create, and does not enforce required on a present empty value on update, as for every field', function () {
+        // Create: `required` judges the empty value.
+        foreach ([null, ''] as $empty) {
+            $this->postJson('/martis/api/resources/cfv-required-posts', ['status' => $empty])
+                ->assertStatus(422)
+                ->assertJsonPath('errors.0.field', 'status');
+        }
+        expect(CfvPost::query()->count())->toBe(0);
+
+        // Update: `required` is not enforced on a field the request names empty (the update
+        // rules drop it for every field, so a form that leaves a field alone, a Password for
+        // one, is not refused); the options rule has no value to judge, and a value that is
+        // not an option is still a 422.
+        $post = CfvPost::create(['status' => 'draft']);
+        $this->putJson("/martis/api/resources/cfv-required-posts/{$post->id}", ['status' => null])->assertOk();
+        $this->putJson("/martis/api/resources/cfv-required-posts/{$post->id}", ['status' => 'forged'])->assertStatus(422);
+
+        // The guard the docs name: `Rule::requiredIf(true)` in updateRules() is not dropped.
+        $this->putJson("/martis/api/resources/cfv-required-posts/{$post->id}", ['guarded' => null])->assertStatus(422);
     });
 });

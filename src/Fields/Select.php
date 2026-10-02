@@ -174,12 +174,13 @@ class Select extends Field
         }
 
         $rules[] = function (string $attribute, mixed $value, \Closure $fail): void {
-            // An empty value is for `required` and `nullable` to judge.
+            // An empty value is for `required` and `nullable` to judge (create: `required`
+            // refuses it; update drops `required` for every field, see BuildsFieldRules).
             if ($value === null || $this->optionsContain($value)) {
                 return;
             }
 
-            $fail('validation.in')->translate();
+            $fail('martis::validation.not_in_options')->translate();
         };
 
         return $rules;
