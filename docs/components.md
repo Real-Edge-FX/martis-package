@@ -147,7 +147,7 @@ Ordered sections:
 | Resources | `/api/command-palette` → `resources` | Always (filtered by query). Each row is the resource label + its navigation group as a hint. |
 | Tools | `/api/command-palette` → `tools` | Every Tool the user may see. |
 | Commands | `/api/command-palette` → `commands` | The entries the app registers with `Martis::commandPalette()` (v2.1.0), with their group as a hint. |
-| Actions | `/api/command-palette` → `actions` | When any registered resource exposes a standalone action (`Action::standalone()`). The hint column shows the owning resource. |
+| Actions | `/api/command-palette` → `actions` | When any registered resource exposes a standalone action (`Action::standalone()`) the user may see. The hint column shows the owning resource. |
 | Recent activity | `/api/command-palette` → `recent` | Only when the query is empty. The user's latest 5 `martis_action_events` rows, when the user may read the log. Clicking jumps to the affected record when `model_id` is set. |
 | Records | `/api/search?q=…` | When the query has 2+ characters. Uses the existing unified record-search endpoint. |
 
@@ -186,7 +186,7 @@ Martis::commandPalette(fn (Request $request) => [
 - The closure may return an array or a Collection. Any other return value (a single `MenuItem`, `null`) throws an `InvalidArgumentException` naming its type, and so does an entry other than a `MenuItem` or a `MenuGroup`.
 - Resolving a resource or Tool item may compute its menu count, as the menu does.
 
-A standalone action on any resource also appears in the palette, under Actions.
+A standalone action on any resource also appears in the palette, under Actions, with the gates the sidebar and the action endpoints apply: the user must pass the resource's `viewAny`, the action's `canSee()` (an action it hides is not named in the payload), and the resource must be one the sidebar lists, that is `displayInNavigation()` is true and no `lockedFor()` soft gate locks it for the user. A locked resource shows its lock in the sidebar and opens the lock modal on click; the palette does not offer a shortcut that skips it.
 
 ### Skip link
 

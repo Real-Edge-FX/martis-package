@@ -26,9 +26,10 @@ use Throwable;
  *  - **Tools** — every registered custom Tool the current user is
  *    authorised to see (same `authorizedToSee` gate as the sidebar), so
  *    ⌘K can jump to a Tool by name just like a resource.
- *  - **Actions** — every standalone action (`Action::standalone()`) across
- *    every resource, tagged with the owning resource so the frontend can
- *    render "Run <action> on <resource>".
+ *  - **Actions** — every standalone action (`Action::standalone()`) the user
+ *    may see (`authorizedToSee()`) across the resources the sidebar lists
+ *    for them (viewAny, `displayInNavigation()`, not locked), tagged with the
+ *    owning resource so the frontend can render "Run <action> on <resource>".
  *  - **Recent** — the authenticated user's latest 5 `martis_action_events`
  *    rows, linking back to the affected record when `model_id` is set.
  *    Gated by the registered ActionEvent resource's `authorizedToViewAny`
@@ -147,14 +148,18 @@ class CommandPaletteController extends MartisController
     {
         $out = [];
         foreach ($this->registry->list() as $class) {
-            if (! $class::routable()) {
+            // The sidebar's own filters: a resource it does not list
+            // (displayInNavigation()), or lists locked behind a soft gate
+            // (lockedFor(), the click opens the lock modal), offers no
+            // shortcut to its actions either.
+            if (! $class::routable() || ! $class::displayInNavigation()) {
                 continue;
             }
 
             /** @var resource $instance */
             $instance = new $class;
 
-            if (! $instance->authorizedToViewAny($request)) {
+            if (! $instance->authorizedToViewAny($request) || $instance->isLockedFor($request)) {
                 continue;
             }
 
@@ -171,6 +176,13 @@ class CommandPaletteController extends MartisController
                     continue;
                 }
                 if (! $action->isStandalone()) {
+                    continue;
+                }
+
+                // The gate every action surface applies (the list, the field
+                // schema and the run): an action the user may not see is
+                // not named here either.
+                if (! $action->authorizedToSee($request)) {
                     continue;
                 }
 
