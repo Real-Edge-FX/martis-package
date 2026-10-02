@@ -152,6 +152,7 @@ return [
     'query_error_generic' => 'A requisição falhou. Tente novamente ou ajuste os filtros e a busca.',
     'boolean_group_min_checked' => ':attribute requer pelo menos :min opção(ões) marcada(s); apenas :count marcada(s).',
     'boolean_group_max_checked' => ':attribute permite no máximo :max opção(ões) marcada(s); :count marcada(s).',
+    'sparkline_numbers' => 'O campo :attribute deve ser uma lista de números.',
     'copy' => 'Copiar',
     'error_boundary_title' => 'Erro inesperado',
     'error_boundary_message' => 'Ocorreu um erro ao renderizar esta seção.',

@@ -221,7 +221,7 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 | `readonly` | `readonly(bool\|Closure $value = true): static` | `$this` | Prevent modification through UI. `fill()` becomes a no-op. Accepts a closure for request-time resolution. Every bundled input renders the field read-only (`Avatar`, `BooleanGroup`, `Repeater`, `File`, `Image` and the inline-create "+" of `BelongsTo` / `MorphTo` since v1.38.0, see [Immutable fields](#immutable-fields)). A readonly pivot field is never written from the request either: the attach stores its `default()` and the pivot update leaves it alone (v1.38.0+, see [Immutable fields](#immutable-fields)). Nor is a readonly field inside a `Repeater` row: a stored row keeps its value and a new row stores its `default()` (v1.38.0+, see [Repeater](repeater.md#readonly-computed-hidden-and-immutable-row-fields)). |
 | `required` | `required(bool\|Closure $value = true): static` | `$this` | Require a non-null value (adds `required` validation rule). Accepts a closure for request-time resolution. **v1.8.3**: declaring `'required'` (or any `required_*` variant) inside `->rules([...])` is enough — the visual asterisk now auto-detects it. Calling `->required()` explicitly is still supported and required when you want a Closure-resolved flag. |
 | `placeholder` | `placeholder(string\|Closure $text): static` | `$this` | Set placeholder text for the input. Accepts a closure for request-time resolution. |
-| `help` | `help(string\|Closure $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension). Accepts a closure for request-time resolution. |
+| `help` | `help(string\|Closure $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension): the panel sanitises it (links, bold, code and line breaks stay; scripts, event handlers and `javascript:` URLs are removed), but it is still output you author, so never interpolate unescaped user or record data into it (use `e()`). Accepts a closure for request-time resolution. |
 | `tooltip` | `tooltip(string\|Closure\|null $text): static` | `$this` | ⭐ Martis differential. Attach a hover tooltip to the field label — shown via a `(?)` icon next to the label. Supports raw HTML so authors can use `<br />`, `<strong>`, `<em>`, `<ul>`, etc. for multi-line rich hints. Accepts a closure for request-time resolution. Pass `null` to clear. See [Tooltips](#tooltips-martis-differential). |
 | `withLabel` | `withLabel(string\|Closure $value): static` | `$this` | Override the constructor label after construction. Accepts a closure for request-time resolution. |
 | `fullWidth` | `fullWidth(bool $fullWidth = true): static` | `$this` | Make the field span the full width of the form. |
@@ -493,9 +493,10 @@ Text::make('greeting')
     ->withLabel(fn () => __('fields.greeting.label'))
     ->placeholder(fn () => __('fields.greeting.placeholder'));
 
-// Help text that reads live state from the user
+// Help text that reads live state from the user. help() is HTML: escape
+// anything that is not yours with e() (the panel sanitises it too).
 Text::make('quota')
-    ->help(fn ($request) => "Quota left: {$request?->user()?->quota()}");
+    ->help(fn ($request) => 'Quota left: '.e($request?->user()?->quota()));
 
 // Options pulled from the database: Select / MultiSelect / BooleanGroup.
 // All three read [value => label], as in Nova, so pluck('name', 'id') stores the id.
@@ -752,14 +753,16 @@ ResourceUpdate) **and** on detail labels rendered inside Sections/TabGroups.
 
 ### HTML support
 
-The label renderer opts in with the `data-pr-tooltip-html="true"` attribute,
-which makes the global `MartisTooltip` provider render the text as HTML; a
-`data-pr-tooltip` trigger without it keeps the default plain-text escape (the
-metric `help()` tooltip and an extension's own triggers can opt in the same
-way, see [Tooltip Standard](components.md#tooltip-standard-primereact)).
+The label renderer registers its `(?)` icon as a trigger that may show HTML
+(`htmlTooltip()`, see [Tooltip Standard](components.md#tooltip-standard-primereact)),
+which makes the global `MartisTooltip` provider render the text as HTML; any
+other `data-pr-tooltip` trigger keeps the default plain-text escape, whatever
+attributes it carries (the metric `help()` tooltip and an extension's own
+triggers register the same way).
 Allowed markup: any inline HTML (`<br />`, `<strong>`, `<em>`, `<ul>`/`<li>`,
-`<code>`, `<a>`). The markup is not sanitised: the author is responsible for
-producing safe markup and never puts user or record data in it; prefer
+`<code>`, `<a>`). The markup is sanitised before it is shown (scripts, event
+handlers, unsafe URLs and `data-*` attributes are removed), but the author is
+still responsible for producing it and never puts user or record data in it; prefer
 localised strings from `__()` / i18n dictionaries to keep content reviewable.
 
 ### When to use `tooltip()` vs `help()`
@@ -788,7 +791,7 @@ Both can coexist on the same field: `->help('Must be unique')->tooltip('<strong>
   out of the bubble.
 - Plain text stays plain whatever its length: a sentence in `data-pr-tooltip`
   wraps without the HTML opt-in, and markup in it renders literally. Use
-  `data-pr-tooltip-html="true"` only for content that needs markup.
+  `htmlTooltip()` only for content that needs markup.
 - Position respects the trigger's `data-pr-position` (defaults to `top`). The
   bubble is measured first, flips to the opposite side when the requested one
   has no room for it (a `left` / `right` bubble with room on neither side goes
@@ -2738,6 +2741,16 @@ Code::make('config', 'Configuration')
 
 Markdown editor with preview. Stores raw Markdown. Hidden from index by default.
 
+The panel renders the Markdown in the browser (`marked`) and sanitises the HTML
+before it reaches the page, so raw HTML a user wrote in the Markdown cannot run
+script for whoever opens the record. Scripts, event handlers and `javascript:`
+URLs are removed, and so are the things that would restyle or impersonate the
+panel around the content: every `data-*` attribute (the global tooltip reads
+`data-pr-*` ones), the `style` attribute and element, `id` and `name`, forms and
+form controls other than the checkboxes of a task list. The `zero` preset
+escapes HTML instead. The stored value is the Markdown as written: sanitise it
+yourself if you render it outside the panel.
+
 ```php
 Markdown::make('content')
     ->alwaysShow()
@@ -2765,6 +2778,19 @@ Markdown::make('content')
 **File:** `src/Fields/Trix.php`
 
 Rich text HTML editor (Trix). Stores raw HTML. Hidden from index by default.
+
+The stored value is the HTML the editor produced, and the JSON API accepts any
+string for the attribute, so the panel sanitises it before it renders the
+detail view: scripts, event handlers and `javascript:` URLs are removed, and so
+are every `data-*` attribute except the three a Trix attachment uses
+(`data-trix-attachment`, `data-trix-content-type`, `data-trix-attributes`), the
+`style` attribute and element, `id` and `name`, and forms and form controls.
+An attachment whose JSON names a `url` / `href` that is not an `http(s)` URL or
+a path of the app loses its `data-trix-attachment`, and clicking an attachment
+or a link only follows an `http(s)` URL. **The package does not purify the HTML
+on the server**: the value is stored as received, so sanitise it (for example
+with `mews/purifier` or `symfony/html-sanitizer`) wherever you render it outside
+the panel.
 
 ```php
 Trix::make('body', 'Body')
@@ -3092,6 +3118,14 @@ Gravatar::make('user_email')   // custom attribute
 
 Inline mini chart for trend visualization. Display-only (hidden from forms by default).
 
+The chart draws at most 300 points: a longer stored series is downsampled
+(the mean of each slice) in the browser, and a value that is not a finite
+number is skipped. When you show the field on a form (`showOnForms()`), a
+written series is validated: an `array` of at most `maxPoints()` numbers
+(1000 unless you raise it), so an unbounded series is refused with a 422
+instead of being stored. A readonly or computed field, and one with
+`fillUsing()`, keep their own rules.
+
 ```php
 Sparkline::make('trend', 'Revenue Trend')
     ->data([10, 20, 15, 40, 35, 50])
@@ -3109,12 +3143,14 @@ Sparkline::make('trend', 'Revenue Trend')
 | `height` | `height(int $px): static` | `$this` | Chart height in pixels. | `30` |
 | `chartWidth` | `chartWidth(int $px): static` | `$this` | SVG canvas width in pixels. Renamed from `width()` — the base `Field::width(string)` now controls the index column width. | `null` |
 | `color` | `color(string $color): static` | `$this` | Chart line/bar color (CSS color). | `'#6366f1'` |
+| `maxPoints` | `maxPoints(int $max): static` | `$this` | Most numbers a written series may hold (validated when the field is shown on a form). | `1000` |
+| `getMaxPoints` | `getMaxPoints(): int` | `int` | Get the limit. | — |
 | `getChartType` | `getChartType(): string` | `string` | Get chart type. | — |
 | `getChartHeight` | `getChartHeight(): int` | `int` | Get height. | — |
 | `getChartWidth` | `getChartWidth(): ?int` | `?int` | Get width. | — |
 | `getChartColor` | `getChartColor(): string` | `string` | Get color. | — |
 
-**Overrides:** `resolve()` returns data array (invokes callable if set, falls back to model attribute); `fill()` writes the submitted points (the field is hidden from forms by default, so it only runs after `showOnForms()`), and honours `readonly()` (a closure included) and `fillUsing()` like every field.
+**Overrides:** `resolve()` returns data array (invokes callable if set, falls back to model attribute); `fill()` writes the submitted points (a JSON string is decoded first; the field is hidden from forms by default, so it only runs after `showOnForms()`), and honours `readonly()` (a closure included) and `fillUsing()` like every field; `buildRules()` adds `array`, `max:{maxPoints}` and a numbers-only check.
 **Extra attributes:** `chartType`, `chartHeight`, `chartWidth`, `chartColor`
 
 ---

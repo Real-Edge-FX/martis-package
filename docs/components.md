@@ -357,7 +357,7 @@ Accepts kebab-case (`shopping-cart`), PascalCase (`ShoppingCart`), snake_case (`
 2. **Curated built-ins** — 130 most-used Phosphor icons bundled eagerly with the main app chunk (synchronous, no network roundtrip).
 3. **Dynamic CSR import** — every other Phosphor icon (1380+) loads on demand from `@phosphor-icons/react/dist/csr/<Name>.es.js`. Each becomes its own ~1-3 KB chunk wrapped in `<Suspense fallback={null}>`. Only icons actually rendered ship to the browser.
 
-Names that don't match any Phosphor export fall back silently to `DatabaseIcon` so the page never crashes on a typo.
+Names that don't match any Phosphor export fall back silently to `DatabaseIcon` so the page never crashes on a typo. Only the registry's own entries resolve: a stored name that is spelled like something every JavaScript object inherits (`constructor`, `__proto__`) falls back too instead of crashing the page that renders it (v2.4.0).
 
 #### Registering custom icons
 
@@ -909,23 +909,38 @@ The global provider renders `data-pr-tooltip` as plain text, so markup in it
 shows literally. Rich content takes one of two routes, depending on what it
 is made of:
 
-- **Markup you write: add `data-pr-tooltip-html="true"`.** The global provider
-  then renders the attribute as HTML (line breaks, bold, lists) in the same
-  bubble, with the same placement and delay as a plain tooltip and a roomier
-  layout for paragraphs. The field label tooltips (`->tooltip()`), the metric
-  help and the cache page use it. The markup goes into the page as is, without
-  sanitising: use it for markup you control (your own strings, translations),
-  never for text that comes from users or records.
+- **Markup you write: spread `htmlTooltip()` onto the trigger.** The global
+  provider then renders the text as HTML (line breaks, bold, lists, links) in
+  the same bubble, with the same placement and delay as a plain tooltip and a
+  roomier layout for paragraphs. The field label tooltips (`->tooltip()`), the
+  metric help and the cache page use it. The markup is sanitised before it is
+  shown (scripts, handlers, unsafe URLs and `data-*` attributes are removed),
+  but it is still markup you author: use your own strings and translations,
+  never text that comes from users or records.
 
   ```tsx
-  <span
-    data-pr-tooltip="<strong>Re-index</strong><br/>Rebuilds the search index."
-    data-pr-tooltip-html="true"
-    data-pr-position="top"
-  >
+  import { htmlTooltip } from '@martis/runtime'
+
+  <span {...htmlTooltip('<strong>Re-index</strong><br/>Rebuilds the search index.', 'top')}>
     <InfoIcon size={14} />
   </span>
   ```
+
+  `htmlTooltip(markup, position?)` returns the `data-pr-tooltip`,
+  `data-pr-tooltip-html` and `data-pr-position` props plus a `ref` that
+  registers the element. An element that already has a ref of its own sets
+  the three attributes itself and registers itself with `trustHtmlTooltip`
+  (also from `@martis/runtime`) inside its ref callback.
+
+  **The `data-pr-tooltip-html="true"` attribute alone no longer renders HTML**
+  (v2.4.0). Record content rendered as HTML (a Markdown or Trix value) can
+  write that attribute, so the provider shows `data-pr-tooltip` as plain text
+  for every element that was not registered by the code that rendered it, and
+  such an element can only be registered by code, never by markup. An
+  extension that set the attribute by hand switches to `htmlTooltip()`; an
+  extension scaffolded before v2.4.0 refreshes its runtime shim first, since
+  the shim it was published with does not export the two helpers (see
+  [Refreshing the extension scaffold after an upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade)).
 
 - **React content: the ref-based `Tooltip` with JSX `content`.** For content
   made of components (an icon, a formatted value, a small table), content
@@ -976,7 +991,7 @@ before placing it, so any trigger can carry a sentence (v1.38.0+):
   closes when the trigger scrolls out of view.
 
 No escaping workaround is needed for a long plain-text tooltip: keep it on
-`data-pr-tooltip` and reserve `data-pr-tooltip-html="true"` for real markup.
+`data-pr-tooltip` and reserve `htmlTooltip()` for real markup.
 
 ### Rules
 
@@ -985,7 +1000,7 @@ No escaping workaround is needed for a long plain-text tooltip: keep it on
 | ❌ Never use `title=` | Native browser tooltips are inconsistent across themes |
 | ❌ Never build custom tooltip divs | Breaks dark/light mode consistency |
 | ✅ Always use `data-pr-tooltip` for simple text | Covered by global provider |
-| ✅ Add `data-pr-tooltip-html="true"` for markup you write | Same bubble and placement; not sanitised, so never for user or record data |
+| ✅ Spread `htmlTooltip(markup)` for markup you write | Same bubble and placement; sanitised, but never for user or record data. The bare `data-pr-tooltip-html="true"` attribute renders text since v2.4.0 |
 | ✅ Use the ref-based `<Tooltip>` for React content | JSX `content` (escaped), full PrimeReact API |
 | ✅ Use `data-pr-position` to control placement | `"top"` \| `"bottom"` \| `"left"` \| `"right"` |
 

@@ -5,6 +5,7 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 import { ClearButton } from '@/components/ClearButton'
 import { resolveBadgeStyle } from './badgeStyles'
 import { useEscapeLayer } from '@/lib/escapeLayers'
+import { ownEntry } from '@/lib/ownEntry'
 
 interface SelectOpt {
   label: string
@@ -75,7 +76,7 @@ export function MultiSelectFieldDisplay({ field, value }: FieldDisplayProps) {
   return (
     <div className="flex flex-wrap gap-1">
       {values.map((v) => {
-        const colorKey = colorMap[String(v)]
+        const colorKey = ownEntry(colorMap, String(v))
         const label = toLabelOrValue(v, options, !!displayLabels)
         if (!colorKey) {
           // F7-46 — neutral chip for un-mapped values. Spec uses

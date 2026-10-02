@@ -470,7 +470,7 @@ ActiveUsers::make('Active Now')
     ->help('Distinct users with at least one HTTP request in the last 5 minutes. Excludes bot traffic.');
 ```
 
-HTML is allowed in the tooltip body — line breaks (`<br>`), bold (`<strong>`), inline lists. The same channel field-level help uses, via `data-pr-tooltip-html`. Useful for multi-paragraph explanations on dense metrics:
+HTML is allowed in the tooltip body — line breaks (`<br>`), bold (`<strong>`), inline lists. The same channel field tooltips use (sanitised before it is shown; see [Tooltip Standard](components.md#tooltip-standard-primereact)). Useful for multi-paragraph explanations on dense metrics:
 
 ```php
 RegimeScore::make('Composite')

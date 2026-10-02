@@ -6,6 +6,7 @@ import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { MartisLoader } from '@/components/Loader'
+import { htmlTooltip } from '@/lib/htmlTooltip'
 
 type CacheType = 'metrics' | 'navigation' | 'dashboards' | 'schema'
 
@@ -219,9 +220,7 @@ export function CacheAdminPage() {
           className="martis-btn martis-btn-primary"
           onClick={onClearAll}
           disabled={busy !== null}
-          data-pr-tooltip={t('cache_clear_all_tip', '<strong>Clear all</strong><br>Bumps the version key of every layer at once. Every cached entry becomes orphaned and the next request recomputes.')}
-          data-pr-tooltip-html="true"
-          data-pr-position="left"
+          {...htmlTooltip(t('cache_clear_all_tip', '<strong>Clear all</strong><br>Bumps the version key of every layer at once. Every cached entry becomes orphaned and the next request recomputes.'), 'left')}
         >
           <BroomIcon size={14} weight="bold" />
           <span>{t('cache_clear_all', 'Clear all')}</span>
@@ -246,51 +245,37 @@ export function CacheAdminPage() {
           <thead>
             <tr>
               <th
-                data-pr-tooltip={t('cache_type_tip', '<strong>Type</strong><br>Layer identifier — <code>metrics</code>, <code>navigation</code>, <code>dashboards</code>, <code>schema</code>, or any custom layer registered via <code>MartisCache::extend()</code>.')}
-                data-pr-tooltip-html="true"
-                data-pr-position="top"
+                {...htmlTooltip(t('cache_type_tip', '<strong>Type</strong><br>Layer identifier — <code>metrics</code>, <code>navigation</code>, <code>dashboards</code>, <code>schema</code>, or any custom layer registered via <code>MartisCache::extend()</code>.'), 'top')}
               >
                 {t('cache_type', 'Type')}
               </th>
               <th
-                data-pr-tooltip={t('cache_effective_tip', '<strong>Effective</strong><br>Live state taking the master switch, config and runtime override into account.<br><br>This is what is actually applied right now.')}
-                data-pr-tooltip-html="true"
-                data-pr-position="top"
+                {...htmlTooltip(t('cache_effective_tip', '<strong>Effective</strong><br>Live state taking the master switch, config and runtime override into account.<br><br>This is what is actually applied right now.'), 'top')}
               >
                 {t('cache_effective', 'Effective')}
               </th>
               <th
-                data-pr-tooltip={t('cache_ttl_tip', '<strong>TTL</strong><br>How long an entry stays cached before it expires.<br><br><em>No expiration</em> means it lives until cleared — version-key invalidation handles the wipe.')}
-                data-pr-tooltip-html="true"
-                data-pr-position="top"
+                {...htmlTooltip(t('cache_ttl_tip', '<strong>TTL</strong><br>How long an entry stays cached before it expires.<br><br><em>No expiration</em> means it lives until cleared — version-key invalidation handles the wipe.'), 'top')}
               >
                 {t('cache_ttl', 'TTL')}
               </th>
               <th
-                data-pr-tooltip={t('cache_config_tip', '<strong>Config</strong><br>Static value declared in <code>config/martis.php</code> (or its env override).<br><br>Ignores runtime toggles.')}
-                data-pr-tooltip-html="true"
-                data-pr-position="top"
+                {...htmlTooltip(t('cache_config_tip', '<strong>Config</strong><br>Static value declared in <code>config/martis.php</code> (or its env override).<br><br>Ignores runtime toggles.'), 'top')}
               >
                 {t('cache_config', 'Config')}
               </th>
               <th
-                data-pr-tooltip={t('cache_runtime_tip', '<strong>Runtime</strong><br>Persistent override that survives restarts.<br><br><strong>Inherit</strong> — no override, the config wins.<br><strong>Forced ON / OFF</strong> — beats the config until reset.')}
-                data-pr-tooltip-html="true"
-                data-pr-position="top"
+                {...htmlTooltip(t('cache_runtime_tip', '<strong>Runtime</strong><br>Persistent override that survives restarts.<br><br><strong>Inherit</strong> — no override, the config wins.<br><strong>Forced ON / OFF</strong> — beats the config until reset.'), 'top')}
               >
                 {t('cache_runtime', 'Runtime')}
               </th>
               <th
-                data-pr-tooltip={t('cache_version_tip', '<strong>Version</strong><br>Per-layer counter included in every cache key. Clearing the layer increments it and orphans all old keys atomically — works on any cache backend.')}
-                data-pr-tooltip-html="true"
-                data-pr-position="top"
+                {...htmlTooltip(t('cache_version_tip', '<strong>Version</strong><br>Per-layer counter included in every cache key. Clearing the layer increments it and orphans all old keys atomically — works on any cache backend.'), 'top')}
               >
                 {t('cache_version', 'Version')}
               </th>
               <th
-                data-pr-tooltip={t('cache_cleared_at_tip', '<strong>Last cleared</strong><br>ISO timestamp of the last clear operation for this layer.<br><br>A dash means it has never been cleared since the application started.')}
-                data-pr-tooltip-html="true"
-                data-pr-position="top"
+                {...htmlTooltip(t('cache_cleared_at_tip', '<strong>Last cleared</strong><br>ISO timestamp of the last clear operation for this layer.<br><br>A dash means it has never been cleared since the application started.'), 'top')}
               >
                 {t('cache_cleared_at', 'Last cleared')}
               </th>
@@ -320,9 +305,7 @@ export function CacheAdminPage() {
                     {row.runtime_override === null && (
                       <span
                         className="martis-cache-runtime is-default"
-                        data-pr-tooltip={t('cache_runtime_default_tip', '<strong>Inherit</strong><br>No runtime override — the effective state matches the config.')}
-                        data-pr-tooltip-html="true"
-                        data-pr-position="top"
+                        {...htmlTooltip(t('cache_runtime_default_tip', '<strong>Inherit</strong><br>No runtime override — the effective state matches the config.'), 'top')}
                       >
                         {t('cache_runtime_default', 'Inherit')}
                       </span>
@@ -330,9 +313,7 @@ export function CacheAdminPage() {
                     {row.runtime_override === true && (
                       <span
                         className="martis-cache-runtime is-on"
-                        data-pr-tooltip={t('cache_runtime_enabled_tip', '<strong>Forced ON</strong><br>Runtime override forces this layer ON regardless of the config.<br><br>Reset the override to fall back to config.')}
-                        data-pr-tooltip-html="true"
-                        data-pr-position="top"
+                        {...htmlTooltip(t('cache_runtime_enabled_tip', '<strong>Forced ON</strong><br>Runtime override forces this layer ON regardless of the config.<br><br>Reset the override to fall back to config.'), 'top')}
                       >
                         {t('cache_runtime_enabled', 'Forced ON')}
                       </span>
@@ -340,9 +321,7 @@ export function CacheAdminPage() {
                     {row.runtime_override === false && (
                       <span
                         className="martis-cache-runtime is-off"
-                        data-pr-tooltip={t('cache_runtime_disabled_tip', '<strong>Forced OFF</strong><br>Runtime override forces this layer OFF regardless of the config.<br><br>Reset the override to fall back to config.')}
-                        data-pr-tooltip-html="true"
-                        data-pr-position="top"
+                        {...htmlTooltip(t('cache_runtime_disabled_tip', '<strong>Forced OFF</strong><br>Runtime override forces this layer OFF regardless of the config.<br><br>Reset the override to fall back to config.'), 'top')}
                       >
                         {t('cache_runtime_disabled', 'Forced OFF')}
                       </span>
@@ -359,13 +338,12 @@ export function CacheAdminPage() {
                         className={`martis-cache-toggle ${row.enabled ? 'is-on' : 'is-off'}`}
                         aria-label={row.enabled ? t('cache_disable', 'Disable') : t('cache_enable', 'Enable')}
                         aria-pressed={row.enabled}
-                        data-pr-tooltip={
+                        {...htmlTooltip(
                           row.enabled
                             ? t('cache_toggle_off_tip', '<strong>Disable</strong><br>Persistently disable this layer at runtime.<br><br>Bypasses the config without redeploy. Survives restarts.')
-                            : t('cache_toggle_on_tip', '<strong>Enable</strong><br>Force this layer ON at runtime, overriding the config.<br><br>Useful when a config-disabled layer needs to be re-enabled live.')
-                        }
-                        data-pr-tooltip-html="true"
-                        data-pr-position="left"
+                            : t('cache_toggle_on_tip', '<strong>Enable</strong><br>Force this layer ON at runtime, overriding the config.<br><br>Useful when a config-disabled layer needs to be re-enabled live.'),
+                          'left',
+                        )}
                         onClick={() => onToggle(row)}
                         disabled={isBusy}
                       >
@@ -376,9 +354,7 @@ export function CacheAdminPage() {
                           type="button"
                           className="martis-btn-ghost martis-btn-sm"
                           aria-label={t('cache_inherit_config', 'Reset to config')}
-                          data-pr-tooltip={t('cache_reset_tip', '<strong>Reset to config</strong><br>Drop the runtime override for this layer.<br><br>Effective state falls back to whatever the config file says.')}
-                          data-pr-tooltip-html="true"
-                          data-pr-position="left"
+                          {...htmlTooltip(t('cache_reset_tip', '<strong>Reset to config</strong><br>Drop the runtime override for this layer.<br><br>Effective state falls back to whatever the config file says.'), 'left')}
                           onClick={() => onResetOverride(row.type)}
                           disabled={isBusy}
                         >
@@ -389,9 +365,7 @@ export function CacheAdminPage() {
                         type="button"
                         className="martis-btn-ghost martis-btn-sm"
                         aria-label={t('cache_clear', 'Clear')}
-                        data-pr-tooltip={t('cache_clear_tip', '<strong>Clear</strong><br>Invalidate every entry in this layer right now.<br><br>Bumps the version key — atomic and O(1) on any cache backend.')}
-                        data-pr-tooltip-html="true"
-                        data-pr-position="left"
+                        {...htmlTooltip(t('cache_clear_tip', '<strong>Clear</strong><br>Invalidate every entry in this layer right now.<br><br>Bumps the version key — atomic and O(1) on any cache backend.'), 'left')}
                         onClick={() => onClear(row.type)}
                         disabled={isBusy}
                       >

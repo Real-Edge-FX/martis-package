@@ -115,8 +115,8 @@ The routes of your own that name a Martis resource, dashboard or tool (`Route::g
 |-----|------|---------|-------|
 | `title` | string | `Locked feature` (i18n) | Header text |
 | `message` | string | i18n default | Body copy |
-| `messageHtml` | bool | `false` | When `true`, the body is rendered with `dangerouslySetInnerHTML`. Trusted source only. |
-| `cta` | `{label, url, target?}` | none | Primary action button; opens the URL on click |
+| `messageHtml` | bool | `false` | When `true`, the body is rendered as HTML. Links, bold, code and line breaks stay; scripts, event handlers and unsafe URLs are removed (v2.4.0), but keep user data out of it. |
+| `cta` | `{label, url, target?}` | none | Primary action button; opens the URL on click. The URL is a web link (`http(s)`), a path, or `mailto:` / `tel:`: since v2.4.0 a link with any other scheme (`javascript:`, `data:`, ...) is rendered without an `href`. |
 | `dismiss` | bool | `true` | When `false` the modal can only be closed via the CTA |
 | `icon` | string (Phosphor name) | `lock` | Header icon |
 
