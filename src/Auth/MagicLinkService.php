@@ -59,6 +59,33 @@ class MagicLinkService
     }
 
     /**
+     * Whether $token is a live token of $email, without consuming it.
+     *
+     * The emailed link only opens the confirmation page, which asks the
+     * browser to sign in with a POST: a mail scanner, a link preview or a
+     * prefetch that loads the link must not burn the token or sign anyone
+     * in, so reading it leaves the row alone (an expired row stays for
+     * the next `issue()` or `consume()` to drop).
+     */
+    public function check(string $email, string $token): bool
+    {
+        if (! Schema::hasTable($this->table())) {
+            return false;
+        }
+
+        $row = DB::table($this->table())->where('email', $this->key(strtolower(trim($email))))->first();
+        if ($row === null) {
+            return false;
+        }
+
+        if (Carbon::parse((string) $row->created_at)->lt(Carbon::now()->subMinutes($this->ttlMinutes()))) {
+            return false;
+        }
+
+        return Hash::check($token, (string) $row->token);
+    }
+
+    /**
      * Consume a token. Returns the email it was issued for on success,
      * or `null` when the token is missing, expired, or invalid. The
      * row is deleted on success, regardless of whether the caller
@@ -89,9 +116,14 @@ class MagicLinkService
             return null;
         }
 
-        DB::table($this->table())->where('email', $key)->delete();
+        // The delete decides who gets the token: two requests that both read
+        // the row can not both sign in with it.
+        $consumed = DB::table($this->table())
+            ->where('email', $key)
+            ->where('token', $row->token)
+            ->delete();
 
-        return $email;
+        return $consumed > 0 ? $email : null;
     }
 
     public function ttlMinutes(): int

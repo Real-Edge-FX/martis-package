@@ -117,7 +117,7 @@ HTTP entry points (registered when `auth.sso.enabled = true`):
          ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ MartisSso::afterLogin($user, $identity, $provider)               │
-│ Auth::guard()->login($user, remember=true)                       │
+│ Auth::guard()->login($user, remember=provider.remember (false))  │
 │ redirect()->intended(provider.redirect_to ?? '/martis')          │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -305,7 +305,7 @@ The **Continue with Microsoft** button is there. Click → Azure consent screen 
     → $user->syncRoles($collection)   ← Spatie's HasRoles method
 14. SsoManager::fireAfterLogin($user, $identity, 'azure')
     → app's afterLogin hook runs (audit log, type derivation, etc.)
-15. Auth::guard()->login($user, remember: true)
+15. Auth::guard()->login($user, remember: provider.remember)   ← default false (v2.4.0)
 16. redirect()->intended('/martis')
 ```
 
@@ -346,6 +346,14 @@ The **Continue with Microsoft** button is there. Click → Azure consent screen 
                 'role_source' => 'app_role_assignments',
                 'resource_id' => env('AZURE_RESOURCE_ID'),
 
+                // The tenant the app registration is tied to (v2.4.0): a tenant
+                // id or a verified domain. An identity whose `tid` claim names
+                // another tenant is rejected, and so is one whose tenant cannot
+                // be read. Empty/common/organizations/consumers checks nothing:
+                // then match local accounts by 'external_id', not by email.
+                // Unset, it reads services.azure.tenant of the Socialite driver.
+                'tenant' => env('AZURE_TENANT_ID'),
+
                 // How to map external names to local roles.
                 // 'column'   → Role::whereIn(role_column, $externalRoles)
                 // 'config'   → role_map array (slug => env_value)
@@ -366,6 +374,13 @@ The **Continue with Microsoft** button is there. Click → Azure consent screen 
                 // What happens when no roles match.
                 'on_no_role_match' => 'deny', // 'deny' | 'guest' | callable
 
+                // Remember-me after an SSO sign-in (v2.4.0). Off by default: the
+                // session follows SESSION_LIFETIME and a fresh IdP round-trip
+                // decides after it, so revoking access at the IdP ends panel
+                // access. On, the remember cookie signs the user back in for
+                // auth.guards.{guard}.remember minutes whatever the IdP says.
+                'remember' => false,
+
                 // Optional post-login redirect override.
                 // Null = config('martis.path').
                 'redirect_to' => null,
@@ -374,6 +389,10 @@ The **Continue with Microsoft** button is there. Click → Azure consent screen 
     ],
 ],
 ```
+
+### Identity binding and tenants (v2.4.0)
+
+`identity_match_attribute => 'email'` adopts the local account that holds the IdP's address. Two guards close the pre-hijack route that used to exist there: the profile no longer lets a user write an address without the current password and a confirmation link sent to that address (see [Authentication → Changing the email address](authentication.md#changing-the-email-address-v240)), and the Azure provider rejects an identity whose `tid` claim differs from a configured concrete `tenant`. A multi-tenant registration (`common`, `organizations`, `consumers`, or no tenant) checks nothing: prefer `identity_match_attribute => 'external_id'` there.
 
 ---
 
@@ -851,7 +870,7 @@ MARTIS_SSO_AZURE_LOGOUT_URL=https://login.microsoftonline.com/{tenant}/oauth2/v2
 
 The placeholder `{post_logout_redirect_uri}` is replaced at logout time with the urlencoded Martis login URL — Azure (and most OIDC providers) need this to know where to bounce the browser after killing the IdP session.
 
-The marker that says "this user came in via SSO" lives in the session under `martis_sso_provider`, and in a cookie of the same name (v2.3.0). The SSO callback signs in with remember-me, so the session can end while the remember cookie signs the user back in, into a new session: the cookie carries the origin across that re-login, so the logout still goes through the IdP, and the [forced password change](authentication.md#forced-password-change) gate still leaves the session alone. The cookie holds the user's id and the provider, encrypted by Martis (a browser cannot mint one), lives as long as the remember cookie (`auth.guards.{guard}.remember`, else Laravel's 576000 minutes), and counts only for the user it names. A password, magic-link or invitation sign-in, and the sign-out, drop both, so a user who switches from SSO to password mid-stream does not get redirected to Azure on logout. `Martis\Sso\SsoSession` reads and writes them.
+The marker that says "this user came in via SSO" lives in the session under `martis_sso_provider`, and in a cookie of the same name (v2.3.0). The SSO callback signs in without remember-me unless the provider sets `remember` to `true` (v2.4.0; it was always on before, so panel access outlived the IdP session and IdP-side deprovisioning). For a provider that opts in, the session can end while the remember cookie signs the user back in, into a new session: the cookie carries the origin across that re-login, so the logout still goes through the IdP, and the [forced password change](authentication.md#forced-password-change) gate still leaves the session alone. The cookie holds the user's id, the provider, the time it was issued and a random nonce, encrypted by Martis (a browser cannot mint one), and is written only for a remembered sign-in. It counts only for the user it names, only while it is younger than the remember lifetime (`auth.guards.{guard}.remember`, else Laravel's 576000 minutes) and only while the server still holds its nonce for that user (cache, same lifetime; v2.4.0). A password, magic-link or invitation sign-in drops every nonce of the user, so a copy of an old cookie re-attached after a password sign-in no longer exempts the session from the forced password change; the sign-out drops the nonce of its own browser. A password, magic-link or invitation sign-in, and the sign-out, drop both, so a user who switches from SSO to password mid-stream does not get redirected to Azure on logout. `Martis\Sso\SsoSession` reads and writes them.
 
 The JSON variant of the logout endpoint surfaces the IdP URL as `logout_url`, so a SPA can drive the redirect itself if it needs to add UI between local and federated logout.
 

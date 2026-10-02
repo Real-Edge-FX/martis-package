@@ -30,7 +30,7 @@ export const RESERVED_ROUTE_SEGMENTS: readonly string[] = Object.freeze([
   // Pages of the shell
   'dashboards', 'profile', 'system', 'dev', 'tools', 'resources', '403', '500',
   // Sign-in and account pages
-  'login', 'register', 'forgot-password', 'reset-password', 'email', 'invitations', '2fa', 'password',
+  'login', 'register', 'forgot-password', 'reset-password', 'email', 'invitations', 'magic-link', '2fa', 'password',
   // Server routes that never reach the SPA: `api-docs` is the default
   // `martis.api_docs.path` (the API documentation, when enabled)
   'api', 'api-docs', 'sso', 'logout', 'favicon.ico',

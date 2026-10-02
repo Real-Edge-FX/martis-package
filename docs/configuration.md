@@ -941,6 +941,11 @@ Per-subsystem cache layer with three control planes (config / env / runtime), by
         // ProfileResource that rejects e-mail changes server-side.
         'email_editable' => true,
     ],
+    'email_change' => [
+        // Minutes the confirmation link mailed to a new address stays
+        // valid (env MARTIS_PROFILE_EMAIL_CHANGE_TTL).
+        'ttl_minutes' => 60,
+    ],
     'sections' => ['avatar', 'account', 'password', 'security', 'sessions'],
 ],
 ```
@@ -1236,7 +1241,17 @@ In addition to `MARTIS_IMPERSONATION_ENABLED` (covered above), the impersonation
 ],
 ```
 
-Off by default. When enabled, mounts the Scramble-generated OpenAPI 3.1 surface at `/{path}` (default `/api-docs`). See [API → Overview](api/overview.md) for the worker-restart caveat: PHP-FPM caches parsed env in process memory, so flipping the env requires restarting workers (or the PHP container) before the gate sees the new value.
+Off by default. When enabled, mounts the Scramble-generated OpenAPI 3.1 surface at `/{path}` (default `/api-docs`). `api_docs.middleware` defaults to `null` (v2.4.0), the Martis protected stack (Martis guard, 2FA, email verification, `viewMartis`, forced password change). A list you set is kept and completed with the guards it leaves out: the plain `auth` middleware reads the app's default guard, not `MARTIS_GUARD`, so it never stands in for them. Set a list only to add to the stack (a rate limit, an IP allow-list). See [API → Overview](api/overview.md) for the worker-restart caveat: PHP-FPM caches parsed env in process memory, so flipping the env requires restarting workers (or the PHP container) before the gate sees the new value.
+
+## Panel access
+
+```php
+'panel_access' => [
+    'open_environments' => ['local', 'testing'], // env MARTIS_PANEL_OPEN_ENVIRONMENTS, comma-separated
+],
+```
+
+Used only while the app does **not** define the `viewMartis` gate (v2.4.0): the panel is open to every user the Martis guard signs in in those environments and answers `403` anywhere else. A defined gate decides per user in every environment. See [Authorization → Panel access](authorization.md#panel-access-viewmartis).
 
 ## Notifications
 
@@ -1547,6 +1562,8 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_PAGE_TITLE` | `(no default)` |
 | `MARTIS_PATH` | `'martis'` |
 | `MARTIS_PREFERENCES_ENABLED` | `true` |
+| `MARTIS_PANEL_OPEN_ENVIRONMENTS` | `'local,testing'` |
+| `MARTIS_PROFILE_EMAIL_CHANGE_TTL` | `60` |
 | `MARTIS_PROFILE_EMAIL_EDITABLE` | `true` |
 | `MARTIS_PROFILE_ENABLED` | `true` |
 | `MARTIS_ROW_CLICK_OPENS_DETAIL` | `true` |

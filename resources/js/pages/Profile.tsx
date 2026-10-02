@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '@/lib/api'
 import { config } from '@/lib/config'
 import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@/contexts/ToastContext'
 import { AccountSection } from '@/components/Profile/AccountSection'
 import { PasswordSection } from '@/components/Profile/PasswordSection'
 import { AvatarSection } from '@/components/Profile/AvatarSection'
@@ -12,6 +13,7 @@ import { BrowserSessionsSection as BundledBrowserSessionsSection } from '@/compo
 import { componentRegistry } from '@/lib/componentRegistry'
 import { MartisLoader } from '@/components/Loader'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { EMAIL_CHANGE_FALLBACKS, emailChangeOutcome } from '@/lib/emailChangeOutcome'
 import type { ProfileData, User } from '@/types'
 
 /**
@@ -32,10 +34,31 @@ export function ProfilePage() {
   const { t } = useTranslation('profile')
   const { t: tNav } = useTranslation('navigation')
   const { user, updateUser } = useAuth()
+  const { addToast } = useToast()
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [loading, setLoading] = useState(true)
 
   usePageTitle(tNav('profile', { defaultValue: 'Profile' }))
+
+  // Back from the confirmation link of a new email address (v2.4.0): the
+  // server redirects here with `?email_change=<outcome>`. The toast is
+  // deferred, as the login page's, and consumes the flag.
+  useEffect(() => {
+    const outcome = emailChangeOutcome(window.location.search)
+    if (outcome === null) return
+
+    const handle = window.setTimeout(() => {
+      addToast(
+        outcome === 'changed' ? 'success' : 'error',
+        t(`email_change_${outcome}`, { defaultValue: EMAIL_CHANGE_FALLBACKS[outcome] }),
+      )
+      const url = new URL(window.location.href)
+      url.searchParams.delete('email_change')
+      window.history.replaceState({}, '', url.toString())
+    }, 0)
+
+    return () => window.clearTimeout(handle)
+  }, [addToast, t])
 
   const avatarEnabled = config.profile?.avatar?.enabled !== false
   const twoFactorEnabled = config.profile?.two_factor?.enabled !== false

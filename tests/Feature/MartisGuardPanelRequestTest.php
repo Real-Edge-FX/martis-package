@@ -226,15 +226,33 @@ it('checks the current password of the Martis guard user', function () {
 });
 
 it('checks the profile email among the Martis guard users', function () {
-    $update = fn (string $email) => $this->withSession(panelGuardBoth($this->admin))->patchJson('/martis/api/profile', ['name' => 'Admin', 'email' => $email]);
+    Illuminate\Support\Facades\Notification::fake();
+    $update = fn (string $email) => $this->withSession(panelGuardBoth($this->admin))->patchJson('/martis/api/profile', ['name' => 'Admin', 'email' => $email, 'current_password' => 'admin-secret']);
 
     // Another admin's email is taken; the site account's is not a conflict.
     $update('other@example.com')->assertStatus(422)->assertJsonValidationErrors('email');
     panelGuardNextRequest();
-    $update('site@example.com')->assertOk();
-    // Their own email, unchanged, validates.
+    $update('site@example.com')->assertOk()->assertJsonPath('pending_email', 'site@example.com');
+    // Their own email, unchanged, validates (and asks nothing).
     panelGuardNextRequest();
-    $update('site@example.com')->assertOk();
+    $this->withSession(panelGuardBoth($this->admin))
+        ->patchJson('/martis/api/profile', ['name' => 'Admin', 'email' => $this->admin->email])
+        ->assertOk();
+
+    // The address changes when the link goes through: among the admins, where it is free.
+    $url = null;
+    Illuminate\Support\Facades\Notification::assertSentOnDemand(
+        Martis\Profile\EmailChangeConfirmationNotification::class,
+        function ($notification) use (&$url): bool {
+            $url = $notification->url;
+
+            return true;
+        },
+    );
+    expect($this->admin->fresh()?->email)->not->toBe('site@example.com');
+
+    panelGuardNextRequest();
+    $this->get($url)->assertRedirect('/martis/login?email_change=changed');
 
     expect($this->admin->fresh()?->email)->toBe('site@example.com');
 });

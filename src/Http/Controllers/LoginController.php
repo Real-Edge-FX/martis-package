@@ -71,9 +71,10 @@ class LoginController extends MartisController
 
         // A password, magic-link or invitation sign-in is not an SSO one: drop
         // the SSO origin an earlier SSO sign-in left in this session or in
-        // the browser's cookie (SsoSession), so the forced password change
-        // gate and the federated logout do not read it.
-        SsoSession::forget($request);
+        // the browser's cookie (SsoSession), and every cookie of it the user
+        // kept, so the forced password change gate and the federated logout
+        // do not read it.
+        SsoSession::forget($request, $auth->user());
 
         if ($request->expectsJson()) {
             // Filter sensitive fields before returning user data to the client

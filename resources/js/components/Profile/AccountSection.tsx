@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { InputText } from 'primereact/inputtext'
 import { IconField } from 'primereact/iconfield'
 import { InputIcon } from 'primereact/inputicon'
-import { EnvelopeIcon, UserIcon } from '@phosphor-icons/react'
+import { EnvelopeIcon, LockKeyIcon, UserIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 import type { ProfileData } from '@/types'
@@ -25,17 +25,41 @@ export function AccountSection({ name, email, onUpdate, emailReadOnly = false }:
   const { addToast } = useToast()
   const [nameVal, setNameVal] = useState(name)
   const [emailVal, setEmailVal] = useState(email)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
+
+  // A new address is not written at once (v2.4.0): the server asks the
+  // current password, mails a confirmation link to the new address and a
+  // notice to the old one, and switches it when the link is followed.
+  const emailChanged = !emailReadOnly && emailVal.trim().toLowerCase() !== email.trim().toLowerCase()
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setErrors({})
     setSaving(true)
     try {
-      const saved = await api.patch<Partial<ProfileData> | null>('/api/profile', { name: nameVal, email: emailVal })
+      const saved = await api.patch<Partial<ProfileData> | null>('/api/profile', {
+        name: nameVal,
+        email: emailVal,
+        ...(emailChanged ? { current_password: currentPassword } : {}),
+      })
       onUpdate(saved ?? {})
-      addToast('success', t('saved'))
+      if (saved?.pending_email) {
+        // Still the current address: the field goes back to it, and the
+        // person is told where to look.
+        setPendingEmail(saved.pending_email)
+        setEmailVal(saved.email ?? email)
+        setCurrentPassword('')
+        addToast('success', t('email_change_sent', {
+          email: saved.pending_email,
+          defaultValue: 'Check your inbox: we sent a confirmation link to {{email}}.',
+        }))
+      } else {
+        setPendingEmail(null)
+        addToast('success', t('saved'))
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         addToast('error', err.message || t('error'))
@@ -98,7 +122,40 @@ export function AccountSection({ name, email, onUpdate, emailReadOnly = false }:
             <small className="martis-text-muted">{t('email_locked', { defaultValue: 'Your e-mail cannot be changed.' })}</small>
           )}
           {errors.email && <small className="p-error">{errors.email}</small>}
+          {pendingEmail !== null && !emailChanged && (
+            <small className="martis-text-muted" role="status" data-testid="email-change-pending">
+              {t('email_change_pending', {
+                email: pendingEmail,
+                defaultValue: 'We sent a confirmation link to {{email}}. Your email address changes when you follow it.',
+              })}
+            </small>
+          )}
         </div>
+
+        {emailChanged && (
+          <div className="flex flex-col gap-2">
+            <label htmlFor="profile-current-password" className="text-sm font-medium martis-text-muted">
+              {t('current_password')}
+            </label>
+            <IconField iconPosition="left">
+              <InputIcon><LockKeyIcon size={14} /></InputIcon>
+              <InputText
+                id="profile-current-password"
+                type="password"
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                invalid={!!errors.current_password}
+                className="w-full"
+                required
+              />
+            </IconField>
+            <small className="martis-text-muted">
+              {t('email_change_password_hint', { defaultValue: 'Enter your current password to change your email address.' })}
+            </small>
+            {errors.current_password && <small className="p-error">{errors.current_password}</small>}
+          </div>
+        )}
 
         <button
           type="submit"

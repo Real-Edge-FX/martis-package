@@ -138,10 +138,10 @@ class AuthController extends MartisController
         $request->session()->regenerate();
 
         // Drop the SSO origin of an earlier SSO sign-in, in the session or
-        // in the browser's cookie (SsoSession), so a password sign-in is
-        // neither sent through the IdP's federated logout nor exempt from
-        // the forced password change gate.
-        SsoSession::forget($request);
+        // in the browser's cookie (SsoSession), and every cookie of it the
+        // user kept, so a password sign-in is neither sent through the IdP's
+        // federated logout nor exempt from the forced password change gate.
+        SsoSession::forget($request, $auth->user());
 
         // Every sign-in starts without a 2FA pass (the Login listener
         // forgets it too; this keeps a guard that does not fire Login honest).

@@ -28,6 +28,7 @@ use Martis\Http\Controllers\NotificationController;
 use Martis\Http\Controllers\PasswordChangeController;
 use Martis\Http\Controllers\PreferencesController;
 use Martis\Http\Controllers\ProfileController;
+use Martis\Http\Controllers\ProfileEmailChangeController;
 use Martis\Http\Controllers\ResourceController;
 use Martis\Http\Controllers\SearchController;
 use Martis\Http\Controllers\SlugController;
@@ -163,7 +164,13 @@ Route::middleware(RouteMiddleware::base())
                 'throttle:martis-login',
             ])
             ->name('api.auth.magic-link.request');
-        Route::get('/api/auth/magic-link/consume', [MagicLinkController::class, 'consume'])
+        // The emailed link opens the confirmation page and never signs in
+        // (a mail scanner, a link preview or a prefetch loads it); the page
+        // POSTs the sign-in, behind the CSRF check of the `web` group.
+        Route::get('/magic-link/confirm', [MagicLinkController::class, 'show'])
+            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->name('magic-link.confirm');
+        Route::post('/api/auth/magic-link/consume', [MagicLinkController::class, 'consume'])
             ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
             ->name('api.auth.magic-link.consume');
 
@@ -186,6 +193,13 @@ Route::middleware(RouteMiddleware::base())
         Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
             ->middleware(['signed', 'throttle:6,1'])
             ->name('email.verify');
+        // The link mailed to the new address of an email change (v2.4.0). Public
+        // and signed, like the verification link: the mailbox is often on
+        // another device. Always registered; the controller refuses it while
+        // `martis.profile.enabled` is false.
+        Route::get('/profile/email/confirm/{id}', [ProfileEmailChangeController::class, 'confirm'])
+            ->middleware('throttle:6,1')
+            ->name('profile.email.confirm');
         // Resend throttle dropped from 6/min to 3/min after a user
         // reported clicking >5 times in a row without being blocked.
         // 3/min is the conventional ceiling for password-reset and

@@ -461,6 +461,8 @@ Path 1 always wins over the package defaults. Path 2 wins over both.
 
 Laravel's bundled `ResetPassword` notification renders the email link via `route('password.reset', ...)`. Martis nests every route under a `martis.` name prefix, so the global `password.reset` is undefined and the broker would crash with `RouteNotFoundException`. Starting with v1.8.3, `MartisServiceProvider::boot()` registers `ResetPassword::createUrlUsing(...)` automatically when `martis.auth.passwordReset.enabled === true`, pointing the link at the Martis-shipped `martis.password.reset` route (`/{martis-path}/reset-password/{token}?email=…`).
 
+Since v2.4.0 the link is built on `APP_URL` (`Martis\Support\CanonicalUrl`), never on the request's `Host` or `X-Forwarded-Host`: a reset requested with a forged host used to mail the token to the attacker's domain. The magic link, the invitation and the email-change confirmation are built the same way, so `APP_URL` must be the URL the panel is served on (the package throws a clear error when it is not an absolute http(s) URL, rather than falling back to the request). A signed link (email verification, email change) is signed over that root, so it must be served on the host `APP_URL` names.
+
 The registration is **defensive** — it skips when a callback is already configured by the host app. Consumers who want a custom URL (off-platform reset page, magic-link, deep-link to a mobile app) register their own callback in `AppServiceProvider::boot()`:
 
 ```php
@@ -723,7 +725,7 @@ class User extends Authenticatable implements MustChangePassword
 
 ## Magic-link (passwordless) sign-in
 
-Off by default. When enabled, the Login page exposes a "Email me a sign-in link" button that issues a one-shot token and emails it. Clicking the link signs the user in and redirects to the dashboard — no password required.
+Off by default. When enabled, the Login page exposes a "Email me a sign-in link" button that issues a one-shot token and emails it. The link opens a confirmation page ("Sign in as x@y") and the sign-in happens when the user confirms it: no password required.
 
 ### Enable
 
@@ -749,7 +751,10 @@ Or directly in `config/martis.php`:
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/martis/api/auth/magic-link/request` | `{ email }` → issues a token and emails it. Returns `200 { ok: true }` whether or not the email exists (account-enumeration safe). |
-| `GET` | `/martis/api/auth/magic-link/consume?email=…&token=…` | Verifies the token, signs the user in, redirects to `/{martis-path}`. On failure redirects to `/{martis-path}/login?magic_link=expired` (or `=invalid`, `=disabled`). |
+| `GET` | `/martis/magic-link/confirm?email=…&token=…` | The emailed link (v2.4.0). Serves the SPA confirmation page. It reads the token without consuming it and signs nobody in, so a mail scanner, a link preview, a prefetch or an `<img>` that loads it does nothing (twice over: the token survives). On an expired or invalid token it redirects to `/{martis-path}/login?magic_link=expired` (or `=invalid`, `=disabled`). The response is `no-store` with `Referrer-Policy: no-referrer`. |
+| `POST` | `/martis/api/auth/magic-link/consume` | `{ email, token, replace_session? }`, CSRF-protected. Consumes the token and signs the user in; answers `200 { redirect }`. `422` for an invalid or expired token. `409 { code: "session_conflict" }`, token untouched, when the browser is signed in as another user and `replace_session` is not `true`: the page then asks before replacing that session. |
+
+Up to v2.3.x the emailed link was `GET /api/auth/magic-link/consume` and signed in on load: it let anyone who could make a victim's browser load a URL (an `<img>`, a redirect, a chat link) swap the victim into the attacker's account, and a mail scanner burned the token. That route is now `POST` only; a link mailed before the upgrade lands on a `405` and the user asks for a new one.
 
 ### Storage
 
@@ -757,7 +762,9 @@ Tokens are persisted in the same `password_reset_tokens` table Laravel ships wit
 
 ### Security envelope
 
-- **One-shot.** Consuming a token deletes the row. Replays return `expired`.
+- **One-shot.** Consuming a token deletes the row, and the delete decides who got it: two simultaneous requests cannot both sign in. Replays return `expired`.
+- **On `APP_URL`.** The emailed URL is built from `APP_URL`, never the request's host (see [Password-reset URL routing](#password-reset-url-routing-v183)).
+- **No silent session swap.** A browser signed in as another user keeps that session until the confirmation page's explicit `replace_session`.
 - **Short TTL.** Default 15 minutes — a magic-link is mailbox-equivalent, so the leak window matches the threat profile.
 - **Per-email throttle.** The request endpoint sits behind both per-IP `throttle:N,1` and the `martis-login` named limiter (per-email + IP). A flood against `victim@example.com` is blocked even when distributed across IPs.
 - **No account enumeration.** When the email is unknown the endpoint still returns `200 { ok: true }` and sends nothing. The frontend toast is identical to the success path.
@@ -911,6 +918,16 @@ By default the avatar URL comes from the disk (`Storage::disk($disk)->url($path)
 
 Both forms survive `php artisan config:cache`; a closure does not. A value that resolves to no callable throws an `InvalidArgumentException` naming the key. See [Configuration → Config keys that take a callable](configuration.md#config-keys-that-take-a-callable).
 
+#### Changing the email address (v2.4.0)
+
+The address is the identity of the account: it receives the password reset and the sign-in link, and an SSO provider that matches by email adopts the local account that holds it. So `PATCH /api/profile` no longer writes a new address on the spot:
+
+1. A request that changes the address must send `current_password` (`422` without it or with a wrong one, nothing written). The same address in another letter case is no change.
+2. The name is saved at once. The address stays as it is, a temporary signed link on `APP_URL` is mailed to the NEW address and a notice to the OLD one, and the answer carries `pending_email`. The profile page then shows "check your new inbox".
+3. Following the link checks again that the address is still free, switches it, resets `email_verified_at` for an app that verifies email (and sends the verification link to the new address) and notifies the old address. The link works once; one issued before another change is dead. `martis.profile.email_change.ttl_minutes` (env `MARTIS_PROFILE_EMAIL_CHANGE_TTL`, default 60) sets its lifetime.
+
+Nothing is stored for the pending change (no migration): the link carries the user's id, the new address and a fingerprint of the old one.
+
 #### Locking the e-mail field
 
 The e-mail is often the acting identity, so a deployment may want name, avatar,
@@ -927,7 +944,8 @@ so a hand-crafted `PATCH /martis/api/profile` request cannot bypass the locked f
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/martis/api/profile` | Get current user profile data |
-| `PATCH` | `/martis/api/profile` | Update name and email |
+| `PATCH` | `/martis/api/profile` | Update the name. A new email needs `current_password` and is applied only after the confirmation link is followed (see [Changing the email address](#changing-the-email-address-v240)) |
+| `GET` | `/martis/profile/email/confirm/{id}` | The signed, temporary confirmation link mailed to the new address |
 | `POST` | `/martis/api/profile/password` | Change password (validated with your [password rules](#password-rules)) |
 | `POST` | `/martis/api/profile/avatar` | Upload avatar (multipart/form-data) |
 | `DELETE` | `/martis/api/profile/avatar` | Remove avatar |
