@@ -1,5 +1,6 @@
 import { addLocale } from 'primereact/api'
 import { getLocale } from '@/lib/i18n'
+import { ownEntry } from '@/lib/ownEntry'
 
 const PRIME_LOCALES: Record<string, object> = {
   pt_PT: {
@@ -30,7 +31,7 @@ let resolvedLocale = 'en'
 export function getCalendarLocale(): string {
   if (!initialized) {
     const lang = getLocale()
-    const data = PRIME_LOCALES[lang]
+    const data = ownEntry(PRIME_LOCALES, lang)
     if (data) {
       addLocale(lang, data)
       resolvedLocale = lang

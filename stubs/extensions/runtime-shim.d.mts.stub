@@ -1282,6 +1282,38 @@ declare class ApiError extends Error {
     /** Get all error messages as a single string for toast display. */
     errorSummary(): string;
 }
+
+/**
+ * A value that can fill a path segment. A missing one (a route param the
+ * router has not resolved) becomes the text `undefined`, as in a template
+ * literal: it names no endpoint, and the server answers 404.
+ */
+type PathValue = string | number | null | undefined;
+/**
+ * One value as one segment of an API path, as the server will read it: `?`,
+ * `#`, `%` and `\` are encoded, and a slash is spelt `%252F` because Laravel
+ * decodes the path before it routes (a plain `%2F` would split the route).
+ * Throws an `ApiError` (400) for a value that holds a literal `%2F`, which
+ * would collide with a slash.
+ */
+declare function pathSegment(value: PathValue): string;
+/**
+ * Tag for a panel API path: every interpolated value is encoded as one path
+ * segment, or as one query value once the literal text has opened the query
+ * string (`?q=${term}`: a slash there stays a plain `%2F`, as the server
+ * decodes a query value once).
+ */
+declare function apiPath(strings: TemplateStringsArray, ...values: ReadonlyArray<PathValue>): string;
+/**
+ * Tag for a path of the SPA's own router (`/resources/${resource}/${id}/edit`):
+ * a record keyed `a/b` or `5?x` stays one segment of the link, and React
+ * Router decodes it back when the page reads its params (the SPA's router is
+ * the browser's, not Laravel's: a plain `%2F` is right here).
+ */
+declare function routePath(strings: TemplateStringsArray, ...values: ReadonlyArray<PathValue>): string;
+/** `url` with `query` appended to the query string it may already have. */
+declare function withQuery(url: string, query: string): string;
+
 declare const api: {
     get: <T>(path: string, signal?: AbortSignal) => Promise<T>;
     post: <T>(path: string, body?: unknown, signal?: AbortSignal) => Promise<T>;
@@ -7341,6 +7373,10 @@ declare const martisRuntime: {
         upload: <T>(method: string, path: string, values: Record<string, unknown>) => Promise<T>;
     };
     readonly ApiError: typeof ApiError;
+    readonly apiPath: typeof apiPath;
+    readonly pathSegment: typeof pathSegment;
+    readonly routePath: typeof routePath;
+    readonly withQuery: typeof withQuery;
     readonly config: MartisConfigShape;
     readonly martisEventBus: EventBus;
     readonly AuthFrame: typeof AuthFrame;
@@ -7404,5 +7440,5 @@ declare const martisRuntime: {
  */
 type MartisRuntime = typeof martisRuntime;
 
-export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, resolveColor, routeRegistry, trustHtmlTooltip, useAuth, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard };
+export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, pathSegment, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
 export type { ActionResponseModalProps, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, RouteRegistration, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };

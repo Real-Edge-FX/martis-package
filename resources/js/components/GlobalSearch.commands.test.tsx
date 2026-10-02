@@ -17,7 +17,7 @@ vi.mock('react-i18next', () => ({
   }),
 }))
 
-vi.mock('@/lib/openExternal', () => ({ openExternal: (url: string) => openExternal(url) }))
+vi.mock('@/lib/openExternal', () => ({ openExternal: (url: string, options?: unknown) => openExternal(url, options) }))
 
 const PALETTE = {
   resources: [],
@@ -84,7 +84,7 @@ describe('GlobalSearch: Commands section', () => {
     await waitFor(() => expect(screen.getByText('Status page')).toBeTruthy())
     fireEvent.click(screen.getByText('Status page').closest('.martis-cmdk-item')!)
 
-    expect(openExternal).toHaveBeenCalledWith('https://status.example.com')
+    expect(openExternal).toHaveBeenCalledWith('https://status.example.com', { contact: true })
     expect(mockNavigate).not.toHaveBeenCalled()
   })
 

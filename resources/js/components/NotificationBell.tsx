@@ -258,12 +258,12 @@ export function NotificationBell() {
                   // Only a same-origin path goes through the SPA router: a
                   // `//host` or `/\host` value is another origin and opens
                   // in a new tab like any absolute URL, provided it is an
-                  // http(s) one (`openExternal()` refuses `javascript:` and
-                  // the like).
+                  // http(s) or `mailto:` / `tel:` one (`openExternal()` refuses
+                  // `javascript:` and the like).
                   if (isSafeInternalPath(item.action_url)) {
                     navigate(item.action_url)
                   } else {
-                    openExternal(item.action_url)
+                    openExternal(item.action_url, { contact: true })
                   }
                 }
               }

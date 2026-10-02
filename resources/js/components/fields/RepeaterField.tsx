@@ -9,6 +9,7 @@ import type { FormErrors, RowErrors } from '@/lib/fieldErrors'
 import type { FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { useEscapeLayer } from '@/lib/escapeLayers'
+import { ownEntry } from '@/lib/ownEntry'
 
 /**
  * Row payload shape used in the React layer — mirrors the PHP payload:
@@ -163,7 +164,7 @@ function openRowsWithErrors(collapsed: Record<string, boolean>, rowErrors: Recor
 
 /** `rowErrors` without the error of one row field (the errors inside the field's value stay). */
 function withoutFieldError(rowErrors: Record<string, RowErrors>, key: string, attribute: string): Record<string, RowErrors> {
-  const row = rowErrors[key]
+  const row = ownEntry(rowErrors, key)
   if (!row || !(attribute in row.fields)) return rowErrors
   const fields = { ...row.fields }
   delete fields[attribute]
@@ -447,7 +448,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
   }
 
   const toggleCollapse = (rowId: string) => {
-    setCollapsed((prev) => ({ ...prev, [rowId]: !prev[rowId] }))
+    setCollapsed((prev) => ({ ...prev, [rowId]: !ownEntry(prev, rowId) }))
   }
 
   // Drag & drop (native HTML5 — no external lib required)
@@ -483,8 +484,8 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
         if (!rep) return null
 
         const rowKey = rowKeyOf(row, index)
-        const isCollapsed = meta.collapsible === true && !!collapsed[rowKey]
-        const errorsOfRow = rowErrors[rowKey]
+        const isCollapsed = meta.collapsible === true && !!ownEntry(collapsed, rowKey)
+        const errorsOfRow = ownEntry(rowErrors, rowKey)
         const isStoredRow = context === 'update' && row.id !== null && storedRowIds.has(String(row.id))
         const rowFields = isStoredRow ? (storedRowFields.get(rep.shortName) ?? rep.fields) : rep.fields
 
@@ -1002,6 +1003,5 @@ function tokenColor(color?: string | null): string | undefined {
     accent: 'var(--martis-accent)',
     primary: 'var(--martis-accent)',
   }
-  if (map[key]) return map[key]
-  return color
+  return ownEntry(map, key) ?? color
 }

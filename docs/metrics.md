@@ -78,6 +78,8 @@ class UsersByRole extends PartitionMetric
 
 **Query helpers:** `count()`, `sum()`, `average()`.
 
+`colors()` takes a list (parallel to the groups) or a map keyed by group value. A group with no entry of its own in the map takes the next color of the theme palette, whatever its value is spelled like (a group named `constructor` is a group like any other, v2.4.0).
+
 ### Progress Metric
 
 Displays progress toward a target as a progress bar.

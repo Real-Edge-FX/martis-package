@@ -87,6 +87,21 @@ describe('NotificationBell action_url', () => {
     expect(openSpy).toHaveBeenCalledWith('https://example.com/invoices/1', '_blank', 'noopener,noreferrer')
   })
 
+  // A contact link a person chose to publish opens as it does in the sidebar.
+  it.each(['mailto:billing@example.com', 'tel:+351210000000'])('opens %s in a new tab', async (url) => {
+    await openAndClick(url)
+
+    expect(openSpy).toHaveBeenCalledWith(url, '_blank', 'noopener,noreferrer')
+    expect(errorSpy).not.toHaveBeenCalled()
+  })
+
+  it.each(['sms:+351210000000', 'file:///etc/passwd', 'blob:https://example.com/0f0f0f0f'])('still refuses %s', async (url) => {
+    await openAndClick(url)
+
+    expect(openSpy).not.toHaveBeenCalled()
+    expect(errorSpy).toHaveBeenCalled()
+  })
+
   it('does not open a window for a same-origin path: it goes through the router', async () => {
     await openAndClick('/resources/invoices/1')
 

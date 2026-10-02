@@ -56,6 +56,15 @@ export const AuthProvider = R.AuthProvider
 // Lib
 export const api = R.api
 export const ApiError = R.ApiError
+// Path builders (v2.4.0+): a route param, a search param or a record key put
+// in an API path stays one segment. `apiPath` tags a template, `pathSegment`
+// encodes one value, `withQuery` appends a built query string and `routePath`
+// builds a link of the SPA's own router. A path value holding a literal `%2F`
+// throws an `ApiError` (400). See docs/custom-pages.md.
+export const apiPath = R.apiPath
+export const pathSegment = R.pathSegment
+export const routePath = R.routePath
+export const withQuery = R.withQuery
 export const config = R.config
 
 // Singleton pub/sub event bus. Lets a consumer's own transport

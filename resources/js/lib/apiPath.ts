@@ -1,3 +1,5 @@
+import { ApiError } from './apiError'
+
 /**
  * Builds panel API paths from values that are not the SPA's own constants:
  * a route param, a query-string param, a record id, a relationship name, a
@@ -31,6 +33,16 @@
  * the text `%2F`, which no route splits and no real key holds. A key with a
  * slash is as unaddressable as it always was (its request answers 404), and no
  * longer addresses anything else.
+ *
+ * That spelling is not injective on its own: the server decodes once, so a
+ * value that already holds the text `%2F` (`a%2Fb`) arrives as the very text
+ * a slash does (`a/b` is `a%252Fb` on the wire, and so is `a%2Fb`). A request
+ * meant for one record would address the other. No encoding can tell them
+ * apart, so a path segment holding a literal `%2F` (either case) is refused
+ * with the `ApiError` (status 400) `request()` answers a dot segment with, and
+ * nothing is sent: a record keyed that way is as unaddressable as one keyed
+ * `..`. A query value and a path of the SPA router are not affected: both
+ * decode once, so a plain `%2F` is injective there.
  */
 
 /**
@@ -38,6 +50,9 @@
  * in any case (`%2e`, `.%2e`, `%2e.`, `%2e%2e`).
  */
 const DOT_SEGMENT = /^(?:\.|%2e){1,2}$/i
+
+/** The text `%2F`, the one the `%252F` spelling of a slash collides with. */
+const LITERAL_ENCODED_SLASH = /%2f/i
 
 /**
  * A value that can fill a path segment. A missing one (a route param the
@@ -59,10 +74,17 @@ function encodeSegment(value: PathValue): string {
 }
 
 /**
- * One value as one segment of an API path, as the server will read it: the
- * slash is spelt `%252F` (see the note on the top of this file).
+ * One value as one segment of an API path, as the server will read it: `?`,
+ * `#`, `%` and `\` are encoded, and a slash is spelt `%252F` because Laravel
+ * decodes the path before it routes (a plain `%2F` would split the route).
+ * Throws an `ApiError` (400) for a value that holds a literal `%2F`, which
+ * would collide with a slash.
  */
 export function pathSegment(value: PathValue): string {
+  if (LITERAL_ENCODED_SLASH.test(String(value))) {
+    throw new ApiError(400, 'Request failed', [])
+  }
+
   return encodeSegment(value).replace(/%2F/g, '%252F')
 }
 

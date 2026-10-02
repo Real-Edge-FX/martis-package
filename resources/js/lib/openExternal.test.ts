@@ -38,9 +38,39 @@ describe('openExternal', () => {
     'file:///etc/passwd',
     'blob:https://example.com/0f0f0f0f',
     'mailto:someone@example.com',
+    'tel:+351210000000',
     '',
   ])('refuses %j with a console error', (url) => {
     openExternal(url)
+
+    expect(openSpy).not.toHaveBeenCalled()
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('openExternal with contact links allowed', () => {
+  it.each(['mailto:someone@example.com', 'MAILTO:someone@example.com?subject=Hi', 'tel:+351210000000', 'https://example.com', '/martis/x'])(
+    'opens %s in a new tab without an opener',
+    (url) => {
+      openExternal(url, { contact: true })
+
+      expect(openSpy).toHaveBeenCalledWith(url, '_blank', 'noopener,noreferrer')
+      expect(errorSpy).not.toHaveBeenCalled()
+    },
+  )
+
+  // The nearest neighbours of the contact schemes stay refused.
+  it.each([
+    'javascript:alert(1)',
+    'java\tscript:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'sms:+351210000000',
+    'ftp://example.com/x',
+    'file:///etc/passwd',
+    'blob:https://example.com/0f0f0f0f',
+    '',
+  ])('still refuses %j', (url) => {
+    openExternal(url, { contact: true })
 
     expect(openSpy).not.toHaveBeenCalled()
     expect(errorSpy).toHaveBeenCalledTimes(1)

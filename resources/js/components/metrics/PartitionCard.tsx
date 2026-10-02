@@ -1,6 +1,7 @@
 import { Chart } from 'primereact/chart'
 import { chartPalette, mutedTextColor, resolveColor } from '@/lib/themeColors'
 import { useFormatLocale } from '@/lib/formatLocale'
+import { ownEntry } from '@/lib/ownEntry'
 
 interface PartitionCardProps {
   data: Record<string, unknown>
@@ -21,7 +22,8 @@ export function PartitionCard({ data }: PartitionCardProps) {
   if (Array.isArray(rawColors)) {
     colors = rawColors.map((c, i) => resolveColor(c, palette[i % palette.length]))
   } else if (rawColors && typeof rawColors === 'object') {
-    colors = labels.map((label, i) => resolveColor(rawColors[label], palette[i % palette.length]))
+    // The labels are record data: only the map's own entries count (a group named `constructor`).
+    colors = labels.map((label, i) => resolveColor(ownEntry(rawColors, label), palette[i % palette.length]))
   } else {
     colors = palette.slice(0, labels.length)
   }

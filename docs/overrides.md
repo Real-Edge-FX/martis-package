@@ -597,6 +597,7 @@ Since v1.14.0, `@martis/runtime` exposes:
 |---|---|
 | `FieldInput` | The form-mode renderer. Receives the same `FieldInputProps` documented in section 5. |
 | `FieldDisplay` | The read-mode renderer. Receives `FieldDisplayProps`. |
+| `apiPath`, `pathSegment`, `routePath`, `withQuery` (v2.4.0) | The path builders the panel's own pages use. `api.get(apiPath`/api/findings/${id}`)` encodes every interpolated value as one path segment (a slash is spelt `%252F`, since Laravel decodes `%2F` before it routes), `pathSegment(id)` encodes one value, `withQuery(path, query)` appends a built query string and `routePath` builds a link of the SPA's own router. Use them instead of `encodeURIComponent()`. A path value that holds a literal `%2F` throws an `ApiError` (status 400). See [Custom pages](custom-pages.md). |
 | `FieldDefinition` (type) | Re-exported so you can type your `field` payload without reaching into internal paths. |
 | `FieldDisplayProps`, `FieldInputProps` (types) | Re-exported for the same reason. |
 | `DrawerShell` | Generic slide-over drawer shell. Host edit/add/detail forms (composed from `FieldInput`) in a native drawer; you control open/close from your own state, like a modal. |

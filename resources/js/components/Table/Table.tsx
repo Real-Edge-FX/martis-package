@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next"
 import { useState, useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { useEscapeLayer } from "@/lib/escapeLayers"
+import { ownEntry } from "@/lib/ownEntry"
 
 export interface TableColumn {
   field: FieldDefinition
@@ -428,15 +429,22 @@ export function InlineActionMenu({
 }
 
 /**
+ * The verdict the row's `_actionAuthorization` map holds for `action`, or
+ * `undefined` when it holds none of its own (an inherited member such as
+ * `constructor` is not a verdict).
+ */
+export function rowActionAuthorization(row: ResourceRecord, action: ActionMeta): boolean | undefined {
+  return ownEntry(row._actionAuthorization, action.uriKey)
+}
+
+/**
  * Whether `action` may run on `row`: the row's `_actionAuthorization` entry
  * (the predicate the run enforces), else the record's run-action policy
  * (none for a standalone action).
  */
 export function canRunInlineAction(row: ResourceRecord, action: ActionMeta): boolean {
-  const perAction = row._actionAuthorization
-  if (perAction && action.uriKey in perAction) {
-    return perAction[action.uriKey]
-  }
+  const authorised = rowActionAuthorization(row, action)
+  if (authorised !== undefined) return authorised
   // A standalone action runs on no record: the record's policy does not
   // apply to it, as on the server.
   if (action.standalone) return true

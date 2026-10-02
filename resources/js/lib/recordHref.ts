@@ -1,5 +1,6 @@
 import { config } from '@/lib/config'
 import { routePath } from '@/lib/apiPath'
+import { ownEntry } from '@/lib/ownEntry'
 
 /**
  * Resolve the destination for a record of `uriKey`. Interpolates the
@@ -7,7 +8,7 @@ import { routePath } from '@/lib/apiPath'
  * resource pointing at its owning Tool), else the default detail path.
  */
 export function recordHref(uriKey: string, id: string | number): string {
-  const template = config.resourceRecordUrls?.[uriKey]
+  const template = ownEntry(config.resourceRecordUrls, uriKey)
   return template
     ? template.replace('{id}', encodeURIComponent(String(id)))
     : routePath`/resources/${uriKey}/${id}`

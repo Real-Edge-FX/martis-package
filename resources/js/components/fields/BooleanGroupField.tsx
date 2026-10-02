@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Checkbox } from 'primereact/checkbox'
 import type { FieldDisplayProps, FieldInputProps } from './types'
+import { ownEntry } from '@/lib/ownEntry'
 
 interface BooleanGroupSchema {
   options?: Record<string, string>
@@ -20,7 +21,7 @@ type Value = Record<string, boolean> | null | undefined
 const NO_OPTIONS: Record<string, string> = {}
 
 function labelFor(schema: BooleanGroupSchema, key: string): string {
-  return schema.labels?.[key] ?? schema.options?.[key] ?? key
+  return ownEntry(schema.labels, key) ?? ownEntry(schema.options, key) ?? key
 }
 
 function countChecked(v: Value): number {
@@ -38,7 +39,7 @@ export function BooleanGroupFieldDisplay({ field, value }: FieldDisplayProps) {
   const options = schema.options ?? {}
 
   const visible = Object.entries(options).filter(([key]) => {
-    const on = !!v[key]
+    const on = !!ownEntry(v, key)
     if (on && schema.hideTrueValues) return false
     if (!on && schema.hideFalseValues) return false
     return true
@@ -51,7 +52,7 @@ export function BooleanGroupFieldDisplay({ field, value }: FieldDisplayProps) {
   return (
     <div className="martis-boolgroup-display">
       {visible.map(([key]) => {
-        const on = !!v[key]
+        const on = !!ownEntry(v, key)
         return (
           <span
             key={key}
@@ -91,7 +92,7 @@ export function BooleanGroupFieldInput({ field, value, onChange, error }: FieldI
   const { minChecked, maxChecked } = schema
 
   const toggle = (key: string) => {
-    const current = !!v[key]
+    const current = !!ownEntry(v, key)
     if (!current && maxChecked !== undefined && checked >= maxChecked) return
     const next = { ...v, [key]: !current }
     onChange(next)
@@ -132,13 +133,13 @@ export function BooleanGroupFieldInput({ field, value, onChange, error }: FieldI
               <header className="martis-boolgroup-legend">
                 <span>{section.title}</span>
                 <span className="martis-boolgroup-section-count">
-                  {section.keys.filter((k) => v[k]).length} / {section.keys.length}
+                  {section.keys.filter((k) => ownEntry(v, k)).length} / {section.keys.length}
                 </span>
               </header>
             )}
             <div className="martis-boolgroup-options">
               {section.keys.map((key) => {
-                const on = !!v[key]
+                const on = !!ownEntry(v, key)
                 // `fill()` skips a readonly field (an `immutable()` one on
                 // update arrives as readonly too): every flag keeps its state.
                 const disabled =
