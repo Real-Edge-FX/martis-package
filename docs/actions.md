@@ -1541,6 +1541,8 @@ The pivot action routes (see the [API Reference](#api-reference)) resolve `{rela
 
 ## API Reference
 
+Every route below answers 403 when the user may not `viewAny` the resource, as running an action does: a resource the user cannot list does not disclose the actions it declares nor their field definitions (labels, defaults and the option lists a `Select` is filled with). The lens routes (`/api/resources/{resource}/lenses/{lens}/actions...`) follow the same rule, and the pivot routes check `viewAny` on the parent resource.
+
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/resources/{resource}/actions` | List available actions (filter with `?context=index\|detail\|inline`) |

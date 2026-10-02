@@ -148,6 +148,15 @@ class MetricController
             return JsonErrorResponse::notFound('Dashboard not found.')->toResponse();
         }
 
+        // The soft-gate route guard of show(): a locked dashboard computes
+        // nothing, so the lock holds when the card route is called directly.
+        $lock = method_exists($instance, 'lockPayloadFor')
+            ? $instance->lockPayloadFor($request)
+            : null;
+        if ($lock !== null) {
+            return JsonResponse::make(['locked' => true, 'lock' => $lock])->toResponse();
+        }
+
         $metric = $this->findMetric($instance->cards($request), $card, $request);
 
         if ($metric === null) {
@@ -311,6 +320,13 @@ class MetricController
         $metric->withFilterScope(function (Builder $query) use ($filterInstances, $decoded, $request): Builder {
             foreach ($filterInstances as $filter) {
                 if (! $filter instanceof FilterContract) {
+                    continue;
+                }
+
+                // The gate the dashboard payload (serializeFilters()) and the
+                // resource index apply: a filter the user may not see is not
+                // applied, whatever the `filters` parameter names.
+                if (! $filter->authorizedToSee($request)) {
                     continue;
                 }
 

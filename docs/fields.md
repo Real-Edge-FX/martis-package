@@ -1499,6 +1499,7 @@ Slug::make('slug')
     ->separator('-')                               // default: '-'
     ->reserved(['admin', 'api', 'login'])          // rejected values
     ->lockAfter(fn ($post) => $post->is_published) // freeze after publish
+    ->withinIndexScope()                           // probe uniqueness per tenant (see below)
 ```
 
 **Specific methods:**
@@ -1506,6 +1507,7 @@ Slug::make('slug')
 - `separator(string $separator): static` — Token separator (default: `'-'`).
 - `reserved(array $reserved): static` — ⭐ **Martis extension.** Reject these exact values (system paths). Validation emits `slug_reserved` error; the `/slug-check` endpoint returns `{ reserved: true, suggestion }`.
 - `lockAfter(Closure $condition): static` — ⭐ **Martis extension.** Freezes the slug on existing records once the condition holds. `Slug::fill()` becomes a no-op in that case — SEO protection.
+- `withinIndexScope(bool $within = true): static` — ⭐ **Martis extension.** Run the slug-check uniqueness probe through the resource's `scopes()` and `indexQuery()` instead of the whole table. Enable it when uniqueness is per tenant or per owner (a composite unique index such as `tenant_id, slug`), so the check answers for the records the user can list and never reveals that a slug exists in another scope. See [Live collision detection](#slug-collision-detection).
 - `badgeVariant(string $variant): static` — Read-only display badge variant. Accepts `'default'` (alias `'muted'`), `'accent'`, `'success'`, `'warning'`, `'danger'`, `'custom'`. Unknown values fall back to `'default'`.
 - `badgeAccent(): static` — Sugar for `badgeVariant('accent')`. Reads cleanly when the slug IS the row identity (Permission name, Role name).
 - `badgeColor(string $color): static` — Custom CSS colour for the badge. Accepts any browser-recognised colour (hex, `rgb()`, `hsl()`, `oklch()`, named). The frontend tints the background as a 14% mix with the surface so it stays subtle in both themes; the foreground uses the colour verbatim. Implies `badgeVariant('custom')`.
@@ -1514,7 +1516,7 @@ Slug::make('slug')
 
 **⭐ Martis extensions (UI, automatic):**
 - **Live preview** — the React input regenerates the slug as the user types in the source field (i18n-aware transliteration), until the slug is edited by hand. On a create form, a replicated record included, the slug follows the source from the source's first change, as in Nova: the slug the form opens with, copied or empty, stays until then (v1.38.0+). On an edit form (the update page or the update drawer) a stored slug counts as set: changing the source leaves it alone, so renaming a record does not silently change its URL, and an empty stored slug follows the source at once. Edit the slug directly, or clear it (a `nullable()` slug shows a clear button) to regenerate it from the source and follow it again. A slug the user empties by hand stays empty while the source has text, and follows the source again once the source is empty too, so the next record's slug follows its title after "Create & add another" (v1.38.0+). Before v1.38.0 a create form took a slug it opened with for one set by hand, so a replicated slug never followed the title, and filled an empty slug from a source that already had text.
-- **Live collision detection** — debounced probe against
+- <a id="slug-collision-detection"></a>**Live collision detection** — debounced probe against
   `GET /martis/api/resources/{resource}/slug-check/{field}?value=…&id=…`.
   Response envelope:
   ```json
@@ -1528,6 +1530,8 @@ Slug::make('slug')
   ```
   The UI renders a clickable suggestion when `suggestion` is non-null.
   The check uses the Slug declared on the form it comes from: `fieldsForUpdate()` when `id` names a record the user may update (`authorizedToUpdate()`), otherwise `fieldsForCreate()` and then `fieldsForInlineCreate()`, then `fields()`. A Slug declared on one form only is found, and that declaration's `separator()` and `reserved()` apply (v1.38.0: the check read `fields()` first and never the inline-create form). The record being edited is left out of the uniqueness probe, so its own slug reads as available; an `id` the user may not update is answered like one that names no record (v1.38.0: any record `id` named was bound and left out of the probe, which told the slug of a record the user could not edit apart).
+
+  The check answers whether a slug is taken, so it needs the ability to write one, not `viewAny` alone: `authorizedToUpdate()` on the record `id` names, otherwise `authorizedToCreate()` (a user who may only list the resource gets 403, for any `id`, so it cannot be used to test which slugs exist; before v2.4.0 `viewAny` was enough). The probe reads the whole table by default, which is right for a slug that is unique across it (a plain unique index): the answer then reflects records in every tenant or owner scope, including ones the user cannot list, exactly as saving the slug would, so a user who may create or update records can learn that a slug exists elsewhere. Where the host scopes records per tenant and the slug is unique per tenant, declare the field `->withinIndexScope()`: the probe (and its `-2`, `-3` suggestions) then runs through the resource's `scopes()` and `indexQuery()` and only the records the user can list count as taken.
 
 **Validation:** a closure rule verifies the submitted value is already in its slugified form (so the server rejects mismatched case / spaces) and that it is not in the `reserved` list.
 
@@ -2010,8 +2014,8 @@ BelongsToMany::make('Tags', 'tags', TagResource::class)
 | `dontReorderAttachables` | `dontReorderAttachables(bool $value = true): static` | `$this` | Disable auto-sort of attachables (keep DB order). | `false` |
 | `withSubtitles` | `withSubtitles(bool $value = true): static` | `$this` | Show subtitles in the attach modal search results. | `false` |
 | `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
-| `canAttach` | `canAttach(bool $value = true): static` | `$this` | Control visibility of the Attach button. | `true` |
-| `canDetach` | `canDetach(bool $value = true): static` | `$this` | Control visibility of the Detach button per row. | `true` |
+| `canAttach` | `canAttach(bool $value = true): static` | `$this` | Allow attaching records through the panel. Off hides the Attach button, and the attachable list, the attach (single and batch) and the attach modal's pivot pickers answer 403 (v2.4.0). | `true` |
+| `canDetach` | `canDetach(bool $value = true): static` | `$this` | Allow detaching records through the panel. Off hides the Detach button and the detach endpoint answers 403 (v2.4.0). | `true` |
 
 #### API Endpoints
 
@@ -2085,9 +2089,9 @@ HasOne::make('Profile', 'profile', ProfileResource::class)
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
-| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button when no related record exists. | `true` |
-| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit button for the existing related record. | `true` |
-| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete button for the existing related record. | `true` |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Allow creating the related record through the panel. Off hides the Create button and the create endpoint answers 403 (v2.4.0). | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Allow editing the related record through the panel. Off hides the Edit button and the update endpoint answers 403 (v2.4.0). | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Allow deleting the related record through the panel. Off hides the Delete button and the delete endpoint answers 403 (v2.4.0). | `true` |
 
 Static factory `HasOne::ofMany($name, $relationship, $resourceClass)`
 promotes a `hasMany()->latestOfMany()` relation into a
@@ -2229,9 +2233,9 @@ HasMany::make('Comments', 'comments')
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
 | `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
 | `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
-| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button. | `true` |
-| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit action per row. | `true` |
-| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete action per row. | `true` |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Allow creating a related record through the panel. Off hides the Create button and the create endpoint answers 403 (v2.4.0). | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Allow editing a related record through the panel. Off hides the Edit action and the update endpoint answers 403 (v2.4.0). | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Allow deleting a related record through the panel. Off hides the Delete action and the delete endpoint answers 403 (v2.4.0). | `true` |
 | `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable the search input in the panel toolbar. | `false` |
 | `indexDisplay` | `indexDisplay(HasManyIndexDisplay $mode): static` | `$this` | Configure how the field renders when shown on the index page. | — |
 | `showRelationIcon` | `showRelationIcon(bool $value = true): static` | `$this` | Show the related-resource icon in the panel heading. | `true` |
@@ -2323,9 +2327,9 @@ MorphOne::make('Thumbnail', 'thumbnail', ThumbnailResource::class)
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
-| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button. | `true` |
-| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit button. | `true` |
-| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete button. | `true` |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Allow creating a related record through the panel. Off hides the Create button and the create endpoint answers 403 (v2.4.0). | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Allow editing the related record through the panel. Off hides the Edit button and the update endpoint answers 403 (v2.4.0). | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Allow deleting the related record through the panel. Off hides the Delete button and the delete endpoint answers 403 (v2.4.0). | `true` |
 
 *src/Fields/MorphOne.php*
 
@@ -2408,9 +2412,9 @@ MorphMany::make('Comments', 'comments', CommentResource::class)
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
 | `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
 | `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
-| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button. | `true` |
-| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit action per row. | `true` |
-| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete action per row. | `true` |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Allow creating a related record through the panel. Off hides the Create button and the create endpoint answers 403 (v2.4.0). | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Allow editing a related record through the panel. Off hides the Edit action and the update endpoint answers 403 (v2.4.0). | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Allow deleting a related record through the panel. Off hides the Delete action and the delete endpoint answers 403 (v2.4.0). | `true` |
 | `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable the search input in the panel toolbar. | `false` |
 | `indexDisplay` | `indexDisplay(HasManyIndexDisplay $mode): static` | `$this` | Configure how the field renders when shown on the index page. | — |
 | `showRelationIcon` | `showRelationIcon(bool $value = true): static` | `$this` | Show the related-resource icon in the panel heading. | `true` |
@@ -2546,8 +2550,8 @@ MorphToMany::make('Tags', 'tags', TagResource::class)
 | `subtitleAttribute` | `subtitleAttribute(string $attribute): static` | `$this` | Column used as the subtitle. | — |
 | `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
 | `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
-| `canAttach` | `canAttach(bool $value = true): static` | `$this` | Control visibility of the Attach button. | `true` |
-| `canDetach` | `canDetach(bool $value = true): static` | `$this` | Control visibility of the Detach button per row. | `true` |
+| `canAttach` | `canAttach(bool $value = true): static` | `$this` | Allow attaching records through the panel. Off hides the Attach button, and the attachable list, the attach (single and batch) and the attach modal's pivot pickers answer 403 (v2.4.0). | `true` |
+| `canDetach` | `canDetach(bool $value = true): static` | `$this` | Allow detaching records through the panel. Off hides the Detach button and the detach endpoint answers 403 (v2.4.0). | `true` |
 
 A relation picker among the pivot fields asks the panel, under `/api/resources/{resource}/{id}/morph-to-many/{relationship}/pivot-fields/relatable/{attribute}` in the attach modal and `.../pivot-fields/{relatedId}/relatable/{attribute}` in the pivot edit modal (v1.38.0+), gated like a `BelongsToMany`'s (see [Relationships → Relation pickers among the pivot fields](relationships.md#relation-pickers-among-the-pivot-fields)).
 
@@ -2699,10 +2703,10 @@ Markdown::make('content')
 |--------|-----------|---------|-------------|---------|
 | `alwaysShow` | `alwaysShow(): static` | `$this` | Always expand content on detail (skip "Show Content" toggle). | `false` |
 | `preset` | `preset(string $preset): static` | `$this` | Markdown rendering preset: `'default'` (GFM), `'commonmark'`, `'zero'`. | `'default'` |
-| `withFiles` | `withFiles(string $disk = 'public'): static` | `$this` | Enable file uploads in editor. | `null` |
+| `withFiles` | `withFiles(?string $disk = null): static` | `$this` | Enable file uploads in the editor, stored on `$disk` (the panel's `martis.storage.disk` without one). The upload endpoint takes the disk from the field and authorises the upload like the form the field is on (v2.4.0); see [Resources → Attachment Uploads](resources.md#attachment-uploads-trix--markdown). | disabled |
 | `isAlwaysShow` | `isAlwaysShow(): bool` | `bool` | Check if always showing. | — |
 | `getPreset` | `getPreset(): string` | `string` | Get preset. | — |
-| `getWithFilesDisk` | `getWithFilesDisk(): ?string` | `?string` | Get uploads disk. | — |
+| `getWithFilesDisk` | `getWithFilesDisk(): ?string` | `?string` | The uploads disk, or `null` when the field does not accept files. | — |
 
 **Extra attributes:** `alwaysShow`, `preset`, `withFiles`
 
@@ -2726,10 +2730,10 @@ Trix::make('body', 'Body')
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `alwaysShow` | `alwaysShow(): static` | `$this` | Always expand content on detail. | `false` |
-| `withFiles` | `withFiles(string $disk = 'public'): static` | `$this` | Enable file uploads in editor. | `null` |
+| `withFiles` | `withFiles(?string $disk = null): static` | `$this` | Enable file uploads in the editor, stored on `$disk` (the panel's `martis.storage.disk` without one). The upload endpoint takes the disk from the field and authorises the upload like the form the field is on (v2.4.0); see [Resources → Attachment Uploads](resources.md#attachment-uploads-trix--markdown). | disabled |
 | `toolbarSize` | `toolbarSize(string $size): static` | `$this` | Toolbar button size: `'sm'`, `'md'`, `'lg'`. | `null` |
 | `isAlwaysShow` | `isAlwaysShow(): bool` | `bool` | Check if always showing. | — |
-| `getWithFilesDisk` | `getWithFilesDisk(): ?string` | `?string` | Get uploads disk. | — |
+| `getWithFilesDisk` | `getWithFilesDisk(): ?string` | `?string` | The uploads disk, or `null` when the field does not accept files. | — |
 
 **Extra attributes:** `alwaysShow`, `withFiles`, `toolbarSize`
 

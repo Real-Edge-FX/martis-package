@@ -431,7 +431,9 @@ public function afterSave(Model $model, Request $request, bool $creating): void
 public function beforeDelete(Model $model, Request $request): void
 {
     if ($model->status === 'published') {
-        throw new \RuntimeException('Cannot delete published posts.');
+        // The message reaches the user as it is. A plain \RuntimeException
+        // would answer a generic message in production.
+        throw new \Martis\Exceptions\UserFacingException('Cannot delete published posts.');
     }
     parent::beforeDelete($model, $request); // fires BeforeDelete event
 }

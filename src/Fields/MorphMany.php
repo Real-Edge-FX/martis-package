@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Martis\Enums\HasManyIndexDisplay;
 use Martis\Enums\HasManyRedirectMode;
 use Martis\Fields\Concerns\AuthorizesRelatedResource;
+use Martis\Fields\Concerns\ControlsRelatedWrites;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Fields\Concerns\CountsScopedRelation;
 use Martis\Resource;
@@ -32,6 +33,7 @@ use Martis\ResourceRegistry;
 class MorphMany extends Field
 {
     use AuthorizesRelatedResource;
+    use ControlsRelatedWrites;
     use ControlsRelationshipToolbar;
     use CountsScopedRelation;
 
@@ -203,7 +205,10 @@ class MorphMany extends Field
         return $options[0];
     }
 
-    /** Configure whether the "Create" button is shown. */
+    /**
+     * Allow or refuse creating a related record through this panel. Off hides
+     * the "Create" button and the create endpoint answers 403.
+     */
     public function canCreate(bool $value = true): static
     {
         $this->canCreateRelated = $value;
@@ -211,7 +216,10 @@ class MorphMany extends Field
         return $this;
     }
 
-    /** Configure whether edit actions are shown. */
+    /**
+     * Allow or refuse editing a related record through this panel. Off hides
+     * the edit actions and the update endpoint answers 403.
+     */
     public function canUpdate(bool $value = true): static
     {
         $this->canUpdateRelated = $value;
@@ -219,7 +227,10 @@ class MorphMany extends Field
         return $this;
     }
 
-    /** Configure whether delete actions are shown. */
+    /**
+     * Allow or refuse deleting a related record through this panel. Off hides
+     * the delete actions and the delete endpoint answers 403.
+     */
     public function canDelete(bool $value = true): static
     {
         $this->canDeleteRelated = $value;

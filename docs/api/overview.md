@@ -413,10 +413,10 @@ GET  /martis/api/_meta/guards   List of `array_keys(config('auth.guards'))` for 
 ## Attachments
 
 ```
-POST  /martis/api/attachments/upload   Upload an inline asset (used by the rich-text Trix field)
+POST  /martis/api/attachments/upload?resource=&field=[&id=][&repeater=&repeatable=]   Upload an inline asset (used by the Trix and Markdown fields)
 ```
 
-Returns the URL the editor inserts inline. See [Fields § Trix](../fields.md).
+Returns the URL the editor inserts inline. The upload names the resource, the field and (editing) the record, is authorised like the form it comes from (403 without the create or update ability, 404 for a field the form does not have, 403 for one without `withFiles()`), goes to the disk the field declares, and is throttled per user (429). See [Resources → Attachment Uploads](../resources.md#attachment-uploads-trix--markdown) and [Fields § Trix](../fields.md).
 
 ## Error Responses
 

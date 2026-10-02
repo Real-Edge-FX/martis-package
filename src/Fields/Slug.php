@@ -32,6 +32,9 @@ class Slug extends Field
 
     protected ?Closure $lockCondition = null;
 
+    /** Whether the slug-check probe runs through the resource's index scope. */
+    protected bool $withinIndexScope = false;
+
     /**
      * Badge variant that drives the read-only display style.
      *
@@ -100,6 +103,32 @@ class Slug extends Field
         $this->lockCondition = $condition;
 
         return $this;
+    }
+
+    /**
+     * Run the slug-check uniqueness probe through the resource's index scope
+     * (its `scopes()` and `indexQuery()`) instead of the whole table.
+     *
+     * Enable it when uniqueness is per tenant or per owner (a composite
+     * unique index such as `tenant_id, slug`): the check then answers for the
+     * records the user can list, and never reveals that a slug exists in
+     * another scope. Left off, the probe is global, which is right when the
+     * slug is unique across the whole table (a plain unique index): it then
+     * tells a user who may create or update a record that a slug is taken
+     * even when the record that holds it is outside their scope, exactly as
+     * saving it would.
+     */
+    public function withinIndexScope(bool $within = true): static
+    {
+        $this->withinIndexScope = $within;
+
+        return $this;
+    }
+
+    /** Whether the slug-check probe runs through the resource's index scope. */
+    public function isWithinIndexScope(): bool
+    {
+        return $this->withinIndexScope;
     }
 
     /**

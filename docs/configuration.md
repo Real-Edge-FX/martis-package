@@ -696,17 +696,21 @@ Where Martis scans for `Martis\Tools\Tool` subclasses (since v1.8.20). `tools_na
 
 ```php
 'attachments' => [
-    'allowed_mimes' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf', ...],
-    'allowed_disks' => ['public', 'local'],
-    'max_size' => 10240,  // KB (10MB)
+    'allowed_mimes' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', ...],
+    'max_size' => 10240,       // KB (10MB)
+    'throttle_max' => 20,      // uploads per user...
+    'throttle_decay' => 1,     // ...per this many minutes
 ],
 ```
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `allowed_mimes` | `array` | See config | Allowed MIME types for Trix/Markdown file uploads. |
-| `allowed_disks` | `array` | `['public', 'local']` | Storage disks the upload endpoint accepts. |
-| `max_size` | `int` | `10240` | Maximum file size in KB. |
+| `allowed_mimes` | `array` | See config | Allowed extensions for Trix/Markdown file uploads (`MARTIS_ATTACHMENT_MIMES`, comma-separated). |
+| `max_size` | `int` | `10240` | Maximum file size in KB (`MARTIS_ATTACHMENT_MAX_SIZE`). |
+| `throttle_max` | `int` | `20` | Uploads one user may make per `throttle_decay` minutes, on top of the API limit (`MARTIS_ATTACHMENT_THROTTLE_MAX`, v2.4.0). Not applied when `throttle.enabled` is false. |
+| `throttle_decay` | `int` | `1` | The window of `throttle_max` in minutes (`MARTIS_ATTACHMENT_THROTTLE_DECAY`, v2.4.0). |
+
+An upload names the resource, the field and (editing) the record, is authorised like the form it comes from, and goes to the disk the field declares with `withFiles($disk)` (the `storage.disk` above without one), never to a disk the request names; see [Resources → Attachment Uploads](resources.md#attachment-uploads-trix--markdown). The `allowed_disks` key of earlier versions is no longer read: the request chose the disk from that list, and it does not choose any more. `php artisan martis:attachments:prune` deletes the uploaded files no record references.
 
 ## Action Events (Audit Log)
 

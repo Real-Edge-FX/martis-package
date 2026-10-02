@@ -113,6 +113,12 @@ class ActionController extends MartisController
             return JsonErrorResponse::notFound("Resource [{$resource}] not found.")->toResponse();
         }
 
+        // The action list needs viewAny as the run does: a resource the user
+        // cannot list does not disclose the operations it declares.
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $instance = new $resourceClass;
         $lens = $this->lensOf($instance, $lensKey, $request);
 
@@ -165,6 +171,13 @@ class ActionController extends MartisController
 
         if ($resourceClass === null) {
             return JsonErrorResponse::notFound("Resource [{$resource}] not found.")->toResponse();
+        }
+
+        // The field schema needs viewAny as the run does: its labels, help
+        // text, defaults and option lists (often read from the database)
+        // are not served for a resource the user cannot list.
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
         }
 
         $instance = new $resourceClass;

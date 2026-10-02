@@ -18,6 +18,7 @@ use Martis\Contracts\LayoutContract;
 use Martis\Contracts\UnsavedChangesConfigContract;
 use Martis\Enums\SortDirection;
 use Martis\Enums\TrashedFilter;
+use Martis\Exceptions\Handler as MartisExceptionHandler;
 use Martis\FieldContext;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\BelongsToMany as BelongsToManyField;
@@ -40,6 +41,7 @@ use Martis\ResourceRegistry;
 use Martis\Rules\RelatableWrite;
 use Martis\SearchResolver;
 use Martis\Support\IndexScope;
+use Martis\Support\TranslatedLine;
 
 /**
  * Generic CRUD controller for all registered Martis resources.
@@ -501,13 +503,17 @@ class ResourceController extends MartisController
 
             return $this->handleDatabaseError($e);
         } catch (\Throwable $e) {
-            // v1.8.2 — broaden the catch beyond QueryException so non-DB
-            // failures (Spatie permission cache invalidation, observer
-            // hook errors, third-party policy listeners) don't bubble
-            // up as a vague 500 "Error deleting record". The original
-            // message reaches the toast so the operator sees what
-            // actually broke; the throwable still goes through report()
-            // for monitoring.
+            // A hook that stops the delete on purpose throws a user-facing
+            // exception (see UserFacingException): its message and status
+            // reach the client. Anything else (Spatie permission cache
+            // invalidation, observer hook errors, storage driver errors,
+            // third-party policy listeners) is internal: its message can
+            // hold a path, a bucket or a class name, so the client gets the
+            // generic one, and the details stay in the log and in report().
+            if (MartisExceptionHandler::isUserFacing($e) && ($response = MartisExceptionHandler::render($request, $e)) !== null) {
+                return $response;
+            }
+
             Log::error('Martis: error on delete', [
                 'resource' => $resource,
                 'id' => $id,
@@ -516,7 +522,12 @@ class ResourceController extends MartisController
             ]);
             report($e);
 
-            return JsonErrorResponse::serverError($e->getMessage() ?: 'Error deleting record.')->toResponse();
+            // `app.debug` is the developer's choice to see the raw message.
+            $message = config('app.debug') === true && $e->getMessage() !== ''
+                ? $e->getMessage()
+                : TranslatedLine::get('martis::messages.error_delete');
+
+            return JsonErrorResponse::serverError($message)->toResponse();
         }
 
         return new IlluminateJsonResponse(['data' => [], 'meta' => ['message' => $resourceClass::deletedMessage()], 'links' => []], 200);
@@ -679,6 +690,12 @@ class ResourceController extends MartisController
         }
 
         $res = new $resourceClass($model);
+
+        // The prefill hands back the record's field values, so it needs the
+        // view ability show() asks for, before the replicate ability.
+        if (! $res->authorizedToView($request)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
 
         if (! $res->authorizedToReplicate($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
@@ -1623,7 +1640,8 @@ class ResourceController extends MartisController
         $pivotRow = $relation->newPivot();
 
         if ($relatedId === null) {
-            $authorized = $parentResource->authorizedToAttachAny($request, $related::class);
+            // The attach modal's picker, which `canAttach(false)` turns off.
+            $authorized = $field->allowsAttach() && $parentResource->authorizedToAttachAny($request, $related::class);
         } else {
             // Only a record the relationship attaches has a pivot row to
             // edit, so any other id answers 404 like a missing one (no

@@ -20,7 +20,7 @@ When **no policy** resolves for the resource, every row below permits. When a po
 | Delete / soft-delete | `authorizedToDelete` | `delete` | deny |
 | Restore | `authorizedToRestore` | `restore` | deny |
 | Force delete | `authorizedToForceDelete` | `forceDelete` | deny |
-| Replicate | `authorizedToReplicate` | `replicate` | falls back to `create` AND `update` |
+| Replicate | `authorizedToReplicate` | `replicate` | falls back to `create` AND `update`; the prefill route (`GET /api/resources/{resource}/{id}/replicate`) also needs `view` of the record, as the detail page does |
 | Run action | `authorizedToRunAction` | `runAction` | falls back to `update` |
 | Run destructive action | `authorizedToRunDestructiveAction` | `runDestructiveAction` | falls back to `delete` |
 | Attach related | `authorizedToAttach` | `attach{Model}` | permit |
@@ -263,7 +263,7 @@ Every dashboard primitive supports a `canSee(Closure)` callback.
   decides per record (a batch attach skips the records it denies),
   `detach{Model}` decides the detach, and `updatePivot{Model}` (falling
   back to `update`) the pivot update and the pickers of the pivot edit
-  modal. The Attach button follows the field's `canAttach()` toggle.
+  modal. The field's `canAttach(false)` turns all of those off too, and `canDetach(false)` the detach (403, v2.4.0): the toggles narrow the policies, never widen them.
   Before v1.38.0 the attach and the list of records to attach did not
   check `attachAny{Model}`, so a user it denied could still attach.
 

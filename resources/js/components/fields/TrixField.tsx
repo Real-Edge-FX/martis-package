@@ -215,6 +215,12 @@ export function TrixFieldInput({
   value,
   onChange,
   error,
+  resourceKey,
+  recordId,
+  repeaterRow,
+  actionEndpoint,
+  pivotEndpoint,
+  toolKey,
 }: FieldInputProps) {
   const { t } = useTranslation('messages')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -272,7 +278,22 @@ export function TrixFieldInput({
   const extras = field as Record<string, unknown>
   const readonly = !!field.readonly
   const toolbarSize = extras.toolbarSize as string | undefined
-  const withFiles = !!extras.withFiles
+  // Attachments go to an endpoint that authorises them like the resource
+  // form the field is on, so only a field of a resource form uploads: an
+  // Action's, a pivot's or a Tool's fields (and a field with no resource)
+  // accept no file.
+  const withFiles =
+    !!extras.withFiles &&
+    resourceKey !== undefined &&
+    actionEndpoint === undefined &&
+    pivotEndpoint === undefined &&
+    toolKey === undefined
+
+  // What the upload names, read at upload time: the editor outlives the
+  // render that built it, and a rebuild per record or row change would drop
+  // its content.
+  const uploadScopeRef = useRef({ resourceKey, recordId, attribute: field.attribute, repeaterRow })
+  uploadScopeRef.current = { resourceKey, recordId, attribute: field.attribute, repeaterRow }
 
   // Build the Trix editor, again only when its configuration changes. The
   // cleanup tears it down, so a rebuild (and StrictMode's second run of the
@@ -398,7 +419,17 @@ export function TrixFieldInput({
 
         attachment.setUploadProgress(10)
 
-        fetch(`${BASE_PATH}/api/attachments/upload`, {
+        // The upload names the form it comes from, so the server authorises
+        // it like that form and takes the disk from the field.
+        const scope = uploadScopeRef.current
+        const query = new URLSearchParams({ resource: String(scope.resourceKey), field: scope.attribute })
+        if (scope.recordId !== undefined && scope.recordId !== null) query.set("id", String(scope.recordId))
+        if (scope.repeaterRow) {
+          query.set("repeater", scope.repeaterRow.repeater)
+          query.set("repeatable", scope.repeaterRow.repeatable)
+        }
+
+        fetch(`${BASE_PATH}/api/attachments/upload?${query.toString()}`, {
           method: "POST",
           body: formData,
           credentials: "same-origin",
