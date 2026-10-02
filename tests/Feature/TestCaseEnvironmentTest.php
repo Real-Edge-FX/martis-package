@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 use Illuminate\Config\Repository;
 use Illuminate\Container\Container;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Env;
+use Martis\Tests\TestCase;
 use Symfony\Component\Process\Exception\ProcessSignaledException;
 use Symfony\Component\Process\Process;
 
@@ -104,6 +106,8 @@ it('gives a parallel worker a copy of the testbench skeleton of its own', functi
             'child' => $child,
             'child_copy_left' => $child !== '' && is_dir($child),
             'copy_after_child' => is_dir($path),
+            'root_owner' => fileowner(dirname($path)),
+            'root_mode' => fileperms(dirname($path)) & 0777,
         ]);
         PHP);
 
@@ -148,7 +152,11 @@ it('gives a parallel worker a copy of the testbench skeleton of its own', functi
             ->and($probe['child_copy_left'])->toBeFalse()
             ->and($probe['copy_after_child'])->toBeTrue()
             // Removed when the worker exits.
-            ->and(is_dir($probe['path']))->toBeFalse();
+            ->and(is_dir($probe['path']))->toBeFalse()
+            // The copy lives in a directory of the current user's alone, not in
+            // a name any other user of a shared temp directory could have made.
+            ->and($probe['root_owner'])->toBe(posix_geteuid())
+            ->and($probe['root_mode'])->toBe(0700);
 
         // A sequential run (no worker token) gets a copy too: nothing writes
         // the skeleton under vendor/.
@@ -234,5 +242,114 @@ it('lets concurrent workers sweep the same orphan copies', function () {
             ->and(glob(dirname($orphans[0]).'/.*.claimed-*') ?: [])->toBe([]);
     } finally {
         @unlink($script);
+    }
+});
+
+// The sweep deletes the leftovers of dead processes by name. In a shared temp
+// directory another user could plant a symlink with such a name, and
+// deleteDirectory() empties the directory a symlink points at before it
+// fails to remove the link itself: the next test run would delete another
+// directory of the person running it. The sweep must unlink a symlink and
+// never enter it.
+it('never follows a symlink while sweeping orphan skeleton copies', function () {
+    $base = sys_get_temp_dir().'/martis-sweep-probe-'.bin2hex(random_bytes(6));
+    $root = $base.'/root';
+    $victim = $base.'/victim';
+    // A pid beyond Linux's pid_max, so no process owns the copies below.
+    $dead = 2147483000;
+
+    mkdir($root, 0700, true);
+    mkdir($victim.'/nested', 0777, true);
+    file_put_contents($victim.'/canary', 'keep');
+    file_put_contents($victim.'/nested/deep', 'keep');
+
+    // The two names the sweep takes for leftovers: a copy and a half-deleted claim.
+    symlink($victim, $root.'/'.$dead.'-planted');
+    symlink($victim, $root.'/.'.$dead.'-planted.claimed-'.($dead + 1));
+    // A genuine orphan next to them is still removed.
+    mkdir($root.'/'.$dead.'-real');
+    file_put_contents($root.'/'.$dead.'-real/file', 'orphan');
+
+    try {
+        (new ReflectionMethod(TestCase::class, 'sweepOrphanCopies'))->invoke(null, $root, new Filesystem);
+
+        expect($victim.'/canary')->toBeFile()
+            ->and($victim.'/nested/deep')->toBeFile()
+            ->and(is_link($root.'/'.$dead.'-planted'))->toBeFalse()
+            ->and(is_link($root.'/.'.$dead.'-planted.claimed-'.($dead + 1)))->toBeFalse()
+            ->and(is_dir($root.'/'.$dead.'-real'))->toBeFalse()
+            ->and(glob($root.'/.*.claimed-*') ?: [])->toBe([]);
+    } finally {
+        // rmtree() follows symlinks, so drop the planted ones first.
+        foreach (scandir($root) ?: [] as $entry) {
+            if (is_link($root.'/'.$entry)) {
+                unlink($root.'/'.$entry);
+            }
+        }
+
+        rmtree($base);
+    }
+});
+
+// The copy the suite boots from is code the test process loads. A root another
+// user created first (a predictable name in a shared temp directory) would let
+// that user read and replace it, so the root is the current user's alone, or
+// the suite refuses to start.
+it('refuses a skeleton root that is not the current user\'s alone', function () {
+    $prepare = new ReflectionMethod(TestCase::class, 'prepareSkeletonRoot');
+    $base = sys_get_temp_dir().'/martis-root-probe-'.bin2hex(random_bytes(6));
+    $uid = posix_geteuid();
+
+    mkdir($base, 0700);
+
+    try {
+        // A missing root is created private.
+        $prepare->invoke(null, $base.'/new', $uid);
+
+        expect(is_dir($base.'/new'))->toBeTrue()
+            ->and(fileperms($base.'/new') & 0777)->toBe(0700);
+
+        // ...and the same one is accepted again by the next worker.
+        $prepare->invoke(null, $base.'/new', $uid);
+
+        // Another user's directory.
+        expect(fn () => $prepare->invoke(null, $base.'/new', $uid + 1))
+            ->toThrow(RuntimeException::class, 'not owned by the current user');
+
+        // A directory the group or everyone can write into.
+        foreach ([0770, 0707, 0777] as $mode) {
+            mkdir($base.'/open-'.decoct($mode));
+            chmod($base.'/open-'.decoct($mode), $mode);
+
+            expect(fn () => $prepare->invoke(null, $base.'/open-'.decoct($mode), $uid))
+                ->toThrow(RuntimeException::class, 'writable by other users');
+        }
+
+        // A symlink, even to a directory the user owns.
+        symlink($base.'/new', $base.'/link');
+
+        expect(fn () => $prepare->invoke(null, $base.'/link', $uid))
+            ->toThrow(RuntimeException::class, 'is a symlink');
+
+        // A dangling symlink is a symlink too, not a missing root to create.
+        symlink($base.'/nowhere', $base.'/dangling');
+
+        expect(fn () => $prepare->invoke(null, $base.'/dangling', $uid))
+            ->toThrow(RuntimeException::class, 'is a symlink')
+            ->and(file_exists($base.'/nowhere'))->toBeFalse();
+
+        // A file in the root's place.
+        file_put_contents($base.'/file', 'x');
+
+        expect(fn () => $prepare->invoke(null, $base.'/file', $uid))
+            ->toThrow(RuntimeException::class, 'is not a directory');
+    } finally {
+        foreach (['link', 'dangling'] as $link) {
+            if (is_link($base.'/'.$link)) {
+                unlink($base.'/'.$link);
+            }
+        }
+
+        rmtree($base);
     }
 });
