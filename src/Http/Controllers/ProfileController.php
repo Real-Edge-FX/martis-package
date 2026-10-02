@@ -12,6 +12,7 @@ use Martis\Auth\PasswordPolicy;
 use Martis\Contracts\ProfileResourceContract;
 use Martis\Profile\AvatarService;
 use Martis\Profile\BrowserSessionsService;
+use Martis\Profile\EmailChange;
 use Martis\Profile\TwoFactorService;
 use Martis\Support\Initials;
 
@@ -33,20 +34,52 @@ class ProfileController extends MartisController
     /**
      * Update profile fields (name, email).
      *
+     * The name is saved at once. A new email address is not (v2.4.0): it
+     * takes the current password, and a confirmation link goes to the new
+     * address (and a notice to the old one); the address switches when that
+     * link is followed. The answer then carries `pending_email`. See
+     * {@see EmailChange}.
+     *
      * @body-param string name required
      * @body-param string email required
+     * @body-param string current_password required when the email changes
      *
      * @response array<string, mixed>
      */
-    public function update(Request $request): JsonResponse
+    public function update(Request $request, EmailChange $emailChange): JsonResponse
     {
         $user = $this->resolveUser($request);
         $resource = $this->resolveResource();
 
-        $data = $request->validate($resource->updateRules($user));
+        $rules = $resource->updateRules($user);
+        $changesEmail = array_key_exists('email', $rules) && $emailChange->isChange($user, $request->input('email'));
+
+        if ($changesEmail) {
+            // The address is the identity of the account: a session alone,
+            // a browser left open, does not change it.
+            $rules['current_password'] = ['required', 'string', 'current_password'];
+        }
+
+        $data = $request->validate($rules);
+        unset($data['current_password']);
+
+        $pendingEmail = null;
+        if ($changesEmail) {
+            $pendingEmail = trim((string) $data['email']);
+            // The address stays as it is until the link is followed; the same
+            // address in other letter case is no change.
+            $data['email'] = $emailChange->currentEmail($user);
+        } elseif (array_key_exists('email', $data)) {
+            $data['email'] = $emailChange->currentEmail($user);
+        }
+
         $resource->applyUpdate($user, $data);
 
-        return response()->json($this->profilePayload($resource, $user));
+        if ($pendingEmail !== null) {
+            $emailChange->request($user, $pendingEmail);
+        }
+
+        return response()->json($this->profilePayload($resource, $user) + ($pendingEmail !== null ? ['pending_email' => $pendingEmail] : []));
     }
 
     /**

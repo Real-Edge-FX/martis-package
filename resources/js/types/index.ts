@@ -26,6 +26,10 @@ export interface ProfileData {
   two_factor_enabled: boolean
   avatar_initials?: string
   avatar_palette?: number
+  /** The address a change was asked for, while its confirmation link is
+   *  unfollowed (the `PATCH /api/profile` answer only; `email` stays the
+   *  current one until then). v2.4.0. */
+  pending_email?: string
 }
 
 export interface ResourceMeta {
