@@ -402,7 +402,9 @@ final class ActionEventRedactor
     private static function hydrate(string $modelClass, ActionEvent $event): Model
     {
         $attributes = [];
-        foreach ([$event->original, $event->changes] as $stored) {
+        foreach (['original', 'changes'] as $column) {
+            $stored = $event->getAttribute($column);
+
             if (is_string($stored)) {
                 $stored = json_decode($stored, true);
             }
