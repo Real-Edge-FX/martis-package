@@ -1,5 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { isTrustedHtmlTooltip } from '@/lib/htmlTooltip'
+import { sanitizeMarkup } from '@/lib/sanitizeHtml'
 import {
   computeTooltipPlacement,
   isTooltipSide,
@@ -10,9 +12,13 @@ import {
 
 interface ActiveTooltip {
   text: string
-  // When the trigger sets `data-pr-tooltip-html="true"` the content is
-  // rendered via dangerouslySetInnerHTML so authors can use line breaks,
-  // bold, lists, etc. Plain-text triggers stay safely escaped.
+  // When the trigger sets `data-pr-tooltip-html="true"` AND a package
+  // component registered it (`htmlTooltip()` / `trustHtmlTooltip()` in
+  // lib/htmlTooltip.ts) the content is rendered as sanitised HTML, so
+  // authors can use line breaks, bold, lists, etc. Every other trigger
+  // stays plain text, whatever attributes it carries: record content (a
+  // Markdown or Trix value rendered as HTML) can write the attributes, and
+  // must never be able to make this component render its own markup.
   isHtml: boolean
   preferred: TooltipSide
 }
@@ -52,7 +58,7 @@ export function MartisTooltip() {
 
     setTip({
       text: tooltipText,
-      isHtml: target.getAttribute('data-pr-tooltip-html') === 'true',
+      isHtml: target.getAttribute('data-pr-tooltip-html') === 'true' && isTrustedHtmlTooltip(target),
       preferred: isTooltipSide(requested) ? requested : 'top',
     })
     setPlacement(null)
@@ -282,7 +288,7 @@ export function MartisTooltip() {
         }}
       >
         {isHtml ? (
-          <span dangerouslySetInnerHTML={{ __html: text }} />
+          <span dangerouslySetInnerHTML={{ __html: sanitizeMarkup(text) }} />
         ) : (
           text
         )}

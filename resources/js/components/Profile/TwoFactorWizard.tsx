@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { InputText } from 'primereact/inputtext'
@@ -6,6 +6,7 @@ import { CopyIcon, CheckIcon, XIcon } from '@phosphor-icons/react'
 import { api, ApiError } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 import { useModalHistoryLock } from '@/lib/historyLock'
+import { sanitizeSvg } from '@/lib/sanitizeHtml'
 
 interface TwoFactorSetupData {
   qr_code_svg: string
@@ -25,6 +26,8 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
   const { addToast } = useToast()
   const [step, setStep] = useState<WizardStep>('setup')
   const [setupData, setSetupData] = useState<TwoFactorSetupData | null>(null)
+  // The server generates the QR code, and it is sanitised on the way into the page anyway.
+  const qrCodeSvg = useMemo(() => (setupData ? sanitizeSvg(setupData.qr_code_svg) : ''), [setupData])
   const [loadingSetup, setLoadingSetup] = useState(false)
   const [otp, setOtp] = useState('')
   const [verifying, setVerifying] = useState(false)
@@ -128,7 +131,7 @@ export function TwoFactorWizard({ visible, onClose, onEnabled }: TwoFactorWizard
           <div
             className="flex justify-center p-4 rounded-lg border border-solid martis-border"
             style={{ backgroundColor: 'var(--martis-card)' }}
-            dangerouslySetInnerHTML={{ __html: setupData.qr_code_svg }}
+            dangerouslySetInnerHTML={{ __html: qrCodeSvg }}
             aria-label={t('2fa_scan_qr')}
           />
           <div>

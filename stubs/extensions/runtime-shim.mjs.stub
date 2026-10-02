@@ -79,14 +79,20 @@ export const NotFoundPage = R.NotFoundPage
 // the canonical field renderer, the generic drawer shell, and the
 // PrimeReact Tooltip (the ref-based one, for React content via JSX
 // `content`; plain text goes through the global `[data-pr-tooltip]`
-// provider, and so does markup you write, with `data-pr-tooltip-html="true"`
-// on the trigger). These live in the host bundle and are reached through
-// the runtime, since the extension build does not alias `primereact` /
-// internal component paths.
+// provider, and so does markup you write, through `htmlTooltip()`). These
+// live in the host bundle and are reached through the runtime, since the
+// extension build does not alias `primereact` / internal component paths.
 export const FieldInput = R.FieldInput
 export const FieldDisplay = R.FieldDisplay
 export const DrawerShell = R.DrawerShell
 export const Tooltip = R.Tooltip
+// Triggers of the global tooltip that show HTML (v2.4.0+): `htmlTooltip(markup,
+// position?)` returns the props to spread onto the element, `trustHtmlTooltip`
+// is the ref callback that registers an element which has a ref of its own.
+// The markup is sanitised, and an element not registered this way shows its
+// `data-pr-tooltip` as plain text whatever `data-pr-tooltip-html` says.
+export const htmlTooltip = R.htmlTooltip
+export const trustHtmlTooltip = R.trustHtmlTooltip
 
 // PrimeReact filter controls + `react-dom`'s portal (on the runtime since
 // v1.29.0). The controls Martis's own filters use, and the host's portal for
