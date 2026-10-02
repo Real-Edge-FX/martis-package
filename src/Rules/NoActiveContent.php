@@ -42,6 +42,11 @@ final class NoActiveContent implements ValidationRule
     public const EXTENSIONS = [
         'html', 'htm', 'xhtml', 'xht', 'shtml', 'shtm', 'mht', 'mhtml', 'hta',
         'svg', 'svgz', 'xml', 'xsl', 'xslt',
+        // Other XML documents a browser renders (and may run script in), by
+        // the extension a web server's mime.types maps to an XML type.
+        'rss', 'atom', 'rdf', 'rdfs', 'owl', 'xsd', 'dtd', 'xbl', 'xul', 'mathml', 'mml', 'wsdl', 'wadl', 'xspf', 'xaml', 'smil', 'smi',
+        // Flash.
+        'swf',
         'js', 'mjs', 'cjs',
         'php', 'php3', 'php4', 'php5', 'php6', 'php7', 'php8', 'phtml', 'pht', 'phps', 'phar', 'pgif',
         'asp', 'aspx', 'ashx', 'asmx', 'cer', 'jsp', 'jspx', 'jsw', 'jsv', 'jspf', 'cfm', 'cgi',

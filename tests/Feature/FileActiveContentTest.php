@@ -216,7 +216,34 @@ it('refuses an upload kept under an active extension, whatever its content', fun
     'php5' => 'pic.php5',
     'trailing space' => 'pic.php ',
     'htaccess' => '.htaccess',
+    'rss' => 'feed.rss',
+    'atom' => 'feed.atom',
+    'rdf' => 'data.rdf',
+    'rdfs' => 'schema.rdfs',
+    'owl' => 'onto.owl',
+    'xsd' => 'schema.xsd',
+    'dtd' => 'doc.dtd',
+    'xbl' => 'binding.xbl',
+    'xul' => 'window.xul',
+    'mathml' => 'formula.mathml',
+    'mml' => 'formula.mml',
+    'wsdl' => 'service.wsdl',
+    'wadl' => 'service.wadl',
+    'xspf' => 'list.xspf',
+    'xaml' => 'page.xaml',
+    'smil' => 'show.smil',
+    'swf' => 'movie.swf',
+    'uppercase rss' => 'FEED.RSS',
 ]);
+
+it('keeps a name whose active-looking word is not its extension', function (string $name) {
+    // The nearest neighbours of the added extensions: the word is the base name, or part of a longer
+    // extension, never an extension of its own.
+    $response = postActiveContent(['named' => realUpload($name, PLAIN_PDF)]);
+
+    $response->assertStatus(201);
+    expect($response->json('data.named.name'))->toBe($name);
+})->with(['rss.pdf', 'xsd.pdf', 'atom.pdf', 'feeds.pdf', 'swf-notes.pdf', 'report.rssi.pdf']);
 
 it('keeps the name of a file that is not active content', function () {
     $response = postActiveContent(['named' => realUpload('Quarterly report.final.pdf', PLAIN_PDF)]);
