@@ -10,6 +10,18 @@ import { htmlTooltip } from '@/lib/htmlTooltip'
  * authors can build multi-line hints without losing safety on fields that
  * stick to plain text.
  */
+/**
+ * The tooltip as plain text, for the icon's accessible name: a screen reader
+ * reads an `aria-label` literally, so the markup of an HTML tooltip would be
+ * spelt out tag by tag. Parsed into an inert document (nothing runs, nothing
+ * loads); a line break becomes a space.
+ */
+function plainText(html: string): string {
+  const body = new DOMParser().parseFromString(html, 'text/html').body
+  body.querySelectorAll('br').forEach((br) => br.replaceWith(' '))
+  return (body.textContent ?? '').replace(/\s+/g, ' ').trim()
+}
+
 export function FieldLabelTooltip({ text, position = 'top' }: { text?: string | null; position?: 'top' | 'bottom' | 'left' | 'right' }) {
   if (!text) return null
   return (
@@ -17,7 +29,7 @@ export function FieldLabelTooltip({ text, position = 'top' }: { text?: string | 
       className="inline-flex cursor-help align-middle"
       style={{ color: 'var(--martis-text-muted)', marginLeft: '0.25rem' }}
       {...htmlTooltip(text, position)}
-      aria-label={text}
+      aria-label={plainText(text)}
     >
       <QuestionIcon size={14} weight="regular" />
     </span>
