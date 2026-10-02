@@ -323,7 +323,14 @@ abstract class MartisController extends Controller
             }
 
             if (! $field->relatedResourceAuthorizedToViewAny($request)) {
-                return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+                // A related resource the user is soft-locked from answers the lock,
+                // as every endpoint of a locked resource does; one they may not list
+                // (`viewAny`) the plain 403.
+                $lock = method_exists($field, 'relatedResourceLock') ? $field->relatedResourceLock($request) : null;
+
+                return $lock !== null
+                    ? SoftGate::refusal($lock)
+                    : JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
             }
         }
 
