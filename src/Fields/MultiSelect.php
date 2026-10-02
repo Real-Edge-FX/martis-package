@@ -156,7 +156,8 @@ class MultiSelect extends Field
         }
 
         $rules[] = function (string $attribute, mixed $value, \Closure $fail): void {
-            // An empty value is for `required` and `nullable` to judge.
+            // An empty value is for `required` and `nullable` to judge (create: `required`
+            // refuses it; update drops `required` for every field, see BuildsFieldRules).
             if ($value === null) {
                 return;
             }
@@ -164,7 +165,7 @@ class MultiSelect extends Field
             if (is_array($value)) {
                 foreach ($value as $item) {
                     if (! $this->optionsContain($item)) {
-                        $fail('validation.in')->translate();
+                        $fail('martis::validation.not_in_options')->translate();
 
                         return;
                     }
@@ -173,7 +174,7 @@ class MultiSelect extends Field
                 return;
             }
 
-            $fail('validation.in')->translate();
+            $fail('martis::validation.not_in_options')->translate();
         };
 
         return $rules;

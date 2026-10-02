@@ -63,7 +63,7 @@ Gate::define('martis-impersonate', function ($operator, $target) {
 });
 ```
 
-The gate runs after the target is loaded. For an id that does not exist it runs with the operator alone: a gate that needs the target answers `403` there, like any other denial, and a gate that only judges the operator (and refuses) answers `403` too, so an operator who may not impersonate learns nothing about which ids exist from a `404`. Give the second parameter a default (`$target = null`) if the same gate also serves a call without a target. Up to v2.3.0 the gate never saw the target; a one-argument gate written then is still called the same way, and still lets the operator impersonate whoever they ask for: add the second argument to restrict that.
+The gate runs after the target is loaded. For an id that does not exist it runs with the operator alone: a gate that needs the target answers `403` there, like any other denial (and so does one that raises any error on the missing target, such as a `$target = null` closure that reads `$target->rank`: an error there is a refusal, never a `500`), and a gate that only judges the operator (and refuses) answers `403` too, so an operator who may not impersonate learns nothing about which ids exist from a `404`. Give the second parameter a default (`$target = null`) if the same gate also serves a call without a target. Up to v2.3.0 the gate never saw the target; a one-argument gate written then is still called the same way, and still lets the operator impersonate whoever they ask for: add the second argument to restrict that.
 
 ### Per-instance hooks
 

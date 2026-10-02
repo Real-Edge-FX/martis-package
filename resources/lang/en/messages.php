@@ -287,6 +287,7 @@ return [
     'sso_provider_disabled' => 'This sign-in method is not available right now.',
     'sso_callback_failed' => 'Sign-in failed. Please try again or contact your administrator.',
     'sso_user_not_provisioned' => 'Your account is not provisioned in this workspace yet. Contact your administrator.',
+    'sso_account_unverified' => 'An account with this email already exists here but cannot be linked to this sign-in. Contact your administrator.',
     'sso_no_role_match' => "Your account doesn't have the roles required to access this workspace.",
     'reset_to_defaults' => 'Reset to defaults',
     'theme' => 'Theme',

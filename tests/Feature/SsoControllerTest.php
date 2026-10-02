@@ -12,6 +12,7 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Schema;
 use Martis\Auth\TwoFactorPass;
 use Martis\Sso\Facades\MartisSso;
+use Martis\Sso\IdentityResolver;
 use Martis\Sso\Providers\AzureProvider;
 use Martis\Sso\SsoIdentity;
 use Martis\Sso\SsoManager;
@@ -449,4 +450,40 @@ it('routes are NOT registered when sso master switch is off', function () {
         ->filter(fn (string $n) => str_starts_with($n, 'martis.sso'));
 
     expect($names)->toBeEmpty();
+});
+
+it('callback refuses to sign in as an unverified local account the IdP address was pre-registered on', function () {
+    IdentityResolver::forgetResolver();
+    config()->set('martis.auth.registration.enabled', true);
+    Schema::table('users', fn ($t) => $t->timestamp('email_verified_at')->nullable());
+
+    $attacker = SsoTestUser::query()->create([
+        'name' => 'Registered by the attacker',
+        'email' => 'victim@example.com',
+        'password' => bcrypt('attacker-password'),
+    ]);
+    $identity = stubIdentity('victim@example.com', ['PMI ADMIN']);
+
+    $this->app->instance(AzureProvider::class, new class($identity) extends AzureProvider
+    {
+        public function __construct(private SsoIdentity $stub) {}
+
+        public function resolveIdentity(Request $request): SsoIdentity
+        {
+            return $this->stub;
+        }
+
+        public function redirect(Request $request): RedirectResponse
+        {
+            return redirect('/');
+        }
+    });
+
+    $response = $this->get('/martis/sso/azure/callback');
+
+    $response->assertRedirect(route('martis.login'));
+    $response->assertSessionHasErrors(['sso' => __('martis::messages.sso_account_unverified')]);
+    expect(auth()->check())->toBeFalse();
+    expect($this->capturedRoles)->toHaveCount(0);
+    expect($attacker->refresh()->name)->toBe('Registered by the attacker');
 });

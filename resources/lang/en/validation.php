@@ -16,4 +16,6 @@ return [
     // A BelongsTo with no relatedResource() whose relationship names no single registered
     // resource: the value cannot be checked against a picker, so it is refused.
     'relatable_unresolved' => 'The :attribute has no related resource to check the selected record against. Declare relatedResource() on the field.',
+    // A Select / MultiSelect with validateAgainstOptions() got a value outside its options.
+    'not_in_options' => 'The selected :attribute is invalid.',
 ];

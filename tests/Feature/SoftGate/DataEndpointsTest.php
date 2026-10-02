@@ -562,7 +562,7 @@ it('refuses the picker of an unlocked resource that lists the records of a locke
 it('closes the relationship panel that lists the records of a locked resource', function () {
     $panel = SG_BASE.'/resources/sg-groups/'.$this->group->id.'/has-many/items';
 
-    $this->getJson($panel)->assertForbidden();
+    sgAssertLocked($this->getJson($panel));
 
     $detail = $this->getJson(SG_BASE.'/resources/sg-groups/'.$this->group->id)->assertOk();
     expect(collect($detail->json('data'))->keys()->all())->not->toContain('items');

@@ -281,9 +281,18 @@ class Dashboard implements DashboardContract
     // Serialization
     // -------------------------------------------------------------------------
 
-    /** {@inheritdoc} */
+    /**
+     * {@inheritdoc}
+     *
+     * A dashboard soft-locked for the user (`lockedFor()`, `requirePlan()`)
+     * keeps its descriptor and its `lock` payload but carries no `meta`: it is
+     * where a custom dashboard component holds its data, which the lock
+     * withholds (v2.4.0, as for a Card).
+     */
     public function toArray(): array
     {
+        $lock = $this->lockPayloadNow();
+
         return [
             'type' => 'dashboard',
             'name' => $this->name(),
@@ -295,8 +304,8 @@ class Dashboard implements DashboardContract
             'layout' => $this->layoutType(),
             'showRefreshButton' => $this->showRefreshButton(),
             'badge' => $this->badge(),
-            'lock' => $this->lockPayloadNow(),
-            'meta' => $this->meta(),
+            'lock' => $lock,
+            'meta' => $lock === null ? $this->meta() : [],
         ];
     }
 }

@@ -843,6 +843,7 @@ class ActionController extends MartisController
             modelClass: $modelClass,
             userId: $request->user()?->getAuthIdentifier(),
         );
+        $job->shouldBeEncrypted = ActionEventRedactor::carriesSecret($action->fields($request), $fields->all(), $request);
 
         if (property_exists($action, 'connection')) {
             $job->onConnection($action->connection);
@@ -1325,6 +1326,7 @@ class ActionController extends MartisController
             userId: $userId,
             logEvents: $logEvents,
         );
+        $job->shouldBeEncrypted = ActionEventRedactor::carriesSecret($action->fields($request), $fields->all(), $request);
 
         if (property_exists($action, 'connection')) {
             $job->onConnection($action->connection);

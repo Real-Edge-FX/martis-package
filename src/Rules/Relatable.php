@@ -8,6 +8,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -151,6 +152,13 @@ final class Relatable implements DataAwareRule, ValidationRule
     private function failure(string $attribute, mixed $value): ?string
     {
         $field = $this->field;
+
+        // An id that is not an int or a string is not one, whatever the
+        // casts would make of it (`true` is key 1): refuse it, as `fill()`
+        // ignores it.
+        if (($field instanceof BelongsTo || $field instanceof MorphTo) && $field->submitsMalformedId($value)) {
+            return 'martis::validation.relatable';
+        }
 
         if ($field instanceof BelongsTo) {
             $id = $field->submittedId($value);
@@ -495,11 +503,18 @@ final class Relatable implements DataAwareRule, ValidationRule
     }
 
     /**
-     * A new record of the source resource's model: the record the field is
-     * declared on, to read the relationship its related model comes from.
+     * The record whose relationship a `BelongsTo` without `relatedResource()`
+     * names: the pivot row for a pivot field (the relationship lives on the
+     * pivot model, `Pivot::approver()`, not on the parent record the panel
+     * belongs to), otherwise a new record of the source resource's model, the
+     * record the field is declared on.
      */
     private function sourceModel(): ?Model
     {
+        if ($this->record instanceof Pivot) {
+            return $this->record;
+        }
+
         return $this->sourceResourceClass !== null ? $this->sourceResourceClass::newModel() : null;
     }
 

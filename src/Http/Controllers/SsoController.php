@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Martis\Auth\TwoFactorPass;
 use Martis\Sso\IdentityResolver;
 use Martis\Sso\RoleMapper;
+use Martis\Sso\SsoAdoptionRefusedException;
 use Martis\Sso\SsoIdentity;
 use Martis\Sso\SsoManager;
 use Martis\Sso\SsoSession;
@@ -81,7 +82,18 @@ class SsoController extends Controller
         // Step 1: resolve user (find-or-create). Run BEFORE roles when
         // `auto_create_user = true` so the role mapper has the user
         // available for column lookups that depend on it.
-        $user = $this->identityResolver->resolve($identity, $provider);
+        try {
+            $user = $this->identityResolver->resolve($identity, $provider);
+        } catch (SsoAdoptionRefusedException $e) {
+            Log::channel(config('logging.default'))->warning('SSO sign-in refused: unverified local account holds the address', [
+                'provider' => $provider,
+                'email' => $e->email,
+            ]);
+
+            return redirect()
+                ->route('martis.login')
+                ->withErrors(['sso' => __('martis::messages.sso_account_unverified')]);
+        }
 
         if ($user === null) {
             return redirect()

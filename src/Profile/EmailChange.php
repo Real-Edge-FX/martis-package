@@ -7,7 +7,9 @@ namespace Martis\Profile;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Validator;
 use Martis\Auth\GuardCatalog;
 use Martis\Contracts\ProfileResourceContract;
@@ -67,6 +69,50 @@ final class EmailChange
         return is_string($submitted)
             && trim($submitted) !== ''
             && strcasecmp(trim($submitted), $this->currentEmail($user)) !== 0;
+    }
+
+    /**
+     * Count a request for the confirmation mail and refuse it past the limit
+     * (`martis.profile.email_change.throttle_attempts` per
+     * `throttle_minutes`, 5 per hour by default; 0 turns it off).
+     *
+     * Two buckets, both spent by a request that would mail: the user's own,
+     * so one account cannot mail arbitrary addresses at the rate of the
+     * generic API throttle, and the new address's, so several accounts cannot
+     * mail one address (the pre-hijack victim) without bound. A
+     * `ThrottleRequestsException` is the same 429 the throttle middleware
+     * answers.
+     *
+     * @throws ThrottleRequestsException
+     */
+    public function limitMail(Authenticatable $user, string $newEmail): void
+    {
+        $attempts = max(0, (int) config('martis.profile.email_change.throttle_attempts', 5));
+
+        if ($attempts === 0) {
+            return;
+        }
+
+        $decay = max(1, (int) config('martis.profile.email_change.throttle_minutes', 60)) * 60;
+        $guard = GuardCatalog::martis();
+        $keys = [
+            'martis-email-change|'.$guard.'|user|'.$user->getAuthIdentifier(),
+            'martis-email-change|'.$guard.'|address|'.sha1(strtolower(trim($newEmail))),
+        ];
+
+        foreach ($keys as $key) {
+            if (RateLimiter::tooManyAttempts($key, $attempts)) {
+                throw new ThrottleRequestsException('Too Many Attempts.', headers: [
+                    'Retry-After' => RateLimiter::availableIn($key),
+                    'X-RateLimit-Limit' => $attempts,
+                    'X-RateLimit-Remaining' => 0,
+                ]);
+            }
+        }
+
+        foreach ($keys as $key) {
+            RateLimiter::hit($key, $decay);
+        }
     }
 
     /**

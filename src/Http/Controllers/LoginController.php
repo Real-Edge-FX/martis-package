@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Martis\Auth\AccountLoginThrottle;
 use Martis\Auth\PasswordChangeRequirement;
 use Martis\Auth\TwoFactorPass;
 use Martis\Http\Controllers\Concerns\AuthenticatesWithRememberMe;
@@ -46,11 +47,21 @@ class LoginController extends MartisController
         /** @var StatefulGuard $auth */
         $auth = auth()->guard($guardName);
 
+        // The per-account limit: wrong passwords for one account, from any
+        // address, spend one bucket (AccountLoginThrottle).
+        $email = (string) $request->input('email');
+        $account = AccountLoginThrottle::userFor($auth, $email);
+        if (AccountLoginThrottle::tooMany(AccountLoginThrottle::PASSWORD, $email, $account)) {
+            throw AccountLoginThrottle::exception(AccountLoginThrottle::PASSWORD, $email, $account);
+        }
+
         // "Keep me signed in" — attemptLogin() forwards the toggle to attempt()
         // so Laravel issues the long-lived remember-me cookie. Without it the
         // session only lives for config('session.lifetime') and the toggle is
         // a no-op. Shared with AuthController so the two cannot diverge again.
         if (! $this->attemptLogin($auth, $request)) {
+            AccountLoginThrottle::hit(AccountLoginThrottle::PASSWORD, $email, $account);
+
             if ($request->expectsJson()) {
                 return response()->json([
                     'message' => __('auth.failed'),
@@ -60,6 +71,8 @@ class LoginController extends MartisController
 
             return back()->withErrors(['email' => __('auth.failed')])->withInput($request->only('email'));
         }
+
+        AccountLoginThrottle::clear(AccountLoginThrottle::PASSWORD, $email, $account);
 
         $request->session()->regenerate();
 

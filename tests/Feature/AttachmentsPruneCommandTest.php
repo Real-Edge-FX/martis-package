@@ -176,3 +176,30 @@ it('stops without deleting when the records of a resource cannot be read', funct
 
     expect(Storage::disk('public')->exists($orphan))->toBeTrue();
 });
+
+it('refuses, deleting nothing, when no resource is registered', function () {
+    $orphan = attPruneFile('public', 48);
+    app(ResourceRegistry::class)->flush();
+
+    $this->artisan('martis:attachments:prune')
+        ->expectsOutputToContain('Nothing was deleted')
+        ->assertExitCode(1);
+    $this->artisan('martis:attachments:prune', ['--dry-run' => true])->assertExitCode(1);
+
+    expect(Storage::disk('public')->exists($orphan))->toBeTrue();
+});
+
+it('refuses, deleting nothing, when the registered resources have no text or JSON column to scan', function () {
+    $orphan = attPruneFile('public', 48);
+    Schema::dropIfExists('att_prune_items');
+    Schema::create('att_prune_items', function ($table) {
+        $table->id();
+        $table->integer('count')->default(0);
+    });
+
+    $this->artisan('martis:attachments:prune')
+        ->expectsOutputToContain('Nothing was deleted')
+        ->assertExitCode(1);
+
+    expect(Storage::disk('public')->exists($orphan))->toBeTrue();
+});

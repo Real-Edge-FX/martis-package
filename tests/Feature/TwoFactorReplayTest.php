@@ -144,6 +144,41 @@ it('records the start of the step, not the time of the acceptance', function (st
         ->and(Carbon::parse((string) $user->getAttribute('two_factor_last_used_at'))->getTimestamp())->toBe($step * 30);
 })->with(['plain model' => [ReplayPlainUser::class], 'datetime cast' => [ReplayCastUser::class]]);
 
+it('records a newer step as newer during the hour a daylight-saving change repeats', function (string $model) {
+    // New York falls back on 2026-11-01: 01:xx happens twice (EDT, then EST).
+    $zone = date_default_timezone_get();
+    config()->set('app.timezone', 'America/New_York');
+    date_default_timezone_set('America/New_York');
+
+    try {
+        tfr2Schema();
+        $user = tfr2User($model);
+        $service = app(TwoFactorService::class);
+        $consume = new ReflectionMethod($service, 'consumeStep');
+        $last = new ReflectionMethod($service, 'lastConsumedStep');
+
+        // Steps by instant (Carbon's test clock cannot say the second 01:xx): a code accepted
+        // at 01:10 EDT (05:10 UTC), then one 55 minutes later, at 01:05 EST (06:05 UTC). The
+        // local wall-clock strings sort the other way round: '01:10:00' > '01:05:00'.
+        $first = intdiv(Carbon::parse('2026-11-01 05:10:00', 'UTC')->getTimestamp(), 30);
+        $second = intdiv(Carbon::parse('2026-11-01 06:05:00', 'UTC')->getTimestamp(), 30);
+
+        expect($consume->invoke($service, $model::find($user->getKey()), $first))->toBeTrue();
+        expect($consume->invoke($service, $model::find($user->getKey()), $second))->toBeTrue();
+
+        // Stored in UTC and read back as the same step, whatever the app timezone.
+        expect(DB::table('users')->where('id', $user->id)->value('two_factor_last_used_at'))
+            ->toBe('2026-11-01 06:05:00')
+            ->and($last->invoke($service, $model::find($user->getKey())))->toBe($second);
+
+        // The control: the older step, or the same one again, is still refused.
+        expect($consume->invoke($service, $model::find($user->getKey()), $first))->toBeFalse()
+            ->and($consume->invoke($service, $model::find($user->getKey()), $second))->toBeFalse();
+    } finally {
+        date_default_timezone_set($zone);
+    }
+})->with(['plain model' => [ReplayPlainUser::class], 'datetime cast' => [ReplayCastUser::class]]);
+
 it('refuses a second request that carries the same code at once', function (string $model) {
     tfr2Schema();
     $user = tfr2User($model);

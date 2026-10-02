@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Foundation\Auth\User;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
+use Martis\Auth\AccountLoginThrottle;
 
 // -----------------------------------------------------------------------------
 // martis-login rate limiter — per-email + per-IP composition
@@ -72,7 +75,7 @@ it('martis-login limiter is registered with the correct attempts default', funct
 
     /** @var array<int, Limit> $resolved */
     $resolved = (array) $limits($request);
-    expect($resolved)->toHaveCount(2)
+    expect($resolved)->toHaveCount(1)
         ->and($resolved[0])->toBeInstanceOf(Limit::class)
         ->and($resolved[0]->maxAttempts)->toBe($attempts)
         ->and($resolved[0]->key)->toContain('ip|198.51.100.42');
@@ -82,9 +85,11 @@ it('martis-login limiter is registered with the correct attempts default', funct
 // The per-account limit (v2.4.0)
 // -----------------------------------------------------------------------------
 //
-// The first limit gives every source IP a bucket of its own for the same
+// The named limiter gives every source IP a bucket of its own for the same
 // email, so guesses spread over N addresses got N x login_attempts per minute
-// at one account. The limiter holds a second limit keyed on the email alone.
+// at one account. AccountLoginThrottle holds the per-account bucket: it counts
+// wrong passwords only, keys on the account the email matches, and the
+// magic-link request has a bucket of its own.
 
 /** The limits `martis-login` resolves for a request to the login. */
 function loginLimitsFor(string $ip, ?string $email): array
@@ -96,51 +101,8 @@ function loginLimitsFor(string $ip, ?string $email): array
     return (array) RateLimiter::limiter('martis-login')($request);
 }
 
-it('martis-login keys its second limit on the email alone, so a botnet shares one bucket', function () {
-    $fromOneIp = loginLimitsFor('198.51.100.1', 'Victim@Example.com');
-    $fromAnotherIp = loginLimitsFor('198.51.100.2', ' victim@example.com ');
-
-    expect($fromOneIp)->toHaveCount(2)
-        // The first limit still tells two IPs apart ...
-        ->and($fromOneIp[0]->key)->not->toBe($fromAnotherIp[0]->key)
-        // ... the second does not, and holds no IP at all, whatever the case or the padding of the email.
-        ->and($fromOneIp[1]->key)->toBe($fromAnotherIp[1]->key)
-        ->and($fromOneIp[1]->key)->not->toContain('198.51.100')
-        ->and($fromOneIp[1]->key)->not->toBe(loginLimitsFor('198.51.100.1', 'other@example.com')[1]->key);
-});
-
-it('martis-login gives the per-account limit a higher threshold than the per-IP one, from config', function () {
-    [$perIp, $perAccount] = loginLimitsFor('198.51.100.1', 'victim@example.com');
-
-    expect($perAccount->maxAttempts)->toBe(100)
-        ->and($perAccount->maxAttempts)->toBeGreaterThan($perIp->maxAttempts)
-        ->and($perAccount->decaySeconds)->toBe(15 * 60);
-
-    config()->set('martis.throttle.login_email_attempts', 7);
-    config()->set('martis.throttle.login_email_minutes', 3);
-    [, $perAccount] = loginLimitsFor('198.51.100.1', 'victim@example.com');
-
-    expect($perAccount->maxAttempts)->toBe(7)
-        ->and($perAccount->decaySeconds)->toBe(180);
-});
-
-it('martis-login turns the per-account limit off with zero attempts', function () {
-    config()->set('martis.throttle.login_email_attempts', 0);
-
-    expect(loginLimitsFor('198.51.100.1', 'victim@example.com'))->toHaveCount(1);
-});
-
-it('martis-login limits a request without an email per IP only', function () {
-    expect(loginLimitsFor('198.51.100.1', null))->toHaveCount(1);
-});
-
-it('puts the martis-login limiter on both login routes and the magic link request', function (string $route) {
-    $middleware = app('router')->getRoutes()->getByName($route)->gatherMiddleware();
-
-    expect($middleware)->toContain('throttle:martis-login');
-})->with(['martis.login.attempt', 'martis.api.auth.login', 'martis.api.auth.magic-link.request']);
-
-it('throttles guesses at one account spread over many IPs, on both login routes', function (string $method, string $uri) {
+function throttleUsersTable(): void
+{
     Schema::dropIfExists('users');
     Schema::create('users', function ($table) {
         $table->id();
@@ -150,23 +112,140 @@ it('throttles guesses at one account spread over many IPs, on both login routes'
         $table->rememberToken();
         $table->timestamps();
     });
+}
+
+it('martis-login holds the per-email + per-IP limit only: the per-account one lives in the controllers', function () {
+    $fromOneIp = loginLimitsFor('198.51.100.1', 'Victim@Example.com');
+
+    expect($fromOneIp)->toHaveCount(1)
+        ->and($fromOneIp[0]->key)->toContain('ip|198.51.100.1')
+        ->and(loginLimitsFor('198.51.100.1', null))->toHaveCount(1);
+});
+
+it('keys the per-account bucket on the matched user, whatever the spelling of the email', function () {
+    throttleUsersTable();
+    $victim = User::forceCreate(['name' => 'V', 'email' => 'victim@example.com', 'password' => bcrypt('right')]);
+    $other = User::forceCreate(['name' => 'O', 'email' => 'other@example.com', 'password' => bcrypt('right')]);
+    $guard = auth()->guard(config('martis.guard'));
+
+    // The database matches these spellings to one row (a case-insensitive
+    // collation, accents folded by MySQL's default), the bucket follows the row.
+    $spelledOut = AccountLoginThrottle::key(AccountLoginThrottle::PASSWORD, 'Víctim@Example.com', $victim);
+    expect($spelledOut)->toBe(AccountLoginThrottle::key(AccountLoginThrottle::PASSWORD, ' victim@example.com ', $victim))
+        ->and($spelledOut)->not->toBe(AccountLoginThrottle::key(AccountLoginThrottle::PASSWORD, 'other@example.com', $other))
+        // an account of its own per purpose
+        ->and($spelledOut)->not->toBe(AccountLoginThrottle::key(AccountLoginThrottle::MAGIC_LINK, 'victim@example.com', $victim));
+
+    // No user matches: the lowercased, trimmed email.
+    expect(AccountLoginThrottle::key(AccountLoginThrottle::PASSWORD, 'Ghost@Example.com'))
+        ->toBe(AccountLoginThrottle::key(AccountLoginThrottle::PASSWORD, ' ghost@example.com '))
+        ->not->toBe(AccountLoginThrottle::key(AccountLoginThrottle::PASSWORD, 'ghost2@example.com'));
+
+    expect(AccountLoginThrottle::userFor($guard, 'victim@example.com')?->getAuthIdentifier())->toBe($victim->getAuthIdentifier())
+        ->and(AccountLoginThrottle::userFor($guard, 'nobody@example.com'))->toBeNull();
+});
+
+it('turns the per-account limit off with zero attempts', function () {
+    config()->set('martis.throttle.login_email_attempts', 0);
+
+    expect(AccountLoginThrottle::enabled())->toBeFalse();
+    AccountLoginThrottle::hit(AccountLoginThrottle::PASSWORD, 'a@example.com');
+    expect(AccountLoginThrottle::tooMany(AccountLoginThrottle::PASSWORD, 'a@example.com'))->toBeFalse();
+});
+
+it('puts the martis-login limiter on both login routes and the magic link request', function (string $route) {
+    $middleware = app('router')->getRoutes()->getByName($route)->gatherMiddleware();
+
+    expect($middleware)->toContain('throttle:martis-login');
+})->with(['martis.login.attempt', 'martis.api.auth.login', 'martis.api.auth.magic-link.request']);
+
+it('throttles wrong passwords at one account spread over many IPs, on both login routes', function (string $method, string $uri) {
+    throttleUsersTable();
+    User::forceCreate(['name' => 'V', 'email' => 'victim@example.com', 'password' => bcrypt('right-password')]);
     // The per-IP limits are out of the way: only the per-account one can answer 429.
     config()->set('martis.throttle.login_email_attempts', 3);
-    $guess = fn (string $ip, string $email) => $this->withServerVariables(['REMOTE_ADDR' => $ip])
-        ->{$method}($uri, ['email' => $email, 'password' => 'wrong-guess']);
+    $guess = fn (string $ip, string $email, string $password = 'wrong-guess') => $this->withServerVariables(['REMOTE_ADDR' => $ip])
+        ->{$method}($uri, ['email' => $email, 'password' => $password]);
 
     foreach (['203.0.113.1', '203.0.113.2', '203.0.113.3'] as $ip) {
         expect($guess($ip, 'victim@example.com')->getStatusCode())->not->toBe(429);
     }
 
-    // A fourth guess from a fresh address is refused, before the password is checked ...
+    // A fourth guess from a fresh address is refused, before the password is checked: the
+    // right password included, or the limit would only slow a brute force down.
     $guess('203.0.113.4', 'victim@example.com')->assertStatus(429);
+    $guess('203.0.113.5', 'victim@example.com', 'right-password')->assertStatus(429);
+    $this->assertGuest(config('martis.guard'));
     // ... and the next account is not affected.
     expect($guess('203.0.113.4', 'bystander@example.com')->getStatusCode())->not->toBe(429);
 })->with([
     'POST /login' => ['post', '/martis/login'],
     'POST /api/auth/login' => ['postJson', '/martis/api/auth/login'],
 ]);
+
+it('counts only the wrong passwords: the owner signing in and out never spends the bucket', function (string $method, string $uri) {
+    throttleUsersTable();
+    User::forceCreate(['name' => 'V', 'email' => 'victim@example.com', 'password' => bcrypt('right-password')]);
+    config()->set('martis.throttle.login_email_attempts', 3);
+    config()->set('martis.throttle.login_attempts', 1000);
+
+    // Ten good sign-ins (the bucket is 3): none is a failure, none is refused.
+    foreach (range(1, 10) as $i) {
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.'.$i])
+            ->{$method}($uri, ['email' => 'victim@example.com', 'password' => 'right-password'])
+            ->assertStatus($method === 'post' ? 302 : 200);
+        auth()->guard(config('martis.guard'))->logout();
+    }
+
+    // Two wrong ones, a good one that clears the run, two more wrong ones: still below 3 in a row.
+    $wrong = fn () => $this->{$method}($uri, ['email' => 'victim@example.com', 'password' => 'nope']);
+    $wrong();
+    $wrong();
+    $this->{$method}($uri, ['email' => 'victim@example.com', 'password' => 'right-password'])->assertStatus($method === 'post' ? 302 : 200);
+    auth()->guard(config('martis.guard'))->logout();
+    expect($wrong()->getStatusCode())->not->toBe(429);
+    expect($wrong()->getStatusCode())->not->toBe(429);
+    expect($wrong()->getStatusCode())->not->toBe(429);
+    $wrong()->assertStatus(429);
+})->with([
+    'POST /login' => ['post', '/martis/login'],
+    'POST /api/auth/login' => ['postJson', '/martis/api/auth/login'],
+]);
+
+it('gives the magic-link request a bucket of its own, apart from the password sign-in', function () {
+    throttleUsersTable();
+    $victim = User::forceCreate(['name' => 'V', 'email' => 'victim@example.com', 'password' => bcrypt('right-password')]);
+    Schema::dropIfExists('password_reset_tokens');
+    Schema::create('password_reset_tokens', function ($t) {
+        $t->string('email')->primary();
+        $t->string('token');
+        $t->timestamp('created_at')->nullable();
+    });
+    config()->set('martis.auth.magic_link.enabled', true);
+    config()->set('martis.throttle.login_email_attempts', 3);
+    config()->set('martis.throttle.login_attempts', 1000);
+    Notification::fake();
+
+    // Password noise fills the password bucket ...
+    foreach (range(1, 3) as $ignored) {
+        $this->postJson('/martis/api/auth/login', ['email' => 'victim@example.com', 'password' => 'nope'])->assertStatus(422);
+    }
+    $this->postJson('/martis/api/auth/login', ['email' => 'victim@example.com', 'password' => 'nope'])->assertStatus(429);
+
+    // ... and does not starve the magic-link request, whatever the spelling of the address.
+    foreach (['victim@example.com', 'Victim@Example.com', 'victim@example.com'] as $spelling) {
+        $this->postJson('/martis/api/auth/magic-link/request', ['email' => $spelling])->assertOk();
+    }
+    // Its own bucket is 3 requests too: the 4th is refused, and so is the same account with another spelling.
+    $this->postJson('/martis/api/auth/magic-link/request', ['email' => 'VICTIM@example.com'])->assertStatus(429);
+
+    // An unknown address behaves alike (no account is told apart from another by the 429).
+    foreach (range(1, 3) as $ignored) {
+        $this->postJson('/martis/api/auth/magic-link/request', ['email' => 'ghost@example.com'])->assertOk();
+    }
+    $this->postJson('/martis/api/auth/magic-link/request', ['email' => 'ghost@example.com'])->assertStatus(429);
+    expect($victim->exists)->toBeTrue();
+});
 
 it('martis-login limiter falls back to per-IP when no email is supplied', function () {
     // Empty payload — no email — should still throttle on IP only.

@@ -89,13 +89,13 @@ function emailChangeLink(string $to): string
     return (string) $url;
 }
 
-/** Follow a link as a guest in another browser. */
+/** Open the link as a guest in another browser and click its button: the POST that applies the change. */
 function emailChangeFollow(string $url)
 {
     auth()->forgetGuards();
     test()->flushSession();
 
-    return test()->get($url);
+    return test()->post($url);
 }
 
 it('does not change the address without the current password', function () {
@@ -159,7 +159,7 @@ it('switches the address when the link is followed, resets the verification and 
     emailChangePatch(['name' => 'Ada', 'email' => 'new@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();
     $url = emailChangeLink('new@example.com');
 
-    emailChangeFollow($url)->assertRedirect('/martis/login?email_change=changed');
+    emailChangeFollow($url)->assertOk()->assertJson(['redirect' => '/martis/login?email_change=changed']);
 
     $fresh = $this->user->fresh();
     expect($fresh->email)->toBe('new@example.com')
@@ -176,7 +176,7 @@ it('sends the verification link of the app to the new address when verification 
     config()->set('martis.auth.email_verification.enabled', true);
     emailChangePatch(['name' => 'Ada', 'email' => 'new@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();
 
-    emailChangeFollow(emailChangeLink('new@example.com'))->assertRedirect('/martis/login?email_change=changed');
+    emailChangeFollow(emailChangeLink('new@example.com'))->assertOk()->assertJson(['redirect' => '/martis/login?email_change=changed']);
 
     Notification::assertSentTo($this->user->fresh(), VerifyEmail::class);
     expect($this->user->fresh()->email_verified_at)->toBeNull();
@@ -204,16 +204,64 @@ it('leaves the verification alone for a model with neither the contract nor Mart
     $this->actingAs($user)->withSession(['martis_two_factor_passed' => true])
         ->patchJson('/martis/api/profile', ['name' => 'Plain', 'email' => 'plain2@example.com', 'current_password' => 'Correct-Horse-1'])
         ->assertOk();
-    emailChangeFollow(emailChangeLink('plain2@example.com'))->assertRedirect('/martis/login?email_change=changed');
+    emailChangeFollow(emailChangeLink('plain2@example.com'))->assertOk()->assertJson(['redirect' => '/martis/login?email_change=changed']);
 
     expect($plain::query()->find($user->getKey())->email)->toBe('plain2@example.com');
+});
+
+it('does not change anything when the mailed link is merely opened (scanner, preview, prefetch)', function () {
+    emailChangePatch(['name' => 'Ada', 'email' => 'victim@corp.example', 'current_password' => 'Correct-Horse-1'])->assertOk();
+    $url = emailChangeLink('victim@corp.example');
+    Notification::fake();
+    auth()->forgetGuards();
+    $this->flushSession();
+
+    // Several loads, as a gateway that prefetches the victim's mail would make.
+    foreach (range(1, 3) as $_) {
+        $this->get($url)
+            ->assertOk()
+            ->assertHeader('Referrer-Policy', 'no-referrer')
+            ->assertSee('id="martis-root"', false);
+    }
+
+    expect($this->user->fresh()->email)->toBe('ada@example.com');
+    Notification::assertNothingSent();
+    $this->assertGuest(config('martis.guard'));
+});
+
+it('sends an opened link with a bad signature, or while the profile is off, to the login page as invalid', function () {
+    emailChangePatch(['name' => 'Ada', 'email' => 'new@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();
+    $url = emailChangeLink('new@example.com');
+
+    $this->get(preg_replace('/&signature=[^&]*/', '', $url))->assertRedirect('/martis/login?email_change=invalid');
+
+    config()->set('martis.profile.enabled', false);
+    $this->get($url)->assertRedirect('/martis/login?email_change=invalid');
+    expect($this->user->fresh()->email)->toBe('ada@example.com');
+});
+
+it('enforces the CSRF check on the confirmation POST and changes nothing without it', function () {
+    emailChangePatch(['name' => 'Ada', 'email' => 'new@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();
+    $url = emailChangeLink('new@example.com');
+    auth()->forgetGuards();
+    $this->flushSession();
+    // The framework skips the CSRF check while the app runs as `testing`.
+    $this->app['env'] = 'local';
+
+    $this->post($url)->assertStatus(419);
+    expect($this->user->fresh()->email)->toBe('ada@example.com');
+
+    $this->withSession(['_token' => 'csrf-token'])->post($url, ['_token' => 'csrf-token'])
+        ->assertOk()
+        ->assertJson(['outcome' => 'changed']);
+    expect($this->user->fresh()->email)->toBe('new@example.com');
 });
 
 it('sends a signed-in browser back to the profile page', function () {
     emailChangePatch(['name' => 'Ada', 'email' => 'new@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();
     $url = emailChangeLink('new@example.com');
 
-    $this->actingAs($this->user)->get($url)->assertRedirect('/martis/profile?email_change=changed');
+    $this->actingAs($this->user)->post($url)->assertOk()->assertJson(['redirect' => '/martis/profile?email_change=changed']);
     expect($this->user->fresh()->email)->toBe('new@example.com');
 });
 
@@ -225,12 +273,12 @@ it('works once: a link followed again, or issued before another change, is dead'
     emailChangePatch(['name' => 'Ada', 'email' => 'second@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();
     $second = emailChangeLink('second@example.com');
 
-    emailChangeFollow($first)->assertRedirect('/martis/login?email_change=changed');
+    emailChangeFollow($first)->assertOk()->assertJson(['redirect' => '/martis/login?email_change=changed']);
     expect($this->user->fresh()->email)->toBe('first@example.com');
 
     // Followed again, and the one issued for the address that has since changed.
-    emailChangeFollow($first)->assertRedirect('/martis/login?email_change=invalid');
-    emailChangeFollow($second)->assertRedirect('/martis/login?email_change=invalid');
+    emailChangeFollow($first)->assertOk()->assertJson(['redirect' => '/martis/login?email_change=invalid']);
+    emailChangeFollow($second)->assertOk()->assertJson(['redirect' => '/martis/login?email_change=invalid']);
 
     expect($this->user->fresh()->email)->toBe('first@example.com');
 });
@@ -242,7 +290,7 @@ it('asks again whether the address is free when the link is followed', function 
     // Somebody else registers it in the meantime.
     EmailChangeUser::create(['name' => 'Taken', 'email' => 'new@example.com', 'password' => bcrypt('x')]);
 
-    emailChangeFollow($url)->assertRedirect('/martis/login?email_change=rejected');
+    emailChangeFollow($url)->assertOk()->assertJson(['redirect' => '/martis/login?email_change=rejected']);
 
     expect($this->user->fresh()->email)->toBe('ada@example.com');
     Notification::assertSentOnDemandTimes(EmailChangedNotification::class, 0);
@@ -260,11 +308,11 @@ it('refuses a link whose address, user or signature was altered, or that expired
     ];
 
     foreach ($tampered as $label => $link) {
-        emailChangeFollow($link)->assertRedirect('/martis/login?email_change=invalid');
+        emailChangeFollow($link)->assertOk()->assertJson(['redirect' => '/martis/login?email_change=invalid']);
     }
 
     $this->travel(61)->minutes();
-    emailChangeFollow($url)->assertRedirect('/martis/login?email_change=invalid');
+    emailChangeFollow($url)->assertOk()->assertJson(['redirect' => '/martis/login?email_change=invalid']);
 
     expect($this->user->fresh()->email)->toBe('ada@example.com')
         ->and($other->fresh()->email)->toBe('other@example.com');
@@ -276,7 +324,7 @@ it('expires the link after martis.profile.email_change.ttl_minutes', function ()
     $url = emailChangeLink('new@example.com');
 
     $this->travel(4)->minutes();
-    emailChangeFollow($url)->assertRedirect('/martis/login?email_change=changed');
+    emailChangeFollow($url)->assertOk()->assertJson(['redirect' => '/martis/login?email_change=changed']);
 });
 
 it('refuses the link while the profile is disabled', function () {
@@ -284,7 +332,7 @@ it('refuses the link while the profile is disabled', function () {
     $url = emailChangeLink('new@example.com');
     config()->set('martis.profile.enabled', false);
 
-    emailChangeFollow($url)->assertRedirect('/martis/login?email_change=invalid');
+    emailChangeFollow($url)->assertOk()->assertJson(['redirect' => '/martis/login?email_change=invalid']);
 
     expect($this->user->fresh()->email)->toBe('ada@example.com');
 });
@@ -365,4 +413,55 @@ it('answers isChange() by the letters of the address, not their case', function 
         ->and($change->isChange($this->user, 'new@example.com'))->toBeTrue()
         ->and($change->isChange($this->user, ''))->toBeFalse()
         ->and($change->isChange($this->user, ['new@example.com']))->toBeFalse();
+});
+
+// ── The limit on the mail it sends ──────────────────────────────────────────
+
+it('limits the confirmation mails one user can ask for, and sends none past the limit', function () {
+    config()->set('martis.profile.email_change.throttle_attempts', 3);
+
+    foreach (['a@example.com', 'b@example.com', 'c@example.com'] as $new) {
+        emailChangePatch(['name' => 'Ada', 'email' => $new, 'current_password' => 'Correct-Horse-1'])->assertOk();
+    }
+    Notification::assertSentOnDemandTimes(EmailChangeConfirmationNotification::class, 3);
+
+    // The 4th is refused with the throttle's 429 and Retry-After, before the name is saved or any mail goes.
+    emailChangePatch(['name' => 'Ada Lovelace', 'email' => 'd@example.com', 'current_password' => 'Correct-Horse-1'])
+        ->assertStatus(429)
+        ->assertHeader('Retry-After');
+
+    Notification::assertSentOnDemandTimes(EmailChangeConfirmationNotification::class, 3);
+    expect($this->user->fresh()->name)->toBe('Ada');
+
+    // The nearest cases stay open: a save that changes no address, and the same user after the window.
+    emailChangePatch(['name' => 'Ada Lovelace', 'email' => 'ada@example.com'])->assertOk();
+    expect($this->user->fresh()->name)->toBe('Ada Lovelace');
+
+    $this->travel(61)->minutes();
+    emailChangePatch(['name' => 'Ada', 'email' => 'd@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();
+});
+
+it('limits the mails one address can be sent, whoever asks, and keeps another user free', function () {
+    config()->set('martis.profile.email_change.throttle_attempts', 2);
+    $other = EmailChangeUser::create(['name' => 'Bob', 'email' => 'bob@example.com', 'password' => bcrypt('Correct-Horse-1'), 'email_verified_at' => now()]);
+
+    // Two different users name the same victim address: its bucket is spent.
+    emailChangePatch(['name' => 'Ada', 'email' => 'victim@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();
+    $this->user = $other;
+    emailChangePatch(['name' => 'Bob', 'email' => 'victim@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();
+
+    $third = EmailChangeUser::create(['name' => 'Cy', 'email' => 'cy@example.com', 'password' => bcrypt('Correct-Horse-1'), 'email_verified_at' => now()]);
+    $this->user = $third;
+    emailChangePatch(['name' => 'Cy', 'email' => 'Victim@Example.com', 'current_password' => 'Correct-Horse-1'])->assertStatus(429);
+
+    // ... while the same user asking for another address is not held by it.
+    emailChangePatch(['name' => 'Cy', 'email' => 'cy2@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();
+});
+
+it('turns the email change limit off with zero attempts', function () {
+    config()->set('martis.profile.email_change.throttle_attempts', 0);
+
+    foreach (range(1, 8) as $i) {
+        emailChangePatch(['name' => 'Ada', 'email' => "n{$i}@example.com", 'current_password' => 'Correct-Horse-1'])->assertOk();
+    }
 });

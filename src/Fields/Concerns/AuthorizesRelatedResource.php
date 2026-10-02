@@ -4,6 +4,7 @@ namespace Martis\Fields\Concerns;
 
 use Illuminate\Http\Request;
 use Martis\Gates\SoftGate;
+use Martis\Resource;
 use Martis\ResourceRegistry;
 
 /**
@@ -49,22 +50,44 @@ trait AuthorizesRelatedResource
      */
     public function relatedResourceAuthorizedToViewAny(Request $request): bool
     {
+        $related = $this->relatedResourceInstance();
+
+        return $related === null || ($related->authorizedToViewAny($request) && ! SoftGate::isLocked($related, $request));
+    }
+
+    /**
+     * The lock payload of the related resource for a user who may list it
+     * (`viewAny`) but is soft-locked from it, or `null`: the relationship
+     * routes answer it as every endpoint of the locked resource does (`403`
+     * with `locked` and `lock`). `viewAny` wins, as everywhere: a user who may
+     * not list the related resource is not told what a plan would unlock.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function relatedResourceLock(Request $request): ?array
+    {
+        $related = $this->relatedResourceInstance();
+
+        return $related !== null && $related->authorizedToViewAny($request) ? SoftGate::lockOf($related, $request) : null;
+    }
+
+    /** The related resource, or null when it is not registered. */
+    private function relatedResourceInstance(): ?Resource
+    {
         $key = $this->getRelatedResourceKey();
 
         if ($key === null || ! app()->bound(ResourceRegistry::class)) {
-            return true;
+            return null;
         }
 
         $registry = app(ResourceRegistry::class);
 
         if (! $registry->has($key)) {
-            return true;
+            return null;
         }
 
         $resourceClass = $registry->get($key);
 
-        $related = new $resourceClass;
-
-        return $related->authorizedToViewAny($request) && ! SoftGate::isLocked($related, $request);
+        return new $resourceClass;
     }
 }

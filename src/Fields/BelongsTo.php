@@ -360,13 +360,14 @@ class BelongsTo extends Field implements ProvidesPickerAttributes
             return;
         }
 
-        // Accept either a raw ID or an array with 'id' key
-        $id = is_array($value) ? ($value['id'] ?? null) : $value;
-
-        // Convert empty strings to null (from FormData serialization)
-        if ($id === '' || $id === 'null') {
-            $id = null;
+        // A value that names no id (a boolean, a nested map, a float) writes
+        // nothing; the Relatable rule refuses it before this runs
+        // (see submittedId()).
+        if ($this->submitsMalformedId($value)) {
+            return;
         }
+
+        $id = $this->submittedId($value);
 
         $model->setAttribute($this->foreignKey, $id);
     }
@@ -708,8 +709,9 @@ class BelongsTo extends Field implements ProvidesPickerAttributes
 
     /**
      * The id a submitted value names: a raw id or an `['id' => ...]` map, the
-     * empty string and `'null'` (FormData serialization) meaning none, as
-     * `fill()` reads it.
+     * empty string and `'null'` (FormData serialization) meaning none. The one
+     * reading both `fill()` and the Relatable rule use: a value that names
+     * something that is not an id (see submitsMalformedId()) reads as none.
      */
     public function submittedId(mixed $value): int|string|null
     {
@@ -720,6 +722,20 @@ class BelongsTo extends Field implements ProvidesPickerAttributes
         }
 
         return $id;
+    }
+
+    /**
+     * Whether a submitted value names an id that is neither empty nor an int
+     * or a string: a JSON boolean or float, a list, a nested map. `fill()`
+     * would have stored a boolean `true` as `1`, pointing the field at record
+     * 1 past every check, so the Relatable rule refuses such a value and
+     * `fill()` ignores it.
+     */
+    public function submitsMalformedId(mixed $value): bool
+    {
+        $id = is_array($value) ? ($value['id'] ?? null) : $value;
+
+        return $id !== null && $id !== '' && $id !== 'null' && ! is_int($id) && ! is_string($id);
     }
 
     /**

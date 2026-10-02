@@ -153,10 +153,12 @@ The `$value` passed to `apply()` is an associative array where keys are option v
 Read the keys you declared explicitly, as above, instead of looping over `$value` and using each key as a column name. A loop like `foreach ($value as $column => $enabled) $query->where($column, true)`, which this page used to show, turns a key into a column name: with a request that names `is_admin` or `settings->flag` it filters on a column the filter never offered, and it answers a hidden column's value or a SQL error. The package's guard makes such a loop safe for the declared options only; a filter that has to loop does so over the list `options()` gives, as the `martis:filter --boolean` scaffold does:
 
 ```php
-$allowed = array_values($this->options($request));
+// As strings: PHP turns the array key "1" into the integer 1, which a strict
+// comparison with the option value '1' would not match.
+$allowed = array_map('strval', array_values($this->options($request)));
 
 foreach ($value as $column => $enabled) {
-    if ($enabled && in_array($column, $allowed, true)) {
+    if ($enabled && in_array((string) $column, $allowed, true)) {
         $query->where($column, true);
     }
 }

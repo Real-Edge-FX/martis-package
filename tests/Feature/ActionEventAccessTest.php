@@ -72,6 +72,39 @@ class AEAUnexposed extends Model
     protected $hidden = ['token'];
 }
 
+/** A tenant-scoped document: the fence is a global scope, with no per-record policy. */
+class AEAScopedDoc extends Model
+{
+    protected $table = 'aea_docs';
+
+    protected $guarded = [];
+
+    public $timestamps = false;
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope('tenant', fn ($query) => $query->where('aea_docs.owner_id', 1));
+    }
+}
+
+class AEAScopedDocResource extends Resource
+{
+    public static function model(): string
+    {
+        return AEAScopedDoc::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'aea-scoped-docs';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title')];
+    }
+}
+
 class AEAAuthorResource extends Resource
 {
     public static function model(): string
@@ -260,6 +293,7 @@ beforeEach(function () {
     $registry->flush();
     $registry->register(AEAAuthorResource::class);
     $registry->register(AEADocResource::class);
+    $registry->register(AEAScopedDocResource::class);
     $registry->register(ActionEventResource::class);
 
     Resource::flushPolicyCache();
@@ -365,6 +399,19 @@ it('does not record the audit gate denial built with every navigation by default
     expect(ActionEvent::query()->count())->toBe($before + 2);
 });
 
+it('does not record the denial of the deleted-record audit gate built with every detail page by default', function () {
+    config()->set('martis.audit.authz_denials', true);
+    $this->actingAs($this->operator, 'web');
+    $before = ActionEvent::query()->count();
+
+    (new RecordAuthorizationDenial)->handle(new GateEvaluated($this->operator, ActionEventRedactor::DELETED_RECORD_GATE, false, [AEADocResource::class, 'aea-docs']));
+    expect(ActionEvent::query()->count())->toBe($before);
+
+    config()->set('martis.audit.authz_denials_include_viewany', true);
+    (new RecordAuthorizationDenial)->handle(new GateEvaluated($this->operator, ActionEventRedactor::DELETED_RECORD_GATE, false, [AEADocResource::class, 'aea-docs']));
+    expect(ActionEvent::query()->count())->toBe($before + 1);
+});
+
 // --- Redaction --------------------------------------------------------------
 
 function aeaDetailValue($response, string $attribute): array
@@ -445,8 +492,22 @@ it('keeps the pivot values of a pivot action event, but the pivot model hidden a
     expect(aeaDetailValue($response, 'changes'))->toBe(['role' => 'editor', 'token' => ActionEventRedactor::MASK]);
 });
 
-it('still applies the field visibility when the record was deleted', function () {
+it('masks every value of a hard-deleted record unless the deleted-audit gate opens it', function () {
     aeaOpenLog();
+    $this->actingAs($this->agent, 'web');
+
+    AEADoc::query()->whereKey(1)->delete();
+    expect(AEADoc::query()->whereKey(1)->exists())->toBeFalse();
+
+    $response = $this->getJson('/martis/api/resources/action-events/'.$this->event->getKey())->assertOk();
+
+    expect(array_unique(array_values(aeaDetailValue($response, 'changes'))))->toBe([ActionEventRedactor::MASK])
+        ->and(array_unique(array_values(aeaDetailValue($response, 'original'))))->toBe([ActionEventRedactor::MASK]);
+});
+
+it('still applies the field visibility when the deleted-audit gate opens a hard-deleted record', function () {
+    aeaOpenLog();
+    Gate::define(ActionEventRedactor::DELETED_RECORD_GATE, fn ($user = null): bool => true);
     $this->actingAs($this->agent, 'web');
 
     AEADoc::query()->whereKey(1)->delete();
@@ -458,14 +519,47 @@ it('still applies the field visibility when the record was deleted', function ()
     expect($changes['salary'])->toBe(ActionEventRedactor::MASK);
 });
 
+it('hands the deleted-audit gate the user, the resource class and its uri key', function () {
+    aeaOpenLog();
+    $seen = [];
+    Gate::define(ActionEventRedactor::DELETED_RECORD_GATE, function ($user, ...$args) use (&$seen): bool {
+        $seen = [$user->getKey(), ...$args];
+
+        return false;
+    });
+    $this->actingAs($this->agent, 'web');
+    AEADoc::query()->whereKey(1)->delete();
+
+    $this->getJson('/martis/api/resources/action-events/'.$this->event->getKey())->assertOk();
+
+    expect($seen)->toBe([$this->agent->getKey(), AEADocResource::class, 'aea-docs']);
+});
+
+it('masks the deleted record when the deleted-audit gate refuses or raises', function () {
+    aeaOpenLog();
+    $this->actingAs($this->agent, 'web');
+    AEADoc::query()->whereKey(1)->delete();
+
+    foreach ([fn ($user = null): bool => false, function ($user = null): bool {
+        throw new RuntimeException('boom');
+    }] as $gate) {
+        Gate::define(ActionEventRedactor::DELETED_RECORD_GATE, $gate);
+        ActionEventRedactor::flush();
+
+        $response = $this->getJson('/martis/api/resources/action-events/'.$this->event->getKey())->assertOk();
+
+        expect(aeaDetailValue($response, 'changes')['title'])->toBe(ActionEventRedactor::MASK);
+    }
+});
+
 // --- A record that no longer exists ----------------------------------------
 
-it('requires the view policy on a model hydrated from the event when the record was hard-deleted', function () {
+it('no longer lets a view policy on a model hydrated from the event unmask a hard-deleted record', function () {
     Gate::policy(AEADoc::class, AEAOwnerDocPolicy::class);
     aeaOpenLog();
 
-    // The owner's id is part of what the action changed, so the deleted
-    // record can still be judged by the policy.
+    // Even the owner, whose id the event holds: the policy of a row that is
+    // gone is not the proof, only the record-independent gate is.
     $event = aeaEvent([
         'actionable_id' => '7',
         'model_id' => '7',
@@ -474,46 +568,74 @@ it('requires the view policy on a model hydrated from the event when the record 
     ]);
     expect(AEADoc::query()->whereKey(7)->exists())->toBeFalse();
 
-    // Not the owner: every value is masked, as when the record existed.
-    $this->actingAs($this->agent, 'web');
-    $response = $this->getJson('/martis/api/resources/action-events/'.$event->getKey())->assertOk();
-    expect(array_unique(array_values(aeaDetailValue($response, 'changes'))))->toBe([ActionEventRedactor::MASK])
-        ->and(array_unique(array_values(aeaDetailValue($response, 'original'))))->toBe([ActionEventRedactor::MASK]);
+    foreach ([$this->agent, $this->operator] as $viewer) {
+        ActionEventRedactor::flush();
+        $this->actingAs($viewer, 'web');
+        $response = $this->getJson('/martis/api/resources/action-events/'.$event->getKey())->assertOk();
 
-    // The owner keeps the values the detail page would show.
-    ActionEventRedactor::flush();
-    $this->actingAs($this->operator, 'web');
-    $response = $this->getJson('/martis/api/resources/action-events/'.$event->getKey())->assertOk();
-    expect(aeaDetailValue($response, 'changes')['title'])->toBe('New')
-        ->and(aeaDetailValue($response, 'original')['title'])->toBe('Old');
+        expect(array_unique(array_values(aeaDetailValue($response, 'changes'))))->toBe([ActionEventRedactor::MASK])
+            ->and(array_unique(array_values(aeaDetailValue($response, 'original'))))->toBe([ActionEventRedactor::MASK]);
+    }
 });
 
-it('masks the values of a hard-deleted record the event holds no owner for under an owner-based policy', function () {
-    Gate::policy(AEADoc::class, AEAOwnerDocPolicy::class);
+it('keeps a tenant fence that lives in a global scope after the other tenant\'s record is hard-deleted', function () {
     aeaOpenLog();
-    $this->actingAs($this->operator, 'web');
+    $this->actingAs($this->agent, 'web');
 
-    // The action did not change the owner column, so the stored diff cannot
-    // prove the viewer owns the deleted record: fail closed, as the blank
-    // model the log used to judge instead let every viewer through.
+    // Tenant 2's document: the viewer's tenant scope (owner 1) hides it while it exists...
+    AEAScopedDoc::query()->withoutGlobalScopes()->create(['id' => 9, 'title' => 'Secret', 'owner_id' => 2]);
     $event = aeaEvent([
-        'actionable_id' => '7',
-        'model_id' => '7',
-        'changes' => ['title' => 'New'],
+        'actionable_type' => AEAScopedDoc::class,
+        'model_type' => AEAScopedDoc::class,
+        'target_type' => AEAScopedDoc::class,
+        'actionable_id' => '9',
+        'model_id' => '9',
+        'target_id' => '9',
+        'changes' => ['title' => 'Secret'],
+    ]);
+
+    $existing = $this->getJson('/martis/api/resources/action-events/'.$event->getKey())->assertOk();
+    expect(aeaDetailValue($existing, 'changes'))->toBe(['title' => ActionEventRedactor::MASK]);
+
+    // ...and the hard delete does not open it: the row (and its scope) is gone.
+    AEAScopedDoc::query()->withoutGlobalScopes()->whereKey(9)->delete();
+    ActionEventRedactor::flush();
+
+    $deleted = $this->getJson('/martis/api/resources/action-events/'.$event->getKey())->assertOk();
+    expect(aeaDetailValue($deleted, 'changes'))->toBe(['title' => ActionEventRedactor::MASK]);
+});
+
+it('lets a deleted-audit gate that knows the tenant open the events of a deleted record', function () {
+    aeaOpenLog();
+    // The record-independent decision of the host: this viewer audits that resource.
+    Gate::define(ActionEventRedactor::DELETED_RECORD_GATE, fn ($user, string $class): bool => $class === AEAScopedDocResource::class);
+    $this->actingAs($this->agent, 'web');
+
+    $event = aeaEvent([
+        'actionable_type' => AEAScopedDoc::class,
+        'model_type' => AEAScopedDoc::class,
+        'target_type' => AEAScopedDoc::class,
+        'actionable_id' => '9',
+        'model_id' => '9',
+        'target_id' => '9',
+        'changes' => ['title' => 'Gone'],
     ]);
 
     $response = $this->getJson('/martis/api/resources/action-events/'.$event->getKey())->assertOk();
+    expect(aeaDetailValue($response, 'changes'))->toBe(['title' => 'Gone']);
 
-    expect(aeaDetailValue($response, 'changes'))->toBe(['title' => ActionEventRedactor::MASK]);
+    // The gate named one resource: the deleted record of another stays masked.
+    ActionEventRedactor::flush();
+    AEADoc::query()->whereKey(1)->delete();
+    $other = $this->getJson('/martis/api/resources/action-events/'.$this->event->getKey())->assertOk();
+    expect(aeaDetailValue($other, 'changes')['title'])->toBe(ActionEventRedactor::MASK);
 });
 
-it('masks every value of a hard-deleted record whose policy cannot judge the hydrated model', function () {
+it('masks the values of a hard-deleted record whose policy cannot judge the hydrated model', function () {
     Gate::policy(AEADoc::class, AEARelationDocPolicy::class);
     aeaOpenLog();
     $this->actingAs($this->agent, 'web');
 
-    // The policy reads `$doc->author`, which the hydrated model has no row
-    // for: the exception denies, it never answers 500.
     $event = aeaEvent([
         'actionable_id' => '7',
         'model_id' => '7',

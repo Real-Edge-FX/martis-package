@@ -976,6 +976,8 @@ BooleanGroup::make('permissions')
 | `requireAny()` ⭐ | Sugar for `minChecked(1)` |
 | `requireAll()` ⭐ | Sugar for `minChecked(count(options))` |
 
+The server enforces the limits on the set `fill()` stores (v2.4.0): the submitted keys the field offers, each read as a boolean the way `fill()` reads it (`true`, `1`, `'1'`, `'true'`, `'on'`, `'yes'` are on, in any letter case), so a key the options do not name never counts toward either limit and a truthy spelling never escapes `maxChecked()`.
+
 > ⚠️ When `options()` is given a closure, `requireAll()` cannot pre-compute its target at field declaration time — the closure has not run yet. Pair the closure form with `minChecked(int)` directly, or use `requireAny()` (always `1`).
 
 **Storage format:** `{"flag":true,"other":false}` on a plain column, or the map itself through an `array` / `json` cast.
@@ -1219,9 +1221,9 @@ Select::make('role_id')
     ->validateAgainstOptions();
 ```
 
-- **One rule, over `getOptions()`**, with the options as they are when the request is validated. A value fails with Laravel's own `in` message (`The selected Status is invalid.`) as a `422` on the field, before anything is written. It applies wherever the field's rules do: the resource's create and update, the inline creates, and the fields of an [Action](actions.md) modal.
+- **One rule, over `getOptions()`**, with the options as they are when the request is validated. A value fails with `martis::validation.not_in_options` (`The selected Status is invalid.`, translated in `en`, `pt_PT` and `pt_BR`, with the field's label) as a `422` on the field, before anything is written. It applies wherever the field's rules do: the resource's create and update, the inline creates, and the fields of an [Action](actions.md) modal.
 - **By value, not by label,** and only as a string or an integer: an option keyed `7` accepts `7` and `'7'`, not `'07'`, `'7.0'`, `7.0`, `true` or an array. Grouped options count by their value; a list (`['Small', 'Large']`) accepts `0` and `1`; an enum class accepts its case values.
-- **An empty value is left to `required()` and `nullable()`**, as for every other field.
+- **An empty value is left to `required()` and `nullable()`**, as for every other field. On create `required()` refuses it. On update every field's `required` is dropped (a form that leaves a field alone, a `Password` for one, sends it empty), so a request that names a required Select empty on update is not refused by it: the options rule has no value to judge, and the field is cleared. When an update must never clear it, add a rule object of your own that survives the drop: `->updateRules([Rule::requiredIf(true)])`.
 - **Not for a list that is only a first page.** A field with `searchOptionsUsing()` loads the rest of its options from the server, so a value the search returns is not in `getOptions()` and would be rejected: validate that field with a rule of your own. With `allowCustomValues()` the closed list wins and a typed value is rejected, so pick one of the two.
 - A rule that depends on who asks (the roles this user may hand out) belongs in the `options()` closure, which receives the request: the same list then feeds the dropdown and the rule. The scaffolded `InviteUser` and `BulkAssignRole` actions do exactly that (see [Invitations](invitations.md#the-invite-role-picker) and [Roles](roles.md)).
 
@@ -2648,7 +2650,7 @@ File::make('attachment', 'Attachment')
 
 The default disk is `public`, which the web server serves from the application's own origin (`APP_URL/storage`). An HTML or SVG document served from there runs its script in that origin, with the session of whoever opens the link: a panel user who may upload to a `File` field could plant a page that an administrator later opens, and the script can read the CSRF token and drive the panel API as that administrator. So a `File` (and an `Image`, an `Avatar`, an `Audio`, which extend it) answers `422` to an upload that a browser or the web server would run, unless the developer opts in:
 
-- **by extension**: the extension the file is stored with, every segment of it (`html`, `htm`, `xhtml`, `shtml`, `svg`, `svgz`, `xml`, `xsl`, `js`, `mjs`, `php`, `php3` to `php8`, `phtml`, `pht`, `phar`, `asp`, `aspx`, `jsp`, `cgi`, `htaccess` and the like, see `Martis\Rules\NoActiveContent::EXTENSIONS`). That is the one the field gives it: the hash name takes it from the content's MIME type, and `preserveOriginalName()` keeps the client's own (so a GIF with a script in it kept as `logo.html` is refused);
+- **by extension**: the extension the file is stored with, every segment of it (`html`, `htm`, `xhtml`, `shtml`, `svg`, `svgz`, `xml`, `xsl`, the other XML documents a browser renders (`rss`, `atom`, `rdf`, `owl`, `xsd`, `dtd`, `xbl`, `xul`, `mathml`, `wsdl`, `xspf`, `xaml`, `smil`), `swf`, `js`, `mjs`, `php`, `php3` to `php8`, `phtml`, `pht`, `phar`, `asp`, `aspx`, `jsp`, `cgi`, `htaccess` and the like, see `Martis\Rules\NoActiveContent::EXTENSIONS`). That is the one the field gives it: the hash name takes it from the content's MIME type, and `preserveOriginalName()` keeps the client's own (so a GIF with a script in it kept as `logo.html` is refused);
 - **by content**: the MIME type the server reads from the file's bytes, never the one the client claims (`text/html`, `image/svg+xml`, `application/xml` and every other `+xml` type, JavaScript and PHP types), so an HTML document named `report.pdf` is refused as well.
 
 The opt-in is explicit, per field:
@@ -2834,7 +2836,7 @@ KeyValue::make('metadata', 'Metadata')
 | `valueLabel` | `valueLabel(string $label): static` | `$this` | Label for value column header. | `'Value'` |
 | `actionText` | `actionText(string $text): static` | `$this` | Label for "add row" button. | `'Add Row'` |
 | `disableEditingKeys` | `disableEditingKeys(): static` | `$this` | Prevent editing existing keys; a write drops any key outside the stored (or default) key set (v2.4.0+). | `false` |
-| `disableAddingRows` | `disableAddingRows(): static` | `$this` | Prevent adding new rows; a write drops any key outside the stored (or default) key set (v2.4.0+). | `false` |
+| `disableAddingRows` | `disableAddingRows(): static` | `$this` | Prevent adding new rows; a write drops a new row but keeps a renamed key (v2.4.0+). | `false` |
 | `disableDeletingRows` | `disableDeletingRows(): static` | `$this` | Prevent deleting rows: no row renders a delete button, and a write that leaves a stored (or default) key out gets its value back (v2.4.0+). v1.38.0+. | `false` |
 | `getKeyLabel` | `getKeyLabel(): string` | `string` | Get key label. | — |
 | `getValueLabel` | `getValueLabel(): string` | `string` | Get value label. | — |
@@ -2858,14 +2860,15 @@ KeyValue::make('opening_hours', 'Opening hours')
     ->disableDeletingRows()
 ```
 
-**The server enforces the flags** (v2.4.0+, hardening: Nova leaves them to the form). A request does not have to go through the form, so `fill()` holds a payload to the key set the flags fix. That set is the stored map's keys for a record that exists, and the field's `default()` keys for a new record (a closure or rows are read as the form reads them):
+**The server enforces the flags** (v2.4.0+, hardening: Nova leaves them to the form). A request does not have to go through the form, so `fill()` holds a payload to the key set the flags fix. That set is the stored map's keys for a record that has a map, and the field's `default()` keys for a new record and for a record whose stored map is empty (a closure or rows are read as the form reads them):
 
 | Flag | What a write does |
 |---|---|
-| `disableEditingKeys()` or `disableAddingRows()` | A submitted key outside the set is dropped: a new row, and a key edited into another name. The values of the keys in the set are the user's. |
-| `disableDeletingRows()` | A key of the set the submission leaves out (a deleted row, or a key edited into another name) takes its stored (or default) value back, and an empty value restores the whole set. |
+| `disableEditingKeys()` | A submitted key outside the set is dropped: a new row, and a key edited into another name. The values of the keys in the set are the user's. |
+| `disableAddingRows()` | A new row is dropped, but the form still lets a user rename a key and delete a row, so a key edited into another name is kept as a rename: a new key may take the place of a key of the set the submission leaves out, and the old key does not come back beside it. Only as many new keys as keys left out are kept (the surplus is a real new row). |
+| `disableDeletingRows()` | A key of the set the submission leaves out (a deleted row, or the old name of a key edited into another one) takes its stored (or default) value back, and an empty value restores the whole set. A rename under `disableAddingRows()` replaces the old key instead of restoring it. |
 
-Nothing changes for a field without these flags: any key is stored. A key edited into another name is a new key plus a missing one, so with only `disableEditingKeys()` the renamed key is dropped and the old one is deleted (the form offers no way to type a key then); with `disableDeletingRows()` too, the old key stays. The stored order of the set is kept, and a restored row keeps its stored value as it was (a nested value included).
+Nothing changes for a field without these flags: any key is stored. A key edited into another name is a new key plus a missing one: with `disableEditingKeys()` the renamed key is dropped and the old one is deleted (the form offers no way to type a key then), with `disableDeletingRows()` too the old key stays, and with `disableAddingRows()` alone the rename is kept. A record that has no stored map (created before the field existed, or emptied) is held to the `default()` keys, so its edits are saved instead of silently dropped. The stored order of the set is kept, and a restored row keeps its stored value as it was (a nested value included).
 
 **Storage format:** `{"key1":"value1","key2":"value2"}`
 **Overrides:** `resolve()` decodes to `[{key, value}]` rows; `fill()` normalizes to the associative map and stores it, JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).

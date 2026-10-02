@@ -146,6 +146,18 @@ does on the resource route.
 The lens's own clauses run grouped, as a filter does: an `orWhere()` in
 `query()` (`where('status', 'open')->orWhere('shared', true)`) cannot OR the
 fence away, so the query reads `fence AND (status = 'open' OR shared)`.
+A `query()` that returns a `Paginator` (it ends in `->paginate()`) runs its
+SQL inside the lens, before anything can group its clauses, so the fence
+also rides on the query as a global scope that Eloquent ANDs around them at
+execution: the same `fence AND (...)` holds there. That scope is a global
+scope like any other: a lens that calls `withoutGlobalScopes()` with no
+argument on the query it paginates removes it (remove named scopes instead,
+`withoutGlobalScope(SoftDeletingScope::class)`), and a lens that opts out of
+the fence has none.
+
+The fence confines **the query the lens is handed**. A lens that ignores
+`$query` and starts from `Model::query()` builds its own query and is
+outside the fence: always start from `$query`, as the example below does.
 
 ```php
 class TenantResource extends Resource
@@ -401,6 +413,14 @@ model that keeps no timestamps (`public $timestamps = false`, or
 `const UPDATED_AT = null`) is signed by its row count alone, so an
 update that keeps the count serves the cached rows until the TTL
 expires. The signature is taken for a cached lens only (v1.38.0).
+
+The key also carries the signed-in user's id and the locale, nothing else
+of the request. The index fence (`scopes()`, `indexQuery()`) is read when
+the lens runs and is not part of the key: a lens with `cacheFor()` whose
+fence depends on request state other than the user (an active tenant kept
+in the session, a header) would serve the rows cached under the previous
+tenant to the same user until the TTL expires. Such a lens must not be
+cached (`cacheFor(0)`), or its fence must depend on the user alone.
 Before v1.38.0 every lens request ran `MAX(updated_at)`, the cache off
 included, so a lens over a table without that column answered 500.
 

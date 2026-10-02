@@ -97,7 +97,7 @@ class EnforceSoftGate
             }
 
             return SoftGate::lockOf($dashboard, $request)
-                ?? $this->cardLock($request, $dashboard->cards($request));
+                ?? $this->cardLock($request, static fn (): iterable => $dashboard->cards($request));
         }
 
         return null;
@@ -120,7 +120,7 @@ class EnforceSoftGate
 
         $lock = SoftGate::lockOf($resource, $request)
             ?? $this->lensLock($request, $resource)
-            ?? $this->cardLock($request, $resource->cards($request));
+            ?? $this->cardLock($request, static fn (): iterable => $resource->cards($request));
 
         // `viewAny` is the resource's visibility: a user who fails it gets
         // the controller's own 403, never the lock.
@@ -147,20 +147,22 @@ class EnforceSoftGate
     }
 
     /**
-     * The lock of the card the route names, among `$cards` (those of a
-     * Resource or a Dashboard).
+     * The lock of the card the route names, among the cards `$cards` builds
+     * (those of a Resource or a Dashboard). A route that names no card never
+     * builds them: `cards()` may be costly, and a `cards()` that throws must
+     * not turn every other route of the entity into a 500.
      *
-     * @param  iterable<mixed>  $cards
+     * @param  Closure(): iterable<mixed>  $cards
      * @return array<string, mixed>|null
      */
-    private function cardLock(Request $request, iterable $cards): ?array
+    private function cardLock(Request $request, Closure $cards): ?array
     {
         $uriKey = $this->parameter($request, 'card');
         if ($uriKey === null) {
             return null;
         }
 
-        foreach ($cards as $card) {
+        foreach ($cards() as $card) {
             if (! is_object($card) || ! method_exists($card, 'uriKey') || $card->uriKey() !== $uriKey) {
                 continue;
             }

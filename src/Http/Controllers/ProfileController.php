@@ -67,6 +67,12 @@ class ProfileController extends MartisController
         $data = $request->validate($rules);
         unset($data['current_password']);
 
+        // The request mails an address of the user's choosing: bound how many
+        // it may mail, before anything is saved (see EmailChange::limitMail()).
+        if ($changesEmail) {
+            $emailChange->limitMail($user, (string) $data['email']);
+        }
+
         $pendingEmail = null;
         if ($changesEmail) {
             $pendingEmail = trim((string) $data['email']);

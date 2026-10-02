@@ -104,7 +104,8 @@ return [
     | `viewNova` does with `local`; anywhere else the panel stays shut (403)
     | until the gate is defined. Before v2.4.0 an undefined gate was open in
     | every environment. `testing` is listed so a consumer's own test suite
-    | keeps working. Comma-separated in the env; an empty list opens none.
+    | keeps working, and the published provider's gate lets `local` and
+    | `testing` in too. Comma-separated in the env; an empty list opens none.
     |
     | Resources without a policy stay permissive, as in Nova; outside these
     | environments each one is logged once a day (see docs/authorization.md).
@@ -560,11 +561,14 @@ return [
         'decay_minutes' => (int) env('MARTIS_THROTTLE_DECAY', 1),
         'login_attempts' => (int) env('MARTIS_LOGIN_THROTTLE_ATTEMPTS', 20),
         'login_minutes' => (int) env('MARTIS_LOGIN_THROTTLE_MINUTES', 1),
-        // The `martis-login` limiter's second limit (v2.4.0), keyed on the
-        // email alone: it bounds guessing at one account from many IPs,
-        // which the per-email + per-IP limit above cannot (every IP gets a
-        // bucket of its own there). A higher threshold over a longer window
-        // than the login throttle; 0 attempts turns it off.
+        // The per-account limit of the sign-in (v2.4.0), applied by the login
+        // controllers (AccountLoginThrottle): wrong passwords per account,
+        // whatever the source IP, counted until a right one clears them. It
+        // bounds guessing at one account from many IPs, which the per-email +
+        // per-IP limit above cannot (every IP gets a bucket of its own there).
+        // A higher threshold over a longer window than the login throttle;
+        // 0 attempts turns it off. The bucket follows the account the email
+        // matches, and the magic-link request has a bucket of its own.
         'login_email_attempts' => (int) env('MARTIS_LOGIN_THROTTLE_EMAIL_ATTEMPTS', 100),
         'login_email_minutes' => (int) env('MARTIS_LOGIN_THROTTLE_EMAIL_MINUTES', 15),
         // The 2FA challenge (v2.4.0): its own limiter, tighter than the login
@@ -901,6 +905,11 @@ return [
                 //     'role_column' => 'azure_group_name',
                 //
                 //     'auto_create_user' => true,
+                //     // 'email' adopts the local row holding the IdP's address only
+                //     // when its email is verified (email_verified_at set) or
+                //     // martis.auth.registration.enabled is false (v2.4.0); an
+                //     // unverified row with registration open refuses the sign-in.
+                //     // 'external_id' matches an id the IdP issued and is unaffected.
                 //     'identity_match_attribute' => 'email',
                 //     'sync_user_attributes' => ['name', 'email'],
                 //
@@ -980,8 +989,10 @@ return [
         // Magic-link (passwordless) login. Off by default. When
         // enabled, the Login page exposes a "Email me a sign-in link"
         // button that POSTs to /api/auth/magic-link/request. The
-        // emailed link points at /api/auth/magic-link/consume which
-        // logs the user in and redirects to the dashboard.
+        // emailed link opens the confirmation page (GET /magic-link/confirm),
+        // which signs nobody in: the sign-in is the CSRF-protected
+        // POST /api/auth/magic-link/consume that page sends when the person
+        // clicks, and it redirects to the dashboard.
         // Tokens are persisted in the same `password_reset_tokens`
         // table Laravel ships with, scoped by a `martis-magic:` prefix
         // so they never clash with reset-password tokens. TTL defaults
@@ -1455,6 +1466,11 @@ return [
             // link to the new address and a notice to the old one, and the
             // address switches only when the link is followed.
             'ttl_minutes' => (int) env('MARTIS_PROFILE_EMAIL_CHANGE_TTL', 60),
+            // How many confirmation mails one user may ask for, and one
+            // address may be sent, per `throttle_minutes` (5 per hour); past
+            // it the profile answers 429. 0 turns the limit off.
+            'throttle_attempts' => (int) env('MARTIS_PROFILE_EMAIL_CHANGE_ATTEMPTS', 5),
+            'throttle_minutes' => (int) env('MARTIS_PROFILE_EMAIL_CHANGE_ATTEMPTS_MINUTES', 60),
         ],
         'account' => [
             // When false, the built-in Account section renders the e-mail field

@@ -254,7 +254,7 @@ it('checks the profile email among the Martis guard users', function () {
     expect($this->admin->fresh()?->email)->not->toBe('site@example.com');
 
     panelGuardNextRequest();
-    $this->get($url)->assertRedirect('/martis/login?email_change=changed');
+    $this->post($url)->assertOk()->assertJson(['redirect' => '/martis/login?email_change=changed']);
 
     expect($this->admin->fresh()?->email)->toBe('site@example.com');
 });

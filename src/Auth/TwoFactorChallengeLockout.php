@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martis\Auth;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 
 /**
@@ -24,6 +25,11 @@ use Illuminate\Support\Facades\RateLimiter;
  * would start over with each password sign-in. A right code clears it. It
  * lives in the cache (the rate limiter's store), so a cache flush clears it,
  * as it clears every other limiter.
+ *
+ * The run of wrong codes counts in a rate limiter window, which opens at the
+ * first wrong code. The lockout is a key of its own, written with the full
+ * `two_factor_lockout_minutes` when the failure that reaches the limit
+ * lands, so it lasts that long from that failure whatever the window held.
  */
 final class TwoFactorChallengeLockout
 {
@@ -36,9 +42,7 @@ final class TwoFactorChallengeLockout
     /** Whether the user is locked out right now. */
     public static function locked(Authenticatable $user): bool
     {
-        $max = self::maxFailures();
-
-        return $max > 0 && RateLimiter::tooManyAttempts(self::key($user), $max);
+        return self::maxFailures() > 0 && Cache::has(self::lockKey($user));
     }
 
     /**
@@ -56,13 +60,28 @@ final class TwoFactorChallengeLockout
         $minutes = max(1, (int) config('martis.throttle.two_factor_lockout_minutes', 15));
         $failures = RateLimiter::hit(self::key($user), $minutes * 60);
 
-        return $failures >= $max;
+        if ($failures < $max) {
+            return false;
+        }
+
+        // The lockout runs from this failure, for the full time; the count
+        // starts over when it ends.
+        Cache::put(self::lockKey($user), true, $minutes * 60);
+        RateLimiter::clear(self::key($user));
+
+        return true;
     }
 
     /** A right code ends the run of wrong ones. */
     public static function clear(Authenticatable $user): void
     {
         RateLimiter::clear(self::key($user));
+        Cache::forget(self::lockKey($user));
+    }
+
+    private static function lockKey(Authenticatable $user): string
+    {
+        return self::key($user).':locked';
     }
 
     private static function key(Authenticatable $user): string

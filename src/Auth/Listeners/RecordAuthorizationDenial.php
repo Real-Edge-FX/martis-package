@@ -8,6 +8,7 @@ use Illuminate\Auth\Access\Events\GateEvaluated;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Martis\Actions\ActionEventRedactor;
 use Martis\Auth\GuardCatalog;
 use Martis\Models\ActionEvent;
 use Martis\Resources\ActionEventResource;
@@ -67,8 +68,9 @@ class RecordAuthorizationDenial
         // signal. Keep `viewAny` only when the consumer explicitly asks.
         // The audit log's own gate runs with every navigation build (the
         // Action Events entry asks it for its viewAny), so it belongs to
-        // the same cascade.
-        if (in_array($event->ability, ['viewAny', ActionEventResource::GATE], true) && (bool) config('martis.audit.authz_denials_include_viewany', false) === false) {
+        // the same cascade, and so does the gate each event of a deleted record
+        // asks while the audit log renders.
+        if (in_array($event->ability, ['viewAny', ActionEventResource::GATE, ActionEventRedactor::DELETED_RECORD_GATE], true) && (bool) config('martis.audit.authz_denials_include_viewany', false) === false) {
             return;
         }
 
