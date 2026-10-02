@@ -964,7 +964,17 @@ BooleanGroup::make('permissions')
 > ⚠️ When `options()` is given a closure, `requireAll()` cannot pre-compute its target at field declaration time — the closure has not run yet. Pair the closure form with `minChecked(int)` directly, or use `requireAny()` (always `1`).
 
 **Storage format:** `{"flag":true,"other":false}` on a plain column, or the map itself through an `array` / `json` cast.
-**Overrides:** `resolve()` decodes a JSON string or array to the normalised `{key: bool}` map; `fill()` decodes a JSON string to the map before writing (the multipart path, or a direct call) and writes an array as received.
+**Overrides:** `resolve()` decodes a JSON string or array to the normalised `{key: bool}` map; `fill()` decodes a JSON string to the map (the multipart path, or a direct call) and writes only the flags `options()` offers (below).
+
+**What a write stores.** The options a user is offered are the set of flags that user may change (an `options()` closure can scope them to the authenticated user), so `fill()` projects the submitted map onto them (since v2.4.0):
+
+- a submitted key the options do not name is ignored, so a crafted request cannot store `{"admin": true}` next to the flags it was shown;
+- each offered value becomes a boolean (`true`, `1`, `'1'`, `'true'`, `'on'`, `'yes'` are on, everything else is off), and an offered flag the submission leaves out is off;
+- a flag already stored that the user was **not** offered keeps its stored value, so an editor who sees a subset of the flags can neither switch on a flag they were not shown nor erase one an administrator set;
+- an empty value (`null`, `''`) switches every offered flag off and stores `null` when no hidden flag is left to keep;
+- a `fillUsing()` callback receives the offered flags only (the same projection), and a readonly or `computed()` field writes nothing, as for every field.
+
+On a column without an `array` / `json` cast the map is stored as a JSON string, as for `KeyValue` and `MultiSelect` (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).
 
 **⭐ Martis differentials:** grouped sections, min/max live counter, `requireAny/All` presets.
 
@@ -1375,7 +1385,7 @@ Password::make('password')
 
 **Overrides:**
 - `resolve()` always returns `null` (never expose password hashes).
-- `fill()` hashes with `Hash::make()`. Skips empty/null values (no update if blank).
+- `fill()` hashes with `Hash::make()`. Skips empty/null values (no update if blank). A `fillUsing()` callback takes the write over and receives the plain value (hashing is then its decision); an empty value never reaches it. Its value is never stored in the [action event log](actions.md#action-field-values-in-the-log) either: an action's `Password` field is logged as `******`.
 
 **Specific methods:**
 - `withStrengthMeter(bool $enabled = true): static` — ⭐ **Martis extension.** Shows a 0–4 strength meter below the input (length + character-class heuristic). Pairs naturally with `PasswordConfirmation` to share the same UI cue. No extra dependency — zxcvbn-lite is inlined in the React component.
@@ -1565,7 +1575,7 @@ Icon::make('state')->icon(fn ($model) => $model->is_active ? 'check' : 'x')
 
 **Behavioural notes:**
 - Mode A defaults to `showOnForms = false`. `->stored()` re-enables form exposure.
-- `fill()` is a no-op for Mode A / Mode C — only Mode B hydrates the model.
+- `fill()` is a no-op for Mode A / Mode C — only Mode B hydrates the model. Mode B respects `readonly()` (a closure is evaluated per request, so `readonly(fn ($request) => ! $request->user()->isAdmin())` locks the write too, not only the input) and `fillUsing()`, as every field does.
 - Index rendering respects `size()` — put a small Icon at the start of `fieldsForIndex()` to get a visual marker on each row.
 
 ---
@@ -2948,7 +2958,7 @@ Status::make('job_status', 'Job Status')
 **Extends:** `Field`
 **File:** `src/Fields/Gravatar.php`
 
-Display-only avatar from Gravatar. Generates URL from email hash. Hidden from forms by default.
+Display-only avatar from Gravatar. Generates URL from email hash. Hidden from forms by default. `fromUrl()` switches it to a stored avatar URL, the one mode that writes.
 
 ```php
 Gravatar::make()               // default: attribute='email', label='Avatar'
@@ -2966,7 +2976,7 @@ Gravatar::make('user_email')   // custom attribute
 | `getSize` | `getSize(): int` | `int` | Get size in pixels. | — |
 | `gravatarUrl` | `static gravatarUrl(string $email, int $size = 40): string` | `string` | Generate Gravatar URL from email. | — |
 
-**Overrides:** `resolve()` returns Gravatar URL (not raw email); `fill()` is a no-op.
+**Overrides:** `resolve()` returns Gravatar URL (not raw email) in email mode and the stored URL in URL mode. `fill()` is a no-op in email mode (the field never writes the generated URL over the email column). In URL mode (`fromUrl()`) it writes the submitted URL, after the seams of every field: a readonly field (a `readonly()` closure included) writes nothing and a `fillUsing()` callback takes the write over. `buildRules()` adds a rule in URL mode (a field that is not readonly or computed): the value must be an absolute `https://` URL (`martis::validation.https_url`), because it is rendered as an `<img src>` for every viewer; an empty value passes and writes nothing. A stored `http://` avatar fails the rule when the form sends it back until it is replaced (since v2.4.0).
 **Extra attributes:** `shape`, `avatarSize`
 
 ---
@@ -3001,7 +3011,7 @@ Sparkline::make('trend', 'Revenue Trend')
 | `getChartWidth` | `getChartWidth(): ?int` | `?int` | Get width. | — |
 | `getChartColor` | `getChartColor(): string` | `string` | Get color. | — |
 
-**Overrides:** `resolve()` returns data array (invokes callable if set, falls back to model attribute); `fill()` is a no-op.
+**Overrides:** `resolve()` returns data array (invokes callable if set, falls back to model attribute); `fill()` writes the submitted points (the field is hidden from forms by default, so it only runs after `showOnForms()`), and honours `readonly()` (a closure included) and `fillUsing()` like every field.
 **Extra attributes:** `chartType`, `chartHeight`, `chartWidth`, `chartColor`
 
 ---

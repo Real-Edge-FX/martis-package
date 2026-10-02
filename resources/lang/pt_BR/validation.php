@@ -8,4 +8,6 @@ return [
     'relatable_attachment' => 'Este registro não pode ser vinculado a este recurso.',
     // A Tag sync removes a record the detach{Model} policy keeps attached.
     'detachable' => 'Este :attribute não pode desvincular um dos seus registros.',
+    // An image URL a field writes must be an absolute https:// URL.
+    'https_url' => 'O campo :attribute precisa ser uma URL válida que comece com https://.',
 ];

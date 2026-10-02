@@ -8,4 +8,6 @@ return [
     'relatable_attachment' => 'This record may not be attached to this resource.',
     // A Tag sync removes a record the detach{Model} policy keeps attached.
     'detachable' => 'This :attribute may not detach one of its records.',
+    // An image URL a field writes must be an absolute https:// URL.
+    'https_url' => 'The :attribute must be a valid URL that starts with https://.',
 ];
