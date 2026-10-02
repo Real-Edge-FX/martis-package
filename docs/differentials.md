@@ -292,9 +292,9 @@ toggle `showCreateRelationButton` by hand.
 
 ### Optional panel gate (`viewMartis`)
 
-A `viewMartis` gate decides who may open the panel, as Nova's `viewNova` does, with four differences:
+A `viewMartis` gate decides who may open the panel, as Nova's `viewNova` does, with three differences:
 
-- **Open by default.** Undefined, every signed-in user gets in; Nova lets only `local` in until the gate is defined.
+- **Closed outside `local` and `testing` by default (v2.4.0).** Undefined, every signed-in user gets in only in the environments of `martis.panel_access.open_environments` (default `local` and `testing`, a documented config key); anywhere else the panel stays shut until the gate is defined, like Nova. `martis:install` publishes the gate active.
 - **No `local` bypass.** Defined, it applies in every environment, so the restriction can be tried locally.
 - **No policy interception.** The user is not passed as a gate argument, so a policy of the user model is never consulted for it.
 - **A way out.** A refused page request gets a standalone 403 screen with a **Sign out** button, and impersonating a refused user answers `422`.
