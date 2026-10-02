@@ -880,18 +880,24 @@ public function afterSave(Model $model, Request $request, bool $creating): void
 
 ### beforeDelete()
 
-Called before deletion. Throw an exception to prevent deletion.
+Called before deletion. Throw an exception to prevent deletion. To tell the user why, throw `Martis\Exceptions\UserFacingException`: its message is the one the delete endpoint returns as it is.
 
 ```php
+use Martis\Exceptions\UserFacingException;
+
 public function beforeDelete(Model $model, Request $request): void
 {
     if ($model->is_protected) {
-        throw new \RuntimeException('This record cannot be deleted.');
+        throw new UserFacingException('This record cannot be deleted.');
     }
 
     parent::beforeDelete($model, $request); // Dispatches BeforeDelete event
 }
 ```
+
+`UserFacingException` answers 422 by default; pass another status as the second argument (`new UserFacingException('Locked by another user.', 409)`). The typed `ValidationException`, `AuthorizationException` and `ResourceNotFoundException` (see [Exception Handling](#exception-handling)) keep their message and status too.
+
+Any other exception that escapes the delete (a `RuntimeException` from a hook, an observer, a model event, a storage or cache driver) is internal: its message can hold a path, a bucket name or a class name. In production the endpoint answers 500 with the generic `martis::messages.error_delete` message and sends the details to the log (`Martis: error on delete`) and to `report()`. With `app.debug` on, the raw message is returned, so a developer still sees what broke. Never put an internal detail in the message of a `UserFacingException`: the user sees it.
 
 ### afterDelete()
 
@@ -1232,11 +1238,13 @@ Martis provides a set of typed exceptions for structured error handling. These a
 | `ValidationException` | 422 | Input validation failures with per-field errors |
 | `AuthorizationException` | 403 | Unauthorized access attempts |
 | `ResourceNotFoundException` | 404 | Record or resource not found |
+| `UserFacingException` | 422 (configurable) | A plain message for the user, shown as it is |
 
 ```php
 use Martis\Exceptions\ValidationException;
 use Martis\Exceptions\AuthorizationException;
 use Martis\Exceptions\ResourceNotFoundException;
+use Martis\Exceptions\UserFacingException;
 
 // Per-field validation errors (e.g. in an Action):
 throw ValidationException::fromFieldErrors([
@@ -1252,7 +1260,12 @@ throw AuthorizationException::forAction('delete', 'post');
 
 // Not found:
 throw ResourceNotFoundException::forRecord('posts', $id);
+
+// A reason the user can act on, in a hook (message shown as it is, 422 by default):
+throw new UserFacingException('This post is scheduled and cannot be deleted.');
 ```
+
+Only these exceptions put their message in a response from a catch-all of the API (the delete endpoint, for one). Any other exception is internal and answers a generic message in production; see [beforeDelete()](#beforedelete).
 
 All exceptions extend `MartisException` which itself extends `\RuntimeException`. Laravel's exception handler will catch them automatically. Unhandled `MartisException` subclasses return a 500 JSON response in production.
 
