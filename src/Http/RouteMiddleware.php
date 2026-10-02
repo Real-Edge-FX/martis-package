@@ -138,6 +138,27 @@ final class RouteMiddleware
     }
 
     /**
+     * The dedicated limit of the rich text attachment upload:
+     * `martis.attachments.throttle_max` uploads per
+     * `martis.attachments.throttle_decay` minutes, per user, on top of the
+     * API's (an upload carries a file of up to `martis.attachments.max_size`,
+     * so the API's 120 requests a minute would let one account write
+     * gigabytes a minute). Its bucket carries the prefix
+     * `throttlePrefix('attachments')`, apart from the API's. None when
+     * `martis.throttle.enabled` is false, like the API's.
+     *
+     * @return list<string>
+     */
+    public static function attachmentUpload(): array
+    {
+        if (! config('martis.throttle.enabled', true)) {
+            return [];
+        }
+
+        return ['throttle:'.self::limit('martis.attachments.throttle_max', 20).','.self::limit('martis.attachments.throttle_decay', 1).','.self::throttlePrefix('attachments')];
+    }
+
+    /**
      * The key prefix of a Martis `throttle:` bucket, the middleware's third
      * parameter: `martis-{scope}:{Martis guard}:`.
      *

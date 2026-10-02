@@ -4,6 +4,7 @@ namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Martis\Contracts\ProvidesPickerAttributes;
 use Martis\Enums\ModalSize;
 
 /**
@@ -32,7 +33,7 @@ use Martis\Enums\ModalSize;
  * Fill: uses DeferredRelationSync to synchronize the pivot table after save.
  * Resolve: loads related models via the Eloquent relation.
  */
-class Tag extends Field
+class Tag extends Field implements ProvidesPickerAttributes
 {
     protected string $relationship;
 
@@ -92,6 +93,12 @@ class Tag extends Field
         $this->titleAttribute = $attribute;
 
         return $this;
+    }
+
+    /** {@inheritdoc} */
+    public function pickerAttributes(): array
+    {
+        return [$this->titleAttribute];
     }
 
     /**

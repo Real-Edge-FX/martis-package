@@ -20,6 +20,7 @@ use Illuminate\Support\Str;
 use Martis\Auth\GuardCatalog;
 use Martis\Auth\MagicLinkNotification;
 use Martis\Auth\MagicLinkService;
+use Martis\Auth\TwoFactorPass;
 use Martis\Sso\SsoSession;
 use Martis\Support\CanonicalUrl;
 
@@ -191,9 +192,9 @@ class MagicLinkController
         $guard->login($user);
         $request->session()->regenerate();
 
-        // The 2FA pass of an earlier sign-in is not this one's: an account
-        // with 2FA still goes through the challenge.
-        $request->session()->forget('martis_two_factor_passed');
+        // Every sign-in starts without a 2FA pass: a magic link must not
+        // inherit the pass of an earlier sign-in of this browser session.
+        TwoFactorPass::revoke($request->session());
 
         // A password, magic-link or invitation sign-in is not an SSO one: drop
         // the SSO origin an earlier SSO sign-in left in this session or in

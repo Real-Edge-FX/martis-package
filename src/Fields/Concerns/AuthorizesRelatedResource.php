@@ -3,6 +3,7 @@
 namespace Martis\Fields\Concerns;
 
 use Illuminate\Http\Request;
+use Martis\Gates\SoftGate;
 use Martis\ResourceRegistry;
 
 /**
@@ -41,7 +42,10 @@ trait AuthorizesRelatedResource
     }
 
     /**
-     * Whether the user may list the related resource (its `viewAny`).
+     * Whether the user may list the related resource (its `viewAny`) and is
+     * not soft-locked from it (`lockedFor()`, `requirePlan()`): a panel lists
+     * the related resource's records, so a lock closes it as a denied
+     * `viewAny` does.
      */
     public function relatedResourceAuthorizedToViewAny(Request $request): bool
     {
@@ -59,6 +63,8 @@ trait AuthorizesRelatedResource
 
         $resourceClass = $registry->get($key);
 
-        return (new $resourceClass)->authorizedToViewAny($request);
+        $related = new $resourceClass;
+
+        return $related->authorizedToViewAny($request) && ! SoftGate::isLocked($related, $request);
     }
 }

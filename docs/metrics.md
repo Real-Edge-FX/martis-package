@@ -247,6 +247,12 @@ public function ranges(): array
 }
 ```
 
+**The declared ranges are the only ranges** (v2.4.0+). The `?range=` query parameter is client input, and a trend opens one bucket per step of its window and reads every row in it, so a request cannot choose the window. The metric accepts a value only when it is one of the keys `ranges()` returns; any other value (`?range=10000000`, `?range=forever`, a named range the metric does not declare) reads as the default range, which is `30` when declared and the first declared range otherwise. A metric that declares none (a partition or a progress metric, or a value metric whose `ranges()` returns `[]` to hide the selector) always reads `30`. The same holds for the cache: the result is keyed on the declared range, so requests for made-up values neither compute a window of their own nor add an entry each.
+
+A numeric range is also held to `Metric::MAX_RANGE` (3650 days, weeks or months, as the metric counts them), so a `ranges()` that declares a larger window opens 3650 steps at most.
+
+A metric that reads the range itself in `calculate()` takes it from `$this->requestedRange($request)` (a string: a declared key) and `Metric::rangeWindow($range)` (the numeric window), not from `$request->query('range')`, which the whitelist does not cover. Before v2.4.0 `?range=10000000` on a trend card loaded the whole table, built ten million buckets and cached the result under a key of its own.
+
 ## Card Width
 
 Cards use a **12-column grid**. Default width is 4 (one-third).
@@ -504,6 +510,8 @@ GET /api/dashboards/{dashboard}/cards/{card}?range=30
 ```
 GET /api/resources/{resource}/cards/{card}?range=30
 ```
+
+Both answer `403` with the lock payload when the dashboard, the resource or the card is soft-locked for the user (`lockedFor()`, `requirePlan()`, v2.4.0; see [Soft-gates → What a lock stops on the server](gates.md#what-a-lock-stops-on-the-server)). A metric class has no lock of its own: lock the dashboard, the resource or the `Card` that holds it.
 
 ---
 

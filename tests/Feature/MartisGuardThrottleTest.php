@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Schema;
 use Martis\Http\Middleware\ApplyUserPreferencesLocale;
 use Martis\Http\Middleware\AuthorizePanelAccess;
 use Martis\Http\Middleware\EnforceImpersonationDuration;
+use Martis\Http\Middleware\EnforceSoftGate;
 use Martis\Http\Middleware\EnsureEmailIsVerified;
 use Martis\Http\Middleware\EnsurePasswordIsChanged;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
@@ -111,6 +112,7 @@ it('runs MartisAuthenticate before the throttle and keeps the order of the Marti
         EnsureEmailIsVerified::class,
         AuthorizePanelAccess::class,
         EnsurePasswordIsChanged::class,
+        EnforceSoftGate::class,
     ]);
 
     // The public auth routes do not authenticate: their throttles keep
@@ -193,10 +195,10 @@ it('keeps each Martis throttle in its own bucket, named after the Martis guard',
         $router->getRoutes()->getByName($name)->gatherMiddleware(),
         static fn ($middleware): bool => is_string($middleware) && str_starts_with($middleware, 'throttle:'),
     ));
-    $login = config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1);
 
+    // The 2FA challenge has a named limiter of its own (v2.4.0), whose keys name the Martis guard.
     expect($throttles('martis.api.meta.guards'))->toBe(['throttle:120,1,martis-api:web:'])
-        ->and($throttles('martis.api.2fa.challenge'))->toBe(['throttle:120,1,martis-api:web:', "throttle:{$login},martis-2fa:web:"])
+        ->and($throttles('martis.api.2fa.challenge'))->toBe(['throttle:120,1,martis-api:web:', 'throttle:martis-2fa-challenge'])
         ->and($throttles('martis.api.auth.email.verification.send'))->toBe(['throttle:3,1,martis-verification:web:']);
 
     config()->set('martis.guard', 'admin');

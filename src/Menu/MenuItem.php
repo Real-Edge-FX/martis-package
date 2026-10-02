@@ -8,6 +8,7 @@ use Martis\Contracts\ToolContract;
 use Martis\Dashboards\Dashboard;
 use Martis\Enums\MenuItemType;
 use Martis\Filters\Filter;
+use Martis\Gates\SoftGate;
 use Martis\Lenses\Lens;
 use Martis\Resource;
 
@@ -333,6 +334,11 @@ class MenuItem
             return null;
         }
 
+        // A locked tool shows its lock, not a live count of what it holds.
+        if (SoftGate::isLocked($tool, $request)) {
+            return null;
+        }
+
         return MenuCountResolver::resolve(
             $tool::class,
             'tool:'.$tool->uriKey(),
@@ -508,6 +514,11 @@ class MenuItem
         }
 
         if (! $resourceClass::showMenuCount()) {
+            return null;
+        }
+
+        // A locked resource shows its lock, not a live count of its records.
+        if (SoftGate::isLocked(new $resourceClass, $request)) {
             return null;
         }
 

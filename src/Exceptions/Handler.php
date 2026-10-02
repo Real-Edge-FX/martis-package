@@ -79,6 +79,25 @@ final class Handler
     }
 
     /**
+     * Whether an exception carries a message written for the user, so a
+     * catch-all of the API may return it to the client as it is.
+     *
+     * `UserFacingException` is the one a hook throws for a plain message;
+     * the typed validation, authorization and not-found exceptions are
+     * authored for the response as well. Every other throwable (a runtime,
+     * database, storage or driver error) is internal: its message can hold
+     * a path, a class name or a query, so the client gets a generic message
+     * and the details stay in the log.
+     */
+    public static function isUserFacing(Throwable $e): bool
+    {
+        return $e instanceof UserFacingException
+            || $e instanceof ValidationException
+            || $e instanceof AuthorizationException
+            || $e instanceof ResourceNotFoundException;
+    }
+
+    /**
      * Register Martis exception handling on a Laravel exception handler.
      *
      * Call this from MartisServiceProvider::boot() to auto-register.

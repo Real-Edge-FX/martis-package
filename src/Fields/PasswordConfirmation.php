@@ -19,6 +19,9 @@ use Illuminate\Database\Eloquent\Model;
  */
 class PasswordConfirmation extends Field
 {
+    /** The confirmation repeats a password: no log keeps it (see `Field::sensitive()`). */
+    protected bool $sensitive = true;
+
     protected ?string $confirms = null;
 
     public function __construct(string $attribute, string $label)

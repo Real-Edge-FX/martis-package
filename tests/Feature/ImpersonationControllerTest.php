@@ -11,6 +11,8 @@ use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Impersonation\Events\ImpersonationStarted;
 use Martis\Impersonation\Events\ImpersonationStopped;
 use Martis\Impersonation\Facades\Impersonation;
+use Martis\Impersonation\ImpersonationManager;
+use Martis\Models\ActionEvent;
 
 class ImpersonationTestUser extends Authenticatable
 {
@@ -30,6 +32,26 @@ class ProtectedImpersonationTestUser extends Authenticatable implements NotImper
     public $timestamps = false;
 }
 
+/** Nova's per-instance hooks: this operator may not impersonate, this target may not be impersonated. */
+class HookedImpersonationTestUser extends Authenticatable
+{
+    protected $table = 'impersonation_test_users';
+
+    protected $guarded = [];
+
+    public $timestamps = false;
+
+    public function canImpersonate(): bool
+    {
+        return $this->email !== 'op@example.com';
+    }
+
+    public function canBeImpersonated(): bool
+    {
+        return $this->email !== 'target@example.com';
+    }
+}
+
 beforeEach(function () {
     $this->withoutMiddleware(MartisAuthenticate::class);
 
@@ -39,6 +61,7 @@ beforeEach(function () {
         $table->string('name');
         $table->string('email')->unique();
         $table->string('password')->nullable();
+        $table->unsignedInteger('rank')->default(0);
     });
 
     config()->set('auth.providers.users.model', ImpersonationTestUser::class);
@@ -313,4 +336,166 @@ it('does not open stop to a refused user who is not impersonating', function () 
     $this->actingAs($this->target, 'web')->postJson('/martis/api/impersonation/stop')->assertForbidden();
     $this->actingAs($this->target, 'web')->get('/martis')->assertForbidden()
         ->assertSee('panelForbiddenImpersonating: false', false);
+});
+
+// -----------------------------------------------------------------------------
+// The gate sees the target (v2.4.0)
+// -----------------------------------------------------------------------------
+//
+// The gate judged the operator alone, so a support operator it admitted could
+// impersonate any user, a super-admin included: NotImpersonable is per class,
+// and one users table holds both. The gate now receives the target as its
+// second argument, beside the per-instance hooks of Nova.
+
+it('passes the operator and the target to the martis-impersonate gate', function () {
+    $seen = null;
+    Gate::define('martis-impersonate', function ($operator, $target = null) use (&$seen) {
+        $seen = [$operator->id, $target?->id];
+
+        return true;
+    });
+
+    $this->actingAs($this->operator, 'web')
+        ->postJson('/martis/api/impersonation/start/'.$this->target->id)
+        ->assertOk();
+
+    expect($seen)->toBe([$this->operator->id, $this->target->id]);
+});
+
+it('refuses a target the gate says outranks the operator, and starts nothing', function () {
+    Gate::define('martis-impersonate', fn ($operator, $target) => $target->rank <= $operator->rank);
+    Event::fake([ImpersonationStarted::class]);
+    $this->operator->forceFill(['rank' => 1])->save();
+    $superAdmin = ImpersonationTestUser::create(['name' => 'Root', 'email' => 'root@example.com', 'rank' => 9]);
+    $peer = ImpersonationTestUser::create(['name' => 'Peer', 'email' => 'peer@example.com', 'rank' => 1]);
+
+    $this->actingAs($this->operator, 'web')
+        ->postJson('/martis/api/impersonation/start/'.$superAdmin->id)
+        ->assertForbidden()
+        ->assertJson(['message' => 'Forbidden.']);
+
+    expect(Impersonation::isActive())->toBeFalse()
+        ->and(auth()->guard('web')->id())->toBe($this->operator->id);
+    Event::assertNotDispatched(ImpersonationStarted::class);
+
+    // The same operator still impersonates a user the gate lets them.
+    $this->postJson('/martis/api/impersonation/start/'.$peer->id)->assertOk();
+    expect(auth()->guard('web')->id())->toBe($peer->id);
+});
+
+it('keeps a one-argument gate working', function () {
+    Gate::define('martis-impersonate', fn ($operator) => $operator->email === 'op@example.com');
+
+    $this->actingAs($this->operator, 'web')
+        ->postJson('/martis/api/impersonation/start/'.$this->target->id)
+        ->assertOk();
+});
+
+it('answers a missing target like a refusal when the gate refuses the operator, so ids are not an oracle', function () {
+    Gate::define('martis-impersonate', fn () => false);
+
+    $this->actingAs($this->operator, 'web');
+    $missing = $this->postJson('/martis/api/impersonation/start/999999');
+    $existing = $this->postJson('/martis/api/impersonation/start/'.$this->target->id);
+
+    $missing->assertForbidden();
+    expect($missing->json())->toBe($existing->json());
+});
+
+it('answers 403, not a server error, for a missing target when the gate needs the target', function () {
+    Gate::define('martis-impersonate', fn ($operator, $target) => $target->rank <= $operator->rank);
+
+    $this->actingAs($this->operator, 'web')
+        ->postJson('/martis/api/impersonation/start/999999')
+        ->assertForbidden();
+});
+
+it('honours the canImpersonate hook of the operator model with a 403', function () {
+    Gate::define('martis-impersonate', fn () => true);
+    config()->set('auth.providers.users.model', HookedImpersonationTestUser::class);
+
+    $this->actingAs(HookedImpersonationTestUser::find($this->operator->id), 'web')
+        ->postJson('/martis/api/impersonation/start/'.$this->target->id)
+        ->assertForbidden();
+
+    expect(Impersonation::isActive())->toBeFalse();
+});
+
+it('honours the canBeImpersonated hook of the target model with a 422', function () {
+    Gate::define('martis-impersonate', fn () => true);
+    config()->set('auth.providers.users.model', HookedImpersonationTestUser::class);
+    $other = ImpersonationTestUser::create(['name' => 'Other', 'email' => 'other@example.com']);
+
+    $response = $this->actingAs(HookedImpersonationTestUser::find($other->id), 'web')
+        ->postJson('/martis/api/impersonation/start/'.$this->target->id);
+
+    $response->assertStatus(422);
+    expect($response->json('message'))->toContain('cannot be impersonated')
+        ->and(Impersonation::isActive())->toBeFalse();
+});
+
+it('refuses a programmatic start that the hooks refuse', function () {
+    config()->set('auth.providers.users.model', HookedImpersonationTestUser::class);
+    $manager = app(ImpersonationManager::class);
+
+    auth()->guard('web')->setUser(HookedImpersonationTestUser::find($this->operator->id));
+    expect(fn () => $manager->start(HookedImpersonationTestUser::find($this->target->id)))
+        ->toThrow(RuntimeException::class, 'cannot impersonate');
+
+    auth()->guard('web')->setUser(HookedImpersonationTestUser::create(['name' => 'Free', 'email' => 'free@example.com']));
+    expect(fn () => $manager->start(HookedImpersonationTestUser::find($this->target->id)))
+        ->toThrow(RuntimeException::class, 'cannot be impersonated');
+    expect(Impersonation::isActive())->toBeFalse();
+});
+
+it('records both identities in the audit rows of a start and a stop', function () {
+    Gate::define('martis-impersonate', fn () => true);
+    Schema::dropIfExists('martis_action_events');
+    Schema::create('martis_action_events', function ($t) {
+        $t->id();
+        $t->uuid('batch_id');
+        $t->unsignedBigInteger('user_id')->nullable();
+        $t->string('name');
+        $t->string('actionable_type')->nullable();
+        $t->string('actionable_id')->nullable();
+        $t->string('target_type')->nullable();
+        $t->string('target_id')->nullable();
+        $t->string('model_type')->nullable();
+        $t->string('model_id')->nullable();
+        $t->json('fields')->nullable();
+        $t->string('status');
+        $t->text('exception')->nullable();
+        $t->json('original')->nullable();
+        $t->json('changes')->nullable();
+        $t->timestamps();
+    });
+
+    $this->actingAs($this->operator, 'web')->postJson('/martis/api/impersonation/start/'.$this->target->id)->assertOk();
+    $this->postJson('/martis/api/impersonation/stop')->assertOk();
+
+    foreach (['impersonation.started', 'impersonation.stopped'] as $name) {
+        $row = ActionEvent::query()->where('name', $name)->sole();
+        expect($row->user_id)->toBe($this->operator->id)
+            ->and($row->fields)->toMatchArray([
+                'operator_id' => $this->operator->id,
+                'operator_label' => 'Operator',
+                'target_id' => $this->target->id,
+                'target_label' => 'Target',
+            ]);
+    }
+
+    Schema::dropIfExists('martis_action_events');
+});
+
+it('keeps the message of a non-refusal failure out of the response body (F027)', function () {
+    Gate::define('martis-impersonate', fn () => true);
+    Event::listen(ImpersonationStarted::class, function () {
+        throw new RuntimeException('SQLSTATE[HY000]: General error: no such table secret_internal');
+    });
+
+    $response = $this->actingAs($this->operator, 'web')
+        ->postJson('/martis/api/impersonation/start/'.$this->target->id);
+
+    $response->assertStatus(500);
+    expect($response->getContent())->not->toContain('SQLSTATE')->not->toContain('secret_internal');
 });

@@ -4,6 +4,7 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Martis\Auth\TwoFactorPass;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helper: create users table with profile columns + return a test user
@@ -49,7 +50,7 @@ function makeTestUser(array $attrs = []): User
 function loginTestUser(User $user): void
 {
     test()->actingAs($user, config('martis.guard'))
-        ->withSession(['martis_two_factor_passed' => true]);
+        ->withSession([TwoFactorPass::SESSION_KEY => (string) $user->getKey()]);
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

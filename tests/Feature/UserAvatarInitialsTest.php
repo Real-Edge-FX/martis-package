@@ -6,6 +6,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Martis\Auth\TwoFactorPass;
 use Martis\Contracts\ProfileResourceContract;
 use Martis\Profile\ProfileResource;
 
@@ -71,7 +72,7 @@ function userAvatarInitialsUser(): User
 function userAvatarInitialsActingAs(User $user): void
 {
     test()->actingAs($user, config('martis.guard'))
-        ->withSession(['martis_two_factor_passed' => true]);
+        ->withSession([TwoFactorPass::SESSION_KEY => (string) $user->getKey()]);
 }
 
 beforeEach(function () {

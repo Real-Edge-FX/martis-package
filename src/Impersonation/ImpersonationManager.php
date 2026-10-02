@@ -12,10 +12,10 @@ use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\Event;
 use Martis\Auth\GuardCatalog;
 use Martis\Auth\PanelAccess;
+use Martis\Auth\TwoFactorPass;
 use Martis\Contracts\NotImpersonable;
 use Martis\Impersonation\Events\ImpersonationStarted;
 use Martis\Impersonation\Events\ImpersonationStopped;
-use RuntimeException;
 
 /**
  * Impersonation service.
@@ -47,56 +47,106 @@ class ImpersonationManager
      * the session so `stop()` can restore them. The auth guard is
      * then logged in as the target.
      *
-     * Throws RuntimeException when the feature is disabled, no user
+     * Throws ImpersonationRefusedException when the feature is disabled, no user
      * is currently authenticated, the operator and target are the
-     * same person, the target fails the `viewMartis` gate, or
+     * same person, the operator's `canImpersonate()` or the target's
+     * `canBeImpersonated()` hook says no, the target is
+     * `NotImpersonable` or fails the `viewMartis` gate, or
      * impersonation is already active (chaining is not supported on
      * purpose — it would be a foot-gun).
      */
     public function start(Authenticatable $target): void
     {
         if (! $this->enabled()) {
-            throw new RuntimeException('Impersonation is disabled. Set `martis.impersonation.enabled` to true.');
+            throw new ImpersonationRefusedException('Impersonation is disabled. Set `martis.impersonation.enabled` to true.');
         }
 
         $guard = $this->guard();
         $operator = $this->auth->guard($guard)->user();
 
         if ($operator === null) {
-            throw new RuntimeException('Cannot start impersonation without an authenticated operator.');
+            throw new ImpersonationRefusedException('Cannot start impersonation without an authenticated operator.');
         }
 
         if ($this->isActive()) {
-            throw new RuntimeException('Impersonation is already active. Stop it before starting a new session.');
+            throw new ImpersonationRefusedException('Impersonation is already active. Stop it before starting a new session.');
         }
 
         if ($operator->getAuthIdentifier() === $target->getAuthIdentifier()) {
-            throw new RuntimeException('Cannot impersonate yourself.');
+            throw new ImpersonationRefusedException('Cannot impersonate yourself.');
+        }
+
+        // Per-instance hooks (v2.4.0, Nova's canImpersonate / canBeImpersonated):
+        // an operator model that says it cannot impersonate, and a target
+        // that says it cannot be impersonated, are refused here too, so a
+        // programmatic start() cannot go around the controller's checks.
+        if (! $this->operatorMayImpersonate($operator)) {
+            throw new ImpersonationRefusedException('This user cannot impersonate other users.');
         }
 
         // Per-target opt-out (v1.8.8). Models that implement
         // `NotImpersonable` are off-limits — system accounts, API users,
         // super-admins, etc. The check runs before the session is
         // mutated so a denied attempt has no side-effect.
-        if ($target instanceof NotImpersonable) {
-            throw new RuntimeException('This user cannot be impersonated.');
+        if (! $this->targetMayBeImpersonated($target)) {
+            throw new ImpersonationRefusedException('This user cannot be impersonated.');
         }
 
         // A target the `viewMartis` gate refuses could not use the panel,
         // and the operator could not stop the session from it either.
         if (! PanelAccess::allows($target)) {
-            throw new RuntimeException('This user cannot access the panel.');
+            throw new ImpersonationRefusedException('This user cannot access the panel.');
         }
+
+        // The operator's 2FA pass crosses the switch (below): the operator
+        // passed their own challenge to get here, and a target who has 2FA
+        // cannot be asked for a code the operator does not hold. The pass
+        // stays bound to a user: it moves to the target while the session
+        // impersonates, and back to the operator on stop().
+        $carriesTwoFactorPass = TwoFactorPass::holds($this->session(), $operator);
 
         $this->session()->put($this->sessionKey(), [
             'original' => $operator->getAuthIdentifier(),
             'target' => $target->getAuthIdentifier(),
             'started_at' => now()->toIso8601String(),
+            'two_factor_passed' => $carriesTwoFactorPass,
         ]);
 
+        // Every sign-in forgets the 2FA pass (Login listener), this one too.
         $this->auth->guard($guard)->login($target);
 
+        if ($carriesTwoFactorPass) {
+            TwoFactorPass::grant($this->session(), $target);
+        }
+
         Event::dispatch(new ImpersonationStarted($operator, $target));
+    }
+
+    /**
+     * Whether the operator's model allows impersonating at all: true unless
+     * it has a `canImpersonate(): bool` method that answers false (Nova's
+     * per-instance hook; v2.4.0). The `martis-impersonate` gate is the
+     * other half and lives in the controller.
+     */
+    public function operatorMayImpersonate(Authenticatable $operator): bool
+    {
+        return ! method_exists($operator, 'canImpersonate') || (bool) $operator->canImpersonate();
+    }
+
+    /**
+     * Whether the target's model allows being impersonated: not a
+     * {@see NotImpersonable}, and true unless it has a
+     * `canBeImpersonated(): bool` method that answers false (Nova's
+     * per-instance hook; v2.4.0), which can tell one row from another in a
+     * table that holds support staff and super-admins alike.
+     */
+    public function targetMayBeImpersonated(Authenticatable $target): bool
+    {
+        if ($target instanceof NotImpersonable) {
+            return false;
+        }
+
+        return ! method_exists($target, 'canBeImpersonated') || (bool) $target->canBeImpersonated();
     }
 
     /**
@@ -120,6 +170,7 @@ class ImpersonationManager
             // Defensive — clear the auth guard anyway so we don't
             // leak the impersonated session.
             $this->auth->guard($guard)->logout();
+            TwoFactorPass::revoke($this->session());
 
             return;
         }
@@ -127,13 +178,23 @@ class ImpersonationManager
         $original = $this->resolveUser($stashed['original']);
         if ($original === null) {
             $this->auth->guard($guard)->logout();
+            TwoFactorPass::revoke($this->session());
 
             return;
         }
 
         $previousTarget = $this->auth->guard($guard)->user();
 
+        // The pass the operator held when they started goes back to them.
+        // The stash is server-side session state written by start(), never
+        // by a request, so it cannot be forged to mint a pass.
+        $restoresTwoFactorPass = ($stashed['two_factor_passed'] ?? false) === true;
+
         $this->auth->guard($guard)->login($original);
+
+        if ($restoresTwoFactorPass) {
+            TwoFactorPass::grant($this->session(), $original);
+        }
 
         if ($previousTarget !== null) {
             Event::dispatch(new ImpersonationStopped($original, $previousTarget));

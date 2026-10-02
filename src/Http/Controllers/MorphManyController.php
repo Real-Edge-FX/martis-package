@@ -464,6 +464,13 @@ class MorphManyController extends MartisController
             return $forbidden;
         }
 
+        // The field turned this write off (`canCreate(false)`,
+        // `canUpdate(false)`, `canDelete(false)`): the setters hold on the
+        // endpoint, not only on the panel's buttons.
+        if ($action !== null && ! $morphManyField->allowsRelatedWrite($action)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
         if ($action === 'create') {
             $relatedCheck = new $relatedResourceClass;
             if (! $relatedCheck->authorizedToCreate($request)) {

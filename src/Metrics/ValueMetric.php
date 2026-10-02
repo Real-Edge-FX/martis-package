@@ -93,7 +93,7 @@ abstract class ValueMetric extends Metric
     protected function aggregate(Request $request, string $model, AggregateFunction $function, ?string $column, ?string $dateColumn): ValueResult
     {
         $dateColumn = $dateColumn ?? 'created_at';
-        $range = self::queryString($request, 'range', '30');
+        $range = $this->requestedRange($request);
         [$currentStart, $currentEnd, $previousStart, $previousEnd] = $this->calculateDateRange($range);
 
         $currentQuery = $this->applyFilterScope(
@@ -129,6 +129,8 @@ abstract class ValueMetric extends Metric
         $resolved = $range instanceof MetricRange
             ? $range
             : MetricRange::tryFrom((string) $range);
+        // A numeric window, held to MAX_RANGE (the named ranges use none).
+        $window = $range instanceof MetricRange ? 0 : self::rangeWindow($range);
 
         return match ($resolved) {
             MetricRange::Today => [
@@ -148,8 +150,8 @@ abstract class ValueMetric extends Metric
                 $now->subYearNoOverflow()->startOfYear(), $now->subYearNoOverflow(),
             ],
             null => [
-                $now->subDays((int) $range), $now,
-                $now->subDays((int) $range * 2), $now->subDays((int) $range),
+                $now->subDays($window), $now,
+                $now->subDays($window * 2), $now->subDays($window),
             ],
         };
     }

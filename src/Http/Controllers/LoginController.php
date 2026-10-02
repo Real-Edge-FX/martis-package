@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Martis\Auth\PasswordChangeRequirement;
+use Martis\Auth\TwoFactorPass;
 use Martis\Http\Controllers\Concerns\AuthenticatesWithRememberMe;
 use Martis\Sso\SsoSession;
 
@@ -61,6 +62,12 @@ class LoginController extends MartisController
         }
 
         $request->session()->regenerate();
+
+        // Every sign-in starts without a 2FA pass. The pass names the user
+        // who earned it and the Login listener forgets it, so a pass of the
+        // account signed in before cannot reach this one; this keeps a guard
+        // that does not fire Login honest.
+        TwoFactorPass::revoke($request->session());
 
         // A password, magic-link or invitation sign-in is not an SSO one: drop
         // the SSO origin an earlier SSO sign-in left in this session or in

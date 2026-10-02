@@ -5,6 +5,7 @@ namespace Martis;
 use Dedoc\Scramble\Scramble;
 use Illuminate\Auth\Access\Events\GateEvaluated;
 use Illuminate\Auth\AuthManager;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
@@ -23,16 +24,19 @@ use Martis\Auth\DefaultRegistersUsers;
 use Martis\Auth\DefaultResetsUserPasswords;
 use Martis\Auth\DefaultSendsEmailVerification;
 use Martis\Auth\DefaultSendsPasswordResetLinks;
+use Martis\Auth\GuardCatalog;
 use Martis\Auth\Listeners\ClearPasswordChangeRequirement;
 use Martis\Auth\Listeners\RecordAuthorizationDenial;
 use Martis\Auth\Listeners\RecordImpersonation;
 use Martis\Auth\Listeners\RecordRoleChange;
+use Martis\Auth\Listeners\ResetTwoFactorPass;
 use Martis\Authorization\PolicyResolver;
 use Martis\Authorization\RequestScopedAbilityCache;
 use Martis\Cache\MartisCache;
 use Martis\Console\ActionMakeCommand;
 use Martis\Console\ActivityFeedMakeCommand;
 use Martis\Console\AgentsCommand;
+use Martis\Console\AttachmentsPruneCommand;
 use Martis\Console\CacheClearCommand;
 use Martis\Console\CacheDisableCommand;
 use Martis\Console\CacheEnableCommand;
@@ -79,6 +83,7 @@ use Martis\Http\Middleware\ApplyUserPreferencesLocale;
 use Martis\Http\Middleware\AuthorizePanelAccess;
 use Martis\Http\Middleware\AuthorizeTool;
 use Martis\Http\Middleware\EnforceImpersonationDuration;
+use Martis\Http\Middleware\EnforceSoftGate;
 use Martis\Http\Middleware\EnsureEmailIsVerified;
 use Martis\Http\Middleware\EnsurePasswordIsChanged;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
@@ -244,6 +249,7 @@ class MartisServiceProvider extends ServiceProvider
         $this->registerRateLimiters();
         $this->registerRoleAuditListeners();
         $this->registerPasswordChangeListeners();
+        $this->registerTwoFactorListeners();
 
         // Boot every registered Tool's lifecycle hook AFTER Martis
         // itself has loaded routes / views / config. Tools can hook
@@ -283,6 +289,7 @@ class MartisServiceProvider extends ServiceProvider
                 CacheStatusCommand::class,
                 CacheClearCommand::class,
                 CachePruneCommand::class,
+                AttachmentsPruneCommand::class,
                 CacheDisableCommand::class,
                 CacheEnableCommand::class,
                 ListOverridesCommand::class,
@@ -565,6 +572,9 @@ class MartisServiceProvider extends ServiceProvider
         // The gate of a Tool's routes (`martis.tool:{uriKey}`), see
         // ToolRoutes::middleware().
         $router->aliasMiddleware('martis.tool', AuthorizeTool::class);
+        // The soft lock (`lockedFor()`, `requirePlan()`) on the routes that
+        // serve an entity's data, see EnforceSoftGate.
+        $router->aliasMiddleware('martis.gate', EnforceSoftGate::class);
         // The stack of the protected API routes as one group, for a route
         // of the host app and for Tool::DEFAULT_ROUTE_MIDDLEWARE.
         $router->middlewareGroup('martis.api', RouteMiddleware::api());
@@ -791,37 +801,76 @@ class MartisServiceProvider extends ServiceProvider
      * Register the named rate limiters Martis applies on top of the
      * generic per-IP `throttle:N,1` middleware.
      *
-     * `martis-login` keys on the lowercased email + the client IP, so
-     * a credential-stuffing attempt against a single account is caught
-     * regardless of which botnet IP fires the next attempt. The window
-     * matches the global login throttle so users see a single, coherent
-     * 429 envelope across both layers.
+     * `martis-login` holds two limits for a request that names an email:
+     *
+     *   - the lowercased email AND the client IP
+     *     (`login_attempts` per `login_minutes`): a noisy machine, and one
+     *     machine's guesses at one account, without one user's typos
+     *     counting against another IP's attempts at the same account;
+     *   - the lowercased email ALONE (`login_email_attempts` per
+     *     `login_email_minutes`, a higher threshold over a longer window):
+     *     the only limit that bounds guessing at one account from many
+     *     addresses, since every source IP has a bucket of its own in the
+     *     first. `0` attempts turns it off.
+     *
+     * A request without an email (no payload) is limited per IP only.
+     * The limits are read per request, so a changed config takes effect
+     * without re-registering.
      *
      * Routes opt in via `throttle:martis-login` in addition to the
-     * generic `throttle:N,1`. Per-IP catches a noisy machine, per-email
-     * catches a slow distributed attack on a known account.
+     * generic `throttle:N,1`: both login routes and the magic-link request.
      */
     protected function registerRateLimiters(): void
     {
-        $attempts = (int) config('martis.throttle.login_attempts', 20);
-        $minutes = (int) config('martis.throttle.login_minutes', 1);
+        RateLimiter::for('martis-login', function (Request $request) {
+            $attempts = (int) config('martis.throttle.login_attempts', 20);
+            $minutes = (int) config('martis.throttle.login_minutes', 1);
+            $accountAttempts = (int) config('martis.throttle.login_email_attempts', 100);
+            $accountMinutes = (int) config('martis.throttle.login_email_minutes', 15);
 
-        RateLimiter::for('martis-login', function (Request $request) use ($attempts, $minutes) {
             // The limiter runs before validation: an email sent as an
             // array reads as empty, and the login answers its 422.
             $rawEmail = $request->input('email', '');
-            $email = strtolower(is_string($rawEmail) ? $rawEmail : '');
+            $email = strtolower(trim(is_string($rawEmail) ? $rawEmail : ''));
 
             // Empty-email request (no payload at all): fall back to
             // the standard per-IP envelope so a script hammering the
             // endpoint without payload still gets throttled.
-            $key = $email === ''
-                ? 'martis-login|ip|'.$request->ip()
-                : 'martis-login|email|'.sha1($email).'|ip|'.$request->ip();
+            if ($email === '') {
+                return [Limit::perMinutes($minutes, $attempts)->by('martis-login|ip|'.$request->ip())];
+            }
 
-            return [
-                Limit::perMinutes($minutes, $attempts)->by($key),
+            $limits = [
+                Limit::perMinutes($minutes, $attempts)->by('martis-login|email|'.sha1($email).'|ip|'.$request->ip()),
             ];
+
+            if ($accountAttempts > 0) {
+                $limits[] = Limit::perMinutes($accountMinutes, $accountAttempts)->by('martis-login|account|'.sha1($email));
+            }
+
+            return $limits;
+        });
+
+        // The 2FA challenge guards a second factor of 6 digits, so it gets a
+        // limiter of its own, tighter than the login's: per user (the
+        // account being guessed at) and per IP (one machine guessing at
+        // many accounts), read per request. Past the limit the route
+        // answers 429; TwoFactorChallengeLockout ends the session after
+        // consecutive wrong codes.
+        RateLimiter::for('martis-2fa-challenge', function (Request $request) {
+            $minutes = max(1, (int) config('martis.throttle.two_factor_minutes', 1));
+            $perUser = (int) config('martis.throttle.two_factor_attempts', 5);
+            $perIp = (int) config('martis.throttle.two_factor_ip_attempts', 15);
+            $guard = GuardCatalog::martis();
+
+            $limits = [Limit::perMinutes($minutes, $perIp)->by('martis-2fa-challenge|'.$guard.'|ip|'.$request->ip())];
+
+            $user = auth()->guard($guard)->user();
+            if ($user !== null) {
+                $limits[] = Limit::perMinutes($minutes, $perUser)->by('martis-2fa-challenge|'.$guard.'|user|'.$user->getAuthIdentifier());
+            }
+
+            return $limits;
         });
     }
 
@@ -924,5 +973,11 @@ class MartisServiceProvider extends ServiceProvider
     protected function registerPasswordChangeListeners(): void
     {
         Event::listen(PasswordReset::class, [ClearPasswordChangeRequirement::class, 'handle']);
+    }
+
+    /** Every sign-in of the Martis guard starts without a 2FA pass (v2.4.0). */
+    protected function registerTwoFactorListeners(): void
+    {
+        Event::listen(Login::class, [ResetTwoFactorPass::class, 'handle']);
     }
 }

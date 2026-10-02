@@ -1,6 +1,8 @@
 import { API_BASE_URL, BASE_PATH } from "@/lib/config"
 import i18n from "@/lib/i18n"
 import { isOnPage, passwordChangeUrl } from "@/lib/passwordChange"
+import { LOCKED_EVENT } from "@/lib/lockEvent"
+import type { GateLock } from "@/types"
 
 export interface ValidationError {
   field: string
@@ -145,6 +147,20 @@ function redirectOnPasswordChangeRequired(): void {
 function isPasswordChangeRequiredResponse(status: number, payload: unknown): boolean {
   return status === 409 && (payload as { password_change_required?: unknown } | null)?.password_change_required === true
 }
+
+/** Match the 403 a data endpoint answers for a soft-locked entity (`SoftGate::refusal()`). */
+function lockOfResponse(status: number, payload: unknown): GateLock | null {
+  if (status !== 403 || payload === null || typeof payload !== 'object') return null
+
+  const { locked, lock } = payload as { locked?: unknown; lock?: unknown }
+  return locked === true && lock !== null && typeof lock === 'object' ? (lock as GateLock) : null
+}
+
+/** Raise `LOCKED_EVENT` for a lock payload (`request()` and `uploadRequest()` do, on a 403 that carries one). */
+function announceLock(lock: GateLock | null): void {
+  if (lock !== null) window.dispatchEvent(new CustomEvent<GateLock>(LOCKED_EVENT, { detail: lock }))
+}
+
 async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const csrfToken = getCsrfToken()
 
@@ -197,6 +213,7 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
     if (isPasswordChangeRequiredResponse(res.status, json)) {
       redirectOnPasswordChangeRequired()
     }
+    announceLock(lockOfResponse(res.status, json))
     const err = (json ?? {}) as { message?: string; errors?: unknown }
     // 403: surface a distinct "not authorized" message so the UI can show a
     // policy-specific toast instead of the generic action failure. The server
@@ -352,6 +369,7 @@ async function uploadRequest<T>(method: string, path: string, values: Record<str
     if (isPasswordChangeRequiredResponse(res.status, json)) {
       redirectOnPasswordChangeRequired()
     }
+    announceLock(lockOfResponse(res.status, json))
     const err = (json ?? {}) as { message?: string; errors?: unknown }
     // For status codes that typically come back as a non-JSON page from
     // the proxy / web server (413 Request Entity Too Large from Nginx,

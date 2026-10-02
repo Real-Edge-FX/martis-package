@@ -12,6 +12,8 @@ use Martis\Stubs\StubResolver;
  *
  * Creates a policy stub in the configured namespace (default: App\Martis\Policies)
  * with all resource, action, and relationship ability methods pre-defined.
+ * The generated policy is deny-by-default: every ability returns false until
+ * the developer edits it, so a forgotten edit fails closed.
  */
 class PolicyMakeCommand extends Command
 {

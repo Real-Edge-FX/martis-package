@@ -606,7 +606,7 @@ Static query hooks wrap every Eloquent query built by Martis for this resource. 
 
 ### indexQuery()
 
-Constrains the index listing query and the queries Martis builds like it: the count badge, the global search (its results and `total`), the records an action runs on, and the parent record of a `BelongsToMany` panel and of the pivot routes. The canonical place for multi-tenancy, ownership scoping, or any other structural filter. The declarative [`scopes()`](authorization.md#declarative-query-scopes) run first wherever it runs. A lens owns its query, as in Nova, so repeat such a filter in the lens's `query()`; the relationship pickers use `relatableQuery()` below.
+Constrains the index listing query and the queries Martis builds like it: the count badge, the global search (its results and `total`), the records an action runs on, and the parent record of a `BelongsToMany` panel and of the pivot routes. The canonical place for multi-tenancy, ownership scoping, or any other structural filter. The declarative [`scopes()`](authorization.md#declarative-query-scopes) run first wherever it runs. A lens starts from the same query (v2.4.0), so it never lists what the index hides, unless it opts out with `Lens::$withoutIndexScope` (see [Lenses](lenses.md#the-lens-lists-what-the-index-lists)); the relationship pickers use `relatableQuery()` below.
 
 ```php
 public static function indexQuery(Request $request, Builder $query): Builder
@@ -630,7 +630,9 @@ Source: `src/Resource.php::indexQuery()`.
 
 ### relatableQuery()
 
-Constrains the query used to list candidate records in every relationship picker that targets this resource: BelongsTo dropdowns, the context-free relatable form, and the BelongsToMany / MorphToMany attach pickers. It is the resource's own fence and always applies; a source resource's `relatable{PluralModelName}()` and a field's `relatableQueryUsing()` narrow on top of it, never replace it (see [Relationships → Relatable scoping precedence](relationships.md#relatable-scoping-precedence)). A resource that confines its index with `indexQuery()` or `scopes()` on a model that cannot carry a global scope should declare the same predicate here so the fence holds on the pickers too: neither hook applies to a picker.
+Constrains the query used to list candidate records in every relationship picker that targets this resource: BelongsTo dropdowns, the context-free relatable form, and the BelongsToMany / MorphToMany attach pickers. It is the resource's own fence and always applies; a source resource's `relatable{PluralModelName}()` and a field's `relatableQueryUsing()` narrow on top of it, never replace it (see [Relationships → Relatable scoping precedence](relationships.md#relatable-scoping-precedence)). A resource that confines its index with `indexQuery()` or `scopes()` on a model that cannot carry a global scope should declare the same predicate here so the fence holds on the pickers too: neither hook applies to a picker. This includes the context-free picker (`GET /resources/_/_/relatable/{field}?related_resource={uriKey}`, used by a form that belongs to no resource, such as a Tool's): it lists any resource's records for a user who may `viewAny` it, behind this query alone, so a resource that fences tenants only in `indexQuery()` lists every tenant's rows there.
+
+**What a picker row carries (v2.4.0).** A picker renders an id, a label and, when the field asks for it, a subtitle, so the relatable endpoint serialises a row as `id`, `_title` (the resource's `title()`) and the display value of the attributes the picker reads: the field's `titleAttribute()` and, with `withSubtitles()`, its `subtitleAttribute()`, as far as they are index fields the user may see for the record (`canSee()`, `canSeeForModel()`). It no longer serialises the whole index row: the other columns, the `_authorization` block and the `_resource` descriptor are not in a picker row. The context-free endpoint has no field to read the attributes from, so the picker names them in `?title_attribute=` and `?subtitle_attribute=` (the bundled pickers do), and the row still carries only the ones that are visible index fields. A custom picker that read another index column from a relatable row must put that column in `titleAttribute()` / `subtitleAttribute()`, or read it from the record's own endpoint.
 
 The writes follow it too, as Nova's `Relatable` rule: a create, update, attach or Action run that names a record outside the query answers 422 on the field (see [Relationships → Writes follow the pickers](relationships.md#writes-follow-the-pickers)). So keep it as wide as what the app actually saves.
 
@@ -880,18 +882,24 @@ public function afterSave(Model $model, Request $request, bool $creating): void
 
 ### beforeDelete()
 
-Called before deletion. Throw an exception to prevent deletion.
+Called before deletion. Throw an exception to prevent deletion. To tell the user why, throw `Martis\Exceptions\UserFacingException`: its message is the one the delete endpoint returns as it is.
 
 ```php
+use Martis\Exceptions\UserFacingException;
+
 public function beforeDelete(Model $model, Request $request): void
 {
     if ($model->is_protected) {
-        throw new \RuntimeException('This record cannot be deleted.');
+        throw new UserFacingException('This record cannot be deleted.');
     }
 
     parent::beforeDelete($model, $request); // Dispatches BeforeDelete event
 }
 ```
+
+`UserFacingException` answers 422 by default; pass another status as the second argument (`new UserFacingException('Locked by another user.', 409)`). The panel shows the message of a failed delete in its toast (on the index, the detail page, the drawer and a lens), so the reason reaches the user. The typed `ValidationException`, `AuthorizationException` and `ResourceNotFoundException` (see [Exception Handling](#exception-handling)) keep their message and status too.
+
+Any other exception that escapes the delete (a `RuntimeException` from a hook, an observer, a model event, a storage or cache driver) is internal: its message can hold a path, a bucket name or a class name. In production the endpoint answers 500 with the generic `martis::messages.error_delete` message and sends the details to the log (`Martis: error on delete`) and to `report()`. With `app.debug` on, the raw message is returned, so a developer still sees what broke. Never put an internal detail in the message of a `UserFacingException`: the user sees it.
 
 ### afterDelete()
 
@@ -1133,6 +1141,8 @@ Policies support a before() method that runs before any specific ability check. 
 
 Use php artisan martis:policy PolicyName --model=ModelName to generate a complete policy stub. The historical `martis:make-policy` name is kept as a hidden alias for backwards compatibility.
 
+The generated policy is **deny-by-default** (v2.4.0+): the ten resource and action abilities (`viewAny`, `view`, `create`, `update`, `replicate`, `delete`, `restore`, `forceDelete`, `runAction`, `runDestructiveAction`) each return `false` and carry a `// TODO` naming the decision to make, so a policy registered without an edit fails closed: nobody can list, read, create, change or delete the resource, and nobody can permanently delete a record by accident. Replace each `return false;` with the rule that fits (a role check, an ownership test) and delete the TODO. Keep the methods you do not mean to open: a method removed from the class falls back to the Martis default, which allows `viewAny` and the relationship abilities. Policies generated before v2.4.0 returned `true` from every ability; they are yours and were not touched, so review them if you registered one unedited. The commented relationship examples at the bottom of the file deny too.
+
 ### Disabling Specific Action Buttons
 
 To hide a specific button (Edit, Delete, Replicate, etc.) from the UI and enforce it on the backend, override the corresponding `authorizedTo*()` method directly in your Resource class:
@@ -1180,14 +1190,37 @@ Available methods: `authorizedToView`, `authorizedToCreate`, `authorizedToUpdate
 
 ### Attachment Uploads (Trix / Markdown)
 
-The `AttachmentController` handles file uploads from Trix and Markdown rich text editors. Allowed MIME types, storage disks, and max size are configurable via `config/martis.php`:
+The `AttachmentController` handles file uploads from Trix and Markdown rich text editors. A field accepts files when it declares `withFiles()`:
+
+```php
+Trix::make('body')->withFiles();            // the panel's martis.storage.disk ('public' by default)
+Trix::make('body')->withFiles('s3');        // a disk of its own
+Markdown::make('notes')->withFiles('public');
+```
+
+An upload names the field it belongs to, as the form it comes from does, and is authorised like that form (v2.4.0):
+
+```
+POST /martis/api/attachments/upload?resource={uriKey}&field={attribute}[&id={recordId}][&repeater={attribute}&repeatable={shortName}]
+file = the uploaded file (multipart)
+```
+
+- `resource` and `field` are required (422 without them; 404 for an unknown resource). `id` names the record an edit form is editing; leave it out on a create form. `repeater` and `repeatable` name the row when the field is inside a Repeater (the same parameters the relation pickers send).
+- The user must be allowed to list the resource (`viewAny`), and either update the record `id` names (the field is looked up on the update form) or, without a record the user may update, create the resource (the create forms, the inline-create modal included). Otherwise the answer is 403 and nothing is stored: a signed-in user who may write no record cannot host files on the application's origin. An `id` the user may not update is answered like a missing one.
+- The field must be on that form and visible to the user (404 otherwise, like any attribute no form declares), and must declare `withFiles()` (403 when it does not).
+- The file goes to the disk the field declares, never to one the request names: a `disk` parameter is ignored. A field that calls `withFiles()` with no disk uses `config('martis.storage.disk')`.
+- Uploads are stored under `martis-attachments/` on that disk, as `{40 random characters}.{extension}`, and the response is `{ "url": "...", "href": "..." }` for the editor to embed.
+- Only the fields of a resource form upload: the SPA offers no attachment on the fields of an Action, a Tool or a many-to-many pivot, which this endpoint cannot resolve.
+
+Allowed extensions, the maximum size and the upload rate are configurable via `config/martis.php`:
 
 ```php
 // config/martis.php
 'attachments' => [
-    'allowed_mimes' => explode(',' , env('MARTIS_ATTACHMENT_MIMES', 'jpg,jpeg,png,gif,webp,svg,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,mp4,mp3')),
-    'allowed_disks' => ['public', 'local'],
+    'allowed_mimes' => explode(',' , env('MARTIS_ATTACHMENT_MIMES', 'jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,mp4,mp3')),
     'max_size' => (int) env('MARTIS_ATTACHMENT_MAX_SIZE', 10240), // KB
+    'throttle_max' => (int) env('MARTIS_ATTACHMENT_THROTTLE_MAX', 20),     // uploads per user...
+    'throttle_decay' => (int) env('MARTIS_ATTACHMENT_THROTTLE_DECAY', 1),  // ...per this many minutes
 ],
 ```
 
@@ -1195,7 +1228,21 @@ To allow additional file types (e.g., `.ai`, `.psd`), either:
 1. Set the `MARTIS_ATTACHMENT_MIMES` env variable with a comma-separated list
 2. Or publish and edit `config/martis.php` directly
 
-Uploads are stored under `martis-attachments/` on the selected disk.
+The extensions list is a deny-by-omission fence: keep script-capable types (`svg`, `html`) out of it, since the files are served from the application's own origin.
+
+The route carries a dedicated per-user throttle (`throttle_max` uploads per `throttle_decay` minutes, in a bucket of its own, `martis-attachments:{guard}:`) on top of the API's, which `martis.throttle.enabled = false` turns off with it. Over the limit the answer is 429.
+
+#### Removing the files no record references
+
+An editor saves the URL of a file inside the content of the field, and there is no table of uploads, so a file the editor never saved (a closed form, a removed image) stays on the disk. `martis:attachments:prune` deletes them:
+
+```bash
+php artisan martis:attachments:prune --dry-run   # list what would go
+php artisan martis:attachments:prune             # delete it
+php artisan martis:attachments:prune --hours=72 --disk=s3 --disk=public
+```
+
+It reads the text and JSON columns of the table of every registered resource's model (Repeater rows and soft-deleted records included) for the stored file names, and deletes the files of `martis-attachments/` that none holds and that were written more than `--hours` ago (24 by default, at least 1, so an upload from a form that is still open is never taken). Only files with the names the endpoint writes are touched. `--disk` (repeatable) names the disks to sweep; without it, the panel's `martis.storage.disk`. A file referenced from a table no registered resource writes to is not seen, so run it with `--dry-run` first. It stops without deleting anything when a resource's table cannot be read. Nothing runs it for you: schedule it (`$schedule->command('martis:attachments:prune')->daily()`) once you have checked a dry run.
 
 For field-specific MIME restrictions (on File/Image fields in forms), use the `acceptedTypes()` method on the field:
 
@@ -1232,11 +1279,13 @@ Martis provides a set of typed exceptions for structured error handling. These a
 | `ValidationException` | 422 | Input validation failures with per-field errors |
 | `AuthorizationException` | 403 | Unauthorized access attempts |
 | `ResourceNotFoundException` | 404 | Record or resource not found |
+| `UserFacingException` | 422 (configurable) | A plain message for the user, shown as it is |
 
 ```php
 use Martis\Exceptions\ValidationException;
 use Martis\Exceptions\AuthorizationException;
 use Martis\Exceptions\ResourceNotFoundException;
+use Martis\Exceptions\UserFacingException;
 
 // Per-field validation errors (e.g. in an Action):
 throw ValidationException::fromFieldErrors([
@@ -1252,7 +1301,12 @@ throw AuthorizationException::forAction('delete', 'post');
 
 // Not found:
 throw ResourceNotFoundException::forRecord('posts', $id);
+
+// A reason the user can act on, in a hook (message shown as it is, 422 by default):
+throw new UserFacingException('This post is scheduled and cannot be deleted.');
 ```
+
+Only these exceptions put their message in a response from a catch-all of the API (the delete endpoint, for one). Any other exception is internal and answers a generic message in production; see [beforeDelete()](#beforedelete).
 
 All exceptions extend `MartisException` which itself extends `\RuntimeException`. Laravel's exception handler will catch them automatically. Unhandled `MartisException` subclasses return a 500 JSON response in production.
 

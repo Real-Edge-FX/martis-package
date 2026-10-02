@@ -3,6 +3,7 @@
 namespace Martis\Fields;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 use Martis\Enums\AvatarShape;
 use Martis\Enums\GravatarSourceType;
 
@@ -166,6 +167,18 @@ class Gravatar extends Field
     /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
+        // The seams of Field::fill(): a readonly field (a closure included)
+        // writes nothing and a fillUsing() callback takes the write over.
+        if ($this->isReadonly()) {
+            return;
+        }
+
+        if ($this->fillCallback !== null) {
+            ($this->fillCallback)($model, $value, $this->attribute, $this->safeRequest());
+
+            return;
+        }
+
         // sourceType=Email is computed (we never want to write the
         // generated gravatar URL back over the email column). Only
         // sourceType=Url receives writes from the form, which is the
@@ -181,6 +194,34 @@ class Gravatar extends Field
         if ($value !== null) {
             $model->setAttribute($this->attribute, $value);
         }
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * In URL mode the value is rendered as an `<img src>` for every viewer,
+     * so a write accepts an absolute `https://` URL only (an empty value
+     * passes: it writes nothing). The email mode writes nothing.
+     */
+    public function buildRules(?string $context = null): array
+    {
+        $rules = parent::buildRules($context);
+
+        if ($this->sourceType !== GravatarSourceType::Url || $this->isReadonly() || $this->computed) {
+            return $rules;
+        }
+
+        $rules[] = function (string $attribute, mixed $value, \Closure $fail): void {
+            if ($value === null || $value === '') {
+                return;
+            }
+
+            if (! is_string($value) || ! Str::isUrl($value, ['https'])) {
+                $fail('martis::validation.https_url')->translate();
+            }
+        };
+
+        return $rules;
     }
 
     /**

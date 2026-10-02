@@ -18,7 +18,7 @@ class UserCommand extends Command
     protected $signature = 'martis:user
                             {--name= : The full name of the admin user}
                             {--email= : The email address of the admin user}
-                            {--password= : The password for the admin user}
+                            {--password= : Deprecated: the argument is visible to other local users in the process list. Use --password-stdin}
                             {--password-stdin : Read the password from the first line of standard input, so it never appears in the process list}
                             {--if-missing : Exit successfully without changes when a user with this email already exists}
                             {--update : Update the name (when given) and password of an existing user instead of failing}';
@@ -126,7 +126,8 @@ class UserCommand extends Command
     }
 
     /**
-     * Read the password from `--password`, from the first line of standard
+     * Read the password from `--password` (deprecated: see
+     * warnAboutPasswordOption()), from the first line of standard
      * input (`--password-stdin`), or ask for it on a terminal; then validate
      * it with the app's password policy, as nova:user does. Null (with the
      * error already printed) when it is missing, empty, given twice or too
@@ -157,6 +158,8 @@ class UserCommand extends Command
                 return null;
             }
             $password = (string) $this->secret('Password');
+        } else {
+            $this->warnAboutPasswordOption($password);
         }
 
         if ($password === '') {
@@ -176,6 +179,22 @@ class UserCommand extends Command
         }
 
         return $password;
+    }
+
+    /**
+     * `--password` still works, but the value is part of the command line:
+     * every other local user reads it through the process list (`ps`,
+     * /proc/<pid>/cmdline), and shell history and CI logs keep it. Said once
+     * per run, never echoing the password itself; an empty value exposes
+     * nothing and is refused right after.
+     */
+    private function warnAboutPasswordOption(string $password): void
+    {
+        if ($password === '') {
+            return;
+        }
+
+        $this->components->warn('--password is deprecated: a command-line argument is visible to other local users in the process list (ps, /proc/<pid>/cmdline) and stays in shell history and CI logs. Pipe the password with --password-stdin instead: printf \'%s\n\' "$PASSWORD" | php artisan martis:user --password-stdin ...');
     }
 
     /**

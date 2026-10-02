@@ -11,7 +11,7 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { useQueryClient } from '@tanstack/react-query'
 import { recordHref } from '@/lib/recordHref'
 import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
-import { relatableUrl, withQuery } from '@/lib/relatableEndpoint'
+import { pickerAttributesQuery, relatableUrl, withQuery } from '@/lib/relatableEndpoint'
 import { useEscapeLayer } from '@/lib/escapeLayers'
 // Tooltip handled by global <Tooltip> in Layout.tsx
 
@@ -428,7 +428,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
       const searchParam = query ? `&search=${encodeURIComponent(query)}` : ''
       const endpoint = scopedUrl
         ? withQuery(scopedUrl, `per_page=${perPage}${searchParam}`)
-        : `/api/resources/_/_/relatable/${field.attribute}?per_page=${perPage}&related_resource=${relatedResource}${searchParam}`
+        : `/api/resources/_/_/relatable/${field.attribute}?per_page=${perPage}&related_resource=${relatedResource}${pickerAttributesQuery(titleAttribute, withSubtitles ? subtitleAttribute : undefined)}${searchParam}`
       const res = await api.get<PaginatedResponse<RelatedRecord>>(endpoint)
       setOptions(res.data ?? [])
     } catch {
@@ -436,7 +436,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     } finally {
       setLoading(false)
     }
-  }, [relatedResource, scopedUrl, field.attribute, perPage])
+  }, [relatedResource, scopedUrl, field.attribute, perPage, titleAttribute, withSubtitles, subtitleAttribute])
 
   // Load the options of the current scope while the dropdown is open: when
   // it opens, and again if the scope changes under it.

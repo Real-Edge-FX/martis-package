@@ -128,6 +128,65 @@ public function query(LensRequest $request, Builder $query): Builder
 }
 ```
 
+### The lens lists what the index lists
+
+> Changed in v2.4.0 (breaking).
+
+A lens starts from the query of the resource's index: the resource's
+declarative `scopes()`, then its `indexQuery()` (the tenant / ownership
+fence), run on the model's query before `Lens::query()` receives it, in
+the index's order and grouped as the index groups them. The lens page, its
+pagination and total, its summary and the records its
+[actions](#actions-only-the-lens-declares) run on all start from that
+query, so a lens that does not repeat the constraint never lists another
+tenant's rows, field values or summary aggregates, and a lens action never
+runs on them. A record the fence hides answers 404 on a lens action, as it
+does on the resource route.
+
+The lens's own clauses run grouped, as a filter does: an `orWhere()` in
+`query()` (`where('status', 'open')->orWhere('shared', true)`) cannot OR the
+fence away, so the query reads `fence AND (status = 'open' OR shared)`.
+
+```php
+class TenantResource extends Resource
+{
+    public static function scopes(Request $request): array
+    {
+        return ['tenant' => fn (Builder $q) => $q->where('tenant_id', $request->user()->tenant_id)];
+    }
+}
+
+class OverdueInvoicesLens extends Lens
+{
+    // Lists the overdue invoices of the user's tenant: no tenant constraint
+    // to repeat.
+    public function query(LensRequest $request, Builder $query): Builder
+    {
+        return $request->withFilters($query->where('due_at', '<', now()));
+    }
+}
+```
+
+A lens that aggregates across the fence on purpose (a cross-tenant report
+for staff) opts out with a static property. It then starts from the bare
+model query, as lenses did before v2.4.0, and confines its own query:
+
+```php
+class AllTenantsRevenueLens extends Lens
+{
+    public static bool $withoutIndexScope = true;
+
+    public function query(LensRequest $request, Builder $query): Builder
+    {
+        return $query->orderByDesc('revenue');
+    }
+}
+```
+
+The opt-out is per lens class (it is read statically) and covers the lens
+page, its summary and its actions together. Authorize such a lens with
+`canSee()` or `canSeeWhen()`: it is the only fence left.
+
 #### Which columns sort a lens
 
 A lens is sorted only by its own sortable fields the user can see: the
@@ -220,9 +279,10 @@ The selected records are the ones the lens lists, as Nova's
 resource's model, with the lens's filters the user may see (from the
 request's `?filters=`) and its search, and the selected ids are kept only
 when it returns them. A record the lens does not list answers 404, like a
-record the index hides on the resource route; the resource's `scopes()` and
-`indexQuery()` do not apply, as they do not on the lens page, so a lens
-that must stay inside a tenant confines its own query. The action receives
+record the index hides on the resource route: the query starts from what the
+resource's index lists (its `scopes()` and `indexQuery()`, see
+[The lens lists what the index lists](#the-lens-lists-what-the-index-lists)),
+as the lens page's does. The action receives
 whole records read by key from the model's table, so a lens that selects
 aggregates, joins or groups still hands its actions real models. A lens
 whose `query()` returns a paginator cannot run actions on records: the run
@@ -284,6 +344,12 @@ When the closure denies, the lens is stripped from the schema and a
 direct GET to `/resources/{r}/lenses/{lens}` responds with HTTP 403.
 See [authorization.md](authorization.md) for the broader policy
 contract.
+
+A lens soft-locked for the user (`lockedFor()`, `requirePlan()`, see
+[Soft-gates](gates.md#soft-gates)) answers 403 with its lock payload on its
+page and on its action routes, and its filters that are locked are not
+applied (v2.4.0; see [What a lock stops on the
+server](gates.md#what-a-lock-stops-on-the-server)).
 
 ## Martis extensions
 

@@ -43,15 +43,13 @@ class TestRolesFilter extends BooleanFilter
 
     public function apply(Request $request, Builder $query, mixed $value): Builder
     {
-        if (is_array($value)) {
-            foreach ($value as $column => $enabled) {
-                if ($enabled) {
-                    $query->where($column, true);
-                }
-            }
-        }
+        // Each option is read by its explicit key: a key of $value is never
+        // used as a column name.
+        $value = is_array($value) ? $value : [];
 
-        return $query;
+        return $query
+            ->when($value['is_admin'] ?? false, fn (Builder $q) => $q->where('is_admin', true))
+            ->when($value['is_active'] ?? false, fn (Builder $q) => $q->where('is_active', true));
     }
 }
 

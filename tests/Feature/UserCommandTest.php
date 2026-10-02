@@ -309,3 +309,59 @@ it('keeps spaces and non-ASCII letters that are part of a password from standard
     $user = UserCommandTestUser::query()->where('email', 'text@example.com')->first();
     expect(Hash::check(' Pässwörd Ünï 1 ', (string) $user?->password))->toBeTrue();
 });
+
+/*
+ * --password is deprecated (F119): it still works, but a script that uses it
+ * puts the credential in argv, where every local user reads it through the
+ * process list (`ps`, /proc/<pid>/cmdline) and where shell history and CI
+ * logs keep it. The command warns and points at --password-stdin.
+ */
+it('still creates the user from --password, and warns that argv is visible to other local users', function () {
+    $command = userCommandOnTerminal(false, ['--email' => 'argv@example.com', '--password' => 'Option-Secret-1']);
+
+    expect($command->handle())->toBe(0);
+
+    $output = $command->buffer->fetch();
+    expect($output)
+        ->toContain('--password is deprecated')
+        ->toContain('process list')
+        ->toContain('other local users')
+        ->toContain('--password-stdin')
+        // The warning never echoes the password it warns about.
+        ->not->toContain('Option-Secret-1');
+
+    $user = UserCommandTestUser::query()->where('email', 'argv@example.com')->first();
+    expect(Hash::check('Option-Secret-1', (string) $user?->password))->toBeTrue();
+});
+
+it('warns about --password on an update too', function () {
+    UserCommandTestUser::query()->create(['name' => 'Kept', 'email' => 'kept@example.com', 'password' => Hash::make('old-secret')]);
+    $command = userCommandOnTerminal(false, ['--email' => 'kept@example.com', '--password' => 'Rotated-Secret-1', '--update' => true]);
+
+    expect($command->handle())->toBe(0)
+        ->and($command->buffer->fetch())->toContain('--password is deprecated');
+});
+
+it('does not warn when the password comes from standard input or the prompt', function () {
+    $piped = userCommandOnTerminal(false, ['--email' => 'stdin@example.com', '--password-stdin' => true], "Stdin-Secret-1\n");
+    expect($piped->handle())->toBe(0)
+        ->and($piped->buffer->fetch())->not->toContain('deprecated');
+
+    $prompted = userCommandOnTerminal(true, []);
+    expect($prompted->handle())->toBe(0)
+        ->and($prompted->buffer->fetch())->not->toContain('deprecated');
+});
+
+it('does not warn about --password when it is empty, and still refuses it', function () {
+    $command = userCommandOnTerminal(false, ['--email' => 'empty@example.com', '--password' => '']);
+
+    expect($command->handle())->toBe(1)
+        ->and($command->buffer->fetch())->toContain('Password cannot be empty.')
+        ->and(UserCommandTestUser::query()->count())->toBe(0);
+});
+
+it('marks --password as deprecated in the command help', function () {
+    $help = (new UserCommand)->getDefinition()->getOption('password')->getDescription();
+
+    expect($help)->toContain('Deprecated')->toContain('--password-stdin');
+});

@@ -11,7 +11,15 @@ use {{ modelImport }};
  * This policy controls authorization for the corresponding Martis resource.
  * Each method returns true to allow or false to deny the action.
  *
- * Methods that are removed from this class will trigger the Martis defaults:
+ * Generated deny-by-default: every ability below returns false, so a policy
+ * registered without an edit fails closed (nobody can list, read, create,
+ * change or delete the resource) instead of handing every panel user full
+ * write access. Replace each `return false;` with the rule that fits, for
+ * example a role check, and delete the TODO next to it.
+ *
+ * Methods that are removed from this class will trigger the Martis defaults,
+ * which are more permissive than this file, so keep the ones you do not
+ * mean to open:
  *   viewAny              → allowed
  *   view/create/update/delete/restore/forceDelete → forbidden
  *   replicate            → fallback to create AND update
@@ -31,7 +39,8 @@ class {{ class }}
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        // TODO: decide who may list {{ model }} records (navigation and index access). Denied until you do.
+        return false;
     }
 
     /**
@@ -39,7 +48,8 @@ class {{ class }}
      */
     public function view(User $user, {{ model }} $model): bool
     {
-        return true;
+        // TODO: decide who may open a single {{ model }}. Denied until you do.
+        return false;
     }
 
     /**
@@ -47,7 +57,8 @@ class {{ class }}
      */
     public function create(User $user): bool
     {
-        return true;
+        // TODO: decide who may create a {{ model }}. Denied until you do.
+        return false;
     }
 
     /**
@@ -55,7 +66,8 @@ class {{ class }}
      */
     public function update(User $user, {{ model }} $model): bool
     {
-        return true;
+        // TODO: decide who may edit a {{ model }}. Denied until you do.
+        return false;
     }
 
     /**
@@ -64,7 +76,8 @@ class {{ class }}
      */
     public function replicate(User $user, {{ model }} $model): bool
     {
-        return true;
+        // TODO: decide who may duplicate a {{ model }}. Denied until you do.
+        return false;
     }
 
     /**
@@ -72,7 +85,8 @@ class {{ class }}
      */
     public function delete(User $user, {{ model }} $model): bool
     {
-        return true;
+        // TODO: decide who may delete a {{ model }}. Denied until you do.
+        return false;
     }
 
     /**
@@ -80,7 +94,8 @@ class {{ class }}
      */
     public function restore(User $user, {{ model }} $model): bool
     {
-        return true;
+        // TODO: decide who may restore a soft-deleted {{ model }}. Denied until you do.
+        return false;
     }
 
     /**
@@ -88,7 +103,8 @@ class {{ class }}
      */
     public function forceDelete(User $user, {{ model }} $model): bool
     {
-        return true;
+        // TODO: decide who may permanently delete a {{ model }} (irreversible). Denied until you do.
+        return false;
     }
 
     // -------------------------------------------------------------------------
@@ -101,7 +117,8 @@ class {{ class }}
      */
     public function runAction(User $user, {{ model }} $model): bool
     {
-        return true;
+        // TODO: decide who may run a normal action on a {{ model }}. Denied until you do.
+        return false;
     }
 
     /**
@@ -110,7 +127,8 @@ class {{ class }}
      */
     public function runDestructiveAction(User $user, {{ model }} $model): bool
     {
-        return true;
+        // TODO: decide who may run a destructive action on a {{ model }}. Denied until you do.
+        return false;
     }
 
     // -------------------------------------------------------------------------
@@ -125,7 +143,8 @@ class {{ class }}
     //  */
     // public function add{Model}(User $user, {{ model }} $parent): bool
     // {
-    //     return true;
+    //     // TODO: decide who may do this. Denied until you do.
+    //     return false;
     // }
 
     // /**
@@ -133,7 +152,8 @@ class {{ class }}
     //  */
     // public function attach{Model}(User $user, {{ model }} $parent, $related): bool
     // {
-    //     return true;
+    //     // TODO: decide who may do this. Denied until you do.
+    //     return false;
     // }
 
     // /**
@@ -142,7 +162,8 @@ class {{ class }}
     //  */
     // public function attachAny{Model}(User $user, {{ model }} $parent): bool
     // {
-    //     return true;
+    //     // TODO: decide who may do this. Denied until you do.
+    //     return false;
     // }
 
     // /**
@@ -150,6 +171,7 @@ class {{ class }}
     //  */
     // public function detach{Model}(User $user, {{ model }} $parent, $related): bool
     // {
-    //     return true;
+    //     // TODO: decide who may do this. Denied until you do.
+    //     return false;
     // }
 }

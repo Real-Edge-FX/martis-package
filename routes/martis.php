@@ -49,7 +49,10 @@ Route::middleware(RouteMiddleware::base())
         // Public routes — no authentication required
         Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
         Route::post('/login', [LoginController::class, 'login'])
-            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->middleware([
+                'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
+                'throttle:martis-login',
+            ])
             ->name('login.attempt');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
@@ -114,10 +117,12 @@ Route::middleware(RouteMiddleware::base())
         })->name('favicon');
 
         // API auth — public (exempt from CSRF via playground bootstrap/app.php)
-        // Two throttles compose: per-IP (generic) and per-email (named limiter
-        // registered in MartisServiceProvider::registerRateLimiters()). The
-        // per-email layer catches credential-stuffing distributed across IPs
-        // that the generic per-IP throttle alone cannot stop.
+        // Two throttles compose, as on POST /login above: per-IP (generic) and
+        // the named limiter registered in
+        // MartisServiceProvider::registerRateLimiters(), which holds a limit
+        // per email + IP and a higher one per email alone. The per-email
+        // layer is what bounds guessing at one account from many IPs, which
+        // the generic per-IP throttle cannot.
         Route::post('/api/auth/login', [AuthController::class, 'login'])
             ->middleware([
                 'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
@@ -224,8 +229,11 @@ Route::middleware(RouteMiddleware::base())
                     ->name('api.')
                     ->middleware($throttle)
                     ->group(function () {
+                        // A limiter of its own (per user and per IP, tighter than
+                        // the login's), registered in
+                        // MartisServiceProvider::registerRateLimiters().
                         Route::post('/2fa/challenge', [TwoFactorController::class, 'challenge'])
-                            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1).','.RouteMiddleware::throttlePrefix('2fa'))
+                            ->middleware('throttle:martis-2fa-challenge')
                             ->name('2fa.challenge');
                     });
 
@@ -260,10 +268,14 @@ Route::middleware(RouteMiddleware::base())
                 // in.
                 Route::middleware(RouteMiddleware::verified())
                     ->group(function () use ($throttle) {
-                        // API routes
+                        // API routes. `martis.gate` is the soft lock (`lockedFor()`,
+                        // `requirePlan()`): a route that names a locked entity answers
+                        // 403 with its lock payload, so the data a lock withholds from a
+                        // page is not served through its data URLs. The two page
+                        // endpoints below opt out: they answer the lock themselves.
                         Route::prefix('api')
                             ->name('api.')
-                            ->middleware($throttle)
+                            ->middleware([...$throttle, 'martis.gate'])
                             ->group(function () {
                                 Route::get('/navigation', [NavigationController::class, 'index'])->name('navigation');
                                 Route::get('/navigation/badges', [NavigationController::class, 'badges'])->name('navigation.badges');
@@ -279,7 +291,9 @@ Route::middleware(RouteMiddleware::base())
                                 // component bound to the tool's component()
                                 // key.
                                 Route::get('/tools', [ToolsController::class, 'index'])->name('tools.index');
-                                Route::get('/tools/{uriKey}', [ToolsController::class, 'show'])->name('tools.show');
+                                Route::get('/tools/{uriKey}', [ToolsController::class, 'show'])
+                                    ->withoutMiddleware('martis.gate')
+                                    ->name('tools.show');
                                 Route::get('/tools/{uriKey}/fields', [ToolFieldsController::class, 'fields'])->name('tools.fields');
                                 // Server-side option search for a Tool select (v1.37.0)
                                 Route::get('/tools/{uriKey}/fields/{field}/options', [FieldOptionsController::class, 'tool'])
@@ -342,6 +356,7 @@ Route::middleware(RouteMiddleware::base())
                                 Route::get('/dashboards', [MetricController::class, 'dashboards'])
                                     ->name('dashboards.index');
                                 Route::get('/dashboards/{dashboard}', [MetricController::class, 'show'])
+                                    ->withoutMiddleware('martis.gate')
                                     ->name('dashboards.show');
                                 Route::get('/dashboards/{dashboard}/cards/{card}', [MetricController::class, 'computeDashboardMetric'])
                                     ->name('dashboards.cards.compute');
@@ -351,6 +366,7 @@ Route::middleware(RouteMiddleware::base())
 
                                 // Attachment upload (Trix / Markdown file uploads)
                                 Route::post('/attachments/upload', [AttachmentController::class, 'upload'])
+                                    ->middleware(RouteMiddleware::attachmentUpload())
                                     ->name('attachments.upload');
 
                                 // ──────────────────────────────────────────────────────

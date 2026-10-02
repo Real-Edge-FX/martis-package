@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Martis\Auth\PanelAccess;
+use Martis\Auth\TwoFactorPass;
 use Martis\Facades\Martis;
 use Martis\Http\RouteMiddleware;
 use Martis\Tools\Tool;
@@ -244,8 +245,12 @@ it('gives a tool route the middleware of the protected API routes, then the tool
 
     $api = toolRouteByUri('martis/api/tools')->gatherMiddleware();
 
+    // The tool gate (`martis.tool`) enforces the soft lock itself, so a tool route
+    // does not carry `martis.gate` (the lock of the entities the API routes name).
+    $withoutGate = array_values(array_diff($api, ['martis.gate']));
+
     expect(toolRouteByUri('martis/api/tools/tool-route-default/ping')->gatherMiddleware())
-        ->toBe([...$api, 'martis.tool:tool-route-default'])
+        ->toBe([...$withoutGate, 'martis.tool:tool-route-default'])
         ->and($api)->toBe([
             'web',
             'martis.auth',
@@ -256,6 +261,7 @@ it('gives a tool route the middleware of the protected API routes, then the tool
             'martis.authorize',
             'martis.password.changed',
             'throttle:120,1,martis-api:web:',
+            'martis.gate',
         ]);
 });
 
@@ -285,7 +291,6 @@ it('keeps an explicit middleware list as given', function () {
 
     // No 2FA gate on it: a pending challenge still reaches it, as before.
     $this->actingAs(toolRouteUser(['two_factor_secret' => 'secret', 'two_factor_confirmed_at' => now()]), config('martis.guard'))
-        ->withSession(['martis_two_factor_passed' => false])
         ->getJson('/martis/api/tools/tool-route-explicit/ping')
         ->assertOk();
 });
@@ -294,8 +299,7 @@ it('keeps an explicit middleware list as given', function () {
 
 it('answers a tool route as the package API when the 2FA challenge is pending', function () {
     bootToolRouteTools($this->routesFile);
-    $this->actingAs(toolRouteUser(['two_factor_secret' => 'secret', 'two_factor_confirmed_at' => now()]), config('martis.guard'))
-        ->withSession(['martis_two_factor_passed' => false]);
+    $this->actingAs(toolRouteUser(['two_factor_secret' => 'secret', 'two_factor_confirmed_at' => now()]), config('martis.guard'));
 
     $api = $this->getJson('/martis/api/tools')->assertStatus(423);
     $tool = $this->getJson('/martis/api/tools/tool-route-default/ping')->assertStatus(423);
@@ -306,8 +310,9 @@ it('answers a tool route as the package API when the 2FA challenge is pending', 
 
 it('lets a user who passed the 2FA challenge reach a tool route', function () {
     bootToolRouteTools($this->routesFile);
-    $this->actingAs(toolRouteUser(['two_factor_secret' => 'secret', 'two_factor_confirmed_at' => now()]), config('martis.guard'))
-        ->withSession(['martis_two_factor_passed' => true]);
+    $user = toolRouteUser(['two_factor_secret' => 'secret', 'two_factor_confirmed_at' => now()]);
+    $this->actingAs($user, config('martis.guard'))
+        ->withSession([TwoFactorPass::SESSION_KEY => (string) $user->getKey()]);
 
     $this->getJson('/martis/api/tools')->assertOk();
     $this->getJson('/martis/api/tools/tool-route-default/ping')->assertOk()->assertExactJson(['pong' => true]);

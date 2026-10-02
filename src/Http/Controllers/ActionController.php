@@ -113,6 +113,12 @@ class ActionController extends MartisController
             return JsonErrorResponse::notFound("Resource [{$resource}] not found.")->toResponse();
         }
 
+        // The action list needs viewAny as the run does: a resource the user
+        // cannot list does not disclose the operations it declares.
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
+        }
+
         $instance = new $resourceClass;
         $lens = $this->lensOf($instance, $lensKey, $request);
 
@@ -165,6 +171,13 @@ class ActionController extends MartisController
 
         if ($resourceClass === null) {
             return JsonErrorResponse::notFound("Resource [{$resource}] not found.")->toResponse();
+        }
+
+        // The field schema needs viewAny as the run does: its labels, help
+        // text, defaults and option lists (often read from the database)
+        // are not served for a resource the user cannot list.
+        if ($forbidden = $this->forbiddenUnlessAuthorizedToViewAny($request, $resourceClass)) {
+            return $forbidden;
         }
 
         $instance = new $resourceClass;
@@ -299,7 +312,7 @@ class ActionController extends MartisController
             $models->each(fn (Model $m) => $m->exists && $m->refresh());
 
             if ($actionInstance instanceof Action && $actionInstance->shouldLogEvents() && config('martis.action_events.enabled', true)) {
-                $this->logActionEvent($actionInstance, $models, $request, 'completed', null, $snapshots);
+                $this->logActionEvent($actionInstance, $models, $request, $fields, 'completed', null, $snapshots);
             }
 
             if ($actionInstance instanceof Action) {
@@ -325,7 +338,7 @@ class ActionController extends MartisController
             ]);
 
             if ($actionInstance instanceof Action && $actionInstance->shouldLogEvents() && config('martis.action_events.enabled', true)) {
-                $this->logActionEvent($actionInstance, $models, $request, 'failed', $e->getMessage(), $snapshots);
+                $this->logActionEvent($actionInstance, $models, $request, $fields, 'failed', $e->getMessage(), $snapshots);
             }
 
             if ($e instanceof MartisException) {
@@ -477,12 +490,13 @@ class ActionController extends MartisController
      * The records a lens lists, as Nova's `LensActionRequest` reads them:
      * the lens's `query()` run on a query of the resource's model, with the
      * lens's filters (the ones the user may see, from the request's
-     * `?filters=`) and search. The resource's `scopes()` and `indexQuery()`
-     * do not apply, as they do not on the lens's page: the lens owns its
-     * query. The trashed records the lens lists are included, as on the
-     * index. The rows are read by key from the model's own table, so an
-     * action receives whole records even from a lens that selects
-     * aggregates or joins another table.
+     * `?filters=`) and search. The query starts from what the resource's
+     * index lists (its `scopes()` and `indexQuery()`), as the lens's page
+     * does, unless the lens opts out (`Lens::$withoutIndexScope`), so an
+     * action never runs on a record the index hides. The trashed records
+     * the lens lists are included, as on the index. The rows are read by key
+     * from the model's own table, so an action receives whole records even
+     * from a lens that selects aggregates or joins another table.
      *
      * @return Builder<Model>
      */
@@ -501,7 +515,7 @@ class ActionController extends MartisController
         }
 
         $lensRequest = LensRequest::fromRequest($request, $this->collectAuthorizedFilters($lens, $resource, $request));
-        $listed = $lens->query($lensRequest, $base);
+        $listed = $this->runLensQuery($lens, $lensRequest, $this->lensBaseQuery($request, $resource::class, $lens, $base));
 
         if (! $listed instanceof Builder) {
             throw new \LogicException(sprintf(
@@ -842,7 +856,7 @@ class ActionController extends MartisController
         // that runs at once (the `sync` connection, a fast worker) would
         // otherwise find none, leaving the log at `queued` with no diff.
         if ($action->shouldLogEvents() && config('martis.action_events.enabled', true)) {
-            $this->logActionEvent($action, $models, $request, 'queued', null, $snapshots);
+            $this->logActionEvent($action, $models, $request, $fields, 'queued', null, $snapshots);
         }
 
         dispatch($job);
@@ -857,17 +871,21 @@ class ActionController extends MartisController
      * Log action events to the database.
      *
      * Creates one event per model in the collection, capturing the
-     * before/after attribute diff in the original/changes columns.
+     * before/after attribute diff in the original/changes columns, and the
+     * values of the action's fields as `ActionEventRedactor::loggableFields()`
+     * keeps them (a `Password` or `sensitive()` field masked, a key that
+     * names no visible field left out), not the raw request input.
      *
      * @param  Collection<int, Model>  $models
+     * @param  ActionFields  $fields  The values the run resolved for the action's fields.
      * @param  Collection<int|string, array<string, mixed>>|null  $snapshots  Model attributes captured before action execution
      */
-    private function logActionEvent(Action $action, Collection $models, Request $request, string $status, ?string $exception = null, ?Collection $snapshots = null): void
+    private function logActionEvent(Action $action, Collection $models, Request $request, ActionFields $fields, string $status, ?string $exception = null, ?Collection $snapshots = null): void
     {
         try {
             $batchId = (string) Str::uuid();
             $userId = $request->user()?->getAuthIdentifier();
-            $fieldData = $request->input('fields', []);
+            $fieldData = ActionEventRedactor::loggableFields($action->fields($request), $fields->all(), $request);
 
             if ($models->isEmpty()) {
                 // Standalone action — no models to diff
@@ -1210,8 +1228,9 @@ class ActionController extends MartisController
             return $fields;
         }
 
-        /** @var array<string, mixed> $rawFields */
-        $rawFields = $request->input('fields', []);
+        // What the log keeps of the fields: the resolved values of the
+        // visible fields, secrets masked (see ActionEventRedactor::loggableFields()).
+        $loggedFields = ActionEventRedactor::loggableFields($actionInstance->fields($request), $fields->all(), $request);
 
         if ($request->boolean('dryRun') && $actionInstance->hasDryRun()) {
             return JsonResponse::make(['preview' => $actionInstance->dryRun($fields, $models)])->toResponse();
@@ -1234,7 +1253,7 @@ class ActionController extends MartisController
             }
 
             if ($logEvents) {
-                PivotActionEventLog::record($actionInstance, $parentModel, $relation, $models, $userId, $rawFields, 'completed', null, $before, PivotActionEventLog::pivotRows($relation, $models));
+                PivotActionEventLog::record($actionInstance, $parentModel, $relation, $models, $userId, $loggedFields, 'completed', null, $before, PivotActionEventLog::pivotRows($relation, $models));
             }
 
             $thenCallback = $actionInstance->getThenCallback();
@@ -1259,7 +1278,7 @@ class ActionController extends MartisController
             ]);
 
             if ($logEvents) {
-                PivotActionEventLog::record($actionInstance, $parentModel, $relation, $models, $userId, $rawFields, 'failed', $e->getMessage(), $before, PivotActionEventLog::pivotRows($relation, $models));
+                PivotActionEventLog::record($actionInstance, $parentModel, $relation, $models, $userId, $loggedFields, 'failed', $e->getMessage(), $before, PivotActionEventLog::pivotRows($relation, $models));
             }
 
             if ($e instanceof MartisException) {
@@ -1317,9 +1336,7 @@ class ActionController extends MartisController
         // Written before the dispatch: a sync queue runs the job at once and
         // settles these rows.
         if ($logEvents) {
-            /** @var array<string, mixed> $rawFields */
-            $rawFields = $request->input('fields', []);
-            PivotActionEventLog::record($action, $parentModel, $relation, $models, $userId, $rawFields, 'queued');
+            PivotActionEventLog::record($action, $parentModel, $relation, $models, $userId, ActionEventRedactor::loggableFields($action->fields($request), $fields->all(), $request), 'queued');
         }
 
         dispatch($job);

@@ -29,6 +29,13 @@ use Martis\Support\TranslatedLine;
  */
 abstract class Metric implements MetricContract
 {
+    /**
+     * The largest window a numeric range may open, in days (weeks, months)
+     * as the metric counts them. A `ranges()` that declares a larger one is
+     * held to it: a trend builds one bucket per step.
+     */
+    public const MAX_RANGE = 3650;
+
     /** @var array<string, mixed> */
     protected array $meta = [];
 
@@ -221,6 +228,41 @@ abstract class Metric implements MetricContract
         }
     }
 
+    /**
+     * The range the request asks for (`?range=`), held to the keys `ranges()`
+     * declares.
+     *
+     * The query parameter is client input: a trend opens one bucket per step
+     * of its window and reads every row in it, and the cache keeps one entry
+     * per value, so a request cannot choose the window or the key. A value
+     * `ranges()` does not declare (an arbitrary number, `TODAY` on a metric
+     * that has no such range) reads as the default: `30` when declared, the
+     * first range otherwise. A metric that declares none (`ranges()` returns
+     * `[]`, as a partition or a progress metric does, or a value metric that
+     * hides its selector) always reads `30`.
+     *
+     * A metric that reads the range in its own `calculate()` takes it from
+     * here, not from the request.
+     */
+    protected function requestedRange(Request $request): string
+    {
+        $declared = array_map('strval', array_keys($this->ranges()));
+        $default = in_array('30', $declared, true) || $declared === [] ? '30' : $declared[0];
+
+        $range = self::queryString($request, 'range', $default);
+
+        return in_array($range, $declared, true) ? $range : $default;
+    }
+
+    /**
+     * A numeric range as a window of days (weeks, months), held to
+     * `MAX_RANGE`.
+     */
+    protected static function rangeWindow(string|int $range): int
+    {
+        return max(0, min((int) $range, self::MAX_RANGE));
+    }
+
     // -------------------------------------------------------------------------
     // Caching
     // -------------------------------------------------------------------------
@@ -300,7 +342,7 @@ abstract class Metric implements MetricContract
 
         return md5(serialize([
             $this->uriKey(),
-            self::queryString($request, 'range', '30'),
+            $this->requestedRange($request),
             self::queryString($request, 'filters', ''),
             app()->getLocale(),
             $user,
