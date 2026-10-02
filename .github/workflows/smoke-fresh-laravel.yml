@@ -7,6 +7,16 @@ name: Fresh-Laravel smoke
 # every TSX-producing generator, runs `npm install` and
 # `npm run build:extensions`, and asserts the bundle contains the
 # expected register calls.
+#
+# Dependency pinning. The package's own bundle is built from the committed
+# lockfile (`npm ci`), like the CI vitest job. The consumer side (the fresh
+# laravel/laravel app, its `composer update --with-all-dependencies` and its
+# `npm install --no-package-lock`) is resolved afresh on every run ON PURPOSE:
+# the job simulates a new consumer, and a pinned consumer would hide the
+# "latest Laravel / latest Vite broke the install" bug class it exists to
+# catch. That drift is bounded: the job holds a read-only token, no secrets,
+# publishes nothing, and the consumer-side npm installs run with
+# `--ignore-scripts` (nothing the build needs relies on an install script).
 
 on:
   push:
@@ -36,6 +46,11 @@ on:
       - "scripts/build-testing-kit.mjs"
       - ".github/workflows/smoke-fresh-laravel.yml"
 
+# Read-only token: this job runs freshly resolved third-party code (see the
+# header comment) and publishes nothing.
+permissions:
+  contents: read
+
 jobs:
   smoke:
     name: Smoke (fresh laravel + every generator)
@@ -43,12 +58,12 @@ jobs:
 
     steps:
       - name: Check out martis-package
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           path: martis-package
 
       - name: Set up PHP 8.3
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: "8.3"
           extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, intl
@@ -56,28 +71,28 @@ jobs:
           tools: composer:v2
 
       - name: Set up Node 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "20"
 
       - name: Cache composer
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.composer/cache
           key: smoke-composer-${{ hashFiles('martis-package/composer.json') }}
           restore-keys: smoke-composer-
 
       - name: Cache npm
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.npm
-          key: smoke-npm-${{ hashFiles('martis-package/package.json') }}
+          key: smoke-npm-${{ hashFiles('martis-package/package-lock.json') }}
           restore-keys: smoke-npm-
 
       - name: Build the package's frontend bundle (so martis:install can publish it)
         run: |
           cd martis-package
-          npm install --no-progress --no-audit --no-fund
+          npm ci --no-progress --no-audit --no-fund
           npm run build
 
       - name: Composer create-project laravel/laravel test-app
@@ -187,7 +202,7 @@ jobs:
       - name: npm install + build:extensions
         run: |
           cd test-app
-          npm install --no-progress --no-audit --no-fund --no-package-lock
+          npm install --no-progress --no-audit --no-fund --no-package-lock --ignore-scripts
           npm run build:extensions
 
       - name: Type-check every generated extension against the shim declarations
@@ -201,8 +216,8 @@ jobs:
           # docs/testing-extensions.md, Setup step 1: martis:install's
           # `^18 || ^19` gives a fresh app React 19, and the test runtime
           # refuses a run on another major than the panel's (18).
-          npm install --no-progress --no-audit --no-fund --no-package-lock react@^18 react-dom@^18
-          npm install --no-progress --no-audit --no-fund --no-package-lock --no-save vitest@^3 jsdom@^25 @testing-library/react@^16
+          npm install --no-progress --no-audit --no-fund --no-package-lock --ignore-scripts react@^18 react-dom@^18
+          npm install --no-progress --no-audit --no-fund --no-package-lock --ignore-scripts --no-save vitest@^3 jsdom@^25 @testing-library/react@^16
           cat > vitest.config.mjs <<'EOF'
           import { defineConfig, mergeConfig } from 'vitest/config'
           import react from '@vitejs/plugin-react'

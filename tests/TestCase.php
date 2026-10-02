@@ -58,6 +58,11 @@ abstract class TestCase extends OrchestraTestCase
      * skeleton under vendor/ is never written. The copy goes when the
      * process exits; one whose process could not clean up (Ctrl+C, SIGKILL)
      * goes when the next copy is made.
+     *
+     * The copy is PHP the test process loads, and the sweep deletes by name,
+     * so they live in a directory only the current user can write
+     * (prepareSkeletonRoot()), never in one another user of a shared temp
+     * directory could have made first, and the sweep never follows a symlink.
      */
     public static function applicationBasePath()
     {
@@ -71,10 +76,15 @@ abstract class TestCase extends OrchestraTestCase
 
     private static function copySkeletonForWorker(string $skeleton, string $token): string
     {
-        $root = sys_get_temp_dir().'/martis-testbench-'.substr(md5($skeleton), 0, 12);
-        $copy = $root.'/'.getmypid().'-'.$token;
+        // One root per user and skeleton: the user id keeps two users of a
+        // shared temp directory from ever meeting in the same directory.
+        $root = sys_get_temp_dir().'/martis-testbench-'.(self::currentUserId() ?? 'user').'-'.substr(md5($skeleton), 0, 12);
+        // The token is a number from paratest; it is a path component here, so
+        // nothing else may get through.
+        $copy = $root.'/'.getmypid().'-'.preg_replace('/[^A-Za-z0-9_.]/', '_', $token);
         $filesystem = new Filesystem;
 
+        self::prepareSkeletonRoot($root);
         self::sweepOrphanCopies($root, $filesystem);
 
         // `vendor` is the symlink `vendor/bin/testbench` creates, `.env` a
@@ -104,6 +114,65 @@ abstract class TestCase extends OrchestraTestCase
     }
 
     /**
+     * The id of the user this process runs as, or null where it cannot be
+     * told (no posix extension, Windows): the ownership checks are skipped
+     * there, as there is no uid to compare.
+     */
+    private static function currentUserId(): ?int
+    {
+        return function_exists('posix_geteuid') ? posix_geteuid() : null;
+    }
+
+    /**
+     * Create the directory the skeleton copies live in, or vouch for the one
+     * that is there: a real directory (not a symlink, which could lead
+     * anywhere) owned by $uid that no other user can write into. In a shared
+     * temp directory anyone can create the name first, and a directory they
+     * own would let them read and replace the copy the suite boots from, or
+     * plant entries for the sweep to delete; the suite refuses to start
+     * instead. A missing root is created private (0700).
+     *
+     * @param  int|null  $uid  The user the root must belong to (the current one).
+     */
+    private static function prepareSkeletonRoot(string $root, ?int $uid = null): void
+    {
+        $uid ??= self::currentUserId();
+
+        // A dangling symlink does not exist as far as file_exists() goes, but
+        // mkdir() would not replace it either: it is a symlink, refused below.
+        if (! is_link($root) && ! file_exists($root) && ! @mkdir($root, 0700) && ! is_dir($root)) {
+            throw self::copyFailure("create {$root}");
+        }
+
+        // Another worker may have made it a moment ago: judge what is there.
+        clearstatcache(true, $root);
+
+        if (is_link($root)) {
+            throw new RuntimeException("The testbench skeleton root {$root} is a symlink; remove it and run the tests again.");
+        }
+
+        if (! is_dir($root)) {
+            throw new RuntimeException("The testbench skeleton root {$root} is not a directory; remove it and run the tests again.");
+        }
+
+        if ($uid === null) {
+            return;
+        }
+
+        $owner = fileowner($root);
+        $mode = fileperms($root);
+
+        if ($owner !== $uid) {
+            throw new RuntimeException("The testbench skeleton root {$root} is not owned by the current user (uid {$uid}, owner uid ".var_export($owner, true).'); remove it and run the tests again.');
+        }
+
+        // Group or world write: another user could add or swap entries.
+        if ($mode === false || ($mode & 0022) !== 0) {
+            throw new RuntimeException("The testbench skeleton root {$root} is writable by other users (mode ".decoct(($mode === false ? 0 : $mode) & 0777).'); remove it and run the tests again.');
+        }
+    }
+
+    /**
      * Remove the copies whose process is gone: a worker killed before its
      * shutdown function ran (Ctrl+C, SIGKILL) leaves one, and after such a
      * run every new worker finds the same orphans at the same time. Each
@@ -113,17 +182,37 @@ abstract class TestCase extends OrchestraTestCase
      * after this process can only be a leftover of an earlier process with
      * the same pid. A live copy, a sibling worker's or that of the process
      * this one was started from, is left alone.
+     *
+     * Entries are told apart without following links: a symlink is never a
+     * copy this suite made, so it is unlinked (which leaves its target
+     * alone) instead of being claimed and emptied.
      */
     private static function sweepOrphanCopies(string $root, Filesystem $filesystem): void
     {
         $orphans = [];
 
-        foreach (glob($root.'/*-*', GLOB_ONLYDIR) ?: [] as $copy) {
-            $orphans[] = [$copy, (int) strtok(basename($copy), '-')];
-        }
+        foreach (scandir($root) ?: [] as $name) {
+            $path = $root.'/'.$name;
+            $isCopy = fnmatch('*-*', $name, FNM_PERIOD);
+            $isClaim = fnmatch('.*.claimed-*', $name);
 
-        foreach (glob($root.'/.*.claimed-*', GLOB_ONLYDIR) ?: [] as $claim) {
-            $orphans[] = [$claim, (int) substr((string) strrchr($claim, '-'), 1)];
+            if (! $isCopy && ! $isClaim) {
+                continue;
+            }
+
+            if (is_link($path)) {
+                @unlink($path);
+
+                continue;
+            }
+
+            if (! is_dir($path)) {
+                continue;
+            }
+
+            $orphans[] = $isCopy
+                ? [$path, (int) strtok($name, '-')]
+                : [$path, (int) substr((string) strrchr($path, '-'), 1)];
         }
 
         foreach ($orphans as [$path, $pid]) {
@@ -143,10 +232,18 @@ abstract class TestCase extends OrchestraTestCase
     /**
      * Delete a directory this process owns, never failing the test run over
      * it: a copy left half-deleted is claimed and removed by a later sweep.
+     * A symlink in its place is unlinked, never entered: deleteDirectory()
+     * empties the target of a top-level symlink before it fails to remove it.
      */
     private static function deleteQuietly(Filesystem $filesystem, string $directory): void
     {
         try {
+            if (is_link($directory)) {
+                @unlink($directory);
+
+                return;
+            }
+
             $filesystem->deleteDirectory($directory);
         } catch (\Throwable) {
             // Left for the next sweep.

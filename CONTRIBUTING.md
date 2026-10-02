@@ -85,3 +85,10 @@ npm run build:extensions
 npx tsc -p tsconfig.extensions.json
 grep -c 'register(' public/vendor/martis-user/extensions.js  # should be ≥ 12
 ```
+
+## CI and tooling hygiene
+
+- **Pinned actions.** Every `uses:` in `.github/workflows/` is a full commit SHA with its version in a trailing comment (`uses: actions/checkout@<sha> # v4.4.0`), so a moved tag cannot change what CI runs. Dependabot (`.github/dependabot.yml`, weekly: github-actions, npm and composer) bumps the SHA and the comment together. To pin a new action by hand, resolve its tag to the commit with `gh api repos/<owner>/<repo>/git/ref/tags/<tag>`; when `object.type` is `tag`, resolve that object once more through `git/tags/<sha>`.
+- **Read-only token.** `ci.yml` and `smoke-fresh-laravel.yml` declare `permissions: contents: read`. Only `release.yml` holds `contents: write`, and it takes its dispatch inputs through `env:` after validating the version (`^[0-9]+\.[0-9]+\.[0-9]+$`) and the sha (`^[0-9a-f]{7,40}$`).
+- **Dependencies.** `npm audit` reports 0 vulnerabilities on `package-lock.json`; the toolchain is dev-only, as the SPA ships prebuilt in `public/`. Vitest is on 4.x with the jsdom environment, which runs on any Node 20. The Vite dev server (`npm run dev`) answers localhost origins only (Vite's default CORS), so a Playground served from another host names it in `server.cors.origin` of `vite.config.ts`.
+- **Pest in Docker.** `scripts/test.sh` runs the suite in the CI-parity image as your own uid:gid, never as root. The test harness copies the testbench skeleton into a `0700` per-user directory under the temp directory and refuses one it does not own, so a shared temp directory cannot plant files in it.

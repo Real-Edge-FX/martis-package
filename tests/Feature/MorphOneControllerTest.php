@@ -279,7 +279,8 @@ it('does not delete a morph-one belonging to another morph type', function () {
     // Calling delete from the User side must not touch the Team's avatar.
     $response = $this->deleteJson(cardWriteUrl("/martis/api/resources/m-o-user-models/{$user->id}/morph-one/avatar"));
 
-    expect($response->status())->toBeIn([200, 404]);
+    // The user holds no avatar of its own: nothing to delete.
+    $response->assertNotFound();
     expect(MOAvatarModel::where('imageable_type', MOTeamModel::class)
         ->where('imageable_id', $team->id)
         ->exists())->toBeTrue();
