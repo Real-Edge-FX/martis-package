@@ -41,6 +41,7 @@ use Martis\ResourceRegistry;
 use Martis\Rules\RelatableWrite;
 use Martis\SearchResolver;
 use Martis\Support\IndexScope;
+use Martis\Support\TranslatedLine;
 
 /**
  * Generic CRUD controller for all registered Martis resources.
@@ -524,7 +525,7 @@ class ResourceController extends MartisController
             // `app.debug` is the developer's choice to see the raw message.
             $message = config('app.debug') === true && $e->getMessage() !== ''
                 ? $e->getMessage()
-                : __('martis::messages.error_delete');
+                : TranslatedLine::get('martis::messages.error_delete');
 
             return JsonErrorResponse::serverError($message)->toResponse();
         }
