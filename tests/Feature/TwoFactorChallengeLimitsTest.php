@@ -64,7 +64,7 @@ function tflUser(string $email): User
 /** The valid codes now (the window is one step either side). */
 function tflValidCodes(): array
 {
-    $step = (int) floor(time() / 30);
+    $step = (int) floor(now()->getTimestamp() / 30);
 
     return array_map(fn (int $offset): string => tfpTotp(TFL_SECRET, $step + $offset), [-1, 0, 1]);
 }
