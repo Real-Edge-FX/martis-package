@@ -2836,7 +2836,7 @@ KeyValue::make('metadata', 'Metadata')
 | `valueLabel` | `valueLabel(string $label): static` | `$this` | Label for value column header. | `'Value'` |
 | `actionText` | `actionText(string $text): static` | `$this` | Label for "add row" button. | `'Add Row'` |
 | `disableEditingKeys` | `disableEditingKeys(): static` | `$this` | Prevent editing existing keys; a write drops any key outside the stored (or default) key set (v2.4.0+). | `false` |
-| `disableAddingRows` | `disableAddingRows(): static` | `$this` | Prevent adding new rows; a write drops any key outside the stored (or default) key set (v2.4.0+). | `false` |
+| `disableAddingRows` | `disableAddingRows(): static` | `$this` | Prevent adding new rows; a write drops a new row but keeps a renamed key (v2.4.0+). | `false` |
 | `disableDeletingRows` | `disableDeletingRows(): static` | `$this` | Prevent deleting rows: no row renders a delete button, and a write that leaves a stored (or default) key out gets its value back (v2.4.0+). v1.38.0+. | `false` |
 | `getKeyLabel` | `getKeyLabel(): string` | `string` | Get key label. | — |
 | `getValueLabel` | `getValueLabel(): string` | `string` | Get value label. | — |
@@ -2860,14 +2860,15 @@ KeyValue::make('opening_hours', 'Opening hours')
     ->disableDeletingRows()
 ```
 
-**The server enforces the flags** (v2.4.0+, hardening: Nova leaves them to the form). A request does not have to go through the form, so `fill()` holds a payload to the key set the flags fix. That set is the stored map's keys for a record that exists, and the field's `default()` keys for a new record (a closure or rows are read as the form reads them):
+**The server enforces the flags** (v2.4.0+, hardening: Nova leaves them to the form). A request does not have to go through the form, so `fill()` holds a payload to the key set the flags fix. That set is the stored map's keys for a record that has a map, and the field's `default()` keys for a new record and for a record whose stored map is empty (a closure or rows are read as the form reads them):
 
 | Flag | What a write does |
 |---|---|
-| `disableEditingKeys()` or `disableAddingRows()` | A submitted key outside the set is dropped: a new row, and a key edited into another name. The values of the keys in the set are the user's. |
-| `disableDeletingRows()` | A key of the set the submission leaves out (a deleted row, or a key edited into another name) takes its stored (or default) value back, and an empty value restores the whole set. |
+| `disableEditingKeys()` | A submitted key outside the set is dropped: a new row, and a key edited into another name. The values of the keys in the set are the user's. |
+| `disableAddingRows()` | A new row is dropped, but the form still lets a user rename a key and delete a row, so a key edited into another name is kept as a rename: a new key may take the place of a key of the set the submission leaves out, and the old key does not come back beside it. Only as many new keys as keys left out are kept (the surplus is a real new row). |
+| `disableDeletingRows()` | A key of the set the submission leaves out (a deleted row, or the old name of a key edited into another one) takes its stored (or default) value back, and an empty value restores the whole set. A rename under `disableAddingRows()` replaces the old key instead of restoring it. |
 
-Nothing changes for a field without these flags: any key is stored. A key edited into another name is a new key plus a missing one, so with only `disableEditingKeys()` the renamed key is dropped and the old one is deleted (the form offers no way to type a key then); with `disableDeletingRows()` too, the old key stays. The stored order of the set is kept, and a restored row keeps its stored value as it was (a nested value included).
+Nothing changes for a field without these flags: any key is stored. A key edited into another name is a new key plus a missing one: with `disableEditingKeys()` the renamed key is dropped and the old one is deleted (the form offers no way to type a key then), with `disableDeletingRows()` too the old key stays, and with `disableAddingRows()` alone the rename is kept. A record that has no stored map (created before the field existed, or emptied) is held to the `default()` keys, so its edits are saved instead of silently dropped. The stored order of the set is kept, and a restored row keeps its stored value as it was (a nested value included).
 
 **Storage format:** `{"key1":"value1","key2":"value2"}`
 **Overrides:** `resolve()` decodes to `[{key, value}]` rows; `fill()` normalizes to the associative map and stores it, JSON-encoded unless the attribute carries an `array` / `json` / class cast that serialises it itself (see [Structured values and Eloquent casts](#structured-values-and-eloquent-casts)).

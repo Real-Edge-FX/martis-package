@@ -210,19 +210,26 @@ class KeyValue extends Field
     }
 
     /**
-     * Hold a submitted map to the key set the field's flags fix.
+     * Hold a submitted map to the key set the field's flags fix, and to what
+     * the form lets a user do, no more.
      *
      * `disableEditingKeys()`, `disableAddingRows()` and `disableDeletingRows()`
      * shape the form, and a request does not have to go through the form, so
      * `fill()` enforces them. The keys the user may rely on are the stored
-     * map's for a record that exists, the field's `default()` keys for a new
-     * one:
+     * map's for a record that has one, the field's `default()` keys for a new
+     * record or one whose stored map is empty:
      *
-     * - a key outside that set (a new row, or a key edited into another name)
-     *   is dropped while keys cannot be edited or rows cannot be added;
-     * - a key of that set the submission leaves out (a deleted row, or a key
-     *   edited into another name) takes its stored (or default) value back
-     *   while rows cannot be deleted.
+     * - with `disableEditingKeys()` a key outside that set (a new row, or a
+     *   key edited into another name) is dropped;
+     * - without it a key can be edited, and a key edited into another name is
+     *   a new key plus a missing one. Under `disableAddingRows()` that is a
+     *   rename: a new key takes the place of a key of the set the submission
+     *   leaves out, so it is kept and the old key is not restored beside it
+     *   (only that many new keys are kept, the surplus, a real new row, is
+     *   dropped). Without `disableAddingRows()` every new key is kept;
+     * - a key of the set the submission leaves out (a deleted row, or the old
+     *   name of a key edited into another one) takes its stored (or default)
+     *   value back while rows cannot be deleted, unless a rename replaced it.
      *
      * The values of the keys that stay are the user's: they are the editable
      * part.
@@ -232,26 +239,43 @@ class KeyValue extends Field
      */
     protected function enforceKeySet(Model $model, array $submitted): ?array
     {
-        $fixed = $model->exists
-            ? $this->mapOf($model->getAttribute($this->attribute))
-            : $this->mapOf($this->getDefaultValue());
+        $stored = $model->exists ? $this->mapOf($model->getAttribute($this->attribute)) : [];
+        $fixed = $stored !== [] ? $stored : $this->mapOf($this->getDefaultValue());
+
+        $missing = [];
+        foreach (array_keys($fixed) as $key) {
+            if (! array_key_exists($key, $submitted)) {
+                $missing[] = $key;
+            }
+        }
+
+        $new = array_keys(array_diff_key($submitted, $fixed));
+
+        if ($this->editingKeysDisabled) {
+            $new = [];
+        } elseif ($this->addingRowsDisabled) {
+            // Only a rename (a new key for a missing one) keeps the row count.
+            $new = array_slice($new, 0, count($missing));
+        }
+
+        // Under `disableAddingRows()` the missing keys a kept new key replaces
+        // are renamed, not deleted: the old key must not come back beside the
+        // new one, which would add a row. Without it a new key is a new row
+        // and a deleted one is restored beside it.
+        $renamed = $this->addingRowsDisabled ? array_slice($missing, 0, count($new)) : [];
 
         $map = [];
 
         foreach ($fixed as $key => $current) {
             if (array_key_exists($key, $submitted)) {
                 $map[$key] = $submitted[$key];
-            } elseif ($this->deletingRowsDisabled) {
+            } elseif ($this->deletingRowsDisabled && ! in_array($key, $renamed, true)) {
                 $map[$key] = $current;
             }
         }
 
-        if (! $this->editingKeysDisabled && ! $this->addingRowsDisabled) {
-            foreach ($submitted as $key => $row) {
-                if (! array_key_exists($key, $fixed)) {
-                    $map[$key] = $row;
-                }
-            }
+        foreach ($new as $key) {
+            $map[$key] = $submitted[$key];
         }
 
         return $map === [] ? null : $map;
