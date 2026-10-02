@@ -774,7 +774,7 @@ upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrad
 
 **1. Relation pickers take their scope from the props you pass.**
 
-`BelongsTo`, `MorphTo` and `Tag` load their options from `/api/resources/{resource}/{id}/relatable/{attribute}`. `{resource}` is `resourceKey`, else the resource of the page. `{id}` is `recordId`; without one, `context="create"` sends `_` (the create forms), and any other input uses the page's record only when it is scoped to the page's own resource (`_` otherwise). In a custom Action component, pass `actionEndpoint` so the pickers read the Action's own declaration of the field:
+`BelongsTo`, `MorphTo` and `Tag` load their options from `/api/resources/{resource}/{id}/relatable/{attribute}`. `{resource}` is `resourceKey`, else the resource of the page. `{id}` is `recordId`; without one, `context="create"` sends `_` (the create forms), and any other input uses the page's record only when it is scoped to the page's own resource (`_` otherwise). In a custom Action component, pass `actionEndpoint` (built with `apiPath` from `@martis/runtime`, v2.4.0+) so the pickers read the Action's own declaration of the field:
 
 ```tsx
 <FieldInput
@@ -782,7 +782,7 @@ upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrad
     value={values[field.attribute] ?? null}
     onChange={(v) => setValue(field.attribute, v)}
     context="create"
-    actionEndpoint={`/api/resources/${encodeURIComponent(resource)}/actions/${encodeURIComponent(action.uriKey)}`}
+    actionEndpoint={apiPath`/api/resources/${resource}/actions/${action.uriKey}`}
 />
 ```
 

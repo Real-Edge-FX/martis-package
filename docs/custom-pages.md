@@ -61,13 +61,13 @@ The page is an ordinary React component. Read the route parameters with `usePara
 
 ```tsx
 // resources/js/martis-extensions/pages/FindingDetailPage.tsx
-import { ApiError, ForbiddenPage, MartisLoader, NotFoundPage, api, useDynamicCrumb, usePageTitle, useParams, useQuery } from '@martis/runtime'
+import { ApiError, ForbiddenPage, MartisLoader, NotFoundPage, api, apiPath, useDynamicCrumb, usePageTitle, useParams, useQuery } from '@martis/runtime'
 
 export default function FindingDetailPage() {
   const { findingId } = useParams<{ findingId: string }>()
   const finding = useQuery({
     queryKey: ['finding', findingId],
-    queryFn: () => api.get<{ id: string; title: string }>(`/api/findings/${encodeURIComponent(findingId!)}`),
+    queryFn: () => api.get<{ id: string; title: string }>(apiPath`/api/findings/${findingId!}`),
   })
 
   usePageTitle(finding.data?.title)
