@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Auth\GenericUser;
 use Illuminate\Support\Facades\Gate;
 use Martis\Stubs\StubResolver;
+use MartisStubGateTest\StubProvider;
 
 /*
  * The provider martis:install publishes tells the host which abilities
@@ -68,7 +69,7 @@ function martisProviderStubInstance(): object
         eval('?>'.$code);
     }
 
-    return new MartisStubGateTest\StubProvider(app());
+    return new StubProvider(app());
 }
 
 it('ships the viewMartis gate active: local is let in, anywhere else only the listed addresses', function () {

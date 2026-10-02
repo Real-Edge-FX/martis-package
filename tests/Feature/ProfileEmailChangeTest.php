@@ -2,16 +2,20 @@
 
 declare(strict_types=1);
 
+use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
+use Martis\Contracts\ProfileResourceContract;
 use Martis\Profile\EmailChange;
 use Martis\Profile\EmailChangeConfirmationNotification;
 use Martis\Profile\EmailChangedNotification;
 use Martis\Profile\EmailChangeRequestedNotification;
+use Martis\Profile\ProfileResource;
 use Martis\Sso\IdentityResolver;
 use Martis\Sso\SsoIdentity;
 
@@ -174,7 +178,7 @@ it('sends the verification link of the app to the new address when verification 
 
     emailChangeFollow(emailChangeLink('new@example.com'))->assertRedirect('/martis/login?email_change=changed');
 
-    Notification::assertSentTo($this->user->fresh(), Illuminate\Auth\Notifications\VerifyEmail::class);
+    Notification::assertSentTo($this->user->fresh(), VerifyEmail::class);
     expect($this->user->fresh()->email_verified_at)->toBeNull();
 });
 
@@ -332,19 +336,19 @@ it('does not let a session without the password take the address of a colleague 
 });
 
 it('rules out the email change when the resource has no email rule', function () {
-    $resource = new class extends Martis\Profile\ProfileResource
+    $resource = new class extends ProfileResource
     {
-        public function updateRules(Illuminate\Contracts\Auth\Authenticatable $user): array
+        public function updateRules(Authenticatable $user): array
         {
             return ['name' => ['required', 'string', 'max:255']];
         }
 
-        public function applyUpdate(Illuminate\Contracts\Auth\Authenticatable $user, array $data): void
+        public function applyUpdate(Authenticatable $user, array $data): void
         {
             $user->forceFill(['name' => $data['name']])->save();
         }
     };
-    $this->app->instance(Martis\Contracts\ProfileResourceContract::class, $resource);
+    $this->app->instance(ProfileResourceContract::class, $resource);
 
     emailChangePatch(['name' => 'Ada Lovelace', 'email' => 'new@example.com'])->assertOk();
 

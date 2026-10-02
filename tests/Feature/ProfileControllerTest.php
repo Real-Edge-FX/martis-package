@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Martis\Auth\TwoFactorPass;
@@ -94,7 +95,7 @@ it('updates the name', function () {
 });
 
 it('asks the current password for a new email and keeps the address until it is confirmed', function () {
-    Illuminate\Support\Facades\Notification::fake();
+    Notification::fake();
     $user = makeTestUser(['email' => 'original@example.com', 'password' => bcrypt('password')]);
     loginTestUser($user);
     $prefix = config('martis.path', 'martis');

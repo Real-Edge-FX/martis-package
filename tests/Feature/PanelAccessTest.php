@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -35,7 +36,7 @@ class PanelAccessPolicylessResource extends Martis\Resource
         return PanelAccessTestUser::class;
     }
 
-    public function fields(Illuminate\Http\Request $request): array
+    public function fields(Request $request): array
     {
         return [];
     }
@@ -369,7 +370,7 @@ it('logs a resource without a policy outside the open environments, once a day, 
     PanelAccessPolicylessResource::resolvePolicy();
     expect($warnings)->toHaveCount(1);
 
-    $request = Illuminate\Http\Request::create('/');
+    $request = Request::create('/');
     $request->setUserResolver(fn () => $this->member);
     expect((new PanelAccessPolicylessResource)->authorizedToViewAny($request))->toBeTrue()
         ->and((new PanelAccessPolicylessResource)->authorizedToDelete($request))->toBeTrue();

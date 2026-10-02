@@ -11,9 +11,11 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Socialite\Contracts\Provider as SocialiteProvider;
 use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\SocialiteServiceProvider;
 use Laravel\Socialite\Two\User as SocialiteUser;
 use Martis\Sso\Facades\MartisSso;
 use Martis\Sso\Providers\AzureProvider;
+use Martis\Sso\SsoIdentity;
 use Martis\Sso\SsoManager;
 
 /*
@@ -65,13 +67,13 @@ function azureSocialiteReturns(string $token, array $raw = []): void
     Socialite::forgetDrivers();
 }
 
-function azureIdentity(): Martis\Sso\SsoIdentity
+function azureIdentity(): SsoIdentity
 {
     return (new AzureProvider)->resolveIdentity(Request::create('/martis/sso/azure/callback'));
 }
 
 beforeEach(function () {
-    $this->app->register(Laravel\Socialite\SocialiteServiceProvider::class);
+    $this->app->register(SocialiteServiceProvider::class);
     config()->set('martis.auth.sso.providers.azure', [
         'enabled' => true,
         'driver' => 'azure-tenant-test',

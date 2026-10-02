@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
@@ -248,7 +249,6 @@ it('drops the SSO cookie on every other sign-in and on both sign-outs', function
     expect($cleared(ssoMarkerBrowser($marker)->postJson('/martis/api/auth/logout')))->toBeTrue();
 });
 
-
 /** The cookie as Martis writes it, for a user, a provider, a nonce and an issue time. */
 function ssoMarkerForgedCookie(int|string $userId, string $nonce, ?int $issuedAt = null, string $provider = 'azure'): string
 {
@@ -353,7 +353,7 @@ it('refuses the cookie of an SSO sign-in once the server forgot the nonces (cach
     $recaller = ssoMarkerCookie($callback, 'remember_');
     $marker = ssoMarkerCookie($callback, SsoSession::COOKIE);
     ssoMarkerExpireSession();
-    Illuminate\Support\Facades\Cache::flush();
+    Cache::flush();
 
     ssoMarkerBrowser($recaller, $marker)->getJson('/martis/api/tools')->assertStatus(409);
 });
