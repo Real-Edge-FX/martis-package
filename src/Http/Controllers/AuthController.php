@@ -304,7 +304,11 @@ class AuthController extends MartisController
      * Resolves the bound `Martis\Contracts\SendsPasswordResetLinks`
      * implementation. Maps Laravel's broker status constants to HTTP:
      *   - `RESET_LINK_SENT` → 200
-     *   - `INVALID_USER` → 422 (revealed in dev, neutral in prod)
+     *   - every other status (`INVALID_USER`, `RESET_THROTTLED`) → the same
+     *     200 outside `app.debug`, so the answer never tells an anonymous
+     *     caller whether the address has an account (an unknown address and
+     *     a known one asked twice within the throttle window would
+     *     otherwise differ); with `app.debug` on, the detailed 422.
      *
      * @body-param string email required
      */
@@ -346,6 +350,17 @@ class AuthController extends MartisController
             ]);
         }
 
+        // Anything else says something about the address: no account, or a
+        // link sent a moment ago. Outside debug it answers exactly like a
+        // sent link, as the magic-link request does, so this guest endpoint
+        // cannot confirm which addresses are panel accounts.
+        if (! config('app.debug')) {
+            return response()->json([
+                'ok' => true,
+                'status' => __(Password::RESET_LINK_SENT),
+            ]);
+        }
+
         return response()->json([
             'message' => __($status),
             'errors' => ['email' => [__($status)]],
@@ -359,7 +374,10 @@ class AuthController extends MartisController
      * Resolves the bound `Martis\Contracts\ResetsUserPasswords`. Maps
      * status constants to HTTP:
      *   - `PASSWORD_RESET` → 200
-     *   - `INVALID_TOKEN`, `INVALID_USER`, `RESET_THROTTLED` → 422
+     *   - `INVALID_TOKEN`, `INVALID_USER`, `RESET_THROTTLED` → 422. Outside
+     *     `app.debug`, `INVALID_USER` answers as `INVALID_TOKEN`: an unknown
+     *     address and a known one with a wrong token are otherwise told
+     *     apart, which confirms the address has an account.
      *
      * @body-param string token required
      * @body-param string email required
@@ -379,6 +397,10 @@ class AuthController extends MartisController
                 'ok' => true,
                 'status' => __($status),
             ]);
+        }
+
+        if ($status === Password::INVALID_USER && ! config('app.debug')) {
+            $status = Password::INVALID_TOKEN;
         }
 
         return response()->json([

@@ -180,7 +180,13 @@ When `auth.passwordReset.enabled=true` and `url` is empty:
 5. Server calls `Password::broker(<broker>)->reset()`, fires `Illuminate\Auth\Events\PasswordReset`, and returns 200.
 6. Client toasts success and redirects to `/login`.
 
-When the user account is SSO-only (no password hash), Laravel's broker rejects with `Password::INVALID_USER` — Martis surfaces the localized message under the email field. To avoid account enumeration in production, override the binding (see "Customising auth surfaces" below) and force a generic "if an account exists, an email is on its way" response.
+**The answer does not say whether the address has an account (v2.4.0).** Both endpoints are public, so what they say must not let an anonymous caller confirm which addresses are panel accounts:
+
+- `POST /api/auth/password/email` answers `200 { "ok": true, "status": "We have emailed your password reset link." }` for every address the request validates for: a known one, an unknown one, and a known one asked again within the broker's `throttle` window (the broker answers `passwords.throttled` there, which only a known address gets). The response is the same, byte for byte, and only a known address is mailed. An SSO-only account (no password hash) answers the same way. The magic-link request has always worked like this.
+- `POST /api/auth/password/reset` answers `422 "This password reset token is invalid."` for an unknown address, as it does for a known one with a wrong token (the broker says `passwords.user` for the first and `passwords.token` for the second).
+- With `APP_DEBUG=true` both endpoints give the broker's detailed `422` (`passwords.user`, `passwords.throttled`), which helps while setting reset up. Up to v2.3.0 production answered `422` with that detail too, although the controller's docblock said it was neutral there.
+
+Request validation errors (a malformed address) stay `422` for every caller. Two differences remain that a mailer makes: a mail failure (the SMTP timeout above) answers `503`, and so only for an address that has an account, and sending takes longer than not sending, so a caller who times the endpoint can tell a known address from an unknown one. Send the reset notification on a queue (a `ShouldQueue` notification, see Laravel's notification docs) to remove both.
 
 ### Which password broker resets a password
 
