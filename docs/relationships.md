@@ -42,6 +42,21 @@ record carries those answers under `_authorization`, and a record without them
 keeps the action, as on the resource index. The id column links to the record
 only when its `authorizedToView` allows it (v2.0).
 
+**The `canCreate()` / `canUpdate()` / `canDelete()` setters (`HasMany`,
+`HasOne`, `MorphMany`, `MorphOne`) and `canAttach()` / `canDetach()`
+(`BelongsToMany`, `MorphToMany`) are enforced on the server (v2.4.0).** A
+field that turns a write off does not only hide its button: a request that
+names the relationship directly (`POST`, `PUT` or `DELETE
+/api/resources/{resource}/{id}/has-many/{relationship}`, the `has-one`,
+`morph-many` and `morph-one` routes, and the `belongs-to-many` and
+`morph-to-many` `attach` (one record or a batch), `attachable`, pivot picker
+and `detach` routes) answers 403 and writes nothing. The setters narrow the
+policies, they never widen them: a write a flag leaves on still needs the
+policy abilities. Before v2.4.0 the flags only hid the button, so a panel
+configured read-only (`HasMany::make('Invoices')->canDelete(false)`) still
+deleted through the endpoint for a user whose policy allowed it. Hiding a
+control with the `hideXxx()` setters stays cosmetic.
+
 When the related resource denies `viewAny`, the panel is not on the detail
 page at all (v2.0.1+, see below), so it offers no Create, Edit, Delete,
 Restore or Force delete either: every one of those writes needs the related
@@ -441,7 +456,7 @@ BelongsToMany::make('Roles', 'roles', RoleResource::class)
 
 ### Authorization
 
-`canAttach()` / `canDetach()` are **static toggles** (defaults to `true` — pass `false` to hide the affordance for everyone). They do not accept closures. For dynamic, request-aware authorization, override the matching method on the parent Resource:
+`canAttach()` / `canDetach()` are **static toggles** (defaults to `true` — pass `false` to turn the write off for everyone: the button is hidden and the endpoints answer 403, v2.4.0). They do not accept closures. For dynamic, request-aware authorization, override the matching method on the parent Resource:
 
 ```php
 // In your Resource class:
@@ -825,8 +840,9 @@ What to do:
   it (`php artisan martis:cache:clear schema`): until it is rebuilt a panel
   keeps the actions it offered in 1.x.
 - To keep the 1.x panel, hide Edit and Delete on the field:
-  `->canUpdate(false)->canDelete(false)`. The endpoints still follow the
-  policies: deny `update` / `delete` there to refuse those writes.
+  `->canUpdate(false)->canDelete(false)`. Since v2.4.0 those setters refuse
+  the writes on the endpoints too (403); before, the endpoints followed the
+  policies only, so deny `update` / `delete` there.
 - Create the related records from their own resource (its create page, or
   `POST /api/resources/{related}`). An API client that created them through
   `…/has-many/{relationship}` or `…/has-one/{relationship}` of a Through

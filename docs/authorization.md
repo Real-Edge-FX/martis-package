@@ -263,7 +263,7 @@ Every dashboard primitive supports a `canSee(Closure)` callback.
   decides per record (a batch attach skips the records it denies),
   `detach{Model}` decides the detach, and `updatePivot{Model}` (falling
   back to `update`) the pivot update and the pickers of the pivot edit
-  modal. The Attach button follows the field's `canAttach()` toggle.
+  modal. The field's `canAttach(false)` turns all of those off too, and `canDetach(false)` the detach (403, v2.4.0): the toggles narrow the policies, never widen them.
   Before v1.38.0 the attach and the list of records to attach did not
   check `attachAny{Model}`, so a user it denied could still attach.
 

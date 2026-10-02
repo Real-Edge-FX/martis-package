@@ -298,7 +298,11 @@ class MorphToMany extends Field
         return $this;
     }
 
-    /** Whether attach button is shown. */
+    /**
+     * Allow or refuse attaching records through this panel. Off hides the
+     * "Attach" button, and the attachable list, the attach (single and
+     * batch) and the attach modal's pivot pickers answer 403.
+     */
     public function canAttach(bool $value = true): static
     {
         $this->canAttachRelated = $value;
@@ -306,12 +310,27 @@ class MorphToMany extends Field
         return $this;
     }
 
-    /** Whether detach button is shown. */
+    /**
+     * Allow or refuse detaching records through this panel. Off hides the
+     * "Detach" button and the detach endpoint answers 403.
+     */
     public function canDetach(bool $value = true): static
     {
         $this->canDetachRelated = $value;
 
         return $this;
+    }
+
+    /** Whether the field leaves attaching through the panel on (see `canAttach()`). */
+    public function allowsAttach(): bool
+    {
+        return $this->canAttachRelated;
+    }
+
+    /** Whether the field leaves detaching through the panel on (see `canDetach()`). */
+    public function allowsDetach(): bool
+    {
+        return $this->canDetachRelated;
     }
 
     /** Return the Eloquent relationship method name. */

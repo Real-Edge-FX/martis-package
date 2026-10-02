@@ -1639,7 +1639,8 @@ class ResourceController extends MartisController
         $pivotRow = $relation->newPivot();
 
         if ($relatedId === null) {
-            $authorized = $parentResource->authorizedToAttachAny($request, $related::class);
+            // The attach modal's picker, which `canAttach(false)` turns off.
+            $authorized = $field->allowsAttach() && $parentResource->authorizedToAttachAny($request, $related::class);
         } else {
             // Only a record the relationship attaches has a pivot row to
             // edit, so any other id answers 404 like a missing one (no

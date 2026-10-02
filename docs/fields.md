@@ -1984,8 +1984,8 @@ BelongsToMany::make('Tags', 'tags', TagResource::class)
 | `dontReorderAttachables` | `dontReorderAttachables(bool $value = true): static` | `$this` | Disable auto-sort of attachables (keep DB order). | `false` |
 | `withSubtitles` | `withSubtitles(bool $value = true): static` | `$this` | Show subtitles in the attach modal search results. | `false` |
 | `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
-| `canAttach` | `canAttach(bool $value = true): static` | `$this` | Control visibility of the Attach button. | `true` |
-| `canDetach` | `canDetach(bool $value = true): static` | `$this` | Control visibility of the Detach button per row. | `true` |
+| `canAttach` | `canAttach(bool $value = true): static` | `$this` | Allow attaching records through the panel. Off hides the Attach button, and the attachable list, the attach (single and batch) and the attach modal's pivot pickers answer 403 (v2.4.0). | `true` |
+| `canDetach` | `canDetach(bool $value = true): static` | `$this` | Allow detaching records through the panel. Off hides the Detach button and the detach endpoint answers 403 (v2.4.0). | `true` |
 
 #### API Endpoints
 
@@ -2059,9 +2059,9 @@ HasOne::make('Profile', 'profile', ProfileResource::class)
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
-| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button when no related record exists. | `true` |
-| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit button for the existing related record. | `true` |
-| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete button for the existing related record. | `true` |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Allow creating the related record through the panel. Off hides the Create button and the create endpoint answers 403 (v2.4.0). | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Allow editing the related record through the panel. Off hides the Edit button and the update endpoint answers 403 (v2.4.0). | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Allow deleting the related record through the panel. Off hides the Delete button and the delete endpoint answers 403 (v2.4.0). | `true` |
 
 Static factory `HasOne::ofMany($name, $relationship, $resourceClass)`
 promotes a `hasMany()->latestOfMany()` relation into a
@@ -2203,9 +2203,9 @@ HasMany::make('Comments', 'comments')
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
 | `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
 | `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
-| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button. | `true` |
-| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit action per row. | `true` |
-| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete action per row. | `true` |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Allow creating a related record through the panel. Off hides the Create button and the create endpoint answers 403 (v2.4.0). | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Allow editing a related record through the panel. Off hides the Edit action and the update endpoint answers 403 (v2.4.0). | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Allow deleting a related record through the panel. Off hides the Delete action and the delete endpoint answers 403 (v2.4.0). | `true` |
 | `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable the search input in the panel toolbar. | `false` |
 | `indexDisplay` | `indexDisplay(HasManyIndexDisplay $mode): static` | `$this` | Configure how the field renders when shown on the index page. | — |
 | `showRelationIcon` | `showRelationIcon(bool $value = true): static` | `$this` | Show the related-resource icon in the panel heading. | `true` |
@@ -2297,9 +2297,9 @@ MorphOne::make('Thumbnail', 'thumbnail', ThumbnailResource::class)
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
-| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button. | `true` |
-| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit button. | `true` |
-| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete button. | `true` |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Allow creating a related record through the panel. Off hides the Create button and the create endpoint answers 403 (v2.4.0). | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Allow editing the related record through the panel. Off hides the Edit button and the update endpoint answers 403 (v2.4.0). | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Allow deleting the related record through the panel. Off hides the Delete button and the delete endpoint answers 403 (v2.4.0). | `true` |
 
 *src/Fields/MorphOne.php*
 
@@ -2382,9 +2382,9 @@ MorphMany::make('Comments', 'comments', CommentResource::class)
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
 | `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
 | `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
-| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Show/hide the Create button. | `true` |
-| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Show/hide the Edit action per row. | `true` |
-| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Show/hide the Delete action per row. | `true` |
+| `canCreate` | `canCreate(bool $value = true): static` | `$this` | Allow creating a related record through the panel. Off hides the Create button and the create endpoint answers 403 (v2.4.0). | `true` |
+| `canUpdate` | `canUpdate(bool $value = true): static` | `$this` | Allow editing a related record through the panel. Off hides the Edit action and the update endpoint answers 403 (v2.4.0). | `true` |
+| `canDelete` | `canDelete(bool $value = true): static` | `$this` | Allow deleting a related record through the panel. Off hides the Delete action and the delete endpoint answers 403 (v2.4.0). | `true` |
 | `relationSearchable` | `relationSearchable(bool $value = true): static` | `$this` | Enable the search input in the panel toolbar. | `false` |
 | `indexDisplay` | `indexDisplay(HasManyIndexDisplay $mode): static` | `$this` | Configure how the field renders when shown on the index page. | — |
 | `showRelationIcon` | `showRelationIcon(bool $value = true): static` | `$this` | Show the related-resource icon in the panel heading. | `true` |
@@ -2520,8 +2520,8 @@ MorphToMany::make('Tags', 'tags', TagResource::class)
 | `subtitleAttribute` | `subtitleAttribute(string $attribute): static` | `$this` | Column used as the subtitle. | — |
 | `perPage` | `perPage(int $perPage): static` | `$this` | Default per-page for the inline listing. | `10` |
 | `perPageOptions` | `perPageOptions(array $options): static` | `$this` | Custom per-page selector options. | resolved from related resource / `[5,10,25,50]` |
-| `canAttach` | `canAttach(bool $value = true): static` | `$this` | Control visibility of the Attach button. | `true` |
-| `canDetach` | `canDetach(bool $value = true): static` | `$this` | Control visibility of the Detach button per row. | `true` |
+| `canAttach` | `canAttach(bool $value = true): static` | `$this` | Allow attaching records through the panel. Off hides the Attach button, and the attachable list, the attach (single and batch) and the attach modal's pivot pickers answer 403 (v2.4.0). | `true` |
+| `canDetach` | `canDetach(bool $value = true): static` | `$this` | Allow detaching records through the panel. Off hides the Detach button and the detach endpoint answers 403 (v2.4.0). | `true` |
 
 A relation picker among the pivot fields asks the panel, under `/api/resources/{resource}/{id}/morph-to-many/{relationship}/pivot-fields/relatable/{attribute}` in the attach modal and `.../pivot-fields/{relatedId}/relatable/{attribute}` in the pivot edit modal (v1.38.0+), gated like a `BelongsToMany`'s (see [Relationships → Relation pickers among the pivot fields](relationships.md#relation-pickers-among-the-pivot-fields)).
 
