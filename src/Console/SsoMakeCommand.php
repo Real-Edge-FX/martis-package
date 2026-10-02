@@ -467,7 +467,7 @@ class SsoMakeCommand extends Command
         $adapter = $this->option('with-spatie') ? "'spatie'" : "'auto'";
 
         $extras = match ($name) {
-            'azure' => "                'role_source' => 'app_role_assignments',\n                'resource_id' => env('AZURE_RESOURCE_ID'),\n                'scopes' => ['openid', 'profile', 'email', 'GroupMember.Read.All', 'User.ReadBasic.All'],\n",
+            'azure' => "                'role_source' => 'app_role_assignments',\n                'resource_id' => env('AZURE_RESOURCE_ID'),\n                'tenant' => env('AZURE_TENANT_ID'),\n                'scopes' => ['openid', 'profile', 'email', 'GroupMember.Read.All', 'User.ReadBasic.All'],\n",
             'google' => "                'role_source' => 'callable',\n                'scopes' => ['openid', 'profile', 'email'],\n",
             'github' => "                'role_source' => 'callable',\n                'scopes' => ['user:email', 'read:org'],\n",
             default => "                'scopes' => [],\n",
@@ -502,6 +502,7 @@ class SsoMakeCommand extends Command
             "                'permission_adapter' => {$adapter},\n".
             "                'on_no_role_match' => 'deny',\n".
             "                'redirect_to' => null,\n".
+            "                'remember' => false,\n".
             "            ],\n";
     }
 
@@ -518,6 +519,7 @@ class SsoMakeCommand extends Command
             $entries['AZURE_CLIENT_SECRET'] = '';
             $entries['AZURE_REDIRECT_URI'] = '';
             $entries['AZURE_RESOURCE_ID'] = '';
+            $entries['AZURE_TENANT_ID'] = '';
         }
 
         foreach ([base_path('.env'), base_path('.env.example')] as $envPath) {
@@ -623,6 +625,7 @@ class SsoMakeCommand extends Command
             $this->line('     <fg=gray>AZURE_CLIENT_SECRET     the secret VALUE (not the Secret ID)</>');
             $this->line('     <fg=gray>AZURE_REDIRECT_URI      '.url('/'.config('martis.path', 'martis').'/sso/azure/callback').'</>');
             $this->line('     <fg=gray>AZURE_RESOURCE_ID       same as AZURE_CLIENT_ID</>');
+            $this->line('     <fg=gray>AZURE_TENANT_ID         the Directory (tenant) ID; identities of any other tenant are rejected</>');
         }
 
         $this->newLine();

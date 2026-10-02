@@ -29,7 +29,7 @@ That registers two routes:
 - `GET /{martis-path}/api-docs` — Stoplight Elements UI.
 - `GET /{martis-path}/api-docs.json` — raw OpenAPI 3.1 document.
 
-Both go through `martis.api_docs.middleware` (default `['web', 'auth']`). When the env is `false`, **the routes are not registered at all** — `php artisan route:list --path=api-docs` returns nothing, and a request hits the SPA catch-all (302 to `/martis`) rather than Scramble. That is the intended security envelope.
+Both go through `martis.api_docs.middleware`. The default (v2.4.0) is `null`: the Martis protected stack, the Martis guard (`martis.auth`, so `MARTIS_GUARD` counts, not the app's default guard) plus the 2FA, email verification, `viewMartis` and forced password change gates. A list you set is kept and then completed with any of those guards it leaves out, so a published `['web', 'auth']` from v2.3 or earlier never lets a user of another guard read the schema of the admin API. When the env is `false`, **the routes are not registered at all** — `php artisan route:list --path=api-docs` returns nothing, and a request hits the SPA catch-all (302 to `/martis`) rather than Scramble. That is the intended security envelope.
 
 To tighten further (e.g. admin-only) override the middleware in your published `config/martis.php`:
 
@@ -37,7 +37,7 @@ To tighten further (e.g. admin-only) override the middleware in your published `
 'api_docs' => [
     'enabled' => env('MARTIS_API_DOCS_ENABLED', false),
     'path'    => env('MARTIS_API_DOCS_PATH', 'api-docs'),
-    'middleware' => ['web', 'auth', 'can:manage-martis-cache'],
+    'middleware' => ['web', 'can:manage-martis-cache'], // added to the Martis stack
 ],
 ```
 
@@ -81,7 +81,8 @@ Content-Type: application/json
 | `GET` | `/martis/email/verify` | Themed notice page (must be authenticated). |
 | `GET` | `/martis/email/verify/{id}/{hash}` | Signed verify link target — marks `email_verified_at`. |
 | `POST` | `/martis/api/auth/magic-link/request` | **v1.8.8.** Issue a passwordless sign-in token + email it. Returns `200 {ok: true}` whether or not the email exists (account-enumeration safe). |
-| `GET` | `/martis/api/auth/magic-link/consume?email=…&token=…` | **v1.8.8.** Verify the token, sign the user in, redirect to `/{martis-path}`. |
+| `GET` | `/martis/magic-link/confirm?email=…&token=…` | **v2.4.0.** The emailed link: the SPA confirmation page. Signs nobody in and does not consume the token. |
+| `POST` | `/martis/api/auth/magic-link/consume` | **v2.4.0** (was a `GET` that signed in on load). `{ email, token, replace_session? }`: verify the token, sign the user in. |
 | `POST` | `/martis/api/2fa/challenge` | Submit the 6-digit TOTP (or recovery) code during the 2FA challenge. `422` wrong code, `429` rate limited (5 a minute per user, v2.4.0), `403 { two_factor_locked: true }` after consecutive wrong codes (the session ends). |
 | `GET` | `/martis/sso/{provider}/redirect` | Kick off the OAuth flow. Routes only registered when `auth.sso.enabled`. |
 | `GET` | `/martis/sso/{provider}/callback` | Handle the IdP callback. |

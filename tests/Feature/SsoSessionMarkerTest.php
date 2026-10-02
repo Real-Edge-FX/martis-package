@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
@@ -22,8 +23,9 @@ use Martis\Sso\SsoSession;
 use Symfony\Component\HttpFoundation\Cookie;
 
 // ===========================================================================
-// The SSO origin of a session (Martis\Sso\SsoSession, v2.3.0). The SSO
-// callback signs in with remember-me, so the session it opens can end
+// The SSO origin of a session (Martis\Sso\SsoSession, v2.3.0). A provider
+// that opts in to remember-me (`remember`, v2.4.0) signs in with it, so the
+// session the SSO callback opens can end
 // (SESSION_LIFETIME) while the remember cookie signs the same user back in,
 // into a new session. The origin must survive that re-login: the forced
 // password change gate never holds an SSO session (the user knows no
@@ -92,6 +94,8 @@ beforeEach(function () {
         'permission_adapter' => 'callable',
         'on_no_role_match' => 'deny',
         'logout_url' => 'https://idp.example/logout',
+        // The origin only has to survive a remember-me re-login when the provider opts in to one.
+        'remember' => true,
     ]);
 
     $this->app->make(SsoManager::class)->flushHooksForTesting();
@@ -243,4 +247,171 @@ it('drops the SSO cookie on every other sign-in and on both sign-outs', function
 
     ssoMarkerExpireSession();
     expect($cleared(ssoMarkerBrowser($marker)->postJson('/martis/api/auth/logout')))->toBeTrue();
+});
+
+/** The cookie as Martis writes it, for a user, a provider, a nonce and an issue time. */
+function ssoMarkerForgedCookie(int|string $userId, string $nonce, ?int $issuedAt = null, string $provider = 'azure'): string
+{
+    return Crypt::encryptString((string) json_encode(['u' => (string) $userId, 'p' => $provider, 'n' => $nonce, 'i' => $issuedAt ?? time()]));
+}
+
+/**
+ * The claims of the origin cookie a response set: the app's EncryptCookies
+ * encrypted it again, behind the prefix that ties it to the cookie's name.
+ */
+function ssoMarkerClaims(Cookie $cookie): array
+{
+    $outer = Crypt::decryptString($cookie->getValue());
+
+    return json_decode(Crypt::decryptString(substr($outer, (int) strpos($outer, '|') + 1)), true);
+}
+
+it('binds the cookie to the user, the provider, an issue time and a nonce the server holds', function () {
+    $callback = $this->get('/martis/sso/azure/callback');
+    $claims = ssoMarkerClaims(ssoMarkerCookie($callback, SsoSession::COOKIE));
+
+    expect($claims)->toHaveKeys(['u', 'p', 'n', 'i'])
+        ->and($claims['p'])->toBe('azure')
+        ->and($claims['i'])->toBeInt()->toBeGreaterThan(time() - 60)
+        ->and(strlen($claims['n']))->toBeGreaterThanOrEqual(32);
+});
+
+it('stops a cookie kept from an SSO sign-in once the user signs in with a password (F064)', function () {
+    $callback = $this->get('/martis/sso/azure/callback');
+    $recaller = ssoMarkerCookie($callback, 'remember_');
+    $saved = ssoMarkerCookie($callback, SsoSession::COOKIE);
+    $user = SsoMarkerUser::query()->where('email', 'sso@example.com')->firstOrFail();
+    $user->forceFill(['password' => Hash::make('Temporary-Pass-1'), 'must_change_password' => true])->save();
+
+    // The operator flags the account; the user signs in with the password.
+    ssoMarkerExpireSession();
+    $login = $this->postJson('/martis/api/auth/login', ['email' => 'sso@example.com', 'password' => 'Temporary-Pass-1', 'keep_signed_in' => true])
+        ->assertJson(['password_change_required' => true]);
+    $passwordRecaller = ssoMarkerCookie($login, 'remember_');
+    ssoMarkerExpireSession();
+
+    // Re-attaching the saved cookie, as the user did: the origin is gone, the gate holds.
+    ssoMarkerBrowser($passwordRecaller, $saved)->getJson('/martis/api/tools')->assertStatus(409);
+    expect(session(SsoSession::SESSION_KEY))->toBeNull();
+});
+
+it('keeps the cookie of each device valid, and the sign-out drops only the nonce of its own browser', function () {
+    $first = ssoMarkerCookie($this->get('/martis/sso/azure/callback'), SsoSession::COOKIE);
+    ssoMarkerExpireSession();
+    $second = ssoMarkerCookie($this->get('/martis/sso/azure/callback'), SsoSession::COOKIE);
+    ssoMarkerExpireSession();
+    $user = SsoMarkerUser::query()->where('email', 'sso@example.com')->firstOrFail();
+
+    // The flagged user is let through while a cookie of theirs is valid: two
+    // devices, two nonces, the second sign-in did not replace the first.
+    $opensWith = function (Cookie $marker) use ($user): int {
+        // A fresh session each time: the origin is written back to the session it opens.
+        ssoMarkerExpireSession();
+
+        return ssoMarkerBrowser($marker)->actingAs($user)->getJson('/martis/api/tools')->getStatusCode();
+    };
+    expect($opensWith($first))->toBe(200)->and($opensWith($second))->toBe(200);
+
+    Auth::forgetGuards();
+    ssoMarkerBrowser($second)->actingAs($user)->postJson('/martis/api/auth/logout')->assertOk();
+
+    expect($opensWith($first))->toBe(200)->and($opensWith($second))->toBe(409);
+});
+
+it('refuses a cookie whose nonce the server does not hold', function () {
+    $callback = $this->get('/martis/sso/azure/callback');
+    $recaller = ssoMarkerCookie($callback, 'remember_');
+    $user = SsoMarkerUser::query()->where('email', 'sso@example.com')->firstOrFail();
+    ssoMarkerExpireSession();
+
+    $this->withCredentials()
+        ->withUnencryptedCookie($recaller->getName(), $recaller->getValue())
+        ->withCookie(SsoSession::COOKIE, ssoMarkerForgedCookie($user->getKey(), 'a-nonce-the-server-never-issued'))
+        ->getJson('/martis/api/tools')
+        ->assertStatus(409);
+    expect(session(SsoSession::SESSION_KEY))->toBeNull();
+});
+
+it('refuses a cookie older than the remember lifetime, and one from the future', function (int $issuedAgoSeconds) {
+    $callback = $this->get('/martis/sso/azure/callback');
+    $recaller = ssoMarkerCookie($callback, 'remember_');
+    $claims = ssoMarkerClaims(ssoMarkerCookie($callback, SsoSession::COOKIE));
+    ssoMarkerExpireSession();
+
+    $this->withCredentials()
+        ->withUnencryptedCookie($recaller->getName(), $recaller->getValue())
+        ->withCookie(SsoSession::COOKIE, ssoMarkerForgedCookie($claims['u'], $claims['n'], time() - $issuedAgoSeconds))
+        ->getJson('/martis/api/tools')
+        ->assertStatus(409);
+})->with([
+    'a second past the lifetime' => [576000 * 60 + 5],
+    'issued in the future' => [-3600],
+]);
+
+it('refuses the cookie of an SSO sign-in once the server forgot the nonces (cache flushed)', function () {
+    $callback = $this->get('/martis/sso/azure/callback');
+    $recaller = ssoMarkerCookie($callback, 'remember_');
+    $marker = ssoMarkerCookie($callback, SsoSession::COOKIE);
+    ssoMarkerExpireSession();
+    Cache::flush();
+
+    ssoMarkerBrowser($recaller, $marker)->getJson('/martis/api/tools')->assertStatus(409);
+});
+
+it('refuses a cookie with the old id|provider shape', function () {
+    $callback = $this->get('/martis/sso/azure/callback');
+    $recaller = ssoMarkerCookie($callback, 'remember_');
+    $user = SsoMarkerUser::query()->where('email', 'sso@example.com')->firstOrFail();
+    ssoMarkerExpireSession();
+
+    $this->withCredentials()
+        ->withUnencryptedCookie($recaller->getName(), $recaller->getValue())
+        ->withCookie(SsoSession::COOKIE, Crypt::encryptString($user->getKey().'|azure'))
+        ->getJson('/martis/api/tools')
+        ->assertStatus(409);
+});
+
+// ---------------------------------------------------------------------------
+// F056: the remember-me cookie is the provider's opt-in
+// ---------------------------------------------------------------------------
+
+it('signs in without the remember-me cookie unless the provider opts in', function () {
+    config()->set('martis.auth.sso.providers.azure.remember', false);
+
+    $callback = $this->get('/martis/sso/azure/callback')->assertRedirect();
+
+    expect(ssoMarkerCookie($callback, 'remember_'))->toBeNull()
+        ->and(ssoMarkerCookie($callback, SsoSession::COOKIE))->toBeNull()
+        ->and(session(SsoSession::SESSION_KEY))->toBe('azure');
+    $this->getJson('/martis/api/tools')->assertOk();
+    expect(SsoMarkerUser::query()->where('email', 'sso@example.com')->value('remember_token'))->toBeNull();
+});
+
+it('does not remember an SSO sign-in when the provider sets nothing', function () {
+    $config = config('martis.auth.sso.providers.azure');
+    unset($config['remember']);
+    config()->set('martis.auth.sso.providers.azure', $config);
+
+    $callback = $this->get('/martis/sso/azure/callback')->assertRedirect();
+
+    expect(ssoMarkerCookie($callback, 'remember_'))->toBeNull();
+});
+
+it('lets the session end the access when remember-me is off: no cookie signs the user back in', function () {
+    config()->set('martis.auth.sso.providers.azure.remember', false);
+    $callback = $this->get('/martis/sso/azure/callback');
+    expect(ssoMarkerCookie($callback, 'remember_'))->toBeNull();
+
+    ssoMarkerExpireSession();
+
+    $this->getJson('/martis/api/tools')->assertUnauthorized();
+});
+
+it('remembers an SSO sign-in when the provider opts in', function () {
+    config()->set('martis.auth.sso.providers.azure.remember', true);
+
+    $callback = $this->get('/martis/sso/azure/callback')->assertRedirect();
+
+    expect(ssoMarkerCookie($callback, 'remember_'))->not->toBeNull()
+        ->and(ssoMarkerCookie($callback, SsoSession::COOKIE))->not->toBeNull();
 });

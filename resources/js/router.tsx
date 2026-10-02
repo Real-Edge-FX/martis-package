@@ -8,6 +8,7 @@ import { ForgotPasswordPage } from '@/pages/ForgotPassword'
 import { ResetPasswordPage } from '@/pages/ResetPassword'
 import { EmailVerifyNoticePage } from '@/pages/EmailVerifyNotice'
 import { InvitationAcceptPage } from '@/pages/InvitationAccept'
+import { MagicLinkConfirmPage } from '@/pages/MagicLinkConfirm'
 import { PasswordChangeRequiredPage } from '@/pages/PasswordChangeRequired'
 import { DashboardPage } from '@/pages/Dashboard'
 import { NotFoundPage } from '@/pages/NotFound'
@@ -104,6 +105,12 @@ export function buildAppRoutes(registered: readonly RegisteredRoute[]): RouteObj
     {
       path: '/invitations/accept/:token',
       element: createElement(InvitationAccept),
+    },
+    {
+      // The page the emailed sign-in link opens: it asks to confirm, and
+      // only its POST signs in (v2.4.0).
+      path: '/magic-link/confirm',
+      element: <MagicLinkConfirmPage />,
     },
     {
       path: '/2fa/challenge',

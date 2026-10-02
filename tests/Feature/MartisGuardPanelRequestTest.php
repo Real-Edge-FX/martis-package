@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
 use Martis\Actions\Action;
 use Martis\Actions\ActionFields;
@@ -16,6 +17,7 @@ use Martis\Fields\Text;
 use Martis\Impersonation\Events\ImpersonationStarted;
 use Martis\Invitations\InvitationManager;
 use Martis\Models\ActionEvent;
+use Martis\Profile\EmailChangeConfirmationNotification;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\Stubs\StubResolver;
@@ -226,15 +228,33 @@ it('checks the current password of the Martis guard user', function () {
 });
 
 it('checks the profile email among the Martis guard users', function () {
-    $update = fn (string $email) => $this->withSession(panelGuardBoth($this->admin))->patchJson('/martis/api/profile', ['name' => 'Admin', 'email' => $email]);
+    Notification::fake();
+    $update = fn (string $email) => $this->withSession(panelGuardBoth($this->admin))->patchJson('/martis/api/profile', ['name' => 'Admin', 'email' => $email, 'current_password' => 'admin-secret']);
 
     // Another admin's email is taken; the site account's is not a conflict.
     $update('other@example.com')->assertStatus(422)->assertJsonValidationErrors('email');
     panelGuardNextRequest();
-    $update('site@example.com')->assertOk();
-    // Their own email, unchanged, validates.
+    $update('site@example.com')->assertOk()->assertJsonPath('pending_email', 'site@example.com');
+    // Their own email, unchanged, validates (and asks nothing).
     panelGuardNextRequest();
-    $update('site@example.com')->assertOk();
+    $this->withSession(panelGuardBoth($this->admin))
+        ->patchJson('/martis/api/profile', ['name' => 'Admin', 'email' => $this->admin->email])
+        ->assertOk();
+
+    // The address changes when the link goes through: among the admins, where it is free.
+    $url = null;
+    Notification::assertSentOnDemand(
+        EmailChangeConfirmationNotification::class,
+        function ($notification) use (&$url): bool {
+            $url = $notification->url;
+
+            return true;
+        },
+    );
+    expect($this->admin->fresh()?->email)->not->toBe('site@example.com');
+
+    panelGuardNextRequest();
+    $this->get($url)->assertRedirect('/martis/login?email_change=changed');
 
     expect($this->admin->fresh()?->email)->toBe('site@example.com');
 });

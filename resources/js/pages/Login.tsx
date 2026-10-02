@@ -12,6 +12,7 @@ import { AuthFrame } from "@/components/auth/AuthFrame"
 import { FieldError } from "@/components/auth/FieldError"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { BASE_PATH } from "@/lib/config"
+import { EMAIL_CHANGE_FALLBACKS, emailChangeOutcome } from "@/lib/emailChangeOutcome"
 import { safeHref } from "@/lib/safeUrl"
 
 /** Tiny helper so the same rule applies to every optional auth flow:
@@ -27,6 +28,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const { addToast } = useToast()
   const { t } = useTranslation("auth")
+  const { t: tProfile } = useTranslation("profile")
   const tCopy = useAuthCopy()
 
   const [email, setEmail] = useState("")
@@ -91,6 +93,44 @@ export function LoginPage() {
 
     return () => window.clearTimeout(handle)
   }, [addToast, t])
+
+  // Detect arrival from the magic-link pages (v2.4.0): an expired, invalid or
+  // disabled link comes back here as `?magic_link=<reason>`. Same
+  // deferred-toast pattern as the two flags above.
+  useEffect(() => {
+    const reason = new URLSearchParams(window.location.search).get('magic_link')
+    if (reason !== 'expired' && reason !== 'invalid' && reason !== 'disabled') return
+
+    const handle = window.setTimeout(() => {
+      addToast('error', t(`magic_link_${reason}`, { defaultValue: 'This sign-in link is not valid. Please request a new one.' }))
+      const url = new URL(window.location.href)
+      url.searchParams.delete('magic_link')
+      window.history.replaceState({}, '', url.toString())
+    }, 0)
+
+    return () => window.clearTimeout(handle)
+  }, [addToast, t])
+
+  // Detect arrival from the confirmation link of a new email address
+  // (v2.4.0), followed in a browser that is not signed in:
+  // `?email_change=<outcome>`. Same deferred toast; the strings live with the
+  // profile page's.
+  useEffect(() => {
+    const outcome = emailChangeOutcome(window.location.search)
+    if (outcome === null) return
+
+    const handle = window.setTimeout(() => {
+      addToast(
+        outcome === 'changed' ? 'success' : 'error',
+        tProfile(`email_change_${outcome}`, { defaultValue: EMAIL_CHANGE_FALLBACKS[outcome] }),
+      )
+      const url = new URL(window.location.href)
+      url.searchParams.delete('email_change')
+      window.history.replaceState({}, '', url.toString())
+    }, 0)
+
+    return () => window.clearTimeout(handle)
+  }, [addToast, tProfile])
 
   // Redirect already-authenticated users out of the login page via an
   // effect rather than a render-time `<Navigate>` so the navigation

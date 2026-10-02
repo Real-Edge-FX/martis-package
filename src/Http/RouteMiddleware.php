@@ -65,6 +65,62 @@ final class RouteMiddleware
     }
 
     /**
+     * The middleware of the OpenAPI documentation routes
+     * (`martis.api_docs.middleware`, v2.4.0): the protected stack of the API
+     * routes without the throttle, so only a user the panel lets in reads the
+     * schema of the admin API: base(), authenticated() (the Martis guard) and
+     * verified() (2FA, email verification, the `viewMartis` gate, the forced
+     * password change).
+     *
+     * `$configured` is the value of the config key: null is the stack above.
+     * A list is kept as it is, then given every middleware of the stack it
+     * leaves out, so a published `['web', 'auth']`, which asks the app's
+     * default guard and not the Martis guard, never makes the schema readable
+     * to a user of another guard. A middleware is the same one under its
+     * alias or its class.
+     *
+     * @return list<string>
+     */
+    public static function apiDocs(mixed $configured = null): array
+    {
+        $guards = [...self::authenticated(), ...self::verified()];
+
+        if ($configured === null) {
+            return [...self::base(), ...$guards];
+        }
+
+        $names = is_string($configured) ? [$configured] : $configured;
+
+        if (! is_array($names) || array_filter($names, static fn (mixed $name): bool => ! is_string($name) || $name === '') !== []) {
+            throw new InvalidArgumentException(sprintf(
+                'The [martis.api_docs.middleware] config value must be a middleware name or a list of middleware names, got %s.',
+                get_debug_type($configured),
+            ));
+        }
+
+        /** @var list<string> $names */
+        $names = array_values($names);
+        $present = array_map(self::resolveAlias(...), $names);
+
+        foreach ($guards as $guard) {
+            if (! in_array(self::resolveAlias($guard), $present, true)) {
+                $names[] = $guard;
+            }
+        }
+
+        return $names;
+    }
+
+    /** The class an alias of the router names, else the name itself. */
+    private static function resolveAlias(string $name): string
+    {
+        /** @var array<string, string> $aliases */
+        $aliases = app('router')->getMiddleware();
+
+        return $aliases[$name] ?? $name;
+    }
+
+    /**
      * The API rate limit (`martis.throttle.max_attempts` per
      * `martis.throttle.decay_minutes`, per user), or none when
      * `martis.throttle.enabled` is false. Its bucket carries the prefix

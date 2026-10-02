@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Martis\Auth\TwoFactorPass;
@@ -77,20 +78,39 @@ it('returns 401 for unauthenticated profile request', function () {
 // ──────────────────────────────────────────────────────────────────────────────
 // PATCH /api/profile
 // ──────────────────────────────────────────────────────────────────────────────
-it('updates name and email', function () {
+it('updates the name', function () {
     $user = makeTestUser(['email' => 'original@example.com']);
     loginTestUser($user);
     $prefix = config('martis.path', 'martis');
 
     $response = $this->patchJson("/{$prefix}/api/profile", [
         'name' => 'Updated Name',
-        'email' => 'updated@example.com',
+        'email' => 'original@example.com',
     ]);
 
     $response->assertOk()
-        ->assertJsonFragment(['name' => 'Updated Name', 'email' => 'updated@example.com']);
+        ->assertJsonFragment(['name' => 'Updated Name', 'email' => 'original@example.com']);
 
-    $this->assertDatabaseHas('users', ['name' => 'Updated Name', 'email' => 'updated@example.com']);
+    $this->assertDatabaseHas('users', ['name' => 'Updated Name', 'email' => 'original@example.com']);
+});
+
+it('asks the current password for a new email and keeps the address until it is confirmed', function () {
+    Notification::fake();
+    $user = makeTestUser(['email' => 'original@example.com', 'password' => bcrypt('password')]);
+    loginTestUser($user);
+    $prefix = config('martis.path', 'martis');
+
+    $this->patchJson("/{$prefix}/api/profile", ['name' => 'Updated Name', 'email' => 'updated@example.com'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('current_password');
+    $this->assertDatabaseHas('users', ['name' => $user->name, 'email' => 'original@example.com']);
+
+    $this->patchJson("/{$prefix}/api/profile", ['name' => 'Updated Name', 'email' => 'updated@example.com', 'current_password' => 'password'])
+        ->assertOk()
+        ->assertJsonFragment(['name' => 'Updated Name', 'email' => 'original@example.com', 'pending_email' => 'updated@example.com']);
+
+    $this->assertDatabaseHas('users', ['name' => 'Updated Name', 'email' => 'original@example.com']);
+    $this->assertDatabaseMissing('users', ['email' => 'updated@example.com']);
 });
 
 it('validates required fields on profile update', function () {

@@ -85,20 +85,26 @@ its routes answer `403`, for a user the related resource does not let
 
 ## Panel access (`viewMartis`)
 
-`viewMartis` decides who may open the panel at all (v2.1.0). It is optional:
+`viewMartis` decides who may open the panel at all (v2.1.0). Since v2.4.0 the panel is closed by default outside the local environments:
 
-- **Undefined** (the default): every user who signs in with the Martis guard gets in, as before v2.1.0.
 - **Defined:** only the users it allows get in, in every environment.
+- **Undefined:** every user the Martis guard signs in gets in only in the environments of `martis.panel_access.open_environments` (`local` and `testing` by default, env `MARTIS_PANEL_OPEN_ENVIRONMENTS`, comma-separated, an empty list opens none), as Nova's `viewNova` does with `local`. Anywhere else the panel answers `403` to everyone until you define the gate. Up to v2.3.x an undefined gate was open in every environment, so a guard that also signs in customers or other non-staff users opened the admin to them by omission.
 
-Define it in `app/Providers/MartisServiceProvider.php`. The published stub carries the example in `registerGates()`:
+Define it in `app/Providers/MartisServiceProvider.php`. `martis:install` publishes the provider with the gate active (it lets `local` in and, anywhere else, only the addresses you list), and prints a notice about it:
 
 ```php
 use Illuminate\Support\Facades\Gate;
 
-Gate::define('viewMartis', fn ($user) => in_array($user->email, [
+Gate::define('viewMartis', fn ($user) => app()->environment('local') || in_array($user->email, [
     'admin@example.com',
-]));
+], true));
 ```
+
+Edit the list (or replace the rule with a role, a column or a permission) before you deploy. The first time the panel refuses a user because the gate is missing, Martis logs one warning a day (not one per request) that names the fix.
+
+### Resources without a policy
+
+A resource with no policy still lets every user the panel admits view, create, update and delete its records, as in Nova. Outside the environments the panel is open in, Martis logs a warning once a day for each resource found without a policy (`Martis\Auth\PolicyCoverage`), so the gap shows up in the logs without a line per request. Add a policy (`php artisan martis:policy`) to close it.
 
 The `martis.authorize` middleware checks it after authentication, the 2FA challenge and email verification, and before the forced password change (v2.3.0). It therefore guards the SPA shell, every protected API route, every Tool route that runs the Martis API stack and any route of yours on the `martis.api` group. The sign-in pages, `POST /logout`, the 2FA challenge (its page and its endpoint), the email verification pages and the translations stay reachable, so a refused user can sign out, and a refused user with a pending 2FA challenge completes it before seeing the refusal.
 
