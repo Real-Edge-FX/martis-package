@@ -318,7 +318,7 @@ class TwoFactorService
      *
      * Records the time step a code was accepted for in
      * `two_factor_last_used_at`, stored as the start time of that step
-     * (`step * 30`), and rejects any step at or before it. A code accepted
+     * (`step * 30`) in UTC, and rejects any step at or before it. A code accepted
      * for the step after the current one (a client clock running ahead, a
      * code seen before it was current) therefore cannot be used again while
      * that step is current, which a recorded wall-clock time allowed.
@@ -386,7 +386,9 @@ class TwoFactorService
      */
     private function lastConsumedStep(Model $user): int
     {
-        $value = $user->getAttribute('two_factor_last_used_at');
+        // The stored attribute, before any cast: a `datetime` cast would read
+        // the UTC string as app-timezone time.
+        $value = $user->getAttributes()['two_factor_last_used_at'] ?? null;
 
         if ($value instanceof \DateTimeInterface) {
             return (int) floor($value->getTimestamp() / 30);
@@ -394,7 +396,7 @@ class TwoFactorService
 
         if (is_string($value) && $value !== '') {
             try {
-                return (int) floor(Carbon::parse($value)->getTimestamp() / 30);
+                return (int) floor(Carbon::parse($value, 'UTC')->getTimestamp() / 30);
             } catch (Throwable) {
                 return -PHP_INT_MAX;
             }
@@ -411,8 +413,10 @@ class TwoFactorService
     private function consumeStep(Model $user, int $step): bool
     {
         $column = 'two_factor_last_used_at';
-        $stepStart = now()->setTimestamp($step * 30);
-        $stored = $user->fromDateTime($stepStart);
+        // In UTC, never in the app timezone: a local wall-clock string is
+        // ambiguous for the hour a daylight-saving change repeats, and the
+        // `<` below would then refuse a newer step as an older one.
+        $stored = Carbon::createFromTimestampUTC($step * 30)->format($user->getDateFormat());
 
         try {
             $changed = $user->newModelQuery()
