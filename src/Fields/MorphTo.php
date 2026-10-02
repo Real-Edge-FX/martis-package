@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
+use Martis\Contracts\ProvidesPickerAttributes;
 use Martis\Enums\ModalSize;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Resource;
@@ -33,7 +34,7 @@ use Martis\Resource;
  *
  * @phpstan-consistent-constructor
  */
-class MorphTo extends Field
+class MorphTo extends Field implements ProvidesPickerAttributes
 {
     use ControlsRelationshipToolbar;
 
@@ -128,6 +129,14 @@ class MorphTo extends Field
         $this->titleAttribute = $attribute;
 
         return $this;
+    }
+
+    /** {@inheritdoc} */
+    public function pickerAttributes(): array
+    {
+        return $this->withSubtitles
+            ? [$this->titleAttribute, $this->subtitleAttribute]
+            : [$this->titleAttribute];
     }
 
     /**
@@ -317,7 +326,7 @@ class MorphTo extends Field
         }
 
         if ($value === null || $value === '') {
-            if ($this->nullable) {
+            if ($this->isNullable()) {
                 $model->setAttribute($this->morphTypeColumn, null);
                 $model->setAttribute($this->morphIdColumn, null);
             }

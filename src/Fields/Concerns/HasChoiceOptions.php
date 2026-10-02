@@ -156,6 +156,81 @@ trait HasChoiceOptions
     }
 
     /**
+     * Whether the server rejects a submitted value that is not the value of
+     * one of the options. Off by default: a choice field has never validated
+     * against its options (Nova's do not either, and `Select::allowCustomValues()`
+     * relies on it). See {@see self::validateAgainstOptions()}.
+     */
+    protected bool $validatesAgainstOptions = false;
+
+    /**
+     * Reject, on the server, a value that is not one of the options.
+     *
+     * The control only offers the options, but a request can carry any
+     * value, and the field never checked it: a forged `role_id`, a status the
+     * list never showed or an option the user may not pick (an SSO-managed
+     * role the picker hides) was written as sent. This adds one rule, over
+     * `getOptions()`, run at validation time with the options as they are
+     * then, so a closure of options (a query) runs when a request is
+     * validated and not while the schema is built. A value is matched by its
+     * value, never its label, and as a string or an integer (an option keyed
+     * 7 accepts `7` and `'7'`); an empty value is left to `required()` and
+     * `nullable()`. On a `MultiSelect` every selected value must be an
+     * option. It applies to resource forms and to the fields of an Action
+     * modal, wherever the field's rules do.
+     *
+     *   Select::make('role_id')
+     *       ->options(fn () => Role::query()->whereNull('provider_group_name')->pluck('name', 'id'))
+     *       ->validateAgainstOptions();
+     *
+     * Not meant for a list that is only a first page: a `Select` with
+     * `searchOptionsUsing()` loads the rest from the server, so a value the
+     * search returns is not in `getOptions()` and would be rejected. With
+     * `allowCustomValues()` the closed list wins, a typed value is rejected:
+     * pick one of the two.
+     */
+    public function validateAgainstOptions(bool $value = true): static
+    {
+        $this->validatesAgainstOptions = $value;
+
+        return $this;
+    }
+
+    /**
+     * Whether the field rejects a value that is not one of its options.
+     */
+    public function validatesAgainstOptions(): bool
+    {
+        return $this->validatesAgainstOptions;
+    }
+
+    /**
+     * Whether `$value` is the value of one of the options, running the lazy
+     * resolver when one is set.
+     *
+     * Only a string or an integer can be one: a form posts a string and a
+     * JSON body an integer, so an option keyed 7 matches `7` and `'7'`, and
+     * nothing looser (`'07'`, `'7.0'`, `7.0`, `true` and an array are not 7).
+     * Grouped options count by their value, as the control stores it.
+     */
+    protected function optionsContain(mixed $value): bool
+    {
+        if (! is_string($value) && ! is_int($value)) {
+            return false;
+        }
+
+        $candidate = (string) $value;
+
+        foreach ($this->getOptions() as $option) {
+            if ((string) $option['value'] === $candidate) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Turn the options handed to `options()`, or returned by a resolver
      * closure, into a plain array, the way Nova reads them through
      * `collect()`: an array as-is, an Arrayable (a Collection) through

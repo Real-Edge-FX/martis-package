@@ -52,15 +52,9 @@ class FilterTestActiveFilter extends BooleanFilter
 
     public function apply(Request $request, Builder $query, mixed $value): Builder
     {
-        if (is_array($value)) {
-            foreach ($value as $column => $enabled) {
-                if ($enabled) {
-                    $query->where($column, true);
-                }
-            }
-        }
-
-        return $query;
+        // The option is read by its explicit key: a key of $value is never
+        // used as a column name.
+        return $query->when(is_array($value) && ($value['is_active'] ?? false), fn (Builder $q) => $q->where('is_active', true));
     }
 }
 

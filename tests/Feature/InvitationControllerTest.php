@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
+use Martis\Auth\TwoFactorPass;
 use Martis\Invitations\Invitation;
 use Martis\Invitations\InvitationManager;
 use Martis\Invitations\InvitationUrl;
@@ -160,6 +161,21 @@ it('POST accept creates the user and logs in when login_after_accept is true', f
 
     $inv->refresh();
     expect($inv->status)->toBe(Invitation::STATUS_ACCEPTED);
+});
+
+it('POST accept forgets the 2FA pass an earlier sign-in of the browser session earned', function () {
+    config([
+        'martis.invitations.enabled' => true,
+        'martis.invitations.login_after_accept' => true,
+    ]);
+
+    $earlier = User::forceCreate(['name' => 'Earlier', 'email' => 'earlier@ex.com', 'password' => bcrypt('x')]);
+    $inv = app(InvitationManager::class)->invite('fresh@ex.com', 'editor');
+
+    $this->actingAs($earlier)->withSession([TwoFactorPass::SESSION_KEY => (string) $earlier->getKey()]);
+    $this->postJson('/martis/api/invitations/accept', acceptPayload($inv->rawToken))->assertOk();
+
+    expect(session(TwoFactorPass::SESSION_KEY))->toBeNull();
 });
 
 it('POST accept creates the user but does NOT log in when login_after_accept is false', function () {

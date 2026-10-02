@@ -152,6 +152,10 @@ Filters support `->span()` for layout control (1-12 column grid, from 768px; bel
 
 Filter values are passed to each card's compute endpoint and automatically applied to all built-in query helpers (count, sum, average, etc.).
 
+A filter the user may not see (`->canSee(fn (Request $request) => ...)` returning false) is left out of the dashboard payload and is not applied by the compute endpoint either: a `filters` parameter that names it is ignored, so a breakdown reserved for managers stays closed to a user who sends its key by hand, as on a resource index. A `calculate()` that reads `?filters=` from the request on its own (a custom metric that skips the built-in query helpers) gets the raw parameter: it must check `authorizedToSee($request)` on the filter itself before using a value.
+
+The compute endpoint of a locked dashboard (`lockedFor()`, see [Soft-gates](gates.md)) answers `{ locked: true, lock: {...} }` and computes nothing, as the dashboard route does.
+
 ## Layout Type
 
 `Dashboard::layoutType(): string` returns the identifier the frontend uses to pick a layout renderer for the cards collection. Defaults to the standard grid; override only when shipping a custom dashboard component:
@@ -329,3 +333,5 @@ GET /api/dashboards/{dashboard}
 ```
 GET /api/dashboards/{dashboard}/cards/{card}?range=30&filters={...}
 ```
+
+A dashboard soft-locked for the user (`lockedFor()`, `requirePlan()`) answers `403` with its lock payload here, as does a locked card; its page endpoint answers `200 { locked: true, lock }` and withholds the cards (v2.4.0, see [Soft-gates → What a lock stops on the server](gates.md#what-a-lock-stops-on-the-server)). A filter the user may not see, or is locked from, is not applied to the card.

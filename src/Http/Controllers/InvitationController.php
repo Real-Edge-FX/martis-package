@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Martis\Auth\DefaultRegistersUsers;
 use Martis\Auth\PasswordPolicy;
+use Martis\Auth\TwoFactorPass;
 use Martis\Contracts\RegistersUsers;
 use Martis\Invitations\InvalidInvitationException;
 use Martis\Invitations\InvitationManager;
@@ -101,6 +102,11 @@ class InvitationController extends MartisController
             $auth = auth()->guard($guardName);
             $auth->login($user);
             $request->session()->regenerate();
+
+            // Every sign-in starts without a 2FA pass: the new account must
+            // not inherit the pass of an earlier sign-in of this browser
+            // session.
+            TwoFactorPass::revoke($request->session());
 
             // A password, magic-link or invitation sign-in is not an SSO one: drop
             // the SSO origin an earlier SSO sign-in left in this session or in

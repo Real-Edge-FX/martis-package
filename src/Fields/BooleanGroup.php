@@ -2,6 +2,8 @@
 
 namespace Martis\Fields;
 
+use ArrayObject;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 
@@ -166,13 +168,28 @@ class BooleanGroup extends Field
     }
 
     /**
-     * Write the flag map. A JSON string (the shape the multipart request
-     * path carries, and what `resolve()` already reads) is decoded to the
-     * map first so the attribute, or its `array` cast, stores a map rather
-     * than the encoded text; any other value is written as received.
+     * Write the flag map the user may set.
+     *
+     * A JSON string (the shape the multipart request path carries, and what
+     * `resolve()` already reads) is decoded to the map first. The map is then
+     * projected onto the flags `getOptions()` offers the user: a submitted
+     * key the options do not name is ignored, each offered value becomes a
+     * boolean (an offered flag the submission leaves out is off), and the
+     * stored flags the user was not offered (an `options()` closure scoped to
+     * the user) keep their stored value, so an editor can neither switch on a
+     * flag they were not shown nor erase one an administrator set.
+     *
+     * An empty value (`null`, `''`) switches the offered flags off: the
+     * attribute becomes `null` when no stored flag is left to keep.
      */
     public function fill(Model $model, mixed $value): void
     {
+        if ($this->isReadonly()) {
+            return;
+        }
+
+        $empty = $value === null || $value === '';
+
         if (is_string($value)) {
             $decoded = json_decode($value, true);
             if (is_array($decoded)) {
@@ -180,7 +197,83 @@ class BooleanGroup extends Field
             }
         }
 
-        parent::fill($model, $value);
+        $submitted = is_array($value) ? $value : [];
+        $offered = array_map('strval', array_keys($this->getOptions()));
+
+        if ($this->fillCallback !== null) {
+            ($this->fillCallback)($model, $empty ? $value : $this->offeredFlags($submitted, $offered), $this->attribute, $this->safeRequest());
+
+            return;
+        }
+
+        // A computed field has no backing attribute to write (see Field::fill()).
+        if ($this->computed) {
+            return;
+        }
+
+        // A value that is not a map (the controllers reject one before it
+        // gets here) writes nothing but the empty one, which clears.
+        if (! $empty && ! is_array($value)) {
+            return;
+        }
+
+        $flags = $this->storedFlags($model);
+        foreach ($this->offeredFlags($submitted, $offered) as $key => $enabled) {
+            $flags[$key] = $enabled;
+        }
+
+        if ($empty) {
+            // Clearing switches the offered flags off; only the flags the
+            // user cannot see stay.
+            $flags = array_diff_key($flags, array_flip($offered));
+        }
+
+        $model->setAttribute(
+            $this->attribute,
+            $this->storableStructuredValue($model, $this->attribute, $flags === [] ? null : $flags),
+        );
+    }
+
+    /**
+     * The submitted flags the field offers, each as a boolean, in the order
+     * of the options; an offered flag the submission leaves out is off.
+     *
+     * @param  array<array-key, mixed>  $submitted
+     * @param  list<string>  $offered
+     * @return array<string, bool>
+     */
+    private function offeredFlags(array $submitted, array $offered): array
+    {
+        $flags = [];
+        foreach ($offered as $key) {
+            $raw = $submitted[$key] ?? false;
+            $flags[$key] = is_scalar($raw) && filter_var($raw, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        return $flags;
+    }
+
+    /**
+     * The flags the record stores now, as a map (a JSON string, an array or
+     * the object a cast hands back are all read), or none.
+     *
+     * @return array<array-key, mixed>
+     */
+    private function storedFlags(Model $model): array
+    {
+        $raw = $model->getAttribute($this->attribute);
+
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+
+        if ($raw instanceof Arrayable) {
+            $raw = $raw->toArray();
+        } elseif ($raw instanceof ArrayObject) {
+            $raw = $raw->getArrayCopy();
+        }
+
+        return is_array($raw) ? $raw : [];
     }
 
     public function resolve(Model $model, ?string $attribute = null): mixed

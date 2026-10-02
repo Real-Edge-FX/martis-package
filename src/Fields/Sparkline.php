@@ -216,6 +216,16 @@ class Sparkline extends Field
     /** {@inheritdoc} */
     public function fill(Model $model, mixed $value): void
     {
+        if ($this->isReadonly()) {
+            return;
+        }
+
+        if ($this->fillCallback !== null) {
+            ($this->fillCallback)($model, $value, $this->attribute, $this->safeRequest());
+
+            return;
+        }
+
         // A computed field has no backing attribute to write (see Field::fill()).
         if ($this->computed) {
             return;

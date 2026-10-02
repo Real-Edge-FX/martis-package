@@ -85,6 +85,11 @@ class LensController extends MartisController
             }
         }
 
+        // The lens lists what the resource's index lists (its scopes() and
+        // indexQuery(), unless the lens opts out), so its page, summary and
+        // actions never reach a record the index hides.
+        $baseQuery = $this->lensBaseQuery($request, $resourceClass, $lensInstance, $baseQuery);
+
         $ttl = $lensInstance->cacheTtl();
         // Lens inherits the resource's perPageOptions / perPage when it
         // does not declare the method itself. Reflection distinguishes
@@ -140,7 +145,7 @@ class LensController extends MartisController
             // time to get a fresh Builder with the lens's restrictions +
             // user filters + user search applied, minus pagination. The
             // cloned baseQuery is disposable — it won't be used again.
-            $summaryQuery = $lensInstance->query($lensRequest, clone $baseQuery);
+            $summaryQuery = $this->runLensQuery($lensInstance, $lensRequest, clone $baseQuery);
             if ($summaryQuery instanceof Builder) {
                 $summary = $lensInstance->summary($request, $summaryQuery);
             } else {
@@ -212,7 +217,7 @@ class LensController extends MartisController
         int $page,
     ): array {
         /** @var Builder<Model>|Paginator $result */
-        $result = $lensInstance->query($lensRequest, clone $baseQuery);
+        $result = $this->runLensQuery($lensInstance, $lensRequest, clone $baseQuery);
 
         if ($result instanceof Paginator) {
             return $this->extractPaginatorPayload($result);

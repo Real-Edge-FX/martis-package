@@ -6,6 +6,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Martis\Auth\TwoFactorPass;
 use Martis\Contracts\ProfileResourceContract;
 use Martis\Profile\ProfileResource;
 
@@ -82,13 +83,13 @@ it('serves the configured resource on the profile page and /api/auth/user', func
     $avatar = 'https://cdn.example.test/configured.png';
 
     $this->actingAs($user, config('martis.guard'))
-        ->withSession(['martis_two_factor_passed' => true])
+        ->withSession([TwoFactorPass::SESSION_KEY => (string) $user->getKey()])
         ->getJson('/martis/api/profile')
         ->assertOk()
         ->assertJsonPath('avatar_url', $avatar);
 
     $this->actingAs($user, config('martis.guard'))
-        ->withSession(['martis_two_factor_passed' => true])
+        ->withSession([TwoFactorPass::SESSION_KEY => (string) $user->getKey()])
         ->getJson('/martis/api/auth/user')
         ->assertOk()
         ->assertJsonPath('avatar_url', $avatar);
@@ -109,7 +110,7 @@ it('gives /api/auth/user a null avatar_url when the resource has none', function
     $user = profileResourceConfigUser();
 
     $this->actingAs($user, config('martis.guard'))
-        ->withSession(['martis_two_factor_passed' => true])
+        ->withSession([TwoFactorPass::SESSION_KEY => (string) $user->getKey()])
         ->getJson('/martis/api/auth/user')
         ->assertOk()
         ->assertJsonPath('avatar_url', null)

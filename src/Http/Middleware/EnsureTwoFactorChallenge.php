@@ -5,15 +5,19 @@ namespace Martis\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Martis\Auth\Listeners\ResetTwoFactorPass;
+use Martis\Auth\TwoFactorPass;
 use Martis\Profile\TwoFactorService;
 
 /**
  * Middleware that intercepts authenticated requests when 2FA is enabled
  * but not yet challenged in the current session.
  *
- * When a user logs in and has 2FA active, the session is marked with
- * `martis_two_factor_passed = false`. This middleware returns 423 for API
- * requests or redirects to the 2FA challenge SPA page for browser requests.
+ * A user who has 2FA active meets the challenge on every sign-in: the session
+ * holds no pass for them ({@see TwoFactorPass}, reset by
+ * {@see ResetTwoFactorPass} on every login of the Martis guard).
+ * This middleware returns 423 for API requests or redirects to the 2FA
+ * challenge SPA page for browser requests.
  *
  * The challenge route itself is registered outside this middleware group so
  * it remains reachable during the pending state. The SPA catch-all that serves
@@ -74,8 +78,10 @@ class EnsureTwoFactorChallenge
             return false;
         }
 
-        // If the session already passed the 2FA challenge, skip
-        if ($request->session()->get('martis_two_factor_passed')) {
+        // If the session holds a pass this user earned, skip. A pass of
+        // another user (earned earlier in the same browser session) does not
+        // count.
+        if (TwoFactorPass::holds($request->session(), $user)) {
             return false;
         }
 

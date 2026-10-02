@@ -125,6 +125,14 @@ export default defineConfig({
     },
     outDir: 'public/vendor/martis-user',
     emptyOutDir: true,
-    sourcemap: true,
+    // No source map: the output lands under the web root (`public/`), so
+    // `extensions.js.map` would be served beside the bundle and hand anyone
+    // the original TSX of every tool, field, card and override, comments
+    // included. To debug a build, opt in for that build only:
+    //   - 'hidden': writes `extensions.js.map` but leaves the
+    //     `//# sourceMappingURL` comment out of the bundle (upload the map to
+    //     your error tracker, then delete it from `public/` before deploying);
+    //   - true: writes the map and links it from the bundle (local debugging).
+    sourcemap: false,
   },
 })

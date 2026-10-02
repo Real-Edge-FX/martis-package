@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martis\Auth\Listeners;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Martis\Auth\GuardCatalog;
 use Martis\Models\ActionEvent;
+use Throwable;
 
 /**
  * Listener that records every Spatie role / permission attach / detach
@@ -106,10 +108,23 @@ class RecordRoleChange
 
     /**
      * v1.8.8 — when `martis.authz.revoke_sessions_on_demote` is true,
-     * detach events trigger a session sweep on the affected user. Any
-     * active session for that user (other than the operator's current
-     * one) is dropped immediately, so a demotion takes effect on every
+     * detach events trigger a session sweep on the affected users. Any
+     * active session of those users (other than the current request's
+     * session) is dropped immediately, so a demotion takes effect on every
      * device without waiting for the cookie to expire.
+     *
+     * Who is affected depends on the model the event names (v2.4.0):
+     *
+     *   - a user of the Martis guard (a role detached from them, or a
+     *     permission revoked from them directly): that user;
+     *   - a role (Spatie fires PermissionDetached with the Role as `model`
+     *     when a permission is revoked from a role): the users who hold it,
+     *     which `Role::users()` gives. Before v2.4.0 the sweep deleted the
+     *     sessions of the user whose id equalled the ROLE's id, signing out
+     *     an unrelated account and leaving the holders of the role, who had
+     *     just lost the permission, signed in;
+     *   - any other model, or a role whose users cannot be resolved (their
+     *     model is not the Martis guard's): skipped, with a warning.
      *
      * Skips silently when the host app does not use the database
      * session driver (BrowserSessionsService surfaces a
@@ -130,8 +145,8 @@ class RecordRoleChange
             return;
         }
 
-        $userId = $model->getKey();
-        if (! is_int($userId) && ! is_string($userId)) {
+        $modelId = $model->getKey();
+        if (! is_int($modelId) && ! is_string($modelId)) {
             return;
         }
 
@@ -148,20 +163,101 @@ class RecordRoleChange
         if (GuardCatalog::sessionUserIdsAreAmbiguous()) {
             Log::warning('Martis: revoke_sessions_on_demote skipped. The session guards of config/auth.php sign in users of more than one table and sessions.user_id stores no table, so the sessions of the demoted user cannot be told apart from those of another user with the same id.', [
                 'model' => $model::class,
-                'id' => $userId,
+                'id' => $modelId,
                 'tables' => GuardCatalog::sessionUserTables(),
             ]);
 
             return;
         }
 
-        // Drop EVERY session row for the demoted user. The current
-        // session belongs to the OPERATOR (admin), not the demoted
-        // user, so a wholesale delete is safe — the operator stays
-        // signed in on their own session row.
-        DB::table($table)
-            ->where('user_id', $userId)
-            ->delete();
+        $userIds = $this->demotedUserIds($model);
+        if ($userIds === null) {
+            Log::warning('Martis: revoke_sessions_on_demote skipped. The model the event names is neither a user of the Martis guard nor a role whose users are the Martis guard\'s, so the sessions of the users who lost the permission cannot be found.', [
+                'model' => $model::class,
+                'id' => $modelId,
+            ]);
+
+            return;
+        }
+
+        // Drop every session row of the demoted users, except the current
+        // request's: the operator's own session stays, also when they hold
+        // the role they just changed (their next request is judged on the
+        // permissions they have left, as every request is).
+        $currentSessionId = app()->bound('session.store') ? app('session.store')->getId() : null;
+
+        foreach (array_chunk($userIds, 500) as $chunk) {
+            DB::table($table)
+                ->whereIn('user_id', $chunk)
+                ->when(is_string($currentSessionId) && $currentSessionId !== '', fn ($query) => $query->where('id', '!=', $currentSessionId))
+                ->delete();
+        }
+    }
+
+    /**
+     * The ids of the Martis guard's users the event's model stands for, or
+     * null when they cannot be told. A user of the Martis guard stands for
+     * itself; a role (any model with a `users()` relation, as Spatie's Role
+     * has) stands for the users who hold it, provided those are the Martis
+     * guard's users.
+     *
+     * @return list<int|string>|null
+     */
+    protected function demotedUserIds(Model $model): ?array
+    {
+        if ($this->isMartisUser($model)) {
+            $id = $model->getKey();
+
+            return is_int($id) || is_string($id) ? [$id] : null;
+        }
+
+        if (! method_exists($model, 'users')) {
+            return null;
+        }
+
+        try {
+            $relation = $model->users();
+            if (! $relation instanceof Relation || ! $this->isMartisUser($relation->getRelated())) {
+                return null;
+            }
+
+            $ids = [];
+            foreach ($relation->pluck($relation->getRelated()->getQualifiedKeyName()) as $id) {
+                if (is_int($id) || is_string($id)) {
+                    $ids[] = $id;
+                }
+            }
+
+            return $ids;
+        } catch (Throwable) {
+            // A role of a guard with no model, a missing pivot table: the
+            // users cannot be resolved.
+            return null;
+        }
+    }
+
+    /**
+     * Whether a model is a user of the Martis guard: an instance of the
+     * model of the guard's provider, or of another class on the same
+     * connection and table (an app's `Staff` beside its `User`), whose ids
+     * name the same people.
+     */
+    protected function isMartisUser(Model $model): bool
+    {
+        $userModel = GuardCatalog::martisUserModel();
+
+        if ($model instanceof $userModel) {
+            return true;
+        }
+
+        if (! is_subclass_of($userModel, Model::class)) {
+            return false;
+        }
+
+        $user = new $userModel;
+
+        return $user->getTable() === $model->getTable()
+            && $user->getConnection()->getName() === $model->getConnection()->getName();
     }
 
     protected function dispatchIfShape(object $event, string $name): void

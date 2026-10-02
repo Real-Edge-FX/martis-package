@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Gate;
 use Martis\Cache\MartisCache;
 use Martis\Contracts\ToolContract;
 use Martis\Exceptions\MenuCountFailedException;
+use Martis\Gates\SoftGate;
 use Martis\MartisManager;
 use Martis\Menu\MenuCountResolver;
 use Martis\Menu\MenuItem;
@@ -142,6 +143,11 @@ class NavigationController extends MartisController
                 continue;
             }
 
+            // A locked resource shows its lock, not a live count of its records.
+            if (SoftGate::isLocked($instance, $request)) {
+                continue;
+            }
+
             // Keyed by "resource:{uriKey}" so a resource and a tool that happen
             // to share a uriKey never conflate their count badges (v1.29.0).
             $key = 'resource:'.$resourceClass::uriKey();
@@ -165,6 +171,11 @@ class NavigationController extends MartisController
         // authorised like resource counts and live-poll off this same endpoint.
         foreach ($this->martis->resolveTools($request) as $tool) {
             if (! $tool->showMenuCount()) {
+                continue;
+            }
+
+            // A locked tool shows its lock, not a live count of what it holds.
+            if (SoftGate::isLocked($tool, $request)) {
                 continue;
             }
 

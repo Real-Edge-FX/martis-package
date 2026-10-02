@@ -130,6 +130,7 @@ Flips a still-`pending` invitation to `revoked`, permanently blocking its accept
 - **Enumeration-neutral.** `GET /invitations/accept/{token}` always returns the same `200` + SPA shell, whether the token is valid, unknown, expired, revoked, or already used — the server never signals validity from the page load. The `POST` accept endpoint collapses every unacceptable state (unknown, expired, revoked, used, email-already-registered) into the same generic `InvalidInvitationException` message, so probing the endpoint cannot distinguish "no such token" from "already claimed".
 - **Signup whitelist.** `accept()` only reads keys listed in `signup_fields` (plus `password_confirmation`) from the client payload. `email` is never client-controlled — it always comes from the invitation row.
 - **Existing-email guard.** An invitation whose email already belongs to a registered user is rejected (and the claim rolled back) rather than silently overwriting or duplicating an account.
+- **The role is checked where the invitation is issued.** The scaffolded `InviteUser` validates the role on the server against the list the picker shows (no SSO-managed role, and a delegate only the roles they hold), so a forged `fields.role` cannot mint an invitation for a role the inviter may not grant. See [The invite role picker](#the-invite-role-picker). `invite()` itself stores the role it is given: if you call it from your own code, check the role there.
 
 ## The `InvitationManager` API
 
@@ -270,7 +271,7 @@ Everything above ships inside the package. What cannot live there — because it
 | Generated | Path (default) | Purpose |
 |---|---|---|
 | `InvitationResource` | `app/Martis/Resources/InvitationResource.php` | Index of issued invitations in the **System** sidebar group. Hides from navigation and routing while invitations are disabled. |
-| `InviteUser` | `app/Martis/Resources/Actions/InviteUser.php` | Standalone action — email + optional role picker, calls `InvitationManager::invite()`, sends the notification. Gated on `martis-invite`. |
+| `InviteUser` | `app/Martis/Resources/Actions/InviteUser.php` | Standalone action — email + optional role picker, calls `InvitationManager::invite()`, sends the notification. Gated on `martis-invite`; the role is checked on the server (see [The invite role picker](#the-invite-role-picker)). |
 | `ResendInvitation` | `app/Martis/Resources/Actions/ResendInvitation.php` | Row action — calls `InvitationManager::resend()` and re-sends the notification for each selected pending invitation. |
 | `RevokeInvitation` | `app/Martis/Resources/Actions/RevokeInvitation.php` | Row action — calls `InvitationManager::revoke()` for each selected pending invitation. |
 | `InvitationPolicy` | `app/Policies/InvitationPolicy.php` | Admin-only policy, auto-registered in `AuthServiceProvider::boot()`. `create()` always returns `false` — invitations are only ever issued through `InviteUser`, never the generic resource create form. |
@@ -290,6 +291,27 @@ It also publishes the `create_invitations_table` migration (a portable, key-type
 | `--force` | — | Overwrite existing resource / action / policy / notification files. |
 
 After the command finishes: set `MARTIS_INVITATIONS_ENABLED=true`, define the `martis-invite` gate, and visit the System sidebar group.
+
+### The invite role picker
+
+Accepting an invitation assigns the invitation's role (`assignRole()`), so the role is the sensitive input of the `InviteUser` action. `InvitationManager::invite()` stores whatever role it is given, as a primitive should: deciding who may hand out which role is the caller's job, and the scaffolded action does it on the server (v2.4.0+), not only in the picker. A `fields.role` the picker never offered answers `422` on the field, mints no invitation and sends no mail.
+
+One private method of the generated action, `assignableRoles()`, holds the list, and the picker, the Select's [`validateAgainstOptions()`](fields.md#validating-against-the-options) rule and a second check in `handle()` all read it:
+
+- **SSO-managed roles** (a non-null `provider_group_name`) are never offered or accepted: group sync owns them and would overwrite them at the next sign-in.
+- **Who may invite into which role.** An admin (the `hasRole('admin')` check `InvitationPolicy` makes) or anyone who passes the `martis-invite-any-role` ability may invite into every remaining role. Anyone else is a *delegate* and may only hand out the roles they hold themselves. So when you delegate `martis-invite` to a non-admin role, that role cannot be used to mint an invitation for a role above its own, which would let the delegate invite a second address as an admin and accept it.
+- **Granting a wider list on purpose** is one Gate definition, next to `martis-invite` (below).
+- **No roles package, or no role chosen.** Without `spatie/laravel-permission` the list is empty and an invitation carries no role; leaving the picker empty always works.
+
+```php
+// App\Providers\AuthServiceProvider::boot()
+Gate::define('martis-invite', fn ($user) => $user->hasRole('hr-manager'));
+Gate::define('martis-invite-any-role', fn ($user) => $user->hasRole('hr-manager'));
+```
+
+Without the second line an `hr-manager` can invite into `hr-manager` only. Edit `mayInviteIntoAnyRole()` in the action if your app delegates in another way (a permission, a per-role ability).
+
+An `InviteUser` generated before v2.4.0 keeps the old behaviour (any role name was accepted). Regenerate it with `php artisan martis:invitations --force` after merging your edits, or take the three changes by hand: build the list once in `assignableRoles()`, add `->validateAgainstOptions()` to the Select, and refuse a role outside the list in `handle()`.
 
 ## Recipes
 
@@ -358,17 +380,14 @@ public static function indexQuery(Request $request, Builder $query): Builder
 }
 ```
 
-**4. Restrict the role picker to roles the current tenant actually uses** (edit the generated `InviteUser` action's `fields()`):
+**4. Restrict the roles to the ones the current tenant actually uses** (edit `assignableRoles()` in the generated `InviteUser` action). The picker, the Select's validation and the check in `handle()` all read that method, so one clause restricts all three:
 
 ```php
-Select::make('role', __('Role'))
-    ->options(fn (Request $request) => \Spatie\Permission\Models\Role::query()
-        ->where('tenant_id', $request->user()->tenant_id)
-        ->pluck('name', 'name')
-        ->all()),
+$query = \Spatie\Permission\Models\Role::query()
+    ->where('tenant_id', $inviter?->tenant_id);
 ```
 
-Nothing here required forking the package: one manager subclass, one gate definition, one `indexQuery()` override, and one field option callback.
+Nothing here required forking the package: one manager subclass, one gate definition, one `indexQuery()` override, and one query clause.
 
 ## Tests
 

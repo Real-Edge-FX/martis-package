@@ -42,12 +42,16 @@ Content-Type: application/json
 
 ### Per-email throttle
 
-In addition to the per-IP `throttle:N,1` envelope (configured via `MARTIS_LOGIN_THROTTLE_ATTEMPTS` / `_MINUTES`), the `/api/auth/login` route runs a second named limiter — `martis-login` — keyed on `lower(email) + ip`. The composition catches credential-stuffing attacks distributed across many IPs that the per-IP layer alone cannot stop:
+Besides the per-IP `throttle:N,1` envelope (configured via `MARTIS_LOGIN_THROTTLE_ATTEMPTS` / `_MINUTES`), both password sign-in routes (`POST /{martis-path}/login` since v2.4.0, and `POST /api/auth/login`) and the magic-link request run a second named limiter, `martis-login`, that holds two limits for a request that names an email (lowercased and trimmed):
 
-- Per-IP layer (`throttle:20,1`): kills a noisy single machine.
-- Per-email layer (`throttle:martis-login`): kills a slow distributed brute-force against a known account, even when each request comes from a fresh IP.
+| Limit | Key | Default | What it stops |
+|---|---|---|---|
+| Per email **and IP** | `lower(email)` + client IP | `MARTIS_LOGIN_THROTTLE_ATTEMPTS` (20) per `MARTIS_LOGIN_THROTTLE_MINUTES` (1) | One machine guessing at one account, without one IP's attempts counting against another's. |
+| Per email **alone** (v2.4.0) | `lower(email)` | `MARTIS_LOGIN_THROTTLE_EMAIL_ATTEMPTS` (100) per `MARTIS_LOGIN_THROTTLE_EMAIL_MINUTES` (15) | Guessing at one account from many addresses. |
 
-The named limiter is registered in `MartisServiceProvider::registerRateLimiters()`. Empty-payload requests (no `email` field at all) fall back to per-IP keying so an unfocused script still hits the rate limit. Override the default by re-registering `RateLimiter::for('martis-login', ...)` in your own service provider — last definition wins.
+The first limit gives every source IP a bucket of its own for the same email, so on its own it behaves like the per-IP throttle: an attacker spreading guesses over N addresses got N x 20 guesses a minute at one account. The second is the layer that bounds an attack on one account whatever the botnet's addresses, and it has a higher threshold over a longer window so a user who mistypes a password never meets it. The cost of any per-account limit is that someone who sends that many requests for an email can keep its owner from signing in for the rest of the window; raise the threshold, or set `MARTIS_LOGIN_THROTTLE_EMAIL_ATTEMPTS=0` to turn the per-account limit off and keep the first. Up to v2.3.0 `POST /{martis-path}/login` carried the per-IP throttle only and the `martis-login` limiter had no per-account limit at all.
+
+The named limiter is registered in `MartisServiceProvider::registerRateLimiters()` and reads its config per request. Empty-payload requests (no `email` field at all) fall back to per-IP keying so an unfocused script still hits the rate limit. Override the default by re-registering `RateLimiter::for('martis-login', ...)` in your own service provider — last definition wins.
 
 ### Logout
 
@@ -176,7 +180,13 @@ When `auth.passwordReset.enabled=true` and `url` is empty:
 5. Server calls `Password::broker(<broker>)->reset()`, fires `Illuminate\Auth\Events\PasswordReset`, and returns 200.
 6. Client toasts success and redirects to `/login`.
 
-When the user account is SSO-only (no password hash), Laravel's broker rejects with `Password::INVALID_USER` — Martis surfaces the localized message under the email field. To avoid account enumeration in production, override the binding (see "Customising auth surfaces" below) and force a generic "if an account exists, an email is on its way" response.
+**The answer does not say whether the address has an account (v2.4.0).** Both endpoints are public, so what they say must not let an anonymous caller confirm which addresses are panel accounts:
+
+- `POST /api/auth/password/email` answers `200 { "ok": true, "status": "We have emailed your password reset link." }` for every address the request validates for: a known one, an unknown one, and a known one asked again within the broker's `throttle` window (the broker answers `passwords.throttled` there, which only a known address gets). The response is the same, byte for byte, and only a known address is mailed. An SSO-only account (no password hash) answers the same way. The magic-link request has always worked like this.
+- `POST /api/auth/password/reset` answers `422 "This password reset token is invalid."` for an unknown address, as it does for a known one with a wrong token (the broker says `passwords.user` for the first and `passwords.token` for the second).
+- With `APP_DEBUG=true` both endpoints give the broker's detailed `422` (`passwords.user`, `passwords.throttled`), which helps while setting reset up. Up to v2.3.0 production answered `422` with that detail too, although the controller's docblock said it was neutral there.
+
+Request validation errors (a malformed address) stay `422` for every caller. Two differences remain that a mailer makes: a mail failure (the SMTP timeout above) answers `503`, and so only for an address that has an account, and sending takes longer than not sending, so a caller who times the endpoint can tell a known address from an unknown one. Send the reset notification on a queue (a `ShouldQueue` notification, see Laravel's notification docs) to remove both.
 
 ### Which password broker resets a password
 
@@ -784,9 +794,11 @@ The Browser sessions section has an external host dependency (unlike the other p
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/martis/api/profile/sessions` | `{ sessions: [...], supported, driver }`, plus `reason` when the session rows cannot be attributed (see the requirements). Each session row carries `id`, `ip_address`, `user_agent`, `last_active` (unix seconds), and `is_current`. |
+| `GET` | `/martis/api/profile/sessions` | `{ sessions: [...], supported, driver }`, plus `reason` when the session rows cannot be attributed (see the requirements). Each session row carries `id` (an opaque handle, see below), `ip_address`, `user_agent`, `last_active` (unix seconds), and `is_current`. |
 | `DELETE` | `/martis/api/profile/sessions/others` | Revokes every session except the current one. Returns `{ revoked, supported }` (204 when unsupported). |
-| `DELETE` | `/martis/api/profile/sessions/{id}` | Revokes a single session by ID. Targeting the current session is a deliberate no-op so the call cannot accidentally sign the user out of the device issuing the request. |
+| `DELETE` | `/martis/api/profile/sessions/{id}` | Revokes a single session by the `id` handle of the list (never the raw session id). Targeting the current session, or a handle that names none of the user's sessions, is a no-op (`revoked: 0`) so the call cannot accidentally sign the user out of the device issuing the request. |
+
+**The `id` of a session is an opaque handle (v2.4.0).** A session's `sessions.id` is the server-side credential of that device's session; the list used to send it to the browser so the client could revoke it, which hands it to anything that can read the response (a script injected in the panel, a logged HAR), and takes the session over in an app that excludes the session cookie from encryption. The `id` the API gives each row is now an HMAC (SHA-256) of the session id and the user with the app key, 64 hex characters: it cannot be turned back into the session id, it differs per user and per `APP_KEY`, and `DELETE /profile/sessions/{id}` resolves it on the server among the user's own sessions (`BrowserSessionsService::handle()`). The raw session id revokes nothing. A custom `martis:profile-sessions` component keeps working: it only has to pass the row's `id` back. Rotating `APP_KEY` changes every handle, which a list loaded before the rotation does not survive (reload it).
 
 ### Customisation
 
@@ -984,9 +996,9 @@ Martis includes TOTP-based two-factor authentication with a guided setup wizard.
 |--------|------|-------------|
 | `POST` | `/martis/api/profile/2fa/setup` | Initialize 2FA (returns QR code SVG + secret) |
 | `POST` | `/martis/api/profile/2fa/confirm` | Verify OTP code and activate 2FA |
-| `POST` | `/martis/api/profile/2fa/recovery-codes` | Regenerate the recovery-code set for an already-active 2FA account |
-| `DELETE` | `/martis/api/profile/2fa` | Disable 2FA for current user |
-| `POST` | `/martis/api/2fa/challenge` | Submit 2FA code during login (rate limited via `MARTIS_LOGIN_THROTTLE_*`) |
+| `POST` | `/martis/api/profile/2fa/recovery-codes` | Regenerate the recovery-code set for an already-active 2FA account. Takes `current_password` (v2.4.0), and the user is told by email |
+| `DELETE` | `/martis/api/profile/2fa` | Disable 2FA for current user. Takes `current_password` |
+| `POST` | `/martis/api/2fa/challenge` | Submit 2FA code during login. Rate limited per user and per IP (`MARTIS_2FA_THROTTLE_*`, 5 a minute per user by default) and locks the user out after consecutive wrong codes (`MARTIS_2FA_LOCKOUT_*`), v2.4.0. `422` wrong code, `429` rate limited, `403` locked out |
 
 ### 2FA Challenge on Login
 
@@ -997,9 +1009,34 @@ When a user with 2FA enabled logs in:
 3. User enters their 6-digit TOTP code (or a recovery code)
 4. On success, the session is fully authenticated
 
+### The 2FA challenge is rate limited and locks out (v2.4.0)
+
+The challenge guards a 6-digit code (with the one step of tolerance either side, about 3 valid codes in a million at any moment), so it has a limiter and a lockout of its own, both in the `throttle` block of `config/martis.php` ([2FA challenge throttle](configuration.md#2fa-challenge-throttle)):
+
+1. **A limiter** (`martis-2fa-challenge`): 5 requests a minute per user and 15 per IP by default. Past either limit the route answers `429` and does not look at the code, so a right code sent at the 6th attempt is not accepted either. Up to v2.3.0 the challenge shared the login throttle, 20 a minute per user.
+2. **A lockout.** After 5 consecutive wrong codes (a TOTP code or a recovery code; a right code starts the count over) the pending session ends (the user is signed out, the session is invalidated) and the route answers `403` with `{"two_factor_locked": true, "message": "..."}`. The SPA shows the message and goes to the login page. The user is then **locked out of the challenge for 15 minutes**: a fresh password sign-in is needed, and during the lockout the challenge refuses every code, the right one and the recovery codes included, and ends the session again. The count belongs to the user, not to the session, so signing in again does not start it over: that is what gives guessing a ceiling for someone who holds the password. The lockout is written to the log (`warning`).
+
+The lockout trades availability for that ceiling: whoever holds the password can keep the owner out of the challenge by failing five times every 15 minutes. If that is a worse risk for your users than the guessing it stops, raise `MARTIS_2FA_LOCKOUT_ATTEMPTS`, shorten `MARTIS_2FA_LOCKOUT_MINUTES`, or set the attempts to `0` to turn the lockout off and keep the limiter. The counters live in the cache (the rate limiter's store), so a cache flush clears them, and a lockout can be cleared by hand with `RateLimiter::clear('martis-2fa-lockout:{guard}:{user id}')`.
+
+### The 2FA pass is bound to the user (v2.4.0)
+
+Completing the challenge (or confirming the setup on the profile page) leaves a **pass** in the session: the auth identifier of the user who earned it, under the `martis_two_factor_passed_for` session key (`Martis\Auth\TwoFactorPass`). `martis.2fa` and `GET /api/auth/user` accept the pass only for that user, and every sign-in of the Martis guard forgets it: the password sign-ins (`POST /login` and `POST /api/auth/login`), a magic link, an invitation accept, SSO, the remember-me cookie and the start and stop of an impersonation all fire Laravel's `Illuminate\Auth\Events\Login`, which `Martis\Auth\Listeners\ResetTwoFactorPass` listens to. A user who has 2FA therefore meets the challenge again on every sign-in, and a pass earned by one account never reaches another account signed in later from the same browser session.
+
+Up to v2.3.0 the session held a bare `martis_two_factor_passed` flag that only `POST /api/auth/login` reset: someone who held a victim's password (or mailbox, with magic links on) and any panel account of their own could pass 2FA on their own account, then sign in as the victim through `POST /login` from the same browser session and skip the victim's challenge. A session that still carries the old flag is not trusted: its user meets the challenge once after the upgrade.
+
+An impersonation hands the operator's pass to the target while it lasts (the operator passed their own challenge to start it, and a target who has 2FA cannot be asked for a code the operator does not hold) and gives it back to the operator on stop. An operator the challenge has not cleared (a programmatic `ImpersonationManager::start()`) hands over nothing: the target meets their own challenge.
+
+If you write your own sign-in route, sign the user in through the Martis guard (`Auth::guard(config('martis.guard'))->login($user)`) and the pass is reset for you. If you grant a pass yourself, for instance in a test, use `TwoFactorPass::grant($request->session(), $user)`, or put `[TwoFactorPass::SESSION_KEY => (string) $user->getAuthIdentifier()]` in the session.
+
 ### Recovery Codes
 
 When 2FA is enabled, the system generates one-time recovery codes (default: 8). These codes can be used instead of the TOTP code if the user loses access to their authenticator app. Each recovery code can only be used once.
+
+Recovery codes stand in for the TOTP factor at the challenge, so changing them is as sensitive as disabling 2FA (v2.4.0):
+
+- **`POST /api/profile/2fa/recovery-codes` needs `current_password`**, as `DELETE /api/profile/2fa` does. A wrong or missing password answers `422` and leaves the codes alone. The profile page asks for the password in a dialog before it calls the endpoint. Before v2.4.0 the session alone was enough, so whoever held a session that was not the owner's (a stolen or left-open one) could mint a permanent second factor and lock the owner out of their saved codes.
+- **The user is told by email** that their recovery codes were regenerated (`Martis\Auth\RecoveryCodesRegeneratedNotification`, a mail notification: extend it to change the wording). The mail goes to the user when the model uses `Illuminate\Notifications\Notifiable`, else to the `email` of the account. A mailer that is down never breaks the request: the codes are already regenerated, and the failure is reported to the exception handler. The subject and lines are the `2fa_regen_mail_*` keys of the `profile` translations (en, pt_PT, pt_BR).
+- **The factor- and password-changing endpoints refuse an impersonation.** While an operator impersonates a user ([Impersonation](impersonation.md)), `POST /api/profile/2fa/setup`, `POST /api/profile/2fa/confirm`, `DELETE /api/profile/2fa`, `POST /api/profile/2fa/recovery-codes` and `POST /api/profile/password` answer `403` (`refused_while_impersonating`) and change nothing. They act on whoever the guard signed in, which is the target during an impersonation, and a recovery code, an authenticator secret or a password the operator set would outlive the session.
 
 ### Database Requirements
 
@@ -1016,7 +1053,13 @@ Schema::table('users', function (Blueprint $table) {
 });
 ```
 
-The `martis:install` command includes this migration automatically. Installs that predate the `two_factor_last_used_at` column still verify codes — `TwoFactorService::verifyAndTrack()` probes the schema on first use and skips replay tracking when the column is missing.
+The `martis:install` command includes this migration automatically. Installs that predate the `two_factor_last_used_at` column still verify codes — `TwoFactorService::verifyAndTrack()` probes the schema on first use and skips replay tracking when the column is missing, **logging a warning** (`the two_factor_last_used_at column is missing ...`) so the gap is visible: without the column a TOTP code can be used again for as long as it is valid (about 90 seconds). Add the column to close it. The check does not fail closed: a missing column never locks users out.
+
+### A code is single-use (v2.4.0)
+
+- **A TOTP code.** `two_factor_last_used_at` holds the **start time of the 30-second step** the last accepted code was for (`step * 30`), and any step at or before it is refused. Up to v2.3.0 it held the wall-clock time of the acceptance, so a code accepted for the step after the current one (a client clock running ahead, a code seen before it became current) was accepted again once that step was current. A value written by an earlier version reads as the step it fell in, and the next acceptance rewrites it.
+- **The step is consumed with one conditional update** (`UPDATE ... WHERE two_factor_last_used_at IS NULL OR two_factor_last_used_at < step`). Two requests that carry the same code at once both find it valid, but only one update changes a row; the other is refused. An error while recording the step also refuses the code: a replay guard that cannot record is not one to authenticate through.
+- **A recovery code** is consumed inside a transaction that reads the user's row again `FOR UPDATE`, and removes the matching hash only if it is still in the list. Two requests with one recovery code cannot both pass, and a request that read the list before another consumed a different code cannot write the old list back. On SQLite the lock is a no-op (writes are serialised anyway).
 
 ## User Menu
 
@@ -1085,7 +1128,8 @@ Martis registers these middleware:
 | `martis.verified` | When email verification is enabled, refuses an unverified user: `409` for a JSON request, a redirect to the notice otherwise. |
 | `martis.authorize` | When the app defines the `viewMartis` gate, refuses a user it denies (`403`). |
 | `martis.password.changed` | When the forced password change is enabled, holds a flagged user: `409` for a JSON request, a redirect to the change page otherwise (v2.3.0). |
-| `martis.tool:{uriKey}` | Answers `404` to a user the tool `{uriKey}` is hidden from. Applied to a Tool's routes (v2.0). |
+| `martis.tool:{uriKey}` | Answers `404` to a user the tool `{uriKey}` is hidden from, and `403` with its lock payload to one it is soft-locked for (v2.4.0). Applied to a Tool's routes (v2.0). |
+| `martis.gate` | Answers `403` with the lock payload when a route names a resource, lens, card, dashboard or tool the user is soft-locked from (`lockedFor()`, `requirePlan()`). Applied to the package's API routes that name an entity, not to the two page endpoints that answer the lock themselves, and not part of `martis.api` (v2.4.0, see [Soft-gates](gates.md#what-a-lock-stops-on-the-server)). |
 | `martis.api` (group) | The whole stack of a protected API route, from `martis.middleware` to the API throttle, built when the application boots (v2.0). |
 
 These are applied automatically by the Martis route definitions. You do not need to register them manually. The stack of a protected API route is built in one place, `Martis\Http\RouteMiddleware::api()`: `martis.middleware`, `martis.auth_middleware`, `martis.impersonation.duration`, `martis.2fa`, `martis.locale`, `martis.verified`, `martis.authorize`, `martis.password.changed`, then the API throttle. A Tool's routes run it too, followed by `martis.tool:{uriKey}` (see [Tools → Tool routes and their middleware](tools.md#tool-routes-and-their-middleware)). It is also the `martis.api` middleware group (v2.0), so a route of your own gets the same guard with `Route::middleware('martis.api')`: `martis.auth` alone lets a user who has not passed the 2FA challenge through.

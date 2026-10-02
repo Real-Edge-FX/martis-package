@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useParams, useNavigate, useLocation, useNavigationType } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { deleteErrorMessage } from '@/lib/deleteError'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, OverrideProps, ActiveFilters } from '@/types'
 import { Table } from '@/components/Table'
 import { Pagination } from '@/components/Pagination'
@@ -405,8 +406,8 @@ export function ResourceIndexPage() {
       addToast('success', res?.meta?.message ?? tMsg('record_deleted'))
       setDeleteTarget(null)
     },
-    onError: () => {
-      addToast('error', tMsg('error_delete'))
+    onError: (e: unknown) => {
+      addToast('error', deleteErrorMessage(e, tMsg('error_delete')))
     },
   })
 
@@ -431,8 +432,8 @@ export function ResourceIndexPage() {
       addToast('success', res?.meta?.message ?? tMsg('record_deleted'))
       setForceDeleteTarget(null)
     },
-    onError: () => {
-      addToast('error', tMsg('error_delete'))
+    onError: (e: unknown) => {
+      addToast('error', deleteErrorMessage(e, tMsg('error_delete')))
     },
   })
 

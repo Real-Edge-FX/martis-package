@@ -13,12 +13,14 @@ use Stringable;
  * Per-request memoisation of `$user->can(ability, $model)` results.
  *
  * Listens to `GateEvaluated` and caches `(user_class, user_id, ability,
- * model_class, model_id) → bool` for the duration of the current request.
- * The user is keyed by class (its morph class) as well as by id: the users
- * of two guards (an admin and a site user) can share an id, and must not
- * share each other's answers. A subsequent
- * lookup with the same inputs returns the cached value without
- * re-running the policy method.
+ * argument 1, argument 2, ...) → bool` for the duration of the current
+ * request. Every argument is part of the key (each model by class and key,
+ * each string, number or boolean by value), so an ability that takes several
+ * models, such as `attach{Model}($user, $parent, $related)`, keeps one answer
+ * per combination. The user is keyed by class (its morph class) as well as by
+ * id: the users of two guards (an admin and a site user) can share an id, and
+ * must not share each other's answers. A subsequent lookup with the same
+ * inputs returns the cached value without re-running the policy method.
  *
  * Wins:
  *   - The Resource layer evaluates the same gate from many surfaces
@@ -37,6 +39,9 @@ use Stringable;
  *     `(ability, model)` keys are cached. Closure gates that depend
  *     on `$request` state, time-of-day, etc., are too dynamic to
  *     cache safely; the listener falls through.
+ *   - **Unkeyable arguments skipped.** A call that holds a model with no
+ *     key (or not stored), an array, a closure or any other object is not
+ *     cached: a key must be deterministic, and such an argument cannot be.
  *   - **Result === null skipped.** Laravel passes a `?bool` so a
  *     `null` (no policy / undefined ability) is left uncached so
  *     the next call still sees the natural "fall through to default"
@@ -131,34 +136,67 @@ class RequestScopedAbilityCache
     }
 
     /**
+     * The key of one gate call: the user, the ability and every argument, in
+     * order. An ability that takes several models (`attach{Model}($user,
+     * $parent, $related)`, `detach{Model}`) keeps one answer per combination,
+     * never the first model's answer for them all.
+     *
+     * A call is not cached (`null`) when one of its arguments cannot be keyed:
+     * a model that is not stored or has no key (two different new records
+     * would share one key, and a policy reads their attributes), an array, a
+     * closure, any other object. Cache keys must be deterministic, so such a
+     * call is skipped rather than cached wrong.
+     *
      * @param  array<int, mixed>  $arguments
      */
     protected function makeKey(string $userKey, string $ability, array $arguments): ?string
     {
-        $modelClass = null;
-        $modelId = null;
-        foreach ($arguments as $arg) {
-            if ($arg instanceof Model) {
-                $modelClass = $arg::class;
-                $id = $arg->getKey();
-                $modelId = is_int($id) || is_string($id) ? $id : null;
-                break;
-            }
-            if (is_string($arg) && $modelClass === null) {
-                $modelClass = $arg; // Gate::denies('view', Post::class) form
-            }
+        if ($arguments === []) {
+            return sprintf('%s|%s|__GLOBAL__', $userKey, $ability);
         }
 
-        // Drop calls that pass complex arguments we cannot key on
-        // (closures, plain arrays, request bags). Cache keys must
-        // be deterministic — non-Model non-string args are too
-        // ambiguous, skip rather than cache wrong.
-        if ($modelClass === null && $arguments === []) {
-            $modelClass = '__GLOBAL__';
-        } elseif ($modelClass === null) {
-            return null;
+        $parts = [];
+        foreach ($arguments as $argument) {
+            $part = $this->argumentKey($argument);
+            if ($part === null) {
+                return null;
+            }
+
+            $parts[] = $part;
         }
 
-        return sprintf('%s|%s|%s|%s', $userKey, $ability, $modelClass, (string) ($modelId ?? ''));
+        return sprintf('%s|%s|%s', $userKey, $ability, implode('|', $parts));
+    }
+
+    /**
+     * One argument's part of the key, length-prefixed (`strlen:value`) so a
+     * value that holds the `|` separator cannot be read as two arguments, and
+     * typed so `1`, `'1'` and `true` stay apart. Null when it cannot be keyed
+     * (see `makeKey()`).
+     */
+    protected function argumentKey(mixed $argument): ?string
+    {
+        if ($argument instanceof Model) {
+            $key = $argument->getKey();
+            if (! $argument->exists || (! is_int($key) && ! is_string($key)) || (string) $key === '') {
+                return null;
+            }
+
+            return 'm'.$this->encode($argument::class).'#'.$this->encode((string) $key);
+        }
+
+        return match (true) {
+            is_string($argument) => 's'.$this->encode($argument),
+            is_int($argument) => 'i'.$this->encode((string) $argument),
+            is_float($argument) => 'f'.$this->encode((string) $argument),
+            is_bool($argument) => $argument ? 'b1' : 'b0',
+            $argument === null => 'n',
+            default => null,
+        };
+    }
+
+    private function encode(string $value): string
+    {
+        return strlen($value).':'.$value;
     }
 }

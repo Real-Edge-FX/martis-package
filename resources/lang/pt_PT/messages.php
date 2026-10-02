@@ -134,6 +134,7 @@ return [
     'panel_forbidden' => 'Não tem acesso a este painel.',
     'panel_forbidden_title' => 'Sem acesso ao painel',
     'panel_forbidden_desc' => 'A sua conta não pode abrir este painel. Termine a sessão e entre com outra conta, ou peça acesso a um administrador.',
+    'feature_locked' => 'Esta funcionalidade está bloqueada para a sua conta.',
     'server_error_title' => 'Ocorreu um erro',
     'server_error_desc' => 'Um erro inesperado ocorreu do nosso lado. A equipa foi notificada e está a investigar.',
     'error_back_to_dashboard' => 'Voltar ao painel',

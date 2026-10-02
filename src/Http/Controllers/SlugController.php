@@ -11,6 +11,7 @@ use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\IndexScope;
 
 /**
  * Backs the live collision-check for Slug fields.
@@ -19,6 +20,10 @@ use Martis\ResourceRegistry;
  * Query: value (required), id (optional: the record being edited; it is
  *   excluded from the uniqueness probe and its update form answers, when
  *   the user may update it)
+ *
+ * Gate: viewAny, then the ability to write the slug: update on the record
+ * `id` names, otherwise create. The uniqueness probe reads the whole table
+ * unless the Slug opts into the resource's index scope (`withinIndexScope()`).
  *
  * Response envelope: JsonResponse
  *   data.available  — bool; true if the value is free to use
@@ -51,6 +56,17 @@ class SlugController extends MartisController
         // and reserved list apply.
         $rawId = $request->query('id');
         [$formInstance, $formContext] = $this->resolveFormFromRecordId($request, $resourceClass, is_string($rawId) ? $rawId : null);
+
+        // The probe answers whether a value is taken, so it needs the ability
+        // to write one: the update form is only resolved for a record the
+        // user may update, and the create form needs the create ability. A
+        // user who may only list the resource cannot use it to test which
+        // slugs exist. An `id` the user may not update falls to the create
+        // form, so it answers like a missing one.
+        if ($formContext === 'create' && ! $formInstance->authorizedToCreate($request)) {
+            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
         $slugField = $this->findFormField($formInstance, $request, $formContext, $field, [Slug::class], orFields: true);
         if (! $slugField instanceof Slug) {
             return JsonErrorResponse::notFound("Slug field '{$field}' not found.")->toResponse();
@@ -77,28 +93,35 @@ class SlugController extends MartisController
         if (in_array($normalised, $slugField->getReserved(), true)) {
             return (new JsonResponse([
                 'available' => false,
-                'suggestion' => $this->suggest($resourceClass, $field, $normalised, $slugField, $excludeId),
+                'suggestion' => $this->suggest($request, $resourceClass, $field, $normalised, $slugField, $excludeId),
                 'reserved' => true,
             ]))->toResponse();
         }
 
-        $isTaken = $this->isTaken($resourceClass, $field, $normalised, $excludeId);
+        $isTaken = $this->isTaken($request, $resourceClass, $field, $normalised, $slugField, $excludeId);
 
         return (new JsonResponse([
             'available' => ! $isTaken,
-            'suggestion' => $isTaken ? $this->suggest($resourceClass, $field, $normalised, $slugField, $excludeId) : null,
+            'suggestion' => $isTaken ? $this->suggest($request, $resourceClass, $field, $normalised, $slugField, $excludeId) : null,
             'reserved' => false,
         ]))->toResponse();
     }
 
     /**
+     * Whether `$value` is taken. The probe reads the whole table, or, for a
+     * Slug declared `withinIndexScope()`, the records the resource's
+     * `scopes()` and `indexQuery()` let the user list (see IndexScope).
+     *
      * @param  class-string<\Martis\Resource>  $resourceClass
      */
-    private function isTaken(string $resourceClass, string $field, string $value, int|string|null $excludeId): bool
+    private function isTaken(Request $request, string $resourceClass, string $field, string $value, Slug $slugField, int|string|null $excludeId): bool
     {
         /** @var class-string<Model> $modelClass */
         $modelClass = $resourceClass::model();
-        $query = $modelClass::query()->where($field, $value);
+        $base = $modelClass::query();
+        $query = ($slugField->isWithinIndexScope()
+            ? IndexScope::apply($request, $resourceClass, $base)
+            : $base)->where($field, $value);
         if ($excludeId !== null) {
             $keyName = (new $modelClass)->getKeyName();
             $query->where($keyName, '!=', $excludeId);
@@ -112,14 +135,14 @@ class SlugController extends MartisController
      *
      * @param  class-string<\Martis\Resource>  $resourceClass
      */
-    private function suggest(string $resourceClass, string $field, string $base, Slug $slugField, int|string|null $excludeId): ?string
+    private function suggest(Request $request, string $resourceClass, string $field, string $base, Slug $slugField, int|string|null $excludeId): ?string
     {
         for ($suffix = 2; $suffix <= 50; $suffix++) {
             $candidate = $base.$slugField->getSeparator().$suffix;
             if (in_array($candidate, $slugField->getReserved(), true)) {
                 continue;
             }
-            if (! $this->isTaken($resourceClass, $field, $candidate, $excludeId)) {
+            if (! $this->isTaken($request, $resourceClass, $field, $candidate, $slugField, $excludeId)) {
                 return $candidate;
             }
         }

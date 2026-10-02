@@ -96,12 +96,19 @@ class HMSectionParentResource extends Resource
     }
 }
 
-// No-create resource for authorization tests
+// No-create resource for authorization tests. It answers to the key the parent's
+// HasMany field targets, so registering it replaces HMChildResource for the
+// relation endpoint whatever the model is called.
 class HMNoCreateChildResource extends Resource
 {
     public static function model(): string
     {
         return HMChildModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'h-m-child-models';
     }
 
     public function fields(Request $request): array
@@ -112,6 +119,16 @@ class HMNoCreateChildResource extends Resource
     }
 
     public function authorizedToCreate(Request $request): bool
+    {
+        return false;
+    }
+}
+
+// A parent that refuses to take a child (the `addHMChildModel` ability), while
+// the related resource itself allows the create.
+class HMNoAddParentResource extends HMParentResource
+{
+    public function authorizedToAdd(Request $request, string $relatedModelClass): bool
     {
         return false;
     }
@@ -420,27 +437,64 @@ it('HasMany validateRelationship passes for valid hasMany', function () {
 // Authorization — create blocked
 // ---------------------------------------------------------------------------
 
-it('blocks create when resource authorization denies it', function () {
+it('blocks create when the related resource authorization denies it', function () {
     $registry = app(ResourceRegistry::class);
     $registry->flush();
     $registry->register(HMParentResource::class);
     $registry->register(HMNoCreateChildResource::class);
 
-    // Re-register parent with the no-create child
-    // Actually the parent resource references 'h-m-child-models' so we need to register
-    // the no-create version under the same key — register both and test
-    // The simpler approach: just verify the authorization logic exists
-    // by testing that the endpoint calls authorizedToCreate
+    // The resource the relation endpoint asks is the denying one.
+    expect($registry->get('h-m-child-models'))->toBe(HMNoCreateChildResource::class);
 
     $parent = HMParentModel::create(['name' => 'Parent']);
-    $response = $this->postJson(
-        "/martis/api/resources/h-m-parent-models/{$parent->id}/has-many/children",
-        ['title' => 'Blocked']
-    );
 
-    // With HMNoCreateChildResource registered under the same key, this would return 403
-    // Since we can't easily swap, just verify the endpoint works with authorization
-    expect($response->status())->toBeIn([201, 403]);
+    $this->postJson(
+        "/martis/api/resources/h-m-parent-models/{$parent->id}/has-many/children",
+        ['title' => 'Blocked'],
+    )->assertForbidden();
+
+    expect(HMChildModel::count())->toBe(0);
+
+    // Control: the same request is accepted once the related resource allows
+    // the create, so the refusal above is its authorizedToCreate() and nothing else.
+    $registry->flush();
+    $registry->register(HMParentResource::class);
+    $registry->register(HMChildResource::class);
+
+    $this->postJson(
+        "/martis/api/resources/h-m-parent-models/{$parent->id}/has-many/children",
+        ['title' => 'Allowed'],
+    )->assertCreated();
+
+    expect(HMChildModel::count())->toBe(1);
+});
+
+it('blocks create when the parent resource forbids adding the related model', function () {
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register(HMNoAddParentResource::class);
+    $registry->register(HMChildResource::class);
+
+    $parent = HMParentModel::create(['name' => 'Parent']);
+
+    $this->postJson(
+        "/martis/api/resources/h-m-parent-models/{$parent->id}/has-many/children",
+        ['title' => 'Blocked'],
+    )->assertForbidden();
+
+    expect(HMChildModel::count())->toBe(0);
+
+    // Control: the unrestricted parent takes the same child.
+    $registry->flush();
+    $registry->register(HMParentResource::class);
+    $registry->register(HMChildResource::class);
+
+    $this->postJson(
+        "/martis/api/resources/h-m-parent-models/{$parent->id}/has-many/children",
+        ['title' => 'Allowed'],
+    )->assertCreated();
+
+    expect(HMChildModel::count())->toBe(1);
 });
 
 // ---------------------------------------------------------------------------

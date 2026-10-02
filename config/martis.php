@@ -527,6 +527,25 @@ return [
         'decay_minutes' => (int) env('MARTIS_THROTTLE_DECAY', 1),
         'login_attempts' => (int) env('MARTIS_LOGIN_THROTTLE_ATTEMPTS', 20),
         'login_minutes' => (int) env('MARTIS_LOGIN_THROTTLE_MINUTES', 1),
+        // The `martis-login` limiter's second limit (v2.4.0), keyed on the
+        // email alone: it bounds guessing at one account from many IPs,
+        // which the per-email + per-IP limit above cannot (every IP gets a
+        // bucket of its own there). A higher threshold over a longer window
+        // than the login throttle; 0 attempts turns it off.
+        'login_email_attempts' => (int) env('MARTIS_LOGIN_THROTTLE_EMAIL_ATTEMPTS', 100),
+        'login_email_minutes' => (int) env('MARTIS_LOGIN_THROTTLE_EMAIL_MINUTES', 15),
+        // The 2FA challenge (v2.4.0): its own limiter, tighter than the login
+        // throttle. `two_factor_attempts` per user and `two_factor_ip_attempts`
+        // per IP, per `two_factor_minutes`; past it the route answers 429.
+        'two_factor_attempts' => (int) env('MARTIS_2FA_THROTTLE_ATTEMPTS', 5),
+        'two_factor_ip_attempts' => (int) env('MARTIS_2FA_THROTTLE_IP_ATTEMPTS', 15),
+        'two_factor_minutes' => (int) env('MARTIS_2FA_THROTTLE_MINUTES', 1),
+        // After `two_factor_lockout_attempts` consecutive wrong codes the
+        // pending session ends and the user is locked out of the challenge
+        // for `two_factor_lockout_minutes` (a new password sign-in is needed
+        // after it). 0 attempts turns the lockout off.
+        'two_factor_lockout_attempts' => (int) env('MARTIS_2FA_LOCKOUT_ATTEMPTS', 5),
+        'two_factor_lockout_minutes' => (int) env('MARTIS_2FA_LOCKOUT_MINUTES', 15),
     ],
 
     /*
@@ -1293,14 +1312,28 @@ return [
     |--------------------------------------------------------------------------
     | Attachments
     |--------------------------------------------------------------------------
-    | Configure allowed MIME types and disks for Trix/Markdown file uploads.
-    | Add or remove extensions to control what can be uploaded inline.
-    | Allowed disks restricts which storage disks the upload endpoint accepts.
+    | Configure the file types, size and rate of Trix/Markdown file uploads.
+    | An upload names the resource, the field and (editing) the record, is
+    | authorised like the form it comes from, and is stored on the disk the
+    | field declares with `withFiles($disk)` (the `storage.disk` above without
+    | one), never on a disk the request names.
+    |
+    | allowed_mimes   - Extensions an upload may have. Add or remove entries to
+    |                   control what can be uploaded inline.
+    | max_size        - Largest file, in kilobytes.
+    | throttle_max    - Uploads one user may make per `throttle_decay` minutes,
+    |                   on top of the API limit (the `throttle` block). Ignored
+    |                   when `throttle.enabled` is false.
+    | throttle_decay  - The window of `throttle_max`, in minutes.
+    |
+    | `php artisan martis:attachments:prune` deletes the uploaded files no
+    | record references any more.
     |*/
     'attachments' => [
         'allowed_mimes' => explode(',', env('MARTIS_ATTACHMENT_MIMES', 'jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,mp4,mp3')),
-        'allowed_disks' => ['public', 'local'],
         'max_size' => (int) env('MARTIS_ATTACHMENT_MAX_SIZE', 10240),
+        'throttle_max' => (int) env('MARTIS_ATTACHMENT_THROTTLE_MAX', 20),
+        'throttle_decay' => (int) env('MARTIS_ATTACHMENT_THROTTLE_DECAY', 1),
     ],
 
     /*

@@ -20,6 +20,7 @@ use Illuminate\Support\Str;
 use Martis\Auth\GuardCatalog;
 use Martis\Auth\MagicLinkNotification;
 use Martis\Auth\MagicLinkService;
+use Martis\Auth\TwoFactorPass;
 use Martis\Sso\SsoSession;
 
 /**
@@ -122,6 +123,10 @@ class MagicLinkController
 
         Auth::guard(GuardCatalog::martis())->login($user);
         $request->session()->regenerate();
+
+        // Every sign-in starts without a 2FA pass: a magic link must not
+        // inherit the pass of an earlier sign-in of this browser session.
+        TwoFactorPass::revoke($request->session());
 
         // A password, magic-link or invitation sign-in is not an SSO one: drop
         // the SSO origin an earlier SSO sign-in left in this session or in

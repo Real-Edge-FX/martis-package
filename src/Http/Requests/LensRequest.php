@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Martis\Contracts\FilterContract;
 use Martis\Enums\SortDirection;
+use Martis\Filters\FilterValue;
 use Martis\Support\IndexScope;
 
 /**
@@ -55,6 +56,13 @@ class LensRequest extends Request
             }
 
             if ($value === null || $value === '') {
+                continue;
+            }
+
+            // A boolean filter only receives the options it declares.
+            $value = FilterValue::resolve($filter, $this, $value);
+
+            if ($value === null) {
                 continue;
             }
 

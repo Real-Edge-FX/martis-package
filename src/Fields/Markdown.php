@@ -18,8 +18,10 @@ use Martis\Enums\MarkdownPreset;
  * Rendering to HTML happens on the frontend.
  *
  * Notes:
- *  - withFiles() registers the disk but uploading is managed by the
- *    generic Martis attachments endpoint, without auxiliary tables.
+ *  - withFiles() lets the editor attach files: the upload goes to the
+ *    generic Martis attachments endpoint, which authorises it like the form
+ *    the field is on and stores the file on the field's disk, without
+ *    auxiliary tables.
  *  - Presets only control the frontend configuration (rendering);
  *    the backend always stores raw Markdown.
  */
@@ -29,6 +31,10 @@ class Markdown extends Field
 
     protected MarkdownPreset $preset = MarkdownPreset::Default;
 
+    /** Whether the editor accepts file attachments (see `withFiles()`). */
+    protected bool $withFiles = false;
+
+    /** The disk of the attachments the field declares; null is the panel's `martis.storage.disk`. */
     protected ?string $withFilesDisk = null;
 
     /** {@inheritdoc} */
@@ -64,10 +70,16 @@ class Markdown extends Field
     }
 
     /**
-     * With files.
+     * Let the editor attach files, stored on `$disk`, or on the panel's
+     * `martis.storage.disk` (`public` by default) without one.
+     *
+     * The upload endpoint takes the disk from the field, never from the
+     * request, and serves only a field that declares `withFiles()` on the
+     * form it is uploaded from.
      */
-    public function withFiles(string $disk = 'public'): static
+    public function withFiles(?string $disk = null): static
     {
+        $this->withFiles = true;
         $this->withFilesDisk = $disk;
 
         return $this;
@@ -90,11 +102,24 @@ class Markdown extends Field
     }
 
     /**
-     * Get with files disk.
+     * The disk the attachments are stored on, or null when the field does not
+     * accept files.
      */
     public function getWithFilesDisk(): ?string
     {
-        return $this->withFilesDisk;
+        if (! $this->withFiles) {
+            return null;
+        }
+
+        return $this->withFilesDisk ?? $this->defaultWithFilesDisk();
+    }
+
+    /** The panel's storage disk, `public` outside an application (unit tests). */
+    private function defaultWithFilesDisk(): string
+    {
+        $disk = function_exists('app') && app()->bound('config') ? config('martis.storage.disk', 'public') : 'public';
+
+        return is_string($disk) && $disk !== '' ? $disk : 'public';
     }
 
     /**
@@ -105,7 +130,7 @@ class Markdown extends Field
         return array_filter([
             'alwaysShow' => $this->alwaysShow,
             'preset' => $this->preset->value,
-            'withFiles' => $this->withFilesDisk,
+            'withFiles' => $this->getWithFilesDisk(),
         ], fn ($v) => $v !== null && $v !== false);
     }
 }

@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Martis\Auth\TwoFactorPass;
 use Martis\Sso\IdentityResolver;
 use Martis\Sso\RoleMapper;
 use Martis\Sso\SsoIdentity;
@@ -133,6 +134,10 @@ class SsoController extends Controller
         // Step 5: log the user in via the Martis-configured guard.
         $guard = config('martis.guard') ?: config('auth.defaults.guard');
         Auth::guard($guard)->login($user, true);
+
+        // Every sign-in starts without a 2FA pass: an SSO sign-in must not
+        // inherit the pass of an earlier sign-in of this browser session.
+        TwoFactorPass::revoke($request->session());
 
         // Record the SSO origin (SsoSession): a later logout redirects
         // through the IdP's federated logout URL (AuthController::logout)

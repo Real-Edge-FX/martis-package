@@ -294,7 +294,8 @@ it('refuses a write through a relationship when the related resource denies view
 it('writes through a relationship to a related resource that is not routable', function (string $method, string $parent, string $path) {
     $response = $this->{$method}(cardWriteUrl(rwvUrl('rwv-headless-parents', $this->{$parent}, $path)), ['title' => 'Written']);
 
-    expect($response->status())->toBeIn([200, 201])
+    // A store creates (201); an update and a destroy answer 200.
+    expect($response->status())->toBe($method === 'postJson' ? 201 : 200)
         ->and(rwvRows())->not->toBe([]);
 })->with('rwv relationship writes');
 
