@@ -410,6 +410,34 @@ it('answers 403, not a server error, for a missing target when the gate needs th
         ->assertForbidden();
 });
 
+it('answers 403, not a server error, for a missing target whatever way the target-aware gate fails', function (Closure $gate) {
+    Gate::define('martis-impersonate', $gate);
+
+    // A missing id is a refusal, not a server error: the 500 against the 403 of an
+    // existing refused target would tell every panel user which ids exist.
+    $this->actingAs($this->operator, 'web')
+        ->postJson('/martis/api/impersonation/start/999999')
+        ->assertForbidden()
+        ->assertExactJson(['message' => 'Forbidden.']);
+})->with([
+    'optional target dereferenced (the documented pattern)' => [fn ($operator, $target = null) => $target->rank <= $operator->rank],
+    'optional target, strict type' => [fn ($operator, ?Authenticatable $target = null) => $target->getAuthIdentifier() !== 0],
+    'throws' => [function ($operator, $target = null) {
+        throw new RuntimeException('gate blew up');
+    }],
+]);
+
+it('answers an existing target like before with the optional-target gate: allowed, or refused by 403', function () {
+    Gate::define('martis-impersonate', fn ($operator, $target = null) => $target->rank <= $operator->rank);
+    $this->actingAs($this->operator, 'web');
+
+    $this->postJson('/martis/api/impersonation/start/'.$this->target->id)->assertOk();
+    $this->postJson('/martis/api/impersonation/stop')->assertOk();
+
+    $this->target->forceFill(['rank' => 9])->save();
+    $this->postJson('/martis/api/impersonation/start/'.$this->target->id)->assertForbidden();
+});
+
 it('honours the canImpersonate hook of the operator model with a 403', function () {
     Gate::define('martis-impersonate', fn () => true);
     config()->set('auth.providers.users.model', HookedImpersonationTestUser::class);

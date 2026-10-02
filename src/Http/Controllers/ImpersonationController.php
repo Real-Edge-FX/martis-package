@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Martis\Http\Controllers;
 
-use ArgumentCountError;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -117,21 +116,21 @@ class ImpersonationController extends MartisController
      * With no target (an id that does not exist) the gate runs as it did
      * before v2.4.0, with the operator alone: a closure that needs the
      * target cannot be called that way, which refuses the request like any
-     * other denial.
+     * other denial. Any error the gate raises that way is a refusal.
      */
     private function gateAllows(?Authenticatable $target): bool
     {
         if ($target === null) {
             try {
                 return Gate::allows('martis-impersonate');
-            } catch (Throwable $e) {
-                // PHP raises ArgumentCountError for the missing second
-                // argument of a user closure; anything else is a real error.
-                if ($e instanceof ArgumentCountError) {
-                    return false;
-                }
-
-                throw $e;
+            } catch (Throwable) {
+                // A closure that needs the target cannot answer without one:
+                // PHP raises ArgumentCountError for a required second argument,
+                // and a gate written with an optional one (`$target = null`)
+                // fails on the null (an error, a TypeError, an exception of
+                // its own). However it fails, the verdict is a refusal, never
+                // a 500, which would tell any panel user which ids exist.
+                return false;
             }
         }
 
