@@ -283,9 +283,10 @@ class ProfileController extends MartisController
     }
 
     /**
-     * Revoke a single session by ID. The current session ID is always
-     * preserved — pointing the endpoint at it is a no-op rather than a
-     * footgun that signs the user out of the device they are using.
+     * Revoke a single session by the opaque `id` the session list gave it
+     * (never the raw session id, which names nothing). The current session
+     * is always preserved — pointing the endpoint at it is a no-op rather
+     * than a footgun that signs the user out of the device they are using.
      */
     public function destroySession(Request $request, BrowserSessionsService $sessions, string $id): JsonResponse
     {

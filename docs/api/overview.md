@@ -375,7 +375,7 @@ DELETE  /martis/api/profile/2fa               Disable 2FA
 POST    /martis/api/profile/2fa/recovery-codes  Regenerate the recovery-code set
 GET     /martis/api/profile/sessions                v1.8.8 — list active sessions for the current user
 DELETE  /martis/api/profile/sessions/others        v1.8.8 — revoke every session except the current one
-DELETE  /martis/api/profile/sessions/{id}          v1.8.8 — revoke a single session (current id is a no-op)
+DELETE  /martis/api/profile/sessions/{id}          v1.8.8 — revoke a single session by the opaque `id` of the list (v2.4.0; the current session is a no-op)
 ```
 
 See [Authentication § Browser sessions](../authentication.md#browser-sessions).

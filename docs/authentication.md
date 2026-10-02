@@ -794,9 +794,11 @@ The Browser sessions section has an external host dependency (unlike the other p
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/martis/api/profile/sessions` | `{ sessions: [...], supported, driver }`, plus `reason` when the session rows cannot be attributed (see the requirements). Each session row carries `id`, `ip_address`, `user_agent`, `last_active` (unix seconds), and `is_current`. |
+| `GET` | `/martis/api/profile/sessions` | `{ sessions: [...], supported, driver }`, plus `reason` when the session rows cannot be attributed (see the requirements). Each session row carries `id` (an opaque handle, see below), `ip_address`, `user_agent`, `last_active` (unix seconds), and `is_current`. |
 | `DELETE` | `/martis/api/profile/sessions/others` | Revokes every session except the current one. Returns `{ revoked, supported }` (204 when unsupported). |
-| `DELETE` | `/martis/api/profile/sessions/{id}` | Revokes a single session by ID. Targeting the current session is a deliberate no-op so the call cannot accidentally sign the user out of the device issuing the request. |
+| `DELETE` | `/martis/api/profile/sessions/{id}` | Revokes a single session by the `id` handle of the list (never the raw session id). Targeting the current session, or a handle that names none of the user's sessions, is a no-op (`revoked: 0`) so the call cannot accidentally sign the user out of the device issuing the request. |
+
+**The `id` of a session is an opaque handle (v2.4.0).** A session's `sessions.id` is the server-side credential of that device's session; the list used to send it to the browser so the client could revoke it, which hands it to anything that can read the response (a script injected in the panel, a logged HAR), and takes the session over in an app that excludes the session cookie from encryption. The `id` the API gives each row is now an HMAC (SHA-256) of the session id and the user with the app key, 64 hex characters: it cannot be turned back into the session id, it differs per user and per `APP_KEY`, and `DELETE /profile/sessions/{id}` resolves it on the server among the user's own sessions (`BrowserSessionsService::handle()`). The raw session id revokes nothing. A custom `martis:profile-sessions` component keeps working: it only has to pass the row's `id` back. Rotating `APP_KEY` changes every handle, which a list loaded before the rotation does not survive (reload it).
 
 ### Customisation
 

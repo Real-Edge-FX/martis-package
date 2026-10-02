@@ -29,6 +29,13 @@ use Martis\Auth\GuardCatalog;
  * writes `sessions.user_id` with the id of the request's guard and no
  * table, so a row with the panel user's id can be another person's, whose
  * IP and device would be listed and whose session would be revoked.
+ *
+ * The `id` the list gives each row is an opaque handle (v2.4.0), never the
+ * row's `sessions.id`: that is the server-side credential of the device's
+ * session, and a list that reached a script in the panel or a logged
+ * response would hand it over. The handle is an HMAC of the session id with
+ * the app key, scoped to the user, which {@see revoke()} resolves back to a
+ * row among the user's own.
  */
 class BrowserSessionsService
 {
@@ -59,11 +66,11 @@ class BrowserSessionsService
             ->all();
 
         $currentId = $request->session()->getId();
-        $sessions = array_values(array_map(function ($row) use ($currentId): array {
+        $sessions = array_values(array_map(function ($row) use ($currentId, $user): array {
             $row = (array) $row;
 
             return [
-                'id' => (string) ($row['id'] ?? ''),
+                'id' => $this->handle($user, (string) ($row['id'] ?? '')),
                 'ip_address' => (string) ($row['ip_address'] ?? ''),
                 'user_agent' => (string) ($row['user_agent'] ?? ''),
                 'last_active' => (int) ($row['last_activity'] ?? 0),
@@ -109,13 +116,28 @@ class BrowserSessionsService
     }
 
     /**
-     * Revoke a single session row. Targeting the current session is a
-     * no-op (`revoked: 0`) so the call cannot accidentally sign the
-     * user out of the device they are issuing the request from.
+     * The opaque handle the list gives a session row of this user: an HMAC of
+     * the session id (and the user) with the app key. It cannot be turned
+     * back into the id, and a handle of one user's session names nothing of
+     * another's.
+     */
+    public function handle(Authenticatable $user, string $sessionId): string
+    {
+        $key = config('app.key');
+
+        return hash_hmac('sha256', 'martis-browser-session|'.$this->userId($user).'|'.$sessionId, is_string($key) ? $key : '');
+    }
+
+    /**
+     * Revoke a single session row, named by the handle the list gave it
+     * ({@see handle()}); the raw session id names nothing. Targeting the
+     * current session is a no-op (`revoked: 0`) so the call cannot
+     * accidentally sign the user out of the device they are issuing the
+     * request from.
      *
      * @return array{revoked: int, supported: bool, driver: string, reason?: string}
      */
-    public function revoke(Authenticatable $user, Request $request, string $sessionId): array
+    public function revoke(Authenticatable $user, Request $request, string $handle): array
     {
         $driver = (string) config('session.driver', 'file');
 
@@ -132,8 +154,18 @@ class BrowserSessionsService
             return ['revoked' => 0, 'supported' => true, 'driver' => $driver];
         }
 
-        $currentId = $request->session()->getId();
-        if ($sessionId === $currentId) {
+        // Resolve the handle among the user's own sessions: the id behind it
+        // is found here, on the server, and never trusted from the client.
+        $sessionId = null;
+        foreach (DB::table($this->table())->where('user_id', $userId)->pluck('id') as $id) {
+            if (hash_equals($this->handle($user, (string) $id), $handle)) {
+                $sessionId = (string) $id;
+
+                break;
+            }
+        }
+
+        if ($sessionId === null || $sessionId === $request->session()->getId()) {
             return ['revoked' => 0, 'supported' => true, 'driver' => $driver];
         }
 
