@@ -160,7 +160,9 @@ Liveness is your app's own health route (`/up` in a default Laravel app): the MC
 - **404 on the MCP URL**: `MARTIS_MCP_TRANSPORT` is not `http` in the app's environment, or the routes were cached before you set it (`php artisan route:clear`).
 - **Every tool answers `enabled: false`**: `MARTIS_MCP_ENABLED=false`.
 - **Boot fails with `MARTIS_MCP_TRANSPORT must be "stdio" or "http"`**: fix the value; leave it unset for stdio.
-- **`martis:agents` refuses to run and names `MARTIS_MCP_HOST`, `MARTIS_MCP_PORT` or `MARTIS_MCP_HEALTH_PORT`**: those settings belonged to the standalone daemon removed in v2.5.0. Delete them. The command exits with status 1 before writing anything, also with `--dry-run`; `--mcp-unwire` is not blocked.
+- **`martis:agents` refuses to wire the MCP and names `MARTIS_MCP_HOST`, `MARTIS_MCP_PORT` or `MARTIS_MCP_HEALTH_PORT`**: those settings belonged to the standalone daemon removed in v2.5.0. Delete them.
+
+  The command exits with status 1 before writing anything, also with `--dry-run`. Runs that do not wire the MCP (`--without-mcp`, `--mcp-unwire`) are not blocked.
 
 ### Manual MCP wiring
 
