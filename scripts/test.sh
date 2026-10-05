@@ -5,7 +5,7 @@
 # the environment and reports phantom failures that are NOT real:
 #
 #   * missing `gd`  -> UploadedFile::fake()->image() tests fail
-#   * missing `pcntl` -> the mcp:serve SIGTERM test fails
+#   * missing `pcntl` -> StdioTransportTest sends SIGTERM to an mcp:start subprocess (needs pcntl/posix)
 #
 # This script fixes both: it builds an image with gd + pcntl (cached after
 # the first run) and mounts at /martis-package. Match it to CI, get CI's
