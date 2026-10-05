@@ -93,4 +93,4 @@ it('stops promptly on SIGTERM', function () use ($initialize) {
     }
 
     expect($process->isRunning())->toBeFalse('mcp:start was still running after SIGTERM');
-})->skip(! function_exists('posix_kill') && PHP_OS_FAMILY === 'Windows', 'POSIX signals only');
+})->skip(PHP_OS_FAMILY === 'Windows', 'POSIX signals only');
