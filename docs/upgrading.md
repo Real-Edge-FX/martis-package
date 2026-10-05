@@ -4,6 +4,23 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.5.0 from v2.4.x
+
+v2.5.0 serves the docs MCP server through the official [`laravel/mcp`](https://github.com/laravel/mcp) package instead of `php-mcp/server` and ReactPHP. `php-mcp/server` kept `symfony/finder` below 8 and, through `react/http`, `psr/http-message` at 1, so `composer require martis/martis` on a fresh Laravel 13 app had to downgrade `symfony/finder` and `guzzlehttp/guzzle`. It no longer does.
+
+### Requirements
+
+- Laravel 12 apps need `laravel/framework` 12.41.1 or later (`laravel/mcp` requires `illuminate/json-schema` ^12.41.1). Laravel 13 is unaffected.
+
+### The docs MCP server
+
+- `php artisan martis:mcp-serve` is removed. Over stdio an agent now spawns `php artisan mcp:start martis-docs`; over HTTP the server is a route of your app. Run `php artisan martis:agents --with-mcp` again to rewrite your agents' MCP config.
+- The default transport is now `stdio`. An `.env` written by an earlier `martis:agents` usually carries `MARTIS_MCP_TRANSPORT=http`: with it, Martis registers the route `POST /{MARTIS_PATH}/mcp` (`/martis/mcp` by default), which outside the `local` environment requires `MARTIS_MCP_HTTP_TOKEN`. Set `MARTIS_MCP_TRANSPORT=stdio` (or delete the line) if you do not need HTTP.
+- The default HTTP path changes from `/mcp` to `/{MARTIS_PATH}/mcp`, and the URL `martis:agents` writes is built from `APP_URL` instead of a host and port.
+- `MARTIS_MCP_HOST`, `MARTIS_MCP_PORT` and `MARTIS_MCP_HEALTH_PORT` are removed with the standalone daemon and its `/health` endpoint. Delete them (commented placeholders an earlier `martis:agents` wrote can stay or go). `martis:agents` refuses to wire the MCP while one of them is set.
+- A systemd unit or a docker-compose service that ran `martis:mcp-serve` as a daemon is no longer needed: the app itself serves the MCP.
+- The three tools keep their names, inputs and payloads.
+
 ## Upgrading to v2.4.0 from v2.3.x
 
 v2.4.0 closes a security audit. Several defaults now fail closed. Go through the list below: the first five concern most apps. Then republish the config, the language files and the assets:
