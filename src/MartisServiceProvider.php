@@ -11,6 +11,7 @@ use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Contracts\Foundation\CachesRoutes;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Carbon;
@@ -102,6 +103,7 @@ use Martis\Invitations\InvitationManager;
 use Martis\Invitations\InvitationUrl;
 use Martis\Invitations\Listeners\RecordInvitation;
 use Martis\Mcp\MartisDocsServer;
+use Martis\Mcp\McpRoutes;
 use Martis\Profile\ProfileResource;
 use Martis\Profile\TwoFactorService;
 use Martis\Resources\ActionEventResource;
@@ -249,6 +251,12 @@ class MartisServiceProvider extends ServiceProvider
         $this->loadRoutesFrom(__DIR__.'/../routes/martis.php');
 
         Mcp::local(MartisDocsServer::HANDLE, MartisDocsServer::class);
+
+        // A cached route file already holds the MCP route, if it was enabled.
+        if (! ($this->app instanceof CachesRoutes && $this->app->routesAreCached())) {
+            McpRoutes::register();
+        }
+
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'martis');
         $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'martis');
 
