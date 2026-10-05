@@ -6,6 +6,7 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Martis\Console\Concerns\AsksOnlyOnATerminal;
 use Martis\Mcp\MartisDocsServer;
 use Martis\Mcp\McpConfig;
@@ -79,8 +80,13 @@ class AgentsCommand extends Command
         $wireMcp = $this->resolveMcpChoice($profiles);
 
         if ($wireMcp) {
-            // Throws, naming MARTIS_MCP_TRANSPORT, on a value it cannot use.
-            McpConfig::transport();
+            try {
+                McpConfig::transport();
+            } catch (InvalidArgumentException $e) {
+                $this->components->error($e->getMessage());
+
+                return self::FAILURE;
+            }
 
             $removed = McpConfig::removedVariablesSet(base_path('.env'));
             if ($removed !== []) {
@@ -89,6 +95,16 @@ class AgentsCommand extends Command
                     implode(', ', $removed),
                     count($removed) === 1 ? 'was' : 'were',
                     count($removed) === 1 ? 'it' : 'them',
+                ));
+
+                return self::FAILURE;
+            }
+
+            $legacy = McpConfig::legacyKeysInConfig();
+            if ($legacy !== []) {
+                $this->components->error(sprintf(
+                    'config/martis.php still has the pre-v2.5.0 `mcp` block (%s). Replace it with the block in vendor/martis/martis/config/martis.php, or delete it to use the package defaults, then run this command again. See "Upgrading to v2.5.0" in docs/upgrading.md.',
+                    implode(', ', array_map(static fn (string $key): string => 'martis.mcp.'.$key, $legacy)),
                 ));
 
                 return self::FAILURE;

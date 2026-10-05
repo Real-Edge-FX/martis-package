@@ -19,6 +19,13 @@ final class McpConfig
      */
     public const REMOVED_VARIABLES = ['MARTIS_MCP_HOST', 'MARTIS_MCP_PORT', 'MARTIS_MCP_HEALTH_PORT'];
 
+    /**
+     * Keys of the removed daemon's `mcp` config block. A config/martis.php
+     * published before v2.5.0 still carries them, and `mergeConfigFrom` does
+     * not merge nested keys, so the stale block survives an upgrade.
+     */
+    public const LEGACY_KEYS = ['host', 'port', 'health_port'];
+
     /** `stdio` (the default) or `http`; anything else throws, naming the variable. */
     public static function transport(): string
     {
@@ -37,6 +44,25 @@ final class McpConfig
         }
 
         return $transport;
+    }
+
+    /**
+     * The legacy keys present in `config('martis.mcp')`, in LEGACY_KEYS order.
+     *
+     * @return list<string>
+     */
+    public static function legacyKeysInConfig(): array
+    {
+        $block = config('martis.mcp');
+
+        if (! is_array($block)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            self::LEGACY_KEYS,
+            static fn (string $key): bool => array_key_exists($key, $block),
+        ));
     }
 
     /** The HTTP route URI: `MARTIS_MCP_PATH`, else `/{martis.path}/mcp`. */

@@ -147,8 +147,31 @@ it('does not check the removed variables when the MCP is not wired', function ()
     expect(runAgents(['--with-mcp' => false, '--without-mcp' => true]))->toBe(0);
 });
 
-it('refuses an unknown transport, naming the variable', function () {
+it('refuses an unknown transport, naming the variable, without a stack trace', function () {
     config()->set('martis.mcp.transport', 'sse');
 
-    runAgents();
-})->throws(InvalidArgumentException::class, 'MARTIS_MCP_TRANSPORT');
+    expect(runAgents())->toBe(1);
+
+    expect(file_exists($this->base.'/.mcp.json'))->toBeFalse()
+        ->and(file_exists($this->base.'/CLAUDE.md'))->toBeFalse()
+        ->and(Artisan::output())->toContain('MARTIS_MCP_TRANSPORT');
+});
+
+it('refuses to wire the MCP while the published config has a legacy mcp key, writing nothing', function () {
+    config()->set('martis.mcp.port', 8091);
+
+    expect(runAgents())->toBe(1);
+
+    $output = Artisan::output();
+    expect(file_exists($this->base.'/.mcp.json'))->toBeFalse()
+        ->and(file_exists($this->base.'/CLAUDE.md'))->toBeFalse()
+        ->and((string) file_get_contents($this->base.'/.env'))->toBe("APP_NAME=Demo\n")
+        ->and($output)->toContain('config/martis.php')
+        ->and($output)->toContain('martis.mcp.port');
+});
+
+it('does not check the legacy mcp keys when the MCP is not wired', function () {
+    config()->set('martis.mcp.port', 8091);
+
+    expect(runAgents(['--with-mcp' => false, '--without-mcp' => true]))->toBe(0);
+});

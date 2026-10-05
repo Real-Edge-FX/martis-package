@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
+use Martis\Mcp\MartisDocsServer;
 use Martis\Mcp\McpRoutes;
 
 beforeEach(function () {
@@ -44,7 +46,8 @@ it('serves the handshake and the three tools at the default path', function () {
 
     mcpPost('/martis/mcp', mcpInitialize())
         ->assertOk()
-        ->assertJsonPath('result.serverInfo.name', 'Martis Docs');
+        ->assertJsonPath('result.serverInfo.name', 'Martis Docs')
+        ->assertJsonPath('result.serverInfo.version', MartisDocsServer::packageVersion());
 
     $names = collect(mcpPost('/martis/mcp', ['jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/list'])
         ->assertOk()
@@ -112,6 +115,8 @@ it('requires the exact bearer token when one is set', function (?string $header)
     'truncated' => ['Bearer s3cret-toke'],
     'trailing NUL' => ["Bearer s3cret-token\0"],
     'no scheme' => ['s3cret-token'],
+    'other scheme' => ['Basic s3cret-token'],
+    'scheme only' => ['Bearer '],
 ]);
 
 it('adds the WWW-Authenticate challenge to a 401', function () {
@@ -121,12 +126,16 @@ it('adds the WWW-Authenticate challenge to a 401', function () {
     expect(mcpPost('/martis/mcp', mcpInitialize())->headers->get('WWW-Authenticate'))->toContain('Bearer');
 });
 
-it('accepts the exact bearer token', function () {
+it('accepts the exact bearer token under any case of the scheme (RFC 7235)', function (string $header) {
     config()->set('martis.mcp.token', 's3cret-token');
     McpRoutes::register();
 
-    mcpPost('/martis/mcp', mcpInitialize(), ['Authorization' => 'Bearer s3cret-token'])->assertOk();
-});
+    mcpPost('/martis/mcp', mcpInitialize(), ['Authorization' => $header])->assertOk();
+})->with([
+    'Bearer s3cret-token',
+    'bearer s3cret-token',
+    'BEARER s3cret-token',
+]);
 
 it('serves without a token in the local and testing environments', function (string $environment) {
     app()->detectEnvironment(fn () => $environment);
@@ -149,6 +158,39 @@ it('refuses to serve without a token outside the local environment', function ()
 
 it('refuses an unknown transport, naming the variable', function () {
     config()->set('martis.mcp.transport', 'websocket');
+
+    McpRoutes::register();
+})->throws(InvalidArgumentException::class, 'MARTIS_MCP_TRANSPORT');
+
+it('skips the route and logs a warning when the published config still has the legacy mcp keys', function () {
+    config()->set('martis.mcp.port', 8091);
+    config()->set('martis.mcp.health_port', 8092);
+    Log::spy();
+
+    McpRoutes::register();
+
+    Log::shouldHaveReceived('warning')
+        ->once()
+        ->withArgs(fn (string $message): bool => str_contains($message, 'config/martis.php')
+            && str_contains($message, 'martis.mcp.port')
+            && str_contains($message, 'martis.mcp.health_port')
+            && ! str_contains($message, 'martis.mcp.host')
+            && str_contains($message, 'Upgrading to v2.5.0'));
+
+    $postUris = collect(Route::getRoutes()->getRoutes())
+        ->filter(fn ($route) => in_array('POST', $route->methods(), true))
+        ->map(fn ($route) => $route->uri())
+        ->all();
+
+    expect($postUris)->not->toContain('martis/mcp');
+    $response = $this->postJson('/martis/mcp', mcpInitialize());
+    expect($response->getStatusCode())->not->toBe(200);
+    $response->assertJsonMissingPath('result');
+});
+
+it('still validates the transport before looking at the legacy keys', function () {
+    config()->set('martis.mcp.transport', 'websocket');
+    config()->set('martis.mcp.port', 8091);
 
     McpRoutes::register();
 })->throws(InvalidArgumentException::class, 'MARTIS_MCP_TRANSPORT');

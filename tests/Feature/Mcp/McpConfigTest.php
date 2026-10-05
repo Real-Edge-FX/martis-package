@@ -93,3 +93,19 @@ it('finds no removed variable on a clean environment or a missing .env', functio
     expect(McpConfig::removedVariablesSet(sys_get_temp_dir().'/no-such-env-'.uniqid()))->toBe([])
         ->and(McpConfig::removedVariablesSet())->toBe([]);
 });
+
+it('lists the legacy mcp config keys present, even when null', function () {
+    config()->set('martis.mcp', ['transport' => 'stdio', 'port' => null, 'host' => '127.0.0.1']);
+
+    expect(McpConfig::legacyKeysInConfig())->toBe(['host', 'port']);
+});
+
+it('finds no legacy mcp key in a current or non-array block', function (mixed $block) {
+    config()->set('martis.mcp', $block);
+
+    expect(McpConfig::legacyKeysInConfig())->toBe([]);
+})->with([
+    'current block' => [['transport' => 'stdio', 'path' => null, 'token' => null]],
+    'null' => [null],
+    'string' => ['stdio'],
+]);

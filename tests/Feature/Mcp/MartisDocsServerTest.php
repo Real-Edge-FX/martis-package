@@ -68,7 +68,7 @@ it('returns the disabled payload from every tool when MARTIS_MCP_ENABLED is fals
     [DocSearchTool::class, ['query' => 'gate']],
 ]);
 
-it('reports the package version and name in the handshake', function () {
+it('exposes the package version and the stdio handle', function () {
     expect(MartisDocsServer::packageVersion())->not->toBe('')
         ->and(MartisDocsServer::HANDLE)->toBe('martis-docs');
 });
