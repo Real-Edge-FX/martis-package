@@ -36,7 +36,7 @@ class AuthenticateMcpToken
         // The scheme is case-insensitive (RFC 7235); the token is compared exactly.
         $header = (string) $request->headers->get('Authorization', '');
 
-        if (preg_match('/^Bearer\s+(.+)$/i', $header, $match) !== 1 || ! hash_equals($token, $match[1])) {
+        if (preg_match('/^Bearer\s+(.+)\z/i', $header, $match) !== 1 || ! hash_equals($token, $match[1])) {
             return response()->json(['error' => 'unauthorized'], 401);
         }
 

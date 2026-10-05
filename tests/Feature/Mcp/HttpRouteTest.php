@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
+use Martis\Mcp\Http\AuthenticateMcpToken;
 use Martis\Mcp\MartisDocsServer;
 use Martis\Mcp\McpRoutes;
 
@@ -117,6 +119,23 @@ it('requires the exact bearer token when one is set', function (?string $header)
     'no scheme' => ['s3cret-token'],
     'other scheme' => ['Basic s3cret-token'],
     'scheme only' => ['Bearer '],
+    'trailing newline' => ["Bearer s3cret-token\n"],
+    'trailing CRLF' => ["Bearer s3cret-token\r\n"],
+]);
+
+it('rejects a trailing newline in the Authorization header at the middleware', function (string $header) {
+    config()->set('martis.mcp.token', 's3cret-token');
+
+    $request = Request::create('/martis/mcp', 'POST');
+    $request->headers->set('Authorization', $header);
+
+    $response = (new AuthenticateMcpToken)->handle($request, fn () => response('passed'));
+
+    expect($response->getStatusCode())->toBe(401);
+})->with([
+    'LF' => ["Bearer s3cret-token\n"],
+    'CRLF' => ["Bearer s3cret-token\r\n"],
+    'LF in the middle' => ["Bearer s3cret\n-token"],
 ]);
 
 it('adds the WWW-Authenticate challenge to a 401', function () {
