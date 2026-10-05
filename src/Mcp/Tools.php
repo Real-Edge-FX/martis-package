@@ -5,20 +5,24 @@ declare(strict_types=1);
 namespace Martis\Mcp;
 
 /**
- * MCP tool handlers exposed by `martis:mcp-serve`.
- *
- * Each public method becomes a tool through `php-mcp/server`'s
- * reflection-based registration. Docblocks describe the tool to the
- * agent; argument types and the `@param` lines drive the JSON schema.
+ * Handlers of the three docs MCP tools (`martis_doc_list`,
+ * `martis_doc_read`, `martis_doc_search`), registered as tool classes in
+ * `Martis\Mcp\Tools\*` and served by `Martis\Mcp\MartisDocsServer`.
  *
  * The class respects `MARTIS_MCP_ENABLED`: when set to `false`, every
  * tool returns a single short notice instead of running. The server
- * still publishes a clean handshake — the toggle is a runtime
- * behaviour gate, not a tools-list filter.
+ * still lists the tools: the toggle is a runtime behaviour gate, read on
+ * every call, not a tools-list filter.
  */
 class Tools
 {
     public function __construct(private readonly DocLookup $docs) {}
+
+    /** The handlers over the documentation shipped with the package. */
+    public static function package(): self
+    {
+        return new self(DocLookup::package());
+    }
 
     /**
      * List every Martis documentation page available with a one-line

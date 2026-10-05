@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
+use Laravel\Mcp\Facades\Mcp;
+use Laravel\Mcp\Server\McpServiceProvider;
 use Martis\Actions\ActionEventRedactor;
 use Martis\Auth\DefaultRegistersUsers;
 use Martis\Auth\DefaultResetsUserPasswords;
@@ -54,7 +56,6 @@ use Martis\Console\InvitationsScaffoldCommand;
 use Martis\Console\LensMakeCommand;
 use Martis\Console\ListEnvVarsCommand;
 use Martis\Console\ListOverridesCommand;
-use Martis\Console\McpServeCommand;
 use Martis\Console\PartitionMakeCommand;
 use Martis\Console\PolicyMakeCommand;
 use Martis\Console\ProgressMakeCommand;
@@ -100,6 +101,7 @@ use Martis\Invitations\Invitation;
 use Martis\Invitations\InvitationManager;
 use Martis\Invitations\InvitationUrl;
 use Martis\Invitations\Listeners\RecordInvitation;
+use Martis\Mcp\MartisDocsServer;
 use Martis\Profile\ProfileResource;
 use Martis\Profile\TwoFactorService;
 use Martis\Resources\ActionEventResource;
@@ -116,6 +118,11 @@ class MartisServiceProvider extends ServiceProvider
     /** Register the ResourceRegistry singleton and merge package config. */
     public function register(): void
     {
+        // laravel/mcp is auto-discovered in a host app, but an app that
+        // opts out of package discovery (and Testbench) would miss it:
+        // registering it here is a no-op when it is already registered.
+        $this->app->register(McpServiceProvider::class);
+
         $this->mergeConfigFrom(
             __DIR__.'/../config/martis.php',
             'martis'
@@ -240,6 +247,8 @@ class MartisServiceProvider extends ServiceProvider
         $this->registerApiDocs();
 
         $this->loadRoutesFrom(__DIR__.'/../routes/martis.php');
+
+        Mcp::local(MartisDocsServer::HANDLE, MartisDocsServer::class);
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'martis');
         $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'martis');
 
@@ -300,7 +309,6 @@ class MartisServiceProvider extends ServiceProvider
                 InvitationsScaffoldCommand::class,
                 StubsCommand::class,
                 AgentsCommand::class,
-                McpServeCommand::class,
             ]);
 
             $this->publishes([
