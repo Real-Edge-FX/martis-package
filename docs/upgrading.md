@@ -8,9 +8,12 @@ The sections below list the breaking changes of each major version and what to c
 
 v2.5.0 serves the docs MCP server through the official [`laravel/mcp`](https://github.com/laravel/mcp) package instead of `php-mcp/server` and ReactPHP. `php-mcp/server` kept `symfony/finder` below 8 and, through `react/http`, `psr/http-message` at 1, so `composer require martis/martis` on a fresh Laravel 13 app had to downgrade `symfony/finder` and `guzzlehttp/guzzle`. It no longer does.
 
+**If you published `config/martis.php`, replace its `mcp` block** with the package's new block (copy it from `vendor/martis/martis/config/martis.php`), or delete the block to use the package defaults. Laravel does not merge nested config keys, so your published block keeps the removed `host`, `port` and `health_port` keys. Until you fix it, Martis does not register the HTTP route (it logs a warning naming the old keys, such as `martis.mcp.port`, instead of failing the boot) and `martis:agents` refuses to wire the MCP.
+
 ### Requirements
 
 - Laravel 12 apps need `laravel/framework` 12.41.1 or later (`laravel/mcp` requires `illuminate/json-schema` ^12.41.1). Laravel 13 is unaffected.
+- `laravel/mcp` ^1.0 conflicts with `laravel/boost` before 2.9.0 and with a host's own `laravel/mcp` 0.x. Update them together (`composer update martis/martis laravel/boost -W`), and move MCP servers you built on `laravel/mcp` 0.x to 1.x first.
 
 ### The docs MCP server
 
@@ -18,6 +21,8 @@ v2.5.0 serves the docs MCP server through the official [`laravel/mcp`](https://g
 - The default transport is now `stdio`. An `.env` written by an earlier `martis:agents` usually carries `MARTIS_MCP_TRANSPORT=http`: with it, Martis registers the route `POST /{MARTIS_PATH}/mcp` (`/martis/mcp` by default), which outside the `local` environment requires `MARTIS_MCP_HTTP_TOKEN`. Set `MARTIS_MCP_TRANSPORT=stdio` (or delete the line) if you do not need HTTP.
 - The default HTTP path changes from `/mcp` to `/{MARTIS_PATH}/mcp`, and the URL `martis:agents` writes is built from `APP_URL` instead of a host and port.
 - `MARTIS_MCP_HOST`, `MARTIS_MCP_PORT` and `MARTIS_MCP_HEALTH_PORT` are removed with the standalone daemon and its `/health` endpoint. Delete them (commented placeholders an earlier `martis:agents` wrote can stay or go). `martis:agents` refuses to wire the MCP while one of them is set.
+- `martis:agents` does not rewrite `.env` lines that already exist, so hints an earlier run wrote, such as `# MARTIS_MCP_URL=http://localhost:8091/mcp`, stay with their old values. Delete them (or set the new URL).
+- Martis registers the service provider of `laravel/mcp` itself, so a `dont-discover` entry for `laravel/mcp` in your `composer.json` no longer applies. With Laravel Passport installed, `laravel/mcp` adds an `mcp:use` scope. In an app that calls `Mcp::oauthRoutes()`, the 401 of the Martis route advertises the app's OAuth metadata, but the route accepts only `MARTIS_MCP_HTTP_TOKEN`.
 - A systemd unit or a docker-compose service that ran `martis:mcp-serve` as a daemon is no longer needed: the app itself serves the MCP.
 - The three tools keep their names, inputs and payloads.
 

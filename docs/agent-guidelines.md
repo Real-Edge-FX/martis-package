@@ -99,6 +99,8 @@ Martis ships a docs MCP server built on [`laravel/mcp`](https://github.com/larav
 
 `MARTIS_MCP_ENABLED` is read on every tool call. When it is `false` the server still lists the three tools, and each one answers with a short notice (`enabled: false`) instead of running. This toggles the integration from `.env` without editing your agent's MCP config.
 
+A running stdio process keeps the configuration it booted with: after editing `.env`, restart the agent's MCP server. Under `php artisan config:cache`, run `php artisan config:clear` first (or recache), since a cached config ignores `.env`.
+
 The server speaks two transports, chosen with `MARTIS_MCP_TRANSPORT`:
 
 | | stdio (default) | HTTP |
@@ -141,7 +143,7 @@ Set `MARTIS_MCP_URL` when the agent reaches the app at another address than `APP
 
 ### Authentication
 
-- With `MARTIS_MCP_HTTP_TOKEN` set, a request passes only with `Authorization: Bearer <token>` (compared in constant time); anything else gets `401 {"error":"unauthorized"}` with a `WWW-Authenticate: Bearer` challenge.
+- With `MARTIS_MCP_HTTP_TOKEN` set, a request passes only with `Authorization: Bearer <token>` (the scheme is case-insensitive, the token is compared exactly and in constant time); anything else gets `401 {"error":"unauthorized"}` with a `WWW-Authenticate: Bearer` challenge.
 - Without a token the route serves only the `local` and `testing` environments. In any other environment it answers 401 with a message naming `MARTIS_MCP_HTTP_TOKEN`, so a deployed app never exposes the MCP unauthenticated.
 
 `martis:agents` never writes the token into the agent's config, which is usually committed. Add the header by hand where your agent keeps secrets, for example in Claude Code:
@@ -157,10 +159,12 @@ Liveness is your app's own health route (`/up` in a default Laravel app): the MC
 - **`Command "martis:mcp-serve" is not defined`**: the agent config predates v2.5.0. Run `php artisan martis:agents --with-mcp` again.
 - **401 with a message about `MARTIS_MCP_HTTP_TOKEN`**: the app is not in the `local` environment and has no token. Set one.
 - **401 `{"error":"unauthorized"}`**: the client sends no `Authorization: Bearer <token>` header, or a different token.
-- **404 on the MCP URL**: `MARTIS_MCP_TRANSPORT` is not `http` in the app's environment, or the routes were cached before you set it (`php artisan route:clear`).
+- **404 on the MCP URL**: `MARTIS_MCP_TRANSPORT` is not `http` in the app's environment, or the routes were cached before you set it (`php artisan route:clear`), or your published `config/martis.php` still has the pre-v2.5.0 `mcp` block (`host`, `port`, `health_port`): Martis then skips the route and logs a warning naming those keys. See [Upgrading to v2.5.0](upgrading.md#upgrading-to-v250-from-v24x).
 - **Every tool answers `enabled: false`**: `MARTIS_MCP_ENABLED=false`.
 - **Boot fails with `MARTIS_MCP_TRANSPORT must be "stdio" or "http"`**: fix the value; leave it unset for stdio.
 - **`martis:agents` refuses to wire the MCP and names `MARTIS_MCP_HOST`, `MARTIS_MCP_PORT` or `MARTIS_MCP_HEALTH_PORT`**: those settings belonged to the standalone daemon removed in v2.5.0. Delete them.
+
+  The same refusal applies when your published `config/martis.php` still has the old `mcp` block: replace it with the package's (`vendor/martis/martis/config/martis.php`) or delete it.
 
   The command exits with status 1 before writing anything, also with `--dry-run`. Runs that do not wire the MCP (`--without-mcp`, `--mcp-unwire`) are not blocked.
 

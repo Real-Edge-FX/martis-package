@@ -733,7 +733,7 @@ The package exposes the following `--tag` values for `vendor:publish`:
 
 ## Available Artisan Commands
 
-The package ships 36 commands (plus the aliases `martis:override` → `martis:component` and `martis:make-policy` → `martis:policy`). The full list:
+The package ships 35 commands (plus the aliases `martis:override` → `martis:component` and `martis:make-policy` → `martis:policy`). The full list:
 
 ### Setup & maintenance
 
