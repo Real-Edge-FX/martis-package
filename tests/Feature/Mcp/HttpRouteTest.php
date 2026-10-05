@@ -74,9 +74,24 @@ it('serves a custom MARTIS_MCP_PATH and follows MARTIS_PATH by default', functio
     mcpPost('/admin/mcp', mcpInitialize())->assertOk();
 });
 
-it('answers GET with 405', function () {
-    // Outside the Martis prefix: under it, the SPA catch-all (GET /martis/{path})
-    // is registered first and answers GET itself.
+it('answers GET and DELETE with 405 at the default path, ahead of the SPA catch-all', function () {
+    // Booted with the http transport: the route must be registered before the
+    // Martis routes, whose GET /{martis.path}/{path} catch-all would otherwise
+    // answer a Streamable HTTP client's GET with the SPA (a login redirect).
+    putenv('MARTIS_MCP_TRANSPORT=http');
+
+    try {
+        $this->refreshApplication();
+
+        $this->get('/martis/mcp')->assertStatus(405);
+        $this->delete('/martis/mcp')->assertStatus(405);
+    } finally {
+        putenv('MARTIS_MCP_TRANSPORT');
+        $this->refreshApplication();
+    }
+});
+
+it('answers GET with 405 at a custom path outside the Martis prefix', function () {
     config()->set('martis.mcp.path', '/agents/docs');
     McpRoutes::register();
 
@@ -158,6 +173,10 @@ it('does not register the route at boot by default', function () {
 
     expect($postUris)->not->toContain('martis/mcp');
 
-    // The SPA catch-all (GET only) matches the URI, hence 405 and not 404.
-    $this->postJson('/martis/mcp', mcpInitialize())->assertStatus(405);
+    // Not handled by the MCP server: no JSON-RPC result. The status is not pinned
+    // (the SPA catch-all, GET only, makes it 405 today, which is not MCP behaviour).
+    $response = $this->postJson('/martis/mcp', mcpInitialize());
+
+    expect($response->getStatusCode())->not->toBe(200);
+    $response->assertJsonMissingPath('result');
 });

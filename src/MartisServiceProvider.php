@@ -248,14 +248,15 @@ class MartisServiceProvider extends ServiceProvider
         $this->discoverTools();
         $this->registerApiDocs();
 
-        $this->loadRoutesFrom(__DIR__.'/../routes/martis.php');
-
-        Mcp::local(MartisDocsServer::HANDLE, MartisDocsServer::class);
-
+        // Before the Martis routes: their SPA catch-all would otherwise answer GET at /{martis.path}/mcp.
         // A cached route file already holds the MCP route, if it was enabled.
         if (! ($this->app instanceof CachesRoutes && $this->app->routesAreCached())) {
             McpRoutes::register();
         }
+
+        $this->loadRoutesFrom(__DIR__.'/../routes/martis.php');
+
+        Mcp::local(MartisDocsServer::HANDLE, MartisDocsServer::class);
 
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'martis');
         $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'martis');
