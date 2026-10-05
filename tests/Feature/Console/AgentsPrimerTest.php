@@ -150,5 +150,5 @@ it('still lists every slug with the file it lives in when no MCP is wired', func
 
 it('keeps the MCP-wired primer lean', function () {
     // It was about 15.4 KB before the MCP content stopped repeating.
-    expect(strlen(renderPrimer(true)))->toBeLessThan(10_600);
+    expect(strlen(renderPrimer(true)))->toBeLessThan(10_500);
 });
