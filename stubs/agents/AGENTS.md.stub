@@ -97,7 +97,7 @@ When unsure which generator to call, run `php artisan list martis` and read the 
 This file is dense and prescriptive on purpose. For exhaustive treatment of any topic, consult the full Martis doc for that slug.
 
 {{MCP_SECTION}}
-This project has the Martis docs MCP wired: `martis_doc_list()` returns the page index (every slug with its topic), `martis_doc_search(query, limit?)` finds the pages for a question with snippets, and `martis_doc_read('<slug>')` returns a full page. Read the docs **only** through these tools, never from the `docs/*.md` files with your file-read or grep tools: the MCP returns scoped, ranked results and is the single source of truth. If a call returns `enabled: false`, a 401 or a connection error, stop and tell the operator to re-enable/restart the MCP (`MARTIS_MCP_ENABLED=true`, then `php artisan martis:mcp-serve`); never fall back to the files.
+This project has the Martis docs MCP wired: `martis_doc_list()` returns the page index (every slug with its topic), `martis_doc_search(query, limit?)` finds the pages for a question with snippets, and `martis_doc_read('<slug>')` returns a full page. Read the docs **only** through these tools, never from the `docs/*.md` files with your file-read or grep tools: the MCP returns scoped, ranked results and is the single source of truth. If a call returns `enabled: false`, a 401 or a connection error, stop and tell the operator to re-enable/restart the MCP (`MARTIS_MCP_ENABLED=true`; over stdio the agent restarts `php artisan mcp:start martis-docs` itself, over HTTP the app must be served); never fall back to the files.
 {{/MCP_SECTION}}
 {{^MCP_SECTION}}
 | Slug | Topic |
