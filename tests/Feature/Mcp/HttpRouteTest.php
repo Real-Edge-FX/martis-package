@@ -121,6 +121,7 @@ it('requires the exact bearer token when one is set', function (?string $header)
     'scheme only' => ['Bearer '],
     'trailing newline' => ["Bearer s3cret-token\n"],
     'trailing CRLF' => ["Bearer s3cret-token\r\n"],
+    'tab separator' => ["Bearer\ts3cret-token"],
 ]);
 
 it('rejects a trailing newline in the Authorization header at the middleware', function (string $header) {

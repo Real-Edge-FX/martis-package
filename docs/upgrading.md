@@ -13,7 +13,7 @@ v2.5.0 serves the docs MCP server through the official [`laravel/mcp`](https://g
 ### Requirements
 
 - Laravel 12 apps need `laravel/framework` 12.41.1 or later (`laravel/mcp` requires `illuminate/json-schema` ^12.41.1). Laravel 13 is unaffected.
-- `laravel/mcp` ^1.0 conflicts with `laravel/boost` before 2.9.0 and with a host's own `laravel/mcp` 0.x. Update them together (`composer update martis/martis laravel/boost -W`), and move MCP servers you built on `laravel/mcp` 0.x to 1.x first.
+- `laravel/mcp` ^1.0 conflicts with `laravel/boost` before 2.9.0 and with a host's own `laravel/mcp` 0.x. Update them together (`composer update martis/martis laravel/boost -W`). If your own `composer.json` requires `laravel/mcp` 0.x, move the MCP servers you built on it to 1.x and raise that constraint first (`composer require laravel/mcp:^1.0 -W`).
 
 ### The docs MCP server
 
