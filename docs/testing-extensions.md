@@ -111,10 +111,10 @@ vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: [{ 
 
 - **Types work anywhere.** `import type { i18n, TFunction } from 'i18next'` type-checks in an extension source or a test.
 - **An extension source never imports i18next as a value.** It reaches the panel's instance through `useTranslation()` (from `react-i18next` or `@martis/runtime`). A value import such as `import i18next from 'i18next'` type-checks, then fails `npm run build:extensions` with a misleading `[MISSING_EXPORT] "default" is not exported by ".shims/i18next.d.mts"`.
-- **A test that creates its own instance installs i18next.** Without it, Vitest stops at `Failed to resolve import "i18next"`. Install the version the panel bundles, the `i18next` entry of `versions.json` (26.0.4 in Martis 2.3.0), as a dev dependency:
+- **A test that creates its own instance installs i18next.** Without it, Vitest stops at `Failed to resolve import "i18next"`. Install the version the panel bundles, the `i18next` entry of `versions.json` (26.4.2 in Martis 2.5.1), as a dev dependency:
 
   ```bash
-  npm install --save-dev i18next@26.0.4
+  npm install --save-dev i18next@26.4.2
   ```
 
 ```tsx
