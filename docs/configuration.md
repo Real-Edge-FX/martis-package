@@ -1056,7 +1056,7 @@ The package can record three categories of administrative events into the `marti
 
 | Key | Default | Effect |
 |---|---|---|
-| `role_changes` | `true` | Logs `role.attached` / `role.detached` rows whenever Spatie attaches or detaches a role. |
+| `role_changes` | `true` | Logs `role.attached` / `role.detached` rows whenever Spatie attaches or detaches a role. Spatie fires those events only with `events_enabled` set to `true` in `config/permission.php` (off by default); see [Roles: audit log](roles.md#audit-log-of-role--permission-changes). |
 | `impersonation` | `true` | Logs `impersonation.started` / `impersonation.stopped`. |
 | `authz_denials` | `false` | Records denied gate decisions as `authz.denied`, while the Martis guard is the request's guard. Off by default: turning it on can be noisy on a busy app. |
 | `authz_denials_include_viewany` | `false` | When `authz_denials` is on, also record `viewAny` denials. Off by default because index pages probe `viewAny` on every request. |
