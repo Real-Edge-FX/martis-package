@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.1] — 2026-10-06
+
+Dependency release: the first monthly batch under a new Dependabot policy, plus `spatie/laravel-permission` 8 support. No breaking change. Hosts that type-check extensions against the published declarations should republish them (`php artisan vendor:publish --tag=martis-extension-shims --force`) to pick up the new `@tanstack/react-query` and `i18next` types. Test count: 5172 Pest + 1969 Vitest = 7141 passing (unchanged from v2.5.0).
+
+### Changed
+
+- `spatie/laravel-permission` 8 is supported (tested with 8.3.0) alongside 6.20+ and 7. Martis does not implement Spatie's `Role` or `Permission` contracts, so the v8 `BackedEnum|string` signature change needs no code change, and the audit listener still wires to the `...Event` classes.
+- npm minor and patch updates: `@tanstack/react-query` 5.99.0 → 5.104.1, `i18next` 26.0.4 → 26.4.2, `react-i18next` 17.0.2 → 17.0.15, `lucide-react` 1.8.0 → 1.51.0, the CodeMirror packages, `trix` 2.1.19, `@testing-library/*`, `@typescript-eslint/*` 8.71.0, `autoprefixer`, `rollup`, `sass`. The SPA in `public/` is rebuilt with them.
+- The extension declarations for `@tanstack/react-query` keep `Enabled` and `NoInfer`, which `@tanstack/query-core` 5.100.13+ dropped (`Enabled` became `QueryBooleanOption`; `NoInfer` is TypeScript's built-in): both stay as compatibility aliases, so no extension that imports them breaks. The 8 types the library added are exported too.
+- Composer minor and patch updates of the dev toolchain and test matrix: `laravel/framework` 13.34.0, `dedoc/scramble` 0.13.47, `phpstan/phpstan` 2.2.16, `laravel/pint` 1.32.1, `orchestra/testbench` 11.3.0, `laravel/scout` 11.8.0, `laravel/socialite` 5.31.0.
+- CI actions: `actions/checkout` v7.0.1, `actions/cache` v6.1.0, `actions/setup-node` v7.0.0, still pinned to commit SHAs.
+- Dependabot runs monthly, opens one grouped PR per ecosystem, and no longer opens PRs for npm or composer major versions, which are planned migrations. `CONTRIBUTING.md` describes the dependency flow and who does what in a release.
+
+### Fixed
+
+- PHPStan 2.2 findings: the policy resolver's discovery and the ability-cache key types match what callers pass, and the accent preset list is built as a list whatever the enum case order.
+- `docs/roles.md` and `docs/configuration.md` now say that the role and permission audit log needs Spatie's `events_enabled` set to `true` in `config/permission.php`: Spatie fires no events by default, so `martis_action_events` recorded nothing.
+
 ## [2.5.0] — 2026-10-06
 
 The docs MCP server moves to the official `laravel/mcp` package, so `composer require martis/martis` installs on a fresh Laravel 13 app without downgrading `symfony/finder` or `guzzlehttp/guzzle`. Read [Upgrading to v2.5.0 from v2.4.x](docs/upgrading.md#upgrading-to-v250-from-v24x): `martis:mcp-serve` is gone, the default transport is stdio, Laravel 12 apps need 12.41.1, and a published `config/martis.php` needs its `mcp` block replaced. Test count: 5172 Pest + 1969 Vitest = 7141 passing.

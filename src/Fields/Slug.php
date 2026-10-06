@@ -137,7 +137,7 @@ class Slug extends Field
      * Use `->badgeColor('#hex')` instead when you want a custom
      * colour — that helper sets `custom` here for you.
      *
-     * @param  'default'|'muted'|'accent'|'success'|'warning'|'danger'|'custom'  $variant
+     * @param  string  $variant  One of 'default', 'muted', 'accent', 'success', 'warning', 'danger', 'custom'; anything else falls back to 'default'
      */
     public function badgeVariant(string $variant): static
     {

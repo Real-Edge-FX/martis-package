@@ -147,7 +147,7 @@ class RequestScopedAbilityCache
      * closure, any other object. Cache keys must be deterministic, so such a
      * call is skipped rather than cached wrong.
      *
-     * @param  array<int, mixed>  $arguments
+     * @param  array<array-key, mixed>  $arguments  Only the order of the values matters, never the keys
      */
     protected function makeKey(string $userKey, string $ability, array $arguments): ?string
     {

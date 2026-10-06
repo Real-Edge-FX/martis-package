@@ -20,9 +20,13 @@ enum AccentColor: string
     /** @return list<string> */
     public static function presetValues(): array
     {
-        return array_values(array_filter(
-            array_map(fn (self $c) => $c->value, self::cases()),
-            fn (string $v) => $v !== self::Custom->value,
-        ));
+        $values = [];
+        foreach (self::cases() as $case) {
+            if ($case !== self::Custom) {
+                $values[] = $case->value;
+            }
+        }
+
+        return $values;
     }
 }
