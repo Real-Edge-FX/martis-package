@@ -91,149 +91,86 @@ The guard is Claude-Code specific; other agents use different hook mechanisms.
 
 ## The MCP server
 
-`php artisan martis:mcp-serve` is a stdio MCP server. Wire it into your agent's MCP config and the agent gets three tools:
+Martis ships a docs MCP server built on [`laravel/mcp`](https://github.com/laravel/mcp). Wire it into your agent's MCP config and the agent gets three read-only tools:
 
-- `martis_doc_list` — every Martis doc with a one-line description.
-- `martis_doc_read` — full markdown of one doc by slug.
-- `martis_doc_search` — top matches for a query, with snippets.
+- `martis_doc_list`: every Martis doc with a one-line description.
+- `martis_doc_read`: the full markdown of one doc by slug.
+- `martis_doc_search`: the top matches for a query, with snippets.
 
-The server reads `MARTIS_MCP_ENABLED` at boot. When `false`, the tools return a short notice instead of running. This lets you toggle the integration on and off via `.env` without editing your agent's MCP config.
+`MARTIS_MCP_ENABLED` is read on every tool call. When it is `false` the server still lists the three tools, and each one answers with a short notice (`enabled: false`) instead of running. This toggles the integration from `.env` without editing your agent's MCP config.
 
-## Running the MCP over HTTP (default since v1.15.0)
+A running stdio process keeps the configuration it booted with: after editing `.env`, restart the agent's MCP server. Under `php artisan config:cache`, run `php artisan config:clear` first (or recache), since a cached config ignores `.env`.
 
-`martis:mcp-serve` ships two transports.
+The server speaks two transports, chosen with `MARTIS_MCP_TRANSPORT`:
 
-- **HTTP (default for new installs since v1.15.0)** — a long-running server bound to `127.0.0.1:8091/mcp`. The MCP client connects by URL. Right when the MCP server is a shared service — multiple agents, multiple sessions, containers, or any environment where spawning PHP from the agent client is awkward. `martis:agents --with-mcp` now writes the URL entry into `.mcp.json` and `MARTIS_MCP_TRANSPORT=http` into `.env` by default.
-- **stdio (legacy / opt-in fallback)** — the MCP client spawns a PHP subprocess on demand and tears it down at session end. Right for single-agent dev loops with zero infrastructure. To opt in, set `MARTIS_MCP_TRANSPORT=stdio` in `.env` before running `martis:agents --with-mcp`. Existing v1.12.x / v1.13.x / v1.14.x consumers whose `.mcp.json` already carries the stdio spawn entry keep working unchanged.
-
-### When to use which
-
-| | HTTP (default) | stdio (legacy) |
+| | stdio (default) | HTTP |
 |---|---|---|
-| Local dev, single agent | ✓ long-running, hot-reconnect | ✓ zero infra |
-| Multiple agents / sessions | ✓ long-running, shared | spawn-per-session, slow |
-| Container deploy | ✓ ships PHP once, exposes URL | needs PHP in client image |
-| Hot-reload after package upgrade | ✓ restart server, agents reconnect | client must restart |
-| Network exposure | ✓ via reverse proxy | n/a |
+| How the agent connects | spawns `php artisan mcp:start martis-docs` | calls a route of your app |
+| Needs | the PHP CLI | the app served at `APP_URL`, and a token outside `local` |
+| Right for | local development, one agent per session | a shared endpoint for several agents or machines |
 
-### Zero-to-running (HTTP)
+### stdio (default)
+
+```bash
+php artisan martis:agents --with-mcp
+```
+
+writes this entry (Claude Code `.mcp.json`; Cursor, Gemini and Codex get the same server in their own file):
+
+```json
+{ "mcpServers": { "martis": { "command": "php", "args": ["artisan", "mcp:start", "martis-docs"], "cwd": "/absolute/path/to/your/app" } } }
+```
+
+Each agent session spawns one process, which boots Laravel once and exits when the agent closes it.
+
+### HTTP
 
 ```bash
 # .env
 MARTIS_MCP_TRANSPORT=http
-MARTIS_MCP_HOST=0.0.0.0
-MARTIS_MCP_PORT=8091
-MARTIS_MCP_HEALTH_PORT=8092
-MARTIS_MCP_HTTP_TOKEN=  # optional bearer token (recommended whenever the host is not a loopback address)
+MARTIS_MCP_HTTP_TOKEN=   # required outside the local environment: openssl rand -hex 32
 
-# 1. Wire each agent's .mcp.json with the URL entry
 php artisan martis:agents --with-mcp
-
-# 2. Run the server long-lived (foreground for dev; systemd / compose for prod)
-php artisan martis:mcp-serve
 ```
 
-The `martis:agents` command writes a URL entry into `.mcp.json` like:
+With `MARTIS_MCP_TRANSPORT=http` Martis registers a `POST` route on your app at `/{MARTIS_PATH}/mcp` (`/martis/mcp` by default; `MARTIS_MCP_PATH` changes it). The route sits outside the `web` middleware group: no session, no CSRF. `GET` and `DELETE` on the same URL answer 405: only `POST` is the MCP endpoint. `martis:agents` writes a URL entry built from `APP_URL` and the path:
 
 ```json
-{ "mcpServers": { "martis": { "type": "http", "url": "http://localhost:8091/mcp" } } }
+{ "mcpServers": { "martis": { "type": "http", "url": "https://your-app.test/martis/mcp" } } }
 ```
 
-`MARTIS_MCP_URL` overrides the auto-built URL. Without it, the value is built from host+port+path with `0.0.0.0` → `localhost`.
+Set `MARTIS_MCP_URL` when the agent reaches the app at another address than `APP_URL` (for example `http://localhost:8000/martis/mcp` from the host when the app runs in Docker).
 
-### docker-compose
+### Authentication
 
-```yaml
-services:
-  martis-mcp:
-    image: php:8.4-cli
-    working_dir: /app
-    volumes: ["./:/app"]
-    command: ["php", "artisan", "martis:mcp-serve"]
-    environment:
-      MARTIS_MCP_TRANSPORT: http
-      MARTIS_MCP_HOST: 0.0.0.0
-      MARTIS_MCP_PORT: 8091
-      MARTIS_MCP_HEALTH_PORT: 8092
-      MARTIS_MCP_HTTP_TOKEN: ${MARTIS_MCP_HTTP_TOKEN}
-    ports: ["8091:8091"]
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8092/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-    restart: unless-stopped
-```
+- With `MARTIS_MCP_HTTP_TOKEN` set, a request passes only with `Authorization: Bearer <token>` (the scheme is case-insensitive, the token is compared exactly and in constant time); anything else gets `401 {"error":"unauthorized"}` with a `WWW-Authenticate: Bearer` challenge.
+- Without a token the route serves only the `local` and `testing` environments. In any other environment it answers 401 with a message naming `MARTIS_MCP_HTTP_TOKEN`, so a deployed app never exposes the MCP unauthenticated.
 
-### systemd
-
-```ini
-# /etc/systemd/system/martis-mcp.service
-[Unit]
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=/var/www/your-app
-EnvironmentFile=/var/www/your-app/.env
-ExecStart=/usr/bin/php artisan martis:mcp-serve
-Restart=on-failure
-RestartSec=3s
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### Auth posture
-
-The docs are public (anyone can `composer require martis/martis` and read them). When `MARTIS_MCP_HTTP_TOKEN` is unset, the HTTP endpoint accepts any caller. Set the token whenever you bind to a non-loopback host:
-
-```bash
-MARTIS_MCP_HTTP_TOKEN=$(openssl rand -hex 32)
-```
-
-Whenever the host is not a loopback address and no token is set, `martis:mcp-serve` prints a warning at boot (v2.4.0+; before, only the literal `0.0.0.0` did). A loopback address is `127.0.0.0/8`, `::1` (also written `[::1]`, in full, or IPv4-mapped) or `localhost`; everything else counts as public: `0.0.0.0`, `::`, `[::]`, a LAN or public address and any host name. The `/health` endpoint has no authentication, so with `MARTIS_MCP_HEALTH_PORT` set a public host earns a second warning about it, token or not. Suppress both with `--no-warn-on-public` if you front the server with an authenticated reverse proxy; the option only silences the warnings, it does not change what the server accepts.
-
-### `/health` endpoint
-
-Opt-in: set `MARTIS_MCP_HEALTH_PORT=8092` (or pass `--health-port=8092`). The endpoint lives at `GET /health` and returns:
+`martis:agents` never writes the token into the agent's config, which is usually committed. Add the header by hand where your agent keeps secrets, for example in Claude Code:
 
 ```json
-{
-  "status": "ok",
-  "version": "1.13.0",
-  "transport": "http",
-  "uptime_s": 1234,
-  "tool_count": 3
-}
+{ "mcpServers": { "martis": { "type": "http", "url": "https://your-app.test/martis/mcp", "headers": { "Authorization": "Bearer ${MARTIS_MCP_HTTP_TOKEN}" } } } }
 ```
 
-`status` becomes `"disabled"` and `tool_count` becomes `0` when `MARTIS_MCP_ENABLED=false`.
+Liveness is your app's own health route (`/up` in a default Laravel app): the MCP has no separate `/health` endpoint.
 
 ### Troubleshooting
 
-- **401 unauthorized**: token mismatch. Check that the client sends `Authorization: Bearer <token>` and the value matches `MARTIS_MCP_HTTP_TOKEN`.
-- **"could not bind to port"**: another process holds the port. Pick a different one with `--port=...`.
-- **`MARTIS_MCP_ENABLED=false`**: handshake still works (clients see the server) but `tools/list` returns `[]`. Useful for emergency disabling without un-wiring.
-- **Logs**: go to stderr in both transports. systemd captures via `journalctl -u martis-mcp`; compose captures via `docker compose logs -f martis-mcp`.
+- **`Command "martis:mcp-serve" is not defined`**: the agent config predates v2.5.0. Run `php artisan martis:agents --with-mcp` again.
+- **401 with a message about `MARTIS_MCP_HTTP_TOKEN`**: the app is not in the `local` environment and has no token. Set one.
+- **401 `{"error":"unauthorized"}`**: the client sends no `Authorization: Bearer <token>` header, or a different token.
+- **404 on the MCP URL**: `MARTIS_MCP_TRANSPORT` is not `http` in the app's environment, or the routes were cached before you set it (`php artisan route:clear`), or your published `config/martis.php` still has the pre-v2.5.0 `mcp` block (`host`, `port`, `health_port`): Martis then skips the route and logs a warning naming those keys. See [Upgrading to v2.5.0](upgrading.md#upgrading-to-v250-from-v24x).
+- **Every tool answers `enabled: false`**: `MARTIS_MCP_ENABLED=false`.
+- **Boot fails with `MARTIS_MCP_TRANSPORT must be "stdio" or "http"`**: fix the value; leave it unset for stdio.
+- **`martis:agents` refuses to wire the MCP and names `MARTIS_MCP_HOST`, `MARTIS_MCP_PORT` or `MARTIS_MCP_HEALTH_PORT`**: those settings belonged to the standalone daemon removed in v2.5.0. Delete them.
+
+  The same refusal applies when your published `config/martis.php` still has the old `mcp` block: replace it with the package's (`vendor/martis/martis/config/martis.php`) or delete it.
+
+  The command exits with status 1 before writing anything, also with `--dry-run`. Runs that do not wire the MCP (`--without-mcp`, `--mcp-unwire`) are not blocked.
 
 ### Manual MCP wiring
 
-If you prefer to wire MCP yourself, add this to your agent's MCP config (`.mcp.json`, `.cursor/mcp.json`, etc.):
-
-```json
-{
-  "mcpServers": {
-    "martis": {
-      "command": "php",
-      "args": ["artisan", "martis:mcp-serve"],
-      "cwd": "/absolute/path/to/your/laravel/app"
-    }
-  }
-}
-```
-
-Codex uses a TOML format under `[mcp_servers.martis]` instead of `mcpServers.martis`. The `martis:agents --mcp-only` flow does this for you.
+To wire the MCP yourself, add the stdio entry above (or the URL entry for HTTP) to your agent's MCP config (`.mcp.json`, `.cursor/mcp.json`, `.gemini/settings.json`). Codex uses TOML under `[mcp_servers.martis]` instead of `mcpServers.martis`. `martis:agents --mcp-only` does this for you.
 
 ## Detection table
 

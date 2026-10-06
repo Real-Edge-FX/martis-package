@@ -13,7 +13,7 @@ use Symfony\Component\Process\Process;
 
 // The test application runs in the testbench skeleton under vendor/, which
 // keeps what every run leaves in it, and `vendor/bin/testbench` leaves a
-// `.env` there when it is killed (see McpServeCommandTransportTest). Loaded into
+// `.env` there when it is killed (see TestCase::$loadEnvironmentVariables). Loaded into
 // the test application, that file switched the cache store to `database`
 // and the session driver to `cookie`: 1045 tests failed locally while CI,
 // which installs a fresh vendor/ on every run, stayed green. CI never has

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** the docs MCP server runs on the official `laravel/mcp` package instead of `php-mcp/server` and ReactPHP, so a fresh Laravel 13 app installs Martis without downgrading `symfony/finder` or `guzzlehttp/guzzle`. Over stdio agents spawn `php artisan mcp:start martis-docs`; over HTTP (`MARTIS_MCP_TRANSPORT=http`) the server is a route of the app at `/{MARTIS_PATH}/mcp`, behind `MARTIS_MCP_HTTP_TOKEN` (required outside the local environment). The default transport is now `stdio`. The three tools keep their names, inputs and payloads. See [Upgrading to v2.5.0](docs/upgrading.md#upgrading-to-v250-from-v24x).
+- **Breaking:** Laravel 12 apps need `laravel/framework` 12.41.1 or later, and `laravel/mcp` ^1.0 conflicts with `laravel/boost` before 2.9.0 and with a host's own `laravel/mcp` 0.x (update them together).
+- A `config/martis.php` published before v2.5.0 keeps the old `mcp` block (`host`, `port`, `health_port`): Martis then skips the HTTP route and logs a warning, and `martis:agents` refuses to wire the MCP, until the block is replaced or deleted.
+
+### Removed
+
+- **Breaking:** `php artisan martis:mcp-serve`, its standalone HTTP daemon and `/health` endpoint, and the `MARTIS_MCP_HOST`, `MARTIS_MCP_PORT` and `MARTIS_MCP_HEALTH_PORT` variables. `martis:agents` refuses to wire the MCP while one of them is set.
+
+### Fixed
+
+- `docs/agent-guidelines.md` said `tools/list` returns `[]` with `MARTIS_MCP_ENABLED=false` and that the toggle is read at boot; the tools stay listed and the toggle is read on every call.
+
 ## [2.4.0] — 2026-10-02
 
 Security release: every finding of the October 2026 security audit of `main` (126 findings, from high to informational) is closed. Several defaults change to fail closed. Read [Upgrading to v2.4.0 from v2.3.x](docs/upgrading.md#upgrading-to-v240-from-v23x) before upgrading: the panel gate, `APP_URL`, File uploads, lenses, BelongsTo without a resource, magic links, SSO remember-me and the profile email change concern most apps.

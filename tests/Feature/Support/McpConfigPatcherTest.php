@@ -47,7 +47,7 @@ if (! function_exists('codexProfile')) {
 
 it('creates a JSON MCP config when none exists', function () {
     $patcher = new McpConfigPatcher($this->base);
-    $entry = ['command' => 'php', 'args' => ['artisan', 'martis:mcp-serve'], 'cwd' => $this->base];
+    $entry = ['command' => 'php', 'args' => ['artisan', 'mcp:start', 'martis-docs'], 'cwd' => $this->base];
 
     $written = $patcher->patch(claudeProfile(), $entry);
 
@@ -63,7 +63,7 @@ it('preserves existing MCP servers when patching', function () {
         ],
     ]));
     $patcher = new McpConfigPatcher($this->base);
-    $patcher->patch(claudeProfile(), ['command' => 'php', 'args' => ['artisan', 'martis:mcp-serve']]);
+    $patcher->patch(claudeProfile(), ['command' => 'php', 'args' => ['artisan', 'mcp:start', 'martis-docs']]);
 
     $payload = json_decode((string) file_get_contents($this->base.'/.mcp.json'), true);
     expect($payload['mcpServers'])->toHaveKeys(['martis', 'other']);
@@ -71,7 +71,7 @@ it('preserves existing MCP servers when patching', function () {
 
 it('is idempotent across multiple runs', function () {
     $patcher = new McpConfigPatcher($this->base);
-    $entry = ['command' => 'php', 'args' => ['artisan', 'martis:mcp-serve']];
+    $entry = ['command' => 'php', 'args' => ['artisan', 'mcp:start', 'martis-docs']];
 
     $patcher->patch(claudeProfile(), $entry);
     $first = (string) file_get_contents($this->base.'/.mcp.json');
@@ -83,7 +83,7 @@ it('is idempotent across multiple runs', function () {
 
 it('writes a TOML config for codex with the mcp_servers root', function () {
     $patcher = new McpConfigPatcher($this->base);
-    $entry = ['command' => 'php', 'args' => ['artisan', 'martis:mcp-serve'], 'cwd' => '/abs'];
+    $entry = ['command' => 'php', 'args' => ['artisan', 'mcp:start', 'martis-docs'], 'cwd' => '/abs'];
 
     $patcher->patch(codexProfile(), $entry);
 
@@ -130,7 +130,7 @@ TOML;
     file_put_contents($this->base.'/.codex/config.toml', $toml);
 
     $patcher = new McpConfigPatcher($this->base);
-    $entry = ['command' => 'php', 'args' => ['artisan', 'martis:mcp-serve'], 'cwd' => $this->base];
+    $entry = ['command' => 'php', 'args' => ['artisan', 'mcp:start', 'martis-docs'], 'cwd' => $this->base];
     $patcher->patch(codexProfile(), $entry);
 
     // The "other" section args must still be intact after patching.

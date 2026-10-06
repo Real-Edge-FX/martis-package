@@ -733,7 +733,7 @@ The package exposes the following `--tag` values for `vendor:publish`:
 
 ## Available Artisan Commands
 
-The package ships 36 commands (plus the aliases `martis:override` → `martis:component` and `martis:make-policy` → `martis:policy`). The full list:
+The package ships 35 commands (plus the aliases `martis:override` → `martis:component` and `martis:make-policy` → `martis:policy`). The full list:
 
 ### Setup & maintenance
 
@@ -747,8 +747,7 @@ The package ships 36 commands (plus the aliases `martis:override` → `martis:co
 | `martis:list-overrides` | Print the component keys the PHP layer declares (Tools, Actions with a custom component, resources); `--frontend` checks that your extension registers them |
 | `martis:list-env-vars` | List every `MARTIS_*` env var the published config reads, with its default and config key (`--json` for machine output) |
 | `martis:attachments:prune` | Delete the Trix / Markdown uploads no record references any more (`--dry-run`, `--hours`, `--disk`; v2.4.0) |
-| `martis:agents` | Generate guidelines for AI coding agents (`AGENTS.md`, `CLAUDE.md`, ...) and optionally wire the Martis MCP server. With `--no-interaction` it overwrites existing files without asking |
-| `martis:mcp-serve` | Serve the Martis docs as an MCP server (stdio or HTTP transport) |
+| `martis:agents` | Generate guidelines for AI coding agents (`AGENTS.md`, `CLAUDE.md`, ...) and optionally wire the Martis MCP server. With `--no-interaction` it overwrites existing files without asking; the docs MCP itself runs with `php artisan mcp:start martis-docs` (stdio) or as an app route (HTTP) |
 | `martis:invitations` | Scaffold the consumer-owned invitations admin UI (resource, actions, policy, notification); `--no-migrate` / `--no-publish` skip the migration steps |
 
 ### Cache control
