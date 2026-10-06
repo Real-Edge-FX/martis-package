@@ -257,9 +257,17 @@ class AgentsCommand extends Command
         foreach ($targets as $relative) {
             $absolute = base_path().'/'.$relative;
             $exists = file_exists($absolute);
-            if ($exists && ! $this->option('force') && $this->canPrompt()) {
-                $confirmed = confirm("`{$relative}` already exists. Overwrite?", default: false);
-                if (! $confirmed) {
+            if ($exists && ! $this->option('force')) {
+                // Without a terminal nobody can confirm the overwrite, so the
+                // app's own file stays, as a generator leaves an existing
+                // file alone ("already exists", exit 0).
+                if (! $this->canPrompt()) {
+                    $this->components->error("{$relative} already exists. Pass --force to overwrite it.");
+
+                    continue;
+                }
+
+                if (! confirm("`{$relative}` already exists. Overwrite?", default: false)) {
                     $this->components->info("Skipped {$relative}.");
 
                     continue;

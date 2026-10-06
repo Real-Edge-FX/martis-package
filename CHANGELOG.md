@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.5.0] — 2026-10-06
 
-The docs MCP server moves to the official `laravel/mcp` package, so `composer require martis/martis` installs on a fresh Laravel 13 app without downgrading `symfony/finder` or `guzzlehttp/guzzle`. Read [Upgrading to v2.5.0 from v2.4.x](docs/upgrading.md#upgrading-to-v250-from-v24x): `martis:mcp-serve` is gone, the default transport is stdio, Laravel 12 apps need 12.41.1, and a published `config/martis.php` needs its `mcp` block replaced. Test count: 5169 Pest + 1969 Vitest = 7138 passing.
+The docs MCP server moves to the official `laravel/mcp` package, so `composer require martis/martis` installs on a fresh Laravel 13 app without downgrading `symfony/finder` or `guzzlehttp/guzzle`. Read [Upgrading to v2.5.0 from v2.4.x](docs/upgrading.md#upgrading-to-v250-from-v24x): `martis:mcp-serve` is gone, the default transport is stdio, Laravel 12 apps need 12.41.1, and a published `config/martis.php` needs its `mcp` block replaced. Test count: 5172 Pest + 1969 Vitest = 7141 passing.
 
 ### Changed
 
@@ -23,6 +23,7 @@ The docs MCP server moves to the official `laravel/mcp` package, so `composer re
 
 ### Fixed
 
+- **`martis:agents` keeps an existing guideline file without a terminal.** Without `--force` and with no terminal to confirm (an agent, CI, `docker compose exec -T`), it rewrote the app's own `AGENTS.md` and `CLAUDE.md`. It now prints `<file> already exists` and keeps the file, as the generators do; `--force` still overwrites.
 - `docs/agent-guidelines.md` said `tools/list` returns `[]` with `MARTIS_MCP_ENABLED=false` and that the toggle is read at boot; the tools stay listed and the toggle is read on every call.
 
 ## [2.4.0] — 2026-10-02

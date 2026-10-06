@@ -132,3 +132,59 @@ it('is idempotent across consecutive runs', function () {
     expect((string) file_get_contents($this->base.'/AGENTS.md'))->toBe($firstAgents);
     expect((string) file_get_contents($this->base.'/.mcp.json'))->toBe($firstMcp);
 });
+
+/*
+ * Without a terminal there is nobody to confirm an overwrite, so an existing
+ * guideline file stays as it is unless --force is passed, as the generators
+ * leave an existing file alone ("already exists", exit 0). Before, a run
+ * from an agent, CI or `docker compose exec -T` rewrote the app's own
+ * AGENTS.md and CLAUDE.md even without --force.
+ */
+it('leaves existing guideline files alone without a terminal unless --force is passed', function () {
+    file_put_contents($this->base.'/AGENTS.md', "# The app's own agent rules\n");
+    file_put_contents($this->base.'/CLAUDE.md', "# The app's own Claude rules\n");
+
+    $exit = Artisan::call('martis:agents', [
+        '--agent' => ['claude'],
+        '--with-mcp' => true,
+        '--no-interaction' => true,
+    ]);
+    $output = Artisan::output();
+
+    expect($exit)->toBe(0)
+        ->and((string) file_get_contents($this->base.'/AGENTS.md'))->toBe("# The app's own agent rules\n")
+        ->and((string) file_get_contents($this->base.'/CLAUDE.md'))->toBe("# The app's own Claude rules\n")
+        ->and($output)->toContain('AGENTS.md already exists')
+        ->and($output)->toContain('CLAUDE.md already exists')
+        ->and($output)->toContain('--force')
+        // The rest of the run still happens: the MCP is wired.
+        ->and(file_exists($this->base.'/.mcp.json'))->toBeTrue();
+});
+
+it('writes a missing guideline file without --force and keeps an existing one', function () {
+    file_put_contents($this->base.'/AGENTS.md', "# The app's own agent rules\n");
+
+    Artisan::call('martis:agents', [
+        '--agent' => ['claude'],
+        '--without-mcp' => true,
+        '--no-interaction' => true,
+    ]);
+
+    expect((string) file_get_contents($this->base.'/AGENTS.md'))->toBe("# The app's own agent rules\n")
+        ->and((string) file_get_contents($this->base.'/CLAUDE.md'))->toContain('Working with Martis');
+});
+
+it('overwrites existing guideline files with --force', function () {
+    file_put_contents($this->base.'/AGENTS.md', "# The app's own agent rules\n");
+    file_put_contents($this->base.'/CLAUDE.md', "# The app's own Claude rules\n");
+
+    Artisan::call('martis:agents', [
+        '--agent' => ['claude'],
+        '--without-mcp' => true,
+        '--force' => true,
+        '--no-interaction' => true,
+    ]);
+
+    expect((string) file_get_contents($this->base.'/AGENTS.md'))->toContain('Working with Martis')
+        ->and((string) file_get_contents($this->base.'/CLAUDE.md'))->toContain('Working with Martis');
+});
