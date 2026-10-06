@@ -18361,9 +18361,6 @@ trix-editor [data-trix-mutable] ::-moz-selection, trix-editor [data-trix-mutable
 trix-editor [data-trix-cursor-target]::-moz-selection {
   background: none;
 }
-trix-editor [data-trix-mutable] ::-moz-selection, trix-editor [data-trix-mutable]::-moz-selection, trix-editor [data-trix-cursor-target]::-moz-selection {
-  background: none;
-}
 trix-editor [data-trix-mutable] ::selection, trix-editor [data-trix-mutable]::selection,
 trix-editor [data-trix-cursor-target]::selection {
   background: none;
