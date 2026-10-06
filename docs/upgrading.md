@@ -17,7 +17,7 @@ v2.5.0 serves the docs MCP server through the official [`laravel/mcp`](https://g
 
 ### The docs MCP server
 
-- `php artisan martis:mcp-serve` is removed. Over stdio an agent now spawns `php artisan mcp:start martis-docs`; over HTTP the server is a route of your app. Run `php artisan martis:agents --with-mcp` again to rewrite your agents' MCP config.
+- `php artisan martis:mcp-serve` is removed. Over stdio an agent now spawns `php artisan mcp:start martis-docs`; over HTTP the server is a route of your app. Run `php artisan martis:agents --mcp-only` to rewrite your agents' MCP config and the `.env` block without touching your guideline files (`AGENTS.md`, `CLAUDE.md`, ...).
 - The default transport is now `stdio`. An `.env` written by an earlier `martis:agents` usually carries `MARTIS_MCP_TRANSPORT=http`: with it, Martis registers the route `POST /{MARTIS_PATH}/mcp` (`/martis/mcp` by default), which outside the `local` environment requires `MARTIS_MCP_HTTP_TOKEN`. Set `MARTIS_MCP_TRANSPORT=stdio` (or delete the line) if you do not need HTTP.
 - The default HTTP path changes from `/mcp` to `/{MARTIS_PATH}/mcp`, and the URL `martis:agents` writes is built from `APP_URL` instead of a host and port.
 - `MARTIS_MCP_HOST`, `MARTIS_MCP_PORT` and `MARTIS_MCP_HEALTH_PORT` are removed with the standalone daemon and its `/health` endpoint. Delete them (commented placeholders an earlier `martis:agents` wrote can stay or go). `martis:agents` refuses to wire the MCP while one of them is set.

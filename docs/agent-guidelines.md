@@ -156,7 +156,7 @@ Liveness is your app's own health route (`/up` in a default Laravel app): the MC
 
 ### Troubleshooting
 
-- **`Command "martis:mcp-serve" is not defined`**: the agent config predates v2.5.0. Run `php artisan martis:agents --with-mcp` again.
+- **`Command "martis:mcp-serve" is not defined`**: the agent config predates v2.5.0. Run `php artisan martis:agents --mcp-only`, which rewrites only the MCP config and the `.env` block.
 - **401 with a message about `MARTIS_MCP_HTTP_TOKEN`**: the app is not in the `local` environment and has no token. Set one.
 - **401 `{"error":"unauthorized"}`**: the client sends no `Authorization: Bearer <token>` header, or a different token.
 - **404 on the MCP URL**: `MARTIS_MCP_TRANSPORT` is not `http` in the app's environment, or the routes were cached before you set it (`php artisan route:clear`), or your published `config/martis.php` still has the pre-v2.5.0 `mcp` block (`host`, `port`, `health_port`): Martis then skips the route and logs a warning naming those keys. See [Upgrading to v2.5.0](upgrading.md#upgrading-to-v250-from-v24x).
