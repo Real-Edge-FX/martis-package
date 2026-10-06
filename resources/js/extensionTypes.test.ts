@@ -143,6 +143,16 @@ function libraryTypeExports(specifiers: string[]): Record<string, string[]> {
     }))
 }
 
+/**
+ * Types a third-party shim declares that its library no longer exports: kept
+ * under their old names so an extension that imports them keeps compiling.
+ * `@tanstack/query-core` renamed `Enabled` to `QueryBooleanOption` and dropped
+ * its own `NoInfer` for TypeScript's built-in one (5.100.13).
+ */
+const COMPAT_TYPES: Record<string, string[]> = {
+    'tanstack-react-query': ['Enabled', 'NoInfer'],
+}
+
 const TYPES_ONLY = [{ shim: 'i18next', specifier: 'i18next' }]
 
 describe('the extension shim declarations', () => {
@@ -166,7 +176,7 @@ describe('the extension shim declarations', () => {
 
         expect(declaration.values).toEqual([...named.keys(), 'default'].sort())
         // The runtime's own types, or every type of the library.
-        const types = shim === 'runtime' ? typeExports(runtimeSource) : (libraryTypes[library ?? specifier] ?? [])
+        const types = shim === 'runtime' ? typeExports(runtimeSource) : [...(libraryTypes[library ?? specifier] ?? []), ...(COMPAT_TYPES[shim] ?? [])].sort()
         expect(declaration.types).toEqual(types)
         // `martis:install` adds react, react-dom and @phosphor-icons/react to the
         // consumer; the runtime reaches the third-party types through the

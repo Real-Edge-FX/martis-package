@@ -38,7 +38,7 @@ class PolicyResolver
      * Memoised discovery outcome per entity class. `null` means
      * "resolution ran, no policy".
      *
-     * @var array<class-string, class-string|null>
+     * @var array<class-string, string|null>
      */
     private array $resolved = [];
 
@@ -60,7 +60,7 @@ class PolicyResolver
      * only the first time the entity is seen by this resolver.
      *
      * @param  class-string  $entity  Concrete Resource / Tool / Dashboard class
-     * @param  Closure(): (class-string|null)  $discover  Returns the policy class, or null for "no policy"
+     * @param  Closure(): (string|null)  $discover  Returns the policy class (or any container binding id), or null for "no policy"
      * @return object|null The policy instance, or null when the entity has no policy
      */
     public function resolve(string $entity, Closure $discover): ?object

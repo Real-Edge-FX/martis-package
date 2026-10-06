@@ -7,6 +7,7 @@
  * export.
  */
 import * as TanstackReactQuery from '@tanstack/react-query'
+import type { DefaultError, QueryBooleanOption, QueryKey } from '@tanstack/react-query'
 
 export {
   useQuery,
@@ -50,7 +51,6 @@ export type {
   DehydratedState,
   DehydrateOptions,
   DistributiveOmit,
-  Enabled,
   EnsureInfiniteQueryDataOptions,
   EnsureQueryDataOptions,
   FetchInfiniteQueryOptions,
@@ -65,6 +65,7 @@ export type {
   InferDataFromTag,
   InferErrorFromTag,
   InfiniteData,
+  InfiniteQueryExecuteOptions,
   InfiniteQueryObserverBaseResult,
   InfiniteQueryObserverLoadingErrorResult,
   InfiniteQueryObserverLoadingResult,
@@ -81,7 +82,9 @@ export type {
   InvalidateQueryFilters,
   ManagedTimerId,
   MutateFunction,
+  MutateFunctionRest,
   MutateOptions,
+  MutationCacheConfig,
   MutationCacheNotifyEvent,
   MutationFilters,
   MutationFunction,
@@ -100,7 +103,6 @@ export type {
   MutationState,
   MutationStatus,
   NetworkMode,
-  NoInfer,
   NonUndefinedGuard,
   NotifyEvent,
   NotifyEventType,
@@ -112,6 +114,8 @@ export type {
   QueriesOptions,
   QueriesPlaceholderDataFunction,
   QueriesResults,
+  QueryBooleanOption,
+  QueryCacheConfig,
   QueryCacheNotifyEvent,
   QueryClientConfig,
   QueryClientProviderProps,
@@ -120,11 +124,13 @@ export type {
   QueryErrorResetBoundaryFunction,
   QueryErrorResetBoundaryProps,
   QueryErrorResetFunction,
+  QueryExecuteOptions,
   QueryFilters,
   QueryFunction,
   QueryFunctionContext,
   QueryKey,
   QueryKeyHashFunction,
+  QueryKeyWithDataTag,
   QueryMeta,
   QueryObserverBaseResult,
   QueryObserverLoadingErrorResult,
@@ -168,6 +174,7 @@ export type {
   UseMutateFunction,
   UseMutationOptions,
   UseMutationResult,
+  UsePrefetchInfiniteQueryOptions,
   UsePrefetchQueryOptions,
   UseQueryOptions,
   UseQueryResult,
@@ -177,5 +184,27 @@ export type {
   UseSuspenseQueryResult,
   WithRequired,
 } from '@tanstack/react-query'
+
+// Two types @tanstack/query-core dropped in 5.x minors, kept for the
+// extensions that import them from `@tanstack/react-query` (these
+// declarations are the typing surface of an extension build):
+//
+// - `Enabled` was renamed `QueryBooleanOption` (the same definition: a boolean,
+//   or a function of the query returning one).
+// - `NoInfer` was removed in 5.100.13 in favour of TypeScript's built-in
+//   `NoInfer` (TS >= 5.4). The alias below is that built-in, declared under
+//   another name and exported as `NoInfer`, so the library types that use the
+//   global `NoInfer` keep resolving to it in the bundled declarations.
+//
+// Drop both at the next breaking release of the shim declarations.
+export type Enabled<
+  TQueryFnData = unknown,
+  TError = DefaultError,
+  TData = TQueryFnData,
+  TQueryKey extends QueryKey = QueryKey,
+> = QueryBooleanOption<TQueryFnData, TError, TData, TQueryKey>
+
+type NoInferCompat<T> = NoInfer<T>
+export type { NoInferCompat as NoInfer }
 
 export default TanstackReactQuery

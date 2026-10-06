@@ -40,7 +40,9 @@ type TransProps<
   defaults?: string;
   i18n?: i18n;
   i18nKey?: Key | Key[];
-  ns?: Ns;
+  // allow a single namespace from an array-typed `t` (e.g. useTranslation(['ns'])); TS7 intersects
+  // inference candidates from `t` and `ns`, so a bare `Ns` here rejects ns="ns" when t is passed
+  ns?: Ns | (Ns extends readonly (infer S extends string)[] ? S : never);
   parent?: string | React.ComponentType<any> | null; // used in React.createElement if not null
   tOptions?: TOpt;
   values?: InterpolationMap<Ret>;
@@ -80,7 +82,8 @@ interface TransSelectorProps<
   defaults?: string | Key;
   i18n?: i18n;
   i18nKey?: Key | readonly Key[];
-  ns?: Ns;
+  // see TransProps.ns: keep single-namespace values assignable when `t` fixes Ns to an array
+  ns?: Ns | (Ns extends readonly (infer S extends string)[] ? S : never);
   parent?: string | React.ComponentType<any> | null; // used in React.createElement if not null
   tOptions?: TOpt;
   values?: Key extends (...args: any[]) => infer R ? InterpolationMap<R> : {};
@@ -92,8 +95,7 @@ interface TransSelector {
   <
     Target extends ConstrainTarget<TOpt>,
     Key extends
-      | SelectorFn<GetSource<$NoInfer<Ns>, KPrefix>, ApplyTarget<Target, TOpt>, TOpt>
-      | SelectorKey,
+      SelectorFn<GetSource<$NoInfer<Ns>, KPrefix>, ApplyTarget<Target, TOpt>, TOpt> | SelectorKey,
     const Ns extends Namespace = _DefaultNamespace$1,
     KPrefix = undefined,
     TContext extends string | undefined = undefined,
@@ -104,7 +106,9 @@ interface TransSelector {
   ): React.ReactElement;
 }
 
-declare const Trans: _EnableSelector$1 extends true | 'optimize' ? TransSelector : TransLegacy;
+declare const Trans: _EnableSelector$1 extends true | 'optimize' | 'strict'
+  ? TransSelector
+  : TransLegacy;
 
 type ErrorCode =
   | 'NO_I18NEXT_INSTANCE'
@@ -114,7 +118,8 @@ type ErrorCode =
   | 'TRANS_INVALID_OBJ'
   | 'TRANS_INVALID_VAR'
   | 'TRANS_INVALID_COMPONENTS'
-  | 'USE_T_BEFORE_READY';
+  | 'USE_T_BEFORE_READY'
+  | 'SUSPENDED_WHILE_LOADING';
 
 type ErrorMeta = {
   code: ErrorCode;
@@ -184,7 +189,8 @@ type IcuTransWithoutContextProps<
   /** Declaration tree describing React components and their props */
   content: IcuTransContentDeclaration[];
   /** Optional namespace(s) for the translation */
-  ns?: Ns;
+  // see TransProps.ns: keep single-namespace values assignable when `t` fixes Ns to an array
+  ns?: Ns | (Ns extends readonly (infer S extends string)[] ? S : never);
   /** Optional values for ICU variable interpolation */
   values?: Record<string, any>;
   /** i18next instance. If not provided, uses global instance */
@@ -343,7 +349,7 @@ type FallbackNs<Ns> = Ns extends undefined
     ? Ns
     : _DefaultNamespace;
 
-declare const useTranslation: _EnableSelector extends true | 'optimize'
+declare const useTranslation: _EnableSelector extends true | 'optimize' | 'strict'
   ? UseTranslationSelector
   : UseTranslationLegacy;
 

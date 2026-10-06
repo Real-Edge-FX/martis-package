@@ -408,7 +408,7 @@ class Image extends File
             $rules[$key] = 'image';
         }
 
-        return array_values($rules);
+        return $rules;
     }
 
     /**
@@ -425,7 +425,7 @@ class Image extends File
             $rules[$key] = 'image';
         }
 
-        return array_values($rules);
+        return $rules;
     }
 
     // -------------------------------------------------------------------------
