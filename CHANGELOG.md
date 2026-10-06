@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] — 2026-10-06
+
+The docs MCP server moves to the official `laravel/mcp` package, so `composer require martis/martis` installs on a fresh Laravel 13 app without downgrading `symfony/finder` or `guzzlehttp/guzzle`. Read [Upgrading to v2.5.0 from v2.4.x](docs/upgrading.md#upgrading-to-v250-from-v24x): `martis:mcp-serve` is gone, the default transport is stdio, Laravel 12 apps need 12.41.1, and a published `config/martis.php` needs its `mcp` block replaced. Test count: 5169 Pest + 1969 Vitest = 7138 passing.
+
 ### Changed
 
 - **Breaking:** the docs MCP server runs on the official `laravel/mcp` package instead of `php-mcp/server` and ReactPHP, so a fresh Laravel 13 app installs Martis without downgrading `symfony/finder` or `guzzlehttp/guzzle`. Over stdio agents spawn `php artisan mcp:start martis-docs`; over HTTP (`MARTIS_MCP_TRANSPORT=http`) the server is a route of the app at `/{MARTIS_PATH}/mcp`, behind `MARTIS_MCP_HTTP_TOKEN` (required outside the local environment). The default transport is now `stdio`. The three tools keep their names, inputs and payloads. See [Upgrading to v2.5.0](docs/upgrading.md#upgrading-to-v250-from-v24x).
