@@ -34,7 +34,7 @@ The primer covers Martis idioms: the 31 generators, field rules, resource conven
 | `--mcp-only` | Only patch the MCP config + `.env`. Do not touch guideline files. |
 | `--mcp-unwire` | Remove the Martis entry from the agent's MCP config and `MARTIS_MCP_ENABLED` from `.env`. |
 | `--with-doc-guard` | (Claude Code) install a PreToolUse hook that blocks filesystem reads of the Martis docs, forcing use of the docs MCP. See "Docs are read through the MCP" below. |
-| `--force` | Overwrite existing guideline files without prompting. |
+| `--force` | Overwrite existing guideline files without prompting. Without it an existing guideline file is kept: on a terminal you are asked, and without one (an agent, CI, `docker compose exec -T`) the command prints `<file> already exists` and leaves the file as it is. |
 | `--dry-run` | Print the planned actions, write nothing. |
 | `--no-interaction` | Disable prompts (combine with `--agent` and `--with-mcp` / `--without-mcp` for CI). |
 
