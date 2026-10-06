@@ -1,23 +1,32 @@
-# Weekly update PRs for everything the repository pins:
+# Monthly update PRs for everything the repository pins:
 #
 # - github-actions: every workflow action is pinned to a full commit SHA with
 #   its version in a trailing comment; Dependabot bumps the SHA and the comment
-#   together, so a moved tag can never change what CI runs unreviewed.
+#   together, so a moved tag can never change what CI runs unreviewed. Majors
+#   included: CI runs every action it updates, so a green PR is a full check.
 # - npm: the lockfile behind the Vitest, lint and build tooling (the SPA
 #   itself ships prebuilt in public/).
 # - composer: the PHP dependencies and dev tooling.
 #
-# Security advisories open their own PRs regardless of this schedule.
+# npm and composer get minor and patch updates only, grouped into one PR per
+# ecosystem. A major version (Tailwind, Vitest, Vite plugins, a PHP package's
+# next major) is a planned migration with Playground validation and docs, so
+# Dependabot does not open PRs for it.
+#
+# Security fixes are not on this schedule: with "Dependabot security updates"
+# enabled in the repository settings (Code security), an advisory opens its
+# own PR at once, majors included, whatever the schedule and the ignore rules
+# say. Vulnerability alerts alone only notify.
 version: 2
 
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     commit-message:
       prefix: "chore(deps)"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
     groups:
       github-actions:
         patterns: ["*"]
@@ -25,10 +34,13 @@ updates:
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     commit-message:
       prefix: "chore(deps)"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-patch:
         update-types: [minor, patch]
@@ -36,10 +48,13 @@ updates:
   - package-ecosystem: composer
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     commit-message:
       prefix: "chore(deps)"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       composer-minor-patch:
         update-types: [minor, patch]
