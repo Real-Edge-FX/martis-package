@@ -6,7 +6,10 @@ namespace Martis\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Martis\Console\Concerns\AsksOnlyOnATerminal;
+use Martis\Mcp\MartisDocsServer;
+use Martis\Mcp\McpConfig;
 use Martis\Stubs\StubResolver;
 use Martis\Support\AgentDetector;
 use Martis\Support\AgentProfile;
@@ -75,6 +78,38 @@ class AgentsCommand extends Command
         }
 
         $wireMcp = $this->resolveMcpChoice($profiles);
+
+        if ($wireMcp) {
+            try {
+                McpConfig::transport();
+            } catch (InvalidArgumentException $e) {
+                $this->components->error($e->getMessage());
+
+                return self::FAILURE;
+            }
+
+            $removed = McpConfig::removedVariablesSet(base_path('.env'));
+            if ($removed !== []) {
+                $this->components->error(sprintf(
+                    '%s %s removed in v2.5.0: the docs MCP no longer runs its own HTTP daemon. Remove %s from the environment and .env, then run this command again. See "Upgrading to v2.5.0" in docs/upgrading.md.',
+                    implode(', ', $removed),
+                    count($removed) === 1 ? 'was' : 'were',
+                    count($removed) === 1 ? 'it' : 'them',
+                ));
+
+                return self::FAILURE;
+            }
+
+            $legacy = McpConfig::legacyKeysInConfig();
+            if ($legacy !== []) {
+                $this->components->error(sprintf(
+                    'config/martis.php still has the pre-v2.5.0 `mcp` block (%s). Replace it with the block in vendor/martis/martis/config/martis.php, or delete it to use the package defaults, then run this command again. See "Upgrading to v2.5.0" in docs/upgrading.md.',
+                    implode(', ', array_map(static fn (string $key): string => 'martis.mcp.'.$key, $legacy)),
+                ));
+
+                return self::FAILURE;
+            }
+        }
 
         if (! $this->option('mcp-only')) {
             $this->writeGuidelines($profiles, $wireMcp);
@@ -222,9 +257,17 @@ class AgentsCommand extends Command
         foreach ($targets as $relative) {
             $absolute = base_path().'/'.$relative;
             $exists = file_exists($absolute);
-            if ($exists && ! $this->option('force') && $this->canPrompt()) {
-                $confirmed = confirm("`{$relative}` already exists. Overwrite?", default: false);
-                if (! $confirmed) {
+            if ($exists && ! $this->option('force')) {
+                // Without a terminal nobody can confirm the overwrite, so the
+                // app's own file stays, as a generator leaves an existing
+                // file alone ("already exists", exit 0).
+                if (! $this->canPrompt()) {
+                    $this->components->error("{$relative} already exists. Pass --force to overwrite it.");
+
+                    continue;
+                }
+
+                if (! confirm("`{$relative}` already exists. Overwrite?", default: false)) {
                     $this->components->info("Skipped {$relative}.");
 
                     continue;
@@ -282,37 +325,16 @@ class AgentsCommand extends Command
      */
     private function mcpEntry(): array
     {
-        // Scaffold-time default: http. The package config no longer
-        // forces a fallback ('transport' = env('MARTIS_MCP_TRANSPORT')
-        // with no default), so when the operator has not pinned a
-        // transport in their .env, this command treats the
-        // recommended setup (a long-running HTTP server) as default
-        // and writes the matching URL entry into .mcp.json.
-        // McpServeCommand falls back to 'stdio' under the same null
-        // value so existing-consumer behaviour is preserved.
-        $transport = strtolower((string) (config('martis.mcp.transport') ?: 'http'));
-
-        if ($transport === 'http') {
-            $url = (string) config('martis.mcp.url', '');
-            if ($url === '') {
-                $host = (string) config('martis.mcp.host', '127.0.0.1');
-                if ($host === '0.0.0.0' || $host === '::') {
-                    $host = 'localhost';
-                }
-                $port = (int) config('martis.mcp.port', 8091);
-                $path = (string) config('martis.mcp.path', '/mcp');
-                $url = "http://{$host}:{$port}{$path}";
-            }
-
+        if (McpConfig::transport() === 'http') {
             return [
                 'type' => 'http',
-                'url' => $url,
+                'url' => McpConfig::url(),
             ];
         }
 
         return [
             'command' => 'php',
-            'args' => ['artisan', 'martis:mcp-serve'],
+            'args' => ['artisan', 'mcp:start', MartisDocsServer::HANDLE],
             'cwd' => base_path(),
         ];
     }
@@ -321,13 +343,10 @@ class AgentsCommand extends Command
     {
         $entries = [
             ['MARTIS_MCP_ENABLED', 'true', 'Set to false to disable the Martis MCP server without un-wiring it.'],
-            ['MARTIS_MCP_TRANSPORT', 'http', 'Default scaffold (v1.15.0+). Set to "stdio" for spawn-per-session legacy mode. See docs/agent-guidelines.md.'],
-            ['MARTIS_MCP_HOST', '#127.0.0.1', null],
-            ['MARTIS_MCP_PORT', '#8091', null],
-            ['MARTIS_MCP_PATH', '#/mcp', null],
-            ['MARTIS_MCP_URL', '#http://localhost:8091/mcp', null],
+            ['MARTIS_MCP_TRANSPORT', 'stdio', 'stdio (agents spawn php artisan mcp:start martis-docs) or http (a route on this app). See docs/agent-guidelines.md.'],
+            ['MARTIS_MCP_PATH', '#/martis/mcp', null],
+            ['MARTIS_MCP_URL', '#http://localhost/martis/mcp', null],
             ['MARTIS_MCP_HTTP_TOKEN', '#', null],
-            ['MARTIS_MCP_HEALTH_PORT', '#', null],
         ];
 
         foreach (['.env', '.env.example'] as $file) {

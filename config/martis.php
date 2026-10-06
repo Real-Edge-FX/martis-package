@@ -47,31 +47,27 @@ return [
     |--------------------------------------------------------------------------
     | Martis MCP Server
     |--------------------------------------------------------------------------
-    | Controls the docs MCP server (martis:mcp-serve) that exposes the
-    | Martis documentation to coding agents (Claude Code, Cursor, etc.).
-    | See docs/agent-guidelines.md for the full setup recipe.
+    | The docs MCP server exposes the Martis documentation to coding agents
+    | (Claude Code, Cursor, Gemini, Codex) through laravel/mcp. Over stdio
+    | an agent spawns `php artisan mcp:start martis-docs`; over HTTP the
+    | server is a route of this application. See docs/agent-guidelines.md.
     |
-    | Available since v1.13.0.
+    | Available since v1.13.0; served by laravel/mcp since v2.5.0.
     */
     'mcp' => [
+        // Kill switch, read on every tool call: when false every tool
+        // answers with a notice instead of running.
         'enabled' => env('MARTIS_MCP_ENABLED', true),
-        // Intentionally no env() fallback. Each command interprets a
-        // null value differently:
-        //   - martis:mcp-serve falls back to 'stdio' (preserves
-        //     existing-consumer behaviour: a host upgrading from
-        //     v1.14.x whose .mcp.json carries the stdio spawn entry
-        //     keeps working without the server suddenly binding HTTP).
-        //   - martis:agents --with-mcp falls back to 'http' and
-        //     writes MARTIS_MCP_TRANSPORT=http into the .env it
-        //     scaffolds (since v1.15.0 — fresh installs land on the
-        //     recommended HTTP setup).
-        'transport' => env('MARTIS_MCP_TRANSPORT'),
-        'url' => env('MARTIS_MCP_URL'),
-        'host' => env('MARTIS_MCP_HOST', '127.0.0.1'),
-        'port' => (int) env('MARTIS_MCP_PORT', 8091),
-        'path' => env('MARTIS_MCP_PATH', '/mcp'),
+        // stdio or http. http registers the route at `path` on this app
+        // and makes martis:agents write a URL entry.
+        'transport' => env('MARTIS_MCP_TRANSPORT', 'stdio'),
+        // HTTP route URI. null: /{martis.path}/mcp.
+        'path' => env('MARTIS_MCP_PATH'),
+        // Bearer token of the HTTP route. Required outside the local
+        // environment: without it the route answers 401 there.
         'token' => env('MARTIS_MCP_HTTP_TOKEN'),
-        'health_port' => (int) env('MARTIS_MCP_HEALTH_PORT', 0),
+        // URL martis:agents writes for http. null: APP_URL + path.
+        'url' => env('MARTIS_MCP_URL'),
     ],
 
     /*

@@ -7,6 +7,7 @@ use Illuminate\Console\OutputStyle;
 use Illuminate\Console\View\Components\Factory;
 use Illuminate\Support\Facades\Artisan;
 use Martis\Console\AgentsCommand;
+use Martis\Mcp\McpConfig;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 
@@ -23,23 +24,25 @@ beforeEach(function () {
     $this->originalBase = base_path();
     app()->setBasePath($this->base);
 
-    // Reset MCP config to defaults each test.
+    config()->set('app.url', 'http://demo.test');
+    config()->set('martis.path', 'martis');
     config()->set('martis.mcp.transport', 'stdio');
     config()->set('martis.mcp.url', null);
-    config()->set('martis.mcp.host', '127.0.0.1');
-    config()->set('martis.mcp.port', 8091);
-    config()->set('martis.mcp.path', '/mcp');
+    config()->set('martis.mcp.path', null);
     config()->set('martis.mcp.enabled', true);
 });
 
 afterEach(function () {
+    foreach (McpConfig::REMOVED_VARIABLES as $name) {
+        putenv($name);
+    }
     app()->setBasePath($this->originalBase);
     if (is_dir($this->base)) {
         rmtree($this->base);
     }
 });
 
-function runAgents(array $opts = []): void
+function runAgents(array $opts = []): int
 {
     $command = app(AgentsCommand::class);
     $command->setLaravel(app());
@@ -56,93 +59,119 @@ function runAgents(array $opts = []): void
         '--no-interaction' => true,
     ];
 
-    Artisan::call('martis:agents', array_merge($defaults, $opts));
+    return Artisan::call('martis:agents', array_merge($defaults, $opts));
 }
 
-it('writes a URL entry when transport=http and url is set', function () {
-    config()->set('martis.mcp.transport', 'http');
-    config()->set('martis.mcp.url', 'http://example.test:8091/mcp');
+function martisEntry(string $base): array
+{
+    return json_decode((string) file_get_contents($base.'/.mcp.json'), true)['mcpServers']['martis'];
+}
 
-    runAgents();
-
-    $entry = json_decode((string) file_get_contents($this->base.'/.mcp.json'), true);
-    expect($entry['mcpServers']['martis'])->toMatchArray([
-        'type' => 'http',
-        'url' => 'http://example.test:8091/mcp',
-    ]);
-    expect($entry['mcpServers']['martis'])->not->toHaveKey('command');
-});
-
-it('guesses url from host+port+path when url is absent and http transport', function () {
-    config()->set('martis.mcp.transport', 'http');
-    config()->set('martis.mcp.host', '127.0.0.1');
-    config()->set('martis.mcp.port', 9000);
-    config()->set('martis.mcp.path', '/mcp');
-
-    runAgents();
-
-    $entry = json_decode((string) file_get_contents($this->base.'/.mcp.json'), true);
-    expect($entry['mcpServers']['martis']['url'])->toBe('http://127.0.0.1:9000/mcp');
-});
-
-it('substitutes 0.0.0.0 -> localhost in the guessed url', function () {
-    config()->set('martis.mcp.transport', 'http');
-    config()->set('martis.mcp.host', '0.0.0.0');
-    config()->set('martis.mcp.port', 8091);
-
-    runAgents();
-
-    $entry = json_decode((string) file_get_contents($this->base.'/.mcp.json'), true);
-    expect($entry['mcpServers']['martis']['url'])->toBe('http://localhost:8091/mcp');
-});
-
-it('still writes the stdio spawn entry when transport=stdio is explicitly set (regression guard)', function () {
-    // transport already stdio in beforeEach — operator's explicit
-    // choice must be honoured even though http is the new scaffolding
-    // default in v1.15.0+.
-    runAgents();
-
-    $entry = json_decode((string) file_get_contents($this->base.'/.mcp.json'), true);
-    expect($entry['mcpServers']['martis'])->toHaveKey('command');
-    expect($entry['mcpServers']['martis'])->not->toHaveKey('url');
-});
-
-it('writes the http URL entry when transport is unset (v1.15.0 scaffold default)', function () {
-    // Simulate a fresh install with no MARTIS_MCP_TRANSPORT in .env:
-    // the package config sets `mcp.transport` to null. AgentsCommand
-    // must default that to http and write the matching URL entry.
+it('writes the mcp:start stdio entry by default', function () {
     config()->set('martis.mcp.transport', null);
 
-    runAgents();
+    expect(runAgents())->toBe(0);
 
-    $entry = json_decode((string) file_get_contents($this->base.'/.mcp.json'), true);
-    expect($entry['mcpServers']['martis'])->toMatchArray(['type' => 'http']);
-    expect($entry['mcpServers']['martis']['url'])->toContain('/mcp');
-    expect($entry['mcpServers']['martis'])->not->toHaveKey('command');
-
-    // The scaffold also pins MARTIS_MCP_TRANSPORT=http in .env so the
-    // next time the same command runs (or the consumer inspects the
-    // env), the choice is visible and persistent.
-    $env = (string) file_get_contents($this->base.'/.env');
-    expect($env)->toContain("MARTIS_MCP_TRANSPORT=http\n");
-    expect($env)->not->toContain("MARTIS_MCP_TRANSPORT=stdio\n");
+    expect(martisEntry($this->base))->toBe([
+        'command' => 'php',
+        'args' => ['artisan', 'mcp:start', 'martis-docs'],
+        'cwd' => $this->base,
+    ]);
 });
 
-it('writes the full 7-env block on first run', function () {
+it('writes the http entry from APP_URL and the Martis path', function () {
+    config()->set('martis.mcp.transport', 'http');
+
+    runAgents();
+
+    expect(martisEntry($this->base))->toBe(['type' => 'http', 'url' => 'http://demo.test/martis/mcp']);
+});
+
+it('writes MARTIS_MCP_URL verbatim when it is set', function () {
+    config()->set('martis.mcp.transport', 'http');
+    config()->set('martis.mcp.url', 'http://localhost:8000/martis/mcp');
+
+    runAgents();
+
+    expect(martisEntry($this->base))->toBe(['type' => 'http', 'url' => 'http://localhost:8000/martis/mcp']);
+});
+
+it('writes the env block with stdio and the three commented keys', function () {
     runAgents();
 
     $env = (string) file_get_contents($this->base.'/.env');
-    $keys = [
-        'MARTIS_MCP_ENABLED',
-        'MARTIS_MCP_TRANSPORT',
-        'MARTIS_MCP_HOST',
-        'MARTIS_MCP_PORT',
-        'MARTIS_MCP_PATH',
-        'MARTIS_MCP_URL',
-        'MARTIS_MCP_HTTP_TOKEN',
-        'MARTIS_MCP_HEALTH_PORT',
-    ];
-    foreach ($keys as $key) {
-        expect(str_contains($env, $key))->toBeTrue("Expected {$key} in the .env block");
+    expect($env)->toContain("MARTIS_MCP_ENABLED=true\n")
+        ->and($env)->toContain("MARTIS_MCP_TRANSPORT=stdio\n")
+        ->and($env)->toContain('# MARTIS_MCP_PATH=')
+        ->and($env)->toContain('# MARTIS_MCP_URL=')
+        ->and($env)->toContain('# MARTIS_MCP_HTTP_TOKEN=');
+
+    foreach (McpConfig::REMOVED_VARIABLES as $removed) {
+        expect($env)->not->toContain($removed);
     }
+});
+
+it('keeps an existing MARTIS_MCP_TRANSPORT line', function () {
+    file_put_contents($this->base.'/.env', "APP_NAME=Demo\nMARTIS_MCP_TRANSPORT=http\n");
+
+    runAgents();
+
+    $env = (string) file_get_contents($this->base.'/.env');
+    expect($env)->toContain("MARTIS_MCP_TRANSPORT=http\n")
+        ->and($env)->not->toContain('MARTIS_MCP_TRANSPORT=stdio');
+});
+
+it('refuses to wire the MCP while a removed variable is set, writing nothing', function (string $where) {
+    if ($where === 'environment') {
+        putenv('MARTIS_MCP_PORT=8091');
+    } else {
+        file_put_contents($this->base.'/.env', "APP_NAME=Demo\nMARTIS_MCP_PORT=8091\n");
+    }
+
+    expect(runAgents())->toBe(1);
+
+    expect(file_exists($this->base.'/.mcp.json'))->toBeFalse()
+        ->and(file_exists($this->base.'/CLAUDE.md'))->toBeFalse()
+        ->and(Artisan::output())->toContain('MARTIS_MCP_PORT');
+})->with(['environment', '.env']);
+
+it('ignores a commented removed variable', function () {
+    file_put_contents($this->base.'/.env', "APP_NAME=Demo\n# MARTIS_MCP_PORT=8091\n");
+
+    expect(runAgents())->toBe(0);
+});
+
+it('does not check the removed variables when the MCP is not wired', function () {
+    putenv('MARTIS_MCP_PORT=8091');
+
+    expect(runAgents(['--with-mcp' => false, '--without-mcp' => true]))->toBe(0);
+});
+
+it('refuses an unknown transport, naming the variable, without a stack trace', function () {
+    config()->set('martis.mcp.transport', 'sse');
+
+    expect(runAgents())->toBe(1);
+
+    expect(file_exists($this->base.'/.mcp.json'))->toBeFalse()
+        ->and(file_exists($this->base.'/CLAUDE.md'))->toBeFalse()
+        ->and(Artisan::output())->toContain('MARTIS_MCP_TRANSPORT');
+});
+
+it('refuses to wire the MCP while the published config has a legacy mcp key, writing nothing', function () {
+    config()->set('martis.mcp.port', 8091);
+
+    expect(runAgents())->toBe(1);
+
+    $output = Artisan::output();
+    expect(file_exists($this->base.'/.mcp.json'))->toBeFalse()
+        ->and(file_exists($this->base.'/CLAUDE.md'))->toBeFalse()
+        ->and((string) file_get_contents($this->base.'/.env'))->toBe("APP_NAME=Demo\n")
+        ->and($output)->toContain('config/martis.php')
+        ->and($output)->toContain('martis.mcp.port');
+});
+
+it('does not check the legacy mcp keys when the MCP is not wired', function () {
+    config()->set('martis.mcp.port', 8091);
+
+    expect(runAgents(['--with-mcp' => false, '--without-mcp' => true]))->toBe(0);
 });

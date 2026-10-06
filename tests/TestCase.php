@@ -19,7 +19,8 @@ abstract class TestCase extends OrchestraTestCase
      * Do not load the `.env` of the testbench skeleton the tests run in.
      *
      * The skeleton lives under vendor/ and keeps what every run leaves in it.
-     * `vendor/bin/testbench` (spawned by McpServeCommandTransportTest) puts
+     * `vendor/bin/testbench` (a Testbench application like the one
+     * StdioTransportTest spawns through tests/Support/mcp-artisan.php) puts
      * a `.env` there while it runs (a copy of the package root's `.env`,
      * `.env.example` or `.env.dist` when there is one, otherwise of the
      * skeleton's `.env.example`) and deletes it only when it exits cleanly,
