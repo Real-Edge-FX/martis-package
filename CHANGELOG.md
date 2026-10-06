@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `spatie/laravel-permission` 8 is supported (tested with 8.3.0) alongside 6.20+ and 7. Martis does not implement Spatie's `Role` or `Permission` contracts, so the v8 `BackedEnum|string` signature change needs no code change, and the audit listener still wires to the `...Event` classes.
+
 ## [2.5.0] — 2026-10-06
 
 The docs MCP server moves to the official `laravel/mcp` package, so `composer require martis/martis` installs on a fresh Laravel 13 app without downgrading `symfony/finder` or `guzzlehttp/guzzle`. Read [Upgrading to v2.5.0 from v2.4.x](docs/upgrading.md#upgrading-to-v250-from-v24x): `martis:mcp-serve` is gone, the default transport is stdio, Laravel 12 apps need 12.41.1, and a published `config/martis.php` needs its `mcp` block replaced. Test count: 5172 Pest + 1969 Vitest = 7141 passing.
