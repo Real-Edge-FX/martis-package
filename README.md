@@ -198,6 +198,10 @@ Full documentation lives in the [`docs/`](docs/) directory.
 | Build     | Vite, npm |
 | Testing   | Pest (PHP), Vitest (JS), PHPStan Level 8 |
 
+## Support Martis
+
+Martis is free and MIT licensed, with no paid tier. If it saves you or your agency time, you can [buy Martis a coffee on Ko-fi](https://ko-fi.com/luizmoura): tips go into releases, fixes and documentation.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
