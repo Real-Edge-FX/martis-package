@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Funding metadata: `composer.json` lists the Martis Ko-fi page (shown by `composer fund` and on Packagist), `.github/FUNDING.yml` enables the GitHub Sponsor button, and the README has a short Support Martis section.
+
 ## [2.5.1] — 2026-10-06
 
 Dependency release: the first monthly batch under a new Dependabot policy, plus `spatie/laravel-permission` 8 support. No breaking change. Hosts that type-check extensions against the published declarations should republish them (`php artisan vendor:publish --tag=martis-extension-shims --force`) to pick up the new `@tanstack/react-query` and `i18next` types. Test count: 5172 Pest + 1969 Vitest = 7141 passing (unchanged from v2.5.0).

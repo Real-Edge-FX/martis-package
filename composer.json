@@ -3,6 +3,12 @@
     "description": "Martis \u2014 React-first Laravel admin engine with full-stack resources, lenses, metrics, and a token-driven design system.",
     "type": "library",
     "license": "MIT",
+    "funding": [
+        {
+            "type": "ko-fi",
+            "url": "https://ko-fi.com/luizmoura"
+        }
+    ],
     "require": {
         "php": "^8.3",
         "laravel/framework": "^12.41.1|^13.0",
