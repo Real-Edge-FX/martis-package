@@ -13,7 +13,7 @@ import { componentRegistry } from '@/lib/componentRegistry'
 import { cardGridSpanStyle } from '@/lib/cardGridSpan'
 import { FilterPanel } from '@/components/FilterPanel'
 import { Card } from 'primereact/card'
-import { Link, useParams, useSearchParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { DatabaseIcon, FolderIcon, CheckCircleIcon, CaretRightIcon, ArrowClockwiseIcon } from '@phosphor-icons/react'
 import { usePageTitle } from '@/hooks/usePageTitle'
@@ -22,6 +22,7 @@ import { useGateOptional } from '@/contexts/GateContext'
 import { WelcomeCard } from '@/components/dashboard/WelcomeCard'
 import { NotFoundPage } from '@/pages/NotFound'
 import { safeHref } from '@/lib/safeUrl'
+import { isBlankFilterValue } from '@/lib/filterValues'
 import {
   DASHBOARD_FILTERS_PARAM,
   DashboardFiltersContext,
@@ -148,7 +149,8 @@ function DashboardView({
   const { t } = useTranslation('resources')
   const { t: tNav } = useTranslation('navigation')
   const qc = useQueryClient()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
+  const navigate = useNavigate()
 
   const currentDashboard = dashboards.find((d) => d.uriKey === currentKey) ?? null
   const isDefaultLayout = currentDashboard?.layout === 'default'
@@ -206,29 +208,44 @@ function DashboardView({
   // Forward step through filter changes, and a link or a card can set them.
   // The URL is the only source: a key that names none of this dashboard's
   // filters, or a value its control could not show, is ignored.
-  const rawFilters = searchParams.get(DASHBOARD_FILTERS_PARAM)
+  const rawFilters = new URLSearchParams(location.search).get(DASHBOARD_FILTERS_PARAM)
   const activeFilters = useMemo(() => parseDashboardFilters(rawFilters, filters), [rawFilters, filters])
+  const hasDefaults = useMemo(() => filters.some((filter) => !isBlankFilterValue(filter.default)), [filters])
 
-  // The filters the last update asked for, ahead of the render that reads
-  // them back from the URL: two updates in the same tick (a card setting
-  // two filters one after the other) build on each other.
-  const latestFilters = useRef(activeFilters)
-  latestFilters.current = activeFilters
+  // What setFilters() builds on: the filters the last update asked for,
+  // ahead of the render that reads them back from the URL (two updates in
+  // the same tick build on each other), and the current address. Read
+  // through a ref, so setFilters keeps one identity for the dashboard's
+  // lifetime and a card's effect on it does not re-run on every change.
+  const latest = useRef({ filters: activeFilters, location, hasDefaults })
+  latest.current = { filters: activeFilters, location, hasDefaults }
 
   const setFilters = useCallback<SetDashboardFilters>((update, options) => {
-    const next = applyDashboardFiltersUpdate(latestFilters.current, update)
-    latestFilters.current = next
-    setSearchParams((current) => {
-      const params = new URLSearchParams(current)
-      const serialized = serializeDashboardFilters(next)
-      if (serialized === null) {
-        params.delete(DASHBOARD_FILTERS_PARAM)
-      } else {
-        params.set(DASHBOARD_FILTERS_PARAM, serialized)
-      }
-      return params
-    }, { replace: options?.replace === true, preventScrollReset: true })
-  }, [setSearchParams])
+    const { filters: current, location: here, hasDefaults: keepCleared } = latest.current
+    const next = applyDashboardFiltersUpdate(current, update)
+
+    // No filter set is written as `{}` on a dashboard with a filter
+    // default, so a reload or a shared link keeps the defaults cleared;
+    // elsewhere the parameter goes.
+    const encode = (set: typeof current) => serializeDashboardFilters(set) ?? (keepCleared ? '{}' : null)
+    const value = encode(next)
+    // The same filters again (a repeated row click) is no navigation, so
+    // Back is not left with an entry that changes nothing.
+    if (value === encode(current)) return
+
+    latest.current = { ...latest.current, filters: next }
+    const params = new URLSearchParams(here.search)
+    if (value === null) {
+      params.delete(DASHBOARD_FILTERS_PARAM)
+    } else {
+      params.set(DASHBOARD_FILTERS_PARAM, value)
+    }
+    const search = params.toString()
+    void navigate(
+      { pathname: here.pathname, search: search === '' ? '' : `?${search}`, hash: here.hash },
+      { replace: options?.replace === true, preventScrollReset: true },
+    )
+  }, [navigate])
 
   const filtersContext = useMemo<DashboardFiltersContextValue>(
     () => ({ filters: activeFilters, setFilters }),
@@ -303,6 +320,9 @@ function DashboardView({
                 // filters as they were before the panel was used, not step
                 // through each pick. A card's setFilters() adds an entry.
                 onChange={(f) => setFilters(() => f, { replace: true })}
+              // The defaults apply to a dashboard opened without filters in
+              // its address; `?filters={}` means they were cleared.
+              applyDefaults={rawFilters === null}
                 prefix={showRefresh ? (
                   <button
                     type="button"

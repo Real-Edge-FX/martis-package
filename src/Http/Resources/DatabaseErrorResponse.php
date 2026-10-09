@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Martis\Contracts\FieldContract;
 use Martis\Fields\Field;
 use Martis\Fields\MorphTo;
+use Throwable;
 
 /**
  * The sanitized JSON answer to a write the database refused.
@@ -60,12 +61,14 @@ final class DatabaseErrorResponse
         // the codes cover a QueryException built without it. SQLite reports
         // every constraint as SQLSTATE 23000 / code 19, so only its message
         // tells a unique violation from a NOT NULL or foreign key one.
+        $sqlite = $vendorCode === '19';
+
         if ($e instanceof UniqueConstraintViolationException
             || $vendorCode === '1062'
             || $sqlState === '23505'
-            || str_contains($detail, 'UNIQUE constraint failed')) {
+            || ($sqlite && str_starts_with($detail, 'UNIQUE constraint failed'))) {
             return JsonErrorResponse::validation(
-                self::uniqueFieldErrors($detail, $fields, $model),
+                self::uniqueFieldErrors($vendorCode, $sqlState, $detail, $fields, $model),
                 self::UNIQUE_MESSAGE,
             )->toResponse();
         }
@@ -77,10 +80,10 @@ final class DatabaseErrorResponse
             // A write naming a record that does not exist.
             $vendorCode === '1452',
             $sqlState === '23503',
-            str_contains($detail, 'FOREIGN KEY constraint failed') => self::MISSING_REFERENCE_MESSAGE,
+            $sqlite && str_starts_with($detail, 'FOREIGN KEY constraint failed') => self::MISSING_REFERENCE_MESSAGE,
             in_array($vendorCode, ['1048', '1364'], true),
             $sqlState === '23502',
-            str_contains($detail, 'NOT NULL constraint failed') => self::NOT_NULL_MESSAGE,
+            $sqlite && str_starts_with($detail, 'NOT NULL constraint failed') => self::NOT_NULL_MESSAGE,
             default => self::GENERIC_MESSAGE,
         };
 
@@ -93,7 +96,7 @@ final class DatabaseErrorResponse
      * @param  list<FieldContract>  $fields
      * @return array<string, list<string>>
      */
-    private static function uniqueFieldErrors(string $detail, array $fields, ?Model $model): array
+    private static function uniqueFieldErrors(string $vendorCode, string $sqlState, string $detail, array $fields, ?Model $model): array
     {
         $byColumn = self::fieldsByColumn($fields);
         if ($byColumn === []) {
@@ -101,7 +104,7 @@ final class DatabaseErrorResponse
         }
 
         $errors = [];
-        foreach (self::violatedColumns($detail, array_keys($byColumn), $model) as $column) {
+        foreach (self::violatedColumns($vendorCode, $sqlState, $detail, array_keys($byColumn), $model) as $column) {
             $field = $byColumn[$column];
             $errors[$field->attribute()] ??= [self::uniqueMessage($field)];
         }
@@ -141,45 +144,21 @@ final class DatabaseErrorResponse
 
     /**
      * The known columns the violated index covers, in the order the message
-     * names them.
+     * names them. Each driver's message is read by its own parser, picked by
+     * the driver's code: a MySQL message carries the submitted value, which
+     * could otherwise spell another driver's shape (`a(email)=(b`).
      *
      * @param  list<string>  $known  Lower-cased column names.
      * @return list<string>
      */
-    private static function violatedColumns(string $detail, array $known, ?Model $model): array
+    private static function violatedColumns(string $vendorCode, string $sqlState, string $detail, array $known, ?Model $model): array
     {
-        // PostgreSQL: `Key (<expression>)=(<value>) already exists.`
-        $expression = self::postgresKeyExpression($detail);
-        if ($expression !== null) {
-            $columns = self::columnsInExpression($expression, $known);
-            if ($columns !== []) {
-                return $columns;
-            }
-        }
-
-        $index = null;
-
-        if (preg_match('/UNIQUE constraint failed: (.+)$/m', $detail, $m) === 1) {
-            // SQLite: `UNIQUE constraint failed: index 'users_lower_email_unique'`
-            // for an expression index, the qualified columns otherwise.
-            $list = trim($m[1]);
-            if (preg_match("/^index '(.+)'$/", $list, $i) === 1) {
-                $index = $i[1];
-            } else {
-                $columns = [];
-                foreach (explode(',', $list) as $qualified) {
-                    $parts = explode('.', trim($qualified));
-                    $column = strtolower(trim((string) end($parts), '"`[] '));
-                    if (in_array($column, $known, true) && ! in_array($column, $columns, true)) {
-                        $columns[] = $column;
-                    }
-                }
-
-                return $columns;
-            }
-        } elseif (preg_match("/ for key '([^']+)'\s*$/", $detail, $m) === 1) {
+        if ($vendorCode === '1062') {
             // MySQL / MariaDB: `Duplicate entry '…' for key '<table>.<index>'`
             // (MySQL 8 qualifies the index with its table).
+            if (preg_match("/ for key '([^']+)'\s*$/", $detail, $m) !== 1) {
+                return [];
+            }
             $parts = explode('.', $m[1]);
             $index = (string) end($parts);
 
@@ -188,12 +167,45 @@ final class DatabaseErrorResponse
 
                 return in_array($key, $known, true) ? [$key] : [];
             }
-        } elseif (preg_match('/constraint "((?:[^"]|"")+)"/', $detail, $m) === 1) {
-            // PostgreSQL, when the key expression named no known column.
-            $index = str_replace('""', '"', $m[1]);
+
+            return self::columnsInIndexName($index, $known, $model);
         }
 
-        return $index === null ? [] : self::columnsInIndexName($index, $known, $model);
+        if ($sqlState === '23505') {
+            // PostgreSQL: `Key (<expression>)=(<value>) already exists.` The
+            // key is what the index covers; the constraint name is read only
+            // when the message carries no key.
+            $expression = self::postgresKeyExpression($detail);
+            if ($expression !== null) {
+                return self::columnsInExpression($expression, $known);
+            }
+
+            return preg_match('/constraint "((?:[^"]|"")+)"/', $detail, $m) === 1
+                ? self::columnsInIndexName(str_replace('""', '"', $m[1]), $known, $model)
+                : [];
+        }
+
+        if ($vendorCode === '19' && preg_match('/^UNIQUE constraint failed: (.+)$/', $detail, $m) === 1) {
+            // SQLite: `UNIQUE constraint failed: index 'users_lower_email_unique'`
+            // for an expression index, the qualified columns otherwise.
+            $list = trim($m[1]);
+            if (preg_match("/^index '(.+)'$/", $list, $i) === 1) {
+                return self::columnsInIndexName($i[1], $known, $model);
+            }
+
+            $columns = [];
+            foreach (explode(',', $list) as $qualified) {
+                $parts = explode('.', trim($qualified));
+                $column = strtolower(trim((string) end($parts), '"`[] '));
+                if (in_array($column, $known, true) && ! in_array($column, $columns, true)) {
+                    $columns[] = $column;
+                }
+            }
+
+            return $columns;
+        }
+
+        return [];
     }
 
     /**
@@ -306,6 +318,9 @@ final class DatabaseErrorResponse
      * separated words, longest first: `agency_sites_custom_domain_lower_unique`
      * gives `custom_domain`, `posts_user_id_slug_unique` gives `user_id` and
      * `slug` (never `id`). The record's table, leading the name, is skipped.
+     * The words are split on every column of the table, so a longer column
+     * the form does not write (`first_name`) is not read as a shorter one it
+     * does (`name`).
      *
      * @param  list<string>  $known
      * @return list<string>
@@ -313,8 +328,11 @@ final class DatabaseErrorResponse
     private static function columnsInIndexName(string $index, array $known, ?Model $model): array
     {
         $name = strtolower($index);
+        $vocabulary = $known;
 
         if ($model !== null) {
+            $vocabulary = array_values(array_unique([...$known, ...self::tableColumns($model)]));
+
             $table = strtolower($model->getTable());
             $prefixed = strtolower($model->getConnection()->getTablePrefix()).$table;
 
@@ -333,8 +351,8 @@ final class DatabaseErrorResponse
         for ($i = 0; $i < $count;) {
             for ($j = $count; $j > $i; $j--) {
                 $candidate = implode('_', array_slice($words, $i, $j - $i));
-                if (in_array($candidate, $known, true)) {
-                    if (! in_array($candidate, $columns, true)) {
+                if (in_array($candidate, $vocabulary, true)) {
+                    if (in_array($candidate, $known, true) && ! in_array($candidate, $columns, true)) {
                         $columns[] = $candidate;
                     }
                     $i = $j;
@@ -347,6 +365,25 @@ final class DatabaseErrorResponse
         }
 
         return $columns;
+    }
+
+    /**
+     * Every column of the record's table, lower-cased. A connection that
+     * cannot answer (PostgreSQL inside the transaction the failed write
+     * aborted) leaves the written columns alone to split the name on.
+     *
+     * @return list<string>
+     */
+    private static function tableColumns(Model $model): array
+    {
+        try {
+            return array_map(
+                strtolower(...),
+                $model->getConnection()->getSchemaBuilder()->getColumnListing($model->getTable()),
+            );
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     /**

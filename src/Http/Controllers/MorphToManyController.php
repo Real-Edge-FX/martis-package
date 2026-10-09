@@ -331,7 +331,7 @@ class MorphToManyController extends MartisController
                 'error' => $e->getMessage(),
             ]);
 
-            return DatabaseErrorResponse::from($e, $field->getPivotFields());
+            return DatabaseErrorResponse::from($e, $field->getPivotFields(), $relation->newPivot());
         }
 
         return JsonResponse::make(
@@ -460,7 +460,7 @@ class MorphToManyController extends MartisController
                     'error' => $e->getMessage(),
                 ]);
 
-                return DatabaseErrorResponse::from($e, $pivotFields);
+                return DatabaseErrorResponse::from($e, $pivotFields, $relation->newPivot());
             }
         }
 

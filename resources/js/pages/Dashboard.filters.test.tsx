@@ -78,9 +78,13 @@ function mockApi() {
   })
 }
 
+// Every setFilters identity the card was rendered with.
+const seenSetters = new Set<SetDashboardFilters>()
+
 // A custom card as a consumer writes one: it reads `filters` and sets them
 // with the `setFilters` prop; a component nested inside reads the hook.
 function ProjectsCard({ filters, setFilters }: { card: MetricDefinition; filters: ActiveFilters; setFilters: SetDashboardFilters }) {
+  seenSetters.add(setFilters)
   return (
     <div>
       <span data-testid="card-filters">{JSON.stringify(filters)}</span>
@@ -114,6 +118,7 @@ function LocationProbe() {
   return (
     <>
       <div data-testid="location">{location.pathname + location.search}</div>
+      <div data-testid="hash">{location.hash}</div>
       <button type="button" onClick={() => { void navigate(-1) }}>Go back</button>
       <button type="button" onClick={() => { void navigate(1) }}>Go forward</button>
     </>
@@ -165,10 +170,11 @@ beforeEach(() => {
   apiGetMock.mockReset()
   document.body.innerHTML = ''
   stageDefault = null
+  seenSetters.clear()
   mockApi()
 })
 
-describe('DashboardPage — filters in the URL', () => {
+describe('DashboardPage: filters in the URL', () => {
   it('sets the filters a ?filters= deep link names: panel, cards and requests', async () => {
     renderAt(withFilters('/', { project: 'a' }))
 
@@ -251,6 +257,38 @@ describe('DashboardPage — filters in the URL', () => {
     await waitFor(() => expect(metricRequestFilters()).toEqual([{ project: 'a' }, null]))
   })
 
+  it('adds no history entry when a card sets the filters the dashboard already has', async () => {
+    renderAt('/elsewhere', withFilters('/', { project: 'b' }))
+    await waitFor(() => expect(chips()).toEqual(['Project:Beta']))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pick Beta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Pick Beta' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go back' }))
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/elsewhere'))
+  })
+
+  it('keeps the fragment and the other query parameters of the address', async () => {
+    renderAt(`${withFilters('/', { project: 'a' })}&tab=2#notes`)
+    await waitFor(() => expect(chips()).toEqual(['Project:Alpha']))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pick Beta' }))
+
+    await waitFor(() => expect(urlFilters()).toEqual({ project: 'b' }))
+    expect(screen.getByTestId('location').textContent).toContain('tab=2')
+    expect(screen.getByTestId('hash').textContent).toBe('#notes')
+  })
+
+  it('gives cards one setFilters for the dashboard lifetime', async () => {
+    renderAt(withFilters('/', { project: 'a' }))
+    await waitFor(() => expect(chips()).toEqual(['Project:Alpha']))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pick Beta' }))
+    await waitFor(() => expect(chips()).toEqual(['Project:Beta']))
+
+    expect(seenSetters.size).toBe(1)
+  })
+
   it('ignores a malformed payload and keys no filter of the dashboard names', async () => {
     renderAt('/?filters=%7Bnot-json')
     await waitFor(() => expect(metricRequestFilters()).toEqual([null]))
@@ -283,6 +321,26 @@ describe('DashboardPage — filters in the URL', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Go back' }))
     await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/elsewhere'))
+  })
+
+  it('writes {} when a defaulted filter is cleared, so the default stays cleared after a reload', async () => {
+    stageDefault = 'won'
+    renderAt('/')
+    await waitFor(() => expect(urlFilters()).toEqual({ stage: 'won' }))
+
+    fireEvent.click(screen.getByRole('button', { name: /Stage$/ }))
+    await waitFor(() => expect(urlFilters()).toEqual({}))
+    expect(chips()).toEqual([])
+
+    // Reload: the same address in a fresh page.
+    const address = screen.getByTestId('location').textContent ?? ''
+    document.body.innerHTML = ''
+    apiGetMock.mockClear()
+    renderAt(address)
+    await waitFor(() => expect(screen.getByTestId('filter-toggle')).toBeTruthy())
+    await waitFor(() => expect(metricRequestFilters()).toEqual([null]))
+    expect(urlFilters()).toEqual({})
+    expect(chips()).toEqual([])
   })
 
   it('keeps a filter set by the URL over the default', async () => {

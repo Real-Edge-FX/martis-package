@@ -29,6 +29,10 @@ interface FilterPanelProps {
   open?: boolean
   /** Called whenever the panel toggles. Required when `open` is supplied. */
   onOpenChange?: (open: boolean) => void
+  /** Apply the filters' `default()` values on load when none is set
+   *  (default true). The dashboard passes false when its address already
+   *  decided the filters, cleared ones included. */
+  applyDefaults?: boolean
 }
 
 /**
@@ -47,7 +51,7 @@ function computeDefaults(filters: FilterDefinition[]): ActiveFilters {
 
 const calendarLocale = getCalendarLocale()
 
-export function FilterPanel({ filters, value, onChange, prefix, rightSlot, open: controlledOpen, onOpenChange }: FilterPanelProps) {
+export function FilterPanel({ filters, value, onChange, prefix, rightSlot, open: controlledOpen, onOpenChange, applyDefaults = true }: FilterPanelProps) {
   const { t } = useTranslation('resources')
   // Dual-mode open state — when the parent supplies `open` + `onOpenChange`
   // we run controlled (used by ResourceIndex so the open/closed flag
@@ -65,6 +69,7 @@ export function FilterPanel({ filters, value, onChange, prefix, rightSlot, open:
   useEffect(() => {
     if (defaultsApplied.current) return
     defaultsApplied.current = true
+    if (!applyDefaults) return
 
     const defaults = computeDefaults(filters)
     if (Object.keys(defaults).length > 0 && Object.keys(value).length === 0) {

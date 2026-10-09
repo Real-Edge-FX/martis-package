@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\Schema;
 use Martis\Contracts\FieldContract;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\MorphTo;
@@ -29,6 +30,11 @@ use Martis\Http\Resources\DatabaseErrorResponse;
 class DerSiteModel extends Model
 {
     protected $table = 'agency_sites';
+}
+
+class DerPersonModel extends Model
+{
+    protected $table = 'der_people';
 }
 
 /**
@@ -136,12 +142,19 @@ it('reads the key of a localised PostgreSQL message by its shape', function () {
     expect(array_keys(derRespond($e, [Text::make('email')])['errors']))->toBe(['email']);
 });
 
-it('falls back to the PostgreSQL constraint name when the key names no written field', function () {
-    $e = derPostgresUnique('agency_sites_custom_domain_lower_unique', 'md5(payload)');
+it('reads the PostgreSQL constraint name only when the message carries no key', function () {
+    $e = derException(['23505', 7, 'ERROR:  duplicate key value violates unique constraint "agency_sites_custom_domain_lower_unique"'], unique: true);
 
     $result = derRespond($e, [Text::make('custom_domain')], new DerSiteModel);
 
     expect(array_keys($result['errors']))->toBe(['custom_domain']);
+});
+
+it('trusts the PostgreSQL key over the constraint name', function () {
+    // The key covers user_id only; the name happens to spell `email`.
+    $e = derPostgresUnique('one_per_email_unique', 'user_id', '5');
+
+    expect(derRespond($e, [Text::make('email')])['errors'])->toBe([]);
 });
 
 it('answers a 422 without field errors when nothing maps to a written field', function () {
@@ -187,6 +200,32 @@ it('splits a composite MySQL index name on the longest known columns', function 
     );
 
     expect(array_keys($result['errors']))->toBe(['user_id', 'slug']);
+});
+
+it('never lets a MySQL value spell another driver\'s message', function () {
+    $postgresShape = derException(['23000', 1062, "Duplicate entry 'a(email)=(b' for key 'users.users_slug_unique'"], unique: true, driver: 'mysql');
+    $sqliteShape = derException(['23000', 1062, "Duplicate entry 'UNIQUE constraint failed: users.email' for key 'users.users_slug_unique'"], unique: true, driver: 'mysql');
+
+    expect(array_keys(derRespond($postgresShape, [Text::make('email'), Text::make('slug')])['errors']))->toBe(['slug'])
+        ->and(array_keys(derRespond($sqliteShape, [Text::make('email'), Text::make('slug')])['errors']))->toBe(['slug']);
+});
+
+it('splits an index name on every column of the table, not only the written ones', function () {
+    Schema::create('der_people', function ($table) {
+        $table->id();
+        $table->string('name');
+        $table->string('first_name');
+    });
+
+    try {
+        // The index covers first_name, which the form does not write.
+        $result = derRespond(derMysqlUnique('der_people.der_people_first_name_unique'), [Text::make('name')], new DerPersonModel);
+    } finally {
+        Schema::drop('der_people');
+    }
+
+    expect($result['status'])->toBe(422)
+        ->and($result['errors'])->toBe([]);
 });
 
 it('maps MySQL PRIMARY to the record key', function () {
@@ -282,6 +321,7 @@ it('maps the other constraint errors to a sanitized 500', function (array $error
     'mysql not null' => [['23000', 1048, "Column 'name' cannot be null"], DatabaseErrorResponse::NOT_NULL_MESSAGE],
     'postgres not null' => [['23502', 7, 'ERROR:  null value in column "name" violates not-null constraint'], DatabaseErrorResponse::NOT_NULL_MESSAGE],
     'anything else' => [['42S02', 1146, "Table 'x' doesn't exist"], DatabaseErrorResponse::GENERIC_MESSAGE],
+    'a value spelling a SQLite message' => [['HY000', 1366, "Incorrect string value: 'UNIQUE constraint failed' for column 'name'"], DatabaseErrorResponse::GENERIC_MESSAGE],
 ]);
 
 it('never leaks the SQL or the driver message', function () {
