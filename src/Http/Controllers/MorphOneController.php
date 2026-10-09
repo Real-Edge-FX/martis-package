@@ -21,6 +21,7 @@ use Martis\Fields\MorphOneOfMany;
 use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
 use Martis\Http\Controllers\Concerns\SyncsDeferredWrites;
+use Martis\Http\Resources\DatabaseErrorResponse;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonResponse;
 use Martis\Resource;
@@ -247,7 +248,7 @@ class MorphOneController extends MartisController
                 'error' => $e->getMessage(),
             ]);
 
-            return $this->handleDatabaseError($e);
+            return DatabaseErrorResponse::from($e, $fields, $relatedModel);
         }
 
         $resInstance = new $relatedResourceClass($relatedModel);
@@ -341,7 +342,7 @@ class MorphOneController extends MartisController
                 'error' => $e->getMessage(),
             ]);
 
-            return $this->handleDatabaseError($e);
+            return DatabaseErrorResponse::from($e, $fields, $relatedModel);
         }
 
         $resInstance = new $relatedResourceClass($relatedModel);
@@ -413,7 +414,7 @@ class MorphOneController extends MartisController
                 'error' => $e->getMessage(),
             ]);
 
-            return $this->handleDatabaseError($e);
+            return DatabaseErrorResponse::from($e);
         }
 
         return new IlluminateJsonResponse(
@@ -675,25 +676,6 @@ class MorphOneController extends MartisController
                 $field->fill($model, $request->input($attr));
             }
         }
-    }
-
-    /**
-     * Handle database exceptions.
-     */
-    private function handleDatabaseError(QueryException $e): IlluminateJsonResponse
-    {
-        $code = (string) ($e->errorInfo[1] ?? '');
-
-        $message = match ($code) {
-            '1048' => 'A required field is missing.',
-            '1062' => 'A record with this value already exists.',
-            '1364' => 'A required field was not provided.',
-            '1451' => 'This record is referenced by other records.',
-            '1452' => 'The referenced record does not exist.',
-            default => 'A database error occurred.',
-        };
-
-        return JsonErrorResponse::serverError($message)->toResponse();
     }
 
     /**
