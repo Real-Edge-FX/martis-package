@@ -80,6 +80,7 @@ import { NotFoundPage } from '@/pages/NotFound'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useModalHistoryLock } from '@/lib/historyLock'
 import { useEscapeLayer } from '@/lib/escapeLayers'
+import { useModalFocus } from '@/hooks/useModalFocus'
 import { OverridePropsProvider, useOverrideProps, useOverridePropsOptional } from '@/hooks/useOverrideProps'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { useError } from '@/lib/useError'
@@ -224,6 +225,12 @@ export const martisRuntime = {
   parseAuthLinkFragment,
   useModalHistoryLock,
   useEscapeLayer,
+  // Focus as a modal surface needs it (since v2.7.0): focus moves in on
+  // open, Tab stays inside, Escape closes, focus goes back on close. The
+  // bundled sidebar's mobile drawer uses it; a replacement sidebar
+  // (`layout:sidebar`) or a Tool's own dialog can too. Pair with the
+  // ModalFocusOptions type re-exported below.
+  useModalFocus,
   OverridePropsProvider,
   useOverrideProps,
   useOverridePropsOptional,
@@ -339,6 +346,7 @@ export type { FieldDefinition } from '@/types'
 export type { FieldDisplayProps, FieldInputProps } from '@/components/fields/types'
 export type { NestedParent } from '@/components/fields/NestedParentContext'
 export type { DrawerShellProps } from '@/components/overrides/DrawerShell'
+export type { ModalFocusOptions } from '@/hooks/useModalFocus'
 export type { TooltipProps } from 'primereact/tooltip'
 export type { HtmlTooltipProps } from '@/lib/htmlTooltip'
 export type { DropdownProps } from 'primereact/dropdown'

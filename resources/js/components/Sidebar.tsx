@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react"
+import { Fragment, useRef, useState } from "react"
 import { useIsTruncated } from "@/hooks/useIsTruncated"
 import { NavLink, useLocation } from "react-router"
 import { useQuery } from "@tanstack/react-query"
@@ -23,6 +23,7 @@ import {
   type BadgesPayload,
 } from "@/lib/navigation"
 import { useTranslation } from "react-i18next"
+import type { TFunction } from "i18next"
 import { useGateOptional } from "@/contexts/GateContext"
 import logoSrcDefault from "@images/martis-icon.png"
 import {
@@ -32,6 +33,8 @@ import {
 } from "@phosphor-icons/react"
 import { ResourceIcon } from "./ResourceIcon"
 import { safeHref } from "@/lib/safeUrl"
+import { useModalFocus } from "@/hooks/useModalFocus"
+import { NAVIGATION_ID, SIDEBAR_ID, SIDEBAR_TOGGLE_ID } from "@/lib/shellIds"
 
 function getBrand(): string {
   return config.brand ?? "Martis"
@@ -136,6 +139,9 @@ function LeafItem({
   const showTooltip = !ctx.isMobile && (ctx.collapsed || labelOverflows) ? item.label : undefined
   const count = getItemCount(item)
   const showLabel = ctx.isMobile || !ctx.collapsed
+  // The collapsed rail shows the icon only, and a tooltip is not an
+  // accessible name: the link carries its label (WCAG 2.2, 4.1.2).
+  const ariaLabel = showLabel ? undefined : item.label
   const showCount = showLabel && count !== null
   const badge = item.badge ?? null
 
@@ -168,6 +174,7 @@ function LeafItem({
         target="_blank"
         rel="noreferrer"
         className="martis-sb-item"
+        aria-label={ariaLabel}
         data-pr-tooltip={showTooltip}
         data-pr-position="right"
         onClick={ctx.isMobile ? ctx.onMobileClose : undefined}
@@ -204,6 +211,7 @@ function LeafItem({
       to={item.url}
       end
       className={() => className}
+      aria-label={ariaLabel}
       data-pr-tooltip={showTooltip}
       data-pr-position="right"
       onClick={ctx.isMobile ? ctx.onMobileClose : undefined}
@@ -232,6 +240,13 @@ function buildAccentProps(accent: string): {
   return { 'data-resource-accent': accent }
 }
 
+/** The accessible name of a group's chevron: "Collapse Settings". */
+function toggleLabel(t: TFunction, expanded: boolean, group: string): string {
+  return expanded
+    ? t("collapse_group", { group, defaultValue: "Collapse {{group}}" })
+    : t("expand_group", { group, defaultValue: "Expand {{group}}" })
+}
+
 /**
  * Render a nested MenuGroup: its own collapsible header + an indented
  * list of leaf items underneath. Sits inside a section's items list.
@@ -245,6 +260,7 @@ function NestedGroupBlock({
   parentKey: string
   ctx: RenderItemContext
 }): JSX.Element {
+  const { t } = useTranslation("navigation")
   const groupKey = `${parentKey}::${group.label}`
   const [open, setOpen] = useState(true)
   const showLabel = ctx.isMobile || !ctx.collapsed
@@ -280,6 +296,7 @@ function NestedGroupBlock({
             <button
               type="button"
               className="martis-sb-subgroup-label"
+              aria-expanded={collapsable ? open : undefined}
               onClick={() => collapsable && setOpen((o) => !o)}
             >
               {iconNode}
@@ -293,7 +310,8 @@ function NestedGroupBlock({
             <button
               type="button"
               className="martis-sb-subgroup-toggle"
-              aria-label={open ? 'Collapse' : 'Expand'}
+              aria-label={toggleLabel(t, open, group.label)}
+              aria-expanded={open}
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o) }}
             >
               {caretNode}
@@ -379,253 +397,282 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
   const sameVariant = brandMark.light === brandMark.dark
 
   const mobileAttr = isMobile ? (mobileOpen ? "open" : "true") : undefined
+  const navigationLabel = t("main_navigation", "Main navigation")
+
+  // On mobile the open sidebar is a modal drawer (v2.7.0): focus moves into
+  // it, Tab stays inside, Escape closes it, and on close focus goes back
+  // to the top bar's menu button. Closed, it is `visibility: hidden`
+  // (martis.css), out of the Tab order.
+  const rootRef = useRef<HTMLDivElement>(null)
+  useModalFocus(rootRef, mobileOpen === true, {
+    onClose: () => onMobileClose?.(),
+    returnFocus: () => document.getElementById(SIDEBAR_TOGGLE_ID),
+  })
 
   return (
-    <aside
+    <div
+      ref={rootRef}
+      id={SIDEBAR_ID}
       className="martis-sb"
       data-collapsed={!isMobile && collapsed ? "true" : "false"}
       data-mobile={mobileAttr}
       style={!isMobile && !collapsed ? { width: "var(--sidebar-width, 240px)" } : undefined}
-      aria-label={t("section_resources", "Resources")}
+      role={mobileOpen === true ? "dialog" : undefined}
+      aria-modal={mobileOpen === true ? true : undefined}
+      aria-label={mobileOpen === true ? navigationLabel : undefined}
     >
-      <div className="martis-sb-logo" data-mode={brandMark.mode}>
-        <div className="martis-sb-logo-mark">
-          {sameVariant ? (
-            <img src={brandMark.light} alt={brand} />
-          ) : (
-            <>
-              <img
-                src={brandMark.light}
-                alt={brand}
-                className="martis-brand-img--light"
-              />
-              <img
-                src={brandMark.dark}
-                alt={brand}
-                className="martis-brand-img--dark"
-                aria-hidden="true"
-              />
-            </>
-          )}
+      {/* The navigation landmark holds the whole sidebar (brand, menu,
+          footer links), so no content sits outside a landmark. The skip
+          link to the navigation focuses it. */}
+      <nav
+        id={NAVIGATION_ID}
+        tabIndex={-1}
+        className="martis-sb-nav"
+        aria-label={navigationLabel}
+      >
+        <div className="martis-sb-logo" data-mode={brandMark.mode}>
+          <div className="martis-sb-logo-mark">
+            {sameVariant ? (
+              <img src={brandMark.light} alt={brand} />
+            ) : (
+              <>
+                <img
+                  src={brandMark.light}
+                  alt={brand}
+                  className="martis-brand-img--light"
+                />
+                <img
+                  src={brandMark.dark}
+                  alt={brand}
+                  className="martis-brand-img--dark"
+                  aria-hidden="true"
+                />
+              </>
+            )}
+          </div>
+          {brandMark.mode === "icon" && (!isMobile && collapsed ? null : (
+            <span className="martis-sb-logo-text">{brand}</span>
+          ))}
         </div>
-        {brandMark.mode === "icon" && (!isMobile && collapsed ? null : (
-          <span className="martis-sb-logo-text">{brand}</span>
-        ))}
-      </div>
 
-      <div className="martis-sb-scroll">
-        <div className="martis-sb-group" data-open="true">
-          {(isMobile || !collapsed) && (
-            <div className="martis-sb-group-label">
-              <span>{t("dashboards", "Dashboards")}</span>
-            </div>
-          )}
-          {rootDashboards.length > 0 ? (
-            // v1.10.5+: one entry per ROOT dashboard. Children (any
-            // dashboard whose `parent()` returns a non-null uriKey)
-            // never appear in the sidebar — they live inside their
-            // parent's page as a tab strip. The first root dashboard
-            // doubles as the panel root link (`/`) so deep-link
-            // bookmarks and the sidebar stay in sync.
-            rootDashboards.map((dashboard, idx) => {
-              const isFirst = idx === 0
-              const lock = dashboard.lock ?? null
-              const isLocked = lock !== null
-              return (
-                <NavLink
-                  key={dashboard.uriKey}
-                  to={isFirst ? "/" : `/dashboards/${dashboard.uriKey}`}
-                  end
-                  className={({ isActive }) =>
-                    "martis-sb-item" + (isActive ? " active" : "") + (isLocked ? " locked" : "")
-                  }
-                  data-pr-tooltip={!isMobile && collapsed ? dashboard.name : undefined}
-                  data-pr-position="right"
-                  onClick={(event) => {
-                    if (isLocked && lock !== null && gate !== null) {
-                      // v1.11.0+ — locked entries do not navigate;
-                      // the modal opens instead. Fall back to navigation
-                      // when the GateProvider is missing (tests, edge
-                      // cases) so the route guard catches it.
-                      event.preventDefault()
-                      gate.open(lock)
-                      return
+        <div className="martis-sb-scroll">
+          <div className="martis-sb-group" data-open="true">
+            {(isMobile || !collapsed) && (
+              <div className="martis-sb-group-label">
+                <span>{t("dashboards", "Dashboards")}</span>
+              </div>
+            )}
+            {rootDashboards.length > 0 ? (
+              // v1.10.5+: one entry per ROOT dashboard. Children (any
+              // dashboard whose `parent()` returns a non-null uriKey)
+              // never appear in the sidebar — they live inside their
+              // parent's page as a tab strip. The first root dashboard
+              // doubles as the panel root link (`/`) so deep-link
+              // bookmarks and the sidebar stay in sync.
+              rootDashboards.map((dashboard, idx) => {
+                const isFirst = idx === 0
+                const lock = dashboard.lock ?? null
+                const isLocked = lock !== null
+                return (
+                  <NavLink
+                    key={dashboard.uriKey}
+                    to={isFirst ? "/" : `/dashboards/${dashboard.uriKey}`}
+                    end
+                    className={({ isActive }) =>
+                      "martis-sb-item" + (isActive ? " active" : "") + (isLocked ? " locked" : "")
                     }
-                    if (isMobile && onMobileClose) onMobileClose()
-                  }}
-                >
-                  {/* v1.11.4+: per-dashboard icon when set, fall back to
-                      the bundled SquaresFour glyph. The dashboard's
-                      `icon()` is only honoured by the auto-build path;
-                      a custom `Martis::mainMenu(...)` overrides it via
-                      `MenuItem::icon(...)`. */}
-                  {dashboard.icon ? (
-                    <ResourceIcon iconName={dashboard.icon} size={16} className="shrink-0" />
-                  ) : (
-                    <SquaresFourIcon size={16} className="shrink-0" />
-                  )}
-                  {(isMobile || !collapsed) && (
-                    <span className="martis-sb-item-label">{dashboard.name}</span>
-                  )}
-                  {(isMobile || !collapsed) && dashboard.badge && (
-                    <span
-                      className="martis-sb-item-tag"
-                      data-tone={dashboard.badge.tone}
-                    >
-                      {dashboard.badge.text}
-                    </span>
-                  )}
-                  {(isMobile || !collapsed) && isLocked && (
-                    <LockKeyIcon
-                      size={12}
-                      className="shrink-0"
-                      style={{ color: 'var(--martis-text-muted)' }}
-                    />
-                  )}
-                </NavLink>
-              )
-            })
-          ) : (
-            // No dashboards registered — render a single entry pointing
-            // at `/` so the sidebar stays usable on a bare-bones install
-            // with no `Martis::dashboards([...])` call. The page renders
-            // the built-in welcome view in that case.
-            <NavLink
-              to="/"
-              end
-              className={({ isActive }) =>
-                "martis-sb-item" + (isActive ? " active" : "")
-              }
-              data-pr-tooltip={!isMobile && collapsed ? t("dashboard") : undefined}
-              data-pr-position="right"
-              onClick={isMobile ? onMobileClose : undefined}
-            >
-              <SquaresFourIcon size={16} className="shrink-0" />
-              {(isMobile || !collapsed) && (
-                <span className="martis-sb-item-label">{t("dashboard")}</span>
-              )}
-            </NavLink>
-          )}
-        </div>
-
-        {groups.map((group, i) => {
-          const groupKey = group.label ?? `group-${i}`
-          const isExpanded = expandedGroups[groupKey] !== false
-          const currentSection = group.section ?? null
-          const previousSection = i > 0 ? groups[i - 1].section ?? null : null
-          const showSection =
-            currentSection !== null &&
-            currentSection !== previousSection &&
-            (isMobile || !collapsed)
-          const ctx: RenderItemContext = {
-            groupKey,
-            collapsed,
-            isMobile,
-            onMobileClose,
-            location: { pathname: location.pathname, search: location.search },
-          }
-          const groupCollapsable = group.collapsable !== false
-          const groupIcon = group.icon && (
-            <ResourceIcon iconName={group.icon} size={14} className="shrink-0" />
-          )
-          const groupLabel = <span>{group.label}</span>
-          return (
-            <Fragment key={groupKey}>
-              {showSection && (
-                <div className="martis-sb-section-heading" aria-hidden="true">
-                  {currentSection}
-                </div>
-              )}
-              <div
-                className="martis-sb-group"
-                data-open={isExpanded ? "true" : "false"}
-              >
-                {group.label && (isMobile || !collapsed) && (
-                  <div className="martis-sb-group-header">
-                    {/* Label area: NavLink when path() is set, button
-                        otherwise. The chevron lives outside so deep-link
-                        and collapse can coexist on the same header. */}
-                    {group.path ? (
-                      <NavLink
-                        to={group.path}
-                        end
-                        className={() =>
-                          "martis-sb-group-label martis-sb-group-label--link" +
-                          (isGroupActive(group.path, group.items, { pathname: location.pathname, search: location.search }) ? " active" : "")
-                        }
-                      >
-                        {groupIcon}
-                        {groupLabel}
-                      </NavLink>
+                    aria-label={!isMobile && collapsed ? dashboard.name : undefined}
+                    data-pr-tooltip={!isMobile && collapsed ? dashboard.name : undefined}
+                    data-pr-position="right"
+                    onClick={(event) => {
+                      if (isLocked && lock !== null && gate !== null) {
+                        // v1.11.0+ — locked entries do not navigate;
+                        // the modal opens instead. Fall back to navigation
+                        // when the GateProvider is missing (tests, edge
+                        // cases) so the route guard catches it.
+                        event.preventDefault()
+                        gate.open(lock)
+                        return
+                      }
+                      if (isMobile && onMobileClose) onMobileClose()
+                    }}
+                  >
+                    {/* v1.11.4+: per-dashboard icon when set, fall back to
+                        the bundled SquaresFour glyph. The dashboard's
+                        `icon()` is only honoured by the auto-build path;
+                        a custom `Martis::mainMenu(...)` overrides it via
+                        `MenuItem::icon(...)`. */}
+                    {dashboard.icon ? (
+                      <ResourceIcon iconName={dashboard.icon} size={16} className="shrink-0" />
                     ) : (
-                      <button
-                        type="button"
-                        className="martis-sb-group-label"
-                        onClick={() => groupCollapsable && toggleGroup(groupKey)}
-                      >
-                        {groupIcon}
-                        {groupLabel}
-                      </button>
+                      <SquaresFourIcon size={16} className="shrink-0" />
                     )}
-                    {/* Independent chevron — always toggles collapse,
-                        regardless of whether the label is a link. */}
-                    {groupCollapsable && (
-                      <button
-                        type="button"
-                        className="martis-sb-group-toggle"
-                        aria-label={isExpanded ? 'Collapse' : 'Expand'}
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleGroup(groupKey) }}
-                      >
-                        <CaretRightIcon size={10} className="caret" />
-                      </button>
+                    {(isMobile || !collapsed) && (
+                      <span className="martis-sb-item-label">{dashboard.name}</span>
                     )}
+                    {(isMobile || !collapsed) && dashboard.badge && (
+                      <span
+                        className="martis-sb-item-tag"
+                        data-tone={dashboard.badge.tone}
+                      >
+                        {dashboard.badge.text}
+                      </span>
+                    )}
+                    {(isMobile || !collapsed) && isLocked && (
+                      <LockKeyIcon
+                        size={12}
+                        className="shrink-0"
+                        style={{ color: 'var(--martis-text-muted)' }}
+                      />
+                    )}
+                  </NavLink>
+                )
+              })
+            ) : (
+              // No dashboards registered — render a single entry pointing
+              // at `/` so the sidebar stays usable on a bare-bones install
+              // with no `Martis::dashboards([...])` call. The page renders
+              // the built-in welcome view in that case.
+              <NavLink
+                to="/"
+                end
+                className={({ isActive }) =>
+                  "martis-sb-item" + (isActive ? " active" : "")
+                }
+                aria-label={!isMobile && collapsed ? t("dashboard") : undefined}
+                data-pr-tooltip={!isMobile && collapsed ? t("dashboard") : undefined}
+                data-pr-position="right"
+                onClick={isMobile ? onMobileClose : undefined}
+              >
+                <SquaresFourIcon size={16} className="shrink-0" />
+                {(isMobile || !collapsed) && (
+                  <span className="martis-sb-item-label">{t("dashboard")}</span>
+                )}
+              </NavLink>
+            )}
+          </div>
+
+          {groups.map((group, i) => {
+            const groupKey = group.label ?? `group-${i}`
+            const isExpanded = expandedGroups[groupKey] !== false
+            const currentSection = group.section ?? null
+            const previousSection = i > 0 ? groups[i - 1].section ?? null : null
+            const showSection =
+              currentSection !== null &&
+              currentSection !== previousSection &&
+              (isMobile || !collapsed)
+            const ctx: RenderItemContext = {
+              groupKey,
+              collapsed,
+              isMobile,
+              onMobileClose,
+              location: { pathname: location.pathname, search: location.search },
+            }
+            const groupCollapsable = group.collapsable !== false
+            const groupIcon = group.icon && (
+              <ResourceIcon iconName={group.icon} size={14} className="shrink-0" />
+            )
+            const groupLabel = <span>{group.label}</span>
+            return (
+              <Fragment key={groupKey}>
+                {showSection && (
+                  <div className="martis-sb-section-heading" aria-hidden="true">
+                    {currentSection}
                   </div>
                 )}
-                {(isExpanded || (!isMobile && collapsed)) &&
-                  getNavigationItems(group).map((child: NavigationGroupChild, idx) => {
-                    if (isNestedGroup(child)) {
+                <div
+                  className="martis-sb-group"
+                  data-open={isExpanded ? "true" : "false"}
+                >
+                  {group.label && (isMobile || !collapsed) && (
+                    <div className="martis-sb-group-header">
+                      {/* Label area: NavLink when path() is set, button
+                          otherwise. The chevron lives outside so deep-link
+                          and collapse can coexist on the same header. */}
+                      {group.path ? (
+                        <NavLink
+                          to={group.path}
+                          end
+                          className={() =>
+                            "martis-sb-group-label martis-sb-group-label--link" +
+                            (isGroupActive(group.path, group.items, { pathname: location.pathname, search: location.search }) ? " active" : "")
+                          }
+                        >
+                          {groupIcon}
+                          {groupLabel}
+                        </NavLink>
+                      ) : (
+                        <button
+                          type="button"
+                          className="martis-sb-group-label"
+                          aria-expanded={groupCollapsable ? isExpanded : undefined}
+                          onClick={() => groupCollapsable && toggleGroup(groupKey)}
+                        >
+                          {groupIcon}
+                          {groupLabel}
+                        </button>
+                      )}
+                      {/* Independent chevron — always toggles collapse,
+                          regardless of whether the label is a link. */}
+                      {groupCollapsable && (
+                        <button
+                          type="button"
+                          className="martis-sb-group-toggle"
+                          aria-label={toggleLabel(t, isExpanded, group.label ?? "")}
+                          aria-expanded={isExpanded}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleGroup(groupKey) }}
+                        >
+                          <CaretRightIcon size={10} className="caret" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {(isExpanded || (!isMobile && collapsed)) &&
+                    getNavigationItems(group).map((child: NavigationGroupChild, idx) => {
+                      if (isNestedGroup(child)) {
+                        return (
+                          <NestedGroupBlock
+                            key={`${groupKey}-nested-${child.label}-${idx}`}
+                            group={child}
+                            parentKey={groupKey}
+                            ctx={ctx}
+                          />
+                        )
+                      }
                       return (
-                        <NestedGroupBlock
-                          key={`${groupKey}-nested-${child.label}-${idx}`}
-                          group={child}
-                          parentKey={groupKey}
+                        <LeafItem
+                          key={leafItemKey(child, groupKey)}
+                          item={child}
                           ctx={ctx}
                         />
                       )
-                    }
-                    return (
-                      <LeafItem
-                        key={leafItemKey(child, groupKey)}
-                        item={child}
-                        ctx={ctx}
-                      />
-                    )
-                  })}
-              </div>
-            </Fragment>
-          )
-        })}
-      </div>
-
-      {(config.version || config.docsUrl) && (
-        <div className="martis-sb-footer">
-          {config.version && (
-            <span className="martis-sb-footer-version">
-              {/^\d/.test(config.version) ? `v${config.version}` : config.version}
-            </span>
-          )}
-          {config.docsUrl && (
-            <a
-              href={safeHref(config.docsUrl)}
-              target="_blank"
-              rel="noreferrer"
-              className="martis-sb-footer-link"
-            >
-              {t("docs", "Docs")} ↗
-            </a>
-          )}
+                    })}
+                </div>
+              </Fragment>
+            )
+          })}
         </div>
-      )}
-    </aside>
+
+        {(config.version || config.docsUrl) && (
+          <div className="martis-sb-footer">
+            {config.version && (
+              <span className="martis-sb-footer-version">
+                {/^\d/.test(config.version) ? `v${config.version}` : config.version}
+              </span>
+            )}
+            {config.docsUrl && (
+              <a
+                href={safeHref(config.docsUrl)}
+                target="_blank"
+                rel="noreferrer"
+                className="martis-sb-footer-link"
+              >
+                {t("docs", "Docs")} ↗
+              </a>
+            )}
+          </div>
+        )}
+      </nav>
+    </div>
   )
 }

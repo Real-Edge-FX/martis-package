@@ -56,6 +56,7 @@ export default function {{ class }}() {
             : undefined
         }
         sidebarCollapsed={collapsed}
+        sidebarOpen={isMobile ? mobileOpen : undefined}
       />
 
       <main className="martis-shell-content">

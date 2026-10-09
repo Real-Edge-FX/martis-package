@@ -12,7 +12,8 @@ import {
 } from "@/lib/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
-import { MAIN_CONTENT_ID, SkipLink } from "@/components/SkipLink"
+import { MAIN_CONTENT_ID, NAVIGATION_ID, SkipLink, SkipToNavigationLink } from "@/components/SkipLink"
+import { TopbarSlot } from "@/components/TopbarSlot"
 import { GlobalSearch } from "@/components/GlobalSearch"
 import { PreferencesMenu, type PreferencesMenuHandle } from "@/components/PreferencesMenu"
 import { Footer } from "@/components/Footer"
@@ -191,6 +192,7 @@ export function TopnavLayout() {
   return (
     <div className="martis-bg flex h-screen flex-col overflow-hidden">
       <SkipLink />
+      <SkipToNavigationLink />
 
       <header className="martis-topnav-bar">
         <div className="martis-topnav-brand" data-mode={brandMark.mode}>
@@ -218,7 +220,15 @@ export function TopnavLayout() {
           )}
         </div>
 
-        <nav className="martis-topnav-links">
+        {/* v2.7.0: an app's component registered under `topbar:start`. */}
+        <TopbarSlot slot="topbar_start" />
+
+        <nav
+          id={NAVIGATION_ID}
+          tabIndex={-1}
+          className="martis-topnav-links"
+          aria-label={t("main_navigation", "Main navigation")}
+        >
           <NavLink
             to="/"
             end
@@ -354,6 +364,9 @@ export function TopnavLayout() {
           )}
 
           <PreferencesMenu ref={prefsRef} />
+
+          {/* v2.7.0: an app's component registered under `topbar:end`. */}
+          <TopbarSlot slot="topbar_end" />
 
           <span className="martis-tb-divider" aria-hidden="true" />
 

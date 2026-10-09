@@ -1,7 +1,9 @@
 import { Outlet, Navigate, useLocation } from "react-router"
 import { ActionResponseModalProvider } from "@/components/Actions/ActionResponseModalHost"
 import { MartisTooltip } from "@/components/MartisTooltip"
-import { MAIN_CONTENT_ID, SkipLink } from "@/components/SkipLink"
+import { MAIN_CONTENT_ID, SkipLink, SkipToNavigationLink } from "@/components/SkipLink"
+import { NAVIGATION_ID, SIDEBAR_TOGGLE_ID } from "@/lib/shellIds"
+import { resolveShellOverride } from "@/lib/shellComponents"
 import { PanelForbiddenPage } from "@/pages/PanelForbidden"
 import { useAuth } from "@/contexts/AuthContext"
 import { config } from "@/lib/config"
@@ -19,35 +21,6 @@ import { useIsMobile } from "@/hooks/useIsMobile"
 import { useState, useEffect } from "react"
 import type { ComponentProps, ComponentType } from "react"
 
-/**
- * Resolve a shell-level component (sidebar, topbar, footer) from the
- * registry so consumers can swap any of them without replacing the
- * entire shell. Resolution:
- *
- *   1. `config('martis.layout.components.<piece>')` — a custom registry
- *      key set in PHP config. Wins when the key is registered.
- *   2. `layout:<piece>` — the default registry key. Any component
- *      registered there wins when no config override is set.
- *   3. Fallback to the bundled component.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function resolveShellComponent<C extends ComponentType<any>>(
-  piece: "shell" | "sidebar" | "topbar" | "footer",
-  fallback: C,
-): C {
-  const configured = config.layout?.components?.[piece]
-  if (configured && componentRegistry.has(configured)) {
-    const override = componentRegistry.resolve(configured)
-    if (override) return override as unknown as C
-  }
-  const defaultKey = `layout:${piece}`
-  if (componentRegistry.has(defaultKey)) {
-    const override = componentRegistry.resolve(defaultKey)
-    if (override) return override as unknown as C
-  }
-  return fallback
-}
-
 function SidebarLayout() {
   const isMobile = useIsMobile()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
@@ -56,14 +29,15 @@ function SidebarLayout() {
   })
   const location = useLocation()
 
-  const SidebarComponent = resolveShellComponent<ComponentType<ComponentProps<typeof Sidebar>>>(
-    "sidebar",
-    Sidebar,
-  )
-  const TopbarComponent = resolveShellComponent<ComponentType<ComponentProps<typeof Topbar>>>(
-    "topbar",
-    Topbar,
-  )
+  const SidebarComponent: ComponentType<ComponentProps<typeof Sidebar>> =
+    resolveShellOverride("sidebar") ?? Sidebar
+  const TopbarComponent: ComponentType<ComponentProps<typeof Topbar>> =
+    resolveShellOverride("topbar") ?? Topbar
+  // v2.7.0: `martis.layout.header_first` puts the top bar before the
+  // sidebar in the DOM, so the Tab order is skip links, top bar, menu,
+  // main. The grid places every piece by its own row and column, so the
+  // page looks the same either way.
+  const headerFirst = config.layout?.header_first === true
 
   useEffect(() => {
     setMobileSidebarOpen(false)
@@ -100,6 +74,22 @@ function SidebarLayout() {
     }
   }, [isMobile, mobileSidebarOpen])
 
+  const sidebar = (
+    <SidebarComponent
+      mobileOpen={isMobile ? mobileSidebarOpen : undefined}
+      onMobileClose={() => setMobileSidebarOpen(false)}
+      collapsed={!isMobile && collapsed}
+    />
+  )
+  const topbar = (
+    <TopbarComponent
+      onToggleSidebar={isMobile ? () => setMobileSidebarOpen((v) => !v) : undefined}
+      onToggleCollapse={!isMobile ? () => setCollapsed((c) => !c) : undefined}
+      sidebarCollapsed={collapsed}
+      sidebarOpen={isMobile ? mobileSidebarOpen : undefined}
+    />
+  )
+
   return (
     <div
       className="martis-shell martis-bg"
@@ -107,18 +97,13 @@ function SidebarLayout() {
       data-sidebar-collapsed={!isMobile && collapsed ? "true" : undefined}
     >
       <SkipLink />
+      {/* On mobile the menu is a closed drawer: the link goes to the
+          button that opens it. */}
+      <SkipToNavigationLink targetId={isMobile ? SIDEBAR_TOGGLE_ID : NAVIGATION_ID} />
 
-      <SidebarComponent
-        mobileOpen={isMobile ? mobileSidebarOpen : undefined}
-        onMobileClose={() => setMobileSidebarOpen(false)}
-        collapsed={!isMobile && collapsed}
-      />
-
-      <TopbarComponent
-        onToggleSidebar={isMobile ? () => setMobileSidebarOpen((v) => !v) : undefined}
-        onToggleCollapse={!isMobile ? () => setCollapsed((c) => !c) : undefined}
-        sidebarCollapsed={collapsed}
-      />
+      {!headerFirst && sidebar}
+      {topbar}
+      {headerFirst && sidebar}
 
       <main id={MAIN_CONTENT_ID} tabIndex={-1} className="martis-shell-content">
         {(() => {

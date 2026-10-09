@@ -1475,6 +1475,15 @@ html[data-reduced-motion="true"] .mwc-blob {
   transform: translateX(0);
 }
 
+/* The navigation landmark wraps the whole sidebar (v2.7.0) and keeps its
+   column: brand, scrolling menu, footer. */
+.martis-sb-nav {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .martis-sb-logo {
   height: 56px;
   min-height: 56px;
@@ -1849,12 +1858,20 @@ html[data-reduced-motion="true"] .mwc-blob {
   bottom: 0;
   width: 280px;
   transform: translateX(-100%);
-  transition: transform var(--martis-dur-medium) var(--martis-ease-standard);
+  /* Closed, the drawer is hidden once it has slid out (v2.7.0): its links
+     leave the Tab order and the accessibility tree instead of taking focus
+     off-screen. Opening shows it at once. */
+  visibility: hidden;
+  transition: transform var(--martis-dur-medium) var(--martis-ease-standard),
+              visibility 0s linear var(--martis-dur-medium);
   box-shadow: var(--martis-shadow-lg);
   z-index: 50;
 }
 .martis-sb[data-mobile="open"] {
   transform: translateX(0);
+  visibility: visible;
+  transition: transform var(--martis-dur-medium) var(--martis-ease-standard),
+              visibility 0s linear 0s;
 }
 .martis-shell-backdrop {
   position: fixed;
@@ -8132,8 +8149,9 @@ html[data-density="dense"] .martis-cache-toggle {
   table tr    { page-break-inside: avoid; }
 }
 
-/* Skip link (WCAG 2.2, 2.4.1 Bypass Blocks): the first focusable element of
-   the sidebar and topnav layouts, off-screen until it takes keyboard focus. */
+/* Skip links (WCAG 2.2, 2.4.1 Bypass Blocks): the first focusable elements of
+   the sidebar and topnav layouts ("Skip to main content", then "Skip to
+   navigation"), off-screen until one takes keyboard focus. */
 .martis-skip-link {
   position: fixed;
   top: 0.5rem;
@@ -8155,7 +8173,8 @@ html[data-density="dense"] .martis-cache-toggle {
   outline: none;
 }
 
-/* The landmark takes focus from the skip link only; it is not a control. */
-#martis-main:focus {
+/* The landmarks take focus from the skip links only; they are not controls. */
+#martis-main:focus,
+#martis-navigation:focus {
   outline: none;
 }

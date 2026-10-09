@@ -267,6 +267,8 @@ class ListOverridesCommand extends Command
             'Sidebar' => 'layout:sidebar',
             'Topbar' => 'layout:topbar',
             'Footer' => 'layout:footer',
+            'TopbarStart' => 'topbar:start',
+            'TopbarEnd' => 'topbar:end',
             'LoginPage' => 'auth:login',
             'RegisterPage' => 'auth:register',
             'ForgotPasswordPage' => 'auth:forgot-password',

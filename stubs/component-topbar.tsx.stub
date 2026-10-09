@@ -14,6 +14,14 @@
  *                         and collapsed (64px).
  * • `sidebarCollapsed`  — current collapsed state, used to pick the
  *                         chevron direction on the toggle button.
+ * • `sidebarOpen`       — `boolean | undefined` (v2.7.0). Whether the
+ *                         mobile drawer is open: the menu button's
+ *                         `aria-expanded`. Undefined on desktop.
+ *
+ * The menu button keeps `id="martis-sidebar-toggle"`: the drawer gives
+ * focus back to it when it closes, and on mobile the "Skip to
+ * navigation" link moves focus to it. Its `aria-controls` names the
+ * sidebar (`martis-sidebar`).
  *
  * IMPORTS
  * -------
@@ -30,12 +38,14 @@ interface {{ class }}Props {
   onToggleSidebar?: () => void
   onToggleCollapse?: () => void
   sidebarCollapsed?: boolean
+  sidebarOpen?: boolean
 }
 
 export default function {{ class }}({
   onToggleSidebar,
   onToggleCollapse,
   sidebarCollapsed = false,
+  sidebarOpen,
 }: {{ class }}Props) {
   const {user} = useAuth()
   const {t} = useTranslation('navigation')
@@ -45,8 +55,11 @@ export default function {{ class }}({
       {onToggleSidebar !== undefined && (
         <button
           type="button"
+          id="martis-sidebar-toggle"
           className="martis-tb-menu-btn"
           onClick={onToggleSidebar}
+          aria-controls="martis-sidebar"
+          aria-expanded={sidebarOpen}
           aria-label={t('open_sidebar', 'Menu')}
           data-pr-tooltip={t('open_sidebar', 'Menu')}
           data-pr-position="bottom"
@@ -68,9 +81,9 @@ export default function {{ class }}({
         </button>
       )}
 
-      <nav className="martis-tb-breadcrumbs">
+      <div className="martis-tb-breadcrumbs">
         {/* TODO: breadcrumbs / search / icon buttons / user menu */}
-      </nav>
+      </div>
 
       <div className="martis-tb-right">
         <div className="martis-tb-user">

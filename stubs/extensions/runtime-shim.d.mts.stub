@@ -9,7 +9,7 @@
  */
 import * as react_jsx_runtime from 'react/jsx-runtime';
 import * as React$1 from 'react';
-import { ReactNode, RefCallback, JSX as JSX$1, ComponentType } from 'react';
+import { ReactNode, RefCallback, JSX as JSX$1, ComponentType, RefObject } from 'react';
 import { createPortal, flushSync } from './react-dom.mjs';
 export { createPortal, flushSync } from './react-dom.mjs';
 import { IconProps } from '@phosphor-icons/react';
@@ -1476,7 +1476,17 @@ interface MartisLayoutConfig {
         sidebar?: string | null;
         topbar?: string | null;
         footer?: string | null;
+        /** Registry key of the top bar's start slot (default key `topbar:start`, v2.7.0). */
+        topbar_start?: string | null;
+        /** Registry key of the top bar's end slot (default key `topbar:end`, v2.7.0). */
+        topbar_end?: string | null;
     };
+    /**
+     * Sidebar layout only (v2.7.0): render the top bar before the sidebar in
+     * the DOM, so the Tab order is top bar, menu, main. The page looks the
+     * same. Mirrors `martis.layout.header_first` (`MARTIS_LAYOUT_HEADER_FIRST`).
+     */
+    header_first?: boolean;
 }
 interface MartisProfileMenuConfig {
     enabled?: boolean;
@@ -2033,8 +2043,11 @@ interface TopbarProps {
     onToggleCollapse?: () => void;
     /** Current collapsed state, used to pick chevron direction + tooltip. */
     sidebarCollapsed?: boolean;
+    /** Whether the mobile drawer is open (v2.7.0): the menu button's
+     *  `aria-expanded`. Undefined on desktop. */
+    sidebarOpen?: boolean;
 }
-declare function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed }?: TopbarProps): react_jsx_runtime.JSX.Element;
+declare function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed, sidebarOpen }?: TopbarProps): react_jsx_runtime.JSX.Element;
 
 declare function Footer(): react_jsx_runtime.JSX.Element;
 
@@ -5496,6 +5509,30 @@ declare function useModalHistoryLock(open: boolean): void;
  */
 declare function useEscapeLayer(open: boolean, close: () => void): void;
 
+interface ModalFocusOptions {
+    /** Called on an Escape that no popup or modal above the surface took. */
+    onClose: () => void;
+    /**
+     * The element focus goes back to when the surface closes. Defaults to the
+     * element that had focus when it opened.
+     */
+    returnFocus?: () => HTMLElement | null;
+}
+/**
+ * Focus as a modal surface (a dialog, a drawer) needs it, after the WAI-ARIA
+ * dialog pattern (WCAG 2.2, 2.4.3 Focus Order and 2.1.2 No Keyboard Trap):
+ * while `open` is true, focus moves to the first focusable element of `ref`,
+ * Tab and Shift+Tab cycle inside it, and Escape calls `onClose`; when it
+ * closes, focus goes back to `returnFocus()` (the element that had focus
+ * when it opened, by default) if focus was inside the surface or nowhere.
+ *
+ * Escape closes the top layer only: a modal opened over the surface (its
+ * history lock), a Martis popup or an open PrimeReact overlay takes it
+ * first, as in the DrawerShell (see `lib/escapeLayers.ts`). The surface
+ * renders its own `role="dialog"` and `aria-modal="true"`.
+ */
+declare function useModalFocus(ref: RefObject<HTMLElement | null>, open: boolean, options: ModalFocusOptions): void;
+
 declare const OverridePropsProvider: React$1.Provider<OverrideProps | null>;
 /**
  * Read the override payload from context. Throws when called outside
@@ -7436,6 +7473,7 @@ declare const martisRuntime: {
     readonly parseAuthLinkFragment: typeof parseAuthLinkFragment;
     readonly useModalHistoryLock: typeof useModalHistoryLock;
     readonly useEscapeLayer: typeof useEscapeLayer;
+    readonly useModalFocus: typeof useModalFocus;
     readonly OverridePropsProvider: React$1.Provider<OverrideProps | null>;
     readonly useOverrideProps: typeof useOverrideProps;
     readonly useOverridePropsOptional: typeof useOverridePropsOptional;
@@ -7476,5 +7514,5 @@ declare const martisRuntime: {
  */
 type MartisRuntime = typeof martisRuntime;
 
-export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthLinkParams, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
-export type { ActionResponseModalProps, AuthLinkParams, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, RouteRegistration, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };
+export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthLinkParams, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalFocus, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
+export type { ActionResponseModalProps, AuthLinkParams, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, ModalFocusOptions, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, RouteRegistration, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };

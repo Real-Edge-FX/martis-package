@@ -141,6 +141,31 @@ it('--frontend discovers tool/field/card filenames in their respective buckets',
         ->toContain('auth:login');
 });
 
+it('--frontend maps every fixed override file name the scaffold entry maps', function () {
+    // The command's table mirrors OVERRIDE_KEYS of the published entry:
+    // each fixed file name must resolve to the same key on both sides.
+    $stub = (string) file_get_contents(StubResolver::packagePath('extensions/index.ts.stub'));
+    preg_match('/const OVERRIDE_KEYS[^{]*\{(.*?)\n\}/s', $stub, $block);
+    preg_match_all("/^\s+(\w+): '([^']+)',$/m", $block[1] ?? '', $pairs, PREG_SET_ORDER);
+    expect($pairs)->not->toBeEmpty();
+
+    $fs = new Filesystem;
+    $fs->ensureDirectoryExists(base_path('resources/js/martis-extensions/overrides'));
+    foreach ($pairs as [, $file]) {
+        file_put_contents(base_path("resources/js/martis-extensions/overrides/{$file}.tsx"), '// stub');
+    }
+
+    $command = new ListOverridesCommand;
+    $reflection = new ReflectionMethod($command, 'discoverRegisteredKeys');
+    /** @var list<string> $keys */
+    $keys = $reflection->invoke($command, base_path('resources/js/martis-extensions'));
+
+    foreach ($pairs as [, $file, $key]) {
+        expect($keys)->toContain($key);
+    }
+    expect($keys)->toContain('topbar:start')->toContain('topbar:end');
+});
+
 it('--frontend derives keys for arbitrary override filenames (v1.10.1+)', function () {
     $fs = new Filesystem;
     $fs->ensureDirectoryExists(base_path('resources/js/martis-extensions/overrides'));

@@ -298,6 +298,14 @@ return [
         'preset' => env('MARTIS_LAYOUT', 'sidebar'),
 
         /*
+         | Sidebar preset only: render the top bar before the sidebar in the
+         | DOM, so the keyboard order after the skip links is top bar, menu,
+         | main content (the order of most application shells) instead of
+         | menu, top bar, main. The page looks the same either way.
+         */
+        'header_first' => (bool) env('MARTIS_LAYOUT_HEADER_FIRST', false),
+
+        /*
          | Swap individual shell pieces by registry key, without ejecting
          | the bundled layout entirely. Each value must be a key that the
          | consumer registered via `componentRegistry.register(...)` in
@@ -308,18 +316,24 @@ return [
          |       'sidebar' => 'my-sidebar',     // just the left column
          |       'topbar'  => 'my-topbar',      // just the top bar
          |       'footer'  => 'my-footer',      // just the page footer
+         |       'topbar_start' => 'my-tenant', // added after the menu buttons
+         |       'topbar_end'   => 'my-status', // added after the preferences menu
          |   ],
          |
          | The frontend also honours direct keys — `layout:sidebar`,
-         | `layout:topbar`, `layout:footer`, `layout:shell` — so apps that
-         | only touch JS can register under those names and skip this
-         | config entirely.
+         | `layout:topbar`, `layout:footer`, `layout:shell`, `topbar:start`,
+         | `topbar:end` — so apps that only touch JS can register under
+         | those names and skip this config entirely. The two top-bar slots
+         | add a component to the bar (sidebar and topnav presets) without
+         | replacing it; they render nothing when nothing is registered.
          */
         'components' => [
             'shell' => null,
             'sidebar' => null,
             'topbar' => null,
             'footer' => null,
+            'topbar_start' => null,
+            'topbar_end' => null,
         ],
     ],
 
