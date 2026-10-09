@@ -26,6 +26,21 @@ describe('the brand lockup in the menu', () => {
     expect(rule).toContain('object-fit: contain;')
   })
 
+  // On mobile the root's `--sidebar-width` is 0 (no grid column), and the
+  // logo box is capped at that width less 32px: the drawer must carry its
+  // own, or a lockup in it is 0px wide (v2.8.0).
+  it('gives the mobile drawer its own sidebar width, which caps the logo box', () => {
+    expect(declarations('html[data-mobile="true"]')).toContain('--sidebar-width: 0px;')
+    expect(declarations('.martis-sb-logo[data-mode="logo"] .martis-sb-logo-mark')).toContain(
+      'max-width: calc(var(--sidebar-width, 240px) - 32px);',
+    )
+
+    const drawer = declarations('.martis-sb[data-mobile]')
+
+    expect(drawer).toContain('--sidebar-width: 280px;')
+    expect(drawer).toContain('width: var(--sidebar-width);')
+  })
+
   it('keeps the left-hand side of a lockup in the collapsed rail, unscaled', () => {
     const rule = declarations('.martis-sb[data-collapsed="true"] .martis-sb-logo[data-mode="logo"] .martis-sb-logo-mark img')
 
