@@ -255,9 +255,11 @@ it('GET /magic-link/confirm redirects to login while magic links are off', funct
     [$user, $token] = magicLinkFor();
     config()->set('martis.auth.magic_link.enabled', false);
 
-    $this->get('/martis/magic-link/confirm')->assertRedirect('/martis/login?magic_link=disabled');
+    // Ending with `#`: the browser would carry the link's fragment over otherwise.
+    $this->get('/martis/magic-link/confirm')->assertRedirect('/martis/login?magic_link=disabled#');
     $this->get('/martis/magic-link/confirm?email=pedro@example.com&token='.$token)
-        ->assertRedirect('/martis/login?magic_link=disabled');
+        ->assertRedirect('/martis/login?magic_link=disabled#')
+        ->assertHeader('Referrer-Policy', 'no-referrer');
 });
 
 it('signs in with the email and token parsed from the fragment of the emailed URL', function () {

@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
@@ -60,6 +61,33 @@ describe('useAuthLinkParams', () => {
     expect(screen.getByTestId('link').textContent).toBe('tok-1|ada@example.com')
     expect(replaceState).toHaveBeenCalledTimes(1)
     expect(replaceState.mock.calls[0][2]).toBe('/martis/reset-password?x=1')
+  })
+
+  it('keeps the router history state when it drops the fragment', () => {
+    stubLocation('#token=tok-1')
+    const state = { usr: null, key: 'k1', idx: 3 }
+    const stateSpy = vi.spyOn(window.history, 'state', 'get').mockReturnValue(state)
+    render(
+      <MemoryRouter initialEntries={['/reset-password#token=tok-1']}>
+        <Probe />
+      </MemoryRouter>,
+    )
+
+    expect(replaceState.mock.calls[0][0]).toBe(state)
+    stateSpy.mockRestore()
+  })
+
+  it('reads the link once under StrictMode', () => {
+    stubLocation('#token=tok-1&email=ada%40example.com')
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={['/reset-password#token=tok-1&email=ada%40example.com']}>
+          <Probe />
+        </MemoryRouter>
+      </StrictMode>,
+    )
+
+    expect(screen.getByTestId('link').textContent).toBe('tok-1|ada@example.com')
   })
 
   it('leaves the address bar alone when there is no fragment', () => {

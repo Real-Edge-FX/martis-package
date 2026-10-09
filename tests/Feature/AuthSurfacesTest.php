@@ -180,13 +180,79 @@ it('GET /martis/reset-password?token= sends a custom link builder that kept the 
 
 it('GET /martis/reset-password/{token} keeps the disabled and off-platform redirects', function () {
     config(['martis.auth.passwordReset.enabled' => false]);
-    $this->get('/martis/reset-password/some-token-value')->assertRedirect('/martis/login');
+    $this->get('/martis/reset-password/some-token-value')->assertRedirect('/martis/login#');
 
     config([
         'martis.auth.passwordReset.enabled' => true,
         'martis.auth.passwordReset.url' => 'https://reset.example.com',
     ]);
-    $this->get('/martis/reset-password/some-token-value')->assertRedirect('https://reset.example.com');
+    $this->get('/martis/reset-password/some-token-value')->assertRedirect('https://reset.example.com#');
+});
+
+it('redirects away from the reset page without the fragment, so the token does not follow', function (string $path) {
+    // Disabled.
+    config(['martis.auth.passwordReset.enabled' => false]);
+    $response = $this->get($path);
+    expect($response->getStatusCode())->toBe(302)
+        ->and($response->headers->get('Location'))->toEndWith('/martis/login#')
+        ->and($response->headers->get('Referrer-Policy'))->toBe('no-referrer');
+
+    // Off-platform page: the configured URL, exactly, and an empty fragment.
+    config([
+        'martis.auth.passwordReset.enabled' => true,
+        'martis.auth.passwordReset.url' => 'https://reset.example.com/start',
+    ]);
+    expect($this->get($path)->headers->get('Location'))->toBe('https://reset.example.com/start#');
+
+    // Signed in.
+    config(['martis.auth.passwordReset.url' => null]);
+    $this->actingAs(User::forceCreate(['name' => 'Jane', 'email' => 'jane@example.com', 'password' => bcrypt('x')]));
+    $location = $this->get($path)->headers->get('Location');
+    expect($location)->toEndWith('#')
+        ->and(parse_url($location, PHP_URL_PATH))->toBe('/martis');
+})->with([
+    'page' => ['/martis/reset-password'],
+    'legacy link' => ['/martis/reset-password/some-token-value?email=jane%40example.com'],
+]);
+
+it('GET /martis/reset-password?<token> sends the bare-key URL of route(name, $token) to the fragment form', function () {
+    config([
+        'martis.auth.passwordReset.enabled' => true,
+        'martis.auth.passwordReset.url' => null,
+    ]);
+    $token = str_repeat('aB3_-', 13); // 65 chars
+
+    $url = route('martis.password.reset', $token);
+    expect(parse_url($url, PHP_URL_QUERY))->toBe($token);
+    $this->get($url)->assertRedirect('/martis/reset-password#token='.$token);
+
+    $url = route('martis.password.reset', [$token, 'email' => 'a@b.c']);
+    // Laravel puts the bare key after the named parameters.
+    expect(parse_url($url, PHP_URL_QUERY))->toBe('email=a%40b.c&'.$token);
+    $this->get($url)->assertRedirect('/martis/reset-password#token='.$token.'&email=a%40b.c');
+});
+
+it('GET /martis/reset-password renders the shell for a query string that carries no token', function (string $query) {
+    config([
+        'martis.auth.passwordReset.enabled' => true,
+        'martis.auth.passwordReset.url' => null,
+    ]);
+
+    $this->get('/martis/reset-password'.$query)->assertStatus(200);
+})->with(['empty token' => ['?token='], 'flag' => ['?lang'], 'utm' => ['?utm_source=x'], 'short bare key' => ['?abc123']]);
+
+it('carries a reset token and an email with special characters through the legacy redirect unchanged', function () {
+    config([
+        'martis.auth.passwordReset.enabled' => true,
+        'martis.auth.passwordReset.url' => null,
+    ]);
+    $token = 'a+b=c%d~e_f-g';
+    $email = 'jane+tag@example.com';
+
+    $response = $this->get('/martis/reset-password/'.rawurlencode($token).'?'.http_build_query(['email' => $email]));
+    parse_str(parse_url($response->headers->get('Location'), PHP_URL_FRAGMENT), $parsed);
+
+    expect($parsed)->toBe(['token' => $token, 'email' => $email]);
 });
 
 // ---------------------------------------------------------------------------

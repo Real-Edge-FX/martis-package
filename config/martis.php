@@ -958,10 +958,10 @@ return [
         'passwordReset' => [
             'enabled' => env('MARTIS_AUTH_PASSWORD_RESET_ENABLED', false),
             // When empty Martis serves its own /forgot-password and
-            // /reset-password/{token} pages and the "Forgot?" link points
-            // internally. When set, the link points off-platform and the
-            // internal routes are NOT registered (zero risk of two
-            // competing pages live at once).
+            // /reset-password pages (the emailed link carries the token in
+            // the URL fragment) and the "Forgot?" link points internally.
+            // When set, the link points off-platform and the internal pages
+            // redirect there (no two competing pages live at once).
             'url' => env('MARTIS_AUTH_PASSWORD_RESET_URL'),
             // Laravel password broker name (config/auth.php → passwords.*).
             // Unset: the app's default broker when its provider is the

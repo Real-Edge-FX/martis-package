@@ -122,7 +122,8 @@ class MagicLinkController
     public function show(Request $request): Response|RedirectResponse
     {
         if (! (bool) config('martis.auth.magic_link.enabled', false)) {
-            return redirect($this->loginPath().'?magic_link=disabled');
+            // Without the link's fragment, which the browser would carry over.
+            return TokenLink::withoutFragment(redirect($this->loginPath().'?magic_link=disabled'));
         }
 
         if ($request->query->has('token') || $request->query->has('email')) {

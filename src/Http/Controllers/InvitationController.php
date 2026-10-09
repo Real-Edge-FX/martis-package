@@ -59,7 +59,7 @@ class InvitationController extends MartisController
     {
         $this->abortUnlessInvitationsEnabled();
 
-        $token = $this->queryToken($request);
+        $token = TokenLink::queryToken($request);
         if ($token !== '') {
             return TokenLink::redirect('martis.invitations.accept', ['token' => $token]);
         }
@@ -77,24 +77,6 @@ class InvitationController extends MartisController
         $this->abortUnlessInvitationsEnabled();
 
         return TokenLink::redirect('martis.invitations.accept', ['token' => $token]);
-    }
-
-    /** The token a link of the older query shape carries, or ''. */
-    private function queryToken(Request $request): string
-    {
-        $token = $request->query('token');
-        if (is_string($token)) {
-            return $token;
-        }
-
-        // A bare key has an empty value, which ConvertEmptyStringsToNull
-        // turns into null.
-        $query = $request->query->all();
-        if (count($query) === 1 && in_array(reset($query), ['', null], true)) {
-            return (string) array_key_first($query);
-        }
-
-        return '';
     }
 
     /**

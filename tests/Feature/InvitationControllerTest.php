@@ -165,6 +165,26 @@ it('GET invitations/accept renders the shell for a query string that carries no 
     config(['martis.invitations.enabled' => true]);
 
     $this->get('/martis/invitations/accept?utm_source=mail&x=1')->assertStatus(200);
+    $this->get('/martis/invitations/accept?lang')->assertStatus(200);
+    // An empty token is not a token (nor is the word "token" one).
+    $this->get('/martis/invitations/accept?token=')->assertStatus(200);
+});
+
+it('carries an invitation token with URL-special characters through the legacy redirect unchanged', function () {
+    config(['martis.invitations.enabled' => true]);
+
+    $token = 'a+b/c=d&e%f g~h_i-j';
+
+    // In the path (no `/`, which a router would not take as part of a segment).
+    $pathToken = 'a+b=c&d%e g~h_i-j';
+    $response = $this->get('/martis/invitations/accept/'.rawurlencode($pathToken));
+    parse_str(parse_url($response->headers->get('Location'), PHP_URL_FRAGMENT), $parsed);
+    expect($parsed)->toBe(['token' => $pathToken]);
+
+    // And through the query-string shape.
+    $response = $this->get('/martis/invitations/accept?'.http_build_query(['token' => $token]));
+    parse_str(parse_url($response->headers->get('Location'), PHP_URL_FRAGMENT), $parsed);
+    expect($parsed)->toBe(['token' => $token]);
 });
 
 it('GET invitations/accept/{token} sends a link emailed before v2.6.0 to the fragment form', function () {

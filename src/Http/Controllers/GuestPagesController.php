@@ -42,19 +42,21 @@ class GuestPagesController extends MartisController
     /**
      * The page the emailed reset link opens. The link carries the token and
      * the email in the URL fragment, which never reaches the server; a
-     * custom link builder that still puts them in the query string is sent
-     * on to the fragment form.
+     * custom link builder that still puts them in the query string
+     * (`?token=…` or the bare `?<token>` of `route($name, $token)`) is sent
+     * on to the fragment form. A redirect away from the page drops the
+     * fragment, so the token does not follow it.
      */
     public function showResetPassword(Request $request): Response|RedirectResponse
     {
         $response = $this->resolve('passwordReset');
 
         if ($response instanceof RedirectResponse) {
-            return $response;
+            return TokenLink::withoutFragment($response);
         }
 
-        $token = $request->query('token');
-        if (is_string($token) && $token !== '') {
+        $token = TokenLink::queryToken($request);
+        if ($token !== '') {
             return $this->toFragment($token, $request->query('email'));
         }
 
@@ -70,7 +72,7 @@ class GuestPagesController extends MartisController
         $response = $this->resolve('passwordReset');
 
         if ($response instanceof RedirectResponse) {
-            return $response;
+            return TokenLink::withoutFragment($response);
         }
 
         return $this->toFragment($token, $request->query('email'));

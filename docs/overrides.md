@@ -929,7 +929,7 @@ export default function CustomResetPasswordPage() {
 }
 ```
 
-The hook reads the fragment once and drops it from the address bar, so the token does not stay on screen or in a bookmark. `parseAuthLinkFragment(hash)` parses a fragment string without the hook. An override written before v2.6.0 that reads `useParams().token` (or `useSearchParams().get('email')`) gets nothing: switch it to the hook. The `reset-password-page` scaffold uses it since v2.6.0. An extension scaffolded before v2.2.0 refreshes its shims first (`php artisan vendor:publish --tag=martis-extension-shims --force`), or reads `runtime.useAuthLinkParams` off the default export.
+The hook reads the fragment once and drops it from the address bar, so the token does not stay on screen or in a bookmark. `parseAuthLinkFragment(hash)` parses a fragment string without the hook. An override written before v2.6.0 that reads `useParams().token` (or `useSearchParams().get('email')`) gets nothing: switch it to the hook. The `reset-password-page` scaffold uses it since v2.6.0. An extension whose shims were published before v2.6.0 republishes them first (`php artisan vendor:publish --tag=martis-extension-shims --force`), or reads `runtime.useAuthLinkParams` off the shim's default export.
 
 ### Shell piece-by-piece overrides
 
