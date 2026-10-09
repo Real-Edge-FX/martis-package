@@ -17,6 +17,9 @@ interface AuthFrameProps {
  * challenge, and the three error screens.
  *
  * The brand row at the top of the card resolves like this:
+ *   0. `config.authLogo` / `config.authLogoDark` — the lockup of the
+ *      authentication card (v2.6.0), when the brand kit has one per
+ *      surface. Renders like `config.logo`.
  *   1. `config.logo` — full horizontal lockup. When set, the lockup
  *      renders alone (no wordmark next to it, since most consumer
  *      lockups already include the wordmark).
@@ -40,8 +43,14 @@ export function AuthFrame({ children, width }: AuthFrameProps) {
   // v1.7.0 — theme-aware variants. When only one of light/dark is set
   // we reuse it for the missing slot. The DOM ships both images and
   // CSS hides one based on `<html data-theme>` for an instant toggle.
-  const logoLight = config.logo ?? config.logoDark ?? null
-  const logoDark = config.logoDark ?? config.logo ?? null
+  // The authentication lockup (v2.6.0) wins over the menu lockup.
+  const hasAuthLogo = Boolean(config.authLogo || config.authLogoDark)
+  const logoLight = hasAuthLogo
+    ? (config.authLogo || config.authLogoDark || null)
+    : (config.logo ?? config.logoDark ?? null)
+  const logoDark = hasAuthLogo
+    ? (config.authLogoDark || config.authLogo || null)
+    : (config.logoDark ?? config.logo ?? null)
   const iconLight = config.icon ?? config.iconDark ?? null
   const iconDark = config.iconDark ?? config.icon ?? null
 

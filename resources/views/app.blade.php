@@ -26,6 +26,21 @@
         <link rel="icon" type="image/x-icon" href="/{{ $basePath }}/favicon.ico">
     @endif
     @php
+        // v2.6.0 — optional brand <head> tags, each only when set.
+        $brandManifest = config('martis.brand.manifest');
+        $brandAppleTouchIcon = config('martis.brand.apple_touch_icon');
+        $brandThemeColor = config('martis.brand.theme_color');
+    @endphp
+    @if(is_string($brandManifest) && $brandManifest !== '')
+        <link rel="manifest" href="{{ asset($brandManifest) }}">
+    @endif
+    @if(is_string($brandAppleTouchIcon) && $brandAppleTouchIcon !== '')
+        <link rel="apple-touch-icon" href="{{ asset($brandAppleTouchIcon) }}">
+    @endif
+    @if(is_string($brandThemeColor) && $brandThemeColor !== '')
+        <meta name="theme-color" content="{{ $brandThemeColor }}">
+    @endif
+    @php
         // Task 07.1 ⭐ D2 — resolve user preferences server-side and inject
         // them BEFORE first paint so theme/accent/density apply without a flash.
         $prefsEnabled = (bool) config('martis.preferences.enabled', true);
@@ -88,6 +103,8 @@
             logoDark: {!! json_encode(config('martis.brand.logo_dark')) !!},
             icon: {!! json_encode(config('martis.brand.icon')) !!},
             iconDark: {!! json_encode(config('martis.brand.icon_dark')) !!},
+            authLogo: {!! json_encode(config('martis.brand.auth_logo')) !!},
+            authLogoDark: {!! json_encode(config('martis.brand.auth_logo_dark')) !!},
             logoHeight: {!! json_encode([
                 'menu' => (int) (config('martis.brand.logo_height.menu') ?? 40),
                 'auth' => (int) (config('martis.brand.logo_height.auth') ?? 48),

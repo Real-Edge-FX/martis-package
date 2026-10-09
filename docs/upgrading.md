@@ -15,6 +15,10 @@ v2.6.0 moves the one-time token of the password-reset, invitation and magic-link
 - **The magic-link page no longer checks the token on load.** An expired or invalid link shows the confirmation page, and the sign-in `POST` answers `422`, after which the page goes to `/login?magic_link=expired` (or `invalid`) as before.
 - A log filter or WAF rule written for `/reset-password/{token}` or `/invitations/accept/{token}` should also match `/reset-password` and `/invitations/accept`.
 
+**New brand settings and a published config.** v2.6.0 adds `brand.auth_logo`, `brand.auth_logo_dark`, `brand.manifest`, `brand.apple_touch_icon`, `brand.theme_color` and `loader.logoDark`, and `loader.logo` now reads `MARTIS_LOADER_LOGO`. Laravel does not merge nested config keys, so a `config/martis.php` published before v2.6.0 ignores their environment variables until you copy the new lines into its `brand` and `loader` blocks (from `vendor/martis/martis/config/martis.php`). See [A lockup for the authentication card](configuration.md#a-lockup-for-the-authentication-card-v260), [Head tags](configuration.md#head-tags-v260) and [Loader](loader.md).
+
+**A lockup wider than the menu's logo box is scaled, not cut.** A sidebar or top-navigation lockup wider than its box (208 px in the default sidebar, 220 px in the top navigation) used to lose its right-hand side; it now shrinks to fit, keeping its proportions. A theme that widened `--sidebar-width` only to avoid the cut can drop that rule. The loader logo is now scaled to fit its square instead of being stretched.
+
 ## Upgrading to v2.5.0 from v2.4.x
 
 v2.5.0 serves the docs MCP server through the official [`laravel/mcp`](https://github.com/laravel/mcp) package instead of `php-mcp/server` and ReactPHP. `php-mcp/server` kept `symfony/finder` below 8 and, through `react/http`, `psr/http-message` at 1, so `composer require martis/martis` on a fresh Laravel 13 app had to downgrade `symfony/finder` and `guzzlehttp/guzzle`. It no longer does.

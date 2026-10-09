@@ -37,9 +37,13 @@ Then edit `config/martis.php` and add or modify the `loader` section:
     // When set, the named icon spins instead of the default SpinnerGap.
     'icon' => null,
 
-    // URL to a logo/image shown instead of the spinner.
-    // Takes precedence over 'icon'.
-    'logo' => null,
+    // URL to a logo/image shown instead of the spinner, scaled to fit
+    // its square. Takes precedence over 'icon'.
+    'logo' => env('MARTIS_LOADER_LOGO'),
+
+    // Dark theme variant of 'logo' (v2.6.0). If only one of the pair is
+    // set, it serves both themes.
+    'logoDark' => env('MARTIS_LOADER_LOGO_DARK'),
 
     // CSS color for the spinner. Default: var(--martis-accent) — your theme's accent color.
     'spinnerColor' => null,
@@ -85,6 +89,15 @@ All options are optional. Omitted keys use the built-in defaults.
     'message' => null,  // hide message when using logo
 ],
 ```
+
+Or from `.env`, with a dark theme variant (v2.6.0), so a mark drawn for light backgrounds does not show on the dark overlay:
+
+```env
+MARTIS_LOADER_LOGO=/brand/mark-light.svg
+MARTIS_LOADER_LOGO_DARK=/brand/mark-dark.svg
+```
+
+Both images render and CSS shows the one of the active theme, like the brand logo. A config published before v2.6.0 has `'logo' => null` and no `logoDark` key, so it ignores these variables until you copy the two lines into its `loader` block.
 
 ### Use a different Phosphor icon
 

@@ -103,3 +103,25 @@ describe("DefaultMartisLoader — context disableOn matrix", () => {
     expect(screen.getByText("visible")).toBeDefined()
   })
 })
+
+describe("MartisLoader logo (v2.6.0)", () => {
+  it("renders the light and dark logo pair the theme switch picks from", () => {
+    const { container } = render(
+      <MartisLoader loading configOverride={{ logo: "/brand/mark-light.svg", logoDark: "/brand/mark-dark.svg" }} />,
+    )
+
+    const light = container.querySelector("img.martis-brand-img--light")
+    const dark = container.querySelector("img.martis-brand-img--dark")
+    expect(light?.getAttribute("src")).toBe("/brand/mark-light.svg")
+    expect(dark?.getAttribute("src")).toBe("/brand/mark-dark.svg")
+  })
+
+  it("serves one logo to both themes when only one is set", () => {
+    const { container } = render(<MartisLoader loading configOverride={{ logoDark: "/brand/mark-dark.svg" }} />)
+
+    const images = container.querySelectorAll("img")
+    expect(images).toHaveLength(1)
+    expect(images[0].getAttribute("src")).toBe("/brand/mark-dark.svg")
+    expect(images[0].className).not.toContain("martis-brand-img--")
+  })
+})

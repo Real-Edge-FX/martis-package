@@ -103,7 +103,9 @@ export interface MartisLoaderConfig {
   /** Phosphor icon name to use instead of spinner */
   icon?: string
   /** URL to logo image to use instead of spinner */
-  logo?: string
+  logo?: string | null
+  /** Dark theme variant of `logo` (v2.6.0). If only one is set it serves both themes. */
+  logoDark?: string | null
   /** CSS color for the spinner. Default: var(--martis-accent) */
   spinnerColor?: string
   /** Overlay background opacity (0-1). Default: 0.6 */
@@ -427,6 +429,12 @@ export interface MartisConfigShape {
    */
   logoDark?: string | null
   iconDark?: string | null
+  /**
+   * Lockup of the authentication card (v2.6.0), with its dark variant.
+   * Unset, the card uses `logo` / `logoDark`. Same light/dark fallback.
+   */
+  authLogo?: string | null
+  authLogoDark?: string | null
   /**
    * Per-surface logo height (v1.7.0). Drives a CSS variable on
    * `:root`. Defaults: menu 40px, auth 48px. Server clamps the

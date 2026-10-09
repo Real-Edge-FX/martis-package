@@ -39,7 +39,8 @@ export interface MartisLoaderProps {
  * Configurable via window.MartisConfig.loader:
  * - message: custom loading text (default: translation key)
  * - icon: Phosphor icon name (replaces spinner)
- * - logo: URL to logo image (replaces spinner)
+ * - logo: URL to logo image (replaces spinner), scaled to fit its square
+ * - logoDark: dark theme variant of logo (v2.6.0)
  * - spinnerColor: CSS color for spinner
  * - overlayOpacity: 0-1 overlay opacity
  * - overlayColor: CSS color for overlay background
@@ -83,7 +84,9 @@ export function MartisLoader({
 
   const displayMessage = message ?? loaderCfg?.message ?? t("loading")
   const iconName = loaderCfg?.icon
-  const logoUrl = loaderCfg?.logo
+  // Theme-aware pair (v2.6.0): if only one is set it serves both themes.
+  const logoLight = loaderCfg?.logo || loaderCfg?.logoDark || null
+  const logoDark = loaderCfg?.logoDark || loaderCfg?.logo || null
   const spinnerColor = loaderCfg?.spinnerColor ?? "var(--martis-accent)"
   const overlayOpacity = loaderCfg?.overlayOpacity ?? 0.6
   const overlayColor = loaderCfg?.overlayColor ?? "var(--martis-bg)"
@@ -91,8 +94,16 @@ export function MartisLoader({
   const spinnerSize = size === "sm" ? 16 : size === "lg" ? 32 : 24
   const textSize = size === "sm" ? "text-xs" : size === "lg" ? "text-base" : "text-sm"
 
-  const indicator = logoUrl ? (
-    <img src={logoUrl} alt="" className="animate-pulse" style={{ width: spinnerSize, height: spinnerSize }} />
+  const logoStyle = { width: spinnerSize, height: spinnerSize, objectFit: "contain" as const }
+  const indicator = logoLight ? (
+    logoLight === logoDark ? (
+      <img src={logoLight} alt="" className="animate-pulse" style={logoStyle} />
+    ) : (
+      <>
+        <img src={logoLight} alt="" className="animate-pulse martis-brand-img--light" style={logoStyle} />
+        <img src={logoDark ?? logoLight} alt="" className="animate-pulse martis-brand-img--dark" style={logoStyle} />
+      </>
+    )
   ) : iconName ? (
     <ResourceIcon iconName={iconName} size={spinnerSize} className="animate-spin" />
   ) : (

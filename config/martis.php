@@ -183,6 +183,14 @@ return [
         'logo_dark' => env('MARTIS_BRAND_LOGO_DARK'),
         'icon_dark' => env('MARTIS_BRAND_ICON_DARK'),
 
+        // Lockup of the authentication card (login, register, password
+        // reset, invitation, 2FA and the guest error pages) (v2.6.0), for
+        // a brand kit with a lockup per surface. Unset, the card uses
+        // `logo` / `logo_dark` (then `icon`, then the bundled logo). Same
+        // light/dark fallback as `logo` / `logo_dark`.
+        'auth_logo' => env('MARTIS_BRAND_AUTH_LOGO'),
+        'auth_logo_dark' => env('MARTIS_BRAND_AUTH_LOGO_DARK'),
+
         // Per-surface logo height in pixels (v1.7.0). Drives a CSS
         // variable injected into the SPA shell. Clamped at runtime
         // to a safe range so absurd values cannot break the layout.
@@ -195,6 +203,14 @@ return [
         ],
 
         'favicon' => env('MARTIS_FAVICON', null),
+
+        // Extra `<head>` tags of the panel page (v2.6.0), each emitted only
+        // when set: `<link rel="manifest">` (a web app manifest, path or
+        // URL), `<link rel="apple-touch-icon">` (path or URL) and
+        // `<meta name="theme-color">` (a CSS color, e.g. `#0f172a`).
+        'manifest' => env('MARTIS_BRAND_MANIFEST'),
+        'apple_touch_icon' => env('MARTIS_BRAND_APPLE_TOUCH_ICON'),
+        'theme_color' => env('MARTIS_BRAND_THEME_COLOR'),
 
         /*
          | The browser tab title shown in `<title>`. Accepts:
@@ -1489,7 +1505,9 @@ return [
     | icon           - Phosphor icon name to replace the spinner (e.g. 'spinner').
     |                  When set, the named icon spins instead of the default SpinnerGap.
     | logo           - URL to a logo/image shown instead of the spinner.
-    |                  Takes precedence over 'icon'.
+    |                  Takes precedence over 'icon'. MARTIS_LOADER_LOGO.
+    | logoDark       - The dark theme variant of 'logo' (v2.6.0).
+    |                  MARTIS_LOADER_LOGO_DARK.
     | spinnerColor   - CSS color for the spinner. Default: var(--martis-accent).
     | overlayOpacity - Overlay background opacity (0.0–1.0). Default: 0.6.
     | overlayColor   - CSS color for the overlay background. Default: var(--martis-bg).
@@ -1504,7 +1522,10 @@ return [
     'loader' => [
         'message' => null,
         'icon' => null,
-        'logo' => null,
+        // Image shown in place of the spinner (path or URL), with a dark
+        // theme variant (v2.6.0). If only one is set it serves both themes.
+        'logo' => env('MARTIS_LOADER_LOGO'),
+        'logoDark' => env('MARTIS_LOADER_LOGO_DARK'),
         'spinnerColor' => null,
         'overlayOpacity' => null,
         'overlayColor' => null,
