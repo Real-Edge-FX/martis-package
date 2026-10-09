@@ -2,6 +2,15 @@
 
 What to do in an app when a 1.x release changes behaviour it may rely on. A patch release changes behaviour only to close a security gap or a bug; each section says what changed, who is affected and what to check.
 
+## Upgrading to v1.39.5
+
+v1.39.5 fixes how a write a unique index refuses is answered ([When the database index refuses the write](fields.md#when-the-database-index-refuses-the-write-v1395)). Nothing has to change in an app. A test written against the old answers changes with it:
+
+- **A unique index on an expression names its field.** A PostgreSQL index on `lower(email)` answered `422` with no field error; it now carries the error on `email`, as a plain column index already did.
+- **A relationship panel answers a unique violation with `422`, not `500`.** Its create, update, attach and pivot update answer as the resource endpoints do, and use the same messages for the other database errors.
+- **On SQLite, a `NOT NULL` or foreign key failure is no longer a duplicate.** These answered `422` "A record with this value already exists."; they now answer `500` with their own message.
+- **The field error is the rule's message.** It reads as the field's `unique()` message, or Laravel's `validation.unique` line ("The Email has already been taken."), where it was the generic `A record with this value already exists. Please use a unique value.`, which stays the response's `message`.
+
 ## Upgrading to v1.39.3
 
 v1.39.3 is a security release. After `composer update martis/martis`, in every environment:

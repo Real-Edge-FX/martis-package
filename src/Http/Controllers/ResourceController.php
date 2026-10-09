@@ -31,6 +31,7 @@ use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
 use Martis\Http\Controllers\Concerns\ResolvesPivotActions;
 use Martis\Http\Controllers\Concerns\SyncsDeferredWrites;
+use Martis\Http\Resources\DatabaseErrorResponse;
 use Martis\Http\Resources\JsonErrorResponse;
 use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Http\Resources\JsonResponse;
@@ -319,7 +320,7 @@ class ResourceController extends MartisController
                 'error' => $e->getMessage(),
             ]);
 
-            return $this->handleDatabaseError($e);
+            return DatabaseErrorResponse::from($e, $fields, $model);
         }
 
         $res = new $resourceClass($model);
@@ -419,7 +420,7 @@ class ResourceController extends MartisController
                 'error' => $e->getMessage(),
             ]);
 
-            return $this->handleDatabaseError($e);
+            return DatabaseErrorResponse::from($e, $fields, $model);
         }
 
         $res = new $resourceClass($model);
@@ -491,7 +492,7 @@ class ResourceController extends MartisController
                 'error' => $e->getMessage(),
             ]);
 
-            return $this->handleDatabaseError($e);
+            return DatabaseErrorResponse::from($e);
         } catch (\Throwable $e) {
             // v1.8.2 — broaden the catch beyond QueryException so non-DB
             // failures (Spatie permission cache invalidation, observer
@@ -632,7 +633,7 @@ class ResourceController extends MartisController
                 'error' => $e->getMessage(),
             ]);
 
-            return $this->handleDatabaseError($e);
+            return DatabaseErrorResponse::from($e);
         }
 
         return new IlluminateJsonResponse(
@@ -899,7 +900,7 @@ class ResourceController extends MartisController
                 'error' => $e->getMessage(),
             ]);
 
-            return $this->handleDatabaseError($e);
+            return DatabaseErrorResponse::from($e, $fields, $model);
         }
 
         // Determine the title attribute for the newly created record
@@ -1857,68 +1858,6 @@ class ResourceController extends MartisController
 
     // Internal helpers
     // -------------------------------------------------------------------------
-
-    /**
-     * Handle a database exception and return a sanitized JSON error.
-     *
-     * Never expose raw SQL, credentials, or connection details to the client.
-     */
-    private function handleDatabaseError(QueryException $e): IlluminateJsonResponse
-    {
-        $vendorCode = (string) ($e->errorInfo[1] ?? '');
-        $sqlState = (string) ($e->errorInfo[0] ?? '');
-
-        // Determine the effective error class using the MySQL vendor code first,
-        // then fall back to ANSI/ISO SQLSTATE so PostgreSQL and SQLite get precise
-        // messages instead of the generic fallback.
-        //
-        // SQLSTATE reference:
-        //   23000 — integrity constraint violation (generic)
-        //   23503 — foreign key violation (PostgreSQL)
-        //   23505 — unique constraint violation (PostgreSQL)
-        //   23000 with SQLite vendor code 19 — SQLITE_CONSTRAINT
-        $isUnique = $vendorCode === '1062'
-            || $sqlState === '23505'
-            || ($sqlState === '23000' && $vendorCode === '19');
-
-        $isForeignKeyViolation = in_array($vendorCode, ['1451', '1452'], strict: true)
-            || $sqlState === '23503';
-
-        $isNotNull = in_array($vendorCode, ['1048', '1364'], strict: true);
-
-        $message = match (true) {
-            $isUnique => 'A record with this value already exists. Please use a unique value.',
-            $isForeignKeyViolation => match ($vendorCode) {
-                '1451' => 'This record cannot be modified because it is referenced by other records.',
-                default => 'The referenced record does not exist. Please check relationship fields.',
-            },
-            $isNotNull => 'A required field is missing. Please check all mandatory fields.',
-            default => 'A database error occurred. Please check your input and try again.',
-        };
-
-        // Unique constraint violations are validation errors — return 422 with field mapping
-        if ($isUnique) {
-            $field = null;
-            $errorDetail = (string) ($e->errorInfo[2] ?? '');
-
-            // MySQL: "Duplicate entry 'val' for key 'table.table_column_unique'"
-            if (preg_match("/for key '(?:[^.]+\.)?(?:\w+_)?(\w+)_unique'/", $errorDetail, $m)) {
-                $field = $m[1];
-            }
-            // PostgreSQL: 'Key (column)=(value) already exists.'
-            if ($field === null && preg_match('/Key \(([^)]+)\)=/', $errorDetail, $m)) {
-                $field = $m[1];
-            }
-
-            if ($field) {
-                return JsonErrorResponse::validation([$field => [$message]], $message)->toResponse();
-            }
-
-            return JsonErrorResponse::validation([], $message)->toResponse();
-        }
-
-        return JsonErrorResponse::serverError($message)->toResponse();
-    }
 
     /**
      * Fill all fields from request data, handling single and multiple file uploads.

@@ -446,6 +446,16 @@ otherwise `invalid`). The top-level `message` is the resource's
 relationship and pivot endpoints, and "The given data was invalid." on the
 Action endpoints.
 
+A write the database refuses with a unique index (a race past a field's
+`unique()` rule, or an index the rules do not mirror) answers the same `422`
+on the resource, relationship and pivot endpoints (the relationship and pivot
+ones since v1.39.5): `message` is "A record with this value already exists.
+Please use a unique value.", with one error per written field whose column the
+index covers, worded as the field's `unique()` rule would, and no error when
+the index names none. Any other database error answers `500` with a generic
+message and no SQL. See
+[When the database index refuses the write](../fields.md#when-the-database-index-refuses-the-write-v1395).
+
 The endpoints that validate with Laravel's `$request->validate()` (login,
 registration, password reset, profile, two-factor, magic link) answer with
 Laravel's own shape instead, a map of messages per field:
