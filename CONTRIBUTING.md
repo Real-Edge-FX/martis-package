@@ -30,6 +30,7 @@ Before pushing a tag, run the pre-flight checker. It aborts when:
 - `CHANGELOG.md` does not have a `[N.N.N]` section for the tag.
 - `martis-docs/scripts/sync-docs.mjs` fails against this checkout's `docs/` (for example a page missing from its `MAP`).
 - The README does not carry exactly one "Test coverage" line with a readable `= **N passing**` total, or a martis-docs component or page hardcodes its own "N tests passing".
+- `package.json` (and so the bundle's `window.Martis.version`, which Vite compiles from it) does not carry the tag's version. Bump `package.json` and `package-lock.json` and rebuild the assets in the release PR (v2.8.0 shipped reporting `2.7.0`).
 
 The release version and test count on the site are written by the martis-docs deploy from the release, after the tag exists, so the checker reports the committed values without requiring them to match. The script mirrors the workspace copy (`pre-tag-check.sh` at the workspace root); keep the two in step. Both rely on the workspace layout: `martis-docs` next to `martis-package`.
 
