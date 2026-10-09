@@ -61,6 +61,7 @@ export { useAuthLinkParams, parseAuthLinkFragment } from '@/lib/authLink'
 export type { AuthLinkParams } from '@/lib/authLink'
 export { useModalHistoryLock } from '@/lib/historyLock'
 export { useEscapeLayer } from '@/lib/escapeLayers'
+export { useModalFocus } from '@/hooks/useModalFocus'
 export { OverridePropsProvider, useOverrideProps, useOverridePropsOptional } from '@/hooks/useOverrideProps'
 export { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 export { useError } from '@/lib/useError'
@@ -93,6 +94,7 @@ export type {
   FieldInputProps,
   NestedParent,
   DrawerShellProps,
+  ModalFocusOptions,
   TooltipProps,
   HtmlTooltipProps,
   DropdownProps,

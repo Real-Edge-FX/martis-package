@@ -18,6 +18,8 @@ import { useTranslation } from "react-i18next"
 import { MagnifyingGlassIcon, CaretDownIcon, SignOutIcon, UserCircleIcon, ListIcon, CaretDoubleLeftIcon, CaretDoubleRightIcon } from "@phosphor-icons/react"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { safeHref } from "@/lib/safeUrl"
+import { SIDEBAR_ID, SIDEBAR_TOGGLE_ID } from "@/lib/shellIds"
+import { TopbarSlot } from "@/components/TopbarSlot"
 
 interface TopbarProps {
   /** Callback for the mobile hamburger — undefined on desktop. */
@@ -27,9 +29,12 @@ interface TopbarProps {
   onToggleCollapse?: () => void
   /** Current collapsed state, used to pick chevron direction + tooltip. */
   sidebarCollapsed?: boolean
+  /** Whether the mobile drawer is open (v2.7.0): the menu button's
+   *  `aria-expanded`. Undefined on desktop. */
+  sidebarOpen?: boolean
 }
 
-export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = false }: TopbarProps = {}) {
+export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = false, sidebarOpen }: TopbarProps = {}) {
   const { user, logout } = useAuth()
   const { t, i18n } = useTranslation("navigation")
   const navigate = useNavigate()
@@ -196,8 +201,11 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
       {onToggleSidebar && (
         <button
           type="button"
+          id={SIDEBAR_TOGGLE_ID}
           className="martis-tb-menu-btn"
           onClick={onToggleSidebar}
+          aria-controls={SIDEBAR_ID}
+          aria-expanded={sidebarOpen}
           aria-label={t("open_sidebar", "Menu")}
           data-pr-tooltip={t("open_sidebar", "Menu")}
           data-pr-position="bottom"
@@ -225,9 +233,13 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
         </button>
       )}
 
-      <nav className="martis-tb-breadcrumbs">
+      {/* v2.7.0: an app's component registered under `topbar:start`. */}
+      <TopbarSlot slot="topbar_start" />
+
+      {/* Breadcrumbs renders its own labelled <nav>. */}
+      <div className="martis-tb-breadcrumbs">
         <Breadcrumbs />
-      </nav>
+      </div>
 
       {searchMode === "bar" && (
         <button
@@ -276,6 +288,9 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
         <NotificationBell />
 
         <PreferencesMenu ref={prefsRef} />
+
+        {/* v2.7.0: an app's component registered under `topbar:end`. */}
+        <TopbarSlot slot="topbar_end" />
 
         <span className="martis-tb-divider" aria-hidden="true" />
 

@@ -542,9 +542,11 @@ Your extension build resolves `@martis/runtime` to `.shims/runtime.mjs`, which r
 | `useRevalidateOnFocus` | v1.22.0 |
 | `NestedParentProvider`, `Dropdown`, `MultiSelect`, `createPortal`, the registries (`componentRegistry`, `iconRegistry`, `layoutRegistry`), `usePageTitle`, `useModalHistoryLock`, `OverridePropsProvider`, `useOverrideProps`, `useOverridePropsOptional`, `useUnsavedChangesGuard`, `useError`, `cssVar`, `accentColor`, `mutedTextColor`, `chartPalette`, `resolveColor`, `avatarColorForSeed`, `Sparkline`, `ClearButton`, `MartisLoader`, `usePreferences`, `usePreferencesOptional`, `loadLocale`, `applyDocumentDirection`, `usePrefersReducedMotion`, `addShortcut`, `disableShortcut`, `listShortcuts` | v1.38.0 |
 | `flushSync` (also in the `react-dom` shim) | v1.38.2 |
+| `useEscapeLayer` | v2.0.0 |
 | `routeRegistry`, `useDynamicCrumb`, `ForbiddenPage`, `NotFoundPage` | v2.2.0 |
 | `PasswordChangeRequiredError` | v2.3.0 |
 | `useAuthLinkParams`, `parseAuthLinkFragment`, the `AuthLinkParams` type | v2.6.0 |
+| `useModalFocus`, the `ModalFocusOptions` type | v2.7.0 |
 
 v2.3.0 also publishes `.shims/i18next.d.mts`, the i18next types the shims share; republishing the shims adds it.
 

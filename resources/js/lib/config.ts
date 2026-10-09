@@ -162,7 +162,17 @@ export interface MartisLayoutConfig {
     sidebar?: string | null
     topbar?: string | null
     footer?: string | null
+    /** Registry key of the top bar's start slot (default key `topbar:start`, v2.7.0). */
+    topbar_start?: string | null
+    /** Registry key of the top bar's end slot (default key `topbar:end`, v2.7.0). */
+    topbar_end?: string | null
   }
+  /**
+   * Sidebar layout only (v2.7.0): render the top bar before the sidebar in
+   * the DOM, so the Tab order is top bar, menu, main. The page looks the
+   * same. Mirrors `martis.layout.header_first` (`MARTIS_LAYOUT_HEADER_FIRST`).
+   */
+  header_first?: boolean
 }
 
 export interface MartisProfileMenuConfig {

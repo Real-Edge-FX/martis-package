@@ -419,11 +419,14 @@ No code changes, no `vendor:publish`. The SPA picks all of this up at boot via `
 ```php
 'layout' => [
     'preset' => env('MARTIS_LAYOUT', 'sidebar'),
+    'header_first' => (bool) env('MARTIS_LAYOUT_HEADER_FIRST', false),  // v2.7.0
     'components' => [
         'shell'   => null,
         'sidebar' => null,
         'topbar'  => null,
         'footer'  => null,
+        'topbar_start' => null,  // v2.7.0
+        'topbar_end'   => null,  // v2.7.0
     ],
 ],
 ```
@@ -438,6 +441,10 @@ No code changes, no `vendor:publish`. The SPA picks all of this up at boot via `
 | `custom` | Strict registry-only mode: requires a component registered under `layout:shell` (or referenced by `layout.components.shell`). If none is registered, Martis renders a red error panel instead of silently falling back to `sidebar` — so a missing registration fails loudly during development. | Apps shipping their own shell that want to guarantee the bundled fallback is never used. |
 
 Pick the preset via `MARTIS_LAYOUT` env or `config('martis.layout.preset')`. The string must match one of the four above (typos fall back to `sidebar`).
+
+### Header-first order (v2.7.0)
+
+The sidebar preset renders, after its two skip links ("Skip to main content", "Skip to navigation"), the sidebar, then the top bar, then the main content, so the keyboard reaches the menu before the search, the notification bell and the user menu. Set `MARTIS_LAYOUT_HEADER_FIRST=true` (`martis.layout.header_first`) to render the top bar before the sidebar instead: the Tab order becomes skip links, top bar, menu, main content, the order of most application shells. The grid places each piece by its own row and column, so the page looks the same either way. The topnav preset already starts with its bar; the option does not apply to it, nor to a custom shell.
 
 ### Piece-by-piece component overrides
 
@@ -456,6 +463,8 @@ Pick the preset via `MARTIS_LAYOUT` env or `config('martis.layout.preset')`. The
 ```
 
 Resolution order per piece: `config.layout.components.<piece>` → `layout:<piece>` (default registry key) → bundled component.
+
+`topbar_start` and `topbar_end` (v2.7.0) are not pieces but slots: they add a component to the top bar instead of replacing it, and render nothing when nothing is registered. Their default registry keys are `topbar:start` (after the menu and collapse buttons, before the breadcrumbs and the search) and `topbar:end` (after the preferences menu, before the user menu). The sidebar and topnav presets both render them. See [Top-bar slots](overrides.md#top-bar-slots-v270).
 
 Full wiring examples, prop contracts, and the rationale for piece-by-piece vs full-shell overrides live in [overrides.md](overrides.md#shell-piece-by-piece-overrides).
 
@@ -1587,6 +1596,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_KEYBOARD_SHORTCUTS_ENABLED` | `true` |
 | `MARTIS_KEYBOARD_SHORTCUTS_HELP_OVERLAY` | `true` |
 | `MARTIS_LAYOUT` | `'sidebar'` |
+| `MARTIS_LAYOUT_HEADER_FIRST` | `false` |
 | `MARTIS_LOADER_DISABLED` | `false` |
 | `MARTIS_LOADER_LOGO` | `(no default)` |
 | `MARTIS_LOADER_LOGO_DARK` | `(no default)` |

@@ -154,6 +154,7 @@ export const useAuthLinkParams = R.useAuthLinkParams
 export const parseAuthLinkFragment = R.parseAuthLinkFragment
 export const useModalHistoryLock = R.useModalHistoryLock
 export const useEscapeLayer = R.useEscapeLayer
+export const useModalFocus = R.useModalFocus
 export const OverridePropsProvider = R.OverridePropsProvider
 export const useOverrideProps = R.useOverrideProps
 export const useOverridePropsOptional = R.useOverridePropsOptional

@@ -109,6 +109,8 @@ These ship with every Martis install:
 | `/` | Open the command palette when no input is focused |
 | `shift+?` | Open the keyboard-shortcuts help overlay |
 
+Escape is not a registered shortcut: each modal surface handles it, the top layer first (see [Escape closes the top layer only](components.md#escape-closes-the-top-layer-only-v200)). It closes a modal, a popup, a drawer, the help overlay and, since v2.7.0, the mobile menu drawer, which also keeps Tab inside it while it is open and gives focus back to the menu button when it closes.
+
 ## Help overlay
 
 `<KeyboardShortcutsHelp>` is mounted once at the layout root (`resources/js/components/Layout.tsx`). It listens for `Shift+?` from anywhere in the shell and surfaces every registered combo grouped by `group`. The overlay reads the registry on open, so shortcuts registered mid-session (by a Tool that mounted late, for instance) appear without a refresh.

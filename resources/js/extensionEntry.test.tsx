@@ -106,4 +106,18 @@ describe('the scaffold extension entry', () => {
         expect(componentRegistry.resolve('status-badge-input')).toBe(Input)
         expect(componentRegistry.resolve('rich-bio')).toBe(RichBio)
     })
+
+    it('registers TopbarStart and TopbarEnd under the top-bar slot keys', () => {
+        const TopbarStart = () => null
+        const TopbarEnd = () => null
+        runEntry({
+            './overrides/*.tsx': {
+                './overrides/TopbarStart.tsx': { default: TopbarStart },
+                './overrides/TopbarEnd.tsx': { default: TopbarEnd },
+            },
+        })
+
+        expect(componentRegistry.resolve('topbar:start')).toBe(TopbarStart)
+        expect(componentRegistry.resolve('topbar:end')).toBe(TopbarEnd)
+    })
 })

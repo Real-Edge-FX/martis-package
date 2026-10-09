@@ -25,7 +25,7 @@ import { crumbLabelFor, inRouterOrder, routeRegistry, type RegisteredRoute, type
  * Resolve an auth page component by registry key, falling back to the
  * bundled default when no consumer override is registered.
  *
- * Mirrors `Layout.tsx:resolveShellComponent`. Registered overrides come
+ * Mirrors `resolveShellOverride()` in `lib/shellComponents.ts`. Registered overrides come
  * from `php artisan martis:component MyLogin --type=login-page` (and
  * the matching --type values for register, forgot-password,
  * reset-password, email-verify-notice, and password-change, whose key is

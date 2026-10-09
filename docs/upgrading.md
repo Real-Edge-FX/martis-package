@@ -4,6 +4,17 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.7.0 from v2.6.x
+
+v2.7.0 makes the sidebar layout meet WCAG 2.2 AA for its collapsed rail and its mobile menu, adds a "Skip to navigation" link, a header-first order and two top-bar slots. Nothing has to change in an app that keeps the bundled shell; check these points if you test, style or replace it:
+
+- **The sidebar is a navigation landmark.** Its root is now `<div id="martis-sidebar" class="martis-sb">` (it was `<aside aria-label="Resources">`, a complementary landmark), and everything in it sits in `<nav id="martis-navigation" class="martis-sb-nav" aria-label="Main navigation">`. A browser test that finds the sidebar by role finds it as `getByRole('navigation', { name: 'Main navigation' })`. A stylesheet that targets `aside.martis-sb` targets `.martis-sb`; one that uses a child selector (`.martis-sb > .martis-sb-scroll`) adds the `.martis-sb-nav` level.
+- **The top bar's breadcrumb wrapper is a `<div>`.** `.martis-tb-breadcrumbs` was a second, unlabelled `<nav>` around the breadcrumbs' own `<nav aria-label="Breadcrumbs">`.
+- **The closed mobile drawer is `inert`.** Its off-screen links leave the Tab order and the accessibility tree; a browser test that clicked one without opening the menu opens it first.
+- **The new config keys need a published config updated.** Laravel does not merge nested keys, so a `config/martis.php` published before v2.7.0 ignores `MARTIS_LAYOUT_HEADER_FIRST` until you copy `'header_first' => (bool) env('MARTIS_LAYOUT_HEADER_FIRST', false),` into its `layout` block. The `topbar_start` and `topbar_end` component keys are optional: without them the slots read their default keys, `topbar:start` and `topbar:end`.
+- **`overrides/TopbarStart.tsx` and `TopbarEnd.tsx` need two lines in your `index.ts`.** The file is your app's own, so an install scaffolded before v2.7.0 adds `TopbarStart: 'topbar:start',` and `TopbarEnd: 'topbar:end',` to its `OVERRIDE_KEYS`, or registers the component by hand ([Top-bar slots](overrides.md#top-bar-slots-v270)).
+- **A replacement sidebar or top bar keeps the skip links working with the same ids.** See [Keyboard and screen-reader contract](overrides.md#keyboard-and-screen-reader-contract-v270): `id="martis-sidebar"` on the sidebar, `<nav id="martis-navigation" tabIndex={-1}>` around its menu, `id="martis-sidebar-toggle"` with `aria-controls` and `aria-expanded={sidebarOpen}` on the menu button. `useModalFocus` gives a replacement sidebar the drawer's focus handling; republish the shims to import it (`php artisan vendor:publish --tag=martis-extension-shims --force`).
+
 ## Upgrading to v2.6.0 from v2.5.x
 
 v2.6.0 moves the one-time token of the password-reset, invitation and magic-link emails into the URL fragment, out of the request line that proxies and web servers log. See [One-time links keep the token out of the request line](authentication.md#one-time-links-keep-the-token-out-of-the-request-line).

@@ -15,6 +15,20 @@
  * • `collapsed`    — `true` when the desktop user has collapsed the
  *                    sidebar to a 64px rail via the topbar toggle.
  *
+ * ACCESSIBILITY (v2.7.0)
+ * ----------------------
+ * • The root carries `id="martis-sidebar"`: the top bar's menu button
+ *   names it in `aria-controls`.
+ * • The menu is a `<nav id="martis-navigation" tabIndex={-1}>`: the
+ *   layout's "Skip to navigation" link moves focus there.
+ * • Open on mobile, the root is a modal dialog: `useModalFocus` moves
+ *   focus into it, keeps Tab inside, closes it on Escape and gives focus
+ *   back to the menu button (`#martis-sidebar-toggle`).
+ * • Closed on mobile, the root is `inert`: its off-screen links leave the
+ *   Tab order and the accessibility tree.
+ * • In the collapsed rail a link without a visible label keeps its name
+ *   through `aria-label`.
+ *
  * WHERE THE NAVIGATION TREE COMES FROM
  * ------------------------------------
  * `/api/navigation` returns groups of resources. The grouping,
@@ -36,7 +50,8 @@
  * client.
  */
 
-import {NavLink, useQuery, api} from '@martis/runtime'
+import {useRef} from 'react'
+import {NavLink, useQuery, api, useModalFocus, useTranslation} from '@martis/runtime'
 import type {NavigationGroup, NavigationItem} from '@martis/runtime'
 
 interface {{ class }}Props {
@@ -48,6 +63,16 @@ interface {{ class }}Props {
 export default function {{ class }}({mobileOpen, onMobileClose, collapsed}: {{ class }}Props) {
   const isMobile = mobileOpen !== undefined
   const onNavigate = isMobile ? onMobileClose : undefined
+  const {t} = useTranslation('navigation')
+  const navigationLabel = t('main_navigation', 'Main navigation')
+  // The collapsed rail hides the labels (Martis's CSS): the link keeps its name.
+  const railLabel = (label: string) => (!isMobile && collapsed ? label : undefined)
+
+  const rootRef = useRef<HTMLDivElement>(null)
+  useModalFocus(rootRef, mobileOpen === true, {
+    onClose: () => onMobileClose?.(),
+    returnFocus: () => document.getElementById('martis-sidebar-toggle'),
+  })
 
   const {data: groups = []} = useQuery<NavigationGroup[]>({
     queryKey: ['navigation'],
@@ -65,6 +90,7 @@ export default function {{ class }}({mobileOpen, onMobileClose, collapsed}: {{ c
         target="_blank"
         rel="noreferrer"
         className="martis-sb-item"
+        aria-label={railLabel(item.label)}
         onClick={onNavigate}
       >
         <span className="martis-sb-item-label">{item.label}</span>
@@ -74,6 +100,7 @@ export default function {{ class }}({mobileOpen, onMobileClose, collapsed}: {{ c
         key={item.type === 'resource' ? item.uriKey : `${groupKey}-${item.label}-${item.url}`}
         to={item.url}
         className={({isActive}) => 'martis-sb-item' + (isActive ? ' active' : '')}
+        aria-label={railLabel(item.label)}
         onClick={onNavigate}
       >
         <span className="martis-sb-item-label">{item.label}</span>
@@ -85,44 +112,53 @@ export default function {{ class }}({mobileOpen, onMobileClose, collapsed}: {{ c
   // and collapsed-rail styling. Drop them and ship your own CSS if
   // not.
   return (
-    <aside
+    <div
+      ref={rootRef}
+      id="martis-sidebar"
       className="martis-sb"
       data-mobile={isMobile ? (mobileOpen ? 'open' : 'true') : undefined}
       data-collapsed={!isMobile && collapsed ? 'true' : 'false'}
+      role={mobileOpen === true ? 'dialog' : undefined}
+      aria-modal={mobileOpen === true ? true : undefined}
+      aria-label={mobileOpen === true ? navigationLabel : undefined}
+      // React 18 sets `inert` from a string; a boolean is dropped.
+      {...(mobileOpen === false ? {inert: ''} : {})}
     >
-      <div className="martis-sb-logo">{/* brand / logo */}</div>
+      <nav id="martis-navigation" tabIndex={-1} className="martis-sb-nav" aria-label={navigationLabel}>
+        <div className="martis-sb-logo">{/* brand / logo */}</div>
 
-      <div className="martis-sb-scroll">
-        {groups.map((group, i) => {
-          const groupKey = group.label ?? `group-${i}`
+        <div className="martis-sb-scroll">
+          {groups.map((group, i) => {
+            const groupKey = group.label ?? `group-${i}`
 
-          return (
-            <div className="martis-sb-group" key={groupKey}>
-              {group.label !== null && (
-                <div className="martis-sb-group-label">
-                  <span>{group.label}</span>
-                </div>
-              )}
-              {group.items.map((child) =>
-                // A nested group (a menu group inside a section, `type: 'group'`)
-                // lists its own items under its label.
-                child.type === 'group' ? (
-                  <div className="martis-sb-subgroup" data-open="true" key={`${groupKey}::${child.label}`}>
-                    <div className="martis-sb-subgroup-header">
-                      <span className="martis-sb-subgroup-label">{child.label}</span>
-                    </div>
-                    <div className="martis-sb-subgroup-items">
-                      {child.items.map((item) => renderItem(item, `${groupKey}::${child.label}`))}
-                    </div>
+            return (
+              <div className="martis-sb-group" key={groupKey}>
+                {group.label !== null && (
+                  <div className="martis-sb-group-label">
+                    <span>{group.label}</span>
                   </div>
-                ) : (
-                  renderItem(child, groupKey)
-                ),
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </aside>
+                )}
+                {group.items.map((child) =>
+                  // A nested group (a menu group inside a section, `type: 'group'`)
+                  // lists its own items under its label.
+                  child.type === 'group' ? (
+                    <div className="martis-sb-subgroup" data-open="true" key={`${groupKey}::${child.label}`}>
+                      <div className="martis-sb-subgroup-header">
+                        <span className="martis-sb-subgroup-label">{child.label}</span>
+                      </div>
+                      <div className="martis-sb-subgroup-items">
+                        {child.items.map((item) => renderItem(item, `${groupKey}::${child.label}`))}
+                      </div>
+                    </div>
+                  ) : (
+                    renderItem(child, groupKey)
+                  ),
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </nav>
+    </div>
   )
 }
