@@ -34,11 +34,12 @@ class ProfileEmailChangeController extends MartisController
     /**
      * The page the emailed link opens: the SPA shell, which asks to confirm.
      * Reads nothing and writes nothing; a link that is not validly signed, or
-     * a disabled profile, goes to the login page as `invalid`.
+     * a disabled profile or e-mail change ({@see EmailChange::allowed()}),
+     * goes to the login page as `invalid`.
      */
     public function show(Request $request): Response|RedirectResponse
     {
-        if (! (bool) config('martis.profile.enabled', true) || ! $request->hasValidSignature()) {
+        if (! EmailChange::allowed() || ! $request->hasValidSignature()) {
             return redirect($this->basePath().'/login?email_change='.EmailChange::INVALID);
         }
 
@@ -58,7 +59,7 @@ class ProfileEmailChangeController extends MartisController
     {
         $outcome = EmailChange::INVALID;
 
-        if ((bool) config('martis.profile.enabled', true) && $request->hasValidSignature()) {
+        if (EmailChange::allowed() && $request->hasValidSignature()) {
             $from = $request->query('from');
             $to = $request->query('to');
 

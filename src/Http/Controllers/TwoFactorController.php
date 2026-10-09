@@ -31,6 +31,10 @@ class TwoFactorController extends MartisController
      */
     public function challenge(Request $request, TwoFactorService $twoFactor): JsonResponse
     {
+        // Registered only while the panel uses 2FA; this holds the switch where
+        // a route cache built while it was on still lists the route (v2.8.0).
+        abort_unless(TwoFactorService::featureEnabled(), 404);
+
         $request->validate([
             'code' => ['required', 'string'],
             'use_recovery_code' => ['sometimes', 'boolean'],

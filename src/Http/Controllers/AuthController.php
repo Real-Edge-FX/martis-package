@@ -64,7 +64,7 @@ class AuthController extends MartisController
         // initial state is no pass at all, and a pass earned by another user
         // earlier in the same browser session does not count.
         $twoFactor = app(TwoFactorService::class);
-        if ($twoFactor->isEnabled($user) && ! TwoFactorPass::holds($request->session(), $user)) {
+        if ($twoFactor->isActive($user) && ! TwoFactorPass::holds($request->session(), $user)) {
             return response()->json([
                 'two_factor_pending' => true,
                 'message' => 'Two-factor authentication required.',
@@ -108,8 +108,9 @@ class AuthController extends MartisController
      * Log in with email and password and start a session.
      *
      * Authenticates the user via the configured guard and starts a Laravel session.
-     * When 2FA is enabled on the account, returns a `two_factor_required` flag
-     * instead of the user object — the frontend must complete the challenge.
+     * When the panel uses 2FA and the account is enrolled, returns a
+     * `two_factor_required` flag instead of the user object — the frontend
+     * must complete the challenge.
      *
      * This route is exempt from CSRF verification so it can be called from the Swagger playground.
      *
@@ -160,9 +161,10 @@ class AuthController extends MartisController
         // forgets it too; this keeps a guard that does not fire Login honest).
         TwoFactorPass::revoke($request->session());
 
-        // Check if 2FA is active: the challenge is pending
+        // Check if 2FA is active (the panel uses it and the account is
+        // enrolled): the challenge is pending
         $user = $auth->user();
-        if ($user && app(TwoFactorService::class)->isEnabled($user)) {
+        if ($user && app(TwoFactorService::class)->isActive($user)) {
             return response()->json([
                 'two_factor_required' => true,
                 'message' => 'Two-factor authentication required.',

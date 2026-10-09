@@ -4452,13 +4452,17 @@ html[data-reduced-motion="true"] .mwc-blob {
    Uses `[data-mobile]` (any value) for layout so the open state inherits
    `position: fixed` + width; the `="open"` selector only flips the
    transform. Without this, toggling to "open" would drop the fixed
-   positioning and the drawer would collapse into the flow. */
+   positioning and the drawer would collapse into the flow.
+   The drawer sets its own `--sidebar-width` (v2.8.0): on mobile the
+   root's is 0 (no grid column, no content padding), and the logo box
+   derives its cap from it, so an inherited 0 left a lockup 0px wide. */
 .martis-sb[data-mobile] {
+  --sidebar-width: 280px;
   position: fixed;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 280px;
+  width: var(--sidebar-width);
   transform: translateX(-100%);
   transition: transform var(--martis-dur-medium) var(--martis-ease-standard);
   box-shadow: var(--martis-shadow-lg);

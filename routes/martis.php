@@ -218,7 +218,8 @@ Route::middleware(RouteMiddleware::base())
         // The link mailed to the new address of an email change (v2.4.0). Public
         // and signed, like the verification link: the mailbox is often on
         // another device. Always registered; the controller refuses it while
-        // `martis.profile.enabled` is false. The mailed GET opens the
+        // `martis.profile.enabled` or `martis.profile.account.email_editable`
+        // is false. The mailed GET opens the
         // confirmation page and changes nothing (a mail scanner or a prefetch
         // loads it); the change is the POST to the same signed URL, behind the
         // CSRF check of the `web` group.
@@ -253,17 +254,21 @@ Route::middleware(RouteMiddleware::base())
         Route::middleware(RouteMiddleware::authenticated())
             ->group(function () use ($throttle) {
                 // ── 2FA challenge — auth only, NO martis.2fa (this is how you complete 2FA) ──
-                Route::prefix('api')
-                    ->name('api.')
-                    ->middleware($throttle)
-                    ->group(function () {
-                        // A limiter of its own (per user and per IP, tighter than
-                        // the login's), registered in
-                        // MartisServiceProvider::registerRateLimiters().
-                        Route::post('/2fa/challenge', [TwoFactorController::class, 'challenge'])
-                            ->middleware('throttle:martis-2fa-challenge')
-                            ->name('2fa.challenge');
-                    });
+                // Registered only while the panel uses 2FA (v2.8.0): off,
+                // nobody is challenged (TwoFactorService::isActive()).
+                if (config('martis.profile.two_factor.enabled', true)) {
+                    Route::prefix('api')
+                        ->name('api.')
+                        ->middleware($throttle)
+                        ->group(function () {
+                            // A limiter of its own (per user and per IP, tighter than
+                            // the login's), registered in
+                            // MartisServiceProvider::registerRateLimiters().
+                            Route::post('/2fa/challenge', [TwoFactorController::class, 'challenge'])
+                                ->middleware('throttle:martis-2fa-challenge')
+                                ->name('2fa.challenge');
+                        });
+                }
 
                 // ── Forced password change (v2.3.0): the protected stack without the gate ──
                 // A user the gate holds must reach the change page and its
@@ -398,7 +403,10 @@ Route::middleware(RouteMiddleware::base())
                                     ->name('attachments.upload');
 
                                 // ──────────────────────────────────────────────────────
-                                // Profile routes — registered only when profile is enabled
+                                // Profile routes — registered only when profile is enabled.
+                                // Each feature switch removes its own routes too (v2.8.0),
+                                // as Fortify's features do: a switch that only hid the UI
+                                // left the endpoints answering.
                                 // ──────────────────────────────────────────────────────
                                 if (config('martis.profile.enabled', true)) {
                                     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
@@ -406,14 +414,18 @@ Route::middleware(RouteMiddleware::base())
                                     Route::post('/profile/password', [ProfileController::class, 'changePassword'])->name('profile.password');
 
                                     // Avatar
-                                    Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar'])->name('profile.avatar.upload');
-                                    Route::delete('/profile/avatar', [ProfileController::class, 'removeAvatar'])->name('profile.avatar.remove');
+                                    if (config('martis.profile.avatar.enabled', true)) {
+                                        Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar'])->name('profile.avatar.upload');
+                                        Route::delete('/profile/avatar', [ProfileController::class, 'removeAvatar'])->name('profile.avatar.remove');
+                                    }
 
                                     // 2FA setup (within profile)
-                                    Route::post('/profile/2fa/setup', [ProfileController::class, 'twoFactorSetup'])->name('profile.2fa.setup');
-                                    Route::post('/profile/2fa/confirm', [ProfileController::class, 'twoFactorConfirm'])->name('profile.2fa.confirm');
-                                    Route::delete('/profile/2fa', [ProfileController::class, 'twoFactorDisable'])->name('profile.2fa.disable');
-                                    Route::post('/profile/2fa/recovery-codes', [ProfileController::class, 'twoFactorRegenerateCodes'])->name('profile.2fa.recovery-codes');
+                                    if (config('martis.profile.two_factor.enabled', true)) {
+                                        Route::post('/profile/2fa/setup', [ProfileController::class, 'twoFactorSetup'])->name('profile.2fa.setup');
+                                        Route::post('/profile/2fa/confirm', [ProfileController::class, 'twoFactorConfirm'])->name('profile.2fa.confirm');
+                                        Route::delete('/profile/2fa', [ProfileController::class, 'twoFactorDisable'])->name('profile.2fa.disable');
+                                        Route::post('/profile/2fa/recovery-codes', [ProfileController::class, 'twoFactorRegenerateCodes'])->name('profile.2fa.recovery-codes');
+                                    }
 
                                     // Browser sessions — backed by the Laravel
                                     // database session driver. The service

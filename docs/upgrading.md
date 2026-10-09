@@ -4,6 +4,16 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.8.0 from v2.7.x
+
+v2.8.0 makes the profile's feature switches hold on the server, as Fortify's features do (see [Configuration → Profile](configuration.md#profile)). Nothing changes for an app that leaves them on, the default. If you turned one off:
+
+- **`MARTIS_2FA_ENABLED=false` now turns off the sign-in challenge.** A user who enrolled while 2FA was on is no longer challenged, and the 2FA routes answer `404` ([Turning 2FA off](authentication.md#turning-2fa-off-v280)). Up to v2.7.0 such a user still met the challenge. Nothing logs it, so check before you upgrade: with the switch off, `php artisan tinker --execute="echo App\Models\User::whereNotNull('two_factor_confirmed_at')->count();"` (your Martis guard's user model) counts the accounts that stop being challenged. `martis:install` run without a TTY and without `--with-2fa` writes `MARTIS_2FA_ENABLED=false`, so an app installed from CI or a script may have the switch off without meaning to. If you turned the switch off only to hide the profile's 2FA section and want enrolled users challenged, turn it back on and leave `security` out of `profile.sections`: that hides the section and keeps 2FA in force.
+- **`MARTIS_AVATAR_ENABLED=false` removes the avatar endpoints.** `POST` and `DELETE /api/profile/avatar` answer `404`.
+- **`MARTIS_PROFILE_EMAIL_EDITABLE=false` refuses a new address with `422`.** A custom `ProfileResource` written only to drop `email` from `updateRules()` can go; one that does more can stay. A confirmation link mailed before the switch went off no longer applies.
+- **Cache the routes again after you change a switch.** The routes are registered from the config, as `MARTIS_PROFILE_ENABLED` already did, so with `php artisan route:cache` run it again (`php artisan optimize` does both). A route cache built while 2FA was off has no challenge route: turning 2FA on without caching the routes again keeps enrolled users out ([Configuration → Profile](configuration.md#profile)).
+- No config key was added: a published `config/martis.php` keeps working. Only the comments of its `profile` block changed.
+
 ## Upgrading to v2.7.0 from v2.6.x
 
 v2.7.0 makes the sidebar layout meet WCAG 2.2 AA for its collapsed rail and its mobile menu, adds a "Skip to navigation" link, a header-first order and two top-bar slots. Nothing has to change in an app that keeps the bundled shell; check these points if you test, style or replace it:

@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\ValidationException;
 use Martis\Auth\PasswordChanger;
 use Martis\Auth\PasswordPolicy;
 use Martis\Auth\RecoveryCodesRegeneratedNotification;
@@ -44,11 +45,16 @@ class ProfileController extends MartisController
      * link is followed. The answer then carries `pending_email`. See
      * {@see EmailChange}.
      *
+     * While `profile.account.email_editable` is false (v2.8.0) the address
+     * is not validated and stays as it is: a request for another one answers
+     * 422 and nothing is saved or mailed.
+     *
      * @body-param string name required
-     * @body-param string email required
+     * @body-param string email required unless the address is locked
      * @body-param string current_password required when the email changes
      *
      * @response array<string, mixed>
+     * @response 422 array{message: string, errors: array<string, string[]>}
      */
     public function update(Request $request, EmailChange $emailChange): JsonResponse
     {
@@ -56,6 +62,21 @@ class ProfileController extends MartisController
         $resource = $this->resolveResource();
 
         $rules = $resource->updateRules($user);
+        $emailLocked = array_key_exists('email', $rules) && ! EmailChange::allowed();
+
+        if ($emailLocked) {
+            // The switch holds on the server too: a hand-made request for
+            // another address is refused, before anything is saved, rather
+            // than mailed a confirmation link.
+            if ($emailChange->isChange($user, $request->input('email'))) {
+                throw ValidationException::withMessages([
+                    'email' => [__('martis::profile.email_not_editable')],
+                ]);
+            }
+
+            unset($rules['email']);
+        }
+
         $changesEmail = array_key_exists('email', $rules) && $emailChange->isChange($user, $request->input('email'));
 
         if ($changesEmail) {
@@ -79,7 +100,9 @@ class ProfileController extends MartisController
             // The address stays as it is until the link is followed; the same
             // address in other letter case is no change.
             $data['email'] = $emailChange->currentEmail($user);
-        } elseif (array_key_exists('email', $data)) {
+        } elseif (array_key_exists('email', $data) || $emailLocked) {
+            // The resource saves the address it validates: hand it the
+            // current one, also when the locked address was not validated.
             $data['email'] = $emailChange->currentEmail($user);
         }
 
@@ -132,6 +155,8 @@ class ProfileController extends MartisController
      */
     public function uploadAvatar(Request $request, AvatarService $avatarService): JsonResponse
     {
+        $this->requireAvatar();
+
         $maxKb = (int) config('martis.profile.avatar.max_size_kb', 2048);
 
         $request->validate([
@@ -154,6 +179,8 @@ class ProfileController extends MartisController
      */
     public function removeAvatar(Request $request, AvatarService $avatarService): JsonResponse
     {
+        $this->requireAvatar();
+
         $user = $this->resolveUser($request);
         $avatarService->remove($user);
 
@@ -168,6 +195,8 @@ class ProfileController extends MartisController
      */
     public function twoFactorSetup(Request $request, TwoFactorService $twoFactor): JsonResponse
     {
+        $this->requireTwoFactor();
+
         if ($refusal = $this->refuseWhileImpersonating()) {
             return $refusal;
         }
@@ -188,6 +217,8 @@ class ProfileController extends MartisController
      */
     public function twoFactorConfirm(Request $request, TwoFactorService $twoFactor): JsonResponse
     {
+        $this->requireTwoFactor();
+
         if ($refusal = $this->refuseWhileImpersonating()) {
             return $refusal;
         }
@@ -228,6 +259,8 @@ class ProfileController extends MartisController
      */
     public function twoFactorDisable(Request $request, TwoFactorService $twoFactor): JsonResponse
     {
+        $this->requireTwoFactor();
+
         if ($refusal = $this->refuseWhileImpersonating()) {
             return $refusal;
         }
@@ -262,6 +295,8 @@ class ProfileController extends MartisController
      */
     public function twoFactorRegenerateCodes(Request $request, TwoFactorService $twoFactor): JsonResponse
     {
+        $this->requireTwoFactor();
+
         if ($refusal = $this->refuseWhileImpersonating()) {
             return $refusal;
         }
@@ -338,6 +373,25 @@ class ProfileController extends MartisController
     // ──────────────────────────────────────────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * The avatar switch holds where its routes are still registered (a route
+     * cache built while it was on, a config changed at runtime): off, the
+     * endpoint answers 404 and stores nothing (v2.8.0).
+     */
+    private function requireAvatar(): void
+    {
+        abort_unless((bool) config('martis.profile.avatar.enabled', true), 404);
+    }
+
+    /**
+     * The 2FA switch holds where its routes are still registered: off, the
+     * endpoint answers 404 and writes nothing (v2.8.0).
+     */
+    private function requireTwoFactor(): void
+    {
+        abort_unless(TwoFactorService::featureEnabled(), 404);
+    }
 
     /**
      * The answer to a factor- or identity-changing request made while an

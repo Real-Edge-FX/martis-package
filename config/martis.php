@@ -1446,13 +1446,15 @@ return [
     | Configure the user profile page (accessible via the user menu).
     |
     | enabled        - Set false to disable the profile page entirely.
+    |                  Each switch below holds on the server too (v2.8.0): off,
+    |                  its routes are not registered, so they answer 404.
     | resource       - Class that serves the profile page and the Topbar avatar:
     |                  a subclass of Martis\Profile\ProfileResource, or any class
     |                  implementing Martis\Contracts\ProfileResourceContract.
     |                  Null uses the default. A value naming no such class throws.
     | menu.label     - Label shown in the user dropdown menu.
     | menu.icon      - Phosphor icon name for the menu item.
-    | avatar.enabled - Show/hide the avatar upload section.
+    | avatar.enabled - The avatar section and its upload/remove routes.
     | avatar.disk    - Filesystem disk to store uploaded avatars.
     | avatar.path    - Sub-directory within the disk.
     | avatar.max_size_kb - Maximum upload size in kilobytes.
@@ -1460,7 +1462,9 @@ return [
     | avatar.url_resolver - Optional resolver of the public URL: the name of an
     |                  invokable class or a [Class::class, 'staticMethod'] array,
     |                  called with the stored path. Null uses the disk's URL.
-    | two_factor.enabled  - Show/hide the 2FA section.
+    | two_factor.enabled  - Whether the panel uses 2FA: the 2FA section, its
+    |                  routes and the sign-in challenge. Off, nobody is
+    |                  challenged, an account enrolled earlier included.
     | two_factor.recovery_codes - Number of one-time recovery codes generated.
     | sections       - Array of section keys to render (customize order/visibility).
     |                  Supported: 'avatar', 'account', 'password', 'security' (2FA),
@@ -1499,11 +1503,13 @@ return [
             'throttle_minutes' => (int) env('MARTIS_PROFILE_EMAIL_CHANGE_ATTEMPTS_MINUTES', 60),
         ],
         'account' => [
-            // When false, the built-in Account section renders the e-mail field
-            // read-only in the UI. The e-mail is often the acting identity, so a
-            // consumer may want name/avatar/password editable but the e-mail
-            // locked. Pair with a ProfileResource that also rejects e-mail
-            // changes server-side (this flag is the UI half only).
+            // When false, the e-mail address cannot be changed from the
+            // profile: the Account section renders it read-only, a request for
+            // another address answers 422 (nothing saved, nothing mailed) and a
+            // confirmation link mailed before is refused (v2.8.0; it used to
+            // lock the field in the UI only). The e-mail is often the acting
+            // identity, so a consumer may want name/avatar/password editable
+            // but the e-mail locked.
             'email_editable' => env('MARTIS_PROFILE_EMAIL_EDITABLE', true),
         ],
         'sections' => ['avatar', 'account', 'password', 'security', 'sessions'],

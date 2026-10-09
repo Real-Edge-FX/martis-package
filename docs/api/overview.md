@@ -64,7 +64,7 @@ Content-Type: application/json
 | Status | Body | Description |
 |---|---|---|
 | `200` | `{ "id": 1, "name": "...", "email": "...", "avatar_url": "...", ... }` | Successful login. The user object is returned flat (no `user` wrapper). |
-| `200` | `{ "two_factor_required": true, "message": "..." }` | 2FA enabled — the frontend redirects to `/2fa/challenge`. |
+| `200` | `{ "two_factor_required": true, "message": "..." }` | 2FA enabled on the account while the panel uses 2FA (`MARTIS_2FA_ENABLED`, v2.8.0) — the frontend redirects to `/2fa/challenge`. |
 | `422` | `{ "message": "...", "errors": {...} }` | Validation error or wrong credentials. |
 | `429` | `{ "message": "Too many attempts" }` | Rate limited (per-IP + per-email composition). |
 
@@ -83,7 +83,7 @@ Content-Type: application/json
 | `POST` | `/martis/api/auth/magic-link/request` | **v1.8.8.** Issue a passwordless sign-in token + email it. Returns `200 {ok: true}` whether or not the email exists (account-enumeration safe). |
 | `GET` | `/martis/magic-link/confirm#email=…&token=…` | **v2.4.0.** The emailed link: the SPA confirmation page. Signs nobody in and does not consume the token. Since v2.6.0 the email and token are in the URL fragment, so the server never receives them on this request. |
 | `POST` | `/martis/api/auth/magic-link/consume` | **v2.4.0** (was a `GET` that signed in on load). `{ email, token, replace_session? }`: verify the token, sign the user in. |
-| `POST` | `/martis/api/2fa/challenge` | Submit the 6-digit TOTP (or recovery) code during the 2FA challenge. `422` wrong code, `429` rate limited (5 a minute per user, v2.4.0), `403 { two_factor_locked: true }` after consecutive wrong codes (the session ends). |
+| `POST` | `/martis/api/2fa/challenge` | Submit the 6-digit TOTP (or recovery) code during the 2FA challenge. `422` wrong code, `429` rate limited (5 a minute per user, v2.4.0), `403 { two_factor_locked: true }` after consecutive wrong codes (the session ends). Not registered while `MARTIS_2FA_ENABLED` is false (v2.8.0). |
 | `GET` | `/martis/sso/{provider}/redirect` | Kick off the OAuth flow. Routes only registered when `auth.sso.enabled`. |
 | `GET` | `/martis/sso/{provider}/callback` | Handle the IdP callback. |
 
@@ -364,11 +364,11 @@ See [Cache Control Surface](../cache.md).
 
 ## Profile
 
-User profile + avatar + 2FA + browser sessions (when `martis.profile.enabled`).
+User profile + avatar + 2FA + browser sessions (when `martis.profile.enabled`). The avatar routes are registered only while `profile.avatar.enabled` is on, the 2FA routes only while `profile.two_factor.enabled` is on, and with `profile.account.email_editable` off a new email answers `422` (v2.8.0; see [Configuration → Profile](../configuration.md#profile)).
 
 ```
 GET     /martis/api/profile                   Current user payload (name, email, avatar, 2fa state)
-PATCH   /martis/api/profile                   Update name / email
+PATCH   /martis/api/profile                   Update name / email (a new email needs current_password and a confirmation link)
 POST    /martis/api/profile/password          Change password (requires current_password)
 POST    /martis/api/profile/avatar            Upload avatar (multipart)
 DELETE  /martis/api/profile/avatar            Remove avatar
