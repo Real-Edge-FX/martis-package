@@ -547,6 +547,7 @@ Your extension build resolves `@martis/runtime` to `.shims/runtime.mjs`, which r
 | `PasswordChangeRequiredError` | v2.3.0 |
 | `useAuthLinkParams`, `parseAuthLinkFragment`, the `AuthLinkParams` type | v2.6.0 |
 | `useModalFocus`, the `ModalFocusOptions` type | v2.7.0 |
+| `useDashboardFilters`, the `ActiveFilters`, `SetDashboardFilters`, `DashboardFiltersUpdate`, `DashboardFiltersOptions` and `DashboardFiltersContextValue` types | v2.9.0 |
 
 v2.3.0 also publishes `.shims/i18next.d.mts`, the i18next types the shims share; republishing the shims adds it.
 

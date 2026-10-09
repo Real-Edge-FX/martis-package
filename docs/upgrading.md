@@ -4,6 +4,16 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.9.0 from v2.8.x
+
+v2.9.0 keeps a dashboard's filters in its address and lets a custom card set them ([Filters in the URL](dashboards.md#filters-in-the-url-v290)), and answers a write a unique index refuses with a `422` on the field ([When the database index refuses the write](fields.md#when-the-database-index-refuses-the-write-v290)). Nothing has to change in an app. Check these points if you test the panel or its API:
+
+- **A dashboard's address carries `?filters=`.** A change in the filter panel and a filter's `default()` rewrite it in place; a browser test that asserts the exact URL of a filtered dashboard sees the parameter. A card's `setFilters()` adds a history entry.
+- **Custom cards receive a `setFilters` prop next to `filters`.** To type it, or to call `useDashboardFilters()`, republish the shims: `php artisan vendor:publish --tag=martis-extension-shims --force`, then `npm run build:extensions`.
+- **A relationship panel answers a unique violation with `422`, not `500`.** Its create, update, attach and pivot update now answer as the resource endpoints do, with the field error when the index names a field of the form, and use the same messages for the other database errors (`This record cannot be modified because it is referenced by other records.`, `A required field is missing. Please check all mandatory fields.`, ...).
+- **On SQLite, a `NOT NULL` or foreign key failure is no longer a duplicate.** SQLite reports every constraint with the same code, and these answered `422` "A record with this value already exists."; they now answer `500` with their own message. A test written against the old answer changes with it.
+- **A unique violation's field error is the rule's message.** It reads as the field's `unique()` message, or Laravel's `validation.unique` line ("The Email has already been taken."), where it was the generic `A record with this value already exists. Please use a unique value.`, which stays the response's `message`.
+
 ## Upgrading to v2.8.0 from v2.7.x
 
 v2.8.0 makes the profile's feature switches hold on the server, as Fortify's features do (see [Configuration → Profile](configuration.md#profile)). Nothing changes for an app that leaves them on, the default. If you turned one off:

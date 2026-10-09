@@ -557,6 +557,20 @@ Email::make('email')
     ->unique(['users', 'email'], 'This email is already in use.')
 ```
 
+#### When the database index refuses the write (v2.9.0)
+
+The rule runs before the write, so a unique index can still refuse it: two saves racing past the rule, or an index the rule does not mirror (a case-insensitive `lower(email)` index, a composite index). Martis answers that write with a `422`, as the rule would, on every endpoint that saves a record: create, update, inline create, and a relationship panel's create, update, attach and pivot update. The error sits on each field of the form whose column the index covers, with the field's `unique()` message, or else Laravel's `validation.unique` line on its label ("The Email has already been taken."). The response's `message` is `A record with this value already exists. Please use a unique value.`
+
+The columns come from the database's error message:
+
+| Database | It reports | Martis reads |
+|----------|-----------|--------------|
+| PostgreSQL | the key: `Key (lower(email::text))=(…)`, `Key (tenant_id, email)=(…)` | the column names in the key (function names, casts and string literals skipped); the constraint name only when the message carries no key |
+| SQLite | the columns (`UNIQUE constraint failed: users.email`), or the index name for an expression index | the columns, or the index name |
+| MySQL, MariaDB | the index name only (`for key 'users.users_email_unique'`); `PRIMARY` for the primary key | the columns the index name contains, split on the table's columns, longest first |
+
+An index name works when it contains the column, as Laravel's default `{table}_{column}_unique` does (`users_email_lower_unique` works too). It is split on every column of the table, so `users_first_name_unique` names `first_name`, never a written `name`. A name that contains none of the form's columns (`uniq_domain`), or an index on a column the form does not write, answers the same `422` without a field error, so the form shows the message only. Only the fields of the form are matched, so a function name (`lower`) or a column the form lacks never becomes an error key. A foreign key or `NOT NULL` failure answers a `500` with a message of its own. No answer ever carries SQL or the database's message.
+
 ### Customization Hooks
 
 The core hooks let you replace the default read / write / format behaviour of a field with arbitrary logic. Unlike the lazy setters in [Closure-aware setters](#closure-aware-setters), these hooks do not have a static counterpart — they ARE the customization.
