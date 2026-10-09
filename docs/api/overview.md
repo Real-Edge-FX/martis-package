@@ -305,6 +305,8 @@ A dashboard soft-locked for the user answers `200 { "locked": true, "lock": {...
 
 The single dashboard endpoint returns the layout type (`cards` or `default`), the list of metric cards, dashboard-level filters, and any `withMeta()` data set on the PHP class.
 
+The card endpoint takes the active filters as `?filters=` (the JSON object `{"<filter uriKey>": <value>}`), the parameter the dashboard page keeps in its own address since v2.9.0 ([Filters in the URL](../dashboards.md#filters-in-the-url-v290)).
+
 ## Tools
 
 Surface for the [Custom Tools](../tools.md) primitive.
@@ -448,6 +450,16 @@ otherwise `invalid`). The top-level `message` is the resource's
 `validationMessage()` on the resource endpoints, "Validation failed." on the
 relationship and pivot endpoints, and "The given data was invalid." on the
 Action endpoints.
+
+A write the database refuses with a unique index (a race past a field's
+`unique()` rule, or an index the rules do not mirror) answers the same `422`
+on the resource, relationship and pivot endpoints (the relationship and pivot
+ones since v2.9.0): `message` is "A record with this value already exists.
+Please use a unique value.", with one error per written field whose column the
+index covers, worded as the field's `unique()` rule would, and no error when
+the index names none. Any other database error answers `500` with a generic
+message and no SQL. See
+[When the database index refuses the write](../fields.md#when-the-database-index-refuses-the-write-v290).
 
 The endpoints that validate with Laravel's `$request->validate()` (login,
 registration, password reset, profile, two-factor, magic link) answer with
