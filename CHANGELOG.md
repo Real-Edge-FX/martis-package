@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.0] — 2026-10-09
+
+Security release: the one-time token of the password-reset, invitation and magic-link emails moves into the URL fragment, out of the request line that proxies and web servers log. Links already mailed keep working until they expire. An `auth:reset-password` or `auth:invitation-accept` override that reads the token from the route must switch to `useAuthLinkParams()`; read [Upgrading to v2.6.0 from v2.5.x](docs/upgrading.md#upgrading-to-v260-from-v25x).
+
 ### Security
 
 - The password-reset, invitation and magic-link emails carry their one-time token (and the email) in the URL fragment: `/reset-password#token=…&email=…`, `/invitations/accept#token=…`, `/magic-link/confirm#email=…&token=…`. Up to v2.5.x the reset and invitation tokens were path segments and the magic-link token a query parameter, so every reverse proxy, web server and APM layer that logs the request line recorded a live token, enough to reset a password, accept an invitation or sign in until it expired. A browser never sends the fragment; the pages read it, drop it from the address bar and post the token in the request body. The page responses are `no-store` with `Referrer-Policy: no-referrer`, and a redirect away from them (feature off, signed in, off-platform page) drops the fragment so the token does not follow it. Tokens an access log recorded before the upgrade stay valid until they expire: purge those logs, or revoke and resend pending invitations.
@@ -22,7 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `useAuthLinkParams()` and `parseAuthLinkFragment()` in `@martis/runtime`: the token and email of the emailed link that opened an auth page override.
 - `Martis\Support\TokenLink::url($routeName, $parameters)`: a named route on `APP_URL` with the parameters in the URL fragment, for custom reset and invitation URL callbacks.
-
 - Funding metadata: `composer.json` lists the Martis Ko-fi page (shown by `composer fund` and on Packagist), `.github/FUNDING.yml` enables the GitHub Sponsor button, and the README has a short Support Martis section.
 
 ## [2.5.1] — 2026-10-06
