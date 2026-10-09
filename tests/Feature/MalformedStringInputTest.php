@@ -106,10 +106,11 @@ it('lists the actions of a resource when the context is not a string', function 
 it('answers the magic-link confirmation and consume when the email or the token is not a string', function () {
     config()->set('martis.auth.magic_link.enabled', true);
 
+    // A legacy query link: an array reads as missing, in the fragment form.
     $this->get('/martis/magic-link/confirm?email[]=a@b.test&token=x')
-        ->assertRedirect('/martis/login?magic_link=invalid');
+        ->assertRedirect('/martis/magic-link/confirm#email=&token=x');
     $this->get('/martis/magic-link/confirm?email=a@b.test&token[]=x')
-        ->assertRedirect('/martis/login?magic_link=invalid');
+        ->assertRedirect('/martis/magic-link/confirm#email=a%40b.test&token=');
 
     $this->postJson('/martis/api/auth/magic-link/consume', ['email' => ['a@b.test'], 'token' => 'x'])
         ->assertStatus(422)

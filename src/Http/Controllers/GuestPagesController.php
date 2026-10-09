@@ -4,14 +4,17 @@ namespace Martis\Http\Controllers;
 
 use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Martis\Support\TokenLink;
 
 /**
  * Renders the SPA shell for the guest-only auth surfaces:
  *
  *   /register
  *   /forgot-password
- *   /reset-password/{token}
+ *   /reset-password                 (token and email in the URL fragment)
+ *   /reset-password/{token}         (a link emailed before v2.6.0)
  *
  * Always-registered. Behaviour at request time:
  *
@@ -36,9 +39,49 @@ class GuestPagesController extends MartisController
         return $this->resolve('passwordReset');
     }
 
-    public function showResetPassword(): Response|RedirectResponse
+    /**
+     * The page the emailed reset link opens. The link carries the token and
+     * the email in the URL fragment, which never reaches the server; a
+     * custom link builder that still puts them in the query string is sent
+     * on to the fragment form.
+     */
+    public function showResetPassword(Request $request): Response|RedirectResponse
     {
-        return $this->resolve('passwordReset');
+        $response = $this->resolve('passwordReset');
+
+        if ($response instanceof RedirectResponse) {
+            return $response;
+        }
+
+        $token = $request->query('token');
+        if (is_string($token) && $token !== '') {
+            return $this->toFragment($token, $request->query('email'));
+        }
+
+        return TokenLink::keepPrivate($response);
+    }
+
+    /**
+     * A link emailed before v2.6.0 (`/reset-password/{token}?email=`): sent
+     * on to the page with the token and email in the fragment.
+     */
+    public function legacyResetPasswordLink(Request $request, string $token): Response|RedirectResponse
+    {
+        $response = $this->resolve('passwordReset');
+
+        if ($response instanceof RedirectResponse) {
+            return $response;
+        }
+
+        return $this->toFragment($token, $request->query('email'));
+    }
+
+    private function toFragment(string $token, mixed $email): RedirectResponse
+    {
+        return TokenLink::redirect('martis.password.reset', array_filter([
+            'token' => $token,
+            'email' => is_string($email) ? $email : '',
+        ], static fn (string $value): bool => $value !== ''));
     }
 
     private function resolve(string $flow): Response|RedirectResponse

@@ -32,7 +32,7 @@ import { PasswordChangeRequiredPage } from './PasswordChangeRequired'
 
 const PAGES: [string, string, string, ComponentType][] = [
   ['register', '/register', '/register', RegisterPage],
-  ['reset password', '/reset-password/:token', '/reset-password/abc?email=ada@example.com', ResetPasswordPage],
+  ['reset password', '/reset-password', '/reset-password#token=abc&email=ada@example.com', ResetPasswordPage],
   ['invitation accept', '/invitations/accept/:token', '/invitations/accept/abc', InvitationAcceptPage],
   ['password change', '/password/change', '/password/change', PasswordChangeRequiredPage],
 ]
@@ -82,7 +82,7 @@ describe('the password pages', () => {
   })
 
   it.each([
-    ['reset password', '/reset-password/:token', '/reset-password/abc?email=ada@example.com', ResetPasswordPage, 'password'],
+    ['reset password', '/reset-password', '/reset-password#token=abc&email=ada@example.com', ResetPasswordPage, 'password'],
     ['invitation accept', '/invitations/accept/:token', '/invitations/accept/abc', InvitationAcceptPage, 'name'],
     ['password change', '/password/change', '/password/change', PasswordChangeRequiredPage, 'current_password'],
   ] as [string, string, string, ComponentType, string][])('%s focuses its first input to fill on mount', (_name, pattern, path, Page, first) => {

@@ -31,7 +31,7 @@ vi.mock('@images/logo.png', () => ({ default: '/logo.png' }))
 import { MagicLinkConfirmPage } from './MagicLinkConfirm'
 
 const original = window.location
-let location: { href: string; pathname: string; origin: string; search: string }
+let location: { href: string; pathname: string; origin: string; search: string; hash: string }
 let replaceState: ReturnType<typeof vi.spyOn>
 
 function Where() {
@@ -50,7 +50,8 @@ function renderAt(search: string) {
   )
 }
 
-const LINK = '?email=pedro%40example.com&token=tok-123'
+// The emailed link carries the email and token in the fragment (v2.6.0).
+const LINK = '#email=pedro%40example.com&token=tok-123'
 
 beforeEach(() => {
   post.mockReset()
@@ -60,7 +61,8 @@ beforeEach(() => {
     href: 'http://localhost/martis/magic-link/confirm' + LINK,
     pathname: '/martis/magic-link/confirm',
     origin: 'http://localhost',
-    search: LINK,
+    search: '',
+    hash: LINK,
   }
   Object.defineProperty(window, 'location', { configurable: true, value: location })
   // jsdom refuses a history URL that is not its own origin: the stubbed location is not.
@@ -106,7 +108,7 @@ describe('MagicLinkConfirmPage', () => {
   })
 
   it('goes to the login page when the link has no email or token, without a request', () => {
-    renderAt('?email=pedro%40example.com')
+    renderAt('#email=pedro%40example.com')
 
     expect(screen.getByTestId('where').textContent).toBe('/login?magic_link=invalid')
     expect(post).not.toHaveBeenCalled()

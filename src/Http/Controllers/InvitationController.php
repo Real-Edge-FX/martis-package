@@ -15,6 +15,7 @@ use Martis\Contracts\RegistersUsers;
 use Martis\Invitations\InvalidInvitationException;
 use Martis\Invitations\InvitationManager;
 use Martis\Sso\SsoSession;
+use Martis\Support\TokenLink;
 
 /**
  * The PUBLIC (token-authorized, unauthenticated) surfaces of the
@@ -36,7 +37,8 @@ use Martis\Sso\SsoSession;
  * guards the privileged "issue an invitation" action (elsewhere).
  *
  * Routes:
- *   GET  /invitations/accept/{token}   -> show()
+ *   GET  /invitations/accept           -> show()       (token in the URL fragment)
+ *   GET  /invitations/accept/{token}   -> legacyLink() (a link emailed before v2.6.0)
  *   POST /api/invitations/accept       -> accept()
  */
 class InvitationController extends MartisController
@@ -44,22 +46,55 @@ class InvitationController extends MartisController
     /**
      * Render the accept-screen SPA shell.
      *
-     * Resolves the token so an unknown/expired/used one is exercised
-     * through the same code path as a valid one, but the HTTP
-     * response is deliberately IDENTICAL either way: 200 + the SPA
-     * shell. Never let this GET reveal token validity via status
-     * code or body — that would let an attacker enumerate live
-     * invitations by probing links. The React accept screen (a later
-     * task) decides what to render once mounted, and only the POST
-     * accept endpoint below ever confirms or denies validity.
+     * The emailed link carries the token in the URL fragment, which the
+     * browser never sends, so this GET never sees it and cannot reveal its
+     * validity: the response is the same 200 + SPA shell for every link.
+     * Only the POST accept endpoint below ever confirms or denies validity.
+     * A custom link builder that still puts the token in the query string
+     * is sent on to the fragment form: `?token=…`, or the bare `?<token>`
+     * that `route('martis.invitations.accept', $rawToken)` (the default
+     * before v2.6.0) now produces on this parameterless route.
      */
-    public function show(string $token): Response
+    public function show(Request $request): Response|RedirectResponse
     {
         $this->abortUnlessInvitationsEnabled();
 
-        app(InvitationManager::class)->findByRawToken($token);
+        $token = $this->queryToken($request);
+        if ($token !== '') {
+            return TokenLink::redirect('martis.invitations.accept', ['token' => $token]);
+        }
 
-        return response(view('martis::app'));
+        return TokenLink::keepPrivate(response(view('martis::app')));
+    }
+
+    /**
+     * A link emailed before v2.6.0 (`/invitations/accept/{token}`): sent on
+     * to the accept screen with the token in the fragment, whether or not
+     * the token is valid (no enumeration via this GET either).
+     */
+    public function legacyLink(string $token): RedirectResponse
+    {
+        $this->abortUnlessInvitationsEnabled();
+
+        return TokenLink::redirect('martis.invitations.accept', ['token' => $token]);
+    }
+
+    /** The token a link of the older query shape carries, or ''. */
+    private function queryToken(Request $request): string
+    {
+        $token = $request->query('token');
+        if (is_string($token)) {
+            return $token;
+        }
+
+        // A bare key has an empty value, which ConvertEmptyStringsToNull
+        // turns into null.
+        $query = $request->query->all();
+        if (count($query) === 1 && in_array(reset($query), ['', null], true)) {
+            return (string) array_key_first($query);
+        }
+
+        return '';
     }
 
     /**

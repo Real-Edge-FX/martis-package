@@ -74,6 +74,7 @@ import { iconRegistry } from '@/lib/iconRegistry'
 import { layoutRegistry } from '@/lib/layoutRegistry'
 import { routeRegistry } from '@/lib/routeRegistry'
 import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
+import { useAuthLinkParams, parseAuthLinkFragment } from '@/lib/authLink'
 import { ForbiddenPage } from '@/pages/Forbidden'
 import { NotFoundPage } from '@/pages/NotFound'
 import { usePageTitle } from '@/hooks/usePageTitle'
@@ -216,6 +217,11 @@ export const martisRuntime = {
   // The label of the last breadcrumb (since v2.2.0), e.g. the record a
   // registered page shows, as ToolPage shows the tool's name.
   useDynamicCrumb,
+  // The token and email of the emailed link (password reset, invitation,
+  // magic link) that opened an auth page override, read from the URL
+  // fragment (since v2.6.0). See docs/overrides.md.
+  useAuthLinkParams,
+  parseAuthLinkFragment,
   useModalHistoryLock,
   useEscapeLayer,
   OverridePropsProvider,
@@ -344,6 +350,7 @@ export type { MultiSelectProps } from 'primereact/multiselect'
  * form object without reaching into internal `@/hooks/...` paths.
  */
 export type { MartisFormOptions, MartisForm } from '@/hooks/useMartisForm'
+export type { AuthLinkParams } from '@/lib/authLink'
 
 /**
  * `useToolFields` result type re-exported so consumer Tools calling

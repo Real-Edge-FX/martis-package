@@ -110,6 +110,7 @@ use Martis\Resources\ActionEventResource;
 use Martis\Sso\SsoManager;
 use Martis\Support\CanonicalUrl;
 use Martis\Support\InstalledVersion;
+use Martis\Support\TokenLink;
 use Spatie\Permission\Events\PermissionAttachedEvent;
 use Spatie\Permission\Events\PermissionDetachedEvent;
 use Spatie\Permission\Events\RoleAttachedEvent;
@@ -733,7 +734,9 @@ class MartisServiceProvider extends ServiceProvider
 
             // On APP_URL, never on the request's host: a reset requested with a
             // forged Host header must not mail the token to the attacker's domain.
-            return CanonicalUrl::route('martis.password.reset', [
+            // The token and email go in the fragment, out of the request line
+            // proxies and web servers log (v2.6.0).
+            return TokenLink::url('martis.password.reset', [
                 'token' => $token,
                 'email' => $email,
             ]);
@@ -818,7 +821,7 @@ class MartisServiceProvider extends ServiceProvider
         }
 
         InvitationUrl::createUrlUsing(static function (Invitation $invitation, string $rawToken): string {
-            return CanonicalUrl::route('martis.invitations.accept', $rawToken);
+            return TokenLink::url('martis.invitations.accept', ['token' => $rawToken]);
         });
     }
 

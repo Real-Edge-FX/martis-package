@@ -127,14 +127,66 @@ it('GET /martis/forgot-password redirects to /login when reset is disabled', fun
     $response->assertRedirect('/martis/login');
 });
 
-it('GET /martis/reset-password/{token} renders SPA when reset is enabled', function () {
+it('GET /martis/reset-password renders SPA when reset is enabled, never cached and without a Referer', function () {
     config([
         'martis.auth.passwordReset.enabled' => true,
         'martis.auth.passwordReset.url' => null,
     ]);
 
-    $response = $this->get('/martis/reset-password/some-token-value');
-    $response->assertStatus(200);
+    $response = $this->get('/martis/reset-password');
+
+    // The token travels in the fragment, so this request never sees it.
+    $response->assertStatus(200)->assertHeader('Referrer-Policy', 'no-referrer');
+    expect($response->headers->get('Cache-Control'))->toContain('no-store');
+});
+
+it('GET /martis/reset-password/{token} sends a link emailed before v2.6.0 to the fragment form', function () {
+    config([
+        'martis.auth.passwordReset.enabled' => true,
+        'martis.auth.passwordReset.url' => null,
+    ]);
+
+    $response = $this->get('/martis/reset-password/some-token-value?email=jane%40example.com');
+
+    $response->assertRedirect('/martis/reset-password#token=some-token-value&email=jane%40example.com')
+        ->assertHeader('Referrer-Policy', 'no-referrer');
+    expect($response->headers->get('Cache-Control'))->toContain('no-store');
+    // The token is only after the `#`: the part a proxy logs has none.
+    $location = parse_url($response->headers->get('Location'));
+    expect($location['path'])->toBe('/martis/reset-password')
+        ->and($location)->not->toHaveKey('query')
+        ->and($location['fragment'])->toContain('some-token-value');
+});
+
+it('GET /martis/reset-password/{token} leaves the email out of the fragment when the link has none', function () {
+    config([
+        'martis.auth.passwordReset.enabled' => true,
+        'martis.auth.passwordReset.url' => null,
+    ]);
+
+    $this->get('/martis/reset-password/some-token-value')
+        ->assertRedirect('/martis/reset-password#token=some-token-value');
+});
+
+it('GET /martis/reset-password?token= sends a custom link builder that kept the query string to the fragment form', function () {
+    config([
+        'martis.auth.passwordReset.enabled' => true,
+        'martis.auth.passwordReset.url' => null,
+    ]);
+
+    $this->get('/martis/reset-password?token=abc&email=jane%40example.com')
+        ->assertRedirect('/martis/reset-password#token=abc&email=jane%40example.com');
+});
+
+it('GET /martis/reset-password/{token} keeps the disabled and off-platform redirects', function () {
+    config(['martis.auth.passwordReset.enabled' => false]);
+    $this->get('/martis/reset-password/some-token-value')->assertRedirect('/martis/login');
+
+    config([
+        'martis.auth.passwordReset.enabled' => true,
+        'martis.auth.passwordReset.url' => 'https://reset.example.com',
+    ]);
+    $this->get('/martis/reset-password/some-token-value')->assertRedirect('https://reset.example.com');
 });
 
 // ---------------------------------------------------------------------------

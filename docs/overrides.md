@@ -916,6 +916,21 @@ That runs `vite build --config vite.extensions.config.ts`, which is published in
 
 **No source map by default (v2.4.0+).** The bundle lands under `public/`, the web root, so a source map written beside it (`extensions.js.map`) would be served to everyone and hand them the original TSX of every tool, field, card and override, comments included. The published config sets `build.sourcemap: false`. To debug a build, set it to `true` (the map is written and linked from the bundle) or to `'hidden'` (the map is written, the bundle does not link it: upload it to your error tracker, then delete it from `public/vendor/martis-user/` before deploying). An app that published the config before v2.4.0 keeps `sourcemap: true` (the scaffold is copied once): set `build.sourcemap` to `false` in `vite.extensions.config.ts`, rebuild, and delete the `extensions.js.map` already under `public/vendor/martis-user/`.
 
+### Auth page overrides and emailed links
+
+The password-reset, invitation and magic-link emails carry their one-time token (and, for reset and magic link, the email) in the URL fragment since v2.6.0, never in the path or the query string, so access logs never record it (see [authentication.md § One-time links keep the token out of the request line](authentication.md#one-time-links-keep-the-token-out-of-the-request-line)). The routes are `/reset-password`, `/invitations/accept` and `/magic-link/confirm`, without a `:token` segment. An override of `auth:reset-password` or `auth:invitation-accept` reads the link with `useAuthLinkParams()` from `@martis/runtime`:
+
+```tsx
+import { useAuthLinkParams } from '@martis/runtime'
+
+export default function CustomResetPasswordPage() {
+  const { token, email } = useAuthLinkParams() // '' when the link lacks one
+  // ... POST /api/auth/password/reset { token, email, password, password_confirmation }
+}
+```
+
+The hook reads the fragment once and drops it from the address bar, so the token does not stay on screen or in a bookmark. `parseAuthLinkFragment(hash)` parses a fragment string without the hook. An override written before v2.6.0 that reads `useParams().token` (or `useSearchParams().get('email')`) gets nothing: switch it to the hook. The `reset-password-page` scaffold uses it since v2.6.0. An extension scaffolded before v2.2.0 refreshes its shims first (`php artisan vendor:publish --tag=martis-extension-shims --force`), or reads `runtime.useAuthLinkParams` off the default export.
+
 ### Shell piece-by-piece overrides
 
 Replace any of the three shell pieces (`Sidebar`, `Topbar`, `Footer`) without touching the rest. Two equivalent wiring options — pick the one that matches your workflow:

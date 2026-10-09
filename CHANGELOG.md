@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- The password-reset, invitation and magic-link emails carry their one-time token (and the email) in the URL fragment: `/reset-password#token=…&email=…`, `/invitations/accept#token=…`, `/magic-link/confirm#email=…&token=…`. Up to v2.5.x the reset and invitation tokens were path segments and the magic-link token a query parameter, so every reverse proxy, web server and APM layer that logs the request line recorded a live token, enough to reset a password, accept an invitation or sign in until it expired. A browser never sends the fragment; the pages read it, drop it from the address bar and post the token in the request body. The page responses are `no-store` with `Referrer-Policy: no-referrer`.
+
+### Changed
+
+- **Breaking:** the reset-password and invitation-accept pages are mounted at `/reset-password` and `/invitations/accept`, without a `:token` route segment. An `auth:reset-password` or `auth:invitation-accept` override that reads `useParams().token` must switch to `useAuthLinkParams()`. See [Upgrading to v2.6.0 from v2.5.x](docs/upgrading.md#upgrading-to-v260-from-v25x).
+- Links mailed before the upgrade keep working until they expire: `GET /reset-password/{token}`, `GET /invitations/accept/{token}`, `GET /magic-link/confirm?email=…&token=…` and the pre-v2.4.0 `GET /api/auth/magic-link/consume` redirect to the fragment form, as does a `?token=` query string on the new pages. The legacy routes go in v3.0.0.
+- The magic-link confirmation page no longer checks the token on load (the server never receives it): an expired or invalid token is reported by the sign-in `POST`, and the page then goes to the login page with the reason, as before.
+- The `reset-password-page` scaffold of `martis:component` reads the link with `useAuthLinkParams()`.
+
 ### Added
+
+- `useAuthLinkParams()` and `parseAuthLinkFragment()` in `@martis/runtime`: the token and email of the emailed link that opened an auth page override.
+- `Martis\Support\TokenLink::url($routeName, $parameters)`: a named route on `APP_URL` with the parameters in the URL fragment, for custom reset and invitation URL callbacks.
 
 - Funding metadata: `composer.json` lists the Martis Ko-fi page (shown by `composer fund` and on Packagist), `.github/FUNDING.yml` enables the GitHub Sponsor button, and the README has a short Support Martis section.
 

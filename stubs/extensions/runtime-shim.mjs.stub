@@ -148,6 +148,10 @@ export const routeRegistry = R.routeRegistry
 export const usePageTitle = R.usePageTitle
 // The last breadcrumb's label (v2.2.0+).
 export const useDynamicCrumb = R.useDynamicCrumb
+// The token and email of the emailed link that opened an auth page
+// override, read from the URL fragment (v2.6.0+). See docs/overrides.md.
+export const useAuthLinkParams = R.useAuthLinkParams
+export const parseAuthLinkFragment = R.parseAuthLinkFragment
 export const useModalHistoryLock = R.useModalHistoryLock
 export const useEscapeLayer = R.useEscapeLayer
 export const OverridePropsProvider = R.OverridePropsProvider

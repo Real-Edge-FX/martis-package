@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { ArrowRightIcon } from '@phosphor-icons/react'
 import { useToast } from '@/contexts/ToastContext'
 import { api, ApiError } from '@/lib/api'
 import { useAuthCopy } from '@/lib/authCopy'
+import { useAuthLinkParams } from '@/lib/authLink'
 import { AuthFrame } from '@/components/auth/AuthFrame'
 import { FieldError } from '@/components/auth/FieldError'
 import { PasswordFieldInput } from '@/components/fields/PasswordField'
@@ -13,12 +14,14 @@ import { confirmationField, policyPasswordField } from '@/lib/passwordPolicy'
 
 /**
  * Invitation accept — the invitee's set-password screen reached from the
- * emailed invite link (`/invitations/accept/:token`).
+ * emailed invite link (`/invitations/accept#token=…`). The token is in
+ * the URL fragment (v2.6.0), which the browser never sends, so it stays
+ * out of the request line proxies log; a link of the older shape
+ * (`/invitations/accept/{token}`) is redirected to that form.
  *
- * `InvitationController::show()` (Task 8) deliberately serves the SAME
- * SPA shell (200) for a valid AND an invalid/expired/used token — the
- * server never reveals token validity from the page load, to stay
- * enumeration-safe. This screen therefore renders the set-password form
+ * `InvitationController::show()` serves the SAME SPA shell (200) for
+ * every link — the server never sees the token on the page load, so it
+ * cannot reveal its validity there. This screen therefore renders the set-password form
  * optimistically and only learns the token was bad from the POST
  * response: `accept()` returns the exact same 422 envelope
  * (`{message, errors}`) for a bad password (`errors.password` /
@@ -42,7 +45,7 @@ import { confirmationField, policyPasswordField } from '@/lib/passwordPolicy'
  * rather than `navigate()`.
  */
 export function InvitationAcceptPage() {
-  const { token } = useParams<{ token: string }>()
+  const { token } = useAuthLinkParams()
   const { addToast } = useToast()
   const { t } = useTranslation('auth')
   const tCopy = useAuthCopy()
@@ -132,7 +135,7 @@ export function InvitationAcceptPage() {
       </p>
 
       <form onSubmit={(e) => void handleSubmit(e)} noValidate style={{ marginTop: 24 }}>
-        <input type="hidden" name="token" value={token ?? ''} />
+        <input type="hidden" name="token" value={token} />
 
         <div style={{ marginBottom: 12 }}>
           <label htmlFor="name" className="martis-label">

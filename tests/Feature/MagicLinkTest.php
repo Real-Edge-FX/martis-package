@@ -170,7 +170,9 @@ function magicLinkTokenRows(string $email = 'pedro@example.com'): int
 it('GET /magic-link/confirm opens the confirmation page without signing in or burning the token', function () {
     [$user, $token] = magicLinkFor();
 
-    $page = $this->get('/martis/magic-link/confirm?email=pedro@example.com&token='.$token);
+    // The emailed link carries the email and token in the fragment: the
+    // request is the bare page.
+    $page = $this->get('/martis/magic-link/confirm');
 
     $page->assertOk()->assertHeader('Referrer-Policy', 'no-referrer');
     expect($page->headers->get('Cache-Control'))->toContain('no-store');
@@ -182,7 +184,7 @@ it('GET /magic-link/confirm leaves the token valid however many times a prefetch
     [$user, $token] = magicLinkFor();
 
     foreach (range(1, 3) as $_) {
-        $this->get('/martis/magic-link/confirm?email=pedro@example.com&token='.$token)->assertOk();
+        $this->get('/martis/magic-link/confirm')->assertOk();
     }
 
     expect(magicLinkTokenRows())->toBe(1);
@@ -197,29 +199,91 @@ it('sends a link emailed before v2.4.0 (GET of the consume URL) to the confirmat
 
     $response = $this->get('/martis/api/auth/magic-link/consume?email=Pedro@example.com&token='.$token);
 
-    $response->assertRedirect('/martis/magic-link/confirm?email=pedro%40example.com&token='.$token)
+    $response->assertRedirect('/martis/magic-link/confirm#email=pedro%40example.com&token='.$token)
         ->assertHeader('Referrer-Policy', 'no-referrer');
+    expect($response->headers->get('Cache-Control'))->toContain('no-store');
     $this->assertGuest(config('martis.guard'));
     expect(magicLinkTokenRows())->toBe(1);
 });
 
-it('GET /magic-link/confirm redirects an expired, invalid or missing token to login, as the old consume did', function () {
+it('sends a link emailed by v2.4.0 to v2.5.x (token in the query string) to the fragment form', function () {
     [$user, $token] = magicLinkFor();
 
+    $response = $this->get('/martis/magic-link/confirm?email=Pedro@example.com&token='.$token);
+
+    $response->assertRedirect('/martis/magic-link/confirm#email=pedro%40example.com&token='.$token)
+        ->assertHeader('Referrer-Policy', 'no-referrer');
+    expect($response->headers->get('Cache-Control'))->toContain('no-store');
+
+    // The token is only after the `#`: the part a proxy logs has none.
+    $location = parse_url($response->headers->get('Location'));
+    expect($location['path'])->toBe('/martis/magic-link/confirm')
+        ->and($location)->not->toHaveKey('query')
+        ->and($location['fragment'])->toContain($token);
+    $this->assertGuest(config('martis.guard'));
+    expect(magicLinkTokenRows())->toBe(1);
+});
+
+it('GET /magic-link/confirm no longer checks the token: the page does, through the POST', function () {
+    [$user, $token] = magicLinkFor();
+
+    // An expired, invalid or missing token in a legacy query link is sent on
+    // to the fragment form like a good one (the server does not look it up).
     $this->get('/martis/magic-link/confirm?email=unknown@example.com&token=garbage')
-        ->assertRedirect('/martis/login?magic_link=expired');
-    $this->get('/martis/magic-link/confirm?email=pedro@example.com&token=garbage')
-        ->assertRedirect('/martis/login?magic_link=expired');
+        ->assertRedirect('/martis/magic-link/confirm#email=unknown%40example.com&token=garbage');
     $this->get('/martis/magic-link/confirm?email=pedro@example.com')
-        ->assertRedirect('/martis/login?magic_link=invalid');
+        ->assertRedirect('/martis/magic-link/confirm#email=pedro%40example.com&token=');
 
     DB::table('password_reset_tokens')->update(['created_at' => now()->subMinutes(60)]);
     $this->get('/martis/magic-link/confirm?email=pedro@example.com&token='.$token)
-        ->assertRedirect('/martis/login?magic_link=expired');
+        ->assertRedirect('/martis/magic-link/confirm#email=pedro%40example.com&token='.$token);
 
+    // The POST the page makes reports the expiry, as the old GET did.
+    $this->postJson('/martis/api/auth/magic-link/consume', ['email' => 'pedro@example.com', 'token' => $token])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.code', 'expired');
+    $this->postJson('/martis/api/auth/magic-link/consume', ['email' => 'pedro@example.com', 'token' => 'garbage'])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.code', 'expired');
+    $this->postJson('/martis/api/auth/magic-link/consume', ['email' => 'pedro@example.com', 'token' => ''])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.code', 'invalid');
+    $this->assertGuest(config('martis.guard'));
+});
+
+it('GET /magic-link/confirm redirects to login while magic links are off', function () {
+    [$user, $token] = magicLinkFor();
     config()->set('martis.auth.magic_link.enabled', false);
+
+    $this->get('/martis/magic-link/confirm')->assertRedirect('/martis/login?magic_link=disabled');
     $this->get('/martis/magic-link/confirm?email=pedro@example.com&token='.$token)
         ->assertRedirect('/martis/login?magic_link=disabled');
+});
+
+it('signs in with the email and token parsed from the fragment of the emailed URL', function () {
+    Notification::fake();
+    config()->set('auth.providers.users.model', MagicLinkNotifiableUser::class);
+    $user = MagicLinkNotifiableUser::forceCreate(['name' => 'Maria', 'email' => 'maria@example.com', 'password' => bcrypt('x')]);
+
+    $this->postJson('/martis/api/auth/magic-link/request', ['email' => 'maria@example.com'])->assertOk();
+
+    $url = null;
+    Notification::assertSentTo($user, MagicLinkNotification::class, function (MagicLinkNotification $notification) use (&$url): bool {
+        $url = $notification->url;
+
+        return true;
+    });
+
+    $parts = parse_url($url);
+    parse_str($parts['fragment'], $link);
+    expect($parts['path'])->toBe('/martis/magic-link/confirm')
+        ->and($parts)->not->toHaveKey('query')
+        ->and($parts['path'])->not->toContain($link['token']);
+
+    // What the page does: read the fragment, POST it.
+    $this->postJson('/martis/api/auth/magic-link/consume', ['email' => $link['email'], 'token' => $link['token']])
+        ->assertOk();
+    expect(auth()->guard(config('martis.guard'))->id())->toBe($user->id);
 });
 
 it('POST /api/auth/magic-link/consume signs the user in on a valid token and burns it', function () {
@@ -344,7 +408,7 @@ it('mails a link to the confirmation page, not to a URL that signs in', function
     Notification::assertSentTo(
         MagicLinkNotifiableUser::query()->first(),
         MagicLinkNotification::class,
-        fn (MagicLinkNotification $notification): bool => str_starts_with($notification->url, 'http://localhost/martis/magic-link/confirm?')
+        fn (MagicLinkNotification $notification): bool => str_starts_with($notification->url, 'http://localhost/martis/magic-link/confirm#email=maria%40example.com&token=')
             && ! str_contains($notification->url, '/api/'),
     );
 });

@@ -2,7 +2,7 @@
 
 namespace Martis\Invitations;
 
-use Martis\Support\CanonicalUrl;
+use Martis\Support\TokenLink;
 
 /**
  * Static, overridable seam that builds the URL an invitation
@@ -14,8 +14,9 @@ use Martis\Support\CanonicalUrl;
  * signup page, or to append extra query parameters.
  *
  * `MartisServiceProvider::registerInvitationAcceptUrl()` seeds the
- * default (`CanonicalUrl::route('martis.invitations.accept', $rawToken)`,
- * on `APP_URL`, never on the request's host) at boot time, but only when
+ * default (`TokenLink::url('martis.invitations.accept', ['token' => $rawToken])`:
+ * on `APP_URL`, never on the request's host, with the token in the URL
+ * fragment, out of the request line proxies log) at boot time, but only when
  * no consumer has already registered their own callback — and `url()`
  * below falls back to the same route builder even if that registration
  * never ran, so this class is safe to call standalone (e.g. from tests)
@@ -28,7 +29,7 @@ class InvitationUrl
 
     /**
      * Replace the default URL builder. Pass `null` to reset to the
-     * package default (`CanonicalUrl::route('martis.invitations.accept', $rawToken)`).
+     * package default (`TokenLink::url('martis.invitations.accept', ['token' => $rawToken])`).
      *
      * @param  (callable(Invitation, string): string)|null  $callback
      */
@@ -50,6 +51,6 @@ class InvitationUrl
             return call_user_func(static::$createUrlCallback, $invitation, $rawToken);
         }
 
-        return CanonicalUrl::route('martis.invitations.accept', $rawToken);
+        return TokenLink::url('martis.invitations.accept', ['token' => $rawToken]);
     }
 }

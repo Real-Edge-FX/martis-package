@@ -134,7 +134,7 @@ The four surfaces:
     ],
     'passwordReset' => [
         'enabled' => env('MARTIS_AUTH_PASSWORD_RESET_ENABLED', false),
-        // Empty → Martis serves /forgot-password and /reset-password/{token}.
+        // Empty → Martis serves /forgot-password and /reset-password.
         // Set    → "Forgot?" link redirects off-platform.
         'url'     => env('MARTIS_AUTH_PASSWORD_RESET_URL'),
         // Laravel password broker name (config/auth.php → passwords.*).
@@ -160,7 +160,7 @@ All flags default to `false`. A fresh `composer require martis/martis` install s
 | Block | Shape | Purpose |
 |---|---|---|
 | `sso` | `enabled` + `providers` map | Renders one button per enabled provider. Martis owns the OAuth dance end-to-end. See [`sso.md`](sso.md). |
-| `passwordReset` | `enabled` + `url` + `broker` | Renders the "Forgot?" link, hosts `/forgot-password` and `/reset-password/{token}` pages, and POST endpoints. `url` redirects off-platform. `broker` selects the Laravel password broker; unset, Martis picks the one whose provider is the Martis guard's (see [Which password broker resets a password](#which-password-broker-resets-a-password)). |
+| `passwordReset` | `enabled` + `url` + `broker` | Renders the "Forgot?" link, hosts `/forgot-password` and `/reset-password` pages, and POST endpoints. `url` redirects off-platform. `broker` selects the Laravel password broker; unset, Martis picks the one whose provider is the Martis guard's (see [Which password broker resets a password](#which-password-broker-resets-a-password)). |
 | `registration` | `enabled` + `url` + `default_role` | Renders the "Create an account" link, hosts `/register` page and POST endpoint. `default_role` is auto-assigned via `assignRole()` when set. |
 | `controls` | `theme` + `locale` | Top-right widget visibility on every auth surface. |
 
@@ -177,7 +177,7 @@ When `auth.passwordReset.enabled=true` and `url` is empty:
 1. Login page renders the "Forgot?" link next to the password field.
 2. Click → router pushes `/forgot-password`. The page asks for the email and POSTs to `/api/auth/password/email`.
 3. Server calls `Password::broker(<broker>)->sendResetLink()`, which dispatches a notification through whichever mailer the host app has configured (Resend, Mailgun, SES, SMTP).
-4. Email arrives with a link to `/reset-password/{token}?email=...`. The page asks for the new password and POSTs to `/api/auth/password/reset`.
+4. Email arrives with a link to `/reset-password#token=...&email=...` (the token is in the URL fragment, see [One-time links keep the token out of the request line](#one-time-links-keep-the-token-out-of-the-request-line)). The page asks for the new password and POSTs the token, the email and the password to `/api/auth/password/reset`.
 5. Server calls `Password::broker(<broker>)->reset()`, fires `Illuminate\Auth\Events\PasswordReset`, and returns 200.
 6. Client toasts success and redirects to `/login`.
 
@@ -462,7 +462,7 @@ Path 1 always wins over the package defaults. Path 2 wins over both.
 
 ### Password-reset URL routing (v1.8.3)
 
-Laravel's bundled `ResetPassword` notification renders the email link via `route('password.reset', ...)`. Martis nests every route under a `martis.` name prefix, so the global `password.reset` is undefined and the broker would crash with `RouteNotFoundException`. Starting with v1.8.3, `MartisServiceProvider::boot()` registers `ResetPassword::createUrlUsing(...)` automatically when `martis.auth.passwordReset.enabled === true`, pointing the link at the Martis-shipped `martis.password.reset` route (`/{martis-path}/reset-password/{token}?email=…`).
+Laravel's bundled `ResetPassword` notification renders the email link via `route('password.reset', ...)`. Martis nests every route under a `martis.` name prefix, so the global `password.reset` is undefined and the broker would crash with `RouteNotFoundException`. Starting with v1.8.3, `MartisServiceProvider::boot()` registers `ResetPassword::createUrlUsing(...)` automatically when `martis.auth.passwordReset.enabled === true`, pointing the link at the Martis-shipped `martis.password.reset` route (`/{martis-path}/reset-password#token=…&email=…` since v2.6.0).
 
 Since v2.4.0 the link is built on `APP_URL` (`Martis\Support\CanonicalUrl`), never on the request's `Host` or `X-Forwarded-Host`: a reset requested with a forged host used to mail the token to the attacker's domain. The magic link, the invitation and the email-change confirmation are built the same way, so `APP_URL` must be the URL the panel is served on (the package throws a clear error when it is not an absolute http(s) URL, rather than falling back to the request). A signed link (email verification, email change) is signed over that root, so it must be served on the host `APP_URL` names.
 
@@ -474,12 +474,37 @@ use Illuminate\Auth\Notifications\ResetPassword;
 public function boot(): void
 {
     ResetPassword::createUrlUsing(function ($notifiable, string $token) {
-        return "https://app.example.com/reset?token={$token}&email={$notifiable->getEmailForPasswordReset()}";
+        return 'https://app.example.com/reset#'.http_build_query([
+            'token' => $token,
+            'email' => $notifiable->getEmailForPasswordReset(),
+        ], '', '&', PHP_QUERY_RFC3986);
     });
 }
 ```
 
 Order of registration doesn't matter: the consumer callback wins because Martis's probe sees the property already set and bails out.
+
+A callback that points at the Martis page builds the link with `Martis\Support\TokenLink::url('martis.password.reset', ['token' => $token, 'email' => $email])`, which puts both in the fragment on `APP_URL`. Keep the token out of the path and the query string of any link you build yourself; see the next section.
+
+### One-time links keep the token out of the request line
+
+Since v2.6.0 every link Martis emails with a one-time credential in it carries that credential in the URL fragment (after `#`), never in the path or the query string:
+
+| Link | Shape |
+|---|---|
+| Password reset | `/{martis-path}/reset-password#token=…&email=…` |
+| Invitation | `/{martis-path}/invitations/accept#token=…` |
+| Magic-link sign-in | `/{martis-path}/magic-link/confirm#email=…&token=…` |
+
+A browser never sends the fragment to the server, so the token does not reach the request line that reverse proxies, web servers, load balancers and APM or tracing layers log by default. Up to v2.5.x the reset and invitation tokens were path segments (`/reset-password/{token}`, `/invitations/accept/{token}`) and the magic-link token a query parameter: every access log on the way recorded a live token, enough to reset a password, accept an invitation or sign in until it expired or was used.
+
+The page the link opens reads the fragment, drops it from the address bar, and sends the token in the body of its `POST` (`/api/auth/password/reset`, `/api/invitations/accept`, `/api/auth/magic-link/consume`). A page override reads it with `useAuthLinkParams()` from `@martis/runtime` (see [overrides.md](overrides.md#auth-page-overrides-and-emailed-links)). The page responses are `Cache-Control: no-store, private` with `Referrer-Policy: no-referrer`.
+
+**Links mailed before the upgrade keep working until they expire.** The old shapes are still routed and answer a redirect to the fragment form, without checking the token: `GET /reset-password/{token}?email=…`, `GET /invitations/accept/{token}`, `GET /magic-link/confirm?email=…&token=…` and the pre-v2.4.0 `GET /api/auth/magic-link/consume?…`. The same redirect applies to a `?token=` query string on `/reset-password` or `/invitations/accept` (and the bare `?<token>` on `/invitations/accept`), which a custom URL callback built with `route('martis.password.reset', [...])` or `route('martis.invitations.accept', $rawToken)` now produces. These requests still put the token in the request line, so they are a transition path, not a shape to build: the legacy routes go in v3.0.0.
+
+Building a link of your own (a custom `ResetPassword::createUrlUsing()` or `InvitationUrl::createUrlUsing()` callback, a custom notification) follows the same rule. `Martis\Support\TokenLink::url($routeName, $parameters)` returns the named route on `APP_URL` with `$parameters` in the fragment.
+
+Email verification and email-change links are signed URLs: the signature is checked by the server, so it stays in the query string. Following one again only completes the action the account owner asked for, on the address they chose, so it grants no access.
 
 ### Graceful errors (v1.8.0)
 
@@ -754,10 +779,10 @@ Or directly in `config/martis.php`:
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/martis/api/auth/magic-link/request` | `{ email }` → issues a token and emails it. Returns `200 { ok: true }` whether or not the email exists (account-enumeration safe). |
-| `GET` | `/martis/magic-link/confirm?email=…&token=…` | The emailed link (v2.4.0). Serves the SPA confirmation page. It reads the token without consuming it and signs nobody in, so a mail scanner, a link preview, a prefetch or an `<img>` that loads it does nothing (twice over: the token survives). On an expired or invalid token it redirects to `/{martis-path}/login?magic_link=expired` (or `=invalid`, `=disabled`). The response is `no-store` with `Referrer-Policy: no-referrer`. |
+| `GET` | `/martis/magic-link/confirm#email=…&token=…` | The emailed link (v2.4.0; email and token in the URL fragment since v2.6.0, so the server never receives them on this request). Serves the SPA confirmation page, which signs nobody in, so a mail scanner, a link preview, a prefetch or an `<img>` that loads it does nothing (twice over: the token survives). An expired or invalid token is refused by the `POST` below, and the page then goes to `/{martis-path}/login?magic_link=expired` (or `=invalid`); with magic links off the `GET` redirects to `?magic_link=disabled`. A link with the email and token in the query string (mailed by v2.4.0 to v2.5.x) is redirected to the fragment form. The response is `no-store` with `Referrer-Policy: no-referrer`. |
 | `POST` | `/martis/api/auth/magic-link/consume` | `{ email, token, replace_session? }`, CSRF-protected. Consumes the token and signs the user in; answers `200 { redirect }`. `422` for an invalid or expired token. `409 { code: "session_conflict" }`, token untouched, when the browser is signed in as another user and `replace_session` is not `true`: the page then asks before replacing that session. |
 
-Up to v2.3.x the emailed link was `GET /api/auth/magic-link/consume` and signed in on load: it let anyone who could make a victim's browser load a URL (an `<img>`, a redirect, a chat link) swap the victim into the attacker's account, and a mail scanner burned the token. That URL now signs in only on `POST`; a `GET` of it (a link mailed before the upgrade) is redirected to the confirmation page with its email and token, so the link still works and nothing happens until the user confirms.
+Up to v2.3.x the emailed link was `GET /api/auth/magic-link/consume` and signed in on load: it let anyone who could make a victim's browser load a URL (an `<img>`, a redirect, a chat link) swap the victim into the attacker's account, and a mail scanner burned the token. That URL now signs in only on `POST`; a `GET` of it (a link mailed before the upgrade) is redirected to the confirmation page with its email and token in the fragment, so the link still works and nothing happens until the user confirms.
 
 ### Storage
 
