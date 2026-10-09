@@ -4409,7 +4409,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   padding: 0;
   justify-content: center;
 }
-/* A lockup in the collapsed rail (no `brand.icon` set) keeps its height
+/* A lockup in the collapsed rail (no `brand.icon` set) stays unscaled
    and shows its left-hand side, usually the symbol, as before v2.6.0:
    scaling the whole lockup into the 64px rail would leave a strip. */
 .martis-sb[data-collapsed="true"] .martis-sb-logo[data-mode="logo"] .martis-sb-logo-mark img {
