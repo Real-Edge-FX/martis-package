@@ -320,9 +320,9 @@ return [
          |       'topbar_end'   => 'my-status', // added after the preferences menu
          |   ],
          |
-         | The frontend also honours direct keys — `layout:sidebar`,
+         | The frontend also honours direct keys (`layout:sidebar`,
          | `layout:topbar`, `layout:footer`, `layout:shell`, `topbar:start`,
-         | `topbar:end` — so apps that only touch JS can register under
+         | `topbar:end`), so apps that only touch JS can register under
          | those names and skip this config entirely. The two top-bar slots
          | add a component to the bar (sidebar and topnav presets) without
          | replacing it; they render nothing when nothing is registered.

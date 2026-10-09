@@ -14,9 +14,9 @@
  *                         and collapsed (64px).
  * • `sidebarCollapsed`  — current collapsed state, used to pick the
  *                         chevron direction on the toggle button.
- * • `sidebarOpen`       — `boolean | undefined` (v2.7.0). Whether the
- *                         mobile drawer is open: the menu button's
- *                         `aria-expanded`. Undefined on desktop.
+ * • `sidebarOpen` (v2.7.0): `boolean | undefined`. Whether the mobile
+ *   drawer is open, for the menu button's `aria-expanded`. Undefined on
+ *   desktop.
  *
  * The menu button keeps `id="martis-sidebar-toggle"`: the drawer gives
  * focus back to it when it closes, and on mobile the "Skip to

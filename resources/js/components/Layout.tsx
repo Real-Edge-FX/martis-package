@@ -43,6 +43,12 @@ function SidebarLayout() {
     setMobileSidebarOpen(false)
   }, [location.pathname])
 
+  // A drawer left open when the viewport widens must not reopen (and take
+  // focus) when it narrows again.
+  useEffect(() => {
+    if (!isMobile) setMobileSidebarOpen(false)
+  }, [isMobile])
+
   useEffect(() => {
     localStorage.setItem("martis-sidebar-collapsed", String(collapsed))
   }, [collapsed])

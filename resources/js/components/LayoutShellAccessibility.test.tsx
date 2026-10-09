@@ -179,6 +179,41 @@ describe('the mobile drawer', () => {
     expect(document.getElementById('martis-sidebar')?.hasAttribute('inert')).toBe(true)
   })
 
+  it('keeps Shift+Tab inside after a click on a spot that is not a control focused the landmark', async () => {
+    const user = userEvent.setup()
+    const { container } = await renderShell()
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+
+    await user.click(container.querySelector('.martis-sb-logo')!)
+    expect(document.activeElement?.id).toBe('martis-navigation')
+
+    await user.tab({ shift: true })
+    expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true)
+    await user.tab()
+    expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true)
+  })
+
+  it('does not reopen by itself after the viewport went to desktop and back', async () => {
+    const user = userEvent.setup()
+    const view = await renderShell()
+    const shell = (
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <Layout />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    expect(screen.getByRole('dialog')).toBeTruthy()
+
+    state.mobile = false
+    view.rerender(shell)
+    state.mobile = true
+    view.rerender(shell)
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
   it('leaves Escape and Tab to a surface opened over it, such as the command palette', async () => {
     const user = userEvent.setup()
     await renderShell()
@@ -308,6 +343,19 @@ describe('the top-bar slots', () => {
     await renderShell()
 
     expect(screen.getByText('Configured tenant')).toBeTruthy()
+  })
+
+  it('render nothing for a slot component that throws, and keep the rest of the bar', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    componentRegistry.register('topbar:start', () => {
+      throw new Error('tenant lookup failed')
+    })
+    const { container } = await renderShell()
+
+    expect(container.querySelector('.martis-tb-search')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Preferences' })).toBeTruthy()
+    expect(error.mock.calls.some((call) => String(call[0]).includes('topbar:start slot component threw'))).toBe(true)
+    error.mockRestore()
   })
 
   it('render nothing when nothing is registered', async () => {

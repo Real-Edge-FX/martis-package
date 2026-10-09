@@ -89,10 +89,15 @@ export function useModalFocus(
       }
       const first = focusable[0]
       const last = focusable[focusable.length - 1]
-      if (event.shiftKey && (active === first || !inside)) {
+      // Focus can also sit on an element Tab does not reach: the surface
+      // itself, or a `tabIndex={-1}` landmark inside it that a click on a
+      // non-interactive spot focused. From there the browser's own Tab
+      // could leave the surface, so the cycle takes it.
+      const index = focusable.indexOf(active as HTMLElement)
+      if (event.shiftKey && (index <= 0 || !inside)) {
         event.preventDefault()
         last.focus()
-      } else if (!event.shiftKey && (active === last || !inside)) {
+      } else if (!event.shiftKey && (index === -1 || index === focusable.length - 1 || !inside)) {
         event.preventDefault()
         first.focus()
       }

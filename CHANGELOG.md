@@ -15,14 +15,14 @@ Accessibility release for the sidebar layout, from a consumer audit: the collaps
 
 - A "Skip to navigation" link (translation key `navigation.skip_to_navigation`) right after "Skip to main content" in the sidebar and topnav layouts. It moves focus to the menu's `<nav id="martis-navigation" tabIndex={-1}>` landmark ("Main navigation", `navigation.main_navigation`), or to the menu button on mobile, where the menu is a closed drawer. `NAVIGATION_ID` is exported next to `MAIN_CONTENT_ID`.
 - `martis.layout.header_first` (`MARTIS_LAYOUT_HEADER_FIRST`, default `false`): the sidebar layout renders the top bar before the sidebar in the DOM, so the Tab order after the skip links is top bar, menu, main content. The grid keeps the page identical.
-- Two top-bar slots read from the component registry, `topbar:start` (after the menu and collapse buttons, before the breadcrumbs and the search) and `topbar:end` (after the preferences menu, before the user menu), with the config overrides `martis.layout.components.topbar_start` and `topbar_end`. The sidebar layout's top bar and the topnav bar render them; each renders its component with no props, or nothing. `overrides/TopbarStart.tsx` and `overrides/TopbarEnd.tsx` map to them in the scaffold's `index.ts` and in `martis:list-overrides --frontend`.
+- Two top-bar slots read from the component registry, `topbar:start` (after the menu and collapse buttons, before the breadcrumbs and the search) and `topbar:end` (after the preferences menu, before the user menu), with the config overrides `martis.layout.components.topbar_start` and `topbar_end`. The sidebar layout's top bar and the topnav bar render them; each renders its component with no props, or nothing, and a component that throws renders nothing instead of taking the bar down. `overrides/TopbarStart.tsx` and `overrides/TopbarEnd.tsx` map to them in the scaffold's `index.ts` and in `martis:list-overrides --frontend`.
 - `useModalFocus(ref, open, { onClose, returnFocus })` on `@martis/runtime`: the dialog focus pattern (focus in on open, Tab kept inside, Escape through the layer rule, focus back on close) the bundled drawer uses, for a replacement sidebar or a Tool's own dialog.
 
 ### Changed
 
 - The sidebar's root is a `<div id="martis-sidebar">` wrapping a `<nav id="martis-navigation" class="martis-sb-nav" aria-label="Main navigation">`, instead of an `<aside aria-label="Resources">`: the menu is a navigation landmark, not a complementary one, and every part of the sidebar stays inside a landmark.
 - The top bar's breadcrumb wrapper is a `<div>`, not a second, unlabelled `<nav>` around the breadcrumbs' own.
-- The `sidebar`, `topbar` and `shell` scaffolds of `martis:component` follow the same contract: ids, the collapsed rail's `aria-label`, the modal drawer through `useModalFocus`, and the top bar's new `sidebarOpen` prop.
+- The `sidebar` and `topbar` scaffolds of `martis:component` follow the same contract (ids, the collapsed rail's `aria-label`, the modal drawer through `useModalFocus`, the menu button's `aria-expanded` from the new `sidebarOpen` prop), and the `shell` scaffold passes `sidebarOpen` to the top bar.
 
 ### Fixed
 
