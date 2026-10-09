@@ -25,4 +25,10 @@ describe('the brand lockup in the menu', () => {
     expect(rule).toContain('max-width: 100%;')
     expect(rule).toContain('object-fit: contain;')
   })
+
+  it('keeps the left-hand side of a lockup in the collapsed rail, unscaled', () => {
+    const rule = declarations('.martis-sb[data-collapsed="true"] .martis-sb-logo[data-mode="logo"] .martis-sb-logo-mark img')
+
+    expect(rule).toContain('max-width: none;')
+  })
 })

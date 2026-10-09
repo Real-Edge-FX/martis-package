@@ -24,7 +24,7 @@ Security release: the one-time token of the password-reset, invitation and magic
 
 ### Fixed
 
-- A horizontal brand lockup wider than the menu's logo box (a 220×40 one at the default 40 px height in the 240 px sidebar, whose box is 208 px) lost its right-hand side to `overflow: hidden`. The image is now capped to the box and scaled with `object-fit: contain`, in the sidebar and in the top navigation.
+- A horizontal brand lockup wider than the menu's logo box (a 220×40 one at the default 40 px height in the 240 px sidebar, whose box is 208 px) lost its right-hand side to `overflow: hidden`. The image is now capped to the box and scaled with `object-fit: contain`, in the sidebar and in the top navigation. The collapsed rail keeps showing the left-hand side of the lockup at full height.
 - The loader logo keeps its proportions (`object-fit: contain`) instead of being stretched to a square.
 
 ### Added

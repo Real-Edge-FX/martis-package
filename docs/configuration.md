@@ -214,7 +214,7 @@ Recommended targets per surface:
 
 Tracking issue: [#127](https://github.com/Real-Edge-FX/martis-package/issues/127).
 
-**Widest lockup per menu height.** In the expanded sidebar the logo box is the sidebar width less 32 px of padding: 208 px in the default 240 px sidebar. In the top navigation it is 220 px. A lockup wider than its box at the configured height is scaled down to fit, keeping its proportions (v2.6.0; before, its right-hand side was cut off). So a 220×40 lockup at the default 40 px height renders about 208×38 in the sidebar. To show it at full size, lower `MARTIS_BRAND_LOGO_HEIGHT_MENU`, or widen the sidebar from a named theme (`:root { --sidebar-width: 252px; }`).
+**Widest lockup per menu height.** In the expanded sidebar the logo box is the sidebar width less 32 px of padding: 208 px in the default 240 px sidebar. In the top navigation it is 220 px. A lockup wider than its box at the configured height is scaled down to fit, keeping its proportions (v2.6.0; before, its right-hand side was cut off). So a 220×40 lockup at the default 40 px height renders about 208×38 in the sidebar. The collapsed rail is unchanged: without a `brand.icon` it shows the left-hand side of the lockup at full height. To show it at full size, lower `MARTIS_BRAND_LOGO_HEIGHT_MENU`, or widen the sidebar from a named theme (`:root { --sidebar-width: 252px; }`).
 
 ### Sidebar collapse behaviour (v1.7.0)
 
@@ -325,6 +325,8 @@ MARTIS_BRAND_MANIFEST=/brand/site.webmanifest          # <link rel="manifest">
 MARTIS_BRAND_APPLE_TOUCH_ICON=/brand/apple-touch-icon.png  # <link rel="apple-touch-icon">
 MARTIS_BRAND_THEME_COLOR="#0f172a"                     # <meta name="theme-color">
 ```
+
+Quote a hex color in `.env`: unquoted, `#` starts a comment and the value is empty, so no tag is emitted.
 
 A path is resolved with `asset()` (relative to `public/`); a full `https://` URL is used as written. The theme color is one value for both themes: Martis follows its own theme toggle, not the operating system's `prefers-color-scheme`, which a `media`-qualified `theme-color` would follow.
 
