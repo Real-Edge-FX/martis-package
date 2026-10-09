@@ -984,7 +984,7 @@ The sidebar layout's skip links and mobile menu find the pieces by id. A replace
 
 | Element | What it carries | Why |
 |---|---|---|
-| Sidebar root | `id="martis-sidebar"`; on mobile, while `mobileOpen` is true, `role="dialog"`, `aria-modal="true"` and a name (`aria-label`) | The menu button names it in `aria-controls`; the open drawer is a modal dialog |
+| Sidebar root | `id="martis-sidebar"`; on mobile, while `mobileOpen` is true, `role="dialog"`, `aria-modal="true"` and a name (`aria-label`); while it is false, `inert` | The menu button names it in `aria-controls`; the open drawer is a modal dialog; the closed one is out of reach |
 | Sidebar menu | `<nav id="martis-navigation" tabIndex={-1} aria-label=…>` | "Skip to navigation" moves focus there on desktop |
 | Sidebar links in the collapsed rail | `aria-label` with the label the rail hides | A tooltip is not an accessible name |
 | Top bar menu button | `id="martis-sidebar-toggle"`, `aria-controls="martis-sidebar"`, `aria-expanded={sidebarOpen}` | "Skip to navigation" moves focus there on mobile, and the drawer gives focus back to it when it closes |
@@ -1017,6 +1017,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       role={mobileOpen === true ? 'dialog' : undefined}
       aria-modal={mobileOpen === true ? true : undefined}
       aria-label={mobileOpen === true ? 'Main navigation' : undefined}
+      {...(mobileOpen === false ? { inert: '' } : {})}
     >
       <nav id="martis-navigation" tabIndex={-1} className="martis-sb-nav" aria-label="Main navigation">
         {/* brand, links, footer */}
@@ -1026,7 +1027,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 }
 ```
 
-Keep the `.martis-sb` class and its `data-mobile` attribute and the closed drawer is `visibility: hidden` (Martis's CSS), out of the Tab order. The hook is in the shim since v2.7.0: an extension whose shims are older republishes them first (see [Refreshing the extension scaffold](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade)).
+Render `inert` on the root while the drawer is closed (`mobileOpen === false`) so its off-screen links leave the Tab order and the accessibility tree; React 18 sets it from a string, `{...(mobileOpen === false ? { inert: '' } : {})}`, and drops a boolean. Hide it with `inert`, not `visibility: hidden`: under reduced motion Martis stretches every transition to 1 ms, so the links would still be hidden when the drawer opens and refuse the focus it moves to them. The hook is in the shim since v2.7.0: an extension whose shims are older republishes them first (see [Refreshing the extension scaffold](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade)).
 
 ### Top-bar slots (v2.7.0)
 
@@ -1037,7 +1038,7 @@ To add a component to the top bar without replacing it (and losing the search, t
 | `topbar:start` | `martis.layout.components.topbar_start` | After the menu and collapse buttons, before the breadcrumbs and the search |
 | `topbar:end` | `martis.layout.components.topbar_end` | After the preferences menu, before the user menu |
 
-The sidebar preset's top bar and the topnav preset's bar both render the slots (in the topnav bar, `topbar:start` sits after the brand, before the menu links). A slot renders its component with no props, or nothing when nothing is registered. Resolution is the pieces' one: the key the config names, when registered, then the default key.
+The sidebar preset's top bar and the topnav preset's bar both render the slots (in the topnav bar, `topbar:start` sits after the brand, before the menu links). A slot renders its component with no props, or nothing when nothing is registered. The sidebar preset's search bar is centred over the bar and reserves no room in the row, so whatever `topbar:start` adds is taken from the breadcrumbs, which the search covers when they run under it: keep that component compact (an icon, a short label), or put a wide one in `topbar:end`. Resolution is the pieces' one: the key the config names, when registered, then the default key.
 
 ```tsx
 // resources/js/martis-extensions/overrides/TopbarStart.tsx

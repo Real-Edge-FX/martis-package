@@ -28,7 +28,7 @@ Accessibility release for the sidebar layout, from a consumer audit: the collaps
 
 - The collapsed sidebar's links had no accessible name (WCAG 2.2, 4.1.2 and 2.4.4): the label went only to the tooltip, so a screen reader announced "link" for each. Each icon-only link (resources, links, tools, dashboards) now carries its label as `aria-label`; the tooltip stays.
 - The mobile drawer was not a modal (WCAG 2.2, 2.4.3 and 2.1.2): focus did not move into it, Tab left it, Escape did nothing and focus was not returned. The open drawer is now `role="dialog"` with `aria-modal="true"`: focus moves to its first link, Tab and Shift+Tab cycle inside, Escape closes it, and closing it (Escape, the backdrop, a link, a route change) returns focus to the menu button, which carries `aria-expanded` and `aria-controls`. Reduced motion keeps the drawer without animation.
-- The closed mobile drawer's links stayed in the Tab order, off-screen. The closed drawer is now `visibility: hidden` once it has slid out.
+- The closed mobile drawer's links stayed in the Tab order and the accessibility tree, off-screen. The closed drawer is now `inert`.
 - The sidebar groups' chevrons were named "Collapse" or "Expand" in English whatever the locale, and did not say which group or whether it was open. They are named after their group ("Collapse Content", `navigation.collapse_group` / `navigation.expand_group`) and carry `aria-expanded`, as do the group labels that toggle.
 
 ## [2.6.0] — 2026-10-09

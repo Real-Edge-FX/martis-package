@@ -20,107 +20,111 @@
  * • The root carries `id="martis-sidebar"`: the top bar's menu button
  *   names it in `aria-controls`.
  * • The menu is a `<nav id="martis-navigation" tabIndex={-1}>`: the
-   *   layout's "Skip to navigation" link moves focus there.
-   * • Open on mobile, the root is a modal dialog: `useModalFocus` moves
-   *   focus into it, keeps Tab inside, closes it on Escape and gives focus
-   *   back to the menu button (`#martis-sidebar-toggle`).
-   * • In the collapsed rail a link without a visible label keeps its name
-   *   through `aria-label`.
-   *
-   * WHERE THE NAVIGATION TREE COMES FROM
-   * ------------------------------------
-   * `/api/navigation` returns groups of resources. The grouping,
-   * per-item authorization, icons and labels are built server-side
-   * from the resources you defined under `app/Martis/Resources/`. A
-   * group's `items` hold entries and nested groups (`type: 'group'`,
-   * a menu group inside a section); `NavigationGroup` and
-   * `NavigationItem` from `@martis/runtime` type the payload.
-   * Customise via:
-   *   • Resource::label() / group() / icon()
-   *   • Martis::mainMenu(fn($request, $menu) => ...)  in a service provider
-   *
-   * IMPORTS
-   * -------
-   * Everything comes from `@martis/runtime` — the package's public
-   * runtime surface (v1.10+). The bundle's vite alias rewrites the
-   * import to read from `window.Martis.runtime` at runtime, so there
-   * is no second copy of react-router-dom, react-query, or the API
-   * client.
-   */
+ *   layout's "Skip to navigation" link moves focus there.
+ * • Open on mobile, the root is a modal dialog: `useModalFocus` moves
+ *   focus into it, keeps Tab inside, closes it on Escape and gives focus
+ *   back to the menu button (`#martis-sidebar-toggle`).
+ * • Closed on mobile, the root is `inert`: its off-screen links leave the
+ *   Tab order and the accessibility tree.
+ * • In the collapsed rail a link without a visible label keeps its name
+ *   through `aria-label`.
+ *
+ * WHERE THE NAVIGATION TREE COMES FROM
+ * ------------------------------------
+ * `/api/navigation` returns groups of resources. The grouping,
+ * per-item authorization, icons and labels are built server-side
+ * from the resources you defined under `app/Martis/Resources/`. A
+ * group's `items` hold entries and nested groups (`type: 'group'`,
+ * a menu group inside a section); `NavigationGroup` and
+ * `NavigationItem` from `@martis/runtime` type the payload.
+ * Customise via:
+ *   • Resource::label() / group() / icon()
+ *   • Martis::mainMenu(fn($request, $menu) => ...)  in a service provider
+ *
+ * IMPORTS
+ * -------
+ * Everything comes from `@martis/runtime` — the package's public
+ * runtime surface (v1.10+). The bundle's vite alias rewrites the
+ * import to read from `window.Martis.runtime` at runtime, so there
+ * is no second copy of react-router-dom, react-query, or the API
+ * client.
+ */
 
-  import {useRef} from 'react'
-  import {NavLink, useQuery, api, useModalFocus, useTranslation} from '@martis/runtime'
-  import type {NavigationGroup, NavigationItem} from '@martis/runtime'
+import {useRef} from 'react'
+import {NavLink, useQuery, api, useModalFocus, useTranslation} from '@martis/runtime'
+import type {NavigationGroup, NavigationItem} from '@martis/runtime'
 
-  interface {{ class }}Props {
-    mobileOpen?: boolean
-    onMobileClose?: () => void
-    collapsed?: boolean
-  }
+interface {{ class }}Props {
+  mobileOpen?: boolean
+  onMobileClose?: () => void
+  collapsed?: boolean
+}
 
-  export default function {{ class }}({mobileOpen, onMobileClose, collapsed}: {{ class }}Props) {
-    const isMobile = mobileOpen !== undefined
-    const onNavigate = isMobile ? onMobileClose : undefined
-    const {t} = useTranslation('navigation')
-    const navigationLabel = t('main_navigation', 'Main navigation')
-    // The collapsed rail hides the labels (Martis's CSS): the link keeps its name.
-    const railLabel = (label: string) => (!isMobile && collapsed ? label : undefined)
+export default function {{ class }}({mobileOpen, onMobileClose, collapsed}: {{ class }}Props) {
+  const isMobile = mobileOpen !== undefined
+  const onNavigate = isMobile ? onMobileClose : undefined
+  const {t} = useTranslation('navigation')
+  const navigationLabel = t('main_navigation', 'Main navigation')
+  // The collapsed rail hides the labels (Martis's CSS): the link keeps its name.
+  const railLabel = (label: string) => (!isMobile && collapsed ? label : undefined)
 
-    const rootRef = useRef<HTMLDivElement>(null)
-    useModalFocus(rootRef, mobileOpen === true, {
-      onClose: () => onMobileClose?.(),
-      returnFocus: () => document.getElementById('martis-sidebar-toggle'),
-    })
+  const rootRef = useRef<HTMLDivElement>(null)
+  useModalFocus(rootRef, mobileOpen === true, {
+    onClose: () => onMobileClose?.(),
+    returnFocus: () => document.getElementById('martis-sidebar-toggle'),
+  })
 
-    const {data: groups = []} = useQuery<NavigationGroup[]>({
-      queryKey: ['navigation'],
-      queryFn: () => api.get('/api/navigation'),
-      staleTime: 60_000,
-    })
+  const {data: groups = []} = useQuery<NavigationGroup[]>({
+    queryKey: ['navigation'],
+    queryFn: () => api.get('/api/navigation'),
+    staleTime: 60_000,
+  })
 
-    // One entry: an external link opens in a new tab, anything else routes
-    // inside the SPA.
-    const renderItem = (item: NavigationItem, groupKey: string) =>
-      item.external === true ? (
-        <a
-          key={`${groupKey}-${item.label}-${item.url}`}
-          href={item.url}
-          target="_blank"
-          rel="noreferrer"
-          className="martis-sb-item"
-          aria-label={railLabel(item.label)}
-          onClick={onNavigate}
-        >
-          <span className="martis-sb-item-label">{item.label}</span>
-        </a>
-      ) : (
-        <NavLink
-          key={item.type === 'resource' ? item.uriKey : `${groupKey}-${item.label}-${item.url}`}
-          to={item.url}
-          className={({isActive}) => 'martis-sb-item' + (isActive ? ' active' : '')}
-          aria-label={railLabel(item.label)}
-          onClick={onNavigate}
-        >
-          <span className="martis-sb-item-label">{item.label}</span>
-        </NavLink>
-      )
-
-    // Keep the `.martis-sb` class + `data-mobile` / `data-collapsed`
-    // attributes if you want Martis's bundled mobile drawer animation
-    // and collapsed-rail styling. Drop them and ship your own CSS if
-    // not.
-    return (
-      <div
-        ref={rootRef}
-        id="martis-sidebar"
-        className="martis-sb"
-        data-mobile={isMobile ? (mobileOpen ? 'open' : 'true') : undefined}
-        data-collapsed={!isMobile && collapsed ? 'true' : 'false'}
-        role={mobileOpen === true ? 'dialog' : undefined}
-        aria-modal={mobileOpen === true ? true : undefined}
-        aria-label={mobileOpen === true ? navigationLabel : undefined}
+  // One entry: an external link opens in a new tab, anything else routes
+  // inside the SPA.
+  const renderItem = (item: NavigationItem, groupKey: string) =>
+    item.external === true ? (
+      <a
+        key={`${groupKey}-${item.label}-${item.url}`}
+        href={item.url}
+        target="_blank"
+        rel="noreferrer"
+        className="martis-sb-item"
+        aria-label={railLabel(item.label)}
+        onClick={onNavigate}
       >
-        <nav id="martis-navigation" tabIndex={-1} className="martis-sb-nav" aria-label={navigationLabel}>
+        <span className="martis-sb-item-label">{item.label}</span>
+      </a>
+    ) : (
+      <NavLink
+        key={item.type === 'resource' ? item.uriKey : `${groupKey}-${item.label}-${item.url}`}
+        to={item.url}
+        className={({isActive}) => 'martis-sb-item' + (isActive ? ' active' : '')}
+        aria-label={railLabel(item.label)}
+        onClick={onNavigate}
+      >
+        <span className="martis-sb-item-label">{item.label}</span>
+      </NavLink>
+    )
+
+  // Keep the `.martis-sb` class + `data-mobile` / `data-collapsed`
+  // attributes if you want Martis's bundled mobile drawer animation
+  // and collapsed-rail styling. Drop them and ship your own CSS if
+  // not.
+  return (
+    <div
+      ref={rootRef}
+      id="martis-sidebar"
+      className="martis-sb"
+      data-mobile={isMobile ? (mobileOpen ? 'open' : 'true') : undefined}
+      data-collapsed={!isMobile && collapsed ? 'true' : 'false'}
+      role={mobileOpen === true ? 'dialog' : undefined}
+      aria-modal={mobileOpen === true ? true : undefined}
+      aria-label={mobileOpen === true ? navigationLabel : undefined}
+      // React 18 sets `inert` from a string; a boolean is dropped.
+      {...(mobileOpen === false ? {inert: ''} : {})}
+    >
+      <nav id="martis-navigation" tabIndex={-1} className="martis-sb-nav" aria-label={navigationLabel}>
         <div className="martis-sb-logo">{/* brand / logo */}</div>
 
         <div className="martis-sb-scroll">

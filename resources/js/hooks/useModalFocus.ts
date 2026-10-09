@@ -58,7 +58,13 @@ export function useModalFocus(
     if (!open || container === null) return
 
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    ;(focusableElements(container)[0] ?? container).focus()
+    const initial = focusableElements(container)[0] ?? container
+    initial.focus()
+    // A surface still hidden by its stylesheet refuses focus: try once more
+    // when the next frame has its styles.
+    const retry = document.activeElement === initial ? 0 : requestAnimationFrame(() => {
+      if (!container.contains(document.activeElement)) initial.focus()
+    })
 
     // Capture phase, like the DrawerShell: the decision on Escape is taken
     // before a layer's own (bubble) listener closes it.
@@ -94,6 +100,7 @@ export function useModalFocus(
     document.addEventListener('keydown', onKeyDown, true)
 
     return () => {
+      cancelAnimationFrame(retry)
       document.removeEventListener('keydown', onKeyDown, true)
 
       // Leave focus alone when something outside the surface took it.

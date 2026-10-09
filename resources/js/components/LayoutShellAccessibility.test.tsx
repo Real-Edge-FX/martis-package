@@ -113,6 +113,9 @@ describe('the collapsed sidebar rail', () => {
   it('names the links by their visible label when expanded, without an aria-label', async () => {
     await renderShell()
 
+    // The desktop sidebar is never inert.
+    expect(document.getElementById('martis-sidebar')?.hasAttribute('inert')).toBe(false)
+
     const link = screen.getByRole('link', { name: 'Posts' })
     expect(link.getAttribute('aria-label')).toBeNull()
     expect(link.querySelector('.martis-sb-item-label')?.textContent).toBe('Posts')
@@ -146,10 +149,13 @@ describe('the mobile drawer', () => {
     expect(menuButton.getAttribute('aria-expanded')).toBe('false')
     expect(menuButton.getAttribute('aria-controls')).toBe('martis-sidebar')
     expect(screen.queryByRole('dialog')).toBeNull()
+    // Closed, the drawer is inert: out of the Tab order and the accessibility tree.
+    expect(document.getElementById('martis-sidebar')?.getAttribute('inert')).toBe('')
 
     await user.click(menuButton)
 
     const dialog = screen.getByRole('dialog', { name: 'Main navigation' })
+    expect(dialog.hasAttribute('inert')).toBe(false)
     expect(dialog.id).toBe('martis-sidebar')
     expect(dialog.getAttribute('aria-modal')).toBe('true')
     expect(menuButton.getAttribute('aria-expanded')).toBe('true')
@@ -170,6 +176,7 @@ describe('the mobile drawer', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(document.activeElement).toBe(menuButton)
     expect(menuButton.getAttribute('aria-expanded')).toBe('false')
+    expect(document.getElementById('martis-sidebar')?.hasAttribute('inert')).toBe(true)
   })
 
   it('leaves Escape and Tab to a surface opened over it, such as the command palette', async () => {

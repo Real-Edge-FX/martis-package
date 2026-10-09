@@ -95,6 +95,7 @@ describe('the generated sidebar override', () => {
 
         const dialog = screen.getByRole('dialog', { name: 'Main navigation' })
         expect(dialog.id).toBe('martis-sidebar')
+        expect(dialog.hasAttribute('inert')).toBe(false)
         expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Home' }))
 
         await userEvent.setup().keyboard('{Escape}')

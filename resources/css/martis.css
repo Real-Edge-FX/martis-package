@@ -1858,20 +1858,12 @@ html[data-reduced-motion="true"] .mwc-blob {
   bottom: 0;
   width: 280px;
   transform: translateX(-100%);
-  /* Closed, the drawer is hidden once it has slid out (v2.7.0): its links
-     leave the Tab order and the accessibility tree instead of taking focus
-     off-screen. Opening shows it at once. */
-  visibility: hidden;
-  transition: transform var(--martis-dur-medium) var(--martis-ease-standard),
-              visibility 0s linear var(--martis-dur-medium);
+  transition: transform var(--martis-dur-medium) var(--martis-ease-standard);
   box-shadow: var(--martis-shadow-lg);
   z-index: 50;
 }
 .martis-sb[data-mobile="open"] {
   transform: translateX(0);
-  visibility: visible;
-  transition: transform var(--martis-dur-medium) var(--martis-ease-standard),
-              visibility 0s linear 0s;
 }
 .martis-shell-backdrop {
   position: fixed;

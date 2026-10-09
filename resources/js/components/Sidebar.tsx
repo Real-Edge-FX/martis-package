@@ -240,6 +240,14 @@ function buildAccentProps(accent: string): {
   return { 'data-resource-accent': accent }
 }
 
+/**
+ * The `inert` attribute, as React 18 renders it: an empty string sets it
+ * (a boolean is dropped with a warning), no attribute clears it.
+ */
+function inertWhen(inert: boolean): Record<string, string> {
+  return inert ? { inert: "" } : {}
+}
+
 /** The accessible name of a group's chevron: "Collapse Settings". */
 function toggleLabel(t: TFunction, expanded: boolean, group: string): string {
   return expanded
@@ -401,8 +409,11 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
 
   // On mobile the open sidebar is a modal drawer (v2.7.0): focus moves into
   // it, Tab stays inside, Escape closes it, and on close focus goes back
-  // to the top bar's menu button. Closed, it is `visibility: hidden`
-  // (martis.css), out of the Tab order.
+  // to the top bar's menu button. Closed, it is `inert`: its links leave
+  // the Tab order and the accessibility tree instead of taking focus
+  // off-screen. (Not `visibility: hidden`: under reduced motion every
+  // element transitions every property for 1ms, so the links would still
+  // be hidden when the drawer opens and refuse the focus it moves to them.)
   const rootRef = useRef<HTMLDivElement>(null)
   useModalFocus(rootRef, mobileOpen === true, {
     onClose: () => onMobileClose?.(),
@@ -420,6 +431,7 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
       role={mobileOpen === true ? "dialog" : undefined}
       aria-modal={mobileOpen === true ? true : undefined}
       aria-label={mobileOpen === true ? navigationLabel : undefined}
+      {...inertWhen(mobileOpen === false)}
     >
       {/* The navigation landmark holds the whole sidebar (brand, menu,
           footer links), so no content sits outside a landmark. The skip
