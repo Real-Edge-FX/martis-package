@@ -1419,7 +1419,9 @@ interface MartisLoaderConfig {
     /** Phosphor icon name to use instead of spinner */
     icon?: string;
     /** URL to logo image to use instead of spinner */
-    logo?: string;
+    logo?: string | null;
+    /** Dark theme variant of `logo` (v2.6.0). If only one is set it serves both themes. */
+    logoDark?: string | null;
     /** CSS color for the spinner. Default: var(--martis-accent) */
     spinnerColor?: string;
     /** Overlay background opacity (0-1). Default: 0.6 */
@@ -1703,6 +1705,12 @@ interface MartisConfigShape {
      */
     logoDark?: string | null;
     iconDark?: string | null;
+    /**
+     * Lockup of the authentication card (v2.6.0), with its dark variant.
+     * Unset, the card uses `logo` / `logoDark`. Same light/dark fallback.
+     */
+    authLogo?: string | null;
+    authLogoDark?: string | null;
     /**
      * Per-surface logo height (v1.7.0). Drives a CSS variable on
      * `:root`. Defaults: menu 40px, auth 48px. Server clamps the
@@ -1992,6 +2000,9 @@ interface AuthFrameProps {
  * challenge, and the three error screens.
  *
  * The brand row at the top of the card resolves like this:
+ *   0. `config.authLogo` / `config.authLogoDark` — the lockup of the
+ *      authentication card (v2.6.0), when the brand kit has one per
+ *      surface. Renders like `config.logo`.
  *   1. `config.logo` — full horizontal lockup. When set, the lockup
  *      renders alone (no wordmark next to it, since most consumer
  *      lockups already include the wordmark).
@@ -5448,6 +5459,29 @@ declare function usePageTitle(segment: string | null | undefined): void;
  */
 declare function useDynamicCrumb(label: string | null | undefined): void;
 
+/** What an emailed one-time link carries in its fragment. */
+interface AuthLinkParams {
+    token: string;
+    email: string;
+}
+/**
+ * Parse the fragment of an emailed one-time link (`#token=…&email=…`).
+ * Missing values are empty strings.
+ */
+declare function parseAuthLinkFragment(hash: string): AuthLinkParams;
+/**
+ * The token and email of the emailed link that opened this page: a password
+ * reset, an invitation or a magic-link sign-in (v2.6.0).
+ *
+ * Martis puts them in the URL fragment, which the browser never sends to the
+ * server, so they stay out of the request line that proxies, web servers and
+ * APM layers log. The page sends the token in the body of its POST.
+ *
+ * Read once, then the fragment is dropped from the address bar, so the token
+ * does not stay on screen, in a screenshot or in a bookmark.
+ */
+declare function useAuthLinkParams(): AuthLinkParams;
+
 /**
  * Install a history lock for a modal. While `open === true` the
  * browser back button is absorbed — the user must close the modal
@@ -7398,6 +7432,8 @@ declare const martisRuntime: {
     readonly routeRegistry: RouteRegistry;
     readonly usePageTitle: typeof usePageTitle;
     readonly useDynamicCrumb: typeof useDynamicCrumb;
+    readonly useAuthLinkParams: typeof useAuthLinkParams;
+    readonly parseAuthLinkFragment: typeof parseAuthLinkFragment;
     readonly useModalHistoryLock: typeof useModalHistoryLock;
     readonly useEscapeLayer: typeof useEscapeLayer;
     readonly OverridePropsProvider: React$1.Provider<OverrideProps | null>;
@@ -7440,5 +7476,5 @@ declare const martisRuntime: {
  */
 type MartisRuntime = typeof martisRuntime;
 
-export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, pathSegment, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
-export type { ActionResponseModalProps, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, RouteRegistration, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };
+export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthLinkParams, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
+export type { ActionResponseModalProps, AuthLinkParams, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, RouteRegistration, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };

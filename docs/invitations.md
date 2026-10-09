@@ -127,7 +127,8 @@ Flips a still-`pending` invitation to `revoked`, permanently blocking its accept
 
 - **Hashed at rest.** The plain-text token is a 32-byte CSPRNG value (`random_bytes(32)`, base64url-encoded); only its SHA-256 hash is ever written to the `token` column. The plain value lives on `$invitation->rawToken` — an in-memory-only property, never fillable, never cast — for exactly the request that minted or resent it.
 - **Atomic single-use.** The pending→accepted transition is a single compare-and-set `UPDATE …WHERE status = 'pending'`, not a read-then-write. The row lock it takes serializes concurrent accept attempts on the same token, so a token cannot be claimed twice even under a race.
-- **Enumeration-neutral.** `GET /invitations/accept/{token}` always returns the same `200` + SPA shell, whether the token is valid, unknown, expired, revoked, or already used — the server never signals validity from the page load. The `POST` accept endpoint collapses every unacceptable state (unknown, expired, revoked, used, email-already-registered) into the same generic `InvalidInvitationException` message, so probing the endpoint cannot distinguish "no such token" from "already claimed".
+- **Out of the request line.** The emailed link is `/invitations/accept#token=…` (v2.6.0): the token is in the URL fragment, which the browser never sends, so proxy and web-server access logs never record it. A link mailed before v2.6.0 (`/invitations/accept/{token}`) is redirected to that form. See [authentication.md § One-time links keep the token out of the request line](authentication.md#one-time-links-keep-the-token-out-of-the-request-line).
+- **Enumeration-neutral.** `GET /invitations/accept` never sees the token and always returns the same `200` + SPA shell, and the legacy `GET /invitations/accept/{token}` answers the same redirect whether the token is valid, unknown, expired, revoked, or already used — the server never signals validity from the page load. The `POST` accept endpoint collapses every unacceptable state (unknown, expired, revoked, used, email-already-registered) into the same generic `InvalidInvitationException` message, so probing the endpoint cannot distinguish "no such token" from "already claimed".
 - **Signup whitelist.** `accept()` only reads keys listed in `signup_fields` (plus `password_confirmation`) from the client payload. `email` is never client-controlled — it always comes from the invitation row.
 - **Existing-email guard.** An invitation whose email already belongs to a registered user is rejected (and the claim rolled back) rather than silently overwriting or duplicating an account.
 - **The role is checked where the invitation is issued.** The scaffolded `InviteUser` validates the role on the server against the list the picker shows (no SSO-managed role, and a delegate only the roles they hold), so a forged `fields.role` cannot mint an invitation for a role the inviter may not grant. See [The invite role picker](#the-invite-role-picker). `invite()` itself stores the role it is given: if you call it from your own code, check the role there.
@@ -215,11 +216,11 @@ use Martis\Invitations\Invitation;
 use Martis\Invitations\InvitationUrl;
 
 InvitationUrl::createUrlUsing(function (Invitation $invitation, string $rawToken): string {
-    return 'https://accounts.example.com/invite/'.$rawToken;
+    return 'https://accounts.example.com/invite#token='.rawurlencode($rawToken);
 });
 ```
 
-`MartisServiceProvider::boot()` seeds the package default (`route('martis.invitations.accept', $rawToken)`) automatically, but only when `martis.invitations.enabled` is true and no callback is already registered — so a consumer's own registration (in `AppServiceProvider::boot()`, run before the package's) always wins. Reach for this when the accept link needs to point somewhere other than the bundled SPA route: an off-platform signup page, a deep link into a mobile app, or a URL that needs extra query parameters.
+`MartisServiceProvider::boot()` seeds the package default (`TokenLink::url('martis.invitations.accept', ['token' => $rawToken])`: `/{martis-path}/invitations/accept#token=…` on `APP_URL`) automatically, but only when `martis.invitations.enabled` is true and no callback is already registered — so a consumer's own registration (in `AppServiceProvider::boot()`, run before the package's) always wins. Reach for this when the accept link needs to point somewhere other than the bundled SPA route: an off-platform signup page, a deep link into a mobile app, or a URL that needs extra query parameters. Keep the token itself in the fragment (or the body of a `POST`), never in the path or the query string, so access logs never record it.
 
 Pass `null` to reset to the package default.
 
@@ -229,14 +230,15 @@ Two routes, always registered regardless of the master switch (so the route tabl
 
 | Method | Path | Handler |
 |---|---|---|
-| `GET` | `/{martis-path}/invitations/accept/{token}` | Renders the SPA shell — same response for any token state. |
+| `GET` | `/{martis-path}/invitations/accept` | Renders the SPA shell (`no-store`, `Referrer-Policy: no-referrer`). The token is in the URL fragment, so this request never carries it; a `?token=` query string is redirected to the fragment form. |
+| `GET` | `/{martis-path}/invitations/accept/{token}` | A link mailed before v2.6.0: redirected to `/invitations/accept#token=…`, the same answer for any token state. Removed in v3.0.0. |
 | `POST` | `/{martis-path}/api/invitations/accept` | Validates the signup payload, delegates to `InvitationManager::accept()`, logs the invitee in (unless `login_after_accept` is `false`), and returns `{ ok, redirect, user? }` (JSON) or a redirect (non-JSON). |
 
 `token`, plus each configured `signup_fields` entry, plus `password` (always `confirmed`, and your [password rules](authentication.md#password-rules): `Password::defaults()`, else `Password::min(8)`) are the only fields the `POST` endpoint validates. The password rules are checked once: by the default `RegistersUsers` the accept hands the signup to, or by the endpoint itself when you bind a registrar of your own, which may not check them (so `uncompromised()` asks Have I Been Pwned once per accept). An `InvalidInvitationException` from the manager becomes a neutral `422 { message, errors: { token: [message] } }` (JSON) or a redirect back to `/login` with a flashed error (non-JSON) — the same shape regardless of which invalid state it was.
 
 ## React accept screen
 
-The package ships a working accept screen — `resources/js/pages/InvitationAccept.tsx` — mounted at `/invitations/accept/:token`. It renders the set-password form optimistically (the `GET` never reveals whether the token is valid) and only learns the token was bad from the `POST` response's `errors.token` key, at which point it swaps to a neutral "invitation link invalid" state. Every other `422` field error stays inline so the invitee can fix and retry. On success it follows the JSON envelope's `redirect` with a full page navigation (the accept call just changed session state, so a hard navigation is what picks up the new auth state).
+The package ships a working accept screen — `resources/js/pages/InvitationAccept.tsx` — mounted at `/invitations/accept`. It reads the token from the URL fragment (`useAuthLinkParams()`), drops it from the address bar, and renders the set-password form optimistically (the `GET` never reveals whether the token is valid) and only learns the token was bad from the `POST` response's `errors.token` key, at which point it swaps to a neutral "invitation link invalid" state. Every other `422` field error stays inline so the invitee can fix and retry. On success it follows the JSON envelope's `redirect` with a full page navigation (the accept call just changed session state, so a hard navigation is what picks up the new auth state).
 
 Only the default `signup_fields` (`name`, `password`) render — matching the controller's default validation. Ships translated in `en`, `pt_PT`, and `pt_BR`.
 
@@ -249,6 +251,17 @@ import { componentRegistry } from '@martis/runtime'
 import { MyInvitationAccept } from './components/MyInvitationAccept'
 
 componentRegistry.register('auth:invitation-accept', MyInvitationAccept)
+```
+
+The replacement reads the token with `useAuthLinkParams()` from `@martis/runtime` (since v2.6.0 it is in the URL fragment, not a route parameter) and posts it to `/api/invitations/accept`:
+
+```tsx
+import { useAuthLinkParams } from '@martis/runtime'
+
+export function MyInvitationAccept() {
+  const { token } = useAuthLinkParams()
+  // ... POST { token, name, password, password_confirmation }
+}
 ```
 
 The router resolves this key the same way it resolves `auth:login`, `auth:register`, and the other auth-page slots — a missing registration falls back to the bundled default. There is no dedicated `martis:component --type=` scaffold for this slot yet; the registry key works for any string, scaffolded or not, so registering it directly (as above) is the supported path.

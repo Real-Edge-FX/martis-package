@@ -8,6 +8,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
 use Martis\Auth\MagicLinkNotification;
@@ -64,6 +65,26 @@ afterEach(function () {
     InvitationUrl::createUrlUsing(null);
 });
 
+/**
+ * The fragment of an emailed URL as parameters, after checking that the
+ * token is nowhere else: the path and the query string are what proxies and
+ * web servers log, the fragment never leaves the browser.
+ *
+ * @return array<string, string>
+ */
+function fragmentParameters(string $url, string $token): array
+{
+    $parts = parse_url($url);
+
+    expect($parts['path'] ?? '')->not->toContain($token)
+        ->and($parts['query'] ?? '')->not->toContain($token)
+        ->and($parts['fragment'] ?? '')->toContain($token);
+
+    parse_str($parts['fragment'], $parameters);
+
+    return $parameters;
+}
+
 /** Run a protected provider method, as the boot of an app with that feature on would. */
 function bootProviderMethod(string $method): void
 {
@@ -78,7 +99,7 @@ it('mails the sign-in link on APP_URL when the request carries a forged Host', f
     $this->postJson('http://evil.test/martis/api/auth/magic-link/request', ['email' => 'maria@example.com'])->assertOk();
 
     Notification::assertSentTo($this->user, MagicLinkNotification::class, function (MagicLinkNotification $notification): bool {
-        return str_starts_with($notification->url, 'https://panel.example.com/martis/magic-link/confirm?')
+        return str_starts_with($notification->url, 'https://panel.example.com/martis/magic-link/confirm#email=maria%40example.com&token=')
             && ! str_contains($notification->url, 'evil.test');
     });
 });
@@ -98,7 +119,7 @@ it('mails the sign-in link on APP_URL when a proxy forwards a forged X-Forwarded
         Request::setTrustedProxies($proxies, $headers);
     }
 
-    Notification::assertSentTo($this->user, MagicLinkNotification::class, fn (MagicLinkNotification $notification): bool => str_starts_with($notification->url, 'https://panel.example.com/martis/magic-link/confirm?'));
+    Notification::assertSentTo($this->user, MagicLinkNotification::class, fn (MagicLinkNotification $notification): bool => str_starts_with($notification->url, 'https://panel.example.com/martis/magic-link/confirm#email=maria%40example.com&token='));
 });
 
 it('mails the password reset link on APP_URL when the request carries a forged Host', function () {
@@ -112,8 +133,7 @@ it('mails the password reset link on APP_URL when the request carries a forged H
     Notification::assertSentTo($this->user, ResetPassword::class, function (ResetPassword $notification): bool {
         $url = $notification->toMail($this->user)->actionUrl;
 
-        return str_starts_with($url, 'https://panel.example.com/martis/reset-password/')
-            && str_contains($url, 'maria%40example.com')
+        return str_starts_with($url, 'https://panel.example.com/martis/reset-password#token='.$notification->token.'&email=maria%40example.com')
             && ! str_contains($url, 'evil.test');
     });
 });
@@ -122,12 +142,76 @@ it('builds the invitation accept URL on APP_URL, from the default and from the p
     config()->set('martis.invitations.enabled', true);
     app('url')->setRequest(Request::create('http://evil.test/martis/api/resources/invitations/actions'));
 
-    expect(InvitationUrl::url(new Invitation, 'raw-token'))->toBe('https://panel.example.com/martis/invitations/accept/raw-token');
+    expect(InvitationUrl::url(new Invitation, 'raw-token'))->toBe('https://panel.example.com/martis/invitations/accept#token=raw-token');
 
     InvitationUrl::createUrlUsing(null);
     bootProviderMethod('registerInvitationAcceptUrl');
 
-    expect(InvitationUrl::url(new Invitation, 'raw-token'))->toBe('https://panel.example.com/martis/invitations/accept/raw-token');
+    expect(InvitationUrl::url(new Invitation, 'raw-token'))->toBe('https://panel.example.com/martis/invitations/accept#token=raw-token');
+});
+
+it('keeps the one-time token of every emailed link out of its path and query string', function () {
+    Notification::fake();
+    config()->set('martis.auth.magic_link.enabled', true);
+    config()->set('martis.auth.passwordReset.enabled', true);
+    config()->set('martis.invitations.enabled', true);
+    ResetPassword::createUrlUsing(null);
+    bootProviderMethod('registerPasswordResetUrl');
+
+    $this->postJson('/martis/api/auth/magic-link/request', ['email' => 'maria@example.com'])->assertOk();
+    $this->postJson('/martis/api/auth/password/email', ['email' => 'maria@example.com'])->assertOk();
+
+    $sent = [];
+    Notification::assertSentTo($this->user, MagicLinkNotification::class, function (MagicLinkNotification $notification) use (&$sent): bool {
+        $sent['magic'] = $notification->url;
+
+        return true;
+    });
+    Notification::assertSentTo($this->user, ResetPassword::class, function (ResetPassword $notification) use (&$sent): bool {
+        $sent['reset'] = [$notification->toMail($this->user)->actionUrl, $notification->token];
+
+        return true;
+    });
+
+    parse_str((string) parse_url($sent['magic'], PHP_URL_FRAGMENT), $magicLink);
+    $magicToken = $magicLink['token'];
+    expect(fragmentParameters($sent['magic'], $magicToken))->toMatchArray(['email' => 'maria@example.com', 'token' => $magicToken]);
+
+    [$resetUrl, $resetToken] = $sent['reset'];
+    expect(fragmentParameters($resetUrl, $resetToken))->toMatchArray(['email' => 'maria@example.com', 'token' => $resetToken]);
+
+    $invitationUrl = InvitationUrl::url(new Invitation, 'raw-invite-token');
+    expect(fragmentParameters($invitationUrl, 'raw-invite-token'))->toBe(['token' => 'raw-invite-token'])
+        ->and(parse_url($invitationUrl, PHP_URL_HOST))->toBe('panel.example.com');
+});
+
+it('resets the password with the token parsed from the fragment of the emailed URL', function () {
+    Notification::fake();
+    config()->set('martis.auth.passwordReset.enabled', true);
+    config()->set('martis.auth.passwordReset.url', null);
+    ResetPassword::createUrlUsing(null);
+    bootProviderMethod('registerPasswordResetUrl');
+
+    $this->postJson('/martis/api/auth/password/email', ['email' => 'maria@example.com'])->assertOk();
+
+    $url = null;
+    Notification::assertSentTo($this->user, ResetPassword::class, function (ResetPassword $notification) use (&$url): bool {
+        $url = $notification->toMail($this->user)->actionUrl;
+
+        return true;
+    });
+
+    // What the page does: read the fragment, POST it (the server never saw it).
+    parse_str((string) parse_url($url, PHP_URL_FRAGMENT), $link);
+
+    $this->postJson('/martis/api/auth/password/reset', [
+        'token' => $link['token'],
+        'email' => $link['email'],
+        'password' => 'A-New-Password-9',
+        'password_confirmation' => 'A-New-Password-9',
+    ])->assertOk();
+
+    expect(Hash::check('A-New-Password-9', $this->user->fresh()->password))->toBeTrue();
 });
 
 it('builds the email verification URL on APP_URL, and the signature still holds on that host', function () {

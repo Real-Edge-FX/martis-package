@@ -1508,7 +1508,11 @@ html[data-reduced-motion="true"] .mwc-blob {
    to fit the row (40px clear of the 56px bar) and let the image
    grow to whatever width its aspect ratio dictates, capped so a wide
    asset never overflows the sidebar. The text span next to it is
-   already hidden by Sidebar.tsx in this mode. */
+   already hidden by Sidebar.tsx in this mode.
+   The image is capped to the mark's width too (v2.6.0) and scaled by
+   `object-fit: contain`: a lockup wider than the cap (a 220×40 one at
+   the default 40px in the 240px sidebar) shrinks to fit instead of
+   being cut by `overflow: hidden`. */
 .martis-sb-logo[data-mode="logo"] .martis-sb-logo-mark {
   width: auto;
   height: var(--martis-brand-logo-height-menu, 40px);
@@ -1519,6 +1523,7 @@ html[data-reduced-motion="true"] .mwc-blob {
 .martis-sb-logo[data-mode="logo"] .martis-sb-logo-mark img {
   width: auto;
   height: 100%;
+  max-width: 100%;
   max-height: var(--martis-brand-logo-height-menu, 40px);
   object-fit: contain;
   display: block;
@@ -1801,6 +1806,12 @@ html[data-reduced-motion="true"] .mwc-blob {
 .martis-sb[data-collapsed="true"] .martis-sb-logo {
   padding: 0;
   justify-content: center;
+}
+/* A lockup in the collapsed rail (no `brand.icon` set) stays unscaled
+   and shows its left-hand side, usually the symbol, as before v2.6.0:
+   scaling the whole lockup into the 64px rail would leave a strip. */
+.martis-sb[data-collapsed="true"] .martis-sb-logo[data-mode="logo"] .martis-sb-logo-mark img {
+  max-width: none;
 }
 .martis-sb[data-collapsed="true"] .martis-sb-logo-text,
 .martis-sb[data-collapsed="true"] .martis-sb-group-label > span,
@@ -2206,6 +2217,8 @@ html[data-reduced-motion="true"] .mwc-blob {
 .martis-topnav-brand[data-mode="logo"] .martis-sb-logo-mark img {
   width: auto;
   height: 100%;
+  /* Scale a lockup wider than the 220px cap instead of cutting it (v2.6.0). */
+  max-width: 100%;
   max-height: var(--martis-brand-logo-height-menu, 36px);
   object-fit: contain;
   display: block;

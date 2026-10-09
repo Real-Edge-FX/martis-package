@@ -65,18 +65,32 @@ Route::middleware(RouteMiddleware::base())
             ->name('register');
         Route::get('/forgot-password', [GuestPagesController::class, 'showForgotPassword'])
             ->name('password.request');
-        Route::get('/reset-password/{token}', [GuestPagesController::class, 'showResetPassword'])
+        // The emailed reset link carries its token and email in the URL
+        // fragment, which the browser never sends: the token stays out of
+        // the request line that proxies and web servers log (v2.6.0).
+        Route::get('/reset-password', [GuestPagesController::class, 'showResetPassword'])
             ->name('password.reset');
+        // A link emailed before v2.6.0 (token in the path): sent on to the
+        // page with the token in the fragment.
+        Route::get('/reset-password/{token}', [GuestPagesController::class, 'legacyResetPasswordLink'])
+            ->name('password.reset.legacy');
 
         // Invitation accept screen — public (token-authorized, not
         // session/gate-authorized: the invitee has no account yet).
         // Always registered; `InvitationController` 503s when
         // `martis.invitations.enabled` is false and renders the SAME
         // SPA shell for a valid, unknown, expired, revoked, or
-        // already-used token (no enumeration via this GET).
-        Route::get('/invitations/accept/{token}', [InvitationController::class, 'show'])
+        // already-used token (no enumeration via this GET). The emailed
+        // link carries the token in the URL fragment, out of the logged
+        // request line (v2.6.0).
+        Route::get('/invitations/accept', [InvitationController::class, 'show'])
             ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
             ->name('invitations.accept');
+        // A link emailed before v2.6.0 (token in the path): sent on to the
+        // page with the token in the fragment.
+        Route::get('/invitations/accept/{token}', [InvitationController::class, 'legacyLink'])
+            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->name('invitations.accept.legacy');
 
         // SSO entry points — public (no auth middleware). The provider
         // sub-segment is whatever the user registered (azure, google,
@@ -166,7 +180,10 @@ Route::middleware(RouteMiddleware::base())
             ->name('api.auth.magic-link.request');
         // The emailed link opens the confirmation page and never signs in
         // (a mail scanner, a link preview or a prefetch loads it); the page
-        // POSTs the sign-in, behind the CSRF check of the `web` group.
+        // POSTs the sign-in, behind the CSRF check of the `web` group. The
+        // email and token travel in the URL fragment, out of the logged
+        // request line (v2.6.0); a link with them in the query string
+        // (v2.4.0 to v2.5.x) is sent on to the fragment form.
         Route::get('/magic-link/confirm', [MagicLinkController::class, 'show'])
             ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
             ->name('magic-link.confirm');

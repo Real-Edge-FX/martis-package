@@ -57,6 +57,8 @@ export { routeRegistry } from '@/lib/routeRegistry'
 // Page and override hooks
 export { usePageTitle } from '@/hooks/usePageTitle'
 export { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
+export { useAuthLinkParams, parseAuthLinkFragment } from '@/lib/authLink'
+export type { AuthLinkParams } from '@/lib/authLink'
 export { useModalHistoryLock } from '@/lib/historyLock'
 export { useEscapeLayer } from '@/lib/escapeLayers'
 export { OverridePropsProvider, useOverrideProps, useOverridePropsOptional } from '@/hooks/useOverrideProps'

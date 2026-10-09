@@ -47,7 +47,12 @@ The URL prefix for the admin panel. The panel will be accessible at `/{path}` (e
     'logo_dark' => env('MARTIS_BRAND_LOGO_DARK'),       // v1.7.0
     'icon' => env('MARTIS_BRAND_ICON'),
     'icon_dark' => env('MARTIS_BRAND_ICON_DARK'),       // v1.7.0
+    'auth_logo' => env('MARTIS_BRAND_AUTH_LOGO'),           // v2.6.0
+    'auth_logo_dark' => env('MARTIS_BRAND_AUTH_LOGO_DARK'), // v2.6.0
     'favicon' => env('MARTIS_FAVICON', null),
+    'manifest' => env('MARTIS_BRAND_MANIFEST'),                 // v2.6.0
+    'apple_touch_icon' => env('MARTIS_BRAND_APPLE_TOUCH_ICON'), // v2.6.0
+    'theme_color' => env('MARTIS_BRAND_THEME_COLOR'),           // v2.6.0
     'page_title' => env('MARTIS_PAGE_TITLE'),           // null | title | resolver class
     'version' => env('MARTIS_BRAND_VERSION'),
     'docs_url' => env('MARTIS_BRAND_DOCS_URL'),
@@ -131,8 +136,10 @@ MARTIS_BRAND_ICON=/img/edgeflow-icon.png
 |---|---|
 | Sidebar header (`sidebar` preset) | `brand.logo` → `brand.icon` → bundled cube |
 | Topnav header (`topnav` preset) | `brand.logo` → `brand.icon` → bundled cube |
-| Auth card (Login, Register, Forgot password, Reset password, 2FA challenge, error screens) | `brand.logo` → `brand.icon` → bundled lockup (with wordmark) |
+| Auth card (Login, Register, Forgot password, Reset password, Invitation, 2FA challenge, error screens) | `brand.auth_logo` → `brand.logo` → `brand.icon` → bundled lockup (with wordmark) |
+| Loader | `loader.logo` / `loader.logoDark` (independent — see [Loader](loader.md)) |
 | Browser tab favicon | `brand.favicon` (independent — see "Customising the favicon" below) |
+| Web app manifest, Apple touch icon, theme color | `brand.manifest`, `brand.apple_touch_icon`, `brand.theme_color` (independent — see "Head tags" below) |
 | Browser tab title | `brand.page_title` + `brand.name` (independent — see "Customising the page title" below) |
 
 Three rows, three env vars, one consistent rendering rule. Pick the mode that matches the asset you have.
@@ -167,6 +174,17 @@ Resolution rule per asset:
 
 The auth card honours the same rule. When the user toggles theme via the in-app PreferencesMenu, the variant flip is instant. Browser-OS dark mode (`prefers-color-scheme`) is not consulted because Martis's own toggle takes precedence over the OS.
 
+### A lockup for the authentication card (v2.6.0)
+
+A brand kit often ships a lockup per surface: say a 220×40 one for the menu and a 240×48 one for the sign-in card. Point the card at its own lockup, with its dark variant:
+
+```env
+MARTIS_BRAND_AUTH_LOGO=/brand/auth-lockup-light.svg
+MARTIS_BRAND_AUTH_LOGO_DARK=/brand/auth-lockup-dark.svg
+```
+
+The authentication card (login, register, forgot and reset password, invitation, two-factor challenge and the guest error pages) then renders it in place of `brand.logo`, at `MARTIS_BRAND_LOGO_HEIGHT_AUTH`. The light/dark rule is the same as above: if only one of the pair is set, it serves both themes. Unset, the card uses `brand.logo` / `brand.logo_dark` as before.
+
 ### Asset sizing (v1.7.0)
 
 The SPA renders brand assets at fixed heights. Override per surface:
@@ -195,6 +213,8 @@ Recommended targets per surface:
 | Auth card | 48 px (`MARTIS_BRAND_LOGO_HEIGHT_AUTH` default) | 32 px |
 
 Tracking issue: [#127](https://github.com/Real-Edge-FX/martis-package/issues/127).
+
+**Widest lockup per menu height.** In the expanded sidebar the logo box is the sidebar width less 32 px of padding: 208 px in the default 240 px sidebar. In the top navigation it is 220 px. A lockup wider than its box at the configured height is scaled down to fit, keeping its proportions (v2.6.0; before, its right-hand side was cut off). So a 220×40 lockup at the default 40 px height renders about 208×38 in the sidebar. The collapsed rail is unchanged: without a `brand.icon` it shows the left-hand side of the lockup, cropped to the rail's square, so set `MARTIS_BRAND_ICON` for a proper rail mark. To show it at full size, lower `MARTIS_BRAND_LOGO_HEIGHT_MENU`, or widen the sidebar from a named theme (`:root { --sidebar-width: 252px; }`).
 
 ### Sidebar collapse behaviour (v1.7.0)
 
@@ -295,6 +315,20 @@ Resolution precedence (highest first):
 3. Visit `/{martis-path}/favicon.ico` — the configured file is served. If the file is missing, the route falls back to the package default, so broken paths never 404.
 
 > Path rules: values must stay inside `public/`. Absolute paths (`/etc/...`) and traversal (`../`) are rejected with `400 Bad Request`.
+
+### Head tags (v2.6.0)
+
+Beyond the favicon, the panel page can link a web app manifest and an Apple touch icon, and set the browser theme color. Each tag is emitted only when its value is set:
+
+```env
+MARTIS_BRAND_MANIFEST=/brand/site.webmanifest          # <link rel="manifest">
+MARTIS_BRAND_APPLE_TOUCH_ICON=/brand/apple-touch-icon.png  # <link rel="apple-touch-icon">
+MARTIS_BRAND_THEME_COLOR="#0f172a"                     # <meta name="theme-color">
+```
+
+Quote a hex color in `.env`: unquoted, `#` starts a comment and the value is empty, so no tag is emitted.
+
+A path is resolved with `asset()` (relative to `public/`); a full `https://` URL is used as written. The theme color is one value for both themes: Martis follows its own theme toggle, not the operating system's `prefers-color-scheme`, which a `media`-qualified `theme-color` would follow.
 
 ## Footer
 
@@ -1013,12 +1047,15 @@ See [Sticky Views](sticky_views.md) for the full behaviour spec.
 
 ```php
 'loader' => [
+    'logo' => env('MARTIS_LOADER_LOGO'),          // v2.6.0
+    'logoDark' => env('MARTIS_LOADER_LOGO_DARK'), // v2.6.0
     'disabled' => env('MARTIS_LOADER_DISABLED', false),
 ],
 ```
 
 | Key | Type | Default | Effect |
 |---|---|---|---|
+| `logo` / `logoDark` | `?string` | `null` | Image shown in place of the spinner, with its dark theme variant (if only one is set it serves both themes). Path or URL. |
 | `disabled` | bool | `false` | Globally suppress the page loader. Useful in tests or for apps that ship their own loading UI. |
 
 See [Loader](loader.md) for the surface-by-surface behaviour matrix.
@@ -1495,6 +1532,9 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_AVATAR_ENABLED` | `true` |
 | `MARTIS_AVATAR_MAX_SIZE` | `2048` |
 | `MARTIS_AVATAR_PATH` | `'avatars'` |
+| `MARTIS_BRAND_APPLE_TOUCH_ICON` | `(no default)` |
+| `MARTIS_BRAND_AUTH_LOGO` | `(no default)` |
+| `MARTIS_BRAND_AUTH_LOGO_DARK` | `(no default)` |
 | `MARTIS_BRAND_DOCS_URL` | `(no default)` |
 | `MARTIS_BRAND_ICON` | `(no default)` |
 | `MARTIS_BRAND_ICON_DARK` | `(no default)` |
@@ -1502,7 +1542,9 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_BRAND_LOGO_DARK` | `(no default)` |
 | `MARTIS_BRAND_LOGO_HEIGHT_AUTH` | `(no default)` |
 | `MARTIS_BRAND_LOGO_HEIGHT_MENU` | `(no default)` |
+| `MARTIS_BRAND_MANIFEST` | `(no default)` |
 | `MARTIS_BRAND_NAME` | `'Martis'` |
+| `MARTIS_BRAND_THEME_COLOR` | `(no default)` |
 | `MARTIS_BRAND_VERSION` | `(no default)` |
 | `MARTIS_CACHE_ADMIN_UI` | `true` |
 | `MARTIS_CACHE_DASHBOARDS` | `5` |
@@ -1546,6 +1588,8 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_KEYBOARD_SHORTCUTS_HELP_OVERLAY` | `true` |
 | `MARTIS_LAYOUT` | `'sidebar'` |
 | `MARTIS_LOADER_DISABLED` | `false` |
+| `MARTIS_LOADER_LOGO` | `(no default)` |
+| `MARTIS_LOADER_LOGO_DARK` | `(no default)` |
 | `MARTIS_LOCALE` | `env('APP_LOCALE', 'en')` |
 | `MARTIS_LOCALE_FALLBACK_CHAIN` | `'en'` |
 | `MARTIS_2FA_LOCKOUT_ATTEMPTS` | `5` |

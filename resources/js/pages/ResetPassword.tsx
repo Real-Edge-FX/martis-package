@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { ArrowRightIcon } from '@phosphor-icons/react'
 import { useAuth } from '@/contexts/AuthContext'
@@ -7,6 +7,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { api, ApiError } from '@/lib/api'
 import { config } from '@/lib/config'
 import { useAuthCopy } from '@/lib/authCopy'
+import { useAuthLinkParams } from '@/lib/authLink'
 import { AuthFrame } from '@/components/auth/AuthFrame'
 import { FieldError } from '@/components/auth/FieldError'
 import { PasswordFieldInput } from '@/components/fields/PasswordField'
@@ -16,25 +17,25 @@ import { confirmationField, policyPasswordField } from '@/lib/passwordPolicy'
 /**
  * Reset password — set the new password using the token from the email.
  *
- * Token comes from the URL path; the email comes from the query string
- * (`?email=`) which is what Laravel's default reset-link notification
- * generates. Consumers using a custom notification need to keep the
- * same shape or override `Martis\Contracts\ResetsUserPasswords` to
- * accept their custom payload.
+ * The token and the email come from the URL fragment
+ * (`/reset-password#token=…&email=…`, v2.6.0), which the browser never
+ * sends, so the token stays out of the request line proxies log. A link
+ * of an older shape (`/reset-password/{token}?email=`) is redirected to
+ * that form by the server. A custom reset notification must build the
+ * same shape (`Martis\Support\TokenLink::url()`).
  *
  * POSTs to `/api/auth/password/reset` and on success sends the user to
  * `/login` with a success toast.
  */
 export function ResetPasswordPage() {
   const { user, isLoading } = useAuth()
-  const { token } = useParams<{ token: string }>()
-  const [searchParams] = useSearchParams()
+  const link = useAuthLinkParams()
   const navigate = useNavigate()
   const { addToast } = useToast()
   const { t } = useTranslation('auth')
   const tCopy = useAuthCopy()
 
-  const [email, setEmail] = useState(searchParams.get('email') ?? '')
+  const [email, setEmail] = useState(link.email)
   const [password, setPassword] = useState('')
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -71,7 +72,7 @@ export function ResetPasswordPage() {
     setSubmitting(true)
     try {
       await api.post('/api/auth/password/reset', {
-        token,
+        token: link.token,
         email,
         password,
         password_confirmation: passwordConfirmation,
@@ -115,7 +116,7 @@ export function ResetPasswordPage() {
       </p>
 
       <form onSubmit={(e) => void handleSubmit(e)} noValidate style={{ marginTop: 24 }}>
-        <input type="hidden" name="token" value={token ?? ''} />
+        <input type="hidden" name="token" value={link.token} />
 
         <div style={{ marginBottom: 12 }}>
           <label htmlFor="email" className="martis-label">
@@ -136,7 +137,7 @@ export function ResetPasswordPage() {
             className="martis-input"
             disabled={submitting}
             required
-            readOnly={!!searchParams.get('email')}
+            readOnly={link.email !== ''}
           />
           <FieldError message={errors.email} />
         </div>

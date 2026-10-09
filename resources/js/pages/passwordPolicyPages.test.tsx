@@ -32,8 +32,8 @@ import { PasswordChangeRequiredPage } from './PasswordChangeRequired'
 
 const PAGES: [string, string, string, ComponentType][] = [
   ['register', '/register', '/register', RegisterPage],
-  ['reset password', '/reset-password/:token', '/reset-password/abc?email=ada@example.com', ResetPasswordPage],
-  ['invitation accept', '/invitations/accept/:token', '/invitations/accept/abc', InvitationAcceptPage],
+  ['reset password', '/reset-password', '/reset-password#token=abc&email=ada@example.com', ResetPasswordPage],
+  ['invitation accept', '/invitations/accept', '/invitations/accept#token=abc', InvitationAcceptPage],
   ['password change', '/password/change', '/password/change', PasswordChangeRequiredPage],
 ]
 
@@ -72,6 +72,26 @@ afterEach(() => {
 })
 
 describe('the password pages', () => {
+  it('reset password posts the token and email of the link fragment (v2.6.0)', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    renderPage('/reset-password', '/reset-password#token=tok%2B1&email=ada%2Bx%40example.com', ResetPasswordPage)
+
+    expect(input('email').value).toBe('ada+x@example.com')
+    expect(input('email').readOnly).toBe(true)
+
+    submit()
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(String(url)).toContain('/api/auth/password/reset')
+    expect(String(url)).not.toContain('tok')
+    expect(JSON.parse(String(init.body))).toMatchObject({ token: 'tok+1', email: 'ada+x@example.com' })
+  })
+
   it.each(PAGES)('%s draws the checklist of the app password policy', (_name, pattern, path, Page) => {
     renderPage(pattern, path, Page)
     fireEvent.change(input('password'), { target: { value: 'a' } })
@@ -82,8 +102,8 @@ describe('the password pages', () => {
   })
 
   it.each([
-    ['reset password', '/reset-password/:token', '/reset-password/abc?email=ada@example.com', ResetPasswordPage, 'password'],
-    ['invitation accept', '/invitations/accept/:token', '/invitations/accept/abc', InvitationAcceptPage, 'name'],
+    ['reset password', '/reset-password', '/reset-password#token=abc&email=ada@example.com', ResetPasswordPage, 'password'],
+    ['invitation accept', '/invitations/accept', '/invitations/accept#token=abc', InvitationAcceptPage, 'name'],
     ['password change', '/password/change', '/password/change', PasswordChangeRequiredPage, 'current_password'],
   ] as [string, string, string, ComponentType, string][])('%s focuses its first input to fill on mount', (_name, pattern, path, Page, first) => {
     renderPage(pattern, path, Page)

@@ -24,7 +24,7 @@ use Martis\Auth\MagicLinkNotification;
 use Martis\Auth\MagicLinkService;
 use Martis\Auth\TwoFactorPass;
 use Martis\Sso\SsoSession;
-use Martis\Support\CanonicalUrl;
+use Martis\Support\TokenLink;
 
 /**
  * Handles the magic-link (passwordless) sign-in surfaces. Off by
@@ -35,7 +35,7 @@ use Martis\Support\CanonicalUrl;
  * Public endpoints:
  *
  *   POST /martis/api/auth/magic-link/request  { email }
- *   GET  /martis/magic-link/confirm?email=...&token=...
+ *   GET  /martis/magic-link/confirm#email=...&token=...
  *   POST /martis/api/auth/magic-link/consume  { email, token, replace_session? }
  *
  * The emailed link is the GET: it opens a confirmation page ("Sign in as
@@ -43,12 +43,13 @@ use Martis\Support\CanonicalUrl;
  * a link preview, a prefetch or an `<img>` that loads it does nothing. The
  * page POSTs the sign-in (CSRF-protected), which consumes the token. A
  * browser already signed in as another user is asked to confirm the swap
- * first (`replace_session`). An expired or invalid token redirects to
- * `/login?magic_link=expired` (or `invalid`) so a leaked link cannot leak
- * its content into a server log error.
+ * first (`replace_session`). An expired or invalid token refused by that
+ * POST sends the page to `/login?magic_link=expired` (or `invalid`).
  *
- * The emailed URL is built on `APP_URL`, never on the request's host
- * (CanonicalUrl).
+ * The emailed URL is built on `APP_URL`, never on the request's host, and
+ * carries the email and token in its fragment, which the browser never
+ * sends, so they stay out of the request line proxies log (TokenLink,
+ * v2.6.0).
  *
  * The email is looked up (and auto-registered) in the user provider of
  * the Martis guard, the guard consume() signs the user into: a user of
@@ -96,7 +97,7 @@ class MagicLinkController
             return response()->json(['message' => __('martis::auth.magic_link_unavailable')], 503);
         }
 
-        $url = CanonicalUrl::route('martis.magic-link.confirm', [
+        $url = TokenLink::url('martis.magic-link.confirm', [
             'email' => $email,
             'token' => $token,
         ]);
@@ -113,46 +114,34 @@ class MagicLinkController
 
     /**
      * The page the emailed link opens: the SPA shell, which asks to
-     * confirm the sign-in. Reads the token without consuming it.
+     * confirm the sign-in. The link carries the email and token in the URL
+     * fragment, so this request never sees them; the page checks them when
+     * it POSTs the sign-in. A link with them in the query string (mailed by
+     * v2.4.0 to v2.5.x) is sent on to the fragment form.
      */
     public function show(Request $request): Response|RedirectResponse
     {
-        $loginPath = $this->loginPath();
-
         if (! (bool) config('martis.auth.magic_link.enabled', false)) {
-            return redirect($loginPath.'?magic_link=disabled');
+            // Without the link's fragment, which the browser would carry over.
+            return TokenLink::withoutFragment(redirect($this->loginPath().'?magic_link=disabled'));
         }
 
-        [$email, $token] = $this->linkParameters($request->query('email', ''), $request->query('token', ''));
-
-        if ($email === '' || $token === '') {
-            return redirect($loginPath.'?magic_link=invalid');
+        if ($request->query->has('token') || $request->query->has('email')) {
+            return $this->toConfirmationPage($request);
         }
 
-        if (! $this->service->check($email, $token)) {
-            return redirect($loginPath.'?magic_link=expired');
-        }
-
-        // The URL carries the token: keep it out of caches and out of the
-        // Referer of any request the page makes.
-        return response(view('martis::app'))
-            ->header('Cache-Control', 'no-store, private')
-            ->header('Referrer-Policy', 'no-referrer');
+        return TokenLink::keepPrivate(response(view('martis::app')));
     }
 
     /**
      * A link emailed before v2.4.0 (`GET /api/auth/magic-link/consume`):
      * sent on to the confirmation page with its email and token, so a link
      * still in an inbox at the upgrade keeps working. It signs no one in and
-     * leaves the token untouched; the page checks it and POSTs the sign-in.
+     * leaves the token untouched; the page POSTs the sign-in.
      */
     public function legacyLink(Request $request): RedirectResponse
     {
-        [$email, $token] = $this->linkParameters($request->query('email', ''), $request->query('token', ''));
-
-        return redirect(route('martis.magic-link.confirm', ['email' => $email, 'token' => $token], false))
-            ->header('Cache-Control', 'no-store, private')
-            ->header('Referrer-Policy', 'no-referrer');
+        return $this->toConfirmationPage($request);
     }
 
     /**
@@ -237,6 +226,14 @@ class MagicLinkController
     private function loginPath(): string
     {
         return '/'.ltrim((string) config('martis.path', 'martis'), '/').'/login';
+    }
+
+    /** The confirmation page, with the email and token of $request's query string in the fragment. */
+    private function toConfirmationPage(Request $request): RedirectResponse
+    {
+        [$email, $token] = $this->linkParameters($request->query('email', ''), $request->query('token', ''));
+
+        return TokenLink::redirect('martis.magic-link.confirm', ['email' => $email, 'token' => $token]);
     }
 
     /**

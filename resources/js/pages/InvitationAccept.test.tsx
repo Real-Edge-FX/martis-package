@@ -68,9 +68,9 @@ import { InvitationAcceptPage } from './InvitationAccept'
 
 function renderAt(token: string) {
   return render(
-    <MemoryRouter initialEntries={[`/invitations/accept/${token}`]}>
+    <MemoryRouter initialEntries={[`/invitations/accept#token=${token}`]}>
       <Routes>
-        <Route path="/invitations/accept/:token" element={<InvitationAcceptPage />} />
+        <Route path="/invitations/accept" element={<InvitationAcceptPage />} />
       </Routes>
     </MemoryRouter>,
   )

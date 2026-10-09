@@ -91,6 +91,13 @@ it('GET invitations/accept/{token} 503s when invitations are disabled', function
     $response->assertStatus(503);
 });
 
+it('GET invitations/accept 503s when invitations are disabled', function () {
+    config(['martis.invitations.enabled' => false]);
+
+    $this->get('/martis/invitations/accept')->assertStatus(503);
+    $this->get('/martis/invitations/accept?token=whatever-token')->assertStatus(503);
+});
+
 it('POST api/invitations/accept 503s when invitations are disabled', function () {
     config(['martis.invitations.enabled' => false]);
 
@@ -100,21 +107,107 @@ it('POST api/invitations/accept 503s when invitations are disabled', function ()
 });
 
 // -----------------------------------------------------------------------------
-// GET show() — always 200 + SPA shell, identical for valid/unknown/expired
+// GET show() — the token travels in the URL fragment (v2.6.0), so this GET
+// never sees it: always 200 + SPA shell, the same for every link
 // -----------------------------------------------------------------------------
 
-it('GET invitations/accept/{token} renders the SPA shell for a valid pending token', function () {
+it('GET invitations/accept renders the SPA shell, never cached and without a Referer', function () {
+    config(['martis.invitations.enabled' => true]);
+
+    $response = $this->get('/martis/invitations/accept');
+
+    $response->assertStatus(200)->assertHeader('Referrer-Policy', 'no-referrer');
+    $response->assertSee('id="martis-root"', false);
+    expect($response->headers->get('Cache-Control'))->toContain('no-store');
+});
+
+it('GET invitations/accept does not look the token up', function () {
+    config(['martis.invitations.enabled' => true]);
+
+    $inv = app(InvitationManager::class)->invite('valid@ex.com');
+    $expired = app(InvitationManager::class)->invite('expired@ex.com');
+    $expired->forceFill(['expires_at' => now()->subHour()])->save();
+
+    // A request without the token cannot tell a valid invitation from an
+    // expired one: no enumeration. Same status and same bytes every time.
+    $first = $this->get('/martis/invitations/accept');
+    $second = $this->get('/martis/invitations/accept');
+
+    $first->assertStatus(200);
+    expect($second->getContent())->toBe($first->getContent());
+});
+
+it('GET invitations/accept?token= sends a custom link builder that kept the query string to the fragment form', function () {
+    config(['martis.invitations.enabled' => true]);
+
+    $inv = app(InvitationManager::class)->invite('query@ex.com');
+
+    $response = $this->get('/martis/invitations/accept?token='.$inv->rawToken);
+
+    $response->assertRedirect('/martis/invitations/accept#token='.$inv->rawToken)
+        ->assertHeader('Referrer-Policy', 'no-referrer');
+    expect($response->headers->get('Cache-Control'))->toContain('no-store');
+});
+
+it('GET invitations/accept?<token> sends the URL of the pre-v2.6.0 default builder, route(name, $rawToken), to the fragment form', function () {
+    config(['martis.invitations.enabled' => true]);
+
+    $inv = app(InvitationManager::class)->invite('bare@ex.com');
+
+    // What a custom callback that kept route('martis.invitations.accept', $rawToken) builds now.
+    $url = route('martis.invitations.accept', $inv->rawToken);
+    expect(parse_url($url, PHP_URL_QUERY))->toBe($inv->rawToken);
+
+    $this->get($url)->assertRedirect('/martis/invitations/accept#token='.$inv->rawToken);
+});
+
+it('GET invitations/accept renders the shell for a query string that carries no token', function () {
+    config(['martis.invitations.enabled' => true]);
+
+    $this->get('/martis/invitations/accept?utm_source=mail&x=1')->assertStatus(200);
+    $this->get('/martis/invitations/accept?lang')->assertStatus(200);
+    // An empty token is not a token (nor is the word "token" one).
+    $this->get('/martis/invitations/accept?token=')->assertStatus(200);
+});
+
+it('carries an invitation token with URL-special characters through the legacy redirect unchanged', function () {
+    config(['martis.invitations.enabled' => true]);
+
+    $token = 'a+b/c=d&e%f g~h_i-j';
+
+    // In the path (no `/`, which a router would not take as part of a segment).
+    $pathToken = 'a+b=c&d%e g~h_i-j';
+    $response = $this->get('/martis/invitations/accept/'.rawurlencode($pathToken));
+    parse_str(parse_url($response->headers->get('Location'), PHP_URL_FRAGMENT), $parsed);
+    expect($parsed)->toBe(['token' => $pathToken]);
+
+    // And through the query-string shape.
+    $response = $this->get('/martis/invitations/accept?'.http_build_query(['token' => $token]));
+    parse_str(parse_url($response->headers->get('Location'), PHP_URL_FRAGMENT), $parsed);
+    expect($parsed)->toBe(['token' => $token]);
+});
+
+it('GET invitations/accept/{token} sends a link emailed before v2.6.0 to the fragment form', function () {
     config(['martis.invitations.enabled' => true]);
 
     $inv = app(InvitationManager::class)->invite('valid@ex.com');
 
     $response = $this->get('/martis/invitations/accept/'.$inv->rawToken);
 
-    $response->assertStatus(200);
-    $response->assertSee('id="martis-root"', false);
+    $response->assertStatus(302)
+        ->assertRedirect('/martis/invitations/accept#token='.$inv->rawToken)
+        ->assertHeader('Referrer-Policy', 'no-referrer');
+    expect($response->headers->get('Cache-Control'))->toContain('no-store');
+
+    // The token is only after the `#`: the part a proxy logs has none.
+    $location = parse_url($response->headers->get('Location'));
+    expect($location['path'])->toBe('/martis/invitations/accept')
+        ->and($location)->not->toHaveKey('query')
+        ->and($location['path'])->not->toContain($inv->rawToken)
+        ->and($location['fragment'])->toBe('token='.$inv->rawToken);
 });
 
-it('GET invitations/accept/{token} renders the SAME neutral 200 shell for an unknown token', function () {
+it('GET invitations/accept/{token} redirects an unknown token exactly like a valid one', function () {
     config(['martis.invitations.enabled' => true]);
 
     $valid = app(InvitationManager::class)->invite('valid2@ex.com');
@@ -122,23 +215,47 @@ it('GET invitations/accept/{token} renders the SAME neutral 200 shell for an unk
 
     $unknownResponse = $this->get('/martis/invitations/accept/not-a-real-token-at-all');
 
-    // No enumeration: unknown token does not 404, and the response is
-    // byte-for-byte the same shell as the valid-token response.
-    $unknownResponse->assertStatus(200);
-    expect($unknownResponse->status())->toBe($validResponse->status());
-    expect($unknownResponse->getContent())->toBe($validResponse->getContent());
+    // No enumeration: an unknown token is not told from a valid one by
+    // status or by the shape of the Location.
+    $unknownResponse->assertStatus(302)->assertRedirect('/martis/invitations/accept#token=not-a-real-token-at-all');
+    expect($unknownResponse->status())->toBe($validResponse->status())
+        ->and(str_replace($valid->rawToken, 'T', $validResponse->headers->get('Location')))
+        ->toBe(str_replace('not-a-real-token-at-all', 'T', $unknownResponse->headers->get('Location')));
 });
 
-it('GET invitations/accept/{token} renders the SAME neutral 200 shell for an expired token', function () {
+it('GET invitations/accept/{token} redirects an expired token exactly like a valid one', function () {
     config(['martis.invitations.enabled' => true]);
 
     $inv = app(InvitationManager::class)->invite('expired@ex.com');
     $inv->forceFill(['expires_at' => now()->subHour()])->save();
 
-    $response = $this->get('/martis/invitations/accept/'.$inv->rawToken);
+    $this->get('/martis/invitations/accept/'.$inv->rawToken)
+        ->assertStatus(302)
+        ->assertRedirect('/martis/invitations/accept#token='.$inv->rawToken);
+});
 
-    $response->assertStatus(200);
-    $response->assertSee('id="martis-root"', false);
+it('accepts the invitation with the token parsed from the fragment of the emailed URL', function () {
+    config([
+        'martis.invitations.enabled' => true,
+        'martis.invitations.login_after_accept' => true,
+    ]);
+    InvitationUrl::createUrlUsing(null);
+    (new ReflectionMethod($provider = new MartisServiceProvider(app()), 'registerInvitationAcceptUrl'))->invoke($provider);
+
+    $inv = app(InvitationManager::class)->invite('fragment@ex.com', 'editor');
+    $url = InvitationUrl::url($inv, $inv->rawToken);
+
+    $parts = parse_url($url);
+    expect($parts['path'])->not->toContain($inv->rawToken)
+        ->and($parts)->not->toHaveKey('query');
+
+    // What the page does: read the fragment, POST the token in the body.
+    parse_str($parts['fragment'], $link);
+
+    $this->postJson('/martis/api/invitations/accept', acceptPayload($link['token']))
+        ->assertStatus(200)
+        ->assertJson(['ok' => true]);
+    expect(User::where('email', 'fragment@ex.com')->exists())->toBeTrue();
 });
 
 // -----------------------------------------------------------------------------
@@ -315,13 +432,13 @@ it('POST accept 422s when token is missing', function () {
 // InvitationUrl — the accept-URL callback seam (Task 10 will consume it)
 // -----------------------------------------------------------------------------
 
-it('InvitationUrl defaults to the martis.invitations.accept route', function () {
+it('InvitationUrl defaults to the martis.invitations.accept route, with the token in the fragment', function () {
     config(['martis.invitations.enabled' => true]);
 
     $inv = new Invitation;
 
     expect(InvitationUrl::url($inv, 'raw-token-123'))
-        ->toBe(route('martis.invitations.accept', 'raw-token-123'));
+        ->toBe(route('martis.invitations.accept').'#token=raw-token-123');
 });
 
 it('InvitationUrl::createUrlUsing() overrides the default builder', function () {
@@ -345,7 +462,7 @@ it('MartisServiceProvider seeds the default accept-URL callback when invitations
 
     $inv = new Invitation;
     expect(InvitationUrl::url($inv, 'seeded-token'))
-        ->toBe(route('martis.invitations.accept', 'seeded-token'));
+        ->toBe(route('martis.invitations.accept').'#token=seeded-token');
 });
 
 it('MartisServiceProvider does not clobber an already-registered accept-URL callback', function () {

@@ -25,10 +25,10 @@ const AUTH_PAGES: [string, string][] = [
   ['auth:login', '/login'],
   ['auth:register', '/register'],
   ['auth:forgot-password', '/forgot-password'],
-  ['auth:reset-password', '/reset-password/:token'],
+  ['auth:reset-password', '/reset-password'],
   ['auth:email-verify-notice', '/email/verify'],
   ['auth:password-change', '/password/change'],
-  ['auth:invitation-accept', '/invitations/accept/:token'],
+  ['auth:invitation-accept', '/invitations/accept'],
 ]
 
 function FindingPage() {

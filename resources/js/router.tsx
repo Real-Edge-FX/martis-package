@@ -92,7 +92,8 @@ export function buildAppRoutes(registered: readonly RegisteredRoute[]): RouteObj
       element: createElement(ForgotPassword),
     },
     {
-      path: '/reset-password/:token',
+      // The token and email arrive in the URL fragment (v2.6.0).
+      path: '/reset-password',
       element: createElement(ResetPassword),
     },
     {
@@ -104,7 +105,8 @@ export function buildAppRoutes(registered: readonly RegisteredRoute[]): RouteObj
       element: createElement(PasswordChange),
     },
     {
-      path: '/invitations/accept/:token',
+      // The token arrives in the URL fragment (v2.6.0).
+      path: '/invitations/accept',
       element: createElement(InvitationAccept),
     },
     {

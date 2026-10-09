@@ -7,8 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.0] — 2026-10-09
+
+Security release: the one-time token of the password-reset, invitation and magic-link emails moves into the URL fragment, out of the request line that proxies and web servers log. Links already mailed keep working until they expire. Also: a lockup for the authentication card, a theme-aware loader logo set from `.env`, brand `<head>` tags (manifest, Apple touch icon, theme color), and a wide sidebar lockup is scaled instead of cut. An `auth:reset-password` or `auth:invitation-accept` override that reads the token from the route must switch to `useAuthLinkParams()`; read [Upgrading to v2.6.0 from v2.5.x](docs/upgrading.md#upgrading-to-v260-from-v25x).
+
+### Security
+
+- The password-reset, invitation and magic-link emails carry their one-time token (and the email) in the URL fragment: `/reset-password#token=…&email=…`, `/invitations/accept#token=…`, `/magic-link/confirm#email=…&token=…`. Up to v2.5.x the reset and invitation tokens were path segments and the magic-link token a query parameter, so every reverse proxy, web server and APM layer that logs the request line recorded a live token, enough to reset a password, accept an invitation or sign in until it expired. A browser never sends the fragment; the pages read it, drop it from the address bar and post the token in the request body. The page responses are `no-store` with `Referrer-Policy: no-referrer`, and a redirect away from them (feature off, signed in, off-platform page) drops the fragment so the token does not follow it. Tokens an access log recorded before the upgrade stay valid until they expire: purge those logs, or revoke and resend pending invitations.
+
+### Changed
+
+- **Breaking:** the reset-password and invitation-accept pages are mounted at `/reset-password` and `/invitations/accept`, without a `:token` route segment. An `auth:reset-password` or `auth:invitation-accept` override that reads `useParams().token` must switch to `useAuthLinkParams()`. See [Upgrading to v2.6.0 from v2.5.x](docs/upgrading.md#upgrading-to-v260-from-v25x).
+- Links mailed before the upgrade keep working until they expire: `GET /reset-password/{token}`, `GET /invitations/accept/{token}`, `GET /magic-link/confirm?email=…&token=…` and the pre-v2.4.0 `GET /api/auth/magic-link/consume` redirect to the fragment form, as does a `?token=` query string on the new pages. The legacy routes go in v3.0.0.
+- The magic-link confirmation page no longer checks the token on load (the server never receives it): an expired or invalid token is reported by the sign-in `POST`, and the page then goes to the login page with the reason, as before.
+- The `reset-password-page` scaffold of `martis:component` reads the link with `useAuthLinkParams()`.
+
+### Fixed
+
+- A horizontal brand lockup wider than the menu's logo box (a 220×40 one at the default 40 px height in the 240 px sidebar, whose box is 208 px) lost its right-hand side to `overflow: hidden`. The image is now capped to the box and scaled with `object-fit: contain`, in the sidebar and in the top navigation. The collapsed rail keeps showing the left-hand side of the lockup, cropped, as before.
+- The loader logo keeps its proportions (`object-fit: contain`) instead of being stretched to a square.
+
 ### Added
 
+- `brand.auth_logo` / `brand.auth_logo_dark` (`MARTIS_BRAND_AUTH_LOGO`, `MARTIS_BRAND_AUTH_LOGO_DARK`): a lockup for the authentication card, with its dark variant, for brand kits that ship one per surface. Unset, the card uses `brand.logo` as before. Exposed to the SPA as `authLogo` / `authLogoDark`.
+- `loader.logo` reads `MARTIS_LOADER_LOGO`, and `loader.logoDark` (`MARTIS_LOADER_LOGO_DARK`) adds its dark theme variant, rendered with the same light/dark pair as the brand logo.
+- `brand.manifest`, `brand.apple_touch_icon` and `brand.theme_color` (`MARTIS_BRAND_MANIFEST`, `MARTIS_BRAND_APPLE_TOUCH_ICON`, `MARTIS_BRAND_THEME_COLOR`) emit `<link rel="manifest">`, `<link rel="apple-touch-icon">` and `<meta name="theme-color">` on the panel page when set. A `config/martis.php` published before v2.6.0 needs the new `brand` and `loader` lines copied in for these variables to apply.
+- `useAuthLinkParams()` and `parseAuthLinkFragment()` in `@martis/runtime`: the token and email of the emailed link that opened an auth page override.
+- `Martis\Support\TokenLink::url($routeName, $parameters)`: a named route on `APP_URL` with the parameters in the URL fragment, for custom reset and invitation URL callbacks.
 - Funding metadata: `composer.json` lists the Martis Ko-fi page (shown by `composer fund` and on Packagist), `.github/FUNDING.yml` enables the GitHub Sponsor button, and the README has a short Support Martis section.
 
 ## [2.5.1] — 2026-10-06

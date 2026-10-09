@@ -4,6 +4,21 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.6.0 from v2.5.x
+
+v2.6.0 moves the one-time token of the password-reset, invitation and magic-link emails into the URL fragment, out of the request line that proxies and web servers log. See [One-time links keep the token out of the request line](authentication.md#one-time-links-keep-the-token-out-of-the-request-line).
+
+- **Links already mailed keep working until they expire.** `GET /reset-password/{token}`, `GET /invitations/accept/{token}` and `GET /magic-link/confirm?email=…&token=…` redirect to the fragment form. These legacy routes are removed in v3.0.0.
+- **An auth page override that reads the token from the route breaks.** `auth:reset-password` and `auth:invitation-accept` are now mounted at `/reset-password` and `/invitations/accept`, without a `:token` segment, so `useParams().token` and `useSearchParams().get('email')` return nothing. Read them with `useAuthLinkParams()` from `@martis/runtime` ([Auth page overrides and emailed links](overrides.md#auth-page-overrides-and-emailed-links)), then `npm run build:extensions`. If your extension types come from published declarations, republish them first (`php artisan vendor:publish --tag=martis-extension-shims --force`).
+- **A custom link builder should put the token in the fragment.** A `ResetPassword::createUrlUsing()` or `InvitationUrl::createUrlUsing()` callback that points at the Martis pages builds the link with `Martis\Support\TokenLink::url()`. A callback that still calls `route('martis.password.reset', [...])` or `route('martis.invitations.accept', ...)` now produces `?token=…` or a bare `?<token>`: both are redirected to the fragment form, but that first request still logs the token.
+- **Tokens already in your access logs stay valid until they expire.** Purge those logs if people who should not hold the tokens can read them, or revoke and resend pending invitations (they live `MARTIS_INVITATIONS_TTL_HOURS`, 72 by default).
+- **The magic-link page no longer checks the token on load.** An expired or invalid link shows the confirmation page, and the sign-in `POST` answers `422`, after which the page goes to `/login?magic_link=expired` (or `invalid`) as before.
+- A log filter or WAF rule written for `/reset-password/{token}` or `/invitations/accept/{token}` should also match `/reset-password` and `/invitations/accept`.
+
+**New brand settings and a published config.** v2.6.0 adds `brand.auth_logo`, `brand.auth_logo_dark`, `brand.manifest`, `brand.apple_touch_icon`, `brand.theme_color` and `loader.logoDark`, and `loader.logo` now reads `MARTIS_LOADER_LOGO`. Laravel does not merge nested config keys, so a `config/martis.php` published before v2.6.0 ignores their environment variables until you copy the new lines into its `brand` and `loader` blocks (from `vendor/martis/martis/config/martis.php`). See [A lockup for the authentication card](configuration.md#a-lockup-for-the-authentication-card-v260), [Head tags](configuration.md#head-tags-v260) and [Loader](loader.md).
+
+**A lockup wider than the menu's logo box is scaled, not cut.** A sidebar or top-navigation lockup wider than its box (208 px in the default sidebar, 220 px in the top navigation) used to lose its right-hand side; it now shrinks to fit, keeping its proportions. A theme that widened `--sidebar-width` only to avoid the cut can drop that rule. The loader logo is now scaled to fit its square instead of being stretched.
+
 ## Upgrading to v2.5.0 from v2.4.x
 
 v2.5.0 serves the docs MCP server through the official [`laravel/mcp`](https://github.com/laravel/mcp) package instead of `php-mcp/server` and ReactPHP. `php-mcp/server` kept `symfony/finder` below 8 and, through `react/http`, `psr/http-message` at 1, so `composer require martis/martis` on a fresh Laravel 13 app had to downgrade `symfony/finder` and `guzzlehttp/guzzle`. It no longer does.

@@ -9,6 +9,7 @@ import { iconRegistry } from '@/lib/iconRegistry'
 import { layoutRegistry } from '@/lib/layoutRegistry'
 import { routeRegistry } from '@/lib/routeRegistry'
 import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
+import { parseAuthLinkFragment, useAuthLinkParams } from '@/lib/authLink'
 import { ForbiddenPage } from '@/pages/Forbidden'
 import { NotFoundPage } from '@/pages/NotFound'
 import { MartisLoader } from '@/components/Loader'
@@ -187,6 +188,11 @@ describe('martisRuntime', () => {
         expect(martisRuntime.useDynamicCrumb).toBe(useDynamicCrumb)
         expect(martisRuntime.ForbiddenPage).toBe(ForbiddenPage)
         expect(martisRuntime.NotFoundPage).toBe(NotFoundPage)
+    })
+
+    it('exposes the emailed-link reader (v2.6.0) an auth page override needs', () => {
+        expect(martisRuntime.useAuthLinkParams).toBe(useAuthLinkParams)
+        expect(martisRuntime.parseAuthLinkFragment).toBe(parseAuthLinkFragment)
     })
 
     it('serves React Router 7 as the react-router-dom module: every react-router export, with the DOM RouterProvider', () => {
