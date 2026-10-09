@@ -46,6 +46,18 @@ final class EmailChange
 
     public const REJECTED = 'rejected';
 
+    /**
+     * Whether the profile may change the address at all: the profile is on
+     * and `martis.profile.account.email_editable` is not false. Off, the
+     * profile refuses a new address and a link mailed before is refused too
+     * (v2.8.0; the switch used to lock the field in the UI only).
+     */
+    public static function allowed(): bool
+    {
+        return (bool) config('martis.profile.enabled', true)
+            && (bool) config('martis.profile.account.email_editable', true);
+    }
+
     /** Minutes the confirmation link stays valid. */
     public function ttlMinutes(): int
     {

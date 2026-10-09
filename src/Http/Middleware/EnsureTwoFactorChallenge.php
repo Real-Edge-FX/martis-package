@@ -15,7 +15,9 @@ use Martis\Profile\TwoFactorService;
  *
  * A user who has 2FA active meets the challenge on every sign-in: the session
  * holds no pass for them ({@see TwoFactorPass}, reset by
- * {@see ResetTwoFactorPass} on every login of the Martis guard).
+ * {@see ResetTwoFactorPass} on every login of the Martis guard). While the
+ * panel does not use 2FA (`martis.profile.two_factor.enabled` false) nobody
+ * is challenged, an enrolled account included ({@see TwoFactorService::isActive()}).
  * This middleware returns 423 for API requests or redirects to the 2FA
  * challenge SPA page for browser requests.
  *
@@ -73,8 +75,8 @@ class EnsureTwoFactorChallenge
             return false;
         }
 
-        // If 2FA is not enabled on this account, skip
-        if (! $this->twoFactor->isEnabled($user)) {
+        // If the panel does not use 2FA, or this account is not enrolled, skip
+        if (! $this->twoFactor->isActive($user)) {
             return false;
         }
 

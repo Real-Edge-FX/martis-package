@@ -81,6 +81,7 @@ return [
     '2fa_challenge_locked' => 'Demasiados códigos incorretos. Por segurança, a sessão foi terminada. Tente novamente dentro de alguns minutos.',
     '2fa_cancel' => 'Cancelar',
     'current_password_wrong' => 'Palavra-passe incorrecta. Tente novamente.',
+    'email_not_editable' => 'O seu endereço de email não pode ser alterado aqui.',
     'email_change_password_hint' => 'Introduza a sua palavra-passe atual para alterar o endereço de email.',
     'email_change_sent' => 'Verifique a sua caixa de entrada: enviámos um link de confirmação para {{email}}.',
     'email_change_pending' => 'Enviámos um link de confirmação para {{email}}. O seu endereço de email muda quando seguir esse link.',

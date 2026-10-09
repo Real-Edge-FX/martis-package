@@ -327,6 +327,50 @@ it('expires the link after martis.profile.email_change.ttl_minutes', function ()
     emailChangeFollow($url)->assertOk()->assertJson(['redirect' => '/martis/login?email_change=changed']);
 });
 
+// `profile.account.email_editable` false holds on the server (v2.8.0): up to
+// v2.7.0 it locked the field in the UI only, and a hand-made PATCH still
+// mailed a confirmation link.
+it('refuses another address while the e-mail is locked, and saves and mails nothing', function () {
+    config()->set('martis.profile.account.email_editable', false);
+
+    emailChangePatch(['name' => 'Ada Lovelace', 'email' => 'new@example.com', 'current_password' => 'Correct-Horse-1'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['email' => 'Your email address cannot be changed here.']);
+
+    expect($this->user->fresh()->name)->toBe('Ada')
+        ->and($this->user->fresh()->email)->toBe('ada@example.com');
+    Notification::assertNothingSent();
+});
+
+it('saves the name while the e-mail is locked, with the same address, another letter case or none', function (array $email) {
+    config()->set('martis.profile.account.email_editable', false);
+
+    emailChangePatch(['name' => 'Ada Lovelace'] + $email)
+        ->assertOk()
+        ->assertJsonPath('email', 'ada@example.com')
+        ->assertJsonMissingPath('pending_email');
+
+    expect($this->user->fresh()->name)->toBe('Ada Lovelace')
+        ->and($this->user->fresh()->email)->toBe('ada@example.com');
+    Notification::assertNothingSent();
+})->with([
+    'the same address' => [['email' => 'ada@example.com']],
+    'another letter case' => [['email' => 'ADA@Example.com']],
+    'no address' => [[]],
+    'an empty address' => [['email' => '']],
+]);
+
+it('refuses a link mailed before the e-mail was locked', function () {
+    emailChangePatch(['name' => 'Ada', 'email' => 'new@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();
+    $url = emailChangeLink('new@example.com');
+    config()->set('martis.profile.account.email_editable', false);
+
+    $this->get($url)->assertRedirect('/martis/login?email_change=invalid');
+    emailChangeFollow($url)->assertOk()->assertJson(['outcome' => 'invalid']);
+
+    expect($this->user->fresh()->email)->toBe('ada@example.com');
+});
+
 it('refuses the link while the profile is disabled', function () {
     emailChangePatch(['name' => 'Ada', 'email' => 'new@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();
     $url = emailChangeLink('new@example.com');

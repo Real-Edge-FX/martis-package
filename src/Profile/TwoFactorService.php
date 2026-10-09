@@ -218,13 +218,35 @@ class TwoFactorService
     }
 
     /**
-     * Check whether 2FA is active for the given user.
+     * Check whether the given user's account is enrolled in 2FA (a confirmed
+     * setup), whether or not the panel uses 2FA: see {@see isActive()}.
      */
     public function isEnabled(Authenticatable $user): bool
     {
         $this->requireModel($user);
 
         return ! is_null($user->two_factor_confirmed_at ?? null);
+    }
+
+    /**
+     * Whether the panel uses 2FA (`martis.profile.two_factor.enabled`).
+     *
+     * Off, as with Fortify's feature off, Martis registers no 2FA route and
+     * challenges nobody (v2.8.0): an account enrolled earlier keeps its
+     * secret, unused until the switch is on again.
+     */
+    public static function featureEnabled(): bool
+    {
+        return (bool) config('martis.profile.two_factor.enabled', true);
+    }
+
+    /**
+     * Whether the user must pass the 2FA challenge: the panel uses 2FA and
+     * the account is enrolled.
+     */
+    public function isActive(Authenticatable $user): bool
+    {
+        return self::featureEnabled() && $this->isEnabled($user);
     }
 
     /**

@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\ValidationException;
 use Martis\Auth\PasswordChanger;
 use Martis\Auth\PasswordPolicy;
 use Martis\Auth\RecoveryCodesRegeneratedNotification;
@@ -44,11 +45,16 @@ class ProfileController extends MartisController
      * link is followed. The answer then carries `pending_email`. See
      * {@see EmailChange}.
      *
+     * While `profile.account.email_editable` is false (v2.8.0) the address
+     * is not validated and stays as it is: a request for another one answers
+     * 422 and nothing is saved or mailed.
+     *
      * @body-param string name required
-     * @body-param string email required
+     * @body-param string email required unless the address is locked
      * @body-param string current_password required when the email changes
      *
      * @response array<string, mixed>
+     * @response 422 array{message: string, errors: array<string, string[]>}
      */
     public function update(Request $request, EmailChange $emailChange): JsonResponse
     {
@@ -56,6 +62,21 @@ class ProfileController extends MartisController
         $resource = $this->resolveResource();
 
         $rules = $resource->updateRules($user);
+        $takesEmail = array_key_exists('email', $rules);
+
+        if ($takesEmail && ! EmailChange::allowed()) {
+            // The switch holds on the server too: a hand-made request for
+            // another address is refused, before anything is saved, rather
+            // than mailed a confirmation link.
+            if ($emailChange->isChange($user, $request->input('email'))) {
+                throw ValidationException::withMessages([
+                    'email' => [__('martis::profile.email_not_editable')],
+                ]);
+            }
+
+            unset($rules['email']);
+        }
+
         $changesEmail = array_key_exists('email', $rules) && $emailChange->isChange($user, $request->input('email'));
 
         if ($changesEmail) {
@@ -79,7 +100,9 @@ class ProfileController extends MartisController
             // The address stays as it is until the link is followed; the same
             // address in other letter case is no change.
             $data['email'] = $emailChange->currentEmail($user);
-        } elseif (array_key_exists('email', $data)) {
+        } elseif ($takesEmail) {
+            // The resource saves the address it validates: hand it the
+            // current one, also when the locked address was not validated.
             $data['email'] = $emailChange->currentEmail($user);
         }
 

@@ -81,6 +81,7 @@ return [
     '2fa_challenge_locked' => 'Too many incorrect codes. For your security you were signed out. Try again in a few minutes.',
     '2fa_cancel' => 'Cancel',
     'current_password_wrong' => 'Incorrect password. Please try again.',
+    'email_not_editable' => 'Your email address cannot be changed here.',
     'email_change_password_hint' => 'Enter your current password to change your email address.',
     'email_change_sent' => 'Check your inbox: we sent a confirmation link to {{email}}.',
     'email_change_pending' => 'We sent a confirmation link to {{email}}. Your email address changes when you follow it.',
