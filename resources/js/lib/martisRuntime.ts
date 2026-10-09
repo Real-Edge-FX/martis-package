@@ -81,6 +81,7 @@ import { usePageTitle } from '@/hooks/usePageTitle'
 import { useModalHistoryLock } from '@/lib/historyLock'
 import { useEscapeLayer } from '@/lib/escapeLayers'
 import { useModalFocus } from '@/hooks/useModalFocus'
+import { useDashboardFilters } from '@/lib/dashboardFilters'
 import { OverridePropsProvider, useOverrideProps, useOverridePropsOptional } from '@/hooks/useOverrideProps'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { useError } from '@/lib/useError'
@@ -231,6 +232,11 @@ export const martisRuntime = {
   // (`layout:sidebar`) or a Tool's own dialog can too. Pair with the
   // ModalFocusOptions type re-exported below.
   useModalFocus,
+  // The active filters of the dashboard a card renders in, and their
+  // setter (since v2.9.0): a card can read and set them, e.g. a row click
+  // that selects a filter value. `null` outside a dashboard. See
+  // docs/dashboards.md.
+  useDashboardFilters,
   OverridePropsProvider,
   useOverrideProps,
   useOverridePropsOptional,
@@ -347,6 +353,13 @@ export type { FieldDisplayProps, FieldInputProps } from '@/components/fields/typ
 export type { NestedParent } from '@/components/fields/NestedParentContext'
 export type { DrawerShellProps } from '@/components/overrides/DrawerShell'
 export type { ModalFocusOptions } from '@/hooks/useModalFocus'
+export type { ActiveFilters } from '@/types'
+export type {
+  DashboardFiltersContextValue,
+  DashboardFiltersOptions,
+  DashboardFiltersUpdate,
+  SetDashboardFilters,
+} from '@/lib/dashboardFilters'
 export type { TooltipProps } from 'primereact/tooltip'
 export type { HtmlTooltipProps } from '@/lib/htmlTooltip'
 export type { DropdownProps } from 'primereact/dropdown'

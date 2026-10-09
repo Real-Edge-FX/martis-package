@@ -14,6 +14,8 @@
 #   4. martis-docs/src/data/landing.ts TESTS_PASSING ≠ the README
 #      "= **N passing**" total, or a landing component hardcodes its
 #      own "N tests passing" instead of reading TESTS_PASSING.
+#   5. martis-package/package.json version ≠ the tag (it is compiled into
+#      the bundle as window.Martis.version).
 #
 # Failure exits non-zero. Success prints a one-line confirmation. The
 # user (and the loop driver) treat "trio atómico" — package tag +
@@ -168,4 +170,15 @@ if [ -n "$HARDCODED" ]; then
     exit 1
 fi
 
-echo "✓ pre-tag check passed for $TAG (landing pill, CHANGELOG section, docs sync, test count)."
+# 5. Package version check. package.json's version is compiled into the
+#    bundle (`window.Martis.version`, see vite.config.ts), so it must be the
+#    tag's: v2.8.0 shipped reporting 2.7.0 because nobody bumped it.
+PACKAGE_JSON="$ROOT/martis-package/package.json"
+PKG_VERSION=$(node -p "require(process.argv[1]).version" "$PACKAGE_JSON" 2>/dev/null || true)
+if [ "v$PKG_VERSION" != "$TAG" ]; then
+    echo "✗ martis-package/package.json has version '$PKG_VERSION', not '${TAG#v}'." >&2
+    echo "  Bump package.json and package-lock.json and rebuild the assets (npm run build) in the release PR." >&2
+    exit 1
+fi
+
+echo "✓ pre-tag check passed for $TAG (landing pill, CHANGELOG section, docs sync, test count, package version)."

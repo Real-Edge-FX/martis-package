@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { apiPath, routePath } from '@/lib/apiPath'
@@ -13,7 +13,7 @@ import { componentRegistry } from '@/lib/componentRegistry'
 import { cardGridSpanStyle } from '@/lib/cardGridSpan'
 import { FilterPanel } from '@/components/FilterPanel'
 import { Card } from 'primereact/card'
-import { Link, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { DatabaseIcon, FolderIcon, CheckCircleIcon, CaretRightIcon, ArrowClockwiseIcon } from '@phosphor-icons/react'
 import { usePageTitle } from '@/hooks/usePageTitle'
@@ -22,6 +22,16 @@ import { useGateOptional } from '@/contexts/GateContext'
 import { WelcomeCard } from '@/components/dashboard/WelcomeCard'
 import { NotFoundPage } from '@/pages/NotFound'
 import { safeHref } from '@/lib/safeUrl'
+import { isBlankFilterValue } from '@/lib/filterValues'
+import {
+  DASHBOARD_FILTERS_PARAM,
+  DashboardFiltersContext,
+  applyDashboardFiltersUpdate,
+  parseDashboardFilters,
+  serializeDashboardFilters,
+  type DashboardFiltersContextValue,
+  type SetDashboardFilters,
+} from '@/lib/dashboardFilters'
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -97,10 +107,10 @@ export function DashboardPage() {
         // dashboard. v1.11.7+.
         <NotFoundPage />
       ) : hasDashboards ? (
-        // Keyed on the dashboard so switching tabs remounts the view: the
-        // active filters start empty for the new dashboard instead of
-        // leaking the previous one's, and the first cards request already
-        // carries the right (empty) filter set.
+        // Keyed on the dashboard so switching tabs remounts the view. The
+        // active filters live in the URL (`?filters=`), and a tab links to
+        // the dashboard's bare address, so they start empty for the new
+        // dashboard instead of leaking the previous one's.
         <DashboardView
           key={currentDashboardKey ?? ''}
           dashboards={dashboards}
@@ -139,7 +149,8 @@ function DashboardView({
   const { t } = useTranslation('resources')
   const { t: tNav } = useTranslation('navigation')
   const qc = useQueryClient()
-  const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
+  const location = useLocation()
+  const navigate = useNavigate()
 
   const currentDashboard = dashboards.find((d) => d.uriKey === currentKey) ?? null
   const isDefaultLayout = currentDashboard?.layout === 'default'
@@ -189,8 +200,57 @@ function DashboardView({
     : null
   const dashboardData = (responseData !== undefined && !('locked' in responseData)) ? responseData : undefined
   const cards = dashboardData?.cards ?? []
-  const filters = dashboardData?.filters ?? []
+  const filters = useMemo(() => dashboardData?.filters ?? [], [dashboardData])
   const showRefresh = dashboardData?.dashboard?.showRefreshButton ?? false
+
+  // v2.9.0: the active filters live in the URL (`?filters=`), so a filtered
+  // dashboard survives a reload, can be bookmarked or shared, Back and
+  // Forward step through filter changes, and a link or a card can set them.
+  // The URL is the only source: a key that names none of this dashboard's
+  // filters, or a value its control could not show, is ignored.
+  const rawFilters = new URLSearchParams(location.search).get(DASHBOARD_FILTERS_PARAM)
+  const activeFilters = useMemo(() => parseDashboardFilters(rawFilters, filters), [rawFilters, filters])
+  const hasDefaults = useMemo(() => filters.some((filter) => !isBlankFilterValue(filter.default)), [filters])
+
+  // What setFilters() builds on: the filters the last update asked for,
+  // ahead of the render that reads them back from the URL (two updates in
+  // the same tick build on each other), and the current address. Read
+  // through a ref, so setFilters keeps one identity for the dashboard's
+  // lifetime and a card's effect on it does not re-run on every change.
+  const latest = useRef({ filters: activeFilters, location, hasDefaults })
+  latest.current = { filters: activeFilters, location, hasDefaults }
+
+  const setFilters = useCallback<SetDashboardFilters>((update, options) => {
+    const { filters: current, location: here, hasDefaults: keepCleared } = latest.current
+    const next = applyDashboardFiltersUpdate(current, update)
+
+    // No filter set is written as `{}` on a dashboard with a filter
+    // default, so a reload or a shared link keeps the defaults cleared;
+    // elsewhere the parameter goes.
+    const encode = (set: typeof current) => serializeDashboardFilters(set) ?? (keepCleared ? '{}' : null)
+    const value = encode(next)
+    // The same filters again (a repeated row click) is no navigation, so
+    // Back is not left with an entry that changes nothing.
+    if (value === encode(current)) return
+
+    latest.current = { ...latest.current, filters: next }
+    const params = new URLSearchParams(here.search)
+    if (value === null) {
+      params.delete(DASHBOARD_FILTERS_PARAM)
+    } else {
+      params.set(DASHBOARD_FILTERS_PARAM, value)
+    }
+    const search = params.toString()
+    void navigate(
+      { pathname: here.pathname, search: search === '' ? '' : `?${search}`, hash: here.hash },
+      { replace: options?.replace === true, preventScrollReset: true },
+    )
+  }, [navigate])
+
+  const filtersContext = useMemo<DashboardFiltersContextValue>(
+    () => ({ filters: activeFilters, setFilters }),
+    [activeFilters, setFilters],
+  )
 
   const handleRefresh = () => {
     void qc.invalidateQueries({ queryKey: ['metric'] })
@@ -205,136 +265,147 @@ function DashboardView({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Tabs scoped to the current dashboard's group: the parent +
-          its children. Skipped entirely when the current dashboard
-          stands alone (root with no children, or empty install). */}
-      {groupedDashboards.length > 1 && (
-        <div className="flex gap-1 overflow-x-auto pb-1" role="tablist" aria-label={tNav('dashboards', 'Dashboards')}>
-          {groupedDashboards.map((d) => {
-            const isActive = d.uriKey === currentKey
-            return (
-              // Each tab is a real link to the dashboard's own URL, so a
-              // click (or Enter / Space, middle-click, open in new tab)
-              // navigates and the page re-derives the dashboard from the
-              // route. The first registered dashboard keeps `/` as its
-              // address, matching the sidebar's root link.
-              <Link
-                key={d.uriKey}
-                to={dashboardPath(d, dashboards)}
-                role="tab"
-                aria-selected={isActive}
-                aria-current={isActive ? 'page' : undefined}
-                // `martis-dashboard-tab` lives in martis.css and adds the
-                // shared focus-visible ring + hover affordance so these
-                // tabs match the rest of the interactive shell.
-                className="martis-dashboard-tab px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap transition-colors no-underline"
-                data-active={isActive ? 'true' : 'false'}
-                style={{
-                  backgroundColor: isActive ? 'var(--martis-accent)' : 'transparent',
-                  color: isActive ? '#fff' : 'var(--martis-text-muted)',
-                  border: isActive ? '1px solid var(--martis-accent)' : '1px solid var(--martis-border)',
-                }}
-              >
-                {d.name}
-              </Link>
-            )
-          })}
-        </div>
-      )}
-
-      {isDefaultLayout ? (
-        <DefaultDashboardView groups={groups} />
-      ) : (
-        <>
-          {/* Refresh + Filters — FilterPanel is standalone block like in resource index */}
-          {filters.length > 0 ? (
-            <FilterPanel
-              filters={filters}
-              value={activeFilters}
-              onChange={(f) => setActiveFilters(f)}
-              prefix={showRefresh ? (
-                <button
-                  type="button"
-                  onClick={handleRefresh}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-                  style={{ color: 'var(--martis-text-muted)', border: 'none', background: 'transparent', cursor: 'pointer' }}
+    // Cards and any component inside them read and set the filters
+    // through useDashboardFilters() (also on @martis/runtime).
+    <DashboardFiltersContext.Provider value={filtersContext}>
+      <div className="space-y-4">
+        {/* Tabs scoped to the current dashboard's group: the parent +
+            its children. Skipped entirely when the current dashboard
+            stands alone (root with no children, or empty install). */}
+        {groupedDashboards.length > 1 && (
+          <div className="flex gap-1 overflow-x-auto pb-1" role="tablist" aria-label={tNav('dashboards', 'Dashboards')}>
+            {groupedDashboards.map((d) => {
+              const isActive = d.uriKey === currentKey
+              return (
+                // Each tab is a real link to the dashboard's own URL, so a
+                // click (or Enter / Space, middle-click, open in new tab)
+                // navigates and the page re-derives the dashboard from the
+                // route. The first registered dashboard keeps `/` as its
+                // address, matching the sidebar's root link.
+                <Link
+                  key={d.uriKey}
+                  to={dashboardPath(d, dashboards)}
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-current={isActive ? 'page' : undefined}
+                  // `martis-dashboard-tab` lives in martis.css and adds the
+                  // shared focus-visible ring + hover affordance so these
+                  // tabs match the rest of the interactive shell.
+                  className="martis-dashboard-tab px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap transition-colors no-underline"
+                  data-active={isActive ? 'true' : 'false'}
+                  style={{
+                    backgroundColor: isActive ? 'var(--martis-accent)' : 'transparent',
+                    color: isActive ? '#fff' : 'var(--martis-text-muted)',
+                    border: isActive ? '1px solid var(--martis-accent)' : '1px solid var(--martis-border)',
+                  }}
                 >
-                  <ArrowClockwiseIcon size={14} />
-                  {t('refresh', 'Refresh')}
-                </button>
-              ) : undefined}
-            />
-          ) : showRefresh ? (
-            <button
-              type="button"
-              onClick={handleRefresh}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
-              style={{ color: 'var(--martis-text-muted)', border: 'none', background: 'transparent', cursor: 'pointer' }}
-            >
-              <ArrowClockwiseIcon size={14} />
-              {t('refresh', 'Refresh')}
-            </button>
-          ) : null}
+                  {d.name}
+                </Link>
+              )
+            })}
+          </div>
+        )}
 
-          {/* Metric cards grid (12-column). `.martis-dashboard-grid` owns
-              the tracks and every card's `grid-column` per breakpoint
-              (single column below `md`, then the `width` / `widthMd` /
-              `widthLg` cascade), reading the custom properties each item
-              carries via `cardGridSpanStyle()`. */}
-          {dashboardQuery.isLoading ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {[1, 2, 3].map((i) => <CardSkeleton key={i} />)}
-            </div>
-          ) : cards.length > 0 ? (
-            <div className="martis-dashboard-grid">
-              {cards.map((card) => {
-                // A plain Card (type 'card') renders its own component and has no
-                // compute endpoint — it receives the active filters so it can
-                // fetch its own filter-scoped data. A component-keyed *metric*
-                // (type 'metric') instead flows through MetricCard below, whose
-                // MetricContent feeds the computed, filter-scoped result into the
-                // custom component (see MetricCard.tsx).
-                if (card.component && card.type === 'card') {
-                  const CustomCard = componentRegistry.resolve(card.component)
-                  if (CustomCard) {
-                    const C = CustomCard as React.ComponentType<{ card: typeof card; filters: ActiveFilters }>
-                    if (card.framed) {
+        {isDefaultLayout ? (
+          <DefaultDashboardView groups={groups} />
+        ) : (
+          <>
+            {/* Refresh + Filters — FilterPanel is standalone block like in resource index */}
+            {filters.length > 0 ? (
+              <FilterPanel
+                filters={filters}
+                value={activeFilters}
+                // A panel edit replaces the history entry: a date range or a
+                // multi-select takes several picks, and Back should leave the
+                // filters as they were before the panel was used, not step
+                // through each pick. A card's setFilters() adds an entry.
+                onChange={(f) => setFilters(() => f, { replace: true })}
+              // The defaults apply to a dashboard opened without filters in
+              // its address; `?filters={}` means they were cleared.
+              applyDefaults={rawFilters === null}
+                prefix={showRefresh ? (
+                  <button
+                    type="button"
+                    onClick={handleRefresh}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
+                    style={{ color: 'var(--martis-text-muted)', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                  >
+                    <ArrowClockwiseIcon size={14} />
+                    {t('refresh', 'Refresh')}
+                  </button>
+                ) : undefined}
+              />
+            ) : showRefresh ? (
+              <button
+                type="button"
+                onClick={handleRefresh}
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
+                style={{ color: 'var(--martis-text-muted)', border: 'none', background: 'transparent', cursor: 'pointer' }}
+              >
+                <ArrowClockwiseIcon size={14} />
+                {t('refresh', 'Refresh')}
+              </button>
+            ) : null}
+
+            {/* Metric cards grid (12-column). `.martis-dashboard-grid` owns
+                the tracks and every card's `grid-column` per breakpoint
+                (single column below `md`, then the `width` / `widthMd` /
+                `widthLg` cascade), reading the custom properties each item
+                carries via `cardGridSpanStyle()`. */}
+            {dashboardQuery.isLoading ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((i) => <CardSkeleton key={i} />)}
+              </div>
+            ) : cards.length > 0 ? (
+              <div className="martis-dashboard-grid">
+                {cards.map((card) => {
+                  // A plain Card (type 'card') renders its own component and has no
+                  // compute endpoint — it receives the active filters so it can
+                  // fetch its own filter-scoped data. A component-keyed *metric*
+                  // (type 'metric') instead flows through MetricCard below, whose
+                  // MetricContent feeds the computed, filter-scoped result into the
+                  // custom component (see MetricCard.tsx).
+                  if (card.component && card.type === 'card') {
+                    const CustomCard = componentRegistry.resolve(card.component)
+                    if (CustomCard) {
+                      const C = CustomCard as React.ComponentType<{ card: typeof card; filters: ActiveFilters; setFilters: SetDashboardFilters }>
+                      if (card.framed) {
+                        return (
+                          <MetricCard
+                            key={card.uriKey}
+                            metric={card}
+                            endpoint={apiPath`/api/dashboards/${currentKey}/cards/${card.uriKey}`}
+                            filters={activeFilters}
+                            customContent={<C card={card} filters={activeFilters} setFilters={setFilters} />}
+                          />
+                        )
+                      }
                       return (
-                        <MetricCard
-                          key={card.uriKey}
-                          metric={card}
-                          endpoint={apiPath`/api/dashboards/${currentKey}/cards/${card.uriKey}`}
-                          filters={activeFilters}
-                          customContent={<C card={card} filters={activeFilters} />}
-                        />
+                        <div key={card.uriKey} style={cardGridSpanStyle(card)}>
+                          <C card={card} filters={activeFilters} setFilters={setFilters} />
+                        </div>
                       )
                     }
-                    return (
-                      <div key={card.uriKey} style={cardGridSpanStyle(card)}>
-                        <C card={card} filters={activeFilters} />
-                      </div>
-                    )
                   }
-                }
-                return (
-                  <MetricCard
-                    key={card.uriKey}
-                    metric={card}
-                    endpoint={apiPath`/api/dashboards/${currentKey}/cards/${card.uriKey}`}
-                    filters={activeFilters}
-                  />
-                )
-              })}
-            </div>
-          ) : (
-            <p className="text-sm py-8 text-center" style={{ color: 'var(--martis-text-muted)' }}>
-              {t('no_data', 'No cards configured for this dashboard.')}
-            </p>
-          )}
-        </>
-      )}
-    </div>
+                  return (
+                    <MetricCard
+                      key={card.uriKey}
+                      metric={card}
+                      endpoint={apiPath`/api/dashboards/${currentKey}/cards/${card.uriKey}`}
+                      filters={activeFilters}
+                    />
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-sm py-8 text-center" style={{ color: 'var(--martis-text-muted)' }}>
+                {t('no_data', 'No cards configured for this dashboard.')}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </DashboardFiltersContext.Provider>
   )
 }
 

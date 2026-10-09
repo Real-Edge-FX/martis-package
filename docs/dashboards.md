@@ -49,7 +49,7 @@ protected function registerDashboards(): void
 When multiple dashboards are registered, the host decides per dashboard whether it sits in the sidebar or nests inside another dashboard (v1.10.5+).
 
 - **Root dashboards** (default; `parent()` returns `null`) appear in the sidebar's `DASHBOARDS` group, one entry each. The first registered root doubles as the panel root link (`/`) so deep-link bookmarks and the sidebar stay in sync.
-- **Nested dashboards** (declared via `Dashboard::under('parent-uri-key')`) are hidden from the sidebar and surface as a tab strip inside their parent's view. Each tab is a link to that dashboard's own address (`/dashboards/child-uri-key`, or `/` for the first registered dashboard), so switching tabs flips the URL, every tab is bookmarkable individually, Back returns to the previous tab, and middle-click / open-in-new-tab work. The dashboard's filters start empty after a switch.
+- **Nested dashboards** (declared via `Dashboard::under('parent-uri-key')`) are hidden from the sidebar and surface as a tab strip inside their parent's view. Each tab is a link to that dashboard's own address (`/dashboards/child-uri-key`, or `/` for the first registered dashboard), so switching tabs flips the URL, every tab is bookmarkable individually, Back returns to the previous tab, and middle-click / open-in-new-tab work. The dashboard's filters start empty after a switch: a tab links to the dashboard's bare address, without the [`?filters=` parameter](#filters-in-the-url-v290).
 
 ```php
 class HomeDashboard extends Dashboard
@@ -156,6 +156,35 @@ A filter the user may not see (`->canSee(fn (Request $request) => ...)` returnin
 
 The compute endpoint of a locked dashboard (`lockedFor()`, see [Soft-gates](gates.md)) answers `{ locked: true, lock: {...} }` and computes nothing, as the dashboard route does.
 
+### Filters in the URL (v2.9.0)
+
+The active filters live in the dashboard's address, as the JSON object `{"<filter uriKey>": <value>}` in the `filters` query parameter. It is the parameter and the shape a resource index deep link uses ([`MenuItem::filter()`](menus.md#dashboard-lens--filter-items)) and the one each card's compute endpoint receives. So a filtered dashboard survives a reload, can be bookmarked or shared, and a link can open it with filters set:
+
+```php
+// /martis/dashboards/sales?filters=%7B%22region%22%3A%22eu%22%7D
+$url = url(config('martis.path').'/dashboards/sales').'?'.http_build_query([
+    'filters' => json_encode(['region' => 'eu']),
+]);
+```
+
+- A change in the filter panel rewrites the address in place: a date range or a multi-select takes several picks, and Back should not step through each one. A card's [`setFilters()`](#setting-the-filters-from-a-card-v290) adds a history entry by default, so Back returns to the filters before it.
+- A filter's `default()` is written to the address when the dashboard opens without a `filters` parameter. A filter the address sets wins over the defaults, as on a resource index.
+- Clearing the last filter removes the parameter. On a dashboard with a filter default it leaves `?filters={}` instead, so a reload or a shared link keeps the defaults cleared.
+- Setting the filters the dashboard already has (a second click on the same row) changes nothing and adds no history entry. Other query parameters and the `#fragment` of the address are kept.
+- A key that names none of the dashboard's filters, a value the filter's control could not show, and a parameter that is not a JSON object are ignored. Which values a filter accepts stays the server's call: the compute endpoint resolves each value, as for any request.
+- Switching dashboards (a tab, the sidebar) starts from no filters.
+
+The value of each built-in filter:
+
+| Filter | Value | Example |
+|--------|-------|---------|
+| `SelectFilter` | the option's value | `"eu"`, `7` |
+| `MultiSelectFilter` | a list of option values | `["eu", "us"]` |
+| `BooleanFilter` | the checked options, each `true` | `{"active": true, "archived": true}` |
+| `DateFilter` | `YYYY-MM-DD` | `"2026-10-09"` |
+| `DateRangeFilter` | `from` and/or `to`, each `YYYY-MM-DD` | `{"from": "2026-10-01", "to": "2026-10-09"}` |
+| a filter with `componentKey()` | whatever its control writes | |
+
 ## Layout Type
 
 `Dashboard::layoutType(): string` returns the identifier the frontend uses to pick a layout renderer for the cards collection. Defaults to the standard grid; override only when shipping a custom dashboard component:
@@ -202,12 +231,42 @@ export default function TopMissedQueries({ metric, result }: { metric: MetricDef
 **2. A plain `Card` — client-fetched.** A `Card` (which has no compute endpoint) receives the dashboard's active filters as a prop so it can fetch its own filter-scoped data:
 
 ```tsx
-export default function MyCard({ card, filters }: { card: MetricDefinition; filters: ActiveFilters }) {
+import type { ActiveFilters, SetDashboardFilters } from '@martis/runtime'
+
+export default function MyCard({ card, filters, setFilters }: { card: MetricDefinition; filters: ActiveFilters; setFilters: SetDashboardFilters }) {
   // re-fetch whenever `filters` changes
 }
 ```
 
 > Since **v1.30.0**: a component-keyed metric's computed result is fed into the component (previously the custom component received only the static card descriptor and never the result), and plain custom cards receive `filters`.
+
+### Setting the filters from a card (v2.9.0)
+
+A plain `Card` also receives `setFilters`, so a card can drive the dashboard: a row click selects a filter value, and the filter panel, every card and the [address](#filters-in-the-url-v290) follow, with one request per card. `setFilters(patch)` merges the patch into the active filters (`null`, `''` or `[]` clears a filter); `setFilters(current => next)` replaces the whole set. Each call adds a history entry, so Back undoes it; `setFilters(patch, { replace: true })` rewrites the current entry instead.
+
+```tsx
+export default function ProjectsOverview({ filters, setFilters }: { filters: ActiveFilters; setFilters: SetDashboardFilters }) {
+  // ...
+  return rows.map((row) => (
+    <tr key={row.id} onClick={() => setFilters({ project: row.id })} aria-selected={filters.project === row.id}>
+      ...
+    </tr>
+  ))
+}
+```
+
+A component nested inside a card, or the component of a component-keyed metric (which receives `{ metric, result }`), gets the same pair from `useDashboardFilters()`. It returns `null` outside a dashboard:
+
+```tsx
+import { useDashboardFilters } from '@martis/runtime'
+
+function ProjectRow({ row }: { row: { id: number; name: string } }) {
+  const dashboard = useDashboardFilters()
+  return <button type="button" onClick={() => dashboard?.setFilters({ project: row.id })}>{row.name}</button>
+}
+```
+
+The hook and the `ActiveFilters`, `SetDashboardFilters`, `DashboardFiltersUpdate`, `DashboardFiltersOptions` and `DashboardFiltersContextValue` types come from `@martis/runtime` since v2.9.0. An extension set up before it republishes the shims to import them (`php artisan vendor:publish --tag=martis-extension-shims --force`). A card scaffolded by `martis:card` types `filters` and `setFilters` already.
 
 ## Metadata
 

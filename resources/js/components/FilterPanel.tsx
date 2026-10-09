@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { filterGridSpanStyle } from '@/lib/filterGridSpan'
 import { ownEntry } from '@/lib/ownEntry'
+import { isBlankFilterValue } from '@/lib/filterValues'
 import type { FilterDefinition, ActiveFilters } from '@/types'
 
 interface FilterPanelProps {
@@ -28,18 +29,10 @@ interface FilterPanelProps {
   open?: boolean
   /** Called whenever the panel toggles. Required when `open` is supplied. */
   onOpenChange?: (open: boolean) => void
-}
-
-/**
- * A filter value counts as "cleared" (no active filter) when it is null,
- * undefined, an empty string, or an empty array. PrimeReact's MultiSelect
- * emits `[]` on clear / deselect-all, so multi-select filters must treat the
- * empty array as cleared. Otherwise a stale chip, an inflated badge, and a
- * wasted round-trip survive a full deselect. Single-select Dropdown emits
- * null, so it was already covered by the scalar checks.
- */
-function isBlankFilterValue(v: unknown): boolean {
-  return v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
+  /** Apply the filters' `default()` values on load when none is set
+   *  (default true). The dashboard passes false when its address already
+   *  decided the filters, cleared ones included. */
+  applyDefaults?: boolean
 }
 
 /**
@@ -58,7 +51,7 @@ function computeDefaults(filters: FilterDefinition[]): ActiveFilters {
 
 const calendarLocale = getCalendarLocale()
 
-export function FilterPanel({ filters, value, onChange, prefix, rightSlot, open: controlledOpen, onOpenChange }: FilterPanelProps) {
+export function FilterPanel({ filters, value, onChange, prefix, rightSlot, open: controlledOpen, onOpenChange, applyDefaults = true }: FilterPanelProps) {
   const { t } = useTranslation('resources')
   // Dual-mode open state — when the parent supplies `open` + `onOpenChange`
   // we run controlled (used by ResourceIndex so the open/closed flag
@@ -76,6 +69,7 @@ export function FilterPanel({ filters, value, onChange, prefix, rightSlot, open:
   useEffect(() => {
     if (defaultsApplied.current) return
     defaultsApplied.current = true
+    if (!applyDefaults) return
 
     const defaults = computeDefaults(filters)
     if (Object.keys(defaults).length > 0 && Object.keys(value).length === 0) {

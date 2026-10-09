@@ -155,6 +155,9 @@ export const parseAuthLinkFragment = R.parseAuthLinkFragment
 export const useModalHistoryLock = R.useModalHistoryLock
 export const useEscapeLayer = R.useEscapeLayer
 export const useModalFocus = R.useModalFocus
+// The active filters of the dashboard a card renders in, and their setter
+// (v2.9.0+). See docs/dashboards.md.
+export const useDashboardFilters = R.useDashboardFilters
 export const OverridePropsProvider = R.OverridePropsProvider
 export const useOverrideProps = R.useOverrideProps
 export const useOverridePropsOptional = R.useOverridePropsOptional
