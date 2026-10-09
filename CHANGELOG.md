@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.39.5] — 2026-10-09
+
+Patch release for a consumer report on 1.x: a write a unique index refuses answers a `422` on the field the index covers, an expression index and the relationship panels included. The same fix ships in v2.9.0. A test written against the old answers should read [Upgrading to v1.39.5](docs/upgrading.md#upgrading-to-v1395).
+
+### Fixed
+
+- A unique index on an expression answered the write with a `422` and no field error: PostgreSQL reports its key as the expression (`Key (lower(custom_domain::text))=(…)`), and the column was read up to the first `)`. The violated columns are now read from the whole key (function names, casts and string literals skipped), from SQLite's column list or index name, or from a MySQL index name split on the table's columns, and only a column one of the written fields stores becomes an error key. Each driver's message is read by its own parser, picked by the driver's code, so a submitted value quoted in a MySQL message cannot steer the field. A MySQL index name lost the start of a column with an underscore (`users_first_name_unique` named `name`), and a composite PostgreSQL key became the key `tenant_id, email`; both now name each field. The field's error is the message its `unique()` rule would give (its custom message, or `validation.unique` on its label). See [When the database index refuses the write](docs/fields.md#when-the-database-index-refuses-the-write-v1395).
+- The relationship panels (HasMany, HasOne, MorphMany, MorphOne, BelongsToMany, MorphToMany) answered every database error with a `500`, a unique violation included, with MySQL-only messages. They now answer as the resource endpoints do: one handler, `Martis\Http\Resources\DatabaseErrorResponse`, serves all seven controllers.
+- On SQLite a `NOT NULL` or foreign key failure was reported as a duplicate (`422`, "already exists"): SQLite gives every constraint failure SQLSTATE `23000` and code `19`. The message now tells them apart. PostgreSQL's `NOT NULL` (`23502`) and "still referenced" foreign key failures also get their own message.
+
 ## [1.39.4] — 2026-09-26
 
 ### Fixed
