@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.0] — 2026-10-09
+
+Consumer-report release: the profile's feature switches hold on the server, as Fortify's features do, and the mobile drawer shows the brand lockup again. One behaviour change: `MARTIS_2FA_ENABLED=false` now turns 2FA off for the panel, the sign-in challenge included. An app that leaves the switches on (the default) has nothing to change; one that turned a switch off should read [Upgrading to v2.8.0 from v2.7.x](docs/upgrading.md#upgrading-to-v280-from-v27x).
+
+### Changed
+
+- **Behaviour change:** `profile.two_factor.enabled` (`MARTIS_2FA_ENABLED`) false means the panel does not use 2FA. The 2FA routes (`POST /api/profile/2fa/setup`, `/api/profile/2fa/confirm`, `/api/profile/2fa/recovery-codes`, `DELETE /api/profile/2fa` and `POST /api/2fa/challenge`) are not registered and answer `404`, and nobody meets the challenge at sign-in, an account enrolled earlier included: its secret and recovery codes stay in the database, unused, until the switch is on again. Up to v2.7.0 the switch hid the profile's 2FA section only: the setup endpoint still answered (and wrote a secret, or answered `500` without the 2FA columns), and an enrolled account still met the challenge with no way left to turn 2FA off. `TwoFactorService::isActive($user)` (the panel uses 2FA and the account is enrolled) and `TwoFactorService::featureEnabled()` join `isEnabled($user)`, which keeps meaning "the account is enrolled".
+- `profile.avatar.enabled` (`MARTIS_AVATAR_ENABLED`) false also removes `POST` and `DELETE /api/profile/avatar` (`404`), so nothing is stored. Up to v2.7.0 it hid the avatar section only.
+- `profile.account.email_editable` (`MARTIS_PROFILE_EMAIL_EDITABLE`) false holds on the server: `PATCH /api/profile` keeps the address without validating it, a request for another address answers `422` (an `email` error, `profile.email_not_editable`) and saves and mails nothing, and a confirmation link mailed before the switch went off is refused as `invalid` (`EmailChange::allowed()`). The name still saves. Up to v2.7.0 the flag locked the field in the UI only, and a hand-made request still mailed a confirmation link; with no mail service (Laravel's `log` mailer) the link, token included, went to the application log.
+
+### Fixed
+
+- The mobile drawer showed no brand lockup. Below 768 px the root's `--sidebar-width` is `0` (no grid column, no content padding), the drawer inherited it, and the logo box, capped at that width less 32 px, was 0 px wide. The drawer now sets its own `--sidebar-width` (280 px, its width), so a lockup gets up to 248 px. The desktop sidebar, the collapsed rail and the mobile content padding are unchanged.
+- A translation that names a command rendered with a placeholder in it: the profile's browser-sessions notice read `php artisan session{{table}}`, and the missing tool component notice `npm run build{{extensions}}`, because the SPA translations turned every `:word` into an i18next placeholder. A colon glued to a word is now left as it is.
+
 ## [2.7.0] — 2026-10-09
 
 Accessibility release for the sidebar layout, from a consumer audit: the collapsed rail names its links, the mobile menu is a modal dialog that keeps and returns focus, and a "Skip to navigation" link follows "Skip to main content". Also: a header-first Tab order and two top-bar slots, so an app adds to the bar without replacing the shell. Nothing has to change in an app that keeps the bundled shell; a browser test or a stylesheet that targets the sidebar's `<aside>` should read [Upgrading to v2.7.0 from v2.6.x](docs/upgrading.md#upgrading-to-v270-from-v26x).

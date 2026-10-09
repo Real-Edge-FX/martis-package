@@ -926,13 +926,16 @@ The profile page is accessible at `/{martis-path}/profile` and provides:
         'recovery_codes' => 8,           // Number of one-time codes
     ],
     'account' => [
-        // MARTIS_PROFILE_EMAIL_EDITABLE — when false, the Account section
-        // renders the e-mail field read-only. Default true.
+        // MARTIS_PROFILE_EMAIL_EDITABLE — when false, the e-mail cannot be
+        // changed from the profile (read-only field, 422 on the server).
+        // Default true.
         'email_editable' => true,
     ],
     'sections' => ['account', 'password', 'avatar', 'security', 'sessions'],
 ],
 ```
+
+The `enabled` switches hold on the server, not only in the page (v2.8.0): with `avatar.enabled` or `two_factor.enabled` off, the avatar or 2FA routes are not registered and answer `404`, and with 2FA off nobody meets the challenge at sign-in (see [Turning 2FA off](#turning-2fa-off-v280)). `sections` only orders and shows the parts of the page. See [Configuration → Profile](configuration.md#profile) for the table.
 
 #### Custom avatar URLs
 
@@ -962,12 +965,20 @@ Nothing is stored for the pending change (no migration): the link carries the us
 
 The e-mail is often the acting identity, so a deployment may want name, avatar,
 and password editable while the e-mail stays fixed. Set
-`profile.account.email_editable` to `false` (env `MARTIS_PROFILE_EMAIL_EDITABLE`)
-and the built-in Account section renders the e-mail field read-only.
+`profile.account.email_editable` to `false` (env `MARTIS_PROFILE_EMAIL_EDITABLE`):
 
-This flag is the **UI half only**. Pair it with a custom `ProfileResource` that
-also rejects e-mail changes server-side (see [Custom Profile Resource](#custom-profile-resource)),
-so a hand-crafted `PATCH /martis/api/profile` request cannot bypass the locked field.
+- the built-in Account section renders the e-mail field read-only;
+- `PATCH /martis/api/profile` does not validate the address and keeps it as it is.
+  A request for another address answers `422` (an `email` error) and saves and
+  mails nothing, so no confirmation link is ever sent; a request with the same
+  address, or none, saves the name;
+- a confirmation link mailed before the switch went off is refused as `invalid`.
+
+Up to v2.7.0 the flag locked the field in the UI only, and a hand-made `PATCH`
+still mailed a confirmation link (with no mail service, Laravel's `log` mailer
+wrote it, token included, to the application log). A custom `ProfileResource`
+whose `updateRules()` leaves out `email` (see [Custom Profile Resource](#custom-profile-resource))
+is no longer needed for that.
 
 ### Profile API Endpoints
 
@@ -978,8 +989,8 @@ so a hand-crafted `PATCH /martis/api/profile` request cannot bypass the locked f
 | `GET` | `/martis/profile/email/confirm/{id}` | The signed, temporary link mailed to the new address: opens the confirmation page, changes nothing |
 | `POST` | `/martis/profile/email/confirm/{id}` | Applies the change (same signed URL and query string, CSRF-protected). Answers `{outcome, redirect}`: `changed`, `invalid` or `rejected` |
 | `POST` | `/martis/api/profile/password` | Change password (validated with your [password rules](#password-rules)) |
-| `POST` | `/martis/api/profile/avatar` | Upload avatar (multipart/form-data) |
-| `DELETE` | `/martis/api/profile/avatar` | Remove avatar |
+| `POST` | `/martis/api/profile/avatar` | Upload avatar (multipart/form-data). Registered only while `profile.avatar.enabled` is on (v2.8.0) |
+| `DELETE` | `/martis/api/profile/avatar` | Remove avatar. Registered only while `profile.avatar.enabled` is on (v2.8.0) |
 
 ### Custom Profile Resource
 
@@ -991,7 +1002,7 @@ The profile resource is the class behind the profile page. `Martis\Contracts\Pro
 | `updateRules(Authenticatable $user): array` | The validation rules of `PATCH /martis/api/profile`. |
 | `applyUpdate(Authenticatable $user, array $data): void` | Saves the validated data. |
 
-Extend the default `Martis\Profile\ProfileResource` and override what you need, then name the class in `profile.resource`. This one keeps the e-mail fixed server-side, the other half of [Locking the e-mail field](#locking-the-e-mail-field):
+Extend the default `Martis\Profile\ProfileResource` and override what you need, then name the class in `profile.resource`. This one takes the name only, so the e-mail never reaches `applyUpdate()` (to keep the e-mail fixed, [Locking the e-mail field](#locking-the-e-mail-field) is enough since v2.8.0):
 
 ```php
 namespace App\Martis;
@@ -1041,6 +1052,8 @@ Martis includes TOTP-based two-factor authentication with a guided setup wizard.
 
 ### 2FA API Endpoints
 
+These routes are registered only while the panel uses 2FA, `profile.two_factor.enabled` (env `MARTIS_2FA_ENABLED`, default `true`); see [Turning 2FA off](#turning-2fa-off-v280).
+
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/martis/api/profile/2fa/setup` | Initialize 2FA (returns QR code SVG + secret) |
@@ -1051,12 +1064,21 @@ Martis includes TOTP-based two-factor authentication with a guided setup wizard.
 
 ### 2FA Challenge on Login
 
-When a user with 2FA enabled logs in:
+When a user with 2FA enabled logs in, while the panel uses 2FA:
 
 1. Initial login returns `{ "two_factor_required": true, "message": "..." }` instead of the user object
 2. The frontend redirects to the 2FA challenge screen
 3. User enters their 6-digit TOTP code (or a recovery code)
 4. On success, the session is fully authenticated
+
+### Turning 2FA off (v2.8.0)
+
+`MARTIS_2FA_ENABLED=false` (`profile.two_factor.enabled`) means the panel does not use 2FA, as Fortify's feature switch does:
+
+- the 2FA section is not on the profile page, and the 2FA routes above (`/api/profile/2fa/*` and `/api/2fa/challenge`) are not registered: they answer `404` and write no `two_factor_secret`;
+- nobody meets the challenge at sign-in, an account enrolled earlier included: `POST /api/auth/login` returns the user, not `two_factor_required`, and `martis.2fa` lets the session through. The account's secret and recovery codes stay in the database, unused, and the challenge comes back when the switch is on again.
+
+Up to v2.7.0 the switch hid the section only: the setup endpoints still answered (`500` without the 2FA columns), and an enrolled account still met the challenge with no way left to turn 2FA off. Turn the switch off for a panel that must not use 2FA at all, for instance two apps that share one `users` table but not one `APP_KEY` (the secret is encrypted with the app key, so a user enrolled in one app could not pass the other's challenge). To make 2FA optional per user instead, leave the switch on.
 
 ### The 2FA challenge is rate limited and locks out (v2.4.0)
 

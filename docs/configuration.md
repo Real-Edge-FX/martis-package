@@ -979,9 +979,10 @@ Per-subsystem cache layer with three control planes (config / env / runtime), by
         'recovery_codes' => 8,
     ],
     'account' => [
-        // When false, the Account section renders the e-mail field
-        // read-only (env MARTIS_PROFILE_EMAIL_EDITABLE). Pair with a
-        // ProfileResource that rejects e-mail changes server-side.
+        // When false, the e-mail cannot be changed from the profile: the
+        // field is read-only, a request for another address answers 422
+        // and a link mailed before is refused (env
+        // MARTIS_PROFILE_EMAIL_EDITABLE).
         'email_editable' => true,
     ],
     'email_change' => [
@@ -997,6 +998,16 @@ Per-subsystem cache layer with three control planes (config / env / runtime), by
     'sections' => ['avatar', 'account', 'password', 'security', 'sessions'],
 ],
 ```
+
+**The switches hold on the server (v2.8.0).** `avatar.enabled`, `two_factor.enabled` and `account.email_editable` used to hide their part of the page only, and the endpoints behind it kept answering. Now, as Fortify does with its features, a switch that is off removes its routes (they answer `404`), and:
+
+| Switch off | Routes not registered | Also |
+|------------|-----------------------|------|
+| `avatar.enabled` (`MARTIS_AVATAR_ENABLED`) | `POST` and `DELETE /api/profile/avatar` | The profile payload carries no `avatar_url`. |
+| `two_factor.enabled` (`MARTIS_2FA_ENABLED`) | `POST /api/profile/2fa/setup`, `/confirm`, `/recovery-codes`, `DELETE /api/profile/2fa`, `POST /api/2fa/challenge` | Nobody meets the 2FA challenge at sign-in, an account enrolled earlier included: its secret stays in the database, unused until the switch is on again. |
+| `account.email_editable` (`MARTIS_PROFILE_EMAIL_EDITABLE`) | none | `PATCH /api/profile` with another address answers `422` and saves and mails nothing; the name still saves. A confirmation link mailed earlier is refused as `invalid`. |
+
+`enabled` (`MARTIS_PROFILE_ENABLED`) still removes the whole profile, name and password change included. `sections` only orders and shows the parts of the page: leaving one out does not remove its routes. With `php artisan route:cache`, cache the routes again after you change a switch.
 
 See [Authentication](authentication.md#user-profile) for full profile documentation.
 
