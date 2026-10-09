@@ -172,6 +172,25 @@ describe('the mobile drawer', () => {
     expect(menuButton.getAttribute('aria-expanded')).toBe('false')
   })
 
+  it('leaves Escape and Tab to a surface opened over it, such as the command palette', async () => {
+    const user = userEvent.setup()
+    await renderShell()
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+
+    // A palette portalled to the body, outside the drawer, takes focus.
+    const palette = document.createElement('input')
+    palette.setAttribute('aria-label', 'Palette')
+    document.body.appendChild(palette)
+    palette.focus()
+
+    await user.keyboard('{Escape}')
+    await user.tab()
+
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(false)
+    palette.remove()
+  })
+
   it('returns focus to the menu button when the backdrop closes it', async () => {
     const user = userEvent.setup()
     const { container } = await renderShell()

@@ -104,7 +104,7 @@ The main application shell that wraps all pages. Resolves layout preset from con
 | `topnav` | TopnavLayout | Top navigation bar + main content |
 | `minimal` | MinimalLayout | Minimal header + main content |
 
-> `SidebarLayout` is an inner function inside `resources/js/components/Layout.tsx`, not a standalone file under `components/layouts/`. `TopnavLayout` and `MinimalLayout` each live in their own file there. To replace the whole shell, register a component under `layout:shell` (`componentRegistry.register('layout:shell', MyShell)`); to replace one piece, under `layout:sidebar`, `layout:topbar` or `layout:footer`. See [Overrides → Shell piece-by-piece overrides](overrides.md#shell-piece-by-piece-overrides).
+> `SidebarLayout` is an inner function inside `resources/js/components/Layout.tsx`, not a standalone file under `components/layouts/`. `TopnavLayout` and `MinimalLayout` each live in their own file there. To replace the whole shell, register a component under `layout:shell` (`componentRegistry.register('layout:shell', MyShell)`); to replace one piece, under `layout:sidebar`, `layout:topbar` or `layout:footer`. See [Overrides → Shell piece-by-piece overrides](overrides.md#shell-piece-by-piece-overrides). To add a component to the top bar without replacing it, register it under `topbar:start` or `topbar:end` (v2.7.0, [Top-bar slots](overrides.md#top-bar-slots-v270)).
 
 Give the pages of one resource a layout of their own with `layoutRegistry` (v1.38.0+):
 
@@ -188,9 +188,11 @@ Martis::commandPalette(fn (Request $request) => [
 
 A standalone action on any resource also appears in the palette, under Actions, with the gates the sidebar and the action endpoints apply: the user must pass the resource's `viewAny`, the action's `canSee()` (an action it hides is not named in the payload), and the resource must be one the sidebar lists, that is `displayInNavigation()` is true and no `lockedFor()` soft gate locks it for the user. A locked resource shows its lock in the sidebar and opens the lock modal on click; the palette does not offer a shortcut that skips it.
 
-### Skip link
+### Skip links
 
 The sidebar and topnav layouts start with a "Skip to main content" link (v2.1.0, WCAG 2.2 success criterion 2.4.1). It stays off-screen until it takes keyboard focus, and Enter moves focus to the page content, the `<main id="martis-main">` landmark, without changing the URL. The minimal layout has no navigation to skip, so it has no link, but its `<main>` carries the same id.
+
+A second link, "Skip to navigation" (v2.7.0, translation key `navigation.skip_to_navigation`), comes right after it. It moves focus to the menu's `<nav id="martis-navigation">` landmark, labelled "Main navigation" (`navigation.main_navigation`), which in the sidebar layout wraps the whole sidebar. On mobile, where the menu is a closed drawer, it moves focus to the menu button (`#martis-sidebar-toggle`) instead; Enter on that button opens the drawer as a modal dialog. The ids are a contract a replacement sidebar or top bar keeps (see [Overrides → Keyboard and screen-reader contract](overrides.md#keyboard-and-screen-reader-contract-v270)).
 
 ### Footer
 

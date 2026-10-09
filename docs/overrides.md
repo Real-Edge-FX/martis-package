@@ -814,6 +814,8 @@ Use the `martis:component` artisan command to scaffold an override TSX (alias: `
 > | `Sidebar.tsx` | `layout:sidebar` |
 > | `Topbar.tsx` | `layout:topbar` |
 > | `Footer.tsx` | `layout:footer` |
+> | `TopbarStart.tsx` | `topbar:start` (v2.7.0, see [Top-bar slots](#top-bar-slots-v270)) |
+> | `TopbarEnd.tsx` | `topbar:end` (v2.7.0) |
 > | `LoginPage.tsx` | `auth:login` |
 > | `RegisterPage.tsx` | `auth:register` |
 > | `ForgotPasswordPage.tsx` | `auth:forgot-password` |
@@ -974,7 +976,85 @@ componentRegistry.register('my-footer', MyFooter)
 
 Resolution precedence for each piece: `config.layout.components.<piece>` → `layout:<piece>` → bundled component.
 
-Your replacement receives the same props the bundled component does, so the shell's state (`sidebarCollapsed`, `onToggleCollapse`, `onToggleSidebar`, `mobileOpen`, `onMobileClose`) keeps flowing. Use piece-by-piece overrides when you want to change one piece's visual design but keep the overall shell mechanics (mobile drawer, grid, collapse animation) intact.
+Your replacement receives the same props the bundled component does, so the shell's state (`sidebarCollapsed`, `onToggleCollapse`, `onToggleSidebar`, `sidebarOpen`, `mobileOpen`, `onMobileClose`) keeps flowing. Use piece-by-piece overrides when you want to change one piece's visual design but keep the overall shell mechanics (mobile drawer, grid, collapse animation) intact.
+
+#### Keyboard and screen-reader contract (v2.7.0)
+
+The sidebar layout's skip links and mobile menu find the pieces by id. A replacement sidebar or top bar keeps them working when it renders the same ids, as the `martis:component --type=sidebar` and `--type=topbar` scaffolds do:
+
+| Element | What it carries | Why |
+|---|---|---|
+| Sidebar root | `id="martis-sidebar"`; on mobile, while `mobileOpen` is true, `role="dialog"`, `aria-modal="true"` and a name (`aria-label`) | The menu button names it in `aria-controls`; the open drawer is a modal dialog |
+| Sidebar menu | `<nav id="martis-navigation" tabIndex={-1} aria-label=…>` | "Skip to navigation" moves focus there on desktop |
+| Sidebar links in the collapsed rail | `aria-label` with the label the rail hides | A tooltip is not an accessible name |
+| Top bar menu button | `id="martis-sidebar-toggle"`, `aria-controls="martis-sidebar"`, `aria-expanded={sidebarOpen}` | "Skip to navigation" moves focus there on mobile, and the drawer gives focus back to it when it closes |
+
+`sidebarOpen` (v2.7.0) is the top bar's prop for `aria-expanded`: `true` or `false` on mobile, `undefined` on desktop. The drawer's focus handling is one hook, `useModalFocus(ref, open, { onClose, returnFocus })` from `@martis/runtime`: while `open` is true it moves focus to the first focusable element inside `ref`, keeps Tab and Shift+Tab inside, and calls `onClose` on an Escape no popup or modal above it took (the [Escape layer rule](components.md#escape-closes-the-top-layer-only-v200)); a key pressed while focus is in another surface, such as the command palette, is left to that surface; when `open` turns false it moves focus to `returnFocus()`, or back to the element that had focus when it opened.
+
+```tsx
+import { useRef } from 'react'
+import { useModalFocus } from '@martis/runtime'
+
+interface SidebarProps {
+  mobileOpen?: boolean
+  onMobileClose?: () => void
+  collapsed?: boolean
+}
+
+export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
+  const ref = useRef<HTMLDivElement>(null)
+  useModalFocus(ref, mobileOpen === true, {
+    onClose: () => onMobileClose?.(),
+    returnFocus: () => document.getElementById('martis-sidebar-toggle'),
+  })
+
+  return (
+    <div
+      ref={ref}
+      id="martis-sidebar"
+      className="martis-sb"
+      data-mobile={mobileOpen === undefined ? undefined : mobileOpen ? 'open' : 'true'}
+      role={mobileOpen === true ? 'dialog' : undefined}
+      aria-modal={mobileOpen === true ? true : undefined}
+      aria-label={mobileOpen === true ? 'Main navigation' : undefined}
+    >
+      <nav id="martis-navigation" tabIndex={-1} className="martis-sb-nav" aria-label="Main navigation">
+        {/* brand, links, footer */}
+      </nav>
+    </div>
+  )
+}
+```
+
+Keep the `.martis-sb` class and its `data-mobile` attribute and the closed drawer is `visibility: hidden` (Martis's CSS), out of the Tab order. The hook is in the shim since v2.7.0: an extension whose shims are older republishes them first (see [Refreshing the extension scaffold](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade)).
+
+### Top-bar slots (v2.7.0)
+
+To add a component to the top bar without replacing it (and losing the search, the notification bell, the preferences menu and the user menu), register it under one of two slots:
+
+| Registry key | Config override | Where it renders |
+|---|---|---|
+| `topbar:start` | `martis.layout.components.topbar_start` | After the menu and collapse buttons, before the breadcrumbs and the search |
+| `topbar:end` | `martis.layout.components.topbar_end` | After the preferences menu, before the user menu |
+
+The sidebar preset's top bar and the topnav preset's bar both render the slots (in the topnav bar, `topbar:start` sits after the brand, before the menu links). A slot renders its component with no props, or nothing when nothing is registered. Resolution is the pieces' one: the key the config names, when registered, then the default key.
+
+```tsx
+// resources/js/martis-extensions/overrides/TopbarStart.tsx
+// (auto-discovered under `topbar:start`)
+import { api, useQuery } from '@martis/runtime'
+
+export default function TenantIndicator() {
+  const { data } = useQuery({
+    queryKey: ['current-tenant'],
+    queryFn: () => api.get<{ name: string }>('/api/current-tenant'),
+  })
+
+  return <span>{data?.name}</span>
+}
+```
+
+`overrides/TopbarStart.tsx` and `overrides/TopbarEnd.tsx` map to the two keys through `OVERRIDE_KEYS` in `resources/js/martis-extensions/index.ts`. That file is the app's own, so an install scaffolded before v2.7.0 adds the two lines to it (`TopbarStart: 'topbar:start',` and `TopbarEnd: 'topbar:end',`), or registers the component by hand: `componentRegistry.register('topbar:start', TenantIndicator)`. A custom top bar (`layout:topbar`) renders the slots only if it renders them itself.
 
 Use `layout:shell` (or `config.layout.components.shell`) when you want to rebuild the entire layout from scratch and don't need Martis's default mobile drawer / collapse behaviour.
 

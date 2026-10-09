@@ -40,8 +40,10 @@ export interface ModalFocusOptions {
  *
  * Escape closes the top layer only: a modal opened over the surface (its
  * history lock), a Martis popup or an open PrimeReact overlay takes it
- * first, as in the DrawerShell (see `lib/escapeLayers.ts`). The surface
- * renders its own `role="dialog"` and `aria-modal="true"`.
+ * first, as in the DrawerShell (see `lib/escapeLayers.ts`), and a key
+ * pressed while focus is in another surface (the command palette, a dialog
+ * opened over this one) is left to that surface. The surface renders its
+ * own `role="dialog"` and `aria-modal="true"`.
  */
 export function useModalFocus(
   ref: RefObject<HTMLElement | null>,
@@ -62,6 +64,9 @@ export function useModalFocus(
     // before a layer's own (bubble) listener closes it.
     function onKeyDown(event: KeyboardEvent) {
       if (container === null) return
+      const active = document.activeElement
+      const inside = active !== null && container.contains(active)
+      if (!inside && active !== null && active !== document.body) return
 
       if (event.key === 'Escape') {
         if (event.defaultPrevented || getModalLockCount() > 0 || hasOpenLayer()) return
@@ -78,8 +83,6 @@ export function useModalFocus(
       }
       const first = focusable[0]
       const last = focusable[focusable.length - 1]
-      const active = document.activeElement
-      const inside = active !== null && container.contains(active)
       if (event.shiftKey && (active === first || !inside)) {
         event.preventDefault()
         last.focus()

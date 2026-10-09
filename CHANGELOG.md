@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.0] — 2026-10-09
+
+Accessibility release for the sidebar layout, from a consumer audit: the collapsed rail names its links, the mobile menu is a modal dialog that keeps and returns focus, and a "Skip to navigation" link follows "Skip to main content". Also: a header-first Tab order and two top-bar slots, so an app adds to the bar without replacing the shell. Nothing has to change in an app that keeps the bundled shell; a browser test or a stylesheet that targets the sidebar's `<aside>` should read [Upgrading to v2.7.0 from v2.6.x](docs/upgrading.md#upgrading-to-v270-from-v26x).
+
+### Added
+
+- A "Skip to navigation" link (translation key `navigation.skip_to_navigation`) right after "Skip to main content" in the sidebar and topnav layouts. It moves focus to the menu's `<nav id="martis-navigation" tabIndex={-1}>` landmark ("Main navigation", `navigation.main_navigation`), or to the menu button on mobile, where the menu is a closed drawer. `NAVIGATION_ID` is exported next to `MAIN_CONTENT_ID`.
+- `martis.layout.header_first` (`MARTIS_LAYOUT_HEADER_FIRST`, default `false`): the sidebar layout renders the top bar before the sidebar in the DOM, so the Tab order after the skip links is top bar, menu, main content. The grid keeps the page identical.
+- Two top-bar slots read from the component registry, `topbar:start` (after the menu and collapse buttons, before the breadcrumbs and the search) and `topbar:end` (after the preferences menu, before the user menu), with the config overrides `martis.layout.components.topbar_start` and `topbar_end`. The sidebar layout's top bar and the topnav bar render them; each renders its component with no props, or nothing. `overrides/TopbarStart.tsx` and `overrides/TopbarEnd.tsx` map to them in the scaffold's `index.ts` and in `martis:list-overrides --frontend`.
+- `useModalFocus(ref, open, { onClose, returnFocus })` on `@martis/runtime`: the dialog focus pattern (focus in on open, Tab kept inside, Escape through the layer rule, focus back on close) the bundled drawer uses, for a replacement sidebar or a Tool's own dialog.
+
+### Changed
+
+- The sidebar's root is a `<div id="martis-sidebar">` wrapping a `<nav id="martis-navigation" class="martis-sb-nav" aria-label="Main navigation">`, instead of an `<aside aria-label="Resources">`: the menu is a navigation landmark, not a complementary one, and every part of the sidebar stays inside a landmark.
+- The top bar's breadcrumb wrapper is a `<div>`, not a second, unlabelled `<nav>` around the breadcrumbs' own.
+- The `sidebar`, `topbar` and `shell` scaffolds of `martis:component` follow the same contract: ids, the collapsed rail's `aria-label`, the modal drawer through `useModalFocus`, and the top bar's new `sidebarOpen` prop.
+
+### Fixed
+
+- The collapsed sidebar's links had no accessible name (WCAG 2.2, 4.1.2 and 2.4.4): the label went only to the tooltip, so a screen reader announced "link" for each. Each icon-only link (resources, links, tools, dashboards) now carries its label as `aria-label`; the tooltip stays.
+- The mobile drawer was not a modal (WCAG 2.2, 2.4.3 and 2.1.2): focus did not move into it, Tab left it, Escape did nothing and focus was not returned. The open drawer is now `role="dialog"` with `aria-modal="true"`: focus moves to its first link, Tab and Shift+Tab cycle inside, Escape closes it, and closing it (Escape, the backdrop, a link, a route change) returns focus to the menu button, which carries `aria-expanded` and `aria-controls`. Reduced motion keeps the drawer without animation.
+- The closed mobile drawer's links stayed in the Tab order, off-screen. The closed drawer is now `visibility: hidden` once it has slid out.
+- The sidebar groups' chevrons were named "Collapse" or "Expand" in English whatever the locale, and did not say which group or whether it was open. They are named after their group ("Collapse Content", `navigation.collapse_group` / `navigation.expand_group`) and carry `aria-expanded`, as do the group labels that toggle.
+
 ## [2.6.0] — 2026-10-09
 
 Security release: the one-time token of the password-reset, invitation and magic-link emails moves into the URL fragment, out of the request line that proxies and web servers log. Links already mailed keep working until they expire. Also: a lockup for the authentication card, a theme-aware loader logo set from `.env`, brand `<head>` tags (manifest, Apple touch icon, theme color), and a wide sidebar lockup is scaled instead of cut. An `auth:reset-password` or `auth:invitation-accept` override that reads the token from the route must switch to `useAuthLinkParams()`; read [Upgrading to v2.6.0 from v2.5.x](docs/upgrading.md#upgrading-to-v260-from-v25x).

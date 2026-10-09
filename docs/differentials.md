@@ -1111,9 +1111,15 @@ Martis::commandPalette(fn (Request $request) => [
 
 See [Components → App commands](components.md#app-commands-v210).
 
-### Skip link
+### Skip links and an accessible shell
 
-The sidebar and topnav layouts start with a translated "Skip to main content" link that moves focus to the `<main id="martis-main">` landmark (WCAG 2.2, 2.4.1). Nova's layout has no skip link.
+The sidebar and topnav layouts start with two translated skip links (WCAG 2.2, 2.4.1): "Skip to main content" moves focus to the `<main id="martis-main">` landmark, and "Skip to navigation" (v2.7.0) to the menu's `<nav id="martis-navigation">` landmark, or to the menu button on mobile, where the menu is a closed drawer. Since v2.7.0 the shell also meets these WCAG 2.2 AA criteria out of the box:
+
+- **Named links in the collapsed rail** (4.1.2, 2.4.4). An icon-only link carries its label as `aria-label`; the tooltip stays for sighted users.
+- **A modal mobile menu** (2.4.3, 2.1.2). The open drawer is a `role="dialog"` with `aria-modal="true"`: focus moves into it, Tab and Shift+Tab stay inside, Escape closes it, and focus returns to the menu button, which carries `aria-expanded` and `aria-controls`. Closed, the drawer leaves the Tab order instead of taking focus off-screen. The motion follows the reduced-motion preference.
+- **Header-first order.** `MARTIS_LAYOUT_HEADER_FIRST=true` renders the top bar before the sidebar, so the Tab order is top bar, menu, main content, without a visual change ([Configuration → Header-first order](configuration.md#header-first-order-v270)).
+
+Two top-bar slots, `topbar:start` and `topbar:end`, add an app's component (a tenant indicator, an environment badge) to the bar without replacing it ([Overrides → Top-bar slots](overrides.md#top-bar-slots-v270)). Nova's layout has no skip link.
 
 ### Test kit for extensions
 
