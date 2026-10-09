@@ -62,9 +62,9 @@ class ProfileController extends MartisController
         $resource = $this->resolveResource();
 
         $rules = $resource->updateRules($user);
-        $takesEmail = array_key_exists('email', $rules);
+        $emailLocked = array_key_exists('email', $rules) && ! EmailChange::allowed();
 
-        if ($takesEmail && ! EmailChange::allowed()) {
+        if ($emailLocked) {
             // The switch holds on the server too: a hand-made request for
             // another address is refused, before anything is saved, rather
             // than mailed a confirmation link.
@@ -100,7 +100,7 @@ class ProfileController extends MartisController
             // The address stays as it is until the link is followed; the same
             // address in other letter case is no change.
             $data['email'] = $emailChange->currentEmail($user);
-        } elseif ($takesEmail) {
+        } elseif (array_key_exists('email', $data) || $emailLocked) {
             // The resource saves the address it validates: hand it the
             // current one, also when the locked address was not validated.
             $data['email'] = $emailChange->currentEmail($user);
@@ -155,6 +155,8 @@ class ProfileController extends MartisController
      */
     public function uploadAvatar(Request $request, AvatarService $avatarService): JsonResponse
     {
+        $this->requireAvatar();
+
         $maxKb = (int) config('martis.profile.avatar.max_size_kb', 2048);
 
         $request->validate([
@@ -177,6 +179,8 @@ class ProfileController extends MartisController
      */
     public function removeAvatar(Request $request, AvatarService $avatarService): JsonResponse
     {
+        $this->requireAvatar();
+
         $user = $this->resolveUser($request);
         $avatarService->remove($user);
 
@@ -191,6 +195,8 @@ class ProfileController extends MartisController
      */
     public function twoFactorSetup(Request $request, TwoFactorService $twoFactor): JsonResponse
     {
+        $this->requireTwoFactor();
+
         if ($refusal = $this->refuseWhileImpersonating()) {
             return $refusal;
         }
@@ -211,6 +217,8 @@ class ProfileController extends MartisController
      */
     public function twoFactorConfirm(Request $request, TwoFactorService $twoFactor): JsonResponse
     {
+        $this->requireTwoFactor();
+
         if ($refusal = $this->refuseWhileImpersonating()) {
             return $refusal;
         }
@@ -251,6 +259,8 @@ class ProfileController extends MartisController
      */
     public function twoFactorDisable(Request $request, TwoFactorService $twoFactor): JsonResponse
     {
+        $this->requireTwoFactor();
+
         if ($refusal = $this->refuseWhileImpersonating()) {
             return $refusal;
         }
@@ -285,6 +295,8 @@ class ProfileController extends MartisController
      */
     public function twoFactorRegenerateCodes(Request $request, TwoFactorService $twoFactor): JsonResponse
     {
+        $this->requireTwoFactor();
+
         if ($refusal = $this->refuseWhileImpersonating()) {
             return $refusal;
         }
@@ -361,6 +373,25 @@ class ProfileController extends MartisController
     // ──────────────────────────────────────────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * The avatar switch holds where its routes are still registered (a route
+     * cache built while it was on, a config changed at runtime): off, the
+     * endpoint answers 404 and stores nothing (v2.8.0).
+     */
+    private function requireAvatar(): void
+    {
+        abort_unless((bool) config('martis.profile.avatar.enabled', true), 404);
+    }
+
+    /**
+     * The 2FA switch holds where its routes are still registered: off, the
+     * endpoint answers 404 and writes nothing (v2.8.0).
+     */
+    private function requireTwoFactor(): void
+    {
+        abort_unless(TwoFactorService::featureEnabled(), 404);
+    }
 
     /**
      * The answer to a factor- or identity-changing request made while an

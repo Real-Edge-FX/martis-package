@@ -129,6 +129,46 @@ it('does not register the 2FA routes while profile.two_factor.enabled is off', f
     expect($user->fresh()->two_factor_secret)->toBeNull();
 });
 
+// A route cache built while a switch was on still lists its routes after the
+// switch goes off (or the config changes at runtime): the controllers hold
+// the switch too.
+it('refuses the avatar endpoints where the routes are still registered while the switch is off', function () {
+    $user = pfsUser();
+    $user->forceFill(['profile_picture' => 'avatars/kept.png'])->save();
+    Storage::disk('public')->put('avatars/kept.png', 'x');
+    config()->set('martis.profile.avatar.enabled', false);
+
+    expect(pfsRouteNames('martis.api.profile.avatar'))->toHaveCount(2);
+
+    $this->actingAs($user)
+        ->postJson('/martis/api/profile/avatar', ['avatar' => UploadedFile::fake()->image('me.png', 64, 64)])
+        ->assertNotFound();
+    $this->deleteJson('/martis/api/profile/avatar')->assertNotFound();
+
+    expect(Storage::disk('public')->allFiles())->toBe(['avatars/kept.png'])
+        ->and($user->fresh()->profile_picture)->toBe('avatars/kept.png');
+});
+
+it('refuses the 2FA endpoints where the routes are still registered while the switch is off', function () {
+    $enrolled = pfsUser(enrolled: true);
+    $secret = $enrolled->two_factor_secret;
+    config()->set('martis.profile.two_factor.enabled', false);
+
+    expect(pfsRouteNames('martis.api.profile.2fa'))->toHaveCount(4)
+        ->and(pfsRouteNames('martis.api.2fa.challenge'))->toHaveCount(1);
+
+    $this->actingAs($enrolled);
+    $this->postJson('/martis/api/2fa/challenge', ['code' => '123456'])->assertNotFound();
+    $this->postJson('/martis/api/profile/2fa/setup')->assertNotFound();
+    $this->postJson('/martis/api/profile/2fa/confirm', ['code' => '123456'])->assertNotFound();
+    $this->postJson('/martis/api/profile/2fa/recovery-codes', ['current_password' => PFS_PASSWORD])->assertNotFound();
+    $this->deleteJson('/martis/api/profile/2fa', ['current_password' => PFS_PASSWORD])->assertNotFound();
+
+    expect($enrolled->fresh()->two_factor_secret)->toBe($secret)
+        ->and($enrolled->fresh()->two_factor_recovery_codes)->toBeNull()
+        ->and($enrolled->fresh()->two_factor_confirmed_at)->not->toBeNull();
+});
+
 it('challenges nobody while 2FA is off, an enrolled account included, and keeps its secret', function () {
     config()->set('martis.profile.two_factor.enabled', false);
     pfsReloadRoutes();

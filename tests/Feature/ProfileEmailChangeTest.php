@@ -358,7 +358,53 @@ it('saves the name while the e-mail is locked, with the same address, another le
     'another letter case' => [['email' => 'ADA@Example.com']],
     'no address' => [[]],
     'an empty address' => [['email' => '']],
+    'an address that is not a string' => [['email' => ['new@example.com']]],
 ]);
+
+it('keeps a resource without an email rule as it was while the e-mail is locked', function () {
+    config()->set('martis.profile.account.email_editable', false);
+    $this->app->instance(ProfileResourceContract::class, new class extends ProfileResource
+    {
+        public function updateRules(Authenticatable $user): array
+        {
+            return ['name' => ['required', 'string', 'max:255']];
+        }
+
+        public function applyUpdate(Authenticatable $user, array $data): void
+        {
+            $user->forceFill(['name' => $data['name']])->save();
+        }
+    });
+
+    emailChangePatch(['name' => 'Ada Lovelace', 'email' => 'new@example.com'])->assertOk();
+
+    expect($this->user->fresh()->name)->toBe('Ada Lovelace')
+        ->and($this->user->fresh()->email)->toBe('ada@example.com');
+    Notification::assertNothingSent();
+});
+
+it('hands an optional email rule no address it was not sent while the e-mail is editable', function () {
+    $resource = new class extends ProfileResource
+    {
+        /** @var array<string, mixed>|null */
+        public ?array $applied = null;
+
+        public function updateRules(Authenticatable $user): array
+        {
+            return ['name' => ['required', 'string', 'max:255'], 'email' => ['sometimes', 'email']];
+        }
+
+        public function applyUpdate(Authenticatable $user, array $data): void
+        {
+            $this->applied = $data;
+        }
+    };
+    $this->app->instance(ProfileResourceContract::class, $resource);
+
+    emailChangePatch(['name' => 'Ada Lovelace'])->assertOk();
+
+    expect($resource->applied)->toBe(['name' => 'Ada Lovelace']);
+});
 
 it('refuses a link mailed before the e-mail was locked', function () {
     emailChangePatch(['name' => 'Ada', 'email' => 'new@example.com', 'current_password' => 'Correct-Horse-1'])->assertOk();

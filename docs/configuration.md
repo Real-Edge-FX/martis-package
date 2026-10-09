@@ -1007,7 +1007,9 @@ Per-subsystem cache layer with three control planes (config / env / runtime), by
 | `two_factor.enabled` (`MARTIS_2FA_ENABLED`) | `POST /api/profile/2fa/setup`, `/confirm`, `/recovery-codes`, `DELETE /api/profile/2fa`, `POST /api/2fa/challenge` | Nobody meets the 2FA challenge at sign-in, an account enrolled earlier included: its secret stays in the database, unused until the switch is on again. |
 | `account.email_editable` (`MARTIS_PROFILE_EMAIL_EDITABLE`) | none | `PATCH /api/profile` with another address answers `422` and saves and mails nothing; the name still saves. A confirmation link mailed earlier is refused as `invalid`. |
 
-`enabled` (`MARTIS_PROFILE_ENABLED`) still removes the whole profile, name and password change included. `sections` only orders and shows the parts of the page: leaving one out does not remove its routes. With `php artisan route:cache`, cache the routes again after you change a switch.
+`enabled` (`MARTIS_PROFILE_ENABLED`) still removes the whole profile, name and password change included. `sections` only orders and shows the parts of the page: leaving one out does not remove its routes.
+
+**With `php artisan route:cache`, cache the routes again after you change a switch** (`php artisan optimize` caches the config and the routes together). The controllers check the avatar and 2FA switches too, so a route cache built while a switch was on still answers `404` once it is off. The other way round is not covered: with routes cached while 2FA was off, turning it on challenges enrolled users at a `POST /api/2fa/challenge` the cache does not hold, and they cannot sign in until the routes are cached again.
 
 See [Authentication](authentication.md#user-profile) for full profile documentation.
 
