@@ -109,6 +109,15 @@ it('translations convert :variable placeholders to {{variable}} format', functio
     expect($data['resources']['hello'])->toBe('Hello, {{name}}');
 });
 
+it('translations leave a colon glued to a word, an artisan command, as it is', function (string $locale) {
+    $data = $this->getJson("/martis/api/translations/{$locale}")->json();
+
+    expect($data['profile']['sessions_unsupported'])->toContain('`php artisan session:table`')
+        ->not->toContain('{{table}}')
+        ->and($data['messages']['tool_component_missing'])->toContain('`npm run build:extensions`')
+        ->toContain('{{key}}');
+})->with(['en', 'pt_PT', 'pt_BR']);
+
 it('translations no_records key exists in en', function () {
     $data = $this->getJson('/martis/api/translations/en')->json();
 

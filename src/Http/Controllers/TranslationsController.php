@@ -237,6 +237,9 @@ class TranslationsController extends MartisController
      * Recursively convert Laravel-style :variable placeholders to
      * react-i18next {{variable}} format.
      *
+     * A colon glued to a word is not a placeholder (v2.8.0): an artisan
+     * command in a hint, `php artisan session:table`, read as `session{{table}}`.
+     *
      * @param  array<string, mixed>  $translations
      * @return array<string, mixed>
      */
@@ -246,7 +249,7 @@ class TranslationsController extends MartisController
             if (is_array($value)) {
                 $translations[$key] = $this->convertPlaceholders($value);
             } elseif (is_string($value)) {
-                $translations[$key] = preg_replace('/:([a-zA-Z_][a-zA-Z0-9_]*)/', '{{$1}}', $value);
+                $translations[$key] = preg_replace('/(?<![A-Za-z0-9_]):([a-zA-Z_][a-zA-Z0-9_]*)/', '{{$1}}', $value);
             }
         }
 
