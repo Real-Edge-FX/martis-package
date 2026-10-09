@@ -5528,8 +5528,10 @@ interface ModalFocusOptions {
  *
  * Escape closes the top layer only: a modal opened over the surface (its
  * history lock), a Martis popup or an open PrimeReact overlay takes it
- * first, as in the DrawerShell (see `lib/escapeLayers.ts`). The surface
- * renders its own `role="dialog"` and `aria-modal="true"`.
+ * first, as in the DrawerShell (see `lib/escapeLayers.ts`), and a key
+ * pressed while focus is in another surface (the command palette, a dialog
+ * opened over this one) is left to that surface. The surface renders its
+ * own `role="dialog"` and `aria-modal="true"`.
  */
 declare function useModalFocus(ref: RefObject<HTMLElement | null>, open: boolean, options: ModalFocusOptions): void;
 
