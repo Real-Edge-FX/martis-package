@@ -136,6 +136,7 @@ interface FilterDefinition {
     placeholder?: string | null;
     meta: Record<string, unknown>;
 }
+type ActiveFilters = Record<string, unknown>;
 /**
  * Soft-gate payload — emitted by every menu entity (Dashboard, Tool,
  * Resource, Card, Lens, Filter) and consumed by `<GateModal>`.
@@ -5535,6 +5536,29 @@ interface ModalFocusOptions {
  */
 declare function useModalFocus(ref: RefObject<HTMLElement | null>, open: boolean, options: ModalFocusOptions): void;
 
+interface DashboardFiltersOptions {
+    /**
+     * Replace the current history entry instead of adding one. Default
+     * `false`: Back returns to the filters the dashboard had before.
+     */
+    replace?: boolean;
+}
+/** A patch merged into the active filters, or a function returning the new set. */
+type DashboardFiltersUpdate = ActiveFilters | ((current: ActiveFilters) => ActiveFilters);
+type SetDashboardFilters = (update: DashboardFiltersUpdate, options?: DashboardFiltersOptions) => void;
+interface DashboardFiltersContextValue {
+    /** The dashboard's active filters, as the cards receive them. */
+    filters: ActiveFilters;
+    /** Change them: the filter panel and every card follow, and so does the URL. */
+    setFilters: SetDashboardFilters;
+}
+/**
+ * The active filters of the dashboard the calling component renders in,
+ * and their setter: a card, or any component inside one, can read them and
+ * set them (`setFilters({ project: row.id })`). `null` outside a dashboard.
+ */
+declare function useDashboardFilters(): DashboardFiltersContextValue | null;
+
 declare const OverridePropsProvider: React$1.Provider<OverrideProps | null>;
 /**
  * Read the override payload from context. Throws when called outside
@@ -7476,6 +7500,7 @@ declare const martisRuntime: {
     readonly useModalHistoryLock: typeof useModalHistoryLock;
     readonly useEscapeLayer: typeof useEscapeLayer;
     readonly useModalFocus: typeof useModalFocus;
+    readonly useDashboardFilters: typeof useDashboardFilters;
     readonly OverridePropsProvider: React$1.Provider<OverrideProps | null>;
     readonly useOverrideProps: typeof useOverrideProps;
     readonly useOverridePropsOptional: typeof useOverridePropsOptional;
@@ -7516,5 +7541,5 @@ declare const martisRuntime: {
  */
 type MartisRuntime = typeof martisRuntime;
 
-export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthLinkParams, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalFocus, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
-export type { ActionResponseModalProps, AuthLinkParams, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, ModalFocusOptions, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, RouteRegistration, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };
+export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthLinkParams, useDashboardFilters, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalFocus, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
+export type { ActionResponseModalProps, ActiveFilters, AuthLinkParams, DashboardFiltersContextValue, DashboardFiltersOptions, DashboardFiltersUpdate, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, ModalFocusOptions, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, RouteRegistration, SetDashboardFilters, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };

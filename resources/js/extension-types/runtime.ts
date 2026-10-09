@@ -62,6 +62,7 @@ export type { AuthLinkParams } from '@/lib/authLink'
 export { useModalHistoryLock } from '@/lib/historyLock'
 export { useEscapeLayer } from '@/lib/escapeLayers'
 export { useModalFocus } from '@/hooks/useModalFocus'
+export { useDashboardFilters } from '@/lib/dashboardFilters'
 export { OverridePropsProvider, useOverrideProps, useOverridePropsOptional } from '@/hooks/useOverrideProps'
 export { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 export { useError } from '@/lib/useError'
@@ -95,6 +96,11 @@ export type {
   NestedParent,
   DrawerShellProps,
   ModalFocusOptions,
+  ActiveFilters,
+  DashboardFiltersContextValue,
+  DashboardFiltersOptions,
+  DashboardFiltersUpdate,
+  SetDashboardFilters,
   TooltipProps,
   HtmlTooltipProps,
   DropdownProps,

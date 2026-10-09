@@ -10,6 +10,7 @@ import { layoutRegistry } from '@/lib/layoutRegistry'
 import { routeRegistry } from '@/lib/routeRegistry'
 import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
 import { parseAuthLinkFragment, useAuthLinkParams } from '@/lib/authLink'
+import { useDashboardFilters } from '@/lib/dashboardFilters'
 import { ForbiddenPage } from '@/pages/Forbidden'
 import { NotFoundPage } from '@/pages/NotFound'
 import { MartisLoader } from '@/components/Loader'
@@ -193,6 +194,10 @@ describe('martisRuntime', () => {
     it('exposes the emailed-link reader (v2.6.0) an auth page override needs', () => {
         expect(martisRuntime.useAuthLinkParams).toBe(useAuthLinkParams)
         expect(martisRuntime.parseAuthLinkFragment).toBe(parseAuthLinkFragment)
+    })
+
+    it('exposes the dashboard filters hook (v2.9.0) a custom card sets filters with', () => {
+        expect(martisRuntime.useDashboardFilters).toBe(useDashboardFilters)
     })
 
     it('serves React Router 7 as the react-router-dom module: every react-router export, with the DOM RouterProvider', () => {

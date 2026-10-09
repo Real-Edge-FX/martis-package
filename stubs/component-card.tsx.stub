@@ -8,6 +8,8 @@
  * (`componentKey('card:{{ kebab }}')`), which the dashboard resolves.
  */
 
+import type { ActiveFilters, SetDashboardFilters } from '@martis/runtime'
+
 interface {{ class }}Props {
   card: {
     uriKey: string
@@ -41,6 +43,18 @@ interface {{ class }}Props {
       [key: string]: unknown
     }
   }
+  /**
+   * The dashboard's active filters, `{ <filter uriKey>: value }`. Fetch
+   * filter-scoped data again whenever this changes.
+   */
+  filters: ActiveFilters
+  /**
+   * Set the dashboard's filters from the card, e.g. on a row click:
+   * `setFilters({ project: row.id })` merges the value in, and the filter
+   * panel, every card and the URL follow. `useDashboardFilters()` gives the
+   * same pair to a component nested inside the card.
+   */
+  setFilters: SetDashboardFilters
 }
 
 /**
