@@ -877,11 +877,13 @@ abstract class MartisController extends Controller
      * (its `->using()` class, else `Pivot` / `MorphPivot`, whose
      * `pivotParent` is the parent record), or null when the relationship
      * does not attach that record. The `canSeeForModel()` of a pivot field
-     * decides on it.
+     * decides on it. Pass the related model when you have it: the row is
+     * then found through the relationship's `relatedKey`, which a scalar
+     * id is taken to be.
      *
      * @param  EloquentBelongsToMany<Model, Model, covariant Pivot, covariant string>  $relation
      */
-    protected function storedPivotRow(EloquentBelongsToMany $relation, int|string $relatedId): ?Pivot
+    protected function storedPivotRow(EloquentBelongsToMany $relation, int|string|Model $relatedId): ?Pivot
     {
         $row = $relation->newPivotStatementForId($relatedId)->first();
 

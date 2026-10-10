@@ -997,3 +997,63 @@ it('answers a pivot update of a record the parent does not hold like a missing o
     expect(DB::table('rw_task_label')->where('task_id', $this->task->id)->count())->toBe(0)
         ->and(DB::table('rw_task_label')->where('task_id', $other->id)->value('reviewer_id'))->toBeNull();
 });
+
+it('answers a pivot update of a record the picker hides and the parent does not hold with 404, not 422', function () {
+    $other = RWTask::query()->create(['title' => 'Other']);
+    // Tag 2 is private: the attach picker does not list it.
+    $other->labels()->attach(2);
+
+    $foreign = $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}/belongs-to-many/labels/2/pivot", ['reviewer_id' => 1]);
+    $missing = $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}/belongs-to-many/labels/999999/pivot", ['reviewer_id' => 1]);
+
+    $foreign->assertNotFound();
+    expect($foreign->json())->toBe($missing->json());
+});
+
+it('answers a detach or pivot update of an id the key cannot hold with 404', function () {
+    $this->deleteJson("/martis/api/resources/rw-tasks/{$this->task->id}/belongs-to-many/labels/abc/detach")
+        ->assertNotFound()
+        ->assertJsonPath('message', 'Related record not found.');
+    $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}/belongs-to-many/labels/abc/pivot", ['reviewer_id' => 1])
+        ->assertNotFound();
+    $this->deleteJson("/martis/api/resources/rw-tasks/{$this->task->id}/morph-to-many/topics/abc/detach")
+        ->assertNotFound();
+});
+
+it('answers an attach of a missing id like one of a record the picker hides', function () {
+    foreach (['belongs-to-many/labels', 'morph-to-many/topics'] as $panel) {
+        $hidden = $this->postJson("/martis/api/resources/rw-tasks/{$this->task->id}/{$panel}/attach", ['related_id' => 2]);
+        $missing = $this->postJson("/martis/api/resources/rw-tasks/{$this->task->id}/{$panel}/attach", ['related_id' => 999999]);
+        $malformed = $this->postJson("/martis/api/resources/rw-tasks/{$this->task->id}/{$panel}/attach", ['related_id' => 'abc']);
+
+        $hidden->assertStatus(422)->assertJsonPath('errors.0.field', 'related_id');
+        expect($missing->status())->toBe(422)
+            ->and($missing->json())->toBe($hidden->json())
+            ->and($malformed->json())->toBe($hidden->json());
+
+        // The batch attach fails as a whole, whichever id is wrong.
+        $hiddenBatch = $this->postJson("/martis/api/resources/rw-tasks/{$this->task->id}/{$panel}/attach", ['related_ids' => [1, 2]]);
+        $missingBatch = $this->postJson("/martis/api/resources/rw-tasks/{$this->task->id}/{$panel}/attach", ['related_ids' => [1, 999999]]);
+
+        $hiddenBatch->assertStatus(422)->assertJsonPath('errors.0.field', 'related_ids');
+        expect($missingBatch->json())->toBe($hiddenBatch->json());
+    }
+
+    expect(DB::table('rw_task_label')->count())->toBe(0)
+        ->and(DB::table('rw_taggables')->count())->toBe(0);
+});
+
+it('asks the attach policy only about a record the picker lists', function () {
+    $this->actingAs((new RWAuthUser)->forceFill(['id' => 1]));
+    Gate::policy(RWTask::class, RWTaskPolicy::class);
+    // attachRWTag refuses the name "public": tag 1 is listed, tag 4 is not.
+    RWTag::query()->insert(['id' => 4, 'name' => 'public', 'is_public' => false]);
+
+    $this->postJson("/martis/api/resources/rw-tasks/{$this->task->id}/belongs-to-many/labels/attach", ['related_id' => 1])
+        ->assertForbidden();
+    $this->postJson("/martis/api/resources/rw-tasks/{$this->task->id}/belongs-to-many/labels/attach", ['related_id' => 4])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.field', 'related_id');
+    $this->postJson("/martis/api/resources/rw-tasks/{$this->task->id}/morph-to-many/topics/attach", ['related_id' => 4])
+        ->assertStatus(422);
+});

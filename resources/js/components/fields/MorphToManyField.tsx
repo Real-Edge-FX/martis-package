@@ -174,6 +174,12 @@ function MorphToManyDetailPanel({ field, readOnly = false, formValues }: { field
     },
     onError: (e: unknown) => {
       setDetachError(e instanceof ApiError && e.message ? e.message : tMsg('error_detach', 'The record could not be detached.'))
+      // A 404: the record is no longer attached (detached elsewhere), so
+      // the list drops the stale row while the dialog says why.
+      if (e instanceof ApiError && e.status === 404) {
+        void qc.invalidateQueries({ queryKey: ['morph-to-many', parentResource, parentId, relationship] })
+        void qc.invalidateQueries({ queryKey: ['mtm-attachable', parentResource, parentId, relationship] })
+      }
     },
   })
 

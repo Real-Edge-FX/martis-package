@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
 use Illuminate\Database\Eloquent\Relations\Pivot;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Martis\Fields\BelongsToMany;
@@ -84,13 +85,29 @@ trait ChecksRelatableAttachments
      * does not list, `null` when every one is attachable. `$errorKey` is the
      * input the ids came from (`related_id`, `related_ids`).
      *
+     * An id that names no record fails the same way (Nova's
+     * `RelatableAttachment` rule does too), so the attach answers a record
+     * the picker hides exactly like one that does not exist. An id the key
+     * column cannot hold never reaches the database.
+     *
      * @param  array<string, mixed>  $ctx  The panel's context (`resolveContext()`)
-     * @param  list<int|string>  $ids
+     * @param  list<mixed>  $ids
      */
     protected function notRelatableAttachment(Request $request, array $ctx, array $ids, string $errorKey): ?IlluminateJsonResponse
     {
+        $response = fn (): IlluminateJsonResponse => JsonErrorResponse::validation(
+            [$errorKey => [__('martis::validation.relatable_attachment')]],
+            'Validation failed.',
+        )->toResponse();
+
+        $query = $this->attachableQuery($request, $ctx);
+
         $wanted = [];
         foreach ($ids as $id) {
+            if (! $this->keyFits($query->getModel(), $id)) {
+                return $response();
+            }
+            /** @var int|string $id */
             $wanted[(string) $id] = $id;
         }
 
@@ -98,23 +115,42 @@ trait ChecksRelatableAttachments
             return null;
         }
 
-        $query = $this->attachableQuery($request, $ctx);
         $query->getQuery()->reorder();
 
-        $found = $query
-            ->whereKey(array_values($wanted))
-            ->get()
-            ->map(fn (Model $model): string => (string) $model->getKey())
-            ->all();
+        try {
+            $found = $query
+                ->whereKey(array_values($wanted))
+                ->get()
+                ->map(fn (Model $model): string => (string) $model->getKey())
+                ->all();
+        } catch (QueryException) {
+            // A key out of the column's range (PostgreSQL rejects it).
+            return $response();
+        }
 
         if (array_diff(array_keys($wanted), $found) === []) {
             return null;
         }
 
-        return JsonErrorResponse::validation(
-            [$errorKey => [__('martis::validation.relatable_attachment')]],
-            'Validation failed.',
-        )->toResponse();
+        return $response();
+    }
+
+    /**
+     * Whether `$id` can name a record of `$model`: a scalar, and digits for
+     * an integer key, so `abc` never reaches the database (PostgreSQL
+     * rejects it where other drivers match nothing).
+     */
+    protected function keyFits(Model $model, mixed $id): bool
+    {
+        if (is_int($id)) {
+            return true;
+        }
+
+        if (! is_string($id) || $id === '') {
+            return false;
+        }
+
+        return $model->getKeyType() !== 'int' || preg_match('/^-?\d+$/', $id) === 1;
     }
 
     /**
@@ -125,18 +161,29 @@ trait ChecksRelatableAttachments
      * The detach and the pivot update answer `null` with the 404 of a
      * missing id, so a record that exists but is not attached (another
      * tenant's, say) cannot be told apart from one that does not exist,
-     * and the policy is only asked about attached records. Nova resolves
-     * the records it detaches through the relation the same way, and so
-     * do the pivot actions. The record itself is still read from the
-     * related resource's model, with its global scopes.
+     * and the policy is only asked about attached records, as the pivot
+     * actions resolve their records through the relation. The record
+     * itself is still read from the related resource's model, with its
+     * global scopes. An id the key column cannot hold answers `null`
+     * without reaching the database.
      *
      * @param  EloquentBelongsToMany<Model, Model, covariant Pivot, covariant string>  $relation
      * @param  class-string<Model>  $relatedModelClass
      */
     protected function findAttachedRelated(EloquentBelongsToMany $relation, string $relatedModelClass, int|string $relatedId): ?Model
     {
-        /** @var Model|null $related */
-        $related = $relatedModelClass::find($relatedId); // @phpstan-ignore-line
+        if (! $this->keyFits(new $relatedModelClass, $relatedId)) {
+            return null;
+        }
+
+        try {
+            /** @var Model|null $related */
+            $related = $relatedModelClass::find($relatedId); // @phpstan-ignore-line
+        } catch (QueryException) {
+            // A key out of the column's range (PostgreSQL rejects it).
+            return null;
+        }
+
         if ($related === null) {
             return null;
         }
