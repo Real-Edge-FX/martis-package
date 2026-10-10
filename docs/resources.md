@@ -240,7 +240,7 @@ class ProcessedCandidatesResource extends CandidateResource // uriKey: processed
 }
 ```
 
-Since **v1.30.1** the palette loads the record (only when a model has 2+ registered resources; soft-deleted rows are loaded with `withTrashed()`, so a trashed record still resolves) and picks the first whose `matchesRecord()` returns `true`, so a processed candidate deep-links to `/resources/processed-candidates/{id}` and a pending one to `/resources/candidates/{id}`. It falls back to the first-registered resource when the record is gone or none claims it. Resources with a unique model never pay the lookup cost.
+Since **v1.30.1** the palette loads the record (only when a model has 2+ registered resources; soft-deleted rows are loaded with `withTrashed()`, so a trashed record still resolves) and picks the first whose `matchesRecord()` returns `true`, so a processed candidate deep-links to `/resources/processed-candidates/{id}` and a pending one to `/resources/candidates/{id}`. It falls back to the first-registered resource when the record is gone or none claims it. Resources with a unique model never pay the lookup cost. Since v2.11.0 only the routable resources over the model compete: a [headless](#a-headless-resource-over-a-model-that-has-a-page) one registered first never takes the link.
 
 ### Custom search ordering — `searchOrderBy()`
 
@@ -434,9 +434,12 @@ A relationship write needs the related resource's `viewAny` ([Authorization → 
 
 - the audit log's target column (label, and the link to the record);
 - the resource a `BelongsTo` without `relatedResource()` checks its value against ([Relationships → Writes follow the pickers](relationships.md#writes-follow-the-pickers));
-- the resource behind the automatic Action Events panel.
+- the resource behind the automatic Action Events panel;
+- the command palette's Recent block: the link of an entry, and the audit-log resource that gates the block.
 
 A model whose resources are all headless keeps them. Two routable resources over one model stay ambiguous for the `BelongsTo` inference: declare `relatedResource()` on the field. Up to v2.10 the first registered resource won, and registration follows file-name order, so `AgencyMemberResource` took over the users' audit-log labels and links and switched off the `BelongsTo` inference.
+
+The headless resource answers to its own policy: its `$policy`, else `AgencyMemberPolicy` by convention (the name follows the resource's class, so a resource that extends `UserResource` does not pick up `UserPolicy` that way), else the policy the Gate has for the model. A resource with none of these allows every ability, as in Nova. A `$policy` set on the parent resource is inherited, so declare `$policy` on the headless resource when you subclass.
 
 A headless resource still answers `peek` for any record of its model, gated by its own `viewAny` and `view`. To make a record outside its view look exactly like a missing one (`404` with the same body, instead of `403`), deny it with `Response::denyAsNotFound()` in the policy's `view()`: see [Authorization → HTTP responses](authorization.md#http-responses).
 

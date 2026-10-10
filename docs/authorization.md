@@ -259,11 +259,17 @@ from a relationship panel) and the related-record update and delete of
   model that has a page of its own) from confirming which records exist.
 - `Response::denyWithStatus($status)` answers that status (a status outside
   400 to 599 answers `403`), with the `This action is unauthorized.` body.
+  The panel reads a `401` as an ended session and sends the user to the login
+  page, and `419` is Laravel's expired-session status, so a policy should not
+  use either for a record denial.
 - `false` and `Response::deny()` keep answering `403`.
 
 The collection-level checks (`viewAny`, `create`) and the relationship
 abilities (`attach{Model}`, `detach{Model}`, ...) keep answering `403`
-whatever the denial carries.
+whatever the denial carries. One exception: when the policy has no `replicate`
+method, the replicate prefill needs `create` AND `update`, and answers the
+status carried by the one that refuses it (for example `404` from an `update`
+that returns `Response::denyAsNotFound()`).
 
 Use `ApiError#isForbidden()` in custom frontend code to branch on
 authorization failures specifically.
