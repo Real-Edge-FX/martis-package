@@ -874,17 +874,6 @@ abstract class Resource implements ResourceContract
     // -------------------------------------------------------------------------
 
     /**
-     * Check a relational policy ability.
-     *
-     * Uses the resolved policy (resource-specific → auto-discovered → model).
-     * When no policy exists, or the policy does not define the method,
-     * returns true (permissive default for relationship abilities).
-     *
-     * @param  string  $ability  e.g. "attachTag", "detachUser", "addComment"
-     * @param  class-string<Model>  $relatedModelClass
-     * @param  Model|null  $relatedModel  Specific instance for attach/detach checks
-     */
-    /**
      * Whether the resolved policy actually implements the given ability.
      * Used when a relation ability needs to decide between a dedicated
      * policy method and a fallback to a simpler ability.
@@ -900,6 +889,17 @@ abstract class Resource implements ResourceContract
         return $policy !== null && method_exists($policy, $ability);
     }
 
+    /**
+     * Check a relational policy ability.
+     *
+     * Uses the resolved policy (resource-specific → auto-discovered → model).
+     * When no policy exists, or the policy does not define the method,
+     * returns true (permissive default for relationship abilities).
+     *
+     * @param  string  $ability  e.g. "attachTag", "detachUser", "addComment"
+     * @param  class-string<Model>  $relatedModelClass
+     * @param  Model|null  $relatedModel  Specific instance for attach/detach checks
+     */
     protected function checkRelationalPolicy(
         Request $request,
         string $ability,
