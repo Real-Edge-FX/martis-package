@@ -3,6 +3,7 @@
 namespace Martis;
 
 use Illuminate\Auth\Access\Gate as GateInstance;
+use Illuminate\Auth\Access\Response as AuthorizationResponse;
 use Illuminate\Contracts\Auth\Access\Gate as GateContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -795,7 +796,7 @@ abstract class Resource implements ResourceContract
         if (method_exists($policy, 'before')) {
             $beforeResult = $policy->before($user, $ability);
             if ($beforeResult !== null) {
-                return (bool) $beforeResult;
+                return $this->policyAllows($beforeResult);
             }
         }
 
@@ -805,14 +806,14 @@ abstract class Resource implements ResourceContract
         }
 
         if ($this->model !== null && $relatedModel !== null) {
-            return (bool) $policy->{$ability}($user, $this->model, $relatedModel);
+            return $this->policyAllows($policy->{$ability}($user, $this->model, $relatedModel));
         }
 
         if ($this->model !== null) {
-            return (bool) $policy->{$ability}($user, $this->model);
+            return $this->policyAllows($policy->{$ability}($user, $this->model));
         }
 
-        return (bool) $policy->{$ability}($user);
+        return $this->policyAllows($policy->{$ability}($user));
     }
 
     /**
@@ -847,7 +848,7 @@ abstract class Resource implements ResourceContract
         if (method_exists($policy, 'before')) {
             $beforeResult = $policy->before($user, $ability);
             if ($beforeResult !== null) {
-                return (bool) $beforeResult;
+                return $this->policyAllows($beforeResult);
             }
         }
 
@@ -856,10 +857,22 @@ abstract class Resource implements ResourceContract
         }
 
         if ($model !== null) {
-            return (bool) $policy->{$ability}($user, $model);
+            return $this->policyAllows($policy->{$ability}($user, $model));
         }
 
-        return (bool) $policy->{$ability}($user);
+        return $this->policyAllows($policy->{$ability}($user));
+    }
+
+    /**
+     * Read what a policy method (or its `before()`) returned, as Laravel's
+     * Gate does: an `Illuminate\Auth\Access\Response` answers through
+     * `allowed()`, any other value by its truth. Up to v1.39.7 the value was
+     * cast to bool, and an object is always true, so `Response::deny()`
+     * allowed.
+     */
+    private function policyAllows(mixed $result): bool
+    {
+        return $result instanceof AuthorizationResponse ? $result->allowed() : (bool) $result;
     }
 
     /**

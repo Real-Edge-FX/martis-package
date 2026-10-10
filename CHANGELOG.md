@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.39.8] — 2026-10-10
+
+Security patch. **Upgrade if any Resource policy returns `Illuminate\Auth\Access\Response`.** Nothing else changes: read [Upgrading to v1.39.8](docs/upgrading.md#upgrading-to-v1398). The same fix ships in v2.11.0.
+
+### Security
+
+- **A Resource policy that returned Laravel's `Illuminate\Auth\Access\Response` allowed the request when it denied.** Martis calls the resource's policy itself, not through the Gate, and cast the answer to a boolean: an object is always `true`, so `Response::deny()`, `Response::denyAsNotFound()` and `Response::denyWithStatus()` granted every Resource ability (`view`, `update`, `delete`, `restore`, `forceDelete`, `replicate`, `runAction`, the relationship abilities, and the policy's `before()`), on the endpoints and in the UI flags: a `PUT` on a record the policy refused saved it. The answer is now read as Laravel's Gate reads it, a `Response` through `allowed()` and any other value by its truth, and such a denial answers `403`. Policies that return booleans were never affected. See [Authorization → Policy responses](docs/authorization.md#policy-responses).
+- **The two Gate listeners had the same cast.** The opt-in per-request ability cache (`martis.authz.request_cache`) stored a Gate ability that returned `Response::deny()` as `true`, so `RequestScopedAbilityCache::lookup()` told host code that a denied user was allowed; and the denial audit (`martis.audit.authz_denials`) never wrote `authz.denied` for a `Response` that denies, because it only matched `false`. Both now read a `Response` through `allowed()` and `denied()`.
+
+Tests: +19 Pest (3497 to 3516).
+
 ## [1.39.7] — 2026-10-10
 
 Patch release. Run `php artisan martis:publish-assets` after `composer update`. Nothing has to change in an app: read [Upgrading to v1.39.7](docs/upgrading.md#upgrading-to-v1397).

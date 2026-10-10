@@ -2,6 +2,13 @@
 
 What to do in an app when a 1.x release changes behaviour it may rely on. A patch release changes behaviour only to close a security gap or a bug; each section says what changed, who is affected and what to check.
 
+## Upgrading to v1.39.8
+
+v1.39.8 is a security fix. Nothing has to change in an app whose Resource policies return booleans.
+
+- **A policy that returns `Response::deny()` now denies.** Up to v1.39.7 Martis cast a Resource policy's answer to a boolean, and an object is always `true`, so `Response::deny()`, `Response::denyAsNotFound()` and `Response::denyWithStatus()` allowed the request (`view`, `update`, `delete`, `restore`, `forceDelete`, `replicate`, `runAction`, the relationship abilities and `before()`). The answer is now read through `allowed()`, as Laravel's Gate does, and every such denial answers `403`. If a policy of yours returns a `Response`, the users it refuses now get refused: review those policies. See [Authorization → Policy responses](authorization.md#policy-responses). (v2.11.0 carries the same fix and also answers the status a denial carries.)
+- **A Gate ability that returns a `Response` is read the same way by the ability cache and the denial audit.** With `martis.authz.request_cache` on, `RequestScopedAbilityCache::lookup()` returned `true` for an ability that returned `Response::deny()`; it now returns `false`. With `martis.audit.authz_denials` on, a Gate denial that is a `Response` is now written as `authz.denied`, where only a `false` answer was before, so expect rows you did not get earlier.
+
 ## Upgrading to v1.39.7
 
 v1.39.7 fixes the create and update forms, which decided what to submit by the shape of a value. Run `php artisan martis:publish-assets` after `composer update` (the forms are in the assets). Nothing has to change in an app.

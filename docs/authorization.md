@@ -156,6 +156,21 @@ class PostPolicy
 }
 ```
 
+### Policy responses
+
+A policy method, and its `before()`, may return Laravel's
+[`Illuminate\Auth\Access\Response`](https://laravel.com/docs/authorization#policy-responses)
+instead of a boolean, as with the Gate: `Response::allow()` permits,
+`Response::deny()`, `Response::denyAsNotFound()` and
+`Response::denyWithStatus()` deny (with `403` on 1.x). Any other value permits
+when it is truthy.
+
+**Security fix (v1.39.8).** Martis calls the policy itself (the Gate is not
+involved) and used to cast the answer to a boolean. An object is always
+`true`, so a policy that returned `Response::deny()` (or
+`denyAsNotFound()`) **allowed** the request on every Resource ability: a
+`PUT` saved the record. Policies that return booleans were never affected.
+
 ## HTTP responses
 
 Every Martis controller returns **HTTP 403** with a JSON body of
