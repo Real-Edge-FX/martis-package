@@ -4,8 +4,10 @@ import { RouterProvider as DomRouterProvider } from 'react-router/dom'
 import { describe, expect, it } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { martisRuntime } from '@/lib/martisRuntime'
+import { reactDomHandle } from '@/lib/reactDomHandles'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { iconRegistry } from '@/lib/iconRegistry'
+import { ResourceIcon } from '@/components/ResourceIcon'
 import { layoutRegistry } from '@/lib/layoutRegistry'
 import { routeRegistry } from '@/lib/routeRegistry'
 import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
@@ -128,6 +130,11 @@ describe('martisRuntime', () => {
         // The host's synchronous flush (v1.38.2), which the react-dom shim
         // re-exports for libraries such as @tanstack/react-virtual.
         expect(martisRuntime.flushSync).toBe(flushSync)
+        // Still named exports of the runtime (v2.10.0): a bundle built with the
+        // `react-dom` shim of v1.38.2 to v2.9.x reads them here, and keeps
+        // working on a host that serves `window.Martis.reactDom` as well.
+        expect(martisRuntime.createPortal).toBe(reactDomHandle.createPortal)
+        expect(martisRuntime.flushSync).toBe(reactDomHandle.flushSync)
 
         // Shared field-form harness (v1.20.0)
         expect(martisRuntime.useMartisForm).toBeTypeOf('function')
@@ -140,6 +147,9 @@ describe('martisRuntime', () => {
         expect(martisRuntime.componentRegistry).toBe(componentRegistry)
         expect(martisRuntime.iconRegistry).toBe(iconRegistry)
         expect(martisRuntime.layoutRegistry).toBe(layoutRegistry)
+
+        // An icon by name (v2.10.0), resolved through the host's registry.
+        expect(martisRuntime.ResourceIcon).toBe(ResourceIcon)
 
         // Page and override hooks (v1.38.0)
         expect(martisRuntime.usePageTitle).toBeTypeOf('function')
@@ -298,6 +308,9 @@ describe('martisRuntime', () => {
         const expected: Record<string, string> = {
             'react': 'reactShim',
             'react-dom': 'reactDomShim',
+            // The whole specifier: `react-dom` does not shadow it, and it does
+            // not stop at the `react-dom` shim (v2.10.0).
+            'react-dom/client': 'reactDomClientShim',
             'react/jsx-runtime': 'jsxRuntimeShim',
             'react-router-dom': 'routerShim',
             'react-router': 'routerShim',
@@ -314,6 +327,22 @@ describe('martisRuntime', () => {
         }
 
         expect(Object.fromEntries(Object.keys(expected).map((id) => [id, resolveAlias(id)]))).toEqual(expected)
+    })
+
+    it('ResourceIcon renders a known icon by name through the registry, and an unknown name as the fallback', () => {
+        const { container, rerender } = render(<martisRuntime.ResourceIcon iconName="rocket-launch" size={24} className="probe" />)
+        const known = container.querySelector('svg.probe')
+        expect(known).not.toBeNull()
+        expect(known?.getAttribute('width')).toBe('24')
+
+        // A name the registry does not know falls back to the database icon
+        // instead of crashing, and an icon an app registers is served too.
+        rerender(<martisRuntime.ResourceIcon iconName="no-such-icon" className="probe" />)
+        expect(container.querySelector('svg.probe')).not.toBeNull()
+
+        iconRegistry.register('runtime-probe-icon', (props: { className?: string }) => <i data-testid="probe-icon" className={props.className} />)
+        rerender(<martisRuntime.ResourceIcon iconName="runtime-probe-icon" className="probe" />)
+        expect(screen.getByTestId('probe-icon').className).toBe('probe')
     })
 
     it('FieldInput renders a text input for type=text and threads onChange', () => {

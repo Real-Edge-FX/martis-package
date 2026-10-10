@@ -471,6 +471,8 @@ window.Martis = {
   componentRegistry,   // the registry the SPA resolves from (also `componentRegistry` on @martis/runtime)
   react,               // the React module instance bundled with Martis
   reactJsxRuntime,     // react/jsx-runtime, read by the JSX shim
+  reactDom,            // react-dom's public API (createPortal, flushSync, unstable_batchedUpdates, version), read by the react-dom shim (v2.10.0)
+  reactDomClient,      // react-dom/client (createRoot, hydrateRoot), read by the react-dom/client shim (v2.10.0)
   runtime,             // the @martis/runtime surface the shims re-export
   version,             // "1.9.0" etc.
   shortcuts,           // the keyboard-shortcut helpers as add, remove, list (addShortcut, disableShortcut, listShortcuts on @martis/runtime)
@@ -497,7 +499,7 @@ The blade view emits the resolved array as `window.MartisConfig.extensions`. The
 npx tsc -p tsconfig.extensions.json
 ```
 
-Your app installs none of `@martis/runtime`, `react-router-dom`, `react-i18next` or `@tanstack/react-query`: the Vite config sends each to a shim under `.shims/` that re-exports the host's copy (since v2.0.1 it sends `react-router` to the `react-router-dom` shim as well, see [Extensions and React Router 7](#extensions-and-react-router-7-v201)). It sends `react-dom` to a shim too (v1.38.0), which carries `createPortal` and, since v1.38.2, `flushSync`, the parts of `react-dom` the runtime serves, so a portal or a synchronous flush runs on the host's React DOM. Each of those shims has its TypeScript declarations next to it (`runtime.d.mts`, `react-dom.d.mts`, `react-router-dom.d.mts`, `react-i18next.d.mts`, `tanstack-react-query.d.mts`, since v1.38.0), and the tsconfig `paths` sends the same specifiers to them, the legacy paths included, so `tsc` checks your code against the modules the build uses: a name a shim does not export fails `tsc` as it fails the build. The declarations carry the Martis types and those of the host's copy of each library, and export each library's own types (its interfaces and type aliases, such as `import type { UseQueryResult } from '@tanstack/react-query'`), so a type your code took from a copy of the library in `node_modules` still resolves once the `paths` send the specifier to the declarations. A class or enum the shim does not export (`QueryCache`, `NavigationType`) is not declared, since the build has no value for it; the default export, the host's module, holds it (`import type ReactRouterDom from 'react-router-dom'`, then `ReactRouterDom.NavigationType`). `react` and `@phosphor-icons/react` come from your own `node_modules`, where `martis:install` adds them.
+Your app installs none of `@martis/runtime`, `react-router-dom`, `react-i18next` or `@tanstack/react-query`: the Vite config sends each to a shim under `.shims/` that re-exports the host's copy (since v2.0.1 it sends `react-router` to the `react-router-dom` shim as well, see [Extensions and React Router 7](#extensions-and-react-router-7-v201)). It sends `react-dom` to a shim too (v1.38.0), which serves the host's public React DOM 18 API (`createPortal`, `flushSync` since v1.38.2, `unstable_batchedUpdates` and `version` since v2.10.0), and `react-dom/client` to another (v2.10.0: `createRoot` and `hydrateRoot`), so a portal, a batched update or a root runs on the host's React DOM. The legacy root APIs React 19 removed (`render`, `hydrate`, `findDOMNode`, `unmountComponentAtNode`) are not exposed. Each of those shims has its TypeScript declarations next to it (`runtime.d.mts`, `react-dom.d.mts`, `react-dom-client.d.mts`, `react-router-dom.d.mts`, `react-i18next.d.mts`, `tanstack-react-query.d.mts`, since v1.38.0), and the tsconfig `paths` sends the same specifiers to them, the legacy paths included, so `tsc` checks your code against the modules the build uses: a name a shim does not export fails `tsc` as it fails the build. The declarations carry the Martis types and those of the host's copy of each library, and export each library's own types (its interfaces and type aliases, such as `import type { UseQueryResult } from '@tanstack/react-query'`), so a type your code took from a copy of the library in `node_modules` still resolves once the `paths` send the specifier to the declarations. A class or enum the shim does not export (`QueryCache`, `NavigationType`) is not declared, since the build has no value for it; the default export, the host's module, holds it (`import type ReactRouterDom from 'react-router-dom'`, then `ReactRouterDom.NavigationType`). `react` and `@phosphor-icons/react` come from your own `node_modules`, where `martis:install` adds them.
 
 `react` itself is typed by your own `@types/react`, but an extension runs on the host's React, which is React 18: the Vite config sends `react` to a shim of it. `martis:install` adds `@types/react` and `@types/react-dom` at `^18` (v1.38.0; before, `^18 || ^19` installed the React 19 types). With the React 19 types an app may keep for its own code, `use`, `useActionState` and `useOptimistic` type-check and build, then are `undefined` in the extension.
 
@@ -548,8 +550,24 @@ Your extension build resolves `@martis/runtime` to `.shims/runtime.mjs`, which r
 | `useAuthLinkParams`, `parseAuthLinkFragment`, the `AuthLinkParams` type | v2.6.0 |
 | `useModalFocus`, the `ModalFocusOptions` type | v2.7.0 |
 | `useDashboardFilters`, the `ActiveFilters`, `SetDashboardFilters`, `DashboardFiltersUpdate`, `DashboardFiltersOptions` and `DashboardFiltersContextValue` types | v2.9.0 |
+| `ResourceIcon`, the `ResourceIconProps` type | v2.10.0 |
 
 v2.3.0 also publishes `.shims/i18next.d.mts`, the i18next types the shims share; republishing the shims adds it.
+
+**`react-dom/client` (v2.10.0).** The `react-dom` shim now serves `unstable_batchedUpdates` and `version` next to `createPortal` and `flushSync`, and a new `.shims/react-dom-client.mjs` (with `react-dom-client.d.mts`) serves `createRoot` and `hydrateRoot`. A library such as `@dnd-kit/core` imports `unstable_batchedUpdates` from `react-dom`; before v2.10.0 `npm run build:extensions` stopped with `"unstable_batchedUpdates" is not exported by ".shims/react-dom.mjs"`. Republishing the shims (option 1 below) writes the two shims and their declarations, but the alias that sends `react-dom/client` to the new shim lives in `vite.extensions.config.ts`, and the matching `paths` entry in `tsconfig.extensions.json`: refresh the whole scaffold (option 2) or add them by hand:
+
+```ts
+// vite.extensions.config.ts
+const reactDomClientShim = path.join(shimsDir, 'react-dom-client.mjs')
+// in resolve.alias, next to the react-dom entry:
+{find: /^react-dom\/client$/, replacement: reactDomClientShim},
+```
+
+```json
+"react-dom/client": ["./resources/js/martis-extensions/.shims/react-dom-client.d.mts"]
+```
+
+An app that has not done either keeps building and running: the old shims read `createPortal` and `flushSync` off `window.Martis.runtime`, where they stay. A new shim on a host older than v2.10.0 throws `[react-dom-shim] window.Martis.reactDom not available` when the bundle loads.
 
 Three ways to get a missing name, from the narrowest:
 
@@ -569,6 +587,7 @@ Three ways to get a missing name, from the narrowest:
 "paths": {
   "@martis/runtime": ["./resources/js/martis-extensions/.shims/runtime.d.mts"],
   "react-dom": ["./resources/js/martis-extensions/.shims/react-dom.d.mts"],
+  "react-dom/client": ["./resources/js/martis-extensions/.shims/react-dom-client.d.mts"],
   "react-router-dom": ["./resources/js/martis-extensions/.shims/react-router-dom.d.mts"],
   "react-router": ["./resources/js/martis-extensions/.shims/react-router-dom.d.mts"],
   "react-i18next": ["./resources/js/martis-extensions/.shims/react-i18next.d.mts"],
@@ -590,7 +609,7 @@ For your editor, add `resources/js/martis-extensions/tsconfig.json` (or copy `ve
 }
 ```
 
-**`react-dom` (fixed in v1.38.0).** Scaffolds published before v1.38.0 send `react-dom` to the React shim, which exports React core only: `import { createPortal } from 'react-dom'` passes `tsc`, which reads `@types/react-dom`, and then stops the build with `"createPortal" is not exported by ".shims/react.mjs"`. Import `createPortal` from `@martis/runtime` instead (republishing the shims, option 1 above, is enough for that), or send `react-dom` to its own shim: republish the shims, then in `vite.extensions.config.ts` add `const reactDomShim = path.join(shimsDir, 'react-dom.mjs')` and point the `/^react-dom$/` alias at `reactDomShim`, and add the `react-dom` line of the `paths` above to `tsconfig.extensions.json` (or copy both stubs over, re-applying your own edits). The `react-dom` shim of v1.38.0 and v1.38.1 carried `createPortal` only, so a library that imports `flushSync` from `react-dom` (`@tanstack/react-virtual`, the usual list virtualiser, does it at the top of its entry) stopped the build with `"flushSync" is not exported by ".shims/react-dom.mjs"`; since v1.38.2 the runtime carries the host's `flushSync` and the shim re-exports it. Republish the shims (option 1) to take it.
+**`react-dom` (fixed in v1.38.0).** Scaffolds published before v1.38.0 send `react-dom` to the React shim, which exports React core only: `import { createPortal } from 'react-dom'` passes `tsc`, which reads `@types/react-dom`, and then stops the build with `"createPortal" is not exported by ".shims/react.mjs"`. Import `createPortal` from `@martis/runtime` instead (republishing the shims, option 1 above, is enough for that), or send `react-dom` to its own shim: republish the shims, then in `vite.extensions.config.ts` add `const reactDomShim = path.join(shimsDir, 'react-dom.mjs')` and point the `/^react-dom$/` alias at `reactDomShim`, and add the `react-dom` line of the `paths` above to `tsconfig.extensions.json` (or copy both stubs over, re-applying your own edits). The `react-dom` shim of v1.38.0 and v1.38.1 carried `createPortal` only, so a library that imports `flushSync` from `react-dom` (`@tanstack/react-virtual`, the usual list virtualiser, does it at the top of its entry) stopped the build with `"flushSync" is not exported by ".shims/react-dom.mjs"`; since v1.38.2 the runtime carries the host's `flushSync` and the shim re-exports it, and since v2.10.0 it serves `unstable_batchedUpdates` and `version` too, with `react-dom/client` in a shim of its own (see above). Republish the shims (option 1) to take them.
 
 **Generated cards and fields (fixed in v1.38.0).** A card `martis:card` wrote before v1.38.0 binds `componentKey('revenue-gauge')`, but the dashboard resolves a card by its exact key and the entry registers `cards/RevenueGauge.tsx` as `card:revenue-gauge`: change the call to `componentKey('card:revenue-gauge')`. The entry registered a `fields/` file as `field:price-tag`, a key the field renderer never reads, so a field `martis:field` generated rendered as plain text: refresh `index.ts` (`php artisan martis:install --force`, then re-add any registration of your own) or replace its fields loop with the one in `vendor/martis/martis/stubs/extensions/index.ts.stub`. The generators also split an acronym letter by letter (`SEOReport` became `s-e-o-report`) where the entry keeps it whole (`seo-report`): fix the key in such a class by hand.
 

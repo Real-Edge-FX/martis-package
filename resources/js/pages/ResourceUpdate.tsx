@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link, useSearchParams } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
 import { apiPath, routePath } from '@/lib/apiPath'
+import { invalidateRelationPanel, nestedStoreKind } from '@/lib/relationViaParams'
 import type { ResourceRecord, ResourceSchema, OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition } from '@/types'
 import { FieldsForm } from '@/components/fields/FieldsForm'
 import { useToast } from '@/contexts/ToastContext'
@@ -168,15 +169,11 @@ function RecordUpdatePage() {
       baselineRef.current = submittedRef.current
       // Navigate back to parent resource detail if editing via a
       // relationship, otherwise to record detail. Invalidate the matching
-      // query (has-many or has-one depending on viaRelationshipType),
-      // otherwise the parent's panel would keep stale data and the user
-      // would need a manual refresh.
+      // query (has-many, has-one, morph-many or morph-one, as
+      // viaRelationshipType names it), otherwise the parent's panel would
+      // keep stale data and the user would need a manual refresh.
       if (isViaRelation) {
-        if (viaRelationshipType === 'has-one') {
-          void qc.invalidateQueries({ queryKey: ['has-one', viaResource, viaResourceId, viaRelationship] })
-        } else {
-          void qc.invalidateQueries({ queryKey: ['has-many', viaResource, viaResourceId, viaRelationship] })
-        }
+        void invalidateRelationPanel(qc, nestedStoreKind(viaRelationshipType) ?? 'has-many', viaResource!, viaResourceId!, viaRelationship!)
       }
 
       const mode = submitModeRef.current
@@ -241,7 +238,7 @@ function RecordUpdatePage() {
     form.setErrors({})
     submittedRef.current = JSON.stringify(form.values)
     // Unchanged files left out, BelongsTo reduced to its id, MorphTo kept whole.
-    updateMutation.mutate(updatePayload(form.values))
+    updateMutation.mutate(updatePayload(form.values, allFormFields))
   }
 
   if (schemaQuery.isLoading || recordQuery.isLoading) return <FormSkeleton />

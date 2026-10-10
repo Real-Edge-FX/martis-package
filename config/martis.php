@@ -685,20 +685,46 @@ return [
         //   MARTIS_CUSTOM_ACCENTS="edgeflow:#1a73e8,sunset:#ff6b35"
         'custom_accents' => env('MARTIS_CUSTOM_ACCENTS'),
 
-        // Locales the UI exposes in the language picker. Null = use the
-        // three bundled by the package (en, pt_PT, pt_BR). Add any code
-        // here once you ship translations for it under
-        // resources/lang/{locale}/ (or lang/vendor/martis/{locale}/).
-        'locales' => ['en', 'pt_PT', 'pt_BR'],
+        // Locales the UI exposes in the language picker (v2.10.0: from
+        // `.env`). Comma-separated codes in `MARTIS_UI_LOCALES`, default
+        // `en,pt_PT,pt_BR`; whitespace and empty entries are dropped, the
+        // codes are kept as given (`en_GB`, `pt_PT`) because that is what
+        // is persisted and sent to the API. An invalid code throws,
+        // naming the variable, when the list is read. A code without
+        // bundled translations (e.g. `en_GB`) works: its strings fall back
+        // through `locales.fallback_chain` (`MARTIS_LOCALE_FALLBACK_CHAIN`,
+        // default `en`). A locale stored for a user, a preset or
+        // `defaults.locale` that is not in this list falls back to
+        // `defaults.locale`, or to the first listed code.
+        //
+        // Example .env:
+        //   MARTIS_UI_LOCALES=en_GB,pt_PT
+        //   MARTIS_DEFAULT_LOCALE=en_GB
+        'locales' => array_values(array_filter(
+            array_map('trim', explode(',', (string) env('MARTIS_UI_LOCALES', 'en,pt_PT,pt_BR'))),
+            static fn (string $locale): bool => $locale !== '',
+        )),
 
         // Human-readable labels rendered in the language dropdown. Any
         // locale missing here falls back to its code (e.g. "fr_CA").
         // The code itself is what gets persisted / sent to the API.
         'locale_labels' => [
             'en' => 'English',
+            'en_GB' => 'English (UK)',
             'pt_PT' => 'Português (PT)',
             'pt_BR' => 'Português (BR)',
         ],
+
+        // Labels from `.env` (v2.10.0), merged over `locale_labels` (the
+        // env entries win). Comma-separated `code:label` pairs; the first
+        // colon splits, so a label may contain colons but not commas.
+        // Kept raw here and parsed where it is read
+        // (`Martis\Preferences\LocaleLabelsParser`), so a malformed value
+        // throws naming the variable without breaking artisan commands.
+        //
+        // Example .env:
+        //   MARTIS_UI_LOCALE_LABELS="en_GB:English (UK),pt_PT:Português (Portugal)"
+        'locale_labels_env' => env('MARTIS_UI_LOCALE_LABELS'),
 
         // Allow users to set an arbitrary brand hex. Off by default —
         // apps opt in via env or config override when multi-tenant branding

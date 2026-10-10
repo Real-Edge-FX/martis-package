@@ -9,6 +9,7 @@ import * as ReactJsxRuntime from 'react/jsx-runtime'
 import { initReactI18next } from 'react-i18next'
 import i18n from '@/lib/i18n'
 import { martisRuntime } from '@/lib/martisRuntime'
+import { reactDomClientHandle, reactDomHandle } from '@/lib/reactDomHandles'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { registerDefaultFields } from '@/components/fields/FieldRenderer'
 
@@ -44,6 +45,8 @@ window.Martis = {
   componentRegistry,
   react: React,
   reactJsxRuntime: ReactJsxRuntime,
+  reactDom: reactDomHandle,
+  reactDomClient: reactDomClientHandle,
   runtime: martisRuntime,
   version: __MARTIS_VERSION__,
 }

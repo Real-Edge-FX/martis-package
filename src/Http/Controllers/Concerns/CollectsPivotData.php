@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Martis\Contracts\FieldContract;
+use Martis\Fields\BelongsTo;
 use Martis\Fields\Field;
 use Martis\Fields\Repeater;
 use Martis\Http\Resources\JsonErrorResponse;
@@ -94,6 +95,12 @@ trait CollectsPivotData
             static fn (Field $field): bool => $field->isAuthorizedToSee($request),
         ));
         $relatable = $sourceResourceClass !== null ? new RelatableWrite($request, $sourceResourceClass, $row) : null;
+        // A BelongsTo among the pivot fields reaches the rules and the fill as
+        // the id, as on the record endpoints (see `DecodesStructuredValues`).
+        $reduced = BelongsTo::reduceSubmittedValues($visible, $request->all());
+        if ($reduced !== []) {
+            $request->merge($reduced);
+        }
         $validation = $this->buildWriteValidation($visible, $request->all(), $isUpdate, [], $pivot, $relatable);
 
         if ($validation['rules'] !== []) {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
+import { createPayload } from '@/lib/createPayload'
 import { apiPath } from '@/lib/apiPath'
 import type { OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
 import { FieldInput } from '@/components/fields/FieldRenderer'
@@ -117,7 +118,9 @@ export function DrawerCreate(props: OverrideProps) {
   }, [confirmEnabled, isDirty])
 
   const createMutation = useMutation({
-    mutationFn: (values: Record<string, unknown>) => {
+    mutationFn: (formValues: Record<string, unknown>) => {
+      // A BelongsTo the form holds as `{ id, title }` goes as its id.
+      const values = createPayload(formValues, allFormFields as FieldDefinition[])
       const data = copyOf !== null ? { ...values, fromResourceId: copyOf } : values
       if (hasFileValues(data)) {
         return api.upload<{ data: { id: string | number }; meta?: { message?: string } }>(

@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Martis\MartisManager;
 use Martis\Models\CacheState;
 
 /**
@@ -382,11 +383,14 @@ class MartisCache
     /**
      * Build the final cache key including the installed Martis version and
      * the per-type version, so an upgrade or a single `clear()` invalidates
-     * everything derived from them.
+     * everything derived from them, and the scope an app registered with
+     * `Martis::cacheScopeUsing()` (see `scopeSegment()`). The scope sits at
+     * the end of the key before the length check, so a long key still
+     * differs per scope and keeps the live prefix `prune()` looks for.
      */
     public function buildKey(string $type, string $key): string
     {
-        $full = $this->keyPrefix($type).$key;
+        $full = $this->keyPrefix($type).$key.$this->scopeSegment();
 
         // Stores bound key length (a database cache column indexed under
         // utf8mb4 holds 191 characters, memcached 250 bytes), and the store
@@ -429,6 +433,54 @@ class MartisCache
         $driver = $store === null ? 'unknown' : strtolower((string) preg_replace('/Store$/', '', class_basename($store)));
 
         return ['driver' => $driver, 'supported' => false, 'deleted' => 0];
+    }
+
+    /**
+     * The segment the app's cache scope adds to every key (v2.10.0): empty
+     * without a resolver (the keys are what they were), or when it answers
+     * `null` or the empty string; otherwise `:s` and the first 32 hex
+     * characters of the SHA-256 of what the resolver answered, so any string
+     * is safe in any store and the key length stays bounded.
+     *
+     * The resolver also runs in a console command and a queue job: Laravel's
+     * console kernel binds a placeholder request built from `APP_URL` there
+     * (`SetRequestForConsole`), and that request is what it receives, with no
+     * user, route or headers. Write it null-safe
+     * (`$request->user()?->tenant_id`). A value cached there is keyed by what
+     * the resolver returns for that placeholder. The scope is not skipped
+     * under `runningInConsole()` on purpose: an Octane worker reports it too,
+     * and would lose the scope on web requests. The `! $request instanceof
+     * Request` branch below is reachable only when no `request` binding
+     * exists (raw container use, a unit test).
+     *
+     * The resolver's mistakes are not swallowed: an answer that is neither a
+     * string nor `null` throws, and so does an exception of the resolver
+     * itself, since a scope that silently fell back to none would share one
+     * tenant's entries with another. See `MartisManager::cacheScopeUsing()`.
+     *
+     * @throws \UnexpectedValueException
+     */
+    public function scopeSegment(?Request $request = null): string
+    {
+        $resolver = app(MartisManager::class)->cacheScopeResolver();
+        if ($resolver === null) {
+            return '';
+        }
+
+        $request ??= $this->currentRequest();
+        if (! $request instanceof Request) {
+            return '';
+        }
+
+        $scope = $resolver($request);
+        if ($scope !== null && ! is_string($scope)) {
+            throw new \UnexpectedValueException(sprintf(
+                'The resolver registered with Martis::cacheScopeUsing() must return a string or null, %s returned.',
+                get_debug_type($scope),
+            ));
+        }
+
+        return $scope === null || $scope === '' ? '' : ':s'.substr(hash('sha256', $scope), 0, 32);
     }
 
     /** `martis:cache:{type}@{installed}:v{N}:`, the live prefix of a type's keys. */

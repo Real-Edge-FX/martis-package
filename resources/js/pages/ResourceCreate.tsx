@@ -3,7 +3,8 @@ import { useParams, useNavigate, Link, useSearchParams } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
 import { apiPath, routePath } from '@/lib/apiPath'
-import { nestedStoreKind } from '@/lib/relationViaParams'
+import { invalidateRelationPanel, nestedStoreKind } from '@/lib/relationViaParams'
+import { createPayload } from '@/lib/createPayload'
 import type { ResourceSchema, OverrideProps, FieldDefinition, DetailItem } from '@/types'
 import { FieldsForm } from '@/components/fields/FieldsForm'
 import { useToast } from '@/contexts/ToastContext'
@@ -211,7 +212,11 @@ function CreateTargetPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => {
+    mutationFn: (formValues: Record<string, unknown>) => {
+      // A BelongsTo the form holds as `{ id, title }` (the parent a create
+      // launched from a relationship panel pre-fills, a picked record, a
+      // replicated one) goes as its id.
+      const data = createPayload(formValues, allFormFields as FieldDefinition[])
       if (isViaRelation) {
         // The relationship's endpoint takes a file the way the resource's
         // does: multipart when the form carries one (a File serialises to
@@ -231,6 +236,11 @@ function CreateTargetPage() {
     onSuccess: (res) => {
       emitRecordEvent('created', resource, res.data?.id)
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
+      // The parent's panel (the page navigates back client-side, the cached
+      // list lives 30 s) shows the new record, whichever submit mode follows.
+      if (isViaRelation) {
+        void invalidateRelationPanel(qc, viaRelationshipType!, viaResource!, viaResourceId!, viaRelationship!)
+      }
       addToast('success', res.meta?.message ?? tMsg('record_created'))
       // Suppress the unsaved-changes guard for the post-save redirect.
       markSaved()

@@ -1,0 +1,35 @@
+/**
+ * `react-dom/client` shim (v2.10.0).
+ *
+ * The consumer's `vite.extensions.config.ts` aliases bare `react-dom/client`
+ * imports to this file. It re-exports the host's `createRoot` and
+ * `hydrateRoot` from `window.Martis.reactDomClient`, so a root an extension
+ * creates (a micro-frontend, an embedded widget) runs on the host's React DOM
+ * instead of a second copy.
+ *
+ * `render`, `hydrate` and the other legacy root APIs of `react-dom` are not
+ * exposed (React 18 deprecated them, React 19 removed them). An import of a
+ * name this shim does not export stops the build, and `tsc` reports it too,
+ * since `tsconfig.extensions.json` maps `react-dom/client` to the
+ * declarations next to this file (`react-dom-client.d.mts`).
+ */
+
+const C =
+  typeof window !== 'undefined' && window.Martis && window.Martis.reactDomClient
+    ? window.Martis.reactDomClient
+    : null
+
+if (C === null) {
+  throw new Error(
+    '[react-dom-client-shim] window.Martis.reactDomClient not available: Martis v2.10+ exposes it from app.tsx. Upgrade the package, or override the consumer alias to point at a custom shim.',
+  )
+}
+
+export const createRoot = C.createRoot
+export const hydrateRoot = C.hydrateRoot
+
+// The default export, for `import ReactDOMClient from 'react-dom/client'`:
+// the same members as the named exports.
+const ReactDOMClient = { createRoot, hydrateRoot }
+
+export default ReactDOMClient

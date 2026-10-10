@@ -58,6 +58,8 @@ Martis::mainMenu(function (Request $request, Menu $menu): Menu {
 });
 ```
 
+A menu is cached per user and locale (the `navigation` cache layer, 1 minute by default). A resolver that also depends on the host, a tenant header or another value of the request needs `Martis::cacheScopeUsing()`, or the user gets the menu built first for whichever tenant: see [Scoping the keys by host or tenant](cache.md#scoping-the-keys-by-host-or-tenant-v2100).
+
 ## Available Builders
 
 ### `Menu`

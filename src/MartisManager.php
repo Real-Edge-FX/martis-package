@@ -33,6 +33,9 @@ class MartisManager
     /** @var (Closure(Builder<Model>, Request): mixed)|null */
     protected ?Closure $notificationScope = null;
 
+    /** @var (Closure(Request): mixed)|null checked at resolve time: a string or null */
+    protected ?Closure $cacheScopeResolver = null;
+
     /** @var list<class-string<DashboardContract>|DashboardContract> */
     protected array $dashboards = [];
 
@@ -562,6 +565,65 @@ class MartisManager
             'icon' => is_string($resolved['icon'] ?? null) ? $resolved['icon'] : null,
             'group' => $group,
         ];
+    }
+
+    // -------------------------------------------------------------------------
+    // Cache scope
+    // -------------------------------------------------------------------------
+
+    /**
+     * Scope every Martis cache key by something the request carries beyond
+     * the user and the locale (v2.10.0): the host of a tenant-per-subdomain
+     * app, a tenant header, the tenant a tenancy package resolved, a session
+     * value.
+     *
+     *     Martis::cacheScopeUsing(fn (Request $request): ?string => $request->getHost());
+     *
+     * Martis keys its cache entries by user and locale (plus what the layer
+     * adds: the resource for the schema, the range and filters for a metric,
+     * the page for a lens). A main menu, a field's options, a dashboard's
+     * cards, a metric's query or a lens's query that also read the host or
+     * the tenant are cached as if they did not, so the same user on two
+     * tenants gets whichever payload was built first, for the TTL. The
+     * resolver's answer is hashed into every key of the layers `metrics`,
+     * `navigation`, `dashboards`, `schema` and of a lens or metric that sets
+     * its own `cacheFor()`, so each value of it has its own entries.
+     *
+     * The resolver receives the current request and answers a string, or
+     * `null` for "no scope" (the key stays what it is without a resolver).
+     * Any other answer throws `UnexpectedValueException`: a misconfigured
+     * scope would share entries between tenants. It runs on every cache read,
+     * so keep it cheap. In a console command or a queue job it receives the
+     * placeholder request Laravel binds from `APP_URL`, so write it null-safe
+     * (`$request->user()?->tenant_id`). There is no default scope, not even the host: Nova
+     * has none, every app's keys would change, and a host scope would let any
+     * client multiply entries through the `Host` header on an app without
+     * trusted hosts. `martis:cache:clear` still clears every scope (it bumps
+     * the version in the key's prefix). `null` removes the resolver.
+     *
+     * @param  (Closure(Request): ?string)|null  $resolver
+     */
+    public function cacheScopeUsing(?Closure $resolver): static
+    {
+        $this->cacheScopeResolver = $resolver;
+
+        return $this;
+    }
+
+    public function forgetCacheScope(): static
+    {
+        return $this->cacheScopeUsing(null);
+    }
+
+    /**
+     * The registered cache scope resolver, if any. The one reader is
+     * `MartisCache::scopeSegment()`.
+     *
+     * @return (Closure(Request): mixed)|null
+     */
+    public function cacheScopeResolver(): ?Closure
+    {
+        return $this->cacheScopeResolver;
     }
 
     // -------------------------------------------------------------------------

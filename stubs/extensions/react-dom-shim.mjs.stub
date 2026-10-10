@@ -1,41 +1,50 @@
 /**
- * `react-dom` shim (v1.38.0+).
+ * `react-dom` shim (v1.38.0+; the public ReactDOM 18 API since v2.10.0).
  *
  * The consumer's `vite.extensions.config.ts` aliases bare `react-dom`
- * imports to this file. It re-exports the part of `react-dom` the Martis
- * runtime carries: `createPortal` (on `window.Martis.runtime` since
- * v1.29.0), so a portal an extension opens renders with the host's React
- * DOM instead of a second copy, and `flushSync` (since v1.38.2), which
- * third-party libraries import (`@tanstack/react-virtual` calls it while
- * scrolling a virtualised list). Nothing else of `react-dom` reaches an
- * extension: an import of any other name stops the build with
- * `"unstable_batchedUpdates" is not exported by ".shims/react-dom.mjs"`, and
- * `tsc` reports it too, since `tsconfig.extensions.json` maps `react-dom` to
- * the declarations next to this file (`react-dom.d.mts`).
+ * imports to this file. It re-exports the host's copy of the public
+ * `react-dom` API from `window.Martis.reactDom`, so a portal an extension
+ * opens, a `flushSync` a virtualiser calls or an `unstable_batchedUpdates`
+ * a drag-and-drop library wraps runs on the host's React DOM instead of a
+ * second copy: `createPortal`, `flushSync`, `unstable_batchedUpdates` and
+ * `version`. `createPortal` and `flushSync` are also named exports of
+ * `@martis/runtime`.
  *
- * Before v1.38.0 the config sent `react-dom` to the React shim, which
- * exports React core only. `createPortal` and `flushSync` are also named
- * exports of `@martis/runtime`. In v1.38.0 and v1.38.1 this shim carried
- * `createPortal` only, and a library that imports `flushSync` stopped the
- * build.
+ * Not exposed: the legacy root APIs `render`, `hydrate`, `findDOMNode`,
+ * `unmountComponentAtNode` and `unstable_renderSubtreeIntoContainer`. React
+ * 18 deprecated them and React 19 removed them, so an extension that used
+ * them would break when the host moves on. An import of one of them stops
+ * the build with `"render" is not exported by ".shims/react-dom.mjs"`, and
+ * `tsc` reports it too, since `tsconfig.extensions.json` maps `react-dom` to
+ * the declarations next to this file (`react-dom.d.mts`). `createRoot` and
+ * `hydrateRoot` come from `react-dom/client` (`.shims/react-dom-client.mjs`).
+ *
+ * History: before v1.38.0 the config sent `react-dom` to the React shim,
+ * which exports React core only. In v1.38.0 and v1.38.1 this shim carried
+ * `createPortal` only, from v1.38.2 to v2.9.x `createPortal` and `flushSync`,
+ * both read off `window.Martis.runtime`, so a library that imports
+ * `unstable_batchedUpdates` (`@dnd-kit/core`) stopped the build. A shim
+ * published by one of those versions keeps working against this host.
  */
 
-const R =
-  typeof window !== 'undefined' && window.Martis && window.Martis.runtime
-    ? window.Martis.runtime
+const D =
+  typeof window !== 'undefined' && window.Martis && window.Martis.reactDom
+    ? window.Martis.reactDom
     : null
 
-if (R === null) {
+if (D === null) {
   throw new Error(
-    '[react-dom-shim] window.Martis.runtime not available: Martis v1.10+ exposes it from app.tsx. Upgrade the package or override the consumer alias to point at a custom shim.',
+    '[react-dom-shim] window.Martis.reactDom not available: Martis v2.10+ exposes it from app.tsx. Upgrade the package (and republish its assets) or override the consumer alias to point at a custom shim.',
   )
 }
 
-export const createPortal = R.createPortal
-export const flushSync = R.flushSync
+export const createPortal = D.createPortal
+export const flushSync = D.flushSync
+export const unstable_batchedUpdates = D.unstable_batchedUpdates
+export const version = D.version
 
 // The default export, for `import ReactDOM from 'react-dom'`: the same
 // members as the named exports.
-const ReactDOM = { createPortal, flushSync }
+const ReactDOM = { createPortal, flushSync, unstable_batchedUpdates, version }
 
 export default ReactDOM

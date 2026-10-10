@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
+use Martis\Cache\MartisCache;
 use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\Field;
@@ -116,7 +117,9 @@ class LensController extends MartisController
         // This provides "just works" caching without needing model
         // observers or cache tags. Only a cached lens needs it.
         $tableVersion = $ttl > 0 ? $this->resolveTableVersion($modelClass, $resourceClass::softDeletes()) : '';
-        $cacheKey = $this->buildCacheKey($lensInstance, $lensRequest, $perPage, $page, $trashedMode, $tableVersion);
+        // The key (and with it the app's cache scope resolver) only for a
+        // cached lens: an uncached one never depends on the resolver.
+        $cacheKey = $ttl > 0 ? $this->buildCacheKey($lensInstance, $lensRequest, $perPage, $page, $trashedMode, $tableVersion) : '';
 
         $fields = $this->resolveLensFields($lensInstance, $request);
 
@@ -296,7 +299,10 @@ class LensController extends MartisController
             app()->getLocale(),
         ];
 
-        return implode(':', array_map('strval', $parts));
+        // The scope an app registered with `Martis::cacheScopeUsing()` (v2.10.0),
+        // so a lens whose query reads the host or the tenant does not serve
+        // one tenant's rows to another.
+        return implode(':', array_map('strval', $parts)).app(MartisCache::class)->scopeSegment($lensRequest);
     }
 
     /**

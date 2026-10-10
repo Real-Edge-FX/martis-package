@@ -181,7 +181,8 @@ describe('ResourceCreatePage — the route moves to another target', () => {
     type('body', 'Nice post')
     const [path, body] = await create('Create Comment')
     expect(path).toBe('/api/resources/posts/2/has-many/comments')
-    expect(body).toEqual({ post: { id: '2', title: 'Second post' }, body: 'Nice post' })
+    // The pre-filled parent goes as its id (v2.10.0), not as its { id, title } map.
+    expect(body).toEqual({ post: '2', body: 'Nice post' })
   })
 
   it('replicates the new source when the route moves to another record to replicate', async () => {

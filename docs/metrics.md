@@ -327,7 +327,7 @@ public function cacheFor(): ?\DateTimeInterface
 }
 ```
 
-A metric that overrides `cacheFor()` is cached with Laravel's `Cache::remember()` directly, outside the Martis layer, so the `metrics` kill-switch, the `?nocache` bypass and `martis:cache:clear` do not apply to it. Both paths key the result on the user the Martis guard signed in (by model and identifier; guests share one entry), the locale, the range and the filters, so a `calculate()` scoped to the user, their tenant or their permissions is never served to another user (v2.0.0+). A user whose identifier is not an int, a string or `Stringable` gets no cached entry, and `protected bool $cachePerUser = false;` shares one entry for a metric whose value is the same for everyone.
+A metric that overrides `cacheFor()` is cached with Laravel's `Cache::remember()` directly, outside the Martis layer, so the `metrics` kill-switch, the `?nocache` bypass and `martis:cache:clear` do not apply to it. Both paths key the result on the user the Martis guard signed in (by model and identifier; guests share one entry), the locale, the range and the filters, plus the scope an app registered with `Martis::cacheScopeUsing()` (v2.10.0), so a `calculate()` scoped to the user, their tenant or their permissions is never served to another user (v2.0.0+). A user whose identifier is not an int, a string or `Stringable` gets no cached entry, and `protected bool $cachePerUser = false;` shares one entry for a metric whose value is the same for everyone.
 
 ## Authorization
 
@@ -424,7 +424,7 @@ public function cacheFor(): ?\DateTimeInterface
 
 ### Global cache defaults
 
-Defaults live in `config/martis.php` under the `cache` block. Each subsystem (`metrics`, `navigation`, `dashboards`, `schema`) has its own `{enabled, ttl}` pair so an operator can flip a single layer off without touching the others. Individual metrics still win via `cacheFor()`, which bypasses the layer (and its kill-switch) entirely. Every metric cache entry is per user, unless the metric sets `$cachePerUser = false`.
+Defaults live in `config/martis.php` under the `cache` block. Each subsystem (`metrics`, `navigation`, `dashboards`, `schema`) has its own `{enabled, ttl}` pair so an operator can flip a single layer off without touching the others. Individual metrics still win via `cacheFor()`, which bypasses the layer (and its kill-switch) entirely. Every metric cache entry is per user, unless the metric sets `$cachePerUser = false`, and carries the scope of `Martis::cacheScopeUsing()` when the app registered one (v2.10.0).
 
 ```php
 'cache' => [
