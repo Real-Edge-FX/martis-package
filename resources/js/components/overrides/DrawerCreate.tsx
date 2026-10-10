@@ -168,7 +168,7 @@ export function DrawerCreate(props: OverrideProps) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErrors({})
-    createMutation.mutate(createPayload(values))
+    createMutation.mutate(createPayload(values, allFormFields))
   }
 
   const title = `${tAct('create')} ${schema.singularLabel}`

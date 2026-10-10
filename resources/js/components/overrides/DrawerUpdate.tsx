@@ -221,7 +221,7 @@ export function DrawerUpdate(props: OverrideProps) {
     setErrors({})
     submittedSnapshot.current = { recordKey, snapshot: scalarSnapshot(scalarFields, values) }
     // Unchanged files left out, BelongsTo reduced to its id, MorphTo kept whole.
-    updateMutation.mutate(updatePayload(values))
+    updateMutation.mutate(updatePayload(values, allFormFields))
   }
 
   // The record seeds `values` in an effect; the fields mount only after it,
