@@ -19,6 +19,8 @@
  *   prepends it on `navigate`, which would otherwise double to `/martis/martis/...`).
  */
 
+import type { QueryClient } from '@tanstack/react-query'
+
 const BASENAME = '/martis'
 
 export interface ViaParamsInput {
@@ -69,4 +71,25 @@ export function readPathParent(): { resource: string; id: string } {
     resource: parts[idx + 1] ?? '',
     id: parts[idx + 2] ?? '',
   }
+}
+
+const PANEL_KINDS = ['has-many', 'has-one', 'morph-many', 'morph-one', 'morph-to-many'] as const
+
+/**
+ * Invalidate the query of the relationship panel a record was created or
+ * edited from (`?viaResource=...&viaResourceId=...&viaRelationship=...`), so
+ * the panel lists the change instead of the list it cached before (v1.39.6).
+ * Each kind of panel keys its query by its own kind, so `relationshipType`
+ * (the `viaRelationshipType` param) picks the key; an absent or unknown kind
+ * is a has-many, the default of the create URL.
+ */
+export function invalidateRelationPanel(
+  qc: QueryClient,
+  relationshipType: string | null | undefined,
+  parentResource: string,
+  parentId: string | number,
+  relationship: string,
+): void {
+  const kind = PANEL_KINDS.find((candidate) => candidate === relationshipType) ?? 'has-many'
+  void qc.invalidateQueries({ queryKey: [kind, parentResource, parentId, relationship] })
 }

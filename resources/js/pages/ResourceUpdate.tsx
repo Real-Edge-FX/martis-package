@@ -17,6 +17,7 @@ import { usePageTitle } from '@/hooks/usePageTitle'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import { recordHref } from '@/lib/recordHref'
 import { updatePayload } from '@/lib/updatePayload'
+import { invalidateRelationPanel } from '@/lib/relationViaParams'
 import { useHiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
 
 export function ResourceUpdatePage() {
@@ -163,16 +164,11 @@ function RecordUpdatePage() {
       // while the request ran still does.
       baselineRef.current = submittedRef.current
       // Navigate back to parent resource detail if editing via a
-      // relationship, otherwise to record detail. Invalidate the matching
-      // query (has-many or has-one depending on viaRelationshipType),
-      // otherwise the parent's panel would keep stale data and the user
-      // would need a manual refresh.
+      // relationship. Invalidate the panel's own query (its key follows the
+      // relationship kind), otherwise the parent's panel would keep stale
+      // data and the user would need a manual refresh.
       if (isViaRelation) {
-        if (viaRelationshipType === 'has-one') {
-          void qc.invalidateQueries({ queryKey: ['has-one', viaResource, viaResourceId, viaRelationship] })
-        } else {
-          void qc.invalidateQueries({ queryKey: ['has-many', viaResource, viaResourceId, viaRelationship] })
-        }
+        invalidateRelationPanel(qc, viaRelationshipType, viaResource, viaResourceId, viaRelationship)
       }
 
       const mode = submitModeRef.current
