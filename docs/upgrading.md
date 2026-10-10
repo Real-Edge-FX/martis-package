@@ -4,6 +4,15 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.11.1 from v2.11.0
+
+v2.11.1 makes the detach and the pivot update of a `BelongsToMany` / `MorphToMany` panel find the related record through the relation, makes the attach answer a missing id like a record its picker hides, and writes the pivot through the relationship's `relatedKey`. Nothing has to change in an app; check these points:
+
+- **A record that is not attached answers `404`.** `DELETE .../{relatedId}/detach` and `PUT .../{relatedId}/pivot` answered `200` for a record that exists but is not attached to the parent (the detach changed nothing), and `404` for an id that does not exist, so the routes told another tenant's records apart from missing ids. Both now answer `404` with the body of a missing id (`Related record not found.`), before the `detach{Model}` / `updatePivot{Model}` policy is asked. A client that detaches the same record twice gets `404` on the second call instead of `200`; the panel shows the message in its detach dialog. An `authorizedToDetach()` override or a `detach{Model}` ability written only to refuse records that are not attached can go. See [Relationships → Only an attached record is detached](relationships.md#only-an-attached-record-is-detached).
+- **The attach of a missing id answers `422`.** `POST .../attach` answered `404` (`Related record not found.`) for an id that names no record and `422` (or `403` from `attach{Model}`) for a record the picker hides, so it told them apart too. A missing id now fails like a hidden record, `422` on `related_id` with the same body, and the policy is only asked about records the picker lists. In a batch (`related_ids`) a missing id now fails the whole batch with `422` instead of being listed in `meta.errors` and skipped. A client that read the attach's `404` reads the `422` now. See [Relationships → Writes follow the pickers](relationships.md#writes-follow-the-pickers).
+- **A relationship with a custom `relatedKey` attaches the right value.** For `belongsToMany(Skill::class, 'course_skill', 'course_id', 'skill_code', 'id', 'code')` (or the `morphToMany()` equivalent) the attach wrote the skill's primary key into `skill_code`, and the detach and the pivot update looked the row up by it and found nothing (the detach answered `200`). They now use `code`, as Eloquent does. Rows attached through the panel before v2.11.1 hold the primary key in that column: check them if you use such a relationship.
+- **An id an integer key cannot hold no longer reaches the database.** `.../abc/detach` and `.../abc/pivot` answer `404`, and an attach of `abc` answers `422`; on PostgreSQL they answered `500`.
+
 ## Upgrading to v2.11.0 from v2.10.x
 
 v2.11.0 fixes how Martis reads a policy that returns `Illuminate\Auth\Access\Response`, lets such a denial answer its status, and stops a headless resource from standing in for the routable resource over the same model. Check these points:

@@ -338,8 +338,8 @@ it('detach is scoped — does not detach from another morph type', function () {
         "/martis/api/resources/m-t-m-post-models/{$post->id}/morph-to-many/tags/{$tag->id}/detach",
     );
 
-    // The post holds no such attachment: the detach is a no-op.
-    $response->assertOk();
+    // The post holds no such attachment: it answers like a missing id.
+    $response->assertNotFound();
     // The Video's attachment is untouched.
     expect($video->tags()->count())->toBe(1);
 });
@@ -366,6 +366,26 @@ it('updates pivot data for a polymorphic attachment', function () {
         ->where('tag_id', $tag->id)
         ->first();
     expect((int) $pivotRow->weight)->toBe(99);
+});
+
+it('answers 404 to a pivot update of a tag the parent does not hold', function () {
+    $post = MTMPostModel::create(['title' => 'Post']);
+    $video = MTMVideoModel::create(['title' => 'Video']);
+    $tag = MTMTagModel::create(['name' => 'shared']);
+    $video->tags()->attach($tag->id, ['weight' => 1]);
+
+    $foreign = $this->putJson(
+        "/martis/api/resources/m-t-m-post-models/{$post->id}/morph-to-many/tags/{$tag->id}/pivot",
+        ['weight' => 99],
+    );
+    $missing = $this->putJson(
+        "/martis/api/resources/m-t-m-post-models/{$post->id}/morph-to-many/tags/999999/pivot",
+        ['weight' => 99],
+    );
+
+    $foreign->assertNotFound();
+    expect($foreign->json())->toBe($missing->json());
+    expect((int) DB::table('mtm_test_taggables')->where('tag_id', $tag->id)->value('weight'))->toBe(1);
 });
 
 // ---------------------------------------------------------------------------

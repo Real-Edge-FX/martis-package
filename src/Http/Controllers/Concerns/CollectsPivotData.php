@@ -61,8 +61,9 @@ trait CollectsPivotData
 
     /**
      * Validate the pivot fields and return the values to write, or the 422
-     * response of a failed validation. `$relatedId` names the attached
-     * record a pivot update writes. `$sourceResourceClass` is the parent
+     * response of a failed validation. `$relatedId` is the attached
+     * record a pivot update writes (its model, so a relationship with a
+     * custom `relatedKey` finds its pivot row). `$sourceResourceClass` is the parent
      * resource, the source of the relatable hooks of the pivot fields'
      * pickers: a `BelongsTo`, `MorphTo` or `Tag` among them is checked
      * against its picker's query (see `Martis\Rules\Relatable`).
@@ -72,7 +73,7 @@ trait CollectsPivotData
      * @param  class-string<\Martis\Resource>|null  $sourceResourceClass
      * @return array<string, mixed>|IlluminateJsonResponse
      */
-    protected function collectPivotData(Request $request, array $pivotFields, bool $isUpdate, EloquentBelongsToMany $relation, int|string|null $relatedId = null, ?string $sourceResourceClass = null): array|IlluminateJsonResponse
+    protected function collectPivotData(Request $request, array $pivotFields, bool $isUpdate, EloquentBelongsToMany $relation, int|string|Model|null $relatedId = null, ?string $sourceResourceClass = null): array|IlluminateJsonResponse
     {
         $fields = array_values(array_filter($pivotFields, static fn (mixed $field): bool => $field instanceof Field));
 

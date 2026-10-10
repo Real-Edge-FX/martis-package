@@ -177,6 +177,12 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
     },
     onError: (e: unknown) => {
       setDetachError(e instanceof ApiError && e.message ? e.message : tMsg('error_detach', 'The record could not be detached.'))
+      // A 404: the record is no longer attached (detached elsewhere), so
+      // the list drops the stale row while the dialog says why.
+      if (e instanceof ApiError && e.status === 404) {
+        void qc.invalidateQueries({ queryKey: ['belongs-to-many', parentResource, parentId, relationship] })
+        void qc.invalidateQueries({ queryKey: ['btm-attachable', parentResource, parentId, relationship] })
+      }
     },
   })
 

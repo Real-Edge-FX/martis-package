@@ -1671,7 +1671,7 @@ class ResourceController extends MartisController
             }
 
             $authorized = $parentResource->authorizedToUpdatePivot($request, $relatedModel);
-            $pivotRow = $this->storedPivotRow($relation, $relatedId) ?? $pivotRow;
+            $pivotRow = $this->storedPivotRow($relation, $relatedModel) ?? $pivotRow;
         }
 
         if (! $authorized) {

@@ -13,6 +13,9 @@ import { relationField, renderOnPage } from '@/test-support/relationPanels'
  * `mutateAsync()` with `void`, leaving an unhandled rejection on every 422
  * although their error handlers already showed it. The confirmation now
  * shows why the detach failed, and nothing is left unhandled.
+ *
+ * Since v2.11.1 a record that is no longer attached answers 404: the panel
+ * then lists its records again, so the stale row goes.
  */
 
 vi.mock('@/lib/api', async (importOriginal) => {
@@ -86,5 +89,31 @@ describe.each(PANELS)('$type detach', (panel) => {
 
     expect(await within(dialog).findByRole('alert')).toHaveProperty('textContent', 'This action is unauthorized.')
     expect(api.delete).toHaveBeenCalledTimes(1)
+  })
+
+  it('lists the records again when the record is no longer attached', async () => {
+    vi.mocked(api.delete).mockRejectedValue(new ApiError(404, 'Related record not found.'))
+    const { container } = renderOnPage('/resources/projects/3', '/resources/:resource/:id', (
+      <FieldDisplay
+        field={relationField(panel.type, panel.relationship, panel.relatedResource, panel.metaKey) as FieldDefinition}
+        value={null}
+        resourceKey="projects"
+        context="detail"
+      />
+    ))
+
+    const detach = await waitFor(() => {
+      const el = container.querySelector('[data-pr-tooltip="Detach"]')
+      expect(el).not.toBeNull()
+      return el as HTMLElement
+    })
+    const listCalls = () => vi.mocked(api.get).mock.calls.filter(([url]) => String(url).includes(`/${panel.relationship}?`) || String(url).endsWith(`/${panel.relationship}`)).length
+    const before = listCalls()
+    fireEvent.click(detach)
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Detach' }))
+
+    expect(await within(dialog).findByRole('alert')).toHaveProperty('textContent', 'Related record not found.')
+    await waitFor(() => expect(listCalls()).toBeGreaterThan(before))
   })
 })

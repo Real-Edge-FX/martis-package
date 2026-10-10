@@ -289,6 +289,15 @@ class BelongsToManyController extends MartisController
         /** @var class-string<Model> $relatedModelClass */
         $relatedModelClass = $relatedResourceClass::model();
 
+        // Only a record the attach picker lists (Nova's RelatableAttachment
+        // rule): the relatable hooks decide what may be attached, not only
+        // what the picker shows. An id that names no record answers the
+        // same 422, before the policy is asked, so a record the picker
+        // hides cannot be told apart from a missing one.
+        if ($notRelatable = $this->notRelatableAttachment($request, $ctx, [$relatedId], 'related_id')) {
+            return $notRelatable;
+        }
+
         /** @var Model|null $relatedModel */
         $relatedModel = $relatedModelClass::find($relatedId); // @phpstan-ignore-line
         if ($relatedModel === null) {
@@ -298,13 +307,6 @@ class BelongsToManyController extends MartisController
         // Authorization
         if (! $this->canAttach($request, $parentModel, $relatedModel, $ctx)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
-        }
-
-        // Only a record the attach picker lists (Nova's RelatableAttachment
-        // rule): the relatable hooks decide what may be attached, not only
-        // what the picker shows.
-        if ($notRelatable = $this->notRelatableAttachment($request, $ctx, [$relatedModel->getKey()], 'related_id')) {
-            return $notRelatable;
         }
 
         // Check duplicates — qualify the column to avoid ambiguity between
@@ -329,7 +331,7 @@ class BelongsToManyController extends MartisController
         }
 
         try {
-            $relation->attach($relatedModel->getKey(), $pivotData);
+            $relation->attach($relatedModel, $pivotData);
         } catch (QueryException $e) {
             Log::error('Martis: BelongsToMany attach error', [
                 'resource' => $resource,
@@ -376,8 +378,13 @@ class BelongsToManyController extends MartisController
         $attached = [];
         $errors = [];
 
-        // Every record first, so a record the attach picker does not list
-        // fails the whole batch before anything is attached.
+        // Every record first, so a record the attach picker does not list,
+        // or an id that names no record, fails the whole batch before
+        // anything is attached or any policy is asked.
+        if ($notRelatable = $this->notRelatableAttachment($request, $ctx, $relatedIds, 'related_ids')) {
+            return $notRelatable;
+        }
+
         $candidates = [];
         foreach ($relatedIds as $relatedId) {
             /** @var Model|null $relatedModel */
@@ -397,10 +404,6 @@ class BelongsToManyController extends MartisController
             $candidates[] = $relatedModel;
         }
 
-        if ($notRelatable = $this->notRelatableAttachment($request, $ctx, array_map(static fn (Model $model): int|string => $model->getKey(), $candidates), 'related_ids')) {
-            return $notRelatable;
-        }
-
         foreach ($candidates as $relatedModel) {
             $relatedId = $relatedModel->getKey();
 
@@ -414,7 +417,7 @@ class BelongsToManyController extends MartisController
             }
 
             try {
-                $relation->attach($relatedModel->getKey(), $pivotData);
+                $relation->attach($relatedModel, $pivotData);
                 $attached[] = [
                     'id' => $relatedModel->getKey(),
                     '_title' => (new $relatedResourceClass($relatedModel))->title(), // @phpstan-ignore-line
@@ -471,8 +474,8 @@ class BelongsToManyController extends MartisController
         /** @var class-string<Model> $relatedModelClass */
         $relatedModelClass = $relatedResourceClass::model();
 
-        /** @var Model|null $relatedModel */
-        $relatedModel = $relatedModelClass::find($relatedId); // @phpstan-ignore-line
+        // A record that is not attached answers like a missing one.
+        $relatedModel = $this->findAttachedRelated($relation, $relatedModelClass, $relatedId);
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
         }
@@ -483,7 +486,7 @@ class BelongsToManyController extends MartisController
         }
 
         try {
-            $relation->detach($relatedModel->getKey());
+            $relation->detach($relatedModel);
         } catch (QueryException $e) {
             Log::error('Martis: BelongsToMany detach error', [
                 'resource' => $resource,
@@ -531,8 +534,8 @@ class BelongsToManyController extends MartisController
         /** @var class-string<Model> $relatedModelClass */
         $relatedModelClass = $relatedResourceClass::model();
 
-        /** @var Model|null $relatedModel */
-        $relatedModel = $relatedModelClass::find($relatedId); // @phpstan-ignore-line
+        // A record that is not attached answers like a missing one.
+        $relatedModel = $this->findAttachedRelated($relation, $relatedModelClass, $relatedId);
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
         }
@@ -550,7 +553,7 @@ class BelongsToManyController extends MartisController
 
         // Readonly, hidden and immutable pivot fields keep their stored value,
         // and so do the row fields of a pivot Repeater a row cannot write.
-        $pivotData = $this->collectPivotData($request, $pivotFields, isUpdate: true, relation: $relation, relatedId: $relatedModel->getKey(), sourceResourceClass: $ctx['parentResourceClass']);
+        $pivotData = $this->collectPivotData($request, $pivotFields, isUpdate: true, relation: $relation, relatedId: $relatedModel, sourceResourceClass: $ctx['parentResourceClass']);
         if ($pivotData instanceof IlluminateJsonResponse) {
             return $pivotData;
         }
@@ -559,7 +562,7 @@ class BelongsToManyController extends MartisController
         // update with an empty SET is invalid SQL, and the row stays as is.
         if ($pivotData !== []) {
             try {
-                $relation->updateExistingPivot($relatedModel->getKey(), $pivotData);
+                $relation->updateExistingPivot($relatedModel, $pivotData);
             } catch (QueryException $e) {
                 Log::error('Martis: BelongsToMany updatePivot error', [
                     'resource' => $resource,
