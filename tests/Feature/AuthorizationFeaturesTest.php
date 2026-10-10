@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Auth\Access\Events\GateEvaluated;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Auth\User;
@@ -153,6 +154,24 @@ it('audit denials listener dedupes a repeat ability+model within one request', f
     expect(ActionEvent::query()->where('name', 'authz.denied')->count())->toBe(1);
 });
 
+it('audit denials listener records a Response that denies and skips one that allows', function () {
+    config()->set('martis.audit.authz_denials', true);
+
+    $user = AuthzTestUser::create(['email' => 'resp@example.com']);
+    $post = AuthzTestPost::create(['title' => 'admin', 'is_admin_only' => true]);
+
+    $listener = new RecordAuthorizationDenial;
+
+    $listener->handle(new GateEvaluated($user, 'allowed-by-response', Response::allow(), [$post]));
+    expect(ActionEvent::query()->where('name', 'authz.denied')->count())->toBe(0);
+
+    $listener->handle(new GateEvaluated($user, 'denied-by-response', Response::deny('no'), [$post]));
+    $listener->handle(new GateEvaluated($user, 'denied-as-not-found', Response::denyAsNotFound(), [$post]));
+
+    $abilities = ActionEvent::query()->where('name', 'authz.denied')->get()->map(fn ($row) => $row->fields['ability'])->all();
+    expect($abilities)->toEqualCanonicalizing(['denied-by-response', 'denied-as-not-found']);
+});
+
 // -----------------------------------------------------------------------------
 // C5 — Per-request ability cache
 // -----------------------------------------------------------------------------
@@ -179,6 +198,29 @@ it('request-scoped ability cache memoises Gate decisions when feature flag is on
     ));
 
     expect($cache->lookup($user, 'view-test-post', $post))->toBeTrue();
+});
+
+it('request-scoped ability cache stores a Response through allowed(), not as a truthy object', function () {
+    config()->set('martis.authz.request_cache', true);
+
+    $user = AuthzTestUser::create(['email' => 'resp-cache@example.com']);
+    $post = AuthzTestPost::create(['title' => 'public']);
+
+    /** @var RequestScopedAbilityCache $cache */
+    $cache = app(RequestScopedAbilityCache::class);
+    $cache->clear();
+
+    Gate::define('response-deny', fn () => Response::deny('no'));
+    Gate::define('response-not-found', fn () => Response::denyAsNotFound());
+    Gate::define('response-allow', fn () => Response::allow());
+
+    expect(Gate::forUser($user)->allows('response-deny', $post))->toBeFalse();
+    expect(Gate::forUser($user)->allows('response-not-found', $post))->toBeFalse();
+    expect(Gate::forUser($user)->allows('response-allow', $post))->toBeTrue();
+
+    expect($cache->lookup($user, 'response-deny', $post))->toBeFalse();
+    expect($cache->lookup($user, 'response-not-found', $post))->toBeFalse();
+    expect($cache->lookup($user, 'response-allow', $post))->toBeTrue();
 });
 
 it('request-scoped ability cache short-circuits when feature flag is off', function () {

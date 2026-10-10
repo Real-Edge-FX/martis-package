@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martis\Authorization;
 
 use Illuminate\Auth\Access\Events\GateEvaluated;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Stringable;
@@ -106,12 +107,23 @@ class RequestScopedAbilityCache
             return;
         }
 
-        $this->cache[$key] = (bool) $event->result;
+        $this->cache[$key] = $this->allows($event->result);
     }
 
     public function clear(): void
     {
         $this->cache = [];
+    }
+
+    /**
+     * A policy or Gate ability may answer with a `Response`, an object that
+     * is always truthy: read it through `allowed()`, as the Gate does. The
+     * event types its result as `bool|null`, but the Gate passes the raw
+     * answer through.
+     */
+    protected function allows(mixed $result): bool
+    {
+        return $result instanceof Response ? $result->allowed() : (bool) $result;
     }
 
     /**
