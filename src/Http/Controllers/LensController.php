@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
+use Martis\Cache\MartisCache;
 use Martis\Enums\TrashedFilter;
 use Martis\FieldContext;
 use Martis\Fields\Field;
@@ -296,7 +297,10 @@ class LensController extends MartisController
             app()->getLocale(),
         ];
 
-        return implode(':', array_map('strval', $parts));
+        // The scope an app registered with `Martis::cacheScopeUsing()` (v2.10.0),
+        // so a lens whose query reads the host or the tenant does not serve
+        // one tenant's rows to another.
+        return implode(':', array_map('strval', $parts)).app(MartisCache::class)->scopeSegment($lensRequest);
     }
 
     /**
