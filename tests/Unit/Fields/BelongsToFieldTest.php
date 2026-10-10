@@ -3,6 +3,8 @@
 use Illuminate\Database\Eloquent\Model;
 use Martis\Enums\ModalSize;
 use Martis\Fields\BelongsTo;
+use Martis\Fields\MorphTo;
+use Martis\Fields\Text;
 
 // ---------------------------------------------------------------------------
 // showCreateRelationButton / hideCreateRelationButton
@@ -262,8 +264,8 @@ it('BelongsTo reduceSubmittedValues reduces the BelongsTo maps by attribute and 
     $fields = [
         BelongsTo::make('author'),
         BelongsTo::make('editor'),
-        Martis\Fields\MorphTo::make('owner'),
-        Martis\Fields\Text::make('title'),
+        MorphTo::make('owner'),
+        Text::make('title'),
     ];
 
     $values = [

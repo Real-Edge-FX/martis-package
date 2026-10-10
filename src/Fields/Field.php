@@ -1746,7 +1746,7 @@ abstract class Field implements FieldContract
             $rules[] = 'required';
         } elseif ($this->isNullable()) {
             $rules[] = 'nullable';
-        } elseif (! static::hasConditionalRequired($extraRules)) {
+        } elseif (! $this->hasConditionalRequiredRule($extraRules)) {
             $rules[] = 'sometimes';
         }
 
@@ -1774,7 +1774,7 @@ abstract class Field implements FieldContract
         // missing — including `required`. When the context-specific
         // rules promote the field to required, strip `sometimes` from
         // the base so the missing-key case actually fails validation.
-        if (in_array('required', $contextRules, true) || static::hasConditionalRequired($contextRules)) {
+        if (in_array('required', $contextRules, true) || $this->hasConditionalRequiredRule($contextRules)) {
             $merged = array_values(array_filter($merged, static fn ($r) => $r !== 'sometimes'));
         }
 
@@ -1792,7 +1792,7 @@ abstract class Field implements FieldContract
      *
      * @param  array<array-key, mixed>  $rules
      */
-    protected static function hasConditionalRequired(array $rules): bool
+    protected function hasConditionalRequiredRule(array $rules): bool
     {
         foreach ($rules as $rule) {
             if (is_string($rule) && str_starts_with($rule, 'required_')) {
