@@ -248,9 +248,11 @@ class MorphToMany extends Field
     }
 
     /**
-     * Filter the list of attachable records.
+     * Filter the list of attachable records. Narrow the builder in place:
+     * the return value is ignored, so an arrow function that returns the
+     * builder works too.
      *
-     * @param  \Closure(Request, Builder<Model>): void  $closure
+     * @param  \Closure(Request, Builder<Model>): mixed  $closure
      */
     public function relatableQueryUsing(\Closure $closure): static
     {

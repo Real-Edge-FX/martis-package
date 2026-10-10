@@ -30,6 +30,16 @@ use Martis\Menu\MenuSection;
  */
 class MartisServiceProvider extends ServiceProvider
 {
+    /**
+     * The addresses the `viewMartis` gate lets into the panel outside the
+     * `local` and `testing` environments (see registerGates()).
+     *
+     * @var list<string>
+     */
+    protected array $panelEmails = [
+        // 'admin@example.com',
+    ];
+
     public function register(): void
     {
         //
@@ -116,7 +126,7 @@ class MartisServiceProvider extends ServiceProvider
      *
      * `viewMartis` decides who may open the panel at all. The gate below ships
      * active: it lets the `local` and `testing` environments in and, anywhere else, only the
-     * addresses you list. Without a `viewMartis` gate the panel stays shut
+     * addresses listed in `$panelEmails`. Without a `viewMartis` gate the panel stays shut
      * outside the local environments (`martis.panel_access.open_environments`),
      * as Nova's `viewNova` does, so a guard that also signs in customers never
      * opens the admin to them by omission. Replace the list with your own rule
@@ -126,8 +136,6 @@ class MartisServiceProvider extends ServiceProvider
     {
         // Gate::define('manage-martis-cache', fn ($user) => $user->is_admin);
 
-        Gate::define('viewMartis', fn ($user) => app()->environment(['local', 'testing']) || in_array($user->email, [
-            // 'admin@example.com',
-        ], true));
+        Gate::define('viewMartis', fn ($user) => app()->environment(['local', 'testing']) || in_array($user->email, $this->panelEmails, true));
     }
 }

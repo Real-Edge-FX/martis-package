@@ -115,8 +115,9 @@ abstract class Lens implements LensContract
     /**
      * Compose the lens dataset.
      *
+     * @param  LensRequest<Model>  $request
      * @param  Builder<Model>  $query
-     * @return Builder<Model>|Paginator
+     * @return Builder<Model>|Paginator<int, Model>
      */
     abstract public function query(LensRequest $request, Builder $query): Builder|Paginator;
 

@@ -61,7 +61,7 @@ class {{ class }}
         return $this->isAdmin($user);
     }
 
-    private function isAdmin({{ userModelClass }} $user): bool
+    private function isAdmin(\Illuminate\Contracts\Auth\Authenticatable $user): bool
     {
         return method_exists($user, 'hasRole') && $user->hasRole('admin');
     }

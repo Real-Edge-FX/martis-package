@@ -1443,7 +1443,7 @@ return [
     | record references any more.
     |*/
     'attachments' => [
-        'allowed_mimes' => explode(',', env('MARTIS_ATTACHMENT_MIMES', 'jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,mp4,mp3')),
+        'allowed_mimes' => explode(',', (string) env('MARTIS_ATTACHMENT_MIMES', 'jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,mp4,mp3')),
         'max_size' => (int) env('MARTIS_ATTACHMENT_MAX_SIZE', 10240),
         'throttle_max' => (int) env('MARTIS_ATTACHMENT_THROTTLE_MAX', 20),
         'throttle_decay' => (int) env('MARTIS_ATTACHMENT_THROTTLE_DECAY', 1),

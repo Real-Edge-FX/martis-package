@@ -4,6 +4,30 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.10.1 from v2.10.0
+
+v2.10.1 makes the code Martis writes into an app pass PHPStan level 8, with or without Larastan: the provider `martis:install` publishes, the published `config/martis.php`, and what the generators and the `martis:invitations` and `martis:roles` scaffolds write. Nothing has to change in an app at runtime. If you analyse your app with PHPStan:
+
+- **A provider you published earlier keeps the old gate.** `martis:install` never rewrites an existing provider, so a `viewMartis` gate published by v2.4.0 to v2.10.0 still checks the address against an empty inline list, which PHPStan reports as `Call to function in_array() with arguments mixed, array{} and true will always evaluate to false.` (`function.impossibleType`). Move the list into a typed property, as the stub now does:
+
+  ```php
+  /**
+   * @var list<string>
+   */
+  protected array $panelEmails = [
+      'admin@example.com',
+  ];
+
+  protected function registerGates(): void
+  {
+      Gate::define('viewMartis', fn ($user) => app()->environment(['local', 'testing']) || in_array($user->email, $this->panelEmails, true));
+  }
+  ```
+
+  Do not run `martis:install --force-provider` for this: it replaces the whole file, your menu, dashboards and gates included.
+- **Errors that came from Martis's own types are gone, for code you wrote too.** A dashboard or a tool whose constructor takes no arguments (`parameter.missing`, from `@phpstan-consistent-constructor` on `Dashboard` and `Tool`), a filter's `apply()` and a lens's `query()` without generic types (`missingType.generics`), and a `relatableQueryUsing()`, `MartisSso::syncRolesUsing()` or `MartisSso::afterLogin()` arrow function that returns a value (`argument.type`) no longer fail. Remove the baseline entries or `@phpstan-ignore` comments you added for them.
+- **Files a generator or a scaffold wrote earlier stay as they were.** They are yours. If PHPStan reports one (`InviteUser`, `ResendInvitation`, `RevokeInvitation`, `InvitationPolicy`, `BulkAssignRole`, a date filter), compare it with the package's stub in `vendor/martis/martis/stubs/`. If you published the stubs with `php artisan martis:stubs`, your copies in `stubs/martis/` win over the package's: bring them up to date the same way.
+
 ## Upgrading to v2.10.0 from v2.9.x
 
 v2.10.0 fixes how conditional `required_*` rules validate, sends a pre-filled `BelongsTo` as its id, refreshes a relationship panel after a create made from it, widens what the extension shims expose, and lets a multi-tenant app scope Martis's cache. Nothing has to change in most apps. Check these points:
@@ -110,10 +134,20 @@ php artisan optimize:clear
 When the app defines no `viewMartis` gate, the panel now answers `403` outside the `local` and `testing` environments, as Nova's `viewNova` does. Define it in `app/Providers/MartisServiceProvider.php`; the stub `martis:install` publishes ships it active:
 
 ```php
-Gate::define('viewMartis', fn ($user) => app()->environment(['local', 'testing']) || in_array($user->email, [
+/**
+ * @var list<string>
+ */
+protected array $panelEmails = [
     // 'admin@example.com',
-], true));
+];
+
+protected function registerGates(): void
+{
+    Gate::define('viewMartis', fn ($user) => app()->environment(['local', 'testing']) || in_array($user->email, $this->panelEmails, true));
+}
 ```
+
+(v2.4.0 shipped the list inline in the `in_array()` call; v2.10.1 moved it to the property, see [Upgrading to v2.10.1](#upgrading-to-v2101-from-v2100).)
 
 To keep a non-local environment open without a gate, list it in `MARTIS_PANEL_OPEN_ENVIRONMENTS` (default `local,testing`). A resource without a policy stays open to every panel user, as in Nova, and now logs a warning outside those environments. See [Authorization → Panel access](authorization.md#panel-access-viewmartis).
 

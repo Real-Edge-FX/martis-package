@@ -162,7 +162,8 @@ it('martis:install says that the provider it publishes defines the viewMartis ga
         ->assertSuccessful();
 
     expect((string) file_get_contents(app_path('Providers/MartisServiceProvider.php')))
-        ->toMatch("/^\\s*Gate::define\\('viewMartis'/m");
+        ->toMatch("/^\\s*Gate::define\\('viewMartis'/m")
+        ->toContain('in_array($user->email, $this->panelEmails, true)');
 });
 
 it('martis:install warns that the panel is shut outside local while no viewMartis gate is defined', function () {

@@ -482,7 +482,7 @@ class BelongsTo extends Field implements ProvidesPickerAttributes
      * The closure receives ($request, $query) and should modify the Builder in-place
      * or return a new Builder.
      *
-     * @param  \Closure(Request, Builder<Model>): void  $closure
+     * @param  \Closure(Request, Builder<Model>): mixed  $closure
      */
     public function relatableQueryUsing(\Closure $closure): static
     {

@@ -354,7 +354,7 @@ Resources are **auto-discovered** — no manual registration needed. Martis scan
 
 ### Step 9: Access the Admin Panel
 
-Navigate to `http://your-app.test/martis` and log in with a user of your application. `martis:install` publishes `app/Providers/MartisServiceProvider.php` with the `viewMartis` gate active: it lets the `local` environment in and, anywhere else, only the addresses you list in `registerGates()`. Edit that list before you deploy. Without a `viewMartis` gate the panel answers `403` to everyone outside the `local` and `testing` environments (`martis.panel_access.open_environments`); the installer prints a notice about it. Set `APP_URL` to the URL the panel is served on: the links Martis emails (sign-in, password reset, invitation, email change) are built on it, never on the request's host. See [Authorization → Panel access](authorization.md#panel-access-viewmartis).
+Navigate to `http://your-app.test/martis` and log in with a user of your application. `martis:install` publishes `app/Providers/MartisServiceProvider.php` with the `viewMartis` gate active: it lets the `local` and `testing` environments in and, anywhere else, only the addresses listed in its `$panelEmails` property. Edit that list before you deploy. Without a `viewMartis` gate the panel answers `403` to everyone outside the `local` and `testing` environments (`martis.panel_access.open_environments`); the installer prints a notice about it. Set `APP_URL` to the URL the panel is served on: the links Martis emails (sign-in, password reset, invitation, email change) are built on it, never on the request's host. See [Authorization → Panel access](authorization.md#panel-access-viewmartis).
 
 ## Host MartisServiceProvider
 

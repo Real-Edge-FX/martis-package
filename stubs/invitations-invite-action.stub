@@ -144,15 +144,23 @@ class InviteUser extends Action
         $inviter = auth()->guard(config('martis.guard'))->user();
 
         if (! $this->mayInviteIntoAnyRole($inviter)) {
-            $held = $inviter !== null && method_exists($inviter, 'getRoleNames')
-                ? $inviter->getRoleNames()->all()
-                : [];
-
-            $query->whereIn('name', $held);
+            $query->whereIn('name', $this->heldRoles($inviter));
         }
 
         /** @var array<string, string> */
         return $query->orderBy('name')->pluck('name', 'name')->all();
+    }
+
+    /**
+     * The role names the inviter holds: none without spatie/laravel-permission.
+     *
+     * @return array<int, string>
+     */
+    private function heldRoles(?Authenticatable $inviter): array
+    {
+        return $inviter !== null && method_exists($inviter, 'getRoleNames')
+            ? $inviter->getRoleNames()->all()
+            : [];
     }
 
     /**

@@ -101,8 +101,8 @@ class InstallCommand extends Command
         if ($defined) {
             $this->components->info(
                 'Panel access: the '.PanelAccess::GATE.' gate is defined, so it decides who may open the panel, in every environment. '
-                .'The one martis:install publishes lets the local environment in and, anywhere else, only the addresses you list '
-                .'in app/Providers/MartisServiceProvider.php: edit that list before you deploy.'
+                .'The one martis:install publishes lets the local and testing environments in and, anywhere else, only the addresses '
+                .'listed in $panelEmails in app/Providers/MartisServiceProvider.php: edit that list before you deploy.'
             );
 
             return;

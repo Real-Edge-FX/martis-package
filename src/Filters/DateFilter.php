@@ -63,6 +63,8 @@ class DateFilter extends Filter
 
     public function apply(Request $request, Builder $query, mixed $value): Builder
     {
-        return $query->whereDate($this->column, $this->operator->value, $value);
+        $query->whereDate($this->column, $this->operator->value, $value);
+
+        return $query;
     }
 }

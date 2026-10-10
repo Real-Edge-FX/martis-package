@@ -56,8 +56,6 @@ use Martis\Contracts\ToolContract;
  *     SystemBackups::class, // class-string also accepted
  * ]);
  * ```
- *
- * @phpstan-consistent-constructor
  */
 class Tool implements ToolContract
 {
@@ -107,7 +105,10 @@ class Tool implements ToolContract
 
     public static function make(string $name, ?string $uriKey = null): static
     {
-        return new static($name, $uriKey);
+        // Not `@phpstan-consistent-constructor`: a discovered tool is built
+        // with `new $class`, so its class declares a constructor without
+        // arguments, which that annotation would report in every app.
+        return new static($name, $uriKey); // @phpstan-ignore new.static
     }
 
     public function name(): string

@@ -26,6 +26,7 @@ interface FilterContract
      * Apply the filter to the given query.
      *
      * @param  Builder<Model>  $query
+     * @return Builder<Model>
      */
     public function apply(Request $request, Builder $query, mixed $value): Builder;
 
