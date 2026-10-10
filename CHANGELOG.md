@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.1] — 2026-10-10
+
 Patch release from one consumer report and the sweep it prompted: the code Martis writes into an app passes PHPStan level 8, with or without Larastan, and nothing changes at runtime. A provider published earlier keeps its copy: read [Upgrading to v2.10.1](docs/upgrading.md#upgrading-to-v2101-from-v2100) to move its `viewMartis` allow-list into the typed property.
 
 ### Fixed
@@ -20,6 +22,8 @@ Patch release from one consumer report and the sweep it prompted: the code Marti
 - The `martis:install` notice said the published gate lets the local environment in: it lets `local` and `testing` in, and the notice now names `$panelEmails`. The `relatableQueryUsing` row of the `BelongsTo` reference in `docs/fields.md` named a third closure argument the field never passes and said the closure must return a `Builder`.
 
 A new test, `GeneratedCodeStaticAnalysisTest`, runs every generator and the two scaffolds in testbench and analyses what they write with PHPStan and Larastan at level 8, no baseline, as a Laravel host does; `larastan/larastan` is a new dev dependency for it (the package's own analysis of `src/` does not load it). `phpstan-baseline.neon` is regenerated: 13 entries the code no longer produces are gone.
+
+**Tests:** 5393 Pest passed (+3) and 2072 Vitest passed: 7465 in all, from 7462 at v2.10.0.
 
 ## [2.10.0] — 2026-10-10
 
