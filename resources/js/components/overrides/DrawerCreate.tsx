@@ -120,7 +120,7 @@ export function DrawerCreate(props: OverrideProps) {
   const createMutation = useMutation({
     mutationFn: (formValues: Record<string, unknown>) => {
       // A BelongsTo the form holds as `{ id, title }` goes as its id.
-      const values = createPayload(formValues)
+      const values = createPayload(formValues, allFormFields as FieldDefinition[])
       const data = copyOf !== null ? { ...values, fromResourceId: copyOf } : values
       if (hasFileValues(data)) {
         return api.upload<{ data: { id: string | number }; meta?: { message?: string } }>(

@@ -216,7 +216,7 @@ function CreateTargetPage() {
       // A BelongsTo the form holds as `{ id, title }` (the parent a create
       // launched from a relationship panel pre-fills, a picked record, a
       // replicated one) goes as its id.
-      const data = createPayload(formValues)
+      const data = createPayload(formValues, allFormFields as FieldDefinition[])
       if (isViaRelation) {
         // The relationship's endpoint takes a file the way the resource's
         // does: multipart when the form carries one (a File serialises to

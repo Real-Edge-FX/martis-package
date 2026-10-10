@@ -567,6 +567,20 @@ it('keeps a stored soft-deleted BelongsTo target the edit form sends back', func
         ->assertStatus(422);
 });
 
+it('keeps a stored soft-deleted BelongsTo target the SPA form sends as the id plus the trashed opt-in', function () {
+    $this->task->update(['owner_id' => 4]);
+
+    // What the SPA update form posts for the loaded `{ id, title, trashed: true }`
+    // value: the id and Nova's `<attribute>_trashed` key, as JSON and as multipart.
+    $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}", ['title' => 'Renamed', 'owner_id' => 4, 'owner_id_trashed' => true])
+        ->assertOk();
+
+    $this->put("/martis/api/resources/rw-tasks/{$this->task->id}", ['title' => 'Again', 'owner_id' => '4', 'owner_id_trashed' => '1'], ['Accept' => 'application/json'])
+        ->assertOk();
+
+    expect($this->task->fresh()->title)->toBe('Again');
+});
+
 it('reads a BelongsTo value map the multipart path sends as JSON', function () {
     $this->task->update(['owner_id' => 1]);
 

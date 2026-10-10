@@ -77,4 +77,11 @@ describe('buildFormData', () => {
     expect(got['documents[0]'][0]).toBe(extra)
     expect(got.gallery_keep).toEqual([''])
   })
+
+  it('sends the trashed opt-in of a BelongsTo as 1, which the Relatable rule reads as true', () => {
+    const got = entries(buildFormData({ contact_id: 13, contact_id_trashed: true }))
+
+    expect(got.contact_id).toEqual(['13'])
+    expect(got.contact_id_trashed).toEqual(['1'])
+  })
 })

@@ -92,7 +92,7 @@ export function InlineCreateModal({
   const createMutation = useMutation({
     mutationFn: (formValues: Record<string, unknown>) => {
       // A BelongsTo the form holds as `{ id, title }` goes as its id.
-      const data = createPayload(formValues)
+      const data = createPayload(formValues, schemaQuery.data?.data?.fields ?? [])
       if (hasFileValues(data)) {
         return api.upload<{
           data: { id: string | number; title: string | null }
