@@ -5358,6 +5358,26 @@ declare class IconRegistry {
 /** Singleton instance — register custom icons against this. */
 declare const iconRegistry: IconRegistry;
 
+interface ResourceIconProps {
+    iconName: string | null | undefined;
+    size?: number;
+    className?: string;
+    weight?: IconProps['weight'];
+    color?: string;
+}
+/**
+ * Render a Phosphor icon by name. Backed by `iconRegistry` (curated set
+ * of icons that get tree-shaken at build time, ~250 KB instead of the
+ * ~5 MB whole-namespace import that lived here pre-v0.8). Unknown
+ * names fall back to `DatabaseIcon` so the page never crashes on a
+ * typo. Consumer apps register additional icons via
+ * `iconRegistry.register('my-icon', MyIconComponent)` at boot. An
+ * extension imports it from `@martis/runtime` (v2.10.0), so it renders
+ * icons by name through the same registry instead of bundling its own
+ * `@phosphor-icons/react`.
+ */
+declare function ResourceIcon({ iconName, size, className, weight, color }: ResourceIconProps): react_jsx_runtime.JSX.Element;
+
 /**
  * Layout Registry — Bloco 9 (Override System v1)
  *
@@ -7492,6 +7512,7 @@ declare const martisRuntime: {
     readonly componentRegistry: ComponentRegistry;
     readonly iconRegistry: IconRegistry;
     readonly layoutRegistry: LayoutRegistry;
+    readonly ResourceIcon: typeof ResourceIcon;
     readonly routeRegistry: RouteRegistry;
     readonly usePageTitle: typeof usePageTitle;
     readonly useDynamicCrumb: typeof useDynamicCrumb;
@@ -7541,5 +7562,5 @@ declare const martisRuntime: {
  */
 type MartisRuntime = typeof martisRuntime;
 
-export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthLinkParams, useDashboardFilters, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalFocus, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
-export type { ActionResponseModalProps, ActiveFilters, AuthLinkParams, DashboardFiltersContextValue, DashboardFiltersOptions, DashboardFiltersUpdate, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, ModalFocusOptions, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, RouteRegistration, SetDashboardFilters, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };
+export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, ResourceIcon, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthLinkParams, useDashboardFilters, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalFocus, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
+export type { ActionResponseModalProps, ActiveFilters, AuthLinkParams, DashboardFiltersContextValue, DashboardFiltersOptions, DashboardFiltersUpdate, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, ModalFocusOptions, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, ResourceIconProps, RouteRegistration, SetDashboardFilters, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };

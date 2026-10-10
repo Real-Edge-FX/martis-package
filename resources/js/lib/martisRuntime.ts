@@ -71,6 +71,7 @@ import { useToolFields } from '@/hooks/useToolFields'
 import { useRevalidateOnFocus } from '@/hooks/useRevalidateOnFocus'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { iconRegistry } from '@/lib/iconRegistry'
+import { ResourceIcon } from '@/components/ResourceIcon'
 import { layoutRegistry } from '@/lib/layoutRegistry'
 import { routeRegistry } from '@/lib/routeRegistry'
 import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
@@ -201,6 +202,13 @@ export const martisRuntime = {
   componentRegistry,
   iconRegistry,
   layoutRegistry,
+
+  // An icon by name (since v2.10.0): `<ResourceIcon iconName="rocket-launch"
+  // size={16} />` resolves the name through `iconRegistry` (the curated
+  // Phosphor set plus the icons the app registered, `DatabaseIcon` for an
+  // unknown name), so an extension needs no `@phosphor-icons/react` copy of
+  // its own and bypasses nothing of the lazy registry.
+  ResourceIcon,
 
   // Route registry (since v2.2.0): the pages an application gives URLs of
   // its own below the Martis base path, rendered inside the shell. The
@@ -363,6 +371,7 @@ export type {
 export type { TooltipProps } from 'primereact/tooltip'
 export type { HtmlTooltipProps } from '@/lib/htmlTooltip'
 export type { DropdownProps } from 'primereact/dropdown'
+export type { ResourceIconProps } from '@/components/ResourceIcon'
 export type { MultiSelectProps } from 'primereact/multiselect'
 
 /**

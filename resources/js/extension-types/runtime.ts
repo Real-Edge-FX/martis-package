@@ -51,6 +51,7 @@ export { useRevalidateOnFocus } from '@/hooks/useRevalidateOnFocus'
 // Registries
 export { componentRegistry } from '@/lib/componentRegistry'
 export { iconRegistry } from '@/lib/iconRegistry'
+export { ResourceIcon } from '@/components/ResourceIcon'
 export { layoutRegistry } from '@/lib/layoutRegistry'
 export { routeRegistry } from '@/lib/routeRegistry'
 
@@ -104,6 +105,7 @@ export type {
   TooltipProps,
   HtmlTooltipProps,
   DropdownProps,
+  ResourceIconProps,
   MultiSelectProps,
   MartisFormOptions,
   MartisForm,

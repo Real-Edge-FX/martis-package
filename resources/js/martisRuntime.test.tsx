@@ -6,6 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { martisRuntime } from '@/lib/martisRuntime'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { iconRegistry } from '@/lib/iconRegistry'
+import { ResourceIcon } from '@/components/ResourceIcon'
 import { layoutRegistry } from '@/lib/layoutRegistry'
 import { routeRegistry } from '@/lib/routeRegistry'
 import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
@@ -140,6 +141,9 @@ describe('martisRuntime', () => {
         expect(martisRuntime.componentRegistry).toBe(componentRegistry)
         expect(martisRuntime.iconRegistry).toBe(iconRegistry)
         expect(martisRuntime.layoutRegistry).toBe(layoutRegistry)
+
+        // An icon by name (v2.10.0), resolved through the host's registry.
+        expect(martisRuntime.ResourceIcon).toBe(ResourceIcon)
 
         // Page and override hooks (v1.38.0)
         expect(martisRuntime.usePageTitle).toBeTypeOf('function')
@@ -314,6 +318,22 @@ describe('martisRuntime', () => {
         }
 
         expect(Object.fromEntries(Object.keys(expected).map((id) => [id, resolveAlias(id)]))).toEqual(expected)
+    })
+
+    it('ResourceIcon renders a known icon by name through the registry, and an unknown name as the fallback', () => {
+        const { container, rerender } = render(<martisRuntime.ResourceIcon iconName="rocket-launch" size={24} className="probe" />)
+        const known = container.querySelector('svg.probe')
+        expect(known).not.toBeNull()
+        expect(known?.getAttribute('width')).toBe('24')
+
+        // A name the registry does not know falls back to the database icon
+        // instead of crashing, and an icon an app registers is served too.
+        rerender(<martisRuntime.ResourceIcon iconName="no-such-icon" className="probe" />)
+        expect(container.querySelector('svg.probe')).not.toBeNull()
+
+        iconRegistry.register('runtime-probe-icon', (props: { className?: string }) => <i data-testid="probe-icon" className={props.className} />)
+        rerender(<martisRuntime.ResourceIcon iconName="runtime-probe-icon" className="probe" />)
+        expect(screen.getByTestId('probe-icon').className).toBe('probe')
     })
 
     it('FieldInput renders a text input for type=text and threads onChange', () => {

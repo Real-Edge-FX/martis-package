@@ -138,6 +138,8 @@ export const useRevalidateOnFocus = R.useRevalidateOnFocus
 export const componentRegistry = R.componentRegistry
 export const iconRegistry = R.iconRegistry
 export const layoutRegistry = R.layoutRegistry
+// An icon by name, resolved through `iconRegistry` (v2.10.0+).
+export const ResourceIcon = R.ResourceIcon
 // Route registry (v2.2.0+): pages at URLs of your own, inside the shell.
 // Register at the top level of the bundle. See docs/custom-pages.md.
 export const routeRegistry = R.routeRegistry
