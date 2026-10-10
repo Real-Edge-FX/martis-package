@@ -15,6 +15,8 @@ import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import { recordHref } from '@/lib/recordHref'
+import { createPayload } from '@/lib/createPayload'
+import { invalidateRelationPanel } from '@/lib/relationViaParams'
 import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 
 /** Shared fallback while the schema loads: a stable reference keeps the form
@@ -222,6 +224,11 @@ function CreateTargetPage() {
     },
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
+      // The panel the record was created from lists it when the page goes
+      // back, instead of the list cached for the next 30 seconds (v1.39.6).
+      if (isViaRelation) {
+        invalidateRelationPanel(qc, viaRelationshipType, viaResource, viaResourceId, viaRelationship)
+      }
       addToast('success', res.meta?.message ?? tMsg('record_created'))
       // Suppress the unsaved-changes guard for the post-save redirect.
       markSaved()
@@ -300,7 +307,7 @@ function CreateTargetPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     form.setErrors({})
-    createMutation.mutate(form.values)
+    createMutation.mutate(createPayload(form.values))
   }
 
   if (schemaQuery.isLoading || (isReplicate && replicateQuery.isLoading)) return <FormSkeleton />

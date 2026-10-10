@@ -2,6 +2,18 @@
 
 What to do in an app when a 1.x release changes behaviour it may rely on. A patch release changes behaviour only to close a security gap or a bug; each section says what changed, who is affected and what to check.
 
+## Upgrading to v1.39.6
+
+v1.39.6 fixes four consumer reports. Run `php artisan martis:publish-assets` after `composer update` (the create forms, the action modal and the relationship panels are in the assets). One change can matter to an app:
+
+- **A conditional `required_*` rule no longer makes the field required.** A field with `'required_if:type,company'` (or `required_with`, `required_unless`, ...) had a literal `required` added to its rules, so it was mandatory on every request and showed the asterisk. Only the unconditional rule counts now, as in Nova: `'required'`, `->required()` or `Rule::requiredIf(true)`. If an app relied on the old behaviour (a field it wanted always required), add `->required()` to it. The conditional rule itself validates as before, and now also when the request leaves the key out. See [Conditional `required_*` rules](fields.md#conditional-required_-rules-v1396).
+
+The other fixes change nothing an app has to adapt to:
+
+- `ActionResponse::visit($path, $params)` loads the path with the params as its query string (they were ignored). See [Actions → `visit()` params](actions.md#visit-params-v1396).
+- A create form opened from a relationship panel posts the parent's BelongsTo as its id, not as `{ id, title }`, and the write endpoints reduce such a map to its id before the field's rules run.
+- A relationship panel lists a record created or edited from it, whatever its kind (MorphMany and MorphOne included), instead of the list it cached.
+
 ## Upgrading to v1.39.5
 
 v1.39.5 fixes how a write a unique index refuses is answered ([When the database index refuses the write](fields.md#when-the-database-index-refuses-the-write-v1395)). Nothing has to change in an app. A test written against the old answers changes with it:

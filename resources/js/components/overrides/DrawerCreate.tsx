@@ -11,6 +11,7 @@ import { TabsInput } from '@/components/fields/TabsRenderer'
 import { useTranslation } from 'react-i18next'
 import { DrawerShell } from './DrawerShell'
 import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
+import { createPayload } from '@/lib/createPayload'
 import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 
 
@@ -167,7 +168,7 @@ export function DrawerCreate(props: OverrideProps) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErrors({})
-    createMutation.mutate(values)
+    createMutation.mutate(createPayload(values))
   }
 
   const title = `${tAct('create')} ${schema.singularLabel}`

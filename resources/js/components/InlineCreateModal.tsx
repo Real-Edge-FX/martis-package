@@ -11,6 +11,7 @@ import { ResourceIcon } from "@/components/ResourceIcon"
 import { useModalHistoryLock } from "@/lib/historyLock"
 import { NestedParentProvider } from "@/components/fields/NestedParentContext"
 import { fieldErrorProps, isFieldErrorKey } from "@/lib/fieldErrors"
+import { createPayload } from "@/lib/createPayload"
 
 /** Modal size — maps to a max-width in pixels so the panel scales
  *  beyond the 480px default of `.martis-modal-surface`. */
@@ -147,7 +148,7 @@ export function InlineCreateModal({
     e.preventDefault()
     e.stopPropagation()
     setErrors({})
-    createMutation.mutate(values)
+    createMutation.mutate(createPayload(values))
   }
 
   // Clear the form as the modal closes, not as it opens again: the fields

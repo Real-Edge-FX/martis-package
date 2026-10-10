@@ -860,11 +860,15 @@ class PostResource extends Resource
 | `ActionResponse::message('Done')` | Green success toast |
 | `ActionResponse::danger('Failed')` | Red error toast |
 | `ActionResponse::redirect($url)` | Full-page browser redirect |
-| `ActionResponse::visit($path)` | SPA navigation (no reload) |
+| `ActionResponse::visit($path, $params)` | Loads `$path` in the browser (a full page load). `$params` become the query string (v1.39.6), see below |
 | `ActionResponse::openInNewTab($url)` | Opens URL in new tab |
 | `ActionResponse::download($filename, $url)` | Triggers file download |
 | `ActionResponse::emit($event, $data)` | Fires a client-side event |
 | `ActionResponse::modal($component, $props)` | Opens a custom modal |
+
+### `visit()` params (v1.39.6)
+
+`ActionResponse::visit('/admin/tools/compose-email', ['contact_id' => $contact->id])` loads `/admin/tools/compose-email?contact_id=42`. The params are URL-encoded and appended to the query the path already has (`'/x?draft=1'` with `['a' => 1]` loads `/x?draft=1&a=1`), and a `#fragment` on the path stays at the end. Scalar values are supported; `null`, `false` and `''` are left out. A list or a nested array is written as `key[]=1&key[]=2` / `key[name]=value`, which PHP parses back into an array. Before v1.39.6 the params were ignored and only the path was loaded, so a path that had the query baked in keeps working.
 
 ---
 

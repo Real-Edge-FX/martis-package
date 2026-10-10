@@ -147,3 +147,37 @@ describe('ActionModal on a lens', () => {
     expect(apiPostMock.mock.calls[0][0]).toBe('/api/resources/projects/lenses/overdue/actions/assign-owner')
   })
 })
+
+describe('ActionModal visit answer', () => {
+  it('loads the path with the params as its query string', async () => {
+    const original = window.location
+    const location = { href: '' }
+    Object.defineProperty(window, 'location', { configurable: true, value: location })
+    apiPostMock.mockResolvedValue({
+      data: { type: 'visit', data: { path: '/admin/tools/compose-email', params: { contact_id: 42 } } },
+    })
+
+    try {
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <ToastProvider>
+            <MemoryRouter initialEntries={['/resources/projects/7']}>
+              <Routes>
+                <Route
+                  path="/resources/:resource/:id"
+                  element={<ActionModal resource="projects" action={action} selectedIds={[1]} visible onHide={() => {}} onSuccess={() => {}} />}
+                />
+              </Routes>
+            </MemoryRouter>
+          </ToastProvider>
+        </QueryClientProvider>,
+      )
+
+      await waitFor(() => expect(document.body.querySelector('.martis-belongs-to-trigger')).not.toBeNull())
+      fireEvent.click(document.body.querySelector('.martis-btn-primary') as HTMLElement)
+      await waitFor(() => expect(location.href).toBe('/admin/tools/compose-email?contact_id=42'))
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: original })
+    }
+  })
+})
