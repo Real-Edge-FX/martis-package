@@ -62,6 +62,10 @@ update((prev) => {
 
 ---
 
+### Locale normalisation (v2.10.0)
+
+The locale the resolver answers is always one the app offers (`preferences.locales`, from `MARTIS_UI_LOCALES`). A `MARTIS_DEFAULT_LOCALE` outside the list resolves to the first listed locale; a locale stored for a user (say `pt_BR` after the app dropped it) or named by a preset, when it is not listed, resolves to that default. The stored row is left alone, so the user gets their language back when the list offers it again. The `martis.locale` middleware applies the normalised value and the shell writes it in `<html lang>` (`en_GB` becomes `en-GB`). `PUT /api/preferences` refuses a locale outside the list with `422`.
+
 ## API
 
 Protected routes — 2FA-completed users only.
@@ -136,15 +140,21 @@ The migration can safely remain applied — the resolver silently ignores the ta
         'reducedMotion' => false,
     ],
 
-    // Locales shown in the language dropdown (must have lang files).
-    'locales' => ['en', 'pt_PT', 'pt_BR'],
+    // Locales shown in the language dropdown (v2.10.0: MARTIS_UI_LOCALES,
+    // comma-separated, e.g. `en_GB,pt_PT`).
+    'locales' => array_values(array_filter(array_map('trim', explode(',', (string) env('MARTIS_UI_LOCALES', 'en,pt_PT,pt_BR'))))),
 
     // Human-readable labels. Missing locales fall back to their code.
     'locale_labels' => [
         'en' => 'English',
+        'en_GB' => 'English (UK)',
         'pt_PT' => 'Português (PT)',
         'pt_BR' => 'Português (BR)',
     ],
+
+    // MARTIS_UI_LOCALE_LABELS="en_GB:English (UK),pt_PT:Português (Portugal)",
+    // merged over `locale_labels` (the env entries win).
+    'locale_labels_env' => env('MARTIS_UI_LOCALE_LABELS'),
 
     // Per-user custom brand hex (off by default).
     // Turn on for multi-tenant apps where each tenant has its own colour.

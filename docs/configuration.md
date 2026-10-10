@@ -499,7 +499,7 @@ See [menus.md](menus.md#count-badges) for the badge API (including `menuCount()`
 'locale' => env('MARTIS_LOCALE', env('APP_LOCALE', 'en')),
 ```
 
-Locale the blade shell uses **only when preferences are disabled** (`preferences.enabled = false`). With preferences enabled (the default), the panel language comes from the preferences resolver: the user's saved preference, else `preferences.defaults.locale` (`MARTIS_DEFAULT_LOCALE`, default `en`, which must be listed in `preferences.locales`). The `martis.locale` middleware applies that value on every authenticated Martis route, so set `MARTIS_DEFAULT_LOCALE`, not `APP_LOCALE` / `MARTIS_LOCALE`, to change the default panel language.
+Locale the blade shell uses **only when preferences are disabled** (`preferences.enabled = false`). With preferences enabled (the default), the panel language comes from the preferences resolver: the user's saved preference, else `preferences.defaults.locale` (`MARTIS_DEFAULT_LOCALE`, default `en`, which must be listed in `preferences.locales`, else the first listed locale applies). The `martis.locale` middleware applies that value on every authenticated Martis route, so set `MARTIS_DEFAULT_LOCALE`, not `APP_LOCALE` / `MARTIS_LOCALE`, to change the default panel language.
 
 Martis UI strings come from the package's `resources/lang/{locale}/` files, overridden by the published copies in `lang/vendor/martis/{locale}/` (see [i18n](i18n.md)). Publish translations with:
 
@@ -881,7 +881,9 @@ The preferences subsystem has been env-driven since v0.10. v1.7.0 surfaces three
 MARTIS_DEFAULT_THEME=dark           # dark | light | system
 MARTIS_DEFAULT_ACCENT=martis        # martis | blue | teal | violet | amber | <custom name>
 MARTIS_DEFAULT_DENSITY=comfortable  # comfortable | dense
-MARTIS_DEFAULT_LOCALE=en            # any locale shipped under resources/lang
+MARTIS_DEFAULT_LOCALE=en            # one of MARTIS_UI_LOCALES (else the first listed)
+MARTIS_UI_LOCALES=en,pt_PT,pt_BR    # locales the language picker offers (v2.10.0)
+MARTIS_UI_LOCALE_LABELS="en_GB:English (UK)"  # code:label pairs (v2.10.0)
 ```
 
 Invalid values fall through to the safe defaults — a typo in `.env` never crashes the request.
@@ -1019,10 +1021,14 @@ See [Authentication](authentication.md#user-profile) for full profile documentat
 'preferences' => [
     'enabled' => env('MARTIS_PREFERENCES_ENABLED', true),
     'allowBrandColor' => env('MARTIS_ALLOW_BRAND_COLOR', false),
-    'locales' => ['en', 'pt_PT', 'pt_BR'],
+    'locales' => array_values(array_filter(array_map('trim', explode(',', (string) env('MARTIS_UI_LOCALES', 'en,pt_PT,pt_BR'))))),
     'locale_labels' => [
-        // 'pt_BR' => 'Português (Brasil)',
+        'en' => 'English',
+        'en_GB' => 'English (UK)',
+        'pt_PT' => 'Português (PT)',
+        'pt_BR' => 'Português (BR)',
     ],
+    'locale_labels_env' => env('MARTIS_UI_LOCALE_LABELS'),
 ],
 ```
 
@@ -1030,8 +1036,9 @@ See [Authentication](authentication.md#user-profile) for full profile documentat
 |---|---|---|---|
 | `enabled` | bool | `true` | Master switch for the per-user preferences panel (theme, density, locale, accent). |
 | `allowBrandColor` | bool | `false` | When true, exposes a custom-hex brand colour picker in the preferences panel. |
-| `locales` | array | `['en','pt_PT','pt_BR']` | The exact locale codes the language picker offers — on **both** the login screen and the in-app Preferences panel. Restrict it (e.g. `['en','pt_PT']`) to hide a bundled locale. When empty, the SPA falls back to the three bundled locales. |
-| `locale_labels` | array | `[]` | Override the human-readable labels surfaced in the locale dropdown. |
+| `locales` | array | `['en','pt_PT','pt_BR']` | The exact locale codes the language picker offers, on **both** the login screen and the in-app Preferences panel (v2.10.0: from `MARTIS_UI_LOCALES`, comma-separated, e.g. `MARTIS_UI_LOCALES=en_GB,pt_PT`). A code must look like a locale (`en`, `en_GB`, `pt-BR`); an invalid one throws an `InvalidArgumentException` naming `MARTIS_UI_LOCALES`. A code without bundled strings (`en_GB`) translates through `locales.fallback_chain`. When empty, the three bundled locales apply. A saved, preset or default locale outside the list falls back to `defaults.locale`, or to the first listed code ([Preferences](preferences.md#locale-normalisation-v2100)). |
+| `locale_labels` | array | `en`, `en_GB`, `pt_PT`, `pt_BR` labels | The human-readable labels surfaced in the locale dropdown. A locale without a label shows its code. |
+| `locale_labels_env` | string\|null | `null` | `MARTIS_UI_LOCALE_LABELS` (v2.10.0): comma-separated `code:label` pairs merged over `locale_labels`, the env entries winning, e.g. `MARTIS_UI_LOCALE_LABELS="en_GB:English (UK),pt_PT:Português (Portugal)"`. The first colon splits, so a label may contain colons but not commas. A malformed segment throws an `InvalidArgumentException` naming `MARTIS_UI_LOCALE_LABELS`; the value is parsed where it is read, so `artisan` keeps working while you fix it. |
 
 See [User Preferences](preferences.md) for the D1/D2/D3 spec and [i18n](i18n.md) for the locale layer.
 
@@ -1657,6 +1664,8 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_THROTTLE_ENABLED` | `true` |
 | `MARTIS_THROTTLE_MAX` | `120` |
 | `MARTIS_TOAST_POSITION` | `'bottom-right'` |
+| `MARTIS_UI_LOCALES` | `'en,pt_PT,pt_BR'` |
+| `MARTIS_UI_LOCALE_LABELS` | `(no default)` |
 | `MARTIS_USER_ID_COLUMN_TYPE` | `(no default)` |
 | `MARTIS_WELCOME_DESCRIPTION` | `(no default)` |
 | `MARTIS_WELCOME_HEADING` | `(no default)` |
