@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.39.7] — 2026-10-10
+
+Patch release. Run `php artisan martis:publish-assets` after `composer update`. Nothing has to change in an app: read [Upgrading to v1.39.7](docs/upgrading.md#upgrading-to-v1397).
+
+### Fixed
+
+- **The create and update forms reduced a value by its shape, not by its field type.** `createPayload()` (v1.39.6) and `updatePayload()` reduced any object with `id` and `title` to its id, and `updatePayload()` also dropped any object with a `url` key. A KeyValue field (whose loaded value is a map, while an edit emits rows), a JSON `Code` field or a custom field holding such a map was posted as its id (silent data loss on update, and on create since v1.39.6), or dropped on update. Both helpers now take the form's field definitions (panels, sections and tab groups flattened) and decide per attribute by type: `belongs_to` reduces a `{ id, ... }` map to its id, `morph_to` keeps its map, a stored `{ url, ... }` value of a file field (`file`, `image`, `avatar`, `audio`) is left out on update and kept on create, and every other type and any attribute without a definition is untouched. Every caller passes its fields: the create and update pages, both drawers and the inline create modal.
+
+Tests: +8 Vitest (904 to 912; the two old payload test files were merged into fieldPayload.test.ts).
+
 ## [1.39.6] — 2026-10-10
 
 Patch release for four consumer reports on 1.x. Run `php artisan martis:publish-assets` after `composer update`. A field with a conditional `required_*` rule is no longer forced to be required: read [Upgrading to v1.39.6](docs/upgrading.md#upgrading-to-v1396).

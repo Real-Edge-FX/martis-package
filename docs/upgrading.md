@@ -2,6 +2,12 @@
 
 What to do in an app when a 1.x release changes behaviour it may rely on. A patch release changes behaviour only to close a security gap or a bug; each section says what changed, who is affected and what to check.
 
+## Upgrading to v1.39.7
+
+v1.39.7 fixes the create and update forms, which decided what to submit by the shape of a value. Run `php artisan martis:publish-assets` after `composer update` (the forms are in the assets). Nothing has to change in an app.
+
+- **A KeyValue, JSON `Code` or custom field value is submitted as it is.** A map with `id` and `title` keys was posted as its id (data lost on update, and on create since v1.39.6), and a map with a `url` key was dropped on update. The forms now decide per field by its type: a `belongs_to` value is reduced to its id, a `morph_to` keeps its map, a stored `{ url, ... }` value of a file field (File, Image, Avatar, Audio) is left out on update, and every other value is untouched.
+
 ## Upgrading to v1.39.6
 
 v1.39.6 fixes four consumer reports. Run `php artisan martis:publish-assets` after `composer update` (the create forms, the action modal and the relationship panels are in the assets). One change can matter to an app:

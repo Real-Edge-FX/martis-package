@@ -148,7 +148,7 @@ export function InlineCreateModal({
     e.preventDefault()
     e.stopPropagation()
     setErrors({})
-    createMutation.mutate(createPayload(values))
+    createMutation.mutate(createPayload(values, schemaQuery.data?.data?.fields ?? []))
   }
 
   // Clear the form as the modal closes, not as it opens again: the fields

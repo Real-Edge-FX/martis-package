@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { flattenFields } from '@/lib/flattenFields'
 import type { FieldDefinition } from '@/types'
 import { useDependsOnSync } from '@/hooks/useDependsOnSync'
 import { lockImmutableFields } from '@/lib/lockImmutableFields'
@@ -76,25 +77,6 @@ export interface MartisForm {
  * container-aware — mirroring the pre-refactor ResourceCreate page (see
  * `git show 722bf5f69:.../ResourceCreate.tsx` ~L106-159).
  */
-
-/** Depth-first collect every leaf field, descending through all containers. */
-function flattenFields(items: readonly unknown[]): FieldDefinition[] {
-  const out: FieldDefinition[] = []
-  const walk = (list: readonly unknown[]): void => {
-    for (const item of list) {
-      const f = item as Record<string, unknown>
-      if (f.type === 'panel' || f.type === 'section') {
-        walk((f.fields as unknown[]) ?? [])
-      } else if (f.type === 'tab_group') {
-        for (const tab of (f.tabs as { fields?: unknown[] }[]) ?? []) walk(tab.fields ?? [])
-      } else {
-        out.push(item as FieldDefinition)
-      }
-    }
-  }
-  walk(items)
-  return out
-}
 
 /**
  * Rebuild the field tree, applying each leaf's override (if any) at every
