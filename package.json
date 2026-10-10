@@ -1,6 +1,6 @@
 {
   "name": "@martis/martis",
-  "version": "1.39.5",
+  "version": "1.39.6",
   "private": true,
   "scripts": {
     "dev": "vite",

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.39.6] — 2026-10-10
+
+Patch release for four consumer reports on 1.x. Run `php artisan martis:publish-assets` after `composer update`. A field with a conditional `required_*` rule is no longer forced to be required: read [Upgrading to v1.39.6](docs/upgrading.md#upgrading-to-v1396).
+
+### Fixed
+
+- **A conditional `required_*` rule made the field unconditionally required.** `Field::rulesHaveRequired()` matched `required` by prefix, so `required_if:…`, `required_with`, `required_unless` and `required_array_keys` (and a rule object that merely mentioned the word, such as `Rule::in(['required'])`) made `isRequired()` true and `buildRules()` prepended a literal `required`: two fields with mutually exclusive conditions made every create fail with a `422`. Only the unconditional rule counts now, as in Nova: the exact string `required`, or an object whose string form is exactly `required` (`Rule::requiredIf(true)`). The base `sometimes` is also left out when a conditional `required_*` string rule is present, so the rule runs when the request omits the key. **Upgrading:** a field that relied on the old behaviour needs `->required()`. See [Fields → Conditional `required_*` rules](docs/fields.md#conditional-required_-rules-v1396).
+- **`ActionResponse::visit($path, $params)` dropped `$params`.** The action modal loaded `data.path` and ignored `params`. The params are now URL-encoded and appended to the query the path already has, a `#fragment` stays at the end, and the page is loaded in full as before. See [Actions → `visit()` params](docs/actions.md#visit-params-v1396).
+- **A create from a relationship panel posted the parent as `{ id, title }`.** The pre-filled, read-only BelongsTo back to the parent reached the consumer's `Rule::exists()` as an array (a multi-value `whereIn`: a `500` on PostgreSQL, a false `422` elsewhere). The create page, the create drawer and the inline create modal post the id (`createPayload()`, the counterpart of `updatePayload()`; a stored `{ url }` file value of a replicated record is kept), and the resource, `HasMany`, `HasOne`, `MorphMany` and `MorphOne` write endpoints reduce a BelongsTo sent as a map with an integer or non-empty string `id` to that id before the rules and the fill. Any other shape is left as sent.
+- **A relationship panel served its pre-create list after a create from it.** The create page invalidated only the resource's own queries, so the panel's query (30 s `staleTime`) kept the old list. A create and an edit from a panel now invalidate the panel's own query by its kind (`has-many`, `has-one`, `morph-many`, `morph-one`); the edit page invalidated `has-many` for a MorphMany or MorphOne panel.
+
+Tests: +21 Pest (3476 to 3497), +29 Vitest (875 to 904).
+
 ## [1.39.5] — 2026-10-09
 
 Patch release for a consumer report on 1.x: a write a unique index refuses answers a `422` on the field the index covers, an expression index and the relationship panels included. The same fix ships in v2.9.0. A test written against the old answers should read [Upgrading to v1.39.5](docs/upgrading.md#upgrading-to-v1395).
