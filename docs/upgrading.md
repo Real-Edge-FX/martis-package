@@ -4,6 +4,14 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.11.0 from v2.10.x
+
+v2.11.0 fixes how Martis reads a policy that returns `Illuminate\Auth\Access\Response`, lets such a denial answer its status, and stops a headless resource from standing in for the routable resource over the same model. Check these points:
+
+- **A policy that returns `Response::deny()` now denies.** Up to v2.10.1 Martis cast a Resource policy's answer to a boolean, and an object is always `true`, so `Response::deny()`, `Response::denyAsNotFound()` and `Response::denyWithStatus()` allowed the request (a security fix, also in v1.39.8). If a policy of yours returns a `Response`, the users it refuses now get what it says: review those policies, since what used to pass silently is refused now. Policies that return booleans behave as before. See [Authorization → Policy responses](authorization.md#policy-responses).
+- **`Response::denyAsNotFound()` answers `404` on the record endpoints.** A record whose `view`, `update`, `delete`, `restore`, `forceDelete` or `replicate` the policy refuses this way answers `404`, with the body of a missing record, instead of `403`; `Response::denyWithStatus()` answers its status. To hide which records a narrower resource can reach (a headless relation target's `peek`, for example), deny them this way. See [Authorization → HTTP responses](authorization.md#http-responses).
+- **The routable resource wins over a headless one over the same model.** The audit log's target label and link, the resource a `BelongsTo` without `relatedResource()` checks its value against, and the Action Events panel now use the routable resource even when a headless one is registered first. A `BelongsTo` without `relatedResource()` that answered `422` ("Declare relatedResource() on the field.") because a headless resource shared the related model is now checked against the routable resource's `relatableQuery()` and policies; if it should be checked against the headless one, declare `relatedResource()` on the field. A workaround that rebound `ResourceRegistry` to sort routable resources first can go. See [Resources → A headless resource over a model that has a page](resources.md#a-headless-resource-over-a-model-that-has-a-page).
+
 ## Upgrading to v2.10.1 from v2.10.0
 
 v2.10.1 makes the code Martis writes into an app pass PHPStan level 8, with or without Larastan: the provider `martis:install` publishes, the published `config/martis.php`, and what the generators and the `martis:invitations` and `martis:roles` scaffolds write. Nothing has to change in an app at runtime. If you analyse your app with PHPStan:

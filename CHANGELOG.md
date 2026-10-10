@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.11.0] — 2026-10-10
+
+Minor release from one consumer report and a security fix found while working on it. **Upgrade if any Resource policy returns `Illuminate\Auth\Access\Response`**: up to v2.10.1 Martis read `Response::deny()` as an allow. v1.39.8 carries the same fix for 1.x. The report itself: a headless resource over a model that has a page of its own no longer takes the model's place in the audit log, the `BelongsTo` inference and the Action Events panel, and a policy can make a record it denies answer exactly as a missing one. Read [Upgrading to v2.11.0](docs/upgrading.md#upgrading-to-v2110-from-v210x).
+
+### Security
+
+- **A Resource policy that returned Laravel's `Illuminate\Auth\Access\Response` allowed the request when it denied.** Martis calls the resource's policy itself, not through the Gate, and cast the answer to a boolean: an object is always `true`, so `Response::deny()`, `Response::denyAsNotFound()` and `Response::denyWithStatus()` granted every Resource ability (`view`, `update`, `delete`, `restore`, `forceDelete`, `replicate`, `runAction`, the relationship abilities, and the policy's `before()`), on the endpoints and in the UI flags: a `PUT` on a record the policy refused saved it. The answer is now read as Laravel's Gate reads it, a `Response` through `allowed()` and any other value by its truth. Policies that return booleans were never affected. +39 Pest. See [Authorization → Policy responses](docs/authorization.md#policy-responses).
+
+### Added
+
+- **A policy denial that carries a status answers that status on the record endpoints.** When a record's `view`, `update`, `delete`, `restore`, `forceDelete` or `replicate` ability is refused with `Response::denyAsNotFound()`, the endpoint answers `404` with exactly the body it sends for a record that does not exist, so a caller cannot tell the ids a policy denies from missing ones; `Response::denyWithStatus($status)` answers that status. This covers show (and its `?context=update` payload), update, destroy, restore, force-delete, the replicate prefill, peek, the update form's per-field endpoints, the relationship routes that read their parent record, an action run from a relationship panel, and the related-record update and delete of the `has-many`, `has-one`, `morph-many` and `morph-one` routes. `false` and `Response::deny()` keep answering `403`, as do the collection-level and relationship abilities. New public `Resource::policyDenialStatus(string $ability): ?int`; `JsonErrorResponse::forbidden()` takes an optional status. This is how a headless resource keeps its `peek` from confirming which records of its model exist (the report asked for it). See [Authorization → HTTP responses](docs/authorization.md#http-responses).
+- **`ResourceRegistry::preferredForModel(string $modelClass): array`**: the resources that stand for a model, the routable ones when at least one resource over it is routable, otherwise all of them, in registration order. `forModel()` and `list()` are unchanged.
+
+### Changed
+
+- **A headless resource no longer takes the place of the routable resource over the same model.** Since v2.0 a relationship write needs the related resource's `viewAny`, so an app adds a second, narrower resource over `User` or `Role` (`routable(): false`) for users who may not list the model's own. The model-to-resource lookups took the first registered resource, and registration follows file-name order, so `AgencyMemberResource` won over `UserResource`: the audit log labelled user targets "Member" and dropped their link (or kept the label but lost the link when the headless resource's `viewAny` refused the viewer), and a `BelongsTo` without `relatedResource()` over users found two resources and refused every value. These lookups now read `preferredForModel()`: the audit log's target label and link (`ActionEventResource::targetValue()`), the resource a `BelongsTo` without `relatedResource()` checks its value against, and the resource behind the automatic Action Events panel. A model whose resources are all headless keeps them; two routable resources over one model still leave the `BelongsTo` inference ambiguous. +6 Pest. See [Resources → A headless resource over a model that has a page](docs/resources.md#a-headless-resource-over-a-model-that-has-a-page).
+
+**Tests:** 5438 Pest passed (+45) and 2072 Vitest passed: 7510 in all, from 7465 at v2.10.1.
+
 ## [2.10.1] — 2026-10-10
 
 Patch release from one consumer report and the sweep it prompted: the code Martis writes into an app passes PHPStan level 8, with or without Larastan, and nothing changes at runtime. A provider published earlier keeps its copy: read [Upgrading to v2.10.1](docs/upgrading.md#upgrading-to-v2101-from-v2100) to move its `viewMartis` allow-list into the typed property.
