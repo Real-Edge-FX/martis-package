@@ -289,6 +289,27 @@ abstract class MartisController extends Controller
     }
 
     /**
+     * The answer to a request about one record that `$resource`, bound to
+     * that record, refused for `$ability` (`view`, `update`, `delete`,
+     * `restore`, `forceDelete`, `replicate`): 403, unless the policy denied
+     * with an `Illuminate\Auth\Access\Response` that carries a status.
+     * `Response::denyAsNotFound()` answers exactly as the route answers a
+     * record that does not exist (`$notFoundMessage`), so the ids a policy
+     * denies cannot be told apart from missing ones; `denyWithStatus()`
+     * answers its status.
+     */
+    protected function recordDenied(Resource $resource, string $ability, string $notFoundMessage = 'Resource not found.'): IlluminateJsonResponse
+    {
+        $status = $resource->policyDenialStatus($ability);
+
+        if ($status === 404) {
+            return JsonErrorResponse::notFound($notFoundMessage)->toResponse();
+        }
+
+        return JsonErrorResponse::forbidden('This action is unauthorized.', $status ?? 403)->toResponse();
+    }
+
+    /**
      * The 403 a relationship route answers when the parent's detail page
      * declares the relationship field, but the user may not list its
      * related resource (the related resource's `viewAny`).
@@ -388,7 +409,7 @@ abstract class MartisController extends Controller
         $instance = new $resourceClass($model);
 
         if (! $instance->authorizedToUpdate($request)) {
-            return [null, JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse()];
+            return [null, $this->recordDenied($instance, 'update')];
         }
 
         return [$instance, null];

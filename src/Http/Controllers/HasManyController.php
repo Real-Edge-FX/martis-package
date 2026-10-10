@@ -289,7 +289,7 @@ class HasManyController extends MartisController
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToUpdate($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($relatedInstance, 'update', 'Related record not found.');
         }
 
         // A field hidden for the related record (canSeeForModel()) is neither
@@ -372,7 +372,7 @@ class HasManyController extends MartisController
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToDelete($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($relatedInstance, 'delete', 'Related record not found.');
         }
 
         try {
@@ -435,7 +435,7 @@ class HasManyController extends MartisController
         $parentInstance = new $resourceClass($parentModel);
 
         if (! $parentInstance->authorizedToView($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($parentInstance, 'view', 'Parent record not found.');
         }
 
         // Find the HasMany field in the parent resource. filterForContext

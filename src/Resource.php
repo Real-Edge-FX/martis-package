@@ -3,6 +3,7 @@
 namespace Martis;
 
 use Illuminate\Auth\Access\Gate as GateInstance;
+use Illuminate\Auth\Access\Response as AuthorizationResponse;
 use Illuminate\Contracts\Auth\Access\Gate as GateContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -69,6 +70,15 @@ abstract class Resource implements ResourceContract
      * @var class-string|null
      */
     public static ?string $policy = null;
+
+    /**
+     * The status each ability's last policy denial asked for, e.g. 404 from
+     * `Response::denyAsNotFound()`. Only a denial that carries a status is
+     * kept.
+     *
+     * @var array<string, int>
+     */
+    private array $policyDenialStatuses = [];
 
     /** Create a new resource instance, optionally binding an existing model. */
     public function __construct(?Model $model = null)
@@ -884,6 +894,8 @@ abstract class Resource implements ResourceContract
         string $relatedModelClass,
         ?Model $relatedModel = null,
     ): bool {
+        unset($this->policyDenialStatuses[$ability]);
+
         if (! static::authorizable()) {
             return true;
         }
@@ -903,7 +915,7 @@ abstract class Resource implements ResourceContract
         if (method_exists($policy, 'before')) {
             $beforeResult = $policy->before($user, $ability);
             if ($beforeResult !== null) {
-                return (bool) $beforeResult;
+                return $this->policyAllows($ability, $beforeResult);
             }
         }
 
@@ -913,14 +925,14 @@ abstract class Resource implements ResourceContract
         }
 
         if ($this->model !== null && $relatedModel !== null) {
-            return (bool) $policy->{$ability}($user, $this->model, $relatedModel);
+            return $this->policyAllows($ability, $policy->{$ability}($user, $this->model, $relatedModel));
         }
 
         if ($this->model !== null) {
-            return (bool) $policy->{$ability}($user, $this->model);
+            return $this->policyAllows($ability, $policy->{$ability}($user, $this->model));
         }
 
-        return (bool) $policy->{$ability}($user);
+        return $this->policyAllows($ability, $policy->{$ability}($user));
     }
 
     /**
@@ -936,6 +948,8 @@ abstract class Resource implements ResourceContract
      */
     protected function checkPolicy(Request $request, string $ability, ?Model $model): bool
     {
+        unset($this->policyDenialStatuses[$ability]);
+
         if (! static::authorizable()) {
             return true;
         }
@@ -955,7 +969,7 @@ abstract class Resource implements ResourceContract
         if (method_exists($policy, 'before')) {
             $beforeResult = $policy->before($user, $ability);
             if ($beforeResult !== null) {
-                return (bool) $beforeResult;
+                return $this->policyAllows($ability, $beforeResult);
             }
         }
 
@@ -964,10 +978,48 @@ abstract class Resource implements ResourceContract
         }
 
         if ($model !== null) {
-            return (bool) $policy->{$ability}($user, $model);
+            return $this->policyAllows($ability, $policy->{$ability}($user, $model));
         }
 
-        return (bool) $policy->{$ability}($user);
+        return $this->policyAllows($ability, $policy->{$ability}($user));
+    }
+
+    /**
+     * Read what a policy method (or its `before()`) returned, as Laravel's
+     * Gate does: an `Illuminate\Auth\Access\Response` answers through
+     * `allowed()`, any other value by its truth. Up to v2.10 the value was
+     * cast to bool, and an object is always true, so `Response::deny()`
+     * allowed. A denial that carries a status (`Response::denyAsNotFound()`,
+     * `denyWithStatus()`) is kept for `policyDenialStatus()`.
+     */
+    private function policyAllows(string $ability, mixed $result): bool
+    {
+        if (! $result instanceof AuthorizationResponse) {
+            return (bool) $result;
+        }
+
+        $status = $result->status();
+
+        if ($result->denied() && $status !== null) {
+            $this->policyDenialStatuses[$ability] = $status;
+        }
+
+        return $result->allowed();
+    }
+
+    /**
+     * The status the policy asked for when it last denied `$ability` on this
+     * resource instance with an `Illuminate\Auth\Access\Response` that
+     * carries one: 404 for `Response::denyAsNotFound()`, the given status for
+     * `Response::denyWithStatus()`. `null` when the last check of the ability
+     * was allowed, or denied without a status (`false`, `Response::deny()`),
+     * or never ran. Martis answers a denied record request with this status
+     * instead of 403, so a policy can make a record it denies look like one
+     * that does not exist.
+     */
+    public function policyDenialStatus(string $ability): ?int
+    {
+        return $this->policyDenialStatuses[$ability] ?? null;
     }
 
     /**

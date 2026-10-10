@@ -98,11 +98,13 @@ final class JsonErrorResponse
     }
 
     /**
-     * Build a 403 Forbidden response (authorization denied).
+     * Build a 403 Forbidden response (authorization denied). `$status`
+     * carries the status a policy denied with (`Response::denyWithStatus()`);
+     * one outside 400-599 answers 403.
      */
-    public static function forbidden(string $message = 'This action is unauthorized.'): self
+    public static function forbidden(string $message = 'This action is unauthorized.', int $status = 403): self
     {
-        return new self($message, [], 403);
+        return new self($message, [], $status >= 400 && $status <= 599 ? $status : 403);
     }
 
     /**

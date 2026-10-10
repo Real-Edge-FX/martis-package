@@ -623,7 +623,7 @@ class BelongsToManyController extends MartisController
         $parentInstance = new $resourceClass($parentModel);
 
         if (! $parentInstance->authorizedToView($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($parentInstance, 'view', 'Parent record not found.');
         }
 
         // Find the BelongsToMany field in the parent resource. filterForContext

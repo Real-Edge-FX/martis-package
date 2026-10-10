@@ -208,6 +208,32 @@ class PostPolicy
 }
 ```
 
+### Policy responses
+
+A policy method, and its `before()`, may return Laravel's
+[`Illuminate\Auth\Access\Response`](https://laravel.com/docs/authorization#policy-responses)
+instead of a boolean, as with the Gate: `Response::allow()` permits,
+`Response::deny()`, `Response::denyAsNotFound()` and
+`Response::denyWithStatus()` deny. Any other value permits when it is truthy.
+
+```php
+use Illuminate\Auth\Access\Response;
+
+public function view(User $user, Post $post): Response
+{
+    return $post->team_id === $user->team_id
+        ? Response::allow()
+        : Response::denyAsNotFound();
+}
+```
+
+**Security fix (v2.11.0 and v1.39.8).** Martis calls the policy itself (the
+Gate is not involved, see [How policy instances are resolved](#how-policy-instances-are-resolved))
+and used to cast the answer to a boolean. An object is always `true`, so a
+policy that returned `Response::deny()` (or `denyAsNotFound()`) **allowed**
+the request on every Resource ability: a `PUT` saved the record. Policies
+that return booleans were never affected.
+
 ## HTTP responses
 
 Every Martis controller returns **HTTP 403** with a JSON body of
@@ -215,6 +241,29 @@ Every Martis controller returns **HTTP 403** with a JSON body of
 policy denies. The frontend translates the generic 403 into a
 **localised "Not authorized"** toast via `error_forbidden` in the
 `messages.php` language files.
+
+A denial that carries a status changes that answer on the endpoints that
+read or write **one record** (v2.11.0), when the record's `view`, `update`,
+`delete`, `restore`, `forceDelete` or `replicate` ability refuses it: show
+(and its `?context=update` form payload), update, destroy, restore,
+force-delete, the replicate prefill, peek, the update form's per-field
+endpoints, every relationship route that reads its parent record (`has-many`,
+`has-one`, `belongs-to-many`, `morph-*`, the pivot actions, an action run
+from a relationship panel) and the related-record update and delete of
+`has-many`, `has-one`, `morph-many` and `morph-one`.
+
+- `Response::denyAsNotFound()` answers `404` with exactly the body the route
+  sends for a record that does not exist, so the ids a policy denies cannot be
+  told apart from missing ones. This is the way to keep a narrower resource
+  (for example a [headless](resources.md#routable) relation target over a
+  model that has a page of its own) from confirming which records exist.
+- `Response::denyWithStatus($status)` answers that status (a status outside
+  400 to 599 answers `403`), with the `This action is unauthorized.` body.
+- `false` and `Response::deny()` keep answering `403`.
+
+The collection-level checks (`viewAny`, `create`) and the relationship
+abilities (`attach{Model}`, `detach{Model}`, ...) keep answering `403`
+whatever the denial carries.
 
 Use `ApiError#isForbidden()` in custom frontend code to branch on
 authorization failures specifically.
@@ -433,7 +482,7 @@ Every check on a resource (`authorizedToView()`, the `_authorization` block, act
 3. The policy registered in Laravel's Gate (`Gate::policy(...)`, or the one Laravel guesses): for the model class on Resources, for the entity class itself on Tools and Dashboards.
 4. Nothing: no policy, the [defaults](#at-a-glance) apply.
 
-Resources call the policy methods directly (honouring the policy's own `before()`); Tools and Dashboards ask Laravel's Gate (`Gate::allows('view', [Entity::class])`), so `Gate::before()` / `after()` and `GateEvaluated` listeners (the denial audit, the per-request cache) apply to them. Since v1.36.0 Martis registers the resolved policy for the entity class with the Gate on the first check, so declaring `$policy` is enough; earlier versions hid the entity unless the host also called `Gate::policy(Entity::class, Policy::class)` by hand.
+Resources call the policy methods directly (honouring the policy's own `before()`, and reading a returned `Response` through `allowed()`, see [Policy responses](#policy-responses)); Tools and Dashboards ask Laravel's Gate (`Gate::allows('view', [Entity::class])`), so `Gate::before()` / `after()` and `GateEvaluated` listeners (the denial audit, the per-request cache) apply to them. Since v1.36.0 Martis registers the resolved policy for the entity class with the Gate on the first check, so declaring `$policy` is enough; earlier versions hid the entity unless the host also called `Gate::policy(Entity::class, Policy::class)` by hand.
 
 Since v1.36.0 the **outcome of that walk** (the policy class) is memoised per entity class in `Martis\Authorization\PolicyResolver`, a container-scoped service: the memo lives for one request under Octane, one job under `queue:work` and one application instance in a test suite, and dies with it. The **policy instance** is never memoised: each check asks the container for one, exactly as Laravel's Gate does on every `$user->can()`. Consequences:
 
