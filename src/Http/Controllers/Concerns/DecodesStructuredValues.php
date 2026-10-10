@@ -4,6 +4,7 @@ namespace Martis\Http\Controllers\Concerns;
 
 use Illuminate\Http\Request;
 use Martis\Contracts\FieldContract;
+use Martis\Fields\BelongsTo;
 use Martis\Fields\Field;
 
 /**
@@ -30,6 +31,11 @@ use Martis\Fields\Field;
  * A MorphTo, a readonly or computed field and a field with a `fillUsing()`
  * callback are left to their fill. Null and the empty string, which the
  * multipart path sends for null, still clear the field.
+ *
+ * A BelongsTo value sent as a map (`{ id, title }`, what a pre-filled picker
+ * holds) is reduced to its id first (v1.39.6), so the consumer's rules
+ * (`Rule::exists()`) and the fill see the key, not an array. Any other shape
+ * is left untouched.
  */
 trait DecodesStructuredValues
 {
@@ -41,6 +47,8 @@ trait DecodesStructuredValues
      */
     protected function decodeStructuredValues(Request $request, array $fields): array
     {
+        $this->reduceBelongsToValues($request, $fields);
+
         $decoded = [];
         $undecodable = [];
 
@@ -68,5 +76,39 @@ trait DecodesStructuredValues
         }
 
         return $undecodable;
+    }
+
+    /**
+     * Reduce a BelongsTo value given as a map whose `id` is an integer or a
+     * non-empty string to that id. A list, a map without such an id (a
+     * malformed one included) and a scalar are left as sent.
+     *
+     * @param  list<FieldContract>  $fields
+     */
+    private function reduceBelongsToValues(Request $request, array $fields): void
+    {
+        $reduced = [];
+
+        foreach ($fields as $field) {
+            if (! $field instanceof BelongsTo) {
+                continue;
+            }
+
+            $attribute = $field->attribute();
+            $value = $request->input($attribute);
+
+            if (! is_array($value) || array_is_list($value) || ! array_key_exists('id', $value)) {
+                continue;
+            }
+
+            $id = $value['id'];
+            if (is_int($id) || (is_string($id) && $id !== '')) {
+                $reduced[$attribute] = $id;
+            }
+        }
+
+        if ($reduced !== []) {
+            $request->merge($reduced);
+        }
     }
 }

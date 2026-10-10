@@ -15,6 +15,7 @@ import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import { recordHref } from '@/lib/recordHref'
+import { createPayload } from '@/lib/createPayload'
 import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 
 /** Shared fallback while the schema loads: a stable reference keeps the form
@@ -300,7 +301,7 @@ function CreateTargetPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     form.setErrors({})
-    createMutation.mutate(form.values)
+    createMutation.mutate(createPayload(form.values))
   }
 
   if (schemaQuery.isLoading || (isReplicate && replicateQuery.isLoading)) return <FormSkeleton />
