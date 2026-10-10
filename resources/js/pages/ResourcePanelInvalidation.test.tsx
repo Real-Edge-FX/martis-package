@@ -61,7 +61,7 @@ beforeEach(() => {
   apiPutMock.mockReset()
   apiGetMock.mockImplementation((path: string) => {
     if (path === '/api/resources/profiles/schema') return Promise.resolve({ data: schema })
-    if (path.startsWith('/api/resources/profiles/5')) return Promise.resolve({ data: { id: 5, notes: 'Old' } as ResourceRecord })
+    if (path.startsWith('/api/resources/profiles/5')) return Promise.resolve({ data: { id: 5, notes: 'Old' } as unknown as ResourceRecord })
     return Promise.resolve({ data: [] })
   })
   apiPostMock.mockResolvedValue({ data: { id: 6 } })
