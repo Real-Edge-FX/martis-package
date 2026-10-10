@@ -38,6 +38,17 @@ interface Window {
      */
     reactJsxRuntime?: unknown
     /**
+     * The public ReactDOM 18 API the `react-dom` shim re-exports
+     * (`createPortal`, `flushSync`, `unstable_batchedUpdates`, `version`).
+     * v2.10.0. See `lib/reactDomHandles.ts`.
+     */
+    reactDom?: unknown
+    /**
+     * `react-dom/client`'s `createRoot` and `hydrateRoot`, re-exported by
+     * the `react-dom/client` shim. v2.10.0.
+     */
+    reactDomClient?: unknown
+    /**
      * `@martis/runtime` public surface, exposed by `app.tsx` at
      * boot. Consumer-extension shims re-export from here.
      * v1.10.0+. See `lib/martisRuntime.ts`.

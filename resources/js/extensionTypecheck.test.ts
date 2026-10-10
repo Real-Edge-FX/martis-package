@@ -225,20 +225,35 @@ put(LIBRARY_TYPES_PROBE, [
 ].join('\n'))
 
 /**
- * What an extension can take from `react-dom`: the build sends it to a shim
- * that carries the runtime's `createPortal` and `flushSync` only, so tsc has
- * to take those (a library such as `@tanstack/react-virtual` imports
- * `flushSync`) and refuse the rest of the module (`unstable_batchedUpdates`)
+ * What an extension can take from `react-dom` and `react-dom/client`: the
+ * build sends them to shims that carry the public ReactDOM 18 API the host
+ * serves (v2.10.0: `createPortal`, `flushSync`, `unstable_batchedUpdates`,
+ * `version`; `createRoot`, `hydrateRoot`), so tsc has to take those and
+ * refuse the legacy root APIs React 19 removed (`render`, `findDOMNode`)
  * instead of reading `@types/react-dom`.
  */
 const REACT_DOM_PROBE = `${EXT}/tools/ReactDomProbe.tsx`
 put(REACT_DOM_PROBE, [
-    "import ReactDOM, { createPortal, flushSync } from 'react-dom'",
-    '// @ts-expect-error the react-dom shim carries createPortal and flushSync only',
-    "import { unstable_batchedUpdates } from 'react-dom'",
+    "import ReactDOM, { createPortal, flushSync, unstable_batchedUpdates, version } from 'react-dom'",
+    "import ReactDOMClient, { createRoot, hydrateRoot, type Root } from 'react-dom/client'",
+    '// @ts-expect-error the legacy root APIs are not exposed: React 19 removed them',
+    "import { render } from 'react-dom'",
+    '// @ts-expect-error neither is findDOMNode',
+    "import { findDOMNode } from 'react-dom'",
+    '// @ts-expect-error nor the legacy render of react-dom/client',
+    "import { render as legacyRender } from 'react-dom/client'",
     '',
     'export default function ReactDomProbe() {',
-    '  void unstable_batchedUpdates',
+    '  void render',
+    '  void findDOMNode',
+    '  void legacyRender',
+    '  unstable_batchedUpdates(() => {})',
+    '  ReactDOM.unstable_batchedUpdates(() => {})',
+    '  void version.toUpperCase()',
+    '  const root: Root = createRoot(document.body)',
+    '  root.render(<span />)',
+    '  ReactDOMClient.createRoot(document.body).unmount()',
+    "  hydrateRoot(document.body, <span />)",
     '  flushSync(() => {})',
     '  ReactDOM.flushSync(() => {})',
     '  return ReactDOM.createPortal(createPortal(<span />, document.body), document.body)',

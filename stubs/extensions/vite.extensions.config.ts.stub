@@ -15,9 +15,9 @@
  *
  * React + runtime handling (v1.10.0+):
  *
- * Seven bare module specifiers are aliased to small shim modules
+ * Eight bare module specifiers are aliased to small shim modules
  * under `resources/js/martis-extensions/.shims/` that re-export
- * from `window.Martis.{react, reactJsxRuntime, runtime}`. Vite
+ * from `window.Martis.{react, reactJsxRuntime, reactDom, reactDomClient, runtime}`. Vite
  * inlines those shims into the bundle at build time, so the compiled
  * `extensions.js` reads everything off the host SPA's React tree
  * instead of shipping a duplicate copy or trying to resolve bare
@@ -28,15 +28,22 @@
  * | `react`                     | `.shims/react.mjs`                     |
  * | `react/jsx-runtime`         | `.shims/react-jsx-runtime.mjs`         |
  * | `react-dom`                 | `.shims/react-dom.mjs`                 |
+ * | `react-dom/client`          | `.shims/react-dom-client.mjs`          |
  * | `react-router-dom`          | `.shims/react-router-dom.mjs`          |
  * | `react-router`              | `.shims/react-router-dom.mjs`          |
  * | `react-i18next`             | `.shims/react-i18next.mjs`             |
  * | `@tanstack/react-query`     | `.shims/tanstack-react-query.mjs`      |
  * | `@martis/runtime`           | `.shims/runtime.mjs`                   |
  *
- * The `react-dom` shim (v1.38.0+) carries `createPortal` and, since
- * v1.38.2, `flushSync`, the parts of `react-dom` the runtime serves;
- * before, `react-dom` went to the React shim, which has neither.
+ * The `react-dom` shim (v1.38.0+) re-exports the public ReactDOM 18 API
+ * the host serves (`createPortal`, `flushSync`, `unstable_batchedUpdates`
+ * and `version`, since v2.10.0 from `window.Martis.reactDom`), and the
+ * `react-dom/client` shim (v2.10.0) `createRoot` and `hydrateRoot`
+ * (`window.Martis.reactDomClient`): what third-party libraries import
+ * (`@dnd-kit/core`, `@tanstack/react-virtual`). The legacy root APIs
+ * (`render`, `hydrate`, `findDOMNode`, `unmountComponentAtNode`) are not
+ * exposed: React 19 removed them. Before v1.38.0, `react-dom` went to the
+ * React shim, which has none of these.
  * The host runs React Router 7 (v2.0.1+), where `react-router-dom` is a
  * re-export of `react-router`: both specifiers go to the same shim, so
  * an extension imports from either.
@@ -72,6 +79,7 @@ const shimsDir = path.resolve(rootDir, 'resources/js/martis-extensions/.shims')
 const reactShim = path.join(shimsDir, 'react.mjs')
 const jsxRuntimeShim = path.join(shimsDir, 'react-jsx-runtime.mjs')
 const reactDomShim = path.join(shimsDir, 'react-dom.mjs')
+const reactDomClientShim = path.join(shimsDir, 'react-dom-client.mjs')
 const routerShim = path.join(shimsDir, 'react-router-dom.mjs')
 const i18nextShim = path.join(shimsDir, 'react-i18next.mjs')
 const queryShim = path.join(shimsDir, 'tanstack-react-query.mjs')
@@ -94,6 +102,9 @@ export default defineConfig({
       {find: 'react/jsx-runtime', replacement: jsxRuntimeShim},
       {find: /^react$/, replacement: reactShim},
       {find: /^react-dom$/, replacement: reactDomShim},
+      // A regex matches the whole specifier, so neither entry shadows the
+      // other (a string `react-dom` would prefix-match `react-dom/client`).
+      {find: /^react-dom\/client$/, replacement: reactDomClientShim},
       // Re-exposed 3rd-party modules (host bundles them; consumer
       // doesn't need to install).
       {find: /^react-router-dom$/, replacement: routerShim},

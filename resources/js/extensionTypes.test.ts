@@ -6,6 +6,8 @@ import * as routerEntry from '@/extension-types/react-router-dom'
 import * as i18nextEntry from '@/extension-types/react-i18next'
 import * as queryEntry from '@/extension-types/tanstack-react-query'
 import * as reactDomEntry from '@/extension-types/react-dom'
+import * as reactDomClientEntry from '@/extension-types/react-dom-client'
+import { reactDomClientHandle, reactDomHandle } from '@/lib/reactDomHandles'
 import runtimeSource from '@/lib/martisRuntime.ts?raw'
 import runtimeEntrySource from '@/extension-types/runtime.ts?raw'
 import viteExtensionsConfig from '../../stubs/extensions/vite.extensions.config.ts.stub?raw'
@@ -33,20 +35,25 @@ const stub = (file: string): string => stubs[`../../stubs/extensions/${file}`] ?
 
 /**
  * The object each shim reads its exports from (`const R = window.Martis.runtime`,
- * `RR`, `I`, `Q`), and the default export of the react-dom shim: the part of
- * `react-dom` the runtime carries.
+ * `RR`, `I`, `Q`; `D` and `C`, the ReactDOM 18 handles on `window.Martis`
+ * since v2.10.0), and the default export of the react-dom shims: the same
+ * members as their named exports.
  */
 const RUNTIME_OBJECTS: Record<string, Record<string, unknown>> = {
     R: martisRuntime as unknown as Record<string, unknown>,
     RR: martisRuntime.reactRouterDom as unknown as Record<string, unknown>,
     I: martisRuntime.reactI18next as unknown as Record<string, unknown>,
     Q: martisRuntime.tanstackReactQuery as unknown as Record<string, unknown>,
-    ReactDOM: { createPortal: martisRuntime.createPortal, flushSync: martisRuntime.flushSync },
+    D: reactDomHandle,
+    C: reactDomClientHandle,
+    ReactDOM: reactDomHandle,
+    ReactDOMClient: reactDomClientHandle,
 }
 
 const SHIMS = [
     { shim: 'runtime', specifier: '@martis/runtime', entry: runtimeEntry },
     { shim: 'react-dom', specifier: 'react-dom', entry: reactDomEntry },
+    { shim: 'react-dom-client', specifier: 'react-dom/client', entry: reactDomClientEntry },
     // React Router 7's `react-router-dom` is a re-export of `react-router`,
     // the package the host installs: its types are the library's.
     { shim: 'react-router-dom', specifier: 'react-router-dom', library: 'react-router', entry: routerEntry },
@@ -280,7 +287,7 @@ describe('the published tsconfig.extensions.json', () => {
         expected.i18next = ['./resources/js/martis-extensions/.shims/i18next.d.mts']
         expected['@martis/testing'] = ['./vendor/martis/martis/dist/testing/testing.d.mts']
 
-        expect(Object.keys(expected)).toHaveLength(13)
+        expect(Object.keys(expected)).toHaveLength(14)
         expect(tsconfig.compilerOptions.paths).toEqual(expected)
     })
 

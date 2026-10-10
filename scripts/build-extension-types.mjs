@@ -3,7 +3,7 @@
  * Generates the TypeScript declarations of the consumer-extension shims.
  *
  * A consumer extension imports `@martis/runtime`, `react-dom`,
- * `react-router-dom`, `react-i18next` and `@tanstack/react-query`; its Vite
+ * `react-dom/client`, `react-router-dom`, `react-i18next` and `@tanstack/react-query`; its Vite
  * config sends each to a shim under `resources/js/martis-extensions/.shims/`
  * that re-exports the host's copy from `window.Martis.runtime`.
  * `martis:install` publishes a `<shim>.d.mts` next to each of those shims,
@@ -37,6 +37,7 @@ const CONSUMER_PACKAGES = /^(?:react|react-dom|@phosphor-icons\/react)(?:\/|$)/
 
 const SIBLINGS = {
   'react-dom': './react-dom.mjs',
+  'react-dom/client': './react-dom-client.mjs',
   // The SPA imports React Router 7 as `react-router`; the runtime entry's
   // re-exports point at the `react-router-dom` shim's declarations.
   'react-router': './react-router-dom.mjs',
@@ -48,6 +49,8 @@ const SIBLINGS = {
 const SHIMS = [
   { name: 'runtime', specifier: '@martis/runtime', siblings: SIBLINGS },
   { name: 'react-dom', specifier: 'react-dom', siblings: {} },
+  // v2.10.0: `react-dom/client`'s `createRoot` and `hydrateRoot`.
+  { name: 'react-dom-client', specifier: 'react-dom/client', siblings: {} },
   { name: 'react-router-dom', specifier: 'react-router-dom', siblings: {} },
   { name: 'react-i18next', specifier: 'react-i18next', siblings: { i18next: './i18next.mjs' } },
   { name: 'tanstack-react-query', specifier: '@tanstack/react-query', siblings: {} },

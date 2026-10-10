@@ -8,6 +8,7 @@ import * as ReactJsxRuntime from 'react/jsx-runtime'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router'
 import { martisRuntime } from '@/lib/martisRuntime'
+import { reactDomClientHandle, reactDomHandle } from '@/lib/reactDomHandles'
 import { RouterProvider } from 'react-router/dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { PrimeReactProvider } from 'primereact/api'
@@ -80,6 +81,12 @@ window.Martis = {
   // jsx/jsxs/Fragment without the consumer needing to bundle a
   // second React copy.
   reactJsxRuntime: ReactJsxRuntime,
+  // The public ReactDOM 18 API (v2.10.0): the `react-dom` and
+  // `react-dom/client` shims re-export from these, so a library that
+  // imports `unstable_batchedUpdates` or `createRoot` runs on the host's
+  // ReactDOM. See `lib/reactDomHandles.ts`.
+  reactDom: reactDomHandle,
+  reactDomClient: reactDomClientHandle,
   // `@martis/runtime` public surface (v1.10+). Consumer-extension
   // shims re-export from here so override stubs can `import {useAuth,
   // api, AuthFrame, ...} from '@martis/runtime'` and the bundle

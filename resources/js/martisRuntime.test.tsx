@@ -4,6 +4,7 @@ import { RouterProvider as DomRouterProvider } from 'react-router/dom'
 import { describe, expect, it } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { martisRuntime } from '@/lib/martisRuntime'
+import { reactDomHandle } from '@/lib/reactDomHandles'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { iconRegistry } from '@/lib/iconRegistry'
 import { ResourceIcon } from '@/components/ResourceIcon'
@@ -129,6 +130,11 @@ describe('martisRuntime', () => {
         // The host's synchronous flush (v1.38.2), which the react-dom shim
         // re-exports for libraries such as @tanstack/react-virtual.
         expect(martisRuntime.flushSync).toBe(flushSync)
+        // Still named exports of the runtime (v2.10.0): a bundle built with the
+        // `react-dom` shim of v1.38.2 to v2.9.x reads them here, and keeps
+        // working on a host that serves `window.Martis.reactDom` as well.
+        expect(martisRuntime.createPortal).toBe(reactDomHandle.createPortal)
+        expect(martisRuntime.flushSync).toBe(reactDomHandle.flushSync)
 
         // Shared field-form harness (v1.20.0)
         expect(martisRuntime.useMartisForm).toBeTypeOf('function')
@@ -302,6 +308,9 @@ describe('martisRuntime', () => {
         const expected: Record<string, string> = {
             'react': 'reactShim',
             'react-dom': 'reactDomShim',
+            // The whole specifier: `react-dom` does not shadow it, and it does
+            // not stop at the `react-dom` shim (v2.10.0).
+            'react-dom/client': 'reactDomClientShim',
             'react/jsx-runtime': 'jsxRuntimeShim',
             'react-router-dom': 'routerShim',
             'react-router': 'routerShim',

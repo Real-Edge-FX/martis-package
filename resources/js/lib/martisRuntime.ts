@@ -322,8 +322,11 @@ export const martisRuntime = {
   // consumer Tool can't `import { Dropdown } from 'primereact/dropdown'`
   // (the extension build doesn't alias `primereact`, and bundling a second
   // copy risks version skew). `createPortal` is the host's; the consumer's
-  // `react-dom` shim (v1.38.0+) re-exports it, and `flushSync` below, the
-  // only parts of react-dom it carries. Exposing the exact controls
+  // `react-dom` shim (v1.38.0+) re-exports it, and `flushSync` below, with
+  // the rest of the public ReactDOM 18 API (`window.Martis.reactDom`, v2.10.0:
+  // see `lib/reactDomHandles.ts`). Both stay named exports of this module,
+  // so an extension that imports them from `@martis/runtime` keeps building
+  // without republishing its shims. Exposing the exact controls
   // Martis's own filters use (with the `martis-filter-dropdown` styling
   // available via CSS) lets Tools render pixel-identical single/multi
   // filters and portal overlays without hand-replicating PrimeReact's
@@ -334,7 +337,8 @@ export const martisRuntime = {
   // `react-dom`'s synchronous flush (since v1.38.2), the host's like
   // `createPortal`: third-party libraries import it from `react-dom` (the
   // list virtualiser `@tanstack/react-virtual` calls it while scrolling),
-  // and the consumer's `react-dom` shim re-exports it.
+  // and the consumer's `react-dom` shim re-exports it (since v2.10.0 from
+  // `window.Martis.reactDom`, the same function).
   flushSync,
 
   // 3rd-party re-exports — consumers don't need to npm install these.
