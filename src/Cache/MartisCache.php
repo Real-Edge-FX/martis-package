@@ -210,7 +210,7 @@ class MartisCache
      * @param  Closure(): T  $callback
      * @return T
      */
-    public function remember(string $type, string $key, Closure $callback, ?int $ttlMinutesOverride = null, ?Request $scopeRequest = null): mixed
+    public function remember(string $type, string $key, Closure $callback, ?int $ttlMinutesOverride = null): mixed
     {
         $this->assertKnownType($type);
 
@@ -220,7 +220,7 @@ class MartisCache
 
         $ttlMinutes = $ttlMinutesOverride ?? $this->ttl($type);
         $expires = $ttlMinutes === null ? null : Date::now()->addMinutes($ttlMinutes);
-        $cacheKey = $this->buildKey($type, $key, $scopeRequest);
+        $cacheKey = $this->buildKey($type, $key);
 
         if ($expires === null) {
             return $this->store->rememberForever($cacheKey, $callback);
@@ -387,12 +387,10 @@ class MartisCache
      * `Martis::cacheScopeUsing()` (see `scopeSegment()`). The scope sits at
      * the end of the key before the length check, so a long key still
      * differs per scope and keeps the live prefix `prune()` looks for.
-     * `$scopeRequest` is the request the resolver reads; the current one by
-     * default.
      */
-    public function buildKey(string $type, string $key, ?Request $scopeRequest = null): string
+    public function buildKey(string $type, string $key): string
     {
-        $full = $this->keyPrefix($type).$key.$this->scopeSegment($scopeRequest);
+        $full = $this->keyPrefix($type).$key.$this->scopeSegment();
 
         // Stores bound key length (a database cache column indexed under
         // utf8mb4 holds 191 characters, memcached 250 bytes), and the store
@@ -440,10 +438,20 @@ class MartisCache
     /**
      * The segment the app's cache scope adds to every key (v2.10.0): empty
      * without a resolver (the keys are what they were), or when it answers
-     * `null` or the empty string, or when no request is bound (a queue
-     * worker, a console command); otherwise `:s` and the first 32 hex
+     * `null` or the empty string; otherwise `:s` and the first 32 hex
      * characters of the SHA-256 of what the resolver answered, so any string
      * is safe in any store and the key length stays bounded.
+     *
+     * The resolver also runs in a console command and a queue job: Laravel's
+     * console kernel binds a placeholder request built from `APP_URL` there
+     * (`SetRequestForConsole`), and that request is what it receives, with no
+     * user, route or headers. Write it null-safe
+     * (`$request->user()?->tenant_id`). A value cached there is keyed by what
+     * the resolver returns for that placeholder. The scope is not skipped
+     * under `runningInConsole()` on purpose: an Octane worker reports it too,
+     * and would lose the scope on web requests. The `! $request instanceof
+     * Request` branch below is reachable only when no `request` binding
+     * exists (raw container use, a unit test).
      *
      * The resolver's mistakes are not swallowed: an answer that is neither a
      * string nor `null` throws, and so does an exception of the resolver

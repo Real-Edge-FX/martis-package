@@ -62,6 +62,11 @@ class CsItemResource extends Resource
         return [Text::make($request->getHost() === 'tenant-a.example' ? 'alpha_field' : 'beta_field')];
     }
 
+    public function lenses(Request $request): array
+    {
+        return [new CsPlainLens, (new CsCachedLens)->cacheFor(60)];
+    }
+
     public static function menuCount(Request $request): ?int
     {
         return $request->getHost() === 'tenant-a.example' ? 11 : 22;
@@ -104,6 +109,10 @@ class CsLens extends Lens
     }
 }
 
+class CsPlainLens extends CsLens {}
+
+class CsCachedLens extends CsLens {}
+
 const CS_A = 'tenant-a.example';
 const CS_B = 'tenant-b.example';
 
@@ -118,6 +127,12 @@ function csStoredKeys(): array
 function csOnHost(string $host): Request
 {
     return Request::create("http://{$host}/");
+}
+
+/** Bind a request on `host` as the current one, as the kernel does for a web request. */
+function csBindHost(string $host): void
+{
+    app()->instance('request', csOnHost($host));
 }
 
 beforeEach(function () {
@@ -185,8 +200,10 @@ it('adds a fixed-length hash of the resolver\'s answer to the key', function () 
     Martis::cacheScopeUsing(fn (Request $request): ?string => $request->getHost());
     $cache = app(MartisCache::class);
 
-    $a = $cache->buildKey('schema', 'posts', csOnHost(CS_A));
-    $b = $cache->buildKey('schema', 'posts', csOnHost(CS_B));
+    csBindHost(CS_A);
+    $a = $cache->buildKey('schema', 'posts');
+    csBindHost(CS_B);
+    $b = $cache->buildKey('schema', 'posts');
 
     expect($a)->toBe('martis:cache:schema@v2.10.0:v1:posts:s'.substr(hash('sha256', CS_A), 0, 32))
         ->and($b)->not->toBe($a)
@@ -196,13 +213,16 @@ it('adds a fixed-length hash of the resolver\'s answer to the key', function () 
 it('answers null and the empty string with the unscoped key', function (?string $answer) {
     Martis::cacheScopeUsing(fn (Request $request): ?string => $answer);
 
-    expect(app(MartisCache::class)->buildKey('schema', 'posts', csOnHost(CS_A)))->toBe('martis:cache:schema@v2.10.0:v1:posts');
+    csBindHost(CS_A);
+
+    expect(app(MartisCache::class)->buildKey('schema', 'posts'))->toBe('martis:cache:schema@v2.10.0:v1:posts');
 })->with([null, '']);
 
 it('takes any string, a long one included', function () {
     Martis::cacheScopeUsing(fn (Request $request): string => str_repeat('tenant "é" ', 500));
 
-    $key = app(MartisCache::class)->buildKey('schema', 'posts', csOnHost(CS_A));
+    csBindHost(CS_A);
+    $key = app(MartisCache::class)->buildKey('schema', 'posts');
 
     expect(strlen($key))->toBeLessThanOrEqual(MartisCache::MAX_KEY_LENGTH);
 });
@@ -212,8 +232,10 @@ it('keeps a long key different per scope: the scope is in the key before it is h
     $long = str_repeat('x', 400);
     Martis::cacheScopeUsing(fn (Request $request): string => $request->getHost());
 
-    $a = $cache->buildKey('schema', $long, csOnHost(CS_A));
-    $b = $cache->buildKey('schema', $long, csOnHost(CS_B));
+    csBindHost(CS_A);
+    $a = $cache->buildKey('schema', $long);
+    csBindHost(CS_B);
+    $b = $cache->buildKey('schema', $long);
 
     expect($a)->not->toBe($b)
         ->and(strlen($a))->toBeLessThanOrEqual(MartisCache::MAX_KEY_LENGTH)
@@ -223,7 +245,8 @@ it('keeps a long key different per scope: the scope is in the key before it is h
 it('fails loudly when the resolver answers something that is not a string or null', function (mixed $answer) {
     Martis::cacheScopeUsing(fn (Request $request): mixed => $answer);
 
-    app(MartisCache::class)->buildKey('schema', 'posts', csOnHost(CS_A));
+    csBindHost(CS_A);
+    app(MartisCache::class)->buildKey('schema', 'posts');
 })->with([42, 1.5, true, [['tenant']], new stdClass])->throws(UnexpectedValueException::class, 'must return a string or null');
 
 it('does not swallow an exception of the resolver', function () {
@@ -231,7 +254,8 @@ it('does not swallow an exception of the resolver', function () {
         throw new LogicException('no tenant resolved');
     });
 
-    app(MartisCache::class)->remember('schema', 'posts', fn () => 'computed', scopeRequest: csOnHost(CS_A));
+    csBindHost(CS_A);
+    app(MartisCache::class)->remember('schema', 'posts', fn () => 'computed');
 })->throws(LogicException::class, 'no tenant resolved');
 
 it('removes the resolver with null', function () {
@@ -313,9 +337,14 @@ it('keeps the results of a metric without cachePerUser apart per scope', functio
     Martis::cacheScopeUsing(fn (Request $request): string => $request->getHost());
     $metric = $metricClass::make('Host');
 
-    $a = $metric->resolve(csOnHost(CS_A))['value'];
-    $b = $metric->resolve(csOnHost(CS_B))['value'];
-    $metric->resolve(csOnHost(CS_A));
+    $resolveOn = function (string $host) use ($metric) {
+        csBindHost($host);
+
+        return $metric->resolve(csOnHost($host))['value'];
+    };
+    $a = $resolveOn(CS_A);
+    $b = $resolveOn(CS_B);
+    $resolveOn(CS_A);
 
     expect([$a, $b])->toBe([1, 2])
         ->and(CsHostMetric::$calls)->toBe(2);
@@ -327,7 +356,11 @@ it('keeps the results of a metric without cachePerUser apart per scope', functio
 it('shares the result of a metric without cachePerUser across scopes without a resolver', function (string $metricClass) {
     $metric = $metricClass::make('Host');
 
-    expect($metric->resolve(csOnHost(CS_A))['value'])->toBe(1)
+    csBindHost(CS_A);
+    $a = $metric->resolve(csOnHost(CS_A))['value'];
+    csBindHost(CS_B);
+
+    expect($a)->toBe(1)
         ->and($metric->resolve(csOnHost(CS_B))['value'])->toBe(1);
 })->with([
     'the metrics cache layer' => [CsHostMetric::class],
@@ -352,6 +385,36 @@ it('scopes the key of a lens', function () {
     expect($key(CS_A))->not->toBe($key(CS_B))
         ->and($key(CS_A))->toStartWith($unscoped.':s')
         ->and($key(CS_A))->toBe($key(CS_A));
+});
+
+it('does not run the resolver for a lens that is not cached', function () {
+    Martis::cacheScopeUsing(function (Request $request): never {
+        throw new RuntimeException('boom');
+    });
+
+    $this->getJson('http://'.CS_A.'/martis/api/resources/cs-items/lenses/cs-plain')->assertOk();
+});
+
+it('still runs the resolver for a cached lens', function () {
+    Martis::cacheScopeUsing(function (Request $request): never {
+        throw new RuntimeException('boom');
+    });
+
+    $this->getJson('http://'.CS_A.'/martis/api/resources/cs-items/lenses/cs-cached')->assertStatus(500);
+});
+
+it('scopes the key of a cached lens through its endpoint', function () {
+    $seen = [];
+    Martis::cacheScopeUsing(function (Request $request) use (&$seen): string {
+        $seen[] = $request->getHost();
+
+        return $request->getHost();
+    });
+
+    $this->getJson('http://'.CS_A.'/martis/api/resources/cs-items/lenses/cs-cached')->assertOk();
+    $this->getJson('http://'.CS_B.'/martis/api/resources/cs-items/lenses/cs-cached')->assertOk();
+
+    expect($seen)->toContain(CS_A, CS_B);
 });
 
 // -----------------------------------------------------------------------------
@@ -395,16 +458,21 @@ it('treats scoped keys as live when pruning a database store', function () {
     Martis::cacheScopeUsing(fn (Request $request): string => $request->getHost());
     $current = new MartisCache($store, 'v2.10.0');
     $current->flushAllForTesting();
-    $current->remember('schema', 'posts', fn () => 'a', scopeRequest: csOnHost(CS_A));
-    $current->remember('schema', 'posts', fn () => 'b', scopeRequest: csOnHost(CS_B));
-    (new MartisCache($store, 'v2.9.0'))->remember('schema', 'posts', fn () => 'old version', scopeRequest: csOnHost(CS_A));
+    csBindHost(CS_A);
+    $keyA = $current->buildKey('schema', 'posts');
+    $current->remember('schema', 'posts', fn () => 'a');
+    csBindHost(CS_B);
+    $keyB = $current->buildKey('schema', 'posts');
+    $current->remember('schema', 'posts', fn () => 'b');
+    csBindHost(CS_A);
+    (new MartisCache($store, 'v2.9.0'))->remember('schema', 'posts', fn () => 'old version');
 
     $result = $current->prune();
 
     expect($result)->toMatchArray(['driver' => 'database', 'supported' => true, 'deleted' => 1])
         ->and(DB::table('cs_cache')->pluck('key')->sort()->values()->all())->toBe(collect([
-            'app_'.$current->buildKey('schema', 'posts', csOnHost(CS_A)),
-            'app_'.$current->buildKey('schema', 'posts', csOnHost(CS_B)),
+            'app_'.$keyA,
+            'app_'.$keyB,
         ])->sort()->values()->all());
 
     Schema::dropIfExists('cs_cache');

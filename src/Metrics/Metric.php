@@ -308,7 +308,7 @@ abstract class Metric implements MetricContract
 
         return $key === null
             ? $this->resolveResult($request)
-            : $cache->remember('metrics', $key, fn () => $this->resolveResult($request), scopeRequest: $request);
+            : $cache->remember('metrics', $key, fn () => $this->resolveResult($request));
     }
 
     /**
@@ -316,7 +316,8 @@ abstract class Metric implements MetricContract
      * the key of the result (v2.10.0), read from the request the metric
      * resolves: users of different tenants do not share a result, which a
      * metric without `cachePerUser` would otherwise serve to all of them.
-     * The central path scopes its key the same way inside `MartisCache`.
+     * The central path scopes its key inside `MartisCache`, from the request the
+     * application has bound (the one the metric resolves, in a web request).
      */
     private function cacheScopeSegment(Request $request): string
     {

@@ -593,7 +593,9 @@ class MartisManager
      * `null` for "no scope" (the key stays what it is without a resolver).
      * Any other answer throws `UnexpectedValueException`: a misconfigured
      * scope would share entries between tenants. It runs on every cache read,
-     * so keep it cheap. There is no default scope, not even the host: Nova
+     * so keep it cheap. In a console command or a queue job it receives the
+     * placeholder request Laravel binds from `APP_URL`, so write it null-safe
+     * (`$request->user()?->tenant_id`). There is no default scope, not even the host: Nova
      * has none, every app's keys would change, and a host scope would let any
      * client multiply entries through the `Host` header on an app without
      * trusted hosts. `martis:cache:clear` still clears every scope (it bumps

@@ -117,7 +117,9 @@ class LensController extends MartisController
         // This provides "just works" caching without needing model
         // observers or cache tags. Only a cached lens needs it.
         $tableVersion = $ttl > 0 ? $this->resolveTableVersion($modelClass, $resourceClass::softDeletes()) : '';
-        $cacheKey = $this->buildCacheKey($lensInstance, $lensRequest, $perPage, $page, $trashedMode, $tableVersion);
+        // The key (and with it the app's cache scope resolver) only for a
+        // cached lens: an uncached one never depends on the resolver.
+        $cacheKey = $ttl > 0 ? $this->buildCacheKey($lensInstance, $lensRequest, $perPage, $page, $trashedMode, $tableVersion) : '';
 
         $fields = $this->resolveLensFields($lensInstance, $request);
 
