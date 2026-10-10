@@ -5,6 +5,7 @@ namespace Martis\Preferences;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use InvalidArgumentException;
 use Martis\Enums\AccentColor;
 use Martis\Enums\ThemeMode;
 use Martis\Enums\UiDensity;
@@ -78,7 +79,7 @@ class PreferencesResolver
             'accent' => $this->normaliseAccent($merged['accent'] ?? $defaults['accent']),
             'brandColor' => $this->normaliseBrandColor($merged['brandColor'] ?? null),
             'density' => $this->normaliseDensity($merged['density'] ?? $defaults['density']),
-            'locale' => is_string($merged['locale'] ?? null) ? $merged['locale'] : $defaults['locale'],
+            'locale' => $this->normaliseLocale($merged['locale'] ?? null, $defaults['locale']),
             'reducedMotion' => (bool) ($merged['reducedMotion'] ?? $defaults['reducedMotion']),
             'source' => $preset !== null ? 'preset' : ($userPrefs !== null ? 'user' : 'default'),
             'preset' => $presetName,
@@ -96,22 +97,74 @@ class PreferencesResolver
             'accent' => $this->normaliseAccent($raw['accent'] ?? 'martis'),
             'brandColor' => $this->normaliseBrandColor($raw['brandColor'] ?? null),
             'density' => $this->normaliseDensity($raw['density'] ?? 'comfortable'),
-            'locale' => is_string($raw['locale'] ?? null) ? $raw['locale'] : 'en',
+            'locale' => $this->normaliseLocale($raw['locale'] ?? null, $this->availableLocales()[0]),
             'reducedMotion' => (bool) ($raw['reducedMotion'] ?? false),
         ];
     }
 
-    /** @return list<string> */
+    /**
+     * The locales the language picker offers: `martis.preferences.locales`
+     * (`MARTIS_UI_LOCALES`), or the three bundled ones when the list is
+     * empty. A code that does not look like a locale throws (v2.10.0): a
+     * set-but-unusable value is never dropped silently.
+     *
+     * @return list<string>
+     *
+     * @throws InvalidArgumentException
+     */
     public function availableLocales(): array
     {
-        /** @var array<int, string>|null $locales */
         $locales = config('martis.preferences.locales');
         if (is_array($locales) && $locales !== []) {
-            return array_values(array_filter($locales, 'is_string'));
+            $valid = [];
+            foreach ($locales as $locale) {
+                if (! is_string($locale) || ! LocaleLabelsParser::isValidCode($locale)) {
+                    throw new InvalidArgumentException(sprintf(
+                        'MARTIS_UI_LOCALES (martis.preferences.locales): invalid locale code %s (expected e.g. `en`, `en_GB`, `pt-BR`).',
+                        is_string($locale) ? '"'.$locale.'"' : get_debug_type($locale),
+                    ));
+                }
+                $valid[] = $locale;
+            }
+
+            return array_values(array_unique($valid));
         }
 
         // Fallback — whatever is in resources/lang (or vendor/martis)
         return ['en', 'pt_PT', 'pt_BR'];
+    }
+
+    /**
+     * Labels the language pickers show: the `martis.preferences.locale_labels`
+     * map merged with `MARTIS_UI_LOCALE_LABELS` (`locale_labels_env`), the
+     * env entries winning. A locale without a label shows its code.
+     *
+     * @return array<string, string>
+     *
+     * @throws InvalidArgumentException When the env value is malformed.
+     */
+    public function localeLabels(): array
+    {
+        $labels = [];
+        foreach ((array) config('martis.preferences.locale_labels', []) as $code => $label) {
+            if (is_string($code) && is_string($label)) {
+                $labels[$code] = $label;
+            }
+        }
+
+        return array_merge($labels, LocaleLabelsParser::parse(
+            (string) (config('martis.preferences.locale_labels_env') ?? ''),
+        ));
+    }
+
+    /**
+     * A locale the app offers, else `$fallback` (v2.10.0). A stored locale
+     * the app no longer lists, a preset's and a default outside the list
+     * all degrade instead of being applied as they are.
+     */
+    protected function normaliseLocale(mixed $value, string $fallback): string
+    {
+        return is_string($value) && in_array($value, $this->availableLocales(), true) ? $value : $fallback;
     }
 
     public static function tableExists(): bool

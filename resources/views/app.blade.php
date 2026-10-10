@@ -1,5 +1,20 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+@php
+        // Task 07.1 ⭐ D2 — resolve user preferences server-side and inject
+        // them BEFORE first paint so theme/accent/density apply without a flash.
+        $prefsEnabled = (bool) config('martis.preferences.enabled', true);
+        $prefsPayload = null;
+        if ($prefsEnabled) {
+            try {
+                /** @var \Martis\Preferences\PreferencesResolver $resolver */
+                $resolver = app(\Martis\Preferences\PreferencesResolver::class);
+                $prefsPayload = $resolver->resolve(request());
+            } catch (\Throwable) {
+                $prefsPayload = null;
+            }
+        }
+@endphp
+<html lang="{{ str_replace('_', '-', $prefsPayload['locale'] ?? app()->getLocale()) }}" class="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -41,19 +56,6 @@
         <meta name="theme-color" content="{{ $brandThemeColor }}">
     @endif
     @php
-        // Task 07.1 ⭐ D2 — resolve user preferences server-side and inject
-        // them BEFORE first paint so theme/accent/density apply without a flash.
-        $prefsEnabled = (bool) config('martis.preferences.enabled', true);
-        $prefsPayload = null;
-        if ($prefsEnabled) {
-            try {
-                /** @var \Martis\Preferences\PreferencesResolver $resolver */
-                $resolver = app(\Martis\Preferences\PreferencesResolver::class);
-                $prefsPayload = $resolver->resolve(request());
-            } catch (\Throwable) {
-                $prefsPayload = null;
-            }
-        }
         // v1.7.0 — custom accent colours. The parser validates each
         // entry; invalid ones fall through silently with a Log::warning.
         $customAccents = \Martis\Preferences\CustomAccentsParser::parseDetailed(
@@ -65,8 +67,8 @@
             // Locales the language picker (login + in-app Preferences) offers.
             // Passed through so `martis.preferences.locales` actually restricts
             // the list; when empty the SPA falls back to its bundled default.
-            'locales' => array_values((array) config('martis.preferences.locales', [])),
-            'localeLabels' => (array) config('martis.preferences.locale_labels', []),
+            'locales' => app(\Martis\Preferences\PreferencesResolver::class)->availableLocales(),
+            'localeLabels' => app(\Martis\Preferences\PreferencesResolver::class)->localeLabels(),
             'initial' => $prefsPayload,
             'customAccents' => array_map(
                 static fn (string $name, array $accent): array => ['name' => $name, 'color' => $accent['color'], 'contrast' => $accent['contrast']],
