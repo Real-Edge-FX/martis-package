@@ -30,9 +30,9 @@ use Martis\ResourceRegistry;
 // array (a multi-value whereIn). Any other shape is left untouched.
 // ===========================================================================
 
-class BTMParentModel extends Model
+class BMVParentModel extends Model
 {
-    protected $table = 'btm_parents';
+    protected $table = 'bmv_parents';
 
     protected $guarded = [];
 
@@ -40,68 +40,68 @@ class BTMParentModel extends Model
 
     public function children(): EloquentHasMany
     {
-        return $this->hasMany(BTMChildModel::class, 'parent_id');
+        return $this->hasMany(BMVChildModel::class, 'parent_id');
     }
 
     public function child(): EloquentHasOne
     {
-        return $this->hasOne(BTMChildModel::class, 'parent_id');
+        return $this->hasOne(BMVChildModel::class, 'parent_id');
     }
 
     public function notes(): EloquentMorphMany
     {
-        return $this->morphMany(BTMChildModel::class, 'notable');
+        return $this->morphMany(BMVChildModel::class, 'notable');
     }
 
     public function note(): EloquentMorphOne
     {
-        return $this->morphOne(BTMChildModel::class, 'notable');
+        return $this->morphOne(BMVChildModel::class, 'notable');
     }
 }
 
-class BTMChildModel extends Model
+class BMVChildModel extends Model
 {
-    protected $table = 'btm_children';
+    protected $table = 'bmv_children';
 
     protected $guarded = [];
 
     public $timestamps = false;
 }
 
-class BTMParentResource extends Resource
+class BMVParentResource extends Resource
 {
     public static function model(): string
     {
-        return BTMParentModel::class;
+        return BMVParentModel::class;
     }
 
     public static function uriKey(): string
     {
-        return 'btm-parents';
+        return 'bmv-parents';
     }
 
     public function fields(Request $request): array
     {
         return [
             Text::make('name'),
-            HasMany::make('Children', 'children')->relatedResource('btm-children'),
-            HasOne::make('Child', 'child')->relatedResource('btm-children'),
-            MorphMany::make('Notes', 'notes')->relatedResource('btm-children'),
-            MorphOne::make('Note', 'note')->relatedResource('btm-children'),
+            HasMany::make('Children', 'children')->relatedResource('bmv-children'),
+            HasOne::make('Child', 'child')->relatedResource('bmv-children'),
+            MorphMany::make('Notes', 'notes')->relatedResource('bmv-children'),
+            MorphOne::make('Note', 'note')->relatedResource('bmv-children'),
         ];
     }
 }
 
-class BTMChildResource extends Resource
+class BMVChildResource extends Resource
 {
     public static function model(): string
     {
-        return BTMChildModel::class;
+        return BMVChildModel::class;
     }
 
     public static function uriKey(): string
     {
-        return 'btm-children';
+        return 'bmv-children';
     }
 
     public function fields(Request $request): array
@@ -109,8 +109,8 @@ class BTMChildResource extends Resource
         return [
             Text::make('code'),
             BelongsTo::make('parent_id', 'Parent')
-                ->relatedResource('btm-parents')
-                ->rules(['nullable', Rule::exists('btm_parents', 'id')]),
+                ->relatedResource('bmv-parents')
+                ->rules(['nullable', Rule::exists('bmv_parents', 'id')]),
         ];
     }
 }
@@ -118,13 +118,13 @@ class BTMChildResource extends Resource
 beforeEach(function () {
     $this->withoutMiddleware(MartisAuthenticate::class);
 
-    Schema::dropIfExists('btm_children');
-    Schema::dropIfExists('btm_parents');
-    Schema::create('btm_parents', function ($table) {
+    Schema::dropIfExists('bmv_children');
+    Schema::dropIfExists('bmv_parents');
+    Schema::create('bmv_parents', function ($table) {
         $table->id();
         $table->string('name')->nullable();
     });
-    Schema::create('btm_children', function ($table) {
+    Schema::create('bmv_children', function ($table) {
         $table->id();
         $table->unsignedBigInteger('parent_id')->nullable();
         $table->nullableMorphs('notable');
@@ -133,22 +133,22 @@ beforeEach(function () {
 
     $registry = app(ResourceRegistry::class);
     $registry->flush();
-    $registry->register(BTMParentResource::class);
-    $registry->register(BTMChildResource::class);
+    $registry->register(BMVParentResource::class);
+    $registry->register(BMVChildResource::class);
 });
 
 afterEach(function () {
-    Schema::dropIfExists('btm_children');
-    Schema::dropIfExists('btm_parents');
+    Schema::dropIfExists('bmv_children');
+    Schema::dropIfExists('bmv_parents');
 });
 
 it('reduces a { id, title } BelongsTo value to the id on every create endpoint', function (string $path, bool $nested) {
-    $parent = BTMParentModel::create(['name' => 'Parent']);
-    $url = $nested ? "/martis/api/resources/btm-parents/{$parent->id}/{$path}" : '/martis/api/resources/btm-children';
+    $parent = BMVParentModel::create(['name' => 'Parent']);
+    $url = $nested ? "/martis/api/resources/bmv-parents/{$parent->id}/{$path}" : '/martis/api/resources/bmv-children';
 
     $this->postJson($url, ['code' => 'C-1', 'parent_id' => ['id' => $parent->id, 'title' => 'Some Title']])->assertCreated();
 
-    expect(BTMChildModel::where('code', 'C-1')->value('parent_id'))->toBe($parent->id);
+    expect(BMVChildModel::where('code', 'C-1')->value('parent_id'))->toBe($parent->id);
 })->with([
     'resource' => ['', false],
     'has-many' => ['has-many/children', true],
@@ -158,25 +158,25 @@ it('reduces a { id, title } BelongsTo value to the id on every create endpoint',
 ]);
 
 it('accepts the id as a string and reduces it on update', function () {
-    $parent = BTMParentModel::create(['name' => 'Parent']);
-    $child = BTMChildModel::create(['code' => 'C-1']);
+    $parent = BMVParentModel::create(['name' => 'Parent']);
+    $child = BMVChildModel::create(['code' => 'C-1']);
 
-    $this->putJson("/martis/api/resources/btm-children/{$child->id}", ['parent_id' => ['id' => (string) $parent->id, 'title' => 'T']])->assertOk();
+    $this->putJson("/martis/api/resources/bmv-children/{$child->id}", ['parent_id' => ['id' => (string) $parent->id, 'title' => 'T']])->assertOk();
 
     expect($child->fresh()->parent_id)->toBe($parent->id);
 });
 
 it('still validates the reduced id against the rule', function () {
-    $response = $this->postJson('/martis/api/resources/btm-children', ['code' => 'C-1', 'parent_id' => ['id' => 999, 'title' => 'Ghost']]);
+    $response = $this->postJson('/martis/api/resources/bmv-children', ['code' => 'C-1', 'parent_id' => ['id' => 999, 'title' => 'Ghost']]);
 
     $response->assertStatus(422);
-    expect(BTMChildModel::count())->toBe(0);
+    expect(BMVChildModel::count())->toBe(0);
 });
 
 it('leaves a map without a usable id untouched', function (array $value) {
-    $this->postJson('/martis/api/resources/btm-children', ['code' => 'C-1', 'parent_id' => $value])->assertStatus(422);
+    $this->postJson('/martis/api/resources/bmv-children', ['code' => 'C-1', 'parent_id' => $value])->assertStatus(422);
 
-    expect(BTMChildModel::count())->toBe(0);
+    expect(BMVChildModel::count())->toBe(0);
 })->with([
     'no id' => [['title' => 'Only title']],
     'empty id' => [['id' => '', 'title' => 'T']],
