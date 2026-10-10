@@ -419,8 +419,11 @@ of the request. The index fence (`scopes()`, `indexQuery()`) is read when
 the lens runs and is not part of the key: a lens with `cacheFor()` whose
 fence depends on request state other than the user (an active tenant kept
 in the session, a header) would serve the rows cached under the previous
-tenant to the same user until the TTL expires. Such a lens must not be
-cached (`cacheFor(0)`), or its fence must depend on the user alone.
+tenant to the same user until the TTL expires. Register the tenant with
+`Martis::cacheScopeUsing()` (v2.10.0: what the resolver answers is added to
+the key, see [Scoping the keys by host or tenant](cache.md#scoping-the-keys-by-host-or-tenant-v2100)),
+or do not cache such a lens (`cacheFor(0)`), or make its fence depend on the
+user alone.
 Before v1.38.0 every lens request ran `MAX(updated_at)`, the cache off
 included, so a lens over a table without that column answered 500.
 

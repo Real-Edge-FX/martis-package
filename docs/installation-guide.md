@@ -471,6 +471,8 @@ window.Martis = {
   componentRegistry,   // the registry the SPA resolves from (also `componentRegistry` on @martis/runtime)
   react,               // the React module instance bundled with Martis
   reactJsxRuntime,     // react/jsx-runtime, read by the JSX shim
+  reactDom,            // react-dom's public API (createPortal, flushSync, unstable_batchedUpdates, version), read by the react-dom shim (v2.10.0)
+  reactDomClient,      // react-dom/client (createRoot, hydrateRoot), read by the react-dom/client shim (v2.10.0)
   runtime,             // the @martis/runtime surface the shims re-export
   version,             // "1.9.0" etc.
   shortcuts,           // the keyboard-shortcut helpers as add, remove, list (addShortcut, disableShortcut, listShortcuts on @martis/runtime)

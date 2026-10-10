@@ -106,13 +106,13 @@ Martis::cacheScopeUsing(fn (Request $request): ?string => tenant()?->getTenantKe
 Martis::cacheScopeUsing(fn (Request $request): ?string => $request->header('X-Tenant'));
 ```
 
-The resolver receives the current request and answers a string, or `null` (or `''`) for "no scope". Its answer is hashed into the key (`:s` and 32 hex characters), so any string is safe in any store and the key length stays bounded; the scope is part of the key before the 191-character limit is applied, so a long key still differs per scope. `Martis::cacheScopeUsing(null)` removes the resolver.
+The resolver receives the current request (the request the layer is serving) and answers a string, or `null` (or `''`) for "no scope". Its answer is hashed into the key (`:s` and 32 hex characters), so any string is safe in any store and the key length stays bounded; the scope is part of the key before the 191-character limit is applied, so a long key still differs per scope. `Martis::cacheScopeUsing(null)` removes the resolver.
 
 - **Without a resolver every key is what it was**, byte for byte: an app that does not call it needs no action.
 - **It covers every layer**: `navigation` (and the badges), `schema`, `dashboards`, `metrics`, a custom layer that calls `MartisCache::remember()`, a metric's own `cacheFor()` and a lens's `cacheFor()`. A custom layer that builds its key itself and writes to Laravel's cache directly is not: add `app(MartisCache::class)->scopeSegment()` to its key.
 - **Each scope has its own entries**, so the number of entries grows with the number of scopes, and a metric without `$cachePerUser` is shared by every user **of the same scope**, not by every user.
-- **`martis:cache:clear` (and the admin button) still clears every scope**: the layer's version sits in the key's prefix, ahead of the scope, so one increment orphans the entries of every host. `martis:cache:prune` treats scoped keys as live for the same reason.
-- **A resolver that answers anything else than a string or `null` throws** (`UnexpectedValueException`), and so does an exception it raises. A scope that fell back to "none" without a word would share one tenant's entries with another, so Martis fails instead. The resolver runs on every cache read of the request: keep it cheap (read a value the request already resolved, not the database). With no request bound (a queue worker, a console command) no scope is added.
+- **`martis:cache:clear` (and the admin button) still clears every scope of the `MartisCache` layers**: the layer's version sits in the key's prefix, ahead of the scope, so one increment orphans the entries of every host. A metric's `cacheFor()` entries and a lens's entries are written with `Cache::remember()` directly, and `martis:cache:clear` never clears them (with or without a scope): they expire by their TTL. `martis:cache:prune` treats scoped keys as live for the same reason.
+- **A resolver that answers anything else than a string or `null` throws** (`UnexpectedValueException`), and so does an exception it raises. A scope that fell back to "none" without a word would share one tenant's entries with another, so Martis fails instead. The resolver runs on every cache read of the request: keep it cheap (read a value the request already resolved, not the database). In a console command or a queue job the resolver also runs, with the placeholder request Laravel's console kernel binds from `APP_URL` (no user, no route, no headers): write it null-safe (`$request->user()?->tenant_id`, not `$request->user()->tenant_id`). A value cached there is keyed by what the resolver returns for that request. Martis does not skip the scope when `runningInConsole()` is true: an Octane worker reports it as well, and would lose the scope on web requests.
 - **There is no default scope, not even the host.** Nova has no equivalent, every app's keys would change at the upgrade, and a host scope by default would let any client multiply the entries of an app without trusted hosts (`TrustHosts`) through the `Host` header. The app that needs a scope declares it.
 
 The panel's own navigation query (`['navigation']` in the browser) needs nothing: it lives in one tab on one host and does not cross hosts.
@@ -417,7 +417,7 @@ MartisCache::forgetExtension(string $name);
 $cache->masterEnabled(): bool;                  // master switch state
 $cache->enabled(string $type): bool;            // effective state
 $cache->ttl(string $type): ?int;                // minutes, null = no expiration
-$cache->remember(string $type, string $key, Closure $cb, ?int $ttl = null, ?Request $scopeRequest = null);
+$cache->remember(string $type, string $key, Closure $cb, ?int $ttl = null);
 $cache->clear(?string $type = null);            // null = clear every layer
 $cache->disable(string $type);                  // runtime override
 $cache->enable(string $type);

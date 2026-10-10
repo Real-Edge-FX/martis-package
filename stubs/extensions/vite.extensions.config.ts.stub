@@ -15,7 +15,7 @@
  *
  * React + runtime handling (v1.10.0+):
  *
- * Eight bare module specifiers are aliased to small shim modules
+ * Nine bare module specifiers are aliased to small shim modules
  * under `resources/js/martis-extensions/.shims/` that re-export
  * from `window.Martis.{react, reactJsxRuntime, reactDom, reactDomClient, runtime}`. Vite
  * inlines those shims into the bundle at build time, so the compiled
