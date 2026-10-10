@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.11.1] — 2026-10-10
+
+Patch release from one consumer report and the review that followed it: the relationship routes of a `BelongsToMany` / `MorphToMany` panel no longer tell another tenant's records apart from ids that do not exist, and a relationship with a custom `relatedKey` writes its pivot correctly. Response shapes are unchanged; a request on a record that is not attached, or on an id that names no record, answers a different status. Read [Upgrading to v2.11.1](docs/upgrading.md#upgrading-to-v2111-from-v2110).
+
+### Fixed
+
+- **The detach and the pivot update told a record of another tenant apart from a missing one.** They found the related record with a bare `find()` on the related model, outside the relation and the related resource's scoping: a record that exists but is not attached answered `200` (the detach changed nothing), a missing id `404`. Both now look the record up through the relation and answer a record that is not attached with exactly the `404` of a missing id (`Related record not found.`), before `detach{Model}` / `updatePivot{Model}` is asked, as the pivot actions already did. A second detach of the same record answers `404` now, and the panel then lists its records again. +6 Pest, +2 Vitest. See [Relationships → Only an attached record is detached](docs/relationships.md#only-an-attached-record-is-detached).
+- **The attach told them apart the same way.** A missing id answered `404`, a record the attach picker hides `422` (or `403` when `attach{Model}` refused it first). A missing id now fails like a hidden record (`422` on `related_id` / `related_ids`, the same body, as Nova's `RelatableAttachment` rule), and the policy is only asked about a record the picker lists. In a batch, a missing id fails the whole batch instead of being listed in `meta.errors` and skipped. +2 Pest. See [Relationships → Writes follow the pickers](docs/relationships.md#writes-follow-the-pickers).
+- **A relationship with a custom `relatedKey` wrote the wrong pivot value.** The attach, the pivot update, the detach and the pivot edit modal's pickers passed the related record's primary key to Eloquent, so `belongsToMany(Skill::class, 'course_skill', 'course_id', 'skill_code', 'id', 'code')` stored the skill's id in `skill_code`, and the detach and the pivot update found no row (the detach answered `200`). They now pass the record, which Eloquent keys by `relatedKey`. +2 Pest.
+- **An id an integer key cannot hold reached the database** on the attach, the detach and the pivot update: `.../abc/detach` answered `500` on PostgreSQL. The detach and the pivot update answer `404`, the attach `422`. +1 Pest.
+
+**Tests:** 5480 Pest passed (+11) and 2074 Vitest passed (+2): 7554 in all, from 7541 at v2.11.0.
+
 ## [2.11.0] — 2026-10-10
 
 Minor release from one consumer report and a security fix found while working on it. **Upgrade if any Resource policy returns `Illuminate\Auth\Access\Response`**: up to v2.10.1 Martis read `Response::deny()` as an allow. v1.39.8 carries the same fix for 1.x. The report itself: a headless resource over a model that has a page of its own no longer takes the model's place in the audit log, the `BelongsTo` inference and the Action Events panel, and a policy can make a record it denies answer exactly as a missing one. Read [Upgrading to v2.11.0](docs/upgrading.md#upgrading-to-v2110-from-v210x).
