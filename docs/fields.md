@@ -217,7 +217,7 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 |--------|-----------|---------|-------------|
 | `nullable` | `nullable(bool\|Closure $value = true): static` | `$this` | Mark as nullable (adds `nullable` validation rule). Accepts a closure for request-time resolution. |
 | `readonly` | `readonly(bool\|Closure $value = true): static` | `$this` | Prevent modification through UI. `fill()` becomes a no-op. Accepts a closure for request-time resolution. Every bundled input renders the field read-only (`Avatar`, `BooleanGroup`, `Repeater`, `File`, `Image` and the inline-create "+" of `BelongsTo` / `MorphTo` since v1.38.0, see [Immutable fields](#immutable-fields)). A readonly pivot field is never written from the request either: the attach stores its `default()` and the pivot update leaves it alone (v1.38.0+, see [Immutable fields](#immutable-fields)). Nor is a readonly field inside a `Repeater` row: a stored row keeps its value and a new row stores its `default()` (v1.38.0+, see [Repeater](repeater.md#readonly-computed-hidden-and-immutable-row-fields)). |
-| `required` | `required(bool\|Closure $value = true): static` | `$this` | Require a non-null value (adds `required` validation rule). Accepts a closure for request-time resolution. **v1.8.3**: declaring `'required'` (or any `required_*` variant) inside `->rules([...])` is enough — the visual asterisk now auto-detects it. Calling `->required()` explicitly is still supported and required when you want a Closure-resolved flag. |
+| `required` | `required(bool\|Closure $value = true): static` | `$this` | Require a non-null value (adds `required` validation rule). Accepts a closure for request-time resolution. **v1.8.3**: declaring `'required'` inside `->rules([...])` is enough — the visual asterisk auto-detects it. **v1.39.6**: only the unconditional rule counts, as in Nova: the exact string `required` or a rule object whose string form is `required` (`Rule::requiredIf(true)`). `required_if:…`, `required_with:…`, `required_unless:…` and the like no longer make the field required or show the asterisk (they used to force a literal `required` onto every request); they validate when their condition holds. Use `->required()` or `Rule::requiredIf()` for an always-required field. Calling `->required()` explicitly is still supported and required when you want a Closure-resolved flag. |
 | `placeholder` | `placeholder(string\|Closure $text): static` | `$this` | Set placeholder text for the input. Accepts a closure for request-time resolution. |
 | `help` | `help(string\|Closure $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension). Accepts a closure for request-time resolution. |
 | `tooltip` | `tooltip(string\|Closure\|null $text): static` | `$this` | ⭐ Martis differential. Attach a hover tooltip to the field label — shown via a `(?)` icon next to the label. Supports raw HTML so authors can use `<br />`, `<strong>`, `<em>`, `<ul>`, etc. for multi-line rich hints. Accepts a closure for request-time resolution. Pass `null` to clear. See [Tooltips](#tooltips-martis-differential). |
@@ -346,6 +346,10 @@ Password::make('password')
 ```
 
 Every endpoint that writes through fields calls `buildRules('create')` on create and `buildRules('update')` on update: the resource's own POST and PUT, the inline create and update of the `HasMany` / `HasOne` / `MorphMany` / `MorphOne` panels, and the attach and pivot update of `BelongsToMany` / `MorphToMany` pivot fields. The schema endpoint also exposes both rule sets under `creationRules` / `updateRules` keys so the React frontend can pre-validate per context.
+
+#### Conditional `required_*` rules (v1.39.6)
+
+A conditional rule (`required_if`, `required_with`, `required_without`, `required_unless`, `required_array_keys`, ...) does not make the field required: no `required` is added to its rules and the form shows no asterisk, so two fields with mutually exclusive conditions (`required_if:type,person` and `required_if:type,company`) both validate. The field's base `sometimes` is left out when such a string rule is present, so the rule also runs when the request omits the key. The unconditional forms still do: `'required'`, `->required()` and `Rule::requiredIf(true)`. Call `->required()` next to a conditional rule when the form should show the asterisk.
 
 When `creationRules` contains `required`, the base `sometimes` rule is automatically stripped — `sometimes` short-circuits validation when a key is missing and would defeat the `required` directive otherwise.
 
@@ -1708,6 +1712,8 @@ BelongsTo::make('user', 'Author')
 ```
 
 For many-to-many relationships use [`BelongsToMany`](#belongstomany), [`MorphToMany`](#morphtomany), or [`Tag`](#tag) — `BelongsTo` itself is single-cardinality. Since v1.38.0 a `multiple` key on its definition (`withMeta(['multiple' => true])`) changes nothing; before, it switched the input to a multi-select left over from the `multiple()` method removed in April 2026, which sent a list of ids that `fill()` stored as an empty foreign key.
+
+A create form opened from a relationship panel (Create on a `HasMany` panel) fills the `BelongsTo` that points back to the parent and keeps it read-only. Since v1.39.6 the form posts that parent as its id, and the write endpoints (the resource's own and the `HasMany` / `HasOne` / `MorphMany` / `MorphOne` ones) also reduce a value sent as a map (`{ "id": 13, "title": "Some title" }`) to its `id`, when the `id` is an integer or a non-empty string, before the field's rules run: a `Rule::exists()` on the key receives the key, not an array. Any other shape is left as sent.
 
 ```php
 // Inline create — show "+" button to create related record in a modal
