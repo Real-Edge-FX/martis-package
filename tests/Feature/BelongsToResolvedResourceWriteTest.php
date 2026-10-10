@@ -110,6 +110,26 @@ class BtrTeamResource extends Resource
     }
 }
 
+// A headless, wider view of the teams (every tenant), as an app adds for
+// users who may not list the teams' own resource.
+class BtrTeamCardResource extends BtrTeamResource
+{
+    public static function uriKey(): string
+    {
+        return 'btr-team-cards';
+    }
+
+    public static function routable(): bool
+    {
+        return false;
+    }
+
+    public static function relatableQuery(Request $request, Builder $query): Builder
+    {
+        return $query;
+    }
+}
+
 class BtrTwiceResource extends Resource
 {
     public static function model(): string
@@ -400,6 +420,52 @@ it('lists the resources registered for a model', function () {
     expect($registry->forModel(BtrTeam::class))->toBe([BtrTeamResource::class])
         ->and($registry->forModel('\\'.BtrTwice::class))->toBe([BtrTwiceResource::class, BtrOtherTwiceResource::class])
         ->and($registry->forModel(BtrOrphan::class))->toBe([]);
+});
+
+// ---- a headless resource over the same model -------------------------------
+
+/** Register the headless team view before the teams' own resource. */
+function btrRegisterHeadlessTeamFirst(): void
+{
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    foreach ([BtrTeamCardResource::class, BtrTeamResource::class, BtrTwiceResource::class, BtrOtherTwiceResource::class, BtrInferredTaskResource::class] as $class) {
+        $registry->register($class);
+    }
+}
+
+it('infers the routable resource when a headless one, registered first, shares the model', function () {
+    btrRegisterHeadlessTeamFirst();
+
+    expect(BelongsTo::make('team')->relatedResourceClass(new BtrTask))->toBe(BtrTeamResource::class);
+});
+
+it('checks the write against the routable resource, not the headless one registered first', function () {
+    btrRegisterHeadlessTeamFirst();
+
+    // Team 3 is tenant 2: the headless view offers it, the teams' resource does not.
+    $this->postJson('/martis/api/resources/btr-inferred-tasks', ['title' => 'New', 'team_id' => 3])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.field', 'team_id');
+    $this->postJson('/martis/api/resources/btr-inferred-tasks', ['title' => 'New', 'team_id' => 1])
+        ->assertCreated();
+
+    expect(BtrTask::query()->pluck('team_id')->all())->toBe([1]);
+});
+
+it('prefers the routable resources for a model, keeping headless ones only when none is routable', function () {
+    $registry = app(ResourceRegistry::class);
+
+    btrRegisterHeadlessTeamFirst();
+    expect($registry->forModel(BtrTeam::class))->toBe([BtrTeamCardResource::class, BtrTeamResource::class])
+        ->and($registry->preferredForModel(BtrTeam::class))->toBe([BtrTeamResource::class])
+        ->and($registry->preferredForModel('\\'.BtrTwice::class))->toBe([BtrTwiceResource::class, BtrOtherTwiceResource::class])
+        ->and($registry->preferredForModel(BtrOrphan::class))->toBe([]);
+
+    $registry->flush();
+    $registry->register(BtrTeamCardResource::class);
+    expect($registry->preferredForModel(BtrTeam::class))->toBe([BtrTeamCardResource::class])
+        ->and(BelongsTo::make('team')->relatedResourceClass(new BtrTask))->toBe(BtrTeamCardResource::class);
 });
 
 // ---- an id that is not an int or a string -----------------------------------

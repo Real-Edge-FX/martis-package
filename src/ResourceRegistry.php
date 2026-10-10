@@ -115,6 +115,32 @@ class ResourceRegistry
     }
 
     /**
+     * The registered resources that stand for a model class: the routable
+     * ones when at least one resource over the model is routable, otherwise
+     * every resource over it, in registration order.
+     *
+     * A headless resource (`routable(): false`) over a model that also has a
+     * page of its own is a narrower view of it, such as a relation target
+     * for users who may not list the model's own resource. It never takes
+     * the model's place in the lookups that read this list: the audit log's
+     * target label and link, the resource a `BelongsTo` without
+     * `relatedResource()` checks its value against, and the Actions panel's
+     * resource. A model with headless resources only keeps them.
+     *
+     * @return list<class-string<\Martis\Resource>>
+     */
+    public function preferredForModel(string $modelClass): array
+    {
+        $resources = $this->forModel($modelClass);
+        $routable = array_values(array_filter(
+            $resources,
+            static fn (string $resourceClass): bool => $resourceClass::routable(),
+        ));
+
+        return $routable !== [] ? $routable : $resources;
+    }
+
+    /**
      * Return the number of registered resources.
      */
     public function count(): int

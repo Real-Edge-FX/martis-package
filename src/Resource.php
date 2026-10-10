@@ -460,18 +460,25 @@ abstract class Resource implements ResourceContract
      * The registered resource that exposes the ActionEvent model (the
      * built-in `ActionEventResource`, or the host's own), or null when none
      * does (`martis.action_events.resource` off and no resource of its own).
+     * A routable one wins over a headless one, as in
+     * {@see ResourceRegistry::preferredForModel()}.
      *
      * @return class-string<self>|null
      */
     protected static function actionEventResourceClass(): ?string
     {
-        foreach (app(ResourceRegistry::class)->list() as $resourceClass) {
-            if (is_a($resourceClass::model(), ActionEvent::class, true)) {
+        $resources = array_values(array_filter(
+            app(ResourceRegistry::class)->list(),
+            static fn (string $resourceClass): bool => is_a($resourceClass::model(), ActionEvent::class, true),
+        ));
+
+        foreach ($resources as $resourceClass) {
+            if ($resourceClass::routable()) {
                 return $resourceClass;
             }
         }
 
-        return null;
+        return $resources[0] ?? null;
     }
 
     /**

@@ -266,3 +266,31 @@ it('adds no panel when no resource exposes the action event model', function () 
 
     expect(aepLogPanels('aep-invoices'))->toBe([]);
 });
+
+/** A headless view of the action log, as an app keeps for a Tool of its own. */
+class AEPHeadlessActionEventResource extends ActionEventResource
+{
+    public static function uriKey(): string
+    {
+        return 'aep-action-event-cards';
+    }
+
+    public static function routable(): bool
+    {
+        return false;
+    }
+}
+
+it('builds the panel through the routable action event resource when a headless one is registered first', function () {
+    aepOpenLog();
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    foreach ([AEPHeadlessActionEventResource::class, AEPInvoiceResource::class, ActionEventResource::class] as $class) {
+        $registry->register($class);
+    }
+
+    $panels = aepLogPanels('aep-invoices');
+
+    expect($panels)->toHaveCount(1)
+        ->and($panels[0]['relatedResource'])->toBe('action-events');
+});

@@ -428,6 +428,37 @@ Unlike `displayInNavigation()`, which only hides the resource from menus while l
 
 A non-routable resource has no page to link to — see [`recordUrl()`](#recordurl) below for how to give it one anyway (and re-enter global search in the process).
 
+#### A headless resource over a model that has a page
+
+A relationship write needs the related resource's `viewAny` ([Authorization → `viewAny` is the entry gate](authorization.md#viewany-is-the-entry-gate)), so an app often adds a second, narrower resource over a model that already has one: a headless `AgencyMemberResource` over `User`, next to `UserResource`, as the relation target for users who may not list every user. Since v2.11.0 such a resource never takes the model's place: wherever Martis looks a resource up from a model, the routable resources over it win, whatever the registration order (`ResourceRegistry::preferredForModel()`):
+
+- the audit log's target column (label, and the link to the record);
+- the resource a `BelongsTo` without `relatedResource()` checks its value against ([Relationships → Writes follow the pickers](relationships.md#writes-follow-the-pickers));
+- the resource behind the automatic Action Events panel.
+
+A model whose resources are all headless keeps them. Two routable resources over one model stay ambiguous for the `BelongsTo` inference: declare `relatedResource()` on the field. Up to v2.10 the first registered resource won, and registration follows file-name order, so `AgencyMemberResource` took over the users' audit-log labels and links and switched off the `BelongsTo` inference.
+
+A headless resource still answers `peek` for any record of its model, gated by its own `viewAny` and `view`. To make a record outside its view look exactly like a missing one (`404` with the same body, instead of `403`), deny it with `Response::denyAsNotFound()` in the policy's `view()`: see [Authorization → HTTP responses](authorization.md#http-responses).
+
+```php
+use Illuminate\Auth\Access\Response;
+
+class AgencyMemberPolicy
+{
+    public function viewAny(User $user): bool
+    {
+        return $user->agency_id !== null;
+    }
+
+    public function view(User $user, User $member): Response
+    {
+        return $member->agency_id === $user->agency_id
+            ? Response::allow()
+            : Response::denyAsNotFound();
+    }
+}
+```
+
 ### recordUrl()
 
 Declares a URL template for a single record of this resource, with an `{id}` placeholder. Default `null`. `Resource::recordHref(int|string $id): string` interpolates the template (URL-encoding the id); when `recordUrl()` is `null`, `recordHref()` falls back to the standard `/resources/{uriKey}/{id}` path.
