@@ -736,18 +736,41 @@ abstract class Field implements FieldContract
         }
 
         // v1.8.3 — Auto-detect when `->rules([...])` declares the
-        // `required` validator (or any of its conditional siblings).
-        // The visual asterisk now follows the validation contract
-        // automatically, so consumers no longer have to repeat
-        // `->required()` next to `->rules(['required', ...])`.
+        // unconditional `required` validator. The visual asterisk follows
+        // the validation contract automatically, so consumers no longer
+        // have to repeat `->required()` next to `->rules(['required', ...])`.
+        // v1.39.6 — Conditional siblings (`required_if`, `required_with`,
+        // `required_unless`, ...) no longer count, as in Nova.
         return $this->rulesHaveRequired();
     }
 
     /**
-     * Cheap scan over the configured base + creation + update rules to
-     * detect any of Laravel's "required" validators. Treats both string
-     * shorthand (`required`, `required_if`, `required_with`, etc) and
-     * the `Rule` instances that ship in `Illuminate\Validation\Rules`.
+     * Whether the rules hold a conditional `required_*` validator by its
+     * string form. `sometimes` is not added then: it would skip the
+     * validator when the request leaves the key out, which is exactly when
+     * a `required_if` has to fail (v1.39.6).
+     *
+     * @param  array<int|string, mixed>  $rules
+     */
+    protected function hasConditionalRequiredRule(array $rules): bool
+    {
+        foreach ($rules as $rule) {
+            if (is_string($rule) && str_starts_with($rule, 'required_')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Cheap scan over the configured base rules for the unconditional
+     * `required` validator, as Nova's `Field::isRequired()` does: the exact
+     * string `required`, or a rule object whose string form is exactly
+     * `required` (`Rule::requiredIf(true)`). The conditional validators
+     * (`required_if:...`, `required_with:...`, `required_unless:...`) and
+     * objects that merely mention the word (`Rule::in(['required'])`) do
+     * not make the field required (v1.39.6).
      */
     protected function rulesHaveRequired(): bool
     {
@@ -759,14 +782,11 @@ abstract class Field implements FieldContract
         // AND a context-scoped validation rule call `->required()`
         // separately. v1.8.3.
         foreach ($this->extraRules as $rule) {
-            if (is_string($rule) && str_starts_with($rule, 'required')) {
+            if ($rule === 'required') {
                 return true;
             }
-            if (is_object($rule) && method_exists($rule, '__toString')) {
-                $repr = (string) $rule;
-                if (str_contains($repr, 'required')) {
-                    return true;
-                }
+            if (is_object($rule) && method_exists($rule, '__toString') && (string) $rule === 'required') {
+                return true;
             }
         }
 
@@ -1701,7 +1721,7 @@ abstract class Field implements FieldContract
             $rules[] = 'required';
         } elseif ($this->isNullable()) {
             $rules[] = 'nullable';
-        } else {
+        } elseif (! $this->hasConditionalRequiredRule($extraRules)) {
             $rules[] = 'sometimes';
         }
 
