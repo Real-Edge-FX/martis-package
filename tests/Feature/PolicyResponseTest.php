@@ -7,8 +7,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
+use Martis\Actions\Action;
+use Martis\Actions\ActionFields;
+use Martis\Actions\ActionResponse;
+use Martis\Fields\BelongsToMany;
 use Martis\Fields\HasMany;
+use Martis\Fields\HasOne;
+use Martis\Fields\MorphMany;
+use Martis\Fields\MorphOne;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Resource;
@@ -37,6 +45,66 @@ class PRItem extends Model
     public function children()
     {
         return $this->hasMany(PRChild::class, 'item_id');
+    }
+
+    public function profile()
+    {
+        return $this->hasOne(PRChild::class, 'item_id');
+    }
+
+    public function kids()
+    {
+        return $this->belongsToMany(PRChild::class, 'pr_item_kid', 'item_id', 'child_id');
+    }
+
+    public function notes()
+    {
+        return $this->morphMany(PRNote::class, 'notable');
+    }
+
+    public function pinned()
+    {
+        return $this->morphOne(PRNote::class, 'notable');
+    }
+}
+
+class PRNote extends Model
+{
+    protected $table = 'pr_notes';
+
+    protected $guarded = [];
+
+    public $timestamps = false;
+}
+
+class PRNoteResource extends Resource
+{
+    public static function model(): string
+    {
+        return PRNote::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'pr-notes';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title')];
+    }
+}
+
+class PRTouchAction extends Action
+{
+    public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
+    {
+        return null;
+    }
+
+    public function uriKey(): string
+    {
+        return 'pr-touch';
     }
 }
 
@@ -166,6 +234,11 @@ class PRChildResource extends Resource
     {
         return [Text::make('title')];
     }
+
+    public function actions(Request $request): array
+    {
+        return [new PRTouchAction];
+    }
 }
 
 class PRItemResource extends Resource
@@ -187,6 +260,10 @@ class PRItemResource extends Resource
         return [
             Text::make('title')->required(),
             HasMany::make('children', 'children', PRChildResource::class),
+            HasOne::make('profile', 'profile', PRChildResource::class),
+            BelongsToMany::make('kids', 'kids', PRChildResource::class),
+            MorphMany::make('notes', 'notes', PRNoteResource::class),
+            MorphOne::make('pinned', 'pinned', PRNoteResource::class),
         ];
     }
 }
@@ -194,8 +271,19 @@ class PRItemResource extends Resource
 beforeEach(function () {
     $this->withoutMiddleware(MartisAuthenticate::class);
 
+    Schema::dropIfExists('pr_notes');
+    Schema::dropIfExists('pr_item_kid');
     Schema::dropIfExists('pr_children');
     Schema::dropIfExists('pr_items');
+    Schema::create('pr_notes', function ($t) {
+        $t->id();
+        $t->nullableMorphs('notable');
+        $t->string('title');
+    });
+    Schema::create('pr_item_kid', function ($t) {
+        $t->unsignedBigInteger('item_id');
+        $t->unsignedBigInteger('child_id');
+    });
     Schema::create('pr_items', function ($t) {
         $t->id();
         $t->string('title');
@@ -219,12 +307,19 @@ beforeEach(function () {
     $registry->flush();
     $registry->register(PRItemResource::class);
     $registry->register(PRChildResource::class);
+    $registry->register(PRNoteResource::class);
+    $registry->register(PRSplitResource::class);
+    $registry->register(PRNoReplicateItemResource::class);
+    PRSplitPolicy::$answers = [];
+    PRNoReplicatePolicy::$answers = [];
     Resource::flushPolicyCache();
 
     $this->actingAs((new Authenticatable)->forceFill(['id' => 1, 'name' => 'Agent']));
 });
 
 afterEach(function () {
+    Schema::dropIfExists('pr_notes');
+    Schema::dropIfExists('pr_item_kid');
     Schema::dropIfExists('pr_children');
     Schema::dropIfExists('pr_items');
     app(ResourceRegistry::class)->flush();
@@ -403,6 +498,217 @@ it('keeps a denial status per ability and drops it on the next check', function 
     PRItemPolicy::$mode = 'allow';
     expect($resource->authorizedToView($request))->toBeTrue()
         ->and($resource->policyDenialStatus('view'))->toBeNull();
+});
+
+// ---- the routes that find a record through a parent ------------------------
+
+dataset('relationship parent routes', function () {
+    $base = fn (int|string $id) => "/martis/api/resources/pr-items/{$id}";
+
+    return [
+        'GET has-one show' => [fn ($id) => $base($id).'/has-one/profile'],
+        'GET morph-one show' => [fn ($id) => $base($id).'/morph-one/pinned'],
+        'GET morph-many index' => [fn ($id) => $base($id).'/morph-many/notes'],
+        'GET belongs-to-many index' => [fn ($id) => $base($id).'/belongs-to-many/kids'],
+    ];
+});
+
+it('answers a parent the policy denies as not found exactly as a missing one, on every relationship route', function (Closure $url) {
+    PRItemPolicy::$mode = 'not-found';
+
+    $denied = $this->getJson($url($this->item->getKey()));
+    $missing = $this->getJson($url(999999));
+
+    $missing->assertStatus(404);
+    $denied->assertStatus(404);
+    expect($denied->json())->toBe($missing->json());
+})->with('relationship parent routes');
+
+it('serves the relationship routes while the parent policy allows (control)', function (Closure $url) {
+    expect($this->getJson($url($this->item->getKey()))->status())->toBeLessThan(400);
+})->with('relationship parent routes');
+
+it('denies a parent with 403 on every relationship route when the policy answers Response::deny()', function (Closure $url) {
+    PRItemPolicy::$mode = 'deny';
+
+    $this->getJson($url($this->item->getKey()))->assertStatus(403);
+})->with('relationship parent routes');
+
+it('answers a relationship action of a parent the policy denies as not found exactly as a missing parent', function () {
+    $run = fn (int|string $parent) => $this->postJson('/martis/api/resources/pr-children/actions/pr-touch', [
+        'resources' => [$this->child->getKey()],
+        'viaResource' => 'pr-items',
+        'viaResourceId' => $parent,
+        'viaRelationship' => 'children',
+    ]);
+
+    expect($run($this->item->getKey())->status())->toBeLessThan(400);
+
+    PRItemPolicy::$mode = 'not-found';
+    $denied = $run($this->item->getKey());
+    $missing = $run(999999);
+
+    $missing->assertStatus(404);
+    $denied->assertStatus(404);
+    expect($denied->json())->toBe($missing->json());
+});
+
+it('answers the sync-field of a record the policy denies updating as not found exactly as a missing one', function () {
+    $sync = fn (int|string $id) => $this->postJson('/martis/api/resources/pr-items/sync-field', [
+        'field' => 'title',
+        'context' => 'update',
+        'id' => $id,
+        'formData' => ['title' => 'x'],
+    ]);
+
+    // Past the gate, a field that is not reactive answers 422 (control).
+    $sync($this->item->getKey())->assertStatus(422)->assertJsonPath('errors.0.message', 'Field [title] is not reactive.');
+
+    PRItemPolicy::$mode = 'not-found';
+    $denied = $sync($this->item->getKey());
+    $missing = $sync(999999);
+
+    $missing->assertStatus(404);
+    $denied->assertStatus(404);
+    expect($denied->json())->toBe($missing->json());
+});
+
+// ---- the answer of each ability is its own ----------------------------------
+
+/** A policy whose abilities answer each in its own mode: `$answers['replicate'] = 'not-found'`. */
+class PRSplitPolicy
+{
+    /** @var array<string, string> */
+    public static array $answers = [];
+
+    public function viewAny($user): bool
+    {
+        return true;
+    }
+
+    public function create($user): Response|bool
+    {
+        return prAnswer(static::$answers['create'] ?? 'allow');
+    }
+
+    public function view($user, $model): Response|bool
+    {
+        return prAnswer(static::$answers['view'] ?? 'allow');
+    }
+
+    public function update($user, $model): Response|bool
+    {
+        return prAnswer(static::$answers['update'] ?? 'allow');
+    }
+
+    public function replicate($user, $model): Response|bool
+    {
+        return prAnswer(static::$answers['replicate'] ?? 'allow');
+    }
+}
+
+class PRSplitResource extends PRItemResource
+{
+    public static ?string $policy = PRSplitPolicy::class;
+
+    public static function uriKey(): string
+    {
+        return 'pr-split-items';
+    }
+}
+
+/** A policy with no `replicate` method at all: the prefill falls back to create AND update. */
+class PRNoReplicatePolicy
+{
+    /** @var array<string, string> */
+    public static array $answers = [];
+
+    public function viewAny($user): bool
+    {
+        return true;
+    }
+
+    public function create($user): Response|bool
+    {
+        return prAnswer(static::$answers['create'] ?? 'allow');
+    }
+
+    public function view($user, $model): Response|bool
+    {
+        return prAnswer(static::$answers['view'] ?? 'allow');
+    }
+
+    public function update($user, $model): Response|bool
+    {
+        return prAnswer(static::$answers['update'] ?? 'allow');
+    }
+}
+
+class PRNoReplicateItemResource extends PRItemResource
+{
+    public static ?string $policy = PRNoReplicatePolicy::class;
+
+    public static function uriKey(): string
+    {
+        return 'pr-no-replicate-items';
+    }
+}
+
+it('answers the replicate prefill with the status of the replicate ability, not of view', function () {
+    $id = $this->item->getKey();
+    PRSplitPolicy::$answers = ['view' => 'allow', 'replicate' => 'not-found'];
+
+    $denied = $this->getJson("/martis/api/resources/pr-split-items/{$id}/replicate");
+    $missing = $this->getJson('/martis/api/resources/pr-split-items/999999/replicate');
+
+    $missing->assertStatus(404);
+    $denied->assertStatus(404);
+    expect($denied->json())->toBe($missing->json());
+
+    // The record is still viewable and updatable: only the replicate ability refused.
+    $this->getJson("/martis/api/resources/pr-split-items/{$id}")->assertOk();
+
+    PRSplitPolicy::$answers = ['view' => 'allow', 'replicate' => 'deny'];
+    $this->getJson("/martis/api/resources/pr-split-items/{$id}/replicate")->assertStatus(403);
+
+    PRSplitPolicy::$answers = ['view' => 'allow', 'update' => 'not-found', 'replicate' => 'allow'];
+    $this->getJson("/martis/api/resources/pr-split-items/{$id}/replicate")->assertOk();
+});
+
+it('hands the status of the ability that stops the create AND update fallback to the replicate prefill', function (array $answers, int $status) {
+    PRNoReplicatePolicy::$answers = ['view' => 'allow'] + $answers;
+    $id = $this->item->getKey();
+
+    $response = $this->getJson("/martis/api/resources/pr-no-replicate-items/{$id}/replicate");
+    $response->assertStatus($status);
+
+    if ($status === 404) {
+        expect($response->json())->toBe($this->getJson('/martis/api/resources/pr-no-replicate-items/999999/replicate')->json());
+    }
+})->with([
+    'update answers not found' => [['update' => 'not-found'], 404],
+    'update answers a status' => [['update' => 'gone'], 410],
+    'create answers not found' => [['create' => 'not-found'], 404],
+    'update answers Response::deny()' => [['update' => 'deny'], 403],
+    'update answers false' => [['update' => 'false'], 403],
+    'both allow (control)' => [[], 200],
+]);
+
+it('does not keep a replicate status after the fallback allows', function () {
+    $resource = new PRNoReplicateItemResource($this->item);
+    $request = prRequest();
+
+    PRNoReplicatePolicy::$answers = ['update' => 'not-found'];
+    expect($resource->authorizedToReplicate($request))->toBeFalse()
+        ->and($resource->policyDenialStatus('replicate'))->toBe(404);
+
+    PRNoReplicatePolicy::$answers = [];
+    expect($resource->authorizedToReplicate($request))->toBeTrue()
+        ->and($resource->policyDenialStatus('replicate'))->toBeNull();
+
+    PRNoReplicatePolicy::$answers = ['update' => 'false'];
+    expect($resource->authorizedToReplicate($request))->toBeFalse()
+        ->and($resource->policyDenialStatus('replicate'))->toBeNull();
 });
 
 // ---- the report's case: a headless resource's peek -------------------------

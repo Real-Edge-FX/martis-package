@@ -762,8 +762,24 @@ abstract class Resource implements ResourceContract
             return $this->checkPolicy($request, 'replicate', $this->model);
         }
 
-        // Fallback: must pass both create AND update
-        return $this->authorizedToCreate($request) && $this->authorizedToUpdate($request);
+        unset($this->policyDenialStatuses['replicate']);
+
+        // Fallback: must pass both create AND update. The ability that stops
+        // it hands its denial status on, so a policy that answers a record
+        // it denies updating with `denyAsNotFound()` is answered the same way
+        // by the replicate prefill.
+        foreach (['create' => $this->authorizedToCreate(...), 'update' => $this->authorizedToUpdate(...)] as $ability => $check) {
+            if (! $check($request)) {
+                $status = $this->policyDenialStatus($ability);
+                if ($status !== null) {
+                    $this->policyDenialStatuses['replicate'] = $status;
+                }
+
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** {@inheritdoc} */
