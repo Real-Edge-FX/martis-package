@@ -9,6 +9,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
 import { registry } from '@/lib/registry'
 import { ResourceIcon } from '@/components/ResourceIcon'
+import { actionVisitTarget } from './actionVisitTarget'
 import { LightningIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { useModalHistoryLock } from '@/lib/historyLock'
@@ -172,9 +173,12 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
           case 'redirect':
             if (data?.url) window.location.href = data.url as string
             return
-          case 'visit':
-            if (data?.path) window.location.href = data.path as string
+          case 'visit': {
+            // The path with its params as a query string (v1.39.6).
+            const target = actionVisitTarget(data?.path, data?.params)
+            if (target !== null) window.location.href = target
             return
+          }
           case 'openInNewTab':
             if (data?.url) window.open(data.url as string, '_blank')
             break
