@@ -324,7 +324,7 @@ class HasOneController extends MartisController
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToUpdate($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($relatedInstance, 'update', 'Related record not found.');
         }
 
         // The id is required, after the policy: a denied user gets the 403.
@@ -419,7 +419,7 @@ class HasOneController extends MartisController
         $relatedInstance = new $relatedResourceClass($relatedModel);
 
         if (! $relatedInstance->authorizedToDelete($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($relatedInstance, 'delete', 'Related record not found.');
         }
 
         // The id is required, after the policy: a denied user gets the 403.
@@ -576,7 +576,7 @@ class HasOneController extends MartisController
         $parentInstance = new $resourceClass($parentModel);
 
         if (! $parentInstance->authorizedToView($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($parentInstance, 'view', 'Parent record not found.');
         }
 
         // Find the HasOne field in the parent resource. filterForContext

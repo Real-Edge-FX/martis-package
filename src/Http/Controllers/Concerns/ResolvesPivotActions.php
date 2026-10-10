@@ -70,7 +70,7 @@ trait ResolvesPivotActions
         // parent id never reaches its relations (IDOR).
         $parentResource = new $resourceClass($parentModel);
         if (! $parentResource->authorizedToView($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($parentResource, 'view', "Parent record [{$id}] not found.");
         }
 
         // filterForContext flattens layout containers (Section/Panel/TabGroup),

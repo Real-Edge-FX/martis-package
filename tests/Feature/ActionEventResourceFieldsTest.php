@@ -79,6 +79,38 @@ class AERProjectResource extends Resource
     }
 }
 
+/**
+ * A narrower, headless view of the projects (a relation target for users who
+ * may not list them), registered before the projects' own resource.
+ */
+class AERProjectCardResource extends AERProjectResource
+{
+    public static ?string $policy = AERProjectCardPolicy::class;
+
+    public static function uriKey(): string
+    {
+        return 'aer-project-cards';
+    }
+
+    public static function singularLabel(): string
+    {
+        return 'Project card';
+    }
+
+    public static function routable(): bool
+    {
+        return false;
+    }
+}
+
+class AERProjectCardPolicy
+{
+    public function viewAny(User $user): bool
+    {
+        return false;
+    }
+}
+
 /** Lets nobody view the project "Secret". */
 class AERProjectPolicy
 {
@@ -259,6 +291,33 @@ it('shows the title, unlinked, for a target the viewer may not view, as Nova doe
     expect($row['target']['title'])->toContain('Secret')
         ->and($row['target']['resourceType'])->toBeNull()
         ->and($row['target']['resourceLabel'])->toBe('Project');
+});
+
+it('reads the target through the routable resource when a headless one shares its model', function () {
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register(AERProjectCardResource::class);
+    $registry->register(AERProjectResource::class);
+    $registry->register(ActionEventResource::class);
+
+    expect(aerRow(aerEvent(['target_id' => (string) $this->project->getKey()]))['target'])->toMatchArray([
+        'title' => 'Apollo',
+        'resourceType' => 'aer-projects',
+        'resourceLabel' => 'Project',
+    ]);
+});
+
+it('reads the target through a headless resource when the model has no other', function () {
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register(AERProjectCardResource::class);
+    $registry->register(ActionEventResource::class);
+
+    expect(aerRow(aerEvent(['target_id' => (string) $this->project->getKey()]))['target'])->toMatchArray([
+        'title' => 'Apollo',
+        'resourceType' => null,
+        'resourceLabel' => 'Project card',
+    ]);
 });
 
 it('shows the label and the id for a target record that is gone or has no resource', function () {

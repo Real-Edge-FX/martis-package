@@ -259,17 +259,14 @@ class CommandPaletteController extends MartisController
     /**
      * The registered resource that exposes the ActionEvent model (the
      * built-in ActionEventResource or a consumer's own), or null when the
-     * host does not expose the audit log at all.
+     * host does not expose the audit log at all. A routable one wins over a
+     * headless one registered before it.
      */
     private function actionEventResource(): ?Resource
     {
-        foreach ($this->registry->list() as $class) {
-            if (is_a($class::model(), ActionEvent::class, true)) {
-                return new $class;
-            }
-        }
+        $class = $this->registry->preferredForModelOrSubclass(ActionEvent::class)[0] ?? null;
 
-        return null;
+        return $class !== null ? new $class : null;
     }
 
     /**
@@ -286,6 +283,11 @@ class CommandPaletteController extends MartisController
      * (`matchesRecord()`), in registration order. Falls back to the
      * first-registered resource when the record is gone or none claims it.
      *
+     * The candidates are the routable resources over the model
+     * ({@see ResourceRegistry::preferredForModel()}): a headless resource
+     * registered first never takes the link, which would open a page that
+     * does not exist. A model with headless resources only keeps them.
+     *
      * @param  mixed  $modelId
      */
     private function resolveUriKeyForRecord(string $modelType, $modelId): ?string
@@ -294,13 +296,7 @@ class CommandPaletteController extends MartisController
             return null;
         }
 
-        /** @var list<class-string<resource>> $matches */
-        $matches = [];
-        foreach ($this->registry->list() as $class) {
-            if ($class::model() === $modelType) {
-                $matches[] = $class;
-            }
-        }
+        $matches = $this->registry->preferredForModel($modelType);
 
         if ($matches === []) {
             return null;

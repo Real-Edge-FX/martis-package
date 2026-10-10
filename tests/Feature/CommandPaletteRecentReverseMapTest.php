@@ -127,6 +127,74 @@ class CPRSoftArchivedResource extends CPRSoftActiveResource
     }
 }
 
+// A model with a page of its own and a headless resource over it, the headless
+// one registered FIRST (the agency-member case): the Recent link must name the
+// routable resource, whose page exists.
+class CPRHeadItem extends Model
+{
+    protected $table = 'cpr_head_items';
+
+    protected $guarded = [];
+
+    public $timestamps = false;
+}
+
+class CPRHeadlessResource extends Resource
+{
+    public static function model(): string
+    {
+        return CPRHeadItem::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'cpr-headless';
+    }
+
+    public static function routable(): bool
+    {
+        return false;
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title')];
+    }
+}
+
+class CPRHeadPageResource extends CPRHeadlessResource
+{
+    public static function uriKey(): string
+    {
+        return 'cpr-head-page';
+    }
+
+    public static function routable(): bool
+    {
+        return true;
+    }
+}
+
+// A headless resource over the audit-log model that refuses the viewer, ahead
+// of the routable ActionEventResource that allows them.
+class CPRHeadlessAuditResource extends ActionEventResource
+{
+    public static function uriKey(): string
+    {
+        return 'cpr-headless-audit';
+    }
+
+    public static function routable(): bool
+    {
+        return false;
+    }
+
+    public function authorizedToViewAny(Request $request): bool
+    {
+        return false;
+    }
+}
+
 // ---------------------------------------------------------------------------
 
 beforeEach(function () {
@@ -157,6 +225,12 @@ beforeEach(function () {
         $t->id();
         $t->string('title');
         $t->softDeletes();
+    });
+
+    Schema::dropIfExists('cpr_head_items');
+    Schema::create('cpr_head_items', function ($t) {
+        $t->id();
+        $t->string('title');
     });
 
     Schema::dropIfExists('martis_action_events');
@@ -195,6 +269,7 @@ beforeEach(function () {
 afterEach(function () {
     Schema::dropIfExists('cpr_items');
     Schema::dropIfExists('cpr_soft_items');
+    Schema::dropIfExists('cpr_head_items');
     Schema::dropIfExists('martis_action_events');
     app(ResourceRegistry::class)->flush();
 });
@@ -268,4 +343,52 @@ it('falls back to the first-registered resource when the record is gone', functi
 
     expect($entry)->not->toBeNull();
     expect($entry['url'])->toBe('/resources/cpr-pending/99999');
+});
+
+it('links a record to the routable resource when a headless one over the model is registered first', function () {
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register(CPRHeadlessResource::class);
+    $registry->register(CPRHeadPageResource::class);
+    $registry->register(ActionEventResource::class);
+
+    $record = CPRHeadItem::query()->create(['title' => 'Member']);
+    cprLogEvent((int) $this->user->id, CPRHeadItem::class, (int) $record->id, 'created');
+
+    $entry = collect($this->getJson('/martis/api/command-palette')->assertOk()->json('recent'))->firstWhere('key', 1);
+
+    expect($entry)->not->toBeNull();
+    // First-match would answer /resources/cpr-headless/..., a page that does not exist.
+    expect($entry['url'])->toBe('/resources/cpr-head-page/'.$record->id);
+    expect($entry['subtitle'])->toBe('cpr-head-page #'.$record->id);
+});
+
+it('keeps a headless resource when it is the only one over the model', function () {
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register(CPRHeadlessResource::class);
+    $registry->register(ActionEventResource::class);
+
+    $record = CPRHeadItem::query()->create(['title' => 'Member']);
+    cprLogEvent((int) $this->user->id, CPRHeadItem::class, (int) $record->id, 'created');
+
+    $entry = collect($this->getJson('/martis/api/command-palette')->assertOk()->json('recent'))->firstWhere('key', 1);
+
+    expect($entry['subtitle'])->toBe('cpr-headless #'.$record->id);
+});
+
+it('gates the Recent block on the routable audit-log resource, not a headless one registered first', function () {
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register(CPRHeadlessAuditResource::class);
+    $registry->register(CPRPendingResource::class);
+    $registry->register(ActionEventResource::class);
+
+    $record = CPRItem::query()->create(['title' => 'Draft', 'status' => 'pending']);
+    cprLogEvent((int) $this->user->id, CPRItem::class, (int) $record->id, 'pending');
+
+    $entry = collect($this->getJson('/martis/api/command-palette')->assertOk()->json('recent'))->firstWhere('key', 1);
+
+    expect($entry)->not->toBeNull();
+    expect($entry['url'])->toBe('/resources/cpr-pending/'.$record->id);
 });

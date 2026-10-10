@@ -619,7 +619,7 @@ class ActionController extends MartisController
         $parent = new $parentResourceClass($parentModel);
 
         if (! $parent->authorizedToView($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($parent, 'view', 'Relationship not found.');
         }
 
         $fields = MartisField::filterForModel(

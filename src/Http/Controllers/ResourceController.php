@@ -236,7 +236,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToView($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($res, 'view');
         }
 
         // Support ?context=update so edit forms get raw attribute values.
@@ -248,7 +248,7 @@ class ResourceController extends MartisController
         $forDisplay = true;
         if ($context === 'update') {
             if (! $res->authorizedToUpdate($request)) {
-                return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+                return $this->recordDenied($res, 'update');
             }
             $fields = Field::filterForContext($res->fieldsForUpdate($request), FieldContext::UPDATE);
             $forDisplay = false;
@@ -398,7 +398,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToUpdate($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($res, 'update');
         }
 
         // A field hidden for this record (canSeeForModel()) is neither
@@ -493,7 +493,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToDelete($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($res, 'delete');
         }
 
         try {
@@ -587,7 +587,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToRestore($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($res, 'restore');
         }
 
         $model->restore();
@@ -643,7 +643,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToForceDelete($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($res, 'forceDelete');
         }
 
         try {
@@ -701,11 +701,11 @@ class ResourceController extends MartisController
         // The prefill hands back the record's field values, so it needs the
         // view ability show() asks for, before the replicate ability.
         if (! $res->authorizedToView($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($res, 'view');
         }
 
         if (! $res->authorizedToReplicate($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($res, 'replicate');
         }
 
         // Create in-memory replica using Eloquent replicate() — does NOT save to DB
@@ -2267,7 +2267,7 @@ class ResourceController extends MartisController
         $res = new $resourceClass($model);
 
         if (! $res->authorizedToView($request)) {
-            return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+            return $this->recordDenied($res, 'view');
         }
 
         // A field hidden for this record (canSeeForModel()) is left out, as

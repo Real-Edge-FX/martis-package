@@ -396,21 +396,16 @@ class ActionEventResource extends Resource
     }
 
     /**
-     * The registered resource that exposes `$modelClass`, if any.
+     * The registered resource that exposes `$modelClass`, if any: the first
+     * routable one, so a headless resource over the same model never
+     * relabels the target or drops its link
+     * ({@see ResourceRegistry::preferredForModel()}).
      *
      * @return class-string<resource>|null
      */
     protected static function resourceForModel(string $modelClass): ?string
     {
-        $modelClass = ltrim($modelClass, '\\');
-
-        foreach (app(ResourceRegistry::class)->list() as $resourceClass) {
-            if (ltrim($resourceClass::model(), '\\') === $modelClass) {
-                return $resourceClass;
-            }
-        }
-
-        return null;
+        return app(ResourceRegistry::class)->preferredForModel($modelClass)[0] ?? null;
     }
 
     /** Whether a stored `original` / `changes` value holds a diff to show. */

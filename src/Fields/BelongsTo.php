@@ -638,7 +638,9 @@ class BelongsTo extends Field implements ProvidesPickerAttributes
      * is a mistake that fails loudly instead of letting every id through.
      * Without one the resource is the one registered for the model of the
      * relationship, read from the record the field is declared on, as Nova
-     * finds a `BelongsTo` resource when none is given. `null` when that
+     * finds a `BelongsTo` resource when none is given. A headless resource
+     * (`routable(): false`) over a model that has a routable one does not
+     * count ({@see ResourceRegistry::preferredForModel()}). `null` when that
      * cannot name exactly one: the relationship is not on the record, its
      * model has no registered resource, or several have it.
      *
@@ -668,7 +670,7 @@ class BelongsTo extends Field implements ProvidesPickerAttributes
             return null;
         }
 
-        $resources = $registry->forModel($modelClass);
+        $resources = $registry->preferredForModel($modelClass);
 
         return count($resources) === 1 ? $resources[0] : null;
     }

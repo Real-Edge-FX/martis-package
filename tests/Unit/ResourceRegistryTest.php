@@ -212,3 +212,109 @@ it('registering the same uri key twice overwrites the previous class', function 
     expect($registry->count())->toBe(1);
     expect($registry->get(RegistryTestResource::uriKey()))->toBe($overrideClass);
 });
+
+// ---------------------------------------------------------------------------
+// preferredForModel / preferredForModelOrSubclass
+// ---------------------------------------------------------------------------
+
+class PreferredRegistrySubModel extends RegistryTestModel {}
+
+class PreferredHeadlessResource extends RegistryTestResource
+{
+    public static function uriKey(): string
+    {
+        return 'preferred-headless';
+    }
+
+    public static function routable(): bool
+    {
+        return false;
+    }
+}
+
+class PreferredHeadlessTwoResource extends PreferredHeadlessResource
+{
+    public static function uriKey(): string
+    {
+        return 'preferred-headless-two';
+    }
+}
+
+class PreferredPageResource extends RegistryTestResource
+{
+    public static function uriKey(): string
+    {
+        return 'preferred-page';
+    }
+}
+
+class PreferredPageTwoResource extends RegistryTestResource
+{
+    public static function uriKey(): string
+    {
+        return 'preferred-page-two';
+    }
+}
+
+class PreferredSubModelResource extends RegistryTestResource
+{
+    public static function model(): string
+    {
+        return PreferredRegistrySubModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'preferred-sub';
+    }
+
+    public static function routable(): bool
+    {
+        return false;
+    }
+}
+
+it('prefers the routable resources over a model, in registration order', function () {
+    $registry = freshRegistry();
+    $registry->registerMany([
+        PreferredHeadlessResource::class,
+        PreferredPageResource::class,
+        PreferredHeadlessTwoResource::class,
+        PreferredPageTwoResource::class,
+        AnotherResource::class,
+    ]);
+
+    expect($registry->preferredForModel(RegistryTestModel::class))
+        ->toBe([PreferredPageResource::class, PreferredPageTwoResource::class]);
+    expect($registry->forModel(RegistryTestModel::class))->toHaveCount(4);
+});
+
+it('falls back to every resource over a model when all of them are headless', function () {
+    $registry = freshRegistry();
+    $registry->registerMany([PreferredHeadlessResource::class, PreferredHeadlessTwoResource::class]);
+
+    expect($registry->preferredForModel(RegistryTestModel::class))
+        ->toBe([PreferredHeadlessResource::class, PreferredHeadlessTwoResource::class]);
+});
+
+it('answers an empty list for a model no resource exposes, and ignores a leading backslash', function () {
+    $registry = freshRegistry();
+    $registry->registerMany([PreferredHeadlessResource::class, PreferredPageResource::class]);
+
+    expect($registry->preferredForModel(AnotherRegistryModel::class))->toBe([]);
+    expect($registry->preferredForModel('\\'.RegistryTestModel::class))->toBe([PreferredPageResource::class]);
+});
+
+it('prefers the routable resource over a model or any subclass of it', function () {
+    $registry = freshRegistry();
+    $registry->registerMany([PreferredSubModelResource::class, PreferredHeadlessResource::class, PreferredPageResource::class]);
+
+    expect($registry->preferredForModelOrSubclass(RegistryTestModel::class))->toBe([PreferredPageResource::class]);
+
+    $headlessOnly = freshRegistry();
+    $headlessOnly->registerMany([PreferredSubModelResource::class, PreferredHeadlessResource::class]);
+
+    expect($headlessOnly->preferredForModelOrSubclass(RegistryTestModel::class))
+        ->toBe([PreferredSubModelResource::class, PreferredHeadlessResource::class]);
+    expect($headlessOnly->preferredForModelOrSubclass(AnotherRegistryModel::class))->toBe([]);
+});
