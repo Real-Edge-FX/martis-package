@@ -4,6 +4,25 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.10.0 from v2.9.x
+
+v2.10.0 fixes how conditional `required_*` rules validate, sends a pre-filled `BelongsTo` as its id, refreshes a relationship panel after a create made from it, widens what the extension shims expose, and lets a multi-tenant app scope Martis's cache. Nothing has to change in most apps. Check these points:
+
+- **A field with only `required_if` (or another conditional `required_*` rule) is no longer required unconditionally.** Before, `Text::make('first_name')->rules(['nullable', 'required_if:type,person'])` got an asterisk and a literal `required` in front of its rules, so it was required on every request, and two mutually exclusive `required_if` fields made every create fail with a `422`. Now only the exact `required` rule (or `Rule::requiredIf(true)`) makes a field required, as in Nova: a conditional rule runs when the request is validated, and the field shows no asterisk. If you relied on the old behaviour, add `->required()` or `'required'`. See [Conditional required rules](fields.md#conditional-required-rules-v2100).
+- **A `BelongsTo` map is reduced to its id before the rules run.** A create from a relationship panel posted `{ "contact_id": { "id": "13", "title": "Ana" } }`, which a `Rule::exists('contacts', 'id')` of yours saw as an array. The forms now send the id, and the write endpoints reduce a map for any client. A `fillUsing()` callback on a `BelongsTo` receives the id, not the map, and a map that names no id reads as an empty value. See [Relationships](relationships.md#writes-follow-the-pickers).
+- **A relationship panel shows the new record at once.** The create page invalidated only the resource's list, so the panel served its cached list for up to 30 seconds after the redirect; it now refreshes it, and an edit made from a `morph-many` or `morph-one` panel refreshes that panel (it refreshed the `has-many` one).
+- **`react-dom` and `react-dom/client` for extensions.** The `react-dom` shim serves `createPortal`, `flushSync`, `unstable_batchedUpdates` and `version`; a new `react-dom/client` shim serves `createRoot` and `hydrateRoot`. To use them (a library such as `@dnd-kit/core` imports `unstable_batchedUpdates`), republish the shims, then bring the Vite config and `tsconfig.extensions.json` up to date, because the `react-dom/client` alias and path live there and the shims tag leaves them alone:
+
+  ```bash
+  php artisan vendor:publish --tag=martis-extension-shims --force
+  ```
+
+  Then add the alias and the `paths` entry shown in [Refreshing the extension scaffold](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade) (`/^react-dom\/client$/` in `vite.extensions.config.ts`, `react-dom/client` in `tsconfig.extensions.json`), or refresh the whole scaffold with `php artisan martis:install --force` (it rewrites both files too: review the diff), and run `npm run build:extensions`.
+
+  The legacy root APIs `render`, `hydrate`, `findDOMNode` and `unmountComponentAtNode` stay out: React 19 removed them. An extension built with the earlier shims keeps building and running. See [The react-dom shims](overrides.md#the-react-dom-shims-v2100).
+- **`ResourceIcon` is on `@martis/runtime`.** An extension imports it instead of bundling `@phosphor-icons/react` copies. Republish the shims (the command above) to import it by name. See [components.md § ResourceIcon](components.md#resourceicon).
+- **Multi-tenant apps can scope the cache.** `Martis::cacheScopeUsing(fn (Request $request): ?string => $request->getHost())` adds the host (or any value of the request) to every Martis cache key, so a menu, a schema, a dashboard, a metric or a lens that depends on the tenant is no longer served to another tenant for the TTL. Without a resolver every key is unchanged: an app that does not call it needs no action. See [Scoping the keys by host or tenant](cache.md#scoping-the-keys-by-host-or-tenant-v2100).
+
 ## Upgrading to v2.9.0 from v2.8.x
 
 v2.9.0 keeps a dashboard's filters in its address and lets a custom card set them ([Filters in the URL](dashboards.md#filters-in-the-url-v290)), and answers a write a unique index refuses with a `422` on the field ([When the database index refuses the write](fields.md#when-the-database-index-refuses-the-write-v290)). Nothing has to change in an app. Check these points if you test the panel or its API:

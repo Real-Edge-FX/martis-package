@@ -303,7 +303,7 @@ export function DangerConfirm({ open, onCancel, onConfirm, title, body }: Props)
 }
 ```
 
-The `useModalHistoryLock(open)` hook intercepts the browser back button while the dialog is visible and cooperates with the DrawerShell so closing the dialog, by a button, the back button or Escape (v2.0.0), does not also close the drawer underneath: while a locked dialog is open the drawer ignores Escape, so your dialog handles its own. Its Escape handler also calls `e.preventDefault()`, which tells any later listener (a drawer's, the app's) that the key was taken. Required whenever a modal nests inside a drawer or the unsaved-changes guard. It is on `@martis/runtime` since v1.38.0 and has to come from there: it shares a lock count with the drawers, which a copy of the hook would not see. `createPortal` comes from the runtime too: it is the host's, so the dialog renders with the host's React DOM. Since v1.38.0 `import { createPortal } from 'react-dom'` reaches the same function, since the extension build sends `react-dom` to a shim that carries it and `flushSync` (v1.38.2), nothing else of `react-dom`; on a scaffold published earlier, `react-dom` resolves to the React shim, which exports React core only (see [Refreshing the extension scaffold](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade)).
+The `useModalHistoryLock(open)` hook intercepts the browser back button while the dialog is visible and cooperates with the DrawerShell so closing the dialog, by a button, the back button or Escape (v2.0.0), does not also close the drawer underneath: while a locked dialog is open the drawer ignores Escape, so your dialog handles its own. Its Escape handler also calls `e.preventDefault()`, which tells any later listener (a drawer's, the app's) that the key was taken. Required whenever a modal nests inside a drawer or the unsaved-changes guard. It is on `@martis/runtime` since v1.38.0 and has to come from there: it shares a lock count with the drawers, which a copy of the hook would not see. `createPortal` comes from the runtime too: it is the host's, so the dialog renders with the host's React DOM. Since v1.38.0 `import { createPortal } from 'react-dom'` reaches the same function, since the extension build sends `react-dom` to a shim that serves the host's public React DOM API (`flushSync` since v1.38.2, `unstable_batchedUpdates`, `version` and `react-dom/client`'s `createRoot` and `hydrateRoot` since v2.10.0; not the legacy `render` and `findDOMNode`); on a scaffold published earlier, `react-dom` resolves to the React shim, which exports React core only (see [Refreshing the extension scaffold](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade)).
 
 ### Escape closes the top layer only (v2.0.0)
 
@@ -350,6 +350,21 @@ public function icon(): string
 ```
 
 Accepts kebab-case (`shopping-cart`), PascalCase (`ShoppingCart`), snake_case (`shopping_cart`), or any of those suffixed with `Icon`.
+
+#### In an extension (v2.10.0)
+
+`ResourceIcon` is on `@martis/runtime`, with its props type, so an extension renders an icon by name without bundling its own `@phosphor-icons/react` copy and without bypassing the lazy registry:
+
+```tsx
+import { ResourceIcon } from '@martis/runtime'
+import type { ResourceIconProps } from '@martis/runtime'
+
+export function StatusIcon({ name }: { name: ResourceIconProps['iconName'] }) {
+  return <ResourceIcon iconName={name} size={16} weight="bold" />
+}
+```
+
+The props are `iconName`, `size`, `className`, `weight` and `color`. An extension published before v2.10.0 republishes its shims to import it by name (`php artisan vendor:publish --tag=martis-extension-shims --force`), or reads `runtime.ResourceIcon` off the default export.
 
 #### Resolution strategy
 

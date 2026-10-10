@@ -76,6 +76,47 @@ class TotalRevenue extends ValueMetric
 
 **Per-user scoping** is the convention used by Martis's own cached entries (`navigation`, `dashboards`, `schema`, `metrics`). Each one derives the auth identifier and puts it in the cache key — see `NavigationController`, `MetricController`, `ResourceController` and `Metric::resultCacheKey()`. `MartisCache::remember()` itself takes the key verbatim, so **custom layers must include the user identifier in their own keys** if they want the same isolation. The `OrdersController` example below shows the standard shape: `"show:{$id}:{$userKey}"`.
 
+## Scoping the keys by host or tenant (v2.10.0)
+
+Martis keys what it caches by the user and the locale, plus what each layer adds. It cannot know what else your code reads from the request:
+
+| Layer | What the key carries today |
+|-------|----------------------------|
+| `navigation` | the user and the locale (`badges:` prefix for the sidebar counts) |
+| `schema` | the resource, the user and the locale (and which locked cards and filters the user sees) |
+| `dashboards` | the dashboard (or the list with the fingerprint of the authorized set), the user and the locale |
+| `metrics` | the metric, the range, the filters, the locale and, unless `$cachePerUser = false`, the user; the same key serves a per-class `cacheFor()` |
+| a lens with `cacheFor()` | the lens, the user, the search, the sort, the filters, the page and the locale |
+
+A `Martis::mainMenu()` resolver, a field's options, a dashboard's cards, a metric's `calculate()` or a lens's `query()` that also depends on the **host** (one tenant per subdomain), a **tenant header**, a route parameter or a session value is cached as if it did not: the same user on `tenant-a.example` and `tenant-b.example` gets whichever payload was built first, for the TTL, and a metric without `$cachePerUser` shares its result across the users of every tenant. `Martis::cacheScopeUsing()` adds what the request carries to **every** key:
+
+```php
+use Illuminate\Http\Request;
+use Martis\Facades\Martis;
+
+// app/Providers/MartisServiceProvider.php, in boot()
+
+// One tenant per host:
+Martis::cacheScopeUsing(fn (Request $request): ?string => $request->getHost());
+
+// The tenant a tenancy package resolved (here stancl/tenancy):
+Martis::cacheScopeUsing(fn (Request $request): ?string => tenant()?->getTenantKey());
+
+// A tenant header:
+Martis::cacheScopeUsing(fn (Request $request): ?string => $request->header('X-Tenant'));
+```
+
+The resolver receives the current request and answers a string, or `null` (or `''`) for "no scope". Its answer is hashed into the key (`:s` and 32 hex characters), so any string is safe in any store and the key length stays bounded; the scope is part of the key before the 191-character limit is applied, so a long key still differs per scope. `Martis::cacheScopeUsing(null)` removes the resolver.
+
+- **Without a resolver every key is what it was**, byte for byte: an app that does not call it needs no action.
+- **It covers every layer**: `navigation` (and the badges), `schema`, `dashboards`, `metrics`, a custom layer that calls `MartisCache::remember()`, a metric's own `cacheFor()` and a lens's `cacheFor()`. A custom layer that builds its key itself and writes to Laravel's cache directly is not: add `app(MartisCache::class)->scopeSegment()` to its key.
+- **Each scope has its own entries**, so the number of entries grows with the number of scopes, and a metric without `$cachePerUser` is shared by every user **of the same scope**, not by every user.
+- **`martis:cache:clear` (and the admin button) still clears every scope**: the layer's version sits in the key's prefix, ahead of the scope, so one increment orphans the entries of every host. `martis:cache:prune` treats scoped keys as live for the same reason.
+- **A resolver that answers anything else than a string or `null` throws** (`UnexpectedValueException`), and so does an exception it raises. A scope that fell back to "none" without a word would share one tenant's entries with another, so Martis fails instead. The resolver runs on every cache read of the request: keep it cheap (read a value the request already resolved, not the database). With no request bound (a queue worker, a console command) no scope is added.
+- **There is no default scope, not even the host.** Nova has no equivalent, every app's keys would change at the upgrade, and a host scope by default would let any client multiply the entries of an app without trusted hosts (`TrustHosts`) through the `Host` header. The app that needs a scope declares it.
+
+The panel's own navigation query (`['navigation']` in the browser) needs nothing: it lives in one tab on one host and does not cross hosts.
+
 ## Reading the admin page columns
 
 | Column | Meaning |
@@ -376,13 +417,14 @@ MartisCache::forgetExtension(string $name);
 $cache->masterEnabled(): bool;                  // master switch state
 $cache->enabled(string $type): bool;            // effective state
 $cache->ttl(string $type): ?int;                // minutes, null = no expiration
-$cache->remember(string $type, string $key, Closure $cb, ?int $ttl = null);
+$cache->remember(string $type, string $key, Closure $cb, ?int $ttl = null, ?Request $scopeRequest = null);
 $cache->clear(?string $type = null);            // null = clear every layer
 $cache->disable(string $type);                  // runtime override
 $cache->enable(string $type);
 $cache->clearOverride(string $type);
 $cache->status(): array;                        // full snapshot
 $cache->bypassed(?Request $r = null): bool;     // header / query check
+$cache->scopeSegment(?Request $r = null): string; // the Martis::cacheScopeUsing() segment (v2.10.0), '' without a scope
 ```
 
 `remember()` short-circuits when the layer is disabled or the request is bypassed — your callback runs but the result is not cached.

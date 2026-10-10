@@ -238,7 +238,7 @@ A Tool that renders its own filter bar — separate from the field-form harness 
 | Export | Purpose |
 |---|---|
 | `Dropdown`, `MultiSelect` | Single / multi filter controls. Add the `martis-filter-dropdown` class for the compact look, and pass `field.className` when routing through `FieldInput` (see [fields.md](fields.md#select) — the `select` field honours `variant: 'filter'`). Prefer the native `select` field with `searchableOptions` / `allowCustomValues` (v1.37.0) over a raw `Dropdown` when the control lives in a form. |
-| `createPortal` | `react-dom`'s portal for overlays that must escape a clipped container, the host's copy. Since v1.38.0 `import { createPortal } from 'react-dom'` reaches the same function: the extension build sends `react-dom` to a shim that carries it and `flushSync` (v1.38.2), nothing else of `react-dom`. |
+| `createPortal` | `react-dom`'s portal for overlays that must escape a clipped container, the host's copy. `import { createPortal } from 'react-dom'` reaches the same function: the extension build sends `react-dom` to a shim that serves the host's public React DOM API (`createPortal`, `flushSync`, `unstable_batchedUpdates`, `version`; `createRoot` and `hydrateRoot` from `react-dom/client` since v2.10.0), and not the legacy root APIs React 19 removed (`render`, `hydrate`, `findDOMNode`, `unmountComponentAtNode`). |
 | `DropdownProps`, `MultiSelectProps` (types) | Type the controls without importing from `primereact/*` (the extension build doesn't alias it). |
 
 ```tsx

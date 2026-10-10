@@ -606,8 +606,9 @@ Since v1.14.0, `@martis/runtime` exposes:
 | `htmlTooltip`, `trustHtmlTooltip` (v2.4.0) | `htmlTooltip(markup, position?)` returns the props (`data-pr-tooltip`, `data-pr-tooltip-html`, `data-pr-position` and a registering `ref`) that make an element a trigger of the global tooltip that shows HTML. `trustHtmlTooltip` is the ref callback for an element that has a ref of its own. An element that is not registered shows its `data-pr-tooltip` as plain text, whatever `data-pr-tooltip-html` says. |
 | `HtmlTooltipProps` (type) | The props `htmlTooltip()` returns. |
 | `Dropdown`, `MultiSelect` (v1.29.0) | The exact PrimeReact controls Martis's own filters use. Apply the `martis-filter-dropdown` class for the compact filter look. Lets a Tool render pixel-identical single/multi filters without bundling a second copy of PrimeReact. |
-| `createPortal` (v1.29.0) | `react-dom`'s `createPortal`, for overlays: the host's, so the portal renders with the host's React DOM. Since v1.38.0 `import { createPortal } from 'react-dom'` reaches the same function: the extension build sends `react-dom` to a shim that carries it and `flushSync`, nothing else of `react-dom`. |
+| `createPortal` (v1.29.0) | `react-dom`'s `createPortal`, for overlays: the host's, so the portal renders with the host's React DOM. Since v1.38.0 `import { createPortal } from 'react-dom'` reaches the same function: the extension build sends `react-dom` to a shim that serves the host's public React DOM API (see [The react-dom shims](#the-react-dom-shims-v2100)). |
 | `flushSync` (v1.38.2) | `react-dom`'s synchronous flush, the host's. Third-party libraries import it from `react-dom` (`@tanstack/react-virtual` calls it while scrolling a virtualised list), and the `react-dom` shim re-exports it; in v1.38.0 and v1.38.1 the shim did not, and such a library stopped the build. |
+| `ResourceIcon`, `ResourceIconProps` (v2.10.0) | An icon by name, `<ResourceIcon iconName="rocket-launch" size={16} />`, resolved through `iconRegistry`: the curated Phosphor set, the lazily loaded rest and the icons the app registered. An extension needs no `@phosphor-icons/react` copy of its own. See [components.md § ResourceIcon](components.md#resourceicon). |
 | `DropdownProps`, `MultiSelectProps` (types) | Re-exported so you can type the controls above without reaching into `primereact/*`. |
 | `NestedParentProvider` (v1.38.0) | Names the record whose related records the relationship panels inside list, when the page URL does not name it; `id: null` on a create form. See [Naming the record of the relationship panels](#naming-the-record-of-the-relationship-panels-v1380). |
 | `NestedParent` (type) | The provider's `value`: `{ resource: string; id: string \| number \| null }`. |
@@ -707,8 +708,23 @@ export function StatusFilter() {
 ```
 
 `createPortal` (exported by `@martis/runtime`, and since v1.38.0 by the extension's
-`react-dom` shim, which carries only it and, since v1.38.2, `flushSync`) is
-available for overlays that must escape a clipped or `overflow: hidden` container.
+`react-dom` shim) is available for overlays that must escape a clipped or
+`overflow: hidden` container.
+
+### The react-dom shims (v2.10.0)
+
+An extension build sends `react-dom` and `react-dom/client` to shims that re-export the host's copy of the public React DOM 18 API, the part libraries import and React 19 keeps, so a portal, a batched update or a root an extension (or a library it bundles) creates runs on the host's React DOM instead of a second copy:
+
+| Specifier | Names |
+|---|---|
+| `react-dom` | `createPortal`, `flushSync`, `unstable_batchedUpdates`, `version`, and the default export holding the same names |
+| `react-dom/client` | `createRoot`, `hydrateRoot`, and the default export holding the same names |
+
+`@dnd-kit/core` imports `unstable_batchedUpdates` from `react-dom`, which the shim did not export before v2.10.0: `npm run build:extensions` stopped with `"unstable_batchedUpdates" is not exported by ".shims/react-dom.mjs"`, and `react-dom/client` had no alias.
+
+The legacy root APIs are not exposed: `render`, `hydrate`, `findDOMNode`, `unmountComponentAtNode` and `unstable_renderSubtreeIntoContainer`. React 18 deprecated them and React 19 removed them, so an extension that used them would break when the host moves on. An import of one stops the build (`"render" is not exported by ".shims/react-dom.mjs"`) and `tsc` reports it first. Use `createRoot` from `react-dom/client`.
+
+The shims read the host's functions off `window.Martis.reactDom` and `window.Martis.reactDomClient`. `createPortal` and `flushSync` stay named exports of `@martis/runtime`, so an extension that imports them from there, or one built with the shims of v1.38.0 to v2.9.x, keeps building and running. To use the new names an app republishes its shims and brings its Vite config and `tsconfig.extensions.json` up to date (the `react-dom/client` alias and path): see [Refreshing the extension scaffold](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade).
 
 ### Naming the record of the relationship panels (v1.38.0+)
 
