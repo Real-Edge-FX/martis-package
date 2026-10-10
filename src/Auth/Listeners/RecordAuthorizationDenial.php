@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martis\Auth\Listeners;
 
 use Illuminate\Auth\Access\Events\GateEvaluated;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -41,13 +42,23 @@ class RecordAuthorizationDenial
     /** @var array<string, true> Per-request dedup keys. */
     protected array $seen = [];
 
+    /**
+     * A denial is `false` or a `Response` that denies (`Response::deny()`,
+     * `denyAsNotFound()`); `null` means no policy answered. The event types
+     * its result as `bool|null`, but the Gate passes the raw answer through.
+     */
+    protected function isDenial(mixed $result): bool
+    {
+        return $result instanceof Response ? $result->denied() : $result === false;
+    }
+
     public function handle(GateEvaluated $event): void
     {
         if (! (bool) config('martis.audit.authz_denials', false)) {
             return;
         }
 
-        if ($event->result !== false) {
+        if (! $this->isDenial($event->result)) {
             return;
         }
 
