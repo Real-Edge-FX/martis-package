@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo as EloquentMorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Martis\Contracts\FieldContract;
 use Martis\Contracts\ProvidesPickerAttributes;
 use Martis\Enums\ModalSize;
 use Martis\Enums\PhosphorIcon;
@@ -722,6 +723,54 @@ class BelongsTo extends Field implements ProvidesPickerAttributes
         }
 
         return $id;
+    }
+
+    /**
+     * The value the field's rules and its fill see for a submitted one: the id
+     * an `['id' => ...]` map names, so a consumer rule such as
+     * `Rule::exists('contacts', 'id')` receives a scalar instead of the
+     * `{ id, title }` map a pre-filled form holds (an array makes `exists` a
+     * multi-value `whereIn`). Returned as it is: a value that is not a map; a
+     * map whose id is not an int or a string (see submitsMalformedId()), so the
+     * Relatable rule still refuses it; and a map with `trashed: true`, the
+     * edit form's opt-in for a soft-deleted target, which the Relatable rule
+     * reads from the map. v2.10.0.
+     */
+    public function reduceSubmittedValue(mixed $value): mixed
+    {
+        if (! is_array($value) || $this->submitsMalformedId($value) || ($value['trashed'] ?? null) === true) {
+            return $value;
+        }
+
+        return $this->submittedId($value);
+    }
+
+    /**
+     * The reduced value (see reduceSubmittedValue()) of every `BelongsTo`
+     * among `$fields` whose value in `$values` is a map, by attribute: what a
+     * write merges back into its input before the rules run. Other fields,
+     * and a `MorphTo`, which keeps its `{ type, id }` map, are left out.
+     *
+     * @param  iterable<FieldContract>  $fields
+     * @param  array<array-key, mixed>  $values
+     * @return array<string, mixed>
+     */
+    public static function reduceSubmittedValues(iterable $fields, array $values): array
+    {
+        $reduced = [];
+
+        foreach ($fields as $field) {
+            if (! $field instanceof self) {
+                continue;
+            }
+
+            $attribute = $field->attribute();
+            if (array_key_exists($attribute, $values) && is_array($values[$attribute])) {
+                $reduced[$attribute] = $field->reduceSubmittedValue($values[$attribute]);
+            }
+        }
+
+        return $reduced;
     }
 
     /**

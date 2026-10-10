@@ -3,6 +3,7 @@ import { createPortal } from "react-dom"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { api, ApiError, hasFileValues } from "@/lib/api"
 import { apiPath } from "@/lib/apiPath"
+import { createPayload } from "@/lib/createPayload"
 import { FieldInput } from "@/components/fields/FieldRenderer"
 import { useToast } from "@/contexts/ToastContext"
 import { useTranslation } from "react-i18next"
@@ -89,7 +90,9 @@ export function InlineCreateModal({
   })
 
   const createMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => {
+    mutationFn: (formValues: Record<string, unknown>) => {
+      // A BelongsTo the form holds as `{ id, title }` goes as its id.
+      const data = createPayload(formValues)
       if (hasFileValues(data)) {
         return api.upload<{
           data: { id: string | number; title: string | null }

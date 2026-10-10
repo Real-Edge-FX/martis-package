@@ -29,6 +29,7 @@ use Martis\Contracts\FieldContract;
 use Martis\Enums\ActionVisibility;
 use Martis\Exceptions\MartisException;
 use Martis\FieldContext;
+use Martis\Fields\BelongsTo;
 use Martis\Fields\BelongsToMany as BelongsToManyField;
 use Martis\Fields\Field as MartisField;
 use Martis\Fields\HasMany as HasManyField;
@@ -673,6 +674,10 @@ class ActionController extends MartisController
                 $fields,
                 fn (FieldContract $field): bool => $this->takesValueFromRequest($field, $request),
             ));
+
+            // A BelongsTo the form holds as its `{ id, title }` map reaches the
+            // rules and `handle()` as the id (v2.10.0).
+            $values = array_replace($values, BelongsTo::reduceSubmittedValues($writable, $values));
 
             $validator = $this->actionFieldsValidator($writable, $values, new RelatableWrite($request, $sourceResourceClass));
 

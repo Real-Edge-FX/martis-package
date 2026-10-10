@@ -4,6 +4,7 @@ namespace Martis\Http\Controllers\Concerns;
 
 use Illuminate\Http\Request;
 use Martis\Contracts\FieldContract;
+use Martis\Fields\BelongsTo;
 use Martis\Fields\Field;
 
 /**
@@ -30,6 +31,12 @@ use Martis\Fields\Field;
  * A MorphTo, a readonly or computed field and a field with a `fillUsing()`
  * callback are left to their fill. Null and the empty string, which the
  * multipart path sends for null, still clear the field.
+ *
+ * A `BelongsTo` submitted as an `{ id, title }` map (a create opened from a
+ * relationship panel pre-fills the parent that way) is reduced to its id
+ * here, after the decoding, so a consumer rule such as `Rule::exists()` and
+ * the fill receive a scalar (v2.10.0). A map whose id is not an int or a
+ * string is left as it is for the Relatable rule to refuse.
  */
 trait DecodesStructuredValues
 {
@@ -65,6 +72,14 @@ trait DecodesStructuredValues
 
         if ($decoded !== []) {
             $request->merge($decoded);
+        }
+
+        // A BelongsTo the form holds as its `{ id, title }` map reaches the
+        // rules and the fill as the id (see `BelongsTo::reduceSubmittedValue()`).
+        // After the decoding above, so a map sent as JSON text is reduced too.
+        $reduced = BelongsTo::reduceSubmittedValues($fields, $request->all());
+        if ($reduced !== []) {
+            $request->merge($reduced);
         }
 
         return $undecodable;

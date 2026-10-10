@@ -236,3 +236,42 @@ it('BelongsTo toArray withSubtitles includes subtitleAttribute', function () {
     expect($arr['withSubtitles'])->toBeTrue()
         ->and($arr['subtitleAttribute'])->toBe('bio');
 });
+
+// ---------------------------------------------------------------------------
+// reduceSubmittedValue / reduceSubmittedValues (v2.10.0)
+// ---------------------------------------------------------------------------
+
+it('BelongsTo reduces a {id, title} map to its id and leaves every other value alone', function (mixed $value, mixed $expected) {
+    expect(BelongsTo::make('author')->reduceSubmittedValue($value))->toBe($expected);
+})->with([
+    'an int id in a map' => [['id' => 3, 'title' => 'Ana'], 3],
+    'a string id in a map' => [['id' => '3', 'title' => 'Ana'], '3'],
+    'a map with the empty id' => [['id' => '', 'title' => 'Ana'], null],
+    'a map with no id' => [['title' => 'Ana'], null],
+    'a bare id' => [7, 7],
+    'a bare string id' => ['7', '7'],
+    'null' => [null, null],
+    'a map carrying the trashed opt-in' => [['id' => 3, 'title' => 'Ana', 'trashed' => true], ['id' => 3, 'title' => 'Ana', 'trashed' => true]],
+    'a map with trashed false' => [['id' => 3, 'trashed' => false], 3],
+    'a boolean id in a map stays malformed' => [['id' => true], ['id' => true]],
+    'a float id in a map stays malformed' => [['id' => 1.5], ['id' => 1.5]],
+    'a nested map id stays malformed' => [['id' => ['id' => 1]], ['id' => ['id' => 1]]],
+]);
+
+it('BelongsTo reduceSubmittedValues reduces the BelongsTo maps by attribute and skips MorphTo and other fields', function () {
+    $fields = [
+        BelongsTo::make('author'),
+        BelongsTo::make('editor'),
+        Martis\Fields\MorphTo::make('owner'),
+        Martis\Fields\Text::make('title'),
+    ];
+
+    $values = [
+        'author_id' => ['id' => 4, 'title' => 'Ana'],
+        'editor_id' => 9,
+        'owner' => ['type' => 'users', 'id' => 5],
+        'title' => ['id' => 1],
+    ];
+
+    expect(BelongsTo::reduceSubmittedValues($fields, $values))->toBe(['author_id' => 4]);
+});
