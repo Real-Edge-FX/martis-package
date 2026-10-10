@@ -596,7 +596,7 @@ class File extends Field
                 $rules[] = 'required';
             } elseif ($this->nullable) {
                 $rules[] = 'nullable';
-            } else {
+            } elseif (! static::hasConditionalRequired($this->extraRules)) {
                 $rules[] = 'sometimes';
             }
 

@@ -776,18 +776,26 @@ abstract class Field implements FieldContract
         }
 
         // v1.8.3 — Auto-detect when `->rules([...])` declares the
-        // `required` validator (or any of its conditional siblings).
-        // The visual asterisk now follows the validation contract
+        // `required` validator (the exact rule, not its conditional
+        // siblings since v2.10.0). The visual asterisk now follows the validation contract
         // automatically, so consumers no longer have to repeat
         // `->required()` next to `->rules(['required', ...])`.
         return $this->rulesHaveRequired();
     }
 
     /**
-     * Cheap scan over the configured base + creation + update rules to
-     * detect any of Laravel's "required" validators. Treats both string
-     * shorthand (`required`, `required_if`, `required_with`, etc) and
-     * the `Rule` instances that ship in `Illuminate\Validation\Rules`.
+     * Cheap scan over the configured base rules for the `required`
+     * validator: the string `required`, or a `Rule` object that renders as
+     * exactly `required` (`Rule::requiredIf(true)`).
+     *
+     * The match is exact, as Nova 5's `Field::isRequired()` compares it
+     * (`in_array('required', $rules)`). A conditional sibling
+     * (`required_if:...`, `required_with`, `required_unless`,
+     * `required_array_keys`, ...) is evaluated by Laravel at validation
+     * time, so it must not flag the field: the old prefix check made
+     * `isRequired()` true for it, `buildRules()` then prepended a literal
+     * `required`, and two mutually exclusive `required_if` fields made every
+     * create fail with a 422. v2.10.0.
      */
     protected function rulesHaveRequired(): bool
     {
@@ -799,14 +807,11 @@ abstract class Field implements FieldContract
         // AND a context-scoped validation rule call `->required()`
         // separately. v1.8.3.
         foreach ($this->extraRules as $rule) {
-            if (is_string($rule) && str_starts_with($rule, 'required')) {
+            if (is_string($rule) && $rule === 'required') {
                 return true;
             }
-            if (is_object($rule) && method_exists($rule, '__toString')) {
-                $repr = (string) $rule;
-                if (str_contains($repr, 'required')) {
-                    return true;
-                }
+            if (is_object($rule) && method_exists($rule, '__toString') && (string) $rule === 'required') {
+                return true;
             }
         }
 
@@ -1741,7 +1746,7 @@ abstract class Field implements FieldContract
             $rules[] = 'required';
         } elseif ($this->isNullable()) {
             $rules[] = 'nullable';
-        } else {
+        } elseif (! static::hasConditionalRequired($extraRules)) {
             $rules[] = 'sometimes';
         }
 
@@ -1769,11 +1774,33 @@ abstract class Field implements FieldContract
         // missing — including `required`. When the context-specific
         // rules promote the field to required, strip `sometimes` from
         // the base so the missing-key case actually fails validation.
-        if (in_array('required', $contextRules, true)) {
+        if (in_array('required', $contextRules, true) || static::hasConditionalRequired($contextRules)) {
             $merged = array_values(array_filter($merged, static fn ($r) => $r !== 'sometimes'));
         }
 
         return $merged;
+    }
+
+    /**
+     * Whether `$rules` carries a conditional `required_*` rule
+     * (`required_if:...`, `required_unless`, `required_with`, ...).
+     *
+     * These rules are implicit: Laravel runs them for a key missing from the
+     * input, which is how `required_if:type,person` refuses a person sent
+     * without the field. `sometimes` skips every rule for a missing key, so
+     * the base set leaves it out when one is present. v2.10.0.
+     *
+     * @param  array<array-key, mixed>  $rules
+     */
+    protected static function hasConditionalRequired(array $rules): bool
+    {
+        foreach ($rules as $rule) {
+            if (is_string($rule) && str_starts_with($rule, 'required_')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // -------------------------------------------------------------------------
