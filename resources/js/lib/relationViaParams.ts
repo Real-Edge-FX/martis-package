@@ -19,6 +19,8 @@
  *   prepends it on `navigate`, which would otherwise double to `/martis/martis/...`).
  */
 
+import type { QueryClient } from '@tanstack/react-query'
+
 const BASENAME = '/martis'
 
 /**
@@ -35,6 +37,23 @@ export type NestedStoreKind = typeof NESTED_STORE_KINDS[number]
 /** The nested-store kind `value` names, or `null` when it names none. */
 export function nestedStoreKind(value: string | null | undefined): NestedStoreKind | null {
   return NESTED_STORE_KINDS.find((kind) => kind === value) ?? null
+}
+
+/**
+ * Invalidate the parent's relationship panel after a record created or
+ * edited from it (`['has-many' | 'has-one' | 'morph-many' | 'morph-one',
+ * parentResource, parentId, relationship]`, the key the panel queries with).
+ * The SPA navigates back client-side, and the query client keeps a list for
+ * 30 s, so without this the panel shows the list it had before the save.
+ */
+export function invalidateRelationPanel(
+  qc: QueryClient,
+  kind: NestedStoreKind,
+  parentResource: string,
+  parentId: string | number,
+  relationship: string,
+): Promise<void> {
+  return qc.invalidateQueries({ queryKey: [kind, parentResource, parentId, relationship] })
 }
 
 export interface ViaParamsInput {

@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link, useSearchParams } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, hasFileValues } from '@/lib/api'
 import { apiPath, routePath } from '@/lib/apiPath'
-import { nestedStoreKind } from '@/lib/relationViaParams'
+import { invalidateRelationPanel, nestedStoreKind } from '@/lib/relationViaParams'
 import { createPayload } from '@/lib/createPayload'
 import type { ResourceSchema, OverrideProps, FieldDefinition, DetailItem } from '@/types'
 import { FieldsForm } from '@/components/fields/FieldsForm'
@@ -236,6 +236,11 @@ function CreateTargetPage() {
     onSuccess: (res) => {
       emitRecordEvent('created', resource, res.data?.id)
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
+      // The parent's panel (the page navigates back client-side, the cached
+      // list lives 30 s) shows the new record, whichever submit mode follows.
+      if (isViaRelation) {
+        void invalidateRelationPanel(qc, viaRelationshipType!, viaResource!, viaResourceId!, viaRelationship!)
+      }
       addToast('success', res.meta?.message ?? tMsg('record_created'))
       // Suppress the unsaved-changes guard for the post-save redirect.
       markSaved()
