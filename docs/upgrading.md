@@ -4,6 +4,12 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.11.1 from v2.11.0
+
+v2.11.1 makes the detach and the pivot update of a `BelongsToMany` / `MorphToMany` panel find the related record through the relation. Nothing has to change in an app; check this point:
+
+- **A record that is not attached answers `404`.** `DELETE .../{relatedId}/detach` and `PUT .../{relatedId}/pivot` answered `200` for a record that exists but is not attached to the parent (the detach changed nothing), and `404` for an id that does not exist, so the routes told another tenant's records apart from missing ids. Both now answer `404` with the body of a missing id (`Related record not found.`), before the `detach{Model}` / `updatePivot{Model}` policy is asked. A client that detaches the same record twice gets `404` on the second call instead of `200`; the panel shows the message in its detach dialog. An `authorizedToDetach()` override or a `detach{Model}` ability written only to refuse records that are not attached can go. See [Relationships → Only an attached record is detached](relationships.md#only-an-attached-record-is-detached).
+
 ## Upgrading to v2.11.0 from v2.10.x
 
 v2.11.0 fixes how Martis reads a policy that returns `Illuminate\Auth\Access\Response`, lets such a denial answer its status, and stops a headless resource from standing in for the routable resource over the same model. Check these points:

@@ -302,7 +302,7 @@ it('round-trips attach + index + detach on a BelongsToMany', function () {
 // Detach idempotency — detaching twice should not 500
 // ---------------------------------------------------------------------------
 
-it('detaching a tag that is not attached is a no-op', function () {
+it('detaching a tag that is not attached answers 404', function () {
     $project = RHProjectModel::create(['title' => 'Project']);
     $tag = RHTagModel::create(['name' => 'never-attached']);
 
@@ -310,7 +310,8 @@ it('detaching a tag that is not attached is a no-op', function () {
         "/martis/api/resources/r-h-project-models/{$project->id}/belongs-to-many/tags/{$tag->id}/detach",
     );
 
-    $response->assertOk();
+    // Like a missing id (v2.11.1): only an attached record is detached.
+    $response->assertNotFound();
 });
 
 // ---------------------------------------------------------------------------

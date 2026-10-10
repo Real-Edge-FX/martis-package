@@ -930,3 +930,70 @@ it('checks only the inverse relationship inverse() names', function () {
     $this->postJson('/martis/api/resources/rw-loose-profiles', ['bio' => 'Second', 'user_id' => 1])
         ->assertCreated();
 });
+
+// ---------------------------------------------------------------------------
+// Detach and pivot update: only a record attached to the parent (v2.11.1)
+// ---------------------------------------------------------------------------
+
+it('answers a detach of a record the parent does not hold like a missing one', function () {
+    // Tag 2 exists but is not attached (and the picker does not list it).
+    $foreign = $this->deleteJson("/martis/api/resources/rw-tasks/{$this->task->id}/belongs-to-many/labels/2/detach");
+    $missing = $this->deleteJson("/martis/api/resources/rw-tasks/{$this->task->id}/belongs-to-many/labels/999999/detach");
+
+    $foreign->assertNotFound();
+    expect($foreign->json())->toBe($missing->json());
+
+    $foreign = $this->deleteJson("/martis/api/resources/rw-tasks/{$this->task->id}/morph-to-many/topics/2/detach");
+    $missing = $this->deleteJson("/martis/api/resources/rw-tasks/{$this->task->id}/morph-to-many/topics/999999/detach");
+
+    $foreign->assertNotFound();
+    expect($foreign->json())->toBe($missing->json());
+});
+
+it('still detaches an attached record and leaves the other parents alone', function () {
+    $other = RWTask::query()->create(['title' => 'Other']);
+    $this->task->labels()->attach(1);
+    $other->labels()->attach(1);
+    $this->task->topics()->attach(1);
+    $other->topics()->attach(1);
+
+    $this->deleteJson("/martis/api/resources/rw-tasks/{$this->task->id}/belongs-to-many/labels/1/detach")->assertOk();
+    $this->deleteJson("/martis/api/resources/rw-tasks/{$this->task->id}/morph-to-many/topics/1/detach")->assertOk();
+
+    expect($this->task->labels()->count())->toBe(0)
+        ->and($this->task->topics()->count())->toBe(0)
+        ->and($other->labels()->count())->toBe(1)
+        ->and($other->topics()->count())->toBe(1);
+});
+
+it('asks the detach policy only about attached records', function () {
+    $this->actingAs((new RWAuthUser)->forceFill(['id' => 1]));
+    Gate::policy(RWTask::class, RWTaskPolicy::class);
+    // detachRWTag refuses "also public".
+    RWTag::query()->insert(['id' => 3, 'name' => 'also public', 'is_public' => true]);
+    $this->task->labels()->attach(3);
+    $this->task->topics()->attach(3);
+
+    $this->deleteJson("/martis/api/resources/rw-tasks/{$this->task->id}/belongs-to-many/labels/3/detach")->assertForbidden();
+    $this->deleteJson("/martis/api/resources/rw-tasks/{$this->task->id}/morph-to-many/topics/3/detach")->assertForbidden();
+
+    $other = RWTask::query()->create(['title' => 'Other']);
+    $this->deleteJson("/martis/api/resources/rw-tasks/{$other->id}/belongs-to-many/labels/3/detach")->assertNotFound();
+    $this->deleteJson("/martis/api/resources/rw-tasks/{$other->id}/morph-to-many/topics/3/detach")->assertNotFound();
+
+    expect($this->task->labels()->count())->toBe(1)
+        ->and($this->task->topics()->count())->toBe(1);
+});
+
+it('answers a pivot update of a record the parent does not hold like a missing one', function () {
+    $other = RWTask::query()->create(['title' => 'Other']);
+    $other->labels()->attach(1);
+
+    $foreign = $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}/belongs-to-many/labels/1/pivot", ['reviewer_id' => 1]);
+    $missing = $this->putJson("/martis/api/resources/rw-tasks/{$this->task->id}/belongs-to-many/labels/999999/pivot", ['reviewer_id' => 1]);
+
+    $foreign->assertNotFound();
+    expect($foreign->json())->toBe($missing->json());
+    expect(DB::table('rw_task_label')->where('task_id', $this->task->id)->count())->toBe(0)
+        ->and(DB::table('rw_task_label')->where('task_id', $other->id)->value('reviewer_id'))->toBeNull();
+});

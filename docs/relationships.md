@@ -480,7 +480,7 @@ public function authorizedToDetach(Request $request, Model $related): bool
 }
 ```
 
-Without an override they ask the parent's policy: `attach{Model}` and `detach{Model}`, permitted when the policy does not define them. Before any record is picked, `authorizedToAttachAny()` (the `attachAny{Model}` ability, permitted when undefined) gates the attach as a whole: when it denies, the list of records to attach (`.../attachable`), the attach itself and the pickers of the attach modal's pivot fields answer 403, while the detach and the pivot update keep their own abilities. The pivot update asks `authorizedToUpdatePivot()` (`updatePivot{Model}`, falling back to `update`).
+Without an override they ask the parent's policy: `attach{Model}` and `detach{Model}`, permitted when the policy does not define them. Before any record is picked, `authorizedToAttachAny()` (the `attachAny{Model}` ability, permitted when undefined) gates the attach as a whole: when it denies, the list of records to attach (`.../attachable`), the attach itself and the pickers of the attach modal's pivot fields answer 403, while the detach and the pivot update keep their own abilities. The pivot update asks `authorizedToUpdatePivot()` (`updatePivot{Model}`, falling back to `update`). Those two are only asked about a record attached to the parent: one that is not attached answers 404 first, like a missing id (v2.11.1, see [Only an attached record is detached](#only-an-attached-record-is-detached)).
 
 > Before v1.38.0 the attach and the list of records to attach did not check `attachAny{Model}`: a user it denied could still attach.
 
@@ -1112,12 +1112,16 @@ For every morph relation (`MorphMany`, `MorphOne`, `MorphToMany`), the controlle
 
 - Listing comments on a `Post` never includes comments belonging to a `Video` with the same numeric id.
 - Updating a comment via `/morph-many/comments/{id}` from the wrong parent type returns 404, the comment is not modified.
-- Detaching a tag via `/morph-to-many/tags/{id}/detach` only removes attachments where `taggable_type` matches the parent class.
+- Detaching a tag via `/morph-to-many/tags/{id}/detach` only removes attachments where `taggable_type` matches the parent class. A tag attached only to another type answers 404, like one that does not exist (v2.11.1).
 - `MorphOneController::destroy` never deletes a sibling morph type's relation that happens to share the same `imageable_id`.
 
 ### Detach idempotency
 
-`DELETE /belongs-to-many/{relatedId}/detach` and `DELETE /morph-to-many/{relatedId}/detach` are safe to retry. Detaching a record that was never attached returns 200, 204, 404, or 422 — **never 500**. Useful in retry-prone surfaces (mass detach, optimistic UI rollback).
+`DELETE /belongs-to-many/{relatedId}/detach` and `DELETE /morph-to-many/{relatedId}/detach` are safe to retry: the first call detaches, a repeat answers 404 and changes nothing, **never 500**. Useful in retry-prone surfaces (mass detach, optimistic UI rollback).
+
+### Only an attached record is detached
+
+The detach and the pivot update (`PUT .../{relatedId}/pivot`) of both panels look the record up through the relation (v2.11.1): a record that exists but is not attached to the parent answers `404` with exactly the body of an id that does not exist (`Related record not found.`), before any policy is asked. So neither route tells another tenant's records apart from missing ids, even when the related model has no tenant scope and the related resource confines its users only through `relatableQuery()` / `indexQuery()`. The pivot actions already resolved their records through the relation. Up to v2.11.0 both routes looked the record up on the related model alone: the detach of a record that was not attached answered `200` and changed nothing, and the pivot update answered `200` (or `422` when the attach picker did not list it), while a missing id answered `404`.
 
 ### Error matrix
 
@@ -1125,7 +1129,7 @@ For every morph relation (`MorphMany`, `MorphOne`, `MorphToMany`), the controlle
 |---|---|
 | `200` / `201` / `204` | Success. |
 | `403` | Policy / `authorizedToCreate` / `authorizedToView` denial. |
-| `404` | Unknown source resource, unknown parent record, unknown relationship name, OR a related id that exists in the DB but does not belong to this morph parent. |
+| `404` | Unknown source resource, unknown parent record, unknown relationship name, OR a related id that exists in the DB but does not belong to this morph parent, OR (detach and pivot update, v2.11.1) a related record that is not attached to the parent. |
 | `422` | Validation failure (missing required field, missing `related_id`, invalid pivot data), or a related id the field's picker does not list ([Writes follow the pickers](#writes-follow-the-pickers)). |
 | `500` | Bug — please file an issue. |
 
@@ -1135,10 +1139,10 @@ Per-type feature tests:
 
 - `tests/Feature/HasManyControllerTest.php` (22)
 - `tests/Feature/HasOneControllerTest.php` (11)
-- `tests/Feature/BelongsToManyControllerTest.php` (24)
+- `tests/Feature/BelongsToManyControllerTest.php` (25)
 - `tests/Feature/MorphManyControllerTest.php` (17)
 - `tests/Feature/MorphOneControllerTest.php` (13)
-- `tests/Feature/MorphToManyControllerTest.php` (16)
+- `tests/Feature/MorphToManyControllerTest.php` (18)
 - `tests/Feature/PivotActionControllerTest.php` (27) — pivot actions on `BelongsToMany` and `MorphToMany` panels: listing, fields and run, the field's `actions()` against the resource's `pivotAction()`, `{relationship}` resolved only to a declared field of the route's type, and the view / `canSee()` / `canRun()` gates.
 - `tests/Feature/RelationshipsHardeningTest.php` (8) — multi-relation isolation, `relatableQueryUsing`, `relatable{PluralModelName}`, detach idempotency, search.
 - `tests/Feature/RelationshipFieldRulesTest.php` (61) — every kind of field rule and the context rules on each write endpoint, next to the resource endpoint they match.
@@ -1156,7 +1160,7 @@ Per-type feature tests:
 - `tests/Feature/ModelVisibilityReadTest.php` (15): the same fields left out of each panel's records and inline update response, of the lens rows and of the peek card, and 404 on every endpoint of a relationship field hidden for the parent record.
 - `tests/Feature/PivotFieldModelVisibilityTest.php` (14): `canSeeForModel()` on pivot fields, decided on the pivot row (a new row on attach and in the attachable list's `hiddenPivotFields`, the attached row on pivot update, in `_pivot` and in the pivot edit modal's pickers), and on a `BelongsToMany` / `MorphToMany` field hidden for the parent record.
 - `tests/Feature/HiddenFieldEndpointsTest.php` (14): the pickers of a form, an Action, a pivot action and the pivot fields, the remote `Select` search of a resource and a Tool, the Slug check and the `dependsOn` sync answer for a field the user cannot see (a Repeater row field and a hidden Repeater included) exactly as for an undeclared one.
-- `tests/Feature/RelatableWritesTest.php` (41): every write checked against its picker: the resource create, update and inline create (`BelongsTo`, `MorphTo`, `Tag`), a `HasMany` inline create (and its inverse field left alone), the attach, batch attach and pivot update of both panels, pivot fields, Action fields and Repeater rows; the stored value re-checked, the trashed opt-ins, a full inverse `HasOne` and `inverse()`, the `viewAny`, `add{Model}`, `attach{Model}` and `detach{Model}` policies, the attach's form draft, the multipart value map, and the translated message.
+- `tests/Feature/RelatableWritesTest.php` (43): every write checked against its picker: the resource create, update and inline create (`BelongsTo`, `MorphTo`, `Tag`), a `HasMany` inline create (and its inverse field left alone), the attach, batch attach and pivot update of both panels, pivot fields, Action fields and Repeater rows; the stored value re-checked, the trashed opt-ins, a full inverse `HasOne` and `inverse()`, the `viewAny`, `add{Model}`, `attach{Model}` and `detach{Model}` policies, the attach's form draft, the multipart value map, the translated message, and the detach and pivot update of a record that is not attached (404, v2.11.1).
 - `tests/Feature/ActionFieldVisibilityTest.php` (9): the fields of a resource action and a pivot action the request cannot set (hidden, readonly, computed, and a Repeater's rows) left out of the modal or the validation, and `handle()` receiving their `default()` (the queued job too).
 
 ---

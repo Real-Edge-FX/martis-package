@@ -364,8 +364,8 @@ class MorphToManyController extends MartisController
         /** @var class-string<Model> $relatedModelClass */
         $relatedModelClass = $relatedResourceClass::model();
 
-        /** @var Model|null $relatedModel */
-        $relatedModel = $relatedModelClass::find($relatedId); // @phpstan-ignore-line
+        // A record that is not attached answers like a missing one.
+        $relatedModel = $this->findAttachedRelated($relation, $relatedModelClass, $relatedId);
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
         }
@@ -423,8 +423,8 @@ class MorphToManyController extends MartisController
         /** @var class-string<Model> $relatedModelClass */
         $relatedModelClass = $relatedResourceClass::model();
 
-        /** @var Model|null $relatedModel */
-        $relatedModel = $relatedModelClass::find($relatedId); // @phpstan-ignore-line
+        // A record that is not attached answers like a missing one.
+        $relatedModel = $this->findAttachedRelated($relation, $relatedModelClass, $relatedId);
         if ($relatedModel === null) {
             return JsonErrorResponse::notFound('Related record not found.')->toResponse();
         }

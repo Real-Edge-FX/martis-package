@@ -2087,6 +2087,8 @@ BelongsToMany::make('Tags', 'tags', TagResource::class)
 
 A relation picker among the pivot fields asks the panel (the two `pivot-fields` routes), gated like the panel and then like the attach (`attachAny{Model}`) or the pivot update (`updatePivot{Model}`). See [Relationships → Relation pickers among the pivot fields](relationships.md#relation-pickers-among-the-pivot-fields).
 
+The detach and the pivot update answer 404 for a `{relatedId}` that is not attached to the parent, with the body of an id that does not exist (v2.11.1). See [Relationships → Only an attached record is detached](relationships.md#only-an-attached-record-is-detached).
+
 #### Authorization
 
 Override `authorizedToAttach()` or `authorizedToDetach()` on your Resource to restrict operations:

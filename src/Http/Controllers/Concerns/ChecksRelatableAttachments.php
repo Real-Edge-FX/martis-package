@@ -4,6 +4,8 @@ namespace Martis\Http\Controllers\Concerns;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Martis\Fields\BelongsToMany;
@@ -113,6 +115,37 @@ trait ChecksRelatableAttachments
             [$errorKey => [__('martis::validation.relatable_attachment')]],
             'Validation failed.',
         )->toResponse();
+    }
+
+    /**
+     * The related record `$relatedId` names, when it is attached to the
+     * parent through `$relation`; `null` when it does not exist or is not
+     * attached.
+     *
+     * The detach and the pivot update answer `null` with the 404 of a
+     * missing id, so a record that exists but is not attached (another
+     * tenant's, say) cannot be told apart from one that does not exist,
+     * and the policy is only asked about attached records. Nova resolves
+     * the records it detaches through the relation the same way, and so
+     * do the pivot actions. The record itself is still read from the
+     * related resource's model, with its global scopes.
+     *
+     * @param  EloquentBelongsToMany<Model, Model, covariant Pivot, covariant string>  $relation
+     * @param  class-string<Model>  $relatedModelClass
+     */
+    protected function findAttachedRelated(EloquentBelongsToMany $relation, string $relatedModelClass, int|string $relatedId): ?Model
+    {
+        /** @var Model|null $related */
+        $related = $relatedModelClass::find($relatedId); // @phpstan-ignore-line
+        if ($related === null) {
+            return null;
+        }
+
+        // On a clone: a constraint on the Relation applies to its own
+        // query, which the detach and the pivot update run next.
+        $attached = (clone $relation)->whereKey($related->getKey())->exists();
+
+        return $attached ? $related : null;
     }
 
     /**

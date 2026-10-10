@@ -336,6 +336,12 @@ Every dashboard primitive supports a `canSee(Closure)` callback.
   `detach{Model}` decides the detach, and `updatePivot{Model}` (falling
   back to `update`) the pivot update and the pickers of the pivot edit
   modal. The field's `canAttach(false)` turns all of those off too, and `canDetach(false)` the detach (403, v2.4.0): the toggles narrow the policies, never widen them.
+  The detach and the pivot update only reach those abilities for a
+  record attached to the parent: one that is not attached answers 404,
+  exactly like an id that does not exist (v2.11.1), so a related
+  resource that confines its records only in `relatableQuery()` does
+  not need a `detach{Model}` to hide another tenant's ids. See
+  [Relationships → Only an attached record is detached](relationships.md#only-an-attached-record-is-detached).
   Before v1.38.0 the attach and the list of records to attach did not
   check `attachAny{Model}`, so a user it denied could still attach.
 
