@@ -90,17 +90,28 @@ its routes answer `403`, for a user the related resource does not let
 - **Defined:** only the users it allows get in, in every environment.
 - **Undefined:** every user the Martis guard signs in gets in only in the environments of `martis.panel_access.open_environments` (`local` and `testing` by default, env `MARTIS_PANEL_OPEN_ENVIRONMENTS`, comma-separated, an empty list opens none), as Nova's `viewNova` does with `local`. Anywhere else the panel answers `403` to everyone until you define the gate. Up to v2.3.x an undefined gate was open in every environment, so a guard that also signs in customers or other non-staff users opened the admin to them by omission.
 
-Define it in `app/Providers/MartisServiceProvider.php`. `martis:install` publishes the provider with the gate active (it lets `local` and `testing` in (so a test suite run as `APP_ENV=testing` keeps working) and, anywhere else, only the addresses you list), and prints a notice about it:
+Define it in `app/Providers/MartisServiceProvider.php`. `martis:install` publishes the provider with the gate active (it lets `local` and `testing` in (so a test suite run as `APP_ENV=testing` keeps working) and, anywhere else, only the addresses in its `$panelEmails` property), and prints a notice about it:
 
 ```php
 use Illuminate\Support\Facades\Gate;
 
-Gate::define('viewMartis', fn ($user) => app()->environment(['local', 'testing']) || in_array($user->email, [
-    'admin@example.com',
-], true));
+class MartisServiceProvider extends ServiceProvider
+{
+    /**
+     * @var list<string>
+     */
+    protected array $panelEmails = [
+        'admin@example.com',
+    ];
+
+    protected function registerGates(): void
+    {
+        Gate::define('viewMartis', fn ($user) => app()->environment(['local', 'testing']) || in_array($user->email, $this->panelEmails, true));
+    }
+}
 ```
 
-Edit the list (or replace the rule with a role, a column or a permission) before you deploy. The first time the panel refuses a user because the gate is missing, Martis logs one warning a day (not one per request) that names the fix.
+Edit the list (or replace the rule with a role, a column or a permission) before you deploy. The list is a typed property, not an inline array, so the provider passes PHPStan level 8 while it is still empty (v2.10.1): against an empty literal list PHPStan reports that `in_array()` will always be false. The first time the panel refuses a user because the gate is missing, Martis logs one warning a day (not one per request) that names the fix.
 
 ### Resources without a policy
 

@@ -17,10 +17,10 @@ use Martis\Sso\Contracts\PermissionAdapterContract;
  */
 class CallableAdapter implements PermissionAdapterContract
 {
-    /** @var Closure(User, Collection<int, mixed>): void|null */
+    /** @var (Closure(User, Collection<int, mixed>): mixed)|null */
     protected static ?Closure $callback = null;
 
-    /** @param Closure(User, Collection<int, mixed>): void $callback */
+    /** @param Closure(User, Collection<int, mixed>): mixed $callback */
     public static function setCallback(Closure $callback): void
     {
         static::$callback = $callback;

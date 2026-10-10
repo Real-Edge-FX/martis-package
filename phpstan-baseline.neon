@@ -7,12 +7,6 @@ parameters:
 			path: src/Auth/Listeners/RecordAuthorizationDenial.php
 
 		-
-			message: '#^Parameter \#3 \$arguments of method Martis\\Authorization\\RequestScopedAbilityCache\:\:makeKey\(\) expects array\<int, mixed\>, array\<int\|string, mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Authorization/RequestScopedAbilityCache.php
-
-		-
 			message: '#^Property Illuminate\\Auth\\Access\\Events\\GateEvaluated\:\:\$arguments \(array\) on left side of \?\? is not nullable\.$#'
 			identifier: nullCoalesce.property
 			count: 1
@@ -89,12 +83,6 @@ parameters:
 			identifier: cast.string
 			count: 4
 			path: src/Console/ToolMakeCommand.php
-
-		-
-			message: '#^Method Martis\\Contracts\\FilterContract\:\:apply\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: src/Contracts/FilterContract.php
 
 		-
 			message: '#^Class Martis\\Facades\\Martis has PHPDoc tag @method for method dashboards\(\) parameter \#1 \$dashboards with no value type specified in iterable type array\.$#'
@@ -247,30 +235,6 @@ parameters:
 			path: src/Fields/Timezone.php
 
 		-
-			message: '#^Method Martis\\Filters\\DateFilter\:\:apply\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: src/Filters/DateFilter.php
-
-		-
-			message: '#^Method Martis\\Filters\\DateFilter\:\:apply\(\) should return Illuminate\\Database\\Eloquent\\Builder but returns Illuminate\\Database\\Query\\Builder\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Filters/DateFilter.php
-
-		-
-			message: '#^Method Martis\\Filters\\DateRangeFilter\:\:apply\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: src/Filters/DateRangeFilter.php
-
-		-
-			message: '#^Method Martis\\Filters\\Filter\:\:apply\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: src/Filters/Filter.php
-
-		-
 			message: '#^Instanceof between Martis\\Contracts\\ActionContract and Martis\\Contracts\\ActionContract will always evaluate to true\.$#'
 			identifier: instanceof.alwaysTrue
 			count: 1
@@ -343,18 +307,6 @@ parameters:
 			path: src/Http/Controllers/LensController.php
 
 		-
-			message: '#^Parameter \#1 \$array \(list\<array\<string, mixed\>\>\) of array_values is already a list, call has no effect\.$#'
-			identifier: arrayValues.list
-			count: 1
-			path: src/Http/Controllers/LensController.php
-
-		-
-			message: '#^Parameter \#2 \$query of method Martis\\Lenses\\Lens\:\:query\(\) expects Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>, object given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Http/Controllers/LensController.php
-
-		-
 			message: '#^Parameter \#3 \$links of static method Martis\\Http\\Resources\\JsonPaginatedResponse\:\:make\(\) expects array\{first\: string\|null, last\: string\|null, prev\: string\|null, next\: string\|null\}, array\<string, mixed\> given\.$#'
 			identifier: argument.type
 			count: 1
@@ -365,12 +317,6 @@ parameters:
 			identifier: staticClassAccess.privateMethod
 			count: 1
 			path: src/Http/Controllers/LensController.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Contracts\\Auth\\Guard\:\:login\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Http/Controllers/MagicLinkController.php
 
 		-
 			message: '#^Call to an undefined method Martis\\Contracts\\MetricContract\:\:resolve\(\)\.$#'
@@ -425,18 +371,6 @@ parameters:
 			identifier: staticMethod.notFound
 			count: 1
 			path: src/Http/Controllers/PreferencesController.php
-
-		-
-			message: '#^Call to an undefined method object&T of mixed\:\:authorizedToSee\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Http/Controllers/ResourceController.php
-
-		-
-			message: '#^Call to function method_exists\(\) with object&T and ''authorizedToSee'' will always evaluate to true\.$#'
-			identifier: function.alreadyNarrowedType
-			count: 1
-			path: src/Http/Controllers/ResourceController.php
 
 		-
 			message: '#^Cannot call method fields\(\) on class\-string\|object\.$#'
@@ -539,18 +473,6 @@ parameters:
 			identifier: missingType.iterableValue
 			count: 1
 			path: src/Invitations/InvitationManager.php
-
-		-
-			message: '#^Method Martis\\Lenses\\Lens\:\:query\(\) has parameter \$request with generic class Martis\\Http\\Requests\\LensRequest but does not specify its types\: TModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: src/Lenses/Lens.php
-
-		-
-			message: '#^Method Martis\\Lenses\\Lens\:\:query\(\) return type with generic interface Illuminate\\Contracts\\Pagination\\Paginator does not specify its types\: TKey, TValue$#'
-			identifier: missingType.generics
-			count: 1
-			path: src/Lenses/Lens.php
 
 		-
 			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'

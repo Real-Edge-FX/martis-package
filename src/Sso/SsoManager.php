@@ -30,7 +30,7 @@ class SsoManager
     /** @var array<string, class-string<SsoProviderContract>> */
     protected array $providers = [];
 
-    /** @var Closure(User, SsoIdentity, string): void|null */
+    /** @var (Closure(User, SsoIdentity, string): mixed)|null */
     protected ?Closure $afterLoginCallback = null;
 
     /** @var Closure(SsoIdentity, string): mixed|null */
@@ -158,7 +158,7 @@ class SsoManager
      * Override the role-sync step. Activates the `CallableAdapter`
      * automatically — there's no need to also flip the config flag.
      *
-     * @param  Closure(User, Collection<int, mixed>): void  $callback
+     * @param  Closure(User, Collection<int, mixed>): mixed  $callback
      */
     public function syncRolesUsing(Closure $callback): void
     {
@@ -169,7 +169,7 @@ class SsoManager
      * Side-effect hook fired after a successful SSO login + role sync.
      * Use it for audit logging, welcome emails, denormalized counters.
      *
-     * @param  Closure(User, SsoIdentity, string): void  $callback
+     * @param  Closure(User, SsoIdentity, string): mixed  $callback
      */
     public function afterLogin(Closure $callback): void
     {

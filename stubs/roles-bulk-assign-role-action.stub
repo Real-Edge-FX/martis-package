@@ -60,6 +60,10 @@ class BulkAssignRole extends Action
 
         $assigned = 0;
         foreach ($models as $user) {
+            if (! method_exists($user, 'assignRole')) {
+                throw new \LogicException($user::class.' has no assignRole(): add Spatie\'s HasRoles trait to it.');
+            }
+
             // `assignRole` is idempotent (`syncRoles` would clear other
             // roles). Spatie fires `RoleAttachedEvent` which Martis
             // captures into the audit log — see Auth\Listeners\

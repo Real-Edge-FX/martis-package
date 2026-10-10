@@ -98,3 +98,27 @@ it('registers a viewMartis gate that lets local in and an empty allow-list refus
     app()['env'] = 'testing';
     expect(Gate::forUser($user)->check('viewMartis'))->toBeTrue();
 });
+
+// -----------------------------------------------------------------------------
+// v2.10.1: the allow-list is a typed property, so the provider analyses at
+// PHPStan level 8 (an empty literal list made `in_array()` always false)
+// -----------------------------------------------------------------------------
+
+it('keeps the viewMartis allow-list in a typed property, not an inline literal list', function () {
+    expect(martisProviderStub())
+        ->toContain('@var list<string>')
+        ->toContain('protected array $panelEmails = [')
+        ->toContain('in_array($user->email, $this->panelEmails, true)')
+        ->not->toMatch('/in_array\(\$user->email, \[/');
+});
+
+it('lets an address listed in $panelEmails in outside local and testing, and nobody else', function () {
+    $provider = martisProviderStubInstance();
+    (fn () => $this->panelEmails = ['admin@example.com'])->call($provider);
+    $provider->boot();
+
+    app()['env'] = 'production';
+
+    expect(Gate::forUser(new GenericUser(['id' => 1, 'email' => 'admin@example.com']))->check('viewMartis'))->toBeTrue()
+        ->and(Gate::forUser(new GenericUser(['id' => 2, 'email' => 'someone@example.com']))->check('viewMartis'))->toBeFalse();
+});

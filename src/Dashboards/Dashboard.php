@@ -18,8 +18,6 @@ use Martis\Contracts\DashboardContract;
  * Martis extensions:
  * - Dashboard-level filters that affect all cards
  * - Responsive 12-column grid layout
- *
- * @phpstan-consistent-constructor
  */
 class Dashboard implements DashboardContract
 {
@@ -68,7 +66,10 @@ class Dashboard implements DashboardContract
 
     public static function make(string $name, ?string $uriKey = null): static
     {
-        return new static($name, $uriKey);
+        // Not `@phpstan-consistent-constructor`: a discovered dashboard is built
+        // with `new $class`, so its class declares a constructor without
+        // arguments, which that annotation would report in every app.
+        return new static($name, $uriKey); // @phpstan-ignore new.static
     }
 
     /** {@inheritdoc} */

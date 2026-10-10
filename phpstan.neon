@@ -9,6 +9,12 @@ parameters:
         # exactly like a consumer app would be (e.g. a Resource returning
         # layout wrappers from fields()). Kept out of src so they don't ship.
         - tests/StaticAnalysis
+        # Files martis:install publishes unchanged into the host: an app
+        # analysing itself at this level must not fail on a file it did not
+        # write. tests/Feature/GeneratedCodeStaticAnalysisTest.php covers
+        # what the generators and scaffolds write.
+        - stubs/MartisServiceProvider.php.stub
+        - config/martis.php
     # Baseline locks the pre-v1 errors (220 at the v1.0.0 cut, 189 entries
     # in phpstan-baseline.neon at v1.39.0, 153 at v2.0.1) so CI fails on new
     # errors. Track the count down to zero; regenerating also drops stale

@@ -32,7 +32,7 @@ class RevokeInvitation extends Action
     }
 
     /**
-     * @param  Collection<int, Invitation>  $models
+     * @param  Collection<int, \Illuminate\Database\Eloquent\Model>  $models
      */
     public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
     {
@@ -40,7 +40,7 @@ class RevokeInvitation extends Action
         $revoked = 0;
         $skipped = 0;
 
-        foreach ($models as $invitation) {
+        foreach ($models->whereInstanceOf(Invitation::class) as $invitation) {
             try {
                 $manager->revoke($invitation);
                 $revoked++;
