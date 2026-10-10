@@ -467,18 +467,7 @@ abstract class Resource implements ResourceContract
      */
     protected static function actionEventResourceClass(): ?string
     {
-        $resources = array_values(array_filter(
-            app(ResourceRegistry::class)->list(),
-            static fn (string $resourceClass): bool => is_a($resourceClass::model(), ActionEvent::class, true),
-        ));
-
-        foreach ($resources as $resourceClass) {
-            if ($resourceClass::routable()) {
-                return $resourceClass;
-            }
-        }
-
-        return $resources[0] ?? null;
+        return app(ResourceRegistry::class)->preferredForModelOrSubclass(ActionEvent::class)[0] ?? null;
     }
 
     /**

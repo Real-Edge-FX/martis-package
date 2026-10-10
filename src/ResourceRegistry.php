@@ -131,7 +131,33 @@ class ResourceRegistry
      */
     public function preferredForModel(string $modelClass): array
     {
-        $resources = $this->forModel($modelClass);
+        return $this->routableFirst($this->forModel($modelClass));
+    }
+
+    /**
+     * Like {@see preferredForModel()}, but for the resources over a model
+     * class or any subclass of it: how the audit log's own resource is found,
+     * since a host may point its resource at a subclass of `ActionEvent`.
+     *
+     * @return list<class-string<\Martis\Resource>>
+     */
+    public function preferredForModelOrSubclass(string $modelClass): array
+    {
+        return $this->routableFirst(array_values(array_filter(
+            $this->resources,
+            static fn (string $resourceClass): bool => is_a($resourceClass::model(), $modelClass, true),
+        )));
+    }
+
+    /**
+     * The routable resources of the list when at least one is routable,
+     * otherwise the whole list, in the order given.
+     *
+     * @param  list<class-string<\Martis\Resource>>  $resources
+     * @return list<class-string<\Martis\Resource>>
+     */
+    private function routableFirst(array $resources): array
+    {
         $routable = array_values(array_filter(
             $resources,
             static fn (string $resourceClass): bool => $resourceClass::routable(),
