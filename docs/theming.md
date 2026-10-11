@@ -692,7 +692,7 @@ That's it — buttons, links, focus rings, selected items all turn pink instantl
 }
 ```
 
-`--martis-font-sans` sets the font of the whole panel, PrimeReact components included. `--martis-font-feature-settings` defaults to Inter's character variants (`'cv02', 'cv03', 'cv04', 'cv11'`): with another family, set it to `normal`, or to that family's own features.
+`--martis-font-sans` sets the font of the whole panel, PrimeReact components included. Set both on `:root` (or `html`), like the other theme variables: the PrimeReact variables read them there, so a value scoped to an inner element changes the Martis shell below it but not the PrimeReact components. `--martis-font-feature-settings` defaults to Inter's character variants (`'cv02', 'cv03', 'cv04', 'cv11'`): with another family, set it to `normal`, or to that family's own features.
 
 ### Branded Chart Palette
 

@@ -46,6 +46,11 @@ it('types the configured favicon by its extension', function (string $path, stri
     'upper-case extension' => ['brand/ICON.SVG', 'image/svg+xml'],
     'query string' => ['/brand/icon.svg?v=3', 'image/svg+xml'],
     'webp' => ['brand/icon.webp', 'image/webp'],
+    'gif' => ['brand/icon.gif', 'image/gif'],
+    'jpg' => ['brand/icon.jpg', 'image/jpeg'],
+    'jpeg' => ['brand/icon.jpeg', 'image/jpeg'],
+    'fragment' => ['/brand/icon.svg#light', 'image/svg+xml'],
+    'absolute url' => ['https://cdn.example.com/icon.svg?v=1', 'image/svg+xml'],
 ]);
 
 it('omits the type of a favicon whose extension it does not know', function (string $path) {
@@ -56,7 +61,7 @@ it('omits the type of a favicon whose extension it does not know', function (str
     expect($links)->toHaveCount(1)
         ->and($links[0])->not->toContain('type=')
         ->and($links[0])->toContain('href="'.asset($path).'"');
-})->with(['brand/icon.avif2', 'brand/favicon']);
+})->with(['brand/icon.avif', 'brand/favicon']);
 
 it('keeps the default favicon link when none is configured', function () {
     config()->set('martis.brand.favicon', null);
