@@ -4,6 +4,7 @@ namespace Martis\Preferences;
 
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Env;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Martis\Enums\AccentColor;
@@ -78,7 +79,7 @@ class PreferencesResolver
         $editable = $this->editable();
         $merged = array_merge(
             $defaults,
-            is_array($userPrefs) ? array_intersect_key($userPrefs, array_flip($editable)) : [],
+            is_array($userPrefs) ? $this->onlyEditable($userPrefs, $editable) : [],
             is_array($preset) ? $this->normalisePreset($preset, $editable) : [],
         );
 
@@ -119,6 +120,14 @@ class PreferencesResolver
     {
         $configured = config('martis.preferences.editable');
         if ($configured === null) {
+            // The config file mergeConfigFrom() merges is shallow: a
+            // `preferences` block published before v2.12.0 hides the key,
+            // and with it the variable.
+            if (is_string(Env::get('MARTIS_PREFERENCES_EDITABLE')) && trim((string) Env::get('MARTIS_PREFERENCES_EDITABLE')) !== '') {
+                throw new InvalidArgumentException(
+                    'MARTIS_PREFERENCES_EDITABLE is set but the published config/martis.php has no `preferences.editable` key, so it is ignored. Add the key from the package config (or republish the config).',
+                );
+            }
             $configured = self::EDITABLE_KEYS;
         }
         if (! is_array($configured)) {
@@ -149,6 +158,28 @@ class PreferencesResolver
         }
 
         return array_keys($editable);
+    }
+
+    /**
+     * The values of `$values` users may change. A `brandColor` of `null` is
+     * part of picking an accent (it clears a hex, the default's included),
+     * so it is kept whenever `accent` is editable; a hex needs `brandColor`.
+     *
+     * @param  array<string, mixed>  $values
+     * @param  list<string>  $editable
+     * @return array<string, mixed>
+     */
+    public function onlyEditable(array $values, array $editable): array
+    {
+        $out = [];
+        foreach ($values as $key => $value) {
+            if (in_array($key, $editable, true)
+                || ($key === 'brandColor' && $value === null && in_array('accent', $editable, true))) {
+                $out[$key] = $value;
+            }
+        }
+
+        return $out;
     }
 
     /** @return array<string, mixed> */

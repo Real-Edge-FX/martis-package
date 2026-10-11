@@ -733,7 +733,8 @@ return [
 
         // Preferences users may change (v2.12.0). Comma-separated names in
         // `MARTIS_PREFERENCES_EDITABLE`, any of theme, accent, density,
-        // locale, reducedMotion; default all five. A preference left out
+        // locale, reducedMotion; unset or empty means all five, `none`
+        // locks every one. A preference left out
         // is hidden from the menu and the sign-in pages, refused by
         // `PUT /api/preferences` (422) when the request changes it,
         // ignored in a stored row and in a URL preset, and always resolves
@@ -745,8 +746,8 @@ return [
         // Example .env (a branded install: no accent, no language):
         //   MARTIS_PREFERENCES_EDITABLE=theme,density,reducedMotion
         'editable' => array_values(array_filter(
-            array_map('trim', explode(',', (string) env('MARTIS_PREFERENCES_EDITABLE', 'theme,accent,density,locale,reducedMotion'))),
-            static fn (string $key): bool => $key !== '',
+            array_map('trim', explode(',', (string) (env('MARTIS_PREFERENCES_EDITABLE') ?: 'theme,accent,density,locale,reducedMotion'))),
+            static fn (string $key): bool => $key !== '' && $key !== 'none',
         )),
 
         // Named presets. Apply via `/resources/...?preset=<name>`.

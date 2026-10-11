@@ -91,15 +91,25 @@ class PreferencesController extends MartisController
         // effect, so a client that sends its full state keeps working.
         $editable = $this->resolver->editable();
         $current = $this->resolver->resolve($request);
+        $allowed = $this->resolver->onlyEditable($data, $editable);
         $locked = [];
-        foreach (array_diff(array_keys($data), $editable) as $key) {
-            if ($this->differs($key, $data[$key], $current[$key] ?? null)) {
+        foreach (array_diff_key($data, $allowed) as $key => $value) {
+            if ($this->differs($key, $value, $current[$key] ?? null)) {
                 $locked[$key] = ['This preference cannot be changed.'];
             }
-            unset($data[$key]);
         }
         if ($locked !== []) {
             return JsonErrorResponse::validation($locked)->toResponse();
+        }
+
+        // A new row starts from the values in effect, not the schema
+        // defaults, for what the request leaves out (the locked
+        // preferences above all), so it mirrors what the user was seeing.
+        $userId = $user->getAuthIdentifier();
+        if (! UserPreference::query()->where('user_id', $userId)->exists()) {
+            $data = $allowed + array_intersect_key($current, array_flip(['theme', 'accent', 'brandColor', 'density', 'locale', 'reducedMotion']));
+        } else {
+            $data = $allowed;
         }
 
         $attrs = [];
@@ -123,7 +133,7 @@ class PreferencesController extends MartisController
         }
 
         UserPreference::updateOrCreate(
-            ['user_id' => $user->getAuthIdentifier()],
+            ['user_id' => $userId],
             $attrs,
         );
 

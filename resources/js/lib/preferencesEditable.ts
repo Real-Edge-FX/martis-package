@@ -17,11 +17,16 @@ export function isPreferenceEditable(key: EditablePreference): boolean {
   return !Array.isArray(editable) || editable.includes(key)
 }
 
-/** `values` without the preferences users may not change. */
+/**
+ * `values` without the preferences users may not change. A `brandColor` of
+ * `null` is part of picking an accent (it clears a hex, the default's
+ * included), so it stays whenever `accent` is editable, as on the server.
+ */
 export function onlyEditable<T extends object>(values: T): Partial<T> {
   const out: Partial<T> = {}
   for (const [key, value] of Object.entries(values)) {
-    if (ALL.includes(key as EditablePreference) && !isPreferenceEditable(key as EditablePreference)) continue
+    const locked = ALL.includes(key as EditablePreference) && !isPreferenceEditable(key as EditablePreference)
+    if (locked && !(key === 'brandColor' && value === null && isPreferenceEditable('accent'))) continue
     ;(out as Record<string, unknown>)[key] = value
   }
   return out

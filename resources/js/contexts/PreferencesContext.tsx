@@ -398,7 +398,9 @@ export function PreferencesProvider({ children, initialPreferences, syncWithServ
     // never end up persisted, so a later `MARTIS_DEFAULT_*` env
     // change reaches every guest who has not yet picked anything.
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState))
+      // Only the preferences users may change: a locked one cached here
+      // would read as a pick once the app unlocks it (v2.12.0).
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(onlyEditable(nextState)))
       // v1.8.5 — Mark the choice as a guest pick when the user is
       // unauthenticated. The post-login effect uses this to promote
       // the cached preferences to the server (single PUT) so a theme
@@ -458,11 +460,15 @@ export function PreferencesProvider({ children, initialPreferences, syncWithServ
         void loadLocale(restored)
       }
     } catch {
-      setPrefs(DEFAULTS)
-      // Same locale sync on the catch branch so a fallback to DEFAULTS
-      // also reaches i18next.
-      if (DEFAULTS.locale && DEFAULTS.locale !== i18n.language) {
-        void loadLocale(DEFAULTS.locale)
+      // Back to the page's own payload (the cache is gone), which keeps a
+      // locked preference at the server value (v2.12.0), not the bundled
+      // defaults.
+      const fallback = readInitialPrefs()
+      setPrefs(fallback)
+      // Same locale sync on the catch branch so the fallback also reaches
+      // i18next.
+      if (fallback.locale && fallback.locale !== i18n.language) {
+        void loadLocale(fallback.locale)
       }
     }
   }, [enabled, syncWithServer])

@@ -66,8 +66,9 @@
             'allowBrandColor' => (bool) config('martis.preferences.allowBrandColor', false),
             // v2.12.0 — the preferences users may change. Read outside the
             // resolver's try above so an invalid list throws instead of
-            // silently dropping the preferences.
-            'editable' => app(\Martis\Preferences\PreferencesResolver::class)->editable(),
+            // silently dropping the preferences; not read (null: no list)
+            // when the preferences are off.
+            'editable' => $prefsEnabled ? app(\Martis\Preferences\PreferencesResolver::class)->editable() : null,
             // Locales the language picker (login + in-app Preferences) offers.
             // Passed through so `martis.preferences.locales` actually restricts
             // the list; when empty the SPA falls back to its bundled default.

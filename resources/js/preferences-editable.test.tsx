@@ -86,6 +86,12 @@ describe('isPreferenceEditable / onlyEditable', () => {
     expect(isPreferenceEditable('accent')).toBe(false)
     expect(onlyEditable({ accent: 'teal', brandColor: null, theme: 'light', other: 1 })).toEqual({ theme: 'light', other: 1 })
   })
+
+  it('keeps brandColor null with an editable accent (clearing a default hex), drops a hex', () => {
+    setConfig(['accent'])
+    expect(onlyEditable({ accent: 'teal', brandColor: null })).toEqual({ accent: 'teal', brandColor: null })
+    expect(onlyEditable({ accent: 'custom', brandColor: '#112233' })).toEqual({ accent: 'custom' })
+  })
 })
 
 describe('readInitialPrefs with a locked preference', () => {
@@ -101,7 +107,45 @@ describe('readInitialPrefs with a locked preference', () => {
   })
 })
 
+describe('getLocale() with a locked locale', () => {
+  it('ignores the cached locale and boots in the server locale', async () => {
+    const { getLocale } = await vi.importActual<typeof import('@/lib/i18n')>('@/lib/i18n')
+    setConfig(['theme'])
+    ;(window as { MartisConfig?: { locale?: string } }).MartisConfig!.locale = 'en'
+    localStorage.setItem('martis-preferences', JSON.stringify({ locale: 'pt_PT' }))
+    expect(getLocale()).toBe('en')
+
+    setConfig(undefined)
+    expect(getLocale()).toBe('pt_PT')
+  })
+})
+
 describe('update() with a locked preference', () => {
+  it('keeps the locked preference out of the browser cache', async () => {
+    setConfig(['theme', 'density', 'reducedMotion'], { ...SERVER.data, source: 'default' })
+    render(<PreferencesProvider><Probe pick={{ density: 'dense' }} /></PreferencesProvider>)
+    await waitFor(() => expect(localStorage.getItem('martis-preferences')).not.toBeNull())
+
+    const cached = JSON.parse(localStorage.getItem('martis-preferences')!)
+    expect(cached.density).toBe('dense')
+    expect(cached).not.toHaveProperty('accent')
+    expect(cached).not.toHaveProperty('locale')
+  })
+
+  it('leaves a locked preference out of the post-login promotion PUT', async () => {
+    setConfig(['theme', 'density', 'reducedMotion'], { ...SERVER.data, source: 'user' })
+    localStorage.setItem('martis-preferences', JSON.stringify({ theme: 'light', accent: 'teal', locale: 'pt_PT' }))
+    sessionStorage.setItem('martis-preferences-guest-modified', '1')
+    authUser = { id: 1 }
+    render(<PreferencesProvider><Probe /></PreferencesProvider>)
+    await waitFor(() => expect(apiPut).toHaveBeenCalled())
+
+    const body = apiPut.mock.calls[0]![1] as Record<string, unknown>
+    expect(body.theme).toBe('light')
+    expect(body).not.toHaveProperty('accent')
+    expect(body).not.toHaveProperty('locale')
+  })
+
   it('ignores a patch of a locked accent and leaves it out of the PUT', async () => {
     setConfig(['theme', 'density', 'reducedMotion'], { ...SERVER.data, source: 'user' })
     authUser = { id: 1 }

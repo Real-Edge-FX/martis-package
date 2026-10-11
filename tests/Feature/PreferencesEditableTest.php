@@ -6,6 +6,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\ViewException;
+use Martis\Http\Middleware\ApplyUserPreferencesLocale;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Models\UserPreference;
 use Martis\Preferences\PreferencesResolver;
@@ -94,9 +95,24 @@ it('defaults to every preference when the variable is unset', function () {
     expect(editableFromEnv(null))->toBe(['theme', 'accent', 'density', 'locale', 'reducedMotion']);
 });
 
-it('reads MARTIS_PREFERENCES_EDITABLE, trimming blanks; empty locks everything', function () {
+it('reads MARTIS_PREFERENCES_EDITABLE, trimming blanks; empty is unset and none locks everything', function () {
     expect(editableFromEnv(' theme , ,density,reducedMotion '))->toBe(['theme', 'density', 'reducedMotion'])
-        ->and(editableFromEnv(''))->toBe([]);
+        ->and(editableFromEnv(''))->toBe(['theme', 'accent', 'density', 'locale', 'reducedMotion'])
+        ->and(editableFromEnv('none'))->toBe([]);
+});
+
+it('throws when the variable is set but the published config has no editable key', function () {
+    config()->set('martis.preferences.editable', null);
+    putenv('MARTIS_PREFERENCES_EDITABLE=theme,density');
+    $_ENV['MARTIS_PREFERENCES_EDITABLE'] = $_SERVER['MARTIS_PREFERENCES_EDITABLE'] = 'theme,density';
+
+    try {
+        expect(fn () => app(PreferencesResolver::class)->editable())
+            ->toThrow(InvalidArgumentException::class, 'MARTIS_PREFERENCES_EDITABLE is set but the published config/martis.php has no `preferences.editable` key');
+    } finally {
+        putenv('MARTIS_PREFERENCES_EDITABLE');
+        unset($_ENV['MARTIS_PREFERENCES_EDITABLE'], $_SERVER['MARTIS_PREFERENCES_EDITABLE']);
+    }
 });
 
 it('treats a config published before v2.12.0 (no key) as everything editable', function () {
@@ -188,12 +204,79 @@ it('resolves a locked preference stored earlier to its default, keeping the edit
 
 it('applies a preset without its locked accent', function () {
     config()->set('martis.preferences.editable', ['theme', 'density', 'reducedMotion']);
+    config()->set('martis.preferences.defaults.theme', 'dark');
+    config()->set('martis.preferences.presets.focus-light', ['theme' => 'light', 'accent' => 'amber', 'brandColor' => '#112233']);
 
-    $prefs = app(PreferencesResolver::class)->resolve(Request::create('/martis', 'GET', ['preset' => 'focus-amber']));
+    $prefs = app(PreferencesResolver::class)->resolve(Request::create('/martis', 'GET', ['preset' => 'focus-light']));
 
     expect($prefs['source'])->toBe('preset')
-        ->and($prefs['theme'])->toBe('dark')
-        ->and($prefs['accent'])->toBe('martis');
+        ->and($prefs['theme'])->toBe('light')
+        ->and($prefs['accent'])->toBe('martis')
+        ->and($prefs['brandColor'])->toBeNull();
+});
+
+it('keeps the app language when the locale is locked, whatever the stored row says', function () {
+    config()->set('martis.preferences.editable', ['theme']);
+    config()->set('martis.preferences.defaults.locale', 'en');
+    storeEditablePrefs([]);
+    $user = actAsEditableUser();
+    $request = Request::create('/martis', 'GET');
+    $request->setUserResolver(fn () => $user);
+
+    app(ApplyUserPreferencesLocale::class)->handle($request, fn () => response('ok'));
+
+    expect(app()->getLocale())->toBe('en');
+});
+
+it('starts a new row from the values in effect, not the schema defaults, for a partial PUT', function () {
+    config()->set('martis.preferences.editable', ['density']);
+    config()->set('martis.preferences.defaults.accent', 'violet');
+    config()->set('martis.preferences.defaults.locale', 'pt_PT');
+    config()->set('martis.preferences.defaults.theme', 'light');
+    actAsEditableUser();
+
+    $this->putJson('/martis/api/preferences', ['density' => 'dense'])->assertOk();
+
+    $row = UserPreference::query()->firstOrFail();
+    expect($row->accent)->toBe('violet')
+        ->and($row->locale)->toBe('pt_PT')
+        ->and($row->theme->value)->toBe('light')
+        ->and($row->density->value)->toBe('dense');
+});
+
+it('lets an accent swatch clear a default hex while allowBrandColor is off (v2.11.1 behaviour)', function () {
+    config()->set('martis.preferences.allowBrandColor', false);
+    config()->set('martis.preferences.defaults.brandColor', '#123456');
+    actAsEditableUser();
+
+    $this->getJson('/martis/api/preferences')->assertJsonPath('data.brandColor', '#123456');
+
+    $this->putJson('/martis/api/preferences', ['accent' => 'teal', 'brandColor' => null])
+        ->assertOk()
+        ->assertJsonPath('data.accent', 'teal')
+        ->assertJsonPath('data.brandColor', null);
+
+    $this->getJson('/martis/api/preferences')->assertJsonPath('data.brandColor', null);
+});
+
+it('keeps a default hex when another preference creates the row', function () {
+    config()->set('martis.preferences.allowBrandColor', false);
+    config()->set('martis.preferences.defaults.brandColor', '#123456');
+    actAsEditableUser();
+
+    $this->putJson('/martis/api/preferences', ['density' => 'dense'])
+        ->assertOk()
+        ->assertJsonPath('data.brandColor', '#123456');
+});
+
+it('refuses brandColor null when the accent itself is locked and a default hex applies', function () {
+    config()->set('martis.preferences.editable', ['density']);
+    config()->set('martis.preferences.defaults.brandColor', '#123456');
+    actAsEditableUser();
+
+    $this->putJson('/martis/api/preferences', ['brandColor' => null])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.0.field', 'brandColor');
 });
 
 it('keeps v2.11.1 behaviour when every preference is editable', function () {
@@ -257,6 +340,13 @@ it('bootstraps the effective list into the shell payload', function () {
     $this->get('/martis/login')
         ->assertOk()
         ->assertSee('"editable":["theme","density"]', false);
+});
+
+it('does not read the list in the shell when the preferences are off', function () {
+    config()->set('martis.preferences.enabled', false);
+    config()->set('martis.preferences.editable', ['nope']);
+
+    $this->get('/martis/login')->assertOk();
 });
 
 it('fails loudly in the shell for an invalid list', function () {
