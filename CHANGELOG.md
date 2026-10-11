@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.0] — 2026-10-11
+
+Minor release from one consumer report: an app can now choose which preferences its users may change, so a branded install keeps the light/dark, density and reduced-motion choices without letting users recolour the panel. Unset, nothing changes. Working on it showed that `theme.allowToggle` and `allowBrandColor` were only hidden in the menu, never applied by the server; both are now. Read [Upgrading to v2.12.0](docs/upgrading.md#upgrading-to-v2120-from-v211x).
+
+### Added
+
+- **`preferences.editable` (`MARTIS_PREFERENCES_EDITABLE`)**: comma-separated names of the preferences users may change, any of `theme`, `accent`, `density`, `locale`, `reducedMotion`; default all five. A preference left out is hidden from the preferences menu and the sign-in controls, refused by `PUT /api/preferences` with `422` when the request changes it (a value equal to the one in effect is accepted and dropped, so full-state clients keep working), ignored in a stored row and in a URL preset, and resolves to its default from the first paint (a value cached in the browser is ignored). With nothing editable the menu's topbar button is not rendered. The brand-colour hex follows `accent`. Unset or empty means all five, `none` locks every one. An unknown name throws an `InvalidArgumentException` naming the variable, and so does setting the variable while the published config has no `editable` key (Laravel's shallow config merge would otherwise ignore it). A row the PUT creates now starts from the values in effect, not the table's column defaults. The effective list is reported in `meta.editable` and `window.MartisConfig.preferences.editable`, and is exposed by the new public `PreferencesResolver::editable()`. +25 Pest, +16 Vitest. See [Preferences → Choosing which preferences users may change](docs/preferences.md#choosing-which-preferences-users-may-change-v2120).
+- **Each section of the preferences menu carries `data-martis-preference="<name>"`**, so a host stylesheet can target one.
+
+### Fixed
+
+- **`theme.allowToggle => false` was only applied in the menu.** A theme stored before the switch was turned off still applied, and `PUT /api/preferences` still saved a new one. The theme now resolves to `preferences.defaults.theme` and a change answers `422`.
+- **`allowBrandColor => false` was only applied in the menu.** `PUT /api/preferences` saved any `brandColor` hex and a stored one applied, so a user could recolour the panel through the API on an install that does not allow it. A hex is now refused with `422` and a stored one ignored; an accent stored as `custom` without an applied hex resolves to the default accent. `brandColor: null` stays accepted, so a swatch still clears a `defaults.brandColor`.
+
+**Tests:** 5505 Pest passed (+25) and 2090 Vitest passed (+16): 7595 in all, from 7554 at v2.11.1.
+
 ## [2.11.1] — 2026-10-10
 
 Patch release from one consumer report and the review that followed it: the relationship routes of a `BelongsToMany` / `MorphToMany` panel no longer tell another tenant's records apart from ids that do not exist, and a relationship with a custom `relatedKey` writes its pivot correctly. Response shapes are unchanged; a request on a record that is not attached, or on an id that names no record, answers a different status. Read [Upgrading to v2.11.1](docs/upgrading.md#upgrading-to-v2111-from-v2110).

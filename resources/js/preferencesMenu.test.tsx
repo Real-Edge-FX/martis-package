@@ -109,3 +109,39 @@ describe('PreferencesMenu — accent swatches follow the stylesheets', () => {
     expect(bg('Teal')).toBe('rgb(20, 184, 166)')
   })
 })
+
+describe('PreferencesMenu — preferences.editable (v2.12.0)', () => {
+  it('shows only the sections of the editable preferences, each tagged for the host theme', () => {
+    configMock.value = { preferences: { editable: ['theme', 'density', 'reducedMotion'], allowBrandColor: true } }
+    const { container } = render(<PreferencesMenu />)
+
+    expect(screen.queryByText('Theme')).toBeTruthy()
+    expect(screen.queryByText('Density')).toBeTruthy()
+    expect(screen.queryByText('Accessibility')).toBeTruthy()
+    expect(screen.queryByText('Accent')).toBeNull()
+    expect(screen.queryByText('Language')).toBeNull()
+    expect(screen.queryByLabelText('Martis')).toBeNull()
+    expect(screen.queryByPlaceholderText('#4f7bf9')).toBeNull()
+    const sections = Array.from(container.querySelectorAll('[data-martis-preference]')).map((el) => el.getAttribute('data-martis-preference'))
+    expect(sections).toEqual(['theme', 'density', 'reducedMotion'])
+  })
+
+  it('hides the hex input when brandColor is not in the resolved list, even with allowBrandColor on', () => {
+    configMock.value = { preferences: { editable: ['accent'], allowBrandColor: true } }
+    render(<PreferencesMenu />)
+    expect(screen.queryByLabelText('Martis')).toBeTruthy()
+    expect(screen.queryByPlaceholderText('#4f7bf9')).toBeNull()
+  })
+
+  it('shows the hex input when the resolved list carries brandColor', () => {
+    configMock.value = { preferences: { editable: ['accent', 'brandColor'], allowBrandColor: true } }
+    render(<PreferencesMenu />)
+    expect(screen.queryByPlaceholderText('#4f7bf9')).toBeTruthy()
+  })
+
+  it('renders nothing, not even the trigger, when no preference is editable', () => {
+    configMock.value = { preferences: { editable: [] } }
+    const { container } = render(<PreferencesMenu />)
+    expect(container.innerHTML).toBe('')
+  })
+})

@@ -540,7 +540,7 @@ The limit is Laravel's `throttle` middleware with a key prefix, `throttle:{max},
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `default` | `string` | `'dark'` | Default theme: `'dark'` or `'light'`. |
-| `allowToggle` | `bool` | `true` | When `false`, the theme picker is hidden everywhere — the Theme section disappears from the preferences overlay and the theme cycle button is suppressed on every pre-login surface (login, register, 2FA, password reset). Use this to lock the entire shell to a single theme without removing the rest of the preferences. |
+| `allowToggle` | `bool` | `true` | When `false`, the theme picker is hidden everywhere — the Theme section disappears from the preferences overlay and the theme cycle button is suppressed on every pre-login surface (login, register, 2FA, password reset). Use this to lock the entire shell to a single theme without removing the rest of the preferences. Since v2.12.0 it is the same as leaving `theme` out of `preferences.editable`: the server ignores a stored theme and refuses a theme change, and everyone gets `preferences.defaults.theme` (`MARTIS_DEFAULT_THEME`). |
 | `name` | `?string` | `null` | Active custom theme. The panel loads `public/vendor/martis/themes/<name>.css`, which `martis:publish-assets` publishes from `resources/css/martis/<name>.css`. `null` keeps the built-in theme. |
 
 Custom themes are scaffolded via `php artisan martis:theme`, which writes the source and sets `name`. See [Theming → Theme files](theming.md#theme-files).
@@ -1029,13 +1029,15 @@ See [Authentication](authentication.md#user-profile) for full profile documentat
         'pt_BR' => 'Português (BR)',
     ],
     'locale_labels_env' => env('MARTIS_UI_LOCALE_LABELS'),
+    'editable' => array_values(array_filter(array_map('trim', explode(',', (string) env('MARTIS_PREFERENCES_EDITABLE', 'theme,accent,density,locale,reducedMotion'))))),
 ],
 ```
 
 | Key | Type | Default | Effect |
 |---|---|---|---|
 | `enabled` | bool | `true` | Master switch for the per-user preferences panel (theme, density, locale, accent). |
-| `allowBrandColor` | bool | `false` | When true, exposes a custom-hex brand colour picker in the preferences panel. |
+| `allowBrandColor` | bool | `false` | When true, and `accent` is in `editable`, exposes a custom-hex brand colour picker in the preferences panel. Applied by the server too (v2.12.0): with it off, a hex is refused by `PUT /api/preferences` and a stored one is ignored. |
+| `editable` | array | all five | The preferences users may change (v2.12.0: `MARTIS_PREFERENCES_EDITABLE`, comma-separated, any of `theme`, `accent`, `density`, `locale`, `reducedMotion`). One left out is hidden from the menu and the sign-in pages, refused by `PUT /api/preferences` (`422`) when the request changes it, ignored in a stored row and a URL preset, and resolves to its default. `theme.allowToggle => false` drops `theme`; the brand-colour hex follows `accent`. An unknown name throws an `InvalidArgumentException` naming the variable; unset or empty means all five, `none` locks every one; set with a published config that lacks the key, it throws. See [Preferences → Choosing which preferences users may change](preferences.md#choosing-which-preferences-users-may-change-v2120). |
 | `locales` | array | `['en','pt_PT','pt_BR']` | The exact locale codes the language picker offers, on **both** the login screen and the in-app Preferences panel (v2.10.0: from `MARTIS_UI_LOCALES`, comma-separated, e.g. `MARTIS_UI_LOCALES=en_GB,pt_PT`). A code must look like a locale (`en`, `en_GB`, `pt-BR`); an invalid one throws an `InvalidArgumentException` naming `MARTIS_UI_LOCALES`. A code without bundled strings (`en_GB`) translates through `locales.fallback_chain`. When empty, the three bundled locales apply. A saved, preset or default locale outside the list falls back to `defaults.locale`, or to the first listed code ([Preferences](preferences.md#locale-normalisation-v2100)). |
 | `locale_labels` | array | `en`, `en_GB`, `pt_PT`, `pt_BR` labels | The human-readable labels surfaced in the locale dropdown. A locale without a label shows its code. |
 | `locale_labels_env` | string\|null | `null` | `MARTIS_UI_LOCALE_LABELS` (v2.10.0): comma-separated `code:label` pairs merged over `locale_labels`, the env entries winning, e.g. `MARTIS_UI_LOCALE_LABELS="en_GB:English (UK),pt_PT:Português (Portugal)"`. The first colon splits, so a label may contain colons but not commas. A malformed segment throws an `InvalidArgumentException` naming `MARTIS_UI_LOCALE_LABELS`; the value is parsed where it is read, so `artisan` keeps working while you fix it. |
@@ -1640,6 +1642,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_NOTIFICATIONS_POLL_INTERVAL` | `90000` |
 | `MARTIS_PAGE_TITLE` | `(no default)` |
 | `MARTIS_PATH` | `'martis'` |
+| `MARTIS_PREFERENCES_EDITABLE` | `'theme,accent,density,locale,reducedMotion'` |
 | `MARTIS_PREFERENCES_ENABLED` | `true` |
 | `MARTIS_PANEL_OPEN_ENVIRONMENTS` | `'local,testing'` |
 | `MARTIS_PROFILE_EMAIL_CHANGE_TTL` | `60` |

@@ -88,9 +88,9 @@ describe('PreferencesContext.reset()', () => {
     expect(loadLocaleSpy).not.toHaveBeenCalled()
   })
 
-  it('falls back to DEFAULTS.locale and calls loadLocale when the API call rejects', async () => {
+  it('falls back to the page payload locale and calls loadLocale when the API call rejects', async () => {
     // Force the DELETE to throw. The reset callback's catch branch
-    // is supposed to call setPrefs(DEFAULTS) and loadLocale(DEFAULTS.locale)
+    // falls back to the page's payload (v2.12.0: readInitialPrefs()) and calls loadLocale
     // — without that, a server-failure path leaves i18next stuck on
     // the prior language.
     const { api } = await import('@/lib/api')

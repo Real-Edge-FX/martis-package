@@ -1,6 +1,7 @@
 import i18n, { type Resource, type ResourceLanguage } from "i18next"
 import { initReactI18next } from "react-i18next"
 import { API_BASE_URL, config } from "./config"
+import { isPreferenceEditable } from "./preferencesEditable"
 import { apiPath } from "./apiPath"
 import { queryClient } from "./query"
 import { beginLocaleSwitch, endLocaleSwitch } from "./localeSwitching"
@@ -25,7 +26,8 @@ export function getLocale(): string {
   // calling loadLocale() with the server's saved locale.
   let locale: string | undefined
   try {
-    const raw = window.localStorage.getItem("martis-preferences")
+    // A locale users may not change (v2.12.0) ignores the cached pick.
+    const raw = isPreferenceEditable("locale") ? window.localStorage.getItem("martis-preferences") : null
     if (raw) {
       const cached = JSON.parse(raw)
       if (cached && typeof cached.locale === "string") {

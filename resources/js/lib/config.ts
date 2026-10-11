@@ -263,6 +263,11 @@ export interface MartisPreferencesConfig {
   initial: MartisPreferencesInitialPayload | null
   /** Custom accent swatches surfaced in the PreferencesMenu picker (v1.7.0). */
   customAccents?: MartisCustomAccent[]
+  /** Preferences users may change (`martis.preferences.editable`, v2.12.0),
+   *  as the server resolved it: `theme` already dropped when
+   *  `theme.allowToggle` is false, `brandColor` present only when the hex
+   *  input is allowed. Absent means every preference is editable. */
+  editable?: string[]
 }
 
 /** The locales Martis ships translations for — the last-resort fallback when

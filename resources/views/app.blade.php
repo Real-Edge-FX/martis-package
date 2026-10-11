@@ -64,6 +64,11 @@
         $prefsConfig = [
             'enabled' => $prefsEnabled,
             'allowBrandColor' => (bool) config('martis.preferences.allowBrandColor', false),
+            // v2.12.0 — the preferences users may change. Read outside the
+            // resolver's try above so an invalid list throws instead of
+            // silently dropping the preferences; not read (null: no list)
+            // when the preferences are off.
+            'editable' => $prefsEnabled ? app(\Martis\Preferences\PreferencesResolver::class)->editable() : null,
             // Locales the language picker (login + in-app Preferences) offers.
             // Passed through so `martis.preferences.locales` actually restricts
             // the list; when empty the SPA falls back to its bundled default.
@@ -287,7 +292,13 @@
             // Effective preference resolver: persisted payload first
             // (when it exists), otherwise the browser cache, otherwise
             // the server-supplied defaults.
+            // A preference users may not change (v2.12.0) always takes
+            // the server value: a cached pick of it is ignored.
+            var editable = (window.MartisConfig.preferences && window.MartisConfig.preferences.editable) || null;
             var pick = function (key) {
+                if (editable && editable.indexOf(key) === -1) {
+                    return initial[key];
+                }
                 if (hasPersisted && initial[key] !== undefined && initial[key] !== null) {
                     return initial[key];
                 }
