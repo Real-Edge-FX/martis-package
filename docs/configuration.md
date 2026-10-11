@@ -314,6 +314,8 @@ Resolution precedence (highest first):
    ```
 3. Visit `/{martis-path}/favicon.ico` — the configured file is served. If the file is missing, the route falls back to the package default, so broken paths never 404.
 
+The panel's `<head>` links the configured file once, with a `type` taken from its extension (v2.13.0): `.svg` → `image/svg+xml`, `.png` → `image/png`, `.ico` → `image/x-icon`, `.gif`, `.webp` and `.jpg` / `.jpeg` their image types; any other extension gets no `type` attribute. Up to v2.12 the file was linked twice, as `image/x-icon` and `image/png`, whatever it was, so a browser that trusts `type` could skip an SVG favicon.
+
 > Path rules: values must stay inside `public/`. Absolute paths (`/etc/...`) and traversal (`../`) are rejected with `400 Bad Request`.
 
 ### Head tags (v2.6.0)
