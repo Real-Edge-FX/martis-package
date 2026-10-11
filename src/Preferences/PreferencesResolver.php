@@ -23,9 +23,16 @@ use Throwable;
  * The resolver is tolerant: a missing table, missing config section,
  * or invalid enum value all degrade to the built-in defaults instead
  * of throwing — apps that skip the migration never see errors.
+ *
+ * A preference the app does not let users change (v2.12.0,
+ * `martis.preferences.editable`) is taken from neither (1) nor (2): it
+ * always resolves to its default.
  */
 class PreferencesResolver
 {
+    /** The preferences `martis.preferences.editable` may list (v2.12.0). */
+    public const EDITABLE_KEYS = ['theme', 'accent', 'density', 'locale', 'reducedMotion'];
+
     /**
      * @return array{
      *   theme: string,
@@ -68,22 +75,80 @@ class PreferencesResolver
             }
         }
 
+        $editable = $this->editable();
         $merged = array_merge(
             $defaults,
-            is_array($userPrefs) ? $userPrefs : [],
-            is_array($preset) ? $this->normalisePreset($preset) : [],
+            is_array($userPrefs) ? array_intersect_key($userPrefs, array_flip($editable)) : [],
+            is_array($preset) ? $this->normalisePreset($preset, $editable) : [],
         );
+
+        $accent = $this->normaliseAccent($merged['accent'] ?? $defaults['accent']);
+        $brandColor = $this->normaliseBrandColor($merged['brandColor'] ?? null);
+        // `custom` only means something with a hex: a stored `custom` whose
+        // hex is no longer applied (brandColor not editable) falls back.
+        if ($accent === AccentColor::Custom->value && $brandColor === null) {
+            $accent = $defaults['accent'];
+        }
 
         return [
             'theme' => $this->normaliseTheme($merged['theme'] ?? $defaults['theme']),
-            'accent' => $this->normaliseAccent($merged['accent'] ?? $defaults['accent']),
-            'brandColor' => $this->normaliseBrandColor($merged['brandColor'] ?? null),
+            'accent' => $accent,
+            'brandColor' => $brandColor,
             'density' => $this->normaliseDensity($merged['density'] ?? $defaults['density']),
             'locale' => $this->normaliseLocale($merged['locale'] ?? null, $defaults['locale']),
             'reducedMotion' => (bool) ($merged['reducedMotion'] ?? $defaults['reducedMotion']),
             'source' => $preset !== null ? 'preset' : ($userPrefs !== null ? 'user' : 'default'),
             'preset' => $presetName,
         ];
+    }
+
+    /**
+     * The preferences users may change (v2.12.0): `martis.preferences.editable`
+     * (`MARTIS_PREFERENCES_EDITABLE`), every one of {@see self::EDITABLE_KEYS}
+     * when the key is absent (a config published before v2.12.0). `theme`
+     * is dropped when `theme.allowToggle` is false. `brandColor` is added
+     * when `accent` is editable and `preferences.allowBrandColor` is on: the
+     * hex input is part of the accent choice. An unknown name throws, naming
+     * the variable: a set-but-unusable value is never dropped silently.
+     *
+     * @return list<string>
+     *
+     * @throws InvalidArgumentException
+     */
+    public function editable(): array
+    {
+        $configured = config('martis.preferences.editable');
+        if ($configured === null) {
+            $configured = self::EDITABLE_KEYS;
+        }
+        if (! is_array($configured)) {
+            throw new InvalidArgumentException(sprintf(
+                'MARTIS_PREFERENCES_EDITABLE (martis.preferences.editable): expected a list of preference names, got %s.',
+                get_debug_type($configured),
+            ));
+        }
+
+        $editable = [];
+        foreach ($configured as $key) {
+            if (! is_string($key) || ! in_array($key, self::EDITABLE_KEYS, true)) {
+                throw new InvalidArgumentException(sprintf(
+                    'MARTIS_PREFERENCES_EDITABLE (martis.preferences.editable): unknown preference %s (expected any of %s%s).',
+                    is_string($key) ? '"'.$key.'"' : get_debug_type($key),
+                    implode(', ', self::EDITABLE_KEYS),
+                    $key === 'brandColor' ? '; brandColor follows accent and preferences.allowBrandColor' : '',
+                ));
+            }
+            $editable[$key] = true;
+        }
+
+        if (config('martis.theme.allowToggle') === false) {
+            unset($editable['theme']);
+        }
+        if (isset($editable['accent']) && (bool) config('martis.preferences.allowBrandColor', false)) {
+            $editable['brandColor'] = true;
+        }
+
+        return array_keys($editable);
     }
 
     /** @return array<string, mixed> */
@@ -176,12 +241,21 @@ class PreferencesResolver
         }
     }
 
-    /** @param array<string, mixed> $preset @return array<string, mixed> */
-    protected function normalisePreset(array $preset): array
+    /**
+     * The preset's keys users may change. A preset is written by the app,
+     * so its `brandColor` follows `accent` alone, not `allowBrandColor`
+     * (which governs the hex a user types).
+     *
+     * @param  array<string, mixed>  $preset
+     * @param  list<string>  $editable
+     * @return array<string, mixed>
+     */
+    protected function normalisePreset(array $preset, array $editable): array
     {
         $out = [];
         foreach (['theme', 'accent', 'brandColor', 'density', 'locale', 'reducedMotion'] as $key) {
-            if (array_key_exists($key, $preset)) {
+            $allowed = $key === 'brandColor' ? in_array('accent', $editable, true) : in_array($key, $editable, true);
+            if ($allowed && array_key_exists($key, $preset)) {
                 $out[$key] = $preset[$key];
             }
         }

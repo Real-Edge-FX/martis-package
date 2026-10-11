@@ -43,6 +43,7 @@ class PreferencesController extends MartisController
             'accents' => AccentColor::presetValues(),
             'themes' => array_column(ThemeMode::cases(), 'value'),
             'densities' => array_column(UiDensity::cases(), 'value'),
+            'editable' => $this->resolver->editable(),
         ])->toResponse();
     }
 
@@ -83,6 +84,24 @@ class PreferencesController extends MartisController
         }
 
         $data = $validator->validated();
+
+        // A preference the app does not let users change (v2.12.0,
+        // `martis.preferences.editable`) is refused when the request tries
+        // to change it, and dropped when it only repeats the value in
+        // effect, so a client that sends its full state keeps working.
+        $editable = $this->resolver->editable();
+        $current = $this->resolver->resolve($request);
+        $locked = [];
+        foreach (array_diff(array_keys($data), $editable) as $key) {
+            if ($this->differs($key, $data[$key], $current[$key] ?? null)) {
+                $locked[$key] = ['This preference cannot be changed.'];
+            }
+            unset($data[$key]);
+        }
+        if ($locked !== []) {
+            return JsonErrorResponse::validation($locked)->toResponse();
+        }
+
         $attrs = [];
         if (array_key_exists('theme', $data)) {
             $attrs['theme'] = $data['theme'];
@@ -109,6 +128,15 @@ class PreferencesController extends MartisController
         );
 
         return $this->show($request);
+    }
+
+    private function differs(string $key, mixed $value, mixed $current): bool
+    {
+        return match ($key) {
+            'reducedMotion' => (bool) $value !== (bool) $current,
+            'brandColor' => (is_string($value) ? strtolower($value) : null) !== $current,
+            default => $value !== $current,
+        };
     }
 
     public function reset(Request $request): JsonResponse

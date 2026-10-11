@@ -7,6 +7,7 @@ import { config, resolvePickerLocales, type MartisCustomAccent } from '@/lib/con
 import { resolveAccentSwatchColor } from '@/lib/accentSwatches'
 import { loadLocale } from '@/lib/i18n'
 import { Segmented } from '@/components/ui/Segmented'
+import { isPreferenceEditable } from '@/lib/preferencesEditable'
 
 /**
  * Task 07.1 ⭐ D2 — User preferences panel.
@@ -16,6 +17,11 @@ import { Segmented } from '@/components/ui/Segmented'
  * (⭐ D1, off by default) and an accessibility section with the
  * reduced-motion toggle (⭐ D3). Every change flows through
  * `usePreferences().update()` which is optimistic and server-synced.
+ *
+ * A section shows only for a preference users may change
+ * (`martis.preferences.editable`, v2.12.0); with none left the trigger
+ * itself is not rendered. Each section carries
+ * `data-martis-preference="<name>"` for the host theme to target.
  */
 
 /** Bundled accents. `color` is only the fallback: at render time each swatch
@@ -109,7 +115,15 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
 
   if (!enabled) return null
 
-  const allowBrandColor = config.preferences?.allowBrandColor === true
+  const showTheme = config.theme?.allowToggle !== false && isPreferenceEditable('theme')
+  const showAccent = isPreferenceEditable('accent')
+  const showDensity = isPreferenceEditable('density')
+  const showLocale = isPreferenceEditable('locale')
+  const showReducedMotion = isPreferenceEditable('reducedMotion')
+  if (!showTheme && !showAccent && !showDensity && !showLocale && !showReducedMotion) return null
+
+  // The hex input belongs to the accent choice: it needs both switches.
+  const allowBrandColor = config.preferences?.allowBrandColor === true && isPreferenceEditable('brandColor')
   const locales = resolvePickerLocales(meta?.locales)
   const localeLabels = { ...BUILTIN_LOCALE_LABELS, ...(config.preferences?.localeLabels ?? {}) }
 
@@ -187,10 +201,11 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
           </div>
 
           {/* Theme — hidden when `theme.allowToggle` is false in
-              config/martis.php so the host app can lock everyone to a
-              single theme without removing the rest of the preferences. */}
-          {config.theme?.allowToggle !== false && (
-            <Section label={t('theme', 'Theme')}>
+              config/martis.php (or `theme` is left out of
+              `preferences.editable`) so the host app can lock everyone to
+              a single theme without removing the rest of the preferences. */}
+          {showTheme && (
+            <Section name="theme" label={t('theme', 'Theme')}>
               <Segmented<ThemeMode>
                 fullWidth
                 ariaLabel={t('theme', 'Theme')}
@@ -206,176 +221,184 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
           )}
 
           {/* Accent */}
-          <Section label={t('accent', 'Accent')}>
-            <div className="flex flex-wrap items-center gap-2">
-              {ACCENT_SWATCHES.map(({ key, label, color }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => onAccentPick(key)}
-                  aria-label={label}
-                  data-pr-tooltip={label}
-                  data-pr-position="bottom"
-                  className="relative h-7 w-7 rounded-full transition-transform hover:scale-110"
-                  style={{
-                    backgroundColor: swatchColors[key] ?? color,
-                    boxShadow: prefs.accent === key ? '0 0 0 2px var(--martis-surface), 0 0 0 4px var(--martis-accent)' : 'none',
-                  }}
-                >
-                  {prefs.accent === key && !prefs.brandColor && (
-                    <CheckIcon size={12} weight="bold" color="#fff" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
-                  )}
-                </button>
-              ))}
-              {/* v1.7.0 — custom accents declared via MARTIS_CUSTOM_ACCENTS.
-                  The CSS rules for these names are injected inline by
-                  app.blade.php; clicking a swatch persists the name as
-                  the accent (server-side resolver accepts both bundled
-                  enum values and custom names). */}
-              {customAccents.map(({ name, color }) => {
-                const titleLabel = name.charAt(0).toUpperCase() + name.slice(1).replace(/[-_]/g, ' ')
-                return (
+          {showAccent && (
+            <Section name="accent" label={t('accent', 'Accent')}>
+              <div className="flex flex-wrap items-center gap-2">
+                {ACCENT_SWATCHES.map(({ key, label, color }) => (
                   <button
-                    key={`custom-${name}`}
+                    key={key}
                     type="button"
-                    onClick={() => onAccentPick(name as AccentColor)}
-                    aria-label={titleLabel}
-                    data-pr-tooltip={`${titleLabel} (custom)`}
+                    onClick={() => onAccentPick(key)}
+                    aria-label={label}
+                    data-pr-tooltip={label}
                     data-pr-position="bottom"
                     className="relative h-7 w-7 rounded-full transition-transform hover:scale-110"
                     style={{
-                      backgroundColor: swatchColors[name] ?? color,
-                      boxShadow: prefs.accent === name ? '0 0 0 2px var(--martis-surface), 0 0 0 4px var(--martis-accent)' : 'none',
+                      backgroundColor: swatchColors[key] ?? color,
+                      boxShadow: prefs.accent === key ? '0 0 0 2px var(--martis-surface), 0 0 0 4px var(--martis-accent)' : 'none',
                     }}
                   >
-                    {prefs.accent === name && !prefs.brandColor && (
+                    {prefs.accent === key && !prefs.brandColor && (
                       <CheckIcon size={12} weight="bold" color="#fff" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
                     )}
                   </button>
-                )
-              })}
-            </div>
-            {allowBrandColor && (
-              <>
-                <div className="mt-2 flex items-center gap-2">
-                  {/* Native color picker — opens the OS palette. Updates
-                      the text input in lock-step so users see the hex
-                      they just picked. */}
-                  <label
-                    className="relative inline-flex h-7 w-7 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border border-solid"
-                    style={{
-                      borderColor: 'var(--martis-border)',
-                      backgroundColor: prefs.brandColor && brandColorValid
-                        ? prefs.brandColor
-                        : 'transparent',
-                      backgroundImage: prefs.brandColor && brandColorValid
-                        ? 'none'
-                        : 'conic-gradient(#ef4444, #f59e0b, #22c55e, #3b82f6, #8b5cf6, #ef4444)',
-                    }}
-                    data-pr-tooltip={t('pick_brand_color', 'Pick a custom accent')}
-                    data-pr-position="bottom"
-                  >
-                    <input
-                      type="color"
-                      value={
-                        prefs.brandColor && /^#[0-9a-f]{6}$/i.test(prefs.brandColor)
-                          ? prefs.brandColor
-                          : '#4f7bf9'
-                      }
-                      onChange={(e) => onBrandColorChange(e.target.value)}
-                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                      aria-label={t('pick_brand_color', 'Pick a custom accent')}
-                    />
-                    {prefs.accent === 'custom' && prefs.brandColor && (
-                      <CheckIcon
-                        size={12}
-                        weight="bold"
-                        color="#fff"
-                        style={{ position: 'absolute', filter: 'drop-shadow(0 0 1px rgba(0,0,0,0.6))' }}
-                      />
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    value={brandColorInput}
-                    onChange={(e) => onBrandColorChange(e.target.value)}
-                    placeholder="#4f7bf9"
-                    className="flex-1 rounded-md border border-solid px-2 py-1 font-mono text-xs"
-                    style={{
-                      borderColor: brandColorValid ? 'var(--martis-border)' : 'var(--martis-danger)',
-                      backgroundColor: 'var(--martis-input-bg)',
-                      color: 'var(--martis-text)',
-                    }}
-                  />
-                  {prefs.brandColor && (
+                ))}
+                {/* v1.7.0 — custom accents declared via MARTIS_CUSTOM_ACCENTS.
+                    The CSS rules for these names are injected inline by
+                    app.blade.php; clicking a swatch persists the name as
+                    the accent (server-side resolver accepts both bundled
+                    enum values and custom names). */}
+                {customAccents.map(({ name, color }) => {
+                  const titleLabel = name.charAt(0).toUpperCase() + name.slice(1).replace(/[-_]/g, ' ')
+                  return (
                     <button
+                      key={`custom-${name}`}
                       type="button"
-                      onClick={onBrandColorClear}
-                      className="rounded-md px-2 py-1 text-xs"
-                      style={{ color: 'var(--martis-text-muted)' }}
-                      data-pr-tooltip={t('clear_brand_color', 'Clear brand color')}
+                      onClick={() => onAccentPick(name as AccentColor)}
+                      aria-label={titleLabel}
+                      data-pr-tooltip={`${titleLabel} (custom)`}
+                      data-pr-position="bottom"
+                      className="relative h-7 w-7 rounded-full transition-transform hover:scale-110"
+                      style={{
+                        backgroundColor: swatchColors[name] ?? color,
+                        boxShadow: prefs.accent === name ? '0 0 0 2px var(--martis-surface), 0 0 0 4px var(--martis-accent)' : 'none',
+                      }}
+                    >
+                      {prefs.accent === name && !prefs.brandColor && (
+                        <CheckIcon size={12} weight="bold" color="#fff" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+              {allowBrandColor && (
+                <>
+                  <div className="mt-2 flex items-center gap-2">
+                    {/* Native color picker — opens the OS palette. Updates
+                        the text input in lock-step so users see the hex
+                        they just picked. */}
+                    <label
+                      className="relative inline-flex h-7 w-7 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border border-solid"
+                      style={{
+                        borderColor: 'var(--martis-border)',
+                        backgroundColor: prefs.brandColor && brandColorValid
+                          ? prefs.brandColor
+                          : 'transparent',
+                        backgroundImage: prefs.brandColor && brandColorValid
+                          ? 'none'
+                          : 'conic-gradient(#ef4444, #f59e0b, #22c55e, #3b82f6, #8b5cf6, #ef4444)',
+                      }}
+                      data-pr-tooltip={t('pick_brand_color', 'Pick a custom accent')}
                       data-pr-position="bottom"
                     >
-                      ×
-                    </button>
-                  )}
-                </div>
-                <p className="mt-1 text-[10px]" style={{ color: brandColorValid ? 'var(--martis-text-muted)' : 'var(--martis-danger-text)' }}>
-                  {brandColorValid
-                    ? t('brand_color_help', 'Custom hex overrides the accent')
-                    : t('brand_color_invalid', 'Use #RGB, #RRGGBB or #RRGGBBAA')}
-                </p>
-              </>
-            )}
-          </Section>
+                      <input
+                        type="color"
+                        value={
+                          prefs.brandColor && /^#[0-9a-f]{6}$/i.test(prefs.brandColor)
+                            ? prefs.brandColor
+                            : '#4f7bf9'
+                        }
+                        onChange={(e) => onBrandColorChange(e.target.value)}
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        aria-label={t('pick_brand_color', 'Pick a custom accent')}
+                      />
+                      {prefs.accent === 'custom' && prefs.brandColor && (
+                        <CheckIcon
+                          size={12}
+                          weight="bold"
+                          color="#fff"
+                          style={{ position: 'absolute', filter: 'drop-shadow(0 0 1px rgba(0,0,0,0.6))' }}
+                        />
+                      )}
+                    </label>
+                    <input
+                      type="text"
+                      value={brandColorInput}
+                      onChange={(e) => onBrandColorChange(e.target.value)}
+                      placeholder="#4f7bf9"
+                      className="flex-1 rounded-md border border-solid px-2 py-1 font-mono text-xs"
+                      style={{
+                        borderColor: brandColorValid ? 'var(--martis-border)' : 'var(--martis-danger)',
+                        backgroundColor: 'var(--martis-input-bg)',
+                        color: 'var(--martis-text)',
+                      }}
+                    />
+                    {prefs.brandColor && (
+                      <button
+                        type="button"
+                        onClick={onBrandColorClear}
+                        className="rounded-md px-2 py-1 text-xs"
+                        style={{ color: 'var(--martis-text-muted)' }}
+                        data-pr-tooltip={t('clear_brand_color', 'Clear brand color')}
+                        data-pr-position="bottom"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[10px]" style={{ color: brandColorValid ? 'var(--martis-text-muted)' : 'var(--martis-danger-text)' }}>
+                    {brandColorValid
+                      ? t('brand_color_help', 'Custom hex overrides the accent')
+                      : t('brand_color_invalid', 'Use #RGB, #RRGGBB or #RRGGBBAA')}
+                  </p>
+                </>
+              )}
+            </Section>
+          )}
 
           {/* Density */}
-          <Section label={t('density', 'Density')}>
-            <Segmented<UiDensity>
-              fullWidth
-              ariaLabel={t('density', 'Density')}
-              value={prefs.density}
-              onChange={onDensityPick}
-              options={DENSITY_OPTIONS.map(({ key, labelKey, fallback }) => ({
-                key,
-                label: t(labelKey, fallback),
-              }))}
-            />
-          </Section>
+          {showDensity && (
+            <Section name="density" label={t('density', 'Density')}>
+              <Segmented<UiDensity>
+                fullWidth
+                ariaLabel={t('density', 'Density')}
+                value={prefs.density}
+                onChange={onDensityPick}
+                options={DENSITY_OPTIONS.map(({ key, labelKey, fallback }) => ({
+                  key,
+                  label: t(labelKey, fallback),
+                }))}
+              />
+            </Section>
+          )}
 
           {/* Language */}
-          <Section label={t('language', 'Language')}>
-            <select
-              value={prefs.locale}
-              onChange={(e) => { void onLocalePick(e.target.value) }}
-              className="w-full rounded-md border border-solid px-2 py-1.5 text-xs"
-              style={{
-                borderColor: 'var(--martis-border)',
-                backgroundColor: 'var(--martis-input-bg)',
-                color: 'var(--martis-text)',
-              }}
-            >
-              {locales.map((l) => (
-                <option key={l} value={l}>{localeLabels[l] ?? l}</option>
-              ))}
-            </select>
-          </Section>
+          {showLocale && (
+            <Section name="locale" label={t('language', 'Language')}>
+              <select
+                value={prefs.locale}
+                onChange={(e) => { void onLocalePick(e.target.value) }}
+                className="w-full rounded-md border border-solid px-2 py-1.5 text-xs"
+                style={{
+                  borderColor: 'var(--martis-border)',
+                  backgroundColor: 'var(--martis-input-bg)',
+                  color: 'var(--martis-text)',
+                }}
+              >
+                {locales.map((l) => (
+                  <option key={l} value={l}>{localeLabels[l] ?? l}</option>
+                ))}
+              </select>
+            </Section>
+          )}
 
           {/* Accessibility — reduced motion sits apart from theme/accent/density. */}
-          <Section label={t('accessibility', 'Accessibility')}>
-            <label
-              className="flex cursor-pointer items-center justify-between gap-2 text-xs font-medium"
-              style={{ color: 'var(--martis-text)' }}
-            >
-              <span>{t('reduced_motion', 'Reduced motion')}</span>
-              <input
-                type="checkbox"
-                className="martis-checkbox"
-                checked={prefs.reducedMotion}
-                onChange={onReducedMotionToggle}
-              />
-            </label>
-          </Section>
+          {showReducedMotion && (
+            <Section name="reducedMotion" label={t('accessibility', 'Accessibility')}>
+              <label
+                className="flex cursor-pointer items-center justify-between gap-2 text-xs font-medium"
+                style={{ color: 'var(--martis-text)' }}
+              >
+                <span>{t('reduced_motion', 'Reduced motion')}</span>
+                <input
+                  type="checkbox"
+                  className="martis-checkbox"
+                  checked={prefs.reducedMotion}
+                  onChange={onReducedMotionToggle}
+                />
+              </label>
+            </Section>
+          )}
 
           {meta?.preset && (
             <div
@@ -395,9 +418,9 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
   )
 })
 
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
+function Section({ name, label, children }: { name: string; label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1.5" data-martis-preference={name}>
       <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--martis-text-muted)' }}>
         {label}
       </div>

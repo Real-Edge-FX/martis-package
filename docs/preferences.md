@@ -66,6 +66,28 @@ update((prev) => {
 
 The locale the resolver answers is always one the app offers (`preferences.locales`, from `MARTIS_UI_LOCALES`). A `MARTIS_DEFAULT_LOCALE` outside the list resolves to the first listed locale; a locale stored for a user (say `pt_BR` after the app dropped it) or named by a preset, when it is not listed, resolves to that default. The stored row is left alone, so the user gets their language back when the list offers it again. The `martis.locale` middleware applies the normalised value and the shell writes it in `<html lang>` (`en_GB` becomes `en-GB`). `PUT /api/preferences` refuses a locale outside the list with `422`.
 
+## Choosing which preferences users may change (v2.12.0)
+
+An app with its own brand theme may want users to keep the light/dark, density and reduced-motion choices without recolouring the panel. `preferences.editable` (`MARTIS_PREFERENCES_EDITABLE`) names the preferences users may change: comma-separated, any of `theme`, `accent`, `density`, `locale`, `reducedMotion`. The default is all five, which is the behaviour before v2.12.0.
+
+```bash
+# A branded install: users pick light/dark, density and reduced motion only.
+MARTIS_PREFERENCES_EDITABLE=theme,density,reducedMotion
+```
+
+A preference left out of the list:
+
+- is hidden from the preferences menu (its section is not rendered) and, for `theme` and `locale`, from the controls of the sign-in pages; with no preference left, the menu's topbar button is not rendered either;
+- is refused by `PUT /api/preferences` with `422` (`This preference cannot be changed.` on that field) when the request changes it, and nothing is stored. A value equal to the one in effect is accepted and dropped, so a client that sends its full state keeps working;
+- is ignored in a user's stored row (the row is left alone, so the choice comes back if the app lists the preference again) and in a URL preset (`?preset=focus-amber` still applies its theme, not its accent);
+- always resolves to its value in `preferences.defaults`, from the first paint: the shell and the SPA ignore a value cached in the browser for it.
+
+Two older switches feed the same list. `theme.allowToggle => false` removes `theme` from it (and, since v2.12.0, the server applies it too: a stored theme is ignored and a theme change is refused). The brand-colour hex follows the accent: `brandColor` is editable only when `accent` is listed **and** `allowBrandColor` is on. A preset's `brandColor` is written by the app, so it follows `accent` alone.
+
+An unknown name throws an `InvalidArgumentException` naming `MARTIS_PREFERENCES_EDITABLE` (`brandColor` gets a hint that it follows `accent`). `MARTIS_PREFERENCES_EDITABLE=` (empty) locks every preference; `MARTIS_PREFERENCES_ENABLED=false` removes the feature entirely. A config published before v2.12.0 has no `editable` key and keeps every preference editable.
+
+The effective list (with `theme.allowToggle` and `brandColor` already applied) reaches the SPA as `window.MartisConfig.preferences.editable` and the API as `meta.editable`, so a custom shell can follow it; `PreferencesContext.update()` drops a locked preference from every patch, whichever control sent it (the menu, the sign-in strip, `useTheme().toggle()`). Each section of the menu carries `data-martis-preference="<name>"` (`theme`, `accent`, `density`, `locale`, `reducedMotion`) for a host stylesheet to target.
+
 ## API
 
 Protected routes — 2FA-completed users only.
@@ -73,7 +95,7 @@ Protected routes — 2FA-completed users only.
 | Verb | Path | Body | Purpose |
 |------|------|------|---------|
 | GET | `/martis/api/preferences` | — | Read current effective preferences + meta. |
-| PUT | `/martis/api/preferences` | `{ theme?, accent?, brandColor?, density?, locale?, reducedMotion? }` | Upsert user row. The SPA sends the **full merged state** to avoid schema defaults clobbering fields not in the patch. |
+| PUT | `/martis/api/preferences` | `{ theme?, accent?, brandColor?, density?, locale?, reducedMotion? }` | Upsert user row. The SPA sends the **full merged state** of the preferences users may change, to avoid schema defaults clobbering fields not in the patch. Changing a preference outside `meta.editable` answers `422` (v2.12.0). |
 | DELETE | `/martis/api/preferences` | — | Delete the row; resolver falls back to config defaults. |
 
 Response shape (GET/PUT/DELETE — all use the standard JSON envelope):
@@ -97,7 +119,8 @@ Response shape (GET/PUT/DELETE — all use the standard JSON envelope):
     "locales": ["en", "pt_PT", "pt_BR"],
     "accents": ["martis", "blue", "teal", "violet", "amber"],
     "themes": ["dark", "light", "system"],
-    "densities": ["comfortable", "dense"]
+    "densities": ["comfortable", "dense"],
+    "editable": ["theme", "accent", "density", "locale", "reducedMotion"]
   }
 }
 ```
@@ -160,6 +183,10 @@ The migration can safely remain applied — the resolver silently ignores the ta
     // Turn on for multi-tenant apps where each tenant has its own colour.
     'allowBrandColor' => env('MARTIS_ALLOW_BRAND_COLOR', false),
 
+    // Preferences users may change (v2.12.0). MARTIS_PREFERENCES_EDITABLE,
+    // comma-separated; default all five.
+    'editable' => array_values(array_filter(array_map('trim', explode(',', (string) env('MARTIS_PREFERENCES_EDITABLE', 'theme,accent,density,locale,reducedMotion'))))),
+
     // Named presets applied via `?preset=<name>`. Shareable links.
     'presets' => [
         'exec-comfort' => [
@@ -189,7 +216,7 @@ Each swatch in the accent picker is painted with the colour the cascade resolves
 
 ### Arbitrary brand colour
 
-When `allowBrandColor` is `true`, the preferences panel exposes a hex input. Any valid `#RGB`, `#RGBA`, `#RRGGBB`, or `#RRGGBBAA` value overrides the accent (`data-accent="custom"` on `<html>`, `--martis-accent` inline style). Ideal for multi-tenant branding.
+When `allowBrandColor` is `true` and `accent` is editable, the preferences panel exposes a hex input. The server applies the switch too (v2.12.0): with it off, `PUT /api/preferences` refuses a hex (`422`), and a hex stored earlier is ignored (an accent stored as `custom` then resolves to the default accent). Any valid `#RGB`, `#RGBA`, `#RRGGBB`, or `#RRGGBBAA` value overrides the accent (`data-accent="custom"` on `<html>`, `--martis-accent` inline style). Ideal for multi-tenant branding.
 
 A `brandColor` selection drives the full seven-token accent palette (`--martis-accent`, `--martis-accent-hover`, `--martis-accent-active`, `--martis-accent-bg-light`, `--martis-accent-bg`, `--martis-focus-ring`, `--martis-accent-contrast`). Five of the derived tokens come from the base hex via `color-mix(in srgb, ...)` and the contrast colour from its luminance (white while it holds the WCAG 3:1 floor, else a near-black navy; `lib/accentContrast.ts`) — the same chain used by `MARTIS_CUSTOM_ACCENTS`. Applied in two places so the FOUC stays clean: the pre-paint blade bootstrap and the React `PreferencesContext::applyToDom()`. Clearing `brandColor` removes all seven overrides and falls back to the active `data-accent` palette. (v1.8.12+)
 

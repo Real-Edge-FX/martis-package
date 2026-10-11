@@ -728,8 +728,26 @@ return [
 
         // Allow users to set an arbitrary brand hex. Off by default —
         // apps opt in via env or config override when multi-tenant branding
-        // is a real requirement.
+        // is a real requirement. Needs `accent` in `editable` below.
         'allowBrandColor' => env('MARTIS_ALLOW_BRAND_COLOR', false),
+
+        // Preferences users may change (v2.12.0). Comma-separated names in
+        // `MARTIS_PREFERENCES_EDITABLE`, any of theme, accent, density,
+        // locale, reducedMotion; default all five. A preference left out
+        // is hidden from the menu and the sign-in pages, refused by
+        // `PUT /api/preferences` (422) when the request changes it,
+        // ignored in a stored row and in a URL preset, and always resolves
+        // to its value in `defaults`. `theme.allowToggle => false` drops
+        // `theme`; the brand-colour hex follows `accent`. An unknown name
+        // throws, naming the variable. `GET /api/preferences` reports the
+        // effective list in `meta.editable`.
+        //
+        // Example .env (a branded install: no accent, no language):
+        //   MARTIS_PREFERENCES_EDITABLE=theme,density,reducedMotion
+        'editable' => array_values(array_filter(
+            array_map('trim', explode(',', (string) env('MARTIS_PREFERENCES_EDITABLE', 'theme,accent,density,locale,reducedMotion'))),
+            static fn (string $key): bool => $key !== '',
+        )),
 
         // Named presets. Apply via `/resources/...?preset=<name>`.
         'presets' => [

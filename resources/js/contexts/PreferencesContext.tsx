@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import i18n, { loadLocale } from '@/lib/i18n'
 import { accentContrastFor } from '@/lib/accentContrast'
 import { PREFERENCES_CACHE_KEY, clearGuestPick, hasGuestPick, markGuestPick } from '@/lib/preferencesStorage'
+import { isPreferenceEditable, onlyEditable, type EditablePreference } from '@/lib/preferencesEditable'
 
 export type ThemeMode = 'dark' | 'light' | 'system'
 /** Bundled accent values shipped by Martis. Custom accents declared via
@@ -40,6 +41,8 @@ export interface PreferencesMeta {
   accents: string[]
   themes: string[]
   densities: string[]
+  /** Preferences users may change (v2.12.0, `martis.preferences.editable`). */
+  editable?: string[]
 }
 
 type PreferencePatch = Partial<Preferences> | ((prev: Preferences) => Partial<Preferences>)
@@ -165,7 +168,18 @@ export function readInitialPrefs(): Preferences {
   const injected = (window as unknown as {
     MartisConfig?: { preferences?: { initial?: Partial<Preferences> & { source?: string } } }
   }).MartisConfig?.preferences?.initial
+  const prefs = readCandidatePrefs(injected)
+  // A preference users may not change (v2.12.0) takes the server value,
+  // never a cached pick of it.
+  for (const key of Object.keys(DEFAULTS) as EditablePreference[]) {
+    if (!isPreferenceEditable(key)) {
+      (prefs as unknown as Record<string, unknown>)[key] = injected?.[key] ?? DEFAULTS[key]
+    }
+  }
+  return prefs
+}
 
+function readCandidatePrefs(injected: (Partial<Preferences> & { source?: string }) | null | undefined): Preferences {
   // (0) Guest just picked something on an auth surface? Honour it.
   // The post-login PUT will sync the choice to the server; this
   // branch keeps the visual state coherent during the round-trip
@@ -301,7 +315,7 @@ export function PreferencesProvider({ children, initialPreferences, syncWithServ
     const guestModified = hasGuestPick()
 
     if (guestModified) {
-      api.put<ShowResponse>('/api/preferences', prefsRef.current)
+      api.put<ShowResponse>('/api/preferences', onlyEditable(prefsRef.current))
         .then((resp) => {
           if (!active) return
           clearGuestPick()
@@ -365,7 +379,9 @@ export function PreferencesProvider({ children, initialPreferences, syncWithServ
     // re-renders all see the same `prefs.theme` from the captured
     // closure, so a static patch always advances by ONE step. The
     // function form re-evaluates the next theme against the live ref.
-    const concretePatch = typeof patch === 'function' ? patch(prefsRef.current) : patch
+    // A preference users may not change (v2.12.0) is dropped from every
+    // patch, whichever control sent it (menu, auth strip, ThemeContext).
+    const concretePatch = onlyEditable(typeof patch === 'function' ? patch(prefsRef.current) : patch)
     const nextState: Preferences = { ...prefsRef.current, ...concretePatch }
     // Write back to the ref synchronously BEFORE setPrefs so a second
     // rapid click (or chained update) reads the freshly merged state
@@ -405,7 +421,7 @@ export function PreferencesProvider({ children, initialPreferences, syncWithServ
     // client-side (otherwise schema defaults would clobber e.g. a
     // `theme=light` the user set before ever saving a locale change).
     try {
-      const resp = await api.put<ShowResponse>('/api/preferences', nextState)
+      const resp = await api.put<ShowResponse>('/api/preferences', onlyEditable(nextState))
       if (resp?.data) setPrefs((prev) => ({ ...prev, ...resp.data }))
       if (resp?.meta) setMeta(resp.meta)
     } catch {

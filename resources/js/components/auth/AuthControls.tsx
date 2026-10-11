@@ -3,6 +3,7 @@ import { MoonIcon, SunIcon, MonitorIcon, TranslateIcon } from '@phosphor-icons/r
 import { usePreferencesOptional, type ThemeMode } from '@/contexts/PreferencesContext'
 import { config, resolvePickerLocales } from '@/lib/config'
 import { loadLocale } from '@/lib/i18n'
+import { isPreferenceEditable } from '@/lib/preferencesEditable'
 
 /** Built-in labels for the locales Martis ships translations for.
  *  Merged with `config.preferences.localeLabels` so consumers can name
@@ -45,8 +46,9 @@ export function AuthControls() {
   // hard lock for the whole shell, including the pre-login pages.
   const controls = config.auth?.controls ?? {}
   const themeAllowedGlobally = config.theme?.allowToggle !== false
-  const showTheme = themeAllowedGlobally && controls.theme !== false
-  const showLocale = controls.locale !== false
+  // So does leaving a preference out of `preferences.editable` (v2.12.0).
+  const showTheme = themeAllowedGlobally && isPreferenceEditable('theme') && controls.theme !== false
+  const showLocale = isPreferenceEditable('locale') && controls.locale !== false
 
   // Whole strip hides when both knobs are off — avoids rendering an
   // empty padded container in the corner.
