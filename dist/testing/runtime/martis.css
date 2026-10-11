@@ -2646,6 +2646,7 @@
   --martis-font-sans: 'Inter var', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --martis-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   --martis-font-heading: 'Inter var', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --martis-font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
 
   --martis-text-xs: 12px;
   --martis-text-sm: 14px;
@@ -11042,11 +11043,11 @@ html[data-density="dense"] .martis-cache-toggle {
     }
 }
 :root {
-  font-family: "Inter var", sans-serif;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-family: var(--martis-font-sans);
+  font-feature-settings: var(--martis-font-feature-settings);
   font-variation-settings: normal;
-  --font-family: "Inter var", sans-serif;
-  --font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  --font-family: var(--martis-font-sans);
+  --font-feature-settings: var(--martis-font-feature-settings);
   --surface-a: var(--martis-surface);
   --surface-b: var(--martis-bg);
   --surface-c: var(--martis-hover);
