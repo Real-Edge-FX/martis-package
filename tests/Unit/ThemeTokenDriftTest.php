@@ -5,12 +5,12 @@ declare(strict_types=1);
 /*
  * The theme variables are listed in several places that must agree:
  *
- *  - `resources/css/martis.css` gives 160 of them a value, on `:root` (dark,
+ *  - `resources/css/martis.css` gives 161 of them a value, on `:root` (dark,
  *    and the ones that do not depend on the mode) and on `html:not(.dark)`;
  *  - `stubs/theme.css.stub` (what `martis:theme` writes) declares the same
- *    160, and carries the two brand logo heights, which come from the
+ *    161, and carries the two brand logo heights, which come from the
  *    config, commented out;
- *  - `docs/theming.md` lists the 162 in groups, with the dark and light
+ *  - `docs/theming.md` lists the 163 in groups, with the dark and light
  *    values of `martis.css`, a count per group, a count table and a total;
  *  - the README, the docs index, the differentials and the preferences page
  *    state the total.

@@ -86,6 +86,7 @@ Martis renders its controls (inputs, dropdowns, tables, calendars, tooltips, toa
 - Severity fills (`severity="success"` buttons, for example) use the matching token (`--martis-success`) with white text, like the Martis buttons.
 - `<Badge severity="…">` matches the `.martis-badge-*` pills (`--martis-badge-*` tokens). The default badge is a solid `--martis-accent` counter.
 - The PrimeReact CSS variables (`--primary-color`, `--surface-ground`, `--surface-card`, `--surface-0` to `--surface-900`, `--text-color`, `--highlight-bg`, `--maskbg`, …) point at the same tokens, for code that reads them.
+- The font follows the theme too (v2.13.0): the PrimeReact `--font-family` and `--font-feature-settings` variables, which dropdowns, menus, overlay panels, toasts and inputs read, point at `--martis-font-sans` and `--martis-font-feature-settings`. Up to v2.12 they kept a literal Inter, so a theme font reached the Martis shell but not those components.
 
 A theme only sets the Martis tokens; it never needs to restyle PrimeReact selectors to change colours.
 
@@ -104,7 +105,7 @@ A theme only sets the Martis tokens; it never needs to restyle PrimeReact select
 
 ## Variable Reference
 
-A theme can define **162 CSS variables** in **19 groups**. The bundled `martis.css` gives 160 of them a value, once on `:root` (the dark theme, and every variable that does not depend on the mode) and again on `html:not(.dark)` for 102 of them; the scaffolded theme (`stubs/theme.css.stub`, written by `martis:theme`) declares the same 160 on `:root` and the same 102 on `html:not(.dark)`, with the same values (the test in `tests/Unit/ThemeTokenDriftTest.php` compares them, accents, density and motion included). The other two, the brand logo heights, come from the config (`MARTIS_BRAND_LOGO_HEIGHT_MENU` / `MARTIS_BRAND_LOGO_HEIGHT_AUTH`, written on `:root` by the panel's layout); the stub carries them commented out, to uncomment only to override those knobs. The **Light** column shows "same" when light mode keeps the dark value.
+A theme can define **163 CSS variables** in **19 groups**. The bundled `martis.css` gives 161 of them a value, once on `:root` (the dark theme, and every variable that does not depend on the mode) and again on `html:not(.dark)` for 102 of them; the scaffolded theme (`stubs/theme.css.stub`, written by `martis:theme`) declares the same 161 on `:root` and the same 102 on `html:not(.dark)`, with the same values (the test in `tests/Unit/ThemeTokenDriftTest.php` compares them, accents, density and motion included). The other two, the brand logo heights, come from the config (`MARTIS_BRAND_LOGO_HEIGHT_MENU` / `MARTIS_BRAND_LOGO_HEIGHT_AUTH`, written on `:root` by the panel's layout); the stub carries them commented out, to uncomment only to override those knobs. The **Light** column shows "same" when light mode keeps the dark value.
 
 ### 1. Background Layers (7 variables)
 
@@ -211,7 +212,7 @@ Used for badges, alerts, status indicators (alpha tints in dark, solid pastels i
 | `--martis-radius-xl` | `0.75rem` | same | Containers, large cards |
 | `--martis-radius-full` | `9999px` | same | Pills, avatars |
 
-### 10. Typography (31 variables)
+### 10. Typography (32 variables)
 
 Font families, the modular size scale, weights and line heights. Sizes, weights and line heights ship with **two names** each: the short form (`--martis-text-*`, `--martis-weight-*`, `--martis-leading-*`), used pervasively in package CSS, and the verbose alias (`--martis-font-size-*`, `--martis-font-weight-*`, `--martis-line-height-*`), defined as `var()` of the short one. **A theme sets the short name**: the package CSS reads it (only `body` and the password checklist read an alias), so a theme that sets only `--martis-font-size-sm` changes almost nothing. Both names are counted below, since both are defined.
 
@@ -220,6 +221,7 @@ Font families, the modular size scale, weights and line heights. Sizes, weights 
 | `--martis-font-sans` | `'Inter var', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif` | same | Body font stack |
 | `--martis-font-mono` | `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace` | same | Code font stack |
 | `--martis-font-heading` | `'Inter var', 'Inter', ui-sans-serif, system-ui, sans-serif` | same | Heading font stack |
+| `--martis-font-feature-settings` | `'cv02', 'cv03', 'cv04', 'cv11'` | same | OpenType features of the body font (Inter's character variants); set `normal` with another family |
 | `--martis-text-xs` | `12px` | same | Tooltips, micro labels |
 | `--martis-text-sm` | `14px` | same | Body, inputs, labels |
 | `--martis-text-base` | `16px` | same | Default |
@@ -643,7 +645,7 @@ Before v1.37.1 the workaround was to add `className="martis-input"` (or `p-input
 | Overlays & Shadows | 5 |
 | DataTable | 5 |
 | Border Radius | 5 |
-| Typography | 31 |
+| Typography | 32 |
 | Chart Palette | 10 |
 | Avatar Palette | 16 |
 | Brand Gradient | 12 |
@@ -653,7 +655,7 @@ Before v1.37.1 the workaround was to add `className="martis-input"` (or `p-input
 | Motion | 10 |
 | Print | 5 |
 | Rich Text Editor | 1 |
-| **Total** | **162** |
+| **Total** | **163** |
 
 Each alias pair (`--martis-text-*` / `--martis-font-size-*`, `--martis-weight-*` / `--martis-font-weight-*`, `--martis-leading-*` / `--martis-line-height-*`) is counted as two variables, since both names are defined. The package CSS reads the short name, though: only `body` and the password checklist read an alias, so **set the short name in a theme** (`--martis-text-sm`, not `--martis-font-size-sm`).
 
@@ -685,9 +687,12 @@ That's it — buttons, links, focus rings, selected items all turn pink instantl
 :root {
   --martis-font-sans: 'Roboto', sans-serif;
   --martis-font-heading: 'Playfair Display', serif;
+  --martis-font-feature-settings: normal; /* Inter's character variants mean nothing to Roboto */
   --martis-text-base: 0.9375rem;  /* 15px instead of 16px */
 }
 ```
+
+`--martis-font-sans` sets the font of the whole panel, PrimeReact components included. `--martis-font-feature-settings` defaults to Inter's character variants (`'cv02', 'cv03', 'cv04', 'cv11'`): with another family, set it to `normal`, or to that family's own features.
 
 ### Branded Chart Palette
 

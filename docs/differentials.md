@@ -1043,7 +1043,7 @@ The preferences panel is a compact topbar overlay — theme / accent /
 density / language / accessibility. See [preferences.md](preferences.md)
 for the resolver, API, and SSR no-flash mechanics.
 
-### 162-token theme system
+### 163-token theme system
 
 A single theme file controls the entire admin panel:
 
@@ -1056,7 +1056,7 @@ A single theme file controls the entire admin panel:
 - **Overlays & shadows** (5 vars): modal backdrop, sm/md/lg shadows, peek.
 - **DataTable** (5 vars): header, rows, borders.
 - **Border radius** (5 vars): from sm to full pill.
-- **Typography** (31 vars): font families (sans/mono/heading), 7-step size scale, 4 weights, 3 line heights, each size, weight and line height with its verbose alias.
+- **Typography** (32 vars): font families (sans/mono/heading) and their OpenType features, 7-step size scale, 4 weights, 3 line heights, each size, weight and line height with its verbose alias.
 - **Chart palette** (10 vars): for partition/trend metrics.
 - **Avatar palette** (16 vars): the initials avatar hues.
 - **Brand gradient** (12 vars): hero and auth surfaces, badge, logo heights.
@@ -1072,7 +1072,7 @@ A single theme file controls the entire admin panel:
 php artisan martis:theme MyTheme
 ```
 
-The generated stub declares the 160 variables `martis.css` gives a
+The generated stub declares the 161 variables `martis.css` gives a
 value, on `:root` (dark, and the ones that do not depend on the mode) and
 on `html:not(.dark)` for the 102 it gives a light value, with comments
 and grouping; the two brand logo heights, set from `.env`, come commented
