@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.13.0] — 2026-10-11
+
+Minor release from two consumer reports: a theme's font now reaches the PrimeReact components, through the new `--martis-font-feature-settings` theme variable among others, and a configured favicon is linked with a `type` that matches the file. Nothing has to change in an app at run time; a `martis:theme:diff` CI gate asks for the new variable in the theme. Read [Upgrading to v2.13.0](docs/upgrading.md#upgrading-to-v2130-from-v212x).
+
+### Added
+
+- **`--martis-font-feature-settings`**, a theme variable (163 in all): the OpenType features of the body font, default `'cv02', 'cv03', 'cv04', 'cv11'` (Inter's character variants, as before). A theme with another family sets it to `normal` or to that family's features. `martis:theme` writes it, and `martis:theme:diff` lists it as missing in an existing theme. See [Theming → Custom Typography](docs/theming.md#custom-typography).
+
+### Fixed
+
+- **PrimeReact components ignored the theme font.** The compiled PrimeReact theme declared `--font-family` and `--font-feature-settings` on `:root` with a literal Inter, and dropdowns, overlay panels, menus, toasts and inputs read those: a theme that set `--martis-font-sans` changed the Martis shell but not them. Both variables, and the root `font-family` / `font-feature-settings`, now read `--martis-font-sans` and `--martis-font-feature-settings`. +1 Vitest. See [Theming → PrimeReact components](docs/theming.md#primereact-components-v1390).
+- **The configured favicon was linked with types that contradicted the file.** With `MARTIS_FAVICON` set, the panel linked the file twice, as `image/x-icon` and as a 32x32 `image/png`, so an SVG favicon was announced as ICO and PNG and a browser that trusts `type` could skip it. The panel now links it once, typed by its extension (`.svg` → `image/svg+xml`, `.png` → `image/png`, `.ico` → `image/x-icon`, also `.gif`, `.webp`, `.jpg` / `.jpeg`), with no `type` for an extension it does not know. +14 Pest. See [Configuration → Customising the favicon](docs/configuration.md#customising-the-favicon).
+
+**Tests:** 5519 Pest passed (+14) and 2091 Vitest passed (+1): 7610 in all, from 7595 at v2.12.0.
+
 ## [2.12.0] — 2026-10-11
 
 Minor release from one consumer report: an app can now choose which preferences its users may change, so a branded install keeps the light/dark, density and reduced-motion choices without letting users recolour the panel. Unset, nothing changes. Working on it showed that `theme.allowToggle` and `allowBrandColor` were only hidden in the menu, never applied by the server; both are now. Read [Upgrading to v2.12.0](docs/upgrading.md#upgrading-to-v2120-from-v211x).

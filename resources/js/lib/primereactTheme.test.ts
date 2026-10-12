@@ -86,4 +86,24 @@ describe('PrimeReact theme compiled with the Martis tokens', () => {
     expect(valueOf('.p-datepicker table td > span.p-highlight', 'background')).toBe('var(--martis-accent-bg-light)')
     expect(valueOf('.p-component-overlay', 'background-color')).toBe('var(--martis-overlay)')
   })
+
+  it('sets every font from the theme font tokens, not a literal Inter', () => {
+    // The components read --font-family / --font-feature-settings: a theme
+    // that sets only --martis-font-sans must reach dropdowns, menus, overlays
+    // and inputs too. Only the @font-face rules may name Inter.
+    const root: Record<string, string> = {}
+    const inter: string[] = []
+    postcss.parse(theme).walkDecls((decl) => {
+      const rule = decl.parent as { selector?: string; name?: string }
+      if (rule.selector === ':root') root[decl.prop] = decl.value
+      if (/\binter\b/i.test(decl.value) && rule.name !== 'font-face') inter.push(`${rule.selector} { ${decl.prop}: ${decl.value} }`)
+    })
+
+    expect(root['--font-family']).toBe('var(--martis-font-sans)')
+    expect(root['--font-feature-settings']).toBe('var(--martis-font-feature-settings)')
+    expect(root['font-family']).toBe('var(--martis-font-sans)')
+    expect(root['font-feature-settings']).toBe('var(--martis-font-feature-settings)')
+    expect(inter).toEqual([])
+    expect(declaredTokens).toContain('--martis-font-feature-settings')
+  })
 })

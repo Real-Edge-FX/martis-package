@@ -4,6 +4,14 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.13.0 from v2.12.x
+
+v2.13.0 makes the PrimeReact components follow a theme's font, adds the `--martis-font-feature-settings` theme variable, and links a configured favicon with a `type` that matches the file. Nothing has to change in an app at run time. Check these points:
+
+- **A theme font reaches the PrimeReact components.** Up to v2.12.0 the PrimeReact `--font-family` and `--font-feature-settings` variables kept a literal Inter, so dropdowns, menus, overlay panels, toasts and inputs ignored `--martis-font-sans`. They now read the theme tokens. A theme that worked around it by setting `--font-family` / `--font-feature-settings` itself can drop those two lines.
+- **`--martis-font-feature-settings` is a new theme variable** (163 in all), default `'cv02', 'cv03', 'cv04', 'cv11'` (Inter's character variants, as before). A theme with another font family sets it to `normal` or to that family's features. An existing theme without it keeps the default; `php artisan martis:theme:diff` lists it under "Missing in consumer" and exits `2`, so a CI gate that runs it fails until the theme declares the variable (`--martis-font-feature-settings: normal;` for another family, or the Inter default).
+- **The configured favicon is linked once.** With `MARTIS_FAVICON` set, the panel linked the file twice, as `image/x-icon` and as a 32x32 `image/png`. It now emits one `<link rel="icon">` typed by the extension (`.svg` → `image/svg+xml`, `.png` → `image/png`, `.ico` → `image/x-icon`; no `type` for an extension it does not know). An app that published `resources/views/vendor/martis/app.blade.php` keeps its own copy: republish it or apply the change by hand.
+
 ## Upgrading to v2.12.0 from v2.11.x
 
 v2.12.0 adds `preferences.editable` (`MARTIS_PREFERENCES_EDITABLE`): the preferences users may change. Unset, every preference stays editable, as before. Check these points:

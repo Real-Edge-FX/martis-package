@@ -35,8 +35,21 @@
         <meta name="csp-nonce" content="{{ $cspNonce }}">
     @endif
     @if($faviconPath)
-        <link rel="icon" type="image/x-icon" href="{{ asset($faviconPath) }}">
-        <link rel="icon" type="image/png" sizes="32x32" href="{{ asset($faviconPath) }}">
+        @php
+            // One link, typed by the file's extension (query string ignored):
+            // a fixed type that contradicts the file can make a browser skip it.
+            $faviconExtension = strtolower(pathinfo((string) parse_url((string) $faviconPath, PHP_URL_PATH), PATHINFO_EXTENSION));
+            $faviconType = match ($faviconExtension) {
+                'svg' => 'image/svg+xml',
+                'png' => 'image/png',
+                'ico' => 'image/x-icon',
+                'gif' => 'image/gif',
+                'webp' => 'image/webp',
+                'jpg', 'jpeg' => 'image/jpeg',
+                default => null,
+            };
+        @endphp
+        <link rel="icon"@if($faviconType) type="{{ $faviconType }}"@endif href="{{ asset($faviconPath) }}">
     @else
         <link rel="icon" type="image/x-icon" href="/{{ $basePath }}/favicon.ico">
     @endif

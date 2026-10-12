@@ -23,12 +23,16 @@ this file is imported, to the `--martis-*` design tokens (every variable in
 
 ## Local changes
 
-A few colours are literal in the source rather than variables. Each changed
+A few colours and the root font are literal in the source rather than variables. Each changed
 line ends with a `// Martis:` comment:
 
 - `lara/_extensions.scss`: the gap of the button focus ring takes
   `--martis-surface`, and the close-icon hover of messages and toasts takes
   `--martis-hover`.
+- `lara/_variables.scss`: the `:root` font declarations and the
+  `--font-family` / `--font-feature-settings` variables the components read
+  take `$fontFamily` (`--martis-font-sans`) and
+  `--martis-font-feature-settings`, instead of a literal Inter.
 - `theme-base/components/messages/_message.scss` and
   `theme-base/components/messages/_toast.scss`: the close-icon hover takes
   `--martis-hover`.
