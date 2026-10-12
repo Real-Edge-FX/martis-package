@@ -325,7 +325,9 @@ return [
          | `topbar:end`), so apps that only touch JS can register under
          | those names and skip this config entirely. The two top-bar slots
          | add a component to the bar (sidebar and topnav presets) without
-         | replacing it; they render nothing when nothing is registered.
+         | replacing it; they render nothing when nothing is registered. On
+         | a phone they render in the sidebar drawer, or in the topnav
+         | breadcrumb strip, instead of the bar (v2.14.0).
          */
         'components' => [
             'shell' => null,

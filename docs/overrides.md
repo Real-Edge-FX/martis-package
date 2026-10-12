@@ -1054,7 +1054,7 @@ To add a component to the top bar without replacing it (and losing the search, t
 | `topbar:start` | `martis.layout.components.topbar_start` | After the menu and collapse buttons, before the breadcrumbs and the search |
 | `topbar:end` | `martis.layout.components.topbar_end` | After the preferences menu, before the user menu |
 
-The sidebar preset's top bar and the topnav preset's bar both render the slots (in the topnav bar, `topbar:start` sits after the brand, before the menu links). A slot renders its component with no props, or nothing when nothing is registered; a component that throws renders nothing (the error is logged) and the rest of the bar stays. The sidebar preset's search bar is centred over the bar and reserves no room in the row, so whatever `topbar:start` adds is taken from the breadcrumbs, which the search covers when they run under it: keep that component compact (an icon, a short label), or put a wide one in `topbar:end`. Resolution is the pieces' one: the key the config names, when registered, then the default key.
+The sidebar preset's top bar and the topnav preset's bar both render the slots (in the topnav bar, `topbar:start` sits after the brand, before the menu links). A slot renders nothing when nothing is registered; a component that throws renders nothing (the error is logged) and the rest of the bar stays. The sidebar preset's search bar is centred over the bar and reserves no room in the row, so whatever `topbar:start` adds is taken from the breadcrumbs, which shrink and end in an ellipsis (the search covers them when they run under it): keep that component compact (an icon, a short label), or put a wide one in `topbar:end`. Resolution is the pieces' one: the key the config names, when registered, then the default key.
 
 ```tsx
 // resources/js/martis-extensions/overrides/TopbarStart.tsx
@@ -1072,6 +1072,37 @@ export default function TenantIndicator() {
 ```
 
 `overrides/TopbarStart.tsx` and `overrides/TopbarEnd.tsx` map to the two keys through `OVERRIDE_KEYS` in `resources/js/martis-extensions/index.ts`. That file is the app's own, so an install scaffolded before v2.7.0 adds the two lines to it (`TopbarStart: 'topbar:start',` and `TopbarEnd: 'topbar:end',`), or registers the component by hand: `componentRegistry.register('topbar:start', TenantIndicator)`. A custom top bar (`layout:topbar`) renders the slots only if it renders them itself.
+
+#### On a phone (v2.14.0)
+
+At or under the mobile breakpoint (768px wide) a phone's top bar has no room next to Martis's own items (the menu button, the breadcrumbs, the search, the bell, the preferences and the user menu), so the slots leave the bar:
+
+| Preset | Where the slots render on a phone |
+|---|---|
+| `sidebar` | In the navigation drawer, under the brand, `topbar:start` then `topbar:end`, each stretched to the drawer's width |
+| `topnav` (no drawer) | At the end of the breadcrumb strip under the bar; they drop to their own line when they and the breadcrumbs do not fit on one |
+
+The component receives one prop, `placement`: `'topbar'` in the bar, `'drawer'` in the drawer, `'breadcrumbs'` in the topnav strip. A component that ignores it keeps working; one that reads it can render a fuller form in the drawer (a labelled switcher) and a compact one in the bar. The type is `TopbarSlotProps` from `@martis/runtime` (republish the extension shims to get it, see [Refreshing the extension scaffold](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade)):
+
+```tsx
+// resources/js/martis-extensions/overrides/TopbarStart.tsx
+import type { TopbarSlotProps } from '@martis/runtime'
+
+export default function HotelSwitcher({ placement }: TopbarSlotProps) {
+  return placement === 'drawer'
+    ? <label className="flex flex-col gap-1">Hotel <HotelDropdown /></label>
+    : <HotelDropdown compact />
+}
+```
+
+In the drawer the slots come first, so opening the menu focuses the slot component's first control when it has one. The drawer clips what overflows it: a popover the component opens should be portalled to `<body>`, as PrimeReact's overlays are (a `Dropdown`, an `OverlayPanel`). A slot that renders nothing leaves no empty block. The component moves between the bar and the drawer when the viewport crosses the breakpoint, so it mounts again and loses its local state.
+
+With a custom piece:
+
+- **Custom sidebar (`layout:sidebar`).** The drawer is the bundled sidebar's: a custom sidebar does not render the slots, and the bundled top bar leaves them out on a phone, so the app renders its component in its own sidebar if it wants it there.
+- **Custom top bar (`layout:topbar`) that renders a slot component itself.** On a phone the bundled sidebar already renders it in the drawer: skip it in the bar when the top bar receives `onToggleSidebar` (set only on a phone), or it renders twice. A component the app renders by hand receives the props the app gives it, not `placement`.
+
+The shell's content column never grows past the viewport (it is `minmax(0, 1fr)` since v2.14.0): a bar whose items need more than the screen (a custom top bar, or a wide `topbar:end` component on a tablet, where the slots stay in the bar) overflows the bar instead of widening and clipping every page.
 
 Use `layout:shell` (or `config.layout.components.shell`) when you want to rebuild the entire layout from scratch and don't need Martis's default mobile drawer / collapse behaviour.
 

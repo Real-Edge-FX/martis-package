@@ -363,5 +363,35 @@ describe('the top-bar slots', () => {
 
     const collapse = container.querySelector('.martis-tb-collapse-btn')!
     expect(collapse.nextElementSibling?.className).toBe('martis-tb-breadcrumbs')
+    expect(container.querySelector('.martis-sb-slots')).toBeNull()
+  })
+
+  it('pass placement "topbar" to the component in the bar', async () => {
+    componentRegistry.register('topbar:start', ({ placement }: { placement: string }) => <span>Tenant in {placement}</span>)
+    const { container } = await renderShell()
+
+    expect(container.querySelector('.martis-tb')!.textContent).toContain('Tenant in topbar')
+  })
+
+  it('render in the drawer, under the brand, on a phone, with placement "drawer"', async () => {
+    state.mobile = true
+    componentRegistry.register('topbar:start', ({ placement }: { placement: string }) => <span>Tenant in {placement}</span>)
+    componentRegistry.register('topbar:end', ({ placement }: { placement: string }) => <span>Status in {placement}</span>)
+    const { container } = await renderShell()
+
+    const topbar = container.querySelector('.martis-tb')!
+    const slots = container.querySelector('#martis-sidebar .martis-sb-slots')!
+    expect(topbar.textContent).not.toContain('Tenant')
+    expect(topbar.textContent).not.toContain('Status')
+    expect(slots.textContent).toBe('Tenant in drawerStatus in drawer')
+    expect(precedes(container.querySelector('.martis-sb-logo')!, slots)).toBe(true)
+    expect(precedes(slots, container.querySelector('.martis-sb-scroll')!)).toBe(true)
+  })
+
+  it('render no drawer block on a phone when nothing is registered', async () => {
+    state.mobile = true
+    const { container } = await renderShell()
+
+    expect(container.querySelector('.martis-sb-slots')).toBeNull()
   })
 })

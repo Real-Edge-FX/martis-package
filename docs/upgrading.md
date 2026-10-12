@@ -4,6 +4,14 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.14.0 from v2.13.x
+
+v2.14.0 keeps the shell inside the screen on a phone and moves the top-bar slots out of a phone's top bar. Nothing has to change in an app that keeps the bundled sidebar and top bar. Check these points:
+
+- **On a phone the `topbar:start` / `topbar:end` components render outside the top bar.** The sidebar preset renders them in the navigation drawer, under the brand; the topnav preset at the end of the breadcrumb strip. Up to v2.13.0 they stayed in the bar, where a component wider than the room left (a 180px switcher, or only 44px next to long breadcrumbs) widened the shell past the viewport and cut off the right part of every page. A component that should look different in the drawer reads the new `placement` prop (`'topbar'`, `'drawer'` or `'breadcrumbs'`, type `TopbarSlotProps` from `@martis/runtime`; republish the extension shims for the type). An app with a custom sidebar (`layout:sidebar`) gets no slots on a phone: render the component in that sidebar. An app with a custom top bar (`layout:topbar`) that renders a slot component itself skips it when the bar receives `onToggleSidebar` (a phone), or it renders twice, in the bar and in the drawer. See [Overrides → On a phone](overrides.md#on-a-phone-v2140).
+- **The breadcrumbs truncate.** In the sidebar preset's top bar and in the topnav strip, a crumb that does not fit ends in an ellipsis instead of pushing the bar wider; the icons and the user menu keep their room. A host stylesheet that relied on the breadcrumbs overflowing can target the new `.martis-breadcrumbs`, `.martis-breadcrumb` and `.martis-breadcrumb-label` classes.
+- **The shell's content column is `minmax(0, 1fr)`** (it was `1fr`) in the sidebar preset, on a wide screen and on a phone, so its content can never make it wider than the room it has. A custom top bar (`layout:topbar`) whose items need more than the screen now overflows the bar instead of widening the page.
+
 ## Upgrading to v2.13.0 from v2.12.x
 
 v2.13.0 makes the PrimeReact components follow a theme's font, adds the `--martis-font-feature-settings` theme variable, and links a configured favicon with a `type` that matches the file. Nothing has to change in an app at run time. Check these points:

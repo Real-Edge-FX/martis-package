@@ -25,6 +25,8 @@ vi.mock('@/components/GlobalSearch', () => ({ GlobalSearch: () => null }))
 vi.mock('@/components/PreferencesMenu', () => ({ PreferencesMenu: () => null }))
 vi.mock('@/components/Footer', () => ({ Footer: () => null }))
 vi.mock('@/components/Breadcrumbs', () => ({ Breadcrumbs: () => null }))
+const viewport = vi.hoisted(() => ({ mobile: false }))
+vi.mock('@/hooks/useIsMobile', () => ({ useIsMobile: () => viewport.mobile }))
 
 import { TopnavLayout } from './TopnavLayout'
 import { componentRegistry } from '@/lib/componentRegistry'
@@ -107,5 +109,18 @@ describe('TopnavLayout top-bar slots', () => {
     expect(follows(start, container.querySelector('.martis-topnav-links')!)).toBe(true)
     expect(follows(screen.getByRole('button', { name: 'translated:search_placeholder' }), end)).toBe(true)
     expect(follows(end, container.querySelector('.martis-tb-user')!)).toBe(true)
+    expect(container.querySelector('.martis-topnav-slots')).toBeNull()
+  })
+
+  it('renders the slots at the end of the breadcrumb strip on a phone, with placement "breadcrumbs"', () => {
+    viewport.mobile = true
+    componentRegistry.register('topbar:start', ({ placement }: { placement: string }) => <span>Tenant in {placement}</span>)
+    componentRegistry.register('topbar:end', ({ placement }: { placement: string }) => <span>Status in {placement}</span>)
+    const { container } = renderTopnav()
+
+    expect(container.querySelector('.martis-topnav-bar')!.textContent).not.toContain('Tenant')
+    expect(container.querySelector('.martis-topnav-bar')!.textContent).not.toContain('Status')
+    expect(container.querySelector('.martis-topnav-breadcrumbs .martis-topnav-slots')!.textContent).toBe('Tenant in breadcrumbsStatus in breadcrumbs')
+    viewport.mobile = false
   })
 })

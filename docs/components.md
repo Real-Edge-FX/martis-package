@@ -334,7 +334,7 @@ The resource index and lens pages share a single card surface (`.martis-index-su
 
 ### Breadcrumbs
 
-Navigation breadcrumbs showing the current path (Dashboard > Resource > Record). A package route names its crumb with an i18n key; a page your app [registered](custom-pages.md) shows its `crumb` as given. A page replaces the last crumb with `useDynamicCrumb(label)` from `@martis/runtime` (v2.2.0+), as a Tool page shows the tool's name.
+Navigation breadcrumbs showing the current path (Dashboard > Resource > Record). A package route names its crumb with an i18n key; a page your app [registered](custom-pages.md) shows its `crumb` as given. A page replaces the last crumb with `useDynamicCrumb(label)` from `@martis/runtime` (v2.2.0+), as a Tool page shows the tool's name. The trail is `nav.martis-breadcrumbs`, each crumb `.martis-breadcrumb` and its text `.martis-breadcrumb-label` (v2.14.0): when the bar has no room, the labels shrink and end in an ellipsis, the home link and the chevrons keep their size.
 
 ### ResourceIcon
 

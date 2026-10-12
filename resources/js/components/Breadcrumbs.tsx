@@ -40,7 +40,7 @@ export function Breadcrumbs() {
   }
 
   return (
-    <nav aria-label="Breadcrumbs" className="flex items-center gap-1 text-sm martis-text-muted">
+    <nav aria-label="Breadcrumbs" className="martis-breadcrumbs flex items-center gap-1 text-sm martis-text-muted">
       <Link to="/" className="flex items-center gap-1 hover:opacity-80">
         <Home size={14} />
       </Link>
@@ -48,12 +48,12 @@ export function Breadcrumbs() {
         const isLast = i === crumbs.length - 1
         const handle = m.handle as BreadcrumbHandle
         return (
-          <span key={m.id} className="flex items-center gap-1">
+          <span key={m.id} className="martis-breadcrumb flex items-center gap-1">
             <ChevronRight size={12} />
             {isLast ? (
-              <span className="font-medium martis-text">{labelFor(handle, true)}</span>
+              <span className="martis-breadcrumb-label font-medium martis-text">{labelFor(handle, true)}</span>
             ) : (
-              <Link to={m.pathname} className="hover:opacity-80">
+              <Link to={m.pathname} className="martis-breadcrumb-label hover:opacity-80">
                 {labelFor(handle, false)}
               </Link>
             )}

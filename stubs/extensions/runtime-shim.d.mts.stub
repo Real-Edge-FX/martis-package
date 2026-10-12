@@ -7476,6 +7476,22 @@ interface ActionResponseModalProps {
 }
 
 /**
+ * Where a top-bar slot component is rendered (v2.14.0):
+ *
+ * - `topbar`: in the bar itself (the sidebar preset's top bar on a wide
+ *   screen, the topnav preset's bar on a wide screen).
+ * - `drawer`: in the sidebar preset's mobile navigation drawer, under the
+ *   brand. A phone's top bar has no room next to Martis's own items.
+ * - `breadcrumbs`: in the topnav preset's breadcrumb strip on a phone (that
+ *   preset has no drawer), at the end of the strip.
+ */
+type TopbarSlotPlacement = 'topbar' | 'drawer' | 'breadcrumbs';
+/** The props a top-bar slot component receives (v2.14.0). */
+interface TopbarSlotProps {
+    placement: TopbarSlotPlacement;
+}
+
+/**
  * The `@martis/runtime` bag. Exposed on `window.Martis.runtime`
  * by `app.tsx`. Consumer-extension shims re-export from here.
  */
@@ -7570,4 +7586,4 @@ declare const martisRuntime: {
 type MartisRuntime = typeof martisRuntime;
 
 export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, ResourceIcon, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthLinkParams, useDashboardFilters, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalFocus, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
-export type { ActionResponseModalProps, ActiveFilters, AuthLinkParams, DashboardFiltersContextValue, DashboardFiltersOptions, DashboardFiltersUpdate, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, ModalFocusOptions, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, ResourceIconProps, RouteRegistration, SetDashboardFilters, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, UseToolFieldsResult };
+export type { ActionResponseModalProps, ActiveFilters, AuthLinkParams, DashboardFiltersContextValue, DashboardFiltersOptions, DashboardFiltersUpdate, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, ModalFocusOptions, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, ResourceIconProps, RouteRegistration, SetDashboardFilters, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, TopbarSlotPlacement, TopbarSlotProps, UseToolFieldsResult };

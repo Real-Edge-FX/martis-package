@@ -466,7 +466,7 @@ The sidebar preset renders, after its two skip links ("Skip to main content", "S
 
 Resolution order per piece: `config.layout.components.<piece>` → `layout:<piece>` (default registry key) → bundled component.
 
-`topbar_start` and `topbar_end` (v2.7.0) are not pieces but slots: they add a component to the top bar instead of replacing it, and render nothing when nothing is registered. Their default registry keys are `topbar:start` (after the menu and collapse buttons, before the breadcrumbs and the search) and `topbar:end` (after the preferences menu, before the user menu). The sidebar and topnav presets both render them. See [Top-bar slots](overrides.md#top-bar-slots-v270).
+`topbar_start` and `topbar_end` (v2.7.0) are not pieces but slots: they add a component to the top bar instead of replacing it, and render nothing when nothing is registered. Their default registry keys are `topbar:start` (after the menu and collapse buttons, before the breadcrumbs and the search) and `topbar:end` (after the preferences menu, before the user menu). The sidebar and topnav presets both render them. On a phone (v2.14.0) they leave the bar: the sidebar preset renders them in its navigation drawer, the topnav preset at the end of its breadcrumb strip, and the component receives its `placement`. See [Top-bar slots](overrides.md#top-bar-slots-v270) and [On a phone](overrides.md#on-a-phone-v2140).
 
 Full wiring examples, prop contracts, and the rationale for piece-by-piece vs full-shell overrides live in [overrides.md](overrides.md#shell-piece-by-piece-overrides).
 

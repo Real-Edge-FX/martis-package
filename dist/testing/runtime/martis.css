@@ -4037,7 +4037,11 @@ html[data-reduced-motion="true"] .mwc-blob {
 
 .martis-shell {
   display: grid;
-  grid-template-columns: var(--sidebar-width, 248px) 1fr;
+  /* `minmax(0, 1fr)`, not `1fr` (v2.14.0): a `1fr` track's minimum is the
+     min-content width of its items, so a top bar whose items need more
+     than the screen widened the column past the viewport, and the
+     `overflow: hidden` below clipped the right part of every page. */
+  grid-template-columns: var(--sidebar-width, 248px) minmax(0, 1fr);
   grid-template-rows: auto 1fr;
   height: 100vh;
   width: 100%;
@@ -4049,7 +4053,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   --sidebar-width: 64px;
 }
 .martis-shell[data-mobile="true"] {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 .martis-shell[data-mobile="true"] .martis-tb,
 .martis-shell[data-mobile="true"] .martis-shell-content {
@@ -4415,6 +4419,22 @@ html[data-reduced-motion="true"] .mwc-blob {
 .martis-sb[data-collapsed="true"] {
   width: 64px;
 }
+/* The top-bar slots on a phone (v2.14.0), in the drawer under the brand. */
+.martis-sb-slots {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--martis-border);
+  flex-shrink: 0;
+}
+/* Registered slot components that render nothing leave no empty block. */
+.martis-sb-slots:empty,
+.martis-topnav-slots:empty {
+  display: none;
+}
+
 .martis-sb[data-collapsed="true"] .martis-sb-logo {
   padding: 0;
   justify-content: center;
@@ -4502,6 +4522,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   position: sticky;
   top: 0;
   z-index: 10;
+  min-width: 0;
 }
 
 .martis-tb-menu-btn,
@@ -4544,6 +4565,27 @@ html[data-reduced-motion="true"] .mwc-blob {
   font-size: var(--martis-text-sm);
   min-width: 0;
   flex-shrink: 1;
+}
+
+/* Breadcrumbs truncate instead of widening the bar (v2.14.0): each crumb
+   shrinks and its label ends in an ellipsis; the home link and the
+   chevrons keep their size. The containers do not clip (`overflow`
+   stays visible), so a link's focus ring is never cut. */
+.martis-breadcrumbs {
+  min-width: 0;
+  white-space: nowrap;
+}
+.martis-breadcrumbs > a:first-child,
+.martis-breadcrumbs svg {
+  flex-shrink: 0;
+}
+.martis-breadcrumb {
+  min-width: 0;
+}
+.martis-breadcrumb-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .martis-tb-search {
@@ -4670,6 +4712,8 @@ html[data-reduced-motion="true"] .mwc-blob {
   align-items: center;
   gap: 6px;
   margin-left: auto;
+  /* The icons and the user menu keep their room; the breadcrumbs give. */
+  flex-shrink: 0;
 }
 
 .martis-tb-icon-btn {
@@ -4946,10 +4990,25 @@ html[data-reduced-motion="true"] .mwc-blob {
 .martis-topnav-breadcrumbs {
   display: flex;
   align-items: center;
+  /* The phone's slots drop to their own line when they and the
+     breadcrumbs do not fit on one (v2.14.0). */
+  flex-wrap: wrap;
+  gap: 4px 12px;
   min-height: 40px;
-  padding: 0 24px;
+  min-width: 0;
+  padding: 4px 24px;
   border-bottom: 1px solid var(--martis-border);
   background: var(--martis-bg);
+}
+
+/* The top-bar slots on a phone in the topnav preset (v2.14.0), at the end
+   of the breadcrumb strip. */
+.martis-topnav-slots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 /* Content area — single scroll container. The footer sits at the

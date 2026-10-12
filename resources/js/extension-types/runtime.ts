@@ -112,6 +112,8 @@ export type {
   UseToolFieldsResult,
   EventBusEvents,
   ActionResponseModalProps,
+  TopbarSlotProps,
+  TopbarSlotPlacement,
   LayoutProps,
   OverrideProps,
   MartisLoaderProps,

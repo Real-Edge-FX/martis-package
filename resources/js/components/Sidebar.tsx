@@ -35,6 +35,7 @@ import { ResourceIcon } from "./ResourceIcon"
 import { safeHref } from "@/lib/safeUrl"
 import { useModalFocus } from "@/hooks/useModalFocus"
 import { NAVIGATION_ID, SIDEBAR_ID, SIDEBAR_TOGGLE_ID } from "@/lib/shellIds"
+import { TopbarSlot, hasTopbarSlots } from "@/components/TopbarSlot"
 
 function getBrand(): string {
   return config.brand ?? "Martis"
@@ -466,6 +467,15 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
             <span className="martis-sb-logo-text">{brand}</span>
           ))}
         </div>
+
+        {/* v2.14.0: on a phone the top-bar slots render here, under the
+            brand, because the top bar has no room for them. */}
+        {isMobile && hasTopbarSlots() && (
+          <div className="martis-sb-slots">
+            <TopbarSlot slot="topbar_start" placement="drawer" />
+            <TopbarSlot slot="topbar_end" placement="drawer" />
+          </div>
+        )}
 
         <div className="martis-sb-scroll">
           <div className="martis-sb-group" data-open="true">
