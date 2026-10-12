@@ -233,8 +233,10 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
         </button>
       )}
 
-      {/* v2.7.0: an app's component registered under `topbar:start`. */}
-      <TopbarSlot slot="topbar_start" />
+      {/* v2.7.0: an app's component registered under `topbar:start`. On a
+          phone (v2.14.0) the bar has no room next to Martis's own items:
+          the slots render in the navigation drawer instead. */}
+      {!onToggleSidebar && <TopbarSlot slot="topbar_start" />}
 
       {/* Breadcrumbs renders its own labelled <nav>. */}
       <div className="martis-tb-breadcrumbs">
@@ -289,8 +291,9 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
 
         <PreferencesMenu ref={prefsRef} />
 
-        {/* v2.7.0: an app's component registered under `topbar:end`. */}
-        <TopbarSlot slot="topbar_end" />
+        {/* v2.7.0: an app's component registered under `topbar:end` (in
+            the drawer on a phone, v2.14.0). */}
+        {!onToggleSidebar && <TopbarSlot slot="topbar_end" />}
 
         <span className="martis-tb-divider" aria-hidden="true" />
 

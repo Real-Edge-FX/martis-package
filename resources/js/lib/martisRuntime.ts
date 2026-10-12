@@ -407,6 +407,14 @@ export type { EventBusEvents } from '@/lib/eventBus'
 export type { ActionResponseModalProps } from '@/components/Actions/ActionResponseModalHost'
 
 /**
+ * The props of a `topbar:start` / `topbar:end` slot component (v2.14.0):
+ * its `placement`, `topbar` in the bar, `drawer` in the sidebar layout's
+ * mobile drawer, `breadcrumbs` in the topnav layout's breadcrumb strip on
+ * a phone.
+ */
+export type { TopbarSlotProps, TopbarSlotPlacement } from '@/components/TopbarSlot'
+
+/**
  * Types for the v1.38.0 members: the props of a layout registered on
  * `runtime.layoutRegistry`, of an override component (what
  * `runtime.useOverrideProps()` returns), and of a loader registered

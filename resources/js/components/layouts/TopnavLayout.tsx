@@ -13,7 +13,8 @@ import {
 import { useAuth } from "@/contexts/AuthContext"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { MAIN_CONTENT_ID, NAVIGATION_ID, SkipLink, SkipToNavigationLink } from "@/components/SkipLink"
-import { TopbarSlot } from "@/components/TopbarSlot"
+import { TopbarSlot, hasTopbarSlots } from "@/components/TopbarSlot"
+import { useIsMobile } from "@/hooks/useIsMobile"
 import { GlobalSearch } from "@/components/GlobalSearch"
 import { PreferencesMenu, type PreferencesMenuHandle } from "@/components/PreferencesMenu"
 import { Footer } from "@/components/Footer"
@@ -65,6 +66,10 @@ function getBrandMark(): {
 export function TopnavLayout() {
   const { user, logout } = useAuth()
   const { t } = useTranslation("navigation")
+  // v2.14.0: on a phone the bar has no room for the top-bar slots next to
+  // the brand and the right-hand cluster, and this preset has no drawer:
+  // the slots render at the end of the breadcrumb strip instead.
+  const isMobile = useIsMobile()
   const menuRef = useRef<Menu>(null)
   const prefsRef = useRef<PreferencesMenuHandle>(null)
   const groupRefs = useRef<Map<string, OverlayPanel>>(new Map())
@@ -221,7 +226,7 @@ export function TopnavLayout() {
         </div>
 
         {/* v2.7.0: an app's component registered under `topbar:start`. */}
-        <TopbarSlot slot="topbar_start" />
+        {!isMobile && <TopbarSlot slot="topbar_start" />}
 
         <nav
           id={NAVIGATION_ID}
@@ -366,7 +371,7 @@ export function TopnavLayout() {
           <PreferencesMenu ref={prefsRef} />
 
           {/* v2.7.0: an app's component registered under `topbar:end`. */}
-          <TopbarSlot slot="topbar_end" />
+          {!isMobile && <TopbarSlot slot="topbar_end" />}
 
           <span className="martis-tb-divider" aria-hidden="true" />
 
@@ -395,6 +400,12 @@ export function TopnavLayout() {
 
       <div className="martis-topnav-breadcrumbs">
         <Breadcrumbs />
+        {isMobile && hasTopbarSlots() && (
+          <div className="martis-topnav-slots">
+            <TopbarSlot slot="topbar_start" placement="breadcrumbs" />
+            <TopbarSlot slot="topbar_end" placement="breadcrumbs" />
+          </div>
+        )}
       </div>
 
       <main id={MAIN_CONTENT_ID} tabIndex={-1} className="flex-1 overflow-auto">
