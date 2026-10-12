@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.14.0] — 2026-10-12
+
+Minor release from one consumer report: on a phone, top-bar content wider than the screen no longer widens the shell and clips every page, and the `topbar:start` / `topbar:end` slots get a phone placement, with a new `placement` prop. Nothing has to change in an app. Read [Upgrading to v2.14.0](docs/upgrading.md#upgrading-to-v2140-from-v213x).
+
+### Added
+
+- **The top-bar slots have a phone placement.** Under the mobile breakpoint the sidebar preset renders `topbar:start` and `topbar:end` in the navigation drawer, under the brand, and the topnav preset (which has no drawer) at the end of the breadcrumb strip, where they drop to their own line when they do not fit beside the breadcrumbs. A phone's top bar keeps only Martis's own items.
+- **A slot component receives `placement`**: `'topbar'`, `'drawer'` or `'breadcrumbs'`, so it can render a fuller form in the drawer and a compact one in the bar. `@martis/runtime` exports the `TopbarSlotProps` and `TopbarSlotPlacement` types. See [Overrides → On a phone](docs/overrides.md#on-a-phone-v2140).
+- **The breadcrumbs carry `.martis-breadcrumbs`, `.martis-breadcrumb` and `.martis-breadcrumb-label`**, which the truncation below styles.
+
+### Fixed
+
+- **On a phone, top-bar content wider than the screen widened the whole shell and clipped every page.** The sidebar preset's content column was `1fr`, whose minimum is the min-content width of its items, and the top bar could not shrink below its own: with a 180px `topbar:start` component the column grew to about 590px on a 375px screen, and the shell's `overflow: hidden` cut off the right part of every page (buttons, table columns, the user menu). Long breadcrumbs alone could trigger it. The column is now `minmax(0, 1fr)` (on a wide screen too), the top bar can shrink, its right-hand cluster keeps its room, and the breadcrumbs end in an ellipsis instead of widening the bar. +8 Vitest.
+
+**Tests:** 5519 Pest passed and 2099 Vitest passed (+8): 7618 in all, from 7610 at v2.13.0.
+
 ## [2.13.0] — 2026-10-11
 
 Minor release from two consumer reports: a theme's font now reaches the PrimeReact components, through the new `--martis-font-feature-settings` theme variable among others, and a configured favicon is linked with a `type` that matches the file. Nothing has to change in an app at run time; a `martis:theme:diff` CI gate asks for the new variable in the theme. Read [Upgrading to v2.13.0](docs/upgrading.md#upgrading-to-v2130-from-v212x).
