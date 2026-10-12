@@ -32,10 +32,18 @@ describe('the top bar', () => {
     expect(declarations('.martis-tb-right')).toContain('flex-shrink: 0;')
   })
 
-  it('truncates the breadcrumbs instead of widening', () => {
-    expect(declarations('.martis-tb-breadcrumbs')).toContain('overflow: hidden;')
+  it('truncates the breadcrumbs instead of widening, without clipping a focus ring', () => {
+    expect(declarations('.martis-tb-breadcrumbs')).toContain('min-width: 0;')
+    expect(declarations('.martis-tb-breadcrumbs')).not.toContain('overflow')
     expect(declarations('.martis-breadcrumbs')).toContain('min-width: 0;')
+    expect(declarations('.martis-breadcrumbs')).not.toContain('overflow')
     expect(declarations('.martis-breadcrumb')).toContain('min-width: 0;')
     expect(declarations('.martis-breadcrumb-label')).toContain('text-overflow: ellipsis;')
+  })
+})
+
+describe('the slot blocks outside the bar', () => {
+  it('hide when their components render nothing', () => {
+    expect(declarations('.martis-sb-slots:empty,\n.martis-topnav-slots:empty')).toContain('display: none;')
   })
 })

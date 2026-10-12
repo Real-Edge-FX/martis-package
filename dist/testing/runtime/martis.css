@@ -4429,6 +4429,11 @@ html[data-reduced-motion="true"] .mwc-blob {
   border-bottom: 1px solid var(--martis-border);
   flex-shrink: 0;
 }
+/* Registered slot components that render nothing leave no empty block. */
+.martis-sb-slots:empty,
+.martis-topnav-slots:empty {
+  display: none;
+}
 
 .martis-sb[data-collapsed="true"] .martis-sb-logo {
   padding: 0;
@@ -4560,15 +4565,14 @@ html[data-reduced-motion="true"] .mwc-blob {
   font-size: var(--martis-text-sm);
   min-width: 0;
   flex-shrink: 1;
-  overflow: hidden;
 }
 
 /* Breadcrumbs truncate instead of widening the bar (v2.14.0): each crumb
    shrinks and its label ends in an ellipsis; the home link and the
-   chevrons keep their size. */
+   chevrons keep their size. The containers do not clip (`overflow`
+   stays visible), so a link's focus ring is never cut. */
 .martis-breadcrumbs {
   min-width: 0;
-  overflow: hidden;
   white-space: nowrap;
 }
 .martis-breadcrumbs > a:first-child,
@@ -4992,7 +4996,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   gap: 4px 12px;
   min-height: 40px;
   min-width: 0;
-  padding: 0 24px;
+  padding: 4px 24px;
   border-bottom: 1px solid var(--martis-border);
   background: var(--martis-bg);
 }
@@ -5005,7 +5009,6 @@ html[data-reduced-motion="true"] .mwc-blob {
   gap: 8px;
   flex-shrink: 0;
   margin-left: auto;
-  padding: 4px 0;
 }
 
 /* Content area — single scroll container. The footer sits at the

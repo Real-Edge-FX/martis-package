@@ -9,19 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.14.0] — 2026-10-12
 
-Minor release from one consumer report: on a phone, top-bar content wider than the screen no longer widens the shell and clips every page, and the `topbar:start` / `topbar:end` slots get a phone placement, with a new `placement` prop. Nothing has to change in an app. Read [Upgrading to v2.14.0](docs/upgrading.md#upgrading-to-v2140-from-v213x).
+Minor release from one consumer report: on a phone, top-bar content wider than the screen no longer widens the shell and clips every page, and the `topbar:start` / `topbar:end` slots get a phone placement, with a new `placement` prop. Nothing has to change in an app that keeps the bundled sidebar and top bar; one with a custom sidebar or a custom top bar that renders a slot component itself checks the upgrade notes. Read [Upgrading to v2.14.0](docs/upgrading.md#upgrading-to-v2140-from-v213x).
 
 ### Added
 
-- **The top-bar slots have a phone placement.** Under the mobile breakpoint the sidebar preset renders `topbar:start` and `topbar:end` in the navigation drawer, under the brand, and the topnav preset (which has no drawer) at the end of the breadcrumb strip, where they drop to their own line when they do not fit beside the breadcrumbs. A phone's top bar keeps only Martis's own items.
+- **The top-bar slots have a phone placement.** Under the mobile breakpoint the sidebar preset renders `topbar:start` and `topbar:end` in the navigation drawer, under the brand, and the topnav preset (which has no drawer) at the end of the breadcrumb strip, where they drop to their own line when they do not fit beside the breadcrumbs. A phone's top bar keeps only Martis's own items. A custom sidebar (`layout:sidebar`) does not render the slots, so on a phone they show only where the app renders them.
 - **A slot component receives `placement`**: `'topbar'`, `'drawer'` or `'breadcrumbs'`, so it can render a fuller form in the drawer and a compact one in the bar. `@martis/runtime` exports the `TopbarSlotProps` and `TopbarSlotPlacement` types. See [Overrides → On a phone](docs/overrides.md#on-a-phone-v2140).
 - **The breadcrumbs carry `.martis-breadcrumbs`, `.martis-breadcrumb` and `.martis-breadcrumb-label`**, which the truncation below styles.
 
 ### Fixed
 
-- **On a phone, top-bar content wider than the screen widened the whole shell and clipped every page.** The sidebar preset's content column was `1fr`, whose minimum is the min-content width of its items, and the top bar could not shrink below its own: with a 180px `topbar:start` component the column grew to about 590px on a 375px screen, and the shell's `overflow: hidden` cut off the right part of every page (buttons, table columns, the user menu). Long breadcrumbs alone could trigger it. The column is now `minmax(0, 1fr)` (on a wide screen too), the top bar can shrink, its right-hand cluster keeps its room, and the breadcrumbs end in an ellipsis instead of widening the bar. +8 Vitest.
+- **On a phone, top-bar content wider than the screen widened the whole shell and clipped every page.** The sidebar preset's content column was `1fr`, whose minimum is the min-content width of its items, and the top bar could not shrink below its own: with a 180px `topbar:start` component the column grew to about 566px on a 375px screen (430px with a 44px one), and the shell's `overflow: hidden` cut off the right part of every page (buttons, table columns, the user menu). Long breadcrumbs alone could trigger it. The column is now `minmax(0, 1fr)` (on a wide screen too), the top bar can shrink, its right-hand cluster keeps its room, and the breadcrumbs end in an ellipsis instead of widening the bar, without clipping a focus ring. +9 Vitest.
 
-**Tests:** 5519 Pest passed and 2099 Vitest passed (+8): 7618 in all, from 7610 at v2.13.0.
+**Tests:** 5519 Pest passed and 2100 Vitest passed (+9): 7619 in all, from 7610 at v2.13.0.
 
 ## [2.13.0] — 2026-10-11
 
