@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Auth\Events\Login;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -247,6 +248,51 @@ it('does not accept the marker once 2FA was set up again with a new secret', fun
 
     $recaller = Auth::guard(GuardCatalog::martis())->getRecallerName();
     tfpProbeWithCookies([$recaller => $remember, RememberedTwoFactor::COOKIE => $marker])->assertStatus(423);
+});
+
+it('does not accept a marker from before a password change, even with the new password', function () {
+    $a = tfpUser('a@example.com');
+    [, $oldMarker] = tfpRememberedSignIn('a@example.com', true);
+
+    // The owner changes the password; whoever learns the new one signs in
+    // with "Keep me signed in" and replays the old marker.
+    $a->forceFill(['password' => bcrypt('new-pass-456')])->save();
+    $this->flushSession();
+    tfpNextRequest();
+    $recaller = Auth::guard(GuardCatalog::martis())->getRecallerName();
+    $fresh = (string) $this->postJson('/martis/api/auth/login', ['email' => 'a@example.com', 'password' => 'new-pass-456', 'keep_signed_in' => true])
+        ->assertOk()
+        ->getCookie($recaller)
+        ?->getValue();
+
+    tfpProbeWithCookies([$recaller => $fresh, RememberedTwoFactor::COOKIE => $oldMarker])->assertStatus(423);
+});
+
+it('keeps no pass for a sign-in that is not a remember-me one, whatever cookies the browser holds', function () {
+    $a = tfpUser('a@example.com');
+    [$remember, $marker] = tfpRememberedSignIn('a@example.com', true);
+    $recaller = Auth::guard(GuardCatalog::martis())->getRecallerName();
+
+    // A host's own sign-in route (no remember flag) in a browser that holds
+    // a valid remember-me cookie and marker of the same user.
+    $this->flushSession();
+    tfpNextRequest();
+    $request = Request::create('/martis/api/_meta/guards', 'GET', [], [$recaller => $remember, RememberedTwoFactor::COOKIE => $marker]);
+    $request->setLaravelSession(app('session.store'));
+    app()->instance('request', $request);
+    Auth::guard(GuardCatalog::martis())->login($a);
+
+    expect(app('session.store')->get(TwoFactorPass::SESSION_KEY))->toBeNull();
+});
+
+it('drops the marker on sign-out', function () {
+    tfpUser('a@example.com');
+    tfpRememberedSignIn('a@example.com', true);
+
+    $forget = $this->postJson('/martis/api/auth/logout')->getCookie(RememberedTwoFactor::COOKIE, false);
+
+    expect($forget)->not->toBeNull();
+    expect($forget->getExpiresTime())->toBeLessThan(time());
 });
 
 it('asks for the challenge on every new session when trust_remember_me is off', function () {

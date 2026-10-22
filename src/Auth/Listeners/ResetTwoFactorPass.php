@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Martis\Auth\Listeners;
 
 use Illuminate\Auth\Events\Login;
-use Illuminate\Auth\SessionGuard;
 use Illuminate\Contracts\Session\Session;
 use Martis\Auth\GuardCatalog;
 use Martis\Auth\RememberedTwoFactor;
@@ -47,8 +46,9 @@ final class ResetTwoFactorPass
 
         TwoFactorPass::revoke($session);
 
-        $guard = auth()->guard($event->guard);
-        if ($guard instanceof SessionGuard && $guard->viaRemember() && RememberedTwoFactor::trusts(request(), $event->user)) {
+        // Only a remember-me sign-in (Login with remember) whose cookie and
+        // marker both name this user now keeps the pass.
+        if ($event->remember && RememberedTwoFactor::trusts(request(), $event->user)) {
             TwoFactorPass::grant($session, $event->user);
         }
     }

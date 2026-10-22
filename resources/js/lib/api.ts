@@ -117,8 +117,9 @@ function redirectOnPasswordChangeRequired(): void {
  * challenge page itself, so a 423 there cannot loop.
  */
 function redirectOnTwoFactorRequired(): void {
+  // The same test as AuthContext's boot check, so the two agree on the page.
   const target = BASE_PATH + '/2fa/challenge'
-  if (isOnPage(target)) return
+  if (window.location.pathname.startsWith(target)) return
   window.location.href = target
 }
 
