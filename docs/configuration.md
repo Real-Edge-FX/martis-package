@@ -981,6 +981,10 @@ Per-subsystem cache layer with three control planes (config / env / runtime), by
     'two_factor' => [
         'enabled' => true,
         'recovery_codes' => 8,
+        // "Keep me signed in" survives the challenge, as in Nova (v2.15.0;
+        // env MARTIS_2FA_TRUST_REMEMBER_ME). False: every new session meets
+        // the challenge again.
+        'trust_remember_me' => true,
     ],
     'account' => [
         // When false, the e-mail cannot be changed from the profile: the
@@ -1521,6 +1525,7 @@ php artisan martis:list-env-vars --json      # JSON array
 |----------|---------|
 | `MARTIS_2FA_ENABLED` | `true` |
 | `MARTIS_2FA_RECOVERY_CODES` | `8` |
+| `MARTIS_2FA_TRUST_REMEMBER_ME` | `true` |
 | `MARTIS_ACTION_EVENTS_ENABLED` | `true` |
 | `MARTIS_ACTION_EVENTS_RESOURCE` | `true` |
 | `MARTIS_ALLOW_BRAND_COLOR` | `false` |
