@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.15.0] — 2026-10-22
+
+Minor release from two consumer reports and two bugs found while fixing them: the notifications and preferences panels open inside a phone screen, an action that answers `openInNewTab()` opens its tab reliably with the new `opensInNewTab()`, a confirmation modal is never blank, and an action without a modal runs once. Nothing has to change in an app; an action that opens a tab adds `opensInNewTab()`. Read [Upgrading to v2.15.0](docs/upgrading.md#upgrading-to-v2150-from-v214x).
+
+### Added
+
+- **`Action::opensInNewTab()`**: declares that the run answers `ActionResponse::openInNewTab()`, so the panel opens a blank tab on the click that runs the action (Run Action, or the click on an action that skips the modal) and sends it to the URL of the answer. Any other answer, a failed run or a refused URL closes it, and its `opener` is cut. Serialised as `opensInNewTab` in the action metadata. Not on `ActionContract`, so a class implementing the contract keeps compiling. See [Actions → Opening a new tab](docs/actions.md#opening-a-new-tab).
+- **`addToast()` takes an optional link**, `addToast(type, message, { link: { href, label } })`, rendered under the message (`.martis-toast-link`, `target="_blank" rel="noopener noreferrer"`); a toast with a link stays 10 seconds. Also through `useToast()` of `@martis/runtime` (republish the extension shims for the `ToastLink` type).
+
+### Fixed
+
+- **An `openInNewTab()` answer did not open its tab reliably.** The panel opened the tab only after the action's request returned, no longer tied to the click, so Safari (desktop and iOS) always blocked it and the other browsers did after a few seconds; with `noopener` the panel could not even tell, and nothing happened. With `opensInNewTab()` the tab opens on the click. Without it the tab still opens on the answer, now without the `noopener` feature (the opener is cut right after), so a blocked tab is detected: either way a blocked tab leaves a warning toast with a link to the page. See [Actions → Opening a new tab](docs/actions.md#opening-a-new-tab).
+- **A confirmation modal of an action with no `confirmText()` opened with a blank body.** It now shows Nova's default, "Are you sure you want to run this action?" (translated, `actions.confirm_run`), whenever the action asks for confirmation.
+- **An action without a modal could run twice.** The resource and pivot action modals rearmed their auto-execute guard in an effect that ran after the render that executed the action, so a render before the request was pending (the action's fields query resolving, for one) posted it again. The guard is now rearmed when the modal closes.
+- **The `MartisNotification::make()` example passed `level` as a string**, a `TypeError`: it takes a `Martis\Enums\NotificationLevel` case. The docs now show the enum.
+- On a phone, the notifications panel and the preferences panel open inside the screen. The notifications panel, right-aligned to a bell that sits away from the right edge, ran off the left edge; it now shifts back to an 8px gutter and caps its height to the room under the top bar (`--martis-notif-shift` and `--martis-notif-room` on `.martis-notif-panel`). The preferences panel spans the screen 8px from each edge up to 640px wide, and on any screen its height is capped to the room under the top bar with its content scrolling, instead of flipping above the trigger with its bottom cut off.
+
+**Tests:** 5520 Pest passed (+1) and 2134 Vitest passed (+34): 7654 in all, from 7619 at v2.14.0.
+
 ## [2.14.0] — 2026-10-12
 
 Minor release from one consumer report: on a phone, top-bar content wider than the screen no longer widens the shell and clips every page, and the `topbar:start` / `topbar:end` slots get a phone placement, with a new `placement` prop. Nothing has to change in an app that keeps the bundled sidebar and top bar; one with a custom sidebar or a custom top bar that renders a slot component itself checks the upgrade notes. Read [Upgrading to v2.14.0](docs/upgrading.md#upgrading-to-v2140-from-v213x).

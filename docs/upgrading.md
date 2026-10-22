@@ -4,6 +4,15 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.15.0 from v2.14.x
+
+v2.15.0 opens the tab of an `openInNewTab()` answer reliably, fills the blank confirmation modal and keeps the notifications and preferences panels inside a phone screen. Nothing has to change in an app. Check these points:
+
+- **Declare `opensInNewTab()` on an action whose run answers `ActionResponse::openInNewTab()`.** Without it the tab still opens after the request, where Safari and slow runs block it (a warning toast with a link now says so). With it the tab opens on the click; an action that answers something else would flash a blank tab, so declare it only where the answer is `openInNewTab()`. An app that overrides the action modal (`component:ActionModal` in the registry) does not get the early tab. See [Actions → Opening a new tab](actions.md#opening-a-new-tab).
+- **A tab opened after the answer now sends the panel's origin as the referrer.** It was opened with `noopener,noreferrer`, which made a blocked tab undetectable; it now opens without those features and the panel cuts `opener` right after. Under the browser's default referrer policy the destination receives the panel's origin only, not the path. Serve the panel with `Referrer-Policy: no-referrer` if that matters.
+- **A confirmation modal without `confirmText()` shows "Are you sure you want to run this action?"**, also above the fields of an action that has them, as Nova does. Set `confirmText()` for your own sentence; override `actions.confirm_run` in `lang/vendor/martis` to change the default.
+- **A theme that restyles `.martis-notif-panel`** keeps `right: var(--martis-notif-shift, 0px)` and `max-height: min(420px, var(--martis-notif-room, 420px))`, or the panel runs off a phone screen again. See [Notifications → On a phone](notifications.md#configuration).
+
 ## Upgrading to v2.14.0 from v2.13.x
 
 v2.14.0 keeps the shell inside the screen on a phone and moves the top-bar slots out of a phone's top bar. Nothing has to change in an app that keeps the bundled sidebar and top bar. Check these points:
