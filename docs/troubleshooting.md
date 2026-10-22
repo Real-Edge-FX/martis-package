@@ -61,6 +61,17 @@ php artisan martis:install --force --no-interaction --with-profile --with-2fa
 
 The package merges its config into yours with Laravel's `mergeConfigFrom()`, which only merges top-level keys. A published `config/martis.php` keeps its whole `audit`, `search`, `profile`, ... array, so a key added to one of those arrays in a newer release is simply absent, and its env switch does nothing. Add the new key to your published config by hand (the release notes list it), or re-publish with `php artisan martis:install --force-config` (destroys your customisations), then `php artisan config:clear`.
 
+### `npm install` fails with "Cannot read properties of null (reading 'edgesOut')"
+
+The npm of Node 20 (10.8.x) cannot install the current `laravel/laravel` skeleton, with or without Martis: its dependency resolver crashes on the skeleton's optional peer dependencies, so `npm install` after `martis:install` (or in a brand-new app) stops with this error. Martis is not involved, and nothing it writes to `package.json` triggers it. Install with Node 22 or later (npm 10.9+), the version the Martis smoke test runs a fresh app on:
+
+```bash
+node -v    # v22.x or later
+npm install
+```
+
+On Node 20, upgrading npm alone (`npm install -g npm@10.9`) is not enough in every environment; switch the Node version (nvm, Volta, your CI's `setup-node`).
+
 ### Assets 404 after install
 
 The package ships precompiled assets under `public/vendor/martis`. Republish them:
