@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -14,7 +14,7 @@ import { ActionDryRunPreview } from '@/components/Actions/ActionDryRunPreview'
 import type { FieldDefinition } from '@/types'
 import { useNavigate } from 'react-router'
 import { martisEventBus } from '@/lib/eventBus'
-import { handleActionResponse } from '@/components/Actions/actionResponse'
+import { closeActionTab, handleActionResponse, openActionTab } from '@/components/Actions/actionResponse'
 import { useActionResponseModal } from '@/components/Actions/ActionResponseModalHost'
 
 // -------------------------------------------------------------------------
@@ -76,10 +76,21 @@ export function PivotActionModal({
   const [preview, setPreview] = useState<unknown>(undefined)
   const [animVisible, setAnimVisible] = useState(false)
   const autoExecuted = useRef(false)
+  // The tab of an opensInNewTab() action that skips the modal, opened on the
+  // click while its fields load (`undefined`: none opened).
+  const earlyTab = useRef<Window | null | undefined>(undefined)
 
+  // The modal mounts per run, so autoExecuted needs no reset: resetting it in
+  // this effect ran after the render that auto-executed, and the next render
+  // ran the action again.
   useEffect(() => {
     requestAnimationFrame(() => setAnimVisible(true))
-    autoExecuted.current = false
+    // A modal closed while its fields load leaves no blank tab behind.
+    const tabs = earlyTab
+    return () => {
+      closeActionTab(tabs.current)
+      tabs.current = undefined
+    }
   }, [])
 
   const handleBackdropClose = useCallback(() => {
@@ -114,7 +125,9 @@ export function PivotActionModal({
     // Each run starts without the errors of the last one, as every form
     // clears its errors before a save.
     onMutate: () => setFieldErrors({}),
-    mutationFn: (params: { dryRun?: boolean }) =>
+    // `tab`: the blank tab of an `opensInNewTab()` action, opened on the click.
+    // `auto` marks the run of an action that skips the modal.
+    mutationFn: (params: { dryRun?: boolean; tab?: Window | null; auto?: boolean }) =>
       api.post<{ data: { type?: string; data?: Record<string, unknown>; preview?: unknown } }>(
         actionUrl,
         {
@@ -134,9 +147,13 @@ export function PivotActionModal({
       // The same answers as the resource action modal (v2.3.0); a pivot
       // panel has no drawer to open, so openCreate/openDetail/openUpdate
       // fall back to a success toast.
-      handleActionResponse(res?.data, { t, addToast, navigate, hide: onClose, refresh: onSuccess, showModal })
+      handleActionResponse(res?.data, { t, addToast, navigate, hide: onClose, refresh: onSuccess, showModal, tab: params.tab })
     },
-    onError: (err: Error) => {
+    onError: (err: Error, params) => {
+      closeActionTab(params.tab)
+      // A run without a modal has nothing on screen to retry from: close it
+      // so a new click runs it again. The toast below says what failed.
+      if (params.auto) onClose()
       if (err instanceof ApiError && err.errors && err.errors.length > 0) {
         const mapped: Record<string, string> = {}
         for (const e of err.errors) {
@@ -157,12 +174,26 @@ export function PivotActionModal({
   // A dry-run action opens the modal so Preview can be offered before it runs.
   const needsConfirmation = action.withConfirmation || hasFields || action.supportsDryRun
 
-  // Auto-execute if no confirmation or fields needed (only once)
-  if (!needsConfirmation && !autoExecuted.current && !executeMutation.isPending) {
+  const { mutate: execute } = executeMutation
+  const fieldsPending = fieldsQuery.isPending
+
+  // Run an action that needs no modal, as the resource action modal does:
+  // in a layout effect of the commit the click caused, so an opensInNewTab()
+  // tab still opens, and only once its fields have loaded.
+  useLayoutEffect(() => {
+    if (autoExecuted.current || action.withConfirmation || action.supportsDryRun) return
+    if (action.opensInNewTab && earlyTab.current === undefined) earlyTab.current = openActionTab()
+    if (fieldsPending) return
+
+    const tab = earlyTab.current
+    earlyTab.current = undefined
+    if (hasFields) {
+      closeActionTab(tab)
+      return
+    }
     autoExecuted.current = true
-    setTimeout(() => executeMutation.mutate({}), 0)
-    return null
-  }
+    execute({ tab, auto: true })
+  }, [action, fieldsPending, hasFields, execute])
 
   if (!needsConfirmation) return null
 
@@ -204,8 +235,8 @@ export function PivotActionModal({
         </div>
 
         <div className="martis-modal-body">
-          {action.confirmText && (
-            <p className="mb-4">{action.confirmText}</p>
+          {action.withConfirmation && (
+            <p className="mb-4">{action.confirmText ?? t('confirm_run')}</p>
           )}
           {hasFields && (
             <div className="space-y-4">
@@ -256,7 +287,7 @@ export function PivotActionModal({
           </button>
           <button
             type="button"
-            onClick={() => executeMutation.mutate({})}
+            onClick={() => executeMutation.mutate({ tab: action.opensInNewTab ? openActionTab() : undefined })}
             disabled={executeMutation.isPending}
             className={action.destructive ? 'martis-btn-danger' : 'martis-btn-primary'}
           >

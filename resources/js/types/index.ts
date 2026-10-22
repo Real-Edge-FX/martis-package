@@ -676,6 +676,7 @@ export interface ResourceSchema extends ResourceEmbedded {
     confirmText?: string | null
     confirmButtonText?: string | null
     cancelButtonText?: string | null
+    opensInNewTab?: boolean
     modalSize?: string
     supportsDryRun?: boolean
     customComponent?: string | null

@@ -10,6 +10,7 @@ import { Toast, type ToastMessage } from "primereact/toast"
 import { CheckIcon, InfoIcon, WarningIcon, XIcon } from "@phosphor-icons/react"
 import { useTranslation } from "react-i18next"
 import { config } from "@/lib/config"
+import { safeHref } from "@/lib/safeUrl"
 
 type ToastType = "success" | "error" | "warning" | "info"
 type Severity = "success" | "error" | "warn" | "info"
@@ -23,8 +24,15 @@ interface ToastContentArgs {
   onClick?: (event: ReactMouseEvent) => void
 }
 
+/** A link shown under a toast's message, opened in a new tab. Following it is
+ *  a fresh click, so the browser lets it open a tab that was blocked. */
+export interface ToastLink {
+  href: string
+  label: string
+}
+
 interface ToastContextValue {
-  addToast: (type: ToastType, message: string) => void
+  addToast: (type: ToastType, message: string, options?: { link?: ToastLink }) => void
   toastRef: React.RefObject<Toast | null>
 }
 
@@ -66,8 +74,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation("messages")
 
   const addToast = useCallback(
-    (type: ToastType, message: string) => {
-      const life = 5000
+    (type: ToastType, message: string, options?: { link?: ToastLink }) => {
+      // Only an http(s), mailto:/tel: or same-origin link renders: an
+      // extension may build it from stored data (a `javascript:` href would
+      // run in the panel on click).
+      const link = options?.link
+      const linkHref = link ? safeHref(link.href) : undefined
+      // A toast with a link stays longer: the person has to reach it.
+      const life = linkHref ? 10000 : 5000
       // Build the message object first so we can pass the same reference to
       // remove() in the safety-net timeout. Using clear() would wipe every
       // active toast; remove() targets only this specific message.
@@ -94,6 +108,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="martis-toast-title">{t(severityTitleKey[type])}</div>
                 <div className="martis-toast-message">{message}</div>
+                {link && linkHref && (
+                  <a
+                    className="martis-toast-link"
+                    href={linkHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => onClose?.(e)}
+                  >
+                    {link.label}
+                  </a>
+                )}
               </div>
               <button
                 type="button"

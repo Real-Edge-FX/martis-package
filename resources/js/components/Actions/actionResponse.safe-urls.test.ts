@@ -86,10 +86,26 @@ describe('an openInNewTab answer', () => {
     expect(errorSpy).toHaveBeenCalled()
   })
 
-  it('opens an http(s) URL without an opener', () => {
+  it('opens a blank tab, cuts its opener, then sends it to an http(s) URL', () => {
+    const replace = vi.fn((_url: string) => {
+      // The opener is already gone when the page starts loading.
+      expect(tab.opener).toBeNull()
+    })
+    const tab = { opener: window as Window | null, closed: false, location: { replace } } as unknown as Window
+    openSpy.mockReturnValue(tab)
     handleActionResponse({ type: 'openInNewTab', data: { url: 'https://example.com/report' } }, context())
 
-    expect(openSpy).toHaveBeenCalledWith('https://example.com/report', '_blank', 'noopener,noreferrer')
+    expect(openSpy).toHaveBeenCalledWith('', '_blank')
+    expect(replace).toHaveBeenCalledWith('https://example.com/report')
+  })
+
+  it.each(UNSAFE)('does not send the tab opened on the click to %j, and closes it', (url) => {
+    const tab = { closed: false, close: vi.fn(), location: { replace: vi.fn() } }
+    handleActionResponse({ type: 'openInNewTab', data: { url } }, context({ tab: tab as unknown as Window }))
+
+    expect(tab.location.replace).not.toHaveBeenCalled()
+    expect(tab.close).toHaveBeenCalled()
+    expect(errorSpy).toHaveBeenCalled()
   })
 })
 

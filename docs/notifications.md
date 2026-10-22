@@ -62,19 +62,20 @@ Two styles depending on how often you'll send the same shape.
 Ideal when the notification is built ad-hoc inside a controller / job / model event:
 
 ```php
+use Martis\Enums\NotificationLevel;
 use Martis\Notifications\MartisNotification;
 
 $user->notify(MartisNotification::make(
     title: 'Invoice paid',
     message: 'INV-2026-001 has been paid.',
-    level: 'success',                                 // info | success | warning | danger
+    level: NotificationLevel::Success,               // Info | Success | Warning | Danger
     icon: 'check-circle',                             // any Phosphor icon name (kebab-case)
     actionUrl: '/martis/resources/invoices/42',       // click target
     actionLabel: 'View invoice',                      // CTA label rendered next to the timestamp
 ));
 ```
 
-Only `title` is required. `message` defaults to `''`, `level` defaults to `info`, the icon falls back to a level-default (info / check-circle / warning / warning-circle), and `actionUrl` / `actionLabel` are optional.
+Only `title` is required. `message` defaults to `''`, `level` takes a `Martis\Enums\NotificationLevel` case (a string such as `'success'` is a `TypeError`) and defaults to `NotificationLevel::Info`, the icon falls back to a level-default (info / check-circle / warning / warning-circle), and `actionUrl` / `actionLabel` are optional.
 
 **Style B — reusable, dedicated class**
 
@@ -189,6 +190,8 @@ In addition to the keys above, every row carries Laravel's standard notification
 | `max_in_dropdown` | Maximum entries shown in the dropdown. Older entries live behind a future "View all" link. Capped at 50 server-side. |
 
 **Hiding notifications + the bell.** `enabled` is the single switch for "do I want system notifications in this panel?" Set it to `false` (or `MARTIS_NOTIFICATIONS_ENABLED=false`) and the bell icon next to the user profile disappears, polling stops, and the REST endpoints return empty payloads. There is no separate `user_menu` toggle for the bell — this is it.
+
+**On a phone (v2.15.0).** The panel is 360px wide and right-aligned to the bell, but it never leaves the screen: the bell measures itself when the panel opens (and on resize), moves the panel right until it sits 8px from the left edge, and caps its height to the room under the top bar (the list scrolls). It writes the two values as CSS variables on `.martis-notif-panel`, `--martis-notif-shift` (used by `right`) and `--martis-notif-room` (used by `max-height`, with `420px` as the upper bound). A theme that restyles the panel keeps those two declarations, or the panel runs off a phone screen again.
 
 ## Scoping the notification centre
 

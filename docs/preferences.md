@@ -231,6 +231,10 @@ User rows in `martis_user_preferences` replace session-only state. URL presets (
 
 ---
 
+### Fits a phone screen (v2.15.0)
+
+On a screen up to 640px wide the panel spans the width, 8px from each edge (`.p-overlaypanel.martis-preferences-panel` in `martis.css`), instead of PrimeReact's 320px panel pushed against the left edge. On any screen its height is capped to the room under the top bar, measured each time it opens, and the content scrolls: a panel taller than that room used to flip above the trigger, where a short screen cut its bottom off.
+
 ## Migration
 
 ```bash

@@ -722,6 +722,8 @@ PublishPosts::make()
     ->withoutConfirmation()                  // skip modal entirely (runs immediately)
 ```
 
+An action without `confirmText()` shows "Are you sure you want to run this action?" (translated) in its confirmation modal, Nova's default, so the modal never opens with a blank body (v2.15.0). The sentence shows whenever the action asks for confirmation, fields or not; an action with `withoutConfirmation()` that still opens the modal for its fields or for Preview shows none. An action with `withoutConfirmation()` runs only once its fields have loaded, and opens the modal instead when it has some (v2.15.0: it used to run before they loaded, without them). When a run without a modal fails, the error toast shows and the action can be run again.
+
 ---
 
 ## Icons
@@ -893,7 +895,7 @@ class PostResource extends Resource
 | `ActionResponse::danger('Failed')` | Red error toast, then the page refreshes |
 | `ActionResponse::redirect($url)` | Full-page browser redirect to an `http(s)` URL or a path (see [Response URLs](#response-urls)) |
 | `ActionResponse::visit($path, $params)` | SPA navigation (no reload) to `$path` below the Martis base path, with `$params` added to its query string (`visit('/resources/users', ['view' => 'open'])`); a query or `#fragment` the path already has is kept (`visit('/resources/users?view=open#top', ['page' => 2])` goes to `/resources/users?view=open&page=2#top`) |
-| `ActionResponse::openInNewTab($url)` | Opens the URL in a new tab (an `http(s)` URL or a path) |
+| `ActionResponse::openInNewTab($url)` | Opens the URL in a new tab (an `http(s)` URL or a path). Declare `opensInNewTab()` on the action so the tab opens reliably (see [Opening a new tab](#opening-a-new-tab)) |
 | `ActionResponse::download($filename, $url)` | Downloads the file as `$filename` (an `http(s)` URL or a path) |
 | `ActionResponse::emit($event, $data)` | Emits `$event` with `$data` on `martisEventBus`, then the success toast (see [Client-side events](#client-side-events)) |
 | `ActionResponse::modal($component, $data)` | Shows the component registered under `$component` (see [Custom modal responses](#custom-modal-responses)) |
@@ -904,6 +906,37 @@ Every successful run fires `martis:action-executed` on `martisEventBus`, and das
 ### Response URLs
 
 `redirect()`, `openInNewTab()` and `download()` hand their URL to the browser, and a `javascript:` URL there would run script in the panel with the viewer's session. They take an `http(s)` URL or a path (`/exports/posts.csv`, `//cdn.example.com/file`, `exports/posts.csv`) and, since v2.4.0, throw an `InvalidArgumentException` for any other scheme (`javascript:`, `data:`, `vbscript:`, `file:`, `mailto:`, `blob:`, ...), however it is spelled (leading spaces, tabs inside the scheme). The panel refuses the same URLs on its side too (a console error, nothing navigates), as `visit()` already refuses a path outside the app. A URL built from record data is therefore safe to pass; a `data:` download is not supported, serve the file from a route or a signed URL instead.
+
+### Opening a new tab
+
+A browser lets a page open a tab only while it handles a click. The answer of an action arrives after its request, no longer tied to the click that ran it, so a tab opened then is blocked: always by Safari (desktop and iOS), and by the other browsers when the run takes more than a few seconds. Declare it on the action and the panel opens a blank tab on the click itself (Run Action, or the click on an action that skips the modal), then sends it to the URL of the answer (v2.15.0):
+
+```php
+OpenInStripe::make()
+    ->opensInNewTab()
+    ->withoutConfirmation();
+
+// in handle():
+return ActionResponse::openInNewTab("https://dashboard.stripe.com/customers/{$customer->stripe_id}");
+```
+
+- Any other answer (`message()`, `danger()`, ...), a failed run or a refused URL closes the blank tab, so declare it only on an action whose run answers `openInNewTab()`.
+- The new tab's `opener` is cut before it leaves `about:blank`, as `rel="noopener"` would, so the page cannot reach back into the panel. The panel's origin is sent as the referrer (the browser's default policy sends the origin only to another site); serve the panel with `Referrer-Policy: no-referrer` to send none.
+- A run that never answers (the request hangs, or the panel tab is reloaded meanwhile) leaves the blank tab open.
+- When the browser blocks the tab anyway (a popup blocker set to block everything), a warning toast says so and carries a link to the page: following a link is a fresh click, which the browser lets through. An action without `opensInNewTab()` opens its tab the same way when the answer arrives, and gets the same warning when that late tab is blocked, instead of failing silently.
+- `opensInNewTab()` is on `Martis\Actions\Action`, not on `ActionContract`, so a class that implements the contract itself keeps compiling.
+
+**A link needs no action.** When the page to open is known when the row renders (a customer's page in Stripe, an invoice PDF on a CDN) and the click does no server work, show it as a computed `Url` field instead: it renders a plain link (`target="_blank" rel="noopener noreferrer"`), so no request runs and no browser blocks it, and `canSee()` decides who gets it.
+
+```php
+Url::make('stripe', 'Stripe')
+    ->computed(fn (Customer $customer): ?string => $customer->stripe_id !== null
+        ? "https://dashboard.stripe.com/customers/{$customer->stripe_id}"
+        : null)
+    ->displayText('Open in Stripe')
+    ->exceptOnForms()
+    ->canSee(fn (Request $request): bool => $request->user()->can('viewBilling')),
+```
 
 ### Custom modal responses
 

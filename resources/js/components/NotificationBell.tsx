@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -12,6 +12,7 @@ import { useEscapeLayer } from '@/lib/escapeLayers'
 import { isSafeInternalPath } from '@/lib/safeInternalPath'
 import { openExternal } from '@/lib/openExternal'
 import { useFormatLocale } from '@/lib/formatLocale'
+import { topbarPopoverRoom, topbarPopoverShift } from '@/lib/topbarPopover'
 
 interface NotificationItem {
   id: string
@@ -37,6 +38,9 @@ interface UnreadCountResponse {
 
 const POLL_DEFAULT = 90_000
 
+/** Gap between the bell and the panel (`top: calc(100% + 8px)` in martis.css). */
+const PANEL_GAP = 8
+
 /**
  * Bell button + dropdown panel for the in-app notifications subsystem.
  * Polls `/martis/api/notifications/unread-count` at the configured
@@ -51,6 +55,8 @@ export function NotificationBell() {
   const qc = useQueryClient()
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [fit, setFit] = useState<{ shift: number; room: number } | null>(null)
 
   const enabled = config.notifications?.enabled !== false
   const pollInterval = config.notifications?.poll_interval ?? POLL_DEFAULT
@@ -68,6 +74,31 @@ export function NotificationBell() {
   }, [open])
 
   useEscapeLayer(open, () => setOpen(false))
+
+  // Keep the panel inside the screen: on a phone the bell sits away from
+  // the right edge, so the right-aligned panel would run off the left edge,
+  // and a short screen leaves less room than the panel's max-height.
+  useLayoutEffect(() => {
+    if (!open) return
+    function place() {
+      const wrapper = wrapperRef.current
+      const panel = panelRef.current
+      if (!wrapper || !panel) return
+      const anchor = wrapper.getBoundingClientRect()
+      setFit({
+        shift: topbarPopoverShift(anchor.right, panel.offsetWidth),
+        room: topbarPopoverRoom(anchor.bottom, PANEL_GAP),
+      })
+    }
+    place()
+    // A scroll that moves the top bar changes the room under it.
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, { capture: true, passive: true })
+    return () => {
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, { capture: true })
+    }
+  }, [open])
 
   // Cheap badge polling — single COUNT query on the server.
   const unreadQuery = useQuery({
@@ -207,7 +238,16 @@ export function NotificationBell() {
       {open && (
         <>
           <span className="martis-notif-arrow" aria-hidden="true" />
-        <div className="martis-notif-panel" role="dialog" aria-label={t('notifications', 'Notifications')}>
+        <div
+          ref={panelRef}
+          className="martis-notif-panel"
+          role="dialog"
+          aria-label={t('notifications', 'Notifications')}
+          style={fit ? ({
+            '--martis-notif-shift': `${fit.shift}px`,
+            '--martis-notif-room': `${fit.room}px`,
+          } as CSSProperties) : undefined}
+        >
           <header className="martis-notif-head">
             <strong>{t('notifications', 'Notifications')}</strong>
             <div className="martis-notif-head-actions">

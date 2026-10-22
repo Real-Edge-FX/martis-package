@@ -79,6 +79,9 @@ class Action implements ActionContract
 
     protected ?ModalSize $modalSize = null;
 
+    /** The run answers `ActionResponse::openInNewTab()`: the panel opens the tab on the click. */
+    protected bool $opensInNewTab = false;
+
     // -------------------------------------------------------------------------
     // Then callback (non-queued actions)
     // -------------------------------------------------------------------------
@@ -371,6 +374,24 @@ class Action implements ActionContract
         return $this;
     }
 
+    /**
+     * Declare that the run answers `ActionResponse::openInNewTab()`.
+     *
+     * The panel then opens a blank tab on the click that runs the action
+     * (Run Action, or the action itself when it skips the modal) and sends
+     * it to the URL once the answer arrives. A tab opened only after the
+     * request returns is no longer tied to a click, so Safari, and the other
+     * browsers on a slow run, block it. Any other answer, or an error,
+     * closes the blank tab. Not on `ActionContract`, so an application's own
+     * implementation of the contract keeps compiling.
+     */
+    public function opensInNewTab(bool $value = true): static
+    {
+        $this->opensInNewTab = $value;
+
+        return $this;
+    }
+
     /** {@inheritdoc} */
     public function size(ModalSize $size): static
     {
@@ -619,6 +640,7 @@ class Action implements ActionContract
             'confirmText' => $this->confirmText,
             'confirmButtonText' => $this->confirmButtonText,
             'cancelButtonText' => $this->cancelButtonText,
+            'opensInNewTab' => $this->opensInNewTab,
             'modalSize' => ($this->modalSize ?? ModalSize::Medium)->value,
             'supportsDryRun' => $this->supportsDryRun,
             'customComponent' => $this->customComponent,

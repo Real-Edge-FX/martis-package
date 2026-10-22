@@ -464,6 +464,7 @@ interface ResourceSchema extends ResourceEmbedded {
         confirmText?: string | null;
         confirmButtonText?: string | null;
         cancelButtonText?: string | null;
+        opensInNewTab?: boolean;
         modalSize?: string;
         supportsDryRun?: boolean;
         customComponent?: string | null;
@@ -1254,8 +1255,16 @@ declare class Toast extends React$1.Component<ToastProps, any> {
 }
 
 type ToastType = "success" | "error" | "warning" | "info";
+/** A link shown under a toast's message, opened in a new tab. Following it is
+ *  a fresh click, so the browser lets it open a tab that was blocked. */
+interface ToastLink {
+    href: string;
+    label: string;
+}
 interface ToastContextValue {
-    addToast: (type: ToastType, message: string) => void;
+    addToast: (type: ToastType, message: string, options?: {
+        link?: ToastLink;
+    }) => void;
     toastRef: React.RefObject<Toast | null>;
 }
 declare function useToast(): ToastContextValue;

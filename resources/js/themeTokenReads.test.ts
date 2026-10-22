@@ -58,6 +58,7 @@ const CONFIG_VARIABLES = ['--martis-brand-logo-height-auth', '--martis-brand-log
 const ALLOWED_UNDEFINED = [
   '--martis-field-span', '--martis-field-span-md', '--martis-field-span-lg', '--martis-field-columns',
   '--martis-card-span', '--martis-card-span-md', '--martis-card-span-lg', '--martis-filter-span',
+  '--martis-notif-shift', '--martis-notif-room',
   '--martis-tooltip-bg', '--martis-tooltip-text',
 ]
 
