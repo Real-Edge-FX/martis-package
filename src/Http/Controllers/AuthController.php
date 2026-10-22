@@ -16,6 +16,7 @@ use Martis\Auth\AccountLoginThrottle;
 use Martis\Auth\PanelAccess;
 use Martis\Auth\PasswordBrokerConfigurationException;
 use Martis\Auth\PasswordChangeRequirement;
+use Martis\Auth\RememberedTwoFactor;
 use Martis\Auth\TwoFactorPass;
 use Martis\Contracts\ProfileResourceContract;
 use Martis\Contracts\RegistersUsers;
@@ -242,6 +243,7 @@ class AuthController extends MartisController
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         SsoSession::forget($request);
+        RememberedTwoFactor::forget();
 
         if ($logoutUrl !== '') {
             // Replace `{post_logout_redirect_uri}` with the canonical

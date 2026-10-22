@@ -1536,6 +1536,11 @@ return [
         'two_factor' => [
             'enabled' => env('MARTIS_2FA_ENABLED', true),
             'recovery_codes' => (int) env('MARTIS_2FA_RECOVERY_CODES', 8),
+            // "Keep me signed in" survives the challenge, as in Nova (v2.15.0):
+            // passing it on a device that holds the remember-me cookie leaves
+            // a marker, and a later session that cookie starts keeps the 2FA
+            // pass. False: every new session meets the challenge again.
+            'trust_remember_me' => env('MARTIS_2FA_TRUST_REMEMBER_ME', true),
         ],
         'email_change' => [
             // Minutes the confirmation link of a new email address stays

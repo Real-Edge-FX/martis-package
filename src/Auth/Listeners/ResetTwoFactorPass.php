@@ -7,6 +7,7 @@ namespace Martis\Auth\Listeners;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Contracts\Session\Session;
 use Martis\Auth\GuardCatalog;
+use Martis\Auth\RememberedTwoFactor;
 use Martis\Auth\TwoFactorPass;
 
 /**
@@ -21,6 +22,11 @@ use Martis\Auth\TwoFactorPass;
  *
  * Impersonation hands a pass over on purpose, after this listener has run
  * (see ImpersonationManager).
+ *
+ * A sign-in through the remember-me cookie keeps the pass when the browser
+ * also carries the marker a passed challenge left ({@see RememberedTwoFactor}):
+ * both factors were proven on this device, so an expired session does not
+ * ask for the code again, as in Nova.
  */
 final class ResetTwoFactorPass
 {
@@ -34,8 +40,16 @@ final class ResetTwoFactorPass
         // challenge writes the pass to (and ImpersonationManager reads).
         $session = app()->bound('session.store') ? app('session.store') : null;
 
-        if ($session instanceof Session) {
-            TwoFactorPass::revoke($session);
+        if (! $session instanceof Session) {
+            return;
+        }
+
+        TwoFactorPass::revoke($session);
+
+        // Only a remember-me sign-in (Login with remember) whose cookie and
+        // marker both name this user now keeps the pass.
+        if ($event->remember && RememberedTwoFactor::trusts(request(), $event->user)) {
+            TwoFactorPass::grant($session, $event->user);
         }
     }
 }

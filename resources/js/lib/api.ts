@@ -108,6 +108,26 @@ function redirectOnPasswordChangeRequired(): void {
   window.location.href = target
 }
 
+/**
+ * Send the browser to the two-factor challenge when the server signals
+ * `423 {"two_factor_required": true}` (`EnsureTwoFactorChallenge`). A session
+ * that expired and came back through the remember-me cookie is a new
+ * sign-in, so the challenge is due again while the page is still open; the
+ * boot check in AuthContext only covers a page load. Skipped on the
+ * challenge page itself, so a 423 there cannot loop.
+ */
+function redirectOnTwoFactorRequired(): void {
+  // The same test as AuthContext's boot check, so the two agree on the page.
+  const target = BASE_PATH + '/2fa/challenge'
+  if (window.location.pathname.startsWith(target)) return
+  window.location.href = target
+}
+
+/** Match the envelope produced by `EnsureTwoFactorChallenge`. */
+function isTwoFactorRequiredResponse(status: number, payload: unknown): boolean {
+  return status === 423 && (payload as { two_factor_required?: unknown } | null)?.two_factor_required === true
+}
+
 /** Match the envelope produced by `EnsurePasswordIsChanged`. */
 function isPasswordChangeRequiredResponse(status: number, payload: unknown): boolean {
   return status === 409 && (payload as { password_change_required?: unknown } | null)?.password_change_required === true
@@ -191,6 +211,9 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
     }
     if (isPasswordChangeRequiredResponse(res.status, json)) {
       redirectOnPasswordChangeRequired()
+    }
+    if (isTwoFactorRequiredResponse(res.status, json)) {
+      redirectOnTwoFactorRequired()
     }
     announceLock(lockOfResponse(res.status, json))
     const err = (json ?? {}) as { message?: string; errors?: unknown }
@@ -348,6 +371,9 @@ async function uploadRequest<T>(method: string, path: string, values: Record<str
     }
     if (isPasswordChangeRequiredResponse(res.status, json)) {
       redirectOnPasswordChangeRequired()
+    }
+    if (isTwoFactorRequiredResponse(res.status, json)) {
+      redirectOnTwoFactorRequired()
     }
     announceLock(lockOfResponse(res.status, json))
     const err = (json ?? {}) as { message?: string; errors?: unknown }

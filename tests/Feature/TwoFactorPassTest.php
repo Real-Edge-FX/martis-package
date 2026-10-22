@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 use Illuminate\Auth\Events\Login;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Testing\TestResponse;
+use Martis\Auth\GuardCatalog;
 use Martis\Auth\MagicLinkService;
+use Martis\Auth\RememberedTwoFactor;
 use Martis\Auth\TwoFactorPass;
 use Martis\Impersonation\ImpersonationManager;
 
@@ -126,6 +129,180 @@ it('asks the same user for the challenge again after a new POST /login', functio
 
     tfpNextRequest();
     tfpProbe()->assertStatus(423);
+});
+
+it('asks for the challenge again, with the 423 the panel redirects on, when an expired session comes back through the remember-me cookie', function () {
+    tfpUser('a@example.com');
+
+    // "Keep me signed in": the sign-in leaves the remember-me cookie.
+    $recaller = Auth::guard(GuardCatalog::martis())->getRecallerName();
+    $cookie = $this->postJson('/martis/api/auth/login', ['email' => 'a@example.com', 'password' => TFP_PASSWORD, 'keep_signed_in' => true])
+        ->assertOk()
+        ->getCookie($recaller);
+    expect($cookie)->not->toBeNull();
+
+    // The session expires: a new process with only the cookie left.
+    $this->flushSession();
+    tfpNextRequest();
+
+    $this->withCredentials()->withCookie($recaller, (string) $cookie->getValue())
+        ->getJson('/martis/api/_meta/guards')
+        ->assertStatus(423)
+        ->assertJson(['two_factor_required' => true]);
+});
+
+/*
+ * "Keep me signed in" with 2FA, as in Nova (v2.15.0): the remember-me cookie
+ * is issued at the password step, so alone it proves one factor; passing the
+ * challenge on a device that holds it leaves a marker (RememberedTwoFactor),
+ * and a later session the cookie starts keeps the pass only with that marker.
+ */
+
+/**
+ * Sign in with "Keep me signed in", optionally pass the challenge, and return
+ * the remember-me cookie and the marker (null when none was left).
+ *
+ * @return array{0: string, 1: ?string}
+ */
+function tfpRememberedSignIn(string $email, bool $passChallenge): array
+{
+    $recaller = Auth::guard(GuardCatalog::martis())->getRecallerName();
+    $remember = (string) test()->postJson('/martis/api/auth/login', ['email' => $email, 'password' => TFP_PASSWORD, 'keep_signed_in' => true])
+        ->assertOk()
+        ->assertJson(['two_factor_required' => true])
+        ->getCookie($recaller)
+        ?->getValue();
+
+    $marker = null;
+    if ($passChallenge) {
+        tfpNextRequest();
+        $response = test()->withCredentials()->withCookie($recaller, $remember)
+            ->postJson('/martis/api/2fa/challenge', ['code' => tfpTotp(TFP_SECRET, (int) floor(time() / 30))])
+            ->assertOk();
+        $marker = $response->getCookie(RememberedTwoFactor::COOKIE)?->getValue();
+    }
+
+    return [$remember, $marker];
+}
+
+/** The session expired: a new request carrying only the given cookies. */
+function tfpProbeWithCookies(array $cookies): TestResponse
+{
+    test()->flushSession();
+    tfpNextRequest();
+
+    return test()->withCredentials()->withCookies($cookies)->getJson('/martis/api/_meta/guards');
+}
+
+it('keeps the pass when an expired session comes back through the remember-me cookie of a device that passed the challenge', function () {
+    tfpUser('a@example.com');
+    [$remember, $marker] = tfpRememberedSignIn('a@example.com', true);
+    expect($marker)->toBeString()->not->toBe('');
+
+    $recaller = Auth::guard(GuardCatalog::martis())->getRecallerName();
+    tfpProbeWithCookies([$recaller => $remember, RememberedTwoFactor::COOKIE => $marker])->assertOk();
+});
+
+it('asks for the challenge again when the remember-me cookie was issued without a passed challenge', function () {
+    tfpUser('a@example.com');
+    [$remember, $marker] = tfpRememberedSignIn('a@example.com', false);
+    expect($marker)->toBeNull();
+
+    $recaller = Auth::guard(GuardCatalog::martis())->getRecallerName();
+    tfpProbeWithCookies([$recaller => $remember])
+        ->assertStatus(423)
+        ->assertJson(['two_factor_required' => true]);
+});
+
+it('leaves no marker when the challenge passes without "Keep me signed in"', function () {
+    tfpUser('a@example.com');
+    $this->postJson('/martis/api/auth/login', ['email' => 'a@example.com', 'password' => TFP_PASSWORD])->assertOk();
+    tfpNextRequest();
+
+    $response = $this->postJson('/martis/api/2fa/challenge', ['code' => tfpTotp(TFP_SECRET, (int) floor(time() / 30))])->assertOk();
+
+    expect($response->getCookie(RememberedTwoFactor::COOKIE))->toBeNull();
+});
+
+it('does not accept a marker of another user, a forged one, or one from before the remember token rotated', function () {
+    $a = tfpUser('a@example.com');
+    tfpUser('b@example.com');
+    [, $markerB] = tfpRememberedSignIn('b@example.com', true);
+    $this->flushSession();
+    tfpNextRequest();
+    [$rememberA, $markerA] = tfpRememberedSignIn('a@example.com', true);
+    $recaller = Auth::guard(GuardCatalog::martis())->getRecallerName();
+
+    tfpProbeWithCookies([$recaller => $rememberA, RememberedTwoFactor::COOKIE => $markerB])->assertStatus(423);
+    tfpProbeWithCookies([$recaller => $rememberA, RememberedTwoFactor::COOKIE => str_repeat('0', 64)])->assertStatus(423);
+
+    // Signing out rotates the remember token: the old cookie and marker are void.
+    $a->forceFill(['remember_token' => 'rotated-token'])->save();
+    tfpProbeWithCookies([$recaller => $rememberA, RememberedTwoFactor::COOKIE => $markerA])->assertStatus(401);
+});
+
+it('does not accept the marker once 2FA was set up again with a new secret', function () {
+    $a = tfpUser('a@example.com');
+    [$remember, $marker] = tfpRememberedSignIn('a@example.com', true);
+    $a->forceFill(['two_factor_secret' => encrypt(TFP_SECRET)])->save();
+
+    $recaller = Auth::guard(GuardCatalog::martis())->getRecallerName();
+    tfpProbeWithCookies([$recaller => $remember, RememberedTwoFactor::COOKIE => $marker])->assertStatus(423);
+});
+
+it('does not accept a marker from before a password change, even with the new password', function () {
+    $a = tfpUser('a@example.com');
+    [, $oldMarker] = tfpRememberedSignIn('a@example.com', true);
+
+    // The owner changes the password; whoever learns the new one signs in
+    // with "Keep me signed in" and replays the old marker.
+    $a->forceFill(['password' => bcrypt('new-pass-456')])->save();
+    $this->flushSession();
+    tfpNextRequest();
+    $recaller = Auth::guard(GuardCatalog::martis())->getRecallerName();
+    $fresh = (string) $this->postJson('/martis/api/auth/login', ['email' => 'a@example.com', 'password' => 'new-pass-456', 'keep_signed_in' => true])
+        ->assertOk()
+        ->getCookie($recaller)
+        ?->getValue();
+
+    tfpProbeWithCookies([$recaller => $fresh, RememberedTwoFactor::COOKIE => $oldMarker])->assertStatus(423);
+});
+
+it('keeps no pass for a sign-in that is not a remember-me one, whatever cookies the browser holds', function () {
+    $a = tfpUser('a@example.com');
+    [$remember, $marker] = tfpRememberedSignIn('a@example.com', true);
+    $recaller = Auth::guard(GuardCatalog::martis())->getRecallerName();
+
+    // A host's own sign-in route (no remember flag) in a browser that holds
+    // a valid remember-me cookie and marker of the same user.
+    $this->flushSession();
+    tfpNextRequest();
+    $request = Request::create('/martis/api/_meta/guards', 'GET', [], [$recaller => $remember, RememberedTwoFactor::COOKIE => $marker]);
+    $request->setLaravelSession(app('session.store'));
+    app()->instance('request', $request);
+    Auth::guard(GuardCatalog::martis())->login($a);
+
+    expect(app('session.store')->get(TwoFactorPass::SESSION_KEY))->toBeNull();
+});
+
+it('drops the marker on sign-out', function () {
+    tfpUser('a@example.com');
+    tfpRememberedSignIn('a@example.com', true);
+
+    $forget = $this->postJson('/martis/api/auth/logout')->getCookie(RememberedTwoFactor::COOKIE, false);
+
+    expect($forget)->not->toBeNull();
+    expect($forget->getExpiresTime())->toBeLessThan(time());
+});
+
+it('asks for the challenge on every new session when trust_remember_me is off', function () {
+    tfpUser('a@example.com');
+    [$remember, $marker] = tfpRememberedSignIn('a@example.com', true);
+    expect($marker)->toBeString();
+
+    config()->set('martis.profile.two_factor.trust_remember_me', false);
+    $recaller = Auth::guard(GuardCatalog::martis())->getRecallerName();
+    tfpProbeWithCookies([$recaller => $remember, RememberedTwoFactor::COOKIE => $marker])->assertStatus(423);
 });
 
 it('does not carry the pass of one user to another through POST /api/auth/login', function () {

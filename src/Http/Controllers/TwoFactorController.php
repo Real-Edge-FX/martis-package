@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Martis\Auth\PasswordChangeRequirement;
+use Martis\Auth\RememberedTwoFactor;
 use Martis\Auth\TwoFactorChallengeLockout;
 use Martis\Auth\TwoFactorPass;
 use Martis\Profile\TwoFactorService;
@@ -76,6 +77,10 @@ class TwoFactorController extends MartisController
 
         // Mark this session as 2FA-passed, for this user
         TwoFactorPass::grant($request->session(), $user);
+
+        // "Keep me signed in": a later session started by the remember-me
+        // cookie keeps the pass on this device (as in Nova).
+        RememberedTwoFactor::remember($request, $user);
 
         $payload = ['message' => 'Authenticated.'];
 

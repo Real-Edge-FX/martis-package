@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Martis\Auth\AccountLoginThrottle;
 use Martis\Auth\PasswordChangeRequirement;
+use Martis\Auth\RememberedTwoFactor;
 use Martis\Auth\TwoFactorPass;
 use Martis\Http\Controllers\Concerns\AuthenticatesWithRememberMe;
 use Martis\Sso\SsoSession;
@@ -127,6 +128,7 @@ class LoginController extends MartisController
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         SsoSession::forget($request);
+        RememberedTwoFactor::forget();
 
         return redirect()->route('martis.login');
     }

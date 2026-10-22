@@ -12,6 +12,7 @@ use Illuminate\Validation\ValidationException;
 use Martis\Auth\PasswordChanger;
 use Martis\Auth\PasswordPolicy;
 use Martis\Auth\RecoveryCodesRegeneratedNotification;
+use Martis\Auth\RememberedTwoFactor;
 use Martis\Auth\TwoFactorPass;
 use Martis\Contracts\ProfileResourceContract;
 use Martis\Impersonation\ImpersonationManager;
@@ -242,6 +243,7 @@ class ProfileController extends MartisController
         // challenge immediately after enabling 2FA (fresh session already
         // authenticated).
         TwoFactorPass::grant($request->session(), $user);
+        RememberedTwoFactor::remember($request, $user);
 
         return response()->json($result);
     }
@@ -274,6 +276,7 @@ class ProfileController extends MartisController
 
         // Clear the 2FA pass so it does not linger
         TwoFactorPass::revoke($request->session());
+        RememberedTwoFactor::forget();
 
         return response()->json(['message' => __('martis::profile.2fa_disabled_success')]);
     }
