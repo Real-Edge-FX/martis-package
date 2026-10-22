@@ -8,7 +8,7 @@ import { resolveAccentSwatchColor } from '@/lib/accentSwatches'
 import { loadLocale } from '@/lib/i18n'
 import { Segmented } from '@/components/ui/Segmented'
 import { isPreferenceEditable } from '@/lib/preferencesEditable'
-import { TOPBAR_POPOVER_GUTTER, topbarPopoverRoom } from '@/lib/topbarPopover'
+import { topbarPopoverRoom } from '@/lib/topbarPopover'
 
 /**
  * Task 07.1 ⭐ D2 — User preferences panel.
@@ -192,7 +192,6 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
         pt={room !== null ? { content: { style: { maxHeight: Math.max(0, room - 2), overflowY: 'auto' } } } : undefined}
         style={{
           width: 320,
-          maxWidth: `calc(100vw - ${2 * TOPBAR_POPOVER_GUTTER}px)`,
           backgroundColor: 'var(--martis-surface)',
           border: '1px solid var(--martis-border)',
           borderRadius: 'var(--martis-radius-lg)',

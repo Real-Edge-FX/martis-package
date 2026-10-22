@@ -10,6 +10,7 @@ import { Toast, type ToastMessage } from "primereact/toast"
 import { CheckIcon, InfoIcon, WarningIcon, XIcon } from "@phosphor-icons/react"
 import { useTranslation } from "react-i18next"
 import { config } from "@/lib/config"
+import { safeHref } from "@/lib/safeUrl"
 
 type ToastType = "success" | "error" | "warning" | "info"
 type Severity = "success" | "error" | "warn" | "info"
@@ -74,9 +75,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const addToast = useCallback(
     (type: ToastType, message: string, options?: { link?: ToastLink }) => {
+      // Only an http(s), mailto:/tel: or same-origin link renders: an
+      // extension may build it from stored data (a `javascript:` href would
+      // run in the panel on click).
       const link = options?.link
+      const linkHref = link ? safeHref(link.href) : undefined
       // A toast with a link stays longer: the person has to reach it.
-      const life = link ? 10000 : 5000
+      const life = linkHref ? 10000 : 5000
       // Build the message object first so we can pass the same reference to
       // remove() in the safety-net timeout. Using clear() would wipe every
       // active toast; remove() targets only this specific message.
@@ -103,10 +108,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="martis-toast-title">{t(severityTitleKey[type])}</div>
                 <div className="martis-toast-message">{message}</div>
-                {link && (
+                {link && linkHref && (
                   <a
                     className="martis-toast-link"
-                    href={link.href}
+                    href={linkHref}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => onClose?.(e)}

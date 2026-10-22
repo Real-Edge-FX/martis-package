@@ -722,7 +722,7 @@ PublishPosts::make()
     ->withoutConfirmation()                  // skip modal entirely (runs immediately)
 ```
 
-An action without `confirmText()` shows "Are you sure you want to run this action?" (translated) in its confirmation modal, Nova's default, so the modal never opens with a blank body (v2.15.0). The sentence shows whenever the action asks for confirmation, fields or not; an action with `withoutConfirmation()` that still opens the modal for its fields or for Preview shows none.
+An action without `confirmText()` shows "Are you sure you want to run this action?" (translated) in its confirmation modal, Nova's default, so the modal never opens with a blank body (v2.15.0). The sentence shows whenever the action asks for confirmation, fields or not; an action with `withoutConfirmation()` that still opens the modal for its fields or for Preview shows none. An action with `withoutConfirmation()` runs only once its fields have loaded, and opens the modal instead when it has some (v2.15.0: it used to run before they loaded, without them). When a run without a modal fails, the error toast shows and the action can be run again.
 
 ---
 
@@ -921,8 +921,9 @@ return ActionResponse::openInNewTab("https://dashboard.stripe.com/customers/{$cu
 ```
 
 - Any other answer (`message()`, `danger()`, ...), a failed run or a refused URL closes the blank tab, so declare it only on an action whose run answers `openInNewTab()`.
-- The new tab's `opener` is cut, as `rel="noopener"` would, so the page cannot reach back into the panel.
-- When the browser blocks the tab anyway (a popup blocker set to block everything), a warning toast says so and carries a link to the page: following a link is a fresh click, which the browser lets through. An action without `opensInNewTab()` gets the same warning when its late tab is blocked, instead of failing silently.
+- The new tab's `opener` is cut before it leaves `about:blank`, as `rel="noopener"` would, so the page cannot reach back into the panel. The panel's origin is sent as the referrer (the browser's default policy sends the origin only to another site); serve the panel with `Referrer-Policy: no-referrer` to send none.
+- A run that never answers (the request hangs, or the panel tab is reloaded meanwhile) leaves the blank tab open.
+- When the browser blocks the tab anyway (a popup blocker set to block everything), a warning toast says so and carries a link to the page: following a link is a fresh click, which the browser lets through. An action without `opensInNewTab()` opens its tab the same way when the answer arrives, and gets the same warning when that late tab is blocked, instead of failing silently.
 - `opensInNewTab()` is on `Martis\Actions\Action`, not on `ActionContract`, so a class that implements the contract itself keeps compiling.
 
 **A link needs no action.** When the page to open is known when the row renders (a customer's page in Stripe, an invoice PDF on a CDN) and the click does no server work, show it as a computed `Url` field instead: it renders a plain link (`target="_blank" rel="noopener noreferrer"`), so no request runs and no browser blocks it, and `canSee()` decides who gets it.

@@ -82,11 +82,13 @@ describe('handleActionResponse', () => {
   })
 
   it('opens a new tab without a toast', () => {
-    const open = vi.spyOn(window, 'open').mockImplementation(() => ({ opener: null }) as Window)
+    const tab = { opener: null, closed: false, location: { replace: vi.fn() } }
+    const open = vi.spyOn(window, 'open').mockImplementation(() => tab as unknown as Window)
     const ctx = context()
     handleActionResponse({ type: 'openInNewTab', data: { url: 'https://example.com/doc' } }, ctx)
 
-    expect(open).toHaveBeenCalledWith('https://example.com/doc', '_blank')
+    expect(open).toHaveBeenCalledWith('', '_blank')
+    expect(tab.location.replace).toHaveBeenCalledWith('https://example.com/doc')
     expect(ctx.addToast).not.toHaveBeenCalled()
     expect(ctx.refresh).toHaveBeenCalled()
   })

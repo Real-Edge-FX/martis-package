@@ -65,16 +65,10 @@ function openAnswerInNewTab(url: string, ctx: ActionResponseContext): void {
     return
   }
 
-  let tab = ctx.tab
-  if (tab === undefined) {
-    // No tab was opened on the click: open one now. Without `noopener` in
-    // the features, so a blocked tab shows as null; the opener is cut below.
-    tab = window.open(safe, '_blank')
-    if (tab) {
-      tab.opener = null
-      return
-    }
-  } else if (tab !== null && !tab.closed) {
+  // No tab was opened on the click: open one now, the same way, so a
+  // blocked tab shows as null and the opener is cut before the page loads.
+  const tab = ctx.tab === undefined ? openActionTab() : ctx.tab
+  if (tab !== null && !tab.closed) {
     tab.location.replace(safe)
     return
   }

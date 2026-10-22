@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { ReactElement } from 'react'
+import { StrictMode, type ReactElement } from 'react'
 
 // Cato report (2026-10-22): an openInNewTab answer opened its tab after the
 // request returned, so the browser blocked it. An action that declares
@@ -183,5 +183,68 @@ describe('an action without a modal', () => {
     await waitFor(() => expect(apiPostMock).toHaveBeenCalled())
     await new Promise((r) => setTimeout(r, 50))
     expect(apiPostMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+// Review of v2.15.0: a failed run of an action without a modal left the
+// action held by the parent (and the modal's history lock) with nothing on
+// screen, so it could not be run again; and an action with
+// withoutConfirmation() and fields ran before its fields loaded.
+describe('an action without a modal, reviewed', () => {
+  const quiet = { ...action, withConfirmation: false, supportsDryRun: false }
+
+  it('closes itself when the run fails, so the parent can run it again', async () => {
+    apiPostMock.mockRejectedValue(new Error('boom'))
+    const onHide = vi.fn()
+    renderModal(<ActionModal resource="users" action={{ ...quiet, opensInNewTab: true }} selectedIds={[3]} visible onHide={onHide} onSuccess={vi.fn()} />)
+
+    await waitFor(() => expect(onHide).toHaveBeenCalledTimes(1))
+    expect(tab.close).toHaveBeenCalled()
+  })
+
+  it('closes a pivot run that fails too', async () => {
+    apiPostMock.mockRejectedValue(new Error('boom'))
+    const onClose = vi.fn()
+    renderModal(
+      <PivotActionModal action={{ ...quiet, isPivotAction: true }} actionsUrl="/api/resources/users/1/roles/pivot-actions" resourceKey="users" selectedIds={[3]} onClose={onClose} onSuccess={vi.fn()} />,
+    )
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+  })
+
+  it('waits for its fields and opens the modal when it has some, running nothing', async () => {
+    let resolveFields: (value: unknown) => void = () => {}
+    apiGetMock.mockReturnValue(new Promise((r) => { resolveFields = r }))
+    apiPostMock.mockResolvedValue({ data: { type: 'message', data: {} } })
+    renderModal(<ActionModal resource="users" action={{ ...quiet, opensInNewTab: true }} selectedIds={[3]} visible onHide={vi.fn()} onSuccess={vi.fn()} />)
+
+    // The tab opens on the click's commit, the run waits for the fields.
+    expect(openSpy).toHaveBeenCalledTimes(1)
+    await new Promise((r) => setTimeout(r, 20))
+    expect(apiPostMock).not.toHaveBeenCalled()
+
+    resolveFields({ data: { fields: [{ attribute: 'note', label: 'Note', component: 'text', type: 'text' }] } })
+
+    expect(await screen.findByRole('button', { name: 'Run' })).toBeTruthy()
+    expect(apiPostMock).not.toHaveBeenCalled()
+    // The early tab is closed: Run Action opens its own.
+    expect(tab.close).toHaveBeenCalled()
+  })
+})
+
+describe('under StrictMode (the app in development)', () => {
+  it('runs an action without a modal once and opens one tab, also when it mounts per run', async () => {
+    apiPostMock.mockResolvedValue({ data: { type: 'openInNewTab', data: { url: STRIPE } } })
+    const quiet = { ...action, withConfirmation: false, supportsDryRun: false, opensInNewTab: true }
+    renderModal(
+      <StrictMode>
+        <PivotActionModal action={{ ...quiet, isPivotAction: true }} actionsUrl="/api/resources/users/1/roles/pivot-actions" resourceKey="users" selectedIds={[3]} onClose={vi.fn()} onSuccess={vi.fn()} />
+      </StrictMode>,
+    )
+
+    await waitFor(() => expect(tab.location.replace).toHaveBeenCalledWith(STRIPE))
+    await new Promise((r) => setTimeout(r, 30))
+    expect(apiPostMock).toHaveBeenCalledTimes(1)
+    expect(tab.location.replace).toHaveBeenCalledTimes(1)
   })
 })

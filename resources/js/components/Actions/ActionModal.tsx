@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, ApiError } from '@/lib/api'
@@ -116,6 +116,9 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   const [preview, setPreview] = useState<unknown>(undefined)
   const [animVisible, setAnimVisible] = useState(false)
   const autoExecuted = useRef(false)
+  // The tab of an opensInNewTab() action that skips the modal, opened on the
+  // click while its fields load (`undefined`: none opened).
+  const earlyTab = useRef<Window | null | undefined>(undefined)
 
   useEffect(() => {
     if (visible) {
@@ -125,6 +128,8 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
       // Rearmed on close, not on open: an open-time reset ran after the
       // render that auto-executed, so the next render ran the action again.
       autoExecuted.current = false
+      closeActionTab(earlyTab.current)
+      earlyTab.current = undefined
     }
   }, [visible])
 
@@ -172,7 +177,8 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
     onMutate: () => setFieldErrors({}),
     // `tab` is the blank tab an `opensInNewTab()` action opened on the click
     // (see runAction below); the answer sends it to the URL or closes it.
-    mutationFn: (params: { dryRun?: boolean; extraFields?: Record<string, unknown>; tab?: Window | null }) =>
+    // `auto` marks the run of an action that skips the modal.
+    mutationFn: (params: { dryRun?: boolean; extraFields?: Record<string, unknown>; tab?: Window | null; auto?: boolean }) =>
       api.post<{ data: { type?: string; data?: Record<string, unknown>; preview?: unknown } }>(
         actionUrl,
         {
@@ -208,6 +214,10 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
     },
     onError: (err: Error, params) => {
       closeActionTab(params.tab)
+      // A run without a modal has nothing on screen to retry from: close it
+      // so the parent drops the action (and its history lock), and a new
+      // click runs it again. The toast below says what failed.
+      if (params.auto) onHide()
       if (err instanceof ApiError && err.errors && err.errors.length > 0) {
         const mapped: Record<string, string> = {}
         for (const e of err.errors) {
@@ -225,6 +235,32 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
       addToast('error', (err instanceof ApiError ? err.message : err.message) ?? t('action_failed'))
     },
   })
+
+  const { mutate: execute } = executeMutation
+  const fieldsPending = fieldsQuery.isPending
+  const fieldCount = fields.length
+
+  // Run an action that needs no modal: no confirmation, no Preview, no
+  // custom component and, once they have loaded, no fields. In a layout
+  // effect of the commit the click caused, so the browser still sees the
+  // click when an opensInNewTab() action opens its tab; the tab opens at
+  // once and the run waits for the fields, which may still ask for the modal.
+  useLayoutEffect(() => {
+    if (!visible || !action || autoExecuted.current) return
+    if (action.withConfirmation || action.supportsDryRun || action.customComponent) return
+    if (action.opensInNewTab && earlyTab.current === undefined) earlyTab.current = openActionTab()
+    if (fieldsPending) return
+
+    const tab = earlyTab.current
+    earlyTab.current = undefined
+    if (fieldCount > 0) {
+      // The fields ask for the modal: its Run Action opens the tab again.
+      closeActionTab(tab)
+      return
+    }
+    autoExecuted.current = true
+    execute({ tab, auto: true })
+  }, [visible, action, fieldsPending, fieldCount, execute])
 
   if (!visible || !action) return null
 
@@ -266,16 +302,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   // A dry-run action opens the modal so Preview can be offered before it runs.
   const needsConfirmation = action.withConfirmation || hasFields || action.supportsDryRun
 
-  // Auto-execute if no confirmation or fields needed (only once)
-  if (!needsConfirmation && !autoExecuted.current && !executeMutation.isPending) {
-    autoExecuted.current = true
-    // The tab opens in this render, which the click on the action caused;
-    // only the request waits for the next tick.
-    const tab = action.opensInNewTab ? openActionTab() : undefined
-    setTimeout(() => executeMutation.mutate({ tab }), 0)
-    return null
-  }
-
+  // No modal: the layout effect above runs the action (or waits for its fields).
   if (!needsConfirmation) return null
 
   const modalWidth =

@@ -91,8 +91,13 @@ export function NotificationBell() {
       })
     }
     place()
+    // A scroll that moves the top bar changes the room under it.
     window.addEventListener('resize', place)
-    return () => window.removeEventListener('resize', place)
+    window.addEventListener('scroll', place, { capture: true, passive: true })
+    return () => {
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, { capture: true })
+    }
   }, [open])
 
   // Cheap badge polling — single COUNT query on the server.
