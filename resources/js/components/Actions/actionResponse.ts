@@ -1,5 +1,4 @@
 import { martisEventBus } from '@/lib/eventBus'
-import { openExternal } from '@/lib/openExternal'
 import { safeInternalPath } from '@/lib/safeInternalPath'
 import { safeNavigationUrl } from '@/lib/safeUrl'
 
@@ -12,7 +11,7 @@ export interface ActionResponsePayload {
 /** What the component that ran an action lends the dispatcher. */
 export interface ActionResponseContext {
   t: (key: string) => string
-  addToast: (type: 'success' | 'error', message: string) => void
+  addToast: (type: 'success' | 'error' | 'warning', message: string, options?: { link?: { href: string; label: string } }) => void
   /** SPA navigation below the Martis base path (React Router's navigate()). */
   navigate: (to: string) => void
   /** Close the action's own modal. */
@@ -24,6 +23,63 @@ export interface ActionResponseContext {
   onOpenCreate?: (resource: string) => void
   onOpenDetail?: (resource: string, recordId: string | number) => void
   onOpenUpdate?: (resource: string, recordId: string | number) => void
+  /** The tab opened on the click of an `opensInNewTab()` action
+   *  ({@link openActionTab}): an `openInNewTab` answer sends it to the URL,
+   *  any other answer closes it. `null` when the browser blocked it. Left
+   *  out when the action does not declare `opensInNewTab()`. */
+  tab?: Window | null
+}
+
+/**
+ * Open the blank tab an `opensInNewTab()` action will send to its URL. Call
+ * it in the click handler that runs the action: a tab opened only after the
+ * request returns is no longer tied to a click, and the browser blocks it.
+ * Returns null when the browser blocked this one too.
+ *
+ * The tab's `opener` is cut at once, as `rel="noopener"` would, so the page
+ * it loads cannot reach back into the panel.
+ */
+export function openActionTab(): Window | null {
+  const tab = window.open('', '_blank')
+  if (tab) tab.opener = null
+  return tab
+}
+
+/** Close the blank tab of a run that did not answer `openInNewTab`. */
+export function closeActionTab(tab: Window | null | undefined): void {
+  if (tab && !tab.closed) tab.close()
+}
+
+/**
+ * Send an `openInNewTab` answer to its tab: the one opened on the click when
+ * there is one, else a new one. A blocked tab leaves a warning with a link
+ * to the page, since following a link is a fresh click the browser lets
+ * through. Only an `http(s)` URL or a same-origin path opens; anything else
+ * is refused with a console error.
+ */
+function openAnswerInNewTab(url: string, ctx: ActionResponseContext): void {
+  const safe = safeNavigationUrl(url)
+  if (safe === null) {
+    closeActionTab(ctx.tab)
+    console.error('[martis] action response: refused to open a URL that is not http(s) or a path', url)
+    return
+  }
+
+  let tab = ctx.tab
+  if (tab === undefined) {
+    // No tab was opened on the click: open one now. Without `noopener` in
+    // the features, so a blocked tab shows as null; the opener is cut below.
+    tab = window.open(safe, '_blank')
+    if (tab) {
+      tab.opener = null
+      return
+    }
+  } else if (tab !== null && !tab.closed) {
+    tab.location.replace(safe)
+    return
+  }
+
+  ctx.addToast('warning', ctx.t('new_tab_blocked'), { link: { href: safe, label: ctx.t('new_tab_open') } })
 }
 
 /**
@@ -103,6 +159,9 @@ export function handleActionResponse(response: ActionResponsePayload | undefined
     ctx.refresh()
   }
 
+  // Only an `openInNewTab` answer uses the tab opened on the click.
+  if (response?.type !== 'openInNewTab') closeActionTab(ctx.tab)
+
   switch (response?.type) {
     case 'message':
       success(data.message)
@@ -138,7 +197,8 @@ export function handleActionResponse(response: ActionResponsePayload | undefined
     }
     case 'openInNewTab': {
       const url = text(data.url)
-      if (url !== null) openExternal(url)
+      if (url !== null) openAnswerInNewTab(url, ctx)
+      else closeActionTab(ctx.tab)
       done()
       return
     }

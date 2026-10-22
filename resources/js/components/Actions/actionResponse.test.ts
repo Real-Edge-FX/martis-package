@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { actionVisitTarget, handleActionResponse, type ActionResponseContext, type ActionResponsePayload } from './actionResponse'
+import { actionVisitTarget, handleActionResponse, openActionTab, type ActionResponseContext, type ActionResponsePayload } from './actionResponse'
 import { martisEventBus } from '@/lib/eventBus'
 
 // The answer of an action run (ActionResponse), handled as Nova 5's
@@ -82,11 +82,11 @@ describe('handleActionResponse', () => {
   })
 
   it('opens a new tab without a toast', () => {
-    const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const open = vi.spyOn(window, 'open').mockImplementation(() => ({ opener: null }) as Window)
     const ctx = context()
     handleActionResponse({ type: 'openInNewTab', data: { url: 'https://example.com/doc' } }, ctx)
 
-    expect(open).toHaveBeenCalledWith('https://example.com/doc', '_blank', 'noopener,noreferrer')
+    expect(open).toHaveBeenCalledWith('https://example.com/doc', '_blank')
     expect(ctx.addToast).not.toHaveBeenCalled()
     expect(ctx.refresh).toHaveBeenCalled()
   })
@@ -242,5 +242,93 @@ describe('actionVisitTarget', () => {
 
   it('encodes the params, and leaves out the empty ones', () => {
     expect(actionVisitTarget('/resources/users', { q: 'a?b#c&d', off: false, empty: '', none: null, missing: undefined })).toBe('/resources/users?q=a%3Fb%23c%26d')
+  })
+})
+
+/*
+ * Cato report (2026-10-22): an `openInNewTab` answer opened its tab only
+ * after the request returned, no longer tied to the click, so Safari (and
+ * the other browsers on a slow run) blocked it, silently. An action that
+ * declares `opensInNewTab()` now opens a blank tab on the click and the
+ * answer sends it to the URL; a blocked tab leaves a warning with a link.
+ */
+describe('the tab opened on the click of an opensInNewTab() action', () => {
+  function blankTab() {
+    return { closed: false, close: vi.fn(), location: { replace: vi.fn() } }
+  }
+  function ctxWith(tab: unknown) {
+    return {
+      t: (key: string) => key,
+      addToast: vi.fn(),
+      navigate: vi.fn(),
+      hide: vi.fn(),
+      refresh: vi.fn(),
+      showModal: null,
+      tab: tab as Window | null,
+    }
+  }
+
+  afterEach(() => vi.restoreAllMocks())
+
+  it('is sent to the URL of an openInNewTab answer, with no second window.open', () => {
+    const openSpy = vi.spyOn(window, 'open')
+    const tab = blankTab()
+    const ctx = ctxWith(tab)
+    handleActionResponse({ type: 'openInNewTab', data: { url: 'https://dashboard.stripe.com/customers/cus_1' } }, ctx)
+
+    expect(tab.location.replace).toHaveBeenCalledWith('https://dashboard.stripe.com/customers/cus_1')
+    expect(tab.close).not.toHaveBeenCalled()
+    expect(openSpy).not.toHaveBeenCalled()
+    expect(ctx.hide).toHaveBeenCalled()
+  })
+
+  it.each([
+    { type: 'message', data: { message: 'Done' } },
+    { type: 'danger', data: { message: 'No' } },
+    { type: 'visit', data: { path: '/resources/users' } },
+    { type: 'download', data: { url: '/report.csv', filename: 'report.csv' } },
+    { type: 'emit', data: { event: 'x' } },
+    { type: 'openInNewTab', data: {} },
+    undefined,
+  ])('is closed by any other answer (%j)', (response) => {
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const tab = blankTab()
+    handleActionResponse(response as never, ctxWith(tab))
+
+    expect(tab.close).toHaveBeenCalled()
+    expect(tab.location.replace).not.toHaveBeenCalled()
+  })
+
+  it('leaves a warning with a link to the page when the browser blocked it', () => {
+    const ctx = ctxWith(null)
+    handleActionResponse({ type: 'openInNewTab', data: { url: 'https://example.com/a' } }, ctx)
+
+    expect(ctx.addToast).toHaveBeenCalledWith('warning', 'new_tab_blocked', { link: { href: 'https://example.com/a', label: 'new_tab_open' } })
+  })
+
+  it('leaves the same warning when the tab opened after the answer is blocked', () => {
+    vi.spyOn(window, 'open').mockReturnValue(null)
+    const ctx = { ...ctxWith(null), tab: undefined }
+    handleActionResponse({ type: 'openInNewTab', data: { url: 'https://example.com/a' } }, ctx)
+
+    expect(ctx.addToast).toHaveBeenCalledWith('warning', 'new_tab_blocked', { link: { href: 'https://example.com/a', label: 'new_tab_open' } })
+  })
+})
+
+describe('openActionTab', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('opens a blank tab and cuts its opener', () => {
+    const tab = { opener: window as Window | null } as Window
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(tab)
+
+    expect(openActionTab()).toBe(tab)
+    expect(openSpy).toHaveBeenCalledWith('', '_blank')
+    expect(tab.opener).toBeNull()
+  })
+
+  it('returns null when the browser blocks it', () => {
+    vi.spyOn(window, 'open').mockReturnValue(null)
+    expect(openActionTab()).toBeNull()
   })
 })

@@ -2993,6 +2993,14 @@ html.dark body {
   font-size: 13px;
   line-height: 1.4;
 }
+.martis-toast-link {
+  display: inline-block;
+  margin-top: 4px;
+  color: var(--martis-accent);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: underline;
+}
 .martis-toast-close {
   flex-shrink: 0;
   width: 20px;
@@ -4897,6 +4905,19 @@ html .martis-filter-dropdown.p-dropdown .p-dropdown-clear-icon:hover svg {
   right: 16px !important;
   border-bottom-color: var(--martis-surface) !important;
   border-width: 0 8px 8px 8px !important;
+}
+
+/* On a phone the Preferences panel spans the screen, 8px from each edge.
+   PrimeReact only keeps it at left >= 0 (flush with the edge) and sizes it
+   from the inline 320px width; these override both. PrimeReact measures the
+   panel after this applies, so the arrow still points at the trigger. */
+@media (max-width: 640px) {
+  .p-overlaypanel.martis-preferences-panel {
+    left: 8px !important;
+    right: 8px;
+    width: auto !important;
+    max-width: none !important;
+  }
 }
 
 /* ── PrimeReact Tooltip overlay z-index + max width.
@@ -7514,9 +7535,13 @@ html[data-reduced-motion="true"] .martis-status-dot .martis-status-pulse::after 
 .martis-notif-panel {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  /* NotificationBell measures the bell and sets these two variables so the
+     panel stays inside a phone screen: the shift moves it right when the
+     bell sits away from the right edge, the room caps it above the bottom. */
+  right: var(--martis-notif-shift, 0px);
   width: 360px;
-  max-height: 420px;
+  max-width: calc(100vw - 16px);
+  max-height: min(420px, var(--martis-notif-room, 420px));
   display: flex;
   flex-direction: column;
   background: var(--martis-surface);

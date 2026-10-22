@@ -23,8 +23,15 @@ interface ToastContentArgs {
   onClick?: (event: ReactMouseEvent) => void
 }
 
+/** A link shown under a toast's message, opened in a new tab. Following it is
+ *  a fresh click, so the browser lets it open a tab that was blocked. */
+export interface ToastLink {
+  href: string
+  label: string
+}
+
 interface ToastContextValue {
-  addToast: (type: ToastType, message: string) => void
+  addToast: (type: ToastType, message: string, options?: { link?: ToastLink }) => void
   toastRef: React.RefObject<Toast | null>
 }
 
@@ -66,8 +73,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation("messages")
 
   const addToast = useCallback(
-    (type: ToastType, message: string) => {
-      const life = 5000
+    (type: ToastType, message: string, options?: { link?: ToastLink }) => {
+      const link = options?.link
+      // A toast with a link stays longer: the person has to reach it.
+      const life = link ? 10000 : 5000
       // Build the message object first so we can pass the same reference to
       // remove() in the safety-net timeout. Using clear() would wipe every
       // active toast; remove() targets only this specific message.
@@ -94,6 +103,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="martis-toast-title">{t(severityTitleKey[type])}</div>
                 <div className="martis-toast-message">{message}</div>
+                {link && (
+                  <a
+                    className="martis-toast-link"
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => onClose?.(e)}
+                  >
+                    {link.label}
+                  </a>
+                )}
               </div>
               <button
                 type="button"

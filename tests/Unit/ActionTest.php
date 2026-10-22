@@ -139,6 +139,13 @@ class ActionTest extends TestCase
         $this->assertFalse($json['withConfirmation']);
     }
 
+    public function test_opens_in_new_tab(): void
+    {
+        $this->assertFalse(TestableAction::make()->jsonSerialize()['opensInNewTab']);
+        $this->assertTrue(TestableAction::make()->opensInNewTab()->jsonSerialize()['opensInNewTab']);
+        $this->assertFalse(TestableAction::make()->opensInNewTab()->opensInNewTab(false)->jsonSerialize()['opensInNewTab']);
+    }
+
     public function test_modal_size(): void
     {
         $action = TestableAction::make()->size(ModalSize::Large);
@@ -190,7 +197,7 @@ class ActionTest extends TestCase
             'uriKey', 'name', 'icon', 'showIcon', 'iconColor', 'group', 'destructive', 'showOnIndex', 'showOnDetail',
             'showInline', 'executionMode', 'standalone', 'sole', 'queued',
             'withConfirmation', 'confirmText', 'confirmButtonText',
-            'cancelButtonText', 'modalSize', 'supportsDryRun',
+            'cancelButtonText', 'opensInNewTab', 'modalSize', 'supportsDryRun',
             'customComponent', 'customComponentProps', 'logEvents',
         ];
 

@@ -8,6 +8,7 @@ import { resolveAccentSwatchColor } from '@/lib/accentSwatches'
 import { loadLocale } from '@/lib/i18n'
 import { Segmented } from '@/components/ui/Segmented'
 import { isPreferenceEditable } from '@/lib/preferencesEditable'
+import { TOPBAR_POPOVER_GUTTER, topbarPopoverRoom } from '@/lib/topbarPopover'
 
 /**
  * Task 07.1 ⭐ D2 — User preferences panel.
@@ -69,6 +70,9 @@ function normaliseHex(raw: string): string | null {
   return null
 }
 
+/** PrimeReact's `.p-overlaypanel` margin-top: the gap between trigger and panel. */
+const PANEL_GAP = 10
+
 export interface PreferencesMenuHandle {
   hide: () => void
 }
@@ -112,6 +116,10 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
   }, [swatchMode, customAccents])
   const { t } = useTranslation('messages')
   const [brandColorInput, setBrandColorInput] = useState(prefs.brandColor ?? '')
+  // Height the panel may take under the trigger, measured on each open. A
+  // panel taller than that would make PrimeReact flip it above the trigger,
+  // where a short (phone) screen cuts its bottom off with no way to scroll.
+  const [room, setRoom] = useState<number | null>(null)
 
   if (!enabled) return null
 
@@ -163,7 +171,10 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
         ref={triggerRef}
         type="button"
         aria-label={t('preferences', 'Preferences')}
-        onClick={(e) => overlayRef.current?.toggle(e)}
+        onClick={(e) => {
+          setRoom(topbarPopoverRoom(e.currentTarget.getBoundingClientRect().bottom, PANEL_GAP))
+          overlayRef.current?.toggle(e)
+        }}
         className="inline-flex items-center justify-center rounded-md p-2 text-[color:var(--martis-text-muted)] hover:bg-[color:var(--martis-hover)] hover:text-[color:var(--martis-text)]"
         data-pr-tooltip={t('preferences', 'Preferences')}
         data-pr-position="bottom"
@@ -175,8 +186,13 @@ export const PreferencesMenu = forwardRef<PreferencesMenuHandle>(function Prefer
         ref={overlayRef}
         className="martis-preferences-panel"
         showCloseIcon={false}
+        // The cap goes on PrimeReact's content box (padding included), not on
+        // the root: overflow on the root would clip the arrow. Less 2px for
+        // the root's border.
+        pt={room !== null ? { content: { style: { maxHeight: Math.max(0, room - 2), overflowY: 'auto' } } } : undefined}
         style={{
           width: 320,
+          maxWidth: `calc(100vw - ${2 * TOPBAR_POPOVER_GUTTER}px)`,
           backgroundColor: 'var(--martis-surface)',
           border: '1px solid var(--martis-border)',
           borderRadius: 'var(--martis-radius-lg)',

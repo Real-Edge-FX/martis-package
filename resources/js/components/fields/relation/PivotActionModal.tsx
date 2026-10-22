@@ -14,7 +14,7 @@ import { ActionDryRunPreview } from '@/components/Actions/ActionDryRunPreview'
 import type { FieldDefinition } from '@/types'
 import { useNavigate } from 'react-router'
 import { martisEventBus } from '@/lib/eventBus'
-import { handleActionResponse } from '@/components/Actions/actionResponse'
+import { closeActionTab, handleActionResponse, openActionTab } from '@/components/Actions/actionResponse'
 import { useActionResponseModal } from '@/components/Actions/ActionResponseModalHost'
 
 // -------------------------------------------------------------------------
@@ -77,9 +77,11 @@ export function PivotActionModal({
   const [animVisible, setAnimVisible] = useState(false)
   const autoExecuted = useRef(false)
 
+  // The modal mounts per run, so autoExecuted needs no reset: resetting it in
+  // this effect ran after the render that auto-executed, and the next render
+  // ran the action again.
   useEffect(() => {
     requestAnimationFrame(() => setAnimVisible(true))
-    autoExecuted.current = false
   }, [])
 
   const handleBackdropClose = useCallback(() => {
@@ -114,7 +116,8 @@ export function PivotActionModal({
     // Each run starts without the errors of the last one, as every form
     // clears its errors before a save.
     onMutate: () => setFieldErrors({}),
-    mutationFn: (params: { dryRun?: boolean }) =>
+    // `tab`: the blank tab of an `opensInNewTab()` action, opened on the click.
+    mutationFn: (params: { dryRun?: boolean; tab?: Window | null }) =>
       api.post<{ data: { type?: string; data?: Record<string, unknown>; preview?: unknown } }>(
         actionUrl,
         {
@@ -134,9 +137,10 @@ export function PivotActionModal({
       // The same answers as the resource action modal (v2.3.0); a pivot
       // panel has no drawer to open, so openCreate/openDetail/openUpdate
       // fall back to a success toast.
-      handleActionResponse(res?.data, { t, addToast, navigate, hide: onClose, refresh: onSuccess, showModal })
+      handleActionResponse(res?.data, { t, addToast, navigate, hide: onClose, refresh: onSuccess, showModal, tab: params.tab })
     },
-    onError: (err: Error) => {
+    onError: (err: Error, params) => {
+      closeActionTab(params.tab)
       if (err instanceof ApiError && err.errors && err.errors.length > 0) {
         const mapped: Record<string, string> = {}
         for (const e of err.errors) {
@@ -160,7 +164,9 @@ export function PivotActionModal({
   // Auto-execute if no confirmation or fields needed (only once)
   if (!needsConfirmation && !autoExecuted.current && !executeMutation.isPending) {
     autoExecuted.current = true
-    setTimeout(() => executeMutation.mutate({}), 0)
+    // The tab opens in this render, which the click on the action caused.
+    const tab = action.opensInNewTab ? openActionTab() : undefined
+    setTimeout(() => executeMutation.mutate({ tab }), 0)
     return null
   }
 
@@ -204,8 +210,8 @@ export function PivotActionModal({
         </div>
 
         <div className="martis-modal-body">
-          {action.confirmText && (
-            <p className="mb-4">{action.confirmText}</p>
+          {action.withConfirmation && (
+            <p className="mb-4">{action.confirmText ?? t('confirm_run')}</p>
           )}
           {hasFields && (
             <div className="space-y-4">
@@ -256,7 +262,7 @@ export function PivotActionModal({
           </button>
           <button
             type="button"
-            onClick={() => executeMutation.mutate({})}
+            onClick={() => executeMutation.mutate({ tab: action.opensInNewTab ? openActionTab() : undefined })}
             disabled={executeMutation.isPending}
             className={action.destructive ? 'martis-btn-danger' : 'martis-btn-primary'}
           >

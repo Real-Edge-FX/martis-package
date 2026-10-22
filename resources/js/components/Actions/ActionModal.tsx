@@ -16,7 +16,7 @@ import { useModalHistoryLock } from '@/lib/historyLock'
 import { ActionDryRunPreview } from './ActionDryRunPreview'
 import { useNavigate } from 'react-router'
 import { martisEventBus } from '@/lib/eventBus'
-import { handleActionResponse } from './actionResponse'
+import { closeActionTab, handleActionResponse, openActionTab } from './actionResponse'
 import { useActionResponseModal } from './ActionResponseModalHost'
 
 export interface ActionMeta {
@@ -38,6 +38,8 @@ export interface ActionMeta {
   confirmText: string | null
   confirmButtonText: string | null
   cancelButtonText: string | null
+  /** The run answers `openInNewTab`: the tab opens on the click (v2.15.0). */
+  opensInNewTab?: boolean
   modalSize: string
   supportsDryRun: boolean
   customComponent: string | null
@@ -118,9 +120,11 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   useEffect(() => {
     if (visible) {
       requestAnimationFrame(() => setAnimVisible(true))
-      autoExecuted.current = false
     } else {
       setAnimVisible(false)
+      // Rearmed on close, not on open: an open-time reset ran after the
+      // render that auto-executed, so the next render ran the action again.
+      autoExecuted.current = false
     }
   }, [visible])
 
@@ -166,7 +170,9 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
     // Each run starts without the errors of the last one, as every form
     // clears its errors before a save.
     onMutate: () => setFieldErrors({}),
-    mutationFn: (params: { dryRun?: boolean; extraFields?: Record<string, unknown> }) =>
+    // `tab` is the blank tab an `opensInNewTab()` action opened on the click
+    // (see runAction below); the answer sends it to the URL or closes it.
+    mutationFn: (params: { dryRun?: boolean; extraFields?: Record<string, unknown>; tab?: Window | null }) =>
       api.post<{ data: { type?: string; data?: Record<string, unknown>; preview?: unknown } }>(
         actionUrl,
         {
@@ -197,9 +203,11 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
         onOpenCreate,
         onOpenDetail,
         onOpenUpdate,
+        tab: params.tab,
       })
     },
-    onError: (err: Error) => {
+    onError: (err: Error, params) => {
+      closeActionTab(params.tab)
       if (err instanceof ApiError && err.errors && err.errors.length > 0) {
         const mapped: Record<string, string> = {}
         for (const e of err.errors) {
@@ -220,6 +228,12 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
 
   if (!visible || !action) return null
 
+  // Run the action, opening its tab first when it declares opensInNewTab():
+  // called from a click handler (or the render a click caused), so the
+  // browser still sees the click and lets the tab open.
+  const runAction = (extraFields?: Record<string, unknown>) =>
+    executeMutation.mutate({ extraFields, tab: action.opensInNewTab ? openActionTab() : undefined })
+
   // -----------------------------------------------------------------------
   // Custom component: full control mode — no modal wrapper at all.
   // The custom component manages its own UI, layout, and lifecycle.
@@ -234,7 +248,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
         selectedIds,
         componentProps: action.customComponentProps ?? {},
         onFieldsChange: (newFields) => setFieldValues((prev) => ({ ...prev, ...newFields })),
-        onExecute: (extraFields) => executeMutation.mutate({ extraFields }),
+        onExecute: (extraFields) => runAction(extraFields),
         onClose: onHide,
         isExecuting: executeMutation.isPending,
       }
@@ -255,7 +269,10 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   // Auto-execute if no confirmation or fields needed (only once)
   if (!needsConfirmation && !autoExecuted.current && !executeMutation.isPending) {
     autoExecuted.current = true
-    setTimeout(() => executeMutation.mutate({}), 0)
+    // The tab opens in this render, which the click on the action caused;
+    // only the request waits for the next tick.
+    const tab = action.opensInNewTab ? openActionTab() : undefined
+    setTimeout(() => executeMutation.mutate({ tab }), 0)
     return null
   }
 
@@ -321,8 +338,9 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
         </div>
 
         <div className="martis-modal-body">
-          {action.confirmText && (
-            <p className="mb-4">{action.confirmText}</p>
+          {/* Nova's default confirmText, so a confirmation never opens blank. */}
+          {action.withConfirmation && (
+            <p className="mb-4">{action.confirmText ?? t('confirm_run')}</p>
           )}
 
           {hasFields && (
@@ -374,7 +392,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
           </button>
           <button
             type="button"
-            onClick={() => executeMutation.mutate({})}
+            onClick={() => runAction()}
             disabled={executeMutation.isPending}
             className={action.destructive ? 'martis-btn-danger' : 'martis-btn-primary'}
           >

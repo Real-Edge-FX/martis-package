@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 
 // -----------------------------------------------------------------------------
 // PreferencesMenu — theme.allowToggle gate
@@ -51,7 +51,9 @@ vi.mock('@/lib/i18n', () => ({
 // PrimeReact OverlayPanel renders inside a portal — short-circuit it so the
 // content is in the document tree from the first render.
 vi.mock('primereact/overlaypanel', () => ({
-  OverlayPanel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  OverlayPanel: ({ children, pt }: { children: React.ReactNode; pt?: { content?: { style?: React.CSSProperties } } }) => (
+    <div data-testid="overlay-content" style={pt?.content?.style}>{children}</div>
+  ),
 }))
 
 import { PreferencesMenu } from '@/components/PreferencesMenu'
@@ -143,5 +145,23 @@ describe('PreferencesMenu — preferences.editable (v2.12.0)', () => {
     configMock.value = { preferences: { editable: [] } }
     const { container } = render(<PreferencesMenu />)
     expect(container.innerHTML).toBe('')
+  })
+})
+
+describe('PreferencesMenu — fits a phone screen', () => {
+  it('caps the panel to the room under the trigger, so a short screen scrolls it instead of cutting it off', () => {
+    configMock.value = {}
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(600)
+    render(<PreferencesMenu />)
+    const trigger = screen.getByRole('button', { name: 'Preferences' })
+    vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({ bottom: 44.5 } as DOMRect)
+
+    fireEvent.click(trigger)
+
+    const body = screen.getByTestId('overlay-content')
+    // 600 - 44.5 - 10 (PrimeReact's margin) - 8 (gutter) - 2 (the root's border).
+    expect(body.style.maxHeight).toBe('535px')
+    expect(body.style.overflowY).toBe('auto')
+    vi.restoreAllMocks()
   })
 })
