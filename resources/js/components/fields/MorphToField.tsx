@@ -311,6 +311,21 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     }
   }, [currentValue])
 
+  // A default arrives as `{ resourceType, id }` with no title; look it up so
+  // the trigger shows the record's label, not `#id`. A record the user cannot
+  // view keeps the `#id` fallback.
+  useEffect(() => {
+    if (!selectedType || selectedId === null || selectedLabel !== null) return
+    let cancelled = false
+    api
+      .get<{ data: { _title?: string | null } }>(apiPath`/api/resources/${selectedType}/${selectedId}`)
+      .then((res) => {
+        if (!cancelled && res.data?._title) setSelectedLabel(res.data._title)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [selectedType, selectedId, selectedLabel])
+
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

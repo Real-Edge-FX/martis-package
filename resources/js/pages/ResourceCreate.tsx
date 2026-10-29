@@ -21,6 +21,7 @@ import { recordHref } from '@/lib/recordHref'
 import { safeInternalPath } from '@/lib/safeInternalPath'
 import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 import { emitRecordEvent } from '@/lib/recordEvents'
+import { fieldDefaults } from '@/lib/fieldDefaults'
 
 /** Shared fallback while the schema loads: a stable reference keeps the form
  *  fields memo (and the form built on it) from recomputing on every render. */
@@ -106,6 +107,11 @@ function CreateTargetPage() {
   }, [rawFormFields, isViaRelation, viaResource])
 
   const form = useMartisForm({ fields: allFormFields as FieldDefinition[], resourceKey: resource, context: 'create' })
+  // Each field's `default()`: what a new record starts from, and what
+  // "Create & add another" returns to.
+  const defaults = useMemo(() => fieldDefaults(allFormFields), [allFormFields])
+  // The form holds its starting values: the defaults, replaced by the
+  // replicated record's values for a copy.
   const [replicateApplied, setReplicateApplied] = useState(false)
   const baselineRef = useRef<string | null>(null)
   // Bumped by "Create & add another" to mount the fields again for the next
@@ -128,15 +134,17 @@ function CreateTargetPage() {
   // internally and exposes `resolvedFields`). The page keeps only the
   // page-level concerns below.
 
-  // Pre-fill form with replicated values when data loads. A copy that carries
-  // no values starts from an empty form, so the fields still mount.
+  // Seed the form once the schema (and, for a copy, the replicated values)
+  // is known: the fields' defaults, replaced by the replicated values. A copy
+  // that carries no values starts from the defaults, so the fields still
+  // mount. The via-relation FK below is set after, so it wins over a default.
   useEffect(() => {
-    if (isReplicate && replicateQuery.data && !replicateApplied) {
-      form.setValues(replicateQuery.data.data?.values ?? {})
-      setReplicateApplied(true)
-    }
+    if (replicateApplied || !schema) return
+    if (isReplicate && !replicateQuery.data) return
+    form.setValues({ ...defaults, ...(replicateQuery.data?.data?.values ?? {}) })
+    setReplicateApplied(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReplicate, replicateQuery.data, replicateApplied])
+  }, [isReplicate, replicateQuery.data, replicateApplied, schema, defaults])
 
   // Pre-fill the FK when creating via a relationship (viaResource points
   // to the parent). Finds a BelongsTo field whose relatedResource matches
@@ -197,7 +205,7 @@ function CreateTargetPage() {
   // The dirty guard compares against this baseline; capturing too early
   // means the pre-fill itself counts as "dirty", triggering the unsaved
   // dialog on a pristine form the user never touched.
-  const baselineReady = !!schema && (!isReplicate || replicateApplied) && (!isViaRelation || viaFkApplied)
+  const baselineReady = !!schema && replicateApplied && (!isViaRelation || viaFkApplied)
   if (baselineReady && baselineRef.current === null) {
     baselineRef.current = JSON.stringify(form.values)
   }
@@ -245,7 +253,7 @@ function CreateTargetPage() {
       // Suppress the unsaved-changes guard for the post-save redirect.
       markSaved()
       // Clear form
-      form.setValues({})
+      form.setValues(defaults)
       form.setErrors({})
 
       const mode = submitModeRef.current
@@ -255,11 +263,11 @@ function CreateTargetPage() {
       // again.
       if (mode === 'add_another') {
         submitModeRef.current = 'detail'
-        // The form is already cleared above; nothing to navigate. The next
-        // record starts from that empty form, which is therefore its
+        // The form is already reset above; nothing to navigate. The next
+        // record starts from the defaults, which is therefore its
         // baseline (a replicated form's was the copy), with its fields
         // mounted again.
-        baselineRef.current = JSON.stringify({})
+        baselineRef.current = JSON.stringify(defaults)
         setFieldsKey((key) => key + 1)
         return
       }
@@ -379,12 +387,12 @@ function CreateTargetPage() {
     }
   }
 
-  // The copy fills the form in an effect after the replicate query resolves.
-  // Mount the fields only then, as Nova's Replicate view does, so every input
-  // starts from the copied value (an input that reads its value at mount
-  // would otherwise see an empty form, and a slug would take the copy for
-  // its title changing).
-  if (isReplicate && !replicateApplied) return <FormSkeleton />
+  // The defaults (and a copy's values) fill the form in an effect once the
+  // schema (and the replicate query) resolve. Mount the fields only then, as
+  // Nova's Replicate view does, so every input starts from its starting value
+  // (an input that reads its value at mount would otherwise see an empty
+  // form, and a slug would take the copy for its title changing).
+  if (!replicateApplied) return <FormSkeleton />
 
   return (
     <div className="space-y-6">

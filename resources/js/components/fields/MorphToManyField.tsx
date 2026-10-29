@@ -758,7 +758,7 @@ function AttachModal({
                 }
                 body={(row: ResourceRecord) => (
                   <div>
-                    <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} />
+                    <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} resourceId={row.id as string | number | undefined} />
                     {withSubtitles && idx === 0 && row[subtitleAttribute] != null && (
                       <div className="text-xs mt-0.5" style={{ color: 'var(--martis-text-muted)' }}>
                         {String(row[subtitleAttribute])}

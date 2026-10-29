@@ -384,6 +384,21 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
     setSelectedLabel(currentTitle)
   }, [value, currentTitle])
 
+  // A default arrives as a bare id (the field's `default(5)`), with no title
+  // to show. Look the title up so the trigger shows the record's label, not
+  // `#5`. A record the user cannot view keeps the `#id` fallback.
+  useEffect(() => {
+    if (currentId === null || selectedLabel !== null || !relatedResource) return
+    let cancelled = false
+    api
+      .get<{ data: { _title?: string | null } }>(apiPath`/api/resources/${relatedResource}/${currentId as string | number}`)
+      .then((res) => {
+        if (!cancelled && res.data?._title) setSelectedLabel(res.data._title)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [currentId, selectedLabel, relatedResource])
+
   function emit(next: unknown) {
     emitted.current = next
     onChange(next)

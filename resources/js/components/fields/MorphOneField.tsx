@@ -257,6 +257,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
                             field={f}
                             value={record[f.attribute]}
                             resourceKey={relatedResource}
+                            resourceId={record.id as string | number}
                             context="detail"
                           />
                         </dd>
@@ -272,6 +273,7 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
                         field={f}
                         value={null}
                         resourceKey={relatedResource}
+                        resourceId={record.id as string | number}
                         context="detail"
                       />
                     ))}

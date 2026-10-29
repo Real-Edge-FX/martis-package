@@ -77,5 +77,5 @@ export function StackFieldDisplay({ value }: FieldDisplayProps) {
 // Stack is display-only. Hidden from forms by PHP default; input is a no-op
 // placeholder rendered only if a dev explicitly `->showOnForms()`.
 export function StackFieldInput(props: FieldInputProps) {
-  return <StackFieldDisplay {...props} />
+  return <StackFieldDisplay field={props.field} value={props.value} />
 }

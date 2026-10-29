@@ -4,6 +4,12 @@ import type { FieldDefinition } from '@/types'
 export interface FieldDisplayProps {
   field: FieldDefinition
   value: unknown
+  /** URI key of the resource the record belongs to (e.g. `users`), when known. */
+  resourceKey?: string
+  /** Key of the record this value belongs to, when the caller knows it. Absent for a row without a key. */
+  resourceId?: string | number
+  /** Where the value is shown: an index table row or a detail surface. */
+  context?: 'index' | 'detail'
 }
 
 /** A Repeater row: the Repeater's attribute and the row type (`Repeatable::shortName()`). */
