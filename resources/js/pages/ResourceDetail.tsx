@@ -416,7 +416,7 @@ export function ResourceDetailPage() {
            * wrapped in the scalar dl/dt/dd layout above, to avoid duplicated
            * labels. */}
           {relationshipFields.map((field) => (
-            <FieldDisplay key={field.attribute} field={field} value={null} resourceKey={resource} resourceId={id} />
+            <FieldDisplay key={field.attribute} field={field} value={null} resourceKey={resource} resourceId={id} context="detail" />
           ))}
         </div>
 

@@ -25,7 +25,10 @@ Minor release from four consumer reports and a bug found while fixing them: an a
 - **The action modals showed neither a field's help text nor its tooltip.** They now render each field in the forms' wrapper: label, required asterisk, tooltip and help text.
 - **A field's help text was not linked to its input** for assistive technology. The help text now carries an id the input names in `aria-describedby`, on every form and action modal.
 - **The index and lens toolbars listed every standalone action**, whatever its surfaces said, so a standalone action kept off the index (`onlyOnDetail()`, `onlyInline()`, `exceptOnIndex()`) still showed there. They now list a standalone action only when it is shown on the index, as Nova filters the index's actions.
+- **A relationship panel's rows rendered their fields without the index context**, so a field's `overrideIndex()` did not apply there as it does on the related resource's index; the rows now render with the index context.
 - **The command palette offered a standalone action kept off the index**, whose shortcut opens the index, where it has no button (an action with `exceptOnIndex()`, `onlyOnDetail()`, `onlyInline()`, or one run only from a component). It now offers only standalone actions shown on the index.
+
+**Tests:** 5566 Pest passed (+36) and 2204 Vitest passed (+60): 7770 in all, from 7674 at v2.15.0.
 
 ## [2.15.0] — 2026-10-22
 
