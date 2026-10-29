@@ -149,7 +149,7 @@ class ActionController extends MartisController
     /**
      * Get fields for a specific action.
      *
-     * GET /api/resources/{resource}/actions/{action}/fields
+     * GET /api/resources/{resource}/actions/{action}/fields[?resourceId=]
      */
     public function fields(Request $request, string $resource, string $action): IlluminateJsonResponse
     {
@@ -199,6 +199,18 @@ class ActionController extends MartisController
         // field definitions.
         if (! $actionInstance->authorizedToSee($request)) {
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
+        }
+
+        // The record the modal is opened for (`resourceId`), looked up as the
+        // run looks it up, so the fields served are the ones the run resolves.
+        $selected = $this->selectedModelFor($request, $instance, $actionInstance, $lens);
+
+        if ($selected instanceof IlluminateJsonResponse) {
+            return $selected;
+        }
+
+        if ($actionInstance instanceof Action) {
+            $actionInstance->withSelectedModel($selected);
         }
 
         $fields = $this->visibleActionFields($actionInstance->fields($request), $request);
@@ -275,12 +287,13 @@ class ActionController extends MartisController
             )->toResponse();
         }
 
-        // The predicate the rows' `_actionAuthorization` map shows. A
-        // standalone action resolves no model, so nothing is checked here.
-        foreach ($models as $model) {
-            if (($denial = $this->actionRunDenial($request, $actionInstance, $model, $this->actionPolicy($request, new $resourceClass($model)))) !== null) {
-                return JsonErrorResponse::notFound($denial)->toResponse();
-            }
+        if ($denied = $this->runDenied($request, $actionInstance, $models, $resourceClass)) {
+            return $denied;
+        }
+
+        // The record the modal showed the fields for: the run's single one.
+        if ($actionInstance instanceof Action) {
+            $actionInstance->withSelectedModel($this->singleModel($request, $actionInstance, $models));
         }
 
         $fields = $this->resolveActionFields($actionInstance->fields($request), $request, $resourceClass);
@@ -391,6 +404,87 @@ class ActionController extends MartisController
     private function lensOf(Resource $resource, ?string $lensKey, Request $request): Lens|IlluminateJsonResponse|null
     {
         return $lensKey === null ? null : $this->resolveLens($resource, $lensKey, $request);
+    }
+
+    /**
+     * The 404 that refuses a run on a record the action may not run on, or
+     * `null` when it may run on all of `$models`: the predicate the rows'
+     * `_actionAuthorization` map shows (see `actionRunDenial()`). A
+     * standalone action resolves no model, so nothing is checked.
+     *
+     * @param  Collection<int, Model>  $models
+     * @param  class-string<resource>  $resourceClass
+     */
+    private function runDenied(Request $request, ActionContract $action, Collection $models, string $resourceClass): ?IlluminateJsonResponse
+    {
+        foreach ($models as $model) {
+            if (($denial = $this->actionRunDenial($request, $action, $model, $this->actionPolicy($request, new $resourceClass($model)))) !== null) {
+                return JsonErrorResponse::notFound($denial)->toResponse();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The record an Action's `selectedModel()` is during a run: the one
+     * record the request names when it resolves, `null` for a standalone or
+     * bulk run. A run that names several ids and finds one of them is bulk
+     * all the same, as the modal it came from showed no record.
+     *
+     * @param  Collection<int, Model>  $models
+     */
+    private function singleModel(Request $request, ActionContract $action, Collection $models): ?Model
+    {
+        if ($action->isStandalone() || $models->count() !== 1) {
+            return null;
+        }
+
+        $raw = $request->input('resources', []);
+
+        return is_array($raw) && count(array_unique(array_map(
+            static fn (mixed $id): string => is_scalar($id) ? (string) $id : '',
+            $raw,
+        ))) === 1 ? $models->first() : null;
+    }
+
+    /**
+     * The record an Action's fields request names with `resourceId`: the one
+     * the run resolves for that id (see `resolveModels()`, so the index's
+     * scopes, the lens's query or the relationship panel the `via*` params
+     * name bound it), that the run lets the action run on (see
+     * `runDenied()`). `null` when the request names none, and for a
+     * standalone action, which runs on no record. A record that does not
+     * resolve or that the run refuses is a 404, as the run answers, so the
+     * fields endpoint never confirms or serves a record the run would not
+     * run on. Only one id is accepted.
+     */
+    private function selectedModelFor(Request $request, Resource $resource, ActionContract $action, ?Lens $lens): Model|IlluminateJsonResponse|null
+    {
+        $id = $request->query('resourceId');
+
+        if ($action->isStandalone() || $id === null || $id === '') {
+            return null;
+        }
+
+        if (! is_scalar($id)) {
+            return JsonErrorResponse::notFound('The selected resource could not be found.')->toResponse();
+        }
+
+        // Read as the run reads its records.
+        $request->merge(['resources' => [(string) $id]]);
+
+        $models = $this->resolveModels($resource, $action, $request, $lens);
+
+        if ($models instanceof IlluminateJsonResponse) {
+            return $models;
+        }
+
+        if ($denied = $this->runDenied($request, $action, $models, $resource::class)) {
+            return $denied;
+        }
+
+        return $models->first();
     }
 
     /**
@@ -985,7 +1079,7 @@ class ActionController extends MartisController
     /**
      * Get the fields of a pivot action on a BelongsToMany relationship.
      *
-     * GET /api/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}/fields
+     * GET /api/resources/{resource}/{id}/belongs-to-many/{relationship}/actions/{action}/fields[?resourceId=]
      */
     public function pivotFields(
         Request $request,
@@ -1000,7 +1094,7 @@ class ActionController extends MartisController
     /**
      * Get the fields of a pivot action on a MorphToMany relationship.
      *
-     * GET /api/resources/{resource}/{id}/morph-to-many/{relationship}/actions/{action}/fields
+     * GET /api/resources/{resource}/{id}/morph-to-many/{relationship}/actions/{action}/fields[?resourceId=]
      */
     public function morphToManyPivotFields(
         Request $request,
@@ -1109,12 +1203,175 @@ class ActionController extends MartisController
             return $resolved;
         }
 
-        $fields = $this->visibleActionFields($resolved['action']->fields($request), $request);
+        $actionInstance = $resolved['action'];
+
+        // The related record the modal is opened for (`resourceId`), looked
+        // up as the run looks it up (see `selectedPivotModelFor()`).
+        $selected = $this->selectedPivotModelFor($request, $resolved);
+
+        if ($selected instanceof IlluminateJsonResponse) {
+            return $selected;
+        }
+
+        $actionInstance->withSelectedModel($selected);
+
+        $fields = $this->visibleActionFields($actionInstance->fields($request), $request);
 
         /** @var array<string, mixed> $data */
         $data = ['fields' => array_map(fn (FieldContract $f) => $f->toArray(), $fields)];
 
         return JsonResponse::make($data)->toResponse();
+    }
+
+    /**
+     * The related record a pivot action's fields request names with
+     * `resourceId`, as the pivot run reads it: attached through the
+     * relationship, within the related resource's scopes and the panel's
+     * trashed filter (see `resolvePivotModels()`), loaded with its pivot, and
+     * one the action may run on (see `pivotRunDenied()`). `null` when the
+     * request names none, and for a standalone action. A record that does not
+     * resolve or that the run refuses is a 404.
+     *
+     * @param  array{parentModel: Model, parentResource: resource, field: BelongsToManyField|MorphToManyField, relation: BelongsToMany<Model, Model, covariant \Illuminate\Database\Eloquent\Relations\Pivot, covariant string>, action: Action}  $resolved
+     */
+    private function selectedPivotModelFor(Request $request, array $resolved): Model|IlluminateJsonResponse|null
+    {
+        $action = $resolved['action'];
+        $id = $request->query('resourceId');
+
+        if ($action->isStandalone() || $id === null || $id === '') {
+            return null;
+        }
+
+        if (! is_scalar($id)) {
+            return JsonErrorResponse::notFound('The selected resource could not be found.')->toResponse();
+        }
+
+        $models = $this->resolvePivotModels(
+            $request,
+            $resolved['field'],
+            $resolved['relation'],
+            $action,
+            [(string) $id],
+            $this->pivotColumnsOf($resolved['field']),
+        );
+
+        if ($models instanceof IlluminateJsonResponse) {
+            return $models;
+        }
+
+        if ($denied = $this->pivotRunDenied($request, $action, $resolved['parentResource'], $models)) {
+            return $denied;
+        }
+
+        return $models->first();
+    }
+
+    /**
+     * The pivot columns a many-to-many field declares, which the run loads so
+     * the action can read them even when the model's relation has no
+     * `withPivot()`.
+     *
+     * @return list<string>
+     */
+    private function pivotColumnsOf(BelongsToManyField|MorphToManyField $field): array
+    {
+        return array_values(array_map(
+            fn (MartisField $f): string => $f->attribute(),
+            array_filter($field->getPivotFields(), fn ($f): bool => $f instanceof MartisField),
+        ));
+    }
+
+    /**
+     * The related records a pivot run names, loaded through the parent's
+     * relationship so each carries its pivot, or the 404 when none is found.
+     *
+     * The rows the panel lists: the relationship's own (the global scopes it
+     * removes stay removed), narrowed by the related resource's scopes() and
+     * indexQuery() by key, with the trashed ones when the panel offers its
+     * trashed filter. An id the panel does not list does not resolve. A
+     * standalone action resolves none and is not refused for it.
+     *
+     * @param  BelongsToMany<Model, Model, covariant \Illuminate\Database\Eloquent\Relations\Pivot, covariant string>  $relation
+     * @param  list<string>  $relatedIds
+     * @param  list<string>  $pivotColumns
+     * @return Collection<int, Model>|IlluminateJsonResponse
+     */
+    private function resolvePivotModels(
+        Request $request,
+        BelongsToManyField|MorphToManyField $field,
+        BelongsToMany $relation,
+        Action $action,
+        array $relatedIds,
+        array $pivotColumns,
+    ): Collection|IlluminateJsonResponse {
+        if ($pivotColumns !== []) {
+            $relation->withPivot($pivotColumns);
+        }
+
+        $relatedResourceKey = $field->getRelatedResourceKey();
+        if ($relatedResourceKey !== null && $this->registry->has($relatedResourceKey)) {
+            /** @var class-string<resource> $relatedResourceClass */
+            $relatedResourceClass = $this->registry->get($relatedResourceKey);
+
+            if ($relatedResourceClass::softDeletes() && $relatedResourceClass::canViewTrashed()) {
+                $relation->getQuery()->withoutGlobalScope(SoftDeletingScope::class);
+            }
+
+            RelationScope::constrainByKey($request, $relation->getQuery(), $relatedResourceClass);
+        }
+
+        // Qualified key: the relation joins the pivot table, and a pivot table
+        // with its own `id` column would make a bare key ambiguous.
+        /** @var Collection<int, Model> $models */
+        $models = $relation->whereIn($relation->getRelated()->getQualifiedKeyName(), $relatedIds)->get();
+
+        // Run on the ids attached, as execute() does; none attached is a 404
+        // rather than a run on nothing.
+        if (! $action->isStandalone() && $models->isEmpty()) {
+            return JsonErrorResponse::notFound('One or more selected resources could not be found.')->toResponse();
+        }
+
+        return $models;
+    }
+
+    /**
+     * The 404 that refuses a pivot run on a related record the action may not
+     * run on, or `null` when it may run on all of `$models`.
+     *
+     * Per-model authorization mirrors the non-pivot execute() path: without
+     * it, a visible pivot action ran on every selected related record
+     * regardless of the action's own canRun rule. The policy execute()
+     * checks for a resource action is asked against the record whose
+     * relationship panel runs it: runDestructiveAction (falling back to
+     * delete) for a destructive action, runAction (falling back to update)
+     * otherwise.
+     *
+     * @param  Collection<int, Model>  $models
+     */
+    private function pivotRunDenied(Request $request, Action $action, Resource $parentResource, Collection $models): ?IlluminateJsonResponse
+    {
+        if ($action->isStandalone()) {
+            return null;
+        }
+
+        foreach ($models as $model) {
+            if (! $action->authorizedToRun($request, $model)) {
+                return JsonErrorResponse::notFound('You are not authorized to run this action on one or more selected resources.')->toResponse();
+            }
+        }
+
+        $allowed = $action->isDestructive()
+            ? $parentResource->authorizedToRunDestructiveAction($request)
+            : $parentResource->authorizedToRunAction($request);
+
+        if (! $allowed) {
+            return JsonErrorResponse::notFound($action->isDestructive()
+                ? 'You are not authorized to run this destructive action.'
+                : 'You are not authorized to run this action.')->toResponse();
+        }
+
+        return null;
     }
 
     /**
@@ -1159,42 +1416,12 @@ class ActionController extends MartisController
             )->toResponse();
         }
 
-        // Load the pivot columns the field declares, so the action can read
-        // them even when the model's relation has no withPivot().
-        $pivotColumns = array_values(array_map(
-            fn (MartisField $f): string => $f->attribute(),
-            array_filter($field->getPivotFields(), fn ($f): bool => $f instanceof MartisField),
-        ));
-        if ($pivotColumns !== []) {
-            $relation->withPivot($pivotColumns);
-        }
+        $pivotColumns = $this->pivotColumnsOf($field);
 
-        // The rows the panel lists: the relationship's own (the global scopes
-        // it removes stay removed), narrowed by the related resource's
-        // scopes() and indexQuery() by key, with the trashed ones when the
-        // panel offers its trashed filter. An id the panel does not list does
-        // not resolve.
-        $relatedResourceKey = $field->getRelatedResourceKey();
-        if ($relatedResourceKey !== null && $this->registry->has($relatedResourceKey)) {
-            /** @var class-string<resource> $relatedResourceClass */
-            $relatedResourceClass = $this->registry->get($relatedResourceKey);
+        $models = $this->resolvePivotModels($request, $field, $relation, $actionInstance, $relatedIds, $pivotColumns);
 
-            if ($relatedResourceClass::softDeletes() && $relatedResourceClass::canViewTrashed()) {
-                $relation->getQuery()->withoutGlobalScope(SoftDeletingScope::class);
-            }
-
-            RelationScope::constrainByKey($request, $relation->getQuery(), $relatedResourceClass);
-        }
-
-        // Qualified key: the relation joins the pivot table, and a pivot table
-        // with its own `id` column would make a bare key ambiguous.
-        /** @var Collection<int, Model> $models */
-        $models = $relation->whereIn($relation->getRelated()->getQualifiedKeyName(), $relatedIds)->get();
-
-        // Run on the ids attached, as execute() does; none attached is a 404
-        // rather than a run on nothing.
-        if (! $actionInstance->isStandalone() && $models->isEmpty()) {
-            return JsonErrorResponse::notFound('One or more selected resources could not be found.')->toResponse();
+        if ($models instanceof IlluminateJsonResponse) {
+            return $models;
         }
 
         if ($actionInstance->isSole() && $models->count() !== 1) {
@@ -1203,30 +1430,11 @@ class ActionController extends MartisController
             )->toResponse();
         }
 
-        // Per-model authorization — mirrors the non-pivot execute() path.
-        // Without this, a visible pivot action ran on every selected
-        // related record regardless of the action's own canRun rule.
-        if (! $actionInstance->isStandalone()) {
-            foreach ($models as $model) {
-                if (! $actionInstance->authorizedToRun($request, $model)) {
-                    return JsonErrorResponse::notFound('You are not authorized to run this action on one or more selected resources.')->toResponse();
-                }
-            }
-
-            // The policy execute() checks for a resource action, against the
-            // record whose relationship panel runs it: runDestructiveAction
-            // (falling back to delete) for a destructive action, runAction
-            // (falling back to update) otherwise.
-            $allowed = $actionInstance->isDestructive()
-                ? $parentResource->authorizedToRunDestructiveAction($request)
-                : $parentResource->authorizedToRunAction($request);
-
-            if (! $allowed) {
-                return JsonErrorResponse::notFound($actionInstance->isDestructive()
-                    ? 'You are not authorized to run this destructive action.'
-                    : 'You are not authorized to run this action.')->toResponse();
-            }
+        if ($denied = $this->pivotRunDenied($request, $actionInstance, $parentResource, $models)) {
+            return $denied;
         }
+
+        $actionInstance->withSelectedModel($this->singleModel($request, $actionInstance, $models));
 
         $fields = $this->resolveActionFields($actionInstance->fields($request), $request, $resourceClass);
 

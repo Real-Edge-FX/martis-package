@@ -110,6 +110,13 @@ class Action implements ActionContract
     protected ?Closure $closureHandler = null;
 
     // -------------------------------------------------------------------------
+    // Record context for fields()
+    // -------------------------------------------------------------------------
+
+    /** The one record the action's fields are served or validated for; see `selectedModel()`. */
+    private ?Model $selectedModel = null;
+
+    // -------------------------------------------------------------------------
     // Factory
     // -------------------------------------------------------------------------
 
@@ -152,6 +159,38 @@ class Action implements ActionContract
     public function fields(Request $request): array
     {
         return [];
+    }
+
+    /**
+     * The record the action runs on, for `fields()` to read: set when the
+     * modal is opened for one record (the fields request names it with
+     * `resourceId`) and when a run names exactly one. It is `null` for a
+     * standalone or bulk action, and when the request names no record. The
+     * record is the one the run resolves, through the same scope and the same
+     * authorization, so an app never reads a record the run would refuse.
+     *
+     * It is read through this method and not handed to `fields()` as a second
+     * parameter, as `ActionContract::fields()` would then change for every
+     * Action an application declares. Nova reads it with `$request->findModel()`.
+     */
+    public function selectedModel(): ?Model
+    {
+        return $this->selectedModel;
+    }
+
+    /**
+     * Set the record `selectedModel()` returns, or clear it. Called by the
+     * controllers before `fields()`, always (with `null` when there is no
+     * record), so an Action instance an application keeps across requests
+     * never carries the previous request's record.
+     *
+     * @internal
+     */
+    public function withSelectedModel(?Model $model): static
+    {
+        $this->selectedModel = $model;
+
+        return $this;
     }
 
     // -------------------------------------------------------------------------
