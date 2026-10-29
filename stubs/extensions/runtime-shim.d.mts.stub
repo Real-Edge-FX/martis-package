@@ -1396,8 +1396,18 @@ declare function routePath(strings: TemplateStringsArray, ...values: ReadonlyArr
 /** `url` with `query` appended to the query string it may already have. */
 declare function withQuery(url: string, query: string): string;
 
+/** Per-request switches of `api.get()`. */
+interface RequestOptions {
+    /**
+     * Do not raise `LOCKED_EVENT` for a 403 that carries a lock payload: the
+     * request still rejects. For a lookup the page makes on its own (a label
+     * for a stored id) and falls back from, which must not open the gate modal
+     * the user never asked for.
+     */
+    silentLock?: boolean;
+}
 declare const api: {
-    get: <T>(path: string, signal?: AbortSignal) => Promise<T>;
+    get: <T>(path: string, signal?: AbortSignal, options?: RequestOptions) => Promise<T>;
     post: <T>(path: string, body?: unknown, signal?: AbortSignal) => Promise<T>;
     put: <T>(path: string, body?: unknown, signal?: AbortSignal) => Promise<T>;
     patch: <T>(path: string, body?: unknown, signal?: AbortSignal) => Promise<T>;
@@ -2191,6 +2201,14 @@ interface FieldInputProps {
      */
     actionEndpoint?: string;
     /**
+     * The query string the action modal sends to its fields endpoint to name
+     * the record it runs on (`resourceId=7`, plus the panel's `via*` params),
+     * set with `actionEndpoint`. The relation pickers send it too, so the
+     * Action resolves their field with the same `selectedModel()` the modal's
+     * own fields were resolved with.
+     */
+    actionQuery?: string;
+    /**
      * Base path of a many-to-many panel's pivot fields when the input renders
      * one of them: `/api/resources/{resource}/{id}/{belongs-to-many|morph-to-many}/{relationship}/pivot-fields`
      * in the attach modal, plus `/{relatedId}` in the pivot edit modal of an
@@ -2245,7 +2263,7 @@ declare function FieldDisplay({ field, value, resourceKey, resourceId, context, 
  *
  * @param resourceKey  The resource URI key — enables per-resource overrides
  */
-declare function FieldInput({ field, value, onChange, error, nestedErrors, resourceKey, recordId, toolKey, context, actionEndpoint, pivotEndpoint, repeaterRow, formValues, }: {
+declare function FieldInput({ field, value, onChange, error, nestedErrors, resourceKey, recordId, toolKey, context, actionEndpoint, actionQuery, pivotEndpoint, repeaterRow, formValues, }: {
     field: FieldDefinition;
     value: unknown;
     onChange: (v: unknown) => void;
@@ -2256,6 +2274,7 @@ declare function FieldInput({ field, value, onChange, error, nestedErrors, resou
     toolKey?: string;
     context?: 'create' | 'update';
     actionEndpoint?: string;
+    actionQuery?: string;
     pivotEndpoint?: string;
     repeaterRow?: RepeaterRowScope;
     formValues?: Record<string, unknown>;
@@ -7594,7 +7613,7 @@ declare const martisRuntime: {
     readonly PasswordChangeRequiredError: typeof PasswordChangeRequiredError;
     readonly AuthProvider: typeof AuthProvider;
     readonly api: {
-        get: <T>(path: string, signal?: AbortSignal) => Promise<T>;
+        get: <T>(path: string, signal?: AbortSignal, options?: RequestOptions) => Promise<T>;
         post: <T>(path: string, body?: unknown, signal?: AbortSignal) => Promise<T>;
         put: <T>(path: string, body?: unknown, signal?: AbortSignal) => Promise<T>;
         patch: <T>(path: string, body?: unknown, signal?: AbortSignal) => Promise<T>;
