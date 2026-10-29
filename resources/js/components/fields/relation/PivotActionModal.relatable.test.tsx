@@ -50,7 +50,7 @@ function relatableCalls(): string[] {
 beforeEach(() => {
   apiGetMock.mockReset()
   apiGetMock.mockImplementation(async (url: string) =>
-    url.endsWith('/assign-owner/fields') ? { data: { fields: [ownerField] } } : { data: [] },
+    url.split('?')[0].endsWith('/assign-owner/fields') ? { data: { fields: [ownerField] } } : { data: [] },
   )
 })
 
@@ -94,4 +94,38 @@ describe('PivotActionModal pickers', () => {
       expect(relatableCalls()[0].split('?')[0]).toBe(`${actionsUrl}/assign-owner/relatable/owner_id`)
     },
   )
+})
+
+describe('PivotActionModal pickers and the record', () => {
+  it.each([
+    ['one record', [4], '4'],
+    ['several records', [4, 5], null],
+  ])('name the related record for %s', async (_label, selectedIds, expected) => {
+    const actionsUrl = '/api/resources/projects/7/belongs-to-many/members/actions'
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ToastProvider>
+          <MemoryRouter initialEntries={['/resources/projects/7']}>
+            <Routes>
+              <Route
+                path="/resources/:resource/:id"
+                element={<PivotActionModal actionsUrl={actionsUrl} resourceKey="roles" action={action} selectedIds={selectedIds} onSuccess={() => {}} onClose={() => {}} />}
+              />
+            </Routes>
+          </MemoryRouter>
+        </ToastProvider>
+      </QueryClientProvider>,
+    )
+
+    const trigger = await waitFor(() => {
+      const el = document.body.querySelector('.martis-belongs-to-trigger')
+      expect(el).not.toBeNull()
+      return el as HTMLElement
+    })
+    fireEvent.click(trigger)
+    await waitFor(() => expect(relatableCalls()).toHaveLength(1))
+
+    expect(new URL(relatableCalls()[0], 'http://x').searchParams.get('resourceId')).toBe(expected)
+  })
 })

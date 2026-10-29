@@ -8,7 +8,7 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
 import { ArrowSquareOutIcon, CaretDownIcon, MagnifyingGlassIcon, XIcon, CheckIcon, PlusIcon } from '@phosphor-icons/react'
 import { InlineCreateModal } from '@/components/InlineCreateModal'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { recordHref } from '@/lib/recordHref'
 import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
 import { pickerAttributesQuery, relatableUrl, withQuery } from '@/lib/relatableEndpoint'
@@ -260,7 +260,7 @@ interface RelatedRecord {
   [key: string]: unknown
 }
 
-export function MorphToFieldInput({ field, value, onChange, error, resourceKey, recordId, context, actionEndpoint, pivotEndpoint, repeaterRow }: FieldInputProps) {
+export function MorphToFieldInput({ field, value, onChange, error, resourceKey, recordId, context, actionEndpoint, actionQuery, pivotEndpoint, repeaterRow }: FieldInputProps) {
   const { t: tMsg } = useTranslation('messages')
   const morphTypes = (field as unknown as Record<string, unknown>).morphTypes as MorphTypeOption[] | undefined
   const titleAttribute = (field as unknown as Record<string, unknown>).titleAttribute as string | undefined
@@ -311,6 +311,23 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
     }
   }, [currentValue])
 
+  // A default arrives as `{ resourceType, id }` with no title; look it up so
+  // the trigger shows the record's label, not `#id`. One cached request per
+  // record, shared by every input that holds it. The lookup is the page's
+  // own, so a refusal (a record the user cannot view, a soft-locked resource)
+  // neither opens the gate modal nor shows anything: the `#id` fallback stays.
+  const titleLookup = useQuery({
+    queryKey: ['relation-title', selectedType, selectedId === null ? null : String(selectedId)],
+    queryFn: ({ signal }) =>
+      api.get<{ data: { _title?: string | null } }>(apiPath`/api/resources/${selectedType as string}/${selectedId as string | number}`, signal, { silentLock: true }),
+    enabled: !!selectedType && selectedId !== null && selectedLabel === null,
+    retry: false,
+  })
+  const lookedUpTitle = titleLookup.data?.data?._title ?? null
+  useEffect(() => {
+    if (lookedUpTitle && selectedLabel === null) setSelectedLabel(lookedUpTitle)
+  }, [lookedUpTitle, selectedLabel])
+
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -335,7 +352,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
   // The form (or Action, pivot fields, Repeater row) the picker renders in
   // scopes the relatable endpoint.
   const params = useParams<{ resource?: string; id?: string }>()
-  const scopedUrl = relatableUrl(field.attribute, { resourceKey, recordId, context, actionEndpoint, pivotEndpoint, repeaterRow }, params)
+  const scopedUrl = relatableUrl(field.attribute, { resourceKey, recordId, context, actionEndpoint, actionQuery, pivotEndpoint, repeaterRow }, params)
 
   // Fetch options for the selected type
   const fetchOptions = useCallback(async (query: string) => {

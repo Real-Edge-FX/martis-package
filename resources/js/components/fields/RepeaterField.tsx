@@ -253,7 +253,7 @@ export function RepeaterFieldDisplay({ field, value }: FieldDisplayProps) {
 // Input (create/update)
 // ---------------------------------------------------------------------------
 
-export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors, resourceKey, recordId, context, toolKey, actionEndpoint, pivotEndpoint, formValues }: FieldInputProps) {
+export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors, resourceKey, recordId, context, toolKey, actionEndpoint, actionQuery, pivotEndpoint, formValues }: FieldInputProps) {
   const { t } = useTranslation('messages')
   const { t: tAct } = useTranslation('actions')
 
@@ -626,6 +626,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
                           context={context}
                           toolKey={toolKey}
                           actionEndpoint={actionEndpoint}
+                          actionQuery={actionQuery}
                           pivotEndpoint={pivotEndpoint}
                           repeaterRow={{ repeater: field.attribute, repeatable: rep.shortName }}
                           formValues={{

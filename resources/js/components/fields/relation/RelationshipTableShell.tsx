@@ -460,10 +460,10 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                         className="font-medium no-underline"
                         style={{ color: 'var(--martis-accent)' }}
                       >
-                        <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} />
+                        <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} resourceId={row.id as string | number | undefined} context="index" />
                       </Link>
                     ) : (
-                      <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} />
+                      <FieldDisplay field={f} value={row[f.attribute]} resourceKey={relatedResource} resourceId={row.id as string | number | undefined} context="index" />
                     )
                   )}
                   sortable={false}
@@ -483,7 +483,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                     // A pivot field the pivot row hides (`_pivot._hidden`) leaves its cell empty.
                     if (isHiddenOn(pivot, pf.attribute)) return null
                     const val = pivot?.[pf.attribute] ?? null
-                    return <FieldDisplay field={pf} value={val} resourceKey={relatedResource} />
+                    return <FieldDisplay field={pf} value={val} resourceKey={relatedResource} resourceId={row.id as string | number | undefined} context="index" />
                   }}
                   sortable={false}
                 />

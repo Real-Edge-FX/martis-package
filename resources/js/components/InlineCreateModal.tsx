@@ -14,6 +14,7 @@ import { useModalHistoryLock } from "@/lib/historyLock"
 import { NestedParentProvider } from "@/components/fields/NestedParentContext"
 import { fieldErrorProps, isFieldErrorKey } from "@/lib/fieldErrors"
 import { emitRecordEvent } from "@/lib/recordEvents"
+import { fieldDefaults } from "@/lib/fieldDefaults"
 
 /** Modal size — maps to a max-width in pixels so the panel scales
  *  beyond the 480px default of `.martis-modal-surface`. */
@@ -89,6 +90,20 @@ export function InlineCreateModal({
     enabled: open,
   })
 
+  // Each field's `default()` is what a new record starts from. Seeded once
+  // per opening, as soon as the schema is known and before its fields mount
+  // (state set while rendering is applied before the children render), so an
+  // input that reads its value at mount shows the default. The form is
+  // cleared on close, so reopening starts from the defaults again.
+  const [seeded, setSeeded] = useState(false)
+  const schemaFields = schemaQuery.data?.data?.fields
+  if (open && schemaFields && !seeded) {
+    setSeeded(true)
+    setValues((prev) => ({ ...fieldDefaults(schemaFields), ...prev }))
+  } else if (!open && seeded) {
+    setSeeded(false)
+  }
+
   const createMutation = useMutation({
     mutationFn: (formValues: Record<string, unknown>) => {
       // A BelongsTo the form holds as `{ id, title }` goes as its id.
@@ -106,7 +121,7 @@ export function InlineCreateModal({
     },
     onSuccess: (res) => {
       addToast("success", res?.meta?.message ?? tMsg("record_created"))
-      setValues({})
+      setValues(fieldDefaults(schemaQuery.data?.data?.fields ?? []))
       setErrors({})
       emitRecordEvent('created', relatedResource, res.data.id)
       onCreated({ id: res.data.id, title: res.data.title })

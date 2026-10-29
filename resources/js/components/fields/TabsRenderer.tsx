@@ -87,10 +87,12 @@ export function TabsDisplay({
   tabGroup,
   values,
   resourceKey,
+  resourceId,
 }: {
   tabGroup: TabGroupDefinition
   values: Record<string, unknown>
   resourceKey?: string
+  resourceId?: string | number
 }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const { tabs } = tabGroup
@@ -113,7 +115,7 @@ export function TabsDisplay({
             if (isPanelDefinition(item)) {
               return (
                 <div key={item.title} style={NESTED_PANEL_SPAN}>
-                  <PanelDisplay panel={item} values={values} resourceKey={resourceKey} />
+                  <PanelDisplay panel={item} values={values} resourceKey={resourceKey} resourceId={resourceId} />
                 </div>
               )
             }
@@ -127,6 +129,7 @@ export function TabsDisplay({
                       field={field}
                       value={values[field.attribute]}
                       resourceKey={resourceKey}
+                      resourceId={resourceId}
                       context="detail"
                     />
                   </dd>

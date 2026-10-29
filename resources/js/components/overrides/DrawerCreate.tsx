@@ -15,6 +15,7 @@ import { DrawerShell } from './DrawerShell'
 import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 import { emitRecordEvent } from '@/lib/recordEvents'
+import { fieldDefaults } from '@/lib/fieldDefaults'
 
 
 
@@ -31,6 +32,9 @@ export function DrawerCreate(props: OverrideProps) {
   const { t: tMsg } = useTranslation('messages')
 
   const allFormFields = useMemo(() => schema.fieldsForCreate ?? [], [schema])
+  // Each field's `default()`, the values a new record starts from (a copy
+  // replaces them with the replicated record's values).
+  const defaults = useMemo(() => fieldDefaults(allFormFields), [allFormFields])
 
   // The record this drawer replicates: `fromResourceId`, or the record a host
   // passes (the create override's replicate contract before v1.38.0). Its
@@ -47,13 +51,13 @@ export function DrawerCreate(props: OverrideProps) {
     retry: false,
   })
   const initialValues = useMemo<Record<string, unknown>>(
-    () => (replicateId === null ? {} : replicateQuery.data?.data?.values ?? {}),
-    [replicateId, replicateQuery.data],
+    () => (replicateId === null ? defaults : { ...defaults, ...(replicateQuery.data?.data?.values ?? {}) }),
+    [replicateId, replicateQuery.data, defaults],
   )
   // A copy is ready once its values have arrived; a plain create at once.
   const ready = replicateId === null || replicateQuery.isSuccess
 
-  const [values, setValues] = useState<Record<string, unknown>>(ready ? initialValues : {})
+  const [values, setValues] = useState<Record<string, unknown>>(ready ? initialValues : defaults)
   const [errors, setErrors] = useState<Record<string, string>>({})
   // Bumped once a record is created, to mount the fields again for the next
   // one when the host keeps the drawer open (`redirectAfter` 'stay'): an
@@ -136,11 +140,11 @@ export function DrawerCreate(props: OverrideProps) {
     },
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
-      setValues({})
+      setValues(defaults)
       setErrors({})
-      // The next record starts from the empty form, which is therefore its
-      // baseline (a drawer opened on a copy had the copy).
-      initialSnapshot.current = JSON.stringify({})
+      // The next record starts from the fields' defaults, which are therefore
+      // its baseline (a drawer opened on a copy had the copy).
+      initialSnapshot.current = JSON.stringify(defaults)
       setFieldsKey((key) => key + 1)
       setCopyOf(null)
       emitRecordEvent('created', resource, res.data?.id)

@@ -155,6 +155,7 @@ export function DrawerDetail(props: OverrideProps) {
                         field={field}
                         value={activeRecord![field.attribute]}
                         resourceKey={resource}
+                        resourceId={relationParent.id}
                         context="detail"
                       />
                     </dd>
@@ -167,13 +168,13 @@ export function DrawerDetail(props: OverrideProps) {
              *  each keeps its own heading so the drawer mirrors the full
              *  detail page instead of flattening the declarative tree. */}
             {tabGroupItems.map((tg, idx) => (
-              <TabsDisplay key={`tg-${idx}`} tabGroup={tg} values={activeRecord as Record<string, unknown>} resourceKey={resource} />
+              <TabsDisplay key={`tg-${idx}`} tabGroup={tg} values={activeRecord as Record<string, unknown>} resourceKey={resource} resourceId={relationParent.id} />
             ))}
             {panelItems.map((panel, idx) => (
-              <PanelDisplay key={`panel-${idx}`} panel={panel} values={activeRecord as Record<string, unknown>} resourceKey={resource} />
+              <PanelDisplay key={`panel-${idx}`} panel={panel} values={activeRecord as Record<string, unknown>} resourceKey={resource} resourceId={relationParent.id} />
             ))}
             {sectionItems.map((section, idx) => (
-              <SectionDisplay key={`section-${idx}`} section={section} values={activeRecord as Record<string, unknown>} resourceKey={resource} />
+              <SectionDisplay key={`section-${idx}`} section={section} values={activeRecord as Record<string, unknown>} resourceKey={resource} resourceId={relationParent.id} />
             ))}
 
             {/* Relationship panels — each relationship field renders its own
@@ -187,6 +188,7 @@ export function DrawerDetail(props: OverrideProps) {
                     field={field}
                     value={null}
                     resourceKey={resource}
+                    resourceId={relationParent.id}
                     context="detail"
                   />
                 ))}

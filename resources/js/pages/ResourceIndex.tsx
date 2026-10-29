@@ -394,7 +394,10 @@ export function ResourceIndexPage() {
   const allActions = (schemaQuery.data?.data?.actions ?? []) as ActionMeta[]
   const indexActions = filterIndexActions(allActions)
   const inlineActions = filterInlineActions(allActions)
-  const standaloneActions = allActions.filter((a) => a.standalone)
+  // Nova lists the index's actions by `display=index`: a standalone action
+  // that is not shown on the index (`exceptOnIndex()`, `onlyOnDetail()`) has
+  // no entry in this toolbar.
+  const standaloneActions = filterIndexActions(allActions.filter((a) => a.standalone))
   const standaloneDisabledActions = new Set<string>(
     standaloneActions
       .filter(a => a.destructive

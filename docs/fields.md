@@ -226,7 +226,7 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 | `withLabel` | `withLabel(string\|Closure $value): static` | `$this` | Override the constructor label after construction. Accepts a closure for request-time resolution. |
 | `fullWidth` | `fullWidth(bool $fullWidth = true): static` | `$this` | Make the field span the full width of the form. |
 | `stacked` | `stacked(bool $stacked = true): static` | `$this` | Control label position: stacked above (true) or inline (false). |
-| `default` | `default(mixed $value): static` | `$this` | Set a default value for the field on create forms. Accepts a closure for request-time resolution. |
+| `default` | `default(mixed $value): static` | `$this` | Set a default value for the field on create forms. Accepts a closure for request-time resolution, resolved on the server. The create page, the create drawer, the inline create modal and the action modals open the field on it (v2.16.0+; before, only a `Repeater` row and the attach modal's pivot fields did). A copy made with Replicate opens on the copied record's values instead. |
 
 ### Visibility
 

@@ -4,6 +4,12 @@ import type { FieldDefinition } from '@/types'
 export interface FieldDisplayProps {
   field: FieldDefinition
   value: unknown
+  /** URI key of the resource the record belongs to (e.g. `users`), when known. */
+  resourceKey?: string
+  /** Key of the record this value belongs to, when the caller knows it. Absent for a row without a key. */
+  resourceId?: string | number
+  /** Where the value is shown: an index table row or a detail surface. */
+  context?: 'index' | 'detail'
 }
 
 /** A Repeater row: the Repeater's attribute and the row type (`Repeatable::shortName()`). */
@@ -44,6 +50,14 @@ export interface FieldInputProps {
    * resource-scoped lookups do not reach Action fields.
    */
   actionEndpoint?: string
+  /**
+   * The query string the action modal sends to its fields endpoint to name
+   * the record it runs on (`resourceId=7`, plus the panel's `via*` params),
+   * set with `actionEndpoint`. The relation pickers send it too, so the
+   * Action resolves their field with the same `selectedModel()` the modal's
+   * own fields were resolved with.
+   */
+  actionQuery?: string
   /**
    * Base path of a many-to-many panel's pivot fields when the input renders
    * one of them: `/api/resources/{resource}/{id}/{belongs-to-many|morph-to-many}/{relationship}/pivot-fields`

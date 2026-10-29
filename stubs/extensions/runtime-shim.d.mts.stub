@@ -1276,6 +1276,78 @@ declare function useToastSafe(): ToastContextValue;
 
 declare function useIsMobile(breakpoint?: number): boolean;
 
+/** The answer of an action run: `ActionResponse::jsonSerialize()`, `{ type, data }`. */
+interface ActionResponsePayload {
+    type?: string;
+    data?: Record<string, unknown>;
+}
+
+/** `viaResource` / `viaResourceId` / `viaRelationship` of a panel's run. */
+interface ActionRequestVia {
+    viaResource: string;
+    viaResourceId: string | number;
+    viaRelationship: string;
+}
+
+/** What `runAction()` takes. */
+interface RunActionOptions {
+    /** The resource key the action runs on (e.g. `posts`). */
+    resource: string;
+    /** The `uriKey` of the action. */
+    action: string;
+    /** One record to run it on; the same as `ids: [id]`. */
+    id?: string | number;
+    /** Several records (the action's bulk run). `id` wins when both are given. */
+    ids?: Array<string | number>;
+    /** The values for the action's fields. */
+    fields?: Record<string, unknown>;
+    /** The lens the action is declared on, when it runs from one. */
+    lens?: string;
+    /** The relationship a panel runs it through (`viaResource`, `viaResourceId`, `viaRelationship`). */
+    via?: ActionRequestVia;
+    /**
+     * Handle the answer as the action modal does (toast, redirect, download,
+     * modal, new tab). Default `true`; `false` leaves it to the caller, who
+     * reads `response` of the result.
+     */
+    handleResponse?: boolean;
+}
+/** The outcome of `runAction()`: it resolves, it never rejects. */
+type RunActionResult = {
+    ok: true;
+    response: ActionResponsePayload | undefined;
+} | {
+    ok: false;
+    /** The server's message, or the generic failure text. */
+    message: string;
+    /** A 422's errors keyed by the field's attribute (`fields.` prefix removed). */
+    errors: Record<string, string>;
+};
+/** What `useRunAction()` returns. */
+type RunAction = (options: RunActionOptions) => Promise<RunActionResult>;
+/**
+ * Run an action from a custom component (a field's Display, a Tool, a card):
+ * the same request and answer handling as the action modal, with the run
+ * reported as a result instead of thrown, so a failure can go on screen
+ * next to the control that ran it. Emits `martis:action-executed` and
+ * refreshes the record (`useRefreshRecord()`) after a handled answer.
+ */
+declare function useRunAction(): RunAction;
+
+/** What `useRefreshRecord()` returns: refresh one record, or a whole resource. */
+type RefreshRecord = (resourceKey: string, id?: string | number) => void;
+/**
+ * Refresh what the SPA shows of a record after a custom component changed it
+ * (a field that ran an action, saved through its own request, ...).
+ *
+ * Invalidates the detail query (`['resource', key, id]`, and the edit form's
+ * `[..., 'update']` below it, the keys the detail page and the drawers read)
+ * and the resource's index queries (`['resources', key]`), so open lists and
+ * panels refetch. Without an `id` every detail query of the resource goes.
+ * Nova has no core equivalent; this is Martis's way.
+ */
+declare function useRefreshRecord(): RefreshRecord;
+
 interface ValidationError {
     field: string;
     message: string;
@@ -1324,8 +1396,18 @@ declare function routePath(strings: TemplateStringsArray, ...values: ReadonlyArr
 /** `url` with `query` appended to the query string it may already have. */
 declare function withQuery(url: string, query: string): string;
 
+/** Per-request switches of `api.get()`. */
+interface RequestOptions {
+    /**
+     * Do not raise `LOCKED_EVENT` for a 403 that carries a lock payload: the
+     * request still rejects. For a lookup the page makes on its own (a label
+     * for a stored id) and falls back from, which must not open the gate modal
+     * the user never asked for.
+     */
+    silentLock?: boolean;
+}
 declare const api: {
-    get: <T>(path: string, signal?: AbortSignal) => Promise<T>;
+    get: <T>(path: string, signal?: AbortSignal, options?: RequestOptions) => Promise<T>;
     post: <T>(path: string, body?: unknown, signal?: AbortSignal) => Promise<T>;
     put: <T>(path: string, body?: unknown, signal?: AbortSignal) => Promise<T>;
     patch: <T>(path: string, body?: unknown, signal?: AbortSignal) => Promise<T>;
@@ -2074,6 +2156,12 @@ declare function NotFoundPage(): react_jsx_runtime.JSX.Element;
 interface FieldDisplayProps {
     field: FieldDefinition;
     value: unknown;
+    /** URI key of the resource the record belongs to (e.g. `users`), when known. */
+    resourceKey?: string;
+    /** Key of the record this value belongs to, when the caller knows it. Absent for a row without a key. */
+    resourceId?: string | number;
+    /** Where the value is shown: an index table row or a detail surface. */
+    context?: 'index' | 'detail';
 }
 /** A Repeater row: the Repeater's attribute and the row type (`Repeatable::shortName()`). */
 interface RepeaterRowScope {
@@ -2112,6 +2200,14 @@ interface FieldInputProps {
      * resource-scoped lookups do not reach Action fields.
      */
     actionEndpoint?: string;
+    /**
+     * The query string the action modal sends to its fields endpoint to name
+     * the record it runs on (`resourceId=7`, plus the panel's `via*` params),
+     * set with `actionEndpoint`. The relation pickers send it too, so the
+     * Action resolves their field with the same `selectedModel()` the modal's
+     * own fields were resolved with.
+     */
+    actionQuery?: string;
     /**
      * Base path of a many-to-many panel's pivot fields when the input renders
      * one of them: `/api/resources/{resource}/{id}/{belongs-to-many|morph-to-many}/{relationship}/pivot-fields`
@@ -2152,10 +2248,12 @@ interface FieldInputProps {
  *
  * @param resourceKey  The resource URI key (e.g. "users") — enables per-resource overrides
  */
-declare function FieldDisplay({ field, value, resourceKey, context, }: {
+declare function FieldDisplay({ field, value, resourceKey, resourceId, context, }: {
     field: FieldDefinition;
     value: unknown;
     resourceKey?: string;
+    /** Key of the record the value belongs to, when the caller knows it. */
+    resourceId?: string | number;
     context?: 'index' | 'detail';
 }): react_jsx_runtime.JSX.Element;
 /**
@@ -2165,7 +2263,7 @@ declare function FieldDisplay({ field, value, resourceKey, context, }: {
  *
  * @param resourceKey  The resource URI key — enables per-resource overrides
  */
-declare function FieldInput({ field, value, onChange, error, nestedErrors, resourceKey, recordId, toolKey, context, actionEndpoint, pivotEndpoint, repeaterRow, formValues, }: {
+declare function FieldInput({ field, value, onChange, error, nestedErrors, resourceKey, recordId, toolKey, context, actionEndpoint, actionQuery, pivotEndpoint, repeaterRow, formValues, }: {
     field: FieldDefinition;
     value: unknown;
     onChange: (v: unknown) => void;
@@ -2176,6 +2274,7 @@ declare function FieldInput({ field, value, onChange, error, nestedErrors, resou
     toolKey?: string;
     context?: 'create' | 'update';
     actionEndpoint?: string;
+    actionQuery?: string;
     pivotEndpoint?: string;
     repeaterRow?: RepeaterRowScope;
     formValues?: Record<string, unknown>;
@@ -7514,7 +7613,7 @@ declare const martisRuntime: {
     readonly PasswordChangeRequiredError: typeof PasswordChangeRequiredError;
     readonly AuthProvider: typeof AuthProvider;
     readonly api: {
-        get: <T>(path: string, signal?: AbortSignal) => Promise<T>;
+        get: <T>(path: string, signal?: AbortSignal, options?: RequestOptions) => Promise<T>;
         post: <T>(path: string, body?: unknown, signal?: AbortSignal) => Promise<T>;
         put: <T>(path: string, body?: unknown, signal?: AbortSignal) => Promise<T>;
         patch: <T>(path: string, body?: unknown, signal?: AbortSignal) => Promise<T>;
@@ -7541,6 +7640,8 @@ declare const martisRuntime: {
     readonly FieldsForm: typeof FieldsForm;
     readonly useToolFields: typeof useToolFields;
     readonly useRevalidateOnFocus: typeof useRevalidateOnFocus;
+    readonly useRunAction: typeof useRunAction;
+    readonly useRefreshRecord: typeof useRefreshRecord;
     readonly componentRegistry: ComponentRegistry;
     readonly iconRegistry: IconRegistry;
     readonly layoutRegistry: LayoutRegistry;
@@ -7594,5 +7695,5 @@ declare const martisRuntime: {
  */
 type MartisRuntime = typeof martisRuntime;
 
-export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, ResourceIcon, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthLinkParams, useDashboardFilters, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalFocus, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRevalidateOnFocus, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
-export type { ActionResponseModalProps, ActiveFilters, AuthLinkParams, DashboardFiltersContextValue, DashboardFiltersOptions, DashboardFiltersUpdate, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, ModalFocusOptions, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RegisteredRoutePageProps, ResourceIconProps, RouteRegistration, SetDashboardFilters, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, TopbarSlotPlacement, TopbarSlotProps, UseToolFieldsResult };
+export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, ResourceIcon, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthLinkParams, useDashboardFilters, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalFocus, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRefreshRecord, useRevalidateOnFocus, useRunAction, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
+export type { ActionResponseModalProps, ActiveFilters, AuthLinkParams, DashboardFiltersContextValue, DashboardFiltersOptions, DashboardFiltersUpdate, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, ModalFocusOptions, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RefreshRecord, RegisteredRoutePageProps, ResourceIconProps, RouteRegistration, RunAction, RunActionOptions, RunActionResult, SetDashboardFilters, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, TopbarSlotPlacement, TopbarSlotProps, UseToolFieldsResult };

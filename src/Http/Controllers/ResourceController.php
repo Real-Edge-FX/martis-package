@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Martis\Actions\Action;
 use Martis\Cache\MartisCache;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
@@ -33,6 +34,7 @@ use Martis\Filters\FilterValue;
 use Martis\Gates\SoftGate;
 use Martis\Http\Controllers\Concerns\BuildsFieldRules;
 use Martis\Http\Controllers\Concerns\DecodesStructuredValues;
+use Martis\Http\Controllers\Concerns\ResolvesActionRecords;
 use Martis\Http\Controllers\Concerns\ResolvesPivotActions;
 use Martis\Http\Controllers\Concerns\SyncsDeferredWrites;
 use Martis\Http\Resources\DatabaseErrorResponse;
@@ -65,6 +67,7 @@ class ResourceController extends MartisController
 {
     use BuildsFieldRules;
     use DecodesStructuredValues;
+    use ResolvesActionRecords;
     use ResolvesPivotActions;
     use SyncsDeferredWrites;
 
@@ -1450,7 +1453,16 @@ class ResourceController extends MartisController
             return JsonErrorResponse::forbidden('This action is unauthorized.')->toResponse();
         }
 
-        return $this->actionFieldRelatableResponse($request, $actionInstance, $fieldAttr, $resourceClass);
+        // The record the modal is opened for (`resourceId`), looked up as the
+        // run and the fields endpoint look it up, so a picker scoped by
+        // `selectedModel()` offers what the modal's own fields() resolved.
+        $selected = $this->selectedModelFor($request, $instance, $actionInstance, $lens);
+
+        if ($selected instanceof IlluminateJsonResponse) {
+            return $selected;
+        }
+
+        return $this->actionFieldRelatableResponse($request, $actionInstance, $fieldAttr, $resourceClass, $selected);
     }
 
     /**
@@ -1517,7 +1529,15 @@ class ResourceController extends MartisController
             return $resolved;
         }
 
-        return $this->actionFieldRelatableResponse($request, $resolved['action'], $fieldAttr, $resourceClass);
+        // The related record the modal is opened for (`resourceId`), looked
+        // up as the pivot run and the fields endpoint look it up.
+        $selected = $this->selectedPivotModelFor($request, $resolved);
+
+        if ($selected instanceof IlluminateJsonResponse) {
+            return $selected;
+        }
+
+        return $this->actionFieldRelatableResponse($request, $resolved['action'], $fieldAttr, $resourceClass, $selected);
     }
 
     /**
@@ -1525,13 +1545,20 @@ class ResourceController extends MartisController
      * endpoint found the Action and ran its gates.
      *
      * @param  class-string<\Martis\Resource>  $resourceClass  The resource that declares the Action
+     * @param  Model|null  $selected  The record the modal runs on, which `selectedModel()` returns inside the Action's `fields()`; `null` for a bulk or standalone run
      */
     private function actionFieldRelatableResponse(
         Request $request,
         ActionContract $action,
         string $fieldAttr,
         string $resourceClass,
+        ?Model $selected = null,
     ): IlluminateJsonResponse {
+        // Set unconditionally, `null` included, as the fields endpoint does.
+        if ($action instanceof Action) {
+            $action->withSelectedModel($selected);
+        }
+
         return $this->declaredFieldRelatableResponse(
             $request,
             [fn (): array => $action->fields($request)],

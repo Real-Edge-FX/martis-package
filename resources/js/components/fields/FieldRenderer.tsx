@@ -347,11 +347,14 @@ export function FieldDisplay({
   field,
   value,
   resourceKey,
+  resourceId,
   context,
 }: {
   field: FieldDefinition
   value: unknown
   resourceKey?: string
+  /** Key of the record the value belongs to, when the caller knows it. */
+  resourceId?: string | number
   context?: 'index' | 'detail'
 }) {
   // Tier 0: per-context field override (from PHP field->overrideIndex/Detail)
@@ -365,7 +368,9 @@ export function FieldDisplay({
     explicitKey,
     getFallbackDisplay(field.type),
   )
-  return <Component field={field} value={value} />
+  // Nova hands custom detail/index components the resource name and id; the
+  // built-in displays ignore the extra props.
+  return <Component field={field} value={value} resourceKey={resourceKey} resourceId={resourceId} context={context} />
 }
 
 /**
@@ -386,6 +391,7 @@ export function FieldInput({
   toolKey,
   context,
   actionEndpoint,
+  actionQuery,
   pivotEndpoint,
   repeaterRow,
   formValues,
@@ -400,6 +406,7 @@ export function FieldInput({
   toolKey?: string
   context?: 'create' | 'update'
   actionEndpoint?: string
+  actionQuery?: string
   pivotEndpoint?: string
   repeaterRow?: RepeaterRowScope
   formValues?: Record<string, unknown>
@@ -427,6 +434,7 @@ export function FieldInput({
       toolKey={toolKey}
       context={context}
       actionEndpoint={actionEndpoint}
+      actionQuery={actionQuery}
       pivotEndpoint={pivotEndpoint}
       repeaterRow={repeaterRow}
       formValues={formValues}

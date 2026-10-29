@@ -141,6 +141,8 @@ describe('martisRuntime', () => {
         expect(martisRuntime.FieldsForm).toBeTypeOf('function')
         expect(martisRuntime.useToolFields).toBeTypeOf('function')
         expect(martisRuntime.useRevalidateOnFocus).toBeTypeOf('function')
+        expect(martisRuntime.useRunAction).toBeTypeOf('function')
+        expect(martisRuntime.useRefreshRecord).toBeTypeOf('function')
 
         // Registries (v1.38.0): the instances the SPA reads, not copies,
         // so a registration from an extension reaches the host.

@@ -132,6 +132,10 @@ export const useToolFields = R.useToolFields
 // (no react-query, which already revalidates on window focus by default).
 export const useRevalidateOnFocus = R.useRevalidateOnFocus
 
+// Run an action / refresh a record from a custom component (v2.16.0).
+export const useRunAction = R.useRunAction
+export const useRefreshRecord = R.useRefreshRecord
+
 // Registries (v1.38.0+). The instances the SPA reads: components and
 // overrides (also on `window.Martis.componentRegistry`), icons, and the
 // layout of one resource's pages. See docs/overrides.md.

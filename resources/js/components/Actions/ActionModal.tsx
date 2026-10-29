@@ -1,10 +1,11 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { api, ApiError } from '@/lib/api'
-import { apiPath } from '@/lib/apiPath'
+import { api } from '@/lib/api'
 import type { FieldDefinition } from '@/types'
 import { FieldInput } from '@/components/fields/FieldRenderer'
+import { FieldWrapper } from '@/components/fields/FieldWrapper'
+import { fieldDefaults } from '@/lib/fieldDefaults'
 import { fieldErrorProps } from '@/lib/fieldErrors'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
@@ -16,6 +17,7 @@ import { useModalHistoryLock } from '@/lib/historyLock'
 import { ActionDryRunPreview } from './ActionDryRunPreview'
 import { useNavigate } from 'react-router'
 import { martisEventBus } from '@/lib/eventBus'
+import { actionFieldsUrl, actionRecordQuery, actionRunUrl, mapActionErrors, postAction } from './actionRequest'
 import { closeActionTab, handleActionResponse, openActionTab } from './actionResponse'
 import { useActionResponseModal } from './ActionResponseModalHost'
 
@@ -100,11 +102,11 @@ export interface ActionVia {
 function DefaultActionModal({ resource, action, selectedIds, visible, onHide, onSuccess, onOpenCreate, onOpenDetail, onOpenUpdate, via, lens }: ActionModalProps) {
   // A lens's actions live under its own routes: an action only the lens
   // declares is unknown to the resource's.
-  const actionUrl = !action
-    ? ''
-    : lens
-      ? apiPath`/api/resources/${resource}/lenses/${lens}/actions/${action.uriKey}`
-      : apiPath`/api/resources/${resource}/actions/${action.uriKey}`
+  const actionUrl = action ? actionRunUrl(resource, action.uriKey, lens) : ''
+  // The record a single-record modal runs on: the fields endpoint gets it so
+  // `fields()` can read it (`selectedModel()`); a bulk run or a standalone
+  // action names none.
+  const recordId = action && !action.standalone && selectedIds.length === 1 ? selectedIds[0] : undefined
   const { addToast } = useToast()
   const { t } = useTranslation('actions')
   const navigate = useNavigate()
@@ -157,19 +159,50 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   useModalHistoryLock(visible && !!action)
 
   const fieldsQuery = useQuery({
-    queryKey: ['action-fields', resource, lens ?? null, action?.uriKey],
+    // The record (and the relationship it is reached through) is part of the
+    // key: two records never share fields their `fields()` resolved.
+    queryKey: ['action-fields', resource, lens ?? null, action?.uriKey, recordId ?? null, recordId !== undefined ? (via ?? null) : null],
     queryFn: () =>
-      api.get<{ data: { fields: FieldDefinition[] } }>(`${actionUrl}/fields`),
+      api.get<{ data: { fields: FieldDefinition[] } }>(actionFieldsUrl(actionUrl, recordId, via)),
     enabled: visible && !!action,
+    // `fields()` reads the record (`selectedModel()`), so what an earlier
+    // opening cached (its defaults, its help text) may describe a record that
+    // has changed since: every opening fetches again, and the defaults seed
+    // from that answer, not from the cache.
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 
   const fields = fieldsQuery.data?.data?.fields ?? []
 
+  // The defaults seed the values once per opening, from the fields that
+  // opening fetched (see above): a refetch of the fields (focus) must not
+  // wipe what the user typed.
+  const [seeded, setSeeded] = useState(false)
+
+  // Reset when the modal closes or names another action or record. Not when
+  // it opens: a custom component that reports values as it mounts (before
+  // the fields resolve) must keep them, and the close already cleared the
+  // last opening's.
+  const identity = useRef(`${action?.uriKey}|${recordId}`)
   useEffect(() => {
+    const next = `${action?.uriKey}|${recordId}`
+    const changed = identity.current !== next
+    identity.current = next
+    if (visible && !changed) return
+    setSeeded(false)
     setFieldValues({})
     setFieldErrors({})
     setPreview(undefined)
-  }, [action?.uriKey, visible])
+  }, [action?.uriKey, visible, recordId])
+
+  useEffect(() => {
+    if (!visible || seeded || fieldsQuery.data === undefined || fieldsQuery.isFetching) return
+    setSeeded(true)
+    // Under what a custom component already set before the fields resolved.
+    setFieldValues((prev) => ({ ...fieldDefaults(fields), ...prev }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, seeded, fieldsQuery.data, fieldsQuery.isFetching])
 
   const executeMutation = useMutation({
     // Each run starts without the errors of the last one, as every form
@@ -179,15 +212,12 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
     // (see runAction below); the answer sends it to the URL or closes it.
     // `auto` marks the run of an action that skips the modal.
     mutationFn: (params: { dryRun?: boolean; extraFields?: Record<string, unknown>; tab?: Window | null; auto?: boolean }) =>
-      api.post<{ data: { type?: string; data?: Record<string, unknown>; preview?: unknown } }>(
-        actionUrl,
-        {
-          resources: selectedIds,
-          fields: { ...fieldValues, ...(params.extraFields ?? {}) },
-          dryRun: params.dryRun ?? false,
-          ...(via ?? {}),
-        },
-      ),
+      postAction(actionUrl, {
+        resources: selectedIds,
+        fields: { ...fieldValues, ...(params.extraFields ?? {}) },
+        dryRun: params.dryRun,
+        via,
+      }),
     onSuccess: (res, params) => {
       // A dry run answers with the action's preview and runs nothing: show
       // it and keep the modal open.
@@ -218,26 +248,20 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
       // so the parent drops the action (and its history lock), and a new
       // click runs it again. The toast below says what failed.
       if (params.auto) onHide()
-      if (err instanceof ApiError && err.errors && err.errors.length > 0) {
-        const mapped: Record<string, string> = {}
-        for (const e of err.errors) {
-          const fieldKey = e.field.replace(/^fields\./, '')
-          if (!mapped[fieldKey]) {
-            mapped[fieldKey] = e.message
-          }
-        }
-        if (Object.keys(mapped).length > 0) {
-          setFieldErrors(mapped)
-          addToast('error', err.message || t('action_failed'))
-          return
-        }
+      const mapped = mapActionErrors(err)
+      if (Object.keys(mapped).length > 0) {
+        setFieldErrors(mapped)
+        addToast('error', err.message || t('action_failed'))
+        return
       }
-      addToast('error', (err instanceof ApiError ? err.message : err.message) ?? t('action_failed'))
+      addToast('error', err.message ?? t('action_failed'))
     },
   })
 
   const { mutate: execute } = executeMutation
-  const fieldsPending = fieldsQuery.isPending
+  // Pending until the fields of this opening arrive: cached ones from an
+  // earlier opening do not count, they are being fetched again (see the query).
+  const fieldsPending = fieldsQuery.isPending || (fieldsQuery.isFetching && !seeded)
   const fieldCount = fields.length
 
   // Run an action that needs no modal: no confirmation, no Preview, no
@@ -373,11 +397,14 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
           {hasFields && (
             <div className="space-y-4">
               {fields.map((field) => (
-                <div key={field.attribute}>
-                  <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--martis-text)' }}>
-                    {field.label}
-                    {field.required && <span className="ml-1" style={{ color: 'var(--martis-danger)' }}>*</span>}
-                  </label>
+                <FieldWrapper
+                  key={field.attribute}
+                  htmlFor={field.attribute}
+                  label={field.label}
+                  required={field.required}
+                  tooltip={field.tooltip}
+                  help={field.helpText}
+                >
                   <FieldInput
                     field={field}
                     value={fieldValues[field.attribute] ?? ''}
@@ -388,8 +415,9 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
                     {...fieldErrorProps(fieldErrors, field.attribute)}
                     context="create"
                     actionEndpoint={actionUrl}
+                    actionQuery={actionRecordQuery(recordId, via)}
                   />
-                </div>
+                </FieldWrapper>
               ))}
             </div>
           )}

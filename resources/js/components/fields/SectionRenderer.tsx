@@ -170,10 +170,12 @@ export function SectionDisplay({
   section,
   values,
   resourceKey,
+  resourceId,
 }: {
   section: SectionDefinition
   values: Record<string, unknown>
   resourceKey?: string
+  resourceId?: string | number
 }) {
   return (
     <SectionContainer section={section}>
@@ -193,6 +195,7 @@ export function SectionDisplay({
                   field={field}
                   value={values[field.attribute]}
                   resourceKey={resourceKey}
+                  resourceId={resourceId}
                   context="detail"
                 />
               </dd>

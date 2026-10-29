@@ -97,6 +97,7 @@ export function DrawerQuick(props: OverrideProps) {
                     field={field}
                     value={activeRecord[field.attribute]}
                     resourceKey={resource}
+                    resourceId={relationParent.id}
                     context="detail"
                   />
                 </dd>

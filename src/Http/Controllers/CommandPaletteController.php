@@ -179,6 +179,14 @@ class CommandPaletteController extends MartisController
                     continue;
                 }
 
+                // The shortcut opens the resource's index, where the action
+                // is listed only when it is shown there: an action kept off
+                // the index (`exceptOnIndex()`, a headless action that is
+                // only run through its endpoint) has no button to open.
+                if (! $action->isShownOnIndex()) {
+                    continue;
+                }
+
                 // The gate every action surface applies (the list, the field
                 // schema and the run): an action the user may not see is
                 // not named here either.

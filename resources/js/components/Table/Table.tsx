@@ -721,7 +721,7 @@ function DefaultTable({
               // A field the row hides (`_hidden`) leaves its cell empty.
               isHiddenOn(row, field.attribute)
                 ? null
-                : <FieldDisplay field={field} value={row[field.attribute]} resourceKey={resourceKey} context="index" />
+                : <FieldDisplay field={field} value={row[field.attribute]} resourceKey={resourceKey} resourceId={row.id as string | number | undefined} context="index" />
             )}
             sortable={false}
             style={style}

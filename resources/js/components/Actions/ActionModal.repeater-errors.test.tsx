@@ -60,7 +60,7 @@ beforeEach(() => {
   apiGetMock.mockReset()
   apiPostMock.mockReset()
   apiGetMock.mockImplementation(async (url: string) =>
-    url.endsWith('/import-lines/fields') ? { data: { fields: [linesField] } } : { data: [] },
+    url.split('?')[0].endsWith('/import-lines/fields') ? { data: { fields: [linesField] } } : { data: [] },
   )
   apiPostMock.mockRejectedValue(new ApiError(422, 'The given data was invalid.', [
     { field: 'lines.0.fields.name', message: required, code: 'required' },

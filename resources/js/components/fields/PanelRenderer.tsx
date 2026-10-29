@@ -102,10 +102,12 @@ export function PanelDisplay({
   panel,
   values,
   resourceKey,
+  resourceId,
 }: {
   panel: PanelDefinition
   values: Record<string, unknown>
   resourceKey?: string
+  resourceId?: string | number
 }) {
   return (
     <PanelContainer panel={panel}>
@@ -119,6 +121,7 @@ export function PanelDisplay({
                   field={field}
                   value={values[field.attribute]}
                   resourceKey={resourceKey}
+                  resourceId={resourceId}
                   context="detail"
                 />
               </dd>

@@ -381,13 +381,13 @@ export function ResourceDetailPage() {
         <div className="martis-detail-main space-y-6">
           {/* Panel and Tab layout containers */}
           {tabGroupItems.map((tg, idx) => (
-            <TabsDisplay key={idx} tabGroup={tg} values={record as Record<string, unknown>} resourceKey={resource} />
+            <TabsDisplay key={idx} tabGroup={tg} values={record as Record<string, unknown>} resourceKey={resource} resourceId={id} />
           ))}
           {panelItems.map((panel, idx) => (
-            <PanelDisplay key={idx} panel={panel} values={record as Record<string, unknown>} resourceKey={resource} />
+            <PanelDisplay key={idx} panel={panel} values={record as Record<string, unknown>} resourceKey={resource} resourceId={id} />
           ))}
           {sectionItems.map((section, idx) => (
-            <SectionDisplay key={idx} section={section} values={record as Record<string, unknown>} resourceKey={resource} />
+            <SectionDisplay key={idx} section={section} values={record as Record<string, unknown>} resourceKey={resource} resourceId={id} />
           ))}
 
           {/* Details panel — spec-compliant Field grid (200px label / 1fr
@@ -403,7 +403,7 @@ export function ResourceDetailPage() {
                   <div key={field.attribute} className="martis-detail-row">
                     <dt className="martis-detail-label">{field.label}</dt>
                     <dd className="martis-detail-value">
-                      <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} context="detail" />
+                      <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} resourceId={id} context="detail" />
                     </dd>
                   </div>
                 ))}
@@ -416,7 +416,7 @@ export function ResourceDetailPage() {
            * wrapped in the scalar dl/dt/dd layout above, to avoid duplicated
            * labels. */}
           {relationshipFields.map((field) => (
-            <FieldDisplay key={field.attribute} field={field} value={null} resourceKey={resource} />
+            <FieldDisplay key={field.attribute} field={field} value={null} resourceKey={resource} resourceId={id} context="detail" />
           ))}
         </div>
 
@@ -428,7 +428,7 @@ export function ResourceDetailPage() {
                 <div key={field.attribute} className="martis-detail-row">
                   <dt className="martis-detail-label">{field.label}</dt>
                   <dd className="martis-detail-value">
-                    <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} context="detail" />
+                    <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} resourceId={id} context="detail" />
                   </dd>
                 </div>
               ))}

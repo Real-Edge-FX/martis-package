@@ -197,7 +197,10 @@ function LensPage() {
   const allActions = (dataQuery.data?.meta.actions ?? []) as ActionMeta[]
   const indexActions = filterIndexActions(allActions)
   const inlineActions = filterInlineActions(allActions)
-  const standaloneActions = allActions.filter((a) => a.standalone)
+  // Nova lists the index's actions by `display=index`: a standalone action
+  // that is not shown on the index (`exceptOnIndex()`, `onlyOnDetail()`) has
+  // no entry in this toolbar.
+  const standaloneActions = filterIndexActions(allActions.filter((a) => a.standalone))
   const hasBulkActions = indexActions.length > 0
 
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
