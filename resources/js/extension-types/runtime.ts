@@ -17,6 +17,8 @@
 export { useAuth, AuthProvider, TwoFactorRequiredError, EmailVerificationRequiredError, PasswordChangeRequiredError } from '@/contexts/AuthContext'
 export { useToast, useToastSafe } from '@/contexts/ToastContext'
 export { useIsMobile } from '@/hooks/useIsMobile'
+export { useRunAction } from '@/hooks/useRunAction'
+export { useRefreshRecord } from '@/hooks/useRefreshRecord'
 
 // Lib
 export { api, ApiError } from '@/lib/api'
@@ -110,6 +112,10 @@ export type {
   MartisFormOptions,
   MartisForm,
   UseToolFieldsResult,
+  RunAction,
+  RunActionOptions,
+  RunActionResult,
+  RefreshRecord,
   EventBusEvents,
   ActionResponseModalProps,
   TopbarSlotProps,

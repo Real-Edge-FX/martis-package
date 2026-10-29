@@ -1,10 +1,11 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { api, ApiError } from '@/lib/api'
-import { apiPath } from '@/lib/apiPath'
+import { api } from '@/lib/api'
 import type { FieldDefinition } from '@/types'
 import { FieldInput } from '@/components/fields/FieldRenderer'
+import { FieldWrapper } from '@/components/fields/FieldWrapper'
+import { fieldDefaults } from '@/lib/fieldDefaults'
 import { fieldErrorProps } from '@/lib/fieldErrors'
 import { useToast } from '@/contexts/ToastContext'
 import { useTranslation } from 'react-i18next'
@@ -16,6 +17,7 @@ import { useModalHistoryLock } from '@/lib/historyLock'
 import { ActionDryRunPreview } from './ActionDryRunPreview'
 import { useNavigate } from 'react-router'
 import { martisEventBus } from '@/lib/eventBus'
+import { actionFieldsUrl, actionRunUrl, mapActionErrors, postAction } from './actionRequest'
 import { closeActionTab, handleActionResponse, openActionTab } from './actionResponse'
 import { useActionResponseModal } from './ActionResponseModalHost'
 
@@ -100,11 +102,11 @@ export interface ActionVia {
 function DefaultActionModal({ resource, action, selectedIds, visible, onHide, onSuccess, onOpenCreate, onOpenDetail, onOpenUpdate, via, lens }: ActionModalProps) {
   // A lens's actions live under its own routes: an action only the lens
   // declares is unknown to the resource's.
-  const actionUrl = !action
-    ? ''
-    : lens
-      ? apiPath`/api/resources/${resource}/lenses/${lens}/actions/${action.uriKey}`
-      : apiPath`/api/resources/${resource}/actions/${action.uriKey}`
+  const actionUrl = action ? actionRunUrl(resource, action.uriKey, lens) : ''
+  // The record a single-record modal runs on: the fields endpoint gets it so
+  // `fields()` can read it (`selectedModel()`); a bulk run or a standalone
+  // action names none.
+  const recordId = action && !action.standalone && selectedIds.length === 1 ? selectedIds[0] : undefined
   const { addToast } = useToast()
   const { t } = useTranslation('actions')
   const navigate = useNavigate()
@@ -157,19 +159,33 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   useModalHistoryLock(visible && !!action)
 
   const fieldsQuery = useQuery({
-    queryKey: ['action-fields', resource, lens ?? null, action?.uriKey],
+    // The record (and the relationship it is reached through) is part of the
+    // key: two records never share fields their `fields()` resolved.
+    queryKey: ['action-fields', resource, lens ?? null, action?.uriKey, recordId ?? null, recordId !== undefined ? (via ?? null) : null],
     queryFn: () =>
-      api.get<{ data: { fields: FieldDefinition[] } }>(`${actionUrl}/fields`),
+      api.get<{ data: { fields: FieldDefinition[] } }>(actionFieldsUrl(actionUrl, recordId, via)),
     enabled: visible && !!action,
   })
 
   const fields = fieldsQuery.data?.data?.fields ?? []
 
+  // The defaults seed the values once per opening: a refetch of the fields
+  // (`staleTime`, focus) must not wipe what the user typed.
+  const seeded = useRef(false)
+
   useEffect(() => {
+    seeded.current = false
     setFieldValues({})
     setFieldErrors({})
     setPreview(undefined)
-  }, [action?.uriKey, visible])
+  }, [action?.uriKey, visible, recordId])
+
+  useEffect(() => {
+    if (!visible || seeded.current || !fieldsQuery.isSuccess) return
+    seeded.current = true
+    setFieldValues(fieldDefaults(fields))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, fieldsQuery.isSuccess, fieldsQuery.data])
 
   const executeMutation = useMutation({
     // Each run starts without the errors of the last one, as every form
@@ -179,15 +195,12 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
     // (see runAction below); the answer sends it to the URL or closes it.
     // `auto` marks the run of an action that skips the modal.
     mutationFn: (params: { dryRun?: boolean; extraFields?: Record<string, unknown>; tab?: Window | null; auto?: boolean }) =>
-      api.post<{ data: { type?: string; data?: Record<string, unknown>; preview?: unknown } }>(
-        actionUrl,
-        {
-          resources: selectedIds,
-          fields: { ...fieldValues, ...(params.extraFields ?? {}) },
-          dryRun: params.dryRun ?? false,
-          ...(via ?? {}),
-        },
-      ),
+      postAction(actionUrl, {
+        resources: selectedIds,
+        fields: { ...fieldValues, ...(params.extraFields ?? {}) },
+        dryRun: params.dryRun,
+        via,
+      }),
     onSuccess: (res, params) => {
       // A dry run answers with the action's preview and runs nothing: show
       // it and keep the modal open.
@@ -218,21 +231,13 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
       // so the parent drops the action (and its history lock), and a new
       // click runs it again. The toast below says what failed.
       if (params.auto) onHide()
-      if (err instanceof ApiError && err.errors && err.errors.length > 0) {
-        const mapped: Record<string, string> = {}
-        for (const e of err.errors) {
-          const fieldKey = e.field.replace(/^fields\./, '')
-          if (!mapped[fieldKey]) {
-            mapped[fieldKey] = e.message
-          }
-        }
-        if (Object.keys(mapped).length > 0) {
-          setFieldErrors(mapped)
-          addToast('error', err.message || t('action_failed'))
-          return
-        }
+      const mapped = mapActionErrors(err)
+      if (Object.keys(mapped).length > 0) {
+        setFieldErrors(mapped)
+        addToast('error', err.message || t('action_failed'))
+        return
       }
-      addToast('error', (err instanceof ApiError ? err.message : err.message) ?? t('action_failed'))
+      addToast('error', err.message ?? t('action_failed'))
     },
   })
 
@@ -373,11 +378,14 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
           {hasFields && (
             <div className="space-y-4">
               {fields.map((field) => (
-                <div key={field.attribute}>
-                  <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--martis-text)' }}>
-                    {field.label}
-                    {field.required && <span className="ml-1" style={{ color: 'var(--martis-danger)' }}>*</span>}
-                  </label>
+                <FieldWrapper
+                  key={field.attribute}
+                  htmlFor={field.attribute}
+                  label={field.label}
+                  required={field.required}
+                  tooltip={field.tooltip}
+                  help={field.helpText}
+                >
                   <FieldInput
                     field={field}
                     value={fieldValues[field.attribute] ?? ''}
@@ -389,7 +397,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
                     context="create"
                     actionEndpoint={actionUrl}
                   />
-                </div>
+                </FieldWrapper>
               ))}
             </div>
           )}

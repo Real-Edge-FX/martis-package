@@ -69,6 +69,8 @@ import { createPortal, flushSync } from 'react-dom'
 import { useMartisForm } from '@/hooks/useMartisForm'
 import { useToolFields } from '@/hooks/useToolFields'
 import { useRevalidateOnFocus } from '@/hooks/useRevalidateOnFocus'
+import { useRunAction } from '@/hooks/useRunAction'
+import { useRefreshRecord } from '@/hooks/useRefreshRecord'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { iconRegistry } from '@/lib/iconRegistry'
 import { ResourceIcon } from '@/components/ResourceIcon'
@@ -192,6 +194,15 @@ export const martisRuntime = {
   // refetch callback to opt a manual-fetch Tool into the same
   // "revalidate when the operator returns to this tab" behaviour.
   useRevalidateOnFocus,
+
+  // Actions and record refresh from a custom component (v2.16.0).
+  // `useRunAction()` runs an action as the action modal does and reports
+  // the outcome as a result (`{ ok, response }` or `{ ok: false, message,
+  // errors }`); `useRefreshRecord()` refetches a record's detail and its
+  // resource's lists. Pair with the RunActionOptions/RunActionResult types
+  // re-exported below.
+  useRunAction,
+  useRefreshRecord,
 
   // Registries (since v1.38.0). The instances the SPA reads, so an
   // extension registers straight into the host: `componentRegistry`
@@ -392,6 +403,8 @@ export type { AuthLinkParams } from '@/lib/authLink'
  * reaching into internal `@/hooks/...` paths.
  */
 export type { UseToolFieldsResult } from '@/hooks/useToolFields'
+export type { RunAction, RunActionOptions, RunActionResult } from '@/hooks/useRunAction'
+export type { RefreshRecord } from '@/hooks/useRefreshRecord'
 
 /**
  * Event bus payload map re-exported so consumers calling

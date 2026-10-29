@@ -56,7 +56,7 @@ beforeEach(() => {
   apiPostMock.mockReset()
   apiPostMock.mockResolvedValue({ data: { type: 'message', data: { message: 'Done.' } } })
   apiGetMock.mockImplementation(async (url: string) =>
-    url.endsWith('/actions/assign-owner/fields') ? { data: { fields: [ownerField] } } : { data: [] },
+    url.split('?')[0].endsWith('/actions/assign-owner/fields') ? { data: { fields: [ownerField] } } : { data: [] },
   )
 })
 
@@ -136,7 +136,7 @@ describe('ActionModal on a lens', () => {
       expect(el).not.toBeNull()
       return el as HTMLElement
     })
-    expect(String(apiGetMock.mock.calls[0][0])).toBe('/api/resources/projects/lenses/overdue/actions/assign-owner/fields')
+    expect(String(apiGetMock.mock.calls[0][0])).toBe('/api/resources/projects/lenses/overdue/actions/assign-owner/fields?resourceId=1')
 
     fireEvent.click(trigger)
     await waitFor(() => expect(relatableCalls()).toHaveLength(1))

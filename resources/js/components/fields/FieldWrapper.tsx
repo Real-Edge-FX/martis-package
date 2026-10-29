@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, type ReactNode } from 'react'
 import { WarningCircleIcon } from '@phosphor-icons/react'
 import { FieldLabelTooltip } from './FieldLabelTooltip'
 import { sanitizeMarkup } from '@/lib/sanitizeHtml'
@@ -49,9 +49,33 @@ export function FieldWrapper({
   children,
 }: FieldWrapperProps) {
   const helpHtml = useMemo(() => (help ? sanitizeMarkup(help) : ''), [help])
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const helpId = useId()
+  // The help line is shown only while there is no error.
+  const showsHelp = !error && !!help
+
+  // Tie the help to its control for assistive tech: the id joins the
+  // control's own `aria-describedby` (the control may carry tokens of its
+  // own) and leaves it when the help goes away.
+  useEffect(() => {
+    if (!showsHelp) return
+    const root = wrapRef.current
+    if (!root) return
+    const byId = htmlFor ? (Array.from(root.querySelectorAll<HTMLElement>('[id]')).find((el) => el.id === htmlFor) ?? null) : null
+    const control =
+      byId ?? root.querySelector<HTMLElement>('input, textarea, select, [role="combobox"], [contenteditable="true"]')
+    if (!control) return
+    const tokens = (control.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean)
+    if (!tokens.includes(helpId)) control.setAttribute('aria-describedby', [...tokens, helpId].join(' '))
+    return () => {
+      const rest = (control.getAttribute('aria-describedby') ?? '').split(/\s+/).filter((token) => token && token !== helpId)
+      if (rest.length > 0) control.setAttribute('aria-describedby', rest.join(' '))
+      else control.removeAttribute('aria-describedby')
+    }
+  }, [showsHelp, htmlFor, helpId, children])
 
   return (
-    <div className={className ? `martis-input-wrap ${className}` : 'martis-input-wrap'}>
+    <div ref={wrapRef} className={className ? `martis-input-wrap ${className}` : 'martis-input-wrap'}>
       {label && (
         <label htmlFor={htmlFor}>
           <span>{label}</span>
@@ -71,6 +95,7 @@ export function FieldWrapper({
         </span>
       ) : help ? (
         <span
+          id={helpId}
           className="martis-input-help"
           dangerouslySetInnerHTML={{ __html: helpHtml }}
         />

@@ -3,11 +3,14 @@ import { createPortal } from 'react-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { LightningIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
-import { api, ApiError } from '@/lib/api'
+import { api } from '@/lib/api'
 import { pathSegment } from '@/lib/apiPath'
 import { useModalHistoryLock } from '@/lib/historyLock'
 import { useToast } from '@/contexts/ToastContext'
 import { FieldInput } from '@/components/fields/FieldRenderer'
+import { FieldWrapper } from '@/components/fields/FieldWrapper'
+import { fieldDefaults } from '@/lib/fieldDefaults'
+import { actionFieldsUrl, mapActionErrors, postAction } from '@/components/Actions/actionRequest'
 import { fieldErrorProps } from '@/lib/fieldErrors'
 import type { ActionMeta } from '@/components/Actions/ActionModal'
 import { ActionDryRunPreview } from '@/components/Actions/ActionDryRunPreview'
@@ -111,15 +114,28 @@ export function PivotActionModal({
   }, [onClose])
 
   const actionUrl = `${actionsUrl}/${pathSegment(action.uriKey)}`
+  // The related record a single-record run is on, named to the fields
+  // endpoint so `fields()` can read it (`selectedModel()`).
+  const recordId = !action.standalone && selectedIds.length === 1 ? selectedIds[0] : undefined
 
   const fieldsQuery = useQuery({
-    queryKey: ['pivot-action-fields', actionsUrl, action.uriKey],
+    queryKey: ['pivot-action-fields', actionsUrl, action.uriKey, recordId ?? null],
     queryFn: ({ signal }) =>
-      api.get<{ data: { fields: FieldDefinition[] } }>(`${actionUrl}/fields`, signal),
+      api.get<{ data: { fields: FieldDefinition[] } }>(actionFieldsUrl(actionUrl, recordId), signal),
     enabled: !!action,
   })
 
   const fields = fieldsQuery.data?.data?.fields ?? []
+
+  // The defaults seed the values once: the modal mounts per opening, and a
+  // refetch of the fields must not wipe what the user typed.
+  const seeded = useRef(false)
+  useEffect(() => {
+    if (seeded.current || !fieldsQuery.isSuccess) return
+    seeded.current = true
+    setFieldValues(fieldDefaults(fields))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fieldsQuery.isSuccess, fieldsQuery.data])
 
   const executeMutation = useMutation({
     // Each run starts without the errors of the last one, as every form
@@ -128,14 +144,7 @@ export function PivotActionModal({
     // `tab`: the blank tab of an `opensInNewTab()` action, opened on the click.
     // `auto` marks the run of an action that skips the modal.
     mutationFn: (params: { dryRun?: boolean; tab?: Window | null; auto?: boolean }) =>
-      api.post<{ data: { type?: string; data?: Record<string, unknown>; preview?: unknown } }>(
-        actionUrl,
-        {
-          resources: selectedIds,
-          fields: fieldValues,
-          dryRun: params.dryRun ?? false,
-        }
-      ),
+      postAction(actionUrl, { resources: selectedIds, fields: fieldValues, dryRun: params.dryRun }),
     onSuccess: (res, params) => {
       if (params.dryRun) {
         setPreview(res?.data?.preview ?? null)
@@ -154,19 +163,13 @@ export function PivotActionModal({
       // A run without a modal has nothing on screen to retry from: close it
       // so a new click runs it again. The toast below says what failed.
       if (params.auto) onClose()
-      if (err instanceof ApiError && err.errors && err.errors.length > 0) {
-        const mapped: Record<string, string> = {}
-        for (const e of err.errors) {
-          const fieldKey = e.field.replace(/^fields\./, '')
-          if (!mapped[fieldKey]) mapped[fieldKey] = e.message
-        }
-        if (Object.keys(mapped).length > 0) {
-          setFieldErrors(mapped)
-          addToast('error', err.message || t('action_failed'))
-          return
-        }
+      const mapped = mapActionErrors(err)
+      if (Object.keys(mapped).length > 0) {
+        setFieldErrors(mapped)
+        addToast('error', err.message || t('action_failed'))
+        return
       }
-      addToast('error', (err instanceof ApiError ? err.message : err.message) ?? t('action_failed'))
+      addToast('error', err.message ?? t('action_failed'))
     },
   })
 
@@ -241,11 +244,14 @@ export function PivotActionModal({
           {hasFields && (
             <div className="space-y-4">
               {fields.map((f) => (
-                <div key={f.attribute}>
-                  <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--martis-text)' }}>
-                    {f.label}
-                    {f.required && <span className="ml-1" style={{ color: 'var(--martis-danger)' }}>*</span>}
-                  </label>
+                <FieldWrapper
+                  key={f.attribute}
+                  htmlFor={f.attribute}
+                  label={f.label}
+                  required={f.required}
+                  tooltip={f.tooltip}
+                  help={f.helpText}
+                >
                   <FieldInput
                     field={f}
                     value={fieldValues[f.attribute] ?? ''}
@@ -257,7 +263,7 @@ export function PivotActionModal({
                     context="create"
                     actionEndpoint={actionUrl}
                   />
-                </div>
+                </FieldWrapper>
               ))}
             </div>
           )}

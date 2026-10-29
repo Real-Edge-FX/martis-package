@@ -50,7 +50,7 @@ function relatableCalls(): string[] {
 beforeEach(() => {
   apiGetMock.mockReset()
   apiGetMock.mockImplementation(async (url: string) =>
-    url.endsWith('/assign-owner/fields') ? { data: { fields: [ownerField] } } : { data: [] },
+    url.split('?')[0].endsWith('/assign-owner/fields') ? { data: { fields: [ownerField] } } : { data: [] },
   )
 })
 
