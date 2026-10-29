@@ -495,6 +495,69 @@ export function StatusBadge({ field, value }: FieldDisplayProps) {
 }
 ```
 
+`FieldDisplayProps` carries, besides `field` and `value` (v2.16.0+, all optional):
+
+| Prop | Value |
+|---|---|
+| `resourceKey` | The resource the record belongs to (the related resource in a relationship panel's row). |
+| `resourceId` | The record's key, when the display renders a record (a detail page, an index or relationship row, a drawer). |
+| `context` | `'index'` or `'detail'`, where the display renders. |
+
+Nova passes the same to its index and detail field components (`resourceName`, `resourceId`). A display that acts on its record reads them instead of carrying the resource key and id inside the field's value.
+
+### Running an action from a component (v2.16.0+)
+
+A display, a Tool or a card can run one of the resource's actions with `useRunAction()` from `@martis/runtime`. It goes through the same request and the same answer handling as the action modal: the toast with the message, a redirect, a download, a modal answer or a new tab, and `martis:action-executed`. Keep an action meant only for a component off every menu with `exceptOnIndex()->exceptOnDetail()->exceptInline()` (see [Actions → Actions run only from your own components](actions.md#actions-run-only-from-your-own-components)): it keeps `canSee()`, `canRun()`, the policy and the action events.
+
+```tsx
+import { useState } from 'react'
+import { useRunAction, type FieldDisplayProps } from '@martis/runtime'
+
+export function TerminalLinks({ value, resourceKey, resourceId }: FieldDisplayProps) {
+  const runAction = useRunAction()
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  async function save(url: string) {
+    const result = await runAction({
+      resource: resourceKey!,
+      id: resourceId,
+      action: 'update-terminal-links',
+      fields: { url },
+    })
+    setErrors(result.ok ? {} : result.errors)
+  }
+
+  // ...render the links, an input and `errors.url`
+}
+```
+
+`runAction(options)` takes:
+
+| Option | Meaning |
+|---|---|
+| `resource`, `action` | The resource key and the action's `uriKey`. |
+| `id` / `ids` | The record, or the records of a bulk run (`id` wins). Leave both out for a standalone action. |
+| `fields` | The values of the action's fields, by attribute. |
+| `lens`, `via` | Run the action as a lens, or as a relationship panel (`{ viaResource, viaResourceId, viaRelationship }`), runs it. |
+| `handleResponse` | `true` by default. `false` returns the answer without showing it (no toast, redirect or refresh). |
+
+It never throws. It resolves to `{ ok: true, response }`, where `response` is the action's answer, or to `{ ok: false, message, errors }`, where `errors` maps each failing field's attribute to its first message (the 422 `fields.` prefix removed) and a toast shows `message` when `handleResponse` is on. After a successful run it refreshes the record (one `id`) or the resource's lists (several `ids`), as the modal does on its page.
+
+`useRefreshRecord()` returns `refreshRecord(resourceKey, id?)`, which refetches that record wherever the panel shows it (the detail page, its drawer, its update form) and the resource's index lists, so the other fields of the page show what a component changed. Without `id` every record of the resource is refetched:
+
+```tsx
+import { useRefreshRecord, type FieldDisplayProps } from '@martis/runtime'
+
+export function InlineToggle({ resourceKey, resourceId }: FieldDisplayProps) {
+  const refreshRecord = useRefreshRecord()
+  // ...after your own request changed the record:
+  // refreshRecord(resourceKey!, resourceId)
+  return null
+}
+```
+
+Nova has no core equivalent: a detail field there listens for its own events. Republish the extension shims so `tsc` sees the new hooks and types: `php artisan vendor:publish --tag=martis-extension-shims --force`.
+
 ### Input Component
 
 Every input component receives `FieldInputProps`:
@@ -600,6 +663,7 @@ Since v1.14.0, `@martis/runtime` exposes:
 | `apiPath`, `pathSegment`, `routePath`, `withQuery` (v2.4.0) | The path builders the panel's own pages use. `api.get(apiPath`/api/findings/${id}`)` encodes every interpolated value as one path segment (a slash is spelt `%252F`, since Laravel decodes `%2F` before it routes), `pathSegment(id)` encodes one value, `withQuery(path, query)` appends a built query string and `routePath` builds a link of the SPA's own router. Use them instead of `encodeURIComponent()`. A path value that holds a literal `%2F` throws an `ApiError` (status 400). See [Custom pages](custom-pages.md). |
 | `FieldDefinition` (type) | Re-exported so you can type your `field` payload without reaching into internal paths. |
 | `FieldDisplayProps`, `FieldInputProps` (types) | Re-exported for the same reason. |
+| `useRunAction`, `useRefreshRecord` (v2.16.0) | Run a resource's action from a component through the modal's code path, and refetch a record a component changed. Types `RunAction`, `RunActionOptions`, `RunActionResult`, `RefreshRecord`. See [Running an action from a component](#running-an-action-from-a-component-v2160). |
 | `DrawerShell` | Generic slide-over drawer shell. Host edit/add/detail forms (composed from `FieldInput`) in a native drawer; you control open/close from your own state, like a modal. |
 | `DrawerShellProps` (type) | Props for `DrawerShell`: `title`, `subtitle?`, `icon?`, `onClose`, `children`, … |
 | `Tooltip` | The PrimeReact `Tooltip` component, for React content in a tooltip (JSX `content`), since the extension build doesn't alias `primereact`. The global `[data-pr-tooltip]` provider renders plain text, or markup you write when the trigger is registered with `htmlTooltip()` (sanitised): see [Tooltip Standard](components.md#tooltip-standard-primereact). |

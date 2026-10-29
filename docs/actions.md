@@ -564,6 +564,42 @@ A picker in a row of a `Repeater` among the Action's fields adds the row to eith
 
 > Before v1.38.0 these pickers asked the page's resource for the attribute: one only the Action declares answered 404 and the picker opened empty, and one the resource also declares listed the resource's options instead of the Action's.
 
+### Default values, help text and tooltips in the modal
+
+Each field opens on its `default()` (v2.16.0+), as Nova fills an action's fields from their defaults. A closure default is resolved on the server for the current request. A field without a default opens empty, and every opening of the modal starts again from the defaults, never from the last run's values. The run still falls back to the default of a field the request cannot set (see [Fields the request cannot set](#fields-the-request-cannot-set)), so the modal now shows the value the run would use.
+
+The modal renders each field in the same wrapper as a resource form: the label, the required asterisk, the `tooltip()` next to the label and the `help()` text under the input, which is linked to the input with `aria-describedby` (v2.16.0+). The resource, lens, standalone and pivot action modals behave the same.
+
+> Before v2.16.0 the modal opened every field empty and showed neither its help text nor its tooltip.
+
+### The record the action runs on
+
+When the modal opens for one record, `fields()` can read that record with `$this->selectedModel()` (v2.16.0+), to build a default, a help text or an option list from it:
+
+```php
+use Illuminate\Http\Request;
+use Martis\Fields\Text;
+
+public function fields(Request $request): array
+{
+    $product = $this->selectedModel();
+
+    return [
+        Text::make('url', 'Terminal URL')
+            ->default($product?->terminal_url)
+            ->help($product ? "Now: {$product->terminal_url}" : null),
+    ];
+}
+```
+
+`selectedModel()` returns a record when the modal opens from the detail page, from a row's inline button, from a relationship panel's row, or from the index or a lens with exactly one row selected. It returns `null` for a standalone action, a bulk selection, and any request that names no record, so `fields()` must handle `null`.
+
+The modal names the record in the fields request, `GET /api/resources/{resource}/actions/{action}/fields?resourceId={id}` (on the lens and pivot routes too, and with the `viaResource`, `viaResourceId` and `viaRelationship` of a relationship panel). The server looks the record up exactly as the run does: through the index scope (`scopes()` and `indexQuery()`), the lens's query or the panel's relationship, then the action's `canRun()` and the policy's `runAction()` for that record. A record that is outside that scope, or that the run would refuse, answers 404, so the endpoint never discloses a record the action cannot run on. The 403 answers (no `viewAny`, or `canSee()` denies) are unchanged. For a [pivot action](#pivot-actions), `selectedModel()` is the related record, with its `pivot`, as the run hands it to `handle()`.
+
+A run that names exactly one record (and resolves it) sets the same record before it reads `fields()`, so the rules and defaults the run applies are the ones the modal showed. A run that names several records sees `null`, even when only one of them resolves.
+
+Nova reads the record with `$request->findModel()` in `fields()`. In Martis it is a method of the Action because a second parameter on `fields()` would change `ActionContract::fields()` for every Action an application declares. `selectedModel()` is on the `Action` base class, not on `ActionContract`.
+
 ---
 
 ## Post-processing with then()
@@ -805,6 +841,21 @@ Legend: ✅ turns the surface **on**, ❌ turns it **off**, and `—` leaves it 
 Defaults: `showOnIndex = true`, `showOnDetail = true`, `showInline = false`.
 
 > **`showInline()` is additive.** It only turns the per-row button on — it does **not** touch `showOnIndex`. Since `showOnIndex` defaults to `true`, a single action with `->showInline()` appears in **both** the index dropdown **and** as a per-row button. To render it **only** as a per-row button (hidden from the dropdown), use `onlyInline()`, which also sets `showOnIndex = false`. You never need to register the action twice.
+
+### Actions run only from your own components
+
+An action with every surface off, `->exceptOnIndex()->exceptOnDetail()->exceptInline()`, is listed in no menu, button or inline icon, nor in the command palette, and the action lists `GET /api/resources/{resource}/actions?context=index|detail|inline` leave it out. It still runs through its endpoints with every check of a visible action: `viewAny` on the resource, `canSee()`, `canRun()`, the policy's `runAction()`, the record scope and the action events. This is the supported way to give a custom component (a field `Display`, a Tool, a card) an action that keeps the permissions and the audit log in one place. Run it with `useRunAction()` from `@martis/runtime` (see [Overrides → Running an action from a component](overrides.md#running-an-action-from-a-component-v2160)).
+
+```php
+public function actions(Request $request): array
+{
+    return [
+        UpdateTerminalLinks::make()->exceptOnIndex()->exceptOnDetail()->exceptInline(),
+    ];
+}
+```
+
+As in Nova, where the run checks `canSee()` and not where the action is shown, hiding an action from the menus is not an authorization rule: a user who passes `canSee()` and `canRun()` can run it through the API. The resource schema (`/schema`) keeps listing it for those users, as Nova's action list does.
 
 ---
 
