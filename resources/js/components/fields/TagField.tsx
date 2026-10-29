@@ -126,7 +126,7 @@ export function TagFieldDisplay({ field, value }: FieldDisplayProps) {
 // Input — relational tag selector
 // ---------------------------------------------------------------------------
 
-export function TagFieldInput({ field, value, onChange, error, resourceKey, recordId, context, actionEndpoint, pivotEndpoint, repeaterRow }: FieldInputProps) {
+export function TagFieldInput({ field, value, onChange, error, resourceKey, recordId, context, actionEndpoint, actionQuery, pivotEndpoint, repeaterRow }: FieldInputProps) {
   const { t: tMsg } = useTranslation('messages')
   const { t: tAct } = useTranslation('actions')
   const relatedResource = (field as Record<string, unknown>).relatedResource as string | undefined
@@ -192,7 +192,7 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
   // The form (or Action, pivot fields, Repeater row) the picker renders in
   // scopes the relatable endpoint
   const params = useParams<{ resource?: string; id?: string }>()
-  const scopedUrl = relatableUrl(field.attribute, { resourceKey, recordId, context, actionEndpoint, pivotEndpoint, repeaterRow }, params)
+  const scopedUrl = relatableUrl(field.attribute, { resourceKey, recordId, context, actionEndpoint, actionQuery, pivotEndpoint, repeaterRow }, params)
 
   const fetchOptions = useCallback(async (query: string) => {
     if (!relatedResource) return

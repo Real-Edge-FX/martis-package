@@ -15,7 +15,8 @@ export { withQuery }
  * the inline-create modal) never receives it. An Action's fields and a
  * relationship's pivot fields are read from the Action and the panel
  * instead, and a field of a Repeater row from that row, which the request
- * names in its query string.
+ * names in its query string. An Action's picker names the record the modal
+ * runs on there too.
  */
 
 export interface RelatableScope {
@@ -27,6 +28,13 @@ export interface RelatableScope {
   context?: 'create' | 'update'
   /** Base path of the Action whose fields the input renders in. */
   actionEndpoint?: string
+  /**
+   * The record the Action's modal runs on, as the query string its fields
+   * request sends (`resourceId=7`, the panel's `via*` params): the picker
+   * names it too, so the Action's `selectedModel()` is the same record when
+   * the server resolves the field.
+   */
+  actionQuery?: string
   /** Base path of the pivot fields the input renders in (attach or pivot edit modal). */
   pivotEndpoint?: string
   /** The Repeater row the input renders in. */
@@ -47,9 +55,14 @@ export interface RelatableRoute {
  */
 export function relatableUrl(attribute: string, scope: RelatableScope, route: RelatableRoute): string | null {
   const path = relatablePath(attribute, scope, route)
-  if (path === null || !scope.repeaterRow) return path
+  if (path === null) return path
 
-  return withQuery(path, repeaterRowQuery(scope.repeaterRow))
+  const query = [
+    scope.actionEndpoint !== undefined ? scope.actionQuery : undefined,
+    scope.repeaterRow ? repeaterRowQuery(scope.repeaterRow) : undefined,
+  ].filter((part): part is string => !!part).join('&')
+
+  return query === '' ? path : withQuery(path, query)
 }
 
 function relatablePath(attribute: string, scope: RelatableScope, route: RelatableRoute): string | null {

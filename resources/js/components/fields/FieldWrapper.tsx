@@ -28,6 +28,20 @@ interface FieldWrapperProps {
 }
 
 /**
+ * The control a field's help describes: the element `htmlFor` names, else a
+ * picker's trigger button (it holds no text input until it opens), else the
+ * first data-entry element. A hidden input carries no value anyone reads.
+ */
+function findDescribedControl(root: HTMLElement, htmlFor?: string): HTMLElement | null {
+  const byId = htmlFor ? (Array.from(root.querySelectorAll<HTMLElement>('[id]')).find((el) => el.id === htmlFor) ?? null) : null
+  return (
+    byId ??
+    root.querySelector<HTMLElement>('button.martis-belongs-to-trigger') ??
+    root.querySelector<HTMLElement>('input:not([type="hidden"]), textarea, select, [role="combobox"], [contenteditable="true"]')
+  )
+}
+
+/**
  * Canonical form-field wrapper — see `Catalog.html` `.input-wrap` spec.
  *
  * Stacks label + input + help/error vertically with 6px gap. Accepts a
@@ -56,23 +70,44 @@ export function FieldWrapper({
 
   // Tie the help to its control for assistive tech: the id joins the
   // control's own `aria-describedby` (the control may carry tokens of its
-  // own) and leaves it when the help goes away.
+  // own) and leaves it when the help goes away. Runs when the help appears,
+  // goes or moves to another control, not on every render of the form: the
+  // observer follows the control that mounts later (a picker's trigger, a
+  // lazily rendered input) or whose own `aria-describedby` a re-render
+  // rewrites, and is idle while the user types.
   useEffect(() => {
     if (!showsHelp) return
     const root = wrapRef.current
     if (!root) return
-    const byId = htmlFor ? (Array.from(root.querySelectorAll<HTMLElement>('[id]')).find((el) => el.id === htmlFor) ?? null) : null
-    const control =
-      byId ?? root.querySelector<HTMLElement>('input, textarea, select, [role="combobox"], [contenteditable="true"]')
-    if (!control) return
-    const tokens = (control.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean)
-    if (!tokens.includes(helpId)) control.setAttribute('aria-describedby', [...tokens, helpId].join(' '))
-    return () => {
-      const rest = (control.getAttribute('aria-describedby') ?? '').split(/\s+/).filter((token) => token && token !== helpId)
-      if (rest.length > 0) control.setAttribute('aria-describedby', rest.join(' '))
-      else control.removeAttribute('aria-describedby')
+
+    let bound: HTMLElement | null = null
+    const unbind = () => {
+      if (!bound) return
+      const rest = (bound.getAttribute('aria-describedby') ?? '').split(/\s+/).filter((token) => token && token !== helpId)
+      if (rest.length > 0) bound.setAttribute('aria-describedby', rest.join(' '))
+      else bound.removeAttribute('aria-describedby')
+      bound = null
     }
-  }, [showsHelp, htmlFor, helpId, children])
+    const bind = () => {
+      const control = findDescribedControl(root, htmlFor)
+      if (control !== bound) {
+        unbind()
+        bound = control
+      }
+      if (!control) return
+      const tokens = (control.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean)
+      // Only written when missing, so the observer never reacts to itself.
+      if (!tokens.includes(helpId)) control.setAttribute('aria-describedby', [...tokens, helpId].join(' '))
+    }
+
+    bind()
+    const observer = new MutationObserver(bind)
+    observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['id', 'aria-describedby'] })
+    return () => {
+      observer.disconnect()
+      unbind()
+    }
+  }, [showsHelp, htmlFor, helpId])
 
   return (
     <div ref={wrapRef} className={className ? `martis-input-wrap ${className}` : 'martis-input-wrap'}>

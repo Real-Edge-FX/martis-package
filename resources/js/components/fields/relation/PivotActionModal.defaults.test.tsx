@@ -94,3 +94,28 @@ describe('PivotActionModal defaults, help and record', () => {
     expect(String(apiGetMock.mock.calls[0][0])).toBe(`${actionsUrl}/note/fields`)
   })
 })
+
+describe('PivotActionModal opened again', () => {
+  it('seeds from the fields the new opening fetches, not from the cached ones', async () => {
+    const client = new QueryClient()
+    const ui = () => (
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <MemoryRouter>
+            <PivotActionModal actionsUrl={actionsUrl} resourceKey="users" action={action} selectedIds={[4]} onSuccess={() => {}} onClose={() => {}} />
+          </MemoryRouter>
+        </ToastProvider>
+      </QueryClientProvider>
+    )
+    const first = render(ui())
+    const input = () => document.body.querySelector('#note') as HTMLInputElement
+    await waitFor(() => expect(input()?.value).toBe('abc'))
+    first.unmount()
+
+    apiGetMock.mockImplementation(async () => ({ data: { fields: [{ ...noteField, defaultValue: 'def' }] } }))
+    render(ui())
+
+    await waitFor(() => expect(input()?.value).toBe('def'))
+    expect(apiGetMock).toHaveBeenCalledTimes(2)
+  })
+})

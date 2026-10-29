@@ -63,9 +63,21 @@ export function useRunAction(): RunAction {
   return useCallback<RunAction>(
     async ({ resource, action, id, ids, fields, lens, via, handleResponse = true }) => {
       const resources = id !== undefined ? [id] : (ids ?? [])
+      let response: ActionResponsePayload | undefined
       try {
         const res = await postAction(actionRunUrl(resource, action, lens), { resources, fields, via })
-        const response = res?.data
+        response = res?.data
+      } catch (err) {
+        const errors = mapActionErrors(err)
+        const message = (err instanceof Error && err.message) || t('action_failed')
+        if (handleResponse) addToast('error', message)
+        return { ok: false, message, errors }
+      }
+
+      // The action ran: a failure past this point (the answer's handling, a
+      // refresh) is the page's, not the action's, so it never reports the run
+      // as failed (the caller would retry an action that already ran).
+      try {
         martisEventBus.emit('martis:action-executed', { resourceKey: resource, action, ids: resources.map(String) })
         if (handleResponse) {
           handleActionResponse(response, {
@@ -77,13 +89,10 @@ export function useRunAction(): RunAction {
             showModal,
           })
         }
-        return { ok: true, response }
       } catch (err) {
-        const errors = mapActionErrors(err)
-        const message = (err instanceof Error && err.message) || t('action_failed')
-        if (handleResponse) addToast('error', message)
-        return { ok: false, message, errors }
+        console.error('Handling the answer of a successful action run failed.', err)
       }
+      return { ok: true, response }
     },
     [t, addToast, navigate, showModal, refreshRecord],
   )

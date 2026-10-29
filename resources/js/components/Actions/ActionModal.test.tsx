@@ -101,6 +101,55 @@ describe('ActionModal pickers', () => {
   })
 })
 
+describe('ActionModal pickers and the record', () => {
+  async function openPicker(props: Partial<React.ComponentProps<typeof ActionModal>>) {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ToastProvider>
+          <MemoryRouter initialEntries={['/resources/projects/7']}>
+            <Routes>
+              <Route
+                path="/resources/:resource/:id"
+                element={
+                  <ActionModal resource="projects" action={action} selectedIds={[1]} visible onHide={() => {}} onSuccess={() => {}} {...props} />
+                }
+              />
+            </Routes>
+          </MemoryRouter>
+        </ToastProvider>
+      </QueryClientProvider>,
+    )
+    const trigger = await waitFor(() => {
+      const el = document.body.querySelector('.martis-belongs-to-trigger')
+      expect(el).not.toBeNull()
+      return el as HTMLElement
+    })
+    fireEvent.click(trigger)
+    await waitFor(() => expect(relatableCalls()).toHaveLength(1))
+    return relatableCalls()[0]
+  }
+
+  it('name the record the modal runs on, as its fields request does', async () => {
+    const url = await openPicker({ selectedIds: [9] })
+    expect(url).toContain('/actions/assign-owner/relatable/owner_id?')
+    expect(new URL(url, 'http://x').searchParams.get('resourceId')).toBe('9')
+  })
+
+  it('name the panel the run goes through too', async () => {
+    const url = await openPicker({ selectedIds: [9], via: { viaResource: 'users', viaResourceId: 3, viaRelationship: 'projects' } })
+    const query = new URL(url, 'http://x').searchParams
+    expect([query.get('resourceId'), query.get('viaResource'), query.get('viaResourceId'), query.get('viaRelationship')]).toEqual(['9', 'users', '3', 'projects'])
+  })
+
+  it.each<[string, Partial<React.ComponentProps<typeof ActionModal>>]>([
+    ['several records', { selectedIds: [1, 2] }],
+    ['a standalone action', { selectedIds: [1], action: { ...action, standalone: true } }],
+  ])('name no record for %s', async (_label, props) => {
+    const url = await openPicker(props)
+    expect(new URL(url, 'http://x').searchParams.has('resourceId')).toBe(false)
+  })
+})
+
 describe('ActionModal on a lens', () => {
   // A lens's actions are resolved from the lens (its own actions(), as in
   // Nova): an action only the lens declares is unknown to the resource's

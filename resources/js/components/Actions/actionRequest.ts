@@ -57,19 +57,31 @@ export function mapActionErrors(err: unknown): Record<string, string> {
 }
 
 /**
- * The fields endpoint of an action. When the modal runs on exactly one
- * record the request names it (`resourceId`, with the panel's `via` params
- * when it runs through a relationship), so the server resolves the fields
- * with that record in hand, as Nova's `GET .../actions?resourceId=` does.
- * No record (bulk run, standalone action): the plain endpoint.
+ * The query string that names the record an action's modal runs on, or
+ * `undefined` when it runs on none (bulk run, standalone action): `resourceId`,
+ * with the panel's `via` params when it runs through a relationship. Sent on
+ * the fields request and on the requests of the pickers of those fields, so
+ * the server resolves both with the same `selectedModel()`.
  */
-export function actionFieldsUrl(url: string, recordId?: string | number, via?: ActionRequestVia | null): string {
-  if (recordId === undefined) return `${url}/fields`
+export function actionRecordQuery(recordId?: string | number, via?: ActionRequestVia | null): string | undefined {
+  if (recordId === undefined) return undefined
   const query = new URLSearchParams({ resourceId: String(recordId) })
   if (via) {
     query.set('viaResource', via.viaResource)
     query.set('viaResourceId', String(via.viaResourceId))
     query.set('viaRelationship', via.viaRelationship)
   }
-  return withQuery(`${url}/fields`, query.toString())
+  return query.toString()
+}
+
+/**
+ * The fields endpoint of an action. When the modal runs on exactly one
+ * record the request names it (see `actionRecordQuery()`), so the server
+ * resolves the fields with that record in hand, as Nova's
+ * `GET .../actions?resourceId=` does. No record (bulk run, standalone
+ * action): the plain endpoint.
+ */
+export function actionFieldsUrl(url: string, recordId?: string | number, via?: ActionRequestVia | null): string {
+  const query = actionRecordQuery(recordId, via)
+  return query === undefined ? `${url}/fields` : withQuery(`${url}/fields`, query)
 }

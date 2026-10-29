@@ -159,7 +159,18 @@ function announceLock(lock: GateLock | null): void {
   if (lock !== null) window.dispatchEvent(new CustomEvent<GateLock>(LOCKED_EVENT, { detail: lock }))
 }
 
-async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+/** Per-request switches of `api.get()`. */
+export interface RequestOptions {
+  /**
+   * Do not raise `LOCKED_EVENT` for a 403 that carries a lock payload: the
+   * request still rejects. For a lookup the page makes on its own (a label
+   * for a stored id) and falls back from, which must not open the gate modal
+   * the user never asked for.
+   */
+  silentLock?: boolean
+}
+
+async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal, options?: RequestOptions): Promise<T> {
   assertNoDotSegment(path)
   const csrfToken = getCsrfToken()
 
@@ -215,7 +226,7 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
     if (isTwoFactorRequiredResponse(res.status, json)) {
       redirectOnTwoFactorRequired()
     }
-    announceLock(lockOfResponse(res.status, json))
+    if (!options?.silentLock) announceLock(lockOfResponse(res.status, json))
     const err = (json ?? {}) as { message?: string; errors?: unknown }
     // 403: surface a distinct "not authorized" message so the UI can show a
     // policy-specific toast instead of the generic action failure. The server
@@ -413,7 +424,7 @@ function friendlyMessageForStatus(status: number): string {
 }
 
 export const api = {
-  get: <T>(path: string, signal?: AbortSignal) => request<T>('GET', path, undefined, signal),
+  get: <T>(path: string, signal?: AbortSignal, options?: RequestOptions) => request<T>('GET', path, undefined, signal, options),
   post: <T>(path: string, body?: unknown, signal?: AbortSignal) => request<T>('POST', path, body, signal),
   put: <T>(path: string, body?: unknown, signal?: AbortSignal) => request<T>('PUT', path, body, signal),
   patch: <T>(path: string, body?: unknown, signal?: AbortSignal) => request<T>('PATCH', path, body, signal),

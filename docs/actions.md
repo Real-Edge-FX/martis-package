@@ -596,7 +596,9 @@ public function fields(Request $request): array
 
 The modal names the record in the fields request, `GET /api/resources/{resource}/actions/{action}/fields?resourceId={id}` (on the lens and pivot routes too, and with the `viaResource`, `viaResourceId` and `viaRelationship` of a relationship panel). The server looks the record up exactly as the run does: through the index scope (`scopes()` and `indexQuery()`), the lens's query or the panel's relationship, then the action's `canRun()` and the policy's `runAction()` for that record. A record that is outside that scope, or that the run would refuse, answers 404, so the endpoint never discloses a record the action cannot run on. The 403 answers (no `viewAny`, or `canSee()` denies) are unchanged. For a [pivot action](#pivot-actions), `selectedModel()` is the related record, with its `pivot`, as the run hands it to `handle()`.
 
-A run that names exactly one record (and resolves it) sets the same record before it reads `fields()`, so the rules and defaults the run applies are the ones the modal showed. A run that names several records sees `null`, even when only one of them resolves.
+A run that names exactly one record (and resolves it) sets the same record before it reads `fields()`, so the rules and defaults the run applies are the ones the modal showed. A run that names several records sees `null`, even when only one of them resolves. The pickers of the modal's relation fields send the same `resourceId` to their [options endpoint](#relation-fields), so a `relatableQueryUsing()` closure can read `$this->selectedModel()` too, behind the same lookup and the same 404.
+
+`selectedModel()` is meant for `fields()`. A [queued action](#queued-batch-actions) rebuilds the action in the job, where `selectedModel()` is `null`: `handle()` receives the records in `$models`.
 
 Nova reads the record with `$request->findModel()` in `fields()`. In Martis it is a method of the Action because a second parameter on `fields()` would change `ActionContract::fields()` for every Action an application declares. `selectedModel()` is on the `Action` base class, not on `ActionContract`.
 
@@ -844,7 +846,7 @@ Defaults: `showOnIndex = true`, `showOnDetail = true`, `showInline = false`.
 
 ### Actions run only from your own components
 
-An action with every surface off, `->exceptOnIndex()->exceptOnDetail()->exceptInline()`, is listed in no menu, button or inline icon, nor in the command palette, and the action lists `GET /api/resources/{resource}/actions?context=index|detail|inline` leave it out. It still runs through its endpoints with every check of a visible action: `viewAny` on the resource, `canSee()`, `canRun()`, the policy's `runAction()`, the record scope and the action events. This is the supported way to give a custom component (a field `Display`, a Tool, a card) an action that keeps the permissions and the audit log in one place. Run it with `useRunAction()` from `@martis/runtime` (see [Overrides → Running an action from a component](overrides.md#running-an-action-from-a-component-v2160)).
+An action with every surface off, `->exceptOnIndex()->exceptOnDetail()->exceptInline()`, is listed in no menu, button or inline icon, nor in the command palette (a standalone action too: the index and lens toolbars list a standalone action only when it is shown on the index, v2.16.0+, as Nova lists the index's actions), and the action lists `GET /api/resources/{resource}/actions?context=index|detail|inline` leave it out. It still runs through its endpoints with every check of a visible action: `viewAny` on the resource, `canSee()`, `canRun()`, the policy's `runAction()`, the record scope and the action events. This is the supported way to give a custom component (a field `Display`, a Tool, a card) an action that keeps the permissions and the audit log in one place. Run it with `useRunAction()` from `@martis/runtime` (see [Overrides → Running an action from a component](overrides.md#running-an-action-from-a-component-v2160)).
 
 ```php
 public function actions(Request $request): array
@@ -1557,7 +1559,7 @@ Replace the default fields form inside the action modal with a custom React comp
 MyCustomAction::make()->component('my-custom-component', ['param' => 'value'])
 ```
 
-Register the component in the frontend registry. It takes over the whole action UI and receives `CustomActionComponentProps`: `action`, `resource`, `selectedIds`, `componentProps` (the array passed to `->component()`), `onFieldsChange(fields)`, `onExecute(extraFields?)`, `onClose()` and `isExecuting`. The run's answer is handled as any other action's: a `modal()` answer closes your component and shows its own.
+Register the component in the frontend registry. It takes over the whole action UI and receives `CustomActionComponentProps`: `action`, `resource`, `selectedIds`, `componentProps` (the array passed to `->component()`), `onFieldsChange(fields)`, `onExecute(extraFields?)`, `onClose()` and `isExecuting`. The run posts the declared fields' `default()` values (v2.16.0+) merged under what `onFieldsChange()` and `onExecute()` send. The run's answer is handled as any other action's: a `modal()` answer closes your component and shows its own.
 
 ---
 

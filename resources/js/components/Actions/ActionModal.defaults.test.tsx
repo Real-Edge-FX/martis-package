@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, fireEvent, waitFor } from '@testing-library/react'
+import { render, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ToastProvider } from '@/contexts/ToastContext'
@@ -27,6 +27,8 @@ vi.mock('@/lib/api', async (importOriginal) => {
 
 import { ActionModal, type ActionMeta } from './ActionModal'
 import { registerDefaultFields } from '@/components/fields/FieldRenderer'
+import { componentRegistry } from '@/lib/componentRegistry'
+import { useEffect } from 'react'
 
 registerDefaultFields()
 
@@ -150,5 +152,67 @@ describe('ActionModal fields request', () => {
     mount(props)
     await waitFor(() => expect(fieldCalls()).toHaveLength(1))
     expect(fieldCalls()[0]).toBe('/api/resources/posts/actions/rename/fields')
+  })
+})
+
+describe('ActionModal reopened', () => {
+  it('seeds from the fields the new opening fetches, not from the cached ones', async () => {
+    const { setVisible } = mount()
+    await waitFor(() => expect(input()?.value).toBe('abc'))
+    setVisible(false)
+
+    // The record changed since: its fields() now answers another default.
+    apiGetMock.mockImplementation(async () => ({ data: { fields: [{ ...nameField, defaultValue: 'def' }] } }))
+    setVisible(true)
+
+    await waitFor(() => expect(input()?.value).toBe('def'))
+    expect(fieldCalls()).toHaveLength(2)
+
+    fireEvent.click(document.body.querySelector('.martis-btn-primary') as HTMLElement)
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(1))
+    expect(apiPostMock.mock.calls[0][1].fields).toEqual({ name: 'def' })
+  })
+
+  it('waits for the fresh fields before running an action that needs no modal', async () => {
+    const quiet = { ...action, withConfirmation: false }
+    apiGetMock.mockImplementation(async () => ({ data: { fields: [] } }))
+    const { setVisible } = mount({ action: quiet })
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(1))
+    setVisible(false)
+
+    // The cached answer had no fields; the action has one now.
+    apiGetMock.mockImplementation(async () => ({ data: { fields: [nameField] } }))
+    setVisible(true)
+
+    await waitFor(() => expect(input()?.value).toBe('abc'))
+    expect(apiPostMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('runs an action that needs no modal once, however often the fields refetch', async () => {
+    const quiet = { ...action, withConfirmation: false }
+    apiGetMock.mockImplementation(async () => ({ data: { fields: [] } }))
+    const { client } = mount({ action: quiet })
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(1))
+    await client.invalidateQueries({ queryKey: ['action-fields'] })
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
+    expect(apiPostMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('ActionModal custom component', () => {
+  it('keeps the values a component reports before the fields resolve, under the defaults', async () => {
+    function Reporter({ onFieldsChange, onExecute }: { onFieldsChange: (f: Record<string, unknown>) => void; onExecute: () => void }) {
+      useEffect(() => { onFieldsChange({ picked: 'x' }) }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+      return <button type="button" data-testid="go" onClick={() => onExecute()}>go</button>
+    }
+    componentRegistry.register('n2-reporter', Reporter as never)
+
+    mount({ action: { ...action, customComponent: 'n2-reporter' } })
+    await waitFor(() => expect(fieldCalls()).toHaveLength(1))
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
+    fireEvent.click(document.body.querySelector('[data-testid="go"]') as HTMLElement)
+
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(1))
+    expect(apiPostMock.mock.calls[0][1].fields).toEqual({ name: 'abc', picked: 'x' })
   })
 })

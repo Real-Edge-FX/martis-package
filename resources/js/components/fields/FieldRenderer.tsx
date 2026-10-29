@@ -391,6 +391,7 @@ export function FieldInput({
   toolKey,
   context,
   actionEndpoint,
+  actionQuery,
   pivotEndpoint,
   repeaterRow,
   formValues,
@@ -405,6 +406,7 @@ export function FieldInput({
   toolKey?: string
   context?: 'create' | 'update'
   actionEndpoint?: string
+  actionQuery?: string
   pivotEndpoint?: string
   repeaterRow?: RepeaterRowScope
   formValues?: Record<string, unknown>
@@ -432,6 +434,7 @@ export function FieldInput({
       toolKey={toolKey}
       context={context}
       actionEndpoint={actionEndpoint}
+      actionQuery={actionQuery}
       pivotEndpoint={pivotEndpoint}
       repeaterRow={repeaterRow}
       formValues={formValues}

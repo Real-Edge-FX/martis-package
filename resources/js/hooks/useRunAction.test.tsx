@@ -76,4 +76,22 @@ describe('useRunAction', () => {
     })
     await waitFor(() => expect(spy).toHaveBeenCalled())
   })
+
+  it('still reports success when handling the answer of a run that succeeded throws', async () => {
+    const response = { type: 'message', data: { message: 'Done.' } }
+    apiPostMock.mockResolvedValue({ data: response })
+    const client = new QueryClient()
+    vi.spyOn(client, 'invalidateQueries').mockImplementation(() => { throw new Error('refresh broke') })
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { result } = renderHook(() => useRunAction(), { wrapper: wrapper(client) })
+
+    let outcome: unknown
+    await act(async () => {
+      outcome = await result.current({ resource: 'posts', action: 'publish', id: 5 })
+    })
+
+    expect(outcome).toEqual({ ok: true, response })
+    expect(logged).toHaveBeenCalled()
+    logged.mockRestore()
+  })
 })

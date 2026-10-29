@@ -14,6 +14,7 @@ use Illuminate\Testing\TestResponse;
 use Martis\Actions\Action;
 use Martis\Actions\ActionFields;
 use Martis\Actions\ActionResponse;
+use Martis\Fields\BelongsTo;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\HasMany;
 use Martis\Fields\Text;
@@ -132,6 +133,55 @@ class ActionCtxPivotProbe extends ActionCtxProbe
     }
 }
 
+/** A picker scoped by the record the modal runs on: only that record's tags. */
+class ActionCtxPicker extends Action
+{
+    /** @param Collection<int, Model> $models */
+    public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
+    {
+        return ActionResponse::message('Done.');
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            BelongsTo::make('tag', 'Tag')
+                ->relatedResource('action-ctx-tags')
+                ->titleAttribute('name')
+                ->relatableQueryUsing(function (Request $request, Builder $query): Builder {
+                    $model = $this->selectedModel();
+                    ActionCtxLog::$seen[] = $model?->getKey();
+
+                    // No record: nothing to offer, instead of a throw on null.
+                    return $model instanceof ActionCtxItem
+                        ? $query->whereIn('action_ctx_tags.id', $model->tags()->pluck('action_ctx_tags.id'))
+                        : $query->whereRaw('1 = 0');
+                }),
+        ];
+    }
+}
+
+class ActionCtxPivotPicker extends ActionCtxPicker
+{
+    public function fields(Request $request): array
+    {
+        return [
+            BelongsTo::make('tag', 'Tag')
+                ->relatedResource('action-ctx-tags')
+                ->titleAttribute('name')
+                ->relatableQueryUsing(function (Request $request, Builder $query): Builder {
+                    $model = $this->selectedModel();
+                    ActionCtxLog::$seen[] = $model?->getKey();
+
+                    // Only the record the modal runs on.
+                    return $model instanceof ActionCtxTag
+                        ? $query->where('action_ctx_tags.id', $model->getKey())
+                        : $query->whereRaw('1 = 0');
+                }),
+        ];
+    }
+}
+
 class ActionCtxLens extends Lens
 {
     public function query(LensRequest $request, Builder $query): Builder
@@ -146,7 +196,7 @@ class ActionCtxLens extends Lens
 
     public function actions(Request $request): array
     {
-        return [ActionCtxProbe::make(), ActionCtxHidden::make()->canSee(fn (): bool => false)];
+        return [ActionCtxProbe::make(), ActionCtxPicker::make(), ActionCtxHidden::make()->canSee(fn (): bool => false)];
     }
 }
 
@@ -185,7 +235,7 @@ class ActionCtxItemResource extends Resource
             BelongsToMany::make('Tags', 'tags')
                 ->relatedResource('action-ctx-tags')
                 ->fields(fn () => [Text::make('weight')->nullable()])
-                ->actions(fn () => [ActionCtxPivotProbe::make(), ActionCtxHidden::make()->canSee(fn (): bool => false)]),
+                ->actions(fn () => [ActionCtxPivotProbe::make(), ActionCtxPivotPicker::make(), ActionCtxHidden::make()->canSee(fn (): bool => false)]),
         ];
     }
 
@@ -194,6 +244,7 @@ class ActionCtxItemResource extends Resource
         return [
             ActionCtxProbe::make()->showInline(),
             ActionCtxGated::make(),
+            ActionCtxPicker::make(),
             ActionCtxHidden::make()->canSee(fn (): bool => false),
             ActionCtxStandalone::make()->standalone(),
         ];
@@ -588,4 +639,78 @@ it('sees no pivot record without resourceId, and sets the record of a single-rec
 
 it('keeps the 403 of a pivot action the user may not see', function () {
     $this->getJson(ACTION_CTX_BASE."/{$this->ada->id}/belongs-to-many/tags/actions/action-ctx-hidden/fields?resourceId={$this->tag->id}")->assertForbidden();
+});
+
+// ── The relation pickers of the fields ──────────────────────────────────────
+
+/** @return list<string> The names a relatable response lists. */
+function actionCtxOptions(TestResponse $response): array
+{
+    return collect($response->json('data'))->pluck('name')->sort()->values()->all();
+}
+
+it('scopes a picker of an action field by the record the modal runs on', function () {
+    $base = ACTION_CTX_BASE.'/actions/action-ctx-picker/relatable/tag_id?per_page=30';
+
+    $ada = $this->getJson("{$base}&resourceId={$this->ada->id}")->assertOk();
+    $bob = $this->getJson("{$base}&resourceId={$this->bob->id}")->assertOk();
+
+    // Ada has two tags, Bob one: the closure reads selectedModel().
+    expect(actionCtxOptions($ada))->toBe(['Secret', 'Tag'])
+        ->and(actionCtxOptions($bob))->toBe(['Loose'])
+        ->and(ActionCtxLog::$seen)->toBe([$this->ada->id, $this->bob->id]);
+});
+
+it('sees no record in the picker of a bulk modal, which names none', function () {
+    $response = $this->getJson(ACTION_CTX_BASE.'/actions/action-ctx-picker/relatable/tag_id?per_page=30')->assertOk();
+
+    expect(actionCtxOptions($response))->toBe([])
+        ->and(ActionCtxLog::$seen)->toBe([null]);
+});
+
+it('answers 404 for a picker request on a record the run would not resolve or would refuse', function () {
+    $base = ACTION_CTX_BASE.'/actions/action-ctx-picker/relatable/tag_id?per_page=30';
+
+    // Out of indexQuery(), out of scopes(), missing, refused by the runAction policy.
+    foreach ([$this->hidden->id, $this->otherTenant->id, 999999, $this->noPolicy->id] as $id) {
+        $this->getJson("{$base}&resourceId={$id}")->assertNotFound();
+    }
+    $this->getJson("{$base}&resourceId[]={$this->ada->id}&resourceId[]={$this->bob->id}")->assertNotFound();
+
+    // The closure never ran for them.
+    expect(ActionCtxLog::$seen)->toBe([]);
+});
+
+it('keeps the picker 403 of an action the user may not see', function () {
+    $this->getJson(ACTION_CTX_BASE."/actions/action-ctx-hidden/relatable/tag_id?resourceId={$this->ada->id}")->assertForbidden();
+});
+
+it('resolves the picker record through the lens and the relationship panel, as the fields do', function () {
+    $lens = ACTION_CTX_LENS.'/actions/action-ctx-picker/relatable/tag_id?per_page=30';
+
+    expect(actionCtxOptions($this->getJson("{$lens}&resourceId={$this->ada->id}")->assertOk()))->toBe(['Secret', 'Tag']);
+    // Listed by the index, not by the lens.
+    $this->getJson("{$lens}&resourceId={$this->unlisted->id}")->assertNotFound();
+
+    $via = http_build_query(['resourceId' => $this->ada->id] + actionCtxVia());
+    expect(actionCtxOptions($this->getJson(ACTION_CTX_BASE."/actions/action-ctx-picker/relatable/tag_id?per_page=30&{$via}")->assertOk()))->toBe(['Secret', 'Tag']);
+
+    // The owner the record does not belong to.
+    $other = http_build_query(['resourceId' => $this->ada->id] + actionCtxVia($this->otherOwner->id));
+    $this->getJson(ACTION_CTX_BASE."/actions/action-ctx-picker/relatable/tag_id?per_page=30&{$other}")->assertNotFound();
+});
+
+it('scopes the picker of a pivot action by the related record the panel lists', function () {
+    $base = ACTION_CTX_BASE."/{$this->ada->id}/belongs-to-many/tags/actions/action-ctx-pivot-picker/relatable/tag_id?per_page=30";
+
+    expect(actionCtxOptions($this->getJson("{$base}&resourceId={$this->tag->id}")->assertOk()))->toBe(['Tag'])
+        ->and(ActionCtxLog::$seen)->toBe([$this->tag->id]);
+
+    // Not attached to this parent, outside the related resource's indexQuery(), missing.
+    foreach ([$this->looseTag->id, $this->secretTag->id, 999999] as $id) {
+        $this->getJson("{$base}&resourceId={$id}")->assertNotFound();
+    }
+
+    // No record named: the closure sees none.
+    expect(actionCtxOptions($this->getJson($base)->assertOk()))->toBe([]);
 });

@@ -10,7 +10,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { FieldInput } from '@/components/fields/FieldRenderer'
 import { FieldWrapper } from '@/components/fields/FieldWrapper'
 import { fieldDefaults } from '@/lib/fieldDefaults'
-import { actionFieldsUrl, mapActionErrors, postAction } from '@/components/Actions/actionRequest'
+import { actionFieldsUrl, actionRecordQuery, mapActionErrors, postAction } from '@/components/Actions/actionRequest'
 import { fieldErrorProps } from '@/lib/fieldErrors'
 import type { ActionMeta } from '@/components/Actions/ActionModal'
 import { ActionDryRunPreview } from '@/components/Actions/ActionDryRunPreview'
@@ -123,19 +123,25 @@ export function PivotActionModal({
     queryFn: ({ signal }) =>
       api.get<{ data: { fields: FieldDefinition[] } }>(actionFieldsUrl(actionUrl, recordId), signal),
     enabled: !!action,
+    // `fields()` reads the related record (`selectedModel()`), so the fields
+    // an earlier opening cached may describe a record that has changed since:
+    // every opening fetches again, and the defaults seed from that answer.
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 
   const fields = fieldsQuery.data?.data?.fields ?? []
 
-  // The defaults seed the values once: the modal mounts per opening, and a
-  // refetch of the fields must not wipe what the user typed.
-  const seeded = useRef(false)
+  // The defaults seed the values once, from the fields this opening fetched:
+  // the modal mounts per opening, and a refetch of the fields (focus) must
+  // not wipe what the user typed.
+  const [seeded, setSeeded] = useState(false)
   useEffect(() => {
-    if (seeded.current || !fieldsQuery.isSuccess) return
-    seeded.current = true
+    if (seeded || fieldsQuery.data === undefined || fieldsQuery.isFetching) return
+    setSeeded(true)
     setFieldValues(fieldDefaults(fields))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fieldsQuery.isSuccess, fieldsQuery.data])
+  }, [seeded, fieldsQuery.data, fieldsQuery.isFetching])
 
   const executeMutation = useMutation({
     // Each run starts without the errors of the last one, as every form
@@ -178,7 +184,9 @@ export function PivotActionModal({
   const needsConfirmation = action.withConfirmation || hasFields || action.supportsDryRun
 
   const { mutate: execute } = executeMutation
-  const fieldsPending = fieldsQuery.isPending
+  // Pending until the fields of this opening arrive: cached ones from an
+  // earlier opening are being fetched again (see the query).
+  const fieldsPending = fieldsQuery.isPending || (fieldsQuery.isFetching && !seeded)
 
   // Run an action that needs no modal, as the resource action modal does:
   // in a layout effect of the commit the click caused, so an opensInNewTab()
@@ -262,6 +270,7 @@ export function PivotActionModal({
                     {...fieldErrorProps(fieldErrors, f.attribute)}
                     context="create"
                     actionEndpoint={actionUrl}
+                    actionQuery={actionRecordQuery(recordId)}
                   />
                 </FieldWrapper>
               ))}

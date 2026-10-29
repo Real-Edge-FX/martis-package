@@ -48,6 +48,16 @@ describe('the soft lock signal', () => {
     expect(locks).toEqual([LOCK])
   })
 
+  it('stays silent for a request that opts out, and still rejects', async () => {
+    answer(403, { message: 'Locked.', errors: [], locked: true, lock: LOCK })
+    const { locks, stop } = listen()
+
+    await expect(api.get('/api/resources/reports/5', undefined, { silentLock: true })).rejects.toBeInstanceOf(ApiError)
+
+    stop()
+    expect(locks).toEqual([])
+  })
+
   it('stays silent on a plain 403', async () => {
     answer(403, { message: 'This action is unauthorized.', errors: [] })
     const { locks, stop } = listen()

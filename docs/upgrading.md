@@ -4,6 +4,17 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.16.0 from v2.15.x
+
+v2.16.0 opens action fields and create forms on their `default()`, shows help text and tooltips in the action modals, gives a single-record action's `fields()` its record and gives custom field displays the record they render. Nothing has to change in an app. Check these points:
+
+- **Forms and action modals now open on the fields' `default()`.** Up to v2.15.x the create page, the create drawer, the inline create modal and every action modal opened empty, whatever the field declared. A field whose default was only meant for the run (the value `handle()` receives when the request cannot set the field) is now also shown in the modal, and a create form now submits the defaults the user leaves untouched. Remove a `default()` you did not want on screen, or move it to the model or the database. An app that overrides the action modal (`component:ActionModal` in the registry) seeds its own state and is unchanged. A custom action component (`->component()`) now also posts the declared fields' defaults, under the values it sends itself. Both action modals now fetch their fields again on every opening, so a default or help text computed from the record is never a stale copy.
+- **`fields()` can read the record with `$this->selectedModel()`**, and must handle `null` (bulk, standalone, no record named). An app that hard-coded the record inside `fields()` can drop it. The fields endpoint answers 404 for a `resourceId` the run would refuse; nothing in the panel sends one otherwise. See [Actions → The record the action runs on](actions.md#the-record-the-action-runs-on).
+- **The index and lens toolbars no longer list a standalone action that is kept off the index** (`exceptOnIndex()`, `onlyOnDetail()`, `onlyInline()`), as Nova filters the index's actions by where they are shown; up to v2.15.x the toolbar listed every standalone action. Call `showOnIndex()` on one you want there.
+- **An Action class of your own that declares a method named `selectedModel()` or `withSelectedModel()`** now overrides the base class's: rename it, or PHP refuses an incompatible signature.
+- **The command palette no longer offers a standalone action that is kept off the index** (`exceptOnIndex()`, `onlyOnDetail()`, `onlyInline()`): the shortcut opens the index, where such an action has no button. Show it on the index to keep it in the palette.
+- **A custom field display receives `resourceKey`, `resourceId` and `context`.** A display that spreads its props onto a DOM element now passes them through too; pick the props it renders instead. To use `useRunAction()`, `useRefreshRecord()` and the new types in an extension, republish the shims: `php artisan vendor:publish --tag=martis-extension-shims --force`.
+
 ## Upgrading to v2.15.0 from v2.14.x
 
 v2.15.0 opens the tab of an `openInNewTab()` answer reliably, fills the blank confirmation modal, keeps the notifications and preferences panels inside a phone screen and lets "Keep me signed in" survive the 2FA challenge. Nothing has to change in an app. Check these points:

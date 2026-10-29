@@ -17,7 +17,7 @@ import { useModalHistoryLock } from '@/lib/historyLock'
 import { ActionDryRunPreview } from './ActionDryRunPreview'
 import { useNavigate } from 'react-router'
 import { martisEventBus } from '@/lib/eventBus'
-import { actionFieldsUrl, actionRunUrl, mapActionErrors, postAction } from './actionRequest'
+import { actionFieldsUrl, actionRecordQuery, actionRunUrl, mapActionErrors, postAction } from './actionRequest'
 import { closeActionTab, handleActionResponse, openActionTab } from './actionResponse'
 import { useActionResponseModal } from './ActionResponseModalHost'
 
@@ -165,27 +165,44 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
     queryFn: () =>
       api.get<{ data: { fields: FieldDefinition[] } }>(actionFieldsUrl(actionUrl, recordId, via)),
     enabled: visible && !!action,
+    // `fields()` reads the record (`selectedModel()`), so what an earlier
+    // opening cached (its defaults, its help text) may describe a record that
+    // has changed since: every opening fetches again, and the defaults seed
+    // from that answer, not from the cache.
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 
   const fields = fieldsQuery.data?.data?.fields ?? []
 
-  // The defaults seed the values once per opening: a refetch of the fields
-  // (`staleTime`, focus) must not wipe what the user typed.
-  const seeded = useRef(false)
+  // The defaults seed the values once per opening, from the fields that
+  // opening fetched (see above): a refetch of the fields (focus) must not
+  // wipe what the user typed.
+  const [seeded, setSeeded] = useState(false)
 
+  // Reset when the modal closes or names another action or record. Not when
+  // it opens: a custom component that reports values as it mounts (before
+  // the fields resolve) must keep them, and the close already cleared the
+  // last opening's.
+  const identity = useRef(`${action?.uriKey}|${recordId}`)
   useEffect(() => {
-    seeded.current = false
+    const next = `${action?.uriKey}|${recordId}`
+    const changed = identity.current !== next
+    identity.current = next
+    if (visible && !changed) return
+    setSeeded(false)
     setFieldValues({})
     setFieldErrors({})
     setPreview(undefined)
   }, [action?.uriKey, visible, recordId])
 
   useEffect(() => {
-    if (!visible || seeded.current || !fieldsQuery.isSuccess) return
-    seeded.current = true
-    setFieldValues(fieldDefaults(fields))
+    if (!visible || seeded || fieldsQuery.data === undefined || fieldsQuery.isFetching) return
+    setSeeded(true)
+    // Under what a custom component already set before the fields resolved.
+    setFieldValues((prev) => ({ ...fieldDefaults(fields), ...prev }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, fieldsQuery.isSuccess, fieldsQuery.data])
+  }, [visible, seeded, fieldsQuery.data, fieldsQuery.isFetching])
 
   const executeMutation = useMutation({
     // Each run starts without the errors of the last one, as every form
@@ -242,7 +259,9 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   })
 
   const { mutate: execute } = executeMutation
-  const fieldsPending = fieldsQuery.isPending
+  // Pending until the fields of this opening arrive: cached ones from an
+  // earlier opening do not count, they are being fetched again (see the query).
+  const fieldsPending = fieldsQuery.isPending || (fieldsQuery.isFetching && !seeded)
   const fieldCount = fields.length
 
   // Run an action that needs no modal: no confirmation, no Preview, no
@@ -396,6 +415,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
                     {...fieldErrorProps(fieldErrors, field.attribute)}
                     context="create"
                     actionEndpoint={actionUrl}
+                    actionQuery={actionRecordQuery(recordId, via)}
                   />
                 </FieldWrapper>
               ))}

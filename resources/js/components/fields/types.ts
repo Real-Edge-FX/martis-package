@@ -51,6 +51,14 @@ export interface FieldInputProps {
    */
   actionEndpoint?: string
   /**
+   * The query string the action modal sends to its fields endpoint to name
+   * the record it runs on (`resourceId=7`, plus the panel's `via*` params),
+   * set with `actionEndpoint`. The relation pickers send it too, so the
+   * Action resolves their field with the same `selectedModel()` the modal's
+   * own fields were resolved with.
+   */
+  actionQuery?: string
+  /**
    * Base path of a many-to-many panel's pivot fields when the input renders
    * one of them: `/api/resources/{resource}/{id}/{belongs-to-many|morph-to-many}/{relationship}/pivot-fields`
    * in the attach modal, plus `/{relatedId}` in the pivot edit modal of an

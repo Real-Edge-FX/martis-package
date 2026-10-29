@@ -541,7 +541,7 @@ export function TerminalLinks({ value, resourceKey, resourceId }: FieldDisplayPr
 | `lens`, `via` | Run the action as a lens, or as a relationship panel (`{ viaResource, viaResourceId, viaRelationship }`), runs it. |
 | `handleResponse` | `true` by default. `false` returns the answer without showing it (no toast, redirect or refresh). |
 
-It never throws. It resolves to `{ ok: true, response }`, where `response` is the action's answer, or to `{ ok: false, message, errors }`, where `errors` maps each failing field's attribute to its first message (the 422 `fields.` prefix removed) and a toast shows `message` when `handleResponse` is on. After a successful run it refreshes the record (one `id`) or the resource's lists (several `ids`), as the modal does on its page.
+An `ActionResponse::openCreate()` / `openDetail()` / `openUpdate()` answer, which the modal turns into a drawer of its page, has no drawer to open from a component: it ends like a plain success (the toast and the refresh). It never throws. It resolves to `{ ok: true, response }`, where `response` is the action's answer, or to `{ ok: false, message, errors }`, where `errors` maps each failing field's attribute to its first message (the 422 `fields.` prefix removed) and a toast shows `message` when `handleResponse` is on. After a successful run it refreshes the record (one `id`) or the resource's lists (several `ids`), as the modal does on its page.
 
 `useRefreshRecord()` returns `refreshRecord(resourceKey, id?)`, which refetches that record wherever the panel shows it (the detail page, its drawer, its update form) and the resource's index lists, so the other fields of the page show what a component changed. Without `id` every record of the resource is refetched:
 
@@ -865,6 +865,8 @@ upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrad
     actionEndpoint={apiPath`/api/resources/${resource}/actions/${action.uriKey}`}
 />
 ```
+
+When the component runs the action on one record, also pass `actionQuery` (v2.16.0+), the query string that names it, `resourceId={id}` (with `viaResource`, `viaResourceId` and `viaRelationship` through a relationship panel): the pickers send it to the options endpoint, so a `relatableQueryUsing()` that reads the Action's `selectedModel()` sees the record, as in the bundled modal. Without it the endpoint resolves the field with no record.
 
 A custom modal that renders a relationship's pivot fields passes `pivotEndpoint` the same way: `/api/resources/{resource}/{id}/{belongs-to-many|morph-to-many}/{relationship}/pivot-fields` to attach, plus `/{relatedId}` to edit the pivot row of an attached record (v1.38.0+). A custom container that renders the fields of a Repeater row passes `repeaterRow={{ repeater: '<Repeater attribute>', repeatable: '<row type>' }}` next to the form's own scope, so the pickers and the remote `Select` search name the row the server reads the field from (see [Repeater → Relation pickers and remote selects in rows](repeater.md#relation-pickers-and-remote-selects-in-rows)).
 
