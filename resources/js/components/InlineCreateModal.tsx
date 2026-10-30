@@ -11,6 +11,7 @@ import { XIcon, PlusIcon } from "@phosphor-icons/react"
 import type { FieldDefinition } from "@/types"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { useModalHistoryLock } from "@/lib/historyLock"
+import { hasOpenLayer } from "@/lib/escapeLayers"
 import { NestedParentProvider } from "@/components/fields/NestedParentContext"
 import { fieldErrorProps, isFieldErrorKey } from "@/lib/fieldErrors"
 import { emitRecordEvent } from "@/lib/recordEvents"
@@ -185,6 +186,9 @@ export function InlineCreateModal({
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape" && open) {
+        // A picker open in the form (a layer) takes this Escape: the
+        // modal closes on the next one.
+        if (e.defaultPrevented || hasOpenLayer()) return
         // Taken: a drawer underneath leaves a handled Escape alone.
         e.preventDefault()
         onClose()

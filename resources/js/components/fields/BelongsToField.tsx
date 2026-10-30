@@ -8,6 +8,7 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
 import { ArrowSquareOutIcon, CaretDownIcon, MagnifyingGlassIcon, XIcon, CheckIcon, PlusIcon } from '@phosphor-icons/react'
 import { InlineCreateModal } from '@/components/InlineCreateModal'
+import { FloatingPanel } from '@/components/FloatingPanel'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { recordHref } from '@/lib/recordHref'
@@ -368,6 +369,8 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   const [selectedLabel, setSelectedLabel] = useState<string | null>(currentTitle)
 
   const containerRef = useRef<HTMLDivElement>(null)
+  const triggerRowRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -415,7 +418,10 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      // The panel renders in document.body, outside the container.
+      if (panelRef.current?.contains(target)) return
+      if (containerRef.current && !containerRef.current.contains(target)) {
         setOpen(false)
       }
     }
@@ -429,7 +435,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   // Focus search input when dropdown opens
   useEffect(() => {
     if (open && searchInputRef.current) {
-      searchInputRef.current.focus()
+      searchInputRef.current.focus({ preventScroll: true })
     }
   }, [open])
 
@@ -541,7 +547,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
   return (
     <div ref={containerRef} className="relative">
       {/* Trigger button + inline create button */}
-      <div className="flex items-center gap-1">
+      <div ref={triggerRowRef} className="flex items-center gap-1">
       <button
         type="button"
         onClick={() => !field.readonly && setOpen(!open)}
@@ -585,7 +591,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
       {canShowCreateButton && (
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); setShowInlineCreate(true) }}
+          onClick={(e) => { e.stopPropagation(); setOpen(false); setShowInlineCreate(true) }}
           className="inline-flex items-center justify-center rounded-md border border-solid text-sm font-medium transition-colors martis-create-related-btn"
           data-pr-tooltip={tMsg('belongs_to_create_related', { resource: field.label, defaultValue: 'Create' })}
           data-pr-position="top"
@@ -612,7 +618,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
 
       {/* Dropdown panel */}
       {open && (
-        <div className="martis-belongs-to-dropdown">
+        <FloatingPanel ref={panelRef} anchorRef={triggerRowRef} className="martis-belongs-to-dropdown">
           {/* Search input */}
           {relationSearchable && (
             <div className="martis-belongs-to-search">
@@ -669,7 +675,7 @@ export function BelongsToFieldInput({ field, value, onChange, error, resourceKey
               })
             )}
           </div>
-        </div>
+        </FloatingPanel>
       )}
 
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}

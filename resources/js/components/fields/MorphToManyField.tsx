@@ -9,6 +9,7 @@ import { FieldDisplay, FieldInput } from '@/components/fields/FieldRenderer'
 import { nestedErrorsOf } from '@/lib/fieldErrors'
 import { useHiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
 import { Pagination } from '@/components/Pagination'
+import { FloatingPanel } from '@/components/FloatingPanel'
 import { useModalHistoryLock } from '@/lib/historyLock'
 import { useTranslation } from 'react-i18next'
 import type { ActionMeta } from '@/components/Actions/ActionModal'
@@ -126,6 +127,9 @@ function MorphToManyDetailPanel({ field, readOnly = false, formValues }: { field
   // One dropdown per pivot label; only the one clicked opens.
   const [openPivotGroup, setOpenPivotGroup] = useState<string | null>(null)
   const pivotGroupRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  // The open group's wrapper, which its floating menu is placed from.
+  const pivotMenuAnchorRef = useRef<HTMLDivElement | null>(null)
+  const pivotMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setSelectedRows([])
@@ -148,6 +152,8 @@ function MorphToManyDetailPanel({ field, readOnly = false, formValues }: { field
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       const openGroup = openPivotGroup === null ? null : pivotGroupRefs.current[openPivotGroup]
+      // The menu renders in document.body, outside the group's wrapper.
+      if (pivotMenuRef.current?.contains(e.target as Node)) return
       if (openGroup && !openGroup.contains(e.target as Node)) {
         setOpenPivotGroup(null)
       }
@@ -233,7 +239,10 @@ function MorphToManyDetailPanel({ field, readOnly = false, formValues }: { field
               <div key={label} className="relative flex-shrink-0" ref={(el) => { pivotGroupRefs.current[label] = el }}>
                 <button
                   type="button"
-                  onClick={() => setOpenPivotGroup((open) => (open === label ? null : label))}
+                  onClick={() => {
+                    pivotMenuAnchorRef.current = pivotGroupRefs.current[label] ?? null
+                    setOpenPivotGroup((open) => (open === label ? null : label))
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium flex-shrink-0"
                   style={{
                     backgroundColor: selected.length > 0 ? 'var(--martis-accent)' : 'var(--martis-surface)',
@@ -255,8 +264,12 @@ function MorphToManyDetailPanel({ field, readOnly = false, formValues }: { field
                   <CaretDownIcon size={12} />
                 </button>
                 {openPivotGroup === label && (
-                  <div
-                    className="absolute left-0 top-full z-50 mt-1 min-w-[180px] overflow-hidden rounded-lg shadow-lg"
+                  <FloatingPanel
+                    ref={pivotMenuRef}
+                    anchorRef={pivotMenuAnchorRef}
+                    matchWidth={false}
+                    minWidth={180}
+                    className="overflow-y-auto rounded-lg shadow-lg"
                     style={{
                       backgroundColor: 'var(--martis-card)',
                       border: '1px solid var(--martis-border)',
@@ -291,7 +304,7 @@ function MorphToManyDetailPanel({ field, readOnly = false, formValues }: { field
                         {action.name}
                       </button>
                     ))}
-                  </div>
+                  </FloatingPanel>
                 )}
               </div>
             ))}

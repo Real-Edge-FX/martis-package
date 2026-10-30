@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { CaretDownIcon, XIcon, CheckIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { ClearButton } from '@/components/ClearButton'
+import { FloatingPanel } from '@/components/FloatingPanel'
 import { resolveBadgeStyle } from './badgeStyles'
 import { useEscapeLayer } from '@/lib/escapeLayers'
 import { ownEntry } from '@/lib/ownEntry'
@@ -120,11 +121,16 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      // The panel renders in document.body, outside the container.
+      if (panelRef.current?.contains(target)) return
+      if (containerRef.current && !containerRef.current.contains(target)) {
         setOpen(false)
         setSearch('')
         setDebouncedSearch('')
@@ -199,6 +205,7 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
     <div ref={containerRef} className="flex flex-col gap-1 relative">
       {/* Trigger with chips */}
       <div
+        ref={triggerRef}
         onClick={() => !field.readonly && setOpen(!open)}
         className="martis-input flex flex-wrap items-center gap-1 cursor-pointer"
         style={{
@@ -260,13 +267,14 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
 
       {/* Dropdown */}
       {open && (
-        <div
-          className="absolute z-50 w-full rounded-md shadow-lg"
+        <FloatingPanel
+          ref={panelRef}
+          anchorRef={triggerRef}
+          maxHeight={256}
+          className="rounded-md shadow-lg"
           style={{
-            top: 'calc(100% + 4px)',
             backgroundColor: 'var(--martis-surface)',
             border: '1px solid var(--martis-border)',
-            maxHeight: '16rem',
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
@@ -287,7 +295,7 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
 
           {/* Options — reuse `.martis-belongs-to-*` classes so the panel
               matches every other relation/select dropdown in the system. */}
-          <div className="martis-belongs-to-options" style={{ flex: 1 }}>
+          <div className="martis-belongs-to-options" style={{ flex: 1, minHeight: 0 }}>
             {filteredOptions.length === 0 ? (
               <div className="martis-belongs-to-empty">
                 {debouncedSearch ? tMsg('no_results_found') : tMsg('no_options')}
@@ -331,7 +339,7 @@ export function MultiSelectFieldInput({ field, value, onChange, error }: FieldIn
               ))
             )}
           </div>
-        </div>
+        </FloatingPanel>
       )}
 
       {error && <small className="text-red-500">{error}</small>}

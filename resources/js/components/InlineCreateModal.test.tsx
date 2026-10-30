@@ -121,6 +121,41 @@ describe('InlineCreateModal opened again', () => {
 
   const code = () => document.getElementById('code') as HTMLInputElement | null
 
+  it('closes an open picker on the first Escape and the modal on the second', async () => {
+    const onClose = vi.fn()
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ToastProvider>
+          <MemoryRouter initialEntries={['/resources/projects/7/edit']}>
+            <Routes>
+              <Route
+                path="/resources/:resource/:id/edit"
+                element={<InlineCreateModal relatedResource="clients" open onClose={onClose} onCreated={() => {}} />}
+              />
+            </Routes>
+          </MemoryRouter>
+        </ToastProvider>
+      </QueryClientProvider>,
+    )
+
+    const trigger = await waitFor(() => {
+      const el = document.body.querySelector('.martis-belongs-to-trigger')
+      expect(el).not.toBeNull()
+      return el as HTMLElement
+    })
+    fireEvent.click(trigger)
+    const panel = () => document.body.querySelector('[data-martis-floating-panel]')
+    expect(panel()).not.toBeNull()
+    expect(document.body.querySelector('[role="dialog"]')!.contains(panel())).toBe(false)
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(panel()).toBeNull()
+    expect(onClose).not.toHaveBeenCalled()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   it('starts from an empty form after the user closed it with something typed', async () => {
     apiGetMock.mockImplementation(async (url: string) =>
       url === '/api/resources/authors/inline-create-schema'

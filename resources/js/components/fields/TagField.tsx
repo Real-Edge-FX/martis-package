@@ -5,6 +5,7 @@ import { MagnifyingGlassIcon, XIcon, PlusIcon, PlusCircleIcon, CheckIcon } from 
 import { api } from '@/lib/api'
 import { apiPath } from '@/lib/apiPath'
 import { InlineCreateModal } from '@/components/InlineCreateModal'
+import { FloatingPanel } from '@/components/FloatingPanel'
 import { PeekCard } from './BelongsToField'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
@@ -162,12 +163,17 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
   const [showInlineCreate, setShowInlineCreate] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Close on outside click
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      // The panel renders in document.body, outside the container.
+      if (panelRef.current?.contains(target)) return
+      if (containerRef.current && !containerRef.current.contains(target)) {
         setOpen(false)
         setSearch('')
       }
@@ -324,6 +330,7 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
       {/* Add button / trigger */}
       {!field.readonly && (
         <button
+          ref={triggerRef}
           type="button"
           onClick={() => setOpen(!open)}
           className="flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
@@ -336,15 +343,16 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
 
       {/* Dropdown */}
       {open && !field.readonly && (
-        <div
-          className="absolute z-50 rounded-md shadow-lg"
+        <FloatingPanel
+          ref={panelRef}
+          anchorRef={triggerRef}
+          matchWidth={false}
+          minWidth={256}
+          maxHeight={288}
+          className="rounded-md shadow-lg"
           style={{
-            top: '100%',
-            left: 0,
-            minWidth: '16rem',
             backgroundColor: 'var(--martis-surface)',
             border: '1px solid var(--martis-border)',
-            maxHeight: '18rem',
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
@@ -376,7 +384,7 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
           )}
 
           {/* Options */}
-          <div style={{ overflowY: 'auto', flex: 1 }}>
+          <div style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
             {loading && options.length === 0 ? (
               <div
                 style={{
@@ -445,7 +453,7 @@ export function TagFieldInput({ field, value, onChange, error, resourceKey, reco
               {tAct('create')}
             </button>
           )}
-        </div>
+        </FloatingPanel>
       )}
 
       {error && <small className="text-red-500">{error}</small>}

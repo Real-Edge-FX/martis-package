@@ -4,6 +4,13 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.16.1 from v2.16.0
+
+v2.16.1 floats the picker lists above modals and drawers and lets Escape close an open picker before the modal it is in. Nothing has to change in an app. Check these points:
+
+- **The picker lists render in `document.body`** (`BelongsTo`, `MorphTo`, `Tag`, `MultiSelect`, the icon picker, the Repeater's add menu, the pivot action menus), with `position: fixed` and the class `.martis-floating-panel` (`z-index: 10001`). A host stylesheet that reached a list through its picker (`.my-form .martis-belongs-to-dropdown`) no longer matches it; target `.martis-floating-panel` or the list's own class. `.martis-belongs-to-dropdown` lost its `position: absolute`, `left`, `right`, `z-index` and `margin-top`: a component of your own that borrowed the class for an `absolute` panel sets them itself. See [Components → Picker lists float above modals and drawers](components.md#picker-lists-float-above-modals-and-drawers-v2161).
+- **In the action, pivot action and inline create modals, Escape closes an open picker, menu or PrimeReact overlay first**, and the modal on the next Escape. Up to v2.16.0 one Escape closed both.
+
 ## Upgrading to v2.16.0 from v2.15.x
 
 v2.16.0 opens action fields and create forms on their `default()`, shows help text and tooltips in the action modals, gives a single-record action's `fields()` its record and gives custom field displays the record they render. Nothing has to change in an app. Check these points:

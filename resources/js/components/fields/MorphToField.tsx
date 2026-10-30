@@ -8,6 +8,7 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 import type { PaginatedResponse } from '@/types'
 import { ArrowSquareOutIcon, CaretDownIcon, MagnifyingGlassIcon, XIcon, CheckIcon, PlusIcon } from '@phosphor-icons/react'
 import { InlineCreateModal } from '@/components/InlineCreateModal'
+import { FloatingPanel } from '@/components/FloatingPanel'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { recordHref } from '@/lib/recordHref'
 import { relatedRecordLabel } from '@/lib/relatedRecordLabel'
@@ -295,6 +296,8 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
   const [showInlineCreate, setShowInlineCreate] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
+  const triggerRowRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -331,7 +334,10 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      // The panel renders in document.body, outside the container.
+      if (panelRef.current?.contains(target)) return
+      if (containerRef.current && !containerRef.current.contains(target)) {
         setOpen(false)
       }
     }
@@ -345,7 +351,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
   // Focus search input when dropdown opens
   useEffect(() => {
     if (open && searchInputRef.current) {
-      searchInputRef.current.focus()
+      searchInputRef.current.focus({ preventScroll: true })
     }
   }, [open])
 
@@ -500,7 +506,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
       {/* Step 2: Record selector (only when type is selected) */}
       {selectedType && (
         <div className="relative">
-          <div className="flex items-center gap-1">
+          <div ref={triggerRowRef} className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => !field.readonly && setOpen(!open)}
@@ -544,7 +550,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
             {canShowCreateButton && (
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); setShowInlineCreate(true) }}
+                onClick={(e) => { e.stopPropagation(); setOpen(false); setShowInlineCreate(true) }}
                 className="inline-flex items-center justify-center rounded-md border border-solid text-sm font-medium transition-colors martis-morphto-create-btn"
                 style={{
                   borderColor: 'var(--martis-border)',
@@ -567,7 +573,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
 
           {/* Dropdown panel */}
           {open && (
-            <div className="martis-belongs-to-dropdown">
+            <FloatingPanel ref={panelRef} anchorRef={triggerRowRef} className="martis-belongs-to-dropdown">
               {relationSearchable && (
                 <div className="martis-belongs-to-search">
                   <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)', flexShrink: 0 }} />
@@ -620,7 +626,7 @@ export function MorphToFieldInput({ field, value, onChange, error, resourceKey, 
                   })
                 )}
               </div>
-            </div>
+            </FloatingPanel>
           )}
         </div>
       )}

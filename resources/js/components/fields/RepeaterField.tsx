@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { PlusIcon, TrashIcon, CaretUpIcon, CaretDownIcon, DotsSixVerticalIcon, XIcon, CopyIcon, ClipboardIcon } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { FieldInput } from './FieldRenderer'
+import { FloatingPanel } from '@/components/FloatingPanel'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { nestedErrorsOf, rowErrorsByIndex } from '@/lib/fieldErrors'
 import type { FormErrors, RowErrors } from '@/lib/fieldErrors'
@@ -348,12 +349,17 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
   const [bulkPasteText, setBulkPasteText] = useState('')
   const [bulkPasteError, setBulkPasteError] = useState<string | null>(null)
   const addMenuRef = useRef<HTMLDivElement>(null)
+  const addButtonRef = useRef<HTMLButtonElement>(null)
+  const addMenuPanelRef = useRef<HTMLDivElement>(null)
 
   // Dismiss the Add-row dropdown when the user clicks outside of it.
   useEffect(() => {
     if (!showAddMenu) return
     function onPointer(e: MouseEvent) {
-      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      // The menu renders in document.body, outside its wrapper.
+      if (addMenuPanelRef.current?.contains(target)) return
+      if (addMenuRef.current && !addMenuRef.current.contains(target)) {
         setShowAddMenu(false)
       }
     }
@@ -694,6 +700,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
               {isMultiType || hasTemplates ? (
                 <>
                   <button
+                    ref={addButtonRef}
                     type="button"
                     disabled={atMax}
                     onClick={() => setShowAddMenu((s) => !s)}
@@ -703,8 +710,13 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
                     {tAct('add_row', 'Add row')}
                   </button>
                   {showAddMenu && (
-                    <div
-                      className="absolute right-0 z-10 mt-1 min-w-[220px] overflow-hidden rounded-md border border-solid shadow-lg"
+                    <FloatingPanel
+                      ref={addMenuPanelRef}
+                      anchorRef={addButtonRef}
+                      matchWidth={false}
+                      minWidth={220}
+                      align="end"
+                      className="overflow-y-auto rounded-md border border-solid shadow-lg"
                       style={{ borderColor: 'var(--martis-border)', backgroundColor: 'var(--martis-surface)' }}
                     >
                       {/* The row types come first, so a blank row can be added next to the templates. */}
@@ -759,7 +771,7 @@ export function RepeaterFieldInput({ field, value, onChange, error, nestedErrors
                           ))}
                         </>
                       )}
-                    </div>
+                    </FloatingPanel>
                   )}
                 </>
               ) : (

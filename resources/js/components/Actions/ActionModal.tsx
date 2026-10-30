@@ -14,6 +14,7 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { LightningIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { useModalHistoryLock } from '@/lib/historyLock'
+import { hasOpenLayer } from '@/lib/escapeLayers'
 import { ActionDryRunPreview } from './ActionDryRunPreview'
 import { useNavigate } from 'react-router'
 import { martisEventBus } from '@/lib/eventBus'
@@ -144,6 +145,9 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
     if (!visible) return
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
+        // A picker open in the form (a layer) takes this Escape: the
+        // modal closes on the next one.
+        if (e.defaultPrevented || hasOpenLayer()) return
         // Taken: a drawer underneath leaves a handled Escape alone.
         e.preventDefault()
         onHide()

@@ -6,6 +6,7 @@ import { LightningIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
 import { api } from '@/lib/api'
 import { pathSegment } from '@/lib/apiPath'
 import { useModalHistoryLock } from '@/lib/historyLock'
+import { hasOpenLayer } from '@/lib/escapeLayers'
 import { useToast } from '@/contexts/ToastContext'
 import { FieldInput } from '@/components/fields/FieldRenderer'
 import { FieldWrapper } from '@/components/fields/FieldWrapper'
@@ -104,6 +105,9 @@ export function PivotActionModal({
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
+        // A picker open in the form (a layer) takes this Escape: the
+        // modal closes on the next one.
+        if (e.defaultPrevented || hasOpenLayer()) return
         // Taken: a drawer underneath leaves a handled Escape alone.
         e.preventDefault()
         onClose()
