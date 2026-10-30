@@ -6,7 +6,7 @@ import { LightningIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
 import { api } from '@/lib/api'
 import { pathSegment } from '@/lib/apiPath'
 import { useModalHistoryLock } from '@/lib/historyLock'
-import { hasOpenLayer } from '@/lib/escapeLayers'
+import { useModalEscape } from '@/lib/escapeLayers'
 import { useToast } from '@/contexts/ToastContext'
 import { FieldInput } from '@/components/fields/FieldRenderer'
 import { FieldWrapper } from '@/components/fields/FieldWrapper'
@@ -102,20 +102,9 @@ export function PivotActionModal({
     setTimeout(onClose, 200)
   }, [onClose])
 
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        // A picker open in the form (a layer) takes this Escape: the
-        // modal closes on the next one.
-        if (e.defaultPrevented || hasOpenLayer()) return
-        // Taken: a drawer underneath leaves a handled Escape alone.
-        e.preventDefault()
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [onClose])
+  // Escape closes the modal, after any picker open in its form.
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useModalEscape(true, onClose, dialogRef)
 
   const actionUrl = `${actionsUrl}/${pathSegment(action.uriKey)}`
   // The related record a single-record run is on, named to the fields
@@ -221,6 +210,7 @@ export function PivotActionModal({
       onClick={handleBackdropClose}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         className="martis-modal-surface"

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 
 /**
  * Escape closes the top layer only.
@@ -82,4 +82,42 @@ export function useEscapeLayer(open: boolean, close: () => void): void {
       if (index !== -1) openLayers.splice(index, 1)
     }
   }, [open])
+}
+
+/** Whether `dialog` is the modal dialog on top: modals portal into the body in the order they open. */
+function isTopDialog(dialog: HTMLElement | null): boolean {
+  if (!dialog) return true
+  const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]')
+  return dialogs[dialogs.length - 1] === dialog
+}
+
+/**
+ * Close a modal that holds a form on Escape, once nothing over it takes the key.
+ *
+ * It decides in the capture phase, before the form's own handlers, as the
+ * DrawerShell does: a picker or a PrimeReact overlay open in the form still
+ * counts as an open layer, and the Escape is left to it (the modal closes on
+ * the next one). A later check would be wrong both ways: a PrimeReact
+ * Dropdown marks every Escape it sees handled, open or not, and a layer that
+ * closes first is gone by the time a bubbling listener asks. A modal opened
+ * over this one (`dialogRef` not the last dialog) takes the key instead.
+ */
+export function useModalEscape(open: boolean, close: () => void, dialogRef: RefObject<HTMLElement | null>): void {
+  const closeRef = useRef(close)
+  closeRef.current = close
+
+  useEffect(() => {
+    if (!open) return
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      if (e.defaultPrevented || hasOpenLayer() || !isTopDialog(dialogRef.current)) return
+      // Taken: a drawer underneath leaves a handled Escape alone.
+      e.preventDefault()
+      closeRef.current()
+    }
+    document.addEventListener('keydown', onKeyDown, true)
+
+    return () => document.removeEventListener('keydown', onKeyDown, true)
+  }, [open, dialogRef])
 }

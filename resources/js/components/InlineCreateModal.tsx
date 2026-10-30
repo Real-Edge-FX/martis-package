@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { api, ApiError, hasFileValues } from "@/lib/api"
@@ -11,7 +11,7 @@ import { XIcon, PlusIcon } from "@phosphor-icons/react"
 import type { FieldDefinition } from "@/types"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { useModalHistoryLock } from "@/lib/historyLock"
-import { hasOpenLayer } from "@/lib/escapeLayers"
+import { useModalEscape } from "@/lib/escapeLayers"
 import { NestedParentProvider } from "@/components/fields/NestedParentContext"
 import { fieldErrorProps, isFieldErrorKey } from "@/lib/fieldErrors"
 import { emitRecordEvent } from "@/lib/recordEvents"
@@ -182,25 +182,9 @@ export function InlineCreateModal({
     }
   }, [open])
 
-  // Close on Escape
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape" && open) {
-        // A picker open in the form (a layer) takes this Escape: the
-        // modal closes on the next one.
-        if (e.defaultPrevented || hasOpenLayer()) return
-        // Taken: a drawer underneath leaves a handled Escape alone.
-        e.preventDefault()
-        onClose()
-      }
-    },
-    [open, onClose],
-  )
-
-  useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown)
-    return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [handleKeyDown])
+  // Escape closes the modal, after any picker open in its form.
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useModalEscape(open, onClose, dialogRef)
 
   if (!open) return null
 
@@ -218,6 +202,7 @@ export function InlineCreateModal({
         onClick={onClose}
       >
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           className="martis-modal-surface"

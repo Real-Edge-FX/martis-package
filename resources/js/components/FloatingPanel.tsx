@@ -2,6 +2,36 @@ import { forwardRef, useCallback, useImperativeHandle, useLayoutEffect, useRef, 
 import { createPortal } from 'react-dom'
 import { computeFloatingPlacement } from '@/lib/floatingPlacement'
 
+/** The room a fixed panel has: the viewport without its scrollbars, above an on-screen keyboard. */
+function viewportSize(): { viewportWidth: number; viewportHeight: number } {
+  const root = document.documentElement
+  const viewportWidth = root.clientWidth || window.innerWidth
+  let viewportHeight = root.clientHeight || window.innerHeight
+  const visual = window.visualViewport
+  if (visual && visual.height > 0) viewportHeight = Math.min(viewportHeight, visual.offsetTop + visual.height)
+  return { viewportWidth, viewportHeight }
+}
+
+/**
+ * A picker on a page with a per-resource accent renders its panel in
+ * document.body, outside the wrapper that sets the accent: carry it over.
+ */
+function copyResourceAccent(anchor: HTMLElement | null, panel: HTMLElement | null): void {
+  if (!panel) return
+  // A named accent is an attribute, a hex accent an inline `--martis-accent` (useResourceAccent).
+  let wrapper = anchor?.parentElement ?? null
+  while (wrapper && !wrapper.hasAttribute('data-resource-accent') && !wrapper.style.getPropertyValue('--martis-accent')) {
+    wrapper = wrapper.parentElement
+  }
+  if (!wrapper) return
+  const named = wrapper.getAttribute('data-resource-accent')
+  if (named !== null) panel.setAttribute('data-resource-accent', named)
+  for (let i = 0; i < wrapper.style.length; i++) {
+    const property = wrapper.style.item(i)
+    if (property.startsWith('--martis-')) panel.style.setProperty(property, wrapper.style.getPropertyValue(property))
+  }
+}
+
 /** Whether an ancestor that clips its overflow hides the whole anchor. */
 function isClippedOut(anchor: HTMLElement, rect: DOMRect): boolean {
   for (let el = anchor.parentElement; el && el !== document.body; el = el.parentElement) {
@@ -15,6 +45,12 @@ function isClippedOut(anchor: HTMLElement, rect: DOMRect): boolean {
   return false
 }
 
+/**
+ * `style` must leave `top`, `bottom`, `left`, `width` (with `matchWidth`),
+ * `maxHeight` and `visibility` alone: the panel writes them itself, and a
+ * React update of the same keys would undo its placement. Use `maxHeight`
+ * and `minWidth` instead.
+ */
 export interface FloatingPanelProps extends HTMLAttributes<HTMLDivElement> {
   /** The element the panel opens from (the picker's trigger or its wrapper). */
   anchorRef: RefObject<HTMLElement | null>
@@ -58,15 +94,19 @@ export const FloatingPanel = forwardRef<HTMLDivElement, FloatingPanelProps>(func
 
     const rect = anchor.getBoundingClientRect()
     if (matchWidth) panel.style.width = `${Math.max(rect.width, minWidth ?? 0)}px`
-    // Measure the height the panel wants before the room left caps it.
+    // Measure the size the panel wants, at the viewport's top-left corner
+    // (where nothing narrows a content-sized panel) and before the room
+    // left caps its height.
+    panel.style.top = '0px'
+    panel.style.bottom = 'auto'
+    panel.style.left = '0px'
     panel.style.maxHeight = maxHeight !== undefined ? `${maxHeight}px` : 'none'
 
     const placement = computeFloatingPlacement({
       anchor: rect,
       panelHeight: panel.offsetHeight,
       panelWidth: panel.offsetWidth,
-      viewportWidth: window.innerWidth,
-      viewportHeight: window.innerHeight,
+      ...viewportSize(),
       align,
     })
 
@@ -85,6 +125,7 @@ export const FloatingPanel = forwardRef<HTMLDivElement, FloatingPanelProps>(func
 
   useLayoutEffect(() => {
     update()
+    copyResourceAccent(anchorRef.current, panelRef.current)
 
     // Capture: a scroll of any ancestor (a modal body, a drawer) moves the anchor.
     function onScroll(e: Event) {
@@ -93,6 +134,8 @@ export const FloatingPanel = forwardRef<HTMLDivElement, FloatingPanelProps>(func
     }
     window.addEventListener('scroll', onScroll, true)
     window.addEventListener('resize', update)
+    // The on-screen keyboard (the panel's search input opens it) shrinks the visual viewport only.
+    window.visualViewport?.addEventListener('resize', update)
 
     // Options loading or a search narrowing them changes the panel's height.
     let observer: ResizeObserver | null = null
@@ -105,9 +148,16 @@ export const FloatingPanel = forwardRef<HTMLDivElement, FloatingPanelProps>(func
     return () => {
       window.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('resize', update)
+      window.visualViewport?.removeEventListener('resize', update)
       observer?.disconnect()
     }
   }, [update, anchorRef])
+
+  // A render of the picker can move the anchor without resizing it (a chip
+  // added above the trigger, a validation message): place the panel again.
+  useLayoutEffect(() => {
+    update()
+  })
 
   return createPortal(
     <div

@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { useState } from 'react'
-import { render, act } from '@testing-library/react'
-import { getOpenLayerCount, hasOpenLayer, useEscapeLayer } from './escapeLayers'
+import { describe, it, expect, vi } from 'vitest'
+import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { render, act, fireEvent } from '@testing-library/react'
+import { getOpenLayerCount, hasOpenLayer, useEscapeLayer, useModalEscape } from './escapeLayers'
 
 /*
  * The layer registry the DrawerShell reads before it closes on Escape,
@@ -90,5 +91,42 @@ describe('escape layers', () => {
       .map(([path]) => path)
 
     expect(missing).toEqual([])
+  })
+})
+
+function Modal({ label, onClose }: { label: string; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useModalEscape(true, onClose, ref)
+  return createPortal(<div ref={ref} role="dialog" aria-modal="true">{label}</div>, document.body)
+}
+
+describe('useModalEscape', () => {
+  it('closes the modal on top only, then the one under it', () => {
+    const closeOuter = vi.fn()
+    const closeInner = vi.fn()
+    const { rerender } = render(<><Modal label="outer" onClose={closeOuter} /><Modal label="inner" onClose={closeInner} /></>)
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(closeInner).toHaveBeenCalledTimes(1)
+    expect(closeOuter).not.toHaveBeenCalled()
+
+    rerender(<Modal label="outer" onClose={closeOuter} />)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(closeOuter).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves the Escape to an open layer, and the next one closes the modal', () => {
+    const close = vi.fn()
+    function Form() {
+      const [open, setOpen] = useState(true)
+      useEscapeLayer(open, () => setOpen(false))
+      return null
+    }
+    render(<><Modal label="modal" onClose={close} /><Form /></>)
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(close).not.toHaveBeenCalled()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(close).toHaveBeenCalledTimes(1)
   })
 })

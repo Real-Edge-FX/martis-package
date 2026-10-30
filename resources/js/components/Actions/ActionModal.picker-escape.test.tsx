@@ -89,4 +89,54 @@ describe('ActionModal with an open picker', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onHide).toHaveBeenCalledTimes(1)
   })
+
+  function mountWith(fields: unknown[], onHide: () => void) {
+    apiGetMock.mockImplementation(async () => ({ data: { fields } }))
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ToastProvider>
+          <MemoryRouter>
+            <ActionModal resource="users" action={action} selectedIds={[]} visible onHide={onHide} onSuccess={() => {}} />
+          </MemoryRouter>
+        </ToastProvider>
+      </QueryClientProvider>,
+    )
+  }
+
+  const statusField = {
+    attribute: 'status', label: 'Status', type: 'select', component: 'select',
+    options: [{ label: 'Active', value: 'a' }, { label: 'Paused', value: 'p' }],
+    nullable: true, readonly: false, required: false, sortable: false, searchable: false,
+    showOnIndex: false, showOnDetail: true, showOnForms: true, rules: [],
+  }
+
+  async function dropdownInput(): Promise<HTMLElement> {
+    return waitFor(() => {
+      const el = document.body.querySelector('[role="dialog"] .p-dropdown input') as HTMLElement | null
+      expect(el).not.toBeNull()
+      return el as HTMLElement
+    })
+  }
+
+  // PrimeReact's Dropdown marks every Escape it sees handled, its list open or not.
+  it('closes on one Escape while focus is in a PrimeReact Dropdown whose list is closed', async () => {
+    const onHide = vi.fn()
+    mountWith([statusField], onHide)
+    const input = await dropdownInput()
+    input.focus()
+
+    fireEvent.keyDown(input, { key: 'Escape', code: 'Escape' })
+    expect(onHide).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves the Escape to an open PrimeReact Dropdown list', async () => {
+    const onHide = vi.fn()
+    mountWith([statusField], onHide)
+    const input = await dropdownInput()
+    fireEvent.click(input.closest('.p-dropdown') as HTMLElement)
+    await waitFor(() => expect(document.body.querySelector('.p-dropdown-panel')).not.toBeNull())
+
+    fireEvent.keyDown(input, { key: 'Escape', code: 'Escape' })
+    expect(onHide).not.toHaveBeenCalled()
+  })
 })

@@ -148,6 +148,10 @@ describe('InlineCreateModal opened again', () => {
     expect(panel()).not.toBeNull()
     expect(document.body.querySelector('[role="dialog"]')!.contains(panel())).toBe(false)
 
+    // A press inside the list (its search, an option) is not an outside click.
+    fireEvent.mouseDown(panel()!.querySelector('input') as HTMLElement)
+    expect(panel()).not.toBeNull()
+
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(panel()).toBeNull()
     expect(onClose).not.toHaveBeenCalled()

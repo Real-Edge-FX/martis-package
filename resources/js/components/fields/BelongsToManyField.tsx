@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '@/lib/api'
@@ -129,8 +129,16 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
   // One dropdown per pivot label; only the one clicked opens.
   const [openPivotGroup, setOpenPivotGroup] = useState<string | null>(null)
   const pivotGroupRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  // The open group's wrapper, which its floating menu is placed from.
-  const pivotMenuAnchorRef = useRef<HTMLDivElement | null>(null)
+  // The open group's wrapper, which its floating menu is placed from, read
+  // on every placement so a wrapper the toolbar mounted again still counts.
+  const openPivotGroupRef = useRef<string | null>(null)
+  const pivotMenuAnchorRef = useMemo<RefObject<HTMLDivElement | null>>(() => ({
+    get current() {
+      const label = openPivotGroupRef.current
+      return label === null ? null : pivotGroupRefs.current[label] ?? null
+    },
+  }), [])
+  openPivotGroupRef.current = openPivotGroup
   const pivotMenuRef = useRef<HTMLDivElement>(null)
 
   // Clear selection when parent record changes — stale IDs would confuse pivot actions.
@@ -243,10 +251,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
               <div key={label} className="relative flex-shrink-0" ref={(el) => { pivotGroupRefs.current[label] = el }}>
                 <button
                   type="button"
-                  onClick={() => {
-                    pivotMenuAnchorRef.current = pivotGroupRefs.current[label] ?? null
-                    setOpenPivotGroup((open) => (open === label ? null : label))
-                  }}
+                  onClick={() => setOpenPivotGroup((open) => (open === label ? null : label))}
                   className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium flex-shrink-0"
                   style={{
                     backgroundColor: selected.length > 0 ? 'var(--martis-accent)' : 'var(--martis-surface)',

@@ -127,6 +127,30 @@ describe('pivot actions on the many-to-many panels', () => {
     expect(api.get).toHaveBeenCalledWith(`${actionsUrl}/report-priorities/fields`, expect.anything())
   })
 
+  it('renders the group menu in document.body and keeps it open for a press inside it', async () => {
+    const actionsUrl = '/api/resources/users/7/belongs-to-many/roles/actions'
+    mockPivotEndpoints(actionsUrl)
+    const field = { attribute: 'roles', label: 'Roles', type: 'belongs_to_many', relationship: 'roles', relatedResource: 'roles' }
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <BelongsToManyFieldDisplay field={field as unknown as FieldDefinition} value={undefined} />
+      </QueryClientProvider>,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: /Actions/ }))
+    const item = screen.getByRole('button', { name: 'Report priorities' })
+    const menu = item.closest('[data-martis-floating-panel]') as HTMLElement
+    expect(menu).not.toBeNull()
+    expect(container.contains(menu)).toBe(false)
+
+    fireEvent.mouseDown(item)
+    expect(screen.queryByRole('button', { name: 'Report priorities' })).not.toBeNull()
+
+    fireEvent.mouseDown(document.body)
+    expect(screen.queryByRole('button', { name: 'Report priorities' })).toBeNull()
+  })
+
   it('opens only the dropdown clicked when the pivot actions carry different labels', async () => {
     page.params = { resource: 'projects', id: '7' }
     const actionsUrl = '/api/resources/projects/7/morph-to-many/tags/actions'
