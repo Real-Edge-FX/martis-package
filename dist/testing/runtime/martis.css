@@ -1516,14 +1516,8 @@
     top: 0px;
     bottom: 0px;
 }
-.left-0 {
-    left: 0px;
-}
 .left-3 {
     left: 0.75rem;
-}
-.right-0 {
-    right: 0px;
 }
 .right-1 {
     right: 0.25rem;
@@ -1546,14 +1540,8 @@
 .top-4 {
     top: 1rem;
 }
-.top-full {
-    top: 100%;
-}
 .isolate {
     isolation: isolate;
-}
-.z-10 {
-    z-index: 10;
 }
 .z-50 {
     z-index: 50;
@@ -1773,14 +1761,8 @@
 .min-w-0 {
     min-width: 0px;
 }
-.min-w-\[180px\] {
-    min-width: 180px;
-}
 .min-w-\[220px\] {
     min-width: 220px;
-}
-.min-w-\[260px\] {
-    min-width: 260px;
 }
 .min-w-full {
     min-width: 100%;
@@ -5940,12 +5922,16 @@ html:not(.dark) .martis-dropzone {
 .martis-belongs-to-clear:hover {
   color: var(--martis-danger-hover);
 }
+/* A dropdown panel rendered in document.body (FloatingPanel.tsx): it is
+   placed from its anchor's rectangle, so no container that scrolls or
+   hides overflow cuts it, and it sits over the modals (9990-10000). */
+.martis-floating-panel {
+  position: fixed;
+  z-index: 10001;
+}
 .martis-belongs-to-dropdown {
-  position: absolute;
-  left: 0;
-  right: 0;
-  z-index: 50;
-  margin-top: 0.25rem;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border-radius: 0.375rem;
   border: 1px solid var(--martis-border);
@@ -5954,6 +5940,7 @@ html:not(.dark) .martis-dropzone {
 }
 .martis-belongs-to-search {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
@@ -5976,6 +5963,8 @@ html:not(.dark) .martis-dropzone {
 }
 .martis-belongs-to-options {
   max-height: 15rem;
+  min-height: 0;
+  flex: 1 1 auto;
   overflow-y: auto;
 }
 .martis-belongs-to-options::-webkit-scrollbar {

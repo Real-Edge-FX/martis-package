@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useParams, useNavigate, useLocation, useNavigationType } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { publishIndexFilters } from '@/lib/indexFilters'
 import { apiPath, withQuery, routePath } from '@/lib/apiPath'
 import { deleteErrorMessage } from '@/lib/deleteError'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, OverrideProps, ActiveFilters } from '@/types'
@@ -70,6 +71,16 @@ export function ResourceIndexPage() {
   // this back to false via `markUserDriven()`.
   const [viewIsUrlDriven, setViewIsUrlDriven] = useState(false)
   const markUserDriven = useCallback(() => setViewIsUrlDriven(false), [])
+  // Filters the user applies in the panel do not reach the URL: hand them
+  // to the sidebar, so its active item follows them. Cleared when the URL
+  // changes (a menu link, a filter item), where the URL rules again.
+  const publishUserFilters = useCallback((filters: ActiveFilters) => {
+    publishIndexFilters({
+      pathname: location.pathname,
+      filters: Object.keys(filters).length > 0 ? JSON.stringify(filters) : null,
+    })
+  }, [location.pathname])
+  useEffect(() => () => publishIndexFilters(null), [location.pathname, location.search])
   // Controls the FilterPanel collapsed/expanded affordance. Tracked in
   // ResourceIndex (rather than inside FilterPanel) so it can be
   // persisted per-resource via sticky views — without this, opening
@@ -292,13 +303,14 @@ export function ResourceIndexPage() {
     setSearch('')
     setDebouncedSearch('')
     setActiveFilters({})
+    publishUserFilters({})
     setPage(1)
     setPerPage(null)
     setSortBy(schema?.defaultSort ?? null)
     setSortDir(schema?.defaultSortDirection ?? 'asc')
     setTrashedFilter('')
     setFiltersOpen(false)
-  }, [resource, stickyOwner, schema?.defaultSort, schema?.defaultSortDirection, markUserDriven])
+  }, [resource, stickyOwner, schema?.defaultSort, schema?.defaultSortDirection, markUserDriven, publishUserFilters])
 
   /**
    * Clear ONLY the active filters — keeps sort, search, pagination,
@@ -313,8 +325,9 @@ export function ResourceIndexPage() {
   const handleResetFilters = useCallback(() => {
     markUserDriven()
     setActiveFilters({})
+    publishUserFilters({})
     setPage(1)
-  }, [markUserDriven])
+  }, [markUserDriven, publishUserFilters])
 
   // Resolve effective per-page (state overrides schema default)
   const effectivePerPage = perPage ?? schema?.perPage ?? 25
@@ -744,7 +757,7 @@ export function ResourceIndexPage() {
             <FilterPanel
               filters={schema.filters!}
               value={activeFilters}
-              onChange={(filters) => { markUserDriven(); setActiveFilters(filters); setPage(1) }}
+              onChange={(filters) => { markUserDriven(); setActiveFilters(filters); publishUserFilters(filters); setPage(1) }}
               rightSlot={combinedReset}
               open={filtersOpen}
               onOpenChange={(open) => { markUserDriven(); setFiltersOpen(open) }}

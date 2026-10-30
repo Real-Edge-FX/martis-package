@@ -309,6 +309,8 @@ The `useModalHistoryLock(open)` hook intercepts the browser back button while th
 
 In a drawer, Escape closes whatever is open on top of it first: a modal, a menu (the actions menu, a row's inline action menu, the lens menu, a Repeater's add menu), a picker (`BelongsTo`, `MorphTo`, `Tag`, the multi-select, the icon picker) or a PrimeReact overlay (`Dropdown`, `MultiSelect`, `Calendar`, `AutoComplete`, `SplitButton`, `ColorPicker`, `OverlayPanel`). The drawer and the form in it stay; the next Escape closes the drawer, through its unsaved-changes prompt when the form is dirty. Before v2.0, an Escape meant for a menu or a picker in a Create or Update drawer also closed the drawer and lost the form.
 
+The modals that hold a form follow the same rule (v2.16.1): the action modal, the pivot action modal and the inline create modal leave an Escape to a picker, menu or PrimeReact overlay open in their form, and close on the next Escape. Like the DrawerShell they decide in the capture phase, before the form's own handlers (a PrimeReact `Dropdown` marks every Escape it receives handled, its list open or not, so a later check would never close the modal while one has focus). A modal opened over another one (an inline create modal opened from a picker in an action modal) takes the Escape alone. Up to v2.16.0 one Escape closed the picker and the modal together, or both modals, and the form was lost.
+
 The DrawerShell closes on an Escape nothing else took. It decides in the capture phase, before the layers' own listeners: a key press runs the microtasks between listeners, where React applies a layer's close, so a later check would find nothing open. It leaves the Escape alone when it arrives already handled (`defaultPrevented`, as every Martis modal and popup marks the Escape it takes), while a modal holds its history lock (`useModalHistoryLock()`), while a Martis popup is open, or while a PrimeReact overlay is mounted. A dialog of your own calls `e.preventDefault()` on the Escape it takes; a popup of your own (one that closes on an outside click) joins the same rule with `useEscapeLayer(open, close)` from `@martis/runtime`: Escape calls `close` when it is the top layer, and the drawer underneath stays open.
 
 ```tsx
@@ -327,6 +329,17 @@ export function StatusMenu() {
   )
 }
 ```
+
+### Picker lists float above modals and drawers (v2.16.1)
+
+The lists of the bundled pickers (`BelongsTo`, `MorphTo`, `Tag`, `MultiSelect`, the icon picker), the Repeater's add menu and the pivot action menus of a `BelongsToMany` or `MorphToMany` panel render in `document.body` with `position: fixed`, as PrimeReact's overlays do. A container that scrolls or hides its overflow (an action modal's body, a drawer, a card) no longer cuts them, and opening one never scrolls the container. The list:
+
+- opens under its trigger, and above it when there is not enough room below and more room above; its height is capped by the room on that side;
+- follows its trigger while any container scrolls or the window resizes, and hides while a scrolling container has moved the trigger out of view (it shows again when the trigger scrolls back);
+- sits over the modals and drawers (`.martis-floating-panel`, `z-index: 10001`; the drawers use 50, the action and inline create modals 9990 to 9999, the unsaved-changes dialog and PrimeReact's overlays 10000). The language switch overlay (10050) and the tooltips (99999) stay above it;
+- keeps the per-resource accent of the page it opens on (`data-resource-accent` or an inline `--martis-accent`), which it would otherwise lose outside the page's wrapper.
+
+A click on an option keeps the list open where the picker allows several values, and a click anywhere else closes the list only. Escape closes the list first (see above). Up to v2.16.0 the lists were `absolute` children of their picker, so near the bottom of an action modal only part of the options showed and the user had to scroll the modal to reach them. A theme that restyles `.martis-belongs-to-dropdown` keeps it free of `position`, `top`, `left`, `width` and `max-height`: the panel writes them from its trigger's rectangle. The class is now a flex column (`display: flex; flex-direction: column`) whose `.martis-belongs-to-options` list shrinks (`flex: 1 1 auto; min-height: 0`) when the room left caps the panel.
 
 ### Index toolbar (`.martis-index-toolbar`)
 

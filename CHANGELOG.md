@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.16.1] — 2026-10-30
+
+Patch release from two consumer reports: a picker's list in an action modal was cut by the modal's scrolling body, so the user had to scroll the modal to reach the options, and a link into a filtered index left the sidebar with no active item. The lists now float above every container, Escape closes an open list before the modal it is in, and the resource's item stays active under a filter no menu item carries. Nothing has to change in an app; a stylesheet that reached a picker's list through its picker reads [Upgrading to v2.16.1](docs/upgrading.md#upgrading-to-v2161-from-v2160).
+
+### Fixed
+
+- **A picker's list was cut by a container that scrolls or hides its overflow.** The lists of `BelongsTo`, `MorphTo`, `Tag`, `MultiSelect` and the icon picker, the Repeater's add menu and the pivot action menus of a `BelongsToMany` or `MorphToMany` panel were `absolute` children of their picker, so in an action modal (whose body scrolls), a drawer or a card only part of the options showed and opening a list near the bottom made the modal scroll. They now render in `document.body` with `position: fixed`, as PrimeReact's overlays do: under the trigger, or above it when there is not enough room below; capped to the room left in the viewport; following the trigger while anything scrolls or the window resizes; hidden while a scrolling container has moved the trigger out of view; over the modals and drawers (`.martis-floating-panel`, `z-index: 10001`); keeping the page's per-resource accent. A click on an option still selects it without closing the modal or the drawer, and a click outside closes the list only. See [Components → Picker lists float above modals and drawers](docs/components.md#picker-lists-float-above-modals-and-drawers-v2161).
+- **Escape closed an open picker and the modal it was in together.** The action modal, the pivot action modal and the inline create modal listened for Escape before the pickers of their form did; they now decide in the capture phase, as the drawers do, leave an Escape to an open picker, menu or PrimeReact overlay and close on the next one. A focused PrimeReact `Dropdown` whose list is closed does not hold the modal open.
+- **One Escape closed two stacked modals**, such as an inline create modal opened from a picker in an action modal, and the action's form with it. Only the modal on top closes now.
+- **A resource index opened with a `?filters=` lost its sidebar highlight.** A link into a filtered index (a dashboard tile, an email, a bookmark) or a filter set in the Filters panel left no item active, because a resource's item stood down under any `?filters=` so that a `MenuItem::filter()` sibling could take the highlight. The resource's item now stands down only for a filter item of the menu that carries the same payload. See [Menus → Which item is active](docs/menus.md#which-item-is-active).
+- **The `BelongsTo` and `MorphTo` create button left the picker's list open** under the inline create modal it opened; it now closes it.
+
+**Tests:** 5566 Pest passed and 2236 Vitest passed (+32): 7802 in all, from 7770 at v2.16.0.
+
 ## [2.16.0] — 2026-10-29
 
 Minor release from four consumer reports and a bug found while fixing them: an action's fields open on their `default()` and show their help text and tooltip, a single-record action's `fields()` reads its record with `$this->selectedModel()`, a custom field display receives the record it renders, `@martis/runtime` runs an action from a component (`useRunAction()`) and refetches a record (`useRefreshRecord()`), and the create forms now open on the fields' `default()`, which they ignored. Nothing has to change in an app; a form or an action whose fields declare a `default()` now shows it. Read [Upgrading to v2.16.0](docs/upgrading.md#upgrading-to-v2160-from-v215x).

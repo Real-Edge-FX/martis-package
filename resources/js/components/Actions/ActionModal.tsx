@@ -14,6 +14,7 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { LightningIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
 import { componentRegistry } from '@/lib/componentRegistry'
 import { useModalHistoryLock } from '@/lib/historyLock'
+import { useModalEscape } from '@/lib/escapeLayers'
 import { ActionDryRunPreview } from './ActionDryRunPreview'
 import { useNavigate } from 'react-router'
 import { martisEventBus } from '@/lib/eventBus'
@@ -140,18 +141,9 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
     setTimeout(onHide, 200)
   }, [onHide])
 
-  useEffect(() => {
-    if (!visible) return
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        // Taken: a drawer underneath leaves a handled Escape alone.
-        e.preventDefault()
-        onHide()
-      }
-    }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [visible, onHide])
+  // Escape closes the modal, after any picker open in its form.
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useModalEscape(visible, onHide, dialogRef)
 
   // Block the browser back button while the modal is visible — the
   // user must pick a button. Cooperates with DrawerShell so a modal
@@ -362,6 +354,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
       onClick={handleBackdropClose}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         className="martis-modal-surface"

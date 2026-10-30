@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlassIcon, XIcon, CaretDownIcon, SmileyBlankIcon } from '@phosphor-icons/react'
 import type { FieldDisplayProps, FieldInputProps } from './types'
+import { FloatingPanel } from '@/components/FloatingPanel'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { useEscapeLayer } from '@/lib/escapeLayers'
 import { ownEntry } from '@/lib/ownEntry'
@@ -135,12 +136,17 @@ export function IconFieldInput({ field, value, onChange, error }: FieldInputProp
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const ref = useRef<HTMLDivElement | null>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const panelRef = useRef<HTMLDivElement | null>(null)
 
   // Close the popover when clicking outside.
   useEffect(() => {
     if (!open) return
     const handle = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      // The panel renders in document.body, outside the field.
+      if (panelRef.current?.contains(target)) return
+      if (ref.current && !ref.current.contains(target)) setOpen(false)
     }
     document.addEventListener('mousedown', handle)
     return () => document.removeEventListener('mousedown', handle)
@@ -174,6 +180,7 @@ export function IconFieldInput({ field, value, onChange, error }: FieldInputProp
   return (
     <div ref={ref} className="relative flex flex-col gap-1">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => !field.readonly && setOpen((v) => !v)}
         disabled={field.readonly}
@@ -259,15 +266,18 @@ export function IconFieldInput({ field, value, onChange, error }: FieldInputProp
       </button>
 
       {open && (
-        <div
-          className="absolute z-50 top-full left-0 right-0 mt-1 min-w-[260px] rounded-md border border-solid shadow-lg"
+        <FloatingPanel
+          ref={panelRef}
+          anchorRef={triggerRef}
+          minWidth={260}
+          className="flex flex-col overflow-hidden rounded-md border border-solid shadow-lg"
           style={{
             backgroundColor: 'var(--martis-card)',
             borderColor: 'var(--martis-border)',
           }}
           data-testid={`icon-picker-${field.attribute}`}
         >
-          <div className="flex items-center gap-2 border-0 border-b border-solid px-3 py-2" style={{ borderColor: 'var(--martis-border)' }}>
+          <div className="flex flex-shrink-0 items-center gap-2 border-0 border-b border-solid px-3 py-2" style={{ borderColor: 'var(--martis-border)' }}>
             <MagnifyingGlassIcon size={14} style={{ color: 'var(--martis-text-muted)' }} />
             <input
               autoFocus
@@ -279,7 +289,7 @@ export function IconFieldInput({ field, value, onChange, error }: FieldInputProp
               style={{ color: 'var(--martis-text)' }}
             />
           </div>
-          <div className="max-h-[220px] overflow-y-auto p-2">
+          <div className="max-h-[220px] min-h-0 flex-1 overflow-y-auto p-2">
             {filtered.length === 0 ? (
               <div className="px-3 py-4 text-center text-xs" style={{ color: 'var(--martis-text-muted)' }}>
                 {t('icon_picker_no_results', 'No icons found.')}
@@ -319,7 +329,7 @@ export function IconFieldInput({ field, value, onChange, error }: FieldInputProp
               </div>
             )}
           </div>
-        </div>
+        </FloatingPanel>
       )}
 
       {error && <small className="text-red-500">{error}</small>}

@@ -110,3 +110,24 @@ describe('TagFieldInput value from outside', () => {
     expect(screen.getByText('laravel')).toBeTruthy()
   })
 })
+
+describe('TagFieldInput list', () => {
+  it('renders in document.body, outside the field, and stays open for a pick', async () => {
+    const onChange = vi.fn()
+    const { container } = renderInput(null, onChange)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Tags' }))
+    const option = await waitFor(() => screen.getByRole('button', { name: 'react' }))
+    const panel = document.body.querySelector('[data-martis-floating-panel]') as HTMLElement
+    expect(panel.contains(option)).toBe(true)
+    expect(container.contains(panel)).toBe(false)
+
+    fireEvent.mouseDown(option)
+    fireEvent.click(option)
+    expect(onChange).toHaveBeenLastCalledWith([{ id: 3, title: 'react' }])
+    expect(document.body.querySelector('[data-martis-floating-panel]')).not.toBeNull()
+
+    fireEvent.mouseDown(document.body)
+    expect(document.body.querySelector('[data-martis-floating-panel]')).toBeNull()
+  })
+})

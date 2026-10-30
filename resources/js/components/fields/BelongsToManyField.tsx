@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '@/lib/api'
@@ -8,6 +8,7 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay, FieldInput } from '@/components/fields/FieldRenderer'
 import { nestedErrorsOf } from '@/lib/fieldErrors'
 import { Pagination } from '@/components/Pagination'
+import { FloatingPanel } from '@/components/FloatingPanel'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
 import { PivotActionModal } from '@/components/fields/relation/PivotActionModal'
 import { useRelationParent } from './NestedParentContext'
@@ -128,6 +129,17 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
   // One dropdown per pivot label; only the one clicked opens.
   const [openPivotGroup, setOpenPivotGroup] = useState<string | null>(null)
   const pivotGroupRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  // The open group's wrapper, which its floating menu is placed from, read
+  // on every placement so a wrapper the toolbar mounted again still counts.
+  const openPivotGroupRef = useRef<string | null>(null)
+  const pivotMenuAnchorRef = useMemo<RefObject<HTMLDivElement | null>>(() => ({
+    get current() {
+      const label = openPivotGroupRef.current
+      return label === null ? null : pivotGroupRefs.current[label] ?? null
+    },
+  }), [])
+  openPivotGroupRef.current = openPivotGroup
+  const pivotMenuRef = useRef<HTMLDivElement>(null)
 
   // Clear selection when parent record changes — stale IDs would confuse pivot actions.
   useEffect(() => {
@@ -151,6 +163,8 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       const openGroup = openPivotGroup === null ? null : pivotGroupRefs.current[openPivotGroup]
+      // The menu renders in document.body, outside the group's wrapper.
+      if (pivotMenuRef.current?.contains(e.target as Node)) return
       if (openGroup && !openGroup.contains(e.target as Node)) {
         setOpenPivotGroup(null)
       }
@@ -259,8 +273,12 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
                   <CaretDownIcon size={12} />
                 </button>
                 {openPivotGroup === label && (
-                  <div
-                    className="absolute left-0 top-full z-50 mt-1 min-w-[180px] overflow-hidden rounded-lg shadow-lg"
+                  <FloatingPanel
+                    ref={pivotMenuRef}
+                    anchorRef={pivotMenuAnchorRef}
+                    matchWidth={false}
+                    minWidth={180}
+                    className="overflow-y-auto rounded-lg shadow-lg"
                     style={{
                       backgroundColor: 'var(--martis-card)',
                       border: '1px solid var(--martis-border)',
@@ -295,7 +313,7 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
                         {action.name}
                       </button>
                     ))}
-                  </div>
+                  </FloatingPanel>
                 )}
               </div>
             ))}
