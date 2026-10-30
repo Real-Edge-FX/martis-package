@@ -26,14 +26,18 @@ export function isNestedGroup(child: NavigationGroupChild): child is NavigationN
  *   - Filter factory items (URL carries `?filters=…`): pathname must
  *     match exactly AND the current `?filters=` payload must equal
  *     the item's payload.
- *   - Every other item: pathname exact match. Resource items also
- *     require the absence of a `?filters=` query so that, while the
- *     filter sibling is briefly active during deep-link hydration,
- *     the bare resource link does not steal the active state.
+ *   - Every other item: pathname exact match. A resource item with a
+ *     `?filters=` in the URL stays active unless a filter item of the
+ *     menu (`filterKeys`, from {@link collectFilterKeys}) carries that
+ *     very payload: the filter item wins then, and the bare resource
+ *     link does not light up next to it. A filter no item carries (a
+ *     dashboard link, an email, the Filters panel) keeps the resource
+ *     item active, so the page always has its sidebar entry.
  */
 export function isLeafActive(
   item: NavigationItem,
   location: { pathname: string; search: string },
+  filterKeys: ReadonlySet<string>,
 ): boolean {
   const [itemPath, itemQuery = ''] = item.url.split('?')
   if (location.pathname !== itemPath) return false
@@ -41,14 +45,59 @@ export function isLeafActive(
   if (item.type === 'filter') {
     const itemFilter = new URLSearchParams(itemQuery).get('filters')
     const currentFilter = new URLSearchParams(location.search).get('filters')
-    return itemFilter !== null && itemFilter === currentFilter
+    return itemFilter !== null && currentFilter !== null && canonicalFilters(itemFilter) === canonicalFilters(currentFilter)
   }
 
   if (item.type === 'resource') {
-    return !new URLSearchParams(location.search).has('filters')
+    const currentFilter = new URLSearchParams(location.search).get('filters')
+    return currentFilter === null || !filterKeys.has(filterKey(itemPath, currentFilter))
   }
 
   return true
+}
+
+function filterKey(pathname: string, payload: string): string {
+  return `${pathname}\n${canonicalFilters(payload)}`
+}
+
+/**
+ * A `?filters=` payload in a form where the same filters compare equal
+ * whatever the order of their keys (the menu's PHP encoding, the Filters
+ * panel's state). A payload that is not JSON is compared as it is.
+ */
+function canonicalFilters(payload: string): string {
+  try {
+    return JSON.stringify(sortKeys(JSON.parse(payload)))
+  } catch {
+    return payload
+  }
+}
+
+function sortKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortKeys)
+  if (value === null || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.keys(value as Record<string, unknown>).sort().map((key) => [key, sortKeys((value as Record<string, unknown>)[key])]),
+  )
+}
+
+/**
+ * The pathname and `?filters=` payload of every filter item in the menu,
+ * which {@link isLeafActive} reads to leave a resource item inactive while
+ * a filter item of the same resource is the active one. Collected over the
+ * whole menu: a filter item can live in another group than its resource.
+ */
+export function collectFilterKeys(groups: NavigationGroup[]): Set<string> {
+  const keys = new Set<string>()
+  for (const group of groups) {
+    for (const item of flattenNavigationItems(group)) {
+      if (item.type !== 'filter') continue
+      const [itemPath, itemQuery = ''] = item.url.split('?')
+      const payload = new URLSearchParams(itemQuery).get('filters')
+      if (payload !== null) keys.add(filterKey(itemPath, payload))
+    }
+  }
+  return keys
 }
 
 /**
@@ -68,15 +117,16 @@ export function isGroupActive(
   groupPath: string | null | undefined,
   items: NavigationGroupChild[],
   location: { pathname: string; search: string },
+  filterKeys: ReadonlySet<string>,
 ): boolean {
   if (!groupPath) return false
   if (location.pathname !== groupPath.split('?')[0]) return false
 
   const hasActiveLeaf = items.some((item) => {
     if (isNestedGroup(item)) {
-      return item.items.some((leaf) => isLeafActive(leaf, location))
+      return item.items.some((leaf) => isLeafActive(leaf, location, filterKeys))
     }
-    return isLeafActive(item, location)
+    return isLeafActive(item, location, filterKeys)
   })
 
   return !hasActiveLeaf

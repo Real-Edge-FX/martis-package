@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState } from "react"
+import { Fragment, useMemo, useRef, useState } from "react"
 import { useIsTruncated } from "@/hooks/useIsTruncated"
 import { NavLink, useLocation } from "react-router"
 import { useQuery } from "@tanstack/react-query"
@@ -16,12 +16,14 @@ import {
   getItemCount,
   formatItemCount,
   isLeafActive,
+  collectFilterKeys,
   isNestedGroup,
   isGroupActive,
   mergeBadgeCounts,
   useNavigationRefreshOnNavigate,
   type BadgesPayload,
 } from "@/lib/navigation"
+import { searchWithIndexFilters, useIndexFilters } from "@/lib/indexFilters"
 import { useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
 import { useGateOptional } from "@/contexts/GateContext"
@@ -109,6 +111,8 @@ interface RenderItemContext {
   isMobile: boolean
   onMobileClose?: () => void
   location: { pathname: string; search: string }
+  /** The menu's filter items (see isLeafActive). */
+  filterKeys: ReadonlySet<string>
 }
 
 
@@ -194,7 +198,7 @@ function LeafItem({
   // class. `aria-current="page"` is still emitted by NavLink based on
   // its own match — visually irrelevant since we drive the highlight
   // via the `active` class.
-  const active = isLeafActive(item, ctx.location)
+  const active = isLeafActive(item, ctx.location, ctx.filterKeys)
   const className = "martis-sb-item" + (active ? " active" : "")
 
   // Mirror the resource's per-resource accent on the active leaf so
@@ -295,7 +299,7 @@ function NestedGroupBlock({
               end
               className={() =>
                 "martis-sb-subgroup-label martis-sb-subgroup-label--link" +
-                (isGroupActive(group.path, group.items, ctx.location) ? " active" : "")
+                (isGroupActive(group.path, group.items, ctx.location, ctx.filterKeys) ? " active" : "")
               }
             >
               {iconNode}
@@ -391,6 +395,15 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
   const location = useLocation()
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
+  // The menu's filter items, which decide whether a resource item stays
+  // active under a `?filters=` (see isLeafActive).
+  const filterKeys = useMemo(() => collectFilterKeys(groups), [groups])
+  // On an index, the filters applied in its panel stand for the URL's.
+  const indexFilters = useIndexFilters()
+  const activeLocation = {
+    pathname: location.pathname,
+    search: searchWithIndexFilters(location, indexFilters),
+  }
 
   function toggleGroup(label: string) {
     setExpandedGroups((prev) => {
@@ -588,7 +601,8 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
               collapsed,
               isMobile,
               onMobileClose,
-              location: { pathname: location.pathname, search: location.search },
+              location: activeLocation,
+              filterKeys,
             }
             const groupCollapsable = group.collapsable !== false
             const groupIcon = group.icon && (
@@ -617,7 +631,7 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
                           end
                           className={() =>
                             "martis-sb-group-label martis-sb-group-label--link" +
-                            (isGroupActive(group.path, group.items, { pathname: location.pathname, search: location.search }) ? " active" : "")
+                            (isGroupActive(group.path, group.items, activeLocation, filterKeys) ? " active" : "")
                           }
                         >
                           {groupIcon}

@@ -248,6 +248,10 @@ The serialised `type` distinguishes them on the wire:
 | `MenuItem::lens()`         | `lens`         | `/resources/<resource>/lens/<lensUriKey>`                |
 | `MenuItem::filter()`       | `filter`       | `/resources/<resource>?filters=<json>` (URL-encoded JSON) |
 
+#### Which item is active
+
+One sidebar item is active for the page, the deepest match. A filter item is active when the page is its resource's index with the same `?filters=` payload, and the resource's own item is not active next to it. A `?filters=` that no filter item of the menu carries (a dashboard tile or an email linking to a filtered index, a filter set in the Filters panel) keeps the resource's item active (v2.16.1+), so the user always sees where they are; the highlight follows the Filters panel as the URL changes. Up to v2.16.0 any `?filters=` left the resource's item inactive, and such a page had no active item at all. A section or group with a `path()` on the same page stays inactive while an item inside it is active, as on the unfiltered index.
+
 ### Decorative badges
 
 `MenuItem::withBadge('New', 'success')` paints a small textual chip next
