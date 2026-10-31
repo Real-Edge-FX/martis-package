@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.16.2] — 2026-10-31
+
+Patch release from a consumer report: the peek card cut a long value off with an ellipsis, and since the card takes no pointer events the rest could never be read. Nothing has to change in an app; read [Upgrading to v2.16.2](docs/upgrading.md#upgrading-to-v2162-from-v2161).
+
+### Fixed
+
+- **The peek card truncated long titles and values.** A value longer than 12rem (a list of products, a long company name) showed as one line ending in `…`, on the `BelongsTo`, `MorphTo` and `Tag` (`withPreview()`) cards alike, and the title was truncated the same way. Both now wrap onto more lines inside the card, which keeps its 20rem maximum width. See [Fields → Peek / Preview](docs/fields.md#peek--preview).
+
+**Tests:** 5566 Pest passed and 2237 Vitest passed (+1): 7803 in all, from 7802 at v2.16.1.
+
 ## [2.16.1] — 2026-10-30
 
 Patch release from two consumer reports: a picker's list in an action modal was cut by the modal's scrolling body, so the user had to scroll the modal to reach the options, and a link into a filtered index left the sidebar with no active item. The lists now float above every container, Escape closes an open list before the modal it is in, and the resource's item stays active under a filter no menu item carries. Nothing has to change in an app; a stylesheet that reached a picker's list through its picker reads [Upgrading to v2.16.1](docs/upgrading.md#upgrading-to-v2161-from-v2160).

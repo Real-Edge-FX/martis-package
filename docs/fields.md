@@ -1900,6 +1900,8 @@ Content is fetched lazily from the related resource's `fieldsForPreview()`.
 
 The icon is the **only** trigger; hovering the record link itself does **not** open the peek card.
 
+The card is at most 20rem wide. A long title or value wraps onto more lines inside it; the card takes no pointer events, so nothing in it is cut off with an ellipsis (v2.16.2; before, a value longer than 12rem was truncated and could not be read).
+
 ```php
 // Peek is enabled by default
 BelongsTo::make('author_id', 'Author')

@@ -167,7 +167,7 @@ export function PeekCard({ resourceKey, recordId, triggerRect, onFlipChange }: P
         </p>
       ) : data ? (
         <>
-          <p className="font-medium leading-snug truncate">{data.title}</p>
+          <p className="font-medium leading-snug" style={{ overflowWrap: 'anywhere' }}>{data.title}</p>
           {hasAttributes && (
             <table className="w-full mt-1.5 border-collapse">
               <tbody>
@@ -179,14 +179,12 @@ export function PeekCard({ resourceKey, recordId, triggerRect, onFlipChange }: P
                     >
                       {label}
                     </td>
+                    {/* Long values wrap instead of truncating: the card is
+                        pointer-events-none, so a clipped value could never be
+                        read in full. */}
                     <td
-                      className="text-xs py-0.5 align-top overflow-hidden"
-                      style={{
-                        color: 'var(--martis-text)',
-                        maxWidth: '12rem',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
+                      className="text-xs py-0.5 align-top"
+                      style={{ color: 'var(--martis-text)', overflowWrap: 'anywhere' }}
                     >
                       {renderPeekValue(value)}
                     </td>
