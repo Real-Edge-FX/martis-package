@@ -129,7 +129,7 @@ function PeekCard({ resourceKey, recordId, top, left }: PeekCardProps) {
         </p>
       ) : data ? (
         <>
-          <p className="font-medium leading-snug truncate">{data.title}</p>
+          <p className="font-medium leading-snug" style={{ overflowWrap: 'anywhere' }}>{data.title}</p>
           {hasAttributes && (
             <table className="w-full mt-1.5 border-collapse">
               <tbody>
@@ -141,14 +141,11 @@ function PeekCard({ resourceKey, recordId, top, left }: PeekCardProps) {
                     >
                       {label}
                     </td>
+                    {/* Long values wrap instead of truncating (see PeekCard
+                        in BelongsToField). */}
                     <td
-                      className="text-xs py-0.5 align-top overflow-hidden"
-                      style={{
-                        color: 'var(--martis-text)',
-                        maxWidth: '12rem',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
+                      className="text-xs py-0.5 align-top"
+                      style={{ color: 'var(--martis-text)', overflowWrap: 'anywhere' }}
                     >
                       {renderPeekValue(value)}
                     </td>

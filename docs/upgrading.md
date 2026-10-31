@@ -4,6 +4,10 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.16.2 from v2.16.1
+
+v2.16.2 wraps long titles and values in the peek card instead of truncating them. Nothing has to change in an app. A card with a long value is now taller, not wider: it keeps its 20rem maximum width. See [Fields → Peek / Preview](fields.md#peek--preview).
+
 ## Upgrading to v2.16.1 from v2.16.0
 
 v2.16.1 floats the picker lists above modals and drawers, lets Escape close an open picker before the modal it is in, and keeps a resource's sidebar item active on a filtered index. Nothing has to change in an app. Check these points:
