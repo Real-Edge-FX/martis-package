@@ -4,6 +4,10 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.16.3 from v2.16.2
+
+v2.16.3 changes no behaviour: it audits the test suite and documents how a model related to itself lists the parent record among its attachable records, and how to leave it out. Nothing has to change in an app. See [Relationships → A model related to itself](relationships.md#a-model-related-to-itself).
+
 ## Upgrading to v2.16.2 from v2.16.1
 
 v2.16.2 wraps long titles and values in the peek card instead of truncating them. Nothing has to change in an app. A card with a long value is now taller, not wider: it keeps its 20rem maximum width. See [Fields → Peek / Preview](fields.md#peek--preview).
