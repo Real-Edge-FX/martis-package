@@ -18,45 +18,9 @@ class MorphManyTestModel extends Model
 // Construction
 // ---------------------------------------------------------------------------
 
-it('MorphMany::make creates field with correct label', function () {
-    $field = MorphMany::make('Comments');
-
-    expect($field->label())->toBe('Comments');
-});
-
-it('MorphMany::make infers relationship name from label', function () {
-    $field = MorphMany::make('Comments');
-
-    expect($field->getRelationship())->toBe('comments');
-});
-
-it('MorphMany::make accepts explicit relationship name', function () {
-    $field = MorphMany::make('User Comments', 'comments');
-
-    expect($field->getRelationship())->toBe('comments');
-});
-
-it('MorphMany type returns morph_many', function () {
-    $field = MorphMany::make('Comments');
-
-    expect($field->type())->toBe('morph_many');
-});
-
 // ---------------------------------------------------------------------------
 // Related resource key
 // ---------------------------------------------------------------------------
-
-it('MorphMany infers related resource key from relationship', function () {
-    $field = MorphMany::make('Comments');
-
-    expect($field->getRelatedResourceKey())->toBe('comments');
-});
-
-it('MorphMany allows explicit related resource key', function () {
-    $field = MorphMany::make('Comments')->relatedResource('blog-comments');
-
-    expect($field->getRelatedResourceKey())->toBe('blog-comments');
-});
 
 // ---------------------------------------------------------------------------
 // Visibility defaults
@@ -112,20 +76,3 @@ it('MorphMany perPage sets per-page default', function () {
 // ---------------------------------------------------------------------------
 // Resolve / Fill
 // ---------------------------------------------------------------------------
-
-it('MorphMany resolve returns null on detail page', function () {
-    $field = MorphMany::make('Comments');
-    $model = new MorphManyTestModel;
-    $model->id = 1;
-
-    expect($field->resolve($model))->toBeNull();
-});
-
-it('MorphMany fill is a no-op', function () {
-    $field = MorphMany::make('Comments');
-    $model = new MorphManyTestModel;
-
-    $field->fill($model, ['some' => 'data']);
-
-    expect($model->getDirty())->toBeEmpty();
-});

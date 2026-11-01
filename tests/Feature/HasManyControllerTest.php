@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo as EloquentBelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -35,6 +36,11 @@ class HMChildModel extends Model
     protected $table = 'hm_test_children';
 
     protected $fillable = ['title', 'body', 'parent_id'];
+
+    public function parent(): EloquentBelongsTo
+    {
+        return $this->belongsTo(HMParentModel::class, 'parent_id');
+    }
 }
 
 class HMParentResource extends Resource
@@ -424,13 +430,15 @@ it('returns 404 for unknown relationship', function () {
 // Relationship validation (validates Eloquent hasMany)
 // ---------------------------------------------------------------------------
 
-it('HasMany validateRelationship passes for valid hasMany', function () {
-    $model = new HMParentModel;
-    $field = HasMany::make('Children', 'children');
+it('HasMany validateRelationship accepts a hasMany and refuses anything else', function () {
+    expect(fn () => HasMany::make('Children', 'children')->validateRelationship(new HMParentModel))
+        ->not->toThrow(InvalidArgumentException::class);
 
-    // Should not throw
-    $field->validateRelationship($model);
-    expect(true)->toBeTrue();
+    expect(fn () => HasMany::make('Missing', 'missing')->validateRelationship(new HMParentModel))
+        ->toThrow(InvalidArgumentException::class, "does not define relationship method 'missing'");
+
+    expect(fn () => HasMany::make('Parent', 'parent')->validateRelationship(new HMChildModel))
+        ->toThrow(InvalidArgumentException::class, "'parent' on HMChildModel is not a hasMany relationship");
 });
 
 // ---------------------------------------------------------------------------

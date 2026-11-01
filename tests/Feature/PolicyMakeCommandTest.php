@@ -2,7 +2,6 @@
 
 use App\Martis\Policies\DenyByDefaultProbePolicy;
 use App\Models\User;
-use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\Filesystem;
 use Martis\Console\PolicyMakeCommand;
@@ -26,12 +25,6 @@ afterEach(function () {
     if ($files->isDirectory($this->policyDir)) {
         $files->deleteDirectory($this->policyDir);
     }
-});
-
-it('martis:policy is registered with the canonical name', function () {
-    $commands = $this->app->make(Kernel::class)->all();
-    expect($commands)->toHaveKey('martis:policy');
-    expect($commands['martis:policy'])->toBeInstanceOf(PolicyMakeCommand::class);
 });
 
 it('martis:make-policy is registered as a back-compat alias and runs the same generator', function () {

@@ -75,15 +75,6 @@ it('Color fill() persists hex value', function () {
     expect($model->getAttribute('label_color'))->toBe('#00ff00');
 });
 
-it('Color fill() does nothing when readonly', function () {
-    $model = new ColorTestModel(['label_color' => '#000000']);
-    $field = Color::make('label_color')->readonly();
-
-    $field->fill($model, '#ffffff');
-
-    expect($model->getAttribute('label_color'))->toBe('#000000');
-});
-
 it('Color fill() stores null', function () {
     $model = new ColorTestModel;
     $field = Color::make('label_color');

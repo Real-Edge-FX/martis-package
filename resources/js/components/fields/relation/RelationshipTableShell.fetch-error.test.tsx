@@ -136,7 +136,7 @@ describe('RelationshipTableShell — records fetch failure', () => {
 
     renderShell()
 
-    expect(screen.getByTestId('datatable')).not.toBeNull()
+    expect(screen.getByTestId('datatable')).toBeTruthy()
     expect(screen.queryByText('No records available.')).toBeNull()
     expect(errorState()).toBeNull()
   })
@@ -146,7 +146,7 @@ describe('RelationshipTableShell — records fetch failure', () => {
 
     renderShell()
 
-    expect(screen.getByText('No records available.')).not.toBeNull()
+    expect(screen.getByText('No records available.')).toBeTruthy()
     expect(errorState()).toBeNull()
     // Header count is back once the result is authoritative.
     expect(document.querySelector('h3 .martis-badge')?.textContent).toBe('0')

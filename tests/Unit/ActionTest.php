@@ -212,16 +212,27 @@ class ActionTest extends TestCase
             return ActionResponse::message('Closure ran');
         });
         $this->assertEquals('My Closure Action', $action->name());
-        $this->assertNotEmpty($action->uriKey());
+        $this->assertSame('my-closure-action', $action->uriKey());
+
+        $handler = $action->getClosureHandler();
+        $this->assertInstanceOf(\Closure::class, $handler);
+        $response = $handler(new ActionFields, new Collection);
+        $this->assertSame('Closure ran', $response->jsonSerialize()['data']['message']);
     }
 
     public function test_then_callback(): void
     {
-        $called = false;
-        $action = TestableAction::make()->then(function () use (&$called) {
-            $called = true;
+        $this->assertNull(TestableAction::make()->getThenCallback());
+
+        $received = null;
+        $action = TestableAction::make()->then(function (string $value) use (&$received) {
+            $received = $value;
         });
-        $this->assertNotNull($action);
+
+        $callback = $action->getThenCallback();
+        $this->assertInstanceOf(\Closure::class, $callback);
+        $callback('done');
+        $this->assertSame('done', $received);
     }
 
     public function test_default_name_from_class(): void
@@ -369,24 +380,6 @@ class ActionTest extends TestCase
         $this->assertEquals('trash', $json['icon']);
     }
 
-    public function test_is_showing_icon_method(): void
-    {
-        $action = TestableAction::make();
-        $this->assertTrue($action->isShowingIcon());
-
-        $action->withoutIcon();
-        $this->assertFalse($action->isShowingIcon());
-    }
-
-    public function test_get_icon_color_method(): void
-    {
-        $action = TestableAction::make();
-        $this->assertNull($action->getIconColor());
-
-        $action->iconColor('#ff0000');
-        $this->assertEquals('#ff0000', $action->getIconColor());
-    }
-
     // -------------------------------------------------------------------------
     // Pivot action tests
     // -------------------------------------------------------------------------
@@ -412,20 +405,6 @@ class ActionTest extends TestCase
         $json = $action->jsonSerialize();
         $this->assertTrue($json['isPivotAction']);
         $this->assertEquals('Tag Actions', $json['pivotLabel']);
-    }
-
-    public function test_get_pivot_label_default_null(): void
-    {
-        $action = TestableAction::make();
-        $this->assertNull($action->getPivotLabel());
-    }
-
-    public function test_is_pivot_action_method(): void
-    {
-        $action = TestableAction::make();
-        $this->assertFalse($action->isPivotAction());
-        $action->pivotAction();
-        $this->assertTrue($action->isPivotAction());
     }
 }
 

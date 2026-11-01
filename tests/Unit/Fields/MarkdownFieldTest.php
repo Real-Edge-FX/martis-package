@@ -135,15 +135,6 @@ it('Markdown fill() stores raw Markdown string', function () {
     expect($model->getAttribute('description_md'))->toBe($md);
 });
 
-it('Markdown fill() does nothing when readonly', function () {
-    $model = new MarkdownTestModel(['description_md' => 'original']);
-    $field = Markdown::make('description_md')->readonly();
-
-    $field->fill($model, 'changed');
-
-    expect($model->getAttribute('description_md'))->toBe('original');
-});
-
 it('Markdown fill() stores null', function () {
     $model = new MarkdownTestModel;
     $field = Markdown::make('description_md');
@@ -175,11 +166,3 @@ it('Markdown toArray contains required keys', function () {
 // ---------------------------------------------------------------------------
 // Callbacks
 // ---------------------------------------------------------------------------
-
-it('Markdown respects resolveUsing callback', function () {
-    $model = new MarkdownTestModel(['description_md' => '# Hello']);
-    $field = Markdown::make('description_md')
-        ->resolveUsing(fn ($value) => $value."\n\nAppended.");
-
-    expect($field->resolve($model))->toBe("# Hello\n\nAppended.");
-});

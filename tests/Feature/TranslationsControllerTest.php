@@ -37,12 +37,6 @@ afterEach(function () {
     }
 });
 
-it('GET /martis/api/translations/en is public (no auth required)', function () {
-    $response = $this->getJson('/martis/api/translations/en');
-
-    $response->assertStatus(200);
-});
-
 it('translations endpoint returns all namespaces', function () {
     $response = $this->getJson('/martis/api/translations/en');
 

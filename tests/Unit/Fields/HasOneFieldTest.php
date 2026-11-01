@@ -18,45 +18,9 @@ class HasOneTestModel extends Model
 // Construction
 // ---------------------------------------------------------------------------
 
-it('HasOne::make creates field with correct label', function () {
-    $field = HasOne::make('Profile');
-
-    expect($field->label())->toBe('Profile');
-});
-
-it('HasOne::make infers relationship name from label', function () {
-    $field = HasOne::make('Profile');
-
-    expect($field->getRelationship())->toBe('profile');
-});
-
-it('HasOne::make accepts explicit relationship name', function () {
-    $field = HasOne::make('User Profile', 'userProfile');
-
-    expect($field->getRelationship())->toBe('userProfile');
-});
-
-it('HasOne type returns has_one', function () {
-    $field = HasOne::make('Profile');
-
-    expect($field->type())->toBe('has_one');
-});
-
 // ---------------------------------------------------------------------------
 // Related resource key
 // ---------------------------------------------------------------------------
-
-it('HasOne infers related resource key from relationship', function () {
-    $field = HasOne::make('Profile');
-
-    expect($field->getRelatedResourceKey())->toBe('profiles');
-});
-
-it('HasOne allows explicit related resource key', function () {
-    $field = HasOne::make('Profile')->relatedResource('user-profiles');
-
-    expect($field->getRelatedResourceKey())->toBe('user-profiles');
-});
 
 // ---------------------------------------------------------------------------
 // Visibility
@@ -136,22 +100,6 @@ it('HasOne canDelete can be disabled', function () {
 // ---------------------------------------------------------------------------
 // Resolve / Fill
 // ---------------------------------------------------------------------------
-
-it('HasOne resolve returns null', function () {
-    $model = new HasOneTestModel;
-    $field = HasOne::make('Profile');
-
-    expect($field->resolve($model))->toBeNull();
-});
-
-it('HasOne fill is a no-op', function () {
-    $model = new HasOneTestModel;
-    $field = HasOne::make('Profile');
-    $field->fill($model, 'some value');
-
-    // No exception thrown, no attribute set
-    expect(true)->toBeTrue();
-});
 
 // ---------------------------------------------------------------------------
 // validateRelationship

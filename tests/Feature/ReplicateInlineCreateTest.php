@@ -209,6 +209,9 @@ it('inline create store validates required fields', function () {
     $response = $this->postJson('/martis/api/resources/inline-create-category-models/inline-create', []);
 
     $response->assertStatus(422);
+    $response->assertJsonPath('errors.0.field', 'name');
+    $response->assertJsonPath('errors.0.code', 'required');
+    $this->assertDatabaseCount('martis_test_inline_categories', 0);
 });
 
 it('inline create store succeeds regardless of X-Martis-Inline-Create-Depth header (depth is enforced at schema layer)', function () {

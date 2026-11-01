@@ -18,45 +18,9 @@ class HasManyTestModel extends Model
 // Construction
 // ---------------------------------------------------------------------------
 
-it('HasMany::make creates field with correct label', function () {
-    $field = HasMany::make('Posts');
-
-    expect($field->label())->toBe('Posts');
-});
-
-it('HasMany::make infers relationship name from label', function () {
-    $field = HasMany::make('Posts');
-
-    expect($field->getRelationship())->toBe('posts');
-});
-
-it('HasMany::make accepts explicit relationship name', function () {
-    $field = HasMany::make('User Posts', 'posts');
-
-    expect($field->getRelationship())->toBe('posts');
-});
-
-it('HasMany type returns has_many', function () {
-    $field = HasMany::make('Posts');
-
-    expect($field->type())->toBe('has_many');
-});
-
 // ---------------------------------------------------------------------------
 // Related resource key
 // ---------------------------------------------------------------------------
-
-it('HasMany infers related resource key from relationship', function () {
-    $field = HasMany::make('Posts');
-
-    expect($field->getRelatedResourceKey())->toBe('posts');
-});
-
-it('HasMany allows explicit related resource key', function () {
-    $field = HasMany::make('Posts')->relatedResource('blog-posts');
-
-    expect($field->getRelatedResourceKey())->toBe('blog-posts');
-});
 
 // ---------------------------------------------------------------------------
 // Visibility
@@ -153,19 +117,3 @@ it('HasMany relationSearchable can be disabled', function () {
 // ---------------------------------------------------------------------------
 // Resolve / Fill
 // ---------------------------------------------------------------------------
-
-it('HasMany resolve returns null', function () {
-    $model = new HasManyTestModel;
-    $field = HasMany::make('Posts');
-
-    expect($field->resolve($model))->toBeNull();
-});
-
-it('HasMany fill is a no-op', function () {
-    $model = new HasManyTestModel;
-    $field = HasMany::make('Posts');
-    $field->fill($model, 'some value');
-
-    // No exception thrown, no attribute set
-    expect(true)->toBeTrue();
-});

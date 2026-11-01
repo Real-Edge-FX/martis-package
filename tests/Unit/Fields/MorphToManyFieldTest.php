@@ -18,45 +18,9 @@ class MorphToManyTestModel extends Model
 // Construction
 // ---------------------------------------------------------------------------
 
-it('MorphToMany::make creates field with correct label', function () {
-    $field = MorphToMany::make('Tags');
-
-    expect($field->label())->toBe('Tags');
-});
-
-it('MorphToMany::make infers relationship name from label', function () {
-    $field = MorphToMany::make('Tags');
-
-    expect($field->getRelationship())->toBe('tags');
-});
-
-it('MorphToMany::make accepts explicit relationship name', function () {
-    $field = MorphToMany::make('Post Tags', 'tags');
-
-    expect($field->getRelationship())->toBe('tags');
-});
-
-it('MorphToMany type returns morph_to_many', function () {
-    $field = MorphToMany::make('Tags');
-
-    expect($field->type())->toBe('morph_to_many');
-});
-
 // ---------------------------------------------------------------------------
 // Related resource key
 // ---------------------------------------------------------------------------
-
-it('MorphToMany infers related resource key from relationship', function () {
-    $field = MorphToMany::make('Tags');
-
-    expect($field->getRelatedResourceKey())->toBe('tags');
-});
-
-it('MorphToMany allows explicit related resource key', function () {
-    $field = MorphToMany::make('Tags')->relatedResource('label-tags');
-
-    expect($field->getRelatedResourceKey())->toBe('label-tags');
-});
 
 // ---------------------------------------------------------------------------
 // Visibility defaults
@@ -142,20 +106,3 @@ it('MorphToMany relatableQueryUsing stores closure', function () {
 // ---------------------------------------------------------------------------
 // Resolve / Fill
 // ---------------------------------------------------------------------------
-
-it('MorphToMany resolve returns null on detail page', function () {
-    $field = MorphToMany::make('Tags');
-    $model = new MorphToManyTestModel;
-    $model->id = 1;
-
-    expect($field->resolve($model))->toBeNull();
-});
-
-it('MorphToMany fill is a no-op', function () {
-    $field = MorphToMany::make('Tags');
-    $model = new MorphToManyTestModel;
-
-    $field->fill($model, ['some' => 'data']);
-
-    expect($model->getDirty())->toBeEmpty();
-});

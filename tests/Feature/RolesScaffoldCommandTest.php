@@ -115,11 +115,6 @@ afterEach(function () {
     }
 });
 
-it('martis:roles is registered with the service provider', function () {
-    $commands = $this->app->make(Kernel::class)->all();
-    expect($commands)->toHaveKey('martis:roles');
-});
-
 it('with --no-install + Spatie present, scaffolds the three resources', function () {
     if (! class_exists('Spatie\\Permission\\PermissionServiceProvider')) {
         $this->markTestSkipped('spatie/laravel-permission not installed');

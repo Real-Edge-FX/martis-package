@@ -3,6 +3,10 @@ import * as ReactRouter from 'react-router'
 import { RouterProvider as DomRouterProvider } from 'react-router/dom'
 import { describe, expect, it } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { Tooltip as PrimeTooltip } from 'primereact/tooltip'
+import { Dropdown as PrimeDropdown } from 'primereact/dropdown'
+import { MultiSelect as PrimeMultiSelect } from 'primereact/multiselect'
+import { OverridePropsProvider } from '@/hooks/useOverrideProps'
 import { martisRuntime } from '@/lib/martisRuntime'
 import { reactDomHandle } from '@/lib/reactDomHandles'
 import { componentRegistry } from '@/lib/componentRegistry'
@@ -121,11 +125,11 @@ describe('martisRuntime', () => {
         // Composition components
         expect(martisRuntime.DrawerShell).toBeTypeOf('function')
         // PrimeReact Tooltip is a forwardRef object, not a plain function.
-        expect(martisRuntime.Tooltip).toBeDefined()
+        expect(martisRuntime.Tooltip).toBe(PrimeTooltip)
 
         // PrimeReact filter controls + portal primitive (v1.29.0)
-        expect(martisRuntime.Dropdown).toBeDefined()
-        expect(martisRuntime.MultiSelect).toBeDefined()
+        expect(martisRuntime.Dropdown).toBe(PrimeDropdown)
+        expect(martisRuntime.MultiSelect).toBe(PrimeMultiSelect)
         expect(martisRuntime.createPortal).toBeTypeOf('function')
         // The host's synchronous flush (v1.38.2), which the react-dom shim
         // re-exports for libraries such as @tanstack/react-virtual.
@@ -159,7 +163,7 @@ describe('martisRuntime', () => {
         expect(martisRuntime.useOverrideProps).toBeTypeOf('function')
         expect(martisRuntime.useOverridePropsOptional).toBeTypeOf('function')
         // A context Provider is an object, not a plain function.
-        expect(martisRuntime.OverridePropsProvider).toBeDefined()
+        expect(martisRuntime.OverridePropsProvider).toBe(OverridePropsProvider)
         expect(martisRuntime.useUnsavedChangesGuard).toBeTypeOf('function')
         expect(martisRuntime.useError).toBeTypeOf('function')
 

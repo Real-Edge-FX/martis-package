@@ -313,21 +313,3 @@ it('detaching a tag that is not attached answers 404', function () {
     // Like a missing id (v2.11.1): only an attached record is detached.
     $response->assertNotFound();
 });
-
-// ---------------------------------------------------------------------------
-// Cross-relationship cleanup — verify the relatable endpoint does not
-// expose the parent record itself as a candidate (regression guard for
-// past Nova-parity bug where a project could attach itself).
-// ---------------------------------------------------------------------------
-
-it('relatable list excludes the parent record itself when the relation is reflexive', function () {
-    $project = RHProjectModel::create(['title' => 'Apollo']);
-    $other = RHProjectModel::create(['title' => 'Beta']);
-
-    // tags is a separate model so this test mostly proves the endpoint
-    // behaves; deeper self-attach guard tests live in
-    // BelongsToManyControllerTest.
-    $response = $this->getJson("/martis/api/resources/r-h-project-models/{$project->id}/belongs-to-many/tags/attachable");
-
-    $response->assertOk();
-});

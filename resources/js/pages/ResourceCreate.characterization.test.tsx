@@ -249,29 +249,6 @@ describe('Resource create form — slug auto-generation from source', () => {
 })
 
 // ---------------------------------------------------------------------------
-// (2) Shared `values` threading — one field's change is visible to another
-// ---------------------------------------------------------------------------
-
-describe('Resource create form — shared values threading', () => {
-  it('propagates a change to every field reading formValues', async () => {
-    // Two slug fields both sourced from `title`: after changing the title,
-    // BOTH slug inputs reflect the slugified value, proving the single shared
-    // `values` object is threaded to every field as `formValues`.
-    const slugA = baseField({ attribute: 'slug_a', label: 'Slug A', type: 'slug', sourceAttribute: 'title', separator: '-' })
-    const slugB = baseField({ attribute: 'slug_b', label: 'Slug B', type: 'slug', sourceAttribute: 'title', separator: '-' })
-
-    renderFieldForm([titleField, slugA, slugB])
-
-    fireEvent.change(document.getElementById('title') as HTMLInputElement, { target: { value: 'Alpha Beta' } })
-
-    await waitFor(() => {
-      expect((screen.getByTestId('slug-input-slug_a') as HTMLInputElement).value).toBe('alpha-beta')
-      expect((screen.getByTestId('slug-input-slug_b') as HTMLInputElement).value).toBe('alpha-beta')
-    })
-  })
-})
-
-// ---------------------------------------------------------------------------
 // (3) Full page — basic field rendering (text + slug), no interaction
 // ---------------------------------------------------------------------------
 

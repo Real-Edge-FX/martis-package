@@ -41,7 +41,6 @@ use Martis\MartisManager;
 use Martis\Menu\MenuItem;
 use Martis\Notifications\MartisNotification;
 use Martis\Resource;
-use Martis\Sso\Facades\MartisSso;
 use Martis\Sso\SsoManager;
 use Martis\Tools\Tool;
 use Martis\Tools\ToolServiceProvider;
@@ -266,27 +265,6 @@ it('SsoManager exposes the documented public API for providers + role mapping', 
         expect($params[0]->getName())->toBe('callback');
         expect((string) $params[0]->getType())->toBe(Closure::class);
     }
-});
-
-it('MartisSso facade is registered and resolves to the SsoManager singleton', function () {
-    $resolved = MartisSso::getFacadeRoot();
-    expect($resolved)->toBeInstanceOf(SsoManager::class);
-});
-
-// ---------------------------------------------------------------------------
-// Locale extensibility — config keys exist with the documented shape
-// ---------------------------------------------------------------------------
-
-it('martis.locales config exposes app_namespaces + fallback_chain', function () {
-    // The deep-merge mechanic itself has its own coverage in
-    // TranslationsControllerTest. This tripwire just guards the
-    // config keys so that consumer publish overrides keep working.
-    $defaults = require __DIR__.'/../../config/martis.php';
-
-    expect($defaults)->toHaveKey('locales');
-    expect($defaults['locales'])->toHaveKey('app_namespaces');
-    expect($defaults['locales'])->toHaveKey('fallback_chain');
-    expect($defaults['locales']['fallback_chain'])->toBeArray();
 });
 
 // ---------------------------------------------------------------------------

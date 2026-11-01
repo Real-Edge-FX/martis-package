@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Fields;
 
+use Illuminate\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Martis\Fields\Text;
@@ -39,9 +40,9 @@ class FieldHooksRequestParamTest extends TestCase
         $this->assertSame('[name] Alice', $field->resolve($stub));
     }
 
-    public function test_resolve_using_callback_receives_request_as_fourth_param_when_available(): void
+    public function test_resolve_using_callback_receives_null_request_without_http_context(): void
     {
-        $captured = null;
+        $captured = 'sentinel';
         $field = Text::make('name')->resolveUsing(
             function (mixed $value, Model $model, string $attribute, ?Request $request) use (&$captured): mixed {
                 $captured = $request;
@@ -53,8 +54,34 @@ class FieldHooksRequestParamTest extends TestCase
         $stub = new StubModel(['name' => 'Alice']);
         $field->resolve($stub);
 
-        // No HTTP context bootstrapped → request must be null, not a TypeError.
-        $this->assertNull($captured);
+        // No HTTP context bootstrapped: request must be null, not a TypeError.
+        $this->assertNull($captured, 'the callback must have run and received null');
+    }
+
+    public function test_resolve_using_callback_receives_the_bound_request_as_fourth_param(): void
+    {
+        $request = Request::create('/probe');
+        $previous = Container::getInstance();
+        $container = new Container;
+        $container->instance('request', $request);
+        Container::setInstance($container);
+
+        try {
+            $captured = 'sentinel';
+            $field = Text::make('name')->resolveUsing(
+                function (mixed $value, Model $model, string $attribute, ?Request $request) use (&$captured): mixed {
+                    $captured = $request;
+
+                    return $value;
+                },
+            );
+
+            $field->resolve(new StubModel(['name' => 'Alice']));
+        } finally {
+            Container::setInstance($previous);
+        }
+
+        $this->assertSame($request, $captured);
     }
 
     // -------------------------------------------------------------------
@@ -75,7 +102,7 @@ class FieldHooksRequestParamTest extends TestCase
         $this->assertSame('ALICE', $stub->getAttribute('name'));
     }
 
-    public function test_fill_using_callback_receives_request_as_fourth_param_when_available(): void
+    public function test_fill_using_callback_receives_null_request_without_http_context(): void
     {
         $captured = 'sentinel';
         $field = Text::make('name')->fillUsing(
@@ -88,7 +115,8 @@ class FieldHooksRequestParamTest extends TestCase
         $stub = new StubModel;
         $field->fill($stub, 'alice');
 
-        $this->assertNull($captured);
+        $this->assertNull($captured, 'the callback must have run and received null');
+        $this->assertSame('alice', $stub->getAttribute('name'));
     }
 
     // -------------------------------------------------------------------
@@ -106,9 +134,9 @@ class FieldHooksRequestParamTest extends TestCase
         $this->assertSame('$ 42', $field->resolveForDisplay($stub));
     }
 
-    public function test_display_using_callback_receives_request_as_fourth_param_when_available(): void
+    public function test_display_using_callback_receives_null_request_without_http_context(): void
     {
-        $captured = null;
+        $captured = 'sentinel';
         $field = Text::make('amount')->displayUsing(
             function (mixed $value, Model $model, string $attribute, ?Request $request) use (&$captured): mixed {
                 $captured = $request;
@@ -120,7 +148,7 @@ class FieldHooksRequestParamTest extends TestCase
         $stub = new StubModel(['amount' => '42']);
         $field->resolveForDisplay($stub);
 
-        $this->assertNull($captured);
+        $this->assertNull($captured, 'the callback must have run and received null');
     }
 
     // -------------------------------------------------------------------

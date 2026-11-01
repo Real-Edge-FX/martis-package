@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use Martis\Exceptions\AuthorizationException;
 use Martis\Exceptions\MartisException;
 use Martis\Exceptions\ResourceNotFoundException;
+use Martis\Exceptions\UserFacingException;
 use Martis\Exceptions\ValidationException;
 use PHPUnit\Framework\TestCase;
 
@@ -105,11 +106,6 @@ class ExceptionTest extends TestCase
         $this->assertSame('validation_error', $arr['code']);
     }
 
-    public function test_validation_exception_is_martis_exception(): void
-    {
-        $this->assertInstanceOf(MartisException::class, new ValidationException([]));
-    }
-
     // -------------------------------------------------------------------------
     // AuthorizationException
     // -------------------------------------------------------------------------
@@ -136,11 +132,6 @@ class ExceptionTest extends TestCase
 
         $this->assertStringContainsString('publish', $e->getMessage());
         $this->assertSame('unauthorized_action', $e->errorCode());
-    }
-
-    public function test_authorization_exception_is_martis_exception(): void
-    {
-        $this->assertInstanceOf(MartisException::class, new AuthorizationException);
     }
 
     // -------------------------------------------------------------------------
@@ -172,20 +163,21 @@ class ExceptionTest extends TestCase
         $this->assertStringContainsString('not registered', strtolower($e->getMessage()));
     }
 
-    public function test_resource_not_found_exception_is_martis_exception(): void
-    {
-        $this->assertInstanceOf(MartisException::class, new ResourceNotFoundException);
-    }
-
     // -------------------------------------------------------------------------
     // Inheritance hierarchy
     // -------------------------------------------------------------------------
 
-    public function test_all_exceptions_extend_runtime_exception(): void
+    /**
+     * ActionController rethrows only a MartisException and turns anything
+     * else into its generic error, so an exception that stops extending it
+     * would lose its status and message on an action run.
+     */
+    public function test_package_exceptions_extend_martis_exception(): void
     {
+        $this->assertInstanceOf(MartisException::class, new ValidationException([]));
+        $this->assertInstanceOf(MartisException::class, new AuthorizationException);
+        $this->assertInstanceOf(MartisException::class, new ResourceNotFoundException);
+        $this->assertInstanceOf(MartisException::class, new UserFacingException('message'));
         $this->assertInstanceOf(\RuntimeException::class, new MartisException);
-        $this->assertInstanceOf(\RuntimeException::class, new ValidationException([]));
-        $this->assertInstanceOf(\RuntimeException::class, new AuthorizationException);
-        $this->assertInstanceOf(\RuntimeException::class, new ResourceNotFoundException);
     }
 }

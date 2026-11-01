@@ -2,6 +2,8 @@
 
 namespace Tests\Unit\Fields;
 
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Martis\FieldContext;
 use Martis\Fields\Field;
 use Martis\Fields\Text;
@@ -269,8 +271,30 @@ describe('FieldContext enum', function (): void {
         expect(FieldContext::INLINE_CREATE->value)->toBe('inline-create');
         expect(FieldContext::PREVIEW->value)->toBe('preview');
     });
+});
 
-    it('has exactly 6 contexts', function (): void {
-        expect(count(FieldContext::cases()))->toBe(6);
+// --- canSeeUsingPolicy() ---
+describe('canSeeUsingPolicy', function (): void {
+
+    it('hides the field when no user is authenticated', function (): void {
+        $field = Text::make('secret')->canSeeUsingPolicy('viewGuestProbe');
+        $request = Request::create('/');
+        $request->setUserResolver(fn () => null);
+
+        expect($field->isAuthorizedForModel($request, new class extends Model {}))->toBeFalse();
+    });
+
+    it('asks the Gate for an authenticated user', function (): void {
+        $field = Text::make('secret')->canSeeUsingPolicy('viewGuestProbe');
+        $request = Request::create('/');
+        $request->setUserResolver(fn () => new class
+        {
+            public function can(string $ability, mixed $model): bool
+            {
+                return $ability === 'viewGuestProbe';
+            }
+        });
+
+        expect($field->isAuthorizedForModel($request, new class extends Model {}))->toBeTrue();
     });
 });

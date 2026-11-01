@@ -119,6 +119,63 @@ class AuthzEndpointRestrictivePolicy
     }
 }
 
+// Same table as AuthzOpenModel; a distinct class gives each resource its own uriKey.
+class AuthzUpdateOnlyModel extends AuthzOpenModel {}
+
+class AuthzDeleteOnlyModel extends AuthzOpenModel {}
+
+/**
+ * Splits the two write abilities: the record may be edited but not deleted.
+ */
+class AuthzUpdateOnlyPolicy extends AuthzEndpointPermissivePolicy
+{
+    public function delete($user, $model): bool
+    {
+        return false;
+    }
+}
+
+/**
+ * The mirror of AuthzUpdateOnlyPolicy: the record may be deleted but not edited.
+ */
+class AuthzDeleteOnlyPolicy extends AuthzEndpointPermissivePolicy
+{
+    public function update($user, $model): bool
+    {
+        return false;
+    }
+}
+
+class AuthzUpdateOnlyResource extends Resource
+{
+    public static ?string $policy = AuthzUpdateOnlyPolicy::class;
+
+    public static function model(): string
+    {
+        return AuthzUpdateOnlyModel::class;
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title')->required()];
+    }
+}
+
+class AuthzDeleteOnlyResource extends Resource
+{
+    public static ?string $policy = AuthzDeleteOnlyPolicy::class;
+
+    public static function model(): string
+    {
+        return AuthzDeleteOnlyModel::class;
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title')->required()];
+    }
+}
+
 class AuthzOpenItemResource extends Resource
 {
     public static ?string $policy = AuthzEndpointPermissivePolicy::class;
@@ -175,6 +232,8 @@ beforeEach(function () {
     $registry->flush();
     $registry->register(AuthzOpenItemResource::class);
     $registry->register(AuthzLockedItemResource::class);
+    $registry->register(AuthzUpdateOnlyResource::class);
+    $registry->register(AuthzDeleteOnlyResource::class);
 
     $this->user = (new Authenticatable)->forceFill(['id' => 1, 'name' => 'Test User']);
     $this->actingAs($this->user);
@@ -278,7 +337,8 @@ it('denies store when create is not authorized', function () {
 
     $response = $this->postJson("/martis/api/resources/{$uriKey}", ['title' => 'Blocked']);
 
-    expect($response->status())->toBeGreaterThanOrEqual(400);
+    $response->assertForbidden();
+    expect(AuthzLockedModel::withTrashed()->count())->toBe(0);
 });
 
 it('denies update when update is not authorized', function () {
@@ -287,7 +347,8 @@ it('denies update when update is not authorized', function () {
 
     $response = $this->putJson("/martis/api/resources/{$uriKey}/{$item->id}", ['title' => 'Blocked']);
 
-    expect($response->status())->toBeGreaterThanOrEqual(400);
+    $response->assertForbidden();
+    expect($item->fresh()->title)->toBe('Cannot Update');
 });
 
 it('denies destroy when delete is not authorized', function () {
@@ -296,8 +357,32 @@ it('denies destroy when delete is not authorized', function () {
 
     $response = $this->deleteJson("/martis/api/resources/{$uriKey}/{$item->id}");
 
-    expect($response->status())->toBeGreaterThanOrEqual(400);
+    $response->assertForbidden();
     expect(AuthzLockedModel::find($item->id))->not->toBeNull();
+    expect(AuthzLockedModel::onlyTrashed()->count())->toBe(0);
+});
+
+it('destroy asks the delete ability, not the update ability', function () {
+    $item = AuthzUpdateOnlyModel::create(['title' => 'Editable, not deletable']);
+
+    // The policy lets the user update the record but not delete it.
+    $uriKey = AuthzUpdateOnlyResource::uriKey();
+    $this->putJson("/martis/api/resources/{$uriKey}/{$item->id}", ['title' => 'Edited'])->assertOk();
+
+    $this->deleteJson("/martis/api/resources/{$uriKey}/{$item->id}")->assertForbidden();
+    expect(AuthzUpdateOnlyModel::find($item->id))->not->toBeNull();
+    expect(AuthzUpdateOnlyModel::onlyTrashed()->count())->toBe(0);
+});
+
+it('destroy lets a user delete a record they cannot update', function () {
+    $item = AuthzDeleteOnlyModel::create(['title' => 'Deletable, not editable']);
+    $uriKey = AuthzDeleteOnlyResource::uriKey();
+
+    $this->putJson("/martis/api/resources/{$uriKey}/{$item->id}", ['title' => 'Edited'])->assertForbidden();
+    expect($item->fresh()->title)->toBe('Deletable, not editable');
+
+    $this->deleteJson("/martis/api/resources/{$uriKey}/{$item->id}")->assertOk();
+    expect(AuthzDeleteOnlyModel::find($item->id))->toBeNull();
 });
 
 // ── Route Registration ──────────────────────────────────────────

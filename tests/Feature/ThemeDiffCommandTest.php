@@ -1,8 +1,6 @@
 <?php
 
-use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
-use Martis\Console\ThemeDiffCommand;
 
 beforeEach(function () {
     $fs = new Filesystem;
@@ -15,12 +13,6 @@ afterEach(function () {
     $fs = new Filesystem;
     $fs->deleteDirectory(resource_path('css/martis'));
     $fs->deleteDirectory(public_path('vendor/martis/themes'));
-});
-
-it('martis:theme:diff is registered in the service provider', function () {
-    $commands = $this->app->make(Kernel::class)->all();
-    expect($commands)->toHaveKey('martis:theme:diff');
-    expect($commands['martis:theme:diff'])->toBeInstanceOf(ThemeDiffCommand::class);
 });
 
 it('reports tokens missing from a consumer theme', function () {

@@ -98,14 +98,12 @@ afterEach(function () {
 it('--frontend warns when the extensions directory is absent', function () {
     // Default test app has no `resources/js/martis-extensions/` until
     // `martis:install` runs. The command should surface a soft warning
-    // and still exit cleanly.
+    // and report the Tool's component as missing (exit code 2, INVALID).
     app(MartisManager::class)->tools([new ListOverridesFrontendTool]);
 
     $this->artisan('martis:list-overrides', ['--frontend' => true])
         ->expectsOutputToContain('extensions directory not found')
-        ->run();
-
-    expect(true)->toBeTrue();
+        ->assertExitCode(2);
 });
 
 it('--frontend discovers tool/field/card filenames in their respective buckets', function () {

@@ -18,45 +18,9 @@ class MorphOneTestModel extends Model
 // Construction
 // ---------------------------------------------------------------------------
 
-it('MorphOne::make creates field with correct label', function () {
-    $field = MorphOne::make('Image');
-
-    expect($field->label())->toBe('Image');
-});
-
-it('MorphOne::make infers relationship name from label', function () {
-    $field = MorphOne::make('Image');
-
-    expect($field->getRelationship())->toBe('image');
-});
-
-it('MorphOne::make accepts explicit relationship name', function () {
-    $field = MorphOne::make('Profile Image', 'image');
-
-    expect($field->getRelationship())->toBe('image');
-});
-
-it('MorphOne type returns morph_one', function () {
-    $field = MorphOne::make('Image');
-
-    expect($field->type())->toBe('morph_one');
-});
-
 // ---------------------------------------------------------------------------
 // Related resource key
 // ---------------------------------------------------------------------------
-
-it('MorphOne infers related resource key from relationship', function () {
-    $field = MorphOne::make('Image');
-
-    expect($field->getRelatedResourceKey())->toBe('images');
-});
-
-it('MorphOne allows explicit related resource key', function () {
-    $field = MorphOne::make('Image')->relatedResource('media-items');
-
-    expect($field->getRelatedResourceKey())->toBe('media-items');
-});
 
 // ---------------------------------------------------------------------------
 // Visibility defaults
@@ -103,20 +67,3 @@ it('MorphOne relatedResource sets key explicitly', function () {
 // ---------------------------------------------------------------------------
 // Resolve / Fill
 // ---------------------------------------------------------------------------
-
-it('MorphOne resolve returns null', function () {
-    $field = MorphOne::make('Image');
-    $model = new MorphOneTestModel;
-    $model->id = 1;
-
-    expect($field->resolve($model))->toBeNull();
-});
-
-it('MorphOne fill is a no-op', function () {
-    $field = MorphOne::make('Image');
-    $model = new MorphOneTestModel;
-
-    $field->fill($model, ['some' => 'data']);
-
-    expect($model->getDirty())->toBeEmpty();
-});

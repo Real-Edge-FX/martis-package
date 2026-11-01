@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, fireEvent, waitFor } from '@testing-library/react'
+import { render, fireEvent, waitFor, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ToastProvider } from '@/contexts/ToastContext'
@@ -194,5 +194,32 @@ describe('ActionModal on a lens', () => {
     fireEvent.click(document.body.querySelector('.martis-btn-primary') as HTMLElement)
     await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(1))
     expect(apiPostMock.mock.calls[0][0]).toBe('/api/resources/projects/lenses/overdue/actions/assign-owner')
+  })
+})
+
+describe('ActionModal confirmation text', () => {
+  const renderConfirm = (extra: Partial<ActionMeta>) =>
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ToastProvider>
+          <MemoryRouter>
+            <ActionModal resource="users" action={{ ...action, ...extra }} selectedIds={[3]} visible onHide={vi.fn()} onSuccess={vi.fn()} />
+          </MemoryRouter>
+        </ToastProvider>
+      </QueryClientProvider>,
+    )
+
+  // No locale is loaded in tests, so the default sentence shows as its key.
+  it('falls back to the default sentence (the confirm_run key) when the action sets no confirmText()', async () => {
+    renderConfirm({})
+
+    expect(await screen.findByText('confirm_run')).toBeTruthy()
+  })
+
+  it("shows the action's own confirmText() instead of the default", async () => {
+    renderConfirm({ confirmText: 'Open the customer in Stripe?' })
+
+    expect(await screen.findByText('Open the customer in Stripe?')).toBeTruthy()
+    expect(screen.queryByText('confirm_run')).toBeNull()
   })
 })

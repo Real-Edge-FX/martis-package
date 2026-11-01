@@ -171,7 +171,7 @@ it('every admin endpoint is registered when cache.admin_ui is enabled', function
     expect($names)->toContain('martis.api.cache.reset-override');
 });
 
-it('returns 401/403 when the user is anonymous', function () {
+it('returns 401 when the user is anonymous', function () {
     // No actingAs — the auth middleware kicks in.
     $this->getJson('/martis/api/cache')->assertStatus(401);
 });

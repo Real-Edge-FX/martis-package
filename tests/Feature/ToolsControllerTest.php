@@ -333,10 +333,14 @@ it('Tool::loadRoutes() registers a routes file under the standard prefix and mid
 });
 
 it('Tool::loadRoutes() silently skips missing files', function () {
+    $routeUris = fn (): array => collect(app('router')->getRoutes()->getRoutes())->map(fn ($r) => $r->uri())->sort()->values()->all();
+    $before = $routeUris();
+
     Martis::tools([new RoutesTool('/nonexistent/path/'.uniqid())]);
 
-    // Must not throw.
+    // Must not throw, and must not register anything for the tool.
     Martis::getFacadeRoot()?->bootTools();
 
-    expect(true)->toBeTrue();
+    expect($routeUris())->toBe($before)
+        ->and(collect($routeUris())->filter(fn (string $uri) => str_contains($uri, 'routes-tool')))->toBeEmpty();
 });

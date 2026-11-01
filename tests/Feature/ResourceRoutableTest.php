@@ -345,6 +345,15 @@ it('keeps the slug-check endpoint working for a non-routable resource', function
     $response->assertJsonPath('data.available', true);
 });
 
+it('keeps the peek endpoint working for a non-routable resource', function () {
+    $item = RoutableHeadlessModel::first();
+
+    $response = $this->getJson("/martis/api/resources/routable-headless-items/{$item->id}/peek");
+
+    $response->assertOk();
+    expect(json_encode($response->json()))->toContain('Headless One');
+});
+
 // ---------------------------------------------------------------------------
 // Excluded from listings: navigation, command palette, global search
 // ---------------------------------------------------------------------------

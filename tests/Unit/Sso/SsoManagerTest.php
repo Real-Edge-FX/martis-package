@@ -2,14 +2,17 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Martis\Sso\Contracts\SsoProviderContract;
+use Martis\Sso\IdentityResolver;
 use Martis\Sso\PermissionAdapters\CallableAdapter;
 use Martis\Sso\PermissionAdapters\NativeAdapter;
 use Martis\Sso\PermissionAdapters\SpatieAdapter;
 use Martis\Sso\Providers\AzureProvider;
+use Martis\Sso\RoleMapper;
 use Martis\Sso\SsoIdentity;
 use Martis\Sso\SsoManager;
 use Martis\Tests\TestCase;
@@ -147,12 +150,25 @@ it('hooks fire when manually invoked', function () {
 
 it('flushHooksForTesting wipes every registered closure', function () {
     $manager = new SsoManager;
+    $fired = [];
 
-    $manager->afterLogin(fn () => null);
-    $manager->onNoRoleMatchUsing(fn () => null);
-    $manager->resolveUserUsing(fn () => null);
-    $manager->resolveRolesUsing(fn () => null);
-    $manager->syncRolesUsing(fn () => null);
+    $manager->afterLogin(function () use (&$fired) {
+        $fired[] = 'afterLogin';
+    });
+    $manager->onNoRoleMatchUsing(function () use (&$fired) {
+        $fired[] = 'noRoleMatch';
+    });
+    $manager->resolveUserUsing(function () use (&$fired) {
+        $fired[] = 'resolveUser';
+    });
+    $manager->resolveRolesUsing(function () use (&$fired) {
+        $fired[] = 'resolveRoles';
+
+        return new Collection;
+    });
+    $manager->syncRolesUsing(function () use (&$fired) {
+        $fired[] = 'syncRoles';
+    });
 
     $manager->flushHooksForTesting();
 
@@ -160,12 +176,15 @@ it('flushHooksForTesting wipes every registered closure', function () {
     $userClass = config('auth.providers.users.model', User::class);
     $user = new $userClass;
 
-    // Nothing should fire after flush.
-    $afterCount = 0;
-    $manager->afterLogin(function () use (&$afterCount) {
-        $afterCount++;
-    });
-    $manager->flushHooksForTesting();
     $manager->fireAfterLogin($user, $identity, 'azure');
-    expect($afterCount)->toBe(0);
+    $manager->fireNoRoleMatch($identity, 'azure');
+    (new CallableAdapter)->syncRoles($user, new Collection);
+
+    // The resolvers need a database to run their built-in path, so read the slot.
+    foreach ([IdentityResolver::class, RoleMapper::class] as $class) {
+        $slot = new ReflectionProperty($class, 'resolver');
+        expect($slot->getValue())->toBeNull();
+    }
+
+    expect($fired)->toBe([]);
 });

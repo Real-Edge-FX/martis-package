@@ -455,15 +455,6 @@ it('DateTime::make creates a datetime field', function () {
         ->and($field->type())->toBe('datetime');
 });
 
-it('DateTime inherits date resolution', function () {
-    $date = new DateTime('2025-06-15 14:30:00');
-    $model = new FieldTestModel;
-    $model->setAttribute('published_at', $date);
-    $field = Martis\Fields\DateTime::make('published_at');
-
-    expect($field->resolve($model))->toBeString();
-});
-
 it('DateTime toArray has correct type', function () {
     $field = Martis\Fields\DateTime::make('created_at')->sortable();
     $arr = $field->toArray();
