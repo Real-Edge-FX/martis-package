@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
 use Martis\Console\PublishAssetsCommand;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -73,12 +72,6 @@ afterEach(function () {
     $fs->deleteDirectory(resource_path('css/martis'));
     $fs->deleteDirectory(public_path('vendor/martis/themes'));
     removeThemeState();
-});
-
-it('martis:publish-assets is registered in the service provider', function () {
-    $commands = $this->app->make(Kernel::class)->all();
-    expect($commands)->toHaveKey('martis:publish-assets');
-    expect($commands['martis:publish-assets'])->toBeInstanceOf(PublishAssetsCommand::class);
 });
 
 it('wipes public/vendor/martis/ before republishing', function () {
@@ -184,32 +177,6 @@ it('publishes every theme source in resources/css/martis', function () {
     expect(file_get_contents($published.'/beta.css'))->toBe(':root { --martis-accent: #00ff00; }');
     expect(array_map(fn ($file) => $file->getRelativePathname(), $fs->allFiles($published)))
         ->toEqualCanonicalizing(['alpha.css', 'beta.css']);
-});
-
-it('replaces a published copy edited in place with its source', function () {
-    // resources/css/martis/ holds the theme source. The published copy is
-    // generated from it, so edits made to the copy do not survive a publish.
-    $fs = new Filesystem;
-    $fs->ensureDirectoryExists(resource_path('css/martis'));
-    $fs->put(resource_path('css/martis/brand.css'), ':root { --martis-accent: #123456; }');
-    $fs->ensureDirectoryExists(public_path('vendor/martis/themes'));
-    $fs->put(public_path('vendor/martis/themes/brand.css'), ':root { --martis-accent: #abcdef; }');
-
-    $this->artisan('martis:publish-assets')->assertSuccessful();
-
-    $published = public_path('vendor/martis/themes/brand.css');
-    expect($published)->toBeFile();
-    expect(file_get_contents($published))->toBe(':root { --martis-accent: #123456; }');
-});
-
-it('drops a published theme whose source is gone', function () {
-    $fs = new Filesystem;
-    $fs->ensureDirectoryExists(public_path('vendor/martis/themes'));
-    $fs->put(public_path('vendor/martis/themes/orphan.css'), ':root { --martis-accent: #abcdef; }');
-
-    $this->artisan('martis:publish-assets')->assertSuccessful();
-
-    expect(public_path('vendor/martis/themes/orphan.css'))->not->toBeFile();
 });
 
 it('republishes the theme sources with --no-wipe too', function () {

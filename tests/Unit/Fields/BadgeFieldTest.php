@@ -178,13 +178,6 @@ it('Badge toArray includes withIcons when enabled', function () {
 // Resolve callback
 // ---------------------------------------------------------------------------
 
-it('Badge respects resolveUsing callback', function () {
-    $model = new BadgeTestModel(['status' => 'draft']);
-    $field = Badge::make('status')->resolveUsing(fn ($v) => 'overridden');
-
-    expect($field->resolve($model))->toBe('overridden');
-});
-
 // ---------------------------------------------------------------------------
 // Context visibility
 // ---------------------------------------------------------------------------

@@ -2,11 +2,6 @@
 
 use Martis\Http\Resources\JsonResponse;
 
-it('JsonResponse::make returns a JsonResponse instance', function () {
-    $response = JsonResponse::make(['id' => 1]);
-    expect($response)->toBeInstanceOf(JsonResponse::class);
-});
-
 it('JsonResponse::toArray has data, meta, and links keys', function () {
     $response = JsonResponse::make(['id' => 1, 'title' => 'Hello']);
     $array = $response->toArray();

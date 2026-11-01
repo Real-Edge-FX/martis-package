@@ -1148,7 +1148,7 @@ Per-type feature tests:
 - `tests/Feature/MorphOneControllerTest.php` (13)
 - `tests/Feature/MorphToManyControllerTest.php` (18)
 - `tests/Feature/PivotActionControllerTest.php` (27) — pivot actions on `BelongsToMany` and `MorphToMany` panels: listing, fields and run, the field's `actions()` against the resource's `pivotAction()`, `{relationship}` resolved only to a declared field of the route's type, and the view / `canSee()` / `canRun()` gates.
-- `tests/Feature/RelationshipsHardeningTest.php` (8) — multi-relation isolation, `relatableQueryUsing`, `relatable{PluralModelName}`, detach idempotency, search.
+- `tests/Feature/RelationshipsHardeningTest.php` (7) — multi-relation isolation, `relatableQueryUsing`, `relatable{PluralModelName}`, detach idempotency, search.
 - `tests/Feature/RelationshipFieldRulesTest.php` (61) — every kind of field rule and the context rules on each write endpoint, next to the resource endpoint they match.
 - `tests/Feature/RelationshipImmutableFieldsTest.php` (10) — `immutable()` on each inline create and update, next to the resource endpoint they match.
 - `tests/Feature/PivotReadonlyImmutableFieldsTest.php` (24) — `readonly()` and `immutable()` pivot fields on the attach (single and batch) and the pivot update, next to the resource endpoint they match, plus a pivot update with nothing to write.

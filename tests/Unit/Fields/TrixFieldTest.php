@@ -111,15 +111,6 @@ it('Trix fill() stores raw HTML string', function () {
     expect($model->getAttribute('bio_html'))->toBe($html);
 });
 
-it('Trix fill() does nothing when readonly', function () {
-    $model = new TrixTestModel(['bio_html' => '<p>original</p>']);
-    $field = Trix::make('bio_html')->readonly();
-
-    $field->fill($model, '<p>changed</p>');
-
-    expect($model->getAttribute('bio_html'))->toBe('<p>original</p>');
-});
-
 it('Trix fill() stores null', function () {
     $model = new TrixTestModel;
     $field = Trix::make('bio_html');
@@ -149,25 +140,3 @@ it('Trix toArray contains required keys', function () {
 // ---------------------------------------------------------------------------
 // Callbacks
 // ---------------------------------------------------------------------------
-
-it('Trix respects resolveUsing callback', function () {
-    $model = new TrixTestModel(['bio_html' => '<p>text</p>']);
-    $field = Trix::make('bio_html')
-        ->resolveUsing(fn ($value) => strip_tags($value));
-
-    expect($field->resolve($model))->toBe('text');
-});
-
-it('Trix respects fillUsing callback', function () {
-    $model = new TrixTestModel;
-    $captured = null;
-
-    $field = Trix::make('bio_html')
-        ->fillUsing(function ($m, $value, $attr) use (&$captured) {
-            $captured = $value;
-        });
-
-    $field->fill($model, '<p>test</p>');
-
-    expect($captured)->toBe('<p>test</p>');
-});

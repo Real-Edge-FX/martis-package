@@ -46,6 +46,8 @@ it('lets a fillUsing() callback ignore the posted value and write the server-sid
     expect($model->tenant_id)->toBe(7);
 });
 
+// A security finding: the docs once recommended Hidden for tenant and owner
+// ids, which the client can change. These pin the warning that replaced it.
 it('says in its docblock that a Hidden value is client-controlled and where to set tenant and owner columns', function () {
     // The docblock wraps its lines: compare the words, not the line breaks.
     $docblock = (string) preg_replace('/\s*\n\s*\*\s*/', ' ', (string) (new ReflectionClass(Hidden::class))->getDocComment());

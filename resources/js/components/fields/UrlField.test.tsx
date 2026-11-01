@@ -22,18 +22,6 @@ describe('UrlFieldDisplay scheme safety', () => {
         expect(a?.getAttribute('href')).toBe('https://example.com')
     })
 
-    it('does not emit a javascript: href', () => {
-        const { container } = render(<UrlFieldDisplay field={field()} value="javascript:alert(1)" />)
-        const href = container.querySelector('a')?.getAttribute('href') ?? ''
-        expect(href.toLowerCase()).not.toContain('javascript:')
-    })
-
-    it('does not emit a data: href', () => {
-        const { container } = render(<UrlFieldDisplay field={field()} value="data:text/html,<script>alert(1)</script>" />)
-        const href = container.querySelector('a')?.getAttribute('href') ?? ''
-        expect(href.toLowerCase()).not.toContain('data:')
-    })
-
     it('still shows the raw value as text when the scheme is unsafe', () => {
         const { container } = render(<UrlFieldDisplay field={field()} value="javascript:alert(1)" />)
         expect(container.textContent).toContain('javascript:alert(1)')

@@ -45,6 +45,9 @@ interface Picker {
   open: (container: HTMLElement) => void
 }
 
+// Each picker's own page size while its list is searchable.
+const PER_PAGE: Record<string, string> = { BelongsTo: '20', MorphTo: '20', Tag: '30' }
+
 const pickers: Record<string, Picker> = {
   BelongsTo: {
     Input: BelongsToFieldInput,
@@ -170,6 +173,6 @@ describe.each(Object.entries(pickers))('%s picker relatable endpoint', (_name, p
     expect(url.pathname).toBe(`/api/resources/projects/7/relatable/${attribute}`)
     expect(url.searchParams.get('repeater')).toBe('lines')
     expect(url.searchParams.get('repeatable')).toBe('product-line')
-    expect(url.searchParams.get('per_page')).not.toBeNull()
+    expect(url.searchParams.get('per_page')).toBe(PER_PAGE[_name])
   })
 })

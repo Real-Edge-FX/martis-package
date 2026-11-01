@@ -401,22 +401,8 @@ it('rejects attach without related_id', function () {
     );
 
     $response->assertStatus(422);
-});
-
-it('returns 404 for unknown parent resource on morph-to-many', function () {
-    $response = $this->getJson('/martis/api/resources/nonexistent/1/morph-to-many/tags');
-    $response->assertStatus(404);
-});
-
-it('returns 404 for unknown parent record on morph-to-many', function () {
-    $response = $this->getJson('/martis/api/resources/m-t-m-post-models/99999/morph-to-many/tags');
-    $response->assertStatus(404);
-});
-
-it('returns 404 for unknown morph-to-many relationship name', function () {
-    $post = MTMPostModel::create(['title' => 'Post']);
-    $response = $this->getJson("/martis/api/resources/m-t-m-post-models/{$post->id}/morph-to-many/nonexistent");
-    $response->assertStatus(404);
+    $response->assertJsonPath('errors.0.field', 'related_id');
+    expect(DB::table('mtm_test_taggables')->count())->toBe(0);
 });
 
 /**
@@ -458,4 +444,25 @@ it('resolves the morph-to-many index endpoint when the field sits inside a Secti
 
     $response->assertStatus(200);
     expect($response->json('meta.total'))->toBe(2);
+});
+
+// ---------------------------------------------------------------------------
+// Error handling: the controller resolves the parent resource, then the
+// parent record, then the relationship; each miss answers 404.
+// ---------------------------------------------------------------------------
+
+it('returns 404 for unknown parent resource on morph-to-many', function () {
+    $response = $this->getJson('/martis/api/resources/nonexistent/1/morph-to-many/tags');
+    $response->assertStatus(404);
+});
+
+it('returns 404 for unknown parent record on morph-to-many', function () {
+    $response = $this->getJson('/martis/api/resources/m-t-m-post-models/99999/morph-to-many/tags');
+    $response->assertStatus(404);
+});
+
+it('returns 404 for unknown morph-to-many relationship name', function () {
+    $post = MTMPostModel::create(['title' => 'Post']);
+    $response = $this->getJson("/martis/api/resources/m-t-m-post-models/{$post->id}/morph-to-many/nonexistent");
+    $response->assertStatus(404);
 });

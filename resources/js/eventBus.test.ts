@@ -115,8 +115,16 @@ describe('EventBus', () => {
     consoleSpy.mockRestore()
   })
 
-  it('exports a singleton martisEventBus', () => {
-    expect(martisEventBus).toBeInstanceOf(EventBus)
+  it('shares one martisEventBus between every importer', async () => {
+    const again = (await import('@/lib/eventBus')).martisEventBus
+    const handler = vi.fn()
+
+    martisEventBus.on('martis:test-singleton' as keyof EventBusEvents, handler as never)
+    again.emit('martis:test-singleton' as keyof EventBusEvents, undefined as never)
+
+    expect(again).toBe(martisEventBus)
+    expect(handler).toHaveBeenCalledTimes(1)
+    martisEventBus.off('martis:test-singleton' as keyof EventBusEvents, handler as never)
   })
 
   it('types the payload of a built-in event for on, once and off', () => {
