@@ -2,14 +2,17 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Martis\Sso\Contracts\SsoProviderContract;
+use Martis\Sso\IdentityResolver;
 use Martis\Sso\PermissionAdapters\CallableAdapter;
 use Martis\Sso\PermissionAdapters\NativeAdapter;
 use Martis\Sso\PermissionAdapters\SpatieAdapter;
 use Martis\Sso\Providers\AzureProvider;
+use Martis\Sso\RoleMapper;
 use Martis\Sso\SsoIdentity;
 use Martis\Sso\SsoManager;
 use Martis\Tests\TestCase;
@@ -161,7 +164,7 @@ it('flushHooksForTesting wipes every registered closure', function () {
     $manager->resolveRolesUsing(function () use (&$fired) {
         $fired[] = 'resolveRoles';
 
-        return new Illuminate\Database\Eloquent\Collection;
+        return new Collection;
     });
     $manager->syncRolesUsing(function () use (&$fired) {
         $fired[] = 'syncRoles';
@@ -175,10 +178,10 @@ it('flushHooksForTesting wipes every registered closure', function () {
 
     $manager->fireAfterLogin($user, $identity, 'azure');
     $manager->fireNoRoleMatch($identity, 'azure');
-    (new CallableAdapter)->syncRoles($user, new Illuminate\Database\Eloquent\Collection);
+    (new CallableAdapter)->syncRoles($user, new Collection);
 
     // The resolvers need a database to run their built-in path, so read the slot.
-    foreach ([Martis\Sso\IdentityResolver::class, Martis\Sso\RoleMapper::class] as $class) {
+    foreach ([IdentityResolver::class, RoleMapper::class] as $class) {
         $slot = new ReflectionProperty($class, 'resolver');
         expect($slot->getValue())->toBeNull();
     }

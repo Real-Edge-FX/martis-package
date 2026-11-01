@@ -287,7 +287,13 @@ describe('canSeeUsingPolicy', function (): void {
     it('asks the Gate for an authenticated user', function (): void {
         $field = Text::make('secret')->canSeeUsingPolicy('viewGuestProbe');
         $request = Request::create('/');
-        $request->setUserResolver(fn () => new class { public function can(string $ability, mixed $model): bool { return $ability === 'viewGuestProbe'; } });
+        $request->setUserResolver(fn () => new class
+        {
+            public function can(string $ability, mixed $model): bool
+            {
+                return $ability === 'viewGuestProbe';
+            }
+        });
 
         expect($field->isAuthorizedForModel($request, new class extends Model {}))->toBeTrue();
     });
