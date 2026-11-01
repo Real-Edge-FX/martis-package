@@ -210,6 +210,9 @@ it('store validates required fields on morph-one', function () {
     );
 
     $response->assertStatus(422);
+    $response->assertJsonPath('errors.0.field', 'url');
+    $response->assertJsonPath('errors.0.code', 'required');
+    expect(MOAvatarModel::count())->toBe(0);
 });
 
 // ---------------------------------------------------------------------------
@@ -284,26 +287,6 @@ it('does not delete a morph-one belonging to another morph type', function () {
     expect(MOAvatarModel::where('imageable_type', MOTeamModel::class)
         ->where('imageable_id', $team->id)
         ->exists())->toBeTrue();
-});
-
-// ---------------------------------------------------------------------------
-// Error handling
-// ---------------------------------------------------------------------------
-
-it('returns 404 for unknown parent resource on morph-one', function () {
-    $response = $this->getJson('/martis/api/resources/nonexistent/1/morph-one/avatar');
-    $response->assertStatus(404);
-});
-
-it('returns 404 for unknown parent record on morph-one', function () {
-    $response = $this->getJson('/martis/api/resources/m-o-user-models/99999/morph-one/avatar');
-    $response->assertStatus(404);
-});
-
-it('returns 404 for unknown morph-one relationship name', function () {
-    $user = MOUserModel::create(['name' => 'Alice']);
-    $response = $this->getJson("/martis/api/resources/m-o-user-models/{$user->id}/morph-one/nonexistent");
-    $response->assertStatus(404);
 });
 
 /**

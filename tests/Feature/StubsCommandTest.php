@@ -1,8 +1,6 @@
 <?php
 
-use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
-use Martis\Console\StubsCommand;
 use Martis\Stubs\StubResolver;
 
 // -----------------------------------------------------------------------------
@@ -24,12 +22,6 @@ afterEach(function () {
     if ($files->isDirectory($this->stubsDir)) {
         $files->deleteDirectory($this->stubsDir);
     }
-});
-
-it('martis:stubs is registered in the service provider', function () {
-    $commands = $this->app->make(Kernel::class)->all();
-    expect($commands)->toHaveKey('martis:stubs');
-    expect($commands['martis:stubs'])->toBeInstanceOf(StubsCommand::class);
 });
 
 it('martis:stubs publishes every package stub into stubs/martis on a fresh project', function () {

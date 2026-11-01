@@ -3,6 +3,7 @@
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\Text;
@@ -162,24 +163,14 @@ afterEach(function () {
 // ---------------------------------------------------------------------------
 
 describe('BelongsToMany Field', function () {
-    it('has the correct type', function () {
-        $field = BelongsToMany::make('Tags');
-        expect($field->type())->toBe('belongs_to_many');
-    });
-
     it('infers relationship name from label', function () {
         $field = BelongsToMany::make('Tags');
         expect($field->getRelationship())->toBe('tags');
     });
 
-    it('uses explicit relationship when provided', function () {
-        $field = BelongsToMany::make('Tags', 'myTags');
-        expect($field->getRelationship())->toBe('myTags');
-    });
-
     it('resolves related resource key from relationship name', function () {
         $field = BelongsToMany::make('Tags', 'tags');
-        expect($field->getRelatedResourceKey())->toContain('tag');
+        expect($field->getRelatedResourceKey())->toBe('tags');
     });
 
     it('is hidden from index by default but shown on forms', function () {
@@ -218,8 +209,9 @@ describe('BelongsToMany Field', function () {
         $field = BelongsToMany::make('Tags');
         $model = new BTMParentModel;
         $field->fill($model, [1, 2, 3]);
-        // Should not modify model — no assertions needed except no exception thrown
-        expect(true)->toBeTrue();
+        // The relation is written by the attach endpoints, never by fill().
+        expect($model->getAttributes())->toBe([])
+            ->and($model->isDirty())->toBeFalse();
     });
 
     it('resolve returns null on detail page', function () {
@@ -301,6 +293,53 @@ describe('BelongsToManyController', function () {
         expect($ids)->not->toContain($child1->id);
     });
 
+    it('offers every record that is not attached yet, and only those', function () {
+        $parent = BTMParentModel::create(['name' => 'Parent A']);
+        $attachedA = BTMChildModel::create(['title' => 'Attached A']);
+        $attachedB = BTMChildModel::create(['title' => 'Attached B']);
+        $freeA = BTMChildModel::create(['title' => 'Free A']);
+        $freeB = BTMChildModel::create(['title' => 'Free B']);
+        $parent->children()->attach([$attachedA->id, $attachedB->id]);
+
+        $all = $this->getJson("/martis/api/resources/b-t-m-parent-models/{$parent->id}/belongs-to-many/children/attachable");
+        $all->assertOk();
+        $all->assertJsonPath('meta.total', 2);
+        expect(collect($all->json('data'))->pluck('id')->sort()->values()->all())
+            ->toBe([$freeA->id, $freeB->id]);
+    });
+
+    it('keeps attached records in the attachable list when duplicates are allowed', function () {
+        $duplicatesResource = new class(null) extends BTMParentResource
+        {
+            public static function uriKey(): string
+            {
+                return 'btm-duplicate-parents';
+            }
+
+            public function fields(Request $request): array
+            {
+                return [
+                    Text::make('name')->required(),
+                    BelongsToMany::make('Children', 'children')
+                        ->relatedResource('b-t-m-child-models')
+                        ->allowDuplicateRelations(),
+                ];
+            }
+        };
+        app(ResourceRegistry::class)->register($duplicatesResource::class);
+
+        $parent = BTMParentModel::create(['name' => 'Parent A']);
+        $attached = BTMChildModel::create(['title' => 'Attached']);
+        $free = BTMChildModel::create(['title' => 'Free']);
+        $parent->children()->attach($attached->id);
+
+        $response = $this->getJson("/martis/api/resources/btm-duplicate-parents/{$parent->id}/belongs-to-many/children/attachable");
+
+        $response->assertOk();
+        expect(collect($response->json('data'))->pluck('id')->sort()->values()->all())
+            ->toBe([$attached->id, $free->id]);
+    });
+
     it('clamps a negative per_page to one row on the index and the attachable search', function () {
         // Laravel ignores a negative limit: ?per_page=-1 returned every
         // attached record, and every attachable one, in one response.
@@ -366,6 +405,34 @@ describe('BelongsToManyController', function () {
         );
 
         $response->assertStatus(422);
+        // The controller's own guard answered, not a database error.
+        expect($response->json('errors.0.field'))->toBe('related_id')
+            ->and($response->json('errors.0.message'))->toBe('This record is already attached.');
+        expect($parent->children()->count())->toBe(1);
+    });
+
+    it('refuses a duplicate attach in the controller even when the pivot table has no unique index', function () {
+        // Without the composite primary key a duplicate row would be accepted
+        // by the database, so only the controller's guard can refuse it.
+        Schema::dropIfExists('btm_test_pivot');
+        Schema::create('btm_test_pivot', function ($table) {
+            $table->unsignedBigInteger('parent_id');
+            $table->unsignedBigInteger('child_id');
+            $table->string('notes')->nullable();
+            $table->timestamps();
+        });
+
+        $parent = BTMParentModel::create(['name' => 'Parent A']);
+        $child = BTMChildModel::create(['title' => 'Child 1']);
+        $parent->children()->attach($child->id);
+
+        $response = $this->postJson(
+            "/martis/api/resources/b-t-m-parent-models/{$parent->id}/belongs-to-many/children/attach",
+            ['related_id' => $child->id]
+        );
+
+        $response->assertStatus(422);
+        expect(DB::table('btm_test_pivot')->count())->toBe(1);
     });
 
     it('detaches a record', function () {

@@ -25,17 +25,29 @@ use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Http\RouteMiddleware;
 use Martis\MartisServiceProvider;
 
-it('routes are NOT registered when MARTIS_API_DOCS_ENABLED is false', function () {
+it('registers no docs route when MARTIS_API_DOCS_ENABLED is false, and both of them when it is true', function () {
+    $docsUris = function (): array {
+        Route::getRoutes()->refreshNameLookups();
+
+        return collect(Route::getRoutes()->getRoutes())
+            ->map(fn ($route) => $route->uri())
+            ->intersect(['martis/api-docs', 'martis/api-docs.json'])
+            ->sort()
+            ->values()
+            ->all();
+    };
+    $boot = function (): void {
+        $provider = new MartisServiceProvider(app());
+        (new ReflectionMethod($provider, 'registerApiDocs'))->invoke($provider);
+    };
+
     config()->set('martis.api_docs.enabled', false);
+    $boot();
+    expect($docsUris())->toBe([]);
 
-    // Re-trigger the boot path that registers the route. In practice
-    // the app boots once, so the routes will already reflect whatever
-    // the env was at boot. Here we assert by inspecting the route
-    // collection — if the docs surface registered, the route would
-    // appear under the Martis prefix.
-    $hasUi = Route::getRoutes()->getRoutesByName()['scramble.docs.ui.default'] ?? null;
-
-    expect(config('martis.api_docs.enabled'))->toBeFalse();
+    config()->set('martis.api_docs.enabled', true);
+    $boot();
+    expect($docsUris())->toBe(['martis/api-docs', 'martis/api-docs.json']);
 });
 
 it('config defaults are sane out of the box', function () {
@@ -50,14 +62,6 @@ it('config defaults are sane out of the box', function () {
 
     // Null: the Martis protected stack (RouteMiddleware::apiDocs()).
     expect(config('martis.api_docs.middleware'))->toBeNull();
-});
-
-it('only enables api docs when env flag is true', function () {
-    config()->set('martis.api_docs.enabled', false);
-    expect(config('martis.api_docs.enabled'))->toBeFalse();
-
-    config()->set('martis.api_docs.enabled', true);
-    expect(config('martis.api_docs.enabled'))->toBeTrue();
 });
 
 it('Scramble default routes are suppressed when our package is registered', function () {

@@ -599,6 +599,8 @@ it('P05 parent index still answers when the related indexQuery() selects its own
     RSHItemResource::$hook = fn (Builder $q) => $q->select($q->qualifyColumn('*'));
     $r = $this->getJson('/martis/api/resources/rsh-owners');
     $r->assertOk();
+    $rows = collect($r->json('data'))->keyBy('name');
+    expect($rows['Owner A']['items'])->toBe(1)->and($rows['Owner B']['items'])->toBe(1);
 });
 
 it('P06 parent index counts stay per parent when the related indexQuery() joins the parent table', function () {
@@ -625,6 +627,8 @@ it('P05b a panel still answers when its related rows count a relation whose inde
     RSHLikeResource::$hook = fn (Builder $q) => $q->select($q->qualifyColumn('*'));
     $r = rshPanel('has-many/items');
     $r->assertOk();
+    // The item keeps its own like count while the like resource's hook selects.
+    expect(collect($r->json('data'))->map(fn (array $row) => [$row['title'], $row['likes']])->all())->toBe([['A1', 1]]);
 });
 
 // ---------------------------------------------------------------------
@@ -635,12 +639,14 @@ it('P07a through panel answers with the documented unqualified tenant scope', fu
     RSHItemResource::$scopeHooks = ['tenant' => fn (Builder $q) => $q->where('tenant', 't1')];
     $r = rshPanel('has-many/groupItems');
     $r->assertOk();
+    expect(collect($r->json('data'))->pluck('title')->all())->toBe(['A1']);
 });
 
 it('P07b pivot panel answers with the documented unqualified tenant scope', function () {
     RSHTagResource::$scopeHooks = ['tenant' => fn (Builder $q) => $q->where('tenant', 't1')];
     $r = rshPanel('belongs-to-many/tags');
     $r->assertOk();
+    expect(collect($r->json('data'))->pluck('title')->all())->toBe(['A-tag']);
 });
 
 it('P07c parent index answers with the documented unqualified tenant scope on a counted Through/pivot field', function () {
@@ -648,18 +654,24 @@ it('P07c parent index answers with the documented unqualified tenant scope on a 
     RSHTagResource::$scopeHooks = ['tenant' => fn (Builder $q) => $q->where('tenant', 't1')];
     $r = $this->getJson('/martis/api/resources/rsh-owners');
     $r->assertOk();
+    $rows = collect($r->json('data'))->keyBy('name');
+    foreach (['Owner A', 'Owner B'] as $owner) {
+        expect([$rows[$owner]['items'], $rows[$owner]['groupItems'], $rows[$owner]['tags']])->toBe([1, 1, 1]);
+    }
 });
 
 it('P08a pivot panel answers when the related indexQuery() orders with latest()', function () {
     RSHTagResource::$hook = fn (Builder $q) => $q->latest();
     $r = rshPanel('belongs-to-many/tags');
     $r->assertOk();
+    expect(collect($r->json('data'))->pluck('title')->all())->toBe(['A-tag']);
 });
 
 it('P08b through panel answers when the related indexQuery() orders with latest()', function () {
     RSHItemResource::$hook = fn (Builder $q) => $q->latest();
     $r = rshPanel('has-many/groupItems');
     $r->assertOk();
+    expect(collect($r->json('data'))->pluck('title')->all())->toBe(['A1']);
 });
 
 it('P08c has-many panel: the indexQuery() order comes first, as on the index', function () {

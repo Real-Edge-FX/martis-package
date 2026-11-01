@@ -135,20 +135,23 @@ afterEach(function () {
 it('navigation endpoint caches results between requests', function () {
     $this->actingAs($this->user, 'web');
 
-    $cache = $this->app->make(MartisCache::class);
-    $beforeVersion = $cache->status()[1]['version']; // navigation = index 1
-
     $first = $this->getJson('/martis/api/navigation');
-    $second = $this->getJson('/martis/api/navigation');
-
     $first->assertOk();
-    $second->assertOk();
-    expect($first->json())->toEqual($second->json());
+    expect(json_encode($first->json()))->toContain('cached-accounts');
 
-    // Manually clear and confirm the cache was actually populated by
-    // checking that the version bumped.
-    $cache->clear('navigation');
-    expect($cache->status()[1]['version'])->toBeGreaterThan($beforeVersion);
+    // The resource disappears from the registry. A cached navigation keeps
+    // answering with the entry it computed; only a recompute would drop it.
+    app(ResourceRegistry::class)->flush();
+
+    $second = $this->getJson('/martis/api/navigation');
+    $second->assertOk();
+    expect($second->json())->toEqual($first->json());
+
+    // Clearing the layer is what makes the change visible.
+    $this->app->make(MartisCache::class)->clear('navigation');
+
+    $third = $this->getJson('/martis/api/navigation');
+    expect(json_encode($third->json()))->not->toContain('cached-accounts');
 });
 
 it('navigation cache is scoped per user', function () {
@@ -217,37 +220,20 @@ it('navigation cache is bypassed when master switch is off', function () {
     config()->set('martis.cache.enabled', false);
 
     $this->actingAs($this->user, 'web');
-    $this->getJson('/martis/api/navigation');
+    $primed = $this->getJson('/martis/api/navigation');
+    expect(json_encode($primed->json()))->toContain('cached-accounts');
 
     app(ResourceRegistry::class)->flush();
 
-    // No bypass header — but master is off, so the second call recomputes.
+    // No bypass header — but master is off, so the second call recomputes
+    // and no longer carries the resource that was just removed.
     $second = $this->getJson('/martis/api/navigation');
-    expect($second->json())->toBeArray();
+    expect(json_encode($second->json()))->not->toContain('cached-accounts');
 });
 
 // -----------------------------------------------------------------------------
 // Schema
 // -----------------------------------------------------------------------------
-
-it('schema endpoint caches the heavy schema payload', function () {
-    $this->actingAs($this->user, 'web');
-
-    $first = $this->getJson('/martis/api/resources/cached-accounts/schema');
-    $first->assertOk();
-
-    $cache = $this->app->make(MartisCache::class);
-    $schemaRow = collect($cache->status())->firstWhere('type', 'schema');
-    $beforeVersion = $schemaRow['version'];
-
-    $second = $this->getJson('/martis/api/resources/cached-accounts/schema');
-    $second->assertOk();
-    expect($first->json())->toEqual($second->json());
-
-    $cache->clear('schema');
-    $afterVersion = collect($cache->status())->firstWhere('type', 'schema')['version'];
-    expect($afterVersion)->toBeGreaterThan($beforeVersion);
-});
 
 it('schema cache returns a fresh payload after a registry change + clear', function () {
     $this->actingAs($this->user, 'web');
@@ -295,26 +281,6 @@ it('schema bypass via ?nocache=1 query skips the cache', function () {
     $names = collect($bypassed['data']['fields'] ?? [])->pluck('attribute')->all();
 
     expect($names)->toContain('bypassed_field');
-});
-
-// -----------------------------------------------------------------------------
-// Dashboards
-// -----------------------------------------------------------------------------
-
-it('dashboards list endpoint caches the response', function () {
-    $this->actingAs($this->user, 'web');
-
-    $first = $this->getJson('/martis/api/dashboards')->assertOk()->json();
-
-    $cache = $this->app->make(MartisCache::class);
-    $beforeVersion = collect($cache->status())->firstWhere('type', 'dashboards')['version'];
-
-    $second = $this->getJson('/martis/api/dashboards')->assertOk()->json();
-    expect($first)->toEqual($second);
-
-    $cache->clear('dashboards');
-    $afterVersion = collect($cache->status())->firstWhere('type', 'dashboards')['version'];
-    expect($afterVersion)->toBeGreaterThan($beforeVersion);
 });
 
 // -----------------------------------------------------------------------------

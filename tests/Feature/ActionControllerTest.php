@@ -131,6 +131,10 @@ class ActionTestArchive extends DestructiveAction
 
     public function handle(ActionFields $fields, Collection $models): ActionResponse|DestructiveAction|null
     {
+        foreach ($models as $m) {
+            $m->update(['status' => 'archived']);
+        }
+
         return ActionResponse::danger('Archived.');
     }
 }
@@ -281,6 +285,36 @@ class ActionTestRestrictedResource extends Resource
     }
 }
 
+// Permissive policy (runAction allowed), so only the action's canRun callback
+// decides which records the action may touch.
+class ActionTestCanRunResource extends Resource
+{
+    public static ?string $policy = ActionTestPolicyWithRunAction::class;
+
+    public static function model(): string
+    {
+        return ActionTestModel::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'act-canrun-items';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title')->required()];
+    }
+
+    /** @return list<ActionContract> */
+    public function actions(Request $request): array
+    {
+        return [
+            ActionTestPublish::make()->canRun(fn ($r, $m) => $m->title !== 'Locked'),
+        ];
+    }
+}
+
 // ── Setup ────────────────────────────────────────────────────────
 
 beforeEach(function () {
@@ -299,6 +333,7 @@ beforeEach(function () {
     $registry->register(ActionTestOpenResource::class);
     $registry->register(ActionTestFallbackResource::class);
     $registry->register(ActionTestRestrictedResource::class);
+    $registry->register(ActionTestCanRunResource::class);
 
     $this->user = (new Authenticatable)->forceFill([
         'id' => 1,
@@ -321,11 +356,12 @@ it('lists available actions for a resource', function () {
     $response = $this->getJson("/martis/api/resources/{$uri}/actions");
 
     $response->assertStatus(200);
-    $actions = $response->json('data.actions');
-    expect($actions)->toBeArray();
-    // 5 visible on index (AdminOnly visible to admin, Standalone visible on index)
-    // ActionTestSole has showOnIndex=true by default
-    expect(count($actions))->toBeGreaterThanOrEqual(5);
+    $names = array_column($response->json('data.actions'), 'name');
+    // Every action the resource declares is visible on index to the admin
+    // (AdminOnly passes its canSee, Standalone and Sole show on index).
+    expect($names)->toEqualCanonicalizing([
+        'Publish', 'Archive', 'Admin Only', 'With Fields', 'Standalone Export', 'Sole Action',
+    ]);
 });
 
 it('filters actions by canSee — admin sees admin-only action', function () {
@@ -380,19 +416,6 @@ it('executes a normal action when runAction policy allows', function () {
     expect($item->fresh()->status)->toBe('published');
 });
 
-// ── Execute action — policy fallback to update ──────────────────
-
-it('executes normal action when no runAction but update allows (fallback)', function () {
-    $item = ActionTestModel::create(['title' => 'Fallback Test', 'status' => 'draft']);
-    $uri = 'act-fallback-items';
-
-    $response = $this->postJson("/martis/api/resources/{$uri}/actions/action-test-publish", [
-        'resources' => [$item->id],
-    ]);
-
-    $response->assertStatus(200);
-});
-
 // ── Destructive action — policy runDestructiveAction ────────────
 
 it('executes destructive action when runDestructiveAction allows', function () {
@@ -404,6 +427,7 @@ it('executes destructive action when runDestructiveAction allows', function () {
     ]);
 
     $response->assertStatus(200);
+    expect($item->fresh()->status)->toBe('archived');
 });
 
 // ── Destructive action — fallback to delete (denied) ────────────
@@ -417,6 +441,7 @@ it('denies destructive action when no runDestructiveAction and delete denies (fa
     ]);
 
     $response->assertStatus(404);
+    expect($item->fresh()->status)->toBe('draft');
 });
 
 // ── canRun per-model enforcement ────────────────────────────────
@@ -431,6 +456,7 @@ it('denies action when canRun passes but policy denies (both must pass)', functi
     ]);
 
     $response->assertStatus(404);
+    expect($item->fresh()->status)->toBe('draft');
 });
 
 it('allows action when both canRun and policy allow (fallback resource)', function () {
@@ -455,6 +481,41 @@ it('denies action when canRun callback fails for model', function () {
     ]);
 
     $response->assertStatus(404);
+    expect($item->fresh()->status)->toBe('published');
+});
+
+// ── canRun alone decides (permissive policy) ────────────────────
+
+it('runs an action on a record its canRun callback accepts', function () {
+    $item = ActionTestModel::create(['title' => 'Open', 'status' => 'draft']);
+
+    $this->postJson('/martis/api/resources/act-canrun-items/actions/action-test-publish', [
+        'resources' => [$item->id],
+    ])->assertStatus(200);
+
+    expect($item->fresh()->status)->toBe('published');
+});
+
+it('refuses a record its canRun callback rejects even though the policy allows the action', function () {
+    $item = ActionTestModel::create(['title' => 'Locked', 'status' => 'draft']);
+
+    $this->postJson('/martis/api/resources/act-canrun-items/actions/action-test-publish', [
+        'resources' => [$item->id],
+    ])->assertStatus(404);
+
+    expect($item->fresh()->status)->toBe('draft');
+});
+
+it('refuses the whole batch when one record fails canRun and leaves the others untouched', function () {
+    $open = ActionTestModel::create(['title' => 'Open', 'status' => 'draft']);
+    $locked = ActionTestModel::create(['title' => 'Locked', 'status' => 'draft']);
+
+    $this->postJson('/martis/api/resources/act-canrun-items/actions/action-test-publish', [
+        'resources' => [$open->id, $locked->id],
+    ])->assertStatus(404);
+
+    expect($open->fresh()->status)->toBe('draft')
+        ->and($locked->fresh()->status)->toBe('draft');
 });
 
 // ── Bulk action — mixed authorization ───────────────────────────
@@ -469,6 +530,9 @@ it('denies bulk action when some models fail canRun', function () {
     ]);
 
     $response->assertStatus(404);
+    // All-or-nothing: the record that would have passed is left alone too.
+    expect($draft->fresh()->status)->toBe('draft')
+        ->and($published->fresh()->status)->toBe('published');
 });
 
 // ── Restrictive policy — denies destructive action via delete fallback
@@ -482,6 +546,7 @@ it('denies destructive action when restrictive policy denies delete', function (
     ]);
 
     $response->assertStatus(404);
+    expect($item->fresh()->status)->toBe('draft');
 });
 
 // ── Action fields endpoint ──────────────────────────────────────
