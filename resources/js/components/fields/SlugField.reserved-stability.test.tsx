@@ -129,10 +129,10 @@ describe('SlugFieldInput reserved-words dependency stability', () => {
     // A stable `reserved` dependency (by content) must not cause the
     // debounced check to be re-armed and re-fired on every unrelated
     // re-render. It should still have fired exactly once — the slug value
-    // never changed. This FAILS today: each re-render creates a new
-    // `reserved` array reference, which re-triggers the collision-check
-    // effect and re-arms the debounce timer, so the mocked endpoint gets
-    // hit again and again.
+    // never changed. Before the fix each re-render created a new `reserved`
+    // array reference, which re-triggered the collision-check effect and
+    // re-armed the debounce timer, so the mocked endpoint was hit again and
+    // again.
     expect(apiGetMock.mock.calls.length).toBe(callsAfterMount)
   })
 })

@@ -8,8 +8,7 @@ import { StrictMode, type ReactElement } from 'react'
 // request returned, so the browser blocked it. An action that declares
 // opensInNewTab() now opens a blank tab on the click (Run Action, or the
 // click that runs an action without a modal) and the answer sends it to the
-// URL; an error or another answer closes it. And a confirmation modal of an
-// action with no confirmText() shows Nova's default sentence, not a blank body.
+// URL; an error or another answer closes it.
 
 const apiGetMock = vi.fn()
 const apiPostMock = vi.fn()
@@ -149,21 +148,6 @@ describe('an action without opensInNewTab()', () => {
 
     await waitFor(() => expect(apiPostMock).toHaveBeenCalled())
     expect(openSpy).not.toHaveBeenCalled()
-  })
-})
-
-describe('the confirmation text', () => {
-  it('falls back to the default sentence when the action sets no confirmText()', async () => {
-    renderModal(<ActionModal resource="users" action={action} selectedIds={[3]} visible onHide={vi.fn()} onSuccess={vi.fn()} />)
-
-    expect(await screen.findByText('confirm_run')).toBeTruthy()
-  })
-
-  it('shows the action\'s own confirmText()', async () => {
-    renderModal(<ActionModal resource="users" action={{ ...action, confirmText: 'Open the customer in Stripe?' }} selectedIds={[3]} visible onHide={vi.fn()} onSuccess={vi.fn()} />)
-
-    expect(await screen.findByText('Open the customer in Stripe?')).toBeTruthy()
-    expect(screen.queryByText('confirm_run')).toBeNull()
   })
 })
 

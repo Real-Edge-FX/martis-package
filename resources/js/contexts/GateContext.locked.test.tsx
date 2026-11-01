@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { act, render } from '@testing-library/react'
 
 // The gate modal opens when the API client raises `martis:locked` (a data
@@ -28,9 +28,17 @@ describe('GateProvider on the locked event', () => {
   })
 
   it('stops listening once unmounted', () => {
+    const add = vi.spyOn(window, 'addEventListener')
+    const remove = vi.spyOn(window, 'removeEventListener')
     const view = render(<GateProvider><Probe /></GateProvider>)
+    const added = add.mock.calls.filter(([type]) => type === LOCKED_EVENT).map(([, handler]) => handler)
+    expect(added).toHaveLength(1)
+
     view.unmount()
 
-    expect(() => window.dispatchEvent(new CustomEvent(LOCKED_EVENT, { detail: LOCK }))).not.toThrow()
+    const removed = remove.mock.calls.filter(([type]) => type === LOCKED_EVENT).map(([, handler]) => handler)
+    expect(removed).toEqual(added)
+    add.mockRestore()
+    remove.mockRestore()
   })
 })
