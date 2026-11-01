@@ -7,9 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.16.3] — 2026-11-01
+
+Patch release with no change to the package's behaviour: a test-suite audit and cleanup, and documentation for a model related to itself. Nothing has to change in an app; read [Upgrading to v2.16.3](docs/upgrading.md#upgrading-to-v2163-from-v2162).
+
 ### Documentation
 
 - **A model related to itself.** On a reflexive `BelongsToMany` or `MorphToMany`, the attach picker lists the parent record among the records to attach, as Nova does. The docs now say so and show how to leave it out with a relatable hook that excludes the route id, which also refuses the write (422). A test claiming the opposite was removed in the test-suite cleanup; the behaviour is now pinned. See [Relationships → A model related to itself](docs/relationships.md#a-model-related-to-itself).
+
+### Tests
+
+- **The suite was audited for tests that could not fail.** Five areas were reviewed and 22 realistic bugs were injected by hand: the suites caught 18 (Pest 15 of 16, Vitest 3 of 6). Every bug that went unnoticed, or that a single test caught, now has a test that fails on it: a `Boolean` input saving the inverted value, the index always requesting `direction=asc`, an inverted row order, destructive inline actions checking the non-destructive ability, `canSeeUsingPolicy()` with no user, destroy checking the update ability, a duplicate attach refused only by a unique index, and the peek card's request URL.
+- **Tests that passed whatever the code did now assert behaviour:** nine `expect(true)->toBeTrue()` after a call, deny tests that accepted any status from 400 up (a validation error passed, and the database was not checked), cache tests that compared two equal responses, config tests that read back the value they had just set, callback and flush tests that passed when the callback never ran, and `martis:vendor-publish` option tests that checked only the exit code.
+- **Duplicates and tests that could not fail were removed**, and the identical tests of the five relationship fields run as one dataset.
+
+**Tests:** 5537 Pest passed and 2246 Vitest passed: 7783 in all, from 7803 at v2.16.2 (fewer cases, more assertions).
 
 ## [2.16.2] — 2026-10-31
 
