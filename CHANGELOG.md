@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- **A model related to itself.** On a reflexive `BelongsToMany` or `MorphToMany`, the attach picker lists the parent record among the records to attach, as Nova does. The docs now say so and show how to leave it out with a relatable hook that excludes the route id, which also refuses the write (422). A test claiming the opposite was removed in the test-suite cleanup; the behaviour is now pinned. See [Relationships → A model related to itself](docs/relationships.md#a-model-related-to-itself).
+
 ## [2.16.2] — 2026-10-31
 
 Patch release from a consumer report: the peek card cut a long value off with an ellipsis, and since the card takes no pointer events the rest could never be read. Nothing has to change in an app; read [Upgrading to v2.16.2](docs/upgrading.md#upgrading-to-v2162-from-v2161).

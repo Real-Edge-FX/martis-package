@@ -463,6 +463,17 @@ BelongsToMany::make('Roles', 'roles', RoleResource::class)
 
 `modalSize()` accepts a `Martis\Enums\ModalSize` case (`Small` through `SevenExtraLarge`) and an optional second parameter that pins the modal's height to a fixed CSS value (`'70vh'`, `'600px'`). Default height tracks the size; pass the second arg only when the size's intrinsic height is wrong for your form.
 
+### A model related to itself
+
+On a reflexive relationship (a `Project` related to other projects through `belongsToMany(Project::class, ...)`), the attach picker lists every record of the related resource that is not attached yet, **the parent record included**, as Nova does: Martis does not decide for the application that a record cannot relate to itself. To leave it out, exclude the parent id the route carries (`{id}`) in a relatable hook:
+
+```php
+BelongsToMany::make('Related projects', 'relatedProjects')
+    ->relatableQueryUsing(fn (Request $request, $query) => $query->whereKeyNot($request->route('id')))
+```
+
+Since [writes follow the pickers](#writes-follow-the-pickers), the same hook also refuses the write: attaching the record to itself answers 422 on `related_id` and nothing is stored. `relatable{PluralModelName}()` on the resource works the same way when every reflexive field of the resource should exclude it. The `MorphToMany` panel takes the same closure.
+
 ### Authorization
 
 `canAttach()` / `canDetach()` are **static toggles** (defaults to `true` — pass `false` to turn the write off for everyone: the button is hidden and the endpoints answer 403, v2.4.0). They do not accept closures. For dynamic, request-aware authorization, override the matching method on the parent Resource:
@@ -1149,6 +1160,7 @@ Per-type feature tests:
 - `tests/Feature/MorphToManyControllerTest.php` (18)
 - `tests/Feature/PivotActionControllerTest.php` (27) — pivot actions on `BelongsToMany` and `MorphToMany` panels: listing, fields and run, the field's `actions()` against the resource's `pivotAction()`, `{relationship}` resolved only to a declared field of the route's type, and the view / `canSee()` / `canRun()` gates.
 - `tests/Feature/RelationshipsHardeningTest.php` (7) — multi-relation isolation, `relatableQueryUsing`, `relatable{PluralModelName}`, detach idempotency, search.
+- `tests/Feature/ReflexiveBelongsToManyTest.php` (3) — a model related to itself: the parent record is listed among its attachable records, and a `relatableQueryUsing()` excluding the route id leaves it out of the list and refuses attaching it (422).
 - `tests/Feature/RelationshipFieldRulesTest.php` (61) — every kind of field rule and the context rules on each write endpoint, next to the resource endpoint they match.
 - `tests/Feature/RelationshipImmutableFieldsTest.php` (10) — `immutable()` on each inline create and update, next to the resource endpoint they match.
 - `tests/Feature/PivotReadonlyImmutableFieldsTest.php` (24) — `readonly()` and `immutable()` pivot fields on the attach (single and batch) and the pivot update, next to the resource endpoint they match, plus a pivot update with nothing to write.
