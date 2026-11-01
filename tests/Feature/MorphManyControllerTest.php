@@ -498,3 +498,24 @@ it('resolves the morph-many index endpoint when the field sits inside a Section'
     $response->assertStatus(200);
     $response->assertJsonPath('meta.total', 1);
 });
+
+// ---------------------------------------------------------------------------
+// Error handling: the controller resolves the parent resource, then the
+// parent record, then the relationship; each miss answers 404.
+// ---------------------------------------------------------------------------
+
+it('returns 404 for unknown parent resource on morph-many', function () {
+    $response = $this->getJson('/martis/api/resources/nonexistent/1/morph-many/comments');
+    $response->assertStatus(404);
+});
+
+it('returns 404 for unknown parent record on morph-many', function () {
+    $response = $this->getJson('/martis/api/resources/m-m-post-models/99999/morph-many/comments');
+    $response->assertStatus(404);
+});
+
+it('returns 404 for unknown morph relationship name', function () {
+    $post = MMPostModel::create(['title' => 'Post']);
+    $response = $this->getJson("/martis/api/resources/m-m-post-models/{$post->id}/morph-many/nonexistent");
+    $response->assertStatus(404);
+});

@@ -40,8 +40,16 @@ function vendorPublishClean(): void
 // package one for every later test in the same environment (the blade-output
 // passthrough tests would then assert against a stale copy). Start and end
 // every spec with nothing published.
-beforeEach(fn () => vendorPublishClean());
-afterEach(fn () => vendorPublishClean());
+// A config/martis.php the shared application already held (a previous
+// martis:install) is put back afterwards.
+beforeEach(function () {
+    $this->restoreMartisConfig = preservePublishedMartisConfig();
+    vendorPublishClean();
+});
+afterEach(function () {
+    vendorPublishClean();
+    ($this->restoreMartisConfig)();
+});
 
 it('martis:vendor-publish publishes exactly the groups it is asked for', function (array $options, array $published) {
     $this->artisan('martis:vendor-publish', $options)->assertSuccessful();

@@ -163,9 +163,19 @@ afterEach(function () {
 // ---------------------------------------------------------------------------
 
 describe('BelongsToMany Field', function () {
+    it('has the correct type', function () {
+        $field = BelongsToMany::make('Tags');
+        expect($field->type())->toBe('belongs_to_many');
+    });
+
     it('infers relationship name from label', function () {
         $field = BelongsToMany::make('Tags');
         expect($field->getRelationship())->toBe('tags');
+    });
+
+    it('uses explicit relationship when provided', function () {
+        $field = BelongsToMany::make('Tags', 'myTags');
+        expect($field->getRelationship())->toBe('myTags');
     });
 
     it('resolves related resource key from relationship name', function () {

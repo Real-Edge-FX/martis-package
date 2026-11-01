@@ -329,3 +329,24 @@ it('resolves the morph-one endpoint when the field sits inside a Section', funct
     $response->assertStatus(200);
     expect($response->json('data.url'))->toBe('https://cdn.example/alice.png');
 });
+
+// ---------------------------------------------------------------------------
+// Error handling: the controller resolves the parent resource, then the
+// parent record, then the relationship; each miss answers 404.
+// ---------------------------------------------------------------------------
+
+it('returns 404 for unknown parent resource on morph-one', function () {
+    $response = $this->getJson('/martis/api/resources/nonexistent/1/morph-one/avatar');
+    $response->assertStatus(404);
+});
+
+it('returns 404 for unknown parent record on morph-one', function () {
+    $response = $this->getJson('/martis/api/resources/m-o-user-models/99999/morph-one/avatar');
+    $response->assertStatus(404);
+});
+
+it('returns 404 for unknown morph-one relationship name', function () {
+    $user = MOUserModel::create(['name' => 'Alice']);
+    $response = $this->getJson("/martis/api/resources/m-o-user-models/{$user->id}/morph-one/nonexistent");
+    $response->assertStatus(404);
+});

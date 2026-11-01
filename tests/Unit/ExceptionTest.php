@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use Martis\Exceptions\AuthorizationException;
 use Martis\Exceptions\MartisException;
 use Martis\Exceptions\ResourceNotFoundException;
+use Martis\Exceptions\UserFacingException;
 use Martis\Exceptions\ValidationException;
 use PHPUnit\Framework\TestCase;
 
@@ -160,5 +161,23 @@ class ExceptionTest extends TestCase
 
         $this->assertStringContainsString('missing-resource', $e->getMessage());
         $this->assertStringContainsString('not registered', strtolower($e->getMessage()));
+    }
+
+    // -------------------------------------------------------------------------
+    // Inheritance hierarchy
+    // -------------------------------------------------------------------------
+
+    /**
+     * ActionController rethrows only a MartisException and turns anything
+     * else into its generic error, so an exception that stops extending it
+     * would lose its status and message on an action run.
+     */
+    public function test_package_exceptions_extend_martis_exception(): void
+    {
+        $this->assertInstanceOf(MartisException::class, new ValidationException([]));
+        $this->assertInstanceOf(MartisException::class, new AuthorizationException);
+        $this->assertInstanceOf(MartisException::class, new ResourceNotFoundException);
+        $this->assertInstanceOf(MartisException::class, new UserFacingException('message'));
+        $this->assertInstanceOf(\RuntimeException::class, new MartisException);
     }
 }
