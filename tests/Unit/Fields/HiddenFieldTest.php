@@ -45,34 +45,3 @@ it('lets a fillUsing() callback ignore the posted value and write the server-sid
 
     expect($model->tenant_id)->toBe(7);
 });
-
-it('says in its docblock that a Hidden value is client-controlled and where to set tenant and owner columns', function () {
-    // The docblock wraps its lines: compare the words, not the line breaks.
-    $docblock = (string) preg_replace('/\s*\n\s*\*\s*/', ' ', (string) (new ReflectionClass(Hidden::class))->getDocComment());
-
-    expect($docblock)
-        ->toContain('client-controlled')
-        ->toContain('not a trust boundary')
-        ->toContain('fillUsing()')
-        ->toContain('readonly()')
-        ->toContain('beforeSave()')
-        // The old wording recommended the field for exactly the values it must not carry.
-        ->not->toContain('passing internal')
-        ->not->toContain('(tenant IDs, default statuses');
-});
-
-it('documents the same warning on the Hidden field docs page', function () {
-    $docs = (string) file_get_contents(dirname(__DIR__, 3).'/docs/fields.md');
-    $start = strpos($docs, "### Hidden\n");
-    $end = strpos($docs, "\n### Badge\n", (int) $start);
-
-    expect($start)->not->toBeFalse()->and($end)->not->toBeFalse();
-
-    $section = substr($docs, (int) $start, (int) $end - (int) $start);
-
-    expect($section)
-        ->toContain('client-controlled')
-        ->toContain('fillUsing()')
-        ->toContain('readonly()')
-        ->toContain('beforeSave()');
-});

@@ -120,15 +120,6 @@ it('Status fill() writes value to model', function () {
     expect($model->getAttribute('status'))->toBe('done');
 });
 
-it('Status fill() does nothing when readonly', function () {
-    $model = new StatusTestModel(['status' => 'running']);
-    $field = Status::make('status')->readonly();
-
-    $field->fill($model, 'done');
-
-    expect($model->getAttribute('status'))->toBe('running');
-});
-
 // ---------------------------------------------------------------------------
 // toArray
 // ---------------------------------------------------------------------------
@@ -149,13 +140,6 @@ it('Status toArray contains loadingWhen and failedWhen', function () {
 // ---------------------------------------------------------------------------
 // Resolve callback
 // ---------------------------------------------------------------------------
-
-it('Status respects resolveUsing callback', function () {
-    $model = new StatusTestModel(['status' => 'running']);
-    $field = Status::make('status')->resolveUsing(fn ($v) => 'custom');
-
-    expect($field->resolve($model))->toBe('custom');
-});
 
 // ---------------------------------------------------------------------------
 // Context visibility

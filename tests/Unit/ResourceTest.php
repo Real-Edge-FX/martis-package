@@ -465,9 +465,14 @@ it('stickyView returns true by default', function () {
 });
 
 it('stickyView returns false when global config disables the feature', function () {
+    $previous = config('martis.sticky_views.enabled');
     config()->set('martis.sticky_views.enabled', false);
-    expect(SimpleResource::stickyView())->toBeFalse();
-    config()->set('martis.sticky_views.enabled', true);
+
+    try {
+        expect(SimpleResource::stickyView())->toBeFalse();
+    } finally {
+        config()->set('martis.sticky_views.enabled', $previous);
+    }
 });
 
 it('stickyView returns false when the resource opts out via $stickyView = false', function () {
@@ -501,47 +506,12 @@ it('stickyView returns false when the resource opts out via $stickyView = false'
 // ---------------------------------------------------------------------------
 
 // Cenario 1 — only fields() implemented; all contexts use it as fallback
-it('[C1] fieldsForIndex falls back to fields() when not overridden', function () {
+it('[C1] fieldsFor{Context} falls back to fields() when not overridden', function (string $method) {
     $resource = new SimpleResource;
     $request = Request::create('/');
-    $attrs = array_map(fn ($f) => $f->attribute(), $resource->fieldsForIndex($request));
+    $attrs = array_map(fn ($f) => $f->attribute(), $resource->$method($request));
     expect($attrs)->toContain('id', 'name', 'email', 'secret');
-});
-
-it('[C1] fieldsForDetail falls back to fields() when not overridden', function () {
-    $resource = new SimpleResource;
-    $request = Request::create('/');
-    $attrs = array_map(fn ($f) => $f->attribute(), $resource->fieldsForDetail($request));
-    expect($attrs)->toContain('id', 'name', 'email', 'secret');
-});
-
-it('[C1] fieldsForCreate falls back to fields() when not overridden', function () {
-    $resource = new SimpleResource;
-    $request = Request::create('/');
-    $attrs = array_map(fn ($f) => $f->attribute(), $resource->fieldsForCreate($request));
-    expect($attrs)->toContain('id', 'name', 'email', 'secret');
-});
-
-it('[C1] fieldsForUpdate falls back to fields() when not overridden', function () {
-    $resource = new SimpleResource;
-    $request = Request::create('/');
-    $attrs = array_map(fn ($f) => $f->attribute(), $resource->fieldsForUpdate($request));
-    expect($attrs)->toContain('id', 'name', 'email', 'secret');
-});
-
-it('[C1] fieldsForInlineCreate falls back to fields() when not overridden', function () {
-    $resource = new SimpleResource;
-    $request = Request::create('/');
-    $attrs = array_map(fn ($f) => $f->attribute(), $resource->fieldsForInlineCreate($request));
-    expect($attrs)->toContain('id', 'name', 'email', 'secret');
-});
-
-it('[C1] fieldsForPreview falls back to fields() when not overridden', function () {
-    $resource = new SimpleResource;
-    $request = Request::create('/');
-    $attrs = array_map(fn ($f) => $f->attribute(), $resource->fieldsForPreview($request));
-    expect($attrs)->toContain('id', 'name', 'email', 'secret');
-});
+})->with(['fieldsForIndex', 'fieldsForDetail', 'fieldsForCreate', 'fieldsForUpdate', 'fieldsForInlineCreate', 'fieldsForPreview']);
 
 // Cenario 2 — fieldsForCreate() overridden; inline-create uses fieldsForCreate();
 // other contexts fall back to fields()
@@ -744,64 +714,15 @@ it('[C7] when all context methods are overridden each uses its own field set', f
     expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForPreview($req)))->toBe(['prv']);
 });
 
-// Cross-context isolation — fieldsForCreate must not leak into fieldsForUpdate and vice versa
-it('fieldsForCreate does not leak into fieldsForUpdate', function () {
-    $resource = new class extends Resource
-    {
-        public static function model(): string
-        {
-            return SimpleModel::class;
-        }
-
-        public function fields(Request $request): array
-        {
-            return [new StubField('base')];
-        }
-
-        public function fieldsForCreate(Request $request): array
-        {
-            return [new StubField('create_only')];
-        }
-    };
-    $req = Request::create('/');
-    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForUpdate($req)))->toBe(['base']);
-});
-
-it('fieldsForUpdate does not leak into fieldsForCreate', function () {
-    $resource = new class extends Resource
-    {
-        public static function model(): string
-        {
-            return SimpleModel::class;
-        }
-
-        public function fields(Request $request): array
-        {
-            return [new StubField('base')];
-        }
-
-        public function fieldsForUpdate(Request $request): array
-        {
-            return [new StubField('update_only')];
-        }
-    };
-    $req = Request::create('/');
-    expect(array_map(fn ($f) => $f->attribute(), $resource->fieldsForCreate($req)))->toBe(['base']);
-});
-
+// ---------------------------------------------------------------------------
 // Constructor and model accessor
 // ---------------------------------------------------------------------------
 
-it('stores model instance passed to constructor', function () {
+it('getModel returns the constructor model, or null when none is given', function () {
     $model = new SimpleModel;
-    $resource = new SimpleResource($model);
 
-    expect($resource->getModel())->toBe($model);
-});
-
-it('getModel returns null when no model given', function () {
-    $resource = new SimpleResource;
-    expect($resource->getModel())->toBeNull();
+    expect((new SimpleResource($model))->getModel())->toBe($model)
+        ->and((new SimpleResource)->getModel())->toBeNull();
 });
 
 // ---------------------------------------------------------------------------

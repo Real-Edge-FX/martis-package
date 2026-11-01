@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Martis\Sso\PermissionAdapters\CallableAdapter;
 use Martis\Sso\PermissionAdapters\NativeAdapter;
@@ -86,10 +87,13 @@ it('SpatieAdapter silently no-ops on a user model that lacks the HasRoles trait'
     $adapter = new SpatieAdapter;
     $roles = AdapterTestRoleStub::query()->whereIn('name', ['admin'])->get();
 
-    // Should not throw — even if Spatie is installed, our test User
-    // doesn't `use HasRoles`. The adapter must guard with method_exists.
+    // Even if Spatie is installed, our test User doesn't `use HasRoles`.
+    // The adapter must guard with method_exists and write nothing.
+    expect($roles)->toHaveCount(1);
     $adapter->syncRoles($user, $roles);
-    expect(true)->toBeTrue();
+
+    expect(DB::table('model_has_roles')->count())->toBe(0);
+    expect($user->isDirty())->toBeFalse();
 });
 
 // -----------------------------------------------------------------------------
@@ -178,13 +182,18 @@ it('CallableAdapter is a no-op when no closure is registered', function () {
         'name' => 'F', 'email' => 'f@example.com', 'password' => bcrypt('x'),
     ]);
 
-    // Must not throw.
     $adapter->syncRoles($user, AdapterTestRoleStub::query()->get());
-    expect(true)->toBeTrue();
+
+    expect(DB::table('model_has_roles')->count())->toBe(0);
+    expect($user->isDirty())->toBeFalse();
 });
 
 it('CallableAdapter::forgetCallback wipes the registered closure', function () {
-    CallableAdapter::setCallback(fn () => throw new RuntimeException('should not fire'));
+    $fired = 0;
+    CallableAdapter::setCallback(function () use (&$fired) {
+        $fired++;
+        throw new RuntimeException('should not fire');
+    });
     CallableAdapter::forgetCallback();
 
     $adapter = new CallableAdapter;
@@ -192,9 +201,11 @@ it('CallableAdapter::forgetCallback wipes the registered closure', function () {
         'name' => 'G', 'email' => 'g@example.com', 'password' => bcrypt('x'),
     ]);
 
-    // Must not throw — callback was forgotten.
+    // The forgotten callback must not run.
     $adapter->syncRoles($user, AdapterTestRoleStub::query()->get());
-    expect(true)->toBeTrue();
+
+    expect($fired)->toBe(0);
+    expect(DB::table('model_has_roles')->count())->toBe(0);
 });
 
 // -----------------------------------------------------------------------------

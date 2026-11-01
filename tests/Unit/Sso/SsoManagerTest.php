@@ -147,12 +147,25 @@ it('hooks fire when manually invoked', function () {
 
 it('flushHooksForTesting wipes every registered closure', function () {
     $manager = new SsoManager;
+    $fired = [];
 
-    $manager->afterLogin(fn () => null);
-    $manager->onNoRoleMatchUsing(fn () => null);
-    $manager->resolveUserUsing(fn () => null);
-    $manager->resolveRolesUsing(fn () => null);
-    $manager->syncRolesUsing(fn () => null);
+    $manager->afterLogin(function () use (&$fired) {
+        $fired[] = 'afterLogin';
+    });
+    $manager->onNoRoleMatchUsing(function () use (&$fired) {
+        $fired[] = 'noRoleMatch';
+    });
+    $manager->resolveUserUsing(function () use (&$fired) {
+        $fired[] = 'resolveUser';
+    });
+    $manager->resolveRolesUsing(function () use (&$fired) {
+        $fired[] = 'resolveRoles';
+
+        return new Illuminate\Database\Eloquent\Collection;
+    });
+    $manager->syncRolesUsing(function () use (&$fired) {
+        $fired[] = 'syncRoles';
+    });
 
     $manager->flushHooksForTesting();
 
@@ -160,12 +173,15 @@ it('flushHooksForTesting wipes every registered closure', function () {
     $userClass = config('auth.providers.users.model', User::class);
     $user = new $userClass;
 
-    // Nothing should fire after flush.
-    $afterCount = 0;
-    $manager->afterLogin(function () use (&$afterCount) {
-        $afterCount++;
-    });
-    $manager->flushHooksForTesting();
     $manager->fireAfterLogin($user, $identity, 'azure');
-    expect($afterCount)->toBe(0);
+    $manager->fireNoRoleMatch($identity, 'azure');
+    (new CallableAdapter)->syncRoles($user, new Illuminate\Database\Eloquent\Collection);
+
+    // The resolvers need a database to run their built-in path, so read the slot.
+    foreach ([Martis\Sso\IdentityResolver::class, Martis\Sso\RoleMapper::class] as $class) {
+        $slot = new ReflectionProperty($class, 'resolver');
+        expect($slot->getValue())->toBeNull();
+    }
+
+    expect($fired)->toBe([]);
 });

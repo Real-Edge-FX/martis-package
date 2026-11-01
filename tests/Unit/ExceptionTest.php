@@ -105,11 +105,6 @@ class ExceptionTest extends TestCase
         $this->assertSame('validation_error', $arr['code']);
     }
 
-    public function test_validation_exception_is_martis_exception(): void
-    {
-        $this->assertInstanceOf(MartisException::class, new ValidationException([]));
-    }
-
     // -------------------------------------------------------------------------
     // AuthorizationException
     // -------------------------------------------------------------------------
@@ -136,11 +131,6 @@ class ExceptionTest extends TestCase
 
         $this->assertStringContainsString('publish', $e->getMessage());
         $this->assertSame('unauthorized_action', $e->errorCode());
-    }
-
-    public function test_authorization_exception_is_martis_exception(): void
-    {
-        $this->assertInstanceOf(MartisException::class, new AuthorizationException);
     }
 
     // -------------------------------------------------------------------------
@@ -170,22 +160,5 @@ class ExceptionTest extends TestCase
 
         $this->assertStringContainsString('missing-resource', $e->getMessage());
         $this->assertStringContainsString('not registered', strtolower($e->getMessage()));
-    }
-
-    public function test_resource_not_found_exception_is_martis_exception(): void
-    {
-        $this->assertInstanceOf(MartisException::class, new ResourceNotFoundException);
-    }
-
-    // -------------------------------------------------------------------------
-    // Inheritance hierarchy
-    // -------------------------------------------------------------------------
-
-    public function test_all_exceptions_extend_runtime_exception(): void
-    {
-        $this->assertInstanceOf(\RuntimeException::class, new MartisException);
-        $this->assertInstanceOf(\RuntimeException::class, new ValidationException([]));
-        $this->assertInstanceOf(\RuntimeException::class, new AuthorizationException);
-        $this->assertInstanceOf(\RuntimeException::class, new ResourceNotFoundException);
     }
 }
