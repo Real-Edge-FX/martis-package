@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.16.4] — 2026-11-02
+
+Patch release with two form fixes: the `DateTime` time picker takes typed hours and minutes, and the modals that hold a form no longer close on a click outside them. Nothing has to change in an app; read [Upgrading to v2.16.4](docs/upgrading.md#upgrading-to-v2164-from-v2163).
+
 ### Fixed
 
 - **Typed time in `DateTime`.** The hour and minute of the form's time picker only changed with the up/down buttons, so a time far from the current one took dozens of clicks. They are now inputs that take typed digits and the arrow keys, keep the buttons, and set the time on the same date. See [Fields → DateTime](docs/fields.md#datetime).
