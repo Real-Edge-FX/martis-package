@@ -92,7 +92,7 @@ class PostResource extends Resource
 - Checkbox column appears on the index table
 - User selects one or more rows
 - "Actions" dropdown appears in the table toolbar
-- User picks an action — confirmation modal opens
+- User picks an action — confirmation modal opens. It closes through Cancel, the X or Escape, not on a click outside it, so a stray click does not lose the fields typed in it (v2.16.4; the pivot action and inline create modals behave the same)
 - `handle()` receives a `Collection` with all selected models
 
 ---

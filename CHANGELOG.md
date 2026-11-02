@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Typed time in `DateTime`.** The hour and minute of the form's time picker only changed with the up/down buttons, so a time far from the current one took dozens of clicks. They are now inputs that take typed digits and the arrow keys, keep the buttons, and set the time on the same date. See [Fields → DateTime](docs/fields.md#datetime).
+- **Form modals no longer close on a click outside.** The action, pivot action and inline create modals closed on a click on the scrim around them, and everything typed in the form was lost. They now close only through Cancel, the X and Escape. See [Actions](docs/actions.md#how-it-looks).
+
 ## [2.16.3] — 2026-11-01
 
 Patch release with no change to the package's behaviour: a test-suite audit and cleanup, and documentation for a model related to itself. Nothing has to change in an app; read [Upgrading to v2.16.3](docs/upgrading.md#upgrading-to-v2163-from-v2162).

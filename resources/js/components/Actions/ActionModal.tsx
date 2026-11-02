@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
@@ -135,11 +135,6 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
       earlyTab.current = undefined
     }
   }, [visible])
-
-  const handleBackdropClose = useCallback(() => {
-    setAnimVisible(false)
-    setTimeout(onHide, 200)
-  }, [onHide])
 
   // Escape closes the modal, after any picker open in its form.
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -347,11 +342,12 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
     return <LightningIcon size={18} weight="fill" style={{ color: 'var(--martis-accent)' }} />
   }
 
+  // A click on the scrim does not close the modal: it holds a form, and a
+  // stray click would lose what was typed. Cancel, the X and Escape close it.
   const content = (
     <div
       className="martis-modal-scrim"
       style={{ opacity: animVisible ? 1 : 0, transition: 'opacity 200ms ease' }}
-      onClick={handleBackdropClose}
     >
       <div
         ref={dialogRef}

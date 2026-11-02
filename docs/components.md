@@ -254,7 +254,7 @@ Every dialog in Martis renders through the same CSS shell so consumer-built over
 
 | Class | Role |
 |------|------|
-| `.martis-modal-scrim` | Fixed-position overlay, centers a single surface. `onClick` is the backdrop-close handler. |
+| `.martis-modal-scrim` | Fixed-position overlay, centers a single surface. An `onClick` on it closes the modal on a backdrop click; the modals that hold a form (action, pivot action, inline create) leave it out so a stray click does not lose the form. |
 | `.martis-modal-surface` | 480 px default. Size variants: `.is-lg` (640), `.is-xl` (800), `.is-2xl` (960). Always `flex-column` with `max-height: 85vh` and body-scroll. |
 | `.martis-modal-head` | Title row with a bare icon (no circular disc) + the close button on the far right. |
 | `.martis-modal-head-title` | `<h3>` token — 16 / 600 / -0.01em. |

@@ -195,11 +195,11 @@ export function InlineCreateModal({
     // The record does not exist yet, whatever page or drawer the modal opens
     // over, so no relationship panel inside reads that page's record.
     <NestedParentProvider value={{ resource: relatedResource, id: null }}>
+      {/* A click on the scrim does not close the modal: a stray click would lose the form. */}
       <div
         className="martis-modal-scrim"
         style={{ zIndex: 9999 }}
         onKeyDown={(e) => { if (e.key === "Enter") e.stopPropagation() }}
-        onClick={onClose}
       >
         <div
           ref={dialogRef}

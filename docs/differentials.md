@@ -136,7 +136,7 @@ changes guard.
 
 - **`useModalHistoryLock(open: boolean)` — hard lock.** Absorbs browser
   back indefinitely; the user must dismiss via UI (confirm, cancel, X,
-  Esc, backdrop). Use for destructive confirms and modals holding
+  Esc, backdrop where the modal allows it). Use for destructive confirms and modals holding
   unsaved input.
 - **`useModalHistoryBackToClose(open, onClose)` — soft lock.** First
   browser back closes the modal through `onClose`; a second back

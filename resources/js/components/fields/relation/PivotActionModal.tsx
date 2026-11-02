@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -96,11 +96,6 @@ export function PivotActionModal({
       tabs.current = undefined
     }
   }, [])
-
-  const handleBackdropClose = useCallback(() => {
-    setAnimVisible(false)
-    setTimeout(onClose, 200)
-  }, [onClose])
 
   // Escape closes the modal, after any picker open in its form.
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -203,11 +198,12 @@ export function PivotActionModal({
 
   const modalWidth = MODAL_SIZE_MAP[action.modalSize ?? 'md'] ?? MODAL_SIZE_MAP['md']
 
+  // A click on the scrim does not close the modal: it holds a form, and a
+  // stray click would lose what was typed. Cancel, the X and Escape close it.
   return createPortal((
     <div
       className="martis-modal-scrim"
       style={{ opacity: animVisible ? 1 : 0, transition: 'opacity 200ms ease' }}
-      onClick={handleBackdropClose}
     >
       <div
         ref={dialogRef}
