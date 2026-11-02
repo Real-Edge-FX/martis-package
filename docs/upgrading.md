@@ -4,6 +4,10 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.16.4 from v2.16.3
+
+v2.16.4 lets the hour and minute of the `DateTime` time picker be typed, and keeps the action, pivot action and inline create modals open on a click outside them (they close through Cancel, the X and Escape). Nothing has to change in an app: republish the assets (`php artisan martis:publish-assets`). An extension that relied on a scrim click closing one of those modals now closes it through its own button. See [Fields → DateTime](fields.md#datetime) and [Actions](actions.md#how-it-looks).
+
 ## Upgrading to v2.16.3 from v2.16.2
 
 v2.16.3 changes no behaviour: it audits the test suite and documents how a model related to itself lists the parent record among its attachable records, and how to leave it out. Nothing has to change in an app. See [Relationships → A model related to itself](relationships.md#a-model-related-to-itself).
