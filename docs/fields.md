@@ -1418,6 +1418,8 @@ DateTime::make('created_at', 'Created')
 
 **Display:** the date and time in the user's Martis locale (v2.1.0).
 
+**Input:** a calendar with a 24-hour time picker. The hour and minute can be typed (digits, then the arrow keys or the up/down buttons to step; values wrap around). Before v2.16.4 they could only be changed with the buttons.
+
 ---
 
 ### Email
