@@ -5255,10 +5255,10 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .p-dropdown,
 .p-multiselect,
 .p-calendar .p-inputtext,
-.p-inputtext,
+.p-inputtext:not(:where(.p-inputtextarea-resizable)),
 .p-inputnumber-input,
 .p-password-input,
-.martis-input,
+.martis-input:not(:where(.p-inputtextarea-resizable)),
 .martis-resource-search,
 .has-many-search-input,
 .martis-belongs-to-trigger {
@@ -5273,10 +5273,16 @@ html:not(.dark) .p-datatable .p-datatable-thead .p-checkbox.p-highlight .p-check
 .p-inputtextarea,
 .martis-input.p-inputtextarea {
   min-height: auto !important;
-  height: auto !important;
   padding-top: 0.5rem !important;
   padding-bottom: 0.5rem !important;
   font-size: 0.875rem !important;
+}
+/* Not on an auto-resizing textarea (nor the 36px lock above): PrimeReact
+   hides its overflow and sets its height inline to fit the text, so a
+   forced height cut the text off with no way to scroll to it. */
+.p-inputtextarea:not(.p-inputtextarea-resizable),
+.martis-input.p-inputtextarea:not(.p-inputtextarea-resizable) {
+  height: auto !important;
 }
 
 /* Dropdown label/multiselect label inherits the height */

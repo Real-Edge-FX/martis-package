@@ -898,7 +898,7 @@ Text::make('title')
 **Extends:** `Field`
 **File:** `src/Fields/Textarea.php`
 
-Multi-line text area. Renders as `<textarea>`.
+Multi-line text area. Renders as `<textarea>`. It opens at its row count and grows to fit a longer text, and the form or the modal body scrolls.
 
 ```php
 Textarea::make('body', 'Content')
@@ -909,7 +909,7 @@ Textarea::make('body', 'Content')
 
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
-| `rows` | `rows(int $rows): static` | `$this` | Set visible row count. | `5` |
+| `rows` | `rows(int $rows): static` | `$this` | Set the row count the field opens at. | `5` |
 | `getRows` | `getRows(): int` | `int` | Get row count. | — |
 
 **Extra attributes:** `rows`
