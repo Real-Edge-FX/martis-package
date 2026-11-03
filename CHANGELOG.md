@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.16.5] — 2026-11-03
+
+Patch release with one form fix: a long `Textarea` text is no longer cut off at its row count. Nothing has to change in an app; read [Upgrading to v2.16.5](docs/upgrading.md#upgrading-to-v2165-from-v2164).
+
 ### Fixed
 
 - **A long `Textarea` text is no longer cut off.** The field grows with its text, but a stylesheet rule forced its height back to the row count while its overflow stayed hidden, so the rest of the text could not be seen or scrolled to, in a form or an action modal. The field now grows to fit the text, and the page or the modal body scrolls. See [Fields → Textarea](docs/fields.md#textarea).
