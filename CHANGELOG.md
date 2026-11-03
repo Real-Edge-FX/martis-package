@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A long `Textarea` text is no longer cut off.** The field grows with its text, but a stylesheet rule forced its height back to the row count while its overflow stayed hidden, so the rest of the text could not be seen or scrolled to, in a form or an action modal. The field now grows to fit the text, and the page or the modal body scrolls. See [Fields → Textarea](docs/fields.md#textarea).
+
 ## [2.16.4] — 2026-11-02
 
 Patch release with two form fixes: the `DateTime` time picker takes typed hours and minutes, and the modals that hold a form no longer close on a click outside them. Nothing has to change in an app; read [Upgrading to v2.16.4](docs/upgrading.md#upgrading-to-v2164-from-v2163).
