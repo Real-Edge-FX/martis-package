@@ -4,6 +4,10 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.16.5 from v2.16.4
+
+v2.16.5 lets a `Textarea` field grow to fit its text, in a form and in an action modal: a stylesheet rule held it at its row count with the rest of the text hidden and no way to scroll to it. Nothing has to change in an app: republish the assets (`php artisan martis:publish-assets`). See [Fields → Textarea](fields.md#textarea).
+
 ## Upgrading to v2.16.4 from v2.16.3
 
 v2.16.4 lets the hour and minute of the `DateTime` time picker be typed, and keeps the action, pivot action and inline create modals open on a click outside them (they close through Cancel, the X and Escape). Nothing has to change in an app: republish the assets (`php artisan martis:publish-assets`). An extension that relied on a scrim click closing one of those modals now closes it through its own button. See [Fields → DateTime](fields.md#datetime) and [Actions](actions.md#how-it-looks).
