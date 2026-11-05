@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.17.0] — 2026-11-05
+
+Minor release from a batch of consumer reports: fields that a sibling shows or hides, actions that hide what a record cannot run or keep its slot, flat items in the row menu, confirmation texts that name the record, file fields in action modals, a create form prefilled from its link, a `Badges` field, and multi-column sorting. Two bugs found on the way are fixed: no `dependsOn()` change ever reached the live form, and a relation field ignored its related resource's title. Read [Upgrading to v2.17.0](docs/upgrading.md#upgrading-to-v2170-from-v216x).
+
+### Added
+
+- **`hide()` / `show()` for a field, from a `dependsOn()` callback**, as Nova's dependent fields: a hidden field is not drawn and its value is left out of the submit, so an update keeps the stored value; a panel, section or tab whose fields are all hidden is not drawn. The callback also runs when the form opens. Changing a label from the callback with `withLabel()` is now documented. See [Fields → Show, hide and relabel a field from a sibling](docs/fields.md#show-hide-and-relabel-a-field-from-a-sibling-v2170).
+- **`Action::whenInapplicable(InapplicableAction::Disabled | Hide | KeepSlot)`**: how an action is drawn for a record it cannot run, on the index rows, the relationship panels and the detail page. `KeepSlot` keeps an invisible placeholder so the row icons line up. A group whose actions are all left out, and an empty "..." menu, are not drawn. The detail payload now carries the record's `_actionAuthorization`, so the detail page greys out (or leaves out) what the run would refuse. See [Actions → An action a record cannot run](docs/actions.md#an-action-a-record-cannot-run-v2170).
+- **`Action::inRowMenu()`** puts an inline action in the row's "..." menu as a flat item, and **`Resource::$maxInlineButtons`** moves the row buttons past a limit there. See [Actions → Buttons and the "..." menu](docs/actions.md#buttons-and-the--menu-v2170).
+- **`confirmText()`, `confirmButtonText()` and `cancelButtonText()` take a closure** `(Request, ?Model, int $count)`, resolved with the record the modal runs on by the fields request the modal already makes. See [Actions → A text that names the record](docs/actions.md#a-text-that-names-the-record-v2170).
+- **File fields in the action modal**: a run whose fields hold a file posts multipart, and `handle()` receives the `UploadedFile`, validated by the field's own rules. A queued action that receives an upload throws, as Nova does not support it either. See [Actions → File fields](docs/actions.md#file-fields-v2170).
+- **`Resource::acceptsPrefill()`**: a create page forwards the query keys the resource declares to its schema, so `default(fn ($request) => $request->query('of'))` prefills the form from a link; a value the user could not pick is dropped. **`Field::sticky()`** keeps a field's value for the next record on "Create & add another". See [Resources → Prefill the create form from a link](docs/resources.md#prefill-the-create-form-from-a-link--acceptsprefill).
+- **`Badges` field**: one value drawn as several pills, with `Badge`'s types and mapping. See [Fields → Badges](docs/fields.md#badges).
+- **Sorting by several columns.** `?sort=category:asc,position:asc,locale:desc` (up to 3 keys; `?sort=title&direction=desc` still works) on the index, lenses and relationship panels. Shift+click (or Shift+Enter) on a header adds a column or cycles it asc, desc, removed, with 1/2/3 badges, and a "Sorted by" chip on the index toolbar reorders, flips, removes or adds keys, for keyboard and touch. `defaultSort()` may return an ordered `['column' => SortDirection]` array, and its keys break the ties of the user's sort, so one click on a column keeps the resource's order inside it. **`Field::sortUsing(Closure)`** sorts a column by an expression (a related table's order, a computed key). The index keeps the list in its sticky view. See [Resources → Sorting by several columns](docs/resources.md#sorting-by-several-columns).
+
+### Fixed
+
+- **`dependsOn()` changes reach the form.** The sync endpoint answers `{ data: descriptor }` and the form stored the whole envelope as the field's override, so no change made in a callback (required, options, help, label, visibility) was ever applied on the client, since `dependsOn()` was introduced.
+- **A relation field shows its related resource's title.** A `BelongsTo` (and `Tag`, `BelongsToMany`, `MorphToMany`) without `titleAttribute()` read `name` and ignored the related resource, so a model without a `name` column showed `#4` in the cell while the picker showed the right label. It now uses the related resource's `title()` when that resource declares a title, as Nova does; an explicit `titleAttribute()` still wins. See [Fields → BelongsTo](docs/fields.md#belongsto).
+
+### Changed
+
+- **The detail page greys out the actions its record cannot run**, from the same verdict as an index row, as Nova's detail menu does. Before, it offered every action and the run refused the record.
+- **A list always ends its order on the primary key**, after the requested and default keys, so pagination is stable: rows that tie on a non-unique column may come in another order than before. A relationship panel with no requested sort now follows its related resource's `defaultSort()`.
+- **Schema payload and `component:Table` override.** The schema's `defaultSort` is `[{ attribute, direction }]` and `defaultSortDirection` is gone. A custom `component:Table` override receives `sort` (the list of keys) and `onSort(attribute, additive)` instead of `sortBy`, `sortDir` and `onSort(attribute)`. The table no longer re-sorts its rows on the client: the server's order is shown as it comes.
+- `ActionContract::confirmText()`, `confirmButtonText()` and `cancelButtonText()` accept `string|Closure`. A class that implements the contract directly (not through `Action`) widens its parameter type.
+
 ## [2.16.6] — 2026-11-05
 
 Patch release with one index fix: the sort a user picks survives opening a record and coming back, on a resource with a `defaultSort()`. Nothing has to change in an app; read [Upgrading to v2.16.6](docs/upgrading.md#upgrading-to-v2166-from-v2165).

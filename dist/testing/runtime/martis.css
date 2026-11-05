@@ -1644,6 +1644,9 @@
 .contents {
     display: contents;
 }
+.\!hidden {
+    display: none !important;
+}
 .hidden {
     display: none;
 }
@@ -1740,6 +1743,9 @@
 .w-24 {
     width: 6rem;
 }
+.w-3\/4 {
+    width: 75%;
+}
 .w-48 {
     width: 12rem;
 }
@@ -1766,6 +1772,9 @@
 }
 .min-w-full {
     min-width: 100%;
+}
+.max-w-\[40\%\] {
+    max-width: 40%;
 }
 .max-w-\[90vw\] {
     max-width: 90vw;
@@ -6135,6 +6144,79 @@ html:not(.dark) .martis-dropzone {
 }
 .martis-th-sortable:hover .martis-th-sort-hint {
   opacity: 0.7;
+}
+
+/* Multi-column sort: the position of a header in the sort order (1, 2, 3). */
+.martis-th-sort-order {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 700;
+  background-color: var(--martis-accent);
+  color: var(--martis-accent-contrast, #fff);
+}
+
+/* The "Sorted by" chip and its popover, on the index toolbar. */
+.martis-sort-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 10px;
+  border: 1px solid var(--martis-border);
+  border-radius: 999px;
+  background-color: var(--martis-card);
+  color: var(--martis-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.martis-sort-chip:hover {
+  background-color: var(--martis-hover);
+}
+.martis-sort-popover {
+  position: fixed;
+  z-index: 9991;
+  min-width: 260px;
+  max-width: calc(100vw - 16px);
+  padding: 8px;
+  border: 1px solid var(--martis-border);
+  border-radius: 8px;
+  background-color: var(--martis-card);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+.martis-sort-popover__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 2px;
+  font-size: 13px;
+  color: var(--martis-text);
+}
+.martis-sort-popover__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 0;
+  background: none;
+  color: var(--martis-text-muted);
+  cursor: pointer;
+}
+.martis-sort-popover__btn:hover:not(:disabled) {
+  background-color: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-sort-popover__btn:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 /* ── Fix: Checkbox check-mark visibility in dark theme (REA-1140) ── */
@@ -10933,10 +11015,6 @@ html[data-density="dense"] .martis-cache-toggle {
     --tw-text-opacity: 1;
     color: rgb(209 213 219 / var(--tw-text-opacity, 1));
 }
-.hover\:text-gray-900:hover {
-    --tw-text-opacity: 1;
-    color: rgb(17 24 39 / var(--tw-text-opacity, 1));
-}
 .hover\:text-red-500:hover {
     --tw-text-opacity: 1;
     color: rgb(239 68 68 / var(--tw-text-opacity, 1));
@@ -11081,10 +11159,6 @@ html[data-density="dense"] .martis-cache-toggle {
 .dark\:hover\:text-blue-300:hover:is(.dark *) {
     --tw-text-opacity: 1;
     color: rgb(147 197 253 / var(--tw-text-opacity, 1));
-}
-.dark\:hover\:text-white:hover:is(.dark *) {
-    --tw-text-opacity: 1;
-    color: rgb(255 255 255 / var(--tw-text-opacity, 1));
 }
 @media (min-width: 640px) {
     .sm\:inline {
