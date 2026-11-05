@@ -276,7 +276,7 @@ const AEF_INPUT = [
     'api_key' => 'sk_live_123',
     'hidden_note' => 'not for the log',
     'unknown_key' => 'posted by a custom component',
-    'rows' => [['type' => 'a-e-f-row', 'fields' => ['label' => 'primary', 'pin' => '4821', 'token' => 'tok-1']]],
+    'rows' => [['type' => 'a-e-f-row', 'fields' => ['label' => 'primary', 'pin' => 'pin#4821', 'token' => 'tok-1']]],
 ];
 
 /** What the log keeps of AEF_INPUT. */
@@ -313,7 +313,7 @@ it('still hands the action the real values', function () {
 
     expect(AEFRecorder::$received['new_password'])->toBe('Sup3r-secret!')
         ->and(AEFRecorder::$received['api_key'])->toBe('sk_live_123')
-        ->and(AEFRecorder::$received['rows'][0]['fields']['pin'])->toBe('4821');
+        ->and(AEFRecorder::$received['rows'][0]['fields']['pin'])->toBe('pin#4821');
 });
 
 it('never stores a secret in the table', function () {
@@ -324,7 +324,7 @@ it('never stores a secret in the table', function () {
 
     $stored = (string) json_encode(ActionEvent::query()->get()->map->getAttributes()->all());
 
-    foreach (['Sup3r-secret!', 'sk_live_123', '4821', 'tok-1', 'not for the log', 'posted by a custom component'] as $leak) {
+    foreach (['Sup3r-secret!', 'sk_live_123', 'pin#4821', 'tok-1', 'not for the log', 'posted by a custom component'] as $leak) {
         expect($stored)->not->toContain($leak);
     }
 });
@@ -468,7 +468,9 @@ it('encrypts the payload of a queued run that carries a secret, so no queue stor
 
     // What the driver stores holds none of the secrets: not the password, the sensitive text or the row's pin ...
     $stored = json_encode($payload);
-    foreach (['Sup3r-secret!', 'sk_live_123', '4821', 'tok-1'] as $secret) {
+    // Every secret holds a character that neither a UUID nor base64 ciphertext
+    // can contain: a bare '4821' turned up by chance in the encrypted payload.
+    foreach (['Sup3r-secret!', 'sk_live_123', 'pin#4821', 'tok-1'] as $secret) {
         expect($stored)->not->toContain($secret);
     }
     expect($stored)->not->toContain('new_password');
@@ -477,7 +479,7 @@ it('encrypts the payload of a queued run that carries a secret, so no queue stor
     $job = unserialize(decrypt($payload['data']['command']));
     expect($job->fields['new_password'])->toBe('Sup3r-secret!')
         ->and($job->fields['api_key'])->toBe('sk_live_123')
-        ->and($job->fields['rows'][0]['fields']['pin'])->toBe('4821');
+        ->and($job->fields['rows'][0]['fields']['pin'])->toBe('pin#4821');
 })->with([
     'resource action' => ['a-e-f-queued-rotate', null],
     'pivot action' => ['a-e-f-queued-pivot-rotate', true],
