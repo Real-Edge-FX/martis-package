@@ -97,3 +97,29 @@ it('hands the form context to every input', () => {
   expect(create.result.current.context).toBe('create')
   expect(create.result.current.fieldProps(fields[1]).context).toBe('create')
 })
+
+it('leaves a hide() field out of the render and of the submit, and a dependsOn answer can show it', () => {
+  const visibility: FieldDefinition[] = [
+    { type: 'select', attribute: 'language', label: 'Language' } as unknown as FieldDefinition,
+    { type: 'text', attribute: 'title_en', label: 'Title (EN)', hidden: true } as unknown as FieldDefinition,
+    {
+      type: 'section', attribute: '', label: 'Video', fields: [
+        { type: 'text', attribute: 'video_url', label: 'Video URL', hidden: true },
+      ],
+    } as unknown as FieldDefinition,
+  ]
+  depsSpy.mockImplementation(() => new Map())
+  const { result, rerender } = renderHook(() =>
+    useMartisForm({ fields: visibility, initialValues: { language: 'pt', title_en: 'Kept', video_url: 'x' }, resourceKey: 'materials', context: 'update', recordId: 1 }))
+
+  // The hidden leaf goes, and so does the section whose fields are all hidden.
+  expect(result.current.resolvedFields.map((f) => f.attribute)).toEqual(['language'])
+  expect(result.current.submitValues()).toEqual({ language: 'pt' })
+
+  // The sync answers with the field shown: it renders and is submitted again.
+  depsSpy.mockImplementation(() => new Map([['title_en', { attribute: 'title_en', hidden: false } as unknown as FieldDefinition]]))
+  rerender()
+  expect(result.current.resolvedFields.map((f) => f.attribute)).toEqual(['language', 'title_en'])
+  expect(result.current.submitValues()).toEqual({ language: 'pt', title_en: 'Kept' })
+  depsSpy.mockImplementation(() => new Map())
+})

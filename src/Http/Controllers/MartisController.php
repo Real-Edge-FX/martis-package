@@ -14,7 +14,6 @@ use Illuminate\Routing\Controller;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\FilterContract;
-use Martis\Enums\SortDirection;
 use Martis\FieldContext;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\Concerns\AuthorizesRelatedResource;
@@ -30,6 +29,7 @@ use Martis\Lenses\Lens;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\Support\IndexScope;
+use Martis\Support\ListSort;
 use Martis\Support\RelationScope;
 use Martis\Support\TranslatedLine;
 
@@ -966,31 +966,18 @@ abstract class MartisController extends Controller
     }
 
     /**
-     * Whether a request may order a list of `$resourceClass` by
-     * `$attribute`: a `sortable()` field of its `fields()` (layout
-     * containers opened) that the user may see (see
-     * `Field::sortableAttributes()`).
+     * Order `$query` as the request's `?sort=` asks (see `ListSort`): the
+     * requested keys, then the `defaultSort()` keys of `$resourceClass` the
+     * request did not name, then the primary key. Only a `sortable()` field
+     * of `$resourceClass::fields()` (layout containers opened) the user may
+     * see orders the list (`Field::sortableFields()`); any other key is
+     * dropped like an unknown attribute.
      *
      * A `?sort=` never reaches `orderBy()` unvalidated: a column that does
      * not exist fails the query on MySQL / PostgreSQL (SQLite tolerates
      * it), an undeclared real column would order the list by values no
      * field shows, and a field the user cannot see would tell the order of
-     * its values.
-     *
-     * @param  class-string<\Martis\Resource>  $resourceClass
-     */
-    protected function isSortableAttribute(string $resourceClass, Request $request, string $attribute): bool
-    {
-        return in_array($attribute, Field::sortableAttributes((new $resourceClass)->fields($request), $request), true);
-    }
-
-    /**
-     * Order `$query` by the attribute the request's `?sort=` names, in its
-     * `?direction=` (`asc` unless it says `desc`), when a list of
-     * `$resourceClass` may be sorted by that attribute (see
-     * isSortableAttribute()). Any other `?sort=` is ignored like an unknown
-     * attribute and the query keeps its default order. The relationship
-     * panels sort their rows this way.
+     * its values. The relationship panels sort their rows this way.
      *
      * @param  class-string<\Martis\Resource>  $resourceClass
      * @param  Builder<Model>  $query
@@ -1000,22 +987,13 @@ abstract class MartisController extends Controller
      */
     protected function applyRequestedSort(Request $request, Builder $query, string $resourceClass, bool $qualifyJsonPaths = false): void
     {
-        $sort = $request->query('sort');
-
-        if (! is_string($sort) || $sort === '' || ! $this->isSortableAttribute($resourceClass, $request, $sort)) {
-            return;
-        }
-
-        // As written, not qualified: the column may be an alias the related
-        // model selects (withCount, addSelect), which no table has. A column a
-        // joined table shares (a hasManyThrough's intermediate, a pivot) is
-        // not ambiguous here: the panels paginate through the relation, which
-        // selects the related table's columns, and ORDER BY resolves a bare
-        // name against the select list first. A JSON path compiles to an
-        // expression, which ORDER BY does not resolve that way, so over a
-        // joining relation it is qualified.
-        $column = $qualifyJsonPaths && str_contains($sort, '->') ? $query->qualifyColumn($sort) : $sort;
-        $query->orderBy($column, SortDirection::fromQuery($request->query('direction'))->value);
+        ListSort::apply(
+            $query,
+            Field::sortableFields((new $resourceClass)->fields($request), $request),
+            ListSort::fromRequest($request),
+            ListSort::defaults($resourceClass),
+            $qualifyJsonPaths,
+        );
     }
 
     /**

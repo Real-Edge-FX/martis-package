@@ -238,7 +238,7 @@ function RecordUpdatePage() {
     form.setErrors({})
     submittedRef.current = JSON.stringify(form.values)
     // Unchanged files left out, BelongsTo reduced to its id, MorphTo kept whole.
-    updateMutation.mutate(updatePayload(form.values, allFormFields))
+    updateMutation.mutate(updatePayload(form.submitValues(), allFormFields))
   }
 
   if (schemaQuery.isLoading || recordQuery.isLoading) return <FormSkeleton />

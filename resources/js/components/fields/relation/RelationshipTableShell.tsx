@@ -2,11 +2,11 @@ import { useState, type ReactNode } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { DataTable, type DataTableSortEvent, type DataTableSelectionMultipleChangeEvent } from 'primereact/datatable'
+import { DataTable, type DataTableSelectionMultipleChangeEvent } from 'primereact/datatable'
 import { Column } from 'primereact/column'
 import {
   PlusIcon, EyeIcon, PencilSimpleIcon, TrashIcon, MagnifyingGlassIcon, XIcon,
-  CaretUpIcon, CaretDownIcon, CaretUpDownIcon, CaretRightIcon,
+  CaretRightIcon,
   ArrowCounterClockwiseIcon, SkullIcon,
 } from '@phosphor-icons/react'
 
@@ -24,6 +24,9 @@ import { filterInlineActions } from '@/lib/actionVisibility'
 import { InlineRowActions } from '@/components/Table/Table'
 import { ActionModal, ActionDrawer, type ActionMeta, type ActionVia } from '@/components/Actions'
 import { emitRecordEvent } from '@/lib/recordEvents'
+import { SortHeader } from '@/components/Table/SortHeader'
+import { useToastSafe } from '@/contexts/ToastContext'
+import { MAX_SORT_KEYS, additiveSort, clickSort, serializeSort, type SortKey } from '@/lib/multiSort'
 
 /**
  * Shared toolbar/table/pagination shell for *-Many relationship fields.
@@ -120,13 +123,13 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   const { t: tMsg } = useTranslation('messages')
   const { t: tRes } = useTranslation('resources')
   const qc = useQueryClient()
+  const { addToast } = useToastSafe()
   const navigate = useNavigate()
 
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(perPageDefault)
-  const [sort, setSort] = useState<string | null>(null)
-  const [direction, setDirection] = useState<'asc' | 'desc'>('asc')
+  const [sort, setSort] = useState<SortKey[]>([])
   const [deleteTarget, setDeleteTarget] = useState<{ id: string | number } | null>(null)
   const [forceDeleteTarget, setForceDeleteTarget] = useState<{ id: string | number } | null>(null)
   const [restoreTarget, setRestoreTarget] = useState<{ id: string | number } | null>(null)
@@ -142,16 +145,13 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   })
 
   const recordsQuery = useQuery({
-    queryKey: [...queryKey, { search, page, perPage, sort, direction, trashed }],
+    queryKey: [...queryKey, { search, page, perPage, sort: serializeSort(sort), trashed }],
     queryFn: () => {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
       params.set('page', String(page))
       params.set('per_page', String(perPage))
-      if (sort) {
-        params.set('sort', sort)
-        params.set('direction', direction)
-      }
+      if (sort.length > 0) params.set('sort', serializeSort(sort))
       if (trashed !== 'active') params.set('trashed', trashed)
       return api.get<PaginatedResponse<ResourceRecord>>(fetchUrl(params))
     },
@@ -232,21 +232,18 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   const iconFromSchema = (schema as unknown as { icon?: string })?.icon
   const displayIcon = relatedIcon ?? iconFromSchema
 
-  function handleSort(attribute: string) {
-    if (sort === attribute) {
-      setDirection((d) => (d === 'asc' ? 'desc' : 'asc'))
+  function handleSort(attribute: string, additive: boolean) {
+    if (additive) {
+      const next = additiveSort(sort, attribute)
+      if (next.refused) {
+        addToast('error', tRes('sort_limit', { defaultValue: 'Up to {{max}} sort columns', max: MAX_SORT_KEYS }))
+        return
+      }
+      setSort(next.keys)
     } else {
-      setSort(attribute)
-      setDirection('asc')
+      setSort(clickSort(sort, attribute))
     }
     setPage(1)
-  }
-
-  function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
-    if (!active) return <CaretUpDownIcon size={14} className="text-gray-400" />
-    return dir === 'asc'
-      ? <CaretUpIcon size={14} style={{ color: 'var(--martis-accent)' }} />
-      : <CaretDownIcon size={14} style={{ color: 'var(--martis-accent)' }} />
   }
 
   const showMeta = !isCollapsed && (showPerPage || showSoftDeleteToggle)
@@ -396,12 +393,6 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
               value={records}
               loading={recordsQuery.isLoading}
               dataKey="id"
-              removableSort
-              sortField={sort ?? undefined}
-              sortOrder={direction === 'asc' ? 1 : -1}
-              onSort={(e: DataTableSortEvent) => {
-                if (e.sortField) handleSort(String(e.sortField))
-              }}
               selectionMode={selectable ? 'multiple' : null}
               selection={selectable ? (selectedRows ?? []) : []}
               onSelectionChange={selectable
@@ -437,14 +428,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                   field={f.attribute}
                   header={
                     f.sortable ? (
-                      <button
-                        type="button"
-                        className="flex items-center gap-1 font-medium uppercase tracking-wider text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white"
-                        onClick={() => handleSort(f.attribute)}
-                      >
-                        {f.label}
-                        <SortIcon active={sort === f.attribute} dir={direction} />
-                      </button>
+                      <SortHeader attribute={f.attribute} label={f.label} sort={sort} onSort={handleSort} />
                     ) : (
                       <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
                         {f.label}
@@ -576,6 +560,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                             actions={inlineActions}
                             row={row}
                             onAction={(action, target) => setActiveAction({ action, id: target.id as string | number })}
+                            maxInlineButtons={schema?.maxInlineButtons}
                           />
                         )}
                       </div>

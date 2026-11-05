@@ -16,7 +16,7 @@ Most admin panels forget the user's setup the moment they navigate away. It's sm
 
 The implementation uses a hybrid model:
 
-1. **State lives in React** as today (`page`, `sortBy`, `activeFilters`, etc.).
+1. **State lives in React** as today (`page`, `sort`, `activeFilters`, etc.).
 2. On every meaningful change, `useStickyView()` writes the state into `sessionStorage` under `martis:view:{userId}:{uriKey}` (one entry per resource and signed-in user).
 3. When the user lands back on the index page, the saved state is restored before the first render — no flicker.
 4. Closing the tab wipes `sessionStorage` so a fresh window starts clean.
@@ -31,14 +31,16 @@ A search term or a filter value can be personal data (a customer's name or e-mai
 
 A `?search=` or `?filters=` in the URL (the command palette's "View all", a `MenuItem::filter()` link) wins over the saved view and pauses the writer, so a deep-link never overwrites it. Without explicit URL state (the sidebar link, the back button, a fresh tab) the saved view is restored.
 
-A restored sort wins over the resource's `defaultSort()`: the default only seeds a view that has no saved sort column, so sorting by another column, opening a record and coming back keeps the column and direction the user picked.
+A restored sort wins over the resource's `defaultSort()`: the default only seeds a view that has no saved sort, so sorting by other columns, opening a record and coming back keeps the columns and directions the user picked.
+
+The saved sort is a list, `sort: [{ "attribute": "locale", "direction": "asc" }, ...]`, at most 3 keys (see [Resources → Sorting by several columns](resources.md#sorting-by-several-columns)). An entry written before the list existed (`sortBy` / `sortDir`) is read once as a one-key list, and the next write stores the new shape.
 
 ## What gets persisted
 
 | Bucket | What | Default |
 |--------|------|---------|
 | `filters` | Active filter values, search query, soft-delete toggle | persisted |
-| `sorting` | Active sort column + direction | persisted |
+| `sorting` | Active sort keys (up to 3 columns, each with a direction) | persisted |
 | `pagination` | Current page number | persisted |
 | `per_page` | Per-page selector value | persisted |
 | `columns` | Column visibility toggles (forward-looking) | persisted |
@@ -95,7 +97,7 @@ The frontend respects this via the `stickyView` flag in the schema payload — w
 When the saved view differs from the resource defaults, an `Reset view` button appears on the index toolbar. Clicking it:
 
 1. Drops the `martis:view:{userId}:{uriKey}` storage entry of the signed-in user.
-2. Resets every state bucket back to the resource's defaults (`defaultSort`, `defaultSortDirection`, no filters, page 1, etc.).
+2. Resets every state bucket back to the resource's defaults (`defaultSort()`, no filters, page 1, etc.).
 
 The button is hidden when nothing would change.
 

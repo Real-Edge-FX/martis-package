@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Martis\Contracts\ProvidesPickerAttributes;
 use Martis\Enums\ModalSize;
+use Martis\Fields\Concerns\DefersTitleToRelatedResource;
 
 /**
  * Tag field — relational tagging via BelongsToMany.
@@ -35,6 +36,8 @@ use Martis\Enums\ModalSize;
  */
 class Tag extends Field implements ProvidesPickerAttributes
 {
+    use DefersTitleToRelatedResource;
+
     protected string $relationship;
 
     protected string $titleAttribute = 'name';
@@ -91,6 +94,7 @@ class Tag extends Field implements ProvidesPickerAttributes
     public function titleAttribute(string $attribute): static
     {
         $this->titleAttribute = $attribute;
+        $this->markTitleAttributeExplicit();
 
         return $this;
     }
@@ -257,7 +261,7 @@ class Tag extends Field implements ProvidesPickerAttributes
 
         return $related->map(fn (Model $item): array => [
             'id' => $item->getKey(),
-            'title' => $item->getAttribute($this->titleAttribute),
+            'title' => $this->relatedTitle($item, $this->resourceClassForUriKey($this->relatedUriKey)),
         ])->values()->all();
     }
 
@@ -334,7 +338,7 @@ class Tag extends Field implements ProvidesPickerAttributes
     {
         return array_filter([
             'relationship' => $this->relationship,
-            'titleAttribute' => $this->titleAttribute,
+            'titleAttribute' => $this->serializedTitleAttribute($this->resourceClassForUriKey($this->relatedUriKey)),
             'relatedResource' => $this->relatedUriKey,
             'withPreview' => $this->withPreview,
             'displayAsList' => $this->displayAsList,

@@ -9,7 +9,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 ### Key Features
 
 - **Resource-driven CRUD** — Define fields once, get index/detail/create/edit views automatically
-- **50 Field Types** — Text, Number, Boolean, Select, Date, File, Image, Code, Markdown, Badge, Avatar, Icon, Slug, Timezone, Audio, and more
+- **50 Field Types** — Text, Number, Boolean, Select, Date, File, Image, Code, Markdown, Badge, Badges, Avatar, Icon, Slug, Timezone, Audio, and more
 - **12 Relationship Fields** — `BelongsTo`, `HasOne`, `HasOneOfMany`, `HasOneThrough`, `HasMany`, `HasManyThrough`, `BelongsToMany`, `MorphTo`, `MorphOne`, `MorphOneOfMany`, `MorphMany`, `MorphToMany` — all with inline CRUD, attach/detach, pivot fields and per-field toolbar controls (see [fields.md](fields.md) and [relationships.md](relationships.md))
 - **Lenses & Metrics & Dashboards** — Custom filtered views (`src/Lenses/`), Value/Trend/Partition/Progress metrics (`src/Metrics/`), and multi-dashboard layouts (`src/Dashboards/`) with polling, caching, and filters
 - **Declarative Navigation** — `Menu`, `MenuSection`, `MenuItem` (`src/Menu/`) with per-resource `menuItem()` overrides

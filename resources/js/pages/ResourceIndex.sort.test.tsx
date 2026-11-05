@@ -7,9 +7,10 @@ import { ToastProvider } from '@/contexts/ToastContext'
 
 /*
  * Clicking a sortable header sorts ascending, a second click on the same
- * header flips to descending, and the index request carries the direction.
- * A request that always sent `direction=asc` left the descending sort
- * a no-op for the user while the arrow flipped.
+ * header flips to descending, and the index request carries the direction
+ * (`sort=title:asc`, then `sort=title:desc`). A request that always sent
+ * ascending left the descending sort a no-op for the user while the arrow
+ * flipped.
  */
 
 const apiGetMock = vi.fn()
@@ -42,12 +43,12 @@ function mockIndex() {
 }
 
 const indexRequests = () =>
-  apiGetMock.mock.calls.map(([p]) => String(p)).filter((p) => p.startsWith('/api/resources/posts?'))
+  apiGetMock.mock.calls.map(([p]) => decodeURIComponent(String(p))).filter((p) => p.startsWith('/api/resources/posts?'))
 
 beforeEach(() => apiGetMock.mockReset())
 
 describe('ResourceIndexPage sorting', () => {
-  it('sends direction=asc on the first click and direction=desc on the second', async () => {
+  it('sends title:asc on the first click and title:desc on the second', async () => {
     mockIndex()
     const router = createMemoryRouter([{ path: '/resources/:resource', element: <ResourceIndexPage /> }], { initialEntries: ['/resources/posts'] })
     render(
@@ -59,12 +60,12 @@ describe('ResourceIndexPage sorting', () => {
     )
 
     await screen.findByText('Alpha')
-    const header = () => screen.getByRole('button', { name: /Title/ })
+    const header = () => screen.getByRole('button', { name: /^Title/ })
 
     fireEvent.click(header())
-    await waitFor(() => expect(indexRequests().some((u) => u.includes('sort=title') && u.includes('direction=asc'))).toBe(true))
+    await waitFor(() => expect(indexRequests().some((u) => u.includes('sort=title:asc'))).toBe(true))
 
     fireEvent.click(header())
-    await waitFor(() => expect(indexRequests().some((u) => u.includes('sort=title') && u.includes('direction=desc'))).toBe(true))
+    await waitFor(() => expect(indexRequests().some((u) => u.includes('sort=title:desc'))).toBe(true))
   })
 })

@@ -19,6 +19,7 @@ import { HeadingFieldDisplay, HeadingFieldInput } from './HeadingField'
 import { HiddenFieldDisplay, HiddenFieldInput } from './HiddenField'
 import { KeyValueFieldDisplay, KeyValueFieldInput } from './KeyValueField'
 import { BadgeFieldDisplay, BadgeFieldInput } from './BadgeField'
+import { BadgesFieldDisplay, BadgesFieldInput } from './BadgesField'
 import { StatusFieldDisplay, StatusFieldInput } from './StatusField'
 import { MultiSelectFieldDisplay, MultiSelectFieldInput } from './MultiSelectField'
 import { TagFieldDisplay, TagFieldInput } from './TagField'
@@ -206,6 +207,7 @@ const DEFAULT_DISPLAY: Record<string, ComponentType<FieldDisplayProps>> = {
   hidden: HiddenFieldDisplay,
   key_value: KeyValueFieldDisplay,
   badge: BadgeFieldDisplay,
+  badges: BadgesFieldDisplay,
   status: StatusFieldDisplay,
   multi_select: MultiSelectFieldDisplay,
   tag: TagFieldDisplay,
@@ -263,6 +265,7 @@ const DEFAULT_INPUT: Record<string, ComponentType<FieldInputProps>> = {
   hidden: HiddenFieldInput,
   key_value: KeyValueFieldInput,
   badge: BadgeFieldInput,
+  badges: BadgesFieldInput,
   status: StatusFieldInput,
   multi_select: MultiSelectFieldInput,
   tag: TagFieldInput,

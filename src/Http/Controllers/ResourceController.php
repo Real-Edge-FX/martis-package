@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Translation\PotentiallyTranslatedString;
 use Martis\Actions\Action;
 use Martis\Cache\MartisCache;
 use Martis\Contracts\ActionContract;
@@ -18,7 +19,6 @@ use Martis\Contracts\FilterContract;
 use Martis\Contracts\LayoutContract;
 use Martis\Contracts\ProvidesPickerAttributes;
 use Martis\Contracts\UnsavedChangesConfigContract;
-use Martis\Enums\SortDirection;
 use Martis\Enums\TrashedFilter;
 use Martis\Exceptions\Handler as MartisExceptionHandler;
 use Martis\FieldContext;
@@ -44,9 +44,12 @@ use Martis\Http\Resources\JsonResponse;
 use Martis\RelationshipQueryResolver;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Rules\Relatable;
 use Martis\Rules\RelatableWrite;
 use Martis\SearchResolver;
 use Martis\Support\IndexScope;
+use Martis\Support\ListSort;
+use Martis\Support\SortKey;
 use Martis\Support\TranslatedLine;
 
 /**
@@ -95,7 +98,7 @@ class ResourceController extends MartisController
      */
     #[QueryParameter('search', description: 'Filter records by free text. Searches the fields marked as searchable in the Resource that the user can see.', required: false, type: 'string')]
     #[QueryParameter('per_page', description: 'Number of records per page. Maximum: 100. Default defined by the Resource (usually 15).', required: false, type: 'integer', example: 15)]
-    #[QueryParameter('sort', description: 'Attribute name to sort by (e.g. "name", "created_at"). Must be a field marked as sortable in the Resource that the user can see; any other value is ignored.', required: false, type: 'string')]
+    #[QueryParameter('sort', description: 'Attributes to sort by: one name (e.g. "name"; with "direction") or a comma-separated list of "attribute[:asc|desc]" (e.g. "category:asc,position:desc"), at most 3. Each must be a field marked as sortable in the Resource that the user can see; any other key is ignored. The resource\'s defaultSort() keys not named break ties, then the primary key.', required: false, type: 'string')]
     #[QueryParameter('direction', description: 'Sort direction. Accepted values: "asc" (ascending) or "desc" (descending). Default, and for any other value: "asc".', required: false, type: 'string', example: 'asc')]
     #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only); any other value means active only.', required: false, type: 'string', example: 'with')]
     public function index(Request $request, string $resource): IlluminateJsonResponse
@@ -148,7 +151,9 @@ class ResourceController extends MartisController
         $rawSearch = $request->query('search', '');
         $search = trim(is_string($rawSearch) ? $rawSearch : '');
         SearchResolver::apply($request, $query, $resourceClass, $search);
-        $this->applySorting($request, $query, $resourceClass);
+        // The requested keys, then the resource's defaultSort() keys the request
+        // did not name, then the primary key (see ListSort).
+        $this->applyRequestedSort($request, $query, $resourceClass);
 
         // The relationship counts of the index columns, scoped as the related
         // index is, in this query (one per page, not one per row).
@@ -265,9 +270,19 @@ class ResourceController extends MartisController
             $fields = Field::filterForContext($res->resolveDetailFields($request), FieldContext::DETAIL);
         }
 
-        return JsonResponse::make(
-            $this->serializeModel($res, $fields, $model, $forDisplay),
-        )->toResponse();
+        $serialized = $this->serializeModel($res, $fields, $model, $forDisplay);
+
+        // The detail page draws the resource's actions for this one record:
+        // the same per-action run verdict an index row carries, so it can grey
+        // out or leave out (whenInapplicable()) what the run would refuse.
+        if ($context === 'detail') {
+            $actionAuthorization = $this->rowActionAuthorizer($request, $resourceClass);
+            $serialized['_actionAuthorization'] = $actionAuthorization !== null
+                ? $actionAuthorization($model, is_array($serialized['_authorization'] ?? null) ? $serialized['_authorization'] : [])
+                : [];
+        }
+
+        return JsonResponse::make($serialized)->toResponse();
     }
 
     // -------------------------------------------------------------------------
@@ -1006,7 +1021,7 @@ class ResourceController extends MartisController
             $cacheKey .= ':locked-'.$lockedCards;
         }
 
-        $data = $cache->remember('schema', $cacheKey, function () use ($request, $resourceClass, $instance): array {
+        $build = function () use ($request, $resourceClass, $instance): array {
             $raw = $this->buildSchema($request, $resourceClass, $instance);
 
             // Strip non-serializable values (e.g. validation rule
@@ -1022,9 +1037,155 @@ class ResourceController extends MartisController
             }
 
             return json_decode($encoded, true);
-        });
+        };
+
+        // A create form prefilled from the link carries defaults that depend
+        // on the link's values, so that payload is built for this request and
+        // never cached (nor served from the cache of the plain schema).
+        $prefill = $this->prefillFromRequest($request, $resourceClass);
+        if ($prefill !== []) {
+            $this->exposePrefill($request, $prefill);
+            $data = $build();
+        } else {
+            $data = $cache->remember('schema', $cacheKey, $build);
+        }
 
         return JsonResponse::make($data)->toResponse();
+    }
+
+    /**
+     * The `prefill[key]=value` pairs of the schema request the resource
+     * declared with `acceptsPrefill()`: a string value of at most 255
+     * characters. Anything else is ignored.
+     *
+     * @param  class-string<\Martis\Resource>  $resourceClass
+     * @return array<string, string>
+     */
+    protected function prefillFromRequest(Request $request, string $resourceClass): array
+    {
+        $declared = $resourceClass::acceptsPrefill();
+        $raw = $request->query('prefill');
+
+        if ($declared === [] || ! is_array($raw)) {
+            return [];
+        }
+
+        $prefill = [];
+        foreach ($declared as $key) {
+            $value = $raw[$key] ?? null;
+
+            if (is_string($value) && $value !== '' && mb_strlen($value) <= 255) {
+                $prefill[$key] = $value;
+            }
+        }
+
+        return $prefill;
+    }
+
+    /**
+     * Make the prefill readable as `$request->query($key)` while the schema is
+     * built, which is where `Field::default(Closure)` reads it.
+     *
+     * @param  array<string, string>  $prefill
+     */
+    protected function exposePrefill(Request $request, array $prefill): void
+    {
+        $request->query->add($prefill);
+
+        $bound = app('request');
+        if ($bound instanceof Request && $bound !== $request) {
+            $bound->query->add($prefill);
+        }
+    }
+
+    /**
+     * Drop a prefilled default the user could not pick: a `Select` value that
+     * is not one of its options (unless the field takes custom values or
+     * searches its options on the server) and a `BelongsTo` id the field's
+     * picker would not list (`Relatable`, the rule the create runs).
+     *
+     * @param  array<int, mixed>  $descriptors  Serialised fields, layouts included
+     * @param  array<string, FieldContract>  $fieldsByAttribute
+     * @param  class-string<\Martis\Resource>  $resourceClass
+     * @return array<int, mixed>
+     */
+    protected function dropUnpickablePrefill(array $descriptors, array $fieldsByAttribute, Request $request, string $resourceClass): array
+    {
+        foreach ($descriptors as $index => $descriptor) {
+            if (! is_array($descriptor)) {
+                continue;
+            }
+
+            if (isset($descriptor['fields']) && is_array($descriptor['fields'])) {
+                $descriptor['fields'] = $this->dropUnpickablePrefill($descriptor['fields'], $fieldsByAttribute, $request, $resourceClass);
+            }
+
+            if (isset($descriptor['tabs']) && is_array($descriptor['tabs'])) {
+                foreach ($descriptor['tabs'] as $tabIndex => $tab) {
+                    if (is_array($tab) && isset($tab['fields']) && is_array($tab['fields'])) {
+                        $descriptor['tabs'][$tabIndex]['fields'] = $this->dropUnpickablePrefill($tab['fields'], $fieldsByAttribute, $request, $resourceClass);
+                    }
+                }
+            }
+
+            $value = $descriptor['defaultValue'] ?? null;
+            $type = $descriptor['type'] ?? null;
+
+            if ($value !== null && ($type === 'select' || $type === 'belongs_to')) {
+                $field = $fieldsByAttribute[$descriptor['attribute'] ?? ''] ?? null;
+
+                if (! $this->prefillIsPickable($descriptor, $field, $value, $request, $resourceClass)) {
+                    $descriptor['defaultValue'] = null;
+                }
+            }
+
+            $descriptors[$index] = $descriptor;
+        }
+
+        return $descriptors;
+    }
+
+    /**
+     * @param  array<string, mixed>  $descriptor
+     * @param  class-string<\Martis\Resource>  $resourceClass
+     */
+    private function prefillIsPickable(array $descriptor, ?FieldContract $field, mixed $value, Request $request, string $resourceClass): bool
+    {
+        if ($descriptor['type'] === 'select') {
+            if (($descriptor['allowCustomValues'] ?? false) || ($descriptor['remoteOptionsSearch'] ?? false)) {
+                return true;
+            }
+
+            if (! is_string($value) && ! is_int($value)) {
+                return false;
+            }
+
+            foreach ((array) ($descriptor['options'] ?? []) as $option) {
+                if (is_array($option) && isset($option['value']) && (string) $option['value'] === (string) $value) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        $rule = $field instanceof BelongsTo ? Relatable::forField($field, $request, $resourceClass, $resourceClass::newModel()) : null;
+        if ($rule === null) {
+            return true;
+        }
+
+        $failed = false;
+        $rule->setData([(string) $descriptor['attribute'] => $value])->validate(
+            (string) $descriptor['attribute'],
+            $value,
+            function () use (&$failed): PotentiallyTranslatedString {
+                $failed = true;
+
+                return new PotentiallyTranslatedString('', app('translator'));
+            },
+        );
+
+        return ! $failed;
     }
 
     /**
@@ -1102,6 +1263,14 @@ class ResourceController extends MartisController
             Field::filterLayoutForContext($instance->fieldsForCreate($request), FieldContext::CREATE),
             fn (FieldContract $field): bool => Field::filterForModel([$field], $request, $newModel) !== [],
         ));
+        // A value the link prefilled that the user could not pick is dropped.
+        if ($resourceClass::acceptsPrefill() !== [] && $request->query('prefill') !== null) {
+            $byAttribute = [];
+            foreach ($flattenFields($instance->fieldsForCreate($request)) as $createField) {
+                $byAttribute[$createField->attribute()] = $createField;
+            }
+            $fieldsForCreate = $this->dropUnpickablePrefill($fieldsForCreate, $byAttribute, $request, $resourceClass);
+        }
         $fieldsForUpdate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForUpdate($request), FieldContext::UPDATE));
         $fieldsForInlineCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForModel(
             Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE),
@@ -1138,6 +1307,8 @@ class ResourceController extends MartisController
             'subtitle' => $resourceClass::subtitle(),
             'softDeletes' => $resourceClass::softDeletes() && $resourceClass::canViewTrashed(),
             'stickyView' => $resourceClass::stickyView(),
+            'maxInlineButtons' => $resourceClass::maxInlineButtons(),
+            'prefillKeys' => $resourceClass::acceptsPrefill(),
             'authorization' => $instance->collectionAuthorizationMetadata($request),
             'group' => $instance->group(),
             'icon' => $instance->icon(),
@@ -1196,11 +1367,28 @@ class ResourceController extends MartisController
             'rowClickOpensDetail' => $instance->resolveRowClickOpensDetail($request),
             'actions' => $actions,
             'tableLayout' => $resourceClass::tableLayout()->value,
-            'defaultSort' => $resourceClass::defaultSort(),
-            'defaultSortDirection' => $resourceClass::defaultSortDirection()->value,
+            'defaultSort' => $this->serializeDefaultSort($resourceClass, $instance, $request),
         ];
 
         return $data;
+    }
+
+    /**
+     * The resource's `defaultSort()` as `[{attribute, direction}]`, the keys
+     * a user may sort by only (a key the index would drop is not offered to
+     * the UI as the current sort).
+     *
+     * @param  class-string<resource>  $resourceClass
+     * @return list<array{attribute: string, direction: string}>
+     */
+    private function serializeDefaultSort(string $resourceClass, Resource $instance, Request $request): array
+    {
+        $sortable = Field::sortableAttributes($instance->fields($request), $request);
+
+        return array_values(array_map(
+            static fn (SortKey $key): array => $key->toArray(),
+            array_filter(ListSort::defaults($resourceClass), static fn (SortKey $key): bool => in_array($key->attribute, $sortable, true)),
+        ));
     }
 
     /**
@@ -2191,38 +2379,6 @@ class ResourceController extends MartisController
             // OR the resource's scopes() and indexQuery() away.
             IndexScope::grouped($query, fn (Builder $grouped) => $filter->apply($request, $grouped, $value));
         }
-    }
-
-    /**
-     * Order the index by the attribute the request's `?sort=` names, or by
-     * the resource's `defaultSort()` when the request names none.
-     *
-     * Only a sortable field the user can see orders the index (see
-     * isSortableAttribute()), the default sort included: any other
-     * attribute is ignored like an unknown one, and the index keeps the
-     * order its query gives.
-     *
-     * @param  class-string<resource>  $resourceClass
-     * @param  Builder<Model>  $query
-     */
-    private function applySorting(Request $request, Builder $query, string $resourceClass): void
-    {
-        $sort = $request->query('sort');
-        $direction = SortDirection::fromQuery($request->query('direction'));
-
-        // Fall back to the resource-level default sort when the request
-        // didn't specify one. Keeps the first paint consistent with the
-        // "load me already sorted by X" contract from `Resource::defaultSort()`.
-        if (! is_string($sort) || $sort === '') {
-            $sort = $resourceClass::defaultSort();
-            $direction = $resourceClass::defaultSortDirection();
-        }
-
-        if ($sort === null || $sort === '' || ! $this->isSortableAttribute($resourceClass, $request, $sort)) {
-            return;
-        }
-
-        $query->orderBy($sort, $direction->value);
     }
 
     /**

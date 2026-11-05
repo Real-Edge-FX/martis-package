@@ -59,3 +59,17 @@ it('keeps the resource key as one path segment of the sync request', async () =>
   await waitFor(() => expect(apiPostMock).toHaveBeenCalled())
   expect(apiPostMock.mock.calls[0][0]).toBe('/api/resources/..%252Fusers/sync-field')
 })
+
+it('keys the override by the descriptor the endpoint answers inside data, not by the envelope', async () => {
+  apiPostMock.mockResolvedValue({ data: { attribute: 'price', label: 'Monthly price', required: true, hidden: false } })
+  const { result, rerender } = renderHook(
+    ({ formValues }) => useDependsOnSync({ resource: 'projects', context: 'create', fields, formValues }),
+    { initialProps: { formValues: { plan: 'free' } as Record<string, unknown> } },
+  )
+
+  act(() => { rerender({ formValues: { plan: 'paid' } }) })
+
+  await waitFor(() => expect(result.current.get('price')).toBeDefined())
+  expect(result.current.get('price')).toEqual({ attribute: 'price', label: 'Monthly price', required: true, hidden: false })
+  expect('data' in (result.current.get('price') as object)).toBe(false)
+})

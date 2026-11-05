@@ -14,6 +14,7 @@ use Martis\Contracts\ProvidesPickerAttributes;
 use Martis\Enums\ModalSize;
 use Martis\Enums\PhosphorIcon;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
+use Martis\Fields\Concerns\DefersTitleToRelatedResource;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -34,6 +35,7 @@ use Martis\ResourceRegistry;
 class BelongsTo extends Field implements ProvidesPickerAttributes
 {
     use ControlsRelationshipToolbar;
+    use DefersTitleToRelatedResource;
 
     protected string $relationship;
 
@@ -206,13 +208,32 @@ class BelongsTo extends Field implements ProvidesPickerAttributes
 
     /**
      * Customize the attribute on the related model used as the display label.
-     * Defaults to "name".
+     * Without it the field shows the related resource's `title()` when that
+     * resource declares a title, else the `name` attribute (v2.17.0, see
+     * DefersTitleToRelatedResource).
      */
     public function titleAttribute(string $attribute): static
     {
         $this->titleAttribute = $attribute;
+        $this->markTitleAttributeExplicit();
 
         return $this;
+    }
+
+    /**
+     * The related resource the title defers to, for the record the field is
+     * on. A `relatedResource()` key no resource registers keeps the field's
+     * own attribute here: the write check reports that mistake loudly.
+     *
+     * @return class-string<\Martis\Resource>|null
+     */
+    private function titleResourceFor(Model $model): ?string
+    {
+        try {
+            return $this->relatedResourceClass($model);
+        } catch (\InvalidArgumentException) {
+            return null;
+        }
     }
 
     /** {@inheritdoc} */
@@ -315,7 +336,7 @@ class BelongsTo extends Field implements ProvidesPickerAttributes
         /** @var array<string, mixed> $data */
         $data = [
             'id' => $foreignKeyValue,
-            'title' => $related?->getAttribute($this->titleAttribute),
+            'title' => $related instanceof Model ? $this->relatedTitle($related, $this->titleResourceFor($model)) : null,
         ];
 
         if ($this->withSubtitles) {
@@ -547,6 +568,7 @@ class BelongsTo extends Field implements ProvidesPickerAttributes
     public function displayColumn(string $column): static
     {
         $this->titleAttribute = $column;
+        $this->markTitleAttributeExplicit();
 
         return $this;
     }
@@ -852,7 +874,7 @@ class BelongsTo extends Field implements ProvidesPickerAttributes
         return array_filter([
             'relationship' => $this->relationship,
             'foreignKey' => $this->foreignKey,
-            'titleAttribute' => $this->titleAttribute,
+            'titleAttribute' => $this->serializedTitleAttribute($this->resourceClassForUriKey($this->relatedUriKey)),
             'relatedResource' => $this->relatedUriKey,
             'relatedLabel' => $this->relatedUriKey ? Str::title(str_replace('_', ' ', $this->relationship)) : null,
             'relationSearchable' => $this->relationSearchable,

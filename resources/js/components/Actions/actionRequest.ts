@@ -1,4 +1,5 @@
 import { api, ApiError } from '@/lib/api'
+import { hasFileValues } from '@/lib/fileValues'
 import { apiPath, withQuery } from '@/lib/apiPath'
 import type { ActionResponsePayload } from './actionResponse'
 
@@ -32,9 +33,19 @@ export function postAction(
     via?: ActionRequestVia
   },
 ) {
+  const fields = body.fields ?? {}
+  // A field holding a file posts the run as multipart (v2.17.0), with the
+  // encoding the resource forms use (see buildFormData()): the fields under
+  // `fields[...]`, the records as `resources[i]`, booleans as '1' / '0'.
+  if (hasFileValues(fields)) {
+    const values: Record<string, unknown> = { dryRun: body.dryRun ?? false, ...(body.via ?? {}) }
+    body.resources.forEach((id, i) => { values[`resources[${i}]`] = id })
+    for (const [key, value] of Object.entries(fields)) values[`fields[${key}]`] = value
+    return api.upload<{ data: ActionResponsePayload & { preview?: unknown } }>('POST', url, values)
+  }
   return api.post<{ data: ActionResponsePayload & { preview?: unknown } }>(url, {
     resources: body.resources,
-    fields: body.fields ?? {},
+    fields,
     dryRun: body.dryRun ?? false,
     ...(body.via ?? {}),
   })
@@ -81,7 +92,10 @@ export function actionRecordQuery(recordId?: string | number, via?: ActionReques
  * `GET .../actions?resourceId=` does. No record (bulk run, standalone
  * action): the plain endpoint.
  */
-export function actionFieldsUrl(url: string, recordId?: string | number, via?: ActionRequestVia | null): string {
+export function actionFieldsUrl(url: string, recordId?: string | number, via?: ActionRequestVia | null, count?: number): string {
+  // A bulk run names no record but says how many are selected, for a
+  // confirmText() closure (display only, v2.17.0).
   const query = actionRecordQuery(recordId, via)
+    ?? (count !== undefined && count > 0 ? new URLSearchParams({ count: String(count) }).toString() : undefined)
   return query === undefined ? `${url}/fields` : withQuery(`${url}/fields`, query)
 }

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -208,7 +209,27 @@ class ActionController extends MartisController
         /** @var array<string, mixed> $data */
         $data = ['fields' => array_map(fn (FieldContract $f) => $f->toArray(), $fields)];
 
+        if ($actionInstance instanceof Action) {
+            $data += $actionInstance->resolveConfirmation($request, $selected, $this->selectionCount($request));
+        }
+
         return JsonResponse::make($data)->toResponse();
+    }
+
+    /**
+     * The `count` query parameter of a fields request: how many records the
+     * modal runs on, for a confirmation text only. A non-negative integer,
+     * clamped; anything else is 0.
+     */
+    private function selectionCount(Request $request): int
+    {
+        $count = $request->query('count');
+
+        if (! is_string($count) || ! ctype_digit($count)) {
+            return 0;
+        }
+
+        return (int) min((int) $count, 1_000_000);
     }
 
     /**
@@ -296,6 +317,10 @@ class ActionController extends MartisController
             $preview = $actionInstance->dryRun($fields, $models);
 
             return JsonResponse::make(['preview' => $preview])->toResponse();
+        }
+
+        if ($actionInstance instanceof Action && $actionInstance->isQueued()) {
+            $this->refuseUploadsOnQueuedAction($actionInstance, $fields);
         }
 
         // Capture model snapshots before action execution
@@ -414,6 +439,17 @@ class ActionController extends MartisController
         /** @var array<string, mixed> $values */
         $values = is_array($raw) ? $raw : [];
 
+        // A modal holding a file posts multipart (v2.17.0): the uploads come
+        // under `fields[...]` among the request's files, and every other value
+        // as a string, a list or map JSON-encoded as the resource forms do.
+        $uploads = $request->file('fields');
+        if (is_array($uploads) || str_contains((string) $request->headers->get('Content-Type', ''), 'multipart/form-data')) {
+            if (is_array($uploads)) {
+                $values = array_replace($values, $uploads);
+            }
+            $values = $this->decodeMultipartActionValues($fields, $values);
+        }
+
         if ($fields !== []) {
             $writable = array_values(array_filter(
                 $fields,
@@ -432,6 +468,58 @@ class ActionController extends MartisController
         }
 
         return ActionFields::fromRequest($this->actionFieldValues($fields, $values, $request));
+    }
+
+    /**
+     * Decode the list and map values a multipart action run carries as JSON
+     * text (`Field::hasStructuredValue()`), as the resource forms decode
+     * theirs (see DecodesStructuredValues). A value that does not decode is
+     * left as it is, for the field's own rules to refuse.
+     *
+     * @param  list<FieldContract>  $fields
+     * @param  array<string, mixed>  $values
+     * @return array<string, mixed>
+     */
+    private function decodeMultipartActionValues(array $fields, array $values): array
+    {
+        foreach ($fields as $field) {
+            if (! $field instanceof MartisField || ! $field->hasStructuredValue()) {
+                continue;
+            }
+
+            $value = $values[$field->attribute()] ?? null;
+            if (is_string($value) && $value !== '') {
+                $json = json_decode($value, true);
+                if (is_array($json)) {
+                    $values[$field->attribute()] = $json;
+                }
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * A queued action cannot take an uploaded file: an UploadedFile points at
+     * a temporary file PHP deletes when the request ends, and it does not
+     * serialize into a job. Nova refuses File fields on a queued action too.
+     * Thrown, not answered with a 422, so the mistake shows while building
+     * the action rather than to the person running it.
+     */
+    private function refuseUploadsOnQueuedAction(Action $action, ActionFields $fields): void
+    {
+        foreach ($fields->all() as $attribute => $value) {
+            $files = is_array($value) ? $value : [$value];
+            foreach ($files as $file) {
+                if ($file instanceof UploadedFile) {
+                    throw new \LogicException(sprintf(
+                        '%s is queued, so its field [%s] cannot take an uploaded file: store the file in a synchronous action, or upload it elsewhere and pass its path.',
+                        $action::class,
+                        $attribute,
+                    ));
+                }
+            }
+        }
     }
 
     /**
@@ -871,6 +959,8 @@ class ActionController extends MartisController
         /** @var array<string, mixed> $data */
         $data = ['fields' => array_map(fn (FieldContract $f) => $f->toArray(), $fields)];
 
+        $data += $actionInstance->resolveConfirmation($request, $selected, $this->selectionCount($request));
+
         return JsonResponse::make($data)->toResponse();
     }
 
@@ -953,6 +1043,8 @@ class ActionController extends MartisController
         $logEvents = $actionInstance->shouldLogEvents() && (bool) config('martis.action_events.enabled', true);
 
         if ($actionInstance->isQueued()) {
+            $this->refuseUploadsOnQueuedAction($actionInstance, $fields);
+
             return $this->dispatchQueuedPivotAction($actionInstance, $fields, $parentModel, $relation, $relationship, $models, $pivotColumns, $request, $logEvents);
         }
 

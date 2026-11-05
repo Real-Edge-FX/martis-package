@@ -52,6 +52,15 @@ class DependsOnTestResource extends Resource
                     $field->options(['free' => 'Free tier']);
                 }
             }),
+
+            // Hidden until plan = "paid", then shown with another label.
+            Text::make('coupon')->hide()->dependsOn(['plan'], function (array $form, Request $r, Text $field) {
+                if (($form['plan'] ?? null) === 'paid') {
+                    $field->show()->withLabel('Coupon (paid plans)');
+                } else {
+                    $field->hide();
+                }
+            }),
         ];
     }
 }
@@ -140,9 +149,36 @@ it('schema exposes the dependsOn declaration on reactive fields', function () {
     expect($plan['dependsOn'])->toBeNull();
 });
 
+it('schema serializes a field hide() hid as hidden, and every other field as shown', function () {
+    $fields = collect($this->getJson('/martis/api/resources/depends-on-test-models/schema')->assertOk()->json('data.fields'));
+
+    expect($fields->firstWhere('attribute', 'coupon')['hidden'])->toBeTrue()
+        ->and($fields->firstWhere('attribute', 'plan')['hidden'])->toBeFalse();
+});
+
 // -----------------------------------------------------------------------------
 // sync-field endpoint
 // -----------------------------------------------------------------------------
+
+it('sync-field shows a hidden field and changes its label from the callback, and hides it again', function () {
+    $paid = $this->postJson('/martis/api/resources/depends-on-test-models/sync-field', [
+        'field' => 'coupon',
+        'context' => 'create',
+        'formData' => ['plan' => 'paid'],
+    ])->assertOk();
+
+    expect($paid->json('data.hidden'))->toBeFalse()
+        ->and($paid->json('data.label'))->toBe('Coupon (paid plans)');
+
+    $free = $this->postJson('/martis/api/resources/depends-on-test-models/sync-field', [
+        'field' => 'coupon',
+        'context' => 'create',
+        'formData' => ['plan' => 'free'],
+    ])->assertOk();
+
+    expect($free->json('data.hidden'))->toBeTrue()
+        ->and($free->json('data.label'))->toBe('Coupon');
+});
 
 it('sync-field re-runs the closure with the live form payload', function () {
     $response = $this->postJson('/martis/api/resources/depends-on-test-models/sync-field', [

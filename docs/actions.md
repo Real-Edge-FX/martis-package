@@ -190,6 +190,41 @@ actions (the index maps every action); a standalone one is checked by its
 | `onlyInline()` | Show **only** as per-row button (hidden from dropdown) |
 | `exceptInline()` | Never show as per-row button |
 
+### Buttons and the "..." menu (v2.17.0)
+
+A row draws its inline actions as icon buttons, then a "..." menu. An action goes to the menu when it has a `group()` (a submenu, a dot nesting a further level) or when it calls `inRowMenu()` (a flat item, no submenu). Flat items come first, then the group submenus. The same layout applies in the relationship panels.
+
+```php
+RebuildMachine::make()->showInline()->inRowMenu();               // flat item in "..."
+StartMachine::make()->showInline()->inRowMenu()->group('Power'); // "Power ▸" submenu
+```
+
+A resource can cap the buttons instead of marking each action: with `protected static ?int $maxInlineButtons = 2;` the first two ungrouped inline actions stay buttons and the rest go to the menu as flat items. The count is taken on the declared actions, before an inapplicable one is hidden, so the same actions are buttons on every row. A negative value throws an `InvalidArgumentException` naming the resource.
+
+### An action a record cannot run (v2.17.0)
+
+By default an action the record cannot run (its `canRun()` or run policy says no) is drawn greyed out. `whenInapplicable()` changes that, per action:
+
+```php
+use Martis\Enums\InapplicableAction;
+
+SwitchOn::make()->showInline()->whenInapplicable(InapplicableAction::Hide)
+    ->canRun(fn ($request, $item) => ! $item->live);
+MoveUp::make()->showInline()->whenInapplicable(InapplicableAction::KeepSlot)
+    ->canRun(fn ($request, $item) => $item->position > 1);
+```
+
+| Mode | Row button | Menu item | Detail page |
+|---|---|---|---|
+| `Disabled` (default) | greyed out | greyed out | greyed out |
+| `Hide` | left out | left out | left out |
+| `KeepSlot` | invisible placeholder that keeps its place, so the next icons line up from row to row | left out | left out |
+
+- A group submenu whose actions are all left out is not drawn, nor is the "..." button when its menu would be empty.
+- The detail page now grays out or leaves out the actions its record cannot run, from the same verdict: the record's detail payload carries `_actionAuthorization` as an index row does. Before v2.17.0 the detail page offered every action and the run refused the record.
+- The run refuses an inapplicable record whatever the mode: this only changes what is drawn.
+- Nova hides a row action the row cannot run and shows it disabled in the detail menu (its public `nova-dusk-suite`, `IndexActionTest` and `DetailActionTest`). Martis keeps `Disabled` as the default so existing lists do not change; `Hide` gives Nova's row behaviour, and the detail page grays out as Nova does.
+
 ### How it looks
 
 - Each row shows a small icon button (no checkbox needed)
@@ -602,6 +637,31 @@ A run that names exactly one record (and resolves it) sets the same record befor
 
 Nova reads the record with `$request->findModel()` in `fields()`. In Martis it is a method of the Action because a second parameter on `fields()` would change `ActionContract::fields()` for every Action an application declares. `selectedModel()` is on the `Action` base class, not on `ActionContract`.
 
+### File fields (v2.17.0)
+
+A `File` (or `Image`) field among an action's fields works as on a resource form. When a field holds a file, the modal posts the run as `multipart/form-data`, with the same encoding as the resource forms: the fields under `fields[...]`, the records as `resources[i]`, booleans as `1` / `0`, lists and maps as JSON (decoded again on the server). Without a file the run stays JSON.
+
+```php
+public function fields(Request $request): array
+{
+    return [
+        Text::make('title')->rules(['required']),
+        File::make('file')->acceptedTypes(['mp4', 'png', 'svg'])->rules(['required']),
+    ];
+}
+
+public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
+{
+    $path = $fields->get('file')->store('materials', 'public'); // an Illuminate\Http\UploadedFile
+
+    // ...
+}
+```
+
+- The upload is validated with the field's own rules (`acceptedTypes()`, `maxSize()`, `rules()`), and active content is refused unless the field calls `allowActiveContent()`, as on a resource form.
+- `handle()` receives the `UploadedFile`; the action stores it where it wants. Nothing is stored for you.
+- A [queued action](#queued-batch-actions) cannot take an upload: the temporary file is deleted when the request ends and does not serialize into the job. A queued run that receives one throws a `LogicException` naming the action and the field, as Nova does not support File fields on a queued action either. Store the file in a synchronous action, or upload it elsewhere and pass its path.
+
 ---
 
 ## Post-processing with then()
@@ -761,6 +821,25 @@ PublishPosts::make()
 ```
 
 An action without `confirmText()` shows "Are you sure you want to run this action?" (translated) in its confirmation modal, Nova's default, so the modal never opens with a blank body (v2.15.0). The sentence shows whenever the action asks for confirmation, fields or not; an action with `withoutConfirmation()` that still opens the modal for its fields or for Preview shows none. An action with `withoutConfirmation()` runs only once its fields have loaded, and opens the modal instead when it has some (v2.15.0: it used to run before they loaded, without them). When a run without a modal fails, the error toast shows and the action can be run again.
+
+### A text that names the record (v2.17.0)
+
+`confirmText()`, `confirmButtonText()` and `cancelButtonText()` also take a closure, resolved each time the modal opens:
+
+```php
+DeleteMaterial::make()
+    ->confirmText(fn (Request $request, ?Model $item, int $count) => $item
+        ? __('Delete «:title» for good? The file, the cover and the subtitles are removed.', ['title' => $item->title])
+        : trans_choice('Delete :count item for good?|Delete :count items for good?', $count, ['count' => $count]))
+    ->confirmButtonText(fn (Request $request, ?Model $item) => $item ? __('Delete «:title»', ['title' => $item->title]) : null),
+```
+
+- `$item` is the record the modal runs on (a row's inline action, the detail page, a single selection), the same one `selectedModel()` gives `fields()`: found through the index scopes and authorized to view, so a closure never sees a record the user cannot reach. It is `null` for a bulk or `standalone()` run.
+- `$count` is the number of selected records (0 for a standalone action). The client sends it for the text only: it is never used to authorize or run.
+- The closure returns the text, or `null` for the default. Any other value throws an `InvalidArgumentException` naming the action and the option.
+- The texts ride on the fields request the modal already makes when it opens: no extra request, and nothing is computed per row of the index. Until it answers, a placeholder stands in for the text and the run button waits.
+- The text is plain text: a title holding markup shows literally.
+- A record-aware checkbox ("Also delete the Portuguese version") needs no confirmation API: `fields()` reads `$this->selectedModel()` and returns a `Boolean` with that label, whose value reaches `handle()` as any field's.
 
 ---
 

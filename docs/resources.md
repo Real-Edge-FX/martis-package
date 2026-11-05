@@ -286,6 +286,45 @@ class AuditEventResource extends Resource
 
 When the global `config('martis.sticky_views.enabled')` is `false`, the per-resource flag is ignored and the feature is off everywhere.
 
+### Prefill the create form from a link — `acceptsPrefill()`
+
+`Field::default(Closure)` is resolved for the schema request, which does not carry the create page's query string. A resource that wants a link such as `/resources/versions/create?of=12` to start the form from a value lists the query keys the page may forward:
+
+```php
+class VersionResource extends Resource
+{
+    public static function acceptsPrefill(): array
+    {
+        return ['of'];
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            BelongsTo::make('document', 'Document')
+                ->default(fn (?Request $request) => $request?->query('of')),
+        ];
+    }
+}
+```
+
+The schema payload lists the keys as `prefillKeys`. The create page reads those keys from its own URL and asks for the schema with `prefill[of]=12`; the server makes the values readable as `$request->query('of')` while it builds the defaults. Rules:
+
+- Only the keys `acceptsPrefill()` returns are forwarded. Any other key in the URL, and any other `prefill[...]` key, is ignored.
+- A value is a string of at most 255 characters; an array or a longer value is ignored.
+- A prefilled `Select` value that is not one of its options is dropped (the field starts empty), unless the select takes custom values or searches on the server. A prefilled `BelongsTo` id the field's picker would not list (the related resource's `relatableQuery()`, the field's `relatableQueryUsing()`) is dropped too, so a crafted link cannot preselect a choice the user cannot make. Whatever the form submits still goes through the create's own validation.
+- The prefilled schema is built for the request and never cached, and the page keeps it under its own query key (`['schema', resource, 'prefill', {...}]`), so one link's values never serve another.
+- It applies to the create page only: the update form loads the record's values, and a replicate (`fromResourceId`) starts from the copied record.
+
+A "link from an action": build the create URL in an action and send the user there. `ActionResponse::visit()` navigates inside the panel and adds the values to the query string (`ActionResponse::redirect()` does the same with a full URL or path):
+
+```php
+public function handle(ActionFields $fields, Collection $models): ActionResponse
+{
+    return ActionResponse::visit('/resources/versions/create', ['of' => $models->first()->getKey()]);
+}
+```
+
 ### Auto-refresh polling — `$polling`, `$pollingInterval`, `$showPollingToggle`
 
 Auto-refreshes the resource index payload at a fixed cadence. Useful for resources whose rows reflect external state (queue jobs, deployments, scraper feeds, real-time order books) where a stale view actively misleads the operator.
@@ -623,7 +662,7 @@ Sets the initial sort column and direction on the index page. Returns `null` (de
 The default sort follows the rule of every `?sort=` (v1.38.0): it orders the index only when it names a `sortable()` field the user can see (`canSee()`). For a user who cannot see that field the index keeps the order its query gives (`indexQuery()`), as for a default sort that names no sortable field. Before v1.38.0 a default sort by a field the user cannot see ordered the index by that field.
 
 ```php
-public static function defaultSort(): ?string
+public static function defaultSort(): string|array|null
 {
     return 'created_at';
 }
@@ -633,6 +672,39 @@ public static function defaultSortDirection(): SortDirection
     return SortDirection::Desc; // SortDirection::Asc or SortDirection::Desc
 }
 ```
+
+#### Several default keys
+
+`defaultSort()` may also return an ordered array of column to direction, a `SortDirection` or `'asc'` / `'desc'`. `defaultSortDirection()` is then ignored.
+
+```php
+public static function defaultSort(): string|array|null
+{
+    return [
+        'category' => SortDirection::Asc,
+        'position' => SortDirection::Asc,
+        'locale'   => 'asc',
+    ];
+}
+```
+
+A value that is not a direction (or a key that is not a column name) throws an `InvalidArgumentException` naming the resource class and the key: it is a mistake in the code, not request input. Every key goes through the check of a requested key (a `sortable()` field the user can see); a key that fails is dropped, as a single default is.
+
+The index (and the lens and the relationship panels, see [Sorting by several columns](#sorting-by-several-columns) below) is ordered by:
+
+1. the keys the request names, in order (`?sort=locale:asc,name:desc`);
+2. then the `defaultSort()` keys the request did not name, in their order: **the default is the tiebreaker**, so one click on "Language" gives `locale, category, position`, not `locale` alone;
+3. then the model's qualified primary key, ascending, so pagination is stable.
+
+The primary key tiebreaker changes the order of tied rows on a resource that sorts by a non-unique column: they come by id now. Without a request key, the order is the default, then the key.
+
+The schema payload carries `defaultSort` as `[{ "attribute": "category", "direction": "asc" }, ...]` (the keys the user may sort by); `defaultSortDirection` is no longer part of it. A custom `component:Table` override receives `sort` (the list of keys) and `onSort(attribute, additive)` instead of `sortBy`, `sortDir` and `onSort(attribute)`.
+
+#### Sorting by several columns
+
+`?sort=` takes a comma-separated list of `attribute[:direction]` (`?sort=category:asc,position:asc,locale:desc`), a missing direction being `asc`. A single key without a suffix still takes `&direction=` (`?sort=title&direction=desc`). At most 3 keys count (the rest are ignored), a repeated attribute keeps its first occurrence, and a key that is not a sortable field the user can see is dropped while the others apply. One parser and one applier (`Martis\Support\ListSort`) serve the index, a lens and the `HasMany`, `MorphMany`, `HasManyThrough`, `BelongsToMany` and `MorphToMany` panels.
+
+On screen, a click on a sortable header sorts by that column alone (the default keys still break ties) and a second click flips it; **Shift+click** (Shift+Enter on a focused header) adds the column as the next key and cycles ascending, descending, removed. A fourth key is refused with a toast. With more than one key each sorted header shows its position (1, 2, 3); `aria-sort` is on the first key's header only, the others carry hidden text ("sort 2 of 3, ascending"). When the sort differs from the default, a "Sorted by" chip on the index toolbar opens a popover to move a key up or down, flip it, remove it or add a column: the way to sort by several columns on a touch screen. "Reset view" returns to the default sort. The server orders the rows; the table never re-sorts them in the browser.
 
 ## Query Hooks
 
@@ -1376,7 +1448,7 @@ class PostResource extends Resource
     public function icon(): string { return 'newspaper'; }
     public function group(): ?string { return 'Content'; }
     public static function perPageOptions(): array { return [10, 25, 50]; }
-    public static function defaultSort(): ?string { return 'created_at'; }
+    public static function defaultSort(): string|array|null { return 'created_at'; }
     public static function defaultSortDirection(): SortDirection { return SortDirection::Desc; }
 
     public function fields(Request $request): array

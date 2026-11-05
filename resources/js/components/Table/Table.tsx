@@ -3,15 +3,17 @@ import type { FieldDefinition, ResourceRecord } from "@/types"
 import type { ActionMeta } from "@/components/Actions"
 import { FieldDisplay } from "@/components/fields/FieldRenderer"
 import { isHiddenOn } from "@/lib/hiddenFields"
-import { DataTable, type DataTableSelectionMultipleChangeEvent, type DataTableSortEvent } from "primereact/datatable"
+import { DataTable, type DataTableSelectionMultipleChangeEvent } from "primereact/datatable"
 import { Column } from "primereact/column"
-import { CaretUpIcon, CaretDownIcon, CaretUpDownIcon, LightningIcon, WarningIcon, DotsThreeVerticalIcon, CaretRightIcon, EyeIcon, PencilSimpleIcon, TrashIcon, ArrowCounterClockwiseIcon, SkullIcon } from "@phosphor-icons/react"
+import { LightningIcon, WarningIcon, DotsThreeVerticalIcon, CaretRightIcon, EyeIcon, PencilSimpleIcon, TrashIcon, ArrowCounterClockwiseIcon, SkullIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { useTranslation } from "react-i18next"
 import { useState, useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { useEscapeLayer } from "@/lib/escapeLayers"
 import { ownEntry } from "@/lib/ownEntry"
+import type { SortKey } from "@/lib/multiSort"
+import { SortHeader } from "./SortHeader"
 
 export interface TableColumn {
   field: FieldDefinition
@@ -27,9 +29,14 @@ export interface DefaultRowActionsConfig {
 export interface TableProps {
   columns: TableColumn[]
   rows: ResourceRecord[]
-  sortBy: string | null
-  sortDir: "asc" | "desc"
-  onSort: (attribute: string) => void
+  /**
+   * The keys the rows are sorted by, the most significant first (empty for
+   * none). The server orders the rows: the table shows this state and never
+   * re-sorts them itself.
+   */
+  sort: SortKey[]
+  /** A header was clicked; `additive` is true for Shift+click / Shift+Enter (add the column to the sort). */
+  onSort: (attribute: string, additive: boolean) => void
   selectedIds: Set<string | number>
   onToggleSelect: (id: string | number) => void
   onToggleAll: () => void
@@ -39,6 +46,8 @@ export interface TableProps {
   selectable?: boolean
   inlineActions?: ActionMeta[]
   onInlineAction?: (action: ActionMeta, row: ResourceRecord) => void
+  /** The resource's `$maxInlineButtons`: row buttons beyond it go to the "..." menu. */
+  maxInlineButtons?: number | null
   defaultRowActions?: DefaultRowActionsConfig
   onDefaultView?: (row: ResourceRecord) => void
   onDefaultEdit?: (row: ResourceRecord) => void
@@ -91,15 +100,6 @@ function columnStyleFrom(meta: ColumnWidth | null | undefined): React.CSSPropert
   if (meta.minWidth) style.minWidth = meta.minWidth
   if (meta.maxWidth) style.maxWidth = meta.maxWidth
   return Object.keys(style).length === 0 ? undefined : style
-}
-
-function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
-  // Design-system spec: only the active column shows a direction caret.
-  // Inactive sortable columns stay clean until hovered/activated.
-  if (!active) return null
-  return dir === "asc"
-    ? <CaretUpIcon size={12} weight="bold" style={{ opacity: 0.8 }} />
-    : <CaretDownIcon size={12} weight="bold" style={{ opacity: 0.8 }} />
 }
 
 /* ── Inline Action Menu (3-dot grouped) with submenu support ──────── */
@@ -453,24 +453,65 @@ export function canRunInlineAction(row: ResourceRecord, action: ActionMeta): boo
 }
 
 /**
+ * Whether `action` is drawn at all for `row`: an action it cannot run on is
+ * left out when it says `whenInapplicable(Hide)`, and also out of a menu or
+ * the detail page when it says `KeepSlot` (a slot only means something in a
+ * row of buttons).
+ */
+export function isInlineActionDrawn(row: ResourceRecord, action: ActionMeta, inMenu: boolean): boolean {
+  if (canRunInlineAction(row, action)) return true
+  const mode = action.whenInapplicable ?? "disabled"
+  if (mode === "hide") return false
+  if (mode === "keep_slot") return !inMenu
+  return true
+}
+
+/**
+ * Split a row's inline actions into row buttons and "..." menu items. An
+ * action with a `group()` or `inRowMenu()` goes to the menu; of the others,
+ * the first `maxInlineButtons` stay buttons and the rest go to the menu as
+ * flat items. The split does not look at the row, so the same actions are
+ * buttons on every row.
+ */
+export function splitInlineActions(
+  actions: ActionMeta[],
+  maxInlineButtons?: number | null,
+): { buttons: ActionMeta[]; menu: ActionMeta[] } {
+  const candidates = actions.filter(a => !a.group && !a.inRowMenu)
+  const limit = typeof maxInlineButtons === "number" && maxInlineButtons >= 0 ? maxInlineButtons : candidates.length
+  const buttons = candidates.slice(0, limit)
+  const overflow = candidates.slice(limit)
+  // Flat items first (inRowMenu() ones, then the overflow), groups after:
+  // buildInlineGroupTree keeps that order.
+  const menu = [...actions.filter(a => !a.group && a.inRowMenu), ...overflow, ...actions.filter(a => !!a.group)]
+  return { buttons, menu }
+}
+
+/**
  * A row's inline (`showInline()`) actions, laid out as on the resource
- * index: an action without a group is an icon button, the grouped ones sit
- * in the "..." menu. Shared with the relationship panels.
+ * index: buttons first, then the "..." menu (see splitInlineActions()).
+ * An action the row cannot run on is greyed out, left out or, for a
+ * button, kept as an invisible slot (`whenInapplicable()`). Shared with the
+ * relationship panels.
  */
 export function InlineRowActions({
   actions,
   row,
   onAction,
+  maxInlineButtons,
 }: {
   actions: ActionMeta[]
   row: ResourceRecord
   onAction: (action: ActionMeta, row: ResourceRecord) => void
+  /** The resource's `$maxInlineButtons`. */
+  maxInlineButtons?: number | null
 }) {
-  const ungrouped = actions.filter(a => !a.group)
-  const grouped = actions.filter(a => !!a.group)
+  const { buttons, menu } = splitInlineActions(actions, maxInlineButtons)
+  const menuItemsForRow = menu.filter(a => isInlineActionDrawn(row, a, true))
   return (
     <>
-      {ungrouped.map(action => {
+      {buttons.map(action => {
+        if (!isInlineActionDrawn(row, action, false)) return null
         const iconNode = action.showIcon !== false
           ? (action.icon
               ? <ResourceIcon iconName={action.icon} size={16} color={action.iconColor ?? undefined} />
@@ -478,19 +519,29 @@ export function InlineRowActions({
                 ? <WarningIcon size={16} weight="fill" color={action.iconColor ?? undefined} />
                 : <LightningIcon size={16} color={action.iconColor ?? undefined} />)
           : null
+        const runnable = canRunInlineAction(row, action)
+        if (!runnable && action.whenInapplicable === "keep_slot") {
+          // Same box as a button, invisible and out of the tab order and of
+          // the accessibility tree, so the next icons do not shift.
+          return (
+            <span key={action.uriKey} className="martis-row-action-btn martis-row-action-btn--slot" aria-hidden="true" style={{ visibility: "hidden" }}>
+              {iconNode}
+            </span>
+          )
+        }
         return (
           <RowActionButton
             key={action.uriKey}
             label={action.name}
             icon={iconNode}
-            disabled={!canRunInlineAction(row, action)}
+            disabled={!runnable}
             variant={action.destructive ? "destructive" : "primary"}
             onClick={() => onAction(action, row)}
           />
         )
       })}
-      {grouped.length > 0 && (
-        <InlineActionMenu actions={grouped} row={row} onAction={onAction} />
+      {menuItemsForRow.length > 0 && (
+        <InlineActionMenu actions={menuItemsForRow} row={row} onAction={onAction} />
       )}
     </>
   )
@@ -535,8 +586,7 @@ function RowActionButton({
 function DefaultTable({
   columns,
   rows,
-  sortBy,
-  sortDir,
+  sort,
   onSort,
   selectedIds,
   onToggleSelect,
@@ -547,6 +597,7 @@ function DefaultTable({
   selectable = false,
   inlineActions = [],
   onInlineAction,
+  maxInlineButtons,
   defaultRowActions,
   onDefaultView,
   onDefaultEdit,
@@ -560,8 +611,6 @@ function DefaultTable({
   const { t } = useTranslation("resources")
   const { t: tMsg } = useTranslation("messages")
   const { t: tAct } = useTranslation("actions")
-
-  const sortOrder = sortDir === "asc" ? 1 : -1
 
   const striped = tableConfig?.striped !== false
   const gridlines = tableConfig?.showGridlines === true
@@ -615,12 +664,6 @@ function DefaultTable({
         key={resourceKey}
         value={rows}
         dataKey="id"
-        removableSort
-        sortField={sortBy ?? undefined}
-        sortOrder={sortOrder}
-        onSort={(e: DataTableSortEvent) => {
-          if (e.sortField) onSort(String(e.sortField))
-        }}
         onRowClick={e => {
           // Checkbox clicks bubble up through PrimeReact's `onRowClick`;
           // suppress navigation when the click originated inside the
@@ -697,20 +740,7 @@ function DefaultTable({
             field={field.attribute}
             header={
               field.sortable ? (
-                <button type="button"
-                  className="martis-th-sortable flex items-center gap-1 font-bold uppercase tracking-wider text-xs"
-                  style={{ color: "var(--martis-table-header-text)" }}
-                  onClick={() => onSort(field.attribute)}
-                >
-                  {field.label}
-                  {sortBy === field.attribute ? (
-                    <SortIcon active dir={sortDir} />
-                  ) : (
-                    // Discreet hint that the column is sortable. Low opacity
-                    // at rest, slightly brighter when the header is hovered.
-                    <CaretUpDownIcon size={11} weight="bold" className="martis-th-sort-hint" />
-                  )}
-                </button>
+                <SortHeader attribute={field.attribute} label={field.label} sort={sort} onSort={onSort} />
               ) : (
                 <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--martis-table-header-text)" }}>
                   {field.label}
@@ -744,7 +774,7 @@ function DefaultTable({
               const editDisabled = row._authorization?.authorizedToUpdate === false
               const deleteDisabled = row._authorization?.authorizedToDelete === false
               const isTrashed = "deleted_at" in row && row["deleted_at"] != null
-              const hasInline = inlineActions.length > 0
+              const hasInline = inlineActions.some(a => isInlineActionDrawn(row, a, false))
               return (
                 <div className="martis-row-actions justify-end" onClick={e => e.stopPropagation()}>
                   {showView && (
@@ -796,6 +826,7 @@ function DefaultTable({
                     actions={inlineActions}
                     row={row}
                     onAction={(action, r) => onInlineAction?.(action, r)}
+                    maxInlineButtons={maxInlineButtons}
                   />
                 </div>
               )

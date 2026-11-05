@@ -102,16 +102,21 @@ export function useDependsOnSync({
         // when the response is for the latest request (we re-check the
         // map identity to avoid clobbering an even-newer override).
         void api
-          .post<FieldDefinition>(
+          .post<{ data: FieldDefinition }>(
             apiPath`/api/resources/${resource}/sync-field`,
             { field: attribute, formData: formValues, context, ...(recordId != null ? { id: recordId } : {}) },
             ac.signal,
           )
           .then((res) => {
             if (inflight.current.get(attribute) !== ac) return
+            // The endpoint answers `{ data: descriptor }`: the override is the
+            // descriptor. Storing the envelope merged a `data` key into the
+            // field and left every dependsOn change unapplied.
+            const descriptor = res?.data
+            if (!descriptor || typeof descriptor !== 'object') return
             setOverrides((prev) => {
               const next = new Map(prev)
-              next.set(attribute, res)
+              next.set(attribute, descriptor)
               return next
             })
           })

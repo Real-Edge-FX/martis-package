@@ -3,6 +3,7 @@
 namespace Martis\Fields;
 
 use Illuminate\Contracts\Validation\Rule;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -10,6 +11,7 @@ use Martis\Contracts\FieldContract;
 use Martis\Contracts\FiltersFields;
 use Martis\Contracts\LayoutContract;
 use Martis\Contracts\OverrideContract;
+use Martis\Enums\SortDirection;
 use Martis\FieldContext;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -81,6 +83,14 @@ abstract class Field implements FieldContract
     protected ?bool $showOnPreview = null;
 
     protected bool $sortable = false;
+
+    /**
+     * How an ordering by this field is written (`sortUsing()`), or null
+     * to order by the attribute as a column.
+     *
+     * @var (\Closure(Builder<Model>, SortDirection): void)|null
+     */
+    protected ?\Closure $sortUsing = null;
 
     protected bool $searchable = false;
 
@@ -158,6 +168,12 @@ abstract class Field implements FieldContract
      * + schema honour it via the existing readonly path.
      */
     protected bool $immutable = false;
+
+    /**
+     * Set by hide() / show(), typically inside a dependsOn() callback: the
+     * form does not render the field and leaves its value out of the submit.
+     */
+    protected bool $hiddenOnForm = false;
 
     /**
      * Whether the value the field carries is a secret (a password, an API
@@ -245,6 +261,9 @@ abstract class Field implements FieldContract
     protected mixed $defaultValue = null;
 
     protected bool $hasDefault = false;
+
+    /** Keep the submitted value after "Create & add another". */
+    protected bool $sticky = false;
 
     /** Create a new field instance. */
     protected function __construct(
@@ -506,6 +525,7 @@ abstract class Field implements FieldContract
             'creationRules' => $this->creationRules !== [] ? $this->creationRules : null,
             'updateRules' => $this->updateRules !== [] ? $this->updateRules : null,
             'immutable' => $this->immutable,
+            'hidden' => $this->hiddenOnForm,
             // Surface the watched field list whenever the developer
             // declared one — even if no callback was attached. The
             // sync-field path still keys on isDependent() (callback +
@@ -523,6 +543,7 @@ abstract class Field implements FieldContract
             'colSpanMd' => $this->colSpanMd,
             'colSpanLg' => $this->colSpanLg,
             'defaultValue' => $this->getDefaultValue(),
+            'sticky' => $this->sticky,
             'overrides' => array_filter([
                 'create' => $this->overrideForCreate?->toArray(),
                 'update' => $this->overrideForUpdate?->toArray(),
@@ -980,6 +1001,20 @@ abstract class Field implements FieldContract
     }
 
     /**
+     * Keep the value the user submitted when they choose "Create & add
+     * another", so the next record starts from it instead of the field's
+     * default. Fields that are not sticky reset as before.
+     *
+     *     Select::make('category')->sticky()
+     */
+    public function sticky(bool $value = true): static
+    {
+        $this->sticky = $value;
+
+        return $this;
+    }
+
+    /**
      * Get the default value for this field. Resolves closures at the
      * moment of access — the request, locale, authenticated user, and
      * any other request-scoped state is fresh.
@@ -1039,6 +1074,35 @@ abstract class Field implements FieldContract
         $this->showOnForms = false;
 
         return $this;
+    }
+
+    /**
+     * Hide the field on the form it is on, as Nova's dependent fields do:
+     * the form does not render it and leaves its value out of the submit, so
+     * an update keeps the stored value. Unlike hideFromForms(), the field
+     * stays in the form schema, so a dependsOn() callback can show() it again
+     * when a sibling changes. Call it at definition time for a field hidden
+     * until a sibling asks for it, or inside the callback.
+     */
+    public function hide(): static
+    {
+        $this->hiddenOnForm = true;
+
+        return $this;
+    }
+
+    /** Show a field hide() hid. See hide(). */
+    public function show(): static
+    {
+        $this->hiddenOnForm = false;
+
+        return $this;
+    }
+
+    /** Whether hide() hid the field on its form. */
+    public function isHiddenOnForm(): bool
+    {
+        return $this->hiddenOnForm;
     }
 
     // -------------------------------------------------------------------------
@@ -1515,6 +1579,43 @@ abstract class Field implements FieldContract
         return $this;
     }
 
+    /**
+     * Write the ordering by this field yourself, for an attribute that is
+     * not a plain column of the listed table (a category's position, kept in
+     * another table). Implies `sortable()`.
+     *
+     * The closure receives the query and the requested `SortDirection` and
+     * only adds order clauses; it must not add `where` clauses (not
+     * enforced). It runs on every surface that sorts by this attribute: the
+     * index, a lens and the relationship panels.
+     *
+     *     BelongsTo::make('Category', 'category')
+     *         ->sortUsing(fn (Builder $query, SortDirection $direction) => $query->orderBy(
+     *             Category::select('position')->whereColumn('categories.id', 'promotion_materials.category_id'),
+     *             $direction->value,
+     *         ));
+     *
+     * @param  \Closure(Builder<Model>, SortDirection): void  $callback
+     */
+    public function sortUsing(\Closure $callback): static
+    {
+        $this->sortable = true;
+        $this->sortUsing = $callback;
+
+        return $this;
+    }
+
+    /**
+     * The closure `sortUsing()` set, or null when the field sorts by its
+     * attribute as a column.
+     *
+     * @return (\Closure(Builder<Model>, SortDirection): void)|null
+     */
+    public function sortCallback(): ?\Closure
+    {
+        return $this->sortUsing;
+    }
+
     /** {@inheritdoc} */
     public function searchable(bool $value = true): static
     {
@@ -1572,15 +1673,28 @@ abstract class Field implements FieldContract
      */
     public static function sortableAttributes(array $items, Request $request): array
     {
-        $attributes = [];
+        return array_keys(self::sortableFields($items, $request));
+    }
+
+    /**
+     * The fields a request may sort a list by among `$items`, keyed by
+     * attribute (see `sortableAttributes()`); the first field of an
+     * attribute wins. Their `sortUsing()` closures say how each is ordered.
+     *
+     * @param  list<FieldContract|LayoutContract>  $items
+     * @return array<string, FieldContract>
+     */
+    public static function sortableFields(array $items, Request $request): array
+    {
+        $fields = [];
 
         foreach (self::flattenLayoutFields($items) as $field) {
-            if ($field->isSortable() && $field->isAuthorizedToSee($request)) {
-                $attributes[] = $field->attribute();
+            if ($field->isSortable() && $field->isAuthorizedToSee($request) && ! isset($fields[$field->attribute()])) {
+                $fields[$field->attribute()] = $field;
             }
         }
 
-        return array_values(array_unique($attributes));
+        return $fields;
     }
 
     /** {@inheritdoc} */

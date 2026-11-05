@@ -11,6 +11,7 @@ import { TabsDisplay } from "@/components/fields/TabsRenderer"
 import { SectionDisplay } from "@/components/fields/SectionRenderer"
 import { DeleteModal } from "@/components/DeleteModal"
 import { ActionModal, ActionDropdown, ActionDrawer } from "@/components/Actions"
+import { canRunInlineAction, isInlineActionDrawn } from "@/components/Table/Table"
 import type { ActionMeta } from "@/components/Actions"
 import { useToast } from "@/contexts/ToastContext"
 import { useTranslation } from "react-i18next"
@@ -124,6 +125,13 @@ export function ResourceDetailPage() {
 
   const schema = schemaQuery.data?.data
   const record = recordQuery.data?.data
+  // The record carries the run verdict of each action (`_actionAuthorization`),
+  // as an index row does: one it cannot run on is greyed out, or left out
+  // when it says whenInapplicable(Hide | KeepSlot).
+  const detailActionsForRecord = record ? detailActions.filter((a) => isInlineActionDrawn(record, a, true)) : detailActions
+  const disabledDetailActions = new Set(
+    record ? detailActionsForRecord.filter((a) => !canRunInlineAction(record, a)).map((a) => a.uriKey) : [],
+  )
 
   // Prefer the framework-resolved `_title` string (mirrors DrawerDetail):
   // a titleAttribute field with a `displayUsing()` callback serialises a
@@ -330,10 +338,11 @@ export function ResourceDetailPage() {
         </h1>
         <div className="flex flex-wrap items-center gap-2">
           {/* Resource actions dropdown */}
-          {detailActions.length > 0 && (
+          {detailActionsForRecord.length > 0 && (
             <ActionDropdown
-              actions={detailActions}
+              actions={detailActionsForRecord}
               onSelect={(action) => setActiveAction(action)}
+              disabledActions={disabledDetailActions}
             />
           )}
           {isDeleted && schema.softDeletes && canRestore ? (

@@ -4,6 +4,17 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.17.0 from v2.16.x
+
+v2.17.0 adds fields a sibling shows or hides (`hide()` / `show()` in `dependsOn()`), `whenInapplicable()`, `inRowMenu()` and `$maxInlineButtons` for row actions, confirmation texts from a closure, file fields in action modals, `acceptsPrefill()` and `sticky()` for the create form, a `Badges` field, and sorting by several columns. Republish the assets (`php artisan martis:publish-assets`). Most apps change nothing; check these:
+
+- **`dependsOn()` now reaches the form.** The form used to drop every change a callback made (required, options, help, label), since `dependsOn()` was introduced. A callback that was written but never seen to work now applies: check it does what its code says.
+- **Relation titles.** A `BelongsTo`, `Tag`, `BelongsToMany` or `MorphToMany` without `titleAttribute()` now shows the related resource's `title()` when that resource declares one (a `titleAttribute()` other than `id`, or its own `title()`), instead of the `name` attribute. Where the cell showed `#4`, it now shows the record's title; a field that sets `titleAttribute()` is unchanged.
+- **The detail page greys out the actions its record cannot run**, as the index rows do. Use `whenInapplicable(InapplicableAction::Hide)` to leave them out.
+- **Sorting.** Every list ends its order on the primary key, so rows that tie on a non-unique column may change order. A relationship panel with no requested sort follows its related resource's `defaultSort()`. The schema's `defaultSort` is now `[{ attribute, direction }]` (no `defaultSortDirection`), and a custom `component:Table` override receives `sort` and `onSort(attribute, additive)` instead of `sortBy`, `sortDir` and `onSort(attribute)`. A saved index sort (sticky view) is read once in its old shape.
+- **`ActionContract`.** `confirmText()`, `confirmButtonText()` and `cancelButtonText()` take `string|Closure`: a class that implements the contract directly (not through `Action`) widens the parameter type.
+- **A queued action that receives an uploaded file throws** a `LogicException`, naming the action and the field.
+
 ## Upgrading to v2.16.6 from v2.16.5
 
 v2.16.6 keeps the sort a user picks on an index after they open a record and come back: on a resource with a `defaultSort()`, the default used to override the restored sort. Nothing has to change in an app: republish the assets (`php artisan martis:publish-assets`). See [Sticky views](sticky_views.md#how-it-works).

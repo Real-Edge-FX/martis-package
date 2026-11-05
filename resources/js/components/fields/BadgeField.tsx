@@ -6,7 +6,7 @@ import { ownEntry } from '@/lib/ownEntry'
 // Color mapping: badge type → CSS color vars / class
 // ---------------------------------------------------------------------------
 
-function resolveBadgeType(
+export function resolveBadgeType(
   value: unknown,
   map: Record<string, string>,
   types: Record<string, string>,

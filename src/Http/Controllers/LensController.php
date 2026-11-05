@@ -19,6 +19,7 @@ use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Lenses\Lens;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\SortKey;
 
 /**
  * Controller for Lens index endpoints.
@@ -62,7 +63,7 @@ class LensController extends MartisController
         $lensRequest = LensRequest::fromRequest(
             $request,
             $filtersByUriKey,
-            Field::sortableAttributes($lensInstance->fields($request), $request),
+            Field::sortableFields($lensInstance->fields($request), $request),
         );
 
         /** @var class-string<Model> $modelClass */
@@ -286,8 +287,7 @@ class LensController extends MartisController
             // user B until the TTL expires.
             (string) ($lensRequest->user()?->getAuthIdentifier() ?? 'guest'),
             $lensRequest->search,
-            $lensRequest->sortColumn ?? '',
-            $lensRequest->sortDirection->value,
+            implode(',', array_map(static fn (SortKey $key): string => $key->attribute.':'.$key->direction->value, $lensRequest->sortKeys)),
             md5(json_encode($lensRequest->selectedFilters) ?: ''),
             $trashed,
             $perPage,

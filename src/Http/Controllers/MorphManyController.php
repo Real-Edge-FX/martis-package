@@ -54,7 +54,7 @@ class MorphManyController extends MartisController
      */
     #[QueryParameter('search', description: 'Filter related records by free text, on the searchable fields of the related resource the user can see.', required: false, type: 'string')]
     #[QueryParameter('per_page', description: 'Records per page, from 1 to 100. Default: 10.', required: false, type: 'integer')]
-    #[QueryParameter('sort', description: 'Attribute to sort by: a sortable field of the related resource the user can see; any other value is ignored.', required: false, type: 'string')]
+    #[QueryParameter('sort', description: 'Attributes to sort by: one name (with direction) or a comma-separated list of attribute[:asc|desc], at most 3 (e.g. position:asc,name:desc). Each is a sortable field of the related resource the user can see; any other key is ignored.', required: false, type: 'string')]
     #[QueryParameter('direction', description: 'Sort direction: asc or desc (asc for any other value).', required: false, type: 'string')]
     #[QueryParameter('trashed', description: 'Soft-delete filter. Values: empty (active only), with (include trashed), only (trashed only); any other value means active only.', required: false, type: 'string')]
     public function index(

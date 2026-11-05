@@ -10,6 +10,7 @@ use Martis\Enums\ModalSize;
 use Martis\Fields\Concerns\AuthorizesRelatedResource;
 use Martis\Fields\Concerns\ControlsRelationshipToolbar;
 use Martis\Fields\Concerns\CountsScopedRelation;
+use Martis\Fields\Concerns\DefersTitleToRelatedResource;
 use Martis\Fields\Concerns\HasPivotActions;
 use Martis\Fields\Concerns\StaysOffCreateForms;
 use Martis\Resource;
@@ -38,6 +39,7 @@ class BelongsToMany extends Field
     use AuthorizesRelatedResource;
     use ControlsRelationshipToolbar;
     use CountsScopedRelation;
+    use DefersTitleToRelatedResource;
     use HasPivotActions;
     use StaysOffCreateForms;
 
@@ -159,6 +161,7 @@ class BelongsToMany extends Field
     public function titleAttribute(string $attribute): static
     {
         $this->titleAttribute = $attribute;
+        $this->markTitleAttributeExplicit();
 
         return $this;
     }
@@ -433,7 +436,7 @@ class BelongsToMany extends Field
         return [
             'relationship' => $this->relationship,
             'relatedResource' => $this->getRelatedResourceKey(),
-            'titleAttribute' => $this->titleAttribute,
+            'titleAttribute' => $this->serializedTitleAttribute($this->resourceClassForUriKey($this->getRelatedResourceKey())),
             'searchable' => $this->relationSearchable,
             'collapsable' => $this->collapsable,
             'collapsedByDefault' => $this->collapsedByDefault,

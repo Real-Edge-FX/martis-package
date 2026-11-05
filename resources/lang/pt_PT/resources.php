@@ -60,4 +60,17 @@ return [
     'endpoint_latency' => 'Latência P95',
     'endpoint_errors' => 'Erros %',
     'endpoint_share' => 'Quota',
+    // Multi-column sort (header, "Sorted by" chip)
+    'sorted_by' => 'Ordenado por',
+    'sort_default' => 'ordem predefinida',
+    'sort_columns' => 'Colunas de ordenação',
+    'sort_ascending' => 'ascendente',
+    'sort_descending' => 'descendente',
+    'sort_position' => 'ordenação :position de :total, :direction',
+    'sort_limit' => 'No máximo :max colunas de ordenação',
+    'sort_move_up' => 'Mover para cima',
+    'sort_move_down' => 'Mover para baixo',
+    'sort_toggle_direction' => 'Alterar a direção',
+    'sort_remove' => 'Remover',
+    'sort_add_column' => 'Adicionar coluna',
 ];

@@ -7,8 +7,8 @@ import { Table } from '@/components/Table'
 import { registerDefaultFields } from '@/components/fields/FieldRenderer'
 
 /*
- * The table shows the active sort direction (the rows' order) from `sortDir`, and disables a destructive inline action on a
- * row whose record policy forbids destructive runs.
+ * The table shows the active sort direction from `sort` and keeps the rows in the order the server sent them (it never
+ * re-sorts), and disables a destructive inline action on a row whose record policy forbids destructive runs.
  */
 
 registerDefaultFields()
@@ -29,8 +29,7 @@ function renderTable(props: { sortDir?: 'asc' | 'desc'; rows?: Array<Record<stri
       <Table
         columns={[{ field: titleField }]}
         rows={(props.rows ?? [{ id: 1, title: 'Alpha' }]) as unknown as ResourceRecord[]}
-        sortBy="title"
-        sortDir={props.sortDir ?? 'asc'}
+        sort={[{ attribute: 'title', direction: props.sortDir ?? 'asc' }]}
         onSort={vi.fn()}
         selectedIds={new Set()}
         onToggleSelect={vi.fn()}
@@ -47,16 +46,21 @@ const sortRows = [{ id: 1, title: 'Bravo' }, { id: 2, title: 'Alpha' }, { id: 3,
 const renderedOrder = () => screen.getAllByText(/^(Alpha|Bravo|Charlie)$/).map((el) => el.textContent)
 
 describe('Table sort direction', () => {
-  it('orders the rows ascending for sortDir asc', () => {
+  it('keeps the rows in the order given, whatever the direction (the server orders them)', () => {
     renderTable({ sortDir: 'asc', rows: sortRows })
-
-    expect(renderedOrder()).toEqual(['Alpha', 'Bravo', 'Charlie'])
+    expect(renderedOrder()).toEqual(['Bravo', 'Alpha', 'Charlie'])
   })
 
-  it('orders the rows descending for sortDir desc', () => {
+  it('shows the ascending caret and aria-sort on the sorted header', () => {
+    renderTable({ sortDir: 'asc', rows: sortRows })
+
+    expect(screen.getByRole('columnheader', { name: /Title/ }).getAttribute('aria-sort')).toBe('ascending')
+  })
+
+  it('shows the descending direction in aria-sort for sort desc', () => {
     renderTable({ sortDir: 'desc', rows: sortRows })
 
-    expect(renderedOrder()).toEqual(['Charlie', 'Bravo', 'Alpha'])
+    expect(screen.getByRole('columnheader', { name: /Title/ }).getAttribute('aria-sort')).toBe('descending')
   })
 })
 

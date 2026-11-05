@@ -353,6 +353,7 @@ export type FieldType =
   | 'audio'
   | 'avatar'
   | 'badge'
+  | 'badges'
   | 'belongs_to'
   | 'belongs_to_many'
   | 'boolean'
@@ -422,6 +423,8 @@ export interface FieldDefinition {
   attribute: string
   label: string
   type: FieldType
+  /** Keep the submitted value after "Create & add another" (PHP `Field::sticky()`). */
+  sticky?: boolean
   nullable?: boolean
   readonly?: boolean
   /**
@@ -435,6 +438,8 @@ export interface FieldDefinition {
   showOnIndex?: boolean
   showOnDetail?: boolean
   showOnForms?: boolean
+  /** `Field::hide()` (usually from a `dependsOn()` callback): not rendered, left out of the submit. */
+  hidden?: boolean
   rules?: string[]
   /** Per-column width metadata resolved from `->width()/minWidth/maxWidth/truncate()` + type defaults. */
   column?: {
@@ -519,6 +524,13 @@ export interface ResourceEmbedded {
    * `protected static bool $stickyView`. Defaults to true.
    */
   stickyView: boolean
+  /** `Resource::$maxInlineButtons`: row buttons beyond it go to the "..." menu. */
+  maxInlineButtons?: number | null
+  /**
+   * Query keys the create page may forward to the schema request as
+   * `prefill[key]=value` (PHP `Resource::acceptsPrefill()`).
+   */
+  prefillKeys?: string[]
   group: string | null
   titleAttribute?: string
   subtitle?: string | null
@@ -637,10 +649,8 @@ export interface ResourceSchema extends ResourceEmbedded {
   tableSize?: 'normal' | 'small' | 'large'
   tableRowHover?: boolean
   tableLayout?: 'auto' | 'fixed'
-  /** Default sort column applied on the initial index load (null = none). */
-  defaultSort?: string | null
-  /** Default sort direction paired with `defaultSort`. */
-  defaultSortDirection?: 'asc' | 'desc'
+  /** The sort applied on the initial index load, most significant key first (empty = none). */
+  defaultSort?: Array<{ attribute: string; direction: 'asc' | 'desc' }>
   authorization?: CollectionAuthorizationMetadata
   overrides?: {
     create?: OverrideDefinition | null
@@ -668,6 +678,10 @@ export interface ResourceSchema extends ResourceEmbedded {
     showOnIndex?: boolean
     showOnDetail?: boolean
     showInline?: boolean
+    /** `inRowMenu()`: a flat item of the row's "..." menu, not a row button. */
+    inRowMenu?: boolean
+    /** `whenInapplicable()`: how the action is drawn for a record it cannot run on. */
+    whenInapplicable?: 'disabled' | 'hide' | 'keep_slot'
     executionMode?: string
     standalone?: boolean
     sole?: boolean

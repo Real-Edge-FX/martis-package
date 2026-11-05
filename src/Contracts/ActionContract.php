@@ -202,23 +202,32 @@ interface ActionContract
     /**
      * Set the confirmation dialog text.
      *
-     * @param  string  $text  The body text shown in the confirmation dialog.
+     * A closure receives `(Request $request, ?Model $model, int $count)` and
+     * returns the text, or null for the default (see Action::resolveConfirmation()).
+     *
+     * @param  string|Closure  $text  The body text shown in the confirmation dialog.
      */
-    public function confirmText(string $text): static;
+    public function confirmText(string|Closure $text): static;
 
     /**
      * Set the confirm button text.
      *
-     * @param  string  $text  Label for the confirm/submit button.
+     * A closure receives `(Request $request, ?Model $model, int $count)` and
+     * returns the text, or null for the default (see Action::resolveConfirmation()).
+     *
+     * @param  string|Closure  $text  Label for the confirm/submit button.
      */
-    public function confirmButtonText(string $text): static;
+    public function confirmButtonText(string|Closure $text): static;
 
     /**
      * Set the cancel button text.
      *
-     * @param  string  $text  Label for the cancel button.
+     * A closure receives `(Request $request, ?Model $model, int $count)` and
+     * returns the text, or null for the default (see Action::resolveConfirmation()).
+     *
+     * @param  string|Closure  $text  Label for the cancel button.
      */
-    public function cancelButtonText(string $text): static;
+    public function cancelButtonText(string|Closure $text): static;
 
     /**
      * Skip the confirmation dialog entirely.

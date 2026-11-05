@@ -77,6 +77,7 @@ All available field types in Martis, their methods, and configuration options.
   - [Heading](#heading)
   - [Hidden](#hidden)
   - [Badge](#badge)
+  - [Badges](#badges)
   - [Status](#status)
   - [Gravatar](#gravatar)
   - [Sparkline](#sparkline)
@@ -227,6 +228,7 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 | `fullWidth` | `fullWidth(bool $fullWidth = true): static` | `$this` | Make the field span the full width of the form. |
 | `stacked` | `stacked(bool $stacked = true): static` | `$this` | Control label position: stacked above (true) or inline (false). |
 | `default` | `default(mixed $value): static` | `$this` | Set a default value for the field on create forms. Accepts a closure for request-time resolution, resolved on the server. The create page, the create drawer, the inline create modal and the action modals open the field on it (v2.16.0+; before, only a `Repeater` row and the attach modal's pivot fields did). A copy made with Replicate opens on the copied record's values instead. |
+| `sticky` | `sticky(bool $value = true): static` | `$this` | Keep the value the user submitted when they choose "Create & add another", so the next record starts from it instead of the field's default; the other fields return to their defaults. Serialised as `sticky` in the field descriptor. Has no effect on update, replicate or the other submit buttons. |
 
 ### Visibility
 
@@ -309,7 +311,7 @@ Currency::make('salary')
 - **Relationship fields.** A `HasMany`, `HasOne`, `MorphMany`, `MorphOne`, `BelongsToMany` or `MorphToMany` field that `canSeeForModel()` hides for the parent record answers 404 on every endpoint of its panel (the list, its create, update and delete, the attach, the detach, the pivot update, the pivot actions and the pickers of its pivot fields), as a relationship the resource does not declare.
 - **Per-field endpoints.** The options of a relation picker (on a form, among an Action's or a pivot action's fields, among pivot fields), the option search of a `Select` (of a resource or a Tool), the Slug check and the `dependsOn` sync answer for a hidden field exactly as for an attribute nothing declares: 404 for a picker and the Slug check, 422 for the `Select` search and the sync. So does a field of a Repeater row the user cannot see, and every row field of a Repeater the user cannot see. On a form, `canSeeForModel()` is decided on the record the update form edits, or on the new model of a create form.
 - **Action fields.** An Action field the user cannot see is left out of the modal, is not validated and never takes its value from the request. See [Actions → Fields the request cannot set](actions.md#fields-the-request-cannot-set).
-- **Sorting.** A list is sorted only by a `sortable()` field the user can see (v1.38.0): the order of the rows would otherwise tell the order of the field's values. A `?sort=` naming a field `canSee()` hides is ignored like one naming an unknown attribute, and the list keeps its default order. This holds on every list that takes `?sort=`: the resource index (its `defaultSort()` too), the rows of a `HasMany`, `MorphMany`, `BelongsToMany` and `MorphToMany` panel, and a lens, which is sorted by its own sortable fields only (see [Lenses → Which columns sort a lens](lenses.md#which-columns-sort-a-lens)).
+- **Sorting.** A list is sorted only by a `sortable()` field the user can see (v1.38.0): the order of the rows would otherwise tell the order of the field's values. A `?sort=` naming a field `canSee()` hides is ignored like one naming an unknown attribute (the other keys of a multi-key `?sort=` still apply), and the list keeps its default order. This holds on every list that takes `?sort=`: the resource index (its `defaultSort()` too), the rows of a `HasMany`, `MorphMany`, `BelongsToMany` and `MorphToMany` panel, and a lens, which is sorted by its own sortable fields only (see [Lenses → Which columns sort a lens](lenses.md#which-columns-sort-a-lens)).
 - **Searching.** A search matches its term only on the `searchable()` fields the user can see (v1.38.0): the rows a term returns would otherwise tell which records hold it in a field the user may not read. This holds on every search built from the fields' `searchable()` flags: the resource index, the rows of a relationship panel and its attach picker, the global search (see [Global Search → Fields the user cannot see](global-search.md#fields-the-user-cannot-see)) and a relation picker (`BelongsTo`, `MorphTo`, `Tag`), which searches the title it shows when none of the related resource's searchable fields is left. A `field:value` token naming a field the user cannot see is dropped like one naming an unknown field. What a resource declares itself is searched as declared: its `searchableRelations()` paths, its `searchQuery()` predicate and, with Scout, its `toSearchableArray()`.
 - **Layouts.** The rules are the same whatever layout container holds the field: `Panel`, `Section`, or directly a `Tab`.
 
@@ -325,8 +327,26 @@ Before v1.38.0 `canSeeForModel()` only hid the value on the resource's own reads
 |--------|-----------|---------|-------------|
 | `sortable` | `sortable(bool $value = true): static` | `$this` | Allow sorting the index table by this field, for the users who can see it (see [Field authorization](#field-authorization-cansee-and-canseeformodel)). |
 | `searchable` | `searchable(bool $value = true): static` | `$this` | Match the searches (resource index, relationship panels, relation pickers, global search) on this field, for the users who can see it (see [Field authorization](#field-authorization-cansee-and-canseeformodel)). |
+| `sortUsing` | `sortUsing(Closure(Builder $query, SortDirection $direction): void $callback): static` | `$this` | Write the ordering by this field yourself, for an attribute that is not a plain column of the listed table. Implies `sortable()`. See [Sorting by a computed key](#sorting-by-a-computed-key-sortusing). |
 | `isSortable` | `isSortable(): bool` | `bool` | Check if sortable. |
 | `isSearchable` | `isSearchable(): bool` | `bool` | Check if searchable. |
+
+#### Sorting by a computed key (`sortUsing()`)
+
+A key that is not a column of the listed table (a category's position, kept in another table) cannot be ordered by `orderBy($attribute)`. `sortUsing()` hands the ordering to a closure, which receives the query and the requested `SortDirection`:
+
+```php
+BelongsTo::make('Category', 'category')
+    ->sortUsing(fn (Builder $query, SortDirection $direction) => $query->orderBy(
+        Category::select('position')->whereColumn('categories.id', 'promotion_materials.category_id'),
+        $direction->value,
+    )),
+```
+
+- It implies `sortable()`.
+- It applies on every surface that sorts by the attribute: the index, a lens and the relationship panels, so a panel and the index agree, and in a multi-key `?sort=` and in `defaultSort()`.
+- The closure only adds order clauses; it must not add `where` clauses (documented, not enforced).
+- A field the user cannot see (`canSee()`) is not sortable through it either: the closure never runs.
 
 ### Validation
 
@@ -455,8 +475,33 @@ Text::make('access_code')
     });
 ```
 
+#### Show, hide and relabel a field from a sibling (v2.17.0)
+
+Call `hide()` and `show()` on the field, as Nova's dependent fields do. A field that starts hidden calls `hide()` where it is defined; the callback shows it when the sibling asks for it. The callback also runs when the form opens, so an update form shows or hides the field from the record's current values before anything is edited. `withLabel()` in the callback changes the label the same way.
+
+```php
+Select::make('language')->options(['pt' => 'Portuguese', 'en' => 'English', 'both' => 'Both languages']),
+
+Text::make('title')
+    ->dependsOn(['language'], function (array $form, Request $r, Text $field) {
+        $field->withLabel(($form['language'] ?? null) === 'both' ? 'Title (PT)' : 'Title');
+    }),
+
+Text::make('title_en')
+    ->hide()
+    ->rules(['nullable', 'required_if:language,both'])
+    ->dependsOn(['language'], function (array $form, Request $r, Text $field) {
+        ($form['language'] ?? null) === 'both' ? $field->show()->withLabel('Title (EN)') : $field->hide();
+    }),
+```
+
+- A hidden field is not drawn, and its value is left out of the submit (not sent empty), so an update keeps the stored value. A panel, section or tab whose fields are all hidden is not drawn either.
+- The server validates with the field's own rules, not with the callback: a field that can be hidden must not be plain `required`. Use a conditional rule (`required_if:language,both` above), which the hidden case (no value sent) satisfies.
+- `hide()` differs from `hideFromForms()`: `hideFromForms()` takes the field off the form schema for good, `hide()` keeps it there so `show()` can bring it back.
+
 | Method | Signature | Description |
 |---|---|---|
+| `hide` / `show` | `hide(): static`, `show(): static` | Hide the field on its form (not drawn, not submitted) or show it again. Serialized as `hidden`. |
 | `dependsOn` | `dependsOn(array $fields, ?Closure $callback = null): static` | Declare reactivity. The closure is optional; passing `null` lets layouts forward the watch list without running a callback (the Repeater uses this form for parent-attribute exposure). |
 | `dependentFields` | `dependentFields(): list<string>` | Read the watched attributes. |
 | `isDependent` | `isDependent(): bool` | True only when both `$fields` and a `Closure` are configured. The sync endpoint refuses non-reactive fields. |
@@ -493,6 +538,15 @@ Examples:
 // Per-user defaults
 Text::make('owner_id')
     ->default(fn ($request) => $request?->user()?->id);
+
+// A default read from the create link (`/resources/versions/create?of=12`).
+// The resource lists the key in `acceptsPrefill()`; see
+// resources.md#prefill-the-create-form-from-a-link--acceptsprefill
+BelongsTo::make('document', 'Document')
+    ->default(fn (?Request $request) => $request?->query('of'));
+
+// Keep the category for the next record on "Create & add another"
+Select::make('category')->options($categories)->sticky();
 
 // Conditional readonly based on policy
 Text::make('email')
@@ -1838,6 +1892,8 @@ Currency::make('price')
 
 Many-to-one relationship field. Stores foreign key, displays related model title.
 
+**Which title (v2.17.0).** Without `titleAttribute()`, the field shows the related resource's `title()`, as Nova does and as its own picker already did: a `ContactResource` whose `titleAttribute()` is `label` (or that overrides `title()`) labels the cell, the detail page and the edit form the way it labels the picker row. Before v2.17.0 the field read `name` and ignored the related resource, so a model without a `name` column showed `#4`. A related resource left on the base `id` default keeps `name`, as before, and an explicit `titleAttribute()` / `displayColumn()` always wins. `Tag`, `BelongsToMany` and `MorphToMany` follow the same rule.
+
 ```php
 // Recommended: pass FK column (auto-detects relationship via _id suffix)
 BelongsTo::make('user_id', 'Author')
@@ -1864,8 +1920,8 @@ BelongsTo::make('category_id', 'Category')
 
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
-| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Attribute on related model for display label. | `'name'` |
-| `displayColumn` | `displayColumn(string $column): static` | `$this` | Alias for `titleAttribute()`. Sets which column appears in index/table cells. | `'name'` |
+| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Attribute on related model for display label. An explicit one always wins. | the related resource's `title()` when it declares one (a `titleAttribute()` other than `id`, or its own `title()`), else `'name'` (v2.17.0) |
+| `displayColumn` | `displayColumn(string $column): static` | `$this` | Alias for `titleAttribute()`. Sets which column appears in index/table cells. | as `titleAttribute` |
 | `foreignKey` | `foreignKey(string $key): static` | `$this` | Override FK column name. | `{relationship}_id` |
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource for dropdown API, and the resource a write is checked against. A key no registered resource has throws (naming the field and the key) when a value is written. Without it the write is checked against the resource registered for the relationship's model, and refused (422) when that names no single resource. See [Relationships → Writes follow the pickers](relationships.md#writes-follow-the-pickers). | `null` |
 | `placeholder` | `placeholder(string\|\Closure $text): static` | `$this` | Custom placeholder shown when no value is selected. Closure receives `(?Request $r)` for per-request resolution. | translated `'Select {field}...'` |
@@ -1980,7 +2036,7 @@ Tag::make('tags', 'Tags')
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource for autocomplete API. | `null` |
-| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Display attribute on related model. | `'name'` |
+| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Display attribute on related model. An explicit one always wins. | the related resource's `title()` when it declares one (a `titleAttribute()` other than `id`, or its own `title()`), else `'name'` (v2.17.0) |
 | `withPreview` | `withPreview(): static` | `$this` | Enable preview popover on hover. | `false` |
 | `displayAsList` | `displayAsList(): static` | `$this` | Render as vertical list instead of chips. | `false` |
 | `showCreateRelationButton` | `showCreateRelationButton(): static` | `$this` | Show inline create button. | `false` |
@@ -2060,7 +2116,7 @@ BelongsToMany::make('Tags', 'tags', TagResource::class)
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource. | inferred from relationship |
-| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Attribute on related model for display label. | `'name'` |
+| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Attribute on related model for display label. An explicit one always wins. | the related resource's `title()` when it declares one (a `titleAttribute()` other than `id`, or its own `title()`), else `'name'` (v2.17.0) |
 | `fields` | `fields(Closure(): list<Field>): static` | `$this` | Define pivot fields (stored on the pivot table). | `null` |
 | `actions` | `actions(Closure(Request): list<Action>): static` | `$this` | Pivot actions for this relationship's panel only; `handle()` receives the selected attached records, each with its `pivot` row. See [Actions → Pivot Actions](actions.md#pivot-actions). | `null` |
 | `searchable` | `searchable(bool $value = true): static` | `$this` | Enable search in the attach modal. | `false` |
@@ -2596,7 +2652,7 @@ MorphToMany::make('Tags', 'tags', TagResource::class)
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
-| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Display attribute on the related model. | `'name'` |
+| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Display attribute on the related model. An explicit one always wins. | the related resource's `title()` when it declares one (a `titleAttribute()` other than `id`, or its own `title()`), else `'name'` (v2.17.0) |
 | `fields` | `fields(Closure $closure): static` | `$this` | Define pivot fields (stored on the morph-pivot table). | — |
 | `actions` | `actions(Closure(Request): list<Action>): static` | `$this` | Pivot actions for this relationship's panel only; `handle()` receives the selected attached records, each with its `pivot` row. See [Actions → Pivot Actions](actions.md#pivot-actions). | — |
 | `searchable` | `searchable(bool $value = true): static` | `$this` | Enable search in the attach modal. | `false` |
@@ -3097,6 +3153,35 @@ Badge::make('status')
 > ```
 >
 > Calling `->showOnForms()` on a Badge forces it into forms as read-only — useful to *show* the current value while another field edits it, but never as an input.
+
+---
+
+### Badges
+
+**Type identifier:** `badges`
+**Extends:** `Badge`
+**File:** `src/Fields/Badges.php`
+
+One value drawn as several badge pills. Display-only, like `Badge` (hidden from forms by default; `showOnForms()` renders the same read-only pills). The resolved value is a list of items, and each item is a string (label only, default type) or `['label' => string, 'type' => ?string, 'tooltip' => ?string]`.
+
+```php
+Badges::make('languages', 'Languages')
+    ->resolveUsing(fn ($value, $model) => [
+        ['label' => 'EN', 'type' => 'success'],
+        ['label' => 'Missing PT', 'type' => 'warning', 'tooltip' => 'No translation yet'],
+        'FR',
+    ]);
+```
+
+- `type` uses the `Badge` vocabulary: `info`, `success`, `warning`, `danger`, a key you add with `types()`/`addTypes()`, a hex colour, or a value translated by `map()`. A missing or unknown type renders the default pill.
+- `tooltip` shows through the global Martis tooltip, never a native `title`.
+- Labels are plain text; HTML is not rendered.
+- An empty list (or `null`) renders the empty placeholder.
+- An item that is not a string, or an array without a string `label`, throws an `InvalidArgumentException` naming the field attribute.
+- The pills are a list (`role="list"` / `listitem`).
+- `labels()`, `icons()`, `withIcons()` and `resolveBadgeUsing()` inherited from `Badge` do not apply: each item carries its own label.
+
+**Extra attributes:** `map`, `types`
 
 ---
 
