@@ -29,7 +29,9 @@ A search term or a filter value can be personal data (a customer's name or e-mai
 - **Sign-out clears them all.** The user menu's sign-out drops every `martis:view:*` entry, of every user, from **both** `sessionStorage` and `localStorage`, whichever `scope` is configured, before it leaves for the login page.
 - **A new session purges the rest.** When `/api/auth/user` names a user, every entry that is not theirs is dropped from both storages: the ones another user left (the session expired, the tab was closed, the account switched, an impersonation started) and the keys of the earlier, unscoped format (`martis:view:{uriKey}`). After upgrading to v2.4.0 each user starts without a saved view once.
 
-Filter state, sort and pagination are already reflected in the URL — every view is deep-linkable. Sticky Views complement this by restoring the last-used URL parameters when the user lands on an index page without explicit URL state (for example, from the sidebar link or a fresh tab).
+A `?search=` or `?filters=` in the URL (the command palette's "View all", a `MenuItem::filter()` link) wins over the saved view and pauses the writer, so a deep-link never overwrites it. Without explicit URL state (the sidebar link, the back button, a fresh tab) the saved view is restored.
+
+A restored sort wins over the resource's `defaultSort()`: the default only seeds a view that has no saved sort column, so sorting by another column, opening a record and coming back keeps the column and direction the user picked.
 
 ## What gets persisted
 

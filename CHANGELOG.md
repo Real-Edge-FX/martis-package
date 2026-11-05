@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The index keeps its sort after a record round trip.** On a resource with a `defaultSort()`, sorting by another column, opening a record and coming back sorted the index by the default again: the schema was cached by then, and its default sort overrode the restored one. The saved sort column and direction now win, and the default only seeds a view with no saved sort. See [Sticky views](docs/sticky_views.md#how-it-works).
+
 ## [2.16.5] — 2026-11-03
 
 Patch release with one form fix: a long `Textarea` text is no longer cut off at its row count. Nothing has to change in an app; read [Upgrading to v2.16.5](docs/upgrading.md#upgrading-to-v2165-from-v2164).

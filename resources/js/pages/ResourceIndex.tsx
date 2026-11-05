@@ -70,6 +70,11 @@ export function ResourceIndexPage() {
   // user's saved view. Any handler that the user wires into the UI flips
   // this back to false via `markUserDriven()`.
   const [viewIsUrlDriven, setViewIsUrlDriven] = useState(false)
+  // Set when the restore effect below brings back a saved sort column. The
+  // default-sort seed runs in the same commit and still sees `sortBy === null`
+  // (the restored value is only scheduled), so without this flag a cached
+  // schema's `defaultSort()` overrides the sort the user left the index with.
+  const sortRestoredRef = useRef(false)
   const markUserDriven = useCallback(() => setViewIsUrlDriven(false), [])
   // Filters the user applies in the panel do not reach the URL: hand them
   // to the sidebar, so its active item follows them. Cleared when the URL
@@ -123,6 +128,7 @@ export function ResourceIndexPage() {
   useEffect(() => {
     setSelectedIds(new Set())
     clearTimeout(searchTimerRef.current)
+    sortRestoredRef.current = false
 
     if (!resource) return
 
@@ -207,6 +213,7 @@ export function ResourceIndexPage() {
       setActiveFilters((saved.activeFilters as ActiveFilters) ?? {})
       setPage(typeof saved.page === 'number' ? saved.page : 1)
       setPerPage(typeof saved.perPage === 'number' ? saved.perPage : null)
+      sortRestoredRef.current = typeof saved.sortBy === 'string'
       setSortBy(typeof saved.sortBy === 'string' ? saved.sortBy : null)
       setSortDir(saved.sortDir === 'desc' ? 'desc' : 'asc')
       setTrashedFilter(
@@ -259,7 +266,7 @@ export function ResourceIndexPage() {
   // caret on the right column. Subsequent header clicks keep working.
   useEffect(() => {
     if (!schema?.defaultSort) return
-    if (sortBy !== null) return
+    if (sortBy !== null || sortRestoredRef.current) return
     setSortBy(schema.defaultSort)
     setSortDir(schema.defaultSortDirection ?? 'asc')
   }, [schema?.defaultSort, schema?.defaultSortDirection, sortBy])
