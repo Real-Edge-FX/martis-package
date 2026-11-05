@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.16.6] — 2026-11-05
+
+Patch release with one index fix: the sort a user picks survives opening a record and coming back, on a resource with a `defaultSort()`. Nothing has to change in an app; read [Upgrading to v2.16.6](docs/upgrading.md#upgrading-to-v2166-from-v2165).
+
 ### Fixed
 
 - **The index keeps its sort after a record round trip.** On a resource with a `defaultSort()`, sorting by another column, opening a record and coming back sorted the index by the default again: the schema was cached by then, and its default sort overrode the restored one. The saved sort column and direction now win, and the default only seeds a view with no saved sort. See [Sticky views](docs/sticky_views.md#how-it-works).

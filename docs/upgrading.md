@@ -4,6 +4,10 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.16.6 from v2.16.5
+
+v2.16.6 keeps the sort a user picks on an index after they open a record and come back: on a resource with a `defaultSort()`, the default used to override the restored sort. Nothing has to change in an app: republish the assets (`php artisan martis:publish-assets`). See [Sticky views](sticky_views.md#how-it-works).
+
 ## Upgrading to v2.16.5 from v2.16.4
 
 v2.16.5 lets a `Textarea` field grow to fit its text, in a form and in an action modal: a stylesheet rule held it at its row count with the rest of the text hidden and no way to scroll to it. Nothing has to change in an app: republish the assets (`php artisan martis:publish-assets`). See [Fields → Textarea](fields.md#textarea).
