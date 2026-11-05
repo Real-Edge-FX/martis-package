@@ -190,6 +190,41 @@ actions (the index maps every action); a standalone one is checked by its
 | `onlyInline()` | Show **only** as per-row button (hidden from dropdown) |
 | `exceptInline()` | Never show as per-row button |
 
+### Buttons and the "..." menu (v2.17.0)
+
+A row draws its inline actions as icon buttons, then a "..." menu. An action goes to the menu when it has a `group()` (a submenu, a dot nesting a further level) or when it calls `inRowMenu()` (a flat item, no submenu). Flat items come first, then the group submenus. The same layout applies in the relationship panels.
+
+```php
+RebuildMachine::make()->showInline()->inRowMenu();               // flat item in "..."
+StartMachine::make()->showInline()->inRowMenu()->group('Power'); // "Power ▸" submenu
+```
+
+A resource can cap the buttons instead of marking each action: with `protected static ?int $maxInlineButtons = 2;` the first two ungrouped inline actions stay buttons and the rest go to the menu as flat items. The count is taken on the declared actions, before an inapplicable one is hidden, so the same actions are buttons on every row. A negative value throws an `InvalidArgumentException` naming the resource.
+
+### An action a record cannot run (v2.17.0)
+
+By default an action the record cannot run (its `canRun()` or run policy says no) is drawn greyed out. `whenInapplicable()` changes that, per action:
+
+```php
+use Martis\Enums\InapplicableAction;
+
+SwitchOn::make()->showInline()->whenInapplicable(InapplicableAction::Hide)
+    ->canRun(fn ($request, $item) => ! $item->live);
+MoveUp::make()->showInline()->whenInapplicable(InapplicableAction::KeepSlot)
+    ->canRun(fn ($request, $item) => $item->position > 1);
+```
+
+| Mode | Row button | Menu item | Detail page |
+|---|---|---|---|
+| `Disabled` (default) | greyed out | greyed out | greyed out |
+| `Hide` | left out | left out | left out |
+| `KeepSlot` | invisible placeholder that keeps its place, so the next icons line up from row to row | left out | left out |
+
+- A group submenu whose actions are all left out is not drawn, nor is the "..." button when its menu would be empty.
+- The detail page now grays out or leaves out the actions its record cannot run, from the same verdict: the record's detail payload carries `_actionAuthorization` as an index row does. Before v2.17.0 the detail page offered every action and the run refused the record.
+- The run refuses an inapplicable record whatever the mode: this only changes what is drawn.
+- Nova hides a row action the row cannot run and shows it disabled in the detail menu (its public `nova-dusk-suite`, `IndexActionTest` and `DetailActionTest`). Martis keeps `Disabled` as the default so existing lists do not change; `Hide` gives Nova's row behaviour, and the detail page grays out as Nova does.
+
 ### How it looks
 
 - Each row shows a small icon button (no checkbox needed)

@@ -880,6 +880,7 @@ export function ResourceIndexPage() {
         selectable={selectable}
         actionsColumnLabel={schema.actionsColumnLabel}
         inlineActions={inlineActions}
+        maxInlineButtons={schema?.maxInlineButtons}
         onInlineAction={handleInlineAction}
         defaultRowActions={schema.defaultRowActions}
         onDefaultView={(row) => {

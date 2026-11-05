@@ -521,6 +521,8 @@ export interface ResourceEmbedded {
    * `protected static bool $stickyView`. Defaults to true.
    */
   stickyView: boolean
+  /** `Resource::$maxInlineButtons`: row buttons beyond it go to the "..." menu. */
+  maxInlineButtons?: number | null
   group: string | null
   titleAttribute?: string
   subtitle?: string | null
@@ -670,6 +672,10 @@ export interface ResourceSchema extends ResourceEmbedded {
     showOnIndex?: boolean
     showOnDetail?: boolean
     showInline?: boolean
+    /** `inRowMenu()`: a flat item of the row's "..." menu, not a row button. */
+    inRowMenu?: boolean
+    /** `whenInapplicable()`: how the action is drawn for a record it cannot run on. */
+    whenInapplicable?: 'disabled' | 'hide' | 'keep_slot'
     executionMode?: string
     standalone?: boolean
     sole?: boolean

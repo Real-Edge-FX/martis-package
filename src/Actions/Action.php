@@ -10,6 +10,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Martis\Contracts\ActionContract;
 use Martis\Enums\ActionExecutionMode;
+use Martis\Enums\InapplicableAction;
 use Martis\Enums\ModalSize;
 
 /**
@@ -50,6 +51,12 @@ class Action implements ActionContract
     protected bool $showOnDetail = true;
 
     protected bool $showInline = false;
+
+    /** How the action is drawn for a record it cannot run on. */
+    protected InapplicableAction $whenInapplicable = InapplicableAction::Disabled;
+
+    /** An inline action drawn as an item of the row's "..." menu, not as a row button. */
+    protected bool $inRowMenu = false;
 
     // -------------------------------------------------------------------------
     // Execution mode
@@ -601,6 +608,38 @@ class Action implements ActionContract
     }
 
     /** {@inheritdoc} */
+    /**
+     * How the action is drawn for a record it cannot run on (the row's
+     * `_actionAuthorization` verdict is false): greyed out (the default),
+     * left out (`Hide`), or, for a row button, an invisible placeholder that
+     * keeps its slot (`KeepSlot`). Applies to the index rows, the relationship
+     * panels and the detail page. The run refuses the record either way.
+     */
+    public function whenInapplicable(InapplicableAction $mode): static
+    {
+        $this->whenInapplicable = $mode;
+
+        return $this;
+    }
+
+    /** See whenInapplicable(). */
+    public function getWhenInapplicable(): InapplicableAction
+    {
+        return $this->whenInapplicable;
+    }
+
+    /**
+     * Draw this inline action as a flat item of the row's "..." menu instead
+     * of a row button. With a group() it sits in that group's submenu, as any
+     * grouped action. Flat items come first, then the group submenus.
+     */
+    public function inRowMenu(bool $value = true): static
+    {
+        $this->inRowMenu = $value;
+
+        return $this;
+    }
+
     public function group(string $group): static
     {
         $this->group = $group;
@@ -671,6 +710,8 @@ class Action implements ActionContract
             'showOnIndex' => $this->showOnIndex,
             'showOnDetail' => $this->showOnDetail,
             'showInline' => $this->showInline,
+            'inRowMenu' => $this->inRowMenu,
+            'whenInapplicable' => $this->whenInapplicable->value,
             'executionMode' => $this->executionMode->value,
             'standalone' => $this->isStandalone(),
             'sole' => $this->isSole(),

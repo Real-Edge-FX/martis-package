@@ -576,6 +576,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                             actions={inlineActions}
                             row={row}
                             onAction={(action, target) => setActiveAction({ action, id: target.id as string | number })}
+                            maxInlineButtons={schema?.maxInlineButtons}
                           />
                         )}
                       </div>

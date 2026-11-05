@@ -33,6 +33,10 @@ export interface ActionMeta {
   showOnIndex: boolean
   showOnDetail: boolean
   showInline: boolean
+  /** `inRowMenu()`: a flat item of the row's "..." menu, not a row button (v2.17.0). */
+  inRowMenu?: boolean
+  /** `whenInapplicable()`: how the action is drawn for a record it cannot run on (v2.17.0). */
+  whenInapplicable?: 'disabled' | 'hide' | 'keep_slot'
   executionMode: string
   standalone: boolean
   sole: boolean

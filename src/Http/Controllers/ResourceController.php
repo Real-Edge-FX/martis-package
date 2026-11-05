@@ -265,9 +265,19 @@ class ResourceController extends MartisController
             $fields = Field::filterForContext($res->resolveDetailFields($request), FieldContext::DETAIL);
         }
 
-        return JsonResponse::make(
-            $this->serializeModel($res, $fields, $model, $forDisplay),
-        )->toResponse();
+        $serialized = $this->serializeModel($res, $fields, $model, $forDisplay);
+
+        // The detail page draws the resource's actions for this one record:
+        // the same per-action run verdict an index row carries, so it can grey
+        // out or leave out (whenInapplicable()) what the run would refuse.
+        if ($context === 'detail') {
+            $actionAuthorization = $this->rowActionAuthorizer($request, $resourceClass);
+            $serialized['_actionAuthorization'] = $actionAuthorization !== null
+                ? $actionAuthorization($model, is_array($serialized['_authorization'] ?? null) ? $serialized['_authorization'] : [])
+                : [];
+        }
+
+        return JsonResponse::make($serialized)->toResponse();
     }
 
     // -------------------------------------------------------------------------
@@ -1138,6 +1148,7 @@ class ResourceController extends MartisController
             'subtitle' => $resourceClass::subtitle(),
             'softDeletes' => $resourceClass::softDeletes() && $resourceClass::canViewTrashed(),
             'stickyView' => $resourceClass::stickyView(),
+            'maxInlineButtons' => $resourceClass::maxInlineButtons(),
             'authorization' => $instance->collectionAuthorizationMetadata($request),
             'group' => $instance->group(),
             'icon' => $instance->icon(),

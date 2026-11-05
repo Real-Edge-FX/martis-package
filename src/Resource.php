@@ -588,6 +588,29 @@ abstract class Resource implements ResourceContract
         return static::$stickyView;
     }
 
+    /**
+     * How many inline actions a row draws as buttons, the rest going to the
+     * row's "..." menu as flat items (after the actions that inRowMenu() or
+     * group() already send there). `null` (the default) draws every
+     * ungrouped inline action as a button. The count is taken before an
+     * inapplicable action is hidden, so the same actions are buttons on
+     * every row.
+     */
+    protected static ?int $maxInlineButtons = null;
+
+    /**
+     * See $maxInlineButtons. Throws when it is negative: a value that cannot
+     * be honoured fails loudly instead of being ignored.
+     */
+    public static function maxInlineButtons(): ?int
+    {
+        if (static::$maxInlineButtons !== null && static::$maxInlineButtons < 0) {
+            throw new \InvalidArgumentException(sprintf('%s::$maxInlineButtons must be null or a non-negative integer, %d given.', static::class, static::$maxInlineButtons));
+        }
+
+        return static::$maxInlineButtons;
+    }
+
     // -------------------------------------------------------------------------
     // Soft delete awareness
     // -------------------------------------------------------------------------
