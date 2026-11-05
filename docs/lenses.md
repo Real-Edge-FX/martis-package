@@ -116,7 +116,8 @@ for the full ruleset (Rules 1–3 apply identically here).
   every record the lens's query keeps. Before v2.0.1 the filter's clause
   was appended to the query's last `or` only.
 - `withOrdering(Builder, ?Closure $default = null): Builder` — applies
-  the user's chosen sort column; if none, calls the default closure.
+  the user's chosen sort (one column or up to three, `?sort=a:asc,b:desc`),
+  then the primary key ascending; if none, calls the default closure.
 
 ```php
 public function query(LensRequest $request, Builder $query): Builder
@@ -211,6 +212,27 @@ field the user cannot see (the order of the rows would tell the order of
 its values) and a column that does not exist, which never reaches the
 query. The same holds for a lens that reads `$request->sortColumn` itself
 instead of calling `withOrdering()`.
+
+#### Sorting a lens by several columns
+
+`?sort=` takes a list, `?sort=name:asc,monthly_revenue:desc` (at most 3
+keys, a missing direction is `asc`, a lone `?sort=name&direction=desc`
+still reads). Every key that is not a sortable field of the lens the user
+can see is dropped; the others apply. `withOrdering()` orders by the
+remaining keys, then by the primary key ascending, and a field with
+[`sortUsing()`](fields.md#sorting-by-a-computed-key-sortusing) orders
+through its closure. The lens has no `defaultSort()`: with no valid key
+the default closure of `withOrdering()` orders it.
+
+`$request->sortKeys` lists the keys (`Martis\Support\SortKey`, an
+`attribute` and a `direction`), `$request->sortColumn` and
+`$request->sortDirection` are the first one. A lens that orders the query
+itself should loop over `sortKeys` (and honour a field's `sortCallback()`
+through `$request->sortableFields`) or call `withOrdering()`.
+
+The header of a sortable column sorts by itself on a click and adds the
+column on Shift+click (Shift+Enter), as on the index; the lens keeps the
+list in the URL (`?sort=name:asc,monthly_revenue:desc`, no `direction`).
 
 ```php
 public function fields(Request $request): array
@@ -401,8 +423,8 @@ public function lenses(Request $request): array
 }
 ```
 
-The cache key mixes the lens `uriKey`, active filters, search, sort
-column, sort direction, page, trashed mode **and a per-table signature**
+The cache key mixes the lens `uriKey`, active filters, search, the sort
+keys (columns and directions), page, trashed mode **and a per-table signature**
 — `COUNT(*) + MAX(updated_at)` taken right before the cache lookup.
 Any insert, update or delete on the model bumps the signature, so the
 next request automatically misses the cache without any observers or
@@ -464,7 +486,7 @@ Pair `cacheFor()` and the polling static properties with the matching getters wh
 
 ### URL state sync (frontend)
 
-All lens view state — search, filters, sort column, sort direction,
+All lens view state — search, filters, sort (the list of keys),
 page — lives in the URL query string. Copy-paste a URL and you
 reproduce the exact view. Reloading the page restores the view from
 the URL, no local storage involved.

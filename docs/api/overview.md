@@ -102,8 +102,8 @@ GET /martis/api/resources/{resource}
 | Parameter | Example | Description |
 |---|---|---|
 | `search` | `?search=john` | Full-text search across the `searchable()` fields the user can see (`canSee()`; v1.38.0: the hidden ones were searched too) |
-| `sort` | `?sort=name` | Sort attribute: a `sortable()` field the user can see (`canSee()`). Any other value (an unknown attribute, a field that is not sortable, one the user cannot see) is ignored and the list keeps its default order (v1.38.0: a sortable field the user could not see ordered the list). |
-| `direction` | `?direction=desc` | `asc` (default) or `desc`; any other value, a non-string one included, means `asc` (v1.38.0: `?direction[]=` answered 500) |
+| `sort` | `?sort=category:asc,position:desc` | Sort keys: a comma-separated list of `attribute[:direction]` (a missing direction is `asc`), at most 3, a repeated attribute keeps its first occurrence. Each attribute is a `sortable()` field the user can see (`canSee()`); any other key (an unknown attribute, a field that is not sortable, one the user cannot see) is dropped and the others apply (v1.38.0: a sortable field the user could not see ordered the list). The resource's `defaultSort()` keys not named break ties, then the primary key ascending. |
+| `direction` | `?sort=name&direction=desc` | Direction of a lone `sort` key without a `:suffix`: `asc` (default) or `desc`; any other value, a non-string one included, means `asc` (v1.38.0: `?direction[]=` answered 500). Ignored for a list or a suffixed key. |
 | `per_page` | `?per_page=25` | Records per page |
 | `page` | `?page=2` | Page number |
 | `trashed` | `?trashed=only` | `only` or `with` for soft-deleted records; any other value, a non-string one included, lists the records that are not trashed (v1.38.0: `?trashed[]=` answered 500) |

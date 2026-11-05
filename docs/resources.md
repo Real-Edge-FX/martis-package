@@ -662,7 +662,7 @@ Sets the initial sort column and direction on the index page. Returns `null` (de
 The default sort follows the rule of every `?sort=` (v1.38.0): it orders the index only when it names a `sortable()` field the user can see (`canSee()`). For a user who cannot see that field the index keeps the order its query gives (`indexQuery()`), as for a default sort that names no sortable field. Before v1.38.0 a default sort by a field the user cannot see ordered the index by that field.
 
 ```php
-public static function defaultSort(): ?string
+public static function defaultSort(): string|array|null
 {
     return 'created_at';
 }
@@ -672,6 +672,39 @@ public static function defaultSortDirection(): SortDirection
     return SortDirection::Desc; // SortDirection::Asc or SortDirection::Desc
 }
 ```
+
+#### Several default keys
+
+`defaultSort()` may also return an ordered array of column to direction, a `SortDirection` or `'asc'` / `'desc'`. `defaultSortDirection()` is then ignored.
+
+```php
+public static function defaultSort(): string|array|null
+{
+    return [
+        'category' => SortDirection::Asc,
+        'position' => SortDirection::Asc,
+        'locale'   => 'asc',
+    ];
+}
+```
+
+A value that is not a direction (or a key that is not a column name) throws an `InvalidArgumentException` naming the resource class and the key: it is a mistake in the code, not request input. Every key goes through the check of a requested key (a `sortable()` field the user can see); a key that fails is dropped, as a single default is.
+
+The index (and the lens and the relationship panels, see [Sorting by several columns](#sorting-by-several-columns) below) is ordered by:
+
+1. the keys the request names, in order (`?sort=locale:asc,name:desc`);
+2. then the `defaultSort()` keys the request did not name, in their order: **the default is the tiebreaker**, so one click on "Language" gives `locale, category, position`, not `locale` alone;
+3. then the model's qualified primary key, ascending, so pagination is stable.
+
+The primary key tiebreaker changes the order of tied rows on a resource that sorts by a non-unique column: they come by id now. Without a request key, the order is the default, then the key.
+
+The schema payload carries `defaultSort` as `[{ "attribute": "category", "direction": "asc" }, ...]` (the keys the user may sort by); `defaultSortDirection` is no longer part of it. A custom `component:Table` override receives `sort` (the list of keys) and `onSort(attribute, additive)` instead of `sortBy`, `sortDir` and `onSort(attribute)`.
+
+#### Sorting by several columns
+
+`?sort=` takes a comma-separated list of `attribute[:direction]` (`?sort=category:asc,position:asc,locale:desc`), a missing direction being `asc`. A single key without a suffix still takes `&direction=` (`?sort=title&direction=desc`). At most 3 keys count (the rest are ignored), a repeated attribute keeps its first occurrence, and a key that is not a sortable field the user can see is dropped while the others apply. One parser and one applier (`Martis\Support\ListSort`) serve the index, a lens and the `HasMany`, `MorphMany`, `HasManyThrough`, `BelongsToMany` and `MorphToMany` panels.
+
+On screen, a click on a sortable header sorts by that column alone (the default keys still break ties) and a second click flips it; **Shift+click** (Shift+Enter on a focused header) adds the column as the next key and cycles ascending, descending, removed. A fourth key is refused with a toast. With more than one key each sorted header shows its position (1, 2, 3); `aria-sort` is on the first key's header only, the others carry hidden text ("sort 2 of 3, ascending"). When the sort differs from the default, a "Sorted by" chip on the index toolbar opens a popover to move a key up or down, flip it, remove it or add a column: the way to sort by several columns on a touch screen. "Reset view" returns to the default sort. The server orders the rows; the table never re-sorts them in the browser.
 
 ## Query Hooks
 
@@ -1415,7 +1448,7 @@ class PostResource extends Resource
     public function icon(): string { return 'newspaper'; }
     public function group(): ?string { return 'Content'; }
     public static function perPageOptions(): array { return [10, 25, 50]; }
-    public static function defaultSort(): ?string { return 'created_at'; }
+    public static function defaultSort(): string|array|null { return 'created_at'; }
     public static function defaultSortDirection(): SortDirection { return SortDirection::Desc; }
 
     public function fields(Request $request): array

@@ -53,8 +53,7 @@ describe('FieldDisplay record context', () => {
         <Table
           columns={[{ field: field('links') }]}
           rows={[{ id: 4, links: 'a' }, { id: 5, links: 'b' }] as unknown as ResourceRecord[]}
-          sortBy={null}
-          sortDir="asc"
+          sort={[]}
           onSort={vi.fn()}
           selectedIds={new Set()}
           onToggleSelect={vi.fn()}

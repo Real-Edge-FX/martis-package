@@ -8,7 +8,8 @@ import { ToastProvider } from '@/contexts/ToastContext'
 /*
  * The sort the user picks on an index survives opening a record and coming
  * back. The schema is cached by then, so a resource with a `defaultSort()`
- * used to seed it again on the remount and override the restored sort.
+ * used to seed it again on the remount and override the restored sort. The sort is a list of keys now (`sort: [{attribute,
+ * direction}]`); the request carries it as `?sort=title:desc`.
  */
 
 const apiGetMock = vi.fn()
@@ -34,7 +35,7 @@ function mockApi(defaultSort: string | null) {
         data: {
           uriKey: 'posts', label: 'Posts', singularLabel: 'Post', softDeletes: false, stickyView: true,
           group: null, fields, fieldsForIndex: fields, errorDisplay: 'inline', messages: {}, actions: [],
-          defaultSort, defaultSortDirection: defaultSort ? 'desc' : null,
+          defaultSort: defaultSort ? [{ attribute: defaultSort, direction: 'desc' }] : [],
         } as unknown as ResourceSchema,
       })
     }
@@ -44,7 +45,7 @@ function mockApi(defaultSort: string | null) {
 
 const lastIndexRequest = () => {
   const urls = apiGetMock.mock.calls.map(([p]) => String(p)).filter((p) => p.startsWith('/api/resources/posts?'))
-  return urls[urls.length - 1] ?? ''
+  return decodeURIComponent(urls[urls.length - 1] ?? '')
 }
 
 beforeEach(() => {
@@ -77,9 +78,9 @@ describe.each([
     )
 
     await screen.findByText('Alpha')
-    fireEvent.click(screen.getByRole('button', { name: /Title/ }))
-    fireEvent.click(screen.getByRole('button', { name: /Title/ }))
-    await waitFor(() => expect(lastIndexRequest()).toMatch(/sort=title.*direction=desc|direction=desc.*sort=title/))
+    fireEvent.click(screen.getByRole('button', { name: /^Title/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Title/ }))
+    await waitFor(() => expect(lastIndexRequest()).toContain('sort=title:desc'))
 
     await act(async () => { await router.navigate('/resources/posts/1') })
     await screen.findByText('Detail page')
@@ -87,10 +88,8 @@ describe.each([
     await screen.findByText('Alpha')
 
     await waitFor(() => {
-      const url = lastIndexRequest()
-      expect(url).toContain('sort=title')
-      expect(url).toContain('direction=desc')
+      expect(lastIndexRequest()).toContain('sort=title:desc')
     })
-    expect(JSON.parse(sessionStorage.getItem('martis:view:1:posts') ?? '{}')).toMatchObject({ sortBy: 'title', sortDir: 'desc' })
+    expect(JSON.parse(sessionStorage.getItem('martis:view:1:posts') ?? '{}')).toMatchObject({ sort: [{ attribute: 'title', direction: 'desc' }] })
   })
 })

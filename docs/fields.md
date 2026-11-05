@@ -311,7 +311,7 @@ Currency::make('salary')
 - **Relationship fields.** A `HasMany`, `HasOne`, `MorphMany`, `MorphOne`, `BelongsToMany` or `MorphToMany` field that `canSeeForModel()` hides for the parent record answers 404 on every endpoint of its panel (the list, its create, update and delete, the attach, the detach, the pivot update, the pivot actions and the pickers of its pivot fields), as a relationship the resource does not declare.
 - **Per-field endpoints.** The options of a relation picker (on a form, among an Action's or a pivot action's fields, among pivot fields), the option search of a `Select` (of a resource or a Tool), the Slug check and the `dependsOn` sync answer for a hidden field exactly as for an attribute nothing declares: 404 for a picker and the Slug check, 422 for the `Select` search and the sync. So does a field of a Repeater row the user cannot see, and every row field of a Repeater the user cannot see. On a form, `canSeeForModel()` is decided on the record the update form edits, or on the new model of a create form.
 - **Action fields.** An Action field the user cannot see is left out of the modal, is not validated and never takes its value from the request. See [Actions → Fields the request cannot set](actions.md#fields-the-request-cannot-set).
-- **Sorting.** A list is sorted only by a `sortable()` field the user can see (v1.38.0): the order of the rows would otherwise tell the order of the field's values. A `?sort=` naming a field `canSee()` hides is ignored like one naming an unknown attribute, and the list keeps its default order. This holds on every list that takes `?sort=`: the resource index (its `defaultSort()` too), the rows of a `HasMany`, `MorphMany`, `BelongsToMany` and `MorphToMany` panel, and a lens, which is sorted by its own sortable fields only (see [Lenses → Which columns sort a lens](lenses.md#which-columns-sort-a-lens)).
+- **Sorting.** A list is sorted only by a `sortable()` field the user can see (v1.38.0): the order of the rows would otherwise tell the order of the field's values. A `?sort=` naming a field `canSee()` hides is ignored like one naming an unknown attribute (the other keys of a multi-key `?sort=` still apply), and the list keeps its default order. This holds on every list that takes `?sort=`: the resource index (its `defaultSort()` too), the rows of a `HasMany`, `MorphMany`, `BelongsToMany` and `MorphToMany` panel, and a lens, which is sorted by its own sortable fields only (see [Lenses → Which columns sort a lens](lenses.md#which-columns-sort-a-lens)).
 - **Searching.** A search matches its term only on the `searchable()` fields the user can see (v1.38.0): the rows a term returns would otherwise tell which records hold it in a field the user may not read. This holds on every search built from the fields' `searchable()` flags: the resource index, the rows of a relationship panel and its attach picker, the global search (see [Global Search → Fields the user cannot see](global-search.md#fields-the-user-cannot-see)) and a relation picker (`BelongsTo`, `MorphTo`, `Tag`), which searches the title it shows when none of the related resource's searchable fields is left. A `field:value` token naming a field the user cannot see is dropped like one naming an unknown field. What a resource declares itself is searched as declared: its `searchableRelations()` paths, its `searchQuery()` predicate and, with Scout, its `toSearchableArray()`.
 - **Layouts.** The rules are the same whatever layout container holds the field: `Panel`, `Section`, or directly a `Tab`.
 
@@ -327,8 +327,26 @@ Before v1.38.0 `canSeeForModel()` only hid the value on the resource's own reads
 |--------|-----------|---------|-------------|
 | `sortable` | `sortable(bool $value = true): static` | `$this` | Allow sorting the index table by this field, for the users who can see it (see [Field authorization](#field-authorization-cansee-and-canseeformodel)). |
 | `searchable` | `searchable(bool $value = true): static` | `$this` | Match the searches (resource index, relationship panels, relation pickers, global search) on this field, for the users who can see it (see [Field authorization](#field-authorization-cansee-and-canseeformodel)). |
+| `sortUsing` | `sortUsing(Closure(Builder $query, SortDirection $direction): void $callback): static` | `$this` | Write the ordering by this field yourself, for an attribute that is not a plain column of the listed table. Implies `sortable()`. See [Sorting by a computed key](#sorting-by-a-computed-key-sortusing). |
 | `isSortable` | `isSortable(): bool` | `bool` | Check if sortable. |
 | `isSearchable` | `isSearchable(): bool` | `bool` | Check if searchable. |
+
+#### Sorting by a computed key (`sortUsing()`)
+
+A key that is not a column of the listed table (a category's position, kept in another table) cannot be ordered by `orderBy($attribute)`. `sortUsing()` hands the ordering to a closure, which receives the query and the requested `SortDirection`:
+
+```php
+BelongsTo::make('Category', 'category')
+    ->sortUsing(fn (Builder $query, SortDirection $direction) => $query->orderBy(
+        Category::select('position')->whereColumn('categories.id', 'promotion_materials.category_id'),
+        $direction->value,
+    )),
+```
+
+- It implies `sortable()`.
+- It applies on every surface that sorts by the attribute: the index, a lens and the relationship panels, so a panel and the index agree, and in a multi-key `?sort=` and in `defaultSort()`.
+- The closure only adds order clauses; it must not add `where` clauses (documented, not enforced).
+- A field the user cannot see (`canSee()`) is not sortable through it either: the closure never runs.
 
 ### Validation
 

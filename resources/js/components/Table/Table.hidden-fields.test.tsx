@@ -28,8 +28,7 @@ function renderTable(rows: Array<Record<string, unknown>>) {
       <Table
         columns={[{ field: field('name', 'Name') }, { field: field('active', 'Active', 'boolean') }]}
         rows={rows as unknown as ResourceRecord[]}
-        sortBy={null}
-        sortDir="asc"
+        sort={[]}
         onSort={vi.fn()}
         selectedIds={new Set()}
         onToggleSelect={vi.fn()}

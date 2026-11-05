@@ -3533,6 +3533,79 @@ html:not(.dark) .martis-dropzone {
   opacity: 0.7;
 }
 
+/* Multi-column sort: the position of a header in the sort order (1, 2, 3). */
+.martis-th-sort-order {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 700;
+  background-color: var(--martis-accent);
+  color: var(--martis-accent-contrast, #fff);
+}
+
+/* The "Sorted by" chip and its popover, on the index toolbar. */
+.martis-sort-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 10px;
+  border: 1px solid var(--martis-border);
+  border-radius: 999px;
+  background-color: var(--martis-card);
+  color: var(--martis-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.martis-sort-chip:hover {
+  background-color: var(--martis-hover);
+}
+.martis-sort-popover {
+  position: fixed;
+  z-index: 9991;
+  min-width: 260px;
+  max-width: calc(100vw - 16px);
+  padding: 8px;
+  border: 1px solid var(--martis-border);
+  border-radius: 8px;
+  background-color: var(--martis-card);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+.martis-sort-popover__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 2px;
+  font-size: 13px;
+  color: var(--martis-text);
+}
+.martis-sort-popover__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 0;
+  background: none;
+  color: var(--martis-text-muted);
+  cursor: pointer;
+}
+.martis-sort-popover__btn:hover:not(:disabled) {
+  background-color: var(--martis-hover);
+  color: var(--martis-text);
+}
+.martis-sort-popover__btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 /* ── Fix: Checkbox check-mark visibility in dark theme (REA-1140) ── */
 /* PrimeReact checkbox checked icon inherits text color — force white */
 .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon,

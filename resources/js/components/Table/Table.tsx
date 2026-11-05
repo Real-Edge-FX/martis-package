@@ -3,15 +3,17 @@ import type { FieldDefinition, ResourceRecord } from "@/types"
 import type { ActionMeta } from "@/components/Actions"
 import { FieldDisplay } from "@/components/fields/FieldRenderer"
 import { isHiddenOn } from "@/lib/hiddenFields"
-import { DataTable, type DataTableSelectionMultipleChangeEvent, type DataTableSortEvent } from "primereact/datatable"
+import { DataTable, type DataTableSelectionMultipleChangeEvent } from "primereact/datatable"
 import { Column } from "primereact/column"
-import { CaretUpIcon, CaretDownIcon, CaretUpDownIcon, LightningIcon, WarningIcon, DotsThreeVerticalIcon, CaretRightIcon, EyeIcon, PencilSimpleIcon, TrashIcon, ArrowCounterClockwiseIcon, SkullIcon } from "@phosphor-icons/react"
+import { LightningIcon, WarningIcon, DotsThreeVerticalIcon, CaretRightIcon, EyeIcon, PencilSimpleIcon, TrashIcon, ArrowCounterClockwiseIcon, SkullIcon } from "@phosphor-icons/react"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { useTranslation } from "react-i18next"
 import { useState, useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { useEscapeLayer } from "@/lib/escapeLayers"
 import { ownEntry } from "@/lib/ownEntry"
+import type { SortKey } from "@/lib/multiSort"
+import { SortHeader } from "./SortHeader"
 
 export interface TableColumn {
   field: FieldDefinition
@@ -27,9 +29,14 @@ export interface DefaultRowActionsConfig {
 export interface TableProps {
   columns: TableColumn[]
   rows: ResourceRecord[]
-  sortBy: string | null
-  sortDir: "asc" | "desc"
-  onSort: (attribute: string) => void
+  /**
+   * The keys the rows are sorted by, the most significant first (empty for
+   * none). The server orders the rows: the table shows this state and never
+   * re-sorts them itself.
+   */
+  sort: SortKey[]
+  /** A header was clicked; `additive` is true for Shift+click / Shift+Enter (add the column to the sort). */
+  onSort: (attribute: string, additive: boolean) => void
   selectedIds: Set<string | number>
   onToggleSelect: (id: string | number) => void
   onToggleAll: () => void
@@ -93,15 +100,6 @@ function columnStyleFrom(meta: ColumnWidth | null | undefined): React.CSSPropert
   if (meta.minWidth) style.minWidth = meta.minWidth
   if (meta.maxWidth) style.maxWidth = meta.maxWidth
   return Object.keys(style).length === 0 ? undefined : style
-}
-
-function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
-  // Design-system spec: only the active column shows a direction caret.
-  // Inactive sortable columns stay clean until hovered/activated.
-  if (!active) return null
-  return dir === "asc"
-    ? <CaretUpIcon size={12} weight="bold" style={{ opacity: 0.8 }} />
-    : <CaretDownIcon size={12} weight="bold" style={{ opacity: 0.8 }} />
 }
 
 /* ── Inline Action Menu (3-dot grouped) with submenu support ──────── */
@@ -588,8 +586,7 @@ function RowActionButton({
 function DefaultTable({
   columns,
   rows,
-  sortBy,
-  sortDir,
+  sort,
   onSort,
   selectedIds,
   onToggleSelect,
@@ -614,8 +611,6 @@ function DefaultTable({
   const { t } = useTranslation("resources")
   const { t: tMsg } = useTranslation("messages")
   const { t: tAct } = useTranslation("actions")
-
-  const sortOrder = sortDir === "asc" ? 1 : -1
 
   const striped = tableConfig?.striped !== false
   const gridlines = tableConfig?.showGridlines === true
@@ -669,12 +664,6 @@ function DefaultTable({
         key={resourceKey}
         value={rows}
         dataKey="id"
-        removableSort
-        sortField={sortBy ?? undefined}
-        sortOrder={sortOrder}
-        onSort={(e: DataTableSortEvent) => {
-          if (e.sortField) onSort(String(e.sortField))
-        }}
         onRowClick={e => {
           // Checkbox clicks bubble up through PrimeReact's `onRowClick`;
           // suppress navigation when the click originated inside the
@@ -751,20 +740,7 @@ function DefaultTable({
             field={field.attribute}
             header={
               field.sortable ? (
-                <button type="button"
-                  className="martis-th-sortable flex items-center gap-1 font-bold uppercase tracking-wider text-xs"
-                  style={{ color: "var(--martis-table-header-text)" }}
-                  onClick={() => onSort(field.attribute)}
-                >
-                  {field.label}
-                  {sortBy === field.attribute ? (
-                    <SortIcon active dir={sortDir} />
-                  ) : (
-                    // Discreet hint that the column is sortable. Low opacity
-                    // at rest, slightly brighter when the header is hovered.
-                    <CaretUpDownIcon size={11} weight="bold" className="martis-th-sort-hint" />
-                  )}
-                </button>
+                <SortHeader attribute={field.attribute} label={field.label} sort={sort} onSort={onSort} />
               ) : (
                 <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--martis-table-header-text)" }}>
                   {field.label}

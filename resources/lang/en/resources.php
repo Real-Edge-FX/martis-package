@@ -60,4 +60,17 @@ return [
     'endpoint_latency' => 'P95 lat',
     'endpoint_errors' => 'Err %',
     'endpoint_share' => 'Share',
+    // Multi-column sort (header, "Sorted by" chip)
+    'sorted_by' => 'Sorted by',
+    'sort_default' => 'default order',
+    'sort_columns' => 'Sort columns',
+    'sort_ascending' => 'ascending',
+    'sort_descending' => 'descending',
+    'sort_position' => 'sort :position of :total, :direction',
+    'sort_limit' => 'Up to :max sort columns',
+    'sort_move_up' => 'Move up',
+    'sort_move_down' => 'Move down',
+    'sort_toggle_direction' => 'Change direction',
+    'sort_remove' => 'Remove',
+    'sort_add_column' => 'Add column',
 ];

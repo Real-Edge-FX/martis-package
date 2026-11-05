@@ -69,8 +69,9 @@ function applyPersistFilter(state: StickyState): StickyState {
   }
   // Sort bucket.
   if (persist.sorting !== false) {
-    if ('sortBy' in state) filtered.sortBy = state.sortBy
-    if ('sortDir' in state) filtered.sortDir = state.sortDir
+    // `sort: [{attribute, direction}]`. An entry written before the list
+    // (`sortBy` / `sortDir`) is still read, once, by `readSavedSort()`.
+    if ('sort' in state) filtered.sort = state.sort
   }
   // Pagination bucket — current page only. perPage rides its own toggle.
   if (persist.pagination !== false && 'page' in state) {

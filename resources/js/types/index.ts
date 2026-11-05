@@ -649,10 +649,8 @@ export interface ResourceSchema extends ResourceEmbedded {
   tableSize?: 'normal' | 'small' | 'large'
   tableRowHover?: boolean
   tableLayout?: 'auto' | 'fixed'
-  /** Default sort column applied on the initial index load (null = none). */
-  defaultSort?: string | null
-  /** Default sort direction paired with `defaultSort`. */
-  defaultSortDirection?: 'asc' | 'desc'
+  /** The sort applied on the initial index load, most significant key first (empty = none). */
+  defaultSort?: Array<{ attribute: string; direction: 'asc' | 'desc' }>
   authorization?: CollectionAuthorizationMetadata
   overrides?: {
     create?: OverrideDefinition | null

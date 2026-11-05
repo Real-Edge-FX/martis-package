@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, useLocation, useNavigationType } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
@@ -34,6 +34,8 @@ import { recordHref } from '@/lib/recordHref'
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react'
 import { martisEventBus, type EventPayload } from '@/lib/eventBus'
 import { emitRecordEvent } from '@/lib/recordEvents'
+import { SortedByChip } from '@/components/Table/SortedByChip'
+import { MAX_SORT_KEYS, additiveSort, clickSort, normalizeSort, readSavedSort, sameSort, serializeSort, type SortKey } from '@/lib/multiSort'
 
 export function ResourceIndexPage() {
   const { resource } = useParams<{ resource: string }>()
@@ -54,8 +56,9 @@ export function ResourceIndexPage() {
   const [perPage, setPerPage] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [sortBy, setSortBy] = useState<string | null>(null)
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  // The keys the index is sorted by, most significant first. Empty until the
+  // user picks one or the schema's `defaultSort()` seeds it.
+  const [sort, setSort] = useState<SortKey[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
   const [deleteTarget, setDeleteTarget] = useState<ResourceRecord | null>(null)
   const [restoreTarget, setRestoreTarget] = useState<ResourceRecord | null>(null)
@@ -70,8 +73,8 @@ export function ResourceIndexPage() {
   // user's saved view. Any handler that the user wires into the UI flips
   // this back to false via `markUserDriven()`.
   const [viewIsUrlDriven, setViewIsUrlDriven] = useState(false)
-  // Set when the restore effect below brings back a saved sort column. The
-  // default-sort seed runs in the same commit and still sees `sortBy === null`
+  // Set when the restore effect below brings back a saved sort. The
+  // default-sort seed runs in the same commit and still sees an empty sort
   // (the restored value is only scheduled), so without this flag a cached
   // schema's `defaultSort()` overrides the sort the user left the index with.
   const sortRestoredRef = useRef(false)
@@ -146,8 +149,7 @@ export function ResourceIndexPage() {
       setActiveFilters({})
       setPage(1)
       setPerPage(null)
-      setSortBy(null)
-      setSortDir('asc')
+      setSort([])
       setTrashedFilter('')
       setFiltersOpen(false)
 
@@ -179,8 +181,7 @@ export function ResourceIndexPage() {
           setActiveFilters(parsed as ActiveFilters)
           setPage(1)
           setPerPage(null)
-          setSortBy(null)
-          setSortDir('asc')
+          setSort([])
           setTrashedFilter('')
           setFiltersOpen(true)
           return
@@ -213,9 +214,11 @@ export function ResourceIndexPage() {
       setActiveFilters((saved.activeFilters as ActiveFilters) ?? {})
       setPage(typeof saved.page === 'number' ? saved.page : 1)
       setPerPage(typeof saved.perPage === 'number' ? saved.perPage : null)
-      sortRestoredRef.current = typeof saved.sortBy === 'string'
-      setSortBy(typeof saved.sortBy === 'string' ? saved.sortBy : null)
-      setSortDir(saved.sortDir === 'desc' ? 'desc' : 'asc')
+      // The saved list, or an entry of the earlier `sortBy` / `sortDir`
+      // shape read once as one key (the next write stores the list).
+      const savedSort = readSavedSort(saved)
+      sortRestoredRef.current = savedSort.length > 0
+      setSort(savedSort)
       setTrashedFilter(
         saved.trashedFilter === 'with' || saved.trashedFilter === 'only' ? saved.trashedFilter : '',
       )
@@ -229,8 +232,7 @@ export function ResourceIndexPage() {
     setActiveFilters({})
     setPage(1)
     setPerPage(null)
-    setSortBy(null)
-    setSortDir('asc')
+    setSort([])
     setTrashedFilter('')
     setFiltersOpen(false)
     // location.search is intentionally a dep: this hook runs again when
@@ -261,15 +263,15 @@ export function ResourceIndexPage() {
   const schema = schemaQuery.data?.data
 
   // Seed the sort state from the resource's `defaultSort()` on the
-  // first schema load. `sortBy === null` means the user hasn't picked
-  // a column yet, so we adopt the server-side default and render the
-  // caret on the right column. Subsequent header clicks keep working.
+  // first schema load. An empty sort means the user hasn't picked a
+  // column yet, so we adopt the server-side default and render the
+  // carets on the right columns. Subsequent header clicks keep working.
+  const defaultSort = useMemo(() => normalizeSort(schema?.defaultSort), [schema?.defaultSort])
   useEffect(() => {
-    if (!schema?.defaultSort) return
-    if (sortBy !== null || sortRestoredRef.current) return
-    setSortBy(schema.defaultSort)
-    setSortDir(schema.defaultSortDirection ?? 'asc')
-  }, [schema?.defaultSort, schema?.defaultSortDirection, sortBy])
+    if (defaultSort.length === 0) return
+    if (sort.length > 0 || sortRestoredRef.current) return
+    setSort(defaultSort)
+  }, [defaultSort, sort])
 
   usePageTitle(schema?.label ?? null)
   const accentProps = useResourceAccent((schema as { accentColor?: string | null } | undefined)?.accentColor)
@@ -287,8 +289,7 @@ export function ResourceIndexPage() {
     {
       page,
       perPage,
-      sortBy,
-      sortDir,
+      sort,
       trashedFilter,
       activeFilters,
       search: debouncedSearch,
@@ -313,11 +314,11 @@ export function ResourceIndexPage() {
     publishUserFilters({})
     setPage(1)
     setPerPage(null)
-    setSortBy(schema?.defaultSort ?? null)
-    setSortDir(schema?.defaultSortDirection ?? 'asc')
+    sortRestoredRef.current = false
+    setSort(defaultSort)
     setTrashedFilter('')
     setFiltersOpen(false)
-  }, [resource, stickyOwner, schema?.defaultSort, schema?.defaultSortDirection, markUserDriven, publishUserFilters])
+  }, [resource, stickyOwner, defaultSort, markUserDriven, publishUserFilters])
 
   /**
    * Clear ONLY the active filters — keeps sort, search, pagination,
@@ -341,7 +342,7 @@ export function ResourceIndexPage() {
 
   // Index data
   const indexQuery = useQuery({
-    queryKey: ['resources', resource, page, debouncedSearch, sortBy, sortDir, effectivePerPage, trashedFilter, activeFilters],
+    queryKey: ['resources', resource, page, debouncedSearch, serializeSort(sort), effectivePerPage, trashedFilter, activeFilters],
     queryFn: () => {
       const params = new URLSearchParams({
         page: String(page),
@@ -349,10 +350,7 @@ export function ResourceIndexPage() {
       })
       if (debouncedSearch) params.set('search', debouncedSearch)
       if (trashedFilter) params.set('trashed', trashedFilter)
-      if (sortBy) {
-        params.set('sort', sortBy)
-        params.set('direction', sortDir)
-      }
+      if (sort.length > 0) params.set('sort', serializeSort(sort))
       if (Object.keys(activeFilters).length > 0) {
         params.set('filters', JSON.stringify(activeFilters))
       }
@@ -466,15 +464,28 @@ export function ResourceIndexPage() {
     },
   })
 
-  function handleSort(attribute: string) {
+  // Every sort change the user makes goes through here: the header click,
+  // Shift+click and the "Sorted by" chip.
+  function changeSort(keys: SortKey[]) {
     markUserDriven()
-    if (sortBy === attribute) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortBy(attribute)
-      setSortDir('asc')
-    }
+    // A sort the user chose now is the current one: the default seed (and the
+    // restore flag) must not bring another back.
+    sortRestoredRef.current = false
+    setSort(keys)
     setPage(1)
+  }
+
+  function handleSort(attribute: string, additive: boolean) {
+    if (!additive) {
+      changeSort(clickSort(sort, attribute))
+      return
+    }
+    const next = additiveSort(sort, attribute)
+    if (next.refused) {
+      addToast('error', t('sort_limit', { defaultValue: 'Up to {{max}} sort columns', max: MAX_SORT_KEYS }))
+      return
+    }
+    changeSort(next.keys)
   }
 
   function handleToggleSelect(id: string | number) {
@@ -594,6 +605,11 @@ export function ResourceIndexPage() {
       return <C {...buildOverrideProps(schema.overrides.index)} />
     }
   }
+
+  // The columns the "Sorted by" chip offers: the index columns a user may sort by.
+  const sortChipColumns = (schema.fieldsForIndex ?? [])
+    .filter((field) => field.sortable)
+    .map((field) => ({ attribute: field.attribute, label: field.label }))
 
   const indexColumns = (schema.fieldsForIndex ?? [])
     .map((field) => ({ field }))
@@ -719,8 +735,7 @@ export function ResourceIndexPage() {
               debouncedSearch.length > 0 ||
               Object.keys(activeFilters).length > 0 ||
               trashedFilter !== '' ||
-              (sortBy !== null && sortBy !== (schema.defaultSort ?? null)) ||
-              (sortBy !== null && sortDir !== (schema.defaultSortDirection ?? 'asc'))
+              (sort.length > 0 && !sameSort(sort, defaultSort))
             )
 
           const hasActiveFilters = Object.keys(activeFilters).length > 0
@@ -819,6 +834,17 @@ export function ResourceIndexPage() {
                   </div>
                 )}
 
+                {sortChipColumns.length > 0 && (
+                  <div className="flex-shrink min-w-0 max-w-[40%]">
+                    <SortedByChip
+                      sort={sort}
+                      defaultSort={defaultSort}
+                      columns={sortChipColumns}
+                      onChange={changeSort}
+                    />
+                  </div>
+                )}
+
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <label className="text-xs martis-text-muted whitespace-nowrap">{t('per_page')}:</label>
                   <select
@@ -862,8 +888,7 @@ export function ResourceIndexPage() {
         columns={indexColumns}
         rows={rows}
         emptyMessage={indexEmptyMessage}
-        sortBy={sortBy}
-        sortDir={sortDir}
+        sort={sort}
         onSort={handleSort}
         selectedIds={selectedIds}
         onToggleSelect={handleToggleSelect}

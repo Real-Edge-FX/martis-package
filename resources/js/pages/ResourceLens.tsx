@@ -31,6 +31,7 @@ import { usePageTitle } from '@/hooks/usePageTitle'
 import { recordHref } from '@/lib/recordHref'
 import { filterIndexActions, filterInlineActions } from '@/lib/actionVisibility'
 import { emitRecordEvent } from '@/lib/recordEvents'
+import { MAX_SORT_KEYS, additiveSort, clickSort, parseSortParam, serializeSort, type SortKey } from '@/lib/multiSort'
 
 /**
  * Page: `/resources/{resource}/lens/{lens}`.
@@ -98,8 +99,10 @@ function LensPage() {
   // ── URL-backed view state (D4) ────────────────────────────────────
   const page = Number(searchParams.get('page') ?? '1') || 1
   const search = searchParams.get('search') ?? ''
-  const sortBy = searchParams.get('sort') ?? null
-  const sortDir = (searchParams.get('direction') ?? 'asc') as 'asc' | 'desc'
+  // `?sort=a:asc,b:desc`; a lone `?sort=a&direction=desc` link still reads.
+  const sortParam = searchParams.get('sort')
+  const directionParam = searchParams.get('direction')
+  const sort = useMemo(() => parseSortParam(sortParam, directionParam), [sortParam, directionParam])
   const trashedFilter = (searchParams.get('trashed') ?? '') as '' | 'with' | 'only'
 
   const filters: ActiveFilters = useMemo(() => {
@@ -164,16 +167,13 @@ function LensPage() {
   // ── Data query ─────────────────────────────────────────────────────
   const dataQuery = useQuery<LensResponse>({
     enabled: !!resource && !!lensKey && !!lens,
-    queryKey: ['lens', resource, lensKey, page, searchParams.get('per_page'), search, sortBy, sortDir, searchParams.get('filters'), trashedFilter],
+    queryKey: ['lens', resource, lensKey, page, searchParams.get('per_page'), search, serializeSort(sort), searchParams.get('filters'), trashedFilter],
     queryFn: () => {
       const params = new URLSearchParams({ page: String(page) })
       const perPageParam = searchParams.get('per_page')
       if (perPageParam) params.set('per_page', perPageParam)
       if (search) params.set('search', search)
-      if (sortBy) {
-        params.set('sort', sortBy)
-        params.set('direction', sortDir)
-      }
+      if (sort.length > 0) params.set('sort', serializeSort(sort))
       const f = searchParams.get('filters')
       if (f) params.set('filters', f)
       if (trashedFilter) params.set('trashed', trashedFilter)
@@ -472,14 +472,23 @@ function LensPage() {
           columns={columns}
           rows={rows}
           emptyMessage={dataQuery.isSuccess ? undefined : null}
-          sortBy={sortBy}
-          sortDir={sortDir}
-          onSort={(attr) => {
+          sort={sort}
+          onSort={(attr, additive) => {
+            let next: SortKey[]
+            if (additive) {
+              const added = additiveSort(sort, attr)
+              if (added.refused) {
+                addToast('error', t('sort_limit', { defaultValue: 'Up to {{max}} sort columns', max: MAX_SORT_KEYS }))
+                return
+              }
+              next = added.keys
+            } else {
+              next = clickSort(sort, attr)
+            }
             mutateParams((p) => {
-              const alreadySorted = attr === sortBy
-              const nextDir = alreadySorted && sortDir === 'asc' ? 'desc' : 'asc'
-              p.set('sort', attr)
-              p.set('direction', nextDir)
+              p.delete('direction')
+              if (next.length > 0) p.set('sort', serializeSort(next))
+              else p.delete('sort')
             })
           }}
           selectedIds={selectedIds}
