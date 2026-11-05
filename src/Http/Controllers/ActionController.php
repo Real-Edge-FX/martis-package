@@ -443,7 +443,7 @@ class ActionController extends MartisController
         // under `fields[...]` among the request's files, and every other value
         // as a string, a list or map JSON-encoded as the resource forms do.
         $uploads = $request->file('fields');
-        if (is_array($uploads) || str_contains((string) $request->header('Content-Type'), 'multipart/form-data')) {
+        if (is_array($uploads) || str_contains((string) $request->headers->get('Content-Type', ''), 'multipart/form-data')) {
             if (is_array($uploads)) {
                 $values = array_replace($values, $uploads);
             }
@@ -959,9 +959,7 @@ class ActionController extends MartisController
         /** @var array<string, mixed> $data */
         $data = ['fields' => array_map(fn (FieldContract $f) => $f->toArray(), $fields)];
 
-        if ($actionInstance instanceof Action) {
-            $data += $actionInstance->resolveConfirmation($request, $selected, $this->selectionCount($request));
-        }
+        $data += $actionInstance->resolveConfirmation($request, $selected, $this->selectionCount($request));
 
         return JsonResponse::make($data)->toResponse();
     }

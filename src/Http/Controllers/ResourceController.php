@@ -1071,7 +1071,7 @@ class ResourceController extends MartisController
         foreach ($declared as $key) {
             $value = $raw[$key] ?? null;
 
-            if (is_string($key) && is_string($value) && $value !== '' && mb_strlen($value) <= 255) {
+            if (is_string($value) && $value !== '' && mb_strlen($value) <= 255) {
                 $prefill[$key] = $value;
             }
         }
@@ -1305,7 +1305,7 @@ class ResourceController extends MartisController
             'softDeletes' => $resourceClass::softDeletes() && $resourceClass::canViewTrashed(),
             'stickyView' => $resourceClass::stickyView(),
             'maxInlineButtons' => $resourceClass::maxInlineButtons(),
-            'prefillKeys' => array_values($resourceClass::acceptsPrefill()),
+            'prefillKeys' => $resourceClass::acceptsPrefill(),
             'authorization' => $instance->collectionAuthorizationMetadata($request),
             'group' => $instance->group(),
             'icon' => $instance->icon(),
