@@ -3,6 +3,7 @@
 namespace Martis\Fields;
 
 use Illuminate\Contracts\Validation\Rule;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -10,6 +11,7 @@ use Martis\Contracts\FieldContract;
 use Martis\Contracts\FiltersFields;
 use Martis\Contracts\LayoutContract;
 use Martis\Contracts\OverrideContract;
+use Martis\Enums\SortDirection;
 use Martis\FieldContext;
 use Martis\Resource;
 use Martis\ResourceRegistry;
@@ -81,6 +83,14 @@ abstract class Field implements FieldContract
     protected ?bool $showOnPreview = null;
 
     protected bool $sortable = false;
+
+    /**
+     * How an ordering by this field is written (`sortUsing()`), or null
+     * to order by the attribute as a column.
+     *
+     * @var (\Closure(Builder<Model>, SortDirection): void)|null
+     */
+    protected ?\Closure $sortUsing = null;
 
     protected bool $searchable = false;
 
@@ -1569,6 +1579,43 @@ abstract class Field implements FieldContract
         return $this;
     }
 
+    /**
+     * Write the ordering by this field yourself, for an attribute that is
+     * not a plain column of the listed table (a category's position, kept in
+     * another table). Implies `sortable()`.
+     *
+     * The closure receives the query and the requested `SortDirection` and
+     * only adds order clauses; it must not add `where` clauses (not
+     * enforced). It runs on every surface that sorts by this attribute: the
+     * index, a lens and the relationship panels.
+     *
+     *     BelongsTo::make('Category', 'category')
+     *         ->sortUsing(fn (Builder $query, SortDirection $direction) => $query->orderBy(
+     *             Category::select('position')->whereColumn('categories.id', 'promotion_materials.category_id'),
+     *             $direction->value,
+     *         ));
+     *
+     * @param  \Closure(Builder<Model>, SortDirection): void  $callback
+     */
+    public function sortUsing(\Closure $callback): static
+    {
+        $this->sortable = true;
+        $this->sortUsing = $callback;
+
+        return $this;
+    }
+
+    /**
+     * The closure `sortUsing()` set, or null when the field sorts by its
+     * attribute as a column.
+     *
+     * @return (\Closure(Builder<Model>, SortDirection): void)|null
+     */
+    public function sortCallback(): ?\Closure
+    {
+        return $this->sortUsing;
+    }
+
     /** {@inheritdoc} */
     public function searchable(bool $value = true): static
     {
@@ -1626,15 +1673,28 @@ abstract class Field implements FieldContract
      */
     public static function sortableAttributes(array $items, Request $request): array
     {
-        $attributes = [];
+        return array_keys(self::sortableFields($items, $request));
+    }
+
+    /**
+     * The fields a request may sort a list by among `$items`, keyed by
+     * attribute (see `sortableAttributes()`); the first field of an
+     * attribute wins. Their `sortUsing()` closures say how each is ordered.
+     *
+     * @param  list<FieldContract|LayoutContract>  $items
+     * @return array<string, FieldContract>
+     */
+    public static function sortableFields(array $items, Request $request): array
+    {
+        $fields = [];
 
         foreach (self::flattenLayoutFields($items) as $field) {
-            if ($field->isSortable() && $field->isAuthorizedToSee($request)) {
-                $attributes[] = $field->attribute();
+            if ($field->isSortable() && $field->isAuthorizedToSee($request) && ! isset($fields[$field->attribute()])) {
+                $fields[$field->attribute()] = $field;
             }
         }
 
-        return array_values(array_unique($attributes));
+        return $fields;
     }
 
     /** {@inheritdoc} */

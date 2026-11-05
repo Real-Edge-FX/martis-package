@@ -185,7 +185,7 @@ abstract class Resource implements ResourceContract
     }
 
     /** {@inheritdoc} */
-    public static function defaultSort(): ?string
+    public static function defaultSort(): string|array|null
     {
         return null;
     }

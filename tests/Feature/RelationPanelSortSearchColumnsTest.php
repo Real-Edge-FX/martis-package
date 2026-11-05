@@ -87,7 +87,7 @@ class RPSCSaleResource extends Resource
 
     public function fields(Request $request): array
     {
-        return [ID::make(), Text::make('meta->code', 'Code')->sortable()];
+        return [ID::make()->sortable(), Text::make('meta->code', 'Code')->sortable()];
     }
 }
 
@@ -240,4 +240,33 @@ it('sorts a hasManyThrough panel by a JSON path whose column the intermediate al
 
     $response->assertStatus(200);
     expect(array_column($response->json('data'), 'id'))->toBe([$ids['C'], $ids['B'], $ids['A']]);
+});
+
+it('sorts a hasMany panel by a withCount alias and a column in one request', function () {
+    $owner = RPSCOwner::create(['name' => 'Owner']);
+    foreach (['B' => 1, 'A' => 1, 'C' => 0] as $name => $sales) {
+        $shop = RPSCShop::create(['name' => $name, 'owner_id' => $owner->id]);
+        for ($i = 0; $i < $sales; $i++) {
+            RPSCSale::create(['shop_id' => $shop->id]);
+        }
+    }
+
+    $response = $this->getJson("/martis/api/resources/rpsc-owners/{$owner->id}/has-many/shops?sort=sales_count:desc,name:asc");
+
+    $response->assertStatus(200);
+    expect(array_column($response->json('data'), 'name'))->toBe(['A', 'B', 'C']);
+});
+
+it('qualifies a JSON path of a multi-key sort over a hasManyThrough panel', function () {
+    $owner = RPSCOwner::create(['name' => 'Owner']);
+    $shop = RPSCShop::create(['name' => 'Shop', 'owner_id' => $owner->id, 'meta' => json_encode(['code' => 'Z'])]);
+    $ids = [];
+    foreach (['B', 'C', 'A', 'C'] as $i => $code) {
+        $ids[$i] = RPSCSale::create(['shop_id' => $shop->id, 'meta' => ['code' => $code]])->id;
+    }
+
+    $response = $this->getJson("/martis/api/resources/rpsc-owners/{$owner->id}/has-many/sales?sort=meta->code:desc,id:desc");
+
+    $response->assertStatus(200);
+    expect(array_column($response->json('data'), 'id'))->toBe([$ids[3], $ids[1], $ids[0], $ids[2]]);
 });

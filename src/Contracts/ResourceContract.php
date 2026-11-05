@@ -240,10 +240,20 @@ interface ResourceContract
     /** Return the default number of items per page. */
     public static function perPage(): int;
 
-    /** Return the default sort column for the index listing, or null for no default. */
-    public static function defaultSort(): ?string;
+    /**
+     * Return the default sort of the index listing: a column name (its direction is
+     * `defaultSortDirection()`), an ordered map of column to direction
+     * (`['category' => SortDirection::Asc, 'position' => 'desc']`, where
+     * `defaultSortDirection()` is ignored), or null for no default.
+     *
+     * The array is checked when read (see `ListSort::defaults()`), so its type is
+     * left open: a key that is not a name or a direction that is not one throws.
+     *
+     * @return string|array<array-key, mixed>|null
+     */
+    public static function defaultSort(): string|array|null;
 
-    /** Return the default sort direction for the index listing. */
+    /** Return the default sort direction for the index listing (used when `defaultSort()` is a string). */
     public static function defaultSortDirection(): SortDirection;
 
     /** Determine whether this resource should appear in the navigation menu. */
