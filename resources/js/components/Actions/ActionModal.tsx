@@ -45,6 +45,11 @@ export interface ActionMeta {
   confirmText: string | null
   confirmButtonText: string | null
   cancelButtonText: string | null
+  /**
+   * One of the three texts is a closure (v2.17.0): the schema carries null and
+   * the fields request of each opening answers the resolved texts.
+   */
+  dynamicConfirm?: boolean
   /** The run answers `openInNewTab`: the tab opens on the click (v2.15.0). */
   opensInNewTab?: boolean
   modalSize: string
@@ -104,6 +109,14 @@ export interface ActionVia {
   viaRelationship: string
 }
 
+/** The fields endpoint's answer: the fields, and the resolved texts (v2.17.0). */
+interface ActionFieldsAnswer {
+  fields: FieldDefinition[]
+  confirmText?: string | null
+  confirmButtonText?: string | null
+  cancelButtonText?: string | null
+}
+
 function DefaultActionModal({ resource, action, selectedIds, visible, onHide, onSuccess, onOpenCreate, onOpenDetail, onOpenUpdate, via, lens }: ActionModalProps) {
   // A lens's actions live under its own routes: an action only the lens
   // declares is unknown to the resource's.
@@ -112,6 +125,8 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   // `fields()` can read it (`selectedModel()`); a bulk run or a standalone
   // action names none.
   const recordId = action && !action.standalone && selectedIds.length === 1 ? selectedIds[0] : undefined
+  // How many records a bulk run selects, for a confirmText() closure.
+  const selectionCount = action?.dynamicConfirm && !action.standalone && recordId === undefined ? selectedIds.length : 0
   const { addToast } = useToast()
   const { t } = useTranslation('actions')
   const navigate = useNavigate()
@@ -152,9 +167,9 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
   const fieldsQuery = useQuery({
     // The record (and the relationship it is reached through) is part of the
     // key: two records never share fields their `fields()` resolved.
-    queryKey: ['action-fields', resource, lens ?? null, action?.uriKey, recordId ?? null, recordId !== undefined ? (via ?? null) : null],
+    queryKey: ['action-fields', resource, lens ?? null, action?.uriKey, recordId ?? null, recordId !== undefined ? (via ?? null) : null, selectionCount],
     queryFn: () =>
-      api.get<{ data: { fields: FieldDefinition[] } }>(actionFieldsUrl(actionUrl, recordId, via)),
+      api.get<{ data: ActionFieldsAnswer }>(actionFieldsUrl(actionUrl, recordId, via, selectionCount)),
     enabled: visible && !!action,
     // `fields()` reads the record (`selectedModel()`), so what an earlier
     // opening cached (its defaults, its help text) may describe a record that
@@ -333,8 +348,13 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
     action.modalSize === 'sm' ? '20rem' :
     '28rem'
 
-  const confirmButton = action.confirmButtonText ?? (action.destructive ? t('confirm_destructive') : t('run_action'))
-  const cancelButton = action.cancelButtonText ?? t('cancel')
+  // A closure text is resolved by this opening's fields request; until it
+  // answers, a skeleton stands in for the text and the confirm button waits.
+  const resolved = action.dynamicConfirm ? fieldsQuery.data?.data : undefined
+  const confirmPending = action.dynamicConfirm === true && fieldsPending
+  const confirmText = (action.dynamicConfirm ? resolved?.confirmText : action.confirmText) ?? t('confirm_run')
+  const confirmButton = (action.dynamicConfirm ? resolved?.confirmButtonText : action.confirmButtonText) ?? (action.destructive ? t('confirm_destructive') : t('run_action'))
+  const cancelButton = (action.dynamicConfirm ? resolved?.cancelButtonText : action.cancelButtonText) ?? t('cancel')
 
   function renderActionIcon() {
     if (action!.icon) {
@@ -384,7 +404,9 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
         <div className="martis-modal-body">
           {/* Nova's default confirmText, so a confirmation never opens blank. */}
           {action.withConfirmation && (
-            <p className="mb-4">{action.confirmText ?? t('confirm_run')}</p>
+            confirmPending
+              ? <div className="mb-4 h-4 w-3/4 animate-pulse rounded" style={{ backgroundColor: 'var(--martis-border)' }} aria-hidden="true" data-testid="action-confirm-skeleton" />
+              : <p className="mb-4">{confirmText}</p>
           )}
 
           {hasFields && (
@@ -441,7 +463,7 @@ function DefaultActionModal({ resource, action, selectedIds, visible, onHide, on
           <button
             type="button"
             onClick={() => runAction()}
-            disabled={executeMutation.isPending}
+            disabled={executeMutation.isPending || confirmPending}
             className={action.destructive ? 'martis-btn-danger' : 'martis-btn-primary'}
           >
             <LightningIcon size={14} />

@@ -76,11 +76,63 @@ class Action implements ActionContract
     // Confirmation modal
     // -------------------------------------------------------------------------
 
-    protected ?string $confirmText = null;
+    /**
+     * Whether a confirmation text is a closure, resolved per opening of the
+     * modal by the fields endpoint rather than fixed in the schema.
+     */
+    public function hasDynamicConfirmation(): bool
+    {
+        return $this->confirmText instanceof Closure
+            || $this->confirmButtonText instanceof Closure
+            || $this->cancelButtonText instanceof Closure;
+    }
 
-    protected ?string $confirmButtonText = null;
+    /**
+     * The three confirmation texts for one opening of the modal. A closure
+     * receives the fields request, the record the modal runs on (the one
+     * selectedModel() returns, null for a bulk or standalone run) and the
+     * number of selected records (display only: sent by the client, never
+     * used to authorize or to run). It returns the text, or null for the
+     * default; anything else throws, naming the action and the option.
+     *
+     * @return array{confirmText: ?string, confirmButtonText: ?string, cancelButtonText: ?string}
+     */
+    public function resolveConfirmation(Request $request, ?Model $model, int $count): array
+    {
+        $resolve = function (string $option, string|Closure|null $value) use ($request, $model, $count): ?string {
+            if (! $value instanceof Closure) {
+                return $value;
+            }
 
-    protected ?string $cancelButtonText = null;
+            $text = $value($request, $model, $count);
+
+            if ($text !== null && ! is_string($text)) {
+                throw new \InvalidArgumentException(sprintf(
+                    'The %s() closure of %s must return a string or null, %s returned.',
+                    $option,
+                    static::class,
+                    get_debug_type($text),
+                ));
+            }
+
+            return $text;
+        };
+
+        return [
+            'confirmText' => $resolve('confirmText', $this->confirmText),
+            'confirmButtonText' => $resolve('confirmButtonText', $this->confirmButtonText),
+            'cancelButtonText' => $resolve('cancelButtonText', $this->cancelButtonText),
+        ];
+    }
+
+    /** @var string|Closure(Request, ?Model, int): ?string|null */
+    protected string|Closure|null $confirmText = null;
+
+    /** @var string|Closure(Request, ?Model, int): ?string|null */
+    protected string|Closure|null $confirmButtonText = null;
+
+    /** @var string|Closure(Request, ?Model, int): ?string|null */
+    protected string|Closure|null $cancelButtonText = null;
 
     protected bool $withConfirmation = true;
 
@@ -389,7 +441,7 @@ class Action implements ActionContract
     // -------------------------------------------------------------------------
 
     /** {@inheritdoc} */
-    public function confirmText(string $text): static
+    public function confirmText(string|Closure $text): static
     {
         $this->confirmText = $text;
 
@@ -397,7 +449,7 @@ class Action implements ActionContract
     }
 
     /** {@inheritdoc} */
-    public function confirmButtonText(string $text): static
+    public function confirmButtonText(string|Closure $text): static
     {
         $this->confirmButtonText = $text;
 
@@ -405,7 +457,7 @@ class Action implements ActionContract
     }
 
     /** {@inheritdoc} */
-    public function cancelButtonText(string $text): static
+    public function cancelButtonText(string|Closure $text): static
     {
         $this->cancelButtonText = $text;
 
@@ -717,9 +769,13 @@ class Action implements ActionContract
             'sole' => $this->isSole(),
             'queued' => $this->isQueued(),
             'withConfirmation' => $this->withConfirmation,
-            'confirmText' => $this->confirmText,
-            'confirmButtonText' => $this->confirmButtonText,
-            'cancelButtonText' => $this->cancelButtonText,
+            // A closure is resolved per opening by the fields endpoint:
+            // the schema carries null and `dynamicConfirm`, so the modal
+            // waits for that answer before it shows the text.
+            'confirmText' => $this->confirmText instanceof Closure ? null : $this->confirmText,
+            'confirmButtonText' => $this->confirmButtonText instanceof Closure ? null : $this->confirmButtonText,
+            'cancelButtonText' => $this->cancelButtonText instanceof Closure ? null : $this->cancelButtonText,
+            'dynamicConfirm' => $this->hasDynamicConfirmation(),
             'opensInNewTab' => $this->opensInNewTab,
             'modalSize' => ($this->modalSize ?? ModalSize::Medium)->value,
             'supportsDryRun' => $this->supportsDryRun,

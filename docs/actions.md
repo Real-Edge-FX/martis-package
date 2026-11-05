@@ -797,6 +797,25 @@ PublishPosts::make()
 
 An action without `confirmText()` shows "Are you sure you want to run this action?" (translated) in its confirmation modal, Nova's default, so the modal never opens with a blank body (v2.15.0). The sentence shows whenever the action asks for confirmation, fields or not; an action with `withoutConfirmation()` that still opens the modal for its fields or for Preview shows none. An action with `withoutConfirmation()` runs only once its fields have loaded, and opens the modal instead when it has some (v2.15.0: it used to run before they loaded, without them). When a run without a modal fails, the error toast shows and the action can be run again.
 
+### A text that names the record (v2.17.0)
+
+`confirmText()`, `confirmButtonText()` and `cancelButtonText()` also take a closure, resolved each time the modal opens:
+
+```php
+DeleteMaterial::make()
+    ->confirmText(fn (Request $request, ?Model $item, int $count) => $item
+        ? __('Delete «:title» for good? The file, the cover and the subtitles are removed.', ['title' => $item->title])
+        : trans_choice('Delete :count item for good?|Delete :count items for good?', $count, ['count' => $count]))
+    ->confirmButtonText(fn (Request $request, ?Model $item) => $item ? __('Delete «:title»', ['title' => $item->title]) : null),
+```
+
+- `$item` is the record the modal runs on (a row's inline action, the detail page, a single selection), the same one `selectedModel()` gives `fields()`: found through the index scopes and authorized to view, so a closure never sees a record the user cannot reach. It is `null` for a bulk or `standalone()` run.
+- `$count` is the number of selected records (0 for a standalone action). The client sends it for the text only: it is never used to authorize or run.
+- The closure returns the text, or `null` for the default. Any other value throws an `InvalidArgumentException` naming the action and the option.
+- The texts ride on the fields request the modal already makes when it opens: no extra request, and nothing is computed per row of the index. Until it answers, a placeholder stands in for the text and the run button waits.
+- The text is plain text: a title holding markup shows literally.
+- A record-aware checkbox ("Also delete the Portuguese version") needs no confirmation API: `fields()` reads `$this->selectedModel()` and returns a `Boolean` with that label, whose value reaches `handle()` as any field's.
+
 ---
 
 ## Icons

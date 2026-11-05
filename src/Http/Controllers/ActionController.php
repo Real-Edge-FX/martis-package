@@ -208,7 +208,27 @@ class ActionController extends MartisController
         /** @var array<string, mixed> $data */
         $data = ['fields' => array_map(fn (FieldContract $f) => $f->toArray(), $fields)];
 
+        if ($actionInstance instanceof Action) {
+            $data += $actionInstance->resolveConfirmation($request, $selected, $this->selectionCount($request));
+        }
+
         return JsonResponse::make($data)->toResponse();
+    }
+
+    /**
+     * The `count` query parameter of a fields request: how many records the
+     * modal runs on, for a confirmation text only. A non-negative integer,
+     * clamped; anything else is 0.
+     */
+    private function selectionCount(Request $request): int
+    {
+        $count = $request->query('count');
+
+        if (! is_string($count) || ! ctype_digit($count)) {
+            return 0;
+        }
+
+        return (int) min((int) $count, 1_000_000);
     }
 
     /**
@@ -870,6 +890,10 @@ class ActionController extends MartisController
 
         /** @var array<string, mixed> $data */
         $data = ['fields' => array_map(fn (FieldContract $f) => $f->toArray(), $fields)];
+
+        if ($actionInstance instanceof Action) {
+            $data += $actionInstance->resolveConfirmation($request, $selected, $this->selectionCount($request));
+        }
 
         return JsonResponse::make($data)->toResponse();
     }

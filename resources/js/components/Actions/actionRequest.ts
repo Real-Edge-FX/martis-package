@@ -81,7 +81,10 @@ export function actionRecordQuery(recordId?: string | number, via?: ActionReques
  * `GET .../actions?resourceId=` does. No record (bulk run, standalone
  * action): the plain endpoint.
  */
-export function actionFieldsUrl(url: string, recordId?: string | number, via?: ActionRequestVia | null): string {
+export function actionFieldsUrl(url: string, recordId?: string | number, via?: ActionRequestVia | null, count?: number): string {
+  // A bulk run names no record but says how many are selected, for a
+  // confirmText() closure (display only, v2.17.0).
   const query = actionRecordQuery(recordId, via)
+    ?? (count !== undefined && count > 0 ? new URLSearchParams({ count: String(count) }).toString() : undefined)
   return query === undefined ? `${url}/fields` : withQuery(`${url}/fields`, query)
 }

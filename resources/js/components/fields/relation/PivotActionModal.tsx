@@ -105,11 +105,15 @@ export function PivotActionModal({
   // The related record a single-record run is on, named to the fields
   // endpoint so `fields()` can read it (`selectedModel()`).
   const recordId = !action.standalone && selectedIds.length === 1 ? selectedIds[0] : undefined
+  const selectionCount = action.dynamicConfirm && !action.standalone && recordId === undefined ? selectedIds.length : 0
 
   const fieldsQuery = useQuery({
-    queryKey: ['pivot-action-fields', actionsUrl, action.uriKey, recordId ?? null],
+    queryKey: ['pivot-action-fields', actionsUrl, action.uriKey, recordId ?? null, selectionCount],
     queryFn: ({ signal }) =>
-      api.get<{ data: { fields: FieldDefinition[] } }>(actionFieldsUrl(actionUrl, recordId), signal),
+      api.get<{ data: { fields: FieldDefinition[]; confirmText?: string | null; confirmButtonText?: string | null; cancelButtonText?: string | null } }>(
+        actionFieldsUrl(actionUrl, recordId, undefined, selectionCount),
+        signal,
+      ),
     enabled: !!action,
     // `fields()` reads the related record (`selectedModel()`), so the fields
     // an earlier opening cached may describe a record that has changed since:
@@ -119,6 +123,13 @@ export function PivotActionModal({
   })
 
   const fields = fieldsQuery.data?.data?.fields ?? []
+  // A confirmText() closure is resolved by this opening's fields request
+  // (v2.17.0): until it answers, the text and the run button wait.
+  const resolvedTexts = action.dynamicConfirm ? fieldsQuery.data?.data : undefined
+  const confirmPending = action.dynamicConfirm === true && fieldsQuery.isFetching
+  const confirmText = (action.dynamicConfirm ? resolvedTexts?.confirmText : action.confirmText) ?? t('confirm_run')
+  const confirmButtonText = (action.dynamicConfirm ? resolvedTexts?.confirmButtonText : action.confirmButtonText) ?? t('run_action')
+  const cancelButtonText = (action.dynamicConfirm ? resolvedTexts?.cancelButtonText : action.cancelButtonText) ?? t('cancel')
 
   // The defaults seed the values once, from the fields this opening fetched:
   // the modal mounts per opening, and a refetch of the fields (focus) must
@@ -229,7 +240,7 @@ export function PivotActionModal({
             type="button"
             onClick={onClose}
             className="martis-modal-close"
-            aria-label={action.cancelButtonText ?? t('cancel')}
+            aria-label={cancelButtonText}
           >
             <XIcon size={16} />
           </button>
@@ -237,7 +248,9 @@ export function PivotActionModal({
 
         <div className="martis-modal-body">
           {action.withConfirmation && (
-            <p className="mb-4">{action.confirmText ?? t('confirm_run')}</p>
+            confirmPending
+              ? <div className="mb-4 h-4 w-3/4 animate-pulse rounded" style={{ backgroundColor: 'var(--martis-border)' }} aria-hidden="true" />
+              : <p className="mb-4">{confirmText}</p>
           )}
           {hasFields && (
             <div className="space-y-4">
@@ -288,18 +301,18 @@ export function PivotActionModal({
             className="martis-btn-secondary"
           >
             <XIcon size={14} />
-            {action.cancelButtonText ?? t('cancel')}
+            {cancelButtonText}
           </button>
           <button
             type="button"
             onClick={() => executeMutation.mutate({ tab: action.opensInNewTab ? openActionTab() : undefined })}
-            disabled={executeMutation.isPending}
+            disabled={executeMutation.isPending || confirmPending}
             className={action.destructive ? 'martis-btn-danger' : 'martis-btn-primary'}
           >
             <LightningIcon size={14} />
             {executeMutation.isPending
               ? t('please_wait')
-              : (action.confirmButtonText ?? t('run_action'))}
+              : confirmButtonText}
           </button>
         </div>
       </div>
