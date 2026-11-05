@@ -47,7 +47,14 @@ export interface MartisForm {
    */
   errors: Record<string, string>
   setErrors: (e: Record<string, string>) => void
+  /** The fields to render: dependsOn overrides applied, `hide()` fields left out. */
   resolvedFields: FieldDefinition[]
+  /**
+   * `values` without the fields `hide()` hid (statically or from a dependsOn
+   * callback): what the form submits. A hidden field is left out rather than
+   * sent empty, so an update keeps its stored value.
+   */
+  submitValues: () => Record<string, unknown>
   resourceKey?: string
   toolKey?: string
   recordId?: string | number
@@ -107,6 +114,38 @@ function applyOverrides(
   return walk(items)
 }
 
+/**
+ * Drop the fields `hide()` hid, at every level of the tree. A container whose
+ * fields are all hidden goes too, so no empty panel or section is drawn; one
+ * that declared no fields is kept as it is.
+ */
+function withoutHiddenFields(items: readonly unknown[]): unknown[] {
+  const keep = (list: readonly unknown[]): unknown[] =>
+    list.flatMap((item) => {
+      const f = item as Record<string, unknown>
+      if (f.type === 'panel' || f.type === 'section') {
+        const own = (f.fields as unknown[]) ?? []
+        const fields = keep(own)
+        return own.length > 0 && fields.length === 0 ? [] : [{ ...f, fields }]
+      }
+      if (f.type === 'tab_group') {
+        const tabs = ((f.tabs as { fields?: unknown[] }[]) ?? []).flatMap((tab) => {
+          const own = tab.fields ?? []
+          const fields = keep(own)
+          return own.length > 0 && fields.length === 0 ? [] : [{ ...tab, fields }]
+        })
+        return tabs.length === 0 ? [] : [{ ...f, tabs }]
+      }
+      return (item as FieldDefinition).hidden === true ? [] : [item]
+    })
+  return keep(items)
+}
+
+/** The attributes of the leaf fields `hide()` hid, at every level of the tree. */
+function hiddenAttributes(fields: readonly FieldDefinition[]): Set<string> {
+  return new Set(fields.filter((f) => f.hidden === true).map((f) => f.attribute))
+}
+
 export function useMartisForm(options: MartisFormOptions): MartisForm {
   const { fields, initialValues, resourceKey, toolKey, context = 'create', recordId, syncDisabled } = options
   const [values, setValues] = useState<Record<string, unknown>>(initialValues ?? {})
@@ -136,8 +175,21 @@ export function useMartisForm(options: MartisFormOptions): MartisForm {
   // the flag the way the schema does.
   const resolvedFields = useMemo(() => {
     const resolved = overrides.size === 0 ? fields : (applyOverrides(fields, overrides) as FieldDefinition[])
-    return context === 'update' ? lockImmutableFields(resolved) : resolved
+    const visible = withoutHiddenFields(resolved) as FieldDefinition[]
+    return context === 'update' ? lockImmutableFields(visible) : visible
   }, [fields, overrides, context])
+
+  // The hidden leaves, overrides applied: `flatFields` is the static set, an
+  // override (the dependsOn answer) may hide or show any of them.
+  const hidden = useMemo(
+    () => hiddenAttributes(flatFields.map((f) => ({ ...f, ...(overrides.get(f.attribute) ?? {}) }) as FieldDefinition)),
+    [flatFields, overrides],
+  )
+
+  const submitValues = () => {
+    if (hidden.size === 0) return values
+    return Object.fromEntries(Object.entries(values).filter(([attribute]) => !hidden.has(attribute)))
+  }
 
   const setValue = (attribute: string, value: unknown) => {
     setValues((prev) => ({ ...prev, [attribute]: value }))
@@ -158,5 +210,5 @@ export function useMartisForm(options: MartisFormOptions): MartisForm {
     formValues: values,
   })
 
-  return { values, setValue, setValues, errors, setErrors, resolvedFields, resourceKey, toolKey, recordId, context, fieldProps }
+  return { values, setValue, setValues, errors, setErrors, resolvedFields, submitValues, resourceKey, toolKey, recordId, context, fieldProps }
 }

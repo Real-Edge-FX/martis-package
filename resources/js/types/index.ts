@@ -435,6 +435,8 @@ export interface FieldDefinition {
   showOnIndex?: boolean
   showOnDetail?: boolean
   showOnForms?: boolean
+  /** `Field::hide()` (usually from a `dependsOn()` callback): not rendered, left out of the submit. */
+  hidden?: boolean
   rules?: string[]
   /** Per-column width metadata resolved from `->width()/minWidth/maxWidth/truncate()` + type defaults. */
   column?: {

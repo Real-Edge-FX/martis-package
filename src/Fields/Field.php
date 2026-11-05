@@ -160,6 +160,12 @@ abstract class Field implements FieldContract
     protected bool $immutable = false;
 
     /**
+     * Set by hide() / show(), typically inside a dependsOn() callback: the
+     * form does not render the field and leaves its value out of the submit.
+     */
+    protected bool $hiddenOnForm = false;
+
+    /**
      * Whether the value the field carries is a secret (a password, an API
      * key) that no log may keep. Set by `sensitive()`; `Password` and
      * `PasswordConfirmation` are sensitive by default.
@@ -506,6 +512,7 @@ abstract class Field implements FieldContract
             'creationRules' => $this->creationRules !== [] ? $this->creationRules : null,
             'updateRules' => $this->updateRules !== [] ? $this->updateRules : null,
             'immutable' => $this->immutable,
+            'hidden' => $this->hiddenOnForm,
             // Surface the watched field list whenever the developer
             // declared one — even if no callback was attached. The
             // sync-field path still keys on isDependent() (callback +
@@ -1039,6 +1046,35 @@ abstract class Field implements FieldContract
         $this->showOnForms = false;
 
         return $this;
+    }
+
+    /**
+     * Hide the field on the form it is on, as Nova's dependent fields do:
+     * the form does not render it and leaves its value out of the submit, so
+     * an update keeps the stored value. Unlike hideFromForms(), the field
+     * stays in the form schema, so a dependsOn() callback can show() it again
+     * when a sibling changes. Call it at definition time for a field hidden
+     * until a sibling asks for it, or inside the callback.
+     */
+    public function hide(): static
+    {
+        $this->hiddenOnForm = true;
+
+        return $this;
+    }
+
+    /** Show a field hide() hid. See hide(). */
+    public function show(): static
+    {
+        $this->hiddenOnForm = false;
+
+        return $this;
+    }
+
+    /** Whether hide() hid the field on its form. */
+    public function isHiddenOnForm(): bool
+    {
+        return $this->hiddenOnForm;
     }
 
     // -------------------------------------------------------------------------

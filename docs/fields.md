@@ -455,8 +455,33 @@ Text::make('access_code')
     });
 ```
 
+#### Show, hide and relabel a field from a sibling (v2.17.0)
+
+Call `hide()` and `show()` on the field, as Nova's dependent fields do. A field that starts hidden calls `hide()` where it is defined; the callback shows it when the sibling asks for it. The callback also runs when the form opens, so an update form shows or hides the field from the record's current values before anything is edited. `withLabel()` in the callback changes the label the same way.
+
+```php
+Select::make('language')->options(['pt' => 'Portuguese', 'en' => 'English', 'both' => 'Both languages']),
+
+Text::make('title')
+    ->dependsOn(['language'], function (array $form, Request $r, Text $field) {
+        $field->withLabel(($form['language'] ?? null) === 'both' ? 'Title (PT)' : 'Title');
+    }),
+
+Text::make('title_en')
+    ->hide()
+    ->rules('nullable', 'required_if:language,both')
+    ->dependsOn(['language'], function (array $form, Request $r, Text $field) {
+        ($form['language'] ?? null) === 'both' ? $field->show()->withLabel('Title (EN)') : $field->hide();
+    }),
+```
+
+- A hidden field is not drawn, and its value is left out of the submit (not sent empty), so an update keeps the stored value. A panel, section or tab whose fields are all hidden is not drawn either.
+- The server validates with the field's own rules, not with the callback: a field that can be hidden must not be plain `required`. Use a conditional rule (`required_if:language,both` above), which the hidden case (no value sent) satisfies.
+- `hide()` differs from `hideFromForms()`: `hideFromForms()` takes the field off the form schema for good, `hide()` keeps it there so `show()` can bring it back.
+
 | Method | Signature | Description |
 |---|---|---|
+| `hide` / `show` | `hide(): static`, `show(): static` | Hide the field on its form (not drawn, not submitted) or show it again. Serialized as `hidden`. |
 | `dependsOn` | `dependsOn(array $fields, ?Closure $callback = null): static` | Declare reactivity. The closure is optional; passing `null` lets layouts forward the watch list without running a callback (the Repeater uses this form for parent-attribute exposure). |
 | `dependentFields` | `dependentFields(): list<string>` | Read the watched attributes. |
 | `isDependent` | `isDependent(): bool` | True only when both `$fields` and a `Closure` are configured. The sync endpoint refuses non-reactive fields. |

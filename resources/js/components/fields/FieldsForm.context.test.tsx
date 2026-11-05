@@ -24,7 +24,7 @@ const title = { type: 'text', attribute: 'title', label: 'Title' } as unknown as
 function formWith(context: 'create' | 'update'): MartisForm {
   return {
     values: {}, setValue: () => {}, setValues: () => {}, errors: {}, setErrors: () => {},
-    resolvedFields: [title], context,
+    resolvedFields: [title], submitValues: () => ({}), context,
     fieldProps: (field) => ({ field, value: null, onChange: () => {}, context, formValues: {} }),
   }
 }

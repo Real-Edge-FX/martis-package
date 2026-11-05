@@ -327,7 +327,7 @@ function CreateTargetPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     form.setErrors({})
-    createMutation.mutate(form.values)
+    createMutation.mutate(form.submitValues())
   }
 
   if (schemaQuery.isLoading || (isReplicate && replicateQuery.isLoading)) return <FormSkeleton />
