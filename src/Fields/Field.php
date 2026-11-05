@@ -252,6 +252,9 @@ abstract class Field implements FieldContract
 
     protected bool $hasDefault = false;
 
+    /** Keep the submitted value after "Create & add another". */
+    protected bool $sticky = false;
+
     /** Create a new field instance. */
     protected function __construct(
         protected readonly string $attribute,
@@ -530,6 +533,7 @@ abstract class Field implements FieldContract
             'colSpanMd' => $this->colSpanMd,
             'colSpanLg' => $this->colSpanLg,
             'defaultValue' => $this->getDefaultValue(),
+            'sticky' => $this->sticky,
             'overrides' => array_filter([
                 'create' => $this->overrideForCreate?->toArray(),
                 'update' => $this->overrideForUpdate?->toArray(),
@@ -982,6 +986,20 @@ abstract class Field implements FieldContract
     {
         $this->defaultValue = $value;
         $this->hasDefault = true;
+
+        return $this;
+    }
+
+    /**
+     * Keep the value the user submitted when they choose "Create & add
+     * another", so the next record starts from it instead of the field's
+     * default. Fields that are not sticky reset as before.
+     *
+     *     Select::make('category')->sticky()
+     */
+    public function sticky(bool $value = true): static
+    {
+        $this->sticky = $value;
 
         return $this;
     }

@@ -22,6 +22,8 @@ import { safeInternalPath } from '@/lib/safeInternalPath'
 import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 import { emitRecordEvent } from '@/lib/recordEvents'
 import { fieldDefaults } from '@/lib/fieldDefaults'
+import { collectPrefill, prefillQueryString } from '@/lib/prefill'
+import { flattenFields } from '@/lib/flattenFields'
 
 /** Shared fallback while the schema loads: a stable reference keeps the form
  *  fields memo (and the form built on it) from recomputing on every render. */
@@ -35,7 +37,10 @@ export function ResourceCreatePage() {
   // replicate, so the page is keyed by what the form starts from: nothing
   // typed or prefilled for the previous target (values, parent, replica,
   // dirty baseline) carries over.
-  const target = [resource, ...['viaResource', 'viaResourceId', 'viaRelationship', 'fromResourceId'].map((key) => searchParams.get(key))]
+  // The query string joins it: the keys a resource accepts as a prefill are
+  // only known once its schema loads, and a link with other values starts a
+  // different form.
+  const target = [resource, ...['viaResource', 'viaResourceId', 'viaRelationship', 'fromResourceId'].map((key) => searchParams.get(key)), searchParams.toString()]
   return <CreateTargetPage key={JSON.stringify(target)} />
 }
 
@@ -60,11 +65,30 @@ function CreateTargetPage() {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
 
-  const schemaQuery = useQuery({
+  const baseSchemaQuery = useQuery({
     queryKey: ['schema', resource],
     queryFn: () => api.get<{ data: ResourceSchema }>(apiPath`/api/resources/${resource}/schema`),
     enabled: !!resource,
   })
+
+  // The link's prefill: only the keys the resource declares
+  // (`acceptsPrefill()`, in the schema), forwarded to the schema request so a
+  // `default(Closure)` can read them. A replicate starts from the copied
+  // record, so it never carries a prefill.
+  const declaredPrefillKeys = baseSchemaQuery.data?.data?.prefillKeys
+  const prefill = useMemo(
+    () => (isReplicate ? {} : collectPrefill(declaredPrefillKeys, searchParams)),
+    [isReplicate, declaredPrefillKeys, searchParams],
+  )
+  const hasPrefill = Object.keys(prefill).length > 0
+  // Its key holds the prefill values, so the schema an earlier link cached
+  // never serves a later one.
+  const prefilledSchemaQuery = useQuery({
+    queryKey: ['schema', resource, 'prefill', prefill],
+    queryFn: () => api.get<{ data: ResourceSchema }>(`${apiPath`/api/resources/${resource}/schema`}?${prefillQueryString(prefill)}`),
+    enabled: !!resource && hasPrefill,
+  })
+  const schemaQuery = hasPrefill ? prefilledSchemaQuery : baseSchemaQuery
 
   // Fetch pre-fill data when replicating
   const replicateQuery = useQuery({
@@ -109,7 +133,12 @@ function CreateTargetPage() {
   const form = useMartisForm({ fields: allFormFields as FieldDefinition[], resourceKey: resource, context: 'create' })
   // Each field's `default()`: what a new record starts from, and what
   // "Create & add another" returns to.
-  const defaults = useMemo(() => fieldDefaults(allFormFields), [allFormFields])
+  const defaults = useMemo(() => fieldDefaults(allFormFields, { dropUnpickableSelect: hasPrefill }), [allFormFields, hasPrefill])
+  // The fields `sticky()` marks keep what was submitted for the next record.
+  const stickyAttributes = useMemo(
+    () => flattenFields(allFormFields).filter((field) => field.sticky).map((field) => field.attribute),
+    [allFormFields],
+  )
   // The form holds its starting values: the defaults, replaced by the
   // replicated record's values for a copy.
   const [replicateApplied, setReplicateApplied] = useState(false)
@@ -241,7 +270,7 @@ function CreateTargetPage() {
       }
       return api.post<{ data: { id: string | number }; meta?: { message?: string; redirectTo?: string } }>(apiPath`/api/resources/${resource}`, payload)
     },
-    onSuccess: (res) => {
+    onSuccess: (res, submitted) => {
       emitRecordEvent('created', resource, res.data?.id)
       void qc.invalidateQueries({ queryKey: ['resources', resource] })
       // The parent's panel (the page navigates back client-side, the cached
@@ -252,11 +281,17 @@ function CreateTargetPage() {
       addToast('success', res.meta?.message ?? tMsg('record_created'))
       // Suppress the unsaved-changes guard for the post-save redirect.
       markSaved()
-      // Clear form
-      form.setValues(defaults)
-      form.setErrors({})
-
       const mode = submitModeRef.current
+      // Clear form. "Create & add another" keeps the sticky fields' submitted
+      // values for the next record; everything else returns to the defaults.
+      const nextValues: Record<string, unknown> = { ...defaults }
+      if (mode === 'add_another') {
+        for (const attribute of stickyAttributes) {
+          if (attribute in submitted) nextValues[attribute] = submitted[attribute]
+        }
+      }
+      form.setValues(nextValues)
+      form.setErrors({})
       // "Create & add another" stays on the create page so the user can
       // start a fresh row immediately. We reset the mode so the next
       // submit defaults back to "detail" unless the user picks add-another
@@ -264,10 +299,10 @@ function CreateTargetPage() {
       if (mode === 'add_another') {
         submitModeRef.current = 'detail'
         // The form is already reset above; nothing to navigate. The next
-        // record starts from the defaults, which is therefore its
-        // baseline (a replicated form's was the copy), with its fields
-        // mounted again.
-        baselineRef.current = JSON.stringify(defaults)
+        // record starts from the defaults (and the sticky values), which is
+        // therefore its baseline (a replicated form's was the copy), with
+        // its fields mounted again.
+        baselineRef.current = JSON.stringify(nextValues)
         setFieldsKey((key) => key + 1)
         return
       }

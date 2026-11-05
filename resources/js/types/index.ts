@@ -423,6 +423,8 @@ export interface FieldDefinition {
   attribute: string
   label: string
   type: FieldType
+  /** Keep the submitted value after "Create & add another" (PHP `Field::sticky()`). */
+  sticky?: boolean
   nullable?: boolean
   readonly?: boolean
   /**
@@ -524,6 +526,11 @@ export interface ResourceEmbedded {
   stickyView: boolean
   /** `Resource::$maxInlineButtons`: row buttons beyond it go to the "..." menu. */
   maxInlineButtons?: number | null
+  /**
+   * Query keys the create page may forward to the schema request as
+   * `prefill[key]=value` (PHP `Resource::acceptsPrefill()`).
+   */
+  prefillKeys?: string[]
   group: string | null
   titleAttribute?: string
   subtitle?: string | null

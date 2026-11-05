@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Translation\PotentiallyTranslatedString;
 use Martis\Actions\Action;
 use Martis\Cache\MartisCache;
 use Martis\Contracts\ActionContract;
@@ -44,6 +45,7 @@ use Martis\Http\Resources\JsonResponse;
 use Martis\RelationshipQueryResolver;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Rules\Relatable;
 use Martis\Rules\RelatableWrite;
 use Martis\SearchResolver;
 use Martis\Support\IndexScope;
@@ -1016,7 +1018,7 @@ class ResourceController extends MartisController
             $cacheKey .= ':locked-'.$lockedCards;
         }
 
-        $data = $cache->remember('schema', $cacheKey, function () use ($request, $resourceClass, $instance): array {
+        $build = function () use ($request, $resourceClass, $instance): array {
             $raw = $this->buildSchema($request, $resourceClass, $instance);
 
             // Strip non-serializable values (e.g. validation rule
@@ -1032,9 +1034,155 @@ class ResourceController extends MartisController
             }
 
             return json_decode($encoded, true);
-        });
+        };
+
+        // A create form prefilled from the link carries defaults that depend
+        // on the link's values, so that payload is built for this request and
+        // never cached (nor served from the cache of the plain schema).
+        $prefill = $this->prefillFromRequest($request, $resourceClass);
+        if ($prefill !== []) {
+            $this->exposePrefill($request, $prefill);
+            $data = $build();
+        } else {
+            $data = $cache->remember('schema', $cacheKey, $build);
+        }
 
         return JsonResponse::make($data)->toResponse();
+    }
+
+    /**
+     * The `prefill[key]=value` pairs of the schema request the resource
+     * declared with `acceptsPrefill()`: a string value of at most 255
+     * characters. Anything else is ignored.
+     *
+     * @param  class-string<\Martis\Resource>  $resourceClass
+     * @return array<string, string>
+     */
+    protected function prefillFromRequest(Request $request, string $resourceClass): array
+    {
+        $declared = $resourceClass::acceptsPrefill();
+        $raw = $request->query('prefill');
+
+        if ($declared === [] || ! is_array($raw)) {
+            return [];
+        }
+
+        $prefill = [];
+        foreach ($declared as $key) {
+            $value = $raw[$key] ?? null;
+
+            if (is_string($key) && is_string($value) && $value !== '' && mb_strlen($value) <= 255) {
+                $prefill[$key] = $value;
+            }
+        }
+
+        return $prefill;
+    }
+
+    /**
+     * Make the prefill readable as `$request->query($key)` while the schema is
+     * built, which is where `Field::default(Closure)` reads it.
+     *
+     * @param  array<string, string>  $prefill
+     */
+    protected function exposePrefill(Request $request, array $prefill): void
+    {
+        $request->query->add($prefill);
+
+        $bound = app('request');
+        if ($bound instanceof Request && $bound !== $request) {
+            $bound->query->add($prefill);
+        }
+    }
+
+    /**
+     * Drop a prefilled default the user could not pick: a `Select` value that
+     * is not one of its options (unless the field takes custom values or
+     * searches its options on the server) and a `BelongsTo` id the field's
+     * picker would not list (`Relatable`, the rule the create runs).
+     *
+     * @param  array<int, mixed>  $descriptors  Serialised fields, layouts included
+     * @param  array<string, FieldContract>  $fieldsByAttribute
+     * @param  class-string<\Martis\Resource>  $resourceClass
+     * @return array<int, mixed>
+     */
+    protected function dropUnpickablePrefill(array $descriptors, array $fieldsByAttribute, Request $request, string $resourceClass): array
+    {
+        foreach ($descriptors as $index => $descriptor) {
+            if (! is_array($descriptor)) {
+                continue;
+            }
+
+            if (isset($descriptor['fields']) && is_array($descriptor['fields'])) {
+                $descriptor['fields'] = $this->dropUnpickablePrefill($descriptor['fields'], $fieldsByAttribute, $request, $resourceClass);
+            }
+
+            if (isset($descriptor['tabs']) && is_array($descriptor['tabs'])) {
+                foreach ($descriptor['tabs'] as $tabIndex => $tab) {
+                    if (is_array($tab) && isset($tab['fields']) && is_array($tab['fields'])) {
+                        $descriptor['tabs'][$tabIndex]['fields'] = $this->dropUnpickablePrefill($tab['fields'], $fieldsByAttribute, $request, $resourceClass);
+                    }
+                }
+            }
+
+            $value = $descriptor['defaultValue'] ?? null;
+            $type = $descriptor['type'] ?? null;
+
+            if ($value !== null && ($type === 'select' || $type === 'belongs_to')) {
+                $field = $fieldsByAttribute[$descriptor['attribute'] ?? ''] ?? null;
+
+                if (! $this->prefillIsPickable($descriptor, $field, $value, $request, $resourceClass)) {
+                    $descriptor['defaultValue'] = null;
+                }
+            }
+
+            $descriptors[$index] = $descriptor;
+        }
+
+        return $descriptors;
+    }
+
+    /**
+     * @param  array<string, mixed>  $descriptor
+     * @param  class-string<\Martis\Resource>  $resourceClass
+     */
+    private function prefillIsPickable(array $descriptor, ?FieldContract $field, mixed $value, Request $request, string $resourceClass): bool
+    {
+        if ($descriptor['type'] === 'select') {
+            if (($descriptor['allowCustomValues'] ?? false) || ($descriptor['remoteOptionsSearch'] ?? false)) {
+                return true;
+            }
+
+            if (! is_string($value) && ! is_int($value)) {
+                return false;
+            }
+
+            foreach ((array) ($descriptor['options'] ?? []) as $option) {
+                if (is_array($option) && isset($option['value']) && (string) $option['value'] === (string) $value) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        $rule = $field instanceof BelongsTo ? Relatable::forField($field, $request, $resourceClass, $resourceClass::newModel()) : null;
+        if ($rule === null) {
+            return true;
+        }
+
+        $failed = false;
+        $rule->setData([(string) $descriptor['attribute'] => $value])->validate(
+            (string) $descriptor['attribute'],
+            $value,
+            function () use (&$failed): PotentiallyTranslatedString {
+                $failed = true;
+
+                return new PotentiallyTranslatedString('', app('translator'));
+            },
+        );
+
+        return ! $failed;
     }
 
     /**
@@ -1112,6 +1260,14 @@ class ResourceController extends MartisController
             Field::filterLayoutForContext($instance->fieldsForCreate($request), FieldContext::CREATE),
             fn (FieldContract $field): bool => Field::filterForModel([$field], $request, $newModel) !== [],
         ));
+        // A value the link prefilled that the user could not pick is dropped.
+        if ($resourceClass::acceptsPrefill() !== [] && $request->query('prefill') !== null) {
+            $byAttribute = [];
+            foreach ($flattenFields($instance->fieldsForCreate($request)) as $createField) {
+                $byAttribute[$createField->attribute()] = $createField;
+            }
+            $fieldsForCreate = $this->dropUnpickablePrefill($fieldsForCreate, $byAttribute, $request, $resourceClass);
+        }
         $fieldsForUpdate = array_map(fn ($item): array => $item->toArray(), Field::filterLayoutForContext($instance->fieldsForUpdate($request), FieldContext::UPDATE));
         $fieldsForInlineCreate = array_map(fn (FieldContract $f): array => $f->toArray(), Field::filterForModel(
             Field::filterForContext($instance->fieldsForInlineCreate($request), FieldContext::INLINE_CREATE),
@@ -1149,6 +1305,7 @@ class ResourceController extends MartisController
             'softDeletes' => $resourceClass::softDeletes() && $resourceClass::canViewTrashed(),
             'stickyView' => $resourceClass::stickyView(),
             'maxInlineButtons' => $resourceClass::maxInlineButtons(),
+            'prefillKeys' => array_values($resourceClass::acceptsPrefill()),
             'authorization' => $instance->collectionAuthorizationMetadata($request),
             'group' => $instance->group(),
             'icon' => $instance->icon(),

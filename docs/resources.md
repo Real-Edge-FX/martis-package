@@ -286,6 +286,45 @@ class AuditEventResource extends Resource
 
 When the global `config('martis.sticky_views.enabled')` is `false`, the per-resource flag is ignored and the feature is off everywhere.
 
+### Prefill the create form from a link — `acceptsPrefill()`
+
+`Field::default(Closure)` is resolved for the schema request, which does not carry the create page's query string. A resource that wants a link such as `/resources/versions/create?of=12` to start the form from a value lists the query keys the page may forward:
+
+```php
+class VersionResource extends Resource
+{
+    public static function acceptsPrefill(): array
+    {
+        return ['of'];
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            BelongsTo::make('document', 'Document')
+                ->default(fn (?Request $request) => $request?->query('of')),
+        ];
+    }
+}
+```
+
+The schema payload lists the keys as `prefillKeys`. The create page reads those keys from its own URL and asks for the schema with `prefill[of]=12`; the server makes the values readable as `$request->query('of')` while it builds the defaults. Rules:
+
+- Only the keys `acceptsPrefill()` returns are forwarded. Any other key in the URL, and any other `prefill[...]` key, is ignored.
+- A value is a string of at most 255 characters; an array or a longer value is ignored.
+- A prefilled `Select` value that is not one of its options is dropped (the field starts empty), unless the select takes custom values or searches on the server. A prefilled `BelongsTo` id the field's picker would not list (the related resource's `relatableQuery()`, the field's `relatableQueryUsing()`) is dropped too, so a crafted link cannot preselect a choice the user cannot make. Whatever the form submits still goes through the create's own validation.
+- The prefilled schema is built for the request and never cached, and the page keeps it under its own query key (`['schema', resource, 'prefill', {...}]`), so one link's values never serve another.
+- It applies to the create page only: the update form loads the record's values, and a replicate (`fromResourceId`) starts from the copied record.
+
+A "link from an action": build the create URL in an action and send the user there. `ActionResponse::visit()` navigates inside the panel and adds the values to the query string (`ActionResponse::redirect()` does the same with a full URL or path):
+
+```php
+public function handle(ActionFields $fields, Collection $models): ActionResponse
+{
+    return ActionResponse::visit('/resources/versions/create', ['of' => $models->first()->getKey()]);
+}
+```
+
 ### Auto-refresh polling — `$polling`, `$pollingInterval`, `$showPollingToggle`
 
 Auto-refreshes the resource index payload at a fixed cadence. Useful for resources whose rows reflect external state (queue jobs, deployments, scraper feeds, real-time order books) where a stale view actively misleads the operator.

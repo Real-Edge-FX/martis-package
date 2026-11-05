@@ -228,6 +228,7 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 | `fullWidth` | `fullWidth(bool $fullWidth = true): static` | `$this` | Make the field span the full width of the form. |
 | `stacked` | `stacked(bool $stacked = true): static` | `$this` | Control label position: stacked above (true) or inline (false). |
 | `default` | `default(mixed $value): static` | `$this` | Set a default value for the field on create forms. Accepts a closure for request-time resolution, resolved on the server. The create page, the create drawer, the inline create modal and the action modals open the field on it (v2.16.0+; before, only a `Repeater` row and the attach modal's pivot fields did). A copy made with Replicate opens on the copied record's values instead. |
+| `sticky` | `sticky(bool $value = true): static` | `$this` | Keep the value the user submitted when they choose "Create & add another", so the next record starts from it instead of the field's default; the other fields return to their defaults. Serialised as `sticky` in the field descriptor. Has no effect on update, replicate or the other submit buttons. |
 
 ### Visibility
 
@@ -519,6 +520,15 @@ Examples:
 // Per-user defaults
 Text::make('owner_id')
     ->default(fn ($request) => $request?->user()?->id);
+
+// A default read from the create link (`/resources/versions/create?of=12`).
+// The resource lists the key in `acceptsPrefill()`; see
+// resources.md#prefill-the-create-form-from-a-link--acceptsprefill
+BelongsTo::make('document', 'Document')
+    ->default(fn (?Request $request) => $request?->query('of'));
+
+// Keep the category for the next record on "Create & add another"
+Select::make('category')->options($categories)->sticky();
 
 // Conditional readonly based on policy
 Text::make('email')

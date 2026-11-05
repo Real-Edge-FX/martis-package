@@ -549,6 +549,35 @@ abstract class Resource implements ResourceContract
     }
 
     // -------------------------------------------------------------------------
+    // Create-form prefill from the URL
+    // -------------------------------------------------------------------------
+
+    /**
+     * The query keys the create page may forward to the schema request, so a
+     * link such as `/resources/versions/create?of=12` can start the form from
+     * a value (`Field::default(fn ($request) => $request->query('of'))`).
+     *
+     * Only the keys listed here are ever forwarded; the server ignores any
+     * other `prefill[...]` key, and a value that is not a string or is longer
+     * than 255 characters. The prefill never reaches the update form or a
+     * replicate (`fromResourceId`), and a value for a `Select` or `BelongsTo`
+     * the user could not pick is dropped.
+     *
+     * ```php
+     * public static function acceptsPrefill(): array
+     * {
+     *     return ['of'];
+     * }
+     * ```
+     *
+     * @return list<string>
+     */
+    public static function acceptsPrefill(): array
+    {
+        return [];
+    }
+
+    // -------------------------------------------------------------------------
     // Sticky Views
     // -------------------------------------------------------------------------
 
