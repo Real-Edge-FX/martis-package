@@ -9,6 +9,9 @@ export { ApiError }
 export type { ValidationError }
 import { LOCKED_EVENT } from "@/lib/lockEvent"
 import type { GateLock } from "@/types"
+import { hasFileValues, isMultiFileValue } from './fileValues'
+
+export { hasFileValues }
 
 function translateIfKey(message: string): string {
   if (!message.includes('.')) return message
@@ -243,34 +246,6 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
   }
 
   return json as T
-}
-
-/** Marker interface for multiple-file field values. */
-interface MultiFileValue {
-  __multiple: true
-  items: Array<{
-    id: string
-    file?: File
-    existing?: { path: string; url: string; name: string; thumbnailUrl?: string }
-    previewUrl?: string
-  }>
-}
-
-function isMultiFileValue(v: unknown): v is MultiFileValue {
-  return v !== null && typeof v === 'object' && '__multiple' in (v as Record<string, unknown>)
-}
-
-/**
- * Check if form values contain any File objects that require multipart upload.
- */
-export function hasFileValues(values: Record<string, unknown>): boolean {
-  return Object.values(values).some((v) => {
-    if (v instanceof File) return true
-    if (isMultiFileValue(v)) {
-      return v.items.some((item) => item.file instanceof File)
-    }
-    return false
-  })
 }
 
 /** A `{}`-literal (or `Object.create(null)`) value: a field's list or map, never a File/Blob/Date. */

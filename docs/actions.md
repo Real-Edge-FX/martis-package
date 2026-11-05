@@ -637,6 +637,31 @@ A run that names exactly one record (and resolves it) sets the same record befor
 
 Nova reads the record with `$request->findModel()` in `fields()`. In Martis it is a method of the Action because a second parameter on `fields()` would change `ActionContract::fields()` for every Action an application declares. `selectedModel()` is on the `Action` base class, not on `ActionContract`.
 
+### File fields (v2.17.0)
+
+A `File` (or `Image`) field among an action's fields works as on a resource form. When a field holds a file, the modal posts the run as `multipart/form-data`, with the same encoding as the resource forms: the fields under `fields[...]`, the records as `resources[i]`, booleans as `1` / `0`, lists and maps as JSON (decoded again on the server). Without a file the run stays JSON.
+
+```php
+public function fields(Request $request): array
+{
+    return [
+        Text::make('title')->rules(['required']),
+        File::make('file')->acceptedTypes(['mp4', 'png', 'svg'])->rules(['required']),
+    ];
+}
+
+public function handle(ActionFields $fields, Collection $models): ActionResponse|Action|null
+{
+    $path = $fields->get('file')->store('materials', 'public'); // an Illuminate\Http\UploadedFile
+
+    // ...
+}
+```
+
+- The upload is validated with the field's own rules (`acceptedTypes()`, `maxSize()`, `rules()`), and active content is refused unless the field calls `allowActiveContent()`, as on a resource form.
+- `handle()` receives the `UploadedFile`; the action stores it where it wants. Nothing is stored for you.
+- A [queued action](#queued-batch-actions) cannot take an upload: the temporary file is deleted when the request ends and does not serialize into the job. A queued run that receives one throws a `LogicException` naming the action and the field, as Nova does not support File fields on a queued action either. Store the file in a synchronous action, or upload it elsewhere and pass its path.
+
 ---
 
 ## Post-processing with then()

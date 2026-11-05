@@ -469,7 +469,7 @@ Text::make('title')
 
 Text::make('title_en')
     ->hide()
-    ->rules('nullable', 'required_if:language,both')
+    ->rules(['nullable', 'required_if:language,both'])
     ->dependsOn(['language'], function (array $form, Request $r, Text $field) {
         ($form['language'] ?? null) === 'both' ? $field->show()->withLabel('Title (EN)') : $field->hide();
     }),

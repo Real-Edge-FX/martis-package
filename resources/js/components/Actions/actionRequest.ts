@@ -1,4 +1,5 @@
 import { api, ApiError } from '@/lib/api'
+import { hasFileValues } from '@/lib/fileValues'
 import { apiPath, withQuery } from '@/lib/apiPath'
 import type { ActionResponsePayload } from './actionResponse'
 
@@ -32,9 +33,19 @@ export function postAction(
     via?: ActionRequestVia
   },
 ) {
+  const fields = body.fields ?? {}
+  // A field holding a file posts the run as multipart (v2.17.0), with the
+  // encoding the resource forms use (see buildFormData()): the fields under
+  // `fields[...]`, the records as `resources[i]`, booleans as '1' / '0'.
+  if (hasFileValues(fields)) {
+    const values: Record<string, unknown> = { dryRun: body.dryRun ?? false, ...(body.via ?? {}) }
+    body.resources.forEach((id, i) => { values[`resources[${i}]`] = id })
+    for (const [key, value] of Object.entries(fields)) values[`fields[${key}]`] = value
+    return api.upload<{ data: ActionResponsePayload & { preview?: unknown } }>('POST', url, values)
+  }
   return api.post<{ data: ActionResponsePayload & { preview?: unknown } }>(url, {
     resources: body.resources,
-    fields: body.fields ?? {},
+    fields,
     dryRun: body.dryRun ?? false,
     ...(body.via ?? {}),
   })
