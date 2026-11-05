@@ -376,10 +376,11 @@ describe('ResourceCreatePage — nested-container dependsOn reactivity', () => {
       }
       return Promise.resolve({ data: [] })
     })
-    // sync-field returns the resolved override for the dependent field.
+    // sync-field answers the resolved descriptor inside `data`, as the
+    // endpoint does (v2.17.0: the form used to store the envelope).
     apiPostMock.mockImplementation((path: string) => {
       if (path.includes('/sync-field')) {
-        return Promise.resolve({ ...dependentInSection, required: true })
+        return Promise.resolve({ data: { ...dependentInSection, required: true } })
       }
       return Promise.resolve({ data: {} })
     })
