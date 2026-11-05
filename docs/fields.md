@@ -77,6 +77,7 @@ All available field types in Martis, their methods, and configuration options.
   - [Heading](#heading)
   - [Hidden](#hidden)
   - [Badge](#badge)
+  - [Badges](#badges)
   - [Status](#status)
   - [Gravatar](#gravatar)
   - [Sparkline](#sparkline)
@@ -3122,6 +3123,35 @@ Badge::make('status')
 > ```
 >
 > Calling `->showOnForms()` on a Badge forces it into forms as read-only — useful to *show* the current value while another field edits it, but never as an input.
+
+---
+
+### Badges
+
+**Type identifier:** `badges`
+**Extends:** `Badge`
+**File:** `src/Fields/Badges.php`
+
+One value drawn as several badge pills. Display-only, like `Badge` (hidden from forms by default; `showOnForms()` renders the same read-only pills). The resolved value is a list of items, and each item is a string (label only, default type) or `['label' => string, 'type' => ?string, 'tooltip' => ?string]`.
+
+```php
+Badges::make('languages', 'Languages')
+    ->resolveUsing(fn ($value, $model) => [
+        ['label' => 'EN', 'type' => 'success'],
+        ['label' => 'Missing PT', 'type' => 'warning', 'tooltip' => 'No translation yet'],
+        'FR',
+    ]);
+```
+
+- `type` uses the `Badge` vocabulary: `info`, `success`, `warning`, `danger`, a key you add with `types()`/`addTypes()`, a hex colour, or a value translated by `map()`. A missing or unknown type renders the default pill.
+- `tooltip` shows through the global Martis tooltip, never a native `title`.
+- Labels are plain text; HTML is not rendered.
+- An empty list (or `null`) renders the empty placeholder.
+- An item that is not a string, or an array without a string `label`, throws an `InvalidArgumentException` naming the field attribute.
+- The pills are a list (`role="list"` / `listitem`).
+- `labels()`, `icons()`, `withIcons()` and `resolveBadgeUsing()` inherited from `Badge` do not apply: each item carries its own label.
+
+**Extra attributes:** `map`, `types`
 
 ---
 

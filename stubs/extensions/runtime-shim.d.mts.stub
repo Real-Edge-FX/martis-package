@@ -194,7 +194,7 @@ interface ToolDescriptor {
  * field's `type()`, checked by `fieldDefinition.test.tsx`), or the type of
  * a custom field (`martis:field` generates one).
  */
-type FieldType = 'audio' | 'avatar' | 'badge' | 'belongs_to' | 'belongs_to_many' | 'boolean' | 'boolean_group' | 'code' | 'color' | 'country' | 'currency' | 'date' | 'datetime' | 'email' | 'file' | 'gravatar' | 'has_many' | 'has_many_through' | 'has_one' | 'has_one_of_many' | 'has_one_through' | 'heading' | 'hidden' | 'icon' | 'id' | 'image' | 'key_value' | 'line' | 'markdown' | 'morph_many' | 'morph_one' | 'morph_one_of_many' | 'morph_to' | 'morph_to_many' | 'multi_select' | 'number' | 'password' | 'password_confirmation' | 'repeater' | 'select' | 'slug' | 'sparkline' | 'stack' | 'status' | 'tag' | 'text' | 'textarea' | 'timezone' | 'trix' | 'ui_avatar' | 'url' | (string & {});
+type FieldType = 'audio' | 'avatar' | 'badge' | 'badges' | 'belongs_to' | 'belongs_to_many' | 'boolean' | 'boolean_group' | 'code' | 'color' | 'country' | 'currency' | 'date' | 'datetime' | 'email' | 'file' | 'gravatar' | 'has_many' | 'has_many_through' | 'has_one' | 'has_one_of_many' | 'has_one_through' | 'heading' | 'hidden' | 'icon' | 'id' | 'image' | 'key_value' | 'line' | 'markdown' | 'morph_many' | 'morph_one' | 'morph_one_of_many' | 'morph_to' | 'morph_to_many' | 'multi_select' | 'number' | 'password' | 'password_confirmation' | 'repeater' | 'select' | 'slug' | 'sparkline' | 'stack' | 'status' | 'tag' | 'text' | 'textarea' | 'timezone' | 'trix' | 'ui_avatar' | 'url' | (string & {});
 interface SelectOption {
     value: string | number;
     label: string;

@@ -353,6 +353,7 @@ export type FieldType =
   | 'audio'
   | 'avatar'
   | 'badge'
+  | 'badges'
   | 'belongs_to'
   | 'belongs_to_many'
   | 'boolean'
