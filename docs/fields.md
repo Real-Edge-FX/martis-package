@@ -1874,6 +1874,8 @@ Currency::make('price')
 
 Many-to-one relationship field. Stores foreign key, displays related model title.
 
+**Which title (v2.17.0).** Without `titleAttribute()`, the field shows the related resource's `title()`, as Nova does and as its own picker already did: a `ContactResource` whose `titleAttribute()` is `label` (or that overrides `title()`) labels the cell, the detail page and the edit form the way it labels the picker row. Before v2.17.0 the field read `name` and ignored the related resource, so a model without a `name` column showed `#4`. A related resource left on the base `id` default keeps `name`, as before, and an explicit `titleAttribute()` / `displayColumn()` always wins. `Tag`, `BelongsToMany` and `MorphToMany` follow the same rule.
+
 ```php
 // Recommended: pass FK column (auto-detects relationship via _id suffix)
 BelongsTo::make('user_id', 'Author')
@@ -1900,8 +1902,8 @@ BelongsTo::make('category_id', 'Category')
 
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
-| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Attribute on related model for display label. | `'name'` |
-| `displayColumn` | `displayColumn(string $column): static` | `$this` | Alias for `titleAttribute()`. Sets which column appears in index/table cells. | `'name'` |
+| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Attribute on related model for display label. An explicit one always wins. | the related resource's `title()` when it declares one (a `titleAttribute()` other than `id`, or its own `title()`), else `'name'` (v2.17.0) |
+| `displayColumn` | `displayColumn(string $column): static` | `$this` | Alias for `titleAttribute()`. Sets which column appears in index/table cells. | as `titleAttribute` |
 | `foreignKey` | `foreignKey(string $key): static` | `$this` | Override FK column name. | `{relationship}_id` |
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource for dropdown API, and the resource a write is checked against. A key no registered resource has throws (naming the field and the key) when a value is written. Without it the write is checked against the resource registered for the relationship's model, and refused (422) when that names no single resource. See [Relationships → Writes follow the pickers](relationships.md#writes-follow-the-pickers). | `null` |
 | `placeholder` | `placeholder(string\|\Closure $text): static` | `$this` | Custom placeholder shown when no value is selected. Closure receives `(?Request $r)` for per-request resolution. | translated `'Select {field}...'` |
@@ -2016,7 +2018,7 @@ Tag::make('tags', 'Tags')
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource for autocomplete API. | `null` |
-| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Display attribute on related model. | `'name'` |
+| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Display attribute on related model. An explicit one always wins. | the related resource's `title()` when it declares one (a `titleAttribute()` other than `id`, or its own `title()`), else `'name'` (v2.17.0) |
 | `withPreview` | `withPreview(): static` | `$this` | Enable preview popover on hover. | `false` |
 | `displayAsList` | `displayAsList(): static` | `$this` | Render as vertical list instead of chips. | `false` |
 | `showCreateRelationButton` | `showCreateRelationButton(): static` | `$this` | Show inline create button. | `false` |
@@ -2096,7 +2098,7 @@ BelongsToMany::make('Tags', 'tags', TagResource::class)
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of related resource. | inferred from relationship |
-| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Attribute on related model for display label. | `'name'` |
+| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Attribute on related model for display label. An explicit one always wins. | the related resource's `title()` when it declares one (a `titleAttribute()` other than `id`, or its own `title()`), else `'name'` (v2.17.0) |
 | `fields` | `fields(Closure(): list<Field>): static` | `$this` | Define pivot fields (stored on the pivot table). | `null` |
 | `actions` | `actions(Closure(Request): list<Action>): static` | `$this` | Pivot actions for this relationship's panel only; `handle()` receives the selected attached records, each with its `pivot` row. See [Actions → Pivot Actions](actions.md#pivot-actions). | `null` |
 | `searchable` | `searchable(bool $value = true): static` | `$this` | Enable search in the attach modal. | `false` |
@@ -2632,7 +2634,7 @@ MorphToMany::make('Tags', 'tags', TagResource::class)
 | Method | Signature | Returns | Description | Default |
 |--------|-----------|---------|-------------|---------|
 | `relatedResource` | `relatedResource(string $uriKey): static` | `$this` | URI key of the related resource. | inferred from relationship |
-| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Display attribute on the related model. | `'name'` |
+| `titleAttribute` | `titleAttribute(string $attribute): static` | `$this` | Display attribute on the related model. An explicit one always wins. | the related resource's `title()` when it declares one (a `titleAttribute()` other than `id`, or its own `title()`), else `'name'` (v2.17.0) |
 | `fields` | `fields(Closure $closure): static` | `$this` | Define pivot fields (stored on the morph-pivot table). | — |
 | `actions` | `actions(Closure(Request): list<Action>): static` | `$this` | Pivot actions for this relationship's panel only; `handle()` receives the selected attached records, each with its `pivot` row. See [Actions → Pivot Actions](actions.md#pivot-actions). | — |
 | `searchable` | `searchable(bool $value = true): static` | `$this` | Enable search in the attach modal. | `false` |
