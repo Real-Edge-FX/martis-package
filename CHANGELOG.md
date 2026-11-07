@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.18.0] — 2026-11-07
+
+Minor release from a consumer report: a record of a resource with a detail override (`DrawerOverride::detail()` or a custom one) now opens over its index without reloading the page, and a resource can name the browser tab of its records with `documentTitle()`. Read [Upgrading to v2.18.0](docs/upgrading.md#upgrading-to-v2180-from-v217x).
+
+### Added
+
+- **`Resource::documentTitle(): ?string`**: the browser tab title of a record's detail, page or override. `null` (the default) keeps `"{singular label}: {title()}"`. The detail response carries it as `_documentTitle`. See [Resources → Browser tab title](docs/resources.md#browser-tab-title--documenttitle).
+
+### Changed
+
+- **A detail override opens over the index in place.** The row click and the default View action push the record URL and keep the index mounted: the list stays on screen and is not fetched again, the bundled drawer opens at once with its own skeleton, and closing (or the back button) steps back to the index entry with its page, sort and filters. A direct visit to the record URL renders the index at once with the override on top. The top progress bar and the menu badge refresh no longer run for an open or a close. Before, the row click showed a full-page loader until the schema and the record arrived, then mounted the index again, and closing mounted it once more. See [Overrides → Detail overrides open over the index](docs/overrides.md#detail-overrides-open-over-the-index).
+
+### Fixed
+
+- **A drawer swapping in for another one stacked a history entry per swap.** Each detail → update → detail swap pushed one more Back sentinel, so after editing, Back (or closing) stayed on the record URL. The drawer that swaps in now takes over the previous one's sentinel, and a pop that leaves the drawer's page is left to the page instead of being taken for a Back press.
+
 ## [2.17.0] — 2026-11-05
 
 Minor release from a batch of consumer reports: fields that a sibling shows or hides, actions that hide what a record cannot run or keep its slot, flat items in the row menu, confirmation texts that name the record, file fields in action modals, a create form prefilled from its link, a `Badges` field, and multi-column sorting. Two bugs found on the way are fixed: no `dependsOn()` change ever reached the live form, and a relation field ignored its related resource's title. Read [Upgrading to v2.17.0](docs/upgrading.md#upgrading-to-v2170-from-v216x).

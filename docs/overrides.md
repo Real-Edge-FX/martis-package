@@ -297,6 +297,20 @@ The provider is opt-in — overrides that pass `props` manually keep working unc
 - Browser back button closes the drawer (history integration)
 - Optional unsaved-changes confirmation — see [Unsaved changes guard](#unsaved-changes-guard)
 
+### Detail overrides open over the index
+
+A resource with a detail override (`DrawerOverride::detail()`, or any custom component in the `detail` slot) opens its records over its index (v2.18.0). The row click and the default View row action push the record URL (`/resources/{resource}/{id}`), and the index stays mounted behind the override:
+
+- The list stays on screen and is not fetched again: opening costs the record's request only. The bundled drawer opens at once with its own skeleton while the record loads; a custom override component still receives the loaded record, so a light loader shows over the list until it arrives.
+- Closing (the close button, ESC, the backdrop, a delete) steps back to the index entry of the history, with the list's page, sort and filters as they were. The browser back button closes it the same way, and forward opens it again.
+- A direct visit to the record URL (a shared link, a reload) renders the index at once with the override on top. Closing it pushes the index URL.
+- The top progress bar does not run and the menu badges are not refreshed for an open or a close: it is the same page.
+- Edit inside the drawer swaps in the update override when the resource declares one, as before. Viewing another record of the resource from the override opens it in the same place.
+
+The URL, the deep link and the back button work as they did, so nothing needs to change in a resource. A resource without a detail override keeps the full detail page, and a resource whose records have a custom URL (`config.resourceRecordUrls`, e.g. a headless resource whose records live in a Tool) still navigates there. Before v2.18.0 the row click navigated to a route that showed a full-page loader until the schema and the record arrived, then mounted the index again behind the drawer, and closing mounted it once more.
+
+The browser tab follows the record while it is open: see [`documentTitle()`](resources.md#browser-tab-title--documenttitle).
+
 ### Unsaved changes guard
 
 Both drawer-based create/update and the full-page `ResourceCreate` /

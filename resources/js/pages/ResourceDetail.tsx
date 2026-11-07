@@ -19,7 +19,6 @@ import { ArrowLeftIcon, PencilSimpleIcon, TrashIcon, ArrowCounterClockwiseIcon, 
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { NotFoundPage } from "@/pages/NotFound"
 import { ResourceErrorPage } from "@/pages/ResourceError"
-import { ResourceIndexPage } from "@/pages/ResourceIndex"
 import { componentRegistry } from "@/lib/componentRegistry"
 import { resolveRedirect } from "@/lib/resolveRedirect"
 import { MartisLoader } from "@/components/Loader"
@@ -31,6 +30,30 @@ import { STANDALONE_RELATIONSHIP_TYPES } from "@/lib/relationshipFieldTypes"
 import { hiddenAttributes, withoutHiddenFields } from "@/lib/hiddenFields"
 import { emitRecordEvent } from "@/lib/recordEvents"
 
+/**
+ * Browser tab title of a record's detail (page or in-place override): the
+ * resource's `documentTitle()` when it returns one, else
+ * "{singular label}: {title}". Prefers the framework-resolved `_title`
+ * string: a titleAttribute field with a `displayUsing()` callback
+ * serialises a rich-cell object, so `String(record[titleAttribute])` would
+ * render "[object Object]". Before the record loads, the singular label.
+ */
+export function detailDocumentTitle(schema: ResourceSchema, record: ResourceRecord | null): string {
+  if (record && typeof record._documentTitle === "string" && record._documentTitle.trim() !== "") {
+    return record._documentTitle
+  }
+  const recordTitle = record
+    ? String((record as { _title?: unknown })._title
+        ?? (schema.titleAttribute ? record[schema.titleAttribute] : "")
+        ?? "")
+    : ""
+  return `${schema.singularLabel}${recordTitle ? `: ${recordTitle}` : ""}`
+}
+
+/**
+ * Full-page detail of a record. A resource with a detail override opens its
+ * records over the index instead (`pages/ResourcePage.tsx`).
+ */
 export function ResourceDetailPage() {
   const { resource, id } = useParams<{ resource: string; id: string }>()
   const navigate = useNavigate()
@@ -133,17 +156,7 @@ export function ResourceDetailPage() {
     record ? detailActionsForRecord.filter((a) => !canRunInlineAction(record, a)).map((a) => a.uriKey) : [],
   )
 
-  // Prefer the framework-resolved `_title` string (mirrors DrawerDetail):
-  // a titleAttribute field with a `displayUsing()` callback serialises a
-  // rich-cell object, so `String(record[titleAttribute])` would render
-  // "[object Object]" in the browser tab. `_title` is the canonical
-  // scalar; fall back to the raw attribute for records without it.
-  const recordTitle = record
-    ? String((record as { _title?: unknown })._title
-        ?? (schema?.titleAttribute ? record[schema.titleAttribute] : '')
-        ?? '')
-    : ''
-  usePageTitle(schema ? `${schema.singularLabel}${recordTitle ? `: ${recordTitle}` : ''}` : null)
+  usePageTitle(schema ? detailDocumentTitle(schema, record ?? null) : null)
   const accentProps = useResourceAccent((schema as { accentColor?: string | null } | undefined)?.accentColor)
   useResourceLoaderConfig((schema as { loaderConfig?: Record<string, unknown> } | undefined)?.loaderConfig)
 
@@ -169,91 +182,6 @@ export function ResourceDetailPage() {
 
   if (!record) {
     return <NotFoundPage />
-  }
-
-  // Check for detail override — pass full standardized OverrideProps
-  if (schema.overrides?.detail) {
-    const OverrideComponent = componentRegistry.resolve(schema.overrides.detail.component)
-    if (OverrideComponent) {
-      const C = OverrideComponent as React.ComponentType<OverrideProps>
-      const overrideProps: OverrideProps = {
-        schema,
-        resource: resource!,
-        params: schema.overrides.detail.params ?? {},
-        record,
-        recordId: id ?? null,
-        navigate: (to: string) => navigate(to),
-        onClose: () => navigate(routePath`/resources/${resource}`),
-        onCreated: (rec) => {
-          void qc.invalidateQueries({ queryKey: ["resources", resource] })
-          addToast("success", schema.messages?.created ?? "Record created successfully.")
-          const target = resolveRedirect(schema.overrides?.detail?.redirectAfter, resource!, rec.id)
-          if (target) navigate(target)
-        },
-        onUpdated: (rec) => {
-          void qc.invalidateQueries({ queryKey: ["resource", resource, id] })
-          addToast("success", schema.messages?.updated ?? "Record updated successfully.")
-          const target = resolveRedirect(schema.overrides?.detail?.redirectAfter, resource!, rec.id)
-          if (target) navigate(target)
-        },
-        onDeleted: () => {
-          void qc.invalidateQueries({ queryKey: ["resources", resource] })
-          addToast("success", schema.messages?.deleted ?? "Record deleted successfully.")
-          navigate(routePath`/resources/${resource}`)
-        },
-        onEdit: (editId) => {
-          const targetId = editId ?? id
-          if (!targetId) return
-          // Swap the detail drawer for the update drawer in place when
-          // both overrides exist. This keeps the index behind the drawer
-          // and avoids navigating the URL to `/edit` (which would trigger
-          // a full-page remount and lose the backdrop).
-          if (schema.overrides?.update && String(targetId) === String(id)) {
-            setShowUpdateOverride(true)
-            return
-          }
-          navigate(routePath`/resources/${resource}/${targetId}/edit`)
-        },
-        onView: (viewId) => navigate(recordHref(resource!, viewId)),
-        addToast,
-      }
-      // Deep-linking to `/resources/:resource/:id` with a drawer detail
-       // override used to render the drawer floating over an empty page.
-       // Mount the index page behind so the drawer has context, and the
-       // Close button/Esc fades back into the list the user would expect.
-       // When the user clicked Edit inside the detail drawer we swap to
-       // the update override in place (see onEdit above).
-       if (showUpdateOverride && schema.overrides?.update) {
-         const UpdateComponent = componentRegistry.resolve(schema.overrides.update.component)
-         if (UpdateComponent) {
-           const U = UpdateComponent as React.ComponentType<OverrideProps>
-           const updateProps: OverrideProps = {
-             ...overrideProps,
-             params: schema.overrides.update.params ?? {},
-             onClose: () => setShowUpdateOverride(false),
-             onUpdated: (rec) => {
-               void qc.invalidateQueries({ queryKey: ["resource", resource, id] })
-               addToast("success", schema.messages?.updated ?? "Record updated successfully.")
-               setShowUpdateOverride(false)
-               const target = resolveRedirect(schema.overrides?.update?.redirectAfter, resource!, rec.id)
-               if (target) navigate(target)
-             },
-           }
-           return (
-             <>
-               <ResourceIndexPage />
-               <U {...updateProps} />
-             </>
-           )
-         }
-       }
-       return (
-         <>
-           <ResourceIndexPage />
-           <C {...overrideProps} />
-         </>
-       )
-    }
   }
 
   /** Handle Edit button — open update override drawer if available, else navigate */

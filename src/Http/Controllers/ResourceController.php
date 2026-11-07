@@ -280,6 +280,8 @@ class ResourceController extends MartisController
             $serialized['_actionAuthorization'] = $actionAuthorization !== null
                 ? $actionAuthorization($model, is_array($serialized['_authorization'] ?? null) ? $serialized['_authorization'] : [])
                 : [];
+            // The browser tab title of the detail (Resource::documentTitle()).
+            $serialized['_documentTitle'] = $res->documentTitle();
         }
 
         return JsonResponse::make($serialized)->toResponse();

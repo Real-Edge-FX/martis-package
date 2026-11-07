@@ -4,6 +4,14 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.18.0 from v2.17.x
+
+v2.18.0 opens the records of a resource with a detail override over its index without reloading the page, and adds `Resource::documentTitle()` for the browser tab of a record. Republish the assets (`php artisan martis:publish-assets`). Nothing has to change in an app; check these if they apply:
+
+- **Closing a detail override steps back in the history** to the index entry it was opened from (a deep-linked record still pushes the index URL). A custom detail override that calls `onClose()` gets the same behaviour.
+- **A custom detail override component still receives the loaded record**; while it loads, a light loader shows over the list instead of the full-page loader. Its `onUpdated()` now also refreshes the list behind it.
+- **A shim that rewrote the detail tab title** can be replaced by `documentTitle()`. See [Resources → Browser tab title](resources.md#browser-tab-title--documenttitle).
+
 ## Upgrading to v2.17.0 from v2.16.x
 
 v2.17.0 adds fields a sibling shows or hides (`hide()` / `show()` in `dependsOn()`), `whenInapplicable()`, `inRowMenu()` and `$maxInlineButtons` for row actions, confirmation texts from a closure, file fields in action modals, `acceptsPrefill()` and `sticky()` for the create form, a `Badges` field, and sorting by several columns. Republish the assets (`php artisan martis:publish-assets`). Most apps change nothing; check these:

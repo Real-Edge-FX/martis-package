@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { useLocation } from "react-router"
+import { usePagePathname } from "@/lib/inPlaceDetail"
 import { useIsFetching } from "@tanstack/react-query"
 
 /*
@@ -31,7 +31,9 @@ const HOLD_AFTER_COMPLETE_MS = 150
 type Phase = "idle" | "trickling" | "completing" | "fading"
 
 export function NavigationProgress() {
-  const location = useLocation()
+  // A record opened or closed over its index (lib/inPlaceDetail.ts) keeps
+  // the same page: no bar.
+  const pathname = usePagePathname()
   const isFetching = useIsFetching()
 
   const [phase, setPhase] = useState<Phase>("idle")
@@ -73,7 +75,7 @@ export function NavigationProgress() {
     return () => {
       clearTimers()
     }
-  }, [location.pathname])
+  }, [pathname])
 
   // Trickle: while trickling, creep width toward TRICKLE_TARGET without ever
   // reaching it on its own (only `isFetching` settling to 0 completes it).

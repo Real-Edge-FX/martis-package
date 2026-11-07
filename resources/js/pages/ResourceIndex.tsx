@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import { useParams, useNavigate, useLocation, useNavigationType } from 'react-router'
+import { useParams, useNavigate, useLocation } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { publishIndexFilters } from '@/lib/indexFilters'
@@ -31,6 +31,7 @@ import { useResourceLoaderConfig } from '@/contexts/LoaderConfigContext'
 import { readStickyView, useStickyView, clearStickyView } from '@/lib/useStickyView'
 import { useAuthOptional } from '@/contexts/AuthContext'
 import { recordHref } from '@/lib/recordHref'
+import { inPlaceState, opensDetailInPlace } from '@/lib/inPlaceDetail'
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react'
 import { martisEventBus, type EventPayload } from '@/lib/eventBus'
 import { emitRecordEvent } from '@/lib/recordEvents'
@@ -38,12 +39,16 @@ import { SortedByChip } from '@/components/Table/SortedByChip'
 import { MAX_SORT_KEYS, additiveSort, clickSort, normalizeSort, readSavedSort, sameSort, serializeSort, type SortKey } from '@/lib/multiSort'
 
 export function ResourceIndexPage() {
-  const { resource } = useParams<{ resource: string }>()
+  const { resource, id: openRecordId } = useParams<{ resource: string; id?: string }>()
   const navigate = useNavigate()
-  const location = useLocation()
-  // POP = back/forward/initial mount, PUSH = link click, REPLACE = our own
-  // hydration-time URL strip. Drives the sticky-vs-clean decision below.
-  const navigationType = useNavigationType()
+  const routerLocation = useLocation()
+  // While a record is open over this index (`/resources/:resource/:id`, see
+  // lib/inPlaceDetail.ts) the list keeps the URL it was opened from: the
+  // record URL carries none of the index's `?filters=` / `?search=`, and
+  // reading it would reset the view and fetch the list again.
+  const indexLocationRef = useRef(routerLocation)
+  if (openRecordId === undefined) indexLocationRef.current = routerLocation
+  const location = openRecordId === undefined ? routerLocation : indexLocationRef.current
   const qc = useQueryClient()
   const { addToast } = useToast()
   // The saved view belongs to the signed-in user (lib/useStickyView.ts).
@@ -237,11 +242,10 @@ export function ResourceIndexPage() {
     setFiltersOpen(false)
     // location.search is intentionally a dep: this hook runs again when
     // the user navigates inside the same resource (filter factory click
-    // → ?filters= URL → re-hydrate from URL). navigationType is no
-    // longer used in the body of this hook but we keep it here so a
-    // cleanly-typed POP-vs-PUSH distinction is available if a future
-    // edge case needs it.
-  }, [resource, location.search, navigationType, stickyOwner])
+    // → ?filters= URL → re-hydrate from URL). The navigation type is not:
+    // closing a record opened over the list (a POP back to the index)
+    // would run it again and drop the row selection.
+  }, [resource, location.search, stickyOwner])
   // Debounce search
   const handleSearchChange = useCallback((value: string) => {
     markUserDriven()
@@ -261,6 +265,20 @@ export function ResourceIndexPage() {
   })
 
   const schema = schemaQuery.data?.data
+
+  // A row click or the View row action opens the record. A resource with a
+  // detail override opens it over this list, which stays mounted (see
+  // lib/inPlaceDetail.ts and pages/ResourcePage.tsx): the record URL is
+  // pushed, marked so closing steps back here.
+  const openRecord = (rowId: string | number) => {
+    if (!opensDetailInPlace(schema, resource!)) {
+      navigate(recordHref(resource!, rowId))
+      return
+    }
+    navigate(routePath`/resources/${resource}/${rowId}`, {
+      state: inPlaceState({ backdrop: location.pathname, depth: 1 }),
+    })
+  }
 
   // Seed the sort state from the resource's `defaultSort()` on the
   // first schema load. An empty sort means the user hasn't picked a
@@ -896,10 +914,7 @@ export function ResourceIndexPage() {
         onSetSelection={handleSetSelection}
         onClickRow={schema.rowClickOpensDetail === false ? undefined : (row) => {
           if (row._authorization?.authorizedToView === false) return
-          // Always navigate — see `onDefaultView` for the rationale. Short
-          // version: drawer overlay needs the record id in the URL so
-          // nested has-many/morph-many queries can resolve their parent.
-          navigate(recordHref(resource!, row.id))
+          openRecord(row.id)
         }}
         resourceKey={resource}
         selectable={selectable}
@@ -908,14 +923,7 @@ export function ResourceIndexPage() {
         maxInlineButtons={schema?.maxInlineButtons}
         onInlineAction={handleInlineAction}
         defaultRowActions={schema.defaultRowActions}
-        onDefaultView={(row) => {
-          // Always navigate to the detail URL. When a drawer detail override
-          // exists, the ResourceDetailPage renders the index as backdrop
-          // plus the drawer on top — same visual, but now the URL carries
-          // the record id which the nested relationship fields parse to
-          // fire their has-many queries.
-          navigate(recordHref(resource!, row.id))
-        }}
+        onDefaultView={(row) => openRecord(row.id)}
         onDefaultEdit={(row) => {
           if (schema.overrides?.update) {
             setActionDrawer({ type: 'update', resource: resource!, recordId: row.id })

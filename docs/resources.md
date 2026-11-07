@@ -167,6 +167,19 @@ public function title(): string
 
 Used in breadcrumbs, the relationship picker, and the global search palette. Override when a single attribute is not enough.
 
+### Browser tab title — `documentTitle()`
+
+The browser tab of a record's detail (the detail page, or the detail override it opens in over the index) reads `"{singular label}: {title()}"`, followed by the panel brand. When `title()` already names the resource, that repeats it ("Conversation: Conversation of 7 Nov"). Return a string from `documentTitle()` to use it as the tab title instead (v2.18.0); return `null` (the default) to keep the default.
+
+```php
+public function documentTitle(): ?string
+{
+    return $this->title(); // "Conversation of 7 Nov · Visitor"
+}
+```
+
+The brand suffix (`" · {brand}"`) is still appended. The detail response carries the value as `_documentTitle` (`GET /api/resources/{resource}/{id}`, detail context only). The drawer and page headers keep showing `title()`.
+
 ### Search bar configuration
 
 | Method | Default | Effect |
@@ -829,7 +842,7 @@ public static function bulkActionsMenuLabel(): ?string    { return 'Batch tools'
 
 Whether clicking a row in the index opens the detail page is controlled by `rowClickOpensDetail(Request $request): ?bool` (per-resource override) and resolved to a concrete boolean by `resolveRowClickOpensDetail(Request $request): bool`. When the per-resource method returns `null`, the resolver falls back to `config('martis.index.row_click_opens_detail')`.
 
-See [Default Row Actions — Row-click redundancy](default_row_actions.md#row-click-redundancy) for the full decision matrix.
+See [Default Row Actions — Row-click redundancy](default_row_actions.md#row-click-redundancy) for the full decision matrix. A resource with a detail override opens the record over the index instead of on its own page: see [Overrides → Detail overrides open over the index](overrides.md#detail-overrides-open-over-the-index).
 
 ### confirmUnsavedChanges()
 

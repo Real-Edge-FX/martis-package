@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react"
-import { useLocation } from "react-router"
+import { usePagePathname } from "@/lib/inPlaceDetail"
 import { useQueryClient } from "@tanstack/react-query"
 import { currentFormatLocale } from "@/lib/formatLocale"
 import type {
@@ -245,10 +245,11 @@ export function formatItemCount(value: number, locale: string | undefined = curr
  * Throttled to `minIntervalMs` between consecutive navigations so
  * rapid clicks don't flood the server. The user's own mutations
  * already invalidate the badges query via the MutationCache, so this
- * only matters for *other users'* concurrent writes.
+ * only matters for *other users'* concurrent writes. A record opened or
+ * closed over its index (lib/inPlaceDetail.ts) is not a navigation.
  */
 export function useNavigationRefreshOnNavigate(minIntervalMs = 3000): void {
-  const location = useLocation()
+  const pathname = usePagePathname()
   const qc = useQueryClient()
   const last = useRef(0)
 
@@ -257,7 +258,7 @@ export function useNavigationRefreshOnNavigate(minIntervalMs = 3000): void {
     if (now - last.current < minIntervalMs) return
     last.current = now
     void qc.invalidateQueries({ queryKey: ["navigation", "badges"] })
-  }, [location.pathname, qc, minIntervalMs])
+  }, [pathname, qc, minIntervalMs])
 }
 
 /**
