@@ -28,6 +28,80 @@ import { useEffect, useRef } from 'react'
 
 let modalLockCount = 0
 let suppressNextPopFlag = false
+let drawerBackPending = false
+
+/**
+ * State for a sentinel pushed on top of the current entry: the given flags
+ * plus the router's own `usr` (location state) and `key` of that entry, so
+ * React Router reads the same location when a pop lands on the sentinel
+ * (a modal closing over a drawer pops back onto the drawer's sentinel). The
+ * router's `idx` is left out: the sentinel is not one of its entries, and
+ * an index it shares with the entry below would read as a zero-step pop.
+ */
+export function sentinelState<T extends Record<string, unknown>>(flags: T): T & { usr?: unknown; key?: unknown } {
+  let current: Record<string, unknown> | null = null
+  try {
+    const state: unknown = window.history.state
+    current = state !== null && typeof state === 'object' ? (state as Record<string, unknown>) : null
+  } catch {
+    current = null
+  }
+  return {
+    ...(current && 'usr' in current ? { usr: current.usr } : {}),
+    ...(current && 'key' in current ? { key: current.key } : {}),
+    ...flags,
+  }
+}
+
+/**
+ * Set while the back() a closed drawer issued to drop its sentinel has not
+ * landed yet (cleared by the next popstate).
+ */
+export function markDrawerBackPending(): void {
+  drawerBackPending = true
+  window.addEventListener('popstate', () => { drawerBackPending = false }, { once: true })
+  // A back() with no entry to go to fires no popstate: do not hold the
+  // next close for good.
+  setTimeout(() => { drawerBackPending = false }, 1000)
+}
+
+export function clearDrawerBackPending(): void {
+  drawerBackPending = false
+}
+
+export function isDrawerBackPending(): boolean {
+  return drawerBackPending
+}
+
+/**
+ * Whether no modal holds the history and no sentinel pop is on its way:
+ * the top entry is the page's (or a drawer's sentinel on it).
+ */
+export function historySettled(): boolean {
+  if (modalLockCount > 0 || drawerBackPending) return false
+  try {
+    const state = window.history.state as { martisModalLock?: unknown; martisModalSoftLock?: unknown } | null
+    return state?.martisModalLock !== true && state?.martisModalSoftLock !== true
+  } catch {
+    return true
+  }
+}
+
+/** Resolves once {@link historySettled} holds, or after `timeoutMs`. */
+export function waitForHistoryToSettle(timeoutMs = 2000): Promise<void> {
+  return new Promise((resolve) => {
+    const started = Date.now()
+    const check = () => {
+      if (historySettled() || Date.now() - started >= timeoutMs) {
+        resolve()
+        return
+      }
+      setTimeout(check, 25)
+    }
+    // Let the commit that closed a modal run its cleanup first.
+    setTimeout(check, 0)
+  })
+}
 
 export function incrementModalLock(): void {
   modalLockCount += 1
@@ -70,14 +144,14 @@ export function consumeSuppressFlag(): boolean {
  * backdrop click).
  */
 export function useModalHistoryLock(open: boolean): void {
-  const markerRef = useRef<{ martisModalLock: true; key: number } | null>(null)
+  const markerRef = useRef<{ martisModalLock: true; martisKey: number } | null>(null)
 
   useEffect(() => {
     if (!open) return
     if (typeof window === 'undefined') return
 
     incrementModalLock()
-    const marker = { martisModalLock: true as const, key: Date.now() + Math.random() }
+    const marker = sentinelState({ martisModalLock: true as const, martisKey: Date.now() + Math.random() })
     markerRef.current = marker
     try {
       window.history.pushState(marker, '')
@@ -143,7 +217,7 @@ export function useModalHistoryBackToClose(open: boolean, onClose: () => void): 
     if (typeof window === 'undefined') return
 
     incrementModalLock()
-    const marker = { martisModalSoftLock: true as const, key: Date.now() + Math.random() }
+    const marker = sentinelState({ martisModalSoftLock: true as const, martisKey: Date.now() + Math.random() })
     try {
       window.history.pushState(marker, '')
     } catch {

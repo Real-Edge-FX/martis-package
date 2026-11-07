@@ -297,6 +297,20 @@ The provider is opt-in — overrides that pass `props` manually keep working unc
 - Browser back button closes the drawer (history integration)
 - Optional unsaved-changes confirmation — see [Unsaved changes guard](#unsaved-changes-guard)
 
+### Detail overrides open over the index
+
+A resource with a detail override (`DrawerOverride::detail()`, or any custom component in the `detail` slot) opens its records over its index (v2.18.0). The row click and the default View row action push the record URL (`/resources/{resource}/{id}`), and the index stays mounted behind the override:
+
+- The list stays on screen and is not fetched again: opening costs the record's request only. The bundled drawer opens at once with its own skeleton while the record loads; a custom override component still receives the loaded record, so a light loader shows over the list until it arrives.
+- Closing (the close button, ESC, the backdrop, a delete, with or without a confirmation open over it) steps back to the index entry of the history, with the list's page, sort and filters as they were. The browser back button closes it the same way, and forward opens it again.
+- A direct visit to the record URL (a shared link, a reload) renders the index with the override on top as soon as the resource's schema has loaded (until then the page loader shows, since the schema says whether the resource has a detail override). Closing it moves to the index URL. A record reached by another link (a link in a cell, a relationship panel row, a lens row, the command palette) opens over the index the same way and closes like a direct visit.
+- The top progress bar does not run and the menu badges are not refreshed for an open or a close: it is the same page.
+- Edit inside the drawer swaps in the update override when the resource declares one, as before. Viewing another record of the resource from the override opens it in the same place, in place of the current one in the history.
+
+The URL, the deep link and the back button work as they did, so nothing needs to change in a resource. A resource without a detail override keeps the full detail page, and so does a detail override whose component is not registered (a typo, an extension bundle that did not load). A resource whose records have a custom URL (`config.resourceRecordUrls`, e.g. a headless resource whose records live in a Tool) still navigates there from the row click; its own `/resources/{resource}/{id}` URL still renders the override over the index. Before v2.18.0 the row click navigated to a route that showed a full-page loader until the schema and the record arrived, then mounted the index again behind the drawer, and closing mounted it once more.
+
+The browser tab follows the record while it is open: see [`documentTitle()`](resources.md#browser-tab-title--documenttitle).
+
 ### Unsaved changes guard
 
 Both drawer-based create/update and the full-page `ResourceCreate` /

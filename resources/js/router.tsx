@@ -192,8 +192,10 @@ export function buildAppRoutes(registered: readonly RegisteredRoute[]): RouteObj
             {
               path: 'resources/:resource',
               lazy: async () => {
-                const { ResourceIndexPage } = await import('@/pages/ResourceIndex')
-                return { element: <ResourceIndexPage />, handle: { crumb: 'resources' } }
+                // The same component as the record route below: a record that
+                // opens over the index keeps the index mounted (pages/ResourcePage.tsx).
+                const { ResourcePage } = await import('@/pages/ResourcePage')
+                return { element: <ResourcePage />, handle: { crumb: 'resources' } }
               },
             },
             {
@@ -213,8 +215,8 @@ export function buildAppRoutes(registered: readonly RegisteredRoute[]): RouteObj
             {
               path: 'resources/:resource/:id',
               lazy: async () => {
-                const { ResourceDetailPage } = await import('@/pages/ResourceDetail')
-                return { element: <ResourceDetailPage />, handle: { crumb: 'detail' } }
+                const { ResourcePage } = await import('@/pages/ResourcePage')
+                return { element: <ResourcePage />, handle: { crumb: 'detail' } }
               },
             },
             {

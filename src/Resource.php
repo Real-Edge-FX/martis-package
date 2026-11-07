@@ -353,6 +353,18 @@ abstract class Resource implements ResourceContract
         return $value;
     }
 
+    /**
+     * Browser tab title of this record's detail (the detail page, or the
+     * override it opens in over the index). Return null (the default) to
+     * keep "{singular label}: {title()}"; return a string to use it as is,
+     * for example when title() already starts with the singular label.
+     * The brand suffix is still appended by the panel.
+     */
+    public function documentTitle(): ?string
+    {
+        return null;
+    }
+
     // -------------------------------------------------------------------------
     // Context-aware field resolution
     //

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ResourceIcon } from '@/components/ResourceIcon'
-import { consumeSuppressFlag, getModalLockCount } from '@/lib/historyLock'
+import { clearDrawerBackPending, consumeSuppressFlag, getModalLockCount, isDrawerBackPending, markDrawerBackPending, sentinelState } from '@/lib/historyLock'
 import { hasOpenLayer } from '@/lib/escapeLayers'
 import { config } from '@/lib/config'
 
@@ -121,13 +121,33 @@ export function DrawerShell({
   // close path (which, through beforeCloseRef, still honours the
   // dirty-check).
   useEffect(() => {
+    // A drawer that swaps in for another one (detail → update and back)
+    // mounts right after the previous one unmounted, with its sentinel
+    // still on top: it takes that sentinel over (the previous drawer skips
+    // its deferred back() since a drawer is mounted again) instead of
+    // stacking one more entry per swap, which left Back and a host's close
+    // one step short of the page. A drawer opened over another one that is
+    // still mounted pushes its own, so Back closes the top one first.
+    // A sentinel whose back() a closed drawer already issued is on its way
+    // out (isDrawerBackPending): push a new one then.
+    const adoptsSentinel = martisDrawerMountedCount === 0 && !isDrawerBackPending() && (() => {
+      try {
+        return (window.history.state as { martisDrawer?: unknown } | null)?.martisDrawer === true
+      } catch {
+        return false
+      }
+    })()
     martisDrawerMountedCount += 1
-    const marker = { martisDrawer: true, key: Date.now() }
-    try {
-      window.history.pushState(marker, '')
-    } catch {
-      martisDrawerMountedCount -= 1
-      return
+    const marker = sentinelState({ martisDrawer: true, martisKey: Date.now() })
+    // The page the drawer opened on: its sentinel shares that URL.
+    const openedOn = window.location.pathname
+    if (!adoptsSentinel) {
+      try {
+        window.history.pushState(marker, '')
+      } catch {
+        martisDrawerMountedCount -= 1
+        return
+      }
     }
 
     // Track whether WE popped our own entry (clean close) vs. the
@@ -142,6 +162,14 @@ export function DrawerShell({
     const onPop = () => {
       if (skipNextPop) {
         skipNextPop = false
+        return
+      }
+      // A pop that leaves the page the drawer opened on is the host
+      // navigating away (a record opened over its index closing back to
+      // the index, lib/inPlaceDetail.ts), not a back press for the drawer:
+      // the sentinel is gone with it, and the page change unmounts us.
+      if (window.location.pathname !== openedOn) {
+        browserPopped = true
         return
       }
       // A modal on top of the drawer is handling its own back press
@@ -218,10 +246,11 @@ export function DrawerShell({
         if (!currentStateIsOurs) return
         queueMicrotask(() => {
           if (martisDrawerMountedCount === 0) {
+            markDrawerBackPending()
             try {
               window.history.back()
             } catch {
-              // ignore
+              clearDrawerBackPending()
             }
           }
         })

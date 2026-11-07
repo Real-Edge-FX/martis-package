@@ -30,12 +30,16 @@ vi.mock('@tanstack/react-query', async (importOriginal) => {
 })
 
 import { NavigationProgress } from './NavigationProgress'
+import { inPlaceState } from '@/lib/inPlaceDetail'
 
-let testNavigate!: (path: string) => void
+let testNavigate!: (path: string | number, state?: unknown) => void
 
 function NavigateCapture() {
   const navigate = useNavigate()
-  testNavigate = (path: string) => navigate(path)
+  testNavigate = (path: string | number, state?: unknown) => {
+    if (typeof path === 'number') void navigate(path)
+    else void navigate(path, { state })
+  }
   return null
 }
 
@@ -159,5 +163,29 @@ describe('NavigationProgress', () => {
     })
 
     expect(getBar().style.width).toBe('100%')
+  })
+
+  it('stays idle when a record opens over its index and closes again (in place)', async () => {
+    renderAt('/resources/conversations')
+    mockIsFetching = 1
+
+    act(() => {
+      testNavigate('/resources/conversations/7', inPlaceState({ backdrop: '/resources/conversations', depth: 1 }))
+    })
+    await act(async () => { await vi.advanceTimersByTimeAsync(400) })
+    expect(getBar().getAttribute('data-active')).not.toBe('true')
+
+    act(() => { testNavigate(-1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(400) })
+    expect(getBar().getAttribute('data-active')).not.toBe('true')
+  })
+
+  it('still runs when the record URL is opened as a page', async () => {
+    renderAt('/resources/conversations')
+    mockIsFetching = 1
+
+    act(() => { testNavigate('/resources/conversations/7') })
+    await act(async () => { await vi.advanceTimersByTimeAsync(400) })
+    expect(getBar().getAttribute('data-active')).toBe('true')
   })
 })

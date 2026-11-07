@@ -702,6 +702,12 @@ export interface ResourceSchema extends ResourceEmbedded {
 export interface ResourceRecord {
   id: number | string
   _title?: string
+  /**
+   * Browser tab title of the record's detail, from the resource's
+   * `documentTitle()`. Detail responses only; null when the resource keeps
+   * the default "{singular label}: {title}". v2.18.0.
+   */
+  _documentTitle?: string | null
   _authorization?: AuthorizationMetadata
   /**
    * Per-action run authorization, keyed by action uriKey. Populated by the
