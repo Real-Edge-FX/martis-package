@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="resources/images/logo.png" alt="Martis" width="400">
+  <img src="resources/images/logo.svg" alt="Martis" width="360">
 </p>
 
 <p align="center">

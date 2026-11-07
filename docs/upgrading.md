@@ -4,6 +4,10 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.18.1 from v2.18.0
+
+v2.18.1 ships the new Martis logo in the bundled sign-in logo, the default menu icon and the README. Nothing has to change in an app: republish the assets (`php artisan martis:publish-assets`). An app with its own logo (`brand.logo`, `MARTIS_BRAND_LOGO`) keeps it.
+
 ## Upgrading to v2.18.0 from v2.17.x
 
 v2.18.0 opens the records of a resource with a detail override over its index without reloading the page, and adds `Resource::documentTitle()` for the browser tab of a record. Republish the assets (`php artisan martis:publish-assets`). Nothing has to change in an app; check these if they apply:

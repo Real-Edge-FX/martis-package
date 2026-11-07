@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.18.1] — 2026-11-07
+
+Patch release: the new Martis logo. Nothing changes in an app; republish the assets (`php artisan martis:publish-assets`) to see it.
+
+### Changed
+
+- **New Martis logo**: a hexagon holding an M folded from one ribbon, with a spark at the fold, in the cobalt to violet accent. It replaces the cube in the bundled sign-in logo (`resources/images/logo.png`), the default menu icon (`resources/images/martis-icon.png`) and the README; vector copies ship as `resources/images/logo.svg` and `resources/images/martis-icon.svg`. An app that sets its own logo (`brand.logo` in `config/martis.php`, `MARTIS_BRAND_LOGO`) is unaffected.
+
 ## [2.18.0] — 2026-11-07
 
 Minor release from a consumer report: a record of a resource with a detail override (`DrawerOverride::detail()` or a custom one) now opens over its index without reloading the page, and a resource can name the browser tab of its records with `documentTitle()`. Read [Upgrading to v2.18.0](docs/upgrading.md#upgrading-to-v2180-from-v217x).
