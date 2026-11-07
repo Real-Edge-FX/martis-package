@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ResourceIcon } from '@/components/ResourceIcon'
-import { consumeSuppressFlag, getModalLockCount } from '@/lib/historyLock'
+import { clearDrawerBackPending, consumeSuppressFlag, getModalLockCount, isDrawerBackPending, markDrawerBackPending, sentinelState } from '@/lib/historyLock'
 import { hasOpenLayer } from '@/lib/escapeLayers'
 import { config } from '@/lib/config'
 
@@ -52,10 +52,6 @@ type DrawerState = 'normal' | 'expanded' | 'fullscreen'
 // `history.back()` — doing so would emit a popstate that closes the new
 // drawer as soon as it opens.
 let martisDrawerMountedCount = 0
-// Set while the back() a closed drawer issued to drop its sentinel has not
-// landed yet: the sentinel still on top is on its way out, so a drawer
-// mounting then pushes its own instead of taking it over.
-let sentinelBackPending = false
 
 export function DrawerShell({
   title,
@@ -132,7 +128,9 @@ export function DrawerShell({
     // stacking one more entry per swap, which left Back and a host's close
     // one step short of the page. A drawer opened over another one that is
     // still mounted pushes its own, so Back closes the top one first.
-    const adoptsSentinel = martisDrawerMountedCount === 0 && !sentinelBackPending && (() => {
+    // A sentinel whose back() a closed drawer already issued is on its way
+    // out (isDrawerBackPending): push a new one then.
+    const adoptsSentinel = martisDrawerMountedCount === 0 && !isDrawerBackPending() && (() => {
       try {
         return (window.history.state as { martisDrawer?: unknown } | null)?.martisDrawer === true
       } catch {
@@ -140,7 +138,7 @@ export function DrawerShell({
       }
     })()
     martisDrawerMountedCount += 1
-    const marker = { martisDrawer: true, key: Date.now() }
+    const marker = sentinelState({ martisDrawer: true, martisKey: Date.now() })
     // The page the drawer opened on: its sentinel shares that URL.
     const openedOn = window.location.pathname
     if (!adoptsSentinel) {
@@ -248,12 +246,11 @@ export function DrawerShell({
         if (!currentStateIsOurs) return
         queueMicrotask(() => {
           if (martisDrawerMountedCount === 0) {
-            sentinelBackPending = true
-            window.addEventListener('popstate', () => { sentinelBackPending = false }, { once: true })
+            markDrawerBackPending()
             try {
               window.history.back()
             } catch {
-              sentinelBackPending = false
+              clearDrawerBackPending()
             }
           }
         })

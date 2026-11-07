@@ -81,6 +81,12 @@ function schema(uriKey: string, withDrawer: boolean): ResourceSchema {
 const SCHEMAS: Record<string, ResourceSchema> = {
   conversations: schema('conversations', true),
   notes: schema('notes', false),
+  // A detail override whose component is not registered (a typo, an
+  // extension bundle that did not load): the full detail page, as before.
+  tickets: {
+    ...schema('tickets', false),
+    overrides: { detail: { component: 'app:not-registered', params: {} } },
+  } as unknown as ResourceSchema,
 }
 const ROW = { id: 7, title: 'Conversation of 7 Nov', _title: 'Conversation of 7 Nov' }
 const PAGE_META = { total: 1, current_page: 1, last_page: 1, per_page: 25, from: 1, to: 1 }
@@ -219,6 +225,17 @@ describe('ResourcePage — a resource without a detail override', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/resources/notes/7'))
     await waitFor(() => expect(document.querySelector('table')).toBeNull())
     expect(screen.queryByTestId('drawer')).toBeNull()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Conversation of 7 Nov' })).toBeTruthy()
+  })
+
+  it('renders the full detail page for a detail override that is not registered', async () => {
+    const router = renderAt('/resources/tickets')
+    await listTable()
+
+    fireEvent.click(screen.getByText('Conversation of 7 Nov'))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/resources/tickets/7'))
+    await waitFor(() => expect(document.querySelector('table')).toBeNull())
     expect(await screen.findByRole('heading', { level: 1, name: 'Conversation of 7 Nov' })).toBeTruthy()
   })
 })

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
@@ -12,8 +12,8 @@ import { usePageTitle } from '@/hooks/usePageTitle'
 import { ResourceIndexPage } from '@/pages/ResourceIndex'
 import { ResourceDetailPage, detailDocumentTitle } from '@/pages/ResourceDetail'
 import { ResourceErrorPage } from '@/pages/ResourceError'
-import { NotFoundPage } from '@/pages/NotFound'
-import { drawerSentinelOnTop, inPlaceMarker, inPlaceState, opensDetailInPlace } from '@/lib/inPlaceDetail'
+import { drawerSentinelOnTop, hasInPlaceDetail, inPlaceMarker, inPlaceState } from '@/lib/inPlaceDetail'
+import { waitForHistoryToSettle } from '@/lib/historyLock'
 
 /**
  * Route element of both `/resources/:resource` and `/resources/:resource/:id`.
@@ -36,7 +36,7 @@ export function ResourcePage() {
     enabled: !!resource,
   })
   const schema = schemaQuery.data?.data
-  const inPlace = id !== undefined && !!schema && opensDetailInPlace(schema, resource!)
+  const inPlace = id !== undefined && hasInPlaceDetail(schema)
 
   // Fetched here, not by the override, so a record the user may not see (or
   // that is gone) shows the error page, as the full detail page does. The
@@ -99,41 +99,70 @@ function InPlaceDetail({ schema, resource, id, record }: InPlaceDetailProps) {
   const qc = useQueryClient()
   const { addToast } = useToast()
   const [editing, setEditing] = useState(false)
+  const [closing, setClosing] = useState(false)
+  const closingRef = useRef(false)
 
   usePageTitle(detailDocumentTitle(schema, record))
 
-  const marker = inPlaceMarker(location.state)
+  // The entry's marker, as read when the record opened: kept, since the
+  // location state the router reads can change under a modal's history
+  // sentinel.
+  const markerRef = useRef(inPlaceMarker(location.state))
+  const currentMarker = inPlaceMarker(location.state)
+  if (currentMarker !== null) markerRef.current = currentMarker
   const indexPath = routePath`/resources/${resource}`
 
-  // Close back to the index. An entry opened from the index steps back to
-  // it (the list keeps its URL, page and sort), past the sentinel the
-  // bundled drawer pushes on top while it is open; a deep-linked record
-  // moves to the index (over the sentinel, when there is one), marked as
-  // reached from here so the shell treats it as the same page.
+  // Close back to the index. The override is taken off the screen first,
+  // and the step back waits for what it leaves in the history to settle:
+  // a modal over it (a delete confirmation) pops its own sentinel, the
+  // bundled drawer pops its own or leaves it on top. An entry opened from
+  // the index then steps back to it (the list keeps its URL, page and
+  // sort), past the drawer's sentinel when it is still there; a
+  // deep-linked record moves to the index (over the sentinel, when there is
+  // one), marked as reached from here so the shell treats it as the same
+  // page.
   const close = () => {
-    const sentinel = drawerSentinelOnTop()
-    if (marker !== null && marker.from === undefined) {
-      navigate(-(marker.depth + (sentinel ? 1 : 0)))
-      return
-    }
-    navigate(indexPath, {
-      replace: sentinel,
-      state: inPlaceState({ backdrop: indexPath, depth: 1, from: location.pathname }),
+    if (closingRef.current) return
+    closingRef.current = true
+    setClosing(true)
+    const marker = markerRef.current
+    const from = location.pathname
+    void waitForHistoryToSettle().then(() => {
+      const sentinel = drawerSentinelOnTop()
+      if (marker !== null && marker.from === undefined) {
+        navigate(-(marker.depth + (sentinel ? 1 : 0)))
+        return
+      }
+      navigate(indexPath, {
+        replace: sentinel,
+        state: inPlaceState({ backdrop: indexPath, depth: 1, from }),
+      })
     })
   }
 
-  // Another record of this resource opens in the same place.
+  // Another record of this resource opens in the same place. It replaces
+  // the top entry: the drawer's sentinel when there is one (counted in the
+  // depth, since the record below stays), else this record's entry.
   const view = (viewId: string | number) => {
     if (String(viewId) === id) return
-    const depth = marker !== null && marker.from === undefined ? marker.depth + 1 : 1
+    const marker = markerRef.current
+    const sentinel = drawerSentinelOnTop()
+    const fromIndex = marker !== null && marker.from === undefined
     navigate(routePath`/resources/${resource}/${viewId}`, {
-      state: inPlaceState({ backdrop: indexPath, depth, ...(marker === null || marker.from !== undefined ? { from: location.pathname } : {}) }),
+      replace: true,
+      state: inPlaceState(
+        fromIndex
+          ? { backdrop: indexPath, depth: marker.depth + (sentinel ? 1 : 0) }
+          : { backdrop: indexPath, depth: 1, from: location.pathname },
+      ),
     })
   }
+
+  if (closing) return null
 
   const detail = schema.overrides!.detail!
   const DetailComponent = componentRegistry.resolve(detail.component)
-  if (!DetailComponent) return <NotFoundPage />
+  if (!DetailComponent) return null
 
   const isBundledDrawer = detail.component === 'martis:drawer-detail'
   if (!record && !isBundledDrawer) {

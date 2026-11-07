@@ -46,9 +46,18 @@ export function ResourceIndexPage() {
   // lib/inPlaceDetail.ts) the list keeps the URL it was opened from: the
   // record URL carries none of the index's `?filters=` / `?search=`, and
   // reading it would reset the view and fetch the list again.
-  const indexLocationRef = useRef(routerLocation)
-  if (openRecordId === undefined) indexLocationRef.current = routerLocation
-  const location = openRecordId === undefined ? routerLocation : indexLocationRef.current
+  // A record of another resource (a link from the open record) starts that
+  // resource's index from its bare URL, not this one's filters.
+  const indexLocationRef = useRef({ resource, location: routerLocation })
+  if (openRecordId === undefined) {
+    indexLocationRef.current = { resource, location: routerLocation }
+  } else if (indexLocationRef.current.resource !== resource) {
+    indexLocationRef.current = {
+      resource,
+      location: { ...routerLocation, pathname: routePath`/resources/${resource ?? ''}`, search: '', hash: '' },
+    }
+  }
+  const location = openRecordId === undefined ? routerLocation : indexLocationRef.current.location
   const qc = useQueryClient()
   const { addToast } = useToast()
   // The saved view belongs to the signed-in user (lib/useStickyView.ts).

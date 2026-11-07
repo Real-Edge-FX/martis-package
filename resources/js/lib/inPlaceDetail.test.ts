@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { inPlaceMarker, inPlaceState, isInPlaceTransition, opensDetailInPlace } from '@/lib/inPlaceDetail'
+import { hasInPlaceDetail, inPlaceMarker, inPlaceState, isInPlaceTransition, opensDetailInPlace } from '@/lib/inPlaceDetail'
 import { config } from '@/lib/config'
+import { componentRegistry } from '@/lib/componentRegistry'
 import type { ResourceSchema } from '@/types'
+
+componentRegistry.register('martis:drawer-detail', (() => null) as never)
 
 const index = { pathname: '/resources/conversations', state: null }
 const opened = { pathname: '/resources/conversations/7', state: inPlaceState({ backdrop: '/resources/conversations', depth: 1 }) }
@@ -51,11 +54,19 @@ describe('opensDetailInPlace', () => {
     expect(opensDetailInPlace(undefined, 'conversations')).toBe(false)
   })
 
-  it('leaves a record with a custom record URL to that URL', () => {
+  it('falls back to the full detail page for an override the registry cannot resolve', () => {
+    const unknown = { overrides: { detail: { component: 'app:not-registered', params: {} } } } as unknown as ResourceSchema
+
+    expect(hasInPlaceDetail(unknown)).toBe(false)
+    expect(opensDetailInPlace(unknown, 'conversations')).toBe(false)
+  })
+
+  it('leaves a record with a custom record URL to that URL, while its own URL still opens in place', () => {
     const previous = config.resourceRecordUrls
     config.resourceRecordUrls = { conversations: '/tools/inbox/{id}' }
     try {
       expect(opensDetailInPlace(withDetail, 'conversations')).toBe(false)
+      expect(hasInPlaceDetail(withDetail)).toBe(true)
     } finally {
       config.resourceRecordUrls = previous
     }

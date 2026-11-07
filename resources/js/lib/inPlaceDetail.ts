@@ -3,6 +3,7 @@ import { useLocation, type Location } from 'react-router'
 import type { ResourceSchema } from '@/types'
 import { config } from '@/lib/config'
 import { ownEntry } from '@/lib/ownEntry'
+import { componentRegistry } from '@/lib/componentRegistry'
 
 /**
  * A record whose resource declares a detail override (a drawer such as
@@ -62,14 +63,23 @@ export function inPlaceState(marker: InPlaceDetailMarker): Record<string, InPlac
 }
 
 /**
- * Whether a record of this resource opens over its index. True when the
- * resource declares a detail override and no custom record URL
- * (`config.resourceRecordUrls`, e.g. a headless resource whose records live
- * in a Tool) sends the record elsewhere.
+ * Whether the record route of this resource renders over its index: the
+ * resource declares a detail override whose component is registered. An
+ * override the registry cannot resolve (a typo, an extension bundle that did
+ * not load) falls back to the full detail page.
+ */
+export function hasInPlaceDetail(schema: Pick<ResourceSchema, 'overrides'> | null | undefined): boolean {
+  const component = schema?.overrides?.detail?.component
+  return typeof component === 'string' && componentRegistry.resolve(component) !== undefined
+}
+
+/**
+ * Whether a row click opens the record over the index: {@link hasInPlaceDetail},
+ * and no custom record URL (`config.resourceRecordUrls`, e.g. a headless
+ * resource whose records live in a Tool) sends the record elsewhere.
  */
 export function opensDetailInPlace(schema: Pick<ResourceSchema, 'overrides'> | null | undefined, uriKey: string): boolean {
-  if (!schema?.overrides?.detail) return false
-  return !ownEntry(config.resourceRecordUrls, uriKey)
+  return hasInPlaceDetail(schema) && !ownEntry(config.resourceRecordUrls, uriKey)
 }
 
 /**
