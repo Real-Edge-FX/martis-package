@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
@@ -125,9 +125,19 @@ function InPlaceDetail({ schema, resource, id, record }: InPlaceDetailProps) {
     if (closingRef.current) return
     closingRef.current = true
     setClosing(true)
+  }
+
+  // Runs after the commit that took the override off the screen, so the
+  // cleanups of what it rendered (the drawer's and a modal's sentinel pops)
+  // have been issued before the wait starts. Dropped if this record is
+  // left meanwhile (a link, the back button).
+  const closePathname = location.pathname
+  useEffect(() => {
+    if (!closing) return
+    let cancelled = false
     const marker = markerRef.current
-    const from = location.pathname
     void waitForHistoryToSettle().then(() => {
+      if (cancelled) return
       const sentinel = drawerSentinelOnTop()
       if (marker !== null && marker.from === undefined) {
         navigate(-(marker.depth + (sentinel ? 1 : 0)))
@@ -135,10 +145,12 @@ function InPlaceDetail({ schema, resource, id, record }: InPlaceDetailProps) {
       }
       navigate(indexPath, {
         replace: sentinel,
-        state: inPlaceState({ backdrop: indexPath, depth: 1, from }),
+        state: inPlaceState({ backdrop: indexPath, depth: 1, from: closePathname }),
       })
     })
-  }
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closing])
 
   // Another record of this resource opens in the same place. It replaces
   // the top entry: the drawer's sentinel when there is one (counted in the

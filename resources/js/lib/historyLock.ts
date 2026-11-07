@@ -60,6 +60,9 @@ export function sentinelState<T extends Record<string, unknown>>(flags: T): T & 
 export function markDrawerBackPending(): void {
   drawerBackPending = true
   window.addEventListener('popstate', () => { drawerBackPending = false }, { once: true })
+  // A back() with no entry to go to fires no popstate: do not hold the
+  // next close for good.
+  setTimeout(() => { drawerBackPending = false }, 1000)
 }
 
 export function clearDrawerBackPending(): void {
