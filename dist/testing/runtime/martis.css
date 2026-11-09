@@ -4585,7 +4585,7 @@ html[data-reduced-motion="true"] .mwc-blob {
      budget for its siblings, so a right-hand cluster wider than that
      (a long user name, a `topbar:end` component such as a status menu)
      slid under the bar: the bell showed inside the search box. In the
-     flow it can never overlap: the bar is centred while both sides fit
+     flow it can never overlap: the bar sits near the centre while both sides fit
      (see the `[data-search="bar"]` rules below) and narrows when they
      do not. */
   flex: 0 1 420px;
@@ -4607,8 +4607,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   overflow: hidden;
   transition: border-color var(--martis-dur-fast) var(--martis-ease-standard),
               color var(--martis-dur-fast) var(--martis-ease-standard),
-              background var(--martis-dur-fast) var(--martis-ease-standard),
-              width var(--martis-dur-fast) var(--martis-ease-standard);
+              background var(--martis-dur-fast) var(--martis-ease-standard);
 }
 
 /* Mid-width topbars (≤1100px) — drop the keyboard hint chip first so
@@ -4696,7 +4695,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   flex-shrink: 0;
 }
 
-/* Centre the search bar while both sides fit: the breadcrumbs and the
+/* Keep the search bar near the centre while both sides fit: the breadcrumbs and the
    right-hand cluster grow from the same 160px basis, so they take the
    room left and right of the bar equally. The cluster never gets less
    than its content (it does not shrink), so past that point the bar

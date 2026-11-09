@@ -6,7 +6,7 @@ The sections below list the breaking changes of each major version and what to c
 
 ## Upgrading to v2.18.3 from v2.18.2
 
-v2.18.3 opens the filter panel collapsed on a `?filters=` link (a `MenuItem::filter()` item), keeps a lens's filter panel open while the user changes the filters, and lays the top bar's search out in the row, so a `topbar:end` component no longer slides under it. Nothing has to change in an app: republish the assets (`php artisan martis:publish-assets`). A browser test that clicked **Filters** to close the panel after following a filter link, or expected the filter controls to be visible on that page, now finds the panel closed. A stylesheet that positioned `.martis-tb-search` itself should check it against the new layout (`flex: 0 1 420px` in the bar's row).
+v2.18.3 opens the filter panel collapsed on a `?filters=` link (a `MenuItem::filter()` item), keeps a lens's filter panel open while the user changes the filters, and lays the top bar's search out in the row, so a `topbar:end` component no longer slides under it. Nothing has to change in an app: republish the assets (`php artisan martis:publish-assets`). A browser test that clicked **Filters** to close the panel after following a filter link, or expected the filter controls to be visible on that page, now finds the panel closed. A stylesheet that positioned `.martis-tb-search` itself should check it against the new layout (`flex: 0 1 420px` in the bar's row). A custom top bar (`layout:topbar`) copied from the bundled one keeps the search in the row but loses the centring unless its `<header class="martis-tb">` also carries `data-search="bar"` (the search mode: `bar`, `icon` or `disabled`).
 
 ## Upgrading to v2.18.2 from v2.18.1
 
