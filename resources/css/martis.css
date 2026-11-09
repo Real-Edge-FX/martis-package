@@ -1987,28 +1987,18 @@ html[data-reduced-motion="true"] .mwc-blob {
 }
 
 .martis-tb-search {
-  /* Absolute-centered inside the topbar so the search geometry stops
-     depending on the flex-sibling widths. `margin: 0 auto` + `flex: 1`
-     distributed leftover space unevenly when the breadcrumb and the
-     user-chip cluster had different widths, pulling the search to the
-     left of the content-area center (and visibly misaligning the command
-     palette that anchors to it).
-     Width budget — the right cluster grew with v0.8 (notification bell
-     joined preferences + user chip) and again with v1.8.x (long user
-     names like "Read-only Viewer" plus the divider). Reserve 660px for
-     siblings to keep the right cluster from overlapping the bar at
-     mid-width viewports (≤ 1100 px); the icon-mode breakpoint below
-     handles smaller widths by collapsing the search to a 36px hit
-     target. */
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: min(420px, calc(100% - 660px));
-  /* Floor — never shrink below an icon-button footprint so the search
-     stays a usable click target. The placeholder + kbd hint hide via
-     the responsive rules further down. */
-  min-width: 36px;
+  /* In the flow of the bar, between the breadcrumbs and the right-hand
+     cluster (v2.18.3). It used to be absolute-centred with a fixed 660px
+     budget for its siblings, so a right-hand cluster wider than that
+     (a long user name, a `topbar:end` component such as a status menu)
+     slid under the bar: the bell showed inside the search box. In the
+     flow it can never overlap: the bar sits near the centre while both sides fit
+     (see the `[data-search="bar"]` rules below) and narrows when they
+     do not. */
+  flex: 0 1 420px;
+  /* Floor: icon plus a few characters of the placeholder. Below 1025px
+     the bar hides and the right-hand cluster shows the search icon. */
+  min-width: 160px;
   height: 34px;
   background: var(--martis-search-bg);
   border: 1px solid var(--martis-search-border);
@@ -2024,8 +2014,7 @@ html[data-reduced-motion="true"] .mwc-blob {
   overflow: hidden;
   transition: border-color var(--martis-dur-fast) var(--martis-ease-standard),
               color var(--martis-dur-fast) var(--martis-ease-standard),
-              background var(--martis-dur-fast) var(--martis-ease-standard),
-              width var(--martis-dur-fast) var(--martis-ease-standard);
+              background var(--martis-dur-fast) var(--martis-ease-standard);
 }
 
 /* Mid-width topbars (≤1100px) — drop the keyboard hint chip first so
@@ -2038,7 +2027,7 @@ html[data-reduced-motion="true"] .mwc-blob {
 }
 
 /* Default: the right-cluster narrow-mode search icon is hidden when
-   the absolute-centered bar is shown. The bar is the canonical search
+   the search bar is shown. The bar is the canonical search
    trigger at ≥1025 px. Specificity bumped to win over the generic
    `.martis-tb-icon-btn { display: flex }` declaration that ships
    later in this file. */
@@ -2046,9 +2035,8 @@ html[data-reduced-motion="true"] .mwc-blob {
   display: none;
 }
 
-/* Narrow topbars (≤1024px) — hide the absolute-centered bar entirely
-   (it would otherwise collapse to a 36 px icon at the geometric centre
-   of the topbar, where the right cluster's bell visually overlaps it).
+/* Narrow topbars (≤1024px) — hide the search bar entirely (there is
+   no room for it beside the breadcrumbs and the right cluster).
    Show the right-cluster search icon instead. v1.8.8 — the previous
    "shrink to 36 px in place" approach kept the icon at the page
    centre even as the right cluster expanded into the same x-range,
@@ -2112,6 +2100,25 @@ html[data-reduced-motion="true"] .mwc-blob {
   margin-left: auto;
   /* The icons and the user menu keep their room; the breadcrumbs give. */
   flex-shrink: 0;
+}
+
+/* Keep the search bar near the centre while both sides fit: the breadcrumbs and the
+   right-hand cluster grow from the same 160px basis, so they take the
+   room left and right of the bar equally. The cluster never gets less
+   than its content (it does not shrink), so past that point the bar
+   moves left. When the room runs out the search bar narrows (to its
+   160px floor) faster than the breadcrumbs, which truncate. Only while
+   the bar shows; otherwise the breadcrumbs keep all the room. */
+@media (min-width: 1025px) {
+  .martis-tb[data-search="bar"] .martis-tb-breadcrumbs {
+    flex: 1 1 160px;
+  }
+  .martis-tb[data-search="bar"] .martis-tb-right {
+    flex-grow: 1;
+    flex-basis: 160px;
+    min-width: max-content;
+    justify-content: flex-end;
+  }
 }
 
 .martis-tb-icon-btn {

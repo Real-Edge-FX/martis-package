@@ -184,6 +184,18 @@ describe('DashboardPage: filters in the URL', () => {
     expect(screen.getByTestId('hook-filters').textContent).toBe('{"project":"a"}')
   })
 
+  it('opens the filter panel collapsed on a ?filters= link, and keeps it open across edits once opened', async () => {
+    renderAt(withFilters('/', { project: 'a' }))
+    await waitFor(() => expect(chips()).toEqual(['Project:Alpha']))
+    expect(document.querySelector('.martis-filter-grid')).toBeNull()
+
+    fireEvent.click(screen.getByTestId('filter-toggle'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Stage won' }))
+
+    await waitFor(() => expect(urlFilters()).toEqual({ project: 'a', stage: 'won' }))
+    expect(document.querySelector('.martis-filter-grid')).not.toBeNull()
+  })
+
   it('lets a card set a filter: the panel, every card and the URL follow, with one request', async () => {
     renderAt(withFilters('/', { project: 'a' }))
     await waitFor(() => expect(metricRequestFilters()).toEqual([{ project: 'a' }]))

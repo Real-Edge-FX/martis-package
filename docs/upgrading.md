@@ -4,6 +4,10 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.18.3 from v2.18.2
+
+v2.18.3 opens the filter panel collapsed on a `?filters=` link (a `MenuItem::filter()` item), keeps a lens's filter panel open while the user changes the filters, and lays the top bar's search out in the row, so a `topbar:end` component no longer slides under it. Nothing has to change in an app: republish the assets (`php artisan martis:publish-assets`). A browser test that clicked **Filters** to close the panel after following a filter link, or expected the filter controls to be visible on that page, now finds the panel closed. A stylesheet that positioned `.martis-tb-search` itself should check it against the new layout (`flex: 0 1 420px` in the bar's row). A custom top bar (`layout:topbar`) copied from the bundled one keeps the search in the row but loses the centring unless its `<header class="martis-tb">` also carries `data-search="bar"` (the search mode: `bar`, `icon` or `disabled`).
+
 ## Upgrading to v2.18.2 from v2.18.1
 
 v2.18.2 fixes drawers on phones: at 768px or less a drawer is the full viewport (it kept its configured width before, so its left part was off screen), it is never wider than the viewport above that, and the page behind it no longer scrolls while it is open. Nothing has to change in an app: republish the assets (`php artisan martis:publish-assets`). `config('martis.drawer.width')` and `expanded_width` keep sizing drawers on desktop.

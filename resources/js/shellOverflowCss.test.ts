@@ -32,6 +32,21 @@ describe('the top bar', () => {
     expect(declarations('.martis-tb-right')).toContain('flex-shrink: 0;')
   })
 
+  // v2.18.3: the search bar was absolute-centred with a fixed budget for
+  // its siblings, and a wider right-hand cluster (a `topbar:end` component)
+  // slid under it, the bell showing inside the search box.
+  it('keeps the search bar in the flow, centred between the two sides while they fit', () => {
+    const search = declarations('.martis-tb-search')
+    expect(search).not.toContain('position: absolute')
+    expect(search).toContain('flex: 0 1 420px;')
+    const crumbs = declarations('.martis-tb[data-search="bar"] .martis-tb-breadcrumbs')
+    expect(crumbs).toContain('flex: 1 1 160px;')
+    const right = declarations('.martis-tb[data-search="bar"] .martis-tb-right')
+    expect(right).toContain('flex-grow: 1;')
+    expect(right).toContain('flex-basis: 160px;')
+    expect(right).toContain('min-width: max-content;')
+  })
+
   it('truncates the breadcrumbs instead of widening, without clipping a focus ring', () => {
     expect(declarations('.martis-tb-breadcrumbs')).toContain('min-width: 0;')
     expect(declarations('.martis-tb-breadcrumbs')).not.toContain('overflow')

@@ -197,7 +197,12 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
 
 
   return (
-    <header className="martis-tb" data-mobile={onToggleSidebar ? "true" : undefined}>
+    <header
+      className="martis-tb"
+      data-mobile={onToggleSidebar ? "true" : undefined}
+      // Lets the CSS centre the search bar between the two sides.
+      data-search={searchMode}
+    >
       {onToggleSidebar && (
         <button
           type="button"
@@ -262,10 +267,8 @@ export function Topbar({ onToggleSidebar, onToggleCollapse, sidebarCollapsed = f
         {/* Search icon inside the right cluster.
             - searchMode==="icon" shows it always (config picks icon-only).
             - searchMode==="bar" shows it only at narrow viewports (CSS-gated
-              via .martis-tb-search-icon--narrow), so the absolute-centered
-              bar can hide without leaving a stranded search trigger.
-            v1.8.8 \u2014 fixes the overlap where the absolute search collapsed
-            to a 36px icon and visually clipped under the bell. */}
+              via .martis-tb-search-icon--narrow), so the bar can hide at
+              narrow widths without leaving the bar with no search trigger. */}
         {searchMode === "icon" && (
           <button
             type="button"
