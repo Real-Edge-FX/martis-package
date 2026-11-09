@@ -197,7 +197,10 @@ export function ResourceIndexPage() {
           setPerPage(null)
           setSort([])
           setTrashedFilter('')
-          setFiltersOpen(true)
+          // The panel never opens by itself: the applied filters show as
+          // chips next to the "Filters (n)" toggle, and only the user
+          // opens the panel (or a saved view restores one left open).
+          setFiltersOpen(false)
           return
         }
       } catch {

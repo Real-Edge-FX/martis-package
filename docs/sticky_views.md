@@ -29,7 +29,7 @@ A search term or a filter value can be personal data (a customer's name or e-mai
 - **Sign-out clears them all.** The user menu's sign-out drops every `martis:view:*` entry, of every user, from **both** `sessionStorage` and `localStorage`, whichever `scope` is configured, before it leaves for the login page.
 - **A new session purges the rest.** When `/api/auth/user` names a user, every entry that is not theirs is dropped from both storages: the ones another user left (the session expired, the tab was closed, the account switched, an impersonation started) and the keys of the earlier, unscoped format (`martis:view:{uriKey}`). After upgrading to v2.4.0 each user starts without a saved view once.
 
-A `?search=` or `?filters=` in the URL (the command palette's "View all", a `MenuItem::filter()` link) wins over the saved view and pauses the writer, so a deep-link never overwrites it. Without explicit URL state (the sidebar link, the back button, a fresh tab) the saved view is restored.
+A `?search=` or `?filters=` in the URL (the command palette's "View all", a `MenuItem::filter()` link) wins over the saved view and pauses the writer, so a deep-link never overwrites it. Such a link opens the filter panel collapsed, the active filters showing as pills next to the Filters button (v2.18.3; a `?filters=` link opened the panel before); only a restored view reopens a panel the user left open. Without explicit URL state (the sidebar link, the back button, a fresh tab) the saved view is restored.
 
 A restored sort wins over the resource's `defaultSort()`: the default only seeds a view that has no saved sort, so sorting by other columns, opening a record and coming back keeps the columns and directions the user picked.
 

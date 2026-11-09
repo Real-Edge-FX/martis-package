@@ -400,6 +400,7 @@ Here the field label above the control still reads "Project", but the dropdown i
 - Filters combine with **search**, **sort**, **pagination**, and **trashed** controls.
 - Changing a filter resets the page to 1.
 - Active filters are shown as **pill tags** below the filter button, visible even when the panel is closed.
+- **The panel never opens by itself** (v2.18.3). On the resource index, a lens and a dashboard it opens when the user clicks **Filters**; a `?filters=` link (a [`MenuItem::filter()`](menus.md#dashboard-lens--filter-items) item, a shared URL) applies the filters and shows their pills and count with the panel collapsed. On the index a [saved view](sticky_views.md) restores a panel the user left open. Once open, the panel stays open while the user changes the filters (on a lens it used to collapse after each change).
 - Each pill has a **per-filter clear button** (X) to remove individual filters.
 - A global **"Clear all filters"** button removes all active filters at once.
 - Filters are serialized as a JSON object in the `?filters=` query parameter.

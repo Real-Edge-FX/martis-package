@@ -203,6 +203,10 @@ function LensPage() {
   const standaloneActions = filterIndexActions(allActions.filter((a) => a.standalone))
   const hasBulkActions = indexActions.length > 0
 
+  // The filter panel's open state lives here, not in the panel: the panel
+  // is keyed by the URL's filters and starts over on every change, which
+  // collapsed it after each pick. It opens collapsed, like the index.
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
   const [activeAction, setActiveAction] = useState<ActionMeta | null>(null)
   const [actionTargetIds, setActionTargetIds] = useState<(string | number)[]>([])
@@ -376,6 +380,8 @@ function LensPage() {
                 })
               }}
               rightSlot={resetFiltersButton}
+              open={filtersOpen}
+              onOpenChange={setFiltersOpen}
             />
           ) : null
 
