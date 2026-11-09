@@ -4,6 +4,10 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.18.2 from v2.18.1
+
+v2.18.2 fixes drawers on phones: at 768px or less a drawer is the full viewport (it kept its configured width before, so its left part was off screen), it is never wider than the viewport above that, and the page behind it no longer scrolls while it is open. Nothing has to change in an app: republish the assets (`php artisan martis:publish-assets`). `config('martis.drawer.width')` and `expanded_width` keep sizing drawers on desktop.
+
 ## Upgrading to v2.18.1 from v2.18.0
 
 v2.18.1 ships the new Martis logo in the bundled sign-in logo, the default menu icon and the README. Nothing has to change in an app: republish the assets (`php artisan martis:publish-assets`). An app with its own logo (`brand.logo`, `MARTIS_BRAND_LOGO`) keeps it.

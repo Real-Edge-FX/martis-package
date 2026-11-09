@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.18.2] — 2026-11-09
+
+Patch release from a consumer report: drawers on phones. Nothing changes on desktop; republish the assets (`php artisan martis:publish-assets`). Read [Upgrading to v2.18.2](docs/upgrading.md#upgrading-to-v2182-from-v2181).
+
+### Fixed
+
+- **A drawer was wider than a phone.** `DrawerShell` locked the panel to its configured width (`config('martis.drawer.width')`, 720px by default) with `min-width` and `flex-basis`, which beat its `max-width: 100vw`, so on a 390px screen the left part of every drawer (title, labels, the start of each line) was off screen. At 768px or less (the layout's mobile breakpoint) a drawer is now the full viewport and hides the expand and fullscreen buttons; above that its width is `min(<configured>, 100vw)`. The panel is `100dvh` tall, so the iOS address bar no longer hides the footer. Applies to every drawer: create, update, detail, quick and action drawers.
+- **The page scrolled behind an open drawer.** On iOS Safari a swipe scrolled the page under the backdrop instead of the drawer body. While a drawer is open the document is now pinned (`position: fixed` at the saved offset, since `overflow: hidden` alone does not stop iOS) and restored at the same scroll position on close; the drawer body contains its own overscroll and the backdrop ignores touch scrolling. The lock is reference-counted, so a drawer opened from a drawer holds one lock with it, and the mobile sidebar now uses the same lock instead of writing `body.style.overflow`.
+
 ## [2.18.1] — 2026-11-07
 
 Patch release: the new Martis logo. Nothing changes in an app; republish the assets (`php artisan martis:publish-assets`) to see it.

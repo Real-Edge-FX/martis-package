@@ -421,6 +421,8 @@ All three factories return a `DrawerOverride` instance, so every chainable metho
 | `showIcon()` | `showIcon(bool\|string $value = true)` | Show an icon in the header. Pass a Phosphor icon name to use a specific icon. |
 | `iconColor()` | `iconColor(string $color)` | Set the header icon color (any CSS color value). |
 
+**On a phone (v2.18.2).** `width()` and `expandedWidth()` are desktop sizes: a drawer is never wider than the viewport, and at 768px or less (the layout's mobile breakpoint) it takes the whole screen and drops the expand and fullscreen buttons, so nothing is cut off on the left. While any drawer is open the page behind it does not scroll, and closing the drawer brings the page back at the same scroll position; nested drawers share one lock. Before v2.18.2 a `720px` drawer kept its width on a 390px screen and the page scrolled under it.
+
 
 ## 4. Server-Side Hooks
 

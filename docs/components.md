@@ -502,7 +502,10 @@ Reusable container for all drawer overrides.
 - Close button + ESC key
 - Backdrop click to close
 - Portal renders to `document.body`
-- Configurable width (default: 520px)
+- Configurable width (default: `720px`, from `config('martis.drawer.width')`), never wider than the viewport (`min(<width>, 100vw)`)
+- At phone width (768px or less, the layout's mobile breakpoint) the drawer is the full viewport and the expand and fullscreen buttons are hidden (v2.18.2)
+- While a drawer is open the page behind it does not scroll: the document is pinned (on iOS Safari too) and restored at the same scroll position on close; a drawer opened from a drawer shares one lock (v2.18.2)
+- The body is the only vertical scroller (`overscroll-behavior: contain`); the header and footer stay pinned, and the panel is `100dvh` tall so the iOS address bar does not hide the footer (v2.18.2)
 
 ### DrawerCreate
 

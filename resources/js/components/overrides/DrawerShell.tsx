@@ -5,6 +5,8 @@ import { ResourceIcon } from '@/components/ResourceIcon'
 import { clearDrawerBackPending, consumeSuppressFlag, getModalLockCount, isDrawerBackPending, markDrawerBackPending, sentinelState } from '@/lib/historyLock'
 import { hasOpenLayer } from '@/lib/escapeLayers'
 import { config } from '@/lib/config'
+import { useScrollLock } from '@/lib/scrollLock'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 export interface DrawerShellProps {
   /** Title displayed in the header. */
@@ -74,11 +76,19 @@ export function DrawerShell({
   // both buttons off so an app that locks the drawer to a single width
   // doesn't need to audit every `DrawerOverride` caller.
   const expandableGate = config.drawer?.expandable !== false
-  const canExpand = allowExpand && expandableGate
-  const canFullscreen = allowFullscreen && expandableGate
+  // At phone width (the layout's mobile breakpoint, 768px) the drawer is
+  // the whole viewport, so expand / fullscreen have nothing left to do.
+  const isMobile = useIsMobile()
+  const canExpand = allowExpand && expandableGate && !isMobile
+  const canFullscreen = allowFullscreen && expandableGate && !isMobile
   const { t: tMsg } = useTranslation('messages')
   const [visible, setVisible] = useState(false)
   const [state, setState] = useState<DrawerState>('normal')
+
+  // The page behind a drawer must not scroll (iOS Safari scrolls it under
+  // the backdrop otherwise). The lock is reference-counted, so a drawer
+  // opened from a drawer shares one lock with it.
+  useScrollLock()
 
   // Animate in on mount
   useEffect(() => {
@@ -288,8 +298,11 @@ export function DrawerShell({
     setState((s) => (s === 'fullscreen' ? 'normal' : 'fullscreen'))
   }
 
-  // Resolve current width
-  const currentWidth = state === 'fullscreen' ? '100vw' : state === 'expanded' ? expandedWidth : width
+  // Resolve current width. A configured width never exceeds the viewport
+  // (min() keeps a 720px drawer inside a 390px screen), and at phone width
+  // the drawer always takes the whole viewport.
+  const resolvedWidth = state === 'fullscreen' ? '100vw' : state === 'expanded' ? expandedWidth : width
+  const currentWidth = isMobile || resolvedWidth === '100vw' ? '100vw' : `min(${resolvedWidth}, 100vw)`
 
   // Slide direction
   const isRight = position === 'right'
@@ -297,11 +310,11 @@ export function DrawerShell({
   const translateVisible = 'translateX(0)'
 
   const content = (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50 }} className={isRight ? 'flex justify-end' : 'flex justify-start'}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50 }} className={`martis-drawer-overlay ${isRight ? 'flex justify-end' : 'flex justify-start'}`}>
       {/* Backdrop */}
       {backdrop && (
         <div
-          className="absolute inset-0 transition-opacity duration-200"
+          className="martis-drawer-backdrop absolute inset-0 transition-opacity duration-200"
           style={{
             backgroundColor: visible ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0)',
           }}
@@ -314,7 +327,7 @@ export function DrawerShell({
           regardless of inner content (Trix, Tabs, etc.) or scrollbar
           behaviour that could otherwise let flex-shrink trim the panel. */}
       <div
-        className="martis-drawer-shell relative flex h-full flex-col transition-all duration-200 ease-out"
+        className="martis-drawer-shell relative flex flex-col transition-all duration-200 ease-out"
         style={{
           width: currentWidth,
           minWidth: currentWidth,
@@ -403,7 +416,7 @@ export function DrawerShell({
         </div>
 
         {/* Body — scrollable */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="martis-drawer-body flex-1 overflow-y-auto">
           {children}
         </div>
 

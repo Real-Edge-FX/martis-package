@@ -1374,6 +1374,8 @@ The shorter names (`MARTIS_CACHE_DASHBOARDS`, etc.) and the explicit `_TTL` vari
 
 When on, the drawer that opens record detail can be expanded into a full overlay. Set to `false` to lock the drawer to its standard width.
 
+`width` (default `720px`) and `expanded_width` (default `960px`) size every drawer on desktop. A drawer is never wider than the viewport, and at 768px or less it takes the whole screen (v2.18.2), whatever these values say; see [Overrides → Drawer overrides](overrides.md).
+
 ## Sticky views
 
 ```php
