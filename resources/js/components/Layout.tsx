@@ -18,6 +18,7 @@ import { TopnavLayout } from "@/components/layouts/TopnavLayout"
 import { MinimalLayout } from "@/components/layouts/MinimalLayout"
 import { TableSkeleton } from "@/components/LoadingSkeleton"
 import { useIsMobile } from "@/hooks/useIsMobile"
+import { useScrollLock } from "@/lib/scrollLock"
 import { useState, useEffect } from "react"
 import type { ComponentProps, ComponentType } from "react"
 
@@ -69,16 +70,9 @@ function SidebarLayout() {
     }
   }, [isMobile, collapsed])
 
-  useEffect(() => {
-    if (isMobile && mobileSidebarOpen) {
-      document.body.style.overflow = "hidden"
-    } else {
-      document.body.style.overflow = ""
-    }
-    return () => {
-      document.body.style.overflow = ""
-    }
-  }, [isMobile, mobileSidebarOpen])
+  // Shared, reference-counted lock: a drawer opened while the sidebar is
+  // open keeps the page pinned until both are closed.
+  useScrollLock(isMobile && mobileSidebarOpen)
 
   const sidebar = (
     <SidebarComponent

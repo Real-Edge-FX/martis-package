@@ -9641,6 +9641,28 @@ html[data-density="dense"] .martis-section-grid {
 .martis-drawer-shell {
   background-color: var(--martis-card);
   box-shadow: var(--martis-shadow-lg);
+  /* dvh follows the iOS address bar, so the footer stays on screen;
+     vh is the fallback for engines without dynamic viewport units. */
+  height: 100vh;
+  height: 100dvh;
+  max-width: 100vw;
+}
+/* The overlay matches the dynamic viewport too, so the panel and the
+   backdrop end where the visible screen ends. */
+.martis-drawer-overlay {
+  height: 100vh;
+  height: 100dvh;
+  overscroll-behavior: contain;
+}
+/* A swipe on the backdrop must not reach the page behind it. */
+.martis-drawer-backdrop {
+  touch-action: none;
+}
+/* The body is the drawer's only vertical scroller: at either end of it a
+   swipe stops there instead of chaining to the page. */
+.martis-drawer-body {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .martis-drawer-head {
   display: flex;
