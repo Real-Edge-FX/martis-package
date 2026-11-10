@@ -527,8 +527,9 @@ class Image extends File
             'image/png' => imagepng($thumb),
             'image/gif' => imagegif($thumb),
             'image/webp' => imagewebp($thumb, null, 85),
-            'image/bmp', 'image/x-bmp' => imagebmp($thumb),
-            default => imagejpeg($thumb, null, 85),
+            // Only the BMP types are left: the source match above returns
+            // early for every other MIME type.
+            default => imagebmp($thumb),
         };
         $content = ob_get_clean();
 
