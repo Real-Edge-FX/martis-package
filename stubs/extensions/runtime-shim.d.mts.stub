@@ -137,6 +137,54 @@ interface FilterDefinition {
     meta: Record<string, unknown>;
 }
 type ActiveFilters = Record<string, unknown>;
+interface DashboardDefinition {
+    type: 'dashboard';
+    name: string;
+    /**
+     * Optional breadcrumb override. When non-null, the panel shell uses
+     * this label for the deepest crumb instead of `name`. Set on the
+     * PHP side via `Dashboard::withBreadcrumb(...)` (v1.10.3+).
+     */
+    breadcrumb: string | null;
+    uriKey: string;
+    /**
+     * `uriKey` of the parent dashboard, or `null` for a root dashboard.
+     * Roots appear under the sidebar's DASHBOARDS section; non-roots are
+     * hidden from the sidebar and surface as a tab strip inside their
+     * parent's page. Set on the PHP side via `Dashboard::under(...)`
+     * (v1.10.5+).
+     */
+    parent: string | null;
+    /**
+     * Optional Phosphor icon name for the sidebar entry. When non-null,
+     * the auto-built DASHBOARDS section renders the icon in place of the
+     * default `<SquaresFourIcon>`. Set on the PHP side via
+     * `Dashboard::withIcon('chart-line-up')` (v1.11.4+). Names match
+     * the `iconRegistry` keys.
+     */
+    icon: string | null;
+    component: string | null;
+    /** Layout type: 'cards' (default metric grid) or 'default' (built-in summary view). */
+    layout?: 'cards' | 'default';
+    showRefreshButton: boolean;
+    /**
+     * Optional decorative pill rendered next to the sidebar entry. Set
+     * on the PHP side via `Dashboard::withBadge('Pro', 'accent')`
+     * (v1.11+). Tones: `neutral|info|success|warning|danger|accent`.
+     */
+    badge: {
+        text: string;
+        tone: string;
+    } | null;
+    /**
+     * Soft-gate state for the active user. Non-null when the dashboard
+     * is locked (`Dashboard::lockedFor(...)` predicate returned true);
+     * the SPA renders a lock icon and intercepts the click to show the
+     * `modal` payload instead of navigating. v1.11+.
+     */
+    lock: GateLock | null;
+    meta: Record<string, unknown>;
+}
 /**
  * Soft-gate payload — emitted by every menu entity (Dashboard, Tool,
  * Resource, Card, Lens, Filter) and consumed by `<GateModal>`.
@@ -1858,6 +1906,13 @@ interface MartisConfigShape {
     userMenu?: MartisUserMenuConfig;
     search?: MartisSearchConfig;
     dashboard?: MartisDashboardConfig;
+    /**
+     * The registered dashboards this user may see, as `GET /api/dashboards`
+     * answers them, embedded by the shell so the first render knows the
+     * current dashboard's name (v2.19.0). Null on the pages served before
+     * sign-in. Read through `useDashboardsQuery()` (lib/dashboards.ts).
+     */
+    dashboards?: DashboardDefinition[] | null;
     toast?: MartisToastConfig;
     footer?: MartisFooterConfig;
     welcome?: MartisWelcomeConfig;
@@ -5621,19 +5676,38 @@ declare const routeRegistry: RouteRegistry;
  * Call this from every top-level page/layout so the tab title tracks the
  * current view across client-side navigation — the server-side title set
  * by the blade template only fires on full page loads.
+ *
+ * Pass `{ pending: true }` while the segment is still loading (v2.19.0):
+ * the title is left as it is (the server's title on a full load, the
+ * previous page's after a client-side navigation) instead of flashing the
+ * generic default.
  */
-declare function usePageTitle(segment: string | null | undefined): void;
+declare function usePageTitle(segment: string | null | undefined, options?: {
+    pending?: boolean;
+}): void;
 
+interface DynamicCrumbOptions {
+    /**
+     * The label is not known yet (its data is still loading). The deepest
+     * crumb then shows an empty placeholder instead of the route's static
+     * label, which would name the wrong thing, e.g. "Dashboard" for a
+     * dashboard called "Team" (v2.19.0).
+     */
+    pending?: boolean;
+}
 /**
  * Write-side: pages call this with their resolved title so the breadcrumb
  * updates in lock-step with the page heading. Pass `null` to fall back to
- * the static i18n key from the route handle.
+ * the static i18n key from the route handle, or `{ pending: true }` while
+ * the label is still loading to show a neutral placeholder instead.
  *
- * The hook resets to `null` on unmount, so navigating away from a tool that
- * had set a dynamic label doesn't leak that label into the next page's
- * breadcrumb.
+ * Published in a layout effect, so a label known on the first render is in
+ * the breadcrumb on the first paint.
+ *
+ * The hook resets on unmount, so navigating away from a tool that had set
+ * a dynamic label doesn't leak that label into the next page's breadcrumb.
  */
-declare function useDynamicCrumb(label: string | null | undefined): void;
+declare function useDynamicCrumb(label: string | null | undefined, options?: DynamicCrumbOptions): void;
 
 /** What an emailed one-time link carries in its fragment. */
 interface AuthLinkParams {

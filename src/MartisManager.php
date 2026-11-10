@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use InvalidArgumentException;
 use Martis\Contracts\DashboardContract;
 use Martis\Contracts\ToolContract;
+use Martis\Dashboards\DashboardList;
 use Martis\Menu\Menu;
 use Martis\Menu\MenuGroup;
 use Martis\Menu\MenuItem;
@@ -387,8 +388,15 @@ class MartisManager
             $remainder = $path;
         }
 
-        if ($remainder === '' || $remainder === 'login') {
+        if ($remainder === 'login') {
             return null;
+        }
+
+        // `/` renders the first dashboard this user may see (v2.19.0).
+        if ($remainder === '') {
+            $name = $this->dashboardNameFor($request, null);
+
+            return $name === null ? null : "{$name} · {$brand}";
         }
 
         // Profile page.
@@ -445,9 +453,42 @@ class MartisManager
             return "{$singular} · {$brand}";
         }
 
-        // /dashboards/{key}
+        // /dashboards/{key}: the dashboard's own name (v2.19.0). The address
+        // was title-cased before, which named "support-team" "Support team"
+        // when the dashboard is called "Team"; a key this user cannot see
+        // gets the default title, as the SPA's 404 page does.
         if (preg_match('#^dashboards/([^/]+)$#', $remainder, $matches) === 1) {
-            return ucfirst(str_replace('-', ' ', $matches[1]))." · {$brand}";
+            $name = $this->dashboardNameFor($request, $matches[1]);
+
+            return $name === null ? null : "{$name} · {$brand}";
+        }
+
+        return null;
+    }
+
+    /**
+     * The name of the dashboard `$uriKey` names among those the signed-in
+     * user may see, or of the first of them when `$uriKey` is null. Null
+     * where the shell carries no list, for an unknown key, or when resolving
+     * the dashboards fails: a title is never worth an error page.
+     */
+    protected function dashboardNameFor(Request $request, ?string $uriKey): ?string
+    {
+        try {
+            // The shell's list: null for a page the API would refuse it to
+            // (before sign-in, the 2FA challenge, the 403 page), and built
+            // once per request with the boot payload.
+            $list = app(DashboardList::class)->forShell($request) ?? [];
+        } catch (Throwable) {
+            return null;
+        }
+
+        foreach ($list as $dashboard) {
+            if ($uriKey === null || ($dashboard['uriKey'] ?? null) === $uriKey) {
+                $name = $dashboard['name'] ?? null;
+
+                return is_string($name) && $name !== '' ? $name : null;
+            }
         }
 
         return null;

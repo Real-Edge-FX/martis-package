@@ -11,11 +11,18 @@ import { config } from '@/lib/config'
  * Call this from every top-level page/layout so the tab title tracks the
  * current view across client-side navigation — the server-side title set
  * by the blade template only fires on full page loads.
+ *
+ * Pass `{ pending: true }` while the segment is still loading (v2.19.0):
+ * the title is left as it is (the server's title on a full load, the
+ * previous page's after a client-side navigation) instead of flashing the
+ * generic default.
  */
-export function usePageTitle(segment: string | null | undefined): void {
+export function usePageTitle(segment: string | null | undefined, options: { pending?: boolean } = {}): void {
   const { t } = useTranslation('navigation')
+  const pending = options.pending === true && !(segment && segment.trim() !== '')
 
   useEffect(() => {
+    if (pending) return
     const brand = (config.brand ?? 'Martis').toString()
     const previous = document.title
 
@@ -31,5 +38,5 @@ export function usePageTitle(segment: string | null | undefined): void {
       // in the tab bar after they close.
       document.title = previous
     }
-  }, [segment, t])
+  }, [segment, pending, t])
 }

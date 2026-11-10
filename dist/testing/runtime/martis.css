@@ -4455,6 +4455,15 @@ html[data-reduced-motion="true"] .mwc-blob {
   justify-content: center;
   padding: 0;
 }
+/* A DASHBOARDS row while the list loads (v2.19.0): the height of a real
+   entry, so the group does not jump when the names arrive. */
+.martis-sb-item-pending {
+  cursor: default;
+  pointer-events: none;
+}
+.martis-sb-item-pending .martis-skeleton {
+  flex-shrink: 0;
+}
 .martis-sb[data-collapsed="true"] .martis-sb-footer {
   justify-content: center;
   padding: 10px 0;
@@ -4577,6 +4586,15 @@ html[data-reduced-motion="true"] .mwc-blob {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* The deepest crumb while its label loads (v2.19.0): a fixed-width blank,
+   never the route's generic name. Same line box as a label, so the trail
+   does not jump when the name arrives. */
+.martis-breadcrumb-pending {
+  display: inline-block;
+  width: 6rem;
+  height: 1em;
+  vertical-align: middle;
 }
 
 .martis-tb-search {
