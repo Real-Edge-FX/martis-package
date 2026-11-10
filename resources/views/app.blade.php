@@ -116,6 +116,11 @@
             basePath: "/{{ $basePath }}",
             panelForbidden: {{ ($panelForbidden ?? false) ? 'true' : 'false' }},
             panelForbiddenImpersonating: {{ ($panelForbiddenImpersonating ?? false) ? 'true' : 'false' }},
+            {{-- v2.19.0: the dashboards this user may see, as GET /api/dashboards
+                 answers them, encoded by DashboardController (hex flags keep a
+                 name holding "</script>" inside the string). Null on the pages
+                 served before sign-in, the 2FA challenge and the 403 page. --}}
+            dashboards: {!! $bootDashboardsJson ?? 'null' !!},
             locale: "{{ $prefsPayload['locale'] ?? config('martis.locale', config('app.locale', 'en')) }}",
             preferences: {!! json_encode($prefsConfig) !!},
             brand: "{{ config('martis.brand.name', 'Martis') }}",

@@ -301,6 +301,21 @@ public function breadcrumb(): ?string
 
 Return `null` to fall back to `name()`.
 
+## First paint (v2.19.0)
+
+The panel shell embeds the list of dashboards the signed-in user may see in its boot payload (`window.MartisConfig.dashboards`, the same list `GET /api/dashboards` answers, with each dashboard's live lock state). It is left out (null) wherever the API would refuse the list: before sign-in, on the 2FA challenge page and on the "no access" page of a user `viewMartis` refuses. A dashboard opened by a full page load (a bookmark, a reload, a link from an email) therefore shows its own name in the breadcrumb, the tab title, the sidebar's `DASHBOARDS` group and the tab strip on the first render, without waiting for a request. The server-rendered `<title>` names it too (`Team · Acme`).
+
+When the list is not known yet (the shell could not resolve it, so the SPA requests it), nothing names the wrong dashboard in the meantime:
+
+- the deepest crumb is an empty, fixed-width placeholder, never "Dashboard";
+- the tab title stays as it was (the server's title, or the previous page's);
+- the sidebar's `DASHBOARDS` group shows a placeholder row the height of an entry;
+- the cards are skeletons in the shape the dashboard's cards had on its last load in this browser (their grid spans only, kept in `localStorage` under `martis-dashboard-layouts` and cleared when the user signs out; a session that expires leaves them, since they hold no names or values), or three generic cards the first time.
+
+The "Dashboard" sidebar entry and crumb of an install with no dashboards appear once the list is known to be empty. A cards dashboard and its tab strip no longer wait for `GET /api/navigation`; only the built-in summary view (`layout: 'default'`, or an install without dashboards) does.
+
+Before v2.19.0 the SPA requested the list after it booted, and until it answered the breadcrumb and the sidebar read "Dashboard", the tab title fell back to the generic default, and the cards were three skeletons whatever the dashboard held.
+
 ## Sidebar icon (v1.11.4+)
 
 The auto-built `DASHBOARDS` section renders a `<SquaresFourIcon>` next to every entry by default. Use `withIcon(string)` to swap in any Phosphor icon registered in the iconRegistry (`chart-line-up`, `rocket-launch`, `gear-six`, …):
@@ -380,6 +395,8 @@ When **no** dashboards are registered at all, the same default view renders as a
 ```
 GET /api/dashboards
 ```
+
+The panel shell embeds the same list in its boot payload (`window.MartisConfig.dashboards`, v2.19.0); see [First paint](#first-paint-v2190).
 
 ### Get dashboard with cards and filters
 

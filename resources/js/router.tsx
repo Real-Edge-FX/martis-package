@@ -133,7 +133,9 @@ export function buildAppRoutes(registered: readonly RegisteredRoute[]): RouteObj
         {
           index: true,
           element: <DashboardPage />,
-          handle: { crumb: 'dashboard' },
+          // The dashboard's name replaces the key; until the list of
+          // dashboards is known the crumb is a placeholder (v2.19.0).
+          handle: { crumb: 'dashboard', crumbPending: true },
         },
         {
           // Direct deep-link to a registered Dashboard by its uriKey.
@@ -143,7 +145,9 @@ export function buildAppRoutes(registered: readonly RegisteredRoute[]): RouteObj
           // omitting the segment falls back to the index route above.
           path: 'dashboards/:uriKey',
           element: <DashboardPage />,
-          handle: { crumb: 'dashboard' },
+          // The dashboard's name replaces the key; until the list of
+          // dashboards is known the crumb is a placeholder (v2.19.0).
+          handle: { crumb: 'dashboard', crumbPending: true },
         },
         {
           path: 'profile',

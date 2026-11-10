@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { recallDashboardLayout, rememberDashboardLayout, useDashboardsQuery } from '@/lib/dashboards'
 import { apiPath, routePath } from '@/lib/apiPath'
 import { config } from '@/lib/config'
 import { getNavigationResourceItems } from '@/lib/navigation'
@@ -49,11 +50,10 @@ export function DashboardPage() {
     staleTime: 1000 * 60,
   })
 
-  // Fetch registered dashboards
-  const dashboardsQuery = useQuery({
-    queryKey: ['dashboards'],
-    queryFn: () => api.get<{ data: { dashboards: DashboardDefinition[] } }>('/api/dashboards'),
-  })
+  // Registered dashboards: seeded from the boot payload (v2.19.0), so on a
+  // full page load the list is known on the first render; the query's
+  // staleTime refreshes it in the background once the seed is that old.
+  const dashboardsQuery = useDashboardsQuery()
 
   const dashboards = dashboardsQuery.data?.data?.dashboards ?? []
   const hasDashboards = dashboards.length > 0
@@ -75,6 +75,21 @@ export function DashboardPage() {
   // at `/dashboards/{uriKey}`, so nested dashboards could not be reached
   // by click; the tabs are now links (see DashboardView).
   const currentDashboardKey = routeUriKey ?? dashboards[0]?.uriKey ?? null
+  const currentDashboard = dashboards.find((d) => d.uriKey === currentDashboardKey) ?? null
+
+  // The tab title and the deepest crumb name the current dashboard. Until
+  // the list is known (a load without the boot payload) neither names
+  // anything: the title stays as it was and the crumb is a blank, never the
+  // generic "Dashboard" (v2.19.0). `breadcrumb` overrides the name in the
+  // crumb (`Dashboard::withBreadcrumb()`, v1.10.3). Once the list answered,
+  // an install with no dashboards falls back to the route's static key.
+  const listPending = dashboardsQuery.isPending
+  // The navigation tree only feeds the built-in summary view (an install
+  // without dashboards, or a dashboard with the `default` layout); a cards
+  // dashboard and its tab strip do not wait for it (v2.19.0).
+  const needsNavigation = !hasDashboards || currentDashboard?.layout === 'default'
+  usePageTitle(currentDashboard?.name ?? null, { pending: listPending })
+  useDynamicCrumb(currentDashboard?.breadcrumb ?? currentDashboard?.name, { pending: listPending })
 
   const name = user?.name ?? user?.email ?? ''
   const showGreeting = config.dashboard?.showGreeting !== false
@@ -97,10 +112,8 @@ export function DashboardPage() {
         </div>
       )}
 
-      {navLoading || dashboardsQuery.isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => <CardSkeleton key={i} />)}
-        </div>
+      {listPending || (navLoading && needsNavigation) ? (
+        <DashboardCardsSkeleton uriKey={currentDashboardKey} />
       ) : !routeUriKeyIsKnown ? (
         // Deep-link to an unregistered dashboard — render the standard
         // 404 surface instead of an empty grid masquerading as a real
@@ -120,6 +133,32 @@ export function DashboardPage() {
       ) : (
         <DefaultDashboardView groups={groups} />
       )}
+    </div>
+  )
+}
+
+/**
+ * The loading state of a dashboard's cards: skeletons in the shape its
+ * cards had on the last load in this browser (their grid spans), or three
+ * generic cards when there was none (v2.19.0), so a dashboard with a hero
+ * and four tiles does not flash a three-card layout.
+ */
+export function DashboardCardsSkeleton({ uriKey }: { uriKey: string | null }) {
+  const remembered = recallDashboardLayout(uriKey)
+  if (remembered === null) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="dashboard-skeleton" data-layout="generic">
+        {[1, 2, 3].map((i) => <CardSkeleton key={i} />)}
+      </div>
+    )
+  }
+  return (
+    <div className="martis-dashboard-grid" data-testid="dashboard-skeleton" data-layout="remembered">
+      {remembered.map((span, i) => (
+        <div key={i} style={cardGridSpanStyle(span)}>
+          <CardSkeleton />
+        </div>
+      ))}
     </div>
   )
 }
@@ -173,14 +212,6 @@ function DashboardView({
           (d) => d.uriKey === groupRootKey || d.parent === groupRootKey,
         )
 
-  usePageTitle(currentDashboard?.name ?? null)
-  // v1.10.3+: dashboards can override the breadcrumb label independently
-  // from `name` via `Dashboard::withBreadcrumb(...)`. Falls back to
-  // `name` when the descriptor has no override, then to the static
-  // i18n key (`navigation.dashboard`) declared in the route handle
-  // while the dashboards query is still loading.
-  useDynamicCrumb(currentDashboard?.breadcrumb ?? currentDashboard?.name)
-
   // Fetch dashboard data (cards + filters) — skip for default layout (no cards).
   // v1.11.0+: the route can also answer with `{ locked: true, lock, dashboard }`
   // when the soft-gate predicate locks the user out. Discriminated union
@@ -202,6 +233,13 @@ function DashboardView({
   const cards = dashboardData?.cards ?? []
   const filters = useMemo(() => dashboardData?.filters ?? [], [dashboardData])
   const showRefresh = dashboardData?.dashboard?.showRefreshButton ?? false
+
+  // The shape of this dashboard's cards, for the skeleton of its next load.
+  useEffect(() => {
+    if (currentKey !== null && dashboardData !== undefined) {
+      rememberDashboardLayout(currentKey, dashboardData.cards ?? [])
+    }
+  }, [currentKey, dashboardData])
 
   // v2.9.0: the active filters live in the URL (`?filters=`), so a filtered
   // dashboard survives a reload, can be bookmarked or shared, Back and
@@ -353,9 +391,7 @@ function DashboardView({
                 `widthLg` cascade), reading the custom properties each item
                 carries via `cardGridSpanStyle()`. */}
             {dashboardQuery.isLoading ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {[1, 2, 3].map((i) => <CardSkeleton key={i} />)}
-              </div>
+              <DashboardCardsSkeleton uriKey={currentKey} />
             ) : cards.length > 0 ? (
               <div className="martis-dashboard-grid">
                 {cards.map((card) => {

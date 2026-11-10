@@ -4,6 +4,15 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.19.0 from v2.18.x
+
+v2.19.0 names a dashboard from the first paint: the shell embeds the list of dashboards the user may see in its boot payload (`window.MartisConfig.dashboards`), so a reload or a bookmark no longer shows "Dashboard" in the breadcrumb and the sidebar, the generic tab title, or three skeleton cards until `GET /api/dashboards` answers. Republish the assets (`php artisan martis:publish-assets`). Nothing has to change in an app; check these if they apply:
+
+- **The server-rendered `<title>` of a dashboard is its `name()`.** `/dashboards/support-team` read `Support team · Acme` (the address, title-cased) and `/` read the generic default; they now read the dashboard's name, and a dashboard the user cannot see gets the default. A `brand.page_title` or `Martis::pageTitleUsing()` still wins.
+- **Every panel page a signed-in user may open resolves the dashboards** (their `authorizedToSee()` and lock predicates, once per request) to fill the boot payload, as `GET /api/dashboards` does. The pages served before sign-in, the 2FA challenge and the "no access" (403) page carry no list. A dashboard whose `authorizedToSee()` throws, or whose `meta()` cannot be encoded as JSON, no longer breaks the page: the error is reported and the SPA requests the list itself.
+- **`usePageTitle()` and `useDynamicCrumb()` take `{ pending: true }`** while their label loads: the title stays as it is and the crumb is a blank instead of the route's generic label. Pages that do not pass it behave as before. Refresh the extension shims to get the option in the types (`php artisan vendor:publish --tag=martis-extension-shims --force`).
+- **A test that expected "Dashboard" in the breadcrumb or the sidebar while `/api/dashboards` was pending** now finds a placeholder (`.martis-breadcrumb-pending`, `.martis-sb-item-pending`).
+
 ## Upgrading to v2.18.3 from v2.18.2
 
 v2.18.3 opens the filter panel collapsed on a `?filters=` link (a `MenuItem::filter()` item), keeps a lens's filter panel open while the user changes the filters, and lays the top bar's search out in the row, so a `topbar:end` component no longer slides under it. Nothing has to change in an app: republish the assets (`php artisan martis:publish-assets`). A browser test that clicked **Filters** to close the panel after following a filter link, or expected the filter controls to be visible on that page, now finds the panel closed. A stylesheet that positioned `.martis-tb-search` itself should check it against the new layout (`flex: 0 1 420px` in the bar's row). A custom top bar (`layout:topbar`) copied from the bundled one keeps the search in the row but loses the centring unless its `<header class="martis-tb">` also carries `data-search="bar"` (the search mode: `bar`, `icon` or `disabled`).

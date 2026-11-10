@@ -50,4 +50,39 @@ describe('Breadcrumbs', () => {
     expect(await screen.findByText('F-0192')).toBeTruthy()
     expect(screen.getByRole('navigation', { name: 'Breadcrumbs' }).textContent).not.toContain('Findings')
   })
+
+  it('shows a blank instead of the static label while the page says its label is pending', async () => {
+    function LoadingPage() {
+      useDynamicCrumb(null, { pending: true })
+      return <p>page</p>
+    }
+    renderTrail([{ path: 'findings/:id', element: <LoadingPage />, handle: { crumbLabel: 'Findings' } }], '/findings/1')
+
+    const trail = await screen.findByRole('navigation', { name: 'Breadcrumbs' })
+    expect(trail.querySelector('.martis-breadcrumb-pending')).not.toBeNull()
+    expect(trail.textContent).not.toContain('Findings')
+  })
+
+  it('keeps a crumbPending route blank while its page has published nothing', async () => {
+    function SilentPage() {
+      return <p>page</p>
+    }
+    renderTrail([{ path: 'silent', element: <SilentPage />, handle: { crumb: 'dashboard', crumbPending: true } }], '/silent')
+
+    const trail = await screen.findByRole('navigation', { name: 'Breadcrumbs' })
+    expect(trail.querySelector('.martis-breadcrumb-pending')).not.toBeNull()
+    expect(trail.textContent).not.toContain('Dashboard')
+  })
+
+  it('uses the static key of a crumbPending route once its page settled without a label', async () => {
+    function SettledPage() {
+      useDynamicCrumb(null)
+      return <p>page</p>
+    }
+    renderTrail([{ path: 'settled', element: <SettledPage />, handle: { crumb: 'dashboard', crumbPending: true } }], '/settled')
+
+    const trail = await screen.findByRole('navigation', { name: 'Breadcrumbs' })
+    expect(trail.textContent).toContain('Dashboard')
+    expect(trail.querySelector('.martis-breadcrumb-pending')).toBeNull()
+  })
 })

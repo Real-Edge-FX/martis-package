@@ -9,6 +9,7 @@ use Martis\Cache\MartisCache;
 use Martis\Contracts\DashboardContract;
 use Martis\Contracts\FilterContract;
 use Martis\Contracts\MetricContract;
+use Martis\Dashboards\DashboardList;
 use Martis\Filters\Filter;
 use Martis\Filters\FilterValue;
 use Martis\Gates\SoftGate;
@@ -36,60 +37,9 @@ class MetricController
 
     public function dashboards(Request $request): IlluminateJsonResponse
     {
-        // Resolve dashboards outside the cache so we can evaluate the lock
-        // predicate on every request — lock state must NOT be frozen in the
-        // cached payload, otherwise a plan downgrade/upgrade is invisible
-        // until the TTL expires (the same reason show() bypasses the cache
-        // for the lock check; see lines 63-79).
-        $manager = app(MartisManager::class);
-        $instances = $manager->resolveDashboards($request);
-
-        // Cache the structural shape (name, uriKey, layout, badge, icon, …)
-        // with the lock field stripped. Lock is re-injected below from the
-        // live predicate evaluation.
-        //
-        // The key carries a fingerprint of the set resolved for this user
-        // (class + uriKey of every dashboard authorizedToSee let through),
-        // so the entry can never outlive its own authorization snapshot: a
-        // dashboard registered after the list was cached, one removed, or a
-        // user whose state changes what authorizedToSee() answers all land
-        // on a fresh key immediately. The finite layer TTL bounds the
-        // orphaned entries and lets the cached shape itself converge.
-        $cache = app(MartisCache::class);
-        $userKey = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
-        // The lock state of each dashboard is part of it: a locked dashboard's
-        // `meta` is left out of the payload, so a plan change lands at once.
-        $fingerprint = substr(sha1(implode('|', array_map(
-            fn (DashboardContract $d): string => $d::class.'@'.$d->uriKey(),
-            $instances,
-        )).'#'.SoftGate::fingerprint($instances, $request)), 0, 16);
-        $cached = $cache->remember('dashboards', 'list:'.$userKey.':'.app()->getLocale().':'.$fingerprint, function () use ($instances): array {
-            return array_map(function (DashboardContract $d): array {
-                $arr = $d->toArray();
-                // Strip the lock key so stale lock state is never persisted.
-                $arr['lock'] = null;
-
-                return $arr;
-            }, $instances);
-        });
-
-        // Re-inject the live lock payload for each dashboard entry.
-        // This mirrors the guard in show(): evaluate lockPayloadFor() outside
-        // the cache boundary so plan/role changes land immediately.
-        $payload = array_map(function (array $entry) use ($instances, $request): array {
-            foreach ($instances as $instance) {
-                if ($instance->uriKey() === $entry['uriKey']) {
-                    $entry['lock'] = method_exists($instance, 'lockPayloadFor')
-                        ? $instance->lockPayloadFor($request)
-                        : null;
-                    break;
-                }
-            }
-
-            return $entry;
-        }, $cached);
-
-        return JsonResponse::make(['dashboards' => $payload])->toResponse();
+        // The same builder seeds the boot payload (DashboardController),
+        // so the list the SPA starts from and this answer never disagree.
+        return JsonResponse::make(['dashboards' => app(DashboardList::class)->payload($request)])->toResponse();
     }
 
     // -------------------------------------------------------------------------

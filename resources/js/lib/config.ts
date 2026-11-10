@@ -1,3 +1,5 @@
+import type { DashboardDefinition } from '@/types'
+
 export interface MartisThemeConfig {
   default?: "dark" | "light"
   allowToggle?: boolean
@@ -465,6 +467,13 @@ export interface MartisConfigShape {
   userMenu?: MartisUserMenuConfig
   search?: MartisSearchConfig
   dashboard?: MartisDashboardConfig
+  /**
+   * The registered dashboards this user may see, as `GET /api/dashboards`
+   * answers them, embedded by the shell so the first render knows the
+   * current dashboard's name (v2.19.0). Null on the pages served before
+   * sign-in. Read through `useDashboardsQuery()` (lib/dashboards.ts).
+   */
+  dashboards?: DashboardDefinition[] | null
   toast?: MartisToastConfig
   footer?: MartisFooterConfig
   welcome?: MartisWelcomeConfig

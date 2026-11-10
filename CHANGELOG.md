@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.19.0] — 2026-11-10
+
+Minor release from a consumer report: a dashboard named itself "Dashboard" until the list of dashboards loaded. Nothing has to change in an app; republish the assets (`php artisan martis:publish-assets`). Read [Upgrading to v2.19.0](docs/upgrading.md#upgrading-to-v2190-from-v218x).
+
+### Added
+
+- **The boot payload carries the dashboards** (`window.MartisConfig.dashboards`): the list `GET /api/dashboards` answers, live lock state included, built by one class (`Martis\Dashboards\DashboardList`) for both. The SPA seeds its `['dashboards']` query with it, so the breadcrumb, the tab title, the sidebar's DASHBOARDS group and the tab strip name the dashboard on the first render, and the request leaves the critical path. Null wherever the API would refuse the list: before sign-in, on the 2FA challenge page and on the "no access" page of a user `viewMartis` refuses. A dashboard that throws or whose `meta()` cannot be encoded drops the seed (reported), never the page.
+- **`usePageTitle(segment, { pending })` and `useDynamicCrumb(label, { pending })`** (`@martis/runtime`): while the label loads, the title stays as it is and the deepest crumb is an empty, fixed-width placeholder, instead of the generic default and the route's static label. A package route can declare `handle.crumbPending` to keep its static label until its page has published one (the dashboard routes do).
+- **Dashboard skeletons in the dashboard's own shape**: the grid spans of a dashboard's cards are remembered in this browser (`localStorage`, `martis-dashboard-layouts`, cleared when the user signs out), and its next cold load draws its skeletons in that layout instead of three generic cards.
+
+### Fixed
+
+- **A dashboard opened by a reload or a bookmark read "Dashboard"** in the breadcrumb and the sidebar, the generic "Admin Control" tab title and a three-card skeleton until `GET /api/dashboards` answered (one to three seconds on a slow link). With the boot payload it is right from the first paint; without it, the crumb, the title and the sidebar show placeholders, never a wrong name. The single "Dashboard" sidebar entry and crumb of an install without dashboards only appear once the list answered empty.
+- **The server-rendered title guessed a dashboard's name from its address** (`support-team` read `Support team` for a dashboard called `Team`) and `/` showed the generic default; both now read the dashboard's `name()` from the dashboards the user may see.
+- **A cards dashboard waited for `GET /api/navigation`** before drawing its tab strip and cards; only the built-in summary view needs it.
+
 ## [2.18.3] — 2026-11-09
 
 Patch release from a consumer report batch: the filter panel and the top-bar search. Nothing has to change in an app; republish the assets (`php artisan martis:publish-assets`). Read [Upgrading to v2.18.3](docs/upgrading.md#upgrading-to-v2183-from-v2182).

@@ -278,7 +278,8 @@ public function boot(): void
 
 | URL | Title rendered |
 |-----|----------------|
-| `/martis` | Dashboard name · brand (e.g. `Operations · Acme`) |
+| `/martis` | Name of the first dashboard the user may see · brand (e.g. `Operations · Acme`) |
+| `/martis/dashboards/support-team` | That dashboard's name · brand (e.g. `Team · Acme`) |
 | `/martis/resources/clients` | `Clients · Acme` |
 | `/martis/resources/clients/new` | `Create Client · Acme` |
 | `/martis/resources/clients/42` | `Client · Acme` |
@@ -286,6 +287,8 @@ public function boot(): void
 | `/martis/profile` | `Profile · Acme` |
 
 Resource labels honour the authenticated user's locale preference, so the first paint is already in the right language.
+
+A dashboard is named from the dashboards the signed-in user may see (v2.19.0): its `name()`, never a guess from its address (`support-team` used to read `Support team` for a dashboard called `Team`). A dashboard the user cannot see, or an unknown key, gets the default title.
 
 For **client-side navigation** inside the SPA (react-router), each page uses the [`usePageTitle`](overrides.md#page-title-hook) hook to keep `document.title` in sync without a full reload.
 

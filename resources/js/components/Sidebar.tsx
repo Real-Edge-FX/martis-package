@@ -4,8 +4,9 @@ import { NavLink, useLocation } from "react-router"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { config } from "@/lib/config"
+import { useDashboardsQuery } from "@/lib/dashboards"
+import { Skeleton } from "@/components/ui/Skeleton"
 import type {
-  DashboardDefinition,
   NavigationGroup,
   NavigationGroupChild,
   NavigationItem,
@@ -368,9 +369,8 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
   // to the uriKey of another dashboard) live inside their parent's
   // page as a tab strip — never in the sidebar. Same query key
   // Dashboard.tsx uses, so the two surfaces share the cache.
-  const { data: dashboardsResp } = useQuery<{ data: { dashboards: DashboardDefinition[] } }>({
-    queryKey: ["dashboards"],
-    queryFn: () => api.get("/api/dashboards"),
+  // Seeded from the boot payload (v2.19.0): see useDashboardsQuery().
+  const { data: dashboardsResp, isPending: dashboardsPending } = useDashboardsQuery({
     staleTime: Infinity,
     refetchInterval: false,
     refetchOnWindowFocus: false,
@@ -497,7 +497,16 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed = false }: Sideba
                 <span>{t("dashboards", "Dashboards")}</span>
               </div>
             )}
-            {rootDashboards.length > 0 ? (
+            {dashboardsPending ? (
+              // The list is still loading (a load without the boot payload,
+              // v2.19.0): a placeholder row the height of an entry, never the
+              // "Dashboard" fallback below, which is for an install that
+              // really has no dashboards.
+              <div className="martis-sb-item martis-sb-item-pending" aria-hidden="true" data-testid="sidebar-dashboards-pending">
+                <Skeleton width={16} height={16} />
+                {(isMobile || !collapsed) && <Skeleton width="60%" height={10} />}
+              </div>
+            ) : rootDashboards.length > 0 ? (
               // v1.10.5+: one entry per ROOT dashboard. Children (any
               // dashboard whose `parent()` returns a non-null uriKey)
               // never appear in the sidebar — they live inside their

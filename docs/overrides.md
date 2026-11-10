@@ -1334,4 +1334,11 @@ export function MyCustomPage({ resource }) {
 }
 ```
 
+While the segment is still loading, pass `{ pending: true }` (v2.19.0): the title is left as it is (the server's title on a full page load, the previous page's after a client-side navigation) instead of flashing the generic default, and the segment replaces it once it is known.
+
+```tsx
+const finding = useQuery({ queryKey: ['finding', id], queryFn: () => api.get(apiPath`/api/findings/${id}`) })
+usePageTitle(finding.data?.title, { pending: finding.isPending })
+```
+
 The hook restores the previous title on unmount so stacked modals/drawers don't leave stale segments in the tab bar. See [configuration.md](configuration.md#customising-the-page-title) for the server-side half (static config + closure API).
