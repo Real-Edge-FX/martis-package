@@ -114,7 +114,7 @@ vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: [{ 
 - **A test that creates its own instance installs i18next.** Without it, Vitest stops at `Failed to resolve import "i18next"`. Install the version the panel bundles, the `i18next` entry of `versions.json` (26.4.2 in Martis 2.5.1), as a dev dependency:
 
   ```bash
-  npm install --save-dev i18next@26.4.2
+  npm install --save-dev i18next@26.5.11
   ```
 
 ```tsx
