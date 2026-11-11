@@ -54,8 +54,17 @@ trait ResolvesActionRecords
      */
     protected function runDenied(Request $request, ActionContract $action, Collection $models, string $resourceClass): ?IlluminateJsonResponse
     {
+        // A batched rule (`canRunForRows()`) decides all the targets in one
+        // call, then the run refuses any row it denies: the rule that hides
+        // the action on a row also stops its run.
+        $runAnswers = $action->hasBatchedCanRun() && ! $action->isStandalone()
+            ? $action->authorizedToRunRows($request, $models)
+            : null;
+
         foreach ($models as $model) {
-            if (($denial = $this->actionRunDenial($request, $action, $model, $this->actionPolicy($request, new $resourceClass($model)))) !== null) {
+            $canRun = $runAnswers === null ? null : ($runAnswers[(string) $model->getKey()] ?? false);
+
+            if (($denial = $this->actionRunDenial($request, $action, $model, $this->actionPolicy($request, new $resourceClass($model)), $canRun)) !== null) {
                 return JsonErrorResponse::notFound($denial)->toResponse();
             }
         }
@@ -514,8 +523,15 @@ trait ResolvesActionRecords
             return null;
         }
 
+        // One call for all the targets when the rule is batched.
+        $runAnswers = $action->hasBatchedCanRun() ? $action->authorizedToRunRows($request, $models) : null;
+
         foreach ($models as $model) {
-            if (! $action->authorizedToRun($request, $model)) {
+            $canRun = $runAnswers === null
+                ? $action->authorizedToRun($request, $model)
+                : ($runAnswers[(string) $model->getKey()] ?? false);
+
+            if (! $canRun) {
                 return JsonErrorResponse::notFound('You are not authorized to run this action on one or more selected resources.')->toResponse();
             }
         }

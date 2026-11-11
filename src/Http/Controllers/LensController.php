@@ -19,6 +19,7 @@ use Martis\Http\Resources\JsonPaginatedResponse;
 use Martis\Lenses\Lens;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\Support\ListingGuard;
 use Martis\Support\SortKey;
 
 /**
@@ -128,11 +129,15 @@ class LensController extends MartisController
             $result = $this->executeLensQuery($lensInstance, $lensRequest, $baseQuery, $perPage, $page);
             [$items, $meta, $links] = $result;
 
+            // What the page's rows need, loaded once for the page (not
+            // when a cached page is served: the rows are not read then).
+            $this->prefetchListingPage($request, $resourceClass, $items);
+
             // Whether each lens action may run on each row, as on the
             // resource index: the lens's own actions when it declares them.
-            $actionAuthorization = $this->rowActionAuthorizer($request, $resourceClass, lens: $lensInstance);
+            $actionAuthorization = $this->rowActionAuthorizer($request, $resourceClass, lens: $lensInstance, rows: $items);
 
-            $data = array_map(function (Model $model) use ($resourceClass, $fields, $actionAuthorization): array {
+            $data = ListingGuard::run($items, fn (): array => array_map(function (Model $model) use ($resourceClass, $fields, $actionAuthorization): array {
                 /** @var resource $res */
                 $res = new $resourceClass($model);
 
@@ -142,7 +147,7 @@ class LensController extends MartisController
                     : [];
 
                 return $serialized;
-            }, $items);
+            }, $items));
 
             // Summary must aggregate over the filtered lens dataset — not
             // the base (unfiltered) query. We call lens.query() a second

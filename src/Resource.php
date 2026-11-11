@@ -6,6 +6,7 @@ use Illuminate\Auth\Access\Gate as GateInstance;
 use Illuminate\Auth\Access\Response as AuthorizationResponse;
 use Illuminate\Contracts\Auth\Access\Gate as GateContract;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
@@ -38,6 +39,7 @@ use Martis\Menu\MenuItem;
 use Martis\Models\ActionEvent;
 use Martis\Resources\ActionEventResource;
 use Martis\Support\IndexScope;
+use Martis\Support\PageContext;
 use Martis\Support\TranslatedLine;
 
 /**
@@ -237,6 +239,21 @@ abstract class Resource implements ResourceContract
     {
         return $query;
     }
+
+    /**
+     * Load, once for the page, what its rows need.
+     *
+     * Called by the listing endpoints only (the resource index, a lens, and a
+     * relationship panel's table), after the page is read and before its rows
+     * are serialized, so a field resolver, `canSee()`, `canRun()` or computed
+     * value can read what you keep in `$context` instead of querying per row.
+     * Never called when an action resolves its records, nor by the detail,
+     * edit or count endpoints: put per-page work here, not in `indexQuery()`,
+     * which runs on all of those. The default does nothing.
+     *
+     * @param  EloquentCollection<int, Model>  $rows  The models of the page.
+     */
+    public static function prefetchIndexPage(Request $request, EloquentCollection $rows, PageContext $context): void {}
 
     /**
      * Declarative query scopes applied before `indexQuery()` wherever

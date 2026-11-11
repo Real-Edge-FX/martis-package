@@ -23,6 +23,7 @@ use Martis\Http\Resources\JsonResponse;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\SearchResolver;
+use Martis\Support\ListingGuard;
 
 /**
  * Controller for MorphToMany polymorphic relationship operations.
@@ -110,7 +111,10 @@ class MorphToManyController extends MartisController
         $perPage = $this->requestedPerPage($request, 10);
         $paginator = $relation->paginate($perPage);
 
-        $data = array_values(
+        // What the page's rows need, loaded once for the page.
+        $this->prefetchListingPage($request, $relatedResourceClass, $paginator->items());
+
+        $data = ListingGuard::run($paginator->items(), fn (): array => array_values(
             collect($paginator->items())->map(function (Model $model) use ($relatedResourceClass, $request, $field): array {
                 $res = new $relatedResourceClass($model);
                 $row = $this->serializeModel(
@@ -132,7 +136,7 @@ class MorphToManyController extends MartisController
 
                 return $row;
             })->all()
-        );
+        ));
 
         return JsonPaginatedResponse::make(
             data: $data,

@@ -35,5 +35,9 @@ parameters:
             identifier: trait.unused
             path: src/Concerns/ProvidesToolFields.php
         -
+            # Public-API test trait (used via `uses()` in downstream apps).
+            identifier: trait.unused
+            path: src/Testing/AssertsFlatQueries.php
+        -
             identifier: property.notFound
             path: src/Profile/TwoFactorService.php

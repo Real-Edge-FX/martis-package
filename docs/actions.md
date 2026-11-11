@@ -970,6 +970,26 @@ Controls whether a specific model can be acted on. Evaluated per model at execut
 PublishPosts::make()->canRun(fn (Request $request, $model) => $model->status === 'draft');
 ```
 
+### Deciding a page in one call — `canRunForRows()` (v2.20.0)
+
+A `canRun()` runs once per listed row. When it needs a query (an `EXISTS`, a lookup in another table), a page of 100 rows runs it 100 times. `canRunForRows()` is the batched alternative: it receives the whole page and answers for every row in one call.
+
+```php
+use Illuminate\Database\Eloquent\Collection;
+
+RevokeGrant::make()->showInline()->canRunForRows(function (Request $request, Collection $rows): array {
+    $granted = Grant::whereIn('user_id', $rows->modelKeys())->pluck('user_id')->flip();
+
+    return $rows->mapWithKeys(fn ($user) => [$user->getKey() => $granted->has($user->getKey())])->all();
+});
+```
+
+- It returns `[row key => bool]`. A row the array omits falls back to the action's per-row `canRun()` when there is one, and is **allowed** when there is none: return an entry for every row you mean to deny. A value that is not an array throws an `UnexpectedValueException` naming the action.
+- Martis calls it **once per page** where the index, a lens or a relationship panel marks each row's `_actionAuthorization`. A page's `prefetchIndexPage()` has already run (see [Avoiding per-row queries on index pages](resources.md#avoiding-per-row-queries-on-index-pages-v2200)), so the rule can read what it loaded.
+- **The run is refused for what the page hides.** The run, the action's fields request and a pivot run decide with the same rule: a bulk run calls it once with every selected record and refuses the whole run (404) when it denies any of them, as it does for `canRun()`. The policy checks (`runAction` / `runDestructiveAction`) still apply on top. When only `canRunForRows()` is set, a check of a single record (`authorizedToRun()`) asks it with that one row, so no route skips the rule.
+- With both set, the batch answers for the rows it names and `canRun()` for the others, on the page and on the run alike.
+- Without `canRunForRows()` nothing changes: `canRun()` runs per row, on the page and on the run.
+
 ### Layer 3 — Policy integration
 
 The controller resolves authorization via a fallback chain on the resource's policy. It applies to each record, after `canRun()`, except for a `standalone()` action; each row of the index and of a relationship panel is marked with the same result, so an action the menu enables is one the run accepts. Both must allow the run: unlike Nova 5, where a `canRun()` replaces the policy, a `canRun()` grants nothing the policy refuses (see [Differentials](differentials.md)):

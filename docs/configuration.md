@@ -1460,10 +1460,13 @@ Each env var is a comma-separated string; Martis splits it into an array at boot
 ```php
 'dev' => [
     'tools_enabled' => env('MARTIS_DEV_TOOLS', in_array(env('APP_ENV', 'production'), ['local', 'testing'], true)),
+    'prevent_lazy_loading_in_listings' => env('MARTIS_DEV_PREVENT_LAZY_LOADING_IN_LISTINGS', false),
 ],
 ```
 
 Master switch for the Component Inspector overlay (Cmd/Ctrl+Shift+I) and other in-page debugging surfaces. Defaults to ON in `local` and `testing`, OFF in `production`. Force ON in production with `MARTIS_DEV_TOOLS=true` for short-lived diagnostic windows.
+
+`prevent_lazy_loading_in_listings` (v2.20.0, off by default) makes a relationship lazy loaded while a listing's rows are serialized throw in `local` and `testing` and log a warning elsewhere, without turning on Laravel's global `Model::preventLazyLoading()`. See [Resources → Avoiding per-row queries on index pages](resources.md#avoiding-per-row-queries-on-index-pages-v2200).
 
 ## Content Security Policy (v2.4.0)
 
