@@ -1,8 +1,8 @@
-import { Suspense, createElement, lazy, type ComponentType, type ReactNode } from 'react'
+import { Suspense, createElement, lazy, useState, type ComponentType, type ReactNode } from 'react'
 import type { FieldDisplayProps, FieldInputProps } from '@/components/fields/types'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { MartisLoader, DefaultMartisLoader } from '@/components/Loader'
-import { clearStaleChunkGuard, reloadOnStaleChunk } from '@/lib/staleChunk'
+import { reloadOnStaleChunk } from '@/lib/staleChunk'
 
 /**
  * What a lazy loader resolves to: an ES module with a default export (the
@@ -150,7 +150,7 @@ export class ComponentRegistry {
       promise ??= loader().then(
         (module) => ({ default: typeof module === 'function' ? module : module.default }),
         (error: unknown) => {
-          // A failed fetch is not cached, so a later render or preload retries.
+          // A failed fetch is not cached, so preload() and a retried Lazy call the loader again.
           promise = undefined
           throw error
         },
@@ -159,18 +159,26 @@ export class ComponentRegistry {
       return promise
     }
 
-    // A stale chunk (a tab opened before a deploy) reloads the page once; see
+    // A stale chunk (a tab opened before a deploy) reloads the page; see
     // `reloadOnStaleChunk`. The preload path below does not reload: a
     // background fetch must not take the page away from the operator.
-    const Lazy = lazy(() =>
-      load().then(
-        (module) => {
-          clearStaleChunkGuard()
-          return module
-        },
-        (error: unknown) => reloadOnStaleChunk<{ default: ComponentType<P> }>(error),
-      ),
-    )
+    //
+    // `React.lazy` keeps a rejected promise for good, so a failed `Lazy` can
+    // never retry. `Lazy` is therefore replaced by a fresh one when the error
+    // boundary's "Try again" resets (only if the current one failed, so a
+    // loaded component keeps its identity), and `load()` calls the loader again.
+    let failed = false
+    const makeLazy = () =>
+      lazy(() =>
+        load().then(
+          (module) => module,
+          (error: unknown) => {
+            failed = true
+            return reloadOnStaleChunk<{ default: ComponentType<P> }>(error)
+          },
+        ),
+      )
+    let Lazy = makeLazy()
 
     // What `resolve()` returns. It carries its own Suspense boundary, so
     // every place that renders a registry component (tool pages, cards,
@@ -179,19 +187,30 @@ export class ComponentRegistry {
     // stable identity across renders. The fallback is the registered one, else
     // the Martis loader; the bundled loader for the `loader` key itself, which
     // would otherwise suspend on its own fallback. A chunk that cannot load
-    // (after the one stale-chunk reload) lands in the error boundary, which
-    // shows the Martis error state in place of this component only.
-    const Guard = ErrorBoundary as unknown as ComponentType<{ label: string; children?: ReactNode }>
-    const Wrapper = (props: object) =>
-      createElement(
+    // (after the stale-chunk reload, or while offline) lands in the error
+    // boundary, which shows the Martis error state in place of this component
+    // only, with a "Try again" that fetches the chunk again.
+    const Guard = ErrorBoundary as unknown as ComponentType<{ label: string; onReset: () => void; children?: ReactNode }>
+    const Wrapper = (props: object) => {
+      const [, setAttempt] = useState(0)
+      const retry = () => {
+        if (failed) {
+          failed = false
+          Lazy = makeLazy()
+        }
+        setAttempt((n) => n + 1)
+      }
+
+      return createElement(
         Guard,
-        { label: key },
+        { label: key, onReset: retry },
         createElement(
           Suspense,
           { fallback: this.fallbackNode(key === 'loader' ? { ...options, fallback: options.fallback ?? createElement(DefaultMartisLoader) } : options) },
           createElement(Lazy as unknown as ComponentType<object>, props),
         ),
       )
+    }
     Wrapper.displayName = `Lazy(${key})`
 
     this.components.set(key, Wrapper as unknown as ComponentType<never>)

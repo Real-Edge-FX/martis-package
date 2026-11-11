@@ -45,11 +45,45 @@ describe('reloadOnStaleChunk', () => {
 
     expect(reload).toHaveBeenCalledTimes(1)
     expect(first).toBeInstanceOf(Promise)
-    expect(window.sessionStorage.getItem(STALE_CHUNK_RELOAD_KEY)).toBe('1')
+    expect(Number(window.sessionStorage.getItem(STALE_CHUNK_RELOAD_KEY))).toBeGreaterThan(0)
 
     const error = chunkError()
     expect(() => reloadOnStaleChunk(error)).toThrow(error)
     expect(reload).toHaveBeenCalledTimes(1)
+  })
+
+  it('reloads again once the guard window has passed', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    reloadOnStaleChunk(chunkError())
+    expect(reload).toHaveBeenCalledTimes(1)
+
+    vi.setSystemTime(new Date('2026-01-01T00:00:30Z'))
+    expect(() => reloadOnStaleChunk(chunkError())).toThrow()
+    expect(reload).toHaveBeenCalledTimes(1)
+
+    vi.setSystemTime(new Date('2026-01-01T00:01:01Z'))
+    reloadOnStaleChunk(chunkError())
+    expect(reload).toHaveBeenCalledTimes(2)
+    vi.useRealTimers()
+  })
+
+  it('treats an unreadable guard value as a recent reload', () => {
+    window.sessionStorage.setItem(STALE_CHUNK_RELOAD_KEY, 'garbage')
+
+    expect(() => reloadOnStaleChunk(chunkError())).toThrow()
+    expect(reload).not.toHaveBeenCalled()
+  })
+
+  it('rethrows instead of reloading while the browser is offline', () => {
+    vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false)
+    const error = chunkError()
+
+    expect(() => reloadOnStaleChunk(error)).toThrow(error)
+    expect(reload).not.toHaveBeenCalled()
+    expect(window.sessionStorage.getItem(STALE_CHUNK_RELOAD_KEY)).toBeNull()
+
+    vi.restoreAllMocks()
   })
 
   it('rethrows an error that is not a chunk error without reloading', () => {

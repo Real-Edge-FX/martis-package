@@ -5,14 +5,21 @@
  * bundle, which points at chunk files the deploy replaced (hashed names). The
  * dynamic `import()` then rejects with a chunk-load error. A single reload
  * fetches the new entry and the new chunk names, so `reloadOnStaleChunk`
- * reloads once per tab (a `sessionStorage` guard) and, when the reload did not
- * help, rethrows so the Martis error state shows instead of a reload loop.
+ * reloads at most once per minute per tab (a `sessionStorage` timestamp, never
+ * cleared by a successful load, so a good chunk next to a missing one cannot
+ * restart the cycle) and rethrows otherwise, so the Martis error state shows
+ * instead of a reload loop. It also rethrows while the browser is offline:
+ * the failure is the network, not a deploy, and a reload would lose the
+ * operator's unsaved state.
  *
  * Kill switch: `config('martis.extensions_reload_on_stale')`, surfaced as
  * `window.MartisConfig.extensionsReloadOnStale` (default true).
  */
 
 export const STALE_CHUNK_RELOAD_KEY = 'martis:stale-chunk-reloaded'
+
+/** No second stale-chunk reload in the same tab within this window (ms). */
+export const STALE_CHUNK_GUARD_MS = 60_000
 
 const CHUNK_ERROR_PATTERNS = [
   /failed to fetch dynamically imported module/i,
@@ -36,9 +43,16 @@ function reloadEnabled(): boolean {
   return window.MartisConfig?.extensionsReloadOnStale !== false
 }
 
-function alreadyReloaded(): boolean {
+function reloadedRecently(): boolean {
   try {
-    return window.sessionStorage.getItem(STALE_CHUNK_RELOAD_KEY) !== null
+    const raw = window.sessionStorage.getItem(STALE_CHUNK_RELOAD_KEY)
+
+    if (raw === null) return false
+
+    const at = Number(raw)
+
+    // An unreadable value counts as recent: never risk a loop.
+    return !Number.isFinite(at) || Date.now() - at < STALE_CHUNK_GUARD_MS
   } catch {
     // Storage blocked: reloading cannot be guarded, so do not reload at all.
     return true
@@ -47,31 +61,26 @@ function alreadyReloaded(): boolean {
 
 function markReloaded(): void {
   try {
-    window.sessionStorage.setItem(STALE_CHUNK_RELOAD_KEY, '1')
+    window.sessionStorage.setItem(STALE_CHUNK_RELOAD_KEY, String(Date.now()))
   } catch {
-    // Ignored: alreadyReloaded() reports true when storage is unusable.
+    // Ignored: reloadedRecently() reports true when storage is unusable.
   }
 }
 
-/** Forget the guard once a chunk loaded, so a later deploy can reload again. */
-export function clearStaleChunkGuard(): void {
-  try {
-    window.sessionStorage.removeItem(STALE_CHUNK_RELOAD_KEY)
-  } catch {
-    // Nothing to clear.
-  }
+function online(): boolean {
+  return typeof navigator === 'undefined' || navigator.onLine !== false
 }
 
 /**
  * Use as the rejection handler of a dynamic import:
  * `import('./Page').catch(reloadOnStaleChunk)`.
  *
- * A chunk-load error reloads the page once per tab and returns a promise that
+ * A chunk-load error reloads the page (at most once per minute per tab, only online) and returns a promise that
  * never settles (the page is going away). Any other error, a second chunk
- * error in the same tab, or the kill switch being off rethrows the error.
+ * error within the minute, being offline, or the kill switch being off rethrows the error.
  */
 export function reloadOnStaleChunk<T = never>(error: unknown): Promise<T> {
-  if (isChunkLoadError(error) && reloadEnabled() && !alreadyReloaded()) {
+  if (isChunkLoadError(error) && reloadEnabled() && online() && !reloadedRecently()) {
     markReloaded()
     window.location.reload()
 
