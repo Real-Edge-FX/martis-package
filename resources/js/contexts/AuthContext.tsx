@@ -50,7 +50,8 @@ export class PasswordChangeRequiredError extends Error {
 interface AuthContextValue {
   user: User | null
   isLoading: boolean
-  login: (email: string, password: string, keepSignedIn?: boolean) => Promise<void>
+  /** `extra` is merged into the request body: the `challenge_token` of the challenge hook (v2.21.0). */
+  login: (email: string, password: string, keepSignedIn?: boolean, extra?: { challenge_token?: string }) => Promise<void>
   logout: () => Promise<void>
   updateUser: (partial: Partial<User>) => void
 }
@@ -122,12 +123,17 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
     if (userId !== undefined && userId !== null) purgeForeignStickyViews(userId)
   }, [userId])
 
-  const login = useCallback(async (email: string, password: string, keepSignedIn = false) => {
+  const login = useCallback(async (
+    email: string,
+    password: string,
+    keepSignedIn = false,
+    extra: { challenge_token?: string } = {},
+  ) => {
     const res = await api.post<User & {
       two_factor_required?: boolean
       email_verification_required?: boolean
       password_change_required?: boolean
-    }>('/api/auth/login', { email, password, keep_signed_in: keepSignedIn })
+    }>('/api/auth/login', { email, password, keep_signed_in: keepSignedIn, ...extra })
     if (res && typeof res === 'object' && res.two_factor_required) {
       // Backend signals that 2FA challenge is required before full session
       throw new TwoFactorRequiredError()

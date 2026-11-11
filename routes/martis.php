@@ -48,10 +48,14 @@ Route::middleware(RouteMiddleware::base())
     ->group(function () {
         // Public routes — no authentication required
         Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+        // Order on the sign-in routes: the throttles, then the password
+        // sign-in switch (v2.21.0), then the challenge hook (v2.21.0).
         Route::post('/login', [LoginController::class, 'login'])
             ->middleware([
                 'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
                 'throttle:martis-login',
+                'martis.password_login',
+                'martis.challenge:login',
             ])
             ->name('login.attempt');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
@@ -141,6 +145,8 @@ Route::middleware(RouteMiddleware::base())
             ->middleware([
                 'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
                 'throttle:martis-login',
+                'martis.password_login',
+                'martis.challenge:login',
             ])
             ->name('api.auth.login');
         Route::post('/api/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
@@ -151,13 +157,22 @@ Route::middleware(RouteMiddleware::base())
         // stays predictable across environments and config:cache
         // doesn't have to differ between dev/staging/prod).
         Route::post('/api/auth/register', [AuthController::class, 'register'])
-            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->middleware([
+                'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
+                'martis.challenge:register',
+            ])
             ->name('api.auth.register');
         Route::post('/api/auth/password/email', [AuthController::class, 'sendPasswordResetLink'])
-            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->middleware([
+                'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
+                'martis.challenge:forgot',
+            ])
             ->name('api.auth.password.email');
         Route::post('/api/auth/password/reset', [AuthController::class, 'resetPassword'])
-            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->middleware([
+                'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
+                'martis.challenge:reset',
+            ])
             ->name('api.auth.password.reset');
 
         // Invitation accept POST — public (token-authorized). Always
@@ -166,7 +181,10 @@ Route::middleware(RouteMiddleware::base())
         // `martis-invite` Gate — that Gate only guards the privileged
         // "issue an invitation" action, not accepting one.
         Route::post('/api/invitations/accept', [InvitationController::class, 'accept'])
-            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->middleware([
+                'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
+                'martis.challenge:invitation',
+            ])
             ->name('api.invitations.accept');
 
         // Magic-link (passwordless) sign-in. Routes are always
@@ -176,6 +194,7 @@ Route::middleware(RouteMiddleware::base())
             ->middleware([
                 'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
                 'throttle:martis-login',
+                'martis.challenge:magic_link',
             ])
             ->name('api.auth.magic-link.request');
         // The emailed link opens the confirmation page and never signs in

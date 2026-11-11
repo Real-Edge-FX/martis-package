@@ -16,6 +16,7 @@ use Martis\Auth\AccountLoginThrottle;
 use Martis\Auth\PanelAccess;
 use Martis\Auth\PasswordBrokerConfigurationException;
 use Martis\Auth\PasswordChangeRequirement;
+use Martis\Auth\PasswordLogin;
 use Martis\Auth\RememberedTwoFactor;
 use Martis\Auth\TwoFactorPass;
 use Martis\Contracts\ProfileResourceContract;
@@ -331,7 +332,7 @@ class AuthController extends MartisController
      */
     public function sendPasswordResetLink(Request $request, SendsPasswordResetLinks $sender): JsonResponse
     {
-        if (! config('martis.auth.passwordReset.enabled', false)) {
+        if (! PasswordLogin::passwordResetEnabled()) {
             return response()->json([
                 'message' => __('auth.forgot_password_disabled'),
             ], 404);
@@ -403,7 +404,7 @@ class AuthController extends MartisController
      */
     public function resetPassword(Request $request, ResetsUserPasswords $resetter): JsonResponse
     {
-        if (! config('martis.auth.passwordReset.enabled', false)) {
+        if (! PasswordLogin::passwordResetEnabled()) {
             return response()->json(['message' => 'Password reset is disabled.'], 404);
         }
 

@@ -6,6 +6,7 @@ use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Martis\Auth\PasswordLogin;
 use Martis\Support\TokenLink;
 
 /**
@@ -98,7 +99,12 @@ class GuestPagesController extends MartisController
             return redirect()->route('martis.index');
         }
 
-        if (! config("martis.auth.{$flow}.enabled", false)) {
+        // The password reset flow is off with password sign-in (v2.21.0).
+        $enabled = $flow === 'passwordReset'
+            ? PasswordLogin::passwordResetEnabled()
+            : (bool) config("martis.auth.{$flow}.enabled", false);
+
+        if (! $enabled) {
             return redirect()->route('martis.login');
         }
 

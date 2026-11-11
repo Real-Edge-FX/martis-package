@@ -390,6 +390,24 @@ The **Continue with Microsoft** button is there. Click → Azure consent screen 
 ],
 ```
 
+### What reaches the browser (v2.21.0)
+
+The login page is public, so `window.MartisConfig.auth.sso` carries only what the button strip needs: `enabled`, and for each **enabled** provider `enabled`, `label` and `icon`. A disabled provider is not published, and nothing else of a provider block is (role maps, `tenant`, `resource_id`, `scopes`, `logout_url`, columns). An app whose custom login component (see [Overrides](overrides.md)) needs more lists the keys in an optional `public` array of the block:
+
+```php
+'azure' => [
+    'enabled' => env('MARTIS_SSO_AZURE_ENABLED', false),
+    'label'   => 'Continue with Microsoft',
+    'icon'    => 'microsoft-outlook-logo',
+    'tenant_label' => 'Acme Corp',
+    // Published next to enabled, label and icon. Listing a key makes it public:
+    // never list a secret, a tenant id or a role map.
+    'public'  => ['tenant_label'],
+],
+```
+
+`public` can add keys, never change `enabled`, `label` or `icon`, and is not published itself. A `public` that is not an array of key names throws an `InvalidArgumentException` naming `martis.auth.sso.providers.{provider}.public`. See [Authentication → What reaches the browser](authentication.md#what-reaches-the-browser-v2210) for the whole allow-list. For a panel that signs in through SSO only, see [Authentication → Password sign-in switch](authentication.md#password-sign-in-switch-v2210).
+
 ### Identity binding and tenants (v2.4.0)
 
 `identity_match_attribute => 'email'` adopts the local account that holds the IdP's address, and only when it can trust that row's address (v2.4.0): the row's `email_verified_at` is set (a user model without that column cannot prove a verified address, so with registration open it counts as unverified), or `martis.auth.registration.enabled` is `false`, so an administrator provisioned every row. With self-registration open and the row unverified, anyone could have registered the IdP user's address first and kept their own password, so the sign-in is **refused** (a logged warning and the translated `sso_account_unverified` message on the login page) instead of adopting the row and syncing the IdP's roles onto it. The same refusal answers an address that the `external_id` strategy did not link when `auto_create_user` would otherwise create a second row beside it. Verify the address (email verification, or an administrator marks it), link the row by external id, or delete it. With registration enabled an app therefore needs an `email_verified_at` column (with verified rows) or the `external_id` strategy for SSO to adopt existing accounts. A closure registered through `MartisSso::resolveUserUsing()` replaces this logic and decides for itself. Two further guards close the pre-hijack route that used to exist there: the profile no longer lets a user write an address without the current password and a confirmation link sent to that address (see [Authentication → Changing the email address](authentication.md#changing-the-email-address-v240)), and the Azure provider rejects an identity whose `tid` claim differs from a configured concrete `tenant`. A multi-tenant registration (`common`, `organizations`, `consumers`, or no tenant) checks nothing: prefer `identity_match_attribute => 'external_id'` there.

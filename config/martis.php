@@ -996,6 +996,12 @@ return [
                 //     'role_strategy' => 'column',
                 //     'role_column' => 'azure_group_name',
                 //
+                //     // `window.MartisConfig.auth` (the public login page) carries only
+                //     // `enabled`, `label` and `icon` of an enabled provider (v2.21.0).
+                //     // List here any other key of this block a custom login component
+                //     // needs in the browser; nothing else of the block is sent.
+                //     // 'public' => ['tenant_label'],
+                //
                 //     'auto_create_user' => true,
                 //     // 'email' adopts the local row holding the IdP's address only
                 //     // when its email is verified (email_verified_at set) or
@@ -1049,6 +1055,46 @@ return [
                 //     // 'role_callable' => App\Martis\SsoRoleMapper::class,
                 // ],
             ],
+        ],
+
+        // Email and password sign-in (v2.21.0). Off, POST /login and
+        // POST /api/auth/login refuse every address with a 403 before their
+        // controller reads a credential, and the password reset flow
+        // (`passwordReset` below) is off with it. For a panel whose people
+        // sign in through SSO only. Magic-link sign-in, invitations and
+        // registration keep their own switches: an SSO-only panel turns them
+        // off. The login page then shows the SSO buttons only; it still shows
+        // the form on `?password_login=1` (the server decides who may use it).
+        'password_login' => [
+            'enabled' => env('MARTIS_PASSWORD_LOGIN_ENABLED', true),
+            // Addresses (case-insensitive, trimmed) that may still sign in
+            // with a password while it is off: the way back in when the IdP
+            // is down. Comma-separated in the env var. Keep it short.
+            'break_glass_emails' => array_values(array_filter(array_map(
+                'trim',
+                explode(',', (string) env('MARTIS_PASSWORD_LOGIN_BREAK_GLASS_EMAILS', ''))
+            ))),
+        ],
+
+        // Challenge (captcha) hook of the public forms (v2.21.0). Martis
+        // ships no captcha vendor: `verifier` names a class implementing
+        // Martis\Contracts\ChallengeVerifier, resolved from the container,
+        // and the `auth:challenge` component of the extension registry draws
+        // the widget (docs/authentication.md has a Cloudflare Turnstile
+        // example). While `enabled`, a POST to a listed surface without a
+        // token the verifier accepts answers 422 `errors.challenge_token`,
+        // before its controller runs. Fail closed: a verifier that returns
+        // false or throws refuses, an outage of the vendor included.
+        //   applies_to — surfaces covered: login, forgot, reset, magic_link,
+        //                register, invitation.
+        //   site_key   — public key sent to the component (never `verifier`).
+        // A missing, non-existent or wrong-type `verifier` while enabled, or
+        // an unknown name in `applies_to`, throws naming the key.
+        'challenge' => [
+            'enabled' => env('MARTIS_AUTH_CHALLENGE_ENABLED', false),
+            'verifier' => env('MARTIS_AUTH_CHALLENGE_VERIFIER'),
+            'site_key' => env('MARTIS_AUTH_CHALLENGE_SITE_KEY'),
+            'applies_to' => ['login', 'forgot', 'magic_link', 'register'],
         ],
 
         'passwordReset' => [
@@ -1195,6 +1241,8 @@ return [
                 'title' => env('MARTIS_AUTH_LOGIN_TITLE'),
                 'subtitle' => env('MARTIS_AUTH_LOGIN_SUBTITLE'),
                 'subtitle_with_sso' => env('MARTIS_AUTH_LOGIN_SUBTITLE_SSO'),
+                // Shown when password sign-in is off (v2.21.0).
+                'subtitle_sso_only' => env('MARTIS_AUTH_LOGIN_SUBTITLE_SSO_ONLY'),
             ],
             'register' => [
                 'title' => env('MARTIS_AUTH_REGISTER_TITLE'),

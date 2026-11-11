@@ -1251,6 +1251,46 @@ Translations remain the recommended path for multi-locale apps. Use these env va
 
 Toggles the theme switcher and locale picker that float on the auth pages.
 
+## Password sign-in switch (v2.21.0)
+
+```php
+'auth' => [
+    'password_login' => [
+        'enabled'            => env('MARTIS_PASSWORD_LOGIN_ENABLED', true),
+        'break_glass_emails' => [], // env: MARTIS_PASSWORD_LOGIN_BREAK_GLASS_EMAILS (comma-separated)
+    ],
+],
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `auth.password_login.enabled` | `bool` | `true` | `false` turns email and password sign-in off for an SSO-only panel: `POST /login` and `POST /api/auth/login` answer 403 for every address before the controller reads a credential, the password reset flow is off with it, and the login page shows the SSO buttons only (`?password_login=1` still shows the form). Anything that is not a boolean or a boolean string throws, naming the key. |
+| `auth.password_login.break_glass_emails` | `array<string>` | `[]` | Addresses (trimmed, case-insensitive) that may still sign in with a password while it is off. Never published to the browser. A value that is not an array of strings throws, naming the key. |
+
+Magic-link sign-in, invitations and registration keep their own switches: an SSO-only panel turns them off. One warning a day is logged when password sign-in is off and no SSO provider is enabled and magic link is off. See [Authentication → Password sign-in switch](authentication.md#password-sign-in-switch-v2210).
+
+## Challenge (captcha) hook (v2.21.0)
+
+```php
+'auth' => [
+    'challenge' => [
+        'enabled'    => env('MARTIS_AUTH_CHALLENGE_ENABLED', false),
+        'verifier'   => env('MARTIS_AUTH_CHALLENGE_VERIFIER'),
+        'site_key'   => env('MARTIS_AUTH_CHALLENGE_SITE_KEY'),
+        'applies_to' => ['login', 'forgot', 'magic_link', 'register'],
+    ],
+],
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `auth.challenge.enabled` | `bool` | `false` | Turns the hook on. |
+| `auth.challenge.verifier` | `?class-string` | `null` | A class implementing `Martis\Contracts\ChallengeVerifier`, resolved from the container. Required while enabled; never published. |
+| `auth.challenge.site_key` | `?string` | `null` | Public key, published as `window.MartisConfig.auth.challenge.siteKey` for the `auth:challenge` component. |
+| `auth.challenge.applies_to` | `array<string>` | `['login', 'forgot', 'magic_link', 'register']` | Surfaces covered. Allowed: `login`, `forgot`, `reset`, `magic_link`, `register`, `invitation`. |
+
+A POST to a covered route without a token the verifier accepts answers 422 `errors.challenge_token`, before its controller; a verifier that throws refuses too (fail closed). An enabled hook with a missing, unknown or wrong-type `verifier`, or an unknown name in `applies_to`, throws naming the key. The `auth` entry the page publishes is an allow-list since v2.21.0. See [Authentication → Challenge (captcha) hook](authentication.md#challenge-captcha-hook-v2210), which has a complete Cloudflare Turnstile example, and [What reaches the browser](authentication.md#what-reaches-the-browser-v2210).
+
 ## Password reset
 
 ```php
