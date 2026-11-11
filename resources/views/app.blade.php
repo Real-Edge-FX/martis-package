@@ -271,6 +271,7 @@
                 ],
             ]) !!},
             extensions: {!! json_encode(\Martis\Support\ExtensionBundles::urls()) !!},
+            extensionsReloadOnStale: {!! json_encode((bool) config('martis.extensions_reload_on_stale', true)) !!},
             impersonation: {!! json_encode([
                 // Master switch surfaced at boot so the React banner
                 // can short-circuit its `/api/impersonation/status`

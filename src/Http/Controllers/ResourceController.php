@@ -48,6 +48,7 @@ use Martis\Rules\Relatable;
 use Martis\Rules\RelatableWrite;
 use Martis\SearchResolver;
 use Martis\Support\IndexScope;
+use Martis\Support\ListingGuard;
 use Martis\Support\ListSort;
 use Martis\Support\SortKey;
 use Martis\Support\TranslatedLine;
@@ -169,11 +170,14 @@ class ResourceController extends MartisController
 
         $paginator = $query->paginate($perPage);
 
+        // What the page's rows need, loaded once for the page.
+        $this->prefetchListingPage($request, $resourceClass, $paginator->items());
+
         // Resolve actions once for the per-row map (run predicate)
-        $actionAuthorization = $this->rowActionAuthorizer($request, $resourceClass);
+        $actionAuthorization = $this->rowActionAuthorizer($request, $resourceClass, rows: $paginator->items());
 
         /** @var list<array<string, mixed>> $data */
-        $data = array_values(
+        $data = ListingGuard::run($paginator->items(), fn (): array => array_values(
             collect($paginator->items())->map(function (Model $model) use ($resourceClass, $request, $actionAuthorization): array {
                 $res = new $resourceClass($model);
 
@@ -184,7 +188,7 @@ class ResourceController extends MartisController
 
                 return $serialized;
             })->all()
-        );
+        ));
 
         return JsonPaginatedResponse::make(
             data: $data,

@@ -34,6 +34,11 @@ declare global {
     Martis?: {
       componentRegistry?: {
         register: (key: string, component: unknown) => void
+        registerLazy: (
+          key: string,
+          loader: () => Promise<unknown>,
+          options?: { fallback?: unknown; preload?: 'idle' | 'visible' | 'never' },
+        ) => void
       }
     }
   }
@@ -159,6 +164,25 @@ if (registry === undefined) {
     }
   }
 }
+
+// Loading a tool or card on demand (v2.20.0+). The loop above imports every
+// file eagerly, so everything lands in `extensions.js`. A heavy tool (charts,
+// editors, a large table) can instead be fetched the first time it renders:
+// register it by hand with `registerLazy` and move the file out of the
+// auto-discovered buckets (or into a subfolder the globs do not match), so
+// it is not imported eagerly as well. The build then emits it as
+// `chunks/<name>-<hash>.js`.
+//
+//   registry.registerLazy('tool:reports', () => import('./heavy/Reports'), {
+//     fallback: null,        // shown while loading; default: the Martis loader
+//     preload: 'idle',       // fetch it once the browser is idle after boot
+//   })
+//   registry.registerLazy('card:revenue-gauge', () => import('./heavy/RevenueGauge'))
+//
+// When a deploy replaces the chunk files under a tab that is already open,
+// the load fails; Martis reloads that tab once and then shows an error state
+// (`martis.extensions_reload_on_stale` turns this off). See
+// docs/extensions-caching.md for the cache headers to serve the folder with.
 
 // Pages at URLs of your own (v2.2.0+). Register them at the top level of
 // this file, so they are in place when Martis builds its router; a later

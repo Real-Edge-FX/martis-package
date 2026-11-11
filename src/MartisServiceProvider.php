@@ -63,6 +63,7 @@ use Martis\Console\ProgressMakeCommand;
 use Martis\Console\PublishAssetsCommand;
 use Martis\Console\ResourceMakeCommand;
 use Martis\Console\RolesScaffoldCommand;
+use Martis\Console\SearchIndexCommand;
 use Martis\Console\SsoMakeCommand;
 use Martis\Console\StubsCommand;
 use Martis\Console\ThemeDiffCommand;
@@ -307,6 +308,7 @@ class MartisServiceProvider extends ServiceProvider
                 LensMakeCommand::class,
                 ToolMakeCommand::class,
                 CacheStatusCommand::class,
+                SearchIndexCommand::class,
                 CacheClearCommand::class,
                 CachePruneCommand::class,
                 AttachmentsPruneCommand::class,

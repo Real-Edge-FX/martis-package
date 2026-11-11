@@ -209,6 +209,19 @@ Returning `null` from `menuCount()` hides the badge for that user. Counts are fo
 
 If `menuCount()` throws, the badge is hidden for that user (the rest of the sidebar renders) and the failure is reported through `report()` as a `Martis\Exceptions\MenuCountFailedException` naming the resource class (v1.32.4). See [Menus → When a badge is missing](menus.md#when-a-badge-is-missing) for the dev-mode `_failed` diagnostics and the `counts.report_failures` switch.
 
+#### Caching a count on its own: `menuCountCache()` (v2.20.0)
+
+By default the count is computed with the user's badge map, so N admins run it N times per map TTL. Declare `menuCountCache()` to cache it by itself, shared by every admin or per user, with a TTL in seconds:
+
+```php
+public static function menuCountCache(): ?array
+{
+    return ['scope' => 'shared', 'ttl' => 30];   // scope: 'shared' | 'user' (default), ttl: seconds (default 60)
+}
+```
+
+Use `shared` only for a count that is the same for everyone who sees the badge (a row total). `null` (the default) keeps today's behaviour. The shared key still carries the `Martis::cacheScopeUsing()` scope. Pair it with `martis.cache.navigation.badge_ttl_seconds`, and see `Martis::menuCountsUsing()` to resolve several counts in one query: both in [Cache](cache.md#badge-counts-and-metric-ttls-in-seconds-v2200).
+
 ### Place a resource under "System" — `belongsToSystemSection()`
 
 Returns `true` to dock the resource under the sidebar's "System" group rather than the user-defined sections. Used internally by `ActionEventResource`. Override on consumer-side resources that should sit alongside the package's system tools.
@@ -282,6 +295,10 @@ public function searchQuery(Builder $query, string $term): ?Builder
 ```
 
 > **You own the WHERE — in place.** Constrain and return the **given** `$query` (Eloquent `where`/scope calls return `$this`, so `return $query->search($term)` is correct). Returning a **different** Builder instance throws `LogicException` — it would drop the index/filter scoping already applied and be ignored by relation-picker pagination. A non-null return that adds no predicate bypasses the empty-set guard and dumps every row — the same trust the package places in `indexQuery()`. Keep the driver-specific SQL in your own model scope; the package ships only the seam. A resource that opts into `usesScout()` uses Scout instead — `searchQuery()` is the non-Scout path.
+
+### Search mode — `searchMode()`
+
+`public static ?string $searchMode` (or override `searchMode()`) sets how the database search matches a term: `contains` (default, `ILIKE '%term%'`), `prefix` (`ILIKE 'term%'`) or `columns` (only the columns named by `col:term` tokens; a bare term acts as `contains`). It falls back to the `martis.search.match_mode` config key; an unknown value throws an `InvalidArgumentException` naming the resource. See [search-performance.md](search-performance.md), and `php artisan martis:search-index` to check the indexes behind a resource's search.
 
 ### `$stickyView` (⭐ Martis differential)
 
@@ -746,6 +763,72 @@ Write the hooks for this resource's own index query; Martis keeps them there:
 - To tell a panel from the index, read `$request->route('relationship')`: it is set on a relationship panel's own request and on its pivot actions' runs. The counts a parent's index or detail page shows run in that page's request, where it is not set, and an action run from a `HasMany` / `MorphMany` panel names it in its input instead (`$request->input('viaRelationship')`), since it resolves its records as that panel lists them.
 
 Source: `src/Resource.php::indexQuery()`.
+
+### Avoiding per-row queries on index pages (v2.20.0)
+
+A listing runs your code once per row: a field resolver, `canSeeForModel()`, an action's `canRun()`, an accessor that reads a relation. Each query inside one costs a round trip per row. Fix it by loading what the page needs once, then reading it per row.
+
+**Do not attach that work to `indexQuery()` or `scopes()`.** They are not a listing hook: Martis runs them wherever it needs this resource's records, namely the index, the count badge, the global search, the records an **action runs on** (a POST, and the action's fields request), the parent record of a `BelongsToMany` panel, and the lens and relationship-panel lookups an action resolves its targets through. Heavy work there is wasted on an action POST, and what it loaded describes the records before the action changes them.
+
+Use `prefetchIndexPage()`:
+
+```php
+use Illuminate\Database\Eloquent\Collection;
+use Martis\Support\PageContext;
+
+public static function prefetchIndexPage(Request $request, Collection $rows, PageContext $context): void
+{
+    $rows->load('currentAgent');                                    // eager load for the page
+
+    $context->putMany('has_grant', Grant::query()                   // one query for the page
+        ->whereIn('user_id', $rows->modelKeys())
+        ->pluck('user_id', 'user_id')
+        ->map(fn () => true)
+        ->all());
+}
+```
+
+- It is called **once per listed page**, after the page is read and before its rows are serialized, by the endpoints that list rows: the resource index, a lens, and a relationship panel's table (`HasMany`, `HasManyThrough`, `MorphMany`, `BelongsToMany`, `MorphToMany`). `$rows` is the page's models. An empty page does not call it.
+- It is on `Resource`, not on `ResourceContract`: a resource class that only implements the contract has no hook, and Martis skips the call for it.
+- It is **never** called when an action resolves its records, nor by the detail, edit, create or count endpoints, nor by a relationship picker. The default does nothing, so a resource that ignores it keeps today's behaviour.
+- A lens page that is served from the lens cache (`cacheFor()`) was serialized before and does not read the rows, so the hook does not run for it either.
+- `Martis\Support\PageContext` holds the facts for the request: `put($key, $row, $value)`, `putMany($key, [$id => $value])`, `get($key, $row, $default = null)`, `has($key, $row)`. `$row` is a model or its key. Read it from a field resolver, `canSeeForModel()`, an accessor or an action's `canRun()` with `PageContext::current($request)` (`PageContext::current()` uses the current request).
+- **Always fall back to your domain logic for a row the context does not hold.** The context is empty outside a listing (`get()` returns its default), which is the case on the action POST that runs after the page. A `canRun()` whose default is permissive would allow the run:
+
+```php
+->canRun(function (Request $request, Model $row): bool {
+    $context = PageContext::current($request);
+
+    return $context->has('has_grant', $row)
+        ? $context->get('has_grant', $row)       // the page's answer
+        : $row->grants()->exists();               // the same rule, for a row not on a page
+})
+```
+
+For an action that must decide a whole page at once, see [`canRunForRows()`](actions.md#deciding-a-page-in-one-call-canrunforrows-v2200).
+
+**Prove it stays flat.** `Martis\Testing\AssertsFlatQueries` seeds a few rows, counts the queries of a request, seeds many more and asserts the count did not grow. A failure lists the queries that ran more often:
+
+```php
+uses(\Martis\Testing\AssertsFlatQueries::class);
+
+it('lists customers in a flat number of queries', function () {
+    $this->actingAs(User::factory()->create());
+
+    $this->assertFlatQueries(
+        seed: fn (int $rows) => Customer::factory()->count($rows)->create(),   // rows to ADD
+        request: fn () => $this->getJson('/martis/api/resources/customers?per_page=100')->assertOk(),
+        few: 2,
+        many: 20,
+    );
+});
+```
+
+`seed` receives the number of rows to **add**: `few`, then `many - few`. Create whatever each row needs (related records) inside it. Pass `warmUp: true` when the first run of the request fills a cache. It returns the two counts.
+
+**Catch a lazy load where it is written.** Set `martis.dev.prevent_lazy_loading_in_listings` (`MARTIS_DEV_PREVENT_LAZY_LOADING_IN_LISTINGS`, off by default) to guard the listings: a relationship lazy loaded while a page's rows are serialized throws Laravel's `LazyLoadingViolationException` in `local` and `testing`, and is logged as a warning elsewhere (the load goes ahead). Only the rows of the page, and the relations already loaded on them, are guarded, and only while they are serialized; every flag is put back afterwards and Laravel's global `Model::preventLazyLoading()` is never turned on. An application that registered its own `Model::handleLazyLoadingViolationUsing()` keeps its handler in `local` and `testing`; elsewhere the warning handler replaces it for the length of the serialization and it is restored. Reading that handler needs reflection on Laravel's `Model::$lazyLoadingViolationCallback` (verified on Laravel 13.39.0); if a Laravel release renames it, the guard is skipped for the listing and one warning is logged per process, so a listing never fails because of this dev aid. The guard sees a relation read as a property (`$row->parent`), not a query a resolver writes (`DB::table(...)`, `$row->parent()->first()`): `AssertsFlatQueries` catches those.
+
+Source: `src/Resource.php::prefetchIndexPage()`, `src/Support/PageContext.php`, `src/Support/ListingGuard.php`, `src/Testing/AssertsFlatQueries.php`.
 
 ### relatableQuery()
 

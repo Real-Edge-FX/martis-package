@@ -503,6 +503,12 @@ export interface MartisConfigShape {
    */
   extensions?: string[]
   /**
+   * Whether a lazily loaded extension chunk that fails to load (a tab opened
+   * before a deploy) reloads the page once (v2.20.0). Sourced from
+   * `config('martis.extensions_reload_on_stale')`, default true.
+   */
+  extensionsReloadOnStale?: boolean
+  /**
    * True when the `viewMartis` gate refused this user the panel (v2.1.0):
    * the server answered the shell with 403 and the SPA mounts only the
    * standalone "no access" screen.

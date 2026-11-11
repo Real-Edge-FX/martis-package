@@ -147,6 +147,9 @@ export const ResourceIcon = R.ResourceIcon
 // Route registry (v2.2.0+): pages at URLs of your own, inside the shell.
 // Register at the top level of the bundle. See docs/custom-pages.md.
 export const routeRegistry = R.routeRegistry
+// Stale chunk recovery (v2.20.0+): `import('./Page').catch(reloadOnStaleChunk)`
+// reloads the tab once when a deploy replaced the chunk, else rethrows.
+export const reloadOnStaleChunk = R.reloadOnStaleChunk
 
 // Page and override hooks (v1.38.0+): tab title, the back-button lock of
 // a dialog inside a drawer, the override-props context, the

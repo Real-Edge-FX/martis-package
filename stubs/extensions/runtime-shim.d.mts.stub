@@ -1942,6 +1942,12 @@ interface MartisConfigShape {
      */
     extensions?: string[];
     /**
+     * Whether a lazily loaded extension chunk that fails to load (a tab opened
+     * before a deploy) reloads the page once (v2.20.0). Sourced from
+     * `config('martis.extensions_reload_on_stale')`, default true.
+     */
+    extensionsReloadOnStale?: boolean;
+    /**
      * True when the `viewMartis` gate refused this user the panel (v2.1.0):
      * the server answered the shell with 403 and the SPA mounts only the
      * standalone "no access" screen.
@@ -5430,6 +5436,30 @@ declare function useToolFields(toolKey: string): UseToolFieldsResult;
 declare function useRevalidateOnFocus(onRevalidate: () => void): void;
 
 /**
+ * What a lazy loader resolves to: an ES module with a default export (the
+ * `import('./Page')` shape), or the component itself.
+ */
+type RegistryModule<P> = {
+    default: ComponentType<P>;
+} | ComponentType<P>;
+/** A function that loads a component on demand, usually `() => import('./Page')`. */
+type RegistryLoader<P> = () => Promise<RegistryModule<P>>;
+/** What a registration takes: the component, or a loader for it. */
+type RegistryComponent<P> = ComponentType<P> | RegistryLoader<P>;
+/** Options of a registration. They only matter for a lazy one. */
+interface RegistryOptions {
+    /** Shown while the chunk loads: a node, or a component. Default: the Martis loader. */
+    fallback?: ReactNode | ComponentType;
+    /**
+     * When to fetch the chunk before it is rendered. `'idle'` fetches it when the
+     * browser is idle after the app mounted. `'never'` (default) fetches it on
+     * first render. `'visible'` is accepted and currently behaves as `'never'`:
+     * the chunk loads when the page that renders it mounts, which is the moment
+     * it becomes visible.
+     */
+    preload?: 'idle' | 'visible' | 'never';
+}
+/**
  * Component Registry — Bloco 9 (Override System v1)
  *
  * Three-tier resolution for field components:
@@ -5447,6 +5477,12 @@ declare function useRevalidateOnFocus(onRevalidate: () => void): void;
  * 4. Built-in default (registered via registerDefaultFields())
  *
  * Resolution order: explicit key → resource-field → type → built-in default
+ *
+ * Any registration can be lazy (v2.20.0): `registerLazy(key, () => import('./X'),
+ * { fallback, preload })`, or `register(key, () => import('./X'))`, which is
+ * detected from the loader's source (see `isLoader`). `resolve()` then returns
+ * a component with its own Suspense boundary, so it renders anywhere a registry
+ * component does.
  *
  * Usage (a consumer extension imports it from `@martis/runtime`):
  *   import { componentRegistry } from '@/lib/componentRegistry'
@@ -5466,15 +5502,45 @@ declare function useRevalidateOnFocus(onRevalidate: () => void): void;
 declare class ComponentRegistry {
     /** Keyed by arbitrary string (explicit component keys, type keys, resource-field keys). */
     private readonly components;
+    /** Lazy registrations by key (a subset of `components`, which holds their `React.lazy` wrapper). */
+    private readonly lazyEntries;
+    /** True once the app mounted: idle preloads registered later start at once. */
+    private idleStarted;
     /**
      * Register a component under an arbitrary key.
      * Also used for explicit `field.component` keys from PHP.
      */
-    register<P = never>(key: string, component: ComponentType<P>): void;
+    register<P = never>(key: string, component: RegistryComponent<P>, options?: RegistryOptions): void;
+    /**
+     * Register a component that loads on demand. The loader runs on the first
+     * render (or on `preload()`), at most once, and its chunk is fetched then.
+     * Renders suspend until it resolves, which every Martis call site that
+     * renders a registry component handles. Prefer this to passing a loader to
+     * `register()`: it never has to guess whether a function is a loader.
+     *
+     *   componentRegistry.registerLazy('tool:reports', () => import('./tools/Reports'))
+     */
+    registerLazy<P = never>(key: string, loader: RegistryLoader<P>, options?: RegistryOptions): void;
+    /** True when the key was registered with a loader. */
+    isLazy(key: string): boolean;
+    /**
+     * Fetch a lazy component's chunk ahead of its first render. Idempotent: the
+     * loader runs once. Resolves at once for an eager or unknown key and
+     * rejects when the fetch fails.
+     */
+    preload(key: string): Promise<void>;
+    /**
+     * Start the `preload: 'idle'` registrations when the browser is idle. The
+     * SPA calls this once after it mounted; keys registered afterwards start
+     * the same way. Failures are ignored here (the render retries and reports).
+     */
+    runIdlePreloads(): void;
+    private schedulePreload;
+    private fallbackNode;
     /** Override the display component for all fields of a given type (e.g. "text"). */
-    registerFieldDisplay(type: string, component: ComponentType<FieldDisplayProps>): void;
+    registerFieldDisplay(type: string, component: RegistryComponent<FieldDisplayProps>, options?: RegistryOptions): void;
     /** Override the input component for all fields of a given type (e.g. "text"). */
-    registerFieldInput(type: string, component: ComponentType<FieldInputProps>): void;
+    registerFieldInput(type: string, component: RegistryComponent<FieldInputProps>, options?: RegistryOptions): void;
     /**
      * Override the display component for a specific field on a specific resource.
      *
@@ -5482,7 +5548,7 @@ declare class ComponentRegistry {
      * @param fieldName    The field attribute name (e.g. "status", "name")
      * @param component    The React component to use for display
      */
-    registerResourceFieldDisplay(resourceKey: string, fieldName: string, component: ComponentType<FieldDisplayProps>): void;
+    registerResourceFieldDisplay(resourceKey: string, fieldName: string, component: RegistryComponent<FieldDisplayProps>, options?: RegistryOptions): void;
     /**
      * Override the input component for a specific field on a specific resource.
      *
@@ -5490,7 +5556,7 @@ declare class ComponentRegistry {
      * @param fieldName    The field attribute name (e.g. "status", "name")
      * @param component    The React component to use for the form input
      */
-    registerResourceFieldInput(resourceKey: string, fieldName: string, component: ComponentType<FieldInputProps>): void;
+    registerResourceFieldInput(resourceKey: string, fieldName: string, component: RegistryComponent<FieldInputProps>, options?: RegistryOptions): void;
     /** Resolve a display component with full 4-tier fallback chain. */
     resolveDisplay(type: string, fieldName: string, resourceKey: string | undefined, explicitKey: string | null | undefined, fallback: ComponentType<FieldDisplayProps>): ComponentType<FieldDisplayProps>;
     /** Resolve an input component with full 4-tier fallback chain. */
@@ -5666,6 +5732,16 @@ declare class RouteRegistry {
     seal(): void;
 }
 declare const routeRegistry: RouteRegistry;
+
+/**
+ * Use as the rejection handler of a dynamic import:
+ * `import('./Page').catch(reloadOnStaleChunk)`.
+ *
+ * A chunk-load error reloads the page (at most once per minute per tab, only online) and returns a promise that
+ * never settles (the page is going away). Any other error, a second chunk
+ * error within the minute, being offline, or the kill switch being off rethrows the error.
+ */
+declare function reloadOnStaleChunk<T = never>(error: unknown): Promise<T>;
 
 /**
  * Update `document.title` while a component is mounted. Pass a single
@@ -7750,6 +7826,7 @@ declare const martisRuntime: {
     readonly layoutRegistry: LayoutRegistry;
     readonly ResourceIcon: typeof ResourceIcon;
     readonly routeRegistry: RouteRegistry;
+    readonly reloadOnStaleChunk: typeof reloadOnStaleChunk;
     readonly usePageTitle: typeof usePageTitle;
     readonly useDynamicCrumb: typeof useDynamicCrumb;
     readonly useAuthLinkParams: typeof useAuthLinkParams;
@@ -7798,5 +7875,5 @@ declare const martisRuntime: {
  */
 type MartisRuntime = typeof martisRuntime;
 
-export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, ResourceIcon, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthLinkParams, useDashboardFilters, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalFocus, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRefreshRecord, useRevalidateOnFocus, useRunAction, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
+export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, ResourceIcon, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, reloadOnStaleChunk, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthLinkParams, useDashboardFilters, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalFocus, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRefreshRecord, useRevalidateOnFocus, useRunAction, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
 export type { ActionResponseModalProps, ActiveFilters, AuthLinkParams, DashboardFiltersContextValue, DashboardFiltersOptions, DashboardFiltersUpdate, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, ModalFocusOptions, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RefreshRecord, RegisteredRoutePageProps, ResourceIconProps, RouteRegistration, RunAction, RunActionOptions, RunActionResult, SetDashboardFilters, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, TopbarSlotPlacement, TopbarSlotProps, UseToolFieldsResult };

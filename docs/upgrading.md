@@ -4,6 +4,16 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.20.0 from v2.19.x
+
+v2.20.0 adds opt-in performance hooks: lazy extension components, cached and batched sidebar counts, metric TTLs in seconds, a per-page prefetch hook with batched action visibility, and PostgreSQL search tooling. Republish the assets (`php artisan martis:publish-assets`) and the config (`php artisan vendor:publish --tag=martis-config --force`, or copy the new keys by hand). Nothing else has to change in an app; check these if they apply:
+
+- **The extension bundle URL now ends in `?v=<hash>`** when it points at an existing file under `public/` (the default `/vendor/martis-user/extensions.js` does). The file is the same; only the URL changes with its content, so it can be served as immutable (see [Extensions: caching](extensions-caching.md)). A test or a CSP rule that matched the bare URL exactly should allow the query string, or set `MARTIS_EXTENSIONS_VERSIONED_URLS=false`.
+- **To register components lazily** in an app scaffolded before v2.20.0, refresh the extension scaffold (`php artisan vendor:publish --tag=martis-extension-shims --force`) for `reloadOnStaleChunk` in the runtime shim and the code-splitting `vite.extensions.config`, then `npm run build:extensions`. Existing eager registrations keep working unchanged.
+- **New public members** on `Action` (`canRunForRows()`, `hasBatchedCanRun()`, `authorizedToRunRows()`), `Resource` (`prefetchIndexPage()`, `menuCountCache()`, `searchMode()`, `$searchMode`), `Tool` (`menuCountCache()`) and `Metric` (`$cacheSeconds`, `cacheForSeconds()`, `$live`, `live()`). A subclass or trait in the app that already declares one of these names with another signature fails at class load: rename it. `ActionContract` and `ResourceContract` are unchanged, so a class that implements a contract without extending the base class keeps working, without the new behaviour.
+- **`martis.search.match_mode`** is the new search matching key. `martis.search.mode` is still the top-bar search bar mode (`bar`, `icon`, `disabled`).
+- **A `canRunForRows()` answer is keyed by the rows' keys** (`$rows->mapWithKeys(...)`); a row it omits is denied unless the action also has a per-row `canRun()`, and a key that is no row throws.
+
 ## Upgrading to v2.19.0 from v2.18.x
 
 v2.19.0 names a dashboard from the first paint: the shell embeds the list of dashboards the user may see in its boot payload (`window.MartisConfig.dashboards`), so a reload or a bookmark no longer shows "Dashboard" in the breadcrumb and the sidebar, the generic tab title, or three skeleton cards until `GET /api/dashboards` answers. Republish the assets (`php artisan martis:publish-assets`). Nothing has to change in an app; check these if they apply:

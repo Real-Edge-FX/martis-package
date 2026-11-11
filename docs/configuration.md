@@ -740,6 +740,21 @@ Namespace for auto-discovery of resource policies. When a resource does not defi
 
 Where Martis scans for `Martis\Tools\Tool` subclasses (since v1.8.20). `tools_namespace` follows the same precedence as `resources_namespace` (explicit string, then Composer's PSR-4 map, then `App\Martis\Tools`); a config published before v1.36.0 still carries the literal `'App\\Martis\\Tools'`, which keeps working. Discovery merges with any `Martis::tools([...])` registration via dedup by class-string, so adopting it does not break apps that already registered Tools manually. Set `discovery.tools` to `false` (or `MARTIS_DISCOVERY_TOOLS=false`) to opt out and keep manual registration.
 
+## Extension bundles: versioned URLs and stale chunks (v2.20.0)
+
+```php
+// config/martis.php
+'extensions_versioned_urls' => (bool) env('MARTIS_EXTENSIONS_VERSIONED_URLS', true),
+'extensions_reload_on_stale' => (bool) env('MARTIS_EXTENSIONS_RELOAD_ON_STALE', true),
+```
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `extensions_versioned_urls` | `true` | A root-relative URL in `extensions` that is a file under `public/` is emitted as `/vendor/martis-user/extensions.js?v=<12 hex of the content hash>`. The URL changes only when the file does, so the bundle can be cached for a year (`immutable`). Absolute `http(s)://` and protocol-relative URLs, URLs that already have a query string or a fragment, and paths of missing files are emitted as configured. `false` emits every URL exactly as listed. |
+| `extensions_reload_on_stale` | `true` | A lazily loaded extension chunk (`componentRegistry.registerLazy`) that cannot be fetched because a deploy replaced it reloads the tab once, then shows an error state. `false` never reloads. Surfaced to the SPA as `window.MartisConfig.extensionsReloadOnStale`. |
+
+See [Extensions: caching](extensions-caching.md) for the response headers and [Overrides](overrides.md#lazy-registration-v2200) for lazy registration.
+
 ## Attachments
 
 ```php
@@ -1359,8 +1374,10 @@ Beyond the global `MARTIS_CACHE_ENABLED` master switch, every surface that cache
 | `MARTIS_CACHE_DASHBOARDS` / `MARTIS_CACHE_DASHBOARDS_TTL` | `5` | Dashboard TTL (the list key is also fingerprinted by the user's authorized set, so membership changes never wait for the TTL) |
 | `MARTIS_CACHE_METRICS_ENABLED` | `true` | Metric cards |
 | `MARTIS_CACHE_METRICS` / `MARTIS_CACHE_METRICS_TTL` | `5` | Metrics TTL |
+| `MARTIS_CACHE_METRICS_DEFAULT_TTL_SECONDS` | `null` | Metrics TTL in **seconds** for a metric that sets none (v2.20.0); `null` keeps the minutes above. See [Cache](cache.md#badge-counts-and-metric-ttls-in-seconds-v2200) |
 | `MARTIS_CACHE_NAVIGATION_ENABLED` | `true` | Sidebar navigation tree |
 | `MARTIS_CACHE_NAVIGATION` / `MARTIS_CACHE_NAVIGATION_TTL` | `1` | Navigation TTL |
+| `MARTIS_CACHE_BADGE_TTL_SECONDS` | `null` | TTL in **seconds** of each user's sidebar badge map (v2.20.0); `null` keeps the navigation TTL in minutes |
 | `MARTIS_CACHE_SCHEMA_ENABLED` | `true` | Resource schema payload |
 | `MARTIS_CACHE_SCHEMA` / `MARTIS_CACHE_SCHEMA_TTL` | `1440` | Schema TTL in minutes (one day since v2.0; `null` before, see [Cache → Invalidation](cache.md#invalidation)) |
 | `MARTIS_CACHE_ADMIN_UI` | `true` | Cache admin UI in the System sidebar group |
@@ -1411,6 +1428,7 @@ Hides the global pre-hydration loader. Useful when you embed Martis inside an ou
     'mobile_mode'   => env('MARTIS_SEARCH_MOBILE_MODE', 'icon'),
     'default_limit' => (int) env('MARTIS_SEARCH_DEFAULT_LIMIT', 5),
     'min_query'     => (int) env('MARTIS_SEARCH_MIN_QUERY', 2),
+    'match_mode'    => env('MARTIS_SEARCH_MATCH_MODE', 'contains'),
 ],
 ```
 
@@ -1420,6 +1438,7 @@ Hides the global pre-hydration loader. Useful when you embed Martis inside an ou
 | `mobile_mode` | `icon` | Equivalent for mobile viewports. |
 | `default_limit` | `5` | Result rows per resource in the omnisearch dropdown. |
 | `min_query` | `2` | Don't trigger a search until the query has this many characters. |
+| `match_mode` | `contains` | How the database search matches a term for every resource without its own `searchMode()`: `contains` (`ILIKE '%term%'`), `prefix` (`ILIKE 'term%'`) or `columns` (only `col:term` tokens). An unknown value throws. See [search-performance.md](search-performance.md). |
 
 ## Default row actions
 
@@ -1460,10 +1479,13 @@ Each env var is a comma-separated string; Martis splits it into an array at boot
 ```php
 'dev' => [
     'tools_enabled' => env('MARTIS_DEV_TOOLS', in_array(env('APP_ENV', 'production'), ['local', 'testing'], true)),
+    'prevent_lazy_loading_in_listings' => env('MARTIS_DEV_PREVENT_LAZY_LOADING_IN_LISTINGS', false),
 ],
 ```
 
 Master switch for the Component Inspector overlay (Cmd/Ctrl+Shift+I) and other in-page debugging surfaces. Defaults to ON in `local` and `testing`, OFF in `production`. Force ON in production with `MARTIS_DEV_TOOLS=true` for short-lived diagnostic windows.
+
+`prevent_lazy_loading_in_listings` (v2.20.0, off by default) makes a relationship lazy loaded while a listing's rows are serialized throw in `local` and `testing` and log a warning elsewhere, without turning on Laravel's global `Model::preventLazyLoading()`. See [Resources → Avoiding per-row queries on index pages](resources.md#avoiding-per-row-queries-on-index-pages-v2200).
 
 ## Content Security Policy (v2.4.0)
 
@@ -1590,11 +1612,13 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_BRAND_THEME_COLOR` | `(no default)` |
 | `MARTIS_BRAND_VERSION` | `(no default)` |
 | `MARTIS_CACHE_ADMIN_UI` | `true` |
+| `MARTIS_CACHE_BADGE_TTL_SECONDS` | `(no default)` |
 | `MARTIS_CACHE_DASHBOARDS` | `5` |
 | `MARTIS_CACHE_DASHBOARDS_ENABLED` | `true` |
 | `MARTIS_CACHE_DASHBOARDS_TTL` | `env('MARTIS_CACHE_DASHBOARDS', 5)` |
 | `MARTIS_CACHE_ENABLED` | `true` |
 | `MARTIS_CACHE_METRICS` | `5` |
+| `MARTIS_CACHE_METRICS_DEFAULT_TTL_SECONDS` | `(no default)` |
 | `MARTIS_CACHE_METRICS_ENABLED` | `true` |
 | `MARTIS_CACHE_METRICS_TTL` | `env('MARTIS_CACHE_METRICS', 5)` |
 | `MARTIS_CACHE_NAVIGATION` | `1` |
@@ -1663,6 +1687,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_ROW_CLICK_OPENS_DETAIL` | `true` |
 | `MARTIS_RTL_LOCALES` | `'ar,fa,he,ur'` |
 | `MARTIS_SEARCH_DEFAULT_LIMIT` | `5` |
+| `MARTIS_SEARCH_MATCH_MODE` | `'contains'` |
 | `MARTIS_SEARCH_MIN_QUERY` | `2` |
 | `MARTIS_SEARCH_MOBILE_MODE` | `'icon'` |
 | `MARTIS_SEARCH_MODE` | `'bar'` |

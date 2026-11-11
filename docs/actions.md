@@ -970,6 +970,28 @@ Controls whether a specific model can be acted on. Evaluated per model at execut
 PublishPosts::make()->canRun(fn (Request $request, $model) => $model->status === 'draft');
 ```
 
+### Deciding a page in one call — `canRunForRows()` (v2.20.0)
+
+A `canRun()` runs once per listed row. When it needs a query (an `EXISTS`, a lookup in another table), a page of 100 rows runs it 100 times. `canRunForRows()` is the batched alternative: it receives the whole page and answers for every row in one call.
+
+```php
+use Illuminate\Database\Eloquent\Collection;
+
+RevokeGrant::make()->showInline()->canRunForRows(function (Request $request, Collection $rows): array {
+    $granted = Grant::whereIn('user_id', $rows->modelKeys())->pluck('user_id')->flip();
+
+    return $rows->mapWithKeys(fn ($user) => [$user->getKey() => $granted->has($user->getKey())])->all();
+});
+```
+
+- It returns `[row key => bool]`. Return an entry for every row. A row the array omits falls back to the action's per-row `canRun()` when there is one, and is **denied** when there is none, on the page and on the run alike (the rule fails closed). Keys are compared as strings, so an int key and its string form, or a uuid, match. A value that is not an array throws an `UnexpectedValueException` naming the action. So does a key that is no row of the batch: a list written as `$rows->map(fn ($row) => ...)->all()` is keyed `0..n-1`, not by row key, and would silently allow one row and deny another. Key it with `mapWithKeys()` as above.
+- Martis calls it **once per page** where the index, a lens or a relationship panel marks each row's `_actionAuthorization`. A page's `prefetchIndexPage()` has already run (see [Avoiding per-row queries on index pages](resources.md#avoiding-per-row-queries-on-index-pages-v2200)), so the rule can read what it loaded.
+- **The run is refused for what the page hides.** The run, the action's fields request and a pivot run decide with the same rule: a bulk run calls it once with every selected record and refuses the whole run (404) when it denies any of them, as it does for `canRun()`. The policy checks (`runAction` / `runDestructiveAction`) still apply on top. When only `canRunForRows()` is set, a check of a single record (`authorizedToRun()`) asks it with that one row, so no route skips the rule.
+- **An overridden `authorizedToRun()` still counts.** A subclass that overrides `authorizedToRun()` next to a batched rule is asked for each row too, and a row runs only when **both** allow it (deny if either denies), on the page, the detail page, the run, the fields request and a pivot run. The override is asked per row, and a `parent::authorizedToRun()` inside it asks the batch for that one row, so do not call `parent` from the override when you want the batch to stay one call per page.
+- `canRunForRows()` is on `Action`, not on `ActionContract` (as `opensInNewTab()` below): a class that implements the contract itself keeps compiling and keeps its per-row `authorizedToRun()`, with no batched rule.
+- With both set, the batch answers for the rows it names and `canRun()` for the others, on the page and on the run alike.
+- Without `canRunForRows()` nothing changes: `canRun()` runs per row, on the page and on the run.
+
 ### Layer 3 — Policy integration
 
 The controller resolves authorization via a fallback chain on the resource's policy. It applies to each record, after `canRun()`, except for a `standalone()` action; each row of the index and of a relationship panel is marked with the same result, so an action the menu enables is one the run accepts. Both must allow the run: unlike Nova 5, where a `canRun()` replaces the policy, a `canRun()` grants nothing the policy refuses (see [Differentials](differentials.md)):

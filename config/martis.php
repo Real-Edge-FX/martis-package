@@ -372,12 +372,24 @@ return [
     | container see it without flipping a flag) and OFF everywhere else,
     | which prevents end-users on staging or production from stumbling onto
     | the page. Set MARTIS_DEV_TOOLS=true in any environment to force-enable.
+    |
+    | prevent_lazy_loading_in_listings
+    |     Off by default. When true, a relationship that is lazy loaded while
+    |     a listing (the resource index, a lens, a relationship panel) is
+    |     serialized throws in `local` and `testing` and is logged as a
+    |     warning elsewhere, so a per-row query is found where it is written.
+    |     Only the rows of the page are guarded, only while they are
+    |     serialized, and every flag is put back afterwards: it never turns
+    |     on Laravel's global Model::preventLazyLoading(). Eager load what
+    |     the rows read in Resource::prefetchIndexPage().
     */
     'dev' => [
         'tools_enabled' => env(
             'MARTIS_DEV_TOOLS',
             in_array(env('APP_ENV', 'production'), ['local', 'testing'], true),
         ),
+
+        'prevent_lazy_loading_in_listings' => env('MARTIS_DEV_PREVENT_LAZY_LOADING_IN_LISTINGS', false),
     ],
 
     /*
@@ -562,6 +574,13 @@ return [
         // Relationship / autocomplete search (BelongsTo pickers, etc.).
         'default_limit' => (int) env('MARTIS_SEARCH_DEFAULT_LIMIT', 5),
         'min_query' => (int) env('MARTIS_SEARCH_MIN_QUERY', 2),
+
+        // How the database search matches a term, for every resource that
+        // does not set its own `searchMode()`: `contains` (`ILIKE '%term%'`,
+        // the default), `prefix` (`ILIKE 'term%'`, index-friendly) or
+        // `columns` (only the `col:term` tokens; a bare term acts as
+        // `contains`). An unknown value throws. See docs/search-performance.md.
+        'match_mode' => env('MARTIS_SEARCH_MATCH_MODE', 'contains'),
 
         // Global search bar (topbar).
         'enabled' => true,
@@ -1233,10 +1252,23 @@ return [
         'metrics' => [
             'enabled' => env('MARTIS_CACHE_METRICS_ENABLED', true),
             'ttl' => env('MARTIS_CACHE_METRICS_TTL', env('MARTIS_CACHE_METRICS', 5)),
+            // TTL in SECONDS for a metric that sets none of its own (v2.20.0).
+            // null keeps `ttl` above (minutes). A metric's `$cacheSeconds` or
+            // `cacheFor()` wins over it, and a metric with `live()` is never
+            // cached. A value that is set but is not a whole number of
+            // seconds (1 or more) throws.
+            'default_ttl_seconds' => env('MARTIS_CACHE_METRICS_DEFAULT_TTL_SECONDS'),
         ],
         'navigation' => [
             'enabled' => env('MARTIS_CACHE_NAVIGATION_ENABLED', true),
             'ttl' => env('MARTIS_CACHE_NAVIGATION_TTL', env('MARTIS_CACHE_NAVIGATION', 1)),
+            // TTL in SECONDS of each user's sidebar badge map, for a unit
+            // finer than the whole minutes of `ttl` (v2.20.0). null keeps
+            // `ttl` above. Set it to the shortest `menuCountCache()['ttl']`
+            // you use, so a shared count is not held back by the map. A value
+            // that is set but is not a whole number of seconds (1 or more)
+            // throws.
+            'badge_ttl_seconds' => env('MARTIS_CACHE_BADGE_TTL_SECONDS'),
         ],
         'dashboards' => [
             'enabled' => env('MARTIS_CACHE_DASHBOARDS_ENABLED', true),
@@ -1441,6 +1473,34 @@ return [
     | avoid duplicating the runtime. v1.8.19+.
     */
     'extensions' => array_values(array_filter(array_map('trim', explode(',', (string) env('MARTIS_EXTENSIONS', ''))))),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Extension bundle URLs: versioned
+    |--------------------------------------------------------------------------
+    | When true (default), a root-relative extension URL that is a file under
+    | `public/` is emitted with `?v=<content hash>`, so the bundle can be
+    | served with `Cache-Control: public, max-age=31536000, immutable` and a
+    | deploy still reaches every browser. Absolute URLs, URLs that already
+    | have a query string and missing files are left as configured. Set it to
+    | false to emit the URLs exactly as listed in `extensions`.
+    | See docs/extensions-caching.md. v2.20.0+.
+    */
+    'extensions_versioned_urls' => (bool) env('MARTIS_EXTENSIONS_VERSIONED_URLS', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Extension chunks: reload on a stale chunk
+    |--------------------------------------------------------------------------
+    | An extension component registered with `componentRegistry.registerLazy()`
+    | loads its chunk on demand. A browser tab opened before a deploy asks for
+    | a chunk file the deploy replaced, and the load fails. When true
+    | (default), Martis reloads that tab once (a `sessionStorage` guard keeps
+    | it from looping) and, if the load still fails, shows an error state in
+    | place of the component. Set it to false to never reload automatically.
+    | v2.20.0+.
+    */
+    'extensions_reload_on_stale' => (bool) env('MARTIS_EXTENSIONS_RELOAD_ON_STALE', true),
 
     /*
     |--------------------------------------------------------------------------

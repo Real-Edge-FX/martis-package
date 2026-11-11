@@ -110,6 +110,7 @@ Tool::make(__('Finance Imports'))
 | `belongsToSystemSection()` | `true` when the Tool is docked in the bundled "System" sidebar section. Defaults to `false`. v1.35.0+. |
 | `systemSectionOrder()` | Weight of the Tool inside the "System" section, lowest first. Defaults to `100`. v1.38.0+. |
 | `menuCount(Request)` | Sidebar count badge for this tool. Returns `null` (no badge) by default. Override to return a count. v1.29.0+. |
+| `menuCountCache()` | Caches the count on its own: `null` (default) or `['scope' => 'shared'\|'user', 'ttl' => <seconds>]`. Same rules as the resource hook, see [Cache](cache.md#badge-counts-and-metric-ttls-in-seconds-v2200). v2.20.0+. |
 | `showMenuCount()` | Whether the count badge renders. Defaults to `true`; the badge only appears when `menuCount()` also returns non-null. v1.29.0+. |
 | `meta()` | The accumulated metadata array (mirrors what `withMeta()` set). |
 | `withIcon(string)` | Phosphor icon for the menu entry. Chainable. |
@@ -226,7 +227,7 @@ Behaviour:
 - The value serialises on the tool's nav item under the `count` key.
 - It is also included in the lightweight `GET /api/navigation/badges` payload, keyed by the tool's `uriKey`, so tool counts **live-poll** on the same interval as resource counts (`MARTIS_NAV_BADGES_POLL_MS`, default 5 min).
 - The badge respects `authorizedToSee()` — a user who can't see the Tool never receives its count, exactly like a resource count.
-- `menuCount()` runs per request; keep the query cheap (it also fires on every badge poll). Cache it if it's expensive.
+- `menuCount()` runs per request; keep the query cheap (it also fires on every badge poll). Cache it if it's expensive: override `menuCountCache()` (v2.20.0) to have Martis cache it, shared or per user, for a number of seconds.
 
 ### Lifecycle: `boot()`
 
@@ -478,6 +479,10 @@ The Martis `ToolPage` shell (route `/tools/:uriKey`) fetches `/api/tools/{uriKey
 If your tool's `component()` returns a key that has no registration in `componentRegistry`, `ToolPage` renders a developer-friendly error UI (the tool name as the heading, then a translated message pointing you at the missing `componentRegistry.register(...)` call). The error is rendered to the DOM, not the console — it is hard to miss during local dev and is harmless in production beyond the visible message. To ship a config-only tool without a React body, simply do not call `withComponent()`; `ToolPage` then renders just the standard header and no content panel.
 
 > **Navigating between tools.** Switching from one Tool to another (`/tools/:uriKey` → `/tools/:otherUriKey`) fully unmounts and remounts `ToolPage`, so the outgoing tool's state and in-flight fetch are torn down cleanly instead of flashing stale data from the previous tool. A top progress bar (mounted once in the shell layout) reflects any in-flight navigation or query across the whole app, tool pages included.
+
+### Loading a heavy Tool on demand (v2.20.0+)
+
+A Tool's component is imported with the rest of `extensions.js` by default. For a heavy one (charts, an editor), register it with `componentRegistry.registerLazy('tool:reports', () => import('./heavy/Reports'), { preload: 'idle' })`: its chunk is fetched when the Tool opens (or when the browser is idle after boot), `ToolPage` shows the Martis loader meanwhile, and a stale chunk after a deploy reloads the tab once. See [Overrides → Lazy registration](overrides.md#lazy-registration-v2200) and [Extensions: caching](extensions-caching.md).
 
 ### Pages at URLs of your own (v2.2.0+)
 

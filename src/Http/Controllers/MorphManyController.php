@@ -28,6 +28,7 @@ use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\Rules\RelatableWrite;
 use Martis\SearchResolver;
+use Martis\Support\ListingGuard;
 
 /**
  * Controller for MorphMany relationship CRUD operations.
@@ -112,13 +113,16 @@ class MorphManyController extends MartisController
 
         $paginator = $query->paginate($perPage);
 
+        // What the page's rows need, loaded once for the page.
+        $this->prefetchListingPage($request, $relatedResourceClass, $paginator->items());
+
         // The panel offers the related resource's inline row actions, as
         // the resource index does, so each row carries whether each may run
         // on it (its inline actions).
-        $actionAuthorization = $this->rowActionAuthorizer($request, $relatedResourceClass, inlineOnly: true);
+        $actionAuthorization = $this->rowActionAuthorizer($request, $relatedResourceClass, inlineOnly: true, rows: $paginator->items());
 
         /** @var list<array<string, mixed>> $data */
-        $data = array_values(
+        $data = ListingGuard::run($paginator->items(), fn (): array => array_values(
             collect($paginator->items())->map(function (Model $model) use ($relatedResourceClass, $request, $actionAuthorization): array {
                 $res = new $relatedResourceClass($model);
 
@@ -134,7 +138,7 @@ class MorphManyController extends MartisController
 
                 return $row;
             })->all()
-        );
+        ));
 
         return JsonPaginatedResponse::make(
             data: $data,

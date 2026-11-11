@@ -88,6 +88,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 6.6 | **[Lenses](lenses.md)** | Custom filtered views — `Lens` base class, `summary()`, `cacheFor()`, `withDefaultFilters()`, URL state sync |
 | 6.7 | **[Metrics](metrics.md)** | Metrics system — Value, Trend, Partition, Progress metrics, query helpers, ranges, caching, card width, auto-refresh |
 | 6.8 | **[Dashboards](dashboards.md)** | Dashboard system — multiple dashboards, dashboard filters, refresh button, registration, fallback |
+| 6.10 | **[Search performance on PostgreSQL](search-performance.md)** | Why a multi-column `ILIKE` ignores indexes, trigram indexes, `martis:search-index`, `searchMode()` (`contains` / `prefix` / `columns`) |
 | 6.9 | **[Global Search](global-search.md)** | Cross-resource search — per-resource `globallySearchable(bool\|array)`, `searchOrderBy()`, "View all N matches" overflow |
 | 6.10 | **[Sticky Views](sticky_views.md)** | Per-resource session state for search / sort / filters / pagination / trashed / `filtersOpen` (v0.8) |
 | 7 | **[Actions](actions.md)** | Actions system — bulk, inline, standalone, queued, destructive actions, closure actions, dry-run preview, action fields, responses, authorization, action events |
@@ -101,6 +102,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 9.3.1 | **[Tool boot() patterns](tool-boot-patterns.md)** | When to put setup in `Tool::boot()` vs `AppServiceProvider::boot()` — decision rubric + 4 in-app patterns (routes, gates, schedules, listeners) |
 | 9.3.2 | **[Custom Pages](custom-pages.md)** | Pages at URLs of your own, inside the shell: `routeRegistry` on `@martis/runtime`, the Tool guard, breadcrumbs (v2.2.0) |
 | 9.3.3 | **[Testing Extensions](testing-extensions.md)** | Vitest and Playwright tests of Tools, cards, fields and overrides with the real runtime: `MartisTestProvider`, `martisExtensionTestConfig()` (v2.3.0) |
+| 9.3.4 | **[Extensions: caching](extensions-caching.md)** | Cache headers for the extension bundle and its lazy chunks (`?v=` URL, hashed `chunks/*`), with Caddy, nginx and Apache snippets; lazy registration and stale-chunk reload (v2.20.0) |
 | 10 | **[Authentication](authentication.md)** | Login / Register / 2FA challenge / error shell (`AuthFrame` + `AuthControls`), Google + password-reset config, self-service registration contract, user profile, avatar uploads, user menu configuration |
 | 10.5 | **[SSO Subsystem](sso.md)** | Pluggable provider contract, identity-to-user resolver, role mapping, permission adapters, `martis:sso` generator (v0.9) |
 | 10.55 | **[Roles & Permissions Admin](roles.md)** | `martis:roles` generator — Spatie-backed admin UI for users, roles, permissions in the System sidebar group (v1.6) |
@@ -144,6 +146,7 @@ docs/
 ├── dashboards.md ................... Dashboards
 ├── menus.md ........................ Declarative navigation
 ├── global-search.md ................ Cross-resource search
+├── search-performance.md ........... Search performance on PostgreSQL (trigram indexes, search modes)
 ├── sticky_views.md ................. Per-resource session state (v0.8)
 ├── actions.md ...................... Actions system
 ├── default_row_actions.md .......... Built-in inline action set
@@ -155,6 +158,7 @@ docs/
 ├── tool-boot-patterns.md ........... Decision rubric: Tool::boot() vs AppServiceProvider::boot()
 ├── custom-pages.md ................. Pages at URLs of your own (v2.2.0)
 ├── testing-extensions.md ........... Tests of your extensions (v2.3.0)
+├── extensions-caching.md ........... Cache headers for the extension bundle and its chunks (v2.20.0)
 ├── authentication.md ............... Login, 2FA, profile
 ├── sso.md .......................... SSO subsystem (v0.9)
 ├── impersonation.md ................ Impersonation subsystem (v0.10)

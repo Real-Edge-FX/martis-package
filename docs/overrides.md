@@ -1207,6 +1207,9 @@ componentRegistry.registerFieldInput(type, component)
 componentRegistry.registerResourceFieldDisplay(resource, field, component)
 componentRegistry.registerResourceFieldInput(resource, field, component)
 
+// Register a component that loads on demand (v2.20.0), with options
+componentRegistry.registerLazy(key, () => import('./tools/Reports'), { preload: 'idle' })
+
 // ─── Lookup ────────────────────────────────────────────────
 // Resolve a display component with the full 4-tier priority chain
 componentRegistry.resolveDisplay(type, fieldName, resourceKey, explicitKey, fallback)
@@ -1220,6 +1223,12 @@ componentRegistry.resolve(key)
 // Boolean check
 componentRegistry.has(key)
 
+// Registered with a loader? (v2.20.0)
+componentRegistry.isLazy(key)
+
+// Fetch a lazy component's chunk ahead of its first render (v2.20.0)
+await componentRegistry.preload(key)
+
 // List every registered key — useful in devtools console for debugging
 // "why didn't my override pick up?" cases.
 componentRegistry.keys()
@@ -1228,6 +1237,27 @@ componentRegistry.keys()
 `resolveDisplay` and `resolveInput` walk Tiers 1 → 4 in order (explicit key → per-resource → global type → fallback). The single-arg `resolve(key)` is the low-level lookup used by drawer / shell overrides where the consumer already knows the exact registry key.
 
 The same instance is `window.Martis.componentRegistry`, so `window.Martis.componentRegistry.keys()` in the browser console lists every registered key without a rebuild.
+
+### Lazy registration (v2.20.0)
+
+Every component registered by hand or discovered by the scaffold's `index.ts` is imported eagerly, so a large tool or card adds to `extensions.js`, which every page of the panel downloads. `registerLazy` moves a component into a chunk that is fetched the first time it renders:
+
+```typescript
+import { componentRegistry } from '@martis/runtime'
+
+componentRegistry.registerLazy('tool:reports', () => import('./heavy/Reports'), {
+  fallback: <p>Loading reports…</p>, // default: the Martis loader
+  preload: 'idle',                   // default: 'never'
+})
+```
+
+- **Loader.** A function that returns a promise of the module (`import('./Reports')`, whose default export is the component) or of the component itself. It runs at most once, on the first render or on `preload()`. A failed fetch is not cached: `preload()` calls the loader again, and so does "Try again" in the error state (it builds a fresh lazy component, because `React.lazy` itself would keep the rejection for good). A plain re-render of the failed component does not retry.
+- **Where it works.** `resolve()` returns a component that carries its own Suspense boundary, so a lazy component renders in every place Martis renders a registry component: Tool pages, dashboard cards and component-keyed metrics, filter controls, custom actions and action drawers, CRUD overrides, registered pages, shell slots, auth pages, and field displays and inputs (global, per-resource and explicit key). Nothing at the call site needs to know it is lazy.
+- **`fallback`.** What shows while the chunk loads: a node, or a component. Without one, Martis shows its loader (including a `loader` override registered in the registry; the `loader` key itself falls back to the bundled loader).
+- **`preload`.** `'never'` (default) fetches on first render. `'idle'` fetches once the app is on screen and the browser is idle (`requestIdleCallback`, a short timer where it is missing), so the first visit to the tool does not wait. `'visible'` is accepted and behaves as `'never'`: a chunk loads when the page that renders it mounts, which is when it becomes visible. `await componentRegistry.preload(key)` fetches a chunk at a moment of your choosing (for example on hover of a link to it); it is idempotent and resolves at once for an eager or unknown key.
+- **`register(key, () => import('./X'))`.** The overload that takes a loader is detected from the function's source: a zero-argument, expression-bodied arrow (or `function() { return import(...) }`) that reaches an `import(` call, including the `__vitePreload` wrapper Vite emits. A function component with no props is also a zero-argument function, and a function cannot be called to find out which it is, so a component is never taken for a loader unless its source looks like that; anything with a block body, parameters, or a class is eager. **Only `registerLazy` is guaranteed to be lazy**: a loader with a block body (`() => { return import('./X') }`), one wrapped by a minifier or an instrumenter, or one that takes arguments is silently registered as an eager component, and rendering it fails. Use `registerLazy` whenever the loader is not a plain `() => import('./X')`. The typed helpers (`registerFieldDisplay`, `registerFieldInput`, `registerResourceFieldDisplay`, `registerResourceFieldInput`) take the same two forms and the same options.
+- **A chunk that cannot load.** If the loader rejects, only that component shows Martis's error state (with the surface's key) and the rest of the page keeps working. After a deploy, a tab opened before it asks for chunk files the deploy replaced (their hashed names changed), and the fetch fails with `Failed to fetch dynamically imported module` (or `Importing a module script failed`, `error loading dynamically imported module`, `ChunkLoadError`). Martis reloads the tab to pick up the new entry and chunk names, **at most once per minute per tab**: a `sessionStorage` timestamp keeps a failure that survives the reload (a chunk that is really gone) from looping, and a successful load of another chunk does not reset it. It never reloads while the browser is offline (`navigator.onLine === false`): that failure is the network, not a deploy, and a reload would lose unsaved form state, so the error state shows with "Try again". If `sessionStorage` is blocked it never reloads. Set `MARTIS_EXTENSIONS_RELOAD_ON_STALE=false` (`martis.extensions_reload_on_stale`) to never reload automatically. A dynamic `import()` of your own can use the same handler: `import('./Page').catch(reloadOnStaleChunk)` (`reloadOnStaleChunk` is exported by `@martis/runtime`).
+- **Build.** `vite.extensions.config.ts` writes chunks to `chunks/[name]-[hash].js` next to `extensions.js`. Republish the scaffold (`php artisan vendor:publish --tag=martis-extension-shims --force`, or `martis:install --force`) to get the new rollup options on an install made before v2.20.0. Serve the folder with the cache headers in [Extensions: caching](extensions-caching.md).
 
 ## Debugging — `martis:list-overrides`
 

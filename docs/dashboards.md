@@ -343,6 +343,8 @@ php artisan martis:dashboard SalesDashboard
 
 ## Cache Configuration
 
+> **Metrics versus custom cards (v2.20.0).** Only a `Metric` is computed by its own request (`GET /api/dashboards/{d}/cards/{card}`), so only a metric has a cache lifetime of its own: `$cacheSeconds` / `cacheForSeconds()`, `live()`, and `martis.cache.metrics.default_ttl_seconds` (see [Metrics: caching](metrics.md#caching)). A custom `Card` is serialised with the dashboard shape, cached per user under the `dashboards` layer, and its `meta` is whatever it held at that moment. For a card with a cached or live value, build it as a metric.
+
 > **Martis extension** — global defaults in addition to per-metric caching.
 
 Cache defaults live under the `cache` block of `config/martis.php`. Each subsystem (`metrics`, `dashboards`, `navigation`, `schema`) has its own `{enabled, ttl}` pair, plus a master kill-switch (`cache.enabled`):

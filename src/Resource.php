@@ -6,6 +6,7 @@ use Illuminate\Auth\Access\Gate as GateInstance;
 use Illuminate\Auth\Access\Response as AuthorizationResponse;
 use Illuminate\Contracts\Auth\Access\Gate as GateContract;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
@@ -38,6 +39,7 @@ use Martis\Menu\MenuItem;
 use Martis\Models\ActionEvent;
 use Martis\Resources\ActionEventResource;
 use Martis\Support\IndexScope;
+use Martis\Support\PageContext;
 use Martis\Support\TranslatedLine;
 
 /**
@@ -237,6 +239,21 @@ abstract class Resource implements ResourceContract
     {
         return $query;
     }
+
+    /**
+     * Load, once for the page, what its rows need.
+     *
+     * Called by the listing endpoints only (the resource index, a lens, and a
+     * relationship panel's table), after the page is read and before its rows
+     * are serialized, so a field resolver, `canSee()`, `canRun()` or computed
+     * value can read what you keep in `$context` instead of querying per row.
+     * Never called when an action resolves its records, nor by the detail,
+     * edit or count endpoints: put per-page work here, not in `indexQuery()`,
+     * which runs on all of those. The default does nothing.
+     *
+     * @param  EloquentCollection<int, Model>  $rows  The models of the page.
+     */
+    public static function prefetchIndexPage(Request $request, EloquentCollection $rows, PageContext $context): void {}
 
     /**
      * Declarative query scopes applied before `indexQuery()` wherever
@@ -1372,6 +1389,40 @@ abstract class Resource implements ResourceContract
         return (int) $scoped->toBase()->getCountForPagination();
     }
 
+    /**
+     * How the sidebar count badge of this resource is cached on its own
+     * (v2.20.0). Null (the default) keeps today's behaviour: the count is
+     * computed when the user's badge map is, and lives and dies with that
+     * map (`martis.cache.navigation`).
+     *
+     * An array caches the count by itself, for `ttl` seconds (default 60),
+     * under the cache layer `navigation` (so `martis:cache:clear navigation`
+     * clears it, the per-request bypass skips it and the scope registered
+     * with `Martis::cacheScopeUsing()` is part of the key):
+     *
+     *   - `'scope' => 'shared'`: one entry for every user. Use it only when
+     *     the count is the same for every user allowed to see the badge (a
+     *     total of rows, no `scopes()` or `indexQuery()` that reads the
+     *     user). A second admin whose badge map is rebuilt costs no query.
+     *   - `'scope' => 'user'` (the default): one entry per user.
+     *
+     * The count is locale independent, so the locale is not in the key. The
+     * badge map the count feeds is itself cached: set
+     * `martis.cache.navigation.badge_ttl_seconds` to the shortest `ttl` you
+     * use, or a count can be older than its `ttl` by the map's age.
+     *
+     *     public static function menuCountCache(): ?array
+     *     {
+     *         return ['scope' => 'shared', 'ttl' => 30];
+     *     }
+     *
+     * @return array{scope?: 'shared'|'user', ttl?: int}|null
+     */
+    public static function menuCountCache(): ?array
+    {
+        return null;
+    }
+
     // -------------------------------------------------------------------------
     // Notification messages — customizable per resource
     // -------------------------------------------------------------------------
@@ -1768,6 +1819,15 @@ abstract class Resource implements ResourceContract
     public static ?int $scoutSearchResults = null;
 
     /**
+     * How the database search matches a term: `contains` (`col ILIKE '%term%'`,
+     * the default), `prefix` (`col ILIKE 'term%'`) or `columns` (only the
+     * columns named by `col:term` tokens; a bare term falls back to
+     * `contains`). `null` defers to `martis.search.match_mode`. An unknown
+     * value throws when a search runs.
+     */
+    public static ?string $searchMode = null;
+
+    /**
      * Hard cap on the number of results returned by relatable lookups
      * (BelongsTo / MorphTo / BelongsToMany attach modal pickers).
      *
@@ -2059,6 +2119,16 @@ abstract class Resource implements ResourceContract
     public static function searchableRelations(): array
     {
         return [];
+    }
+
+    /**
+     * The match mode of this resource's database search: `contains`
+     * (default), `prefix` or `columns`. Reads `$searchMode`, then the
+     * `martis.search.match_mode` config key. See docs/search-performance.md.
+     */
+    public static function searchMode(): string
+    {
+        return static::$searchMode ?? (string) config('martis.search.match_mode', 'contains');
     }
 
     /**

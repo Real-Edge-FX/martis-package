@@ -158,5 +158,8 @@ if (container) {
   // it was built when `@/router` was imported, ahead of every bundle).
   void bootAppRouter(panelForbidden).then((router) => {
     createRoot(container).render(router === null ? <PanelForbiddenApp /> : <App router={router} />)
+    // Lazy extension components registered with `preload: 'idle'` fetch their
+    // chunk now that the app is on screen (v2.20.0).
+    componentRegistry.runIdlePreloads()
   })
 }

@@ -327,6 +327,24 @@ public function cacheFor(): ?\DateTimeInterface
 }
 ```
 
+Since v2.20.0 a metric can set its lifetime in seconds without leaving the layer, and a single metric can opt out of caching:
+
+```php
+class TotalRevenue extends ValueMetric
+{
+    protected ?int $cacheSeconds = 60;      // or ->cacheForSeconds(60) where it is built
+}
+
+class CashBalance extends ValueMetric
+{
+    protected bool $live = true;            // or ->live(): never cached, computed on every request
+}
+```
+
+`martis.cache.metrics.default_ttl_seconds` (env `MARTIS_CACHE_METRICS_DEFAULT_TTL_SECONDS`) sets the seconds for every metric that sets none; `null` (the default) keeps the layer's `ttl` in minutes. Precedence: `live()`, then `$cacheSeconds`, then the default. These entries live in the `metrics` layer, so the kill-switch, `?nocache`, `martis:cache:clear metrics` and the app cache scope apply to them, and they stay per user unless the metric sets `$cachePerUser = false` (the way to share one entry across users; the key is per user today and the default does not change). `cacheFor()` reports the moment `$cacheSeconds` expires. A value of `default_ttl_seconds` that is set but is not a whole number of seconds, 1 or more, throws and names the key. See [Cache](cache.md#metrics-a-ttl-in-seconds-live) for a guide to which cards to leave live.
+
+Custom `Card` classes have no compute path of their own (they travel with the dashboard shape, cached per user under the `dashboards` layer), so these options exist on metrics only; see [Dashboards](dashboards.md).
+
 A metric that overrides `cacheFor()` is cached with Laravel's `Cache::remember()` directly, outside the Martis layer, so the `metrics` kill-switch, the `?nocache` bypass and `martis:cache:clear` do not apply to it. Both paths key the result on the user the Martis guard signed in (by model and identifier; guests share one entry), the locale, the range and the filters, plus the scope an app registered with `Martis::cacheScopeUsing()` (v2.10.0), so a `calculate()` scoped to the user, their tenant or their permissions is never served to another user (v2.0.0+). A user whose identifier is not an int, a string or `Stringable` gets no cached entry, and `protected bool $cachePerUser = false;` shares one entry for a metric whose value is the same for everyone.
 
 ## Authorization
