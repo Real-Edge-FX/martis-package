@@ -211,7 +211,9 @@ class SearchIndexCommand extends Command
         $up = [];
         $down = [];
         foreach ($missing as $item) {
-            $connection = var_export($item['connection'], true);
+            // The default connection reads `DB::statement(...)`, a named one
+            // `DB::connection('name')->statement(...)`.
+            $connection = $item['connection'] === null ? 'DB::' : 'DB::connection('.var_export($item['connection'], true).')->';
             $index = self::indexName($item['table'], $item['column']);
             // An index is created in its table's schema, so its name is bare there
             // and qualified where it is dropped.
@@ -223,9 +225,9 @@ class SearchIndexCommand extends Command
             );
             $schema = SearchIndexInspector::splitTable($item['table'])[0];
             $drop = 'DROP INDEX CONCURRENTLY IF EXISTS '.($schema === null ? '' : self::quote($schema).'.').self::quote($index);
-            $extension[$connection] = sprintf("        DB::connection(%s)->statement('CREATE EXTENSION IF NOT EXISTS pg_trgm');", $connection);
-            $up[] = sprintf('        DB::connection(%s)->statement(%s);', $connection, var_export($create, true));
-            $down[] = sprintf('        DB::connection(%s)->statement(%s);', $connection, var_export($drop, true));
+            $extension[$connection] = sprintf("        %sstatement('CREATE EXTENSION IF NOT EXISTS pg_trgm');", $connection);
+            $up[] = sprintf('        %sstatement(%s);', $connection, var_export($create, true));
+            $down[] = sprintf('        %sstatement(%s);', $connection, var_export($drop, true));
         }
 
         $contents = "<?php\n\nuse Illuminate\\Database\\Migrations\\Migration;\nuse Illuminate\\Support\\Facades\\DB;\n\n"
