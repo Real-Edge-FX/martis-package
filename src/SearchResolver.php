@@ -62,13 +62,18 @@ class SearchResolver
      * searchable columns and the related columns of `searchableRelations()`.
      * The single source for both the search itself and `martis:search-index`.
      *
+     * A search only ORs the fields its user can see. `$ignoreVisibility` lists
+     * every searchable column whoever sees it, without evaluating any
+     * `canSee()`: the union over all users, which is what an index inventory
+     * (`martis:search-index`) needs, and which works without a signed-in user.
+     *
      * @param  class-string<\Martis\Resource>  $resourceClass
      * @return array{own: list<string>, relations: list<array{relation: string, attribute: string}>}
      */
-    public static function searchTargets(Request $request, string $resourceClass): array
+    public static function searchTargets(Request $request, string $resourceClass, bool $ignoreVisibility = false): array
     {
         $own = [];
-        foreach (Field::searchableFields((new $resourceClass)->fields($request), $request) as $field) {
+        foreach (Field::searchableFields((new $resourceClass)->fields($request), $request, $ignoreVisibility) as $field) {
             $own[] = $field->attribute();
         }
 

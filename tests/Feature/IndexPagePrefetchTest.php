@@ -1120,6 +1120,33 @@ it('logs a warning instead of throwing outside local and testing, then restores 
     app()['env'] = 'testing';
 });
 
+it('skips the guard and logs once when the application handler cannot be read', function () {
+    config(['martis.dev.prevent_lazy_loading_in_listings' => true]);
+    app()['env'] = 'production';
+
+    $appHandler = static function (): void {};
+    Model::handleLazyLoadingViolationUsing($appHandler);
+    ListingGuard::$handlerProperty = 'renamedByAFutureLaravel';
+    $logged = new ReflectionProperty(ListingGuard::class, 'unavailableLogged');
+    $logged->setValue(null, false);
+    Log::shouldReceive('warning')->once()->withArgs(fn (string $message): bool => str_contains($message, 'cannot be read'));
+
+    $items = PFItem::query()->get();
+    $first = ListingGuard::run($items, fn () => $items->first()->parent->name);
+    $second = ListingGuard::run($items, fn () => $items->first()->parent->name);
+
+    // The listing is served, unguarded, and the application's handler is untouched.
+    expect($first)->toBe('Parent')
+        ->and($second)->toBe('Parent')
+        ->and($items->first()->preventsLazyLoading)->toBeFalse()
+        ->and((new ReflectionProperty(Model::class, 'lazyLoadingViolationCallback'))->getValue())->toBe($appHandler);
+
+    ListingGuard::$handlerProperty = 'lazyLoadingViolationCallback';
+    $logged->setValue(null, false);
+    Model::handleLazyLoadingViolationUsing(null);
+    app()['env'] = 'testing';
+});
+
 it('does nothing for a listing it does not guard', function () {
     config(['martis.dev.prevent_lazy_loading_in_listings' => false]);
     $items = PFItem::query()->get();

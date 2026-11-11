@@ -8,9 +8,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany as EloquentHasMany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Martis\Console\SearchIndexCommand;
+use Martis\Fields\Field;
 use Martis\Fields\Text;
+use Martis\Layout\Section;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Martis\SearchResolver;
 use Martis\Support\SearchIndexInspector;
 
 /*
@@ -63,6 +66,62 @@ class SiOrderResource extends Resource
     public function fields(Request $request): array
     {
         return [Text::make('name')->searchable(), Text::make('code')->searchable()];
+    }
+}
+
+/** Searchable columns behind a `canSee()` that needs the signed-in user, and one that only an admin passes. */
+class SiGuardedResource extends Resource
+{
+    public static function model(): string
+    {
+        return SiOrder::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'si-guarded';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('name')->searchable(),
+            // Dereferences the user: a guest request has none.
+            Text::make('code')->searchable()->canSee(fn (Request $request) => $request->user()->isAdmin),
+            // Hidden from a guest, shown to an admin.
+            Text::make('secret')->searchable()->canSee(fn (Request $request) => $request->user()?->isAdmin ?? false),
+            Section::make('Nested', [
+                Text::make('nested_secret')->searchable()->canSee(fn (Request $request) => $request->user()->isAdmin),
+            ]),
+        ];
+    }
+}
+
+/** A model on a table in another schema. */
+class SiEvent extends Model
+{
+    protected $table = 'audit.si_events';
+
+    protected $guarded = [];
+
+    public $timestamps = false;
+}
+
+class SiEventResource extends Resource
+{
+    public static function model(): string
+    {
+        return SiEvent::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'si-events';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [Text::make('title')->searchable()];
     }
 }
 
@@ -167,3 +226,94 @@ it('parses the trigram columns out of index definitions', function (string $defi
     'gin without trgm' => ['CREATE INDEX a ON public.t USING gin (tags)', []],
     'partial' => ['CREATE INDEX a ON public.t USING gin (name gin_trgm_ops) WHERE (deleted_at IS NULL)', []],
 ]);
+
+// ── Review fixes: visibility and schema-qualified tables ────────────────────
+
+it('lists every searchable column whoever may see it, without evaluating canSee', function () {
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register(SiGuardedResource::class);
+
+    // A guest request: the closures dereference the user, which would throw if evaluated.
+    [$exit, $output] = siRun(['si_orders' => ['name']], ['--write' => true]);
+
+    expect($exit)->toBe(0)
+        ->and($output)->toContain('si_orders.name')
+        ->and($output)->toContain('si_orders.code')
+        ->and($output)->toContain('si_orders.secret')
+        ->and($output)->toContain('si_orders.nested_secret');
+
+    $files = File::files($this->migrationsDir);
+    expect($files)->toHaveCount(1);
+    $migration = File::get($files[0]->getPathname());
+    expect($migration)
+        ->toContain('"si_orders_code_trgm_idx"')
+        ->toContain('"si_orders_secret_trgm_idx"')
+        ->toContain('"si_orders_nested_secret_trgm_idx"')
+        ->not->toContain('si_orders_name_trgm_idx');
+});
+
+it('does not report "indexed" while an admin-only column is missing its index', function () {
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register(SiGuardedResource::class);
+
+    // Only the guest-visible column is indexed: the others must still be reported.
+    [, $output] = siRun(['si_orders' => ['name']], ['--write' => true]);
+
+    expect($output)->not->toContain('no migration written');
+});
+
+it('keeps the visibility filter for the search itself', function () {
+    $request = Request::create('/');
+
+    // The union over all users, for the inventory.
+    expect(SearchResolver::searchTargets($request, SiOrderResource::class, true)['own'])->toBe(['name', 'code']);
+
+    $guarded = (new SiGuardedResource)->fields($request);
+    expect(Field::searchableFields($guarded, $request, true))->toHaveCount(4)
+        ->and(fn () => Field::searchableFields($guarded, $request))->toThrow(ErrorException::class, 'Attempt to read property "isAdmin" on null');
+});
+
+it('reads a schema-qualified table by schema and table name', function () {
+    $connection = Mockery::mock(Connection::class);
+    $connection->shouldReceive('select')->once()
+        ->with('select indexdef from pg_indexes where schemaname = ? and tablename = ?', ['audit', 'si_events'])
+        ->andReturn([(object) ['indexdef' => 'CREATE INDEX a ON audit.si_events USING gin (title gin_trgm_ops)']]);
+
+    expect((new SearchIndexInspector)->trigramColumns($connection, 'audit.si_events'))->toBe(['title']);
+
+    // An unqualified table keeps the current-schema lookup.
+    $plain = Mockery::mock(Connection::class);
+    $plain->shouldReceive('select')->once()
+        ->with('select indexdef from pg_indexes where schemaname = current_schema() and tablename = ?', ['si_events'])
+        ->andReturn([]);
+
+    expect((new SearchIndexInspector)->trigramColumns($plain, 'si_events'))->toBe([]);
+});
+
+it('generates schema-qualified SQL and an index name without a dot for a table in another schema', function () {
+    $registry = app(ResourceRegistry::class);
+    $registry->flush();
+    $registry->register(SiEventResource::class);
+
+    [$exit, $output] = siRun(['audit.si_events' => []], ['--write' => true]);
+
+    expect($exit)->toBe(0)->and($output)->toContain('audit.si_events.title');
+
+    $migration = File::get(File::files($this->migrationsDir)[0]->getPathname());
+    expect($migration)
+        ->toContain('CREATE INDEX CONCURRENTLY IF NOT EXISTS "si_events_title_trgm_idx" ON "audit"."si_events" USING gin (("title"::text) gin_trgm_ops)')
+        ->toContain('DROP INDEX CONCURRENTLY IF EXISTS "audit"."si_events_title_trgm_idx"')
+        ->not->toContain('"audit.si_events"');
+
+    // Found as indexed once the lookup knows it.
+    [, $indexed] = siRun(['audit.si_events' => ['title']], ['--write' => true]);
+    expect($indexed)->toContain('no migration written');
+});
+
+it('splits and quotes a qualified table name', function () {
+    expect(SearchIndexCommand::quoteTable('audit.events'))->toBe('"audit"."events"')
+        ->and(SearchIndexCommand::quoteTable('events'))->toBe('"events"')
+        ->and(SearchIndexCommand::indexName('audit.events', 'title'))->toBe('events_title_trgm_idx');
+});
