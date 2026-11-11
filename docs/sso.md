@@ -391,6 +391,15 @@ The **Continue with Microsoft** button is there. Click → Azure consent screen 
                 // auth.guards.{guard}.remember minutes whatever the IdP says.
                 'remember' => false,
 
+                // Absolute age and revalidation of an SSO-opened session
+                // (v2.21.0). Both null (off) by default.
+                'max_session_minutes'      => env('MARTIS_SSO_AZURE_MAX_SESSION_MINUTES'),
+                'revalidate_every_minutes' => env('MARTIS_SSO_AZURE_REVALIDATE_EVERY_MINUTES'),
+
+                // Federated logout: a URL with {post_logout_redirect_uri}, or
+                // (v2.21.0) the name of an invokable class.
+                'logout_url' => env('MARTIS_SSO_AZURE_LOGOUT_URL'),
+
                 // Optional post-login redirect override.
                 // Null = config('martis.path').
                 'redirect_to' => null,
@@ -477,6 +486,87 @@ Event::listen(SsoFailed::class, function (SsoFailed $event) {
     AuditLog::record('sso.failed', ['provider' => $event->provider, 'reason' => $event->reason]);
 });
 ```
+
+### Ending an SSO session: age, revocation, revalidation (v2.21.0)
+
+Once a person is signed in through SSO, nothing asks the IdP again: the session lives until `SESSION_LIFETIME`, and with `remember` on, a cookie signs the user back in for up to 400 days. Three independent, **off by default** mechanisms end an SSO-opened session before that. They share one middleware, `martis.sso.session`, which sits right after `martis.auth` in the authenticated stack (`Martis\Http\RouteMiddleware::authenticated()`), ahead of every gate (2FA, email verification, forced password change). A session that SSO did not open (password, magic link, invitation) is **never touched** by any of them.
+
+The session records, at sign-in, when the SSO sign-in happened (`martis_sso_at`, unix time) and the identity's external id (`martis_sso_external_id`). After a remember-me re-login, the new session gets the **original** sign-in time back from the SSO cookie (its issue time), never the time of the re-login, so the re-login cannot reset the clock.
+
+#### Absolute age: `max_session_minutes`
+
+```php
+'azure' => [
+    // ...
+    'max_session_minutes' => 480, // 8 hours, counted from the SSO sign-in
+],
+```
+
+A session this provider opened that is that old or older ends on its next request. A session opened before v2.21.0 carries the origin but no sign-in time and counts as expired. The value is a positive whole number of minutes (an environment string such as `"480"` is fine); anything else throws an `InvalidArgumentException` naming the key.
+
+Ending a session does what a local sign-out does (guard logout, session invalidated, new CSRF token, the SSO origin and the remembered 2FA device dropped) **without** the federated logout: the IdP session is the one that is gone, or the person is about to sign in at it again. The response then sends the person back through the provider:
+
+- a request that expects JSON gets `401 {"message": "...", "sso_reauth_url": "/martis/sso/azure/redirect"}`. The SPA's global 401 handler navigates to that URL (a full page load) instead of the session-expired login page. It follows only a path under the Martis base path on its own origin: an absolute URL, a protocol-relative one, or a path that dot segments or a backslash would move out of the base path is ignored and the normal session-expired redirect happens;
+- any other request is redirected to `/{martis}/sso/{name}/redirect`.
+
+#### Revocation: `MartisSso::revokeFor()`
+
+```php
+use Martis\Sso\Facades\MartisSso;
+
+// The IdP told you the person left (a webhook, a SCIM delete, an HR job):
+MartisSso::revokeFor($user->getKey());
+```
+
+`revokeFor(int|string $userId)` ends every SSO session of the user, now:
+
+1. It stores a revocation time for the user in the cache (the key is scoped by the Martis guard, the TTL is the remember lifetime). The middleware ends any SSO-opened session whose sign-in is **not later** than that time. This works on every session driver, and with or without `max_session_minutes`.
+2. It drops every SSO-origin nonce of the user and cycles the user's remember token, so no remember cookie or SSO origin cookie signs them back in.
+3. On the **`database` session driver** it also deletes the user's rows of the `sessions` table. That ends **every** session of the user, including ones opened with a password, a magic link or an invitation, which the middleware cannot tell apart from the rest. The rows are matched by `sessions.user_id`; when the app's session guards sign in users of more than one table that column cannot be attributed to one person, so the rows are left alone (a warning is logged) and only the SSO sessions end, through step 1.
+
+A sign-in after the revocation works normally: its sign-in time is later. The times are whole seconds, so a sign-in in the very second of the revocation counts as revoked.
+
+A cache that cannot be **read** while the middleware looks for the revocation is reported and treated as "revoked" (fail closed: the session ends and the person signs in again). A cache that cannot be **written** makes `revokeFor()` throw a `RuntimeException`, so a revocation that did not stick never looks as if it had. While an impersonation is active the session belongs to the operator who signed in through SSO, so the checks run against the operator.
+
+#### Revalidation: `revalidate_every_minutes`
+
+Ask the provider whether the person may still be in. The provider class implements `Martis\Sso\Contracts\RevalidatesSessions`, next to `SsoProviderContract`:
+
+```php
+use Illuminate\Contracts\Auth\Authenticatable;
+use Martis\Sso\Contracts\RevalidatesSessions;
+use Martis\Sso\Contracts\SsoProviderContract;
+
+final class OktaProvider implements SsoProviderContract, RevalidatesSessions
+{
+    // name(), redirect(), resolveIdentity() ...
+
+    public function stillValid(Authenticatable $user, ?string $externalId): bool
+    {
+        // Ask the IdP (a user lookup, a token introspection). Keep it cheap: it runs inside a request.
+        return $this->idp->isActive($externalId);
+    }
+}
+```
+
+```php
+'okta' => [
+    // ...
+    'revalidate_every_minutes' => 15,
+],
+```
+
+The middleware calls `stillValid()` at most once per interval per session (the last check time is kept in the session; the SSO sign-in itself counts as the first check, and a re-login by the remember cookie counts from the sign-in it restored). `externalId` is the id the IdP issued at sign-in (null for a session opened before v2.21.0).
+
+- `true`: the session goes on.
+- `false`: the session ends as above.
+- **a throwable**: it is reported and the session is **kept**, and the check runs again on the **next request** instead of after a whole interval. An IdP outage must not sign every user out; the hard bound is `max_session_minutes`, so set both when an outage must not stretch a session forever.
+
+`revalidate_every_minutes` set on a provider whose class does not implement the contract throws an `InvalidArgumentException` naming the key.
+
+#### Order of the checks
+
+Revocation, then age, then revalidation; the first that applies ends the session. The config values are read (and validated) before any of them runs, so a bad value fails on every SSO request, not only when it would matter.
 
 ---
 
@@ -976,7 +1066,30 @@ MARTIS_SSO_AZURE_LOGOUT_URL=https://login.microsoftonline.com/{tenant}/oauth2/v2
 
 The placeholder `{post_logout_redirect_uri}` is replaced at logout time with the urlencoded Martis login URL — Azure (and most OIDC providers) need this to know where to bounce the browser after killing the IdP session.
 
-The marker that says "this user came in via SSO" lives in the session under `martis_sso_provider`, and in a cookie of the same name (v2.3.0). The SSO callback signs in without remember-me unless the provider sets `remember` to `true` (v2.4.0; it was always on before, so panel access outlived the IdP session and IdP-side deprovisioning). For a provider that opts in, the session can end while the remember cookie signs the user back in, into a new session: the cookie carries the origin across that re-login, so the logout still goes through the IdP, and the [forced password change](authentication.md#forced-password-change) gate still leaves the session alone. The cookie holds the user's id, the provider, the time it was issued and a random nonce, encrypted by Martis (a browser cannot mint one), and is written only for a remembered sign-in. It counts only for the user it names, only while it is younger than the remember lifetime (`auth.guards.{guard}.remember`, else Laravel's 576000 minutes) and only while the server still holds its nonce for that user (cache, same lifetime; v2.4.0). A password, magic-link or invitation sign-in drops every nonce of the user, so a copy of an old cookie re-attached after a password sign-in no longer exempts the session from the forced password change; the sign-out drops the nonce of its own browser. A password, magic-link or invitation sign-in, and the sign-out, drop both, so a user who switches from SSO to password mid-stream does not get redirected to Azure on logout. `Martis\Sso\SsoSession` reads and writes them.
+The marker that says "this user came in via SSO" lives in the session under `martis_sso_provider`, and in a cookie of the same name (v2.3.0). The SSO callback signs in without remember-me unless the provider sets `remember` to `true` (v2.4.0; it was always on before, so panel access outlived the IdP session and IdP-side deprovisioning). For a provider that opts in, the session can end while the remember cookie signs the user back in, into a new session: the cookie carries the origin across that re-login, so the logout still goes through the IdP, and the [forced password change](authentication.md#forced-password-change) gate still leaves the session alone. The cookie holds the user's id, the provider, the time it was issued, the identity's external id (v2.21.0) and a random nonce, encrypted by Martis (a browser cannot mint one), and is written only for a remembered sign-in. It counts only for the user it names, only while it is younger than the remember lifetime (`auth.guards.{guard}.remember`, else Laravel's 576000 minutes) and only while the server still holds its nonce for that user (cache, same lifetime; v2.4.0). A password, magic-link or invitation sign-in drops every nonce of the user, so a copy of an old cookie re-attached after a password sign-in no longer exempts the session from the forced password change; the sign-out drops the nonce of its own browser. A password, magic-link or invitation sign-in, and the sign-out, drop both, so a user who switches from SSO to password mid-stream does not get redirected to Azure on logout. `Martis\Sso\SsoSession` reads and writes them.
+
+`logout_url` can also be the name of an **invokable class** (v2.21.0), for an IdP whose logout URL needs more than a placeholder, such as an `id_token_hint` or a signed request:
+
+```php
+'azure' => [
+    'logout_url' => App\Martis\AzureLogoutUrl::class,
+],
+```
+
+```php
+final class AzureLogoutUrl
+{
+    public function __invoke(Request $request, ?Authenticatable $user, string $postLogoutRedirectUri): ?string
+    {
+        return 'https://idp.example/logout?'.http_build_query([
+            'id_token_hint' => $this->tokens->idTokenOf($user),
+            'post_logout_redirect_uri' => $postLogoutRedirectUri,
+        ]);
+    }
+}
+```
+
+It runs **before** the local logout (the user is still signed in), receives the login page URL as it is (encode it where your URL needs that: the `{post_logout_redirect_uri}` replacement is for plain URL strings only), and answers the URL, or `null` (or an empty string) for a local logout only. A plain URL string keeps today's behaviour. A string that names a class which is not invokable, or a class that answers something other than a string or `null`, throws an `InvalidArgumentException` naming `martis.auth.sso.providers.{name}.logout_url`.
 
 The JSON variant of the logout endpoint surfaces the IdP URL as `logout_url`, so a SPA can drive the redirect itself if it needs to add UI between local and federated logout.
 
@@ -1033,6 +1146,10 @@ When using `role_source = 'groups'`, ANY group the user belongs to is considered
 ---
 
 ## 16. Troubleshooting
+
+### People are sent through the IdP again after a while
+
+Check the provider block for `max_session_minutes` and `revalidate_every_minutes` (see [Ending an SSO session](#ending-an-sso-session-age-revocation-revalidation-v2210)). A session opened before v2.21.0 has no sign-in time and counts as expired once `max_session_minutes` is set: each such user signs in once more and the session then carries its time. Separately, a `RevalidatesSessions::stillValid()` that throws never ends the session, but it is called again on every request until it answers, so a slow IdP call shows up as slow requests: keep it cheap and give it a short timeout.
 
 ### Button doesn't appear on Login
 
@@ -1113,12 +1230,14 @@ The user has no Azure App Role assignment that matches a local role's `azure_gro
 | `tests/Feature/SsoLoggedInEventTest.php` | `SsoLoggedIn`: once per sign-in, after the login and the SSO marker, never on a refusal. |
 | `tests/Feature/SsoDenyBeforeProvisioningTest.php` | Deny before provisioning on the pre-check and the transaction path, `guest`, `provision_on_deny`, rollback of resolver writes. |
 | `tests/Feature/SsoSessionMarkerTest.php` | The SSO origin across a remember-me re-login: the forced password change gate and the federated logout still see it; a cookie for another user or not encrypted by Martis counts for nothing; every other sign-in and both sign-outs drop it. |
+| `tests/Feature/SsoSessionRevalidationTest.php` | The sign-in time and external id in the session (kept across a remember-me re-login), `max_session_minutes` (JSON 401 with `sso_reauth_url`, page redirect, boundary, sessions without a time), `MartisSso::revokeFor()` (array and database drivers, remember cookie, nonces, later sign-in, impersonation, cache failures), `RevalidatesSessions` (false, true, throwing, interval, misconfiguration), password sessions untouched, invokable `logout_url`. |
+| `resources/js/lib/api.ssoReauth.test.ts` | The SPA's 401 handler: follows a same-origin path under the Martis base path, ignores absolute, protocol-relative and base-escaping URLs. |
 | `tests/Feature/SsoMakeCommandTest.php` | Generator idempotency: composer skip, config-block insert, env stub, listener register, Spatie publish, migration publish, role-mapping prompt. |
 
 Run the SSO slice with:
 
 ```bash
-vendor/bin/pest tests/Unit/Sso tests/Feature/SsoControllerTest.php tests/Feature/SsoFailureReasonTest.php tests/Feature/SsoLoggedInEventTest.php tests/Feature/SsoDenyBeforeProvisioningTest.php tests/Feature/SsoSessionMarkerTest.php tests/Feature/SsoMakeCommandTest.php
+vendor/bin/pest tests/Unit/Sso tests/Feature/SsoControllerTest.php tests/Feature/SsoFailureReasonTest.php tests/Feature/SsoLoggedInEventTest.php tests/Feature/SsoDenyBeforeProvisioningTest.php tests/Feature/SsoSessionMarkerTest.php tests/Feature/SsoSessionRevalidationTest.php tests/Feature/SsoMakeCommandTest.php
 ```
 
 The counts grow with each release — see CI output for the live total.
