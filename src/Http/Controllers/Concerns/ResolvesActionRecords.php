@@ -57,7 +57,7 @@ trait ResolvesActionRecords
         // A batched rule (`canRunForRows()`) decides all the targets in one
         // call, then the run refuses any row it denies: the rule that hides
         // the action on a row also stops its run.
-        $runAnswers = $action->hasBatchedCanRun() && ! $action->isStandalone()
+        $runAnswers = $action instanceof Action && $action->hasBatchedCanRun() && ! $action->isStandalone()
             ? $action->authorizedToRunRows($request, $models)
             : null;
 

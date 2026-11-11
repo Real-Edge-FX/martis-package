@@ -3,7 +3,6 @@
 namespace Martis\Contracts;
 
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Martis\Enums\ErrorDisplayMode;
@@ -12,7 +11,6 @@ use Martis\Enums\TableLayout;
 use Martis\Enums\TableSize;
 use Martis\Menu\MenuItem;
 use Martis\SearchResolver;
-use Martis\Support\PageContext;
 
 /**
  * Contract for all Martis Resource classes.
@@ -213,14 +211,6 @@ interface ResourceContract
      * @return Builder<Model>
      */
     public static function indexQuery(Request $request, Builder $query): Builder;
-
-    /**
-     * Load, once for the page, what its rows need. Called by the listing
-     * endpoints only, after the page is read and before its rows are serialized.
-     *
-     * @param  EloquentCollection<int, Model>  $rows
-     */
-    public static function prefetchIndexPage(Request $request, EloquentCollection $rows, PageContext $context): void;
 
     /**
      * Build a query for relatable resource options.

@@ -17,9 +17,12 @@ use Illuminate\Support\Facades\Schema;
 use Martis\Actions\Action;
 use Martis\Actions\ActionFields;
 use Martis\Actions\ActionResponse;
+use Martis\Contracts\ActionContract;
+use Martis\Contracts\ResourceContract;
 use Martis\Fields\BelongsToMany;
 use Martis\Fields\HasMany;
 use Martis\Fields\Text;
+use Martis\Http\Controllers\ResourceController;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Http\Requests\LensRequest;
 use Martis\Lenses\Lens;
@@ -205,6 +208,66 @@ class PFBrokenBatchAction extends PFAction
     }
 }
 
+/** A batched rule that returns a list (keys 0..n-1), not a map keyed by row key. */
+class PFListBatchAction extends PFAction
+{
+    public function __construct()
+    {
+        // "Only the second row", written as a list: its keys are positions, not row keys.
+        $this->canRunForRows(fn (Request $request, Collection $rows): array => $rows->values()->map(fn (Model $m, int $i): bool => $i === 1)->all());
+    }
+
+    public function uriKey(): string
+    {
+        return 'pf-list';
+    }
+}
+
+/** A batched rule plus its own `authorizedToRun()` override: both must allow. */
+class PFOverrideAction extends PFAction
+{
+    /** @var list<int> Rows the override denies. */
+    public static array $overrideDenied = [];
+
+    public function __construct()
+    {
+        $this->canRunForRows(function (Request $request, Collection $rows): array {
+            return $rows->mapWithKeys(fn (Model $m): array => [$m->getKey() => ! in_array((int) $m->getKey(), PFLog::$denied, true)])->all();
+        });
+    }
+
+    public function authorizedToRun(Request $request, Model $model): bool
+    {
+        return ! in_array((int) $model->getKey(), self::$overrideDenied, true);
+    }
+
+    public function uriKey(): string
+    {
+        return 'pf-override';
+    }
+}
+
+/** The same, but the override defers to the base rule with `parent::`. */
+class PFOverrideParentAction extends PFAction
+{
+    public function __construct()
+    {
+        $this->canRunForRows(function (Request $request, Collection $rows): array {
+            return $rows->mapWithKeys(fn (Model $m): array => [$m->getKey() => ! in_array((int) $m->getKey(), PFLog::$denied, true)])->all();
+        });
+    }
+
+    public function authorizedToRun(Request $request, Model $model): bool
+    {
+        return parent::authorizedToRun($request, $model) && $model->getAttribute('title') !== 'Parent denied';
+    }
+
+    public function uriKey(): string
+    {
+        return 'pf-override-parent';
+    }
+}
+
 class PFItemResource extends Resource
 {
     public static function model(): string
@@ -251,6 +314,8 @@ class PFItemResource extends Resource
             (new PFPartialAction)->showInline(),
             (new PFRowAction)->showInline(),
             (new PFOmitAction)->showInline(),
+            (new PFOverrideAction)->showInline(),
+            (new PFOverrideParentAction)->showInline(),
         ];
     }
 }
@@ -271,6 +336,38 @@ class PFPlainItemResource extends Resource
     public function fields(Request $request): array
     {
         return [Text::make('title', 'Title')];
+    }
+}
+
+/** A resource whose only action is a custom class that implements ActionContract. */
+class PFCustomActionResource extends PFPlainItemResource
+{
+    public static ?ActionContract $custom = null;
+
+    public static function uriKey(): string
+    {
+        return 'pf-custom-items';
+    }
+
+    public function actions(Request $request): array
+    {
+        return [static::$custom];
+    }
+}
+
+/** A resource class that is not a Resource: it only implements the contract's shape. */
+class PFContractOnlyResource {}
+
+class PFListResource extends PFPlainItemResource
+{
+    public static function uriKey(): string
+    {
+        return 'pf-list-items';
+    }
+
+    public function actions(Request $request): array
+    {
+        return [(new PFListBatchAction)->showInline()];
     }
 }
 
@@ -387,6 +484,7 @@ class PFParentResource extends Resource
 beforeEach(function () {
     $this->withoutMiddleware(MartisAuthenticate::class);
     PFLog::reset();
+    PFOverrideAction::$overrideDenied = [];
     config(['martis.dev.prevent_lazy_loading_in_listings' => false]);
 
     Schema::disableForeignKeyConstraints();
@@ -745,6 +843,160 @@ it('refuses a pivot run on a related record the batch denies', function () {
 
     $this->postJson($route(), ['resources' => [$this->ids[0]], 'fields' => []])->assertOk();
     expect(PFLog::$runs)->toBe([[$this->ids[0]]]);
+});
+
+// ── The contracts stay as they were (review fix) ────────────────────────────
+
+it('keeps the new members off the contracts: they live on Action and Resource only', function () {
+    foreach (['canRunForRows', 'hasBatchedCanRun', 'authorizedToRunRows'] as $method) {
+        expect(method_exists(ActionContract::class, $method))->toBeFalse($method)
+            ->and(method_exists(Action::class, $method))->toBeTrue($method);
+    }
+
+    expect(method_exists(ResourceContract::class, 'prefetchIndexPage'))->toBeFalse()
+        ->and(method_exists(Resource::class, 'prefetchIndexPage'))->toBeTrue();
+});
+
+it('maps and refuses an action that only implements ActionContract, with the per-row rule', function () {
+    $custom = Mockery::mock(ActionContract::class)->shouldIgnoreMissing();
+    $custom->shouldReceive('uriKey')->andReturn('pf-custom');
+    $custom->shouldReceive('authorizedToSee')->andReturnTrue();
+    $custom->shouldReceive('isShownInline')->andReturnTrue();
+    $custom->shouldReceive('isStandalone')->andReturnFalse();
+    $custom->shouldReceive('isDestructive')->andReturnFalse();
+    $custom->shouldReceive('authorizedToRun')->andReturnUsing(
+        fn (Request $request, Model $model): bool => $model->getAttribute('title') !== 'Blocked',
+    );
+
+    PFCustomActionResource::$custom = $custom;
+    app(ResourceRegistry::class)->register(PFCustomActionResource::class);
+
+    $controller = new class(app(ResourceRegistry::class)) extends ResourceController
+    {
+        public function authorizer(Request $request, string $class, iterable $rows): ?Closure
+        {
+            return $this->rowActionAuthorizer($request, $class, false, null, $rows);
+        }
+
+        public function denied(Request $request, ActionContract $action, EloquentCollection $models, string $class): mixed
+        {
+            return $this->runDenied($request, $action, $models, $class);
+        }
+
+        public function prefetch(Request $request, string $class, iterable $rows): void
+        {
+            $this->prefetchListingPage($request, $class, $rows);
+        }
+    };
+
+    $request = Request::create('/');
+    $items = PFItem::query()->orderBy('id')->get();
+
+    $map = $controller->authorizer($request, PFCustomActionResource::class, $items);
+    expect($map($items[0]))->toBe(['pf-custom' => true])
+        ->and($map($items[2]))->toBe(['pf-custom' => false]);
+
+    expect($controller->denied($request, $custom, new EloquentCollection([$items[0]]), PFCustomActionResource::class))->toBeNull()
+        ->and($controller->denied($request, $custom, new EloquentCollection([$items[2]]), PFCustomActionResource::class)?->getStatusCode())->toBe(404);
+
+    // A resource class that is not a Resource (it only implements the contract) has no hook to call: skipped.
+    $controller->prefetch($request, PFContractOnlyResource::class, $items);
+    expect(true)->toBeTrue();
+});
+
+// ── Review fixes: a list answer, an overridden authorizedToRun() ────────────
+
+it('throws, naming the action, when canRunForRows answers keys that match no row (a list)', function () {
+    $rows = new Collection([$this->a, $this->b, $this->c]);
+
+    (new PFListBatchAction)->authorizedToRunRows(Request::create('/'), $rows);
+})->throws(UnexpectedValueException::class, 'PFListBatchAction::canRunForRows() answered for key [0]');
+
+it('fails loudly on the page, not silently misaligned, for a list answer', function () {
+    $registry = app(ResourceRegistry::class);
+    $registry->register(PFListResource::class);
+    $this->withoutExceptionHandling();
+
+    $this->getJson('/martis/api/resources/pf-list-items');
+})->throws(UnexpectedValueException::class, 'PFListBatchAction::canRunForRows() answered for key [0]');
+
+it('still accepts a map that names only some of the rows, in any key type', function () {
+    $rows = new Collection([$this->a, $this->b]);
+    $action = (new PFBatchAction)->canRunForRows(fn (): array => [(string) $this->a->id => true]);
+
+    expect($action->authorizedToRunRows(Request::create('/'), $rows))->toBe([
+        (string) $this->a->id => true,
+        (string) $this->b->id => false,
+    ]);
+});
+
+it('denies when either the batched rule or an overridden authorizedToRun denies, on the page', function () {
+    PFLog::$denied = [$this->ids[0]];
+    PFOverrideAction::$overrideDenied = [$this->ids[1]];
+
+    $rows = collect($this->getJson('/martis/api/resources/pf-items')->assertOk()->json('data'))->keyBy('id');
+
+    // 0: batch denies. 1: override denies. 2: both allow.
+    expect($rows[$this->ids[0]]['_actionAuthorization']['pf-override'])->toBeFalse()
+        ->and($rows[$this->ids[1]]['_actionAuthorization']['pf-override'])->toBeFalse()
+        ->and($rows[$this->ids[2]]['_actionAuthorization']['pf-override'])->toBeTrue();
+});
+
+it('denies when either denies, on the run, the fields request and a single check', function () {
+    PFLog::$denied = [$this->ids[0]];
+    PFOverrideAction::$overrideDenied = [$this->ids[1]];
+
+    foreach ([0, 1] as $i) {
+        $this->postJson('/martis/api/resources/pf-items/actions/pf-override', ['resources' => [$this->ids[$i]]])->assertNotFound();
+        $this->getJson("/martis/api/resources/pf-items/actions/pf-override/fields?resourceId={$this->ids[$i]}")->assertNotFound();
+    }
+    $this->postJson('/martis/api/resources/pf-items/actions/pf-override', ['resources' => $this->ids])->assertNotFound();
+    expect(PFLog::$runs)->toBe([]);
+
+    $this->postJson('/martis/api/resources/pf-items/actions/pf-override', ['resources' => [$this->ids[2]]])->assertOk();
+    expect(PFLog::$runs)->toBe([[$this->ids[2]]]);
+});
+
+it('decides one record on the detail page with both rules too', function () {
+    PFLog::$denied = [$this->ids[0]];
+    PFOverrideAction::$overrideDenied = [$this->ids[1]];
+
+    $map = fn (int $id): array => $this->getJson("/martis/api/resources/pf-items/{$id}")->assertOk()->json('data._actionAuthorization');
+
+    expect($map($this->ids[0])['pf-override'])->toBeFalse()
+        ->and($map($this->ids[1])['pf-override'])->toBeFalse()
+        ->and($map($this->ids[2])['pf-override'])->toBeTrue();
+});
+
+it('never allows more than the batch when an override allows everything', function () {
+    PFLog::$denied = [$this->ids[2]];
+    $action = new PFOverrideAction; // The override denies nothing here.
+
+    expect($action->authorizedToRunRows(Request::create('/'), new Collection([$this->a, $this->c])))->toBe([
+        (string) $this->a->id => true,
+        (string) $this->c->id => false,
+    ]);
+});
+
+it('does not recurse when the override defers to parent::authorizedToRun()', function () {
+    PFLog::$denied = [$this->ids[0]];
+    PFItem::query()->whereKey($this->ids[1])->update(['title' => 'Parent denied']);
+    $this->b->refresh();
+
+    $action = new PFOverrideParentAction;
+    $rows = new Collection([$this->a, $this->b, $this->c]);
+
+    expect($action->authorizedToRunRows(Request::create('/'), $rows))->toBe([
+        (string) $this->a->id => false,
+        (string) $this->b->id => false,
+        (string) $this->c->id => true,
+    ])->and($action->authorizedToRun(Request::create('/'), $this->c))->toBeTrue();
+});
+
+it('keeps asking the batch once for the page when no override exists', function () {
+    (new PFBatchAction)->authorizedToRunRows(Request::create('/'), new Collection([$this->a, $this->b, $this->c]));
+
+    expect(PFLog::$batchCalls)->toHaveCount(1);
 });
 
 // ── AssertsFlatQueries ──────────────────────────────────────────────────────

@@ -12,6 +12,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Martis\Actions\Action;
 use Martis\Contracts\ActionContract;
 use Martis\Contracts\FieldContract;
 use Martis\Contracts\FilterContract;
@@ -94,7 +95,9 @@ abstract class MartisController extends Controller
         $batched = [];
         if ($page !== null && $page->isNotEmpty()) {
             foreach ($actions as $action) {
-                if ($action->hasBatchedCanRun()) {
+                // Only a base `Action` has a batched rule: a class that just implements
+                // the contract keeps its per-row `authorizedToRun()`.
+                if ($action instanceof Action && $action->hasBatchedCanRun()) {
                     $batched[$action->uriKey()] = $action->authorizedToRunRows($request, $page);
                 }
             }
@@ -127,7 +130,9 @@ abstract class MartisController extends Controller
         $context = PageContext::begin($request);
         $page = new EloquentCollection(is_array($rows) ? array_values($rows) : iterator_to_array($rows, false));
 
-        if ($page->isNotEmpty()) {
+        // The hook is on `Resource`, not on `ResourceContract`: a class that only
+        // implements the contract has none to call.
+        if ($page->isNotEmpty() && is_subclass_of($resourceClass, Resource::class)) {
             $resourceClass::prefetchIndexPage($request, $page, $context);
         }
     }
@@ -175,7 +180,15 @@ abstract class MartisController extends Controller
      */
     protected function actionRunDenial(Request $request, ActionContract $action, Model $model, \Closure $policy, ?bool $canRun = null): ?string
     {
-        if (! ($canRun ?? $action->authorizedToRun($request, $model))) {
+        // No answer from a page: one record. A batched rule is asked for that
+        // one row through `authorizedToRunRows()`, which also applies an
+        // overriding `authorizedToRun()`, so the detail page decides as the
+        // listing and the run do.
+        $canRun ??= $action instanceof Action && $action->hasBatchedCanRun()
+            ? ($action->authorizedToRunRows($request, new EloquentCollection([$model]))[(string) $model->getKey()] ?? false)
+            : $action->authorizedToRun($request, $model);
+
+        if (! $canRun) {
             return 'You are not authorized to run this action on one or more selected resources.';
         }
 
