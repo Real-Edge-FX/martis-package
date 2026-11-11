@@ -1444,6 +1444,34 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Extension bundle URLs: versioned
+    |--------------------------------------------------------------------------
+    | When true (default), a root-relative extension URL that is a file under
+    | `public/` is emitted with `?v=<content hash>`, so the bundle can be
+    | served with `Cache-Control: public, max-age=31536000, immutable` and a
+    | deploy still reaches every browser. Absolute URLs, URLs that already
+    | have a query string and missing files are left as configured. Set it to
+    | false to emit the URLs exactly as listed in `extensions`.
+    | See docs/extensions-caching.md. v2.20.0+.
+    */
+    'extensions_versioned_urls' => (bool) env('MARTIS_EXTENSIONS_VERSIONED_URLS', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Extension chunks: reload on a stale chunk
+    |--------------------------------------------------------------------------
+    | An extension component registered with `componentRegistry.registerLazy()`
+    | loads its chunk on demand. A browser tab opened before a deploy asks for
+    | a chunk file the deploy replaced, and the load fails. When true
+    | (default), Martis reloads that tab once (a `sessionStorage` guard keeps
+    | it from looping) and, if the load still fails, shows an error state in
+    | place of the component. Set it to false to never reload automatically.
+    | v2.20.0+.
+    */
+    'extensions_reload_on_stale' => (bool) env('MARTIS_EXTENSIONS_RELOAD_ON_STALE', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Attachments
     |--------------------------------------------------------------------------
     | Configure the file types, size and rate of Trix/Markdown file uploads.
