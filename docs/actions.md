@@ -984,7 +984,7 @@ RevokeGrant::make()->showInline()->canRunForRows(function (Request $request, Col
 });
 ```
 
-- It returns `[row key => bool]`. A row the array omits falls back to the action's per-row `canRun()` when there is one, and is **allowed** when there is none: return an entry for every row you mean to deny. A value that is not an array throws an `UnexpectedValueException` naming the action.
+- It returns `[row key => bool]`. Return an entry for every row. A row the array omits falls back to the action's per-row `canRun()` when there is one, and is **denied** when there is none, on the page and on the run alike (the rule fails closed). Keys are compared as strings, so an int key and its string form, or a uuid, match. A value that is not an array throws an `UnexpectedValueException` naming the action.
 - Martis calls it **once per page** where the index, a lens or a relationship panel marks each row's `_actionAuthorization`. A page's `prefetchIndexPage()` has already run (see [Avoiding per-row queries on index pages](resources.md#avoiding-per-row-queries-on-index-pages-v2200)), so the rule can read what it loaded.
 - **The run is refused for what the page hides.** The run, the action's fields request and a pivot run decide with the same rule: a bulk run calls it once with every selected record and refuses the whole run (404) when it denies any of them, as it does for `canRun()`. The policy checks (`runAction` / `runDestructiveAction`) still apply on top. When only `canRunForRows()` is set, a check of a single record (`authorizedToRun()`) asks it with that one row, so no route skips the rule.
 - With both set, the batch answers for the rows it names and `canRun()` for the others, on the page and on the run alike.

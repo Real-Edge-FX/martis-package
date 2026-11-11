@@ -173,6 +173,24 @@ class PFRowAction extends PFAction
     }
 }
 
+/** A batched rule that answers only the rows it allows, with string keys and no per-row rule. */
+class PFOmitAction extends PFAction
+{
+    public function __construct()
+    {
+        // Keyed by the string form of the key, only for the rows it allows.
+        $this->canRunForRows(fn (Request $request, Collection $rows): array => $rows
+            ->filter(fn (Model $m): bool => ! in_array((int) $m->getKey(), PFLog::$denied, true) && $m->getAttribute('title') !== 'Blocked')
+            ->mapWithKeys(fn (Model $m): array => [(string) $m->getKey() => true])
+            ->all());
+    }
+
+    public function uriKey(): string
+    {
+        return 'pf-omit';
+    }
+}
+
 /** A batched rule that returns something that is not an array. */
 class PFBrokenBatchAction extends PFAction
 {
@@ -232,6 +250,7 @@ class PFItemResource extends Resource
             (new PFBatchAction)->showInline(),
             (new PFPartialAction)->showInline(),
             (new PFRowAction)->showInline(),
+            (new PFOmitAction)->showInline(),
         ];
     }
 }
@@ -587,13 +606,26 @@ it('falls back to the per-row rule for a row the batch does not answer', functio
         ->and(PFLog::$perRowCalls)->toBe(2);
 });
 
-it('allows a row no rule answers, and throws, naming the action, for a batch that is not an array', function () {
-    $action = (new PFPartialAction)->canRun(fn (): bool => true);
+it('denies a row no rule answers, and throws, naming the action, for a batch that is not an array', function () {
     $rows = new Collection([$this->a, $this->b]);
 
+    // No entry in the batch and no per-row rule: denied.
+    expect((new PFOmitAction)->authorizedToRunRows(Request::create('/'), new Collection([$this->a, $this->c])))->toBe([
+        (string) $this->a->id => true,
+        (string) $this->c->id => false,
+    ]);
+
     // No entry in the batch, a per-row rule that allows: allowed.
+    $action = (new PFPartialAction)->canRun(fn (): bool => true);
     expect($action->authorizedToRunRows(Request::create('/'), $rows))->toBe([
         (string) $this->a->id => true,
+        (string) $this->b->id => true,
+    ]);
+
+    // Int and string keys meet.
+    $ints = (new PFBatchAction)->canRunForRows(fn (): array => [$this->a->id => false, (string) $this->b->id => true]);
+    expect($ints->authorizedToRunRows(Request::create('/'), $rows))->toBe([
+        (string) $this->a->id => false,
         (string) $this->b->id => true,
     ]);
 
@@ -665,6 +697,22 @@ it('keeps the rule of a row the batch does not answer on the run too', function 
     // Not answered by the batch, allowed by the per-row rule.
     $this->postJson('/martis/api/resources/pf-items/actions/pf-partial', ['resources' => [$this->ids[2]]])->assertOk();
     expect(PFLog::$runs)->toBe([[$this->ids[2]]]);
+});
+
+it('hides a row the batch omits and refuses its run, on every path', function () {
+    $rows = collect($this->getJson('/martis/api/resources/pf-items')->assertOk()->json('data'))->keyBy('id');
+
+    expect($rows[$this->ids[0]]['_actionAuthorization']['pf-omit'])->toBeTrue()
+        ->and($rows[$this->ids[2]]['_actionAuthorization']['pf-omit'])->toBeFalse();
+
+    // "Blocked" is omitted by the batch: refused on the run, the fields request and a bulk run.
+    $this->postJson('/martis/api/resources/pf-items/actions/pf-omit', ['resources' => [$this->ids[2]]])->assertNotFound();
+    $this->postJson('/martis/api/resources/pf-items/actions/pf-omit', ['resources' => $this->ids])->assertNotFound();
+    $this->getJson("/martis/api/resources/pf-items/actions/pf-omit/fields?resourceId={$this->ids[2]}")->assertNotFound();
+    expect(PFLog::$runs)->toBe([]);
+
+    $this->postJson('/martis/api/resources/pf-items/actions/pf-omit', ['resources' => [$this->ids[0]]])->assertOk();
+    expect(PFLog::$runs)->toBe([[$this->ids[0]]]);
 });
 
 it('still validates a per-row canRun on the run when no batch is set', function () {

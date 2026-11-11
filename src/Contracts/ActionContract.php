@@ -87,7 +87,7 @@ interface ActionContract
      *
      * @param  Closure  $callback  Receives (Request $request, Eloquent Collection $rows) and returns
      *                             an array of [row key => bool]. A row the array omits falls back
-     *                             to the `canRun()` callback, or is allowed when there is none.
+     *                             to the `canRun()` callback, or is denied when there is none.
      */
     public function canRunForRows(Closure $callback): static;
 
@@ -113,7 +113,7 @@ interface ActionContract
 
     /**
      * Decide the run on every row of `$rows` at once: the `canRunForRows()` answers,
-     * the per-row `canRun()` for a row they omit, else true. The map is keyed by
+     * the per-row `canRun()` for a row they omit, else false (denied). The map is keyed by
      * the string form of each row's key.
      *
      * @param  Collection<int, Model>  $rows

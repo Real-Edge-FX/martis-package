@@ -337,7 +337,11 @@ class Action implements ActionContract
                 ));
             }
 
-            $answers = $returned;
+            // Keys compared as strings, so an int key and its string form
+            // (or a uuid) always meet.
+            foreach ($returned as $key => $answer) {
+                $answers[(string) $key] = $answer;
+            }
         }
 
         $map = [];
@@ -345,10 +349,10 @@ class Action implements ActionContract
             $key = (string) $row->getKey();
 
             // A row the batch does not answer falls back to the per-row rule,
-            // or is allowed when there is none.
+            // or is denied when there is none: an authorization rule fails closed.
             $map[$key] = array_key_exists($key, $answers)
                 ? (bool) $answers[$key]
-                : ($this->canRunCallback === null || (bool) ($this->canRunCallback)($request, $row));
+                : ($this->canRunCallback !== null && (bool) ($this->canRunCallback)($request, $row));
         }
 
         return $map;
