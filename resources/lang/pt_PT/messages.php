@@ -292,6 +292,7 @@ return [
     'sso_user_not_provisioned' => 'A tua conta ainda não está provisionada neste workspace. Contacta o administrador.',
     'sso_account_unverified' => 'Já existe uma conta com este email que não pode ser associada a este início de sessão. Contacta o administrador.',
     'sso_no_role_match' => 'A tua conta não tem as roles necessárias para aceder a este workspace.',
+    'sso_session_ended' => 'A tua sessão terminou. Inicia sessão novamente.',
     'reset_to_defaults' => 'Repor predefinições',
     'theme' => 'Tema',
     'theme_dark' => 'Escuro',

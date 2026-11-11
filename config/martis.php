@@ -1046,6 +1046,28 @@ return [
                 //     // (576000 by default) whatever the IdP says meanwhile.
                 //     'remember' => false,
                 //
+                //     // Absolute age of an SSO-opened session (v2.21.0), in whole
+                //     // minutes. null (the default) is off. A session this provider
+                //     // opened that is that old, counted from the SSO sign-in (also
+                //     // after a remember-me re-login, which keeps the original time),
+                //     // is ended on its next request: a JSON request answers 401 with
+                //     // `sso_reauth_url` and the SPA goes through the provider again,
+                //     // any other request is redirected to /{martis}/sso/{name}/redirect.
+                //     // A session opened before v2.21.0 has no sign-in time and counts
+                //     // as expired. Password, magic-link and invitation sessions are
+                //     // never touched.
+                //     'max_session_minutes' => env('MARTIS_SSO_AZURE_MAX_SESSION_MINUTES'),
+                //
+                //     // Ask the provider whether the person is still allowed in
+                //     // (v2.21.0), at most once per this many minutes per session.
+                //     // null (the default) is off. Needs a provider class that
+                //     // implements Martis\Sso\Contracts\RevalidatesSessions (set on one
+                //     // that does not, it throws). stillValid() false ends the session
+                //     // as above. A throwable is reported and the session is kept; it is
+                //     // asked again on the next request, so an IdP outage never signs
+                //     // everybody out (max_session_minutes is the hard bound).
+                //     'revalidate_every_minutes' => env('MARTIS_SSO_AZURE_REVALIDATE_EVERY_MINUTES'),
+                //
                 //     // Federated logout (v1.8.8). Optional. When set,
                 //     // POST /api/auth/logout redirects through the IdP's
                 //     // logout URL after clearing the local session, so the
@@ -1055,6 +1077,14 @@ return [
                 //     //
                 //     // Microsoft Azure example:
                 //     //   logout_url => 'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/logout?post_logout_redirect_uri={post_logout_redirect_uri}'
+                //     //
+                //     // Or (v2.21.0) the name of an invokable class, for an IdP whose
+                //     // logout URL needs more than a placeholder (an id_token_hint, a
+                //     // signed request):
+                //     //   __invoke(Request $request, ?Authenticatable $user, string $postLogoutRedirectUri): ?string
+                //     // It runs before the local logout, gets the login page URL as it
+                //     // is (encode it where your URL needs that) and answers the URL, or
+                //     // null for a local logout only. A class that is not invokable throws.
                 //     //
                 //     // Leave null (the default) to use Martis's own
                 //     // local-only logout (clears the cookie, redirects

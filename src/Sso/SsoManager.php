@@ -7,6 +7,12 @@ namespace Martis\Sso;
 use Closure;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Martis\Auth\GuardCatalog;
 use Martis\Sso\Contracts\PermissionAdapterContract;
 use Martis\Sso\Contracts\SsoProviderContract;
 use Martis\Sso\PermissionAdapters\CallableAdapter;
@@ -78,6 +84,17 @@ class SsoManager
         }
 
         return app($class);
+    }
+
+    /**
+     * The class registered for a provider name, whether or not the provider is
+     * enabled in config. Null when none is registered.
+     *
+     * @return class-string<SsoProviderContract>|null
+     */
+    public function providerClass(string $name): ?string
+    {
+        return $this->providers[strtolower($name)] ?? null;
     }
 
     /** Whether the master switch AND the per-provider switch are on. */
@@ -237,6 +254,82 @@ class SsoManager
         }
 
         return $callback($identity, $provider);
+    }
+
+    // -------------------------------------------------------------------------
+    // Revocation
+    // -------------------------------------------------------------------------
+
+    /**
+     * End every SSO session of a user, now and for good (v2.21.0): the
+     * `martis.sso.session` middleware ends any session that SSO opened for the
+     * user and whose sign-in is not later than this call, whatever the session
+     * driver and whether or not `max_session_minutes` is set; the SSO origin
+     * cookies of the user stop counting; and the user's remember token is
+     * cycled, so no remember cookie signs them back in. A sign-in after the call
+     * works normally.
+     *
+     * On the `database` session driver the user's session rows are deleted
+     * too, which also ends sessions opened with a password, a magic link or an
+     * invitation: those carry no SSO origin for the middleware to find. The
+     * rows are matched by `sessions.user_id`, so they are left alone (with a
+     * warning) when the app's session guards sign in users of more than one
+     * table.
+     *
+     * Throws when the revocation cannot be recorded (the cache refused the
+     * write), so a revocation that did not stick never looks as if it had.
+     */
+    public function revokeFor(int|string $userId): void
+    {
+        $id = (string) $userId;
+
+        SsoSession::revokeUser($id);
+        $this->cycleRememberToken($id);
+        $this->deleteSessionRows($id);
+    }
+
+    /** Give the user a new remember token: the remember cookies of every browser stop signing them in. */
+    protected function cycleRememberToken(string $userId): void
+    {
+        $guard = Auth::guard(GuardCatalog::martis());
+
+        if (! method_exists($guard, 'getProvider')) {
+            return;
+        }
+
+        $provider = $guard->getProvider();
+        $user = $provider->retrieveById($userId);
+
+        if ($user !== null) {
+            $provider->updateRememberToken($user, Str::random(60));
+        }
+    }
+
+    /** Delete the user's rows of the `sessions` table, on the database session driver. */
+    protected function deleteSessionRows(string $userId): void
+    {
+        if ((string) config('session.driver', 'file') !== 'database') {
+            return;
+        }
+
+        $connection = config('session.connection');
+        $connection = is_string($connection) && $connection !== '' ? $connection : null;
+        $table = (string) config('session.table', 'sessions');
+
+        if (! Schema::connection($connection)->hasTable($table)) {
+            return;
+        }
+
+        if (GuardCatalog::sessionUserIdsAreAmbiguous()) {
+            Log::warning('Martis: the session rows of a revoked SSO user were not deleted. The session guards of config/auth.php sign in users of more than one table and sessions.user_id stores no table, so the rows of the user cannot be told apart from those of another user with the same id. Their SSO sessions end through the revocation time.', [
+                'user_id' => $userId,
+                'tables' => GuardCatalog::sessionUserTables(),
+            ]);
+
+            return;
+        }
+
+        DB::connection($connection)->table($table)->where('user_id', $userId)->delete();
     }
 
     // -------------------------------------------------------------------------

@@ -12,6 +12,7 @@ use Martis\Http\Middleware\ApplyUserPreferencesLocale;
 use Martis\Http\Middleware\AuthorizePanelAccess;
 use Martis\Http\Middleware\EnforceImpersonationDuration;
 use Martis\Http\Middleware\EnforceSoftGate;
+use Martis\Http\Middleware\EnforceSsoSession;
 use Martis\Http\Middleware\EnsureEmailIsVerified;
 use Martis\Http\Middleware\EnsurePasswordIsChanged;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
@@ -106,6 +107,7 @@ it('runs MartisAuthenticate before the throttle and keeps the order of the Marti
     $martis = array_values(array_filter($order, static fn (string $name): bool => str_starts_with($name, 'Martis\\')));
     expect($martis)->toBe([
         MartisAuthenticate::class,
+        EnforceSsoSession::class,
         EnforceImpersonationDuration::class,
         EnsureTwoFactorChallenge::class,
         ApplyUserPreferencesLocale::class,

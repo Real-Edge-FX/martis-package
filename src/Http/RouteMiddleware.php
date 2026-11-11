@@ -27,14 +27,16 @@ final class RouteMiddleware
     }
 
     /**
-     * A signed-in user: `martis.auth_middleware`, then the expiry of an
-     * impersonation that ran past `martis.impersonation.max_duration_minutes`.
+     * A signed-in user: `martis.auth_middleware`, then the end of an SSO
+     * session that is too old, revoked or no longer valid at the IdP
+     * (`martis.sso.session`, v2.21.0), then the expiry of an impersonation
+     * that ran past `martis.impersonation.max_duration_minutes`.
      *
      * @return list<string>
      */
     public static function authenticated(): array
     {
-        return [...self::configured('martis.auth_middleware', ['martis.auth']), 'martis.impersonation.duration'];
+        return [...self::configured('martis.auth_middleware', ['martis.auth']), 'martis.sso.session', 'martis.impersonation.duration'];
     }
 
     /**

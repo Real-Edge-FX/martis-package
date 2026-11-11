@@ -67,6 +67,47 @@ function redirectOnSessionExpiry(): void {
 }
 
 /**
+ * The page the server asks the browser to sign in through again when it ended
+ * an SSO-opened session (`401 {"sso_reauth_url": "/martis/sso/azure/redirect"}`,
+ * `EnforceSsoSession`, v2.21.0), or null when the body carries none or carries
+ * one that is not safe to follow.
+ *
+ * Only a path under the Martis base path, on this origin, is followed: never an
+ * absolute or protocol-relative URL, and never a path the browser would
+ * rewrite out of the base path (a dot segment, an encoded one, a backslash).
+ * What is returned is the path as the browser resolves it, so the value that
+ * was checked is the value that is opened.
+ */
+function ssoReauthTarget(payload: unknown): string | null {
+  const url = (payload as { sso_reauth_url?: unknown } | null)?.sso_reauth_url
+  if (typeof url !== 'string' || !url.startsWith(BASE_PATH + '/')) return null
+
+  let resolved: URL
+  try {
+    resolved = new URL(url, window.location.origin)
+  } catch {
+    return null
+  }
+  if (resolved.origin !== window.location.origin || !resolved.pathname.startsWith(BASE_PATH + '/')) return null
+
+  return resolved.pathname + resolved.search
+}
+
+/**
+ * A 401 mid-session: an SSO session the server ended goes back through its
+ * provider (a full page navigation); any other goes to the login page, except
+ * for the probes that answer 401 on public pages.
+ */
+function handleUnauthorized(path: string, payload: unknown): void {
+  const reauth = ssoReauthTarget(payload)
+  if (reauth !== null) {
+    window.location.href = reauth
+    return
+  }
+  if (!PUBLIC_PROBES.includes(path)) redirectOnSessionExpiry()
+}
+
+/**
  * Endpoints that legitimately return 401 on public/unauthenticated pages
  * (login, 2FA challenge). Redirecting on 401 from these would cause a
  * redirect loop because the SPA probes them while the user is logged out.
@@ -217,8 +258,8 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
     // pages (login, 2FA challenge). Without this, mounting the SPA on the
     // login page triggers a redirect loop because `/api/preferences` and
     // friends are protected and will 401 while the user is logged out.
-    if (res.status === 401 && !PUBLIC_PROBES.includes(path)) {
-      redirectOnSessionExpiry()
+    if (res.status === 401) {
+      handleUnauthorized(path, json)
     }
     if (isEmailUnverifiedResponse(res.status, json)) {
       redirectOnEmailUnverified()
@@ -349,8 +390,8 @@ async function uploadRequest<T>(method: string, path: string, values: Record<str
   }
 
   if (!res.ok) {
-    if (res.status === 401 && !PUBLIC_PROBES.includes(path)) {
-      redirectOnSessionExpiry()
+    if (res.status === 401) {
+      handleUnauthorized(path, json)
     }
     if (isEmailUnverifiedResponse(res.status, json)) {
       redirectOnEmailUnverified()
