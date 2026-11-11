@@ -23,9 +23,26 @@ use SplObjectStorage;
  * `Model::handleLazyLoadingViolationUsing()` handler keeps it in the
  * environments that throw; elsewhere a temporary logging handler replaces it
  * for the length of the serialization, and the application's is restored.
+ *
+ * Reading the application's handler needs reflection: Laravel keeps it in
+ * `Model::$lazyLoadingViolationCallback`, a protected static property with a
+ * setter and no getter. Verified on Laravel 13.39.0 (the version this
+ * package is tested on; `composer.json` allows ^12.41.1|^13.0). If a Laravel
+ * release renames or removes it the guard fails safe: where it would have to
+ * swap the handler it is skipped for the request, and one warning is logged
+ * per process, so a listing never breaks because a dev aid cannot run.
  */
 final class ListingGuard
 {
+    /**
+     * The Eloquent property holding the application's violation handler.
+     *
+     * @internal Only a test points it elsewhere, to prove the guard fails safe.
+     */
+    public static string $handlerProperty = 'lazyLoadingViolationCallback';
+
+    private static bool $unavailableLogged = false;
+
     public static function enabled(): bool
     {
         return (bool) config('martis.dev.prevent_lazy_loading_in_listings', false);
@@ -46,15 +63,20 @@ final class ListingGuard
             return $serialize();
         }
 
-        /** @var SplObjectStorage<Model, bool> $previous */
-        $previous = new SplObjectStorage;
-        self::flag($rows, $previous);
-
         $swapped = false;
         $handler = null;
 
         if (! app()->environment(['local', 'testing'])) {
-            $handler = (new ReflectionProperty(Model::class, 'lazyLoadingViolationCallback'))->getValue();
+            try {
+                $handler = (new ReflectionProperty(Model::class, self::$handlerProperty))->getValue();
+            } catch (\Throwable $e) {
+                // Cannot read (so cannot restore) the application's handler: leave
+                // the listing unguarded rather than replace it for good.
+                self::logUnavailable($e);
+
+                return $serialize();
+            }
+
             Model::handleLazyLoadingViolationUsing(static function (Model $model, string $relation): void {
                 Log::warning(sprintf(
                     'Lazy loading of [%s] on [%s] while serializing a Martis listing: prefetch it in prefetchIndexPage() or eager load it.',
@@ -65,7 +87,12 @@ final class ListingGuard
             $swapped = true;
         }
 
+        /** @var SplObjectStorage<Model, bool> $previous */
+        $previous = new SplObjectStorage;
+
         try {
+            self::flag($rows, $previous);
+
             return $serialize();
         } finally {
             if ($swapped) {
@@ -76,6 +103,16 @@ final class ListingGuard
                 $model->preventsLazyLoading = $previous[$model];
             }
         }
+    }
+
+    private static function logUnavailable(\Throwable $e): void
+    {
+        if (self::$unavailableLogged) {
+            return;
+        }
+
+        self::$unavailableLogged = true;
+        Log::warning('Martis prevent_lazy_loading_in_listings is skipped: the Eloquent lazy loading violation handler cannot be read ('.$e->getMessage().').');
     }
 
     /**

@@ -46,7 +46,10 @@ class SearchIndexCommand extends Command
                 continue;
             }
 
-            $targets = SearchResolver::searchTargets($request, $resourceClass);
+            // The inventory covers every searchable column whoever may see it: the
+            // index matters for whoever can search it, and a `canSee()` may need a
+            // signed-in user, which this command has none of.
+            $targets = SearchResolver::searchTargets($request, $resourceClass, ignoreVisibility: true);
             if ($targets['own'] === [] && $targets['relations'] === []) {
                 continue;
             }
@@ -210,15 +213,19 @@ class SearchIndexCommand extends Command
         foreach ($missing as $item) {
             $connection = var_export($item['connection'], true);
             $index = self::indexName($item['table'], $item['column']);
+            // An index is created in its table's schema, so its name is bare there
+            // and qualified where it is dropped.
             $create = sprintf(
                 'CREATE INDEX CONCURRENTLY IF NOT EXISTS %s ON %s USING gin ((%s::text) gin_trgm_ops)',
                 self::quote($index),
-                self::quote($item['table']),
+                self::quoteTable($item['table']),
                 self::quote($item['column']),
             );
+            $schema = SearchIndexInspector::splitTable($item['table'])[0];
+            $drop = 'DROP INDEX CONCURRENTLY IF EXISTS '.($schema === null ? '' : self::quote($schema).'.').self::quote($index);
             $extension[$connection] = sprintf("        DB::connection(%s)->statement('CREATE EXTENSION IF NOT EXISTS pg_trgm');", $connection);
             $up[] = sprintf('        DB::connection(%s)->statement(%s);', $connection, var_export($create, true));
-            $down[] = sprintf('        DB::connection(%s)->statement(%s);', $connection, var_export('DROP INDEX CONCURRENTLY IF EXISTS '.self::quote($index), true));
+            $down[] = sprintf('        DB::connection(%s)->statement(%s);', $connection, var_export($drop, true));
         }
 
         $contents = "<?php\n\nuse Illuminate\\Database\\Migrations\\Migration;\nuse Illuminate\\Support\\Facades\\DB;\n\n"
@@ -239,12 +246,20 @@ class SearchIndexCommand extends Command
         return $path;
     }
 
-    /** `<table>_<col>_trgm_idx`, shortened with a hash to PostgreSQL's 63-byte limit. */
+    /** `<table>_<col>_trgm_idx` (the table without its schema), shortened with a hash to PostgreSQL's 63-byte limit. */
     public static function indexName(string $table, string $column): string
     {
-        $name = $table.'_'.$column.'_trgm_idx';
+        $name = SearchIndexInspector::splitTable($table)[1].'_'.$column.'_trgm_idx';
 
         return strlen($name) <= 63 ? $name : substr($name, 0, 50).'_'.substr(md5($name), 0, 12);
+    }
+
+    /** Quote a table name that may carry a schema (`schema.table`): each part on its own. */
+    public static function quoteTable(string $table): string
+    {
+        [$schema, $name] = SearchIndexInspector::splitTable($table);
+
+        return ($schema === null ? '' : self::quote($schema).'.').self::quote($name);
     }
 
     /** Quote a PostgreSQL identifier. */

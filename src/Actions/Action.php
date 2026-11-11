@@ -277,7 +277,16 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritdoc} */
+    /**
+     * Set a batched alternative to `canRun()`: one call decides a whole page
+     * (v2.20.0). On `Action`, not on `ActionContract`, so a class that
+     * implements the contract itself keeps compiling and keeps its per-row rule.
+     *
+     * @param  Closure  $callback  Receives (Request $request, Eloquent Collection $rows) and returns
+     *                             an array of [row key => bool], keyed by the rows it was given. A row
+     *                             the array omits falls back to the `canRun()` callback, or is denied
+     *                             when there is none; a key that is no row of the batch throws.
+     */
     public function canRunForRows(Closure $callback): static
     {
         $this->canRunForRowsCallback = $callback;
@@ -285,7 +294,9 @@ class Action implements ActionContract
         return $this;
     }
 
-    /** {@inheritdoc} */
+    /**
+     * Whether a batched rule (`canRunForRows()`) is set.
+     */
     public function hasBatchedCanRun(): bool
     {
         return $this->canRunForRowsCallback !== null;
@@ -307,7 +318,7 @@ class Action implements ActionContract
         // One record asked of a batched rule: the batch decides, so a single
         // row check (the detail page, a pivot run) never skips it.
         if ($this->canRunForRowsCallback !== null) {
-            return $this->authorizedToRunRows($request, new \Illuminate\Database\Eloquent\Collection([$model]))[(string) $model->getKey()] ?? false;
+            return $this->batchedAnswers($request, new \Illuminate\Database\Eloquent\Collection([$model]))[(string) $model->getKey()] ?? false;
         }
 
         if ($this->canRunCallback !== null) {
@@ -317,8 +328,47 @@ class Action implements ActionContract
         return true;
     }
 
-    /** {@inheritdoc} */
+    /**
+     * Decide the run on every row of `$rows` at once: the `canRunForRows()`
+     * answers, the per-row `canRun()` for a row they omit, else false (denied).
+     * The map is keyed by the string form of each row's key.
+     *
+     * A subclass that overrides `authorizedToRun()` keeps its rule: a row is
+     * allowed only when the batched rule and the override both allow it (the
+     * override is asked per row, and `parent::authorizedToRun()` inside it
+     * asks the batch for that one row), so a batched rule never allows more
+     * than the override does, nor the reverse.
+     *
+     * @param  Collection<int, Model>  $rows
+     * @return array<string, bool>
+     *
+     * @throws \UnexpectedValueException When `canRunForRows()` does not return an array keyed by row key.
+     */
     public function authorizedToRunRows(Request $request, Collection $rows): array
+    {
+        $map = $this->batchedAnswers($request, $rows);
+
+        if (! $this->overridesAuthorizedToRun()) {
+            return $map;
+        }
+
+        foreach ($rows as $row) {
+            $key = (string) $row->getKey();
+
+            $map[$key] = $map[$key] && $this->authorizedToRun($request, $row);
+        }
+
+        return $map;
+    }
+
+    /**
+     * The `canRunForRows()` answers (and the per-row `canRun()` for a row they
+     * omit) without the rule of an overriding `authorizedToRun()`.
+     *
+     * @param  Collection<int, Model>  $rows
+     * @return array<string, bool>
+     */
+    private function batchedAnswers(Request $request, Collection $rows): array
     {
         $answers = [];
 
@@ -337,9 +387,25 @@ class Action implements ActionContract
                 ));
             }
 
+            $rowKeys = [];
+            foreach ($rows as $row) {
+                $rowKeys[(string) $row->getKey()] = true;
+            }
+
             // Keys compared as strings, so an int key and its string form
-            // (or a uuid) always meet.
+            // (or a uuid) always meet. A key that is no row of the batch is a
+            // typo or a list (`->map(...)->all()` keyed 0..n-1) read as a map:
+            // it would silently allow one row and deny another, so fail loudly.
             foreach ($returned as $key => $answer) {
+                if (! isset($rowKeys[(string) $key])) {
+                    throw new \UnexpectedValueException(sprintf(
+                        '%s::canRunForRows() answered for key [%s], which is not a row of the batch (keys: %s). Return an array keyed by the row key, e.g. $rows->mapWithKeys(fn ($row) => [$row->getKey() => ...])->all(), not a list.',
+                        static::class,
+                        (string) $key,
+                        implode(', ', array_slice(array_keys($rowKeys), 0, 10)),
+                    ));
+                }
+
                 $answers[(string) $key] = $answer;
             }
         }
@@ -356,6 +422,14 @@ class Action implements ActionContract
         }
 
         return $map;
+    }
+
+    /**
+     * Whether a subclass overrides `authorizedToRun()`.
+     */
+    private function overridesAuthorizedToRun(): bool
+    {
+        return (new \ReflectionMethod($this, 'authorizedToRun'))->getDeclaringClass()->getName() !== self::class;
     }
 
     // -------------------------------------------------------------------------

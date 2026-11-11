@@ -1714,14 +1714,18 @@ abstract class Field implements FieldContract
      * `canSeeForModel()` is not asked: a search spans many records, and a
      * field it hides on some of them is still searched.
      *
+     * `$ignoreVisibility` lists every searchable field whoever may see it and
+     * never evaluates a `canSee()` (it may need a signed-in user): for a
+     * tool that reports the union of what any user's search can OR together.
+     *
      * @param  list<FieldContract|LayoutContract>  $items
      * @return list<FieldContract>
      */
-    public static function searchableFields(array $items, Request $request): array
+    public static function searchableFields(array $items, Request $request, bool $ignoreVisibility = false): array
     {
         return array_values(array_filter(
             self::flattenLayoutFields($items),
-            static fn (FieldContract $field): bool => $field->isSearchable() && $field->isAuthorizedToSee($request),
+            static fn (FieldContract $field): bool => $field->isSearchable() && ($ignoreVisibility || $field->isAuthorizedToSee($request)),
         ));
     }
 

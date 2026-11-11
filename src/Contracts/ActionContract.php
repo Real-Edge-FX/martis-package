@@ -83,20 +83,6 @@ interface ActionContract
     public function canRun(Closure $callback): static;
 
     /**
-     * Set a batched alternative to `canRun()`: one call decides a whole page.
-     *
-     * @param  Closure  $callback  Receives (Request $request, Eloquent Collection $rows) and returns
-     *                             an array of [row key => bool]. A row the array omits falls back
-     *                             to the `canRun()` callback, or is denied when there is none.
-     */
-    public function canRunForRows(Closure $callback): static;
-
-    /**
-     * Whether a batched rule (`canRunForRows()`) is set.
-     */
-    public function hasBatchedCanRun(): bool;
-
-    /**
      * Determine if the action is visible to the current request.
      *
      * @param  Request  $request  The incoming HTTP request.
@@ -110,16 +96,6 @@ interface ActionContract
      * @param  Model  $model  The target model instance.
      */
     public function authorizedToRun(Request $request, Model $model): bool;
-
-    /**
-     * Decide the run on every row of `$rows` at once: the `canRunForRows()` answers,
-     * the per-row `canRun()` for a row they omit, else false (denied). The map is keyed by
-     * the string form of each row's key.
-     *
-     * @param  Collection<int, Model>  $rows
-     * @return array<string, bool>
-     */
-    public function authorizedToRunRows(Request $request, Collection $rows): array;
 
     // -------------------------------------------------------------------------
     // Visibility

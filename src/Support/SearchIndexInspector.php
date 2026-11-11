@@ -27,10 +27,11 @@ class SearchIndexInspector
      */
     public function trigramColumns(Connection $connection, string $table): array
     {
-        $rows = $connection->select(
-            'select indexdef from pg_indexes where schemaname = current_schema() and tablename = ?',
-            [$table],
-        );
+        [$schema, $name] = static::splitTable($table);
+
+        $rows = $schema === null
+            ? $connection->select('select indexdef from pg_indexes where schemaname = current_schema() and tablename = ?', [$name])
+            : $connection->select('select indexdef from pg_indexes where schemaname = ? and tablename = ?', [$schema, $name]);
 
         $columns = [];
         foreach ($rows as $row) {
@@ -41,6 +42,21 @@ class SearchIndexInspector
         }
 
         return array_keys($columns);
+    }
+
+    /**
+     * A model's table name split into its schema and table (`schema.table`);
+     * the schema is null for a bare name (the connection's current schema).
+     *
+     * @return array{0: string|null, 1: string}
+     */
+    public static function splitTable(string $table): array
+    {
+        $dot = strpos($table, '.');
+
+        return $dot === false || $dot === 0 || $dot === strlen($table) - 1
+            ? [null, $table]
+            : [substr($table, 0, $dot), substr($table, $dot + 1)];
     }
 
     /**
