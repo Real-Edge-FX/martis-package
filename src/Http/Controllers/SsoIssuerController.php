@@ -7,6 +7,7 @@ namespace Martis\Http\Controllers;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Martis\Sso\SignedToken\IssuerSettings;
@@ -27,6 +28,9 @@ use Martis\Sso\SignedToken\Urls;
  * appended. The token is in the query string of that URL: it lives
  * `ttl_seconds`, is used once, and the response says `no-store` and
  * `no-referrer`. Keep query strings of the callback path out of access logs.
+ *
+ * An audience may set an `ability`: only users the gate allows for it get a
+ * token (403 otherwise, nothing issued, no redirect).
  *
  * A request the browser marks as anything but a top-level navigation
  * (`Sec-Fetch-Mode` not `navigate`, `Sec-Fetch-Dest` not `document`: an
@@ -56,6 +60,14 @@ class SsoIssuerController extends Controller
         }
 
         $issuer = TokenIssuer::fromConfig();
+
+        // Who may sign in to this audience: any panel user, or only those the
+        // gate lets through (an app gate or a permission package's check).
+        $ability = $issuer->abilityFor($audience);
+        if ($ability !== null && ! Gate::forUser($user)->allows($ability)) {
+            abort(403, __('martis::messages.sso_issue_forbidden'));
+        }
+
         $token = $issuer->issue($user, $audience, $state);
 
         $requestId = $request->headers->get('X-Request-Id');

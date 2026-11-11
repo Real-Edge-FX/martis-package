@@ -29,6 +29,7 @@ final class IssuerSettings
 
     /**
      * @param  array<string, string>  $audiences  audience name => callback URL
+     * @param  array<string, string|null>  $abilities  audience name => the gate ability a user needs for it (null: any panel user)
      */
     private function __construct(
         public readonly string $issuer,
@@ -40,6 +41,7 @@ final class IssuerSettings
         public readonly string $roleClaim,
         public readonly mixed $claims,
         public readonly array $audiences,
+        public readonly array $abilities = [],
     ) {}
 
     /** Whether the issuer is switched on (the only key the 404 of the route needs). */
@@ -85,6 +87,8 @@ final class IssuerSettings
             throw new InvalidArgumentException("The [{$key}.private_key] config value is not a consistent Ed25519 secret key (its public half does not match its seed).");
         }
 
+        $audiences = self::audiences($block['audiences'] ?? []);
+
         return new self(
             issuer: ConfigReader::string($block['issuer'] ?? null, "{$key}.issuer"),
             secretKey: $secret,
@@ -94,12 +98,13 @@ final class IssuerSettings
             environmentClaim: ConfigReader::stringOr($block['environment_claim'] ?? null, "{$key}.environment_claim", 'env'),
             roleClaim: ConfigReader::stringOr($block['role_claim'] ?? null, "{$key}.role_claim", 'roles'),
             claims: $block['claims'] ?? null,
-            audiences: self::audiences($block['audiences'] ?? []),
+            audiences: $audiences['urls'],
+            abilities: $audiences['abilities'],
         );
     }
 
     /**
-     * @return array<string, string>
+     * @return array{urls: array<string, string>, abilities: array<string, string|null>}
      */
     private static function audiences(mixed $audiences): array
     {
@@ -110,6 +115,7 @@ final class IssuerSettings
         }
 
         $out = [];
+        $abilities = [];
         foreach ($audiences as $name => $audience) {
             $name = (string) $name;
 
@@ -124,8 +130,9 @@ final class IssuerSettings
             }
 
             $out[$name] = Urls::assertUsable($audience['callback_url'] ?? null, "{$key}.{$name}.callback_url");
+            $abilities[$name] = ConfigReader::optionalString($audience['ability'] ?? null, "{$key}.{$name}.ability");
         }
 
-        return $out;
+        return ['urls' => $out, 'abilities' => $abilities];
     }
 }

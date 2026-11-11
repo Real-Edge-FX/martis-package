@@ -1206,7 +1206,10 @@ php artisan martis:sso panel-b --issuer   # adds the audience and the env stubs,
     'environment' => env('MARTIS_SSO_ISSUER_ENVIRONMENT'),  // 'production' | 'staging' | null
     'claims' => null,                                       // App\Martis\SsoClaims::class
     'audiences' => [
-        'panel-b' => ['callback_url' => 'https://panel-b.example/martis/sso/panel_a/callback'],
+        'panel-b' => [
+            'callback_url' => 'https://panel-b.example/martis/sso/panel_a/callback',
+            'ability' => 'sign-in-to-panel-b',   // optional; null = any panel user
+        ],
     ],
 ],
 ```
@@ -1220,7 +1223,7 @@ php artisan martis:sso panel-b --issuer   # adds the audience and the env stubs,
 | `environment` | Optional. Added to the token as the claim `environment_claim` (default `env`), so a verifier locked to `production` refuses a staging token. |
 | `role_claim`, `environment_claim` | Optional claim names (defaults `roles` and `env`). Keep them equal to panel B's `role_claim` and `environment_claim`. |
 | `claims` | Optional invokable class, `(Authenticatable $user, string $audience): array`, that adds claims and replaces `email`, `name` and the roles. Use the name of a class or a `[Class::class, 'method']` array, never a closure (`config:cache`). `iss`, `aud`, `sub`, `iat`, `exp`, `jti` and `state` (and the environment claim when `environment` is set) cannot be set: the class throws if it tries. |
-| `audiences` | `'<audience>' => ['callback_url' => '...']`. The audience is the name panel B uses as its `audience`. A name is 1 to 64 letters, digits, `.`, `-` or `_`, and is not `callback` or `redirect`. |
+| `audiences` | `'<audience>' => ['callback_url' => '...', 'ability' => null]`. `ability` (optional, a non-empty string; anything else throws naming the key) limits who may obtain a token for that audience: the issue route checks `Gate::forUser($user)->allows($ability)`, so an app gate or a Spatie permission name both work. A refusal answers 403 with a translated message, issues nothing and redirects nowhere. Unset, any user who can open the panel gets a token.  The audience is the name panel B uses as its `audience`. A name is 1 to 64 letters, digits, `.`, `-` or `_`, and is not `callback` or `redirect`. |
 
 The claims of the token:
 
@@ -1238,7 +1241,7 @@ The claims of the token:
 
 `Martis\Sso\SignedToken\TokenIssuer::fromConfig()->issue($user, $audience, $state)` issues the same token from your own code.
 
-The issue route runs the whole protected stack (signed in, 2FA passed, email verified when required, the `viewMartis` gate). It redirects **only** to the `callback_url` of the audience, never to a URL from the request, with `token` and `state` appended. A `callback_url` must be an absolute `https` URL without credentials or a fragment (`http` is accepted for `localhost`, `*.localhost` and `*.test` hosts); anything else throws naming the key. The response carries `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. When the browser sends Fetch Metadata the request must be a top-level navigation (`Sec-Fetch-Mode: navigate` and `Sec-Fetch-Dest: document`): an XHR, an iframe or an image is refused with 403, so another site cannot make a signed-in browser fetch a token. The `state` parameter is required (`^[A-Za-z0-9_-]{16,128}$`, else 422). One audit line is logged per token (audience and user id, never the token).
+The issue route runs the whole protected stack (signed in, 2FA passed, email verified when required, the `viewMartis` gate) and then the audience's `ability`, when it sets one. It redirects **only** to the `callback_url` of the audience, never to a URL from the request, with `token` and `state` appended. A `callback_url` must be an absolute `https` URL without credentials or a fragment (`http` is accepted for `localhost`, `*.localhost` and `*.test` hosts); anything else throws naming the key. The response carries `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. When the browser sends Fetch Metadata the request must be a top-level navigation (`Sec-Fetch-Mode: navigate` and `Sec-Fetch-Dest: document`): an XHR, an iframe or an image is refused with 403, so another site cannot make a signed-in browser fetch a token. The `state` parameter is required (`^[A-Za-z0-9_-]{16,128}$`, else 422). One audit line is logged per token (audience and user id, never the token).
 
 ### 3. Panel B: the provider block
 

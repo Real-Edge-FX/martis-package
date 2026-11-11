@@ -482,3 +482,66 @@ it('writes one audit line per token and no token or key material in it', functio
         ->and($context)->not->toContain($this->keys['secret_b64'])
         ->and($context)->not->toContain(bin2hex($this->keys['secret']));
 });
+
+// -----------------------------------------------------------------------------
+// Who may obtain a token for an audience (audiences.<name>.ability)
+// -----------------------------------------------------------------------------
+
+it('issues for any panel user while the audience sets no ability', function () {
+    Gate::define('sign-in-to-b', fn () => false);
+
+    stSignedIn()->get(stIssueUrl())->assertStatus(302);
+});
+
+it('issues when the ability of the audience allows the user', function () {
+    config(['martis.auth.sso.issuer.audiences.panel-b.ability' => 'sign-in-to-b']);
+    Gate::define('sign-in-to-b', fn (Authenticatable $user) => $user->getAuthIdentifier() === $this->user->getKey());
+
+    $response = stSignedIn()->get(stIssueUrl());
+
+    $response->assertStatus(302);
+    expect((string) $response->headers->get('Location'))->toContain('token=');
+});
+
+it('answers 403 with a translated message, issues nothing and redirects nowhere when the ability denies', function () {
+    config(['martis.auth.sso.issuer.audiences.panel-b.ability' => 'sign-in-to-b']);
+    Gate::define('sign-in-to-b', fn () => false);
+    $logged = new ArrayObject;
+    $logger = Mockery::mock(LoggerInterface::class);
+    $logger->shouldReceive('info')->andReturnUsing(function (string $message) use ($logged) {
+        $logged[] = $message;
+    });
+    Log::shouldReceive('channel')->andReturn($logger);
+
+    $response = stSignedIn()->get(stIssueUrl());
+
+    $response->assertForbidden();
+    expect($response->headers->has('Location'))->toBeFalse()
+        ->and($response->getContent())->toContain(__('martis::messages.sso_issue_forbidden'))
+        ->and($response->getContent())->not->toContain('token=')
+        ->and($logged)->toHaveCount(0);
+    expect(__('martis::messages.sso_issue_forbidden'))->not->toBe('martis::messages.sso_issue_forbidden');
+});
+
+it('applies the ability of the requested audience only', function () {
+    config(['martis.auth.sso.issuer.audiences.panel-b.ability' => 'sign-in-to-b']);
+    Gate::define('sign-in-to-b', fn () => false);
+
+    stSignedIn()->get(stIssueUrl('panel-b'))->assertForbidden();
+    stSignedIn()->get(stIssueUrl('other'))->assertStatus(302);
+});
+
+it('checks the ability through the gate of the signed-in user (a Spatie-style permission works)', function () {
+    config(['martis.auth.sso.issuer.audiences.panel-b.ability' => 'sso.panel-b']);
+    Gate::before(fn ($user, $ability) => $ability === 'sso.panel-b' ? true : null);
+
+    stSignedIn()->get(stIssueUrl())->assertStatus(302);
+});
+
+it('throws, naming the key, for an ability that is set but not a non-empty string', function (mixed $ability) {
+    config(['martis.auth.sso.issuer.audiences.panel-b.ability' => $ability]);
+
+    expect(fn () => TokenIssuer::fromConfig())
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.issuer.audiences.panel-b.ability');
+    stSignedIn()->get(stIssueUrl())->assertStatus(500);
+})->with(['empty' => [''], 'blank' => ['  '], 'number' => [5], 'array' => [['a']], 'true' => [true]]);

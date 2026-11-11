@@ -56,6 +56,17 @@ final class TokenIssuer
     }
 
     /**
+     * The gate ability a user needs to obtain a token for the audience, or null
+     * when any panel user may.
+     */
+    public function abilityFor(string $audience): ?string
+    {
+        $this->callbackUrl($audience);
+
+        return $this->settings->abilities[$audience] ?? null;
+    }
+
+    /**
      * @throws InvalidArgumentException for an unknown audience, a state of the wrong shape or a bad claims class
      * @throws RuntimeException when the user has no email to sign
      */
