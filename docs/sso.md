@@ -91,7 +91,8 @@ HTTP entry points (registered when `auth.sso.enabled = true`):
 │ IdentityResolver — find-or-create local user                    │
 │   • match by `email` (default)  |  by `external_id`             │
 │   • auto-create when missing (config gate)                      │
-│   • sync `name` / `email` from `sync_user_attributes`           │
+│   • sync `name` / `email` / `external_id`                       │
+│     from `sync_user_attributes`                                 │
 │   • host-app override: `MartisSso::resolveUserUsing(...)`       │
 └────────┬────────────────────────────────────────────────────────┘
          │
@@ -123,6 +124,8 @@ HTTP entry points (registered when `auth.sso.enabled = true`):
 ```
 
 Every layer is overridable via a host-app hook — the layered design is opt-in. An app that just wants "the basics" hooks nothing; an app with quirky requirements hooks one or two specific layers.
+
+The boxes above are the layers, not the run order inside the callback. Roles are decided **before** the local user is written (v2.21.0), so a refused identity never leaves a row behind: see [Deny before provisioning](#deny-before-provisioning-v2210). Every refusal ends the same way: one log line, one `SsoFailed` event and a redirect to the login page, see [Failed sign-ins](#failed-sign-ins-reason-log-and-event-v2210).
 
 ---
 
@@ -365,14 +368,21 @@ The **Continue with Microsoft** button is there. Click → Azure consent screen 
                 // Identity resolution.
                 'auto_create_user'         => true,
                 'identity_match_attribute' => 'email', // 'email' | 'external_id'
-                'sync_user_attributes'     => ['name', 'email'],
+                'sync_user_attributes'     => ['name', 'email'], // also 'external_id' (v2.21.0)
+
+                // Only with identity_match_attribute = 'external_id' (v2.21.0).
+                'identity_external_id_column' => 'azure_object_id', // default '{provider}_external_id'
+                'link_by_email'               => false,
+
+                // true restores "write the user, then refuse" (v2.21.0).
+                'provision_on_deny' => false,
 
                 // Permission sync.
                 'sync_roles'         => true,
                 'permission_adapter' => 'auto', // 'auto' | 'spatie' | 'native' | 'callable'
 
                 // What happens when no roles match.
-                'on_no_role_match' => 'deny', // 'deny' | 'guest' | callable
+                'on_no_role_match' => 'deny', // 'deny' | 'guest' | 'callable'
 
                 // Remember-me after an SSO sign-in (v2.4.0). Off by default: the
                 // session follows SESSION_LIFETIME and a fresh IdP round-trip
@@ -393,6 +403,80 @@ The **Continue with Microsoft** button is there. Click → Azure consent screen 
 ### Identity binding and tenants (v2.4.0)
 
 `identity_match_attribute => 'email'` adopts the local account that holds the IdP's address, and only when it can trust that row's address (v2.4.0): the row's `email_verified_at` is set (a user model without that column cannot prove a verified address, so with registration open it counts as unverified), or `martis.auth.registration.enabled` is `false`, so an administrator provisioned every row. With self-registration open and the row unverified, anyone could have registered the IdP user's address first and kept their own password, so the sign-in is **refused** (a logged warning and the translated `sso_account_unverified` message on the login page) instead of adopting the row and syncing the IdP's roles onto it. The same refusal answers an address that the `external_id` strategy did not link when `auto_create_user` would otherwise create a second row beside it. Verify the address (email verification, or an administrator marks it), link the row by external id, or delete it. With registration enabled an app therefore needs an `email_verified_at` column (with verified rows) or the `external_id` strategy for SSO to adopt existing accounts. A closure registered through `MartisSso::resolveUserUsing()` replaces this logic and decides for itself. Two further guards close the pre-hijack route that used to exist there: the profile no longer lets a user write an address without the current password and a confirmation link sent to that address (see [Authentication → Changing the email address](authentication.md#changing-the-email-address-v240)), and the Azure provider rejects an identity whose `tid` claim differs from a configured concrete `tenant`. A multi-tenant registration (`common`, `organizations`, `consumers`, or no tenant) checks nothing: prefer `identity_match_attribute => 'external_id'` there.
+
+### Matching by `external_id` (v2.21.0)
+
+`identity_match_attribute => 'external_id'` matches the id the IdP issued (the Azure object id, a Google subject) against a column of your users table: `identity_external_id_column`, `{provider}_external_id` when unset (`azure_external_id`). It survives an email change at the IdP and does not depend on the address being verified, which makes it the strategy for a multi-tenant app registration.
+
+- **The id is stored.** A user the sign-in creates gets the id written into that column, so the next sign-in finds the same row. (Before v2.21.0 the column was never written: the second sign-in of an auto-created user found no id match, saw the row holding the address and was refused.)
+- **A missing id is refused.** `SsoIdentity::$externalId` is never `null`, but a provider can hand over an empty string. Querying it would match every row whose column is empty, an arbitrary account, so the sign-in is refused with reason `missing_external_id` before anything is read or written.
+- **Email at the IdP changed.** The id still matches the same row. The new address is copied onto it when `sync_user_attributes` lists `email`; otherwise the row keeps its address.
+- **`link_by_email` (per provider, default `false`).** An existing account that holds the IdP's address but no id yet (the accounts you provisioned before switching strategy) is refused by default, as before. With `link_by_email => true` it is linked: the row must pass the same adoption rule as the `email` strategy (verified address, or `registration.enabled` false) and its id column must be empty, and then the id is written and the sign-in goes on. A row that already stores a **different** id is refused with reason `external_id_mismatch` and logged; the stored id is never overwritten. Linking applies even when `auto_create_user` is `false`: it does not create anything.
+- **`sync_user_attributes` accepts `external_id`**, on either strategy: the id is written into the column when it is empty (a user created by the `email` strategy gets it too), and a different non-empty value refuses the sign-in with `external_id_mismatch`, before the name or email of the row is touched.
+
+```php
+'azure' => [
+    'identity_match_attribute'    => 'external_id',
+    'identity_external_id_column' => 'azure_object_id',
+    'link_by_email'               => true,   // adopt the pre-provisioned rows once, by address
+    'auto_create_user'            => true,
+],
+```
+
+A `identity_match_attribute` value other than `email` or `external_id`, or an `identity_external_id_column` that is not a non-empty string, throws an `InvalidArgumentException` naming the key instead of matching nothing.
+
+### Deny before provisioning (v2.21.0)
+
+A callback used to write the local user first (create it, rewrite the name and email of an existing one) and only then map the roles and refuse an identity without a role. A refused identity therefore left a row behind, or rewrote one. Roles now come first:
+
+| Role mapping | What runs | A refusal |
+|---|---|---|
+| `role_strategy` `column` or `config`, and no `MartisSso::resolveRolesUsing` closure | The roles are mapped with no user. When there is nothing to sign in as, the callback returns **before** `IdentityResolver` (and a `resolveUserUsing` closure) runs. | Nothing was written. |
+| `role_strategy` `callable`, or a `resolveRolesUsing` closure (they receive the user) | The user is resolved, the roles are mapped and the decision is taken **inside a database transaction** on the user model's connection. | The transaction is rolled back: the created row is gone and a rewritten name or email is restored. This includes a `callable` `on_no_role_match` hook that returns a redirect, a `callable` hook that returns nothing, and a `resolveUserUsing` closure that returns `null`. |
+
+`on_no_role_match => 'guest'` is not a refusal: the user is written and signed in without a role, in both rows of the table. The `SsoFailed` event is dispatched after the rollback, so a listener that writes to the same database is not rolled back with it.
+
+`provision_on_deny` (per provider, default `false`) restores the old order, write first and refuse after, for an app that pre-provisions rows on purpose and wants them updated even when access is refused.
+
+What a transaction cannot undo is yours to handle: a `resolveUserUsing` closure that writes **outside the user model's connection** (another database, a queue, an HTTP call), and the model events (`created`, `updated` observers) that a rolled-back row already fired. Keep those side effects in the `afterLogin` hooks or the `SsoLoggedIn` listener, which only run once the identity was admitted. An `on_no_role_match` value other than `deny`, `guest` or `callable` throws an `InvalidArgumentException` naming the key (it used to sign the user in without a role).
+
+Because roles are decided first, an identity that has no role **and** no local user is now refused with `no_role_match` rather than `not_provisioned`.
+
+### Failed sign-ins: reason, log and event (v2.21.0)
+
+Every refusal of the callback (the IdP call failed, the account may not be adopted, the user is not provisioned, no role matches) goes through one path: a warning log line, an `SsoFailed` event, and a redirect to the login page. Each refusal has a `reason`:
+
+| Reason | When |
+|---|---|
+| `unknown` | The provider threw anything that is not a `Martis\Sso\SsoException` (an unreachable IdP, a rejected code, a malformed token). |
+| `account_unverified` | A local row holds the IdP's address and the sign-in may not adopt it (`SsoAdoptionRefusedException`). |
+| `missing_external_id`, `external_id_mismatch` | See [Matching by `external_id`](#matching-by-external_id-v2210). |
+| `not_provisioned` | No local user, and `auto_create_user` is off (or the user resolver returned `null`). |
+| `no_role_match` | No role maps and `on_no_role_match` denies (also when a `callable` hook returned a redirect: the person is not signed in, the hook decides where they go). |
+
+The log line (`SSO callback failed`, on the default log channel) carries `provider`, `reason`, `request_id` (the request's `X-Request-Id` header, else a UUID generated for this line), `exception` (the class name) and `error` (the message). The message is **redacted** first: HTTP client exceptions embed the request URL and the response body, so the values of `code`, `state`, `token`, `id_token`, `access_token`, `refresh_token` and `client_secret` are replaced with `[redacted]` whether they appear as query pairs or JSON pairs, and so is a `Bearer` credential.
+
+The login page shows the exception's `messageKey` text when the exception sets one and the key is translated, and the generic `sso_callback_failed` text otherwise (a plain exception never shows its message). A provider or a `resolveUserUsing` closure can choose both by throwing `Martis\Sso\SsoException`:
+
+```php
+use Martis\Sso\SsoException;
+
+throw new SsoException(
+    'Tenant of the token is not allowed',      // for the log
+    'tenant_not_allowed',                      // reason: a snake_case slug listeners can branch on
+    'messages.sso_tenant_not_allowed',         // login page text, any translation key; null = generic text
+);
+```
+
+```php
+use Illuminate\Support\Facades\Event;
+use Martis\Events\SsoFailed;
+
+Event::listen(SsoFailed::class, function (SsoFailed $event) {
+    // $event->provider, $event->reason, $event->exception (?Throwable, message not redacted)
+    AuditLog::record('sso.failed', ['provider' => $event->provider, 'reason' => $event->reason]);
+});
+```
 
 ---
 
@@ -609,7 +693,7 @@ MartisSso::syncRolesUsing(function ($user, $resolvedRoles) {
 
 ### Hook 4 — `afterLogin`
 
-Side-effect hook fired after login + role sync. Audit logs, welcome emails, derived columns.
+Side-effect hook fired after the role sync and before the sign-in. Audit logs, welcome emails, derived columns.
 
 ```php
 MartisSso::afterLogin(function ($user, SsoIdentity $identity, string $provider) {
@@ -621,6 +705,15 @@ MartisSso::afterLogin(function ($user, SsoIdentity $identity, string $provider) 
     ]);
 });
 ```
+
+Registrations **accumulate** (v2.21.0): each call appends a callback and they run in registration order, so a package and the app can both register one without overwriting each other. Pass a provider name as the second argument to run a callback for that provider only; without it the callback runs for every provider.
+
+```php
+MartisSso::afterLogin(fn ($user, $identity, $provider) => AuditLog::record($user));            // every provider
+MartisSso::afterLogin(fn ($user, $identity, $provider) => SyncAzureGroups::dispatch($user), 'azure'); // azure only
+```
+
+An exception thrown by a callback stops the sign-in (the next callbacks do not run and the user is not logged in). To react after the user is signed in, listen to `SsoLoggedIn` instead, see [Events](#events-v2210).
 
 ### Hook 5 — `onNoRoleMatchUsing`
 
@@ -639,9 +732,22 @@ MartisSso::onNoRoleMatchUsing(function (SsoIdentity $identity, string $provider)
 });
 ```
 
+Single-valued per scope (v2.21.0): one global slot and one slot per provider (`MartisSso::onNoRoleMatchUsing($callback, 'azure')`). The last registration for a scope replaces the earlier one; for a provider its own slot wins and the global one answers every provider without a slot.
+
 ### Composing hooks
 
 Hooks compose with each other AND with config — you can override `resolveUserUsing` while keeping the built-in `RoleMapper` (`role_strategy = 'column'`). Each layer is independent.
+
+`MartisSso::forgetHooks()` (v2.21.0) clears every hook at once: the `afterLogin` and no-role-match callbacks (global and per provider) and the `resolveUserUsing`, `resolveRolesUsing` and `syncRolesUsing` overrides. Use it in tests and in an app that rebuilds its hooks per Octane worker; `flushHooksForTesting()` stays and calls it.
+
+### Events (v2.21.0)
+
+Two events complement the hooks. Listen with `Event::listen()` or a subscriber:
+
+| Event | Dispatched | Properties |
+|---|---|---|
+| `Martis\Events\SsoLoggedIn` | Exactly once per successful sign-in, after `Auth::login()` and after the SSO session marker is set (the `afterLogin` hooks run before the sign-in). | `Authenticatable $user`, `SsoIdentity $identity`, `string $provider` |
+| `Martis\Events\SsoFailed` | Once per refused callback, after the log line and after any provisioning was rolled back. See [Failed sign-ins](#failed-sign-ins-reason-log-and-event-v2210). | `string $provider`, `string $reason`, `?Throwable $exception` |
 
 ---
 
@@ -950,6 +1056,10 @@ Event::listen(SocialiteWasCalled::class, [
 ]);
 ```
 
+### Callback returns 302 to `/martis/login` and the login page shows a generic text
+
+The reason is in the log, not on the page. Search the log for `SSO callback failed`: its `reason` (`unknown`, `account_unverified`, `missing_external_id`, `external_id_mismatch`, `not_provisioned`, `no_role_match`), `exception` class and redacted `error` say what happened, and `request_id` ties the line to the request (send an `X-Request-Id` header from your proxy to correlate it with the access log). See [Failed sign-ins](#failed-sign-ins-reason-log-and-event-v2210).
+
 ### Callback returns 302 to `/martis/login` with `sso_no_role_match`
 
 The user has no Azure App Role assignment that matches a local role's `azure_group_name`. Verify:
@@ -996,13 +1106,19 @@ The user has no Azure App Role assignment that matches a local role's `azure_gro
 | `tests/Unit/Sso/PermissionAdaptersTest.php` | Spatie / Native / Callable / Auto adapter routing + role attach/detach semantics. |
 | `tests/Unit/Sso/SsoManagerTest.php` | Singleton wiring, hook registration + dispatch, provider extension via `extend()`. |
 | `tests/Feature/SsoControllerTest.php` | End-to-end callback: user create / sync, role map, deny / guest paths, hook firing, disabled-provider redirect, route gating, federated logout, password-login wipe of the SSO marker. |
+| `tests/Unit/Sso/SsoLogRedactorTest.php` | The log redactor (query and JSON pairs, escaped JSON, bearer values, look-alike keys) and the `SsoException` / `SsoAdoptionRefusedException` contract. |
+| `tests/Unit/Sso/SsoManagerHooksTest.php` | Accumulating `afterLogin` hooks, provider scoping, single-valued no-role-match slots, `forgetHooks()`. |
+| `tests/Unit/Sso/IdentityResolverExternalIdTest.php` | `external_id` matching: id stored on create, second sign-in, `link_by_email`, mismatch, unverified refusal, empty id, `sync_user_attributes: external_id`, config errors. |
+| `tests/Feature/SsoFailureReasonTest.php` | The reason, log context (request id, redaction) and `SsoFailed` event of every refusal, and the login page text. |
+| `tests/Feature/SsoLoggedInEventTest.php` | `SsoLoggedIn`: once per sign-in, after the login and the SSO marker, never on a refusal. |
+| `tests/Feature/SsoDenyBeforeProvisioningTest.php` | Deny before provisioning on the pre-check and the transaction path, `guest`, `provision_on_deny`, rollback of resolver writes. |
 | `tests/Feature/SsoSessionMarkerTest.php` | The SSO origin across a remember-me re-login: the forced password change gate and the federated logout still see it; a cookie for another user or not encrypted by Martis counts for nothing; every other sign-in and both sign-outs drop it. |
 | `tests/Feature/SsoMakeCommandTest.php` | Generator idempotency: composer skip, config-block insert, env stub, listener register, Spatie publish, migration publish, role-mapping prompt. |
 
 Run the SSO slice with:
 
 ```bash
-vendor/bin/pest tests/Unit/Sso tests/Feature/SsoControllerTest.php tests/Feature/SsoSessionMarkerTest.php tests/Feature/SsoMakeCommandTest.php
+vendor/bin/pest tests/Unit/Sso tests/Feature/SsoControllerTest.php tests/Feature/SsoFailureReasonTest.php tests/Feature/SsoLoggedInEventTest.php tests/Feature/SsoDenyBeforeProvisioningTest.php tests/Feature/SsoSessionMarkerTest.php tests/Feature/SsoMakeCommandTest.php
 ```
 
 The counts grow with each release — see CI output for the live total.

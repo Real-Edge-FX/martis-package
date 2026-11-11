@@ -1003,12 +1003,39 @@ return [
                 //     // unverified row with registration open refuses the sign-in.
                 //     // 'external_id' matches an id the IdP issued and is unaffected.
                 //     'identity_match_attribute' => 'email',
+                //
+                //     // Only with 'external_id' (v2.21.0). The column that stores the
+                //     // id the IdP issued; a user the sign-in creates gets it written,
+                //     // and a sign-in with an empty id is refused. Default
+                //     // '{provider}_external_id' (azure_external_id).
+                //     'identity_external_id_column' => 'azure_object_id',
+                //
+                //     // Only with 'external_id' (v2.21.0). false (default): a local row
+                //     // that holds the IdP's address but not its id refuses the sign-in.
+                //     // true: that row is linked when its email passes the adoption rule
+                //     // above and its id column is empty (the id is written); a different
+                //     // id already stored there refuses the sign-in and is never overwritten.
+                //     'link_by_email' => false,
+                //
+                //     // 'name', 'email' and (v2.21.0) 'external_id': fill the id column
+                //     // when it is empty, on either strategy; a different non-empty value
+                //     // refuses the sign-in.
                 //     'sync_user_attributes' => ['name', 'email'],
                 //
                 //     'sync_roles' => true,
                 //     'permission_adapter' => 'auto',
                 //
                 //     'on_no_role_match' => 'deny',
+                //
+                //     // A refused identity (no role matches and on_no_role_match is
+                //     // 'deny' or 'callable') is refused BEFORE its local user is written
+                //     // (v2.21.0): no row is created and an existing row's name and email
+                //     // are not rewritten. When the role mapping needs the user (strategy
+                //     // 'callable' or a MartisSso::resolveRolesUsing closure) the user is
+                //     // written inside a transaction that the refusal rolls back.
+                //     // true restores the old order (write, then refuse) for apps that
+                //     // pre-provision rows on purpose.
+                //     'provision_on_deny' => false,
                 //     'redirect_to' => null,
                 //
                 //     // Remember-me after an SSO sign-in (v2.4.0). Off by default:
