@@ -372,12 +372,24 @@ return [
     | container see it without flipping a flag) and OFF everywhere else,
     | which prevents end-users on staging or production from stumbling onto
     | the page. Set MARTIS_DEV_TOOLS=true in any environment to force-enable.
+    |
+    | prevent_lazy_loading_in_listings
+    |     Off by default. When true, a relationship that is lazy loaded while
+    |     a listing (the resource index, a lens, a relationship panel) is
+    |     serialized throws in `local` and `testing` and is logged as a
+    |     warning elsewhere, so a per-row query is found where it is written.
+    |     Only the rows of the page are guarded, only while they are
+    |     serialized, and every flag is put back afterwards: it never turns
+    |     on Laravel's global Model::preventLazyLoading(). Eager load what
+    |     the rows read in Resource::prefetchIndexPage().
     */
     'dev' => [
         'tools_enabled' => env(
             'MARTIS_DEV_TOOLS',
             in_array(env('APP_ENV', 'production'), ['local', 'testing'], true),
         ),
+
+        'prevent_lazy_loading_in_listings' => env('MARTIS_DEV_PREVENT_LAZY_LOADING_IN_LISTINGS', false),
     ],
 
     /*

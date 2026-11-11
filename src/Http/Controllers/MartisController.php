@@ -4,6 +4,7 @@ namespace Martis\Http\Controllers;
 
 use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany as EloquentBelongsToMany;
 use Illuminate\Database\Eloquent\Relations\Pivot;
@@ -30,6 +31,7 @@ use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\Support\IndexScope;
 use Martis\Support\ListSort;
+use Martis\Support\PageContext;
 use Martis\Support\RelationScope;
 use Martis\Support\TranslatedLine;
 
@@ -67,10 +69,15 @@ abstract class MartisController extends Controller
      * the policy answers the map needs, so the policy is not asked again
      * per action.
      *
+     * `$rows`, the page the map is for, lets an action with a batched rule
+     * (`canRunForRows()`) decide the whole page in one call. Without it, or
+     * for a row the batch does not answer, the per-row rule decides.
+     *
      * @param  class-string<resource>  $resourceClass
+     * @param  iterable<mixed>|null  $rows
      * @return (\Closure(Model, array<string, mixed>=): array<string, bool>)|null
      */
-    protected function rowActionAuthorizer(Request $request, string $resourceClass, bool $inlineOnly = false, ?Lens $lens = null): ?\Closure
+    protected function rowActionAuthorizer(Request $request, string $resourceClass, bool $inlineOnly = false, ?Lens $lens = null, ?iterable $rows = null): ?\Closure
     {
         $actions = array_filter(
             $this->availableActions(new $resourceClass, $request, $lens),
@@ -82,15 +89,47 @@ abstract class MartisController extends Controller
             return null;
         }
 
-        return function (Model $model, array $authorization = []) use ($actions, $request, $resourceClass): array {
+        // One call per batched action for the whole page.
+        $page = $rows === null ? null : new EloquentCollection(is_array($rows) ? array_values($rows) : iterator_to_array($rows, false));
+        $batched = [];
+        if ($page !== null && $page->isNotEmpty()) {
+            foreach ($actions as $action) {
+                if ($action->hasBatchedCanRun()) {
+                    $batched[$action->uriKey()] = $action->authorizedToRunRows($request, $page);
+                }
+            }
+        }
+
+        return function (Model $model, array $authorization = []) use ($actions, $request, $resourceClass, $batched): array {
             $policy = $this->actionPolicy($request, new $resourceClass($model), $authorization);
             $map = [];
             foreach ($actions as $action) {
-                $map[$action->uriKey()] = $this->actionRunDenial($request, $action, $model, $policy) === null;
+                // Null for a row the batch did not map: the per-row rule decides.
+                $canRun = ($batched[$action->uriKey()] ?? [])[(string) $model->getKey()] ?? null;
+                $map[$action->uriKey()] = $this->actionRunDenial($request, $action, $model, $policy, $canRun) === null;
             }
 
             return $map;
         };
+    }
+
+    /**
+     * Open the page context of a listing and let the resource prefetch what
+     * its rows need (`Resource::prefetchIndexPage()`). Only the listing
+     * endpoints call it: after the page is read, before its rows are
+     * serialized. An empty page opens the context but skips the hook.
+     *
+     * @param  class-string<resource>  $resourceClass
+     * @param  iterable<mixed>  $rows  The models of the page.
+     */
+    protected function prefetchListingPage(Request $request, string $resourceClass, iterable $rows): void
+    {
+        $context = PageContext::begin($request);
+        $page = new EloquentCollection(is_array($rows) ? array_values($rows) : iterator_to_array($rows, false));
+
+        if ($page->isNotEmpty()) {
+            $resourceClass::prefetchIndexPage($request, $page, $context);
+        }
     }
 
     /**
@@ -128,11 +167,15 @@ abstract class MartisController extends Controller
      * `canRun()` grants nothing the policy refuses. The one predicate behind
      * the row map and the run.
      *
+     * `$canRun` is the action's own rule already decided for the record (by
+     * the batched rule, see `rowActionAuthorizer()` and `runDenied()`); null
+     * asks `authorizedToRun()`.
+     *
      * @param  \Closure(bool): bool  $policy
      */
-    protected function actionRunDenial(Request $request, ActionContract $action, Model $model, \Closure $policy): ?string
+    protected function actionRunDenial(Request $request, ActionContract $action, Model $model, \Closure $policy, ?bool $canRun = null): ?string
     {
-        if (! $action->authorizedToRun($request, $model)) {
+        if (! ($canRun ?? $action->authorizedToRun($request, $model))) {
             return 'You are not authorized to run this action on one or more selected resources.';
         }
 

@@ -72,6 +72,11 @@ class Action implements ActionContract
 
     protected ?Closure $canRunCallback = null;
 
+    /**
+     * Batched twin of `$canRunCallback`: `(Request, Collection<int, Model>): array<id, bool>`.
+     */
+    protected ?Closure $canRunForRowsCallback = null;
+
     // -------------------------------------------------------------------------
     // Confirmation modal
     // -------------------------------------------------------------------------
@@ -273,6 +278,20 @@ class Action implements ActionContract
     }
 
     /** {@inheritdoc} */
+    public function canRunForRows(Closure $callback): static
+    {
+        $this->canRunForRowsCallback = $callback;
+
+        return $this;
+    }
+
+    /** {@inheritdoc} */
+    public function hasBatchedCanRun(): bool
+    {
+        return $this->canRunForRowsCallback !== null;
+    }
+
+    /** {@inheritdoc} */
     public function authorizedToSee(Request $request): bool
     {
         if ($this->canSeeCallback !== null) {
@@ -285,11 +304,58 @@ class Action implements ActionContract
     /** {@inheritdoc} */
     public function authorizedToRun(Request $request, Model $model): bool
     {
+        // One record asked of a batched rule: the batch decides, so a single
+        // row check (the detail page, a pivot run) never skips it.
+        if ($this->canRunForRowsCallback !== null) {
+            return $this->authorizedToRunRows($request, new \Illuminate\Database\Eloquent\Collection([$model]))[(string) $model->getKey()] ?? false;
+        }
+
         if ($this->canRunCallback !== null) {
             return (bool) ($this->canRunCallback)($request, $model);
         }
 
         return true;
+    }
+
+    /** {@inheritdoc} */
+    public function authorizedToRunRows(Request $request, Collection $rows): array
+    {
+        $answers = [];
+
+        if ($this->canRunForRowsCallback !== null) {
+            $returned = ($this->canRunForRowsCallback)($request, $rows);
+
+            if ($returned instanceof Collection) {
+                $returned = $returned->all();
+            }
+
+            if (! is_array($returned)) {
+                throw new \UnexpectedValueException(sprintf(
+                    '%s::canRunForRows() must return an array of [row key => bool], %s returned.',
+                    static::class,
+                    get_debug_type($returned),
+                ));
+            }
+
+            // Keys compared as strings, so an int key and its string form
+            // (or a uuid) always meet.
+            foreach ($returned as $key => $answer) {
+                $answers[(string) $key] = $answer;
+            }
+        }
+
+        $map = [];
+        foreach ($rows as $row) {
+            $key = (string) $row->getKey();
+
+            // A row the batch does not answer falls back to the per-row rule,
+            // or is denied when there is none: an authorization rule fails closed.
+            $map[$key] = array_key_exists($key, $answers)
+                ? (bool) $answers[$key]
+                : ($this->canRunCallback !== null && (bool) ($this->canRunCallback)($request, $row));
+        }
+
+        return $map;
     }
 
     // -------------------------------------------------------------------------

@@ -751,6 +751,71 @@ Write the hooks for this resource's own index query; Martis keeps them there:
 
 Source: `src/Resource.php::indexQuery()`.
 
+### Avoiding per-row queries on index pages (v2.20.0)
+
+A listing runs your code once per row: a field resolver, `canSeeForModel()`, an action's `canRun()`, an accessor that reads a relation. Each query inside one costs a round trip per row. Fix it by loading what the page needs once, then reading it per row.
+
+**Do not attach that work to `indexQuery()` or `scopes()`.** They are not a listing hook: Martis runs them wherever it needs this resource's records, namely the index, the count badge, the global search, the records an **action runs on** (a POST, and the action's fields request), the parent record of a `BelongsToMany` panel, and the lens and relationship-panel lookups an action resolves its targets through. Heavy work there is wasted on an action POST, and what it loaded describes the records before the action changes them.
+
+Use `prefetchIndexPage()`:
+
+```php
+use Illuminate\Database\Eloquent\Collection;
+use Martis\Support\PageContext;
+
+public static function prefetchIndexPage(Request $request, Collection $rows, PageContext $context): void
+{
+    $rows->load('currentAgent');                                    // eager load for the page
+
+    $context->putMany('has_grant', Grant::query()                   // one query for the page
+        ->whereIn('user_id', $rows->modelKeys())
+        ->pluck('user_id', 'user_id')
+        ->map(fn () => true)
+        ->all());
+}
+```
+
+- It is called **once per listed page**, after the page is read and before its rows are serialized, by the endpoints that list rows: the resource index, a lens, and a relationship panel's table (`HasMany`, `HasManyThrough`, `MorphMany`, `BelongsToMany`, `MorphToMany`). `$rows` is the page's models. An empty page does not call it.
+- It is **never** called when an action resolves its records, nor by the detail, edit, create or count endpoints, nor by a relationship picker. The default does nothing, so a resource that ignores it keeps today's behaviour.
+- A lens page that is served from the lens cache (`cacheFor()`) was serialized before and does not read the rows, so the hook does not run for it either.
+- `Martis\Support\PageContext` holds the facts for the request: `put($key, $row, $value)`, `putMany($key, [$id => $value])`, `get($key, $row, $default = null)`, `has($key, $row)`. `$row` is a model or its key. Read it from a field resolver, `canSeeForModel()`, an accessor or an action's `canRun()` with `PageContext::current($request)` (`PageContext::current()` uses the current request).
+- **Always fall back to your domain logic for a row the context does not hold.** The context is empty outside a listing (`get()` returns its default), which is the case on the action POST that runs after the page. A `canRun()` whose default is permissive would allow the run:
+
+```php
+->canRun(function (Request $request, Model $row): bool {
+    $context = PageContext::current($request);
+
+    return $context->has('has_grant', $row)
+        ? $context->get('has_grant', $row)       // the page's answer
+        : $row->grants()->exists();               // the same rule, for a row not on a page
+})
+```
+
+For an action that must decide a whole page at once, see [`canRunForRows()`](actions.md#deciding-a-page-in-one-call-canrunforrows-v2200).
+
+**Prove it stays flat.** `Martis\Testing\AssertsFlatQueries` seeds a few rows, counts the queries of a request, seeds many more and asserts the count did not grow. A failure lists the queries that ran more often:
+
+```php
+uses(\Martis\Testing\AssertsFlatQueries::class);
+
+it('lists customers in a flat number of queries', function () {
+    $this->actingAs(User::factory()->create());
+
+    $this->assertFlatQueries(
+        seed: fn (int $rows) => Customer::factory()->count($rows)->create(),   // rows to ADD
+        request: fn () => $this->getJson('/martis/api/resources/customers?per_page=100')->assertOk(),
+        few: 2,
+        many: 20,
+    );
+});
+```
+
+`seed` receives the number of rows to **add**: `few`, then `many - few`. Create whatever each row needs (related records) inside it. Pass `warmUp: true` when the first run of the request fills a cache. It returns the two counts.
+
+**Catch a lazy load where it is written.** Set `martis.dev.prevent_lazy_loading_in_listings` (`MARTIS_DEV_PREVENT_LAZY_LOADING_IN_LISTINGS`, off by default) to guard the listings: a relationship lazy loaded while a page's rows are serialized throws Laravel's `LazyLoadingViolationException` in `local` and `testing`, and is logged as a warning elsewhere (the load goes ahead). Only the rows of the page, and the relations already loaded on them, are guarded, and only while they are serialized; every flag is put back afterwards and Laravel's global `Model::preventLazyLoading()` is never turned on. An application that registered its own `Model::handleLazyLoadingViolationUsing()` keeps its handler in `local` and `testing`; elsewhere the warning handler replaces it for the length of the serialization and it is restored. The guard sees a relation read as a property (`$row->parent`), not a query a resolver writes (`DB::table(...)`, `$row->parent()->first()`): `AssertsFlatQueries` catches those.
+
+Source: `src/Resource.php::prefetchIndexPage()`, `src/Support/PageContext.php`, `src/Support/ListingGuard.php`, `src/Testing/AssertsFlatQueries.php`.
+
 ### relatableQuery()
 
 Constrains the query used to list candidate records in every relationship picker that targets this resource: BelongsTo dropdowns, the context-free relatable form, and the BelongsToMany / MorphToMany attach pickers. It is the resource's own fence and always applies; a source resource's `relatable{PluralModelName}()` and a field's `relatableQueryUsing()` narrow on top of it, never replace it (see [Relationships → Relatable scoping precedence](relationships.md#relatable-scoping-precedence)). A resource that confines its index with `indexQuery()` or `scopes()` on a model that cannot carry a global scope should declare the same predicate here so the fence holds on the pickers too: neither hook applies to a picker. This includes the context-free picker (`GET /resources/_/_/relatable/{field}?related_resource={uriKey}`, used by a form that belongs to no resource, such as a Tool's): it lists any resource's records for a user who may `viewAny` it, behind this query alone, so a resource that fences tenants only in `indexQuery()` lists every tenant's rows there.
