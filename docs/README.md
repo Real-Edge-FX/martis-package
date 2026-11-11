@@ -88,6 +88,7 @@ Martis is a **resource-driven admin panel** for Laravel applications. It provide
 | 6.6 | **[Lenses](lenses.md)** | Custom filtered views — `Lens` base class, `summary()`, `cacheFor()`, `withDefaultFilters()`, URL state sync |
 | 6.7 | **[Metrics](metrics.md)** | Metrics system — Value, Trend, Partition, Progress metrics, query helpers, ranges, caching, card width, auto-refresh |
 | 6.8 | **[Dashboards](dashboards.md)** | Dashboard system — multiple dashboards, dashboard filters, refresh button, registration, fallback |
+| 6.10 | **[Search performance on PostgreSQL](search-performance.md)** | Why a multi-column `ILIKE` ignores indexes, trigram indexes, `martis:search-index`, `searchMode()` (`contains` / `prefix` / `columns`) |
 | 6.9 | **[Global Search](global-search.md)** | Cross-resource search — per-resource `globallySearchable(bool\|array)`, `searchOrderBy()`, "View all N matches" overflow |
 | 6.10 | **[Sticky Views](sticky_views.md)** | Per-resource session state for search / sort / filters / pagination / trashed / `filtersOpen` (v0.8) |
 | 7 | **[Actions](actions.md)** | Actions system — bulk, inline, standalone, queued, destructive actions, closure actions, dry-run preview, action fields, responses, authorization, action events |
@@ -144,6 +145,7 @@ docs/
 ├── dashboards.md ................... Dashboards
 ├── menus.md ........................ Declarative navigation
 ├── global-search.md ................ Cross-resource search
+├── search-performance.md ........... Search performance on PostgreSQL (trigram indexes, search modes)
 ├── sticky_views.md ................. Per-resource session state (v0.8)
 ├── actions.md ...................... Actions system
 ├── default_row_actions.md .......... Built-in inline action set

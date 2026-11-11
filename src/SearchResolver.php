@@ -25,6 +25,66 @@ use Martis\Support\IndexScope;
  */
 class SearchResolver
 {
+    public const MODE_CONTAINS = 'contains';
+
+    public const MODE_PREFIX = 'prefix';
+
+    public const MODE_COLUMNS = 'columns';
+
+    /** @var list<string> */
+    public const MODES = [self::MODE_CONTAINS, self::MODE_PREFIX, self::MODE_COLUMNS];
+
+    /**
+     * The validated match mode of a resource's database search.
+     *
+     * @param  class-string<\Martis\Resource>  $resourceClass
+     *
+     * @throws \InvalidArgumentException when the mode is not one of MODES
+     */
+    public static function resolveMode(string $resourceClass): string
+    {
+        $mode = $resourceClass::searchMode();
+
+        if (! in_array($mode, self::MODES, true)) {
+            throw new \InvalidArgumentException(sprintf(
+                '%s: unknown search mode "%s". Use one of: %s (set through the resource\'s searchMode() / $searchMode or the martis.search.match_mode config key).',
+                $resourceClass,
+                $mode,
+                implode(', ', self::MODES),
+            ));
+        }
+
+        return $mode;
+    }
+
+    /**
+     * The columns the database search ORs together for a resource: its own
+     * searchable columns and the related columns of `searchableRelations()`.
+     * The single source for both the search itself and `martis:search-index`.
+     *
+     * @param  class-string<\Martis\Resource>  $resourceClass
+     * @return array{own: list<string>, relations: list<array{relation: string, attribute: string}>}
+     */
+    public static function searchTargets(Request $request, string $resourceClass): array
+    {
+        $own = [];
+        foreach (Field::searchableFields((new $resourceClass)->fields($request), $request) as $field) {
+            $own[] = $field->attribute();
+        }
+
+        $relations = [];
+        foreach ($resourceClass::searchableRelations() as $path) {
+            $segments = explode('.', $path);
+            if (count($segments) < 2) {
+                continue;
+            }
+            $attribute = array_pop($segments);
+            $relations[] = ['relation' => implode('.', $segments), 'attribute' => $attribute];
+        }
+
+        return ['own' => array_values(array_unique($own)), 'relations' => $relations];
+    }
+
     /**
      * Execute search on the resource index query.
      *
@@ -190,6 +250,13 @@ class SearchResolver
     ): Builder {
         $instance = new $resourceClass;
 
+        $mode = static::resolveMode($resourceClass);
+
+        // The LIKE pattern for a term: `%term%` (contains, the default and
+        // the columns-mode fallback) or `term%` (prefix, which a trigram or
+        // btree index can serve). The term is not escaped here, as before.
+        $pattern = static fn (string $term): string => $mode === self::MODE_PREFIX ? "{$term}%" : "%{$term}%";
+
         // See apply(): only a panel over a joining relation qualifies them.
         $column = static fn (Builder $q, string $attribute): string => $qualifyColumns ? $q->qualifyColumn($attribute) : $attribute;
 
@@ -230,8 +297,8 @@ class SearchResolver
                 continue;
             }
             $value = $token['value'];
-            $query->where(function (Builder $q) use ($byAttribute, $token, $value, $likeOp, $column): void {
-                $q->where($column($q, $byAttribute[$token['field']]->attribute()), $likeOp, "%{$value}%");
+            $query->where(function (Builder $q) use ($byAttribute, $token, $value, $likeOp, $column, $pattern): void {
+                $q->where($column($q, $byAttribute[$token['field']]->attribute()), $likeOp, $pattern($value));
             });
             $appliedTokens++;
         }
@@ -244,6 +311,13 @@ class SearchResolver
         }
 
         $relations = $resourceClass::searchableRelations();
+
+        // `columns` mode: the columns named by the applied `col:term` tokens
+        // are the whole search. Any free text next to them is dropped, so no
+        // OR across the other columns defeats the index. With no applied
+        // token it falls back to `contains`, the only behaviour a bare term
+        // can have.
+        $tokensOnly = $mode === self::MODE_COLUMNS && $appliedTokens > 0;
 
         // Refuse to return anything when the resource has nothing to
         // search against — no searchable fields, no relation paths.
@@ -263,10 +337,10 @@ class SearchResolver
         // fields plus any declared relation paths. The whole disjunction
         // sits inside one `where(Closure)` so it composes correctly with
         // any AND filters already on the builder.
-        if ($freeText !== '' && ($searchableFields !== [] || $relations !== [])) {
-            $query->where(function (Builder $q) use ($searchableFields, $relations, $freeText, $likeOp, $column): void {
+        if (! $tokensOnly && $freeText !== '' && ($searchableFields !== [] || $relations !== [])) {
+            $query->where(function (Builder $q) use ($searchableFields, $relations, $freeText, $likeOp, $column, $pattern): void {
                 foreach ($searchableFields as $field) {
-                    $q->orWhere($column($q, $field->attribute()), $likeOp, "%{$freeText}%");
+                    $q->orWhere($column($q, $field->attribute()), $likeOp, $pattern($freeText));
                 }
 
                 foreach ($relations as $path) {
@@ -277,8 +351,8 @@ class SearchResolver
                     $attribute = array_pop($segments);
                     $relation = implode('.', $segments);
 
-                    $q->orWhereHas($relation, function (Builder $sub) use ($attribute, $freeText, $likeOp): void {
-                        $sub->where($attribute, $likeOp, "%{$freeText}%");
+                    $q->orWhereHas($relation, function (Builder $sub) use ($attribute, $freeText, $likeOp, $pattern): void {
+                        $sub->where($attribute, $likeOp, $pattern($freeText));
                     });
                 }
             });
@@ -289,7 +363,7 @@ class SearchResolver
         // then ORDER BY that score DESC. MySQL-only because other
         // drivers tolerate the bind list shape less reliably; the
         // result set is unchanged on other engines, just unranked.
-        if ($freeText !== '' && $searchableFields !== []) {
+        if (! $tokensOnly && $freeText !== '' && $searchableFields !== []) {
             $connection = $query->getConnection();
             $driver = method_exists($connection, 'getDriverName')
                 ? $connection->getDriverName()
@@ -298,7 +372,7 @@ class SearchResolver
             if ($driver === 'mysql') {
                 $cases = [];
                 $bindings = [];
-                $like = '%'.$freeText.'%';
+                $like = $pattern($freeText);
                 foreach ($searchableFields as $field) {
                     $cases[] = 'WHEN '.$connection->getQueryGrammar()->wrap($column($query, $field->attribute())).' LIKE ? THEN '.((int) $field->getSearchPriority());
                     $bindings[] = $like;

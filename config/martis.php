@@ -563,6 +563,13 @@ return [
         'default_limit' => (int) env('MARTIS_SEARCH_DEFAULT_LIMIT', 5),
         'min_query' => (int) env('MARTIS_SEARCH_MIN_QUERY', 2),
 
+        // How the database search matches a term, for every resource that
+        // does not set its own `searchMode()`: `contains` (`ILIKE '%term%'`,
+        // the default), `prefix` (`ILIKE 'term%'`, index-friendly) or
+        // `columns` (only the `col:term` tokens; a bare term acts as
+        // `contains`). An unknown value throws. See docs/search-performance.md.
+        'match_mode' => env('MARTIS_SEARCH_MATCH_MODE', 'contains'),
+
         // Global search bar (topbar).
         'enabled' => true,
         'placeholder' => null, // null = use i18n default "Press / to search"
