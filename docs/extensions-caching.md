@@ -1,6 +1,8 @@
 # Extensions: caching
 
-*Since v2.20.0.* The extension bundle (`npm run build:extensions`) is a static file under `public/vendor/martis-user/`. Serving it with the right headers means a returning operator loads it from the browser cache instead of the network, and a deploy still reaches everyone on the next visit.
+Cache the extension bundle and its lazy chunks for a year, with headers that still let a deploy reach every browser (v2.20.0+).
+
+A returning operator then loads them from the browser cache instead of the network. The bundle (`npm run build:extensions`) is a static file under `public/vendor/martis-user/`, and its URL changes whenever its content does.
 
 ## What Martis does
 
