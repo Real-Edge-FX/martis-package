@@ -261,9 +261,15 @@ it('SsoManager exposes the documented public API for providers + role mapping', 
         $reflection = new ReflectionMethod(SsoManager::class, $hook);
         expect($reflection->isPublic())->toBeTrue("SsoManager::{$hook}() must be public.");
         $params = $reflection->getParameters();
-        expect($params)->toHaveCount(1, "SsoManager::{$hook}() takes exactly one Closure.");
+        // The two hooks that can be scoped to one provider (v2.21.0) take an optional provider after the Closure.
+        $scoped = in_array($hook, ['afterLogin', 'onNoRoleMatchUsing'], true);
+        expect($params)->toHaveCount($scoped ? 2 : 1, "SsoManager::{$hook}() takes a Closure".($scoped ? ' and an optional provider.' : '.'));
         expect($params[0]->getName())->toBe('callback');
         expect((string) $params[0]->getType())->toBe(Closure::class);
+        if ($scoped) {
+            expect($params[1]->getName())->toBe('provider');
+            expect($params[1]->isOptional())->toBeTrue();
+        }
     }
 });
 
