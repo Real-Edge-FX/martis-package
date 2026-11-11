@@ -5478,6 +5478,12 @@ interface RegistryOptions {
  *
  * Resolution order: explicit key → resource-field → type → built-in default
  *
+ * Any registration can be lazy (v2.20.0): `registerLazy(key, () => import('./X'),
+ * { fallback, preload })`, or `register(key, () => import('./X'))`, which is
+ * detected from the loader's source (see `isLoader`). `resolve()` then returns
+ * a component with its own Suspense boundary, so it renders anywhere a registry
+ * component does.
+ *
  * Usage (a consumer extension imports it from `@martis/runtime`):
  *   import { componentRegistry } from '@/lib/componentRegistry'
  *
@@ -5731,9 +5737,9 @@ declare const routeRegistry: RouteRegistry;
  * Use as the rejection handler of a dynamic import:
  * `import('./Page').catch(reloadOnStaleChunk)`.
  *
- * A chunk-load error reloads the page once per tab and returns a promise that
+ * A chunk-load error reloads the page (at most once per minute per tab, only online) and returns a promise that
  * never settles (the page is going away). Any other error, a second chunk
- * error in the same tab, or the kill switch being off rethrows the error.
+ * error within the minute, being offline, or the kill switch being off rethrows the error.
  */
 declare function reloadOnStaleChunk<T = never>(error: unknown): Promise<T>;
 
