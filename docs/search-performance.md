@@ -1,6 +1,8 @@
 # Search performance on PostgreSQL
 
-The database search of a resource (the resource index, the global search and the relation pickers) matches a term against every `searchable()` field and every `searchableRelations()` path:
+Keep the database search of a large PostgreSQL table fast with trigram indexes, `martis:search-index` and `searchMode()`.
+
+The search of a resource (the index, the global search and the relation pickers) matches a term against every `searchable()` field and every `searchableRelations()` path:
 
 ```sql
 select * from "orders"
