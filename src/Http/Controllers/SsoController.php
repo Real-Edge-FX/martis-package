@@ -8,14 +8,18 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Martis\Auth\TwoFactorPass;
+use Martis\Events\SsoFailed;
 use Martis\Sso\IdentityResolver;
 use Martis\Sso\RoleMapper;
-use Martis\Sso\SsoAdoptionRefusedException;
-use Martis\Sso\SsoIdentity;
+use Martis\Sso\SsoException;
+use Martis\Sso\SsoLogRedactor;
 use Martis\Sso\SsoManager;
 use Martis\Sso\SsoSession;
+use Throwable;
 
 /**
  * SSO entry points — generic over every registered provider.
@@ -68,15 +72,8 @@ class SsoController extends Controller
 
         try {
             $identity = $driver->resolveIdentity($request);
-        } catch (\Throwable $e) {
-            Log::channel(config('logging.default'))->warning('SSO callback failed', [
-                'provider' => $provider,
-                'error' => $e->getMessage(),
-            ]);
-
-            return redirect()
-                ->route('martis.login')
-                ->withErrors(['sso' => __('martis::messages.sso_callback_failed')]);
+        } catch (Throwable $e) {
+            return $this->refuse($request, $provider, $e);
         }
 
         // Step 1: resolve user (find-or-create). Run BEFORE roles when
@@ -84,21 +81,12 @@ class SsoController extends Controller
         // available for column lookups that depend on it.
         try {
             $user = $this->identityResolver->resolve($identity, $provider);
-        } catch (SsoAdoptionRefusedException $e) {
-            Log::channel(config('logging.default'))->warning('SSO sign-in refused: unverified local account holds the address', [
-                'provider' => $provider,
-                'email' => $e->email,
-            ]);
-
-            return redirect()
-                ->route('martis.login')
-                ->withErrors(['sso' => __('martis::messages.sso_account_unverified')]);
+        } catch (SsoException $e) {
+            return $this->refuse($request, $provider, $e);
         }
 
         if ($user === null) {
-            return redirect()
-                ->route('martis.login')
-                ->withErrors(['sso' => __('martis::messages.sso_user_not_provisioned')]);
+            return $this->refuse($request, $provider, null, SsoException::REASON_NOT_PROVISIONED, 'martis::messages.sso_user_not_provisioned');
         }
 
         // Step 2: resolve roles from the external group list.
@@ -117,20 +105,18 @@ class SsoController extends Controller
             if ($strategy === 'callable') {
                 $hookResult = $this->manager->fireNoRoleMatch($identity, $provider);
                 if ($hookResult instanceof RedirectResponse) {
+                    $this->recordFailure($request, $provider, SsoException::REASON_NO_ROLE_MATCH, null, 'no local role matches the external roles; the no-role-match hook took over');
+
                     return $hookResult;
                 }
 
                 // No callback registered, or it returned null: deny. A
                 // 'callable' strategy must never silently log in role-less.
-                return redirect()
-                    ->route('martis.login')
-                    ->withErrors(['sso' => __('martis::messages.sso_no_role_match')]);
+                return $this->refuse($request, $provider, null, SsoException::REASON_NO_ROLE_MATCH, 'martis::messages.sso_no_role_match');
             }
 
             if ($strategy === 'deny') {
-                return redirect()
-                    ->route('martis.login')
-                    ->withErrors(['sso' => __('martis::messages.sso_no_role_match')]);
+                return $this->refuse($request, $provider, null, SsoException::REASON_NO_ROLE_MATCH, 'martis::messages.sso_no_role_match');
             }
             // strategy === 'guest' falls through with empty role set —
             // user is logged in without any local role.
@@ -168,5 +154,57 @@ class SsoController extends Controller
         $redirectTo = (string) (config("martis.auth.sso.providers.{$provider}.redirect_to") ?? '/'.config('martis.path', 'martis'));
 
         return redirect()->intended($redirectTo);
+    }
+
+    /**
+     * Refuse the sign-in: log it, dispatch {@see SsoFailed} and send the person
+     * back to the login page. Every refusal of the callback goes through here,
+     * so each one carries a distinct `reason`: the exception's own for an
+     * {@see SsoException}, `unknown` for any other Throwable, or the one the
+     * caller names when there is no exception.
+     *
+     * The login page shows the exception's `messageKey` text when that key is
+     * translated, else the generic `sso_callback_failed` text. A plain
+     * Throwable never reaches the page with its message.
+     */
+    private function refuse(
+        Request $request,
+        string $provider,
+        ?Throwable $exception,
+        string $reason = SsoException::REASON_UNKNOWN,
+        ?string $messageKey = null,
+    ): RedirectResponse {
+        if ($exception instanceof SsoException) {
+            $reason = $exception->reason;
+            $messageKey = $exception->messageKey;
+        }
+
+        $this->recordFailure($request, $provider, $reason, $exception, $exception?->getMessage() ?? "SSO sign-in refused: {$reason}");
+
+        $key = $messageKey !== null && Lang::has($messageKey) ? $messageKey : 'martis::messages.sso_callback_failed';
+
+        return redirect()
+            ->route('martis.login')
+            ->withErrors(['sso' => __($key)]);
+    }
+
+    /**
+     * One warning log line and one {@see SsoFailed}. The message goes through
+     * {@see SsoLogRedactor}: HTTP client exceptions embed request URLs and
+     * response bodies that carry codes and tokens.
+     */
+    private function recordFailure(Request $request, string $provider, string $reason, ?Throwable $exception, string $message): void
+    {
+        $requestId = $request->headers->get('X-Request-Id');
+
+        Log::channel(config('logging.default'))->warning('SSO callback failed', [
+            'provider' => $provider,
+            'reason' => $reason,
+            'request_id' => is_string($requestId) && $requestId !== '' ? mb_substr($requestId, 0, 128) : (string) Str::uuid(),
+            'exception' => $exception !== null ? $exception::class : null,
+            'error' => SsoLogRedactor::redact($message),
+        ]);
+
+        SsoFailed::dispatch($provider, $reason, $exception);
     }
 }
