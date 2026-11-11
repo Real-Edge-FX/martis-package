@@ -14,6 +14,7 @@ import { iconRegistry } from '@/lib/iconRegistry'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { layoutRegistry } from '@/lib/layoutRegistry'
 import { routeRegistry } from '@/lib/routeRegistry'
+import { reloadOnStaleChunk } from '@/lib/staleChunk'
 import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
 import { parseAuthLinkFragment, useAuthLinkParams } from '@/lib/authLink'
 import { useDashboardFilters } from '@/lib/dashboardFilters'
@@ -205,6 +206,12 @@ describe('martisRuntime', () => {
         expect(martisRuntime.useDynamicCrumb).toBe(useDynamicCrumb)
         expect(martisRuntime.ForbiddenPage).toBe(ForbiddenPage)
         expect(martisRuntime.NotFoundPage).toBe(NotFoundPage)
+    })
+
+    it('exposes the stale-chunk reload handler (v2.20.0) and lazy registration', () => {
+        expect(martisRuntime.reloadOnStaleChunk).toBe(reloadOnStaleChunk)
+        expect(martisRuntime.componentRegistry.registerLazy).toBeTypeOf('function')
+        expect(runtimeShim).toContain('export const reloadOnStaleChunk = R.reloadOnStaleChunk')
     })
 
     it('exposes the emailed-link reader (v2.6.0) an auth page override needs', () => {

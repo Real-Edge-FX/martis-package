@@ -145,5 +145,17 @@ export default defineConfig({
     //     your error tracker, then delete it from `public/` before deploying);
     //   - true: writes the map and links it from the bundle (local debugging).
     sourcemap: false,
+    rollupOptions: {
+      output: {
+        // Components registered with `componentRegistry.registerLazy(key,
+        // () => import('./tools/Reports'))` (v2.20.0) are split out of the
+        // entry. The entry stays `extensions.js` (Martis loads that URL);
+        // every chunk gets a content hash in its name, so it can be cached
+        // for a year (`immutable`) and a deploy never serves a stale one.
+        // See the package's docs/extensions-caching.md for the headers.
+        chunkFileNames: 'chunks/[name]-[hash].js',
+        inlineDynamicImports: false,
+      },
+    },
   },
 })
