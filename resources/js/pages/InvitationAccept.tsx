@@ -8,6 +8,7 @@ import { useAuthCopy } from '@/lib/authCopy'
 import { useAuthLinkParams } from '@/lib/authLink'
 import { AuthFrame } from '@/components/auth/AuthFrame'
 import { FieldError } from '@/components/auth/FieldError'
+import { AuthChallenge, useAuthChallenge } from '@/components/auth/AuthChallenge'
 import { PasswordFieldInput } from '@/components/fields/PasswordField'
 import { PasswordConfirmationFieldInput } from '@/components/fields/PasswordConfirmationField'
 import { confirmationField, policyPasswordField } from '@/lib/passwordPolicy'
@@ -55,6 +56,7 @@ export function InvitationAcceptPage() {
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const challenge = useAuthChallenge('invitation')
 
   const passwordField = policyPasswordField('password', t('password', { defaultValue: 'Password' }))
   const confirmField = confirmationField('password_confirmation', 'password', t('invitation_accept_confirm', { defaultValue: 'Confirm password' }))
@@ -62,6 +64,7 @@ export function InvitationAcceptPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (challenge.misconfigured) return
     setErrors({})
     if (password !== passwordConfirmation) {
       setErrors({
@@ -78,9 +81,12 @@ export function InvitationAcceptPage() {
         name,
         password,
         password_confirmation: passwordConfirmation,
+        ...challenge.fields('invitation'),
       })
       window.location.href = res?.redirect || '/login'
     } catch (err) {
+      // A challenge token is usable once: ask the widget for a new one.
+      challenge.reset()
       if (err instanceof ApiError && err.status === 422 && err.errors) {
         const byField = err.errorsByField()
         if (byField.token) {
@@ -185,6 +191,8 @@ export function InvitationAcceptPage() {
             announceError
           />
         </div>
+
+        <AuthChallenge challenge={challenge} error={errors.challenge_token} />
 
         <button
           type="submit"

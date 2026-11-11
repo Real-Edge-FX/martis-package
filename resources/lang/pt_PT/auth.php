@@ -126,6 +126,12 @@ return [
     'invitation_accept_invalid_title' => 'Convite inválido',
     'invitation_accept_invalid_message' => 'Este link de convite é inválido ou expirou.',
 
+    // Password sign-in switch and challenge hook (v2.21.0)
+    'login_sub_sso_only' => 'Bem-vindo de volta. Continue com o início de sessão da sua organização.',
+    'password_login_disabled' => 'O início de sessão com palavra-passe está desactivado neste espaço de trabalho. Use o início de sessão da sua organização.',
+    'challenge_failed' => 'A verificação de segurança falhou. Tente novamente.',
+    'challenge_not_configured' => 'A verificação de segurança está activa neste formulário, mas não há nenhum componente auth:challenge registado. Contacte o administrador.',
+
     // Etiquetas de tema (usadas pelo tooltip do AuthControls)
     'theme_dark' => 'Escuro',
     'theme_light' => 'Claro',

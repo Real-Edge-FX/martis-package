@@ -10,6 +10,7 @@ import { useAuthCopy } from '@/lib/authCopy'
 import { useAuthLinkParams } from '@/lib/authLink'
 import { AuthFrame } from '@/components/auth/AuthFrame'
 import { FieldError } from '@/components/auth/FieldError'
+import { AuthChallenge, useAuthChallenge } from '@/components/auth/AuthChallenge'
 import { PasswordFieldInput } from '@/components/fields/PasswordField'
 import { PasswordConfirmationFieldInput } from '@/components/fields/PasswordConfirmationField'
 import { confirmationField, policyPasswordField } from '@/lib/passwordPolicy'
@@ -40,6 +41,7 @@ export function ResetPasswordPage() {
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const challenge = useAuthChallenge('reset')
 
   const passwordField = policyPasswordField('password', t('reset_password_new', { defaultValue: 'New password' }))
   const confirmField = confirmationField('password_confirmation', 'password', t('reset_password_confirm', { defaultValue: 'Confirm password' }))
@@ -60,6 +62,7 @@ export function ResetPasswordPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (challenge.misconfigured) return
     setErrors({})
     if (password !== passwordConfirmation) {
       setErrors({
@@ -76,6 +79,7 @@ export function ResetPasswordPage() {
         email,
         password,
         password_confirmation: passwordConfirmation,
+        ...challenge.fields('reset'),
       })
       addToast(
         'success',
@@ -85,6 +89,8 @@ export function ResetPasswordPage() {
       )
       navigate('/login', { replace: true })
     } catch (err) {
+      // A challenge token is usable once: ask the widget for a new one.
+      challenge.reset()
       if (err instanceof ApiError) {
         if (err.status === 422 && err.errors) {
           setErrors(err.errorsByField())
@@ -172,6 +178,8 @@ export function ResetPasswordPage() {
             announceError
           />
         </div>
+
+        <AuthChallenge challenge={challenge} error={errors.challenge_token} />
 
         <button
           type="submit"

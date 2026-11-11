@@ -83,10 +83,12 @@ Landing page after login. Configurable via `config/martis.php`:
 
 All six unauthenticated surfaces (Login, Register, 2FA challenge, 404, 403, 500) share the `components/auth/AuthFrame.tsx` shell — dot-grid background, brand-only logo row, centered Shell footer, and a guest-mode theme + language picker in the top-right via `AuthControls.tsx`.
 
-- **Login** — email + password + `Keep me signed in` toggle. SSO, Google, Forgot password, and "Create an account" render only when the matching `config.auth.*.enabled` flag is set.
+- **Login** — email + password + `Keep me signed in` toggle. SSO, Google, Forgot password, and "Create an account" render only when the matching `config.auth.*.enabled` flag is set. With `auth.password_login.enabled` off (v2.21.0) it shows the SSO buttons only, and the form again on `?password_login=1`.
 - **Register** — `/register` route gated by `config.auth.registration.enabled`. Posts to `/{martis-path}/api/auth/register` (consumer-provided endpoint).
 - **2FA challenge** — 6-cell OTP row with auto-advance + paste-to-fill, a 30 s visual countdown, and a backup-code toggle that swaps the OTP grid for a plain recovery-code input.
 - **Error pages** — `ErrorScreen.tsx` drives 404 / 403 / 500 with a faded watermark code, accent icon, optional `incidentId` chip with copy button, and primary + secondary CTAs. `ForbiddenPage` and `NotFoundPage` are on `@martis/runtime` (v2.2.0+), so a custom page shows the 403 or 404 screen in place.
+
+**Challenge widget (v2.21.0).** While `martis.auth.challenge` is enabled, the Login, Forgot password, Reset password, Register and invitation-accept forms render the component registered under the registry key `auth:challenge` (props `{ siteKey, surface, onToken, resetSignal }`), send its token as `challenge_token`, and bump `resetSignal` after a failed submit. A form with the challenge on and no component registered shows a configuration error and does not submit. See [Authentication → Challenge (captcha) hook](authentication.md#challenge-captcha-hook-v2210) for the contract and a Cloudflare Turnstile example.
 
 See [Authentication](authentication.md) for the full config surface (`config.auth`), backend recipes for SSO / Google, and the registration contract.
 

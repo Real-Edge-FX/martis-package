@@ -152,10 +152,21 @@ The four surfaces:
         'theme'  => env('MARTIS_AUTH_CONTROL_THEME', true),
         'locale' => env('MARTIS_AUTH_CONTROL_LOCALE', true),
     ],
+    // v2.21.0: see "Password sign-in switch" and "Challenge (captcha) hook" below.
+    'password_login' => [
+        'enabled'            => env('MARTIS_PASSWORD_LOGIN_ENABLED', true),
+        'break_glass_emails' => [], // env: MARTIS_PASSWORD_LOGIN_BREAK_GLASS_EMAILS, comma-separated
+    ],
+    'challenge' => [
+        'enabled'    => env('MARTIS_AUTH_CHALLENGE_ENABLED', false),
+        'verifier'   => env('MARTIS_AUTH_CHALLENGE_VERIFIER'),
+        'site_key'   => env('MARTIS_AUTH_CHALLENGE_SITE_KEY'),
+        'applies_to' => ['login', 'forgot', 'magic_link', 'register'],
+    ],
 ],
 ```
 
-All flags default to `false`. A fresh `composer require martis/martis` install ships only the Login surface enabled — no placeholder CTAs, no orphan endpoints.
+All the flows above default to `false`. A fresh `composer require martis/martis` install ships only the Login surface enabled — no placeholder CTAs, no orphan endpoints.
 
 | Block | Shape | Purpose |
 |---|---|---|
@@ -163,6 +174,8 @@ All flags default to `false`. A fresh `composer require martis/martis` install s
 | `passwordReset` | `enabled` + `url` + `broker` | Renders the "Forgot?" link, hosts `/forgot-password` and `/reset-password` pages, and POST endpoints. `url` redirects off-platform. `broker` selects the Laravel password broker; unset, Martis picks the one whose provider is the Martis guard's (see [Which password broker resets a password](#which-password-broker-resets-a-password)). |
 | `registration` | `enabled` + `url` + `default_role` | Renders the "Create an account" link, hosts `/register` page and POST endpoint. `default_role` is auto-assigned via `assignRole()` when set. |
 | `controls` | `theme` + `locale` | Top-right widget visibility on every auth surface. |
+| `password_login` | `enabled` + `break_glass_emails` | Switches email and password sign-in off for an SSO-only panel (v2.21.0). See [Password sign-in switch](#password-sign-in-switch-v2210). |
+| `challenge` | `enabled` + `verifier` + `site_key` + `applies_to` | A captcha hook on the public forms (v2.21.0). See [Challenge (captcha) hook](#challenge-captcha-hook-v2210). |
 
 ### Surface lifecycle (each flow)
 
@@ -218,6 +231,227 @@ When `auth.registration.enabled=true` and `url` is empty:
 4. Client toasts success and redirects to `/login`.
 
 The `default_role` knob covers the most common SaaS flow ("every signup lands on the `free` plan"). Anything more elaborate (audit logging, locale defaults, payment provider customer creation, Stripe checkout redirect, invite-token validation) goes through the override hook.
+
+## What reaches the browser (v2.21.0)
+
+The login page is public, and the Blade shell hands the SPA its configuration as `window.MartisConfig`. Up to v2.20.x the `auth` entry of it was the whole `config('martis.auth')` array, so the SSO provider blocks (role maps, tenant ids, logout URLs), column names, throttle values and any key an app added to the block were readable by anyone who opened `/martis/login`.
+
+Since v2.21.0 `window.MartisConfig.auth` is an allow-list, built by `Martis\Auth\PublishedAuthConfig::toArray()` key by key. A key that is not listed below is not sent, at any level, and an unknown key is never passed through:
+
+| Key | Published | Not published (stopped in v2.21.0) |
+|---|---|---|
+| `sso` | `enabled`, and for each **enabled** provider only `enabled`, `label`, `icon` plus the keys of its `public` array (see [SSO](sso.md#what-reaches-the-browser-v2210)). No provider while `sso.enabled` is `false`. | Disabled providers; every other key of a provider block (`driver`, `scopes`, `role_*`, `tenant`, `resource_id`, `logout_url`, `redirect_to`, `remember`, …). |
+| `passwordReset` | `enabled` (off while password sign-in is), `url` | `broker` |
+| `registration` | `enabled`, `url` | `default_role` |
+| `controls` | `theme`, `locale` | |
+| `magicLink` | `enabled` | `ttl_minutes` / `ttlMinutes`, `auto_register` |
+| `emailVerification` | `enabled` | `notice_url` |
+| `passwordRequirements` | the app's password policy | |
+| `passwordChange` | `enabled`, `url` | `column` |
+| `passwordLogin` | `enabled` | `break_glass_emails` |
+| `challenge` | `enabled`, `siteKey`, `appliesTo` | `verifier` |
+| `copy` | the whole `copy` block, verbatim: it is presentation text by design | |
+
+Everything else of `martis.auth` stays on the server: the old flat `google` block, the snake_case duplicates of the camelCase keys above (`magic_link`, `email_verification`, `password_change`), any key an app added, the throttle values. An app whose custom login component (`auth:login`) reads one of the keys above that is no longer published lists it in the `public` array of its SSO provider block, or reads it from its own endpoint.
+
+## Password sign-in switch (v2.21.0)
+
+For a panel whose people sign in through SSO only, turn email and password sign-in off:
+
+```php
+'auth' => [
+    'password_login' => [
+        'enabled'            => env('MARTIS_PASSWORD_LOGIN_ENABLED', true),
+        // Comma-separated in the env var; trimmed and compared case-insensitively.
+        'break_glass_emails' => array_filter(explode(',', (string) env('MARTIS_PASSWORD_LOGIN_BREAK_GLASS_EMAILS', ''))),
+    ],
+],
+```
+
+With `enabled` false:
+
+- `POST /{martis-path}/login` and `POST /{martis-path}/api/auth/login` answer **403** with the translated `password_login_disabled` message, the same answer for every address, **before** the controller runs: no credential is read, validated or checked, so the response says nothing about whether an account exists. The login throttles still run first.
+- An address in `break_glass_emails` passes through to the normal sign-in (the way back in when the identity provider is down). Keep the list short: it is the one place a password still works. A break-glass sign-in goes through the same throttles and, when configured, the [challenge](#challenge-captcha-hook-v2210).
+- **The list is not an oracle.** A break-glass sign-in that does not succeed (no such account, a wrong password, a malformed body, the per-account throttle, a missing challenge token) gets exactly the 403 and body every other address gets, on both routes, and what the controller flashed to the session is dropped. Only a sign-in that succeeds, or the legitimate next step after correct credentials (the 2FA challenge, the email verification or password change pages), shows the controller's answer. Failed attempts still count against the per-account throttle. A request that is already signed in as the same account cannot tell it apart from a failure: sign out first.
+- The address is compared and looked up in the same form: trimmed and lower-cased. `Admin@X.com ` signs in as the account `admin@x.com`, never as another one, so the account of a break-glass address must be stored in lower case (or on a case-insensitive collation). Only break-glass requests are rewritten; while password sign-in is on nothing changes.
+- **Password reset is off with it**: the forgot and reset endpoints answer as they do when `passwordReset.enabled` is `false` (404), their pages redirect to `/login`, and the SPA hides the "Forgot?" link. A reset link would hand a password sign-in back through the inbox. Break-glass addresses cannot reset either: an administrator sets their password.
+- The login page shows the SSO buttons only: no divider, no email and password form, no "Forgot?" link, and the SSO-only subtitle (`login_sub_sso_only`, or `auth.copy.login.subtitle_sso_only` / `MARTIS_AUTH_LOGIN_SUBTITLE_SSO_ONLY`). `/martis/login?password_login=1` renders the form anyway, the entry point for a break-glass sign-in. The page decides nothing about who may use it: the server answers 403 to any other address, and the break-glass list is never published.
+
+The other ways in keep their own switches: magic-link sign-in (`auth.magic_link.enabled`), invitations (`martis.invitations.enabled`) and registration (`auth.registration.enabled`). **An SSO-only panel turns them off** (`MARTIS_AUTH_MAGIC_LINK_ENABLED=false`, `MARTIS_AUTH_REGISTRATION_ENABLED=false`, invitations off), or they remain a password-equivalent way in. With the form hidden, a magic-link or registration control that is still on shows only its own button or link.
+
+If password sign-in is off and nothing else lets people in (no enabled SSO provider and magic link off), Martis logs one warning naming `martis.auth.password_login.enabled`, `martis.auth.sso` and `martis.auth.magic_link.enabled`, at most once a day (a cache key guards it; a failing cache never breaks the boot). Only the break-glass addresses could still sign in.
+
+A value of `enabled` that is neither a boolean nor a boolean string, or a `break_glass_emails` that is not an array of strings, throws an `InvalidArgumentException` naming the key.
+
+## Challenge (captcha) hook (v2.21.0)
+
+Martis ships no captcha vendor, only the extension point. While `auth.challenge.enabled` is on, a POST to a listed public form is refused unless your `ChallengeVerifier` accepts the token the browser sent, and each listed form renders a component you register.
+
+```php
+'auth' => [
+    'challenge' => [
+        'enabled'    => env('MARTIS_AUTH_CHALLENGE_ENABLED', false),
+        // A class implementing Martis\Contracts\ChallengeVerifier, resolved from the container.
+        'verifier'   => env('MARTIS_AUTH_CHALLENGE_VERIFIER'),
+        // Public, sent to the browser component. The verifier class is never published.
+        'site_key'   => env('MARTIS_AUTH_CHALLENGE_SITE_KEY'),
+        // login, forgot, reset, magic_link, register, invitation
+        'applies_to' => ['login', 'forgot', 'magic_link', 'register'],
+    ],
+],
+```
+
+| Surface | Route (the POST) |
+|---|---|
+| `login` | `POST /login` and `POST /api/auth/login` |
+| `forgot` | `POST /api/auth/password/email` |
+| `reset` | `POST /api/auth/password/reset` |
+| `magic_link` | `POST /api/auth/magic-link/request` |
+| `register` | `POST /api/auth/register` |
+| `invitation` | `POST /api/invitations/accept` |
+
+**Server.** The route middleware `martis.challenge:<surface>` runs, in this order on a sign-in route: the throttles, the password sign-in switch, then the challenge. It calls `verify(Request $request): bool` of your verifier; the token is in `$request->input('challenge_token')`. `false`, or **any throwable** (reported with `report()`), refuses with **422** and `errors.challenge_token` carrying the translated `challenge_failed` message, and the controller is never reached. It fails closed: **a verifier outage (the captcha vendor down or slow) refuses every covered request**, so keep the HTTP timeout short and watch the reported exceptions. A surface that is not in `applies_to` is untouched.
+
+With the challenge enabled, a `verifier` that is missing, names a class that does not exist or does not implement `Martis\Contracts\ChallengeVerifier`, or an `applies_to` that holds a name outside the six above, throws an `InvalidArgumentException` naming `martis.auth.challenge.verifier` or `martis.auth.challenge.applies_to`. It throws on the first covered request, so a misconfigured panel fails loudly instead of letting the form through.
+
+**Browser.** The SPA receives `window.MartisConfig.auth.challenge = { enabled, siteKey, appliesTo }`. Each listed form renders the component registered under the component-registry key `auth:challenge` (like `auth:login` and the other `auth:*` keys, there is no `martis:component` scaffold: register it from your extension bundle), sends the token it produced as `challenge_token` in the request body, and bumps `resetSignal` after a failed submit so a one-time token is renewed. The component receives:
+
+| Prop | Type | |
+|---|---|---|
+| `siteKey` | `string \| null` | `auth.challenge.site_key` |
+| `surface` | `string` | The form it sits on (`login`, `forgot`, …). On the login page, the first listed of `login` and `magic_link`. |
+| `onToken` | `(token: string \| null) => void` | Call with the token when the widget solves, `null` when it expires or errors. Stable between renders. |
+| `resetSignal` | `number` | Changes after a failed submit: render a fresh challenge. |
+
+If the challenge is on for a form and no `auth:challenge` component is registered, the form shows a visible configuration error and does not submit. Martis never patches `window.fetch`. An `auth:login` (or other auth page) override that replaces a bundled page must render the component itself and send `challenge_token`: read `config.auth.challenge` from `@martis/runtime`.
+
+### Example: Cloudflare Turnstile
+
+The verifier, `app/Martis/TurnstileVerifier.php`:
+
+```php
+<?php
+
+namespace App\Martis;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Martis\Contracts\ChallengeVerifier;
+
+class TurnstileVerifier implements ChallengeVerifier
+{
+    public function verify(Request $request): bool
+    {
+        $token = $request->input('challenge_token');
+
+        if (! is_string($token) || $token === '') {
+            return false;
+        }
+
+        // A short timeout, and throw() on an HTTP error: the middleware
+        // treats any throwable as a refusal (fail closed), so an outage
+        // of Cloudflare refuses the form rather than letting it through.
+        $response = Http::asForm()
+            ->timeout(3)
+            ->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
+                'secret' => config('services.turnstile.secret'),
+                'response' => $token,
+                'remoteip' => $request->ip(),
+            ])
+            ->throw();
+
+        return $response->json('success') === true;
+    }
+}
+```
+
+The component, in your extension bundle (`resources/js/martis-extensions/overrides/TurnstileChallenge.tsx`). `AuthChallengeProps` is exported by `@martis/runtime` (republish the extension shims to get the type, see [Refreshing the extension scaffold](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade)):
+
+```tsx
+import { useEffect, useRef } from 'react'
+import type { AuthChallengeProps } from '@martis/runtime'
+
+interface TurnstileApi {
+  render: (el: HTMLElement, options: Record<string, unknown>) => string
+  reset: (id: string) => void
+  remove: (id: string) => void
+}
+
+const turnstileWindow = window as unknown as { turnstile?: TurnstileApi }
+
+let loading: Promise<TurnstileApi> | null = null
+
+function loadTurnstile(): Promise<TurnstileApi> {
+  loading ??= new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+    script.async = true
+    script.onload = () => (turnstileWindow.turnstile ? resolve(turnstileWindow.turnstile) : reject(new Error('Turnstile did not load')))
+    script.onerror = () => reject(new Error('Turnstile could not be loaded'))
+    document.head.appendChild(script)
+  })
+  return loading
+}
+
+export default function TurnstileChallenge({ siteKey, surface, onToken, resetSignal }: AuthChallengeProps) {
+  const box = useRef<HTMLDivElement>(null)
+  const widget = useRef<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    loadTurnstile().then((turnstile) => {
+      if (cancelled || !box.current || !siteKey) return
+      widget.current = turnstile.render(box.current, {
+        sitekey: siteKey,
+        action: surface,
+        callback: (token: string) => onToken(token),
+        'expired-callback': () => onToken(null),
+        'error-callback': () => onToken(null),
+      })
+    }).catch(() => onToken(null))
+    return () => {
+      cancelled = true
+      if (widget.current !== null) turnstileWindow.turnstile?.remove(widget.current)
+      widget.current = null
+    }
+  }, [siteKey, surface, onToken])
+
+  // A token is good once: a failed submit asks for a new challenge.
+  useEffect(() => {
+    if (resetSignal > 0 && widget.current !== null) turnstileWindow.turnstile?.reset(widget.current)
+  }, [resetSignal])
+
+  return <div ref={box} />
+}
+```
+
+Register it from the bundle entry (`resources/js/martis-extensions/index.ts`), then build the bundle:
+
+```ts
+import { componentRegistry } from '@martis/runtime'
+import TurnstileChallenge from './overrides/TurnstileChallenge'
+
+componentRegistry.register('auth:challenge', TurnstileChallenge)
+```
+
+Configure it:
+
+```php
+// config/services.php
+'turnstile' => ['secret' => env('TURNSTILE_SECRET')],
+
+// config/martis.php
+'auth' => [
+    'challenge' => [
+        'enabled'    => true,
+        'verifier'   => App\Martis\TurnstileVerifier::class,
+        'site_key'   => env('TURNSTILE_SITE_KEY'),
+        'applies_to' => ['login', 'forgot', 'magic_link', 'register'],
+    ],
+],
+```
+
+A Content-Security-Policy must allow `https://challenges.cloudflare.com` for scripts and frames. Cloudflare's server-side answer also carries the `action` the widget was rendered with (here the surface), which the verifier may compare with the route it guards.
 
 ## Customising auth surfaces
 

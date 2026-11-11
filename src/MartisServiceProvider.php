@@ -34,6 +34,7 @@ use Martis\Auth\Listeners\RecordAuthorizationDenial;
 use Martis\Auth\Listeners\RecordImpersonation;
 use Martis\Auth\Listeners\RecordRoleChange;
 use Martis\Auth\Listeners\ResetTwoFactorPass;
+use Martis\Auth\PasswordLogin;
 use Martis\Authorization\PolicyResolver;
 use Martis\Authorization\RequestScopedAbilityCache;
 use Martis\Cache\MartisCache;
@@ -91,8 +92,10 @@ use Martis\Http\Middleware\EnforceSoftGate;
 use Martis\Http\Middleware\EnforceSsoSession;
 use Martis\Http\Middleware\EnsureEmailIsVerified;
 use Martis\Http\Middleware\EnsurePasswordIsChanged;
+use Martis\Http\Middleware\EnsurePasswordLoginAllowed;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Http\Middleware\VerifyChallenge;
 use Martis\Http\RouteMiddleware;
 use Martis\Impersonation\Events\ImpersonationStarted;
 use Martis\Impersonation\Events\ImpersonationStopped;
@@ -266,6 +269,7 @@ class MartisServiceProvider extends ServiceProvider
 
         $this->registerBuiltInResources();
         $this->registerPasswordResetUrl();
+        PasswordLogin::warnWhenLockedOut();
         $this->registerEmailVerificationUrl();
         $this->registerInvitationAcceptUrl();
         $this->registerRateLimiters();
@@ -604,6 +608,10 @@ class MartisServiceProvider extends ServiceProvider
         // The gate of a Tool's routes (`martis.tool:{uriKey}`), see
         // ToolRoutes::middleware().
         $router->aliasMiddleware('martis.tool', AuthorizeTool::class);
+        // The password sign-in switch and the challenge (captcha) hook of the
+        // public auth routes (v2.21.0), see routes/martis.php.
+        $router->aliasMiddleware('martis.password_login', EnsurePasswordLoginAllowed::class);
+        $router->aliasMiddleware('martis.challenge', VerifyChallenge::class);
         // The soft lock (`lockedFor()`, `requirePlan()`) on the routes that
         // serve an entity's data, see EnforceSoftGate.
         $router->aliasMiddleware('martis.gate', EnforceSoftGate::class);
@@ -714,7 +722,7 @@ class MartisServiceProvider extends ServiceProvider
      */
     protected function registerPasswordResetUrl(): void
     {
-        if (! (bool) config('martis.auth.passwordReset.enabled', false)) {
+        if (! PasswordLogin::passwordResetEnabled()) {
             return;
         }
 

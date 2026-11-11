@@ -921,8 +921,11 @@ Use the `martis:component` artisan command to scaffold an override TSX (alias: `
 > | `EmailVerifyNoticePage.tsx` | `auth:email-verify-notice` |
 > | `PasswordChangePage.tsx` | `auth:password-change` |
 > | *(no fixed-filename scaffold yet)* | `auth:invitation-accept` |
+> | *(no scaffold; a widget, not a page)* | `auth:challenge` (v2.21.0, the captcha widget of the public forms) |
 >
 > The SPA router resolves these hard-coded strings, so the map cannot be filename-derived. `auth:invitation-accept` has no `martis:component --type=` scaffold yet — register a replacement under this key directly from your extension bundle (`componentRegistry.register('auth:invitation-accept', MyScreen)`); the resolution mechanism is identical to the scaffolded slots above, it just skips the auto-discovery step. See [invitations.md § Overriding the screen](invitations.md#overriding-the-screen).
+>
+> `auth:challenge` is not a page: it is the widget the Login, Forgot password, Reset password, Register and invitation-accept forms render while `martis.auth.challenge.enabled` is on. Register it directly (`componentRegistry.register('auth:challenge', MyWidget)`); it receives `{ siteKey, surface, onToken, resetSignal }`. See [authentication.md § Challenge (captcha) hook](authentication.md#challenge-captcha-hook-v2210).
 >
 > If you only need to change copy, not markup, every page above (including the invitation-accept screen) also supports the lighter-weight `config('martis.auth.copy.*')` override — for invitation-accept, `config.auth.copy.invitation_accept.title` / `.subtitle` — before reaching for a full component override. See [authentication.md § Customising the auth copy](authentication.md#customising-the-auth-copy).
 >

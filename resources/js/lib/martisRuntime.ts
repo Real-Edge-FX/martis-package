@@ -435,6 +435,13 @@ export type { ActionResponseModalProps } from '@/components/Actions/ActionRespon
 export type { TopbarSlotProps, TopbarSlotPlacement } from '@/components/TopbarSlot'
 
 /**
+ * The props of the `auth:challenge` component (v2.21.0), the captcha widget
+ * the public auth forms render while `martis.auth.challenge` is enabled:
+ * `siteKey`, the `surface` it sits on, `onToken` and `resetSignal`.
+ */
+export type { AuthChallengeProps } from '@/components/auth/AuthChallenge'
+
+/**
  * Types for the v1.38.0 members: the props of a layout registered on
  * `runtime.layoutRegistry`, of an override component (what
  * `runtime.useOverrideProps()` returns), and of a loader registered
