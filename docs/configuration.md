@@ -849,7 +849,7 @@ To republish the stub manually (e.g. after package upgrade adds a new section): 
 
 ### Config keys that take a callable
 
-Five keys in `config/martis.php` take a callable instead of a value:
+Six keys in `config/martis.php` take a callable instead of a value:
 
 | Key | Called with | Returns |
 |---|---|---|
@@ -858,6 +858,7 @@ Five keys in `config/martis.php` take a callable instead of a value:
 | `profile.avatar.url_resolver` | `string $storedPath` | The avatar's public URL (`string`). |
 | `auth.sso.providers.{provider}.role_source_callable` | `string $externalId, string $accessToken` | The external role names (`array<int, string>`). See [SSO](sso.md#role_source--where-external-role-names-come-from). |
 | `auth.sso.providers.{provider}.role_callable` | `array $externalRoles, ?User $user, string $provider` | The local roles (`Collection`). See [SSO](sso.md#role_strategy--how-to-map-external-names-to-local-roles). |
+| `auth.sso.issuer.claims` | `Authenticatable $user, string $audience` | The claims to add to, or replace in, the signed SSO token (`array<string, mixed>`, v2.21.0). See [SSO](sso.md#18-signed-token-between-two-martis-apps-v2210). |
 
 `php artisan config:cache` writes the merged config with `var_export()`, so only strings, numbers, booleans and arrays survive it. Two forms of callable do, so use one of them:
 
@@ -1695,6 +1696,16 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_SSO_AZURE_ENABLED` | `false` |
 | `MARTIS_SSO_AZURE_LOGOUT_URL` | `(no default)` |
 | `MARTIS_SSO_ENABLED` | `false` |
+| `MARTIS_SSO_ISSUER` | `(no default)` |
+| `MARTIS_SSO_ISSUER_AUDIENCE_PANEL_B_CALLBACK_URL` | `(no default)` |
+| `MARTIS_SSO_ISSUER_ENABLED` | `false` |
+| `MARTIS_SSO_ISSUER_ENVIRONMENT` | `(no default)` |
+| `MARTIS_SSO_ISSUER_PRIVATE_KEY` | `(no default)` |
+| `MARTIS_SSO_PANEL_A_AUDIENCE` | `(no default)` |
+| `MARTIS_SSO_PANEL_A_AUTHORIZE_URL` | `(no default)` |
+| `MARTIS_SSO_PANEL_A_ENABLED` | `false` |
+| `MARTIS_SSO_PANEL_A_ISSUER` | `(no default)` |
+| `MARTIS_SSO_PANEL_A_PUBLIC_KEYS` | `''` |
 | `MARTIS_STICKY_VIEWS_ENABLED` | `true` |
 | `MARTIS_STICKY_VIEWS_SCOPE` | `'session'` |
 | `MARTIS_STORAGE_DISK` | `'public'` |
