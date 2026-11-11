@@ -230,6 +230,43 @@ class MartisCache
     }
 
     /**
+     * Same as `remember()` with the TTL in seconds (v2.20.0), for an entry
+     * that must live less than the whole minute `remember()` counts in: a
+     * shared row total that may be 30 seconds old, a card computed once a
+     * minute. The key, the version prefix, the app's cache scope segment, the
+     * enabled switches and the per-request bypass are exactly those of
+     * `remember()`, so `martis:cache:clear {type}` clears these entries too.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $callback
+     * @return T
+     *
+     * @throws \InvalidArgumentException when `$ttlSeconds` is below 1
+     */
+    public function rememberFor(string $type, string $key, Closure $callback, int $ttlSeconds): mixed
+    {
+        $this->assertKnownType($type);
+
+        if ($ttlSeconds < 1) {
+            throw new \InvalidArgumentException(sprintf(
+                'The TTL of a Martis cache entry must be at least 1 second, %d given.',
+                $ttlSeconds,
+            ));
+        }
+
+        if (! $this->enabled($type) || $this->bypassed()) {
+            return $callback();
+        }
+
+        return $this->store->remember(
+            $this->buildKey($type, $key),
+            Date::now()->addSeconds($ttlSeconds),
+            $callback,
+        );
+    }
+
+    /**
      * Invalidate every entry for a cache type by bumping its version.
      * When `$type` is null every type is bumped at once.
      *

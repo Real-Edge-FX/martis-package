@@ -1372,6 +1372,40 @@ abstract class Resource implements ResourceContract
         return (int) $scoped->toBase()->getCountForPagination();
     }
 
+    /**
+     * How the sidebar count badge of this resource is cached on its own
+     * (v2.20.0). Null (the default) keeps today's behaviour: the count is
+     * computed when the user's badge map is, and lives and dies with that
+     * map (`martis.cache.navigation`).
+     *
+     * An array caches the count by itself, for `ttl` seconds (default 60),
+     * under the cache layer `navigation` (so `martis:cache:clear navigation`
+     * clears it, the per-request bypass skips it and the scope registered
+     * with `Martis::cacheScopeUsing()` is part of the key):
+     *
+     *   - `'scope' => 'shared'`: one entry for every user. Use it only when
+     *     the count is the same for every user allowed to see the badge (a
+     *     total of rows, no `scopes()` or `indexQuery()` that reads the
+     *     user). A second admin whose badge map is rebuilt costs no query.
+     *   - `'scope' => 'user'` (the default): one entry per user.
+     *
+     * The count is locale independent, so the locale is not in the key. The
+     * badge map the count feeds is itself cached: set
+     * `martis.cache.navigation.badge_ttl_seconds` to the shortest `ttl` you
+     * use, or a count can be older than its `ttl` by the map's age.
+     *
+     *     public static function menuCountCache(): ?array
+     *     {
+     *         return ['scope' => 'shared', 'ttl' => 30];
+     *     }
+     *
+     * @return array{scope?: 'shared'|'user', ttl?: int}|null
+     */
+    public static function menuCountCache(): ?array
+    {
+        return null;
+    }
+
     // -------------------------------------------------------------------------
     // Notification messages — customizable per resource
     // -------------------------------------------------------------------------

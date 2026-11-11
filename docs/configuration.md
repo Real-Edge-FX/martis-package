@@ -1359,8 +1359,10 @@ Beyond the global `MARTIS_CACHE_ENABLED` master switch, every surface that cache
 | `MARTIS_CACHE_DASHBOARDS` / `MARTIS_CACHE_DASHBOARDS_TTL` | `5` | Dashboard TTL (the list key is also fingerprinted by the user's authorized set, so membership changes never wait for the TTL) |
 | `MARTIS_CACHE_METRICS_ENABLED` | `true` | Metric cards |
 | `MARTIS_CACHE_METRICS` / `MARTIS_CACHE_METRICS_TTL` | `5` | Metrics TTL |
+| `MARTIS_CACHE_METRICS_DEFAULT_TTL_SECONDS` | `null` | Metrics TTL in **seconds** for a metric that sets none (v2.20.0); `null` keeps the minutes above. See [Cache](cache.md#badge-counts-and-metric-ttls-in-seconds-v2200) |
 | `MARTIS_CACHE_NAVIGATION_ENABLED` | `true` | Sidebar navigation tree |
 | `MARTIS_CACHE_NAVIGATION` / `MARTIS_CACHE_NAVIGATION_TTL` | `1` | Navigation TTL |
+| `MARTIS_CACHE_BADGE_TTL_SECONDS` | `null` | TTL in **seconds** of each user's sidebar badge map (v2.20.0); `null` keeps the navigation TTL in minutes |
 | `MARTIS_CACHE_SCHEMA_ENABLED` | `true` | Resource schema payload |
 | `MARTIS_CACHE_SCHEMA` / `MARTIS_CACHE_SCHEMA_TTL` | `1440` | Schema TTL in minutes (one day since v2.0; `null` before, see [Cache → Invalidation](cache.md#invalidation)) |
 | `MARTIS_CACHE_ADMIN_UI` | `true` | Cache admin UI in the System sidebar group |
@@ -1590,11 +1592,13 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_BRAND_THEME_COLOR` | `(no default)` |
 | `MARTIS_BRAND_VERSION` | `(no default)` |
 | `MARTIS_CACHE_ADMIN_UI` | `true` |
+| `MARTIS_CACHE_BADGE_TTL_SECONDS` | `(no default)` |
 | `MARTIS_CACHE_DASHBOARDS` | `5` |
 | `MARTIS_CACHE_DASHBOARDS_ENABLED` | `true` |
 | `MARTIS_CACHE_DASHBOARDS_TTL` | `env('MARTIS_CACHE_DASHBOARDS', 5)` |
 | `MARTIS_CACHE_ENABLED` | `true` |
 | `MARTIS_CACHE_METRICS` | `5` |
+| `MARTIS_CACHE_METRICS_DEFAULT_TTL_SECONDS` | `(no default)` |
 | `MARTIS_CACHE_METRICS_ENABLED` | `true` |
 | `MARTIS_CACHE_METRICS_TTL` | `env('MARTIS_CACHE_METRICS', 5)` |
 | `MARTIS_CACHE_NAVIGATION` | `1` |

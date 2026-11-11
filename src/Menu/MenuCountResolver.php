@@ -4,7 +4,9 @@ namespace Martis\Menu;
 
 use Closure;
 use Martis\Exceptions\MenuCountFailedException;
+use Martis\MartisManager;
 use Throwable;
+use UnexpectedValueException;
 
 /**
  * Single choke point for running a `menuCount()` call under the
@@ -41,17 +43,51 @@ final class MenuCountResolver
         try {
             return $count();
         } catch (Throwable $e) {
-            $failure = new MenuCountFailedException($subjectClass, $badgeKey, $e);
-
-            if ((bool) config('martis.navigation.counts.report_failures', true)) {
-                report($failure);
-            }
-
-            if ($onFailure !== null) {
-                $onFailure($failure);
-            }
+            self::fail(new MenuCountFailedException($subjectClass, $badgeKey, $e), $onFailure);
 
             return null;
+        }
+    }
+
+    /**
+     * Run the batch resolver registered with `Martis::menuCountsUsing()` (v2.20.0)
+     * under the same failure policy: a throwing resolver, or one that answers
+     * anything but an array, is reported and answers nothing, so every
+     * resource is resolved by its own `menuCount()`.
+     *
+     * @param  Closure(): mixed  $batch  Calls the registered resolver.
+     * @param  (Closure(MenuCountFailedException): void)|null  $onFailure  Invoked after reporting when the resolver failed.
+     * @return array<array-key, mixed>
+     */
+    public static function resolveBatch(Closure $batch, ?Closure $onFailure = null): array
+    {
+        try {
+            $counts = $batch();
+
+            if (! is_array($counts)) {
+                throw new UnexpectedValueException(sprintf(
+                    'The resolver registered with Martis::menuCountsUsing() must return an array of counts keyed by resource class, %s returned.',
+                    get_debug_type($counts),
+                ));
+            }
+
+            return $counts;
+        } catch (Throwable $e) {
+            self::fail(new MenuCountFailedException(MartisManager::class, 'batch', $e), $onFailure);
+
+            return [];
+        }
+    }
+
+    /** @param  (Closure(MenuCountFailedException): void)|null  $onFailure */
+    private static function fail(MenuCountFailedException $failure, ?Closure $onFailure): void
+    {
+        if ((bool) config('martis.navigation.counts.report_failures', true)) {
+            report($failure);
+        }
+
+        if ($onFailure !== null) {
+            $onFailure($failure);
         }
     }
 }

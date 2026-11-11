@@ -209,6 +209,19 @@ Returning `null` from `menuCount()` hides the badge for that user. Counts are fo
 
 If `menuCount()` throws, the badge is hidden for that user (the rest of the sidebar renders) and the failure is reported through `report()` as a `Martis\Exceptions\MenuCountFailedException` naming the resource class (v1.32.4). See [Menus → When a badge is missing](menus.md#when-a-badge-is-missing) for the dev-mode `_failed` diagnostics and the `counts.report_failures` switch.
 
+#### Caching a count on its own: `menuCountCache()` (v2.20.0)
+
+By default the count is computed with the user's badge map, so N admins run it N times per map TTL. Declare `menuCountCache()` to cache it by itself, shared by every admin or per user, with a TTL in seconds:
+
+```php
+public static function menuCountCache(): ?array
+{
+    return ['scope' => 'shared', 'ttl' => 30];   // scope: 'shared' | 'user' (default), ttl: seconds (default 60)
+}
+```
+
+Use `shared` only for a count that is the same for everyone who sees the badge (a row total). `null` (the default) keeps today's behaviour. The shared key still carries the `Martis::cacheScopeUsing()` scope. Pair it with `martis.cache.navigation.badge_ttl_seconds`, and see `Martis::menuCountsUsing()` to resolve several counts in one query: both in [Cache](cache.md#badge-counts-and-metric-ttls-in-seconds-v2200).
+
 ### Place a resource under "System" — `belongsToSystemSection()`
 
 Returns `true` to dock the resource under the sidebar's "System" group rather than the user-defined sections. Used internally by `ActionEventResource`. Override on consumer-side resources that should sit alongside the package's system tools.

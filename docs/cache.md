@@ -117,6 +117,94 @@ The resolver receives the current request (the request the layer is serving) and
 
 The panel's own navigation query (`['navigation']` in the browser) needs nothing: it lives in one tab on one host and does not cross hosts.
 
+## Badge counts and metric TTLs in seconds (v2.20.0)
+
+Four opt-in hooks, all off by default (every key, TTL and query count stays what it was): a cache of its own for one sidebar count, a TTL for the badge map in seconds, a batch resolver for several counts, and a TTL in seconds for metrics.
+
+### One count, cached on its own: `menuCountCache()`
+
+By default the count of a resource or tool is computed when the user's badge map is, and lives and dies with that map (`navigation` layer, one entry per user and locale). N admins on the panel therefore run every count N times per TTL. Declare `menuCountCache()` to cache the count by itself:
+
+```php
+class CustomerResource extends Resource
+{
+    // The same for every admin allowed to see the badge: one entry in total.
+    public static function menuCountCache(): ?array
+    {
+        return ['scope' => 'shared', 'ttl' => 30];   // ttl in seconds
+    }
+}
+
+class SupportQueue extends Tool
+{
+    // The tool's instance method, same shape.
+    public function menuCountCache(): ?array
+    {
+        return ['scope' => 'user', 'ttl' => 15];
+    }
+}
+```
+
+| Key | Values | Default |
+|-----|--------|---------|
+| `scope` | `shared`: one entry for every user. `user`: one entry per user | `user` |
+| `ttl` | whole seconds, 1 or more | `60` |
+
+Return `null` (the default) to keep today's behaviour. An unusable declaration (an unknown scope, a `ttl` below 1 or not an integer) is a failure of that one badge: it is reported as a `MenuCountFailedException` like a throwing `menuCount()` (see [Menus](menus.md#when-a-badge-is-missing)) and the badge is skipped.
+
+- **Use `shared` only when the count is the same for everyone who can see the badge**: a row total. A `scopes()` or `indexQuery()` that reads the user, a tenant or a permission makes the count differ per user, and a shared entry would serve the first user's number to the others. Queues a person works from belong on `user` or on no `menuCountCache()` at all.
+- The entry lives in the `navigation` layer through `MartisCache`, so `martis:cache:clear navigation`, the enabled switches and the per-request bypass (`X-Martis-No-Cache` with the `bypass-martis-cache` gate) apply to it, and the scope an app registered with `Martis::cacheScopeUsing()` is part of the key **even for a `shared` count**: two tenants never see each other's number.
+- The key names the resource (or tool) and, for `user`, the user. It leaves the locale out: a count does not depend on it.
+- A `null` count (a hidden badge) is cached too, so it is not recomputed on every map.
+- It applies to the counts of both `GET /api/navigation/badges` and the menu `GET /api/navigation` embeds.
+
+### The badge map in seconds: `badge_ttl_seconds`
+
+The per-user badge map is cached for the navigation TTL, which counts whole minutes (default 1). `martis.cache.navigation.badge_ttl_seconds` (env `MARTIS_CACHE_BADGE_TTL_SECONDS`) sets it in seconds instead; `null` (the default) keeps the navigation TTL in minutes. A value that is set but is not a whole number of seconds, 1 or more, throws and names the key: it is never silently ignored.
+
+The map and the counts are two caches in series, so a count can be as old as its `ttl` plus the age of the map that read it. Set `badge_ttl_seconds` to the shortest `ttl` you declare (30 for a 30 second shared count), or a short `ttl` is held back by a longer map. The setting does not apply to the menu `GET /api/navigation` (it stays on the navigation TTL).
+
+### Several counts in one query: `Martis::menuCountsUsing()`
+
+```php
+// app/Providers/AppServiceProvider.php
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Martis\Facades\Martis;
+
+Martis::menuCountsUsing(function (Request $request, Collection $resources): array {
+    // $resources: the resource classes about to be counted.
+    // One UNION ALL for all of them; answer [ResourceClass => int|null].
+    return MyCounts::unionFor($resources->all());
+});
+```
+
+The resolver receives the current request and the class names of the resources whose badge is about to be resolved: those that show in the navigation, are routable, opt into `showMenuCount()`, pass `authorizedToViewAny()` and are not locked, so an unauthorised resource is never offered to it. It answers `[ResourceClass::class => ?int]`. A class it leaves out is counted by its own `menuCount()`, and `null` hides that badge.
+
+- It is app-level (a closure) and not a static on `Resource`, because resources have no common owner the controller could ask: your base resource class, a service or a query builder is what the closure calls.
+- It runs once per badge map built, lazily: a map whose counts all come from `menuCountCache()` entries never calls it. When it does run, it is offered every candidate, including those a cached entry would answer. What it answers for a resource that declares `menuCountCache()` is stored under that cache like any other count.
+- It does not apply to tools, nor to the counts the menu `GET /api/navigation` embeds.
+- A failure (it throws, or answers something that is not an array) is reported as a `MenuCountFailedException` for the badge key `batch` (the `martis.navigation.counts.report_failures` switch applies; with dev tools on it also shows under `_failed`) and every resource is then counted by its own `menuCount()`.
+- `Martis::forgetMenuCounts()` removes it. Stale-while-revalidate (serving the cached map at once and recomputing in the background) is not part of this.
+
+### Metrics: a TTL in seconds, `live()`
+
+The `metrics` layer counts minutes (5 by default). Three opt-ins, in order of precedence:
+
+1. `live()` / `protected bool $live = true`: the metric is computed on every request, never cached, whatever else is set.
+2. A metric's own `protected ?int $cacheSeconds` (or `->cacheForSeconds(60)`), in seconds.
+3. `martis.cache.metrics.default_ttl_seconds` (env `MARTIS_CACHE_METRICS_DEFAULT_TTL_SECONDS`), the seconds for every metric that sets none. `null` (the default) keeps `ttl` in minutes. A value that is set but is not a whole number of seconds, 1 or more, throws and names the key.
+
+A metric that overrides `cacheFor()` keeps its pre-2.20 path (Laravel's cache store, outside this layer); `$cacheSeconds` and the default go through the `metrics` layer, so `martis:cache:clear metrics`, the switches, the bypass and the app cache scope apply to them. The entry stays per user unless the metric sets `$cachePerUser = false`. See [Metrics: caching](metrics.md#caching).
+
+| Card | Cache | Use when |
+|------|-------|----------|
+| Money, balances, a just-edited figure | `live()` | the number must be current; the rest of the dashboard stays cached |
+| A busy aggregate several admins open | `$cacheSeconds = 60`, `$cachePerUser = false` if it does not depend on the user | a minute-old number is fine; one query for all admins |
+| Most metrics | the default (`default_ttl_seconds`, or `ttl` in minutes) | no per-card decision needed |
+
+Custom `Card` classes (not metrics) have no server-side compute: a card is serialised with the dashboard shape (`dashboards` layer, per user) and its `meta` is whatever the card built then. There is nothing for a card-level TTL to cache, so `$cacheSeconds` and `live()` exist on metrics only. To serve a card with a cached, shared or live value, make it a `Metric` (its `calculate()` is computed by its own request and follows the rules above).
+
 ## Reading the admin page columns
 
 | Column | Meaning |
@@ -418,6 +506,7 @@ $cache->masterEnabled(): bool;                  // master switch state
 $cache->enabled(string $type): bool;            // effective state
 $cache->ttl(string $type): ?int;                // minutes, null = no expiration
 $cache->remember(string $type, string $key, Closure $cb, ?int $ttl = null);
+$cache->rememberFor(string $type, string $key, Closure $cb, int $ttlSeconds); // v2.20.0: TTL in seconds, same key and switches
 $cache->clear(?string $type = null);            // null = clear every layer
 $cache->disable(string $type);                  // runtime override
 $cache->enable(string $type);
@@ -427,4 +516,4 @@ $cache->bypassed(?Request $r = null): bool;     // header / query check
 $cache->scopeSegment(?Request $r = null): string; // the Martis::cacheScopeUsing() segment (v2.10.0), '' without a scope
 ```
 
-`remember()` short-circuits when the layer is disabled or the request is bypassed — your callback runs but the result is not cached.
+`remember()` and `rememberFor()` short-circuit when the layer is disabled or the request is bypassed: your callback runs but the result is not cached.

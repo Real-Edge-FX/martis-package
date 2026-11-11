@@ -454,9 +454,20 @@ Turn the reporting off (back to silently skipping the badge) with:
 ```
 
 Both `/api/navigation` and `/api/navigation/badges` are cached under
-the `navigation` cache layer (default TTL 1 minute), so a badge keeps
+the `navigation` cache layer (default TTL 1 minute; the badge map can use
+a TTL in seconds, see [Caching the counts](#caching-the-counts-v2200)), so a badge keeps
 missing for the rest of that TTL after the underlying cause is fixed.
 Run `php artisan martis:cache:clear navigation` to refresh immediately.
+
+### Caching the counts (v2.20.0)
+
+Every count is computed when the user's badge map is built, so N admins run it N times per TTL. Three opt-ins change that, all documented in [Cache](cache.md#badge-counts-and-metric-ttls-in-seconds-v2200):
+
+- `menuCountCache()` on a Resource (static) or Tool (instance): `['scope' => 'shared'|'user', 'ttl' => <seconds>]` caches that one count by itself, shared by every admin (a row total) or per user.
+- `martis.cache.navigation.badge_ttl_seconds` (`MARTIS_CACHE_BADGE_TTL_SECONDS`): the badge map's TTL in seconds instead of whole minutes.
+- `Martis::menuCountsUsing(fn (Request $request, Collection $resources): array => ...)`: answer several resources' counts in one query. A class the resolver omits keeps its own `menuCount()`; a failure falls back to every `menuCount()` and is reported.
+
+Defaults reproduce today's behaviour. A shared count's key still carries the `Martis::cacheScopeUsing()` scope.
 
 ### Compact notation
 
@@ -635,6 +646,6 @@ diagnostics only, never emitted in production, and ignored by the SPA:
 The endpoint shares the `navigation` cache layer with `/api/navigation`
 but lives under a separate `badges:` cache prefix, so flushing one
 does not poison the other (`php artisan martis:cache:clear navigation`
-still wipes both). Default poll cadence is **300 000 ms (5 minutes)**;
+still wipes both, and the counts cached with `menuCountCache()`). Default poll cadence is **300 000 ms (5 minutes)**;
 override per environment with `MARTIS_NAV_BADGES_POLL_MS` or per
 boot via `config('martis.navigation.badges_poll_interval', ...)`.

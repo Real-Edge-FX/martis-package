@@ -230,6 +230,19 @@ class Tool implements ToolContract
     }
 
     /**
+     * How the sidebar count badge of this Tool is cached on its own
+     * (v2.20.0): null (the default) computes it with the user's badge map,
+     * `['scope' => 'shared'|'user', 'ttl' => <seconds>]` caches it by itself.
+     * Same shape and rules as `Resource::menuCountCache()`.
+     *
+     * @return array{scope?: 'shared'|'user', ttl?: int}|null
+     */
+    public function menuCountCache(): ?array
+    {
+        return null;
+    }
+
+    /**
      * Override-friendly accessor. Subclasses can return a per-request
      * value (e.g. `__('edgeflow.tools.charts.breadcrumb')`) the same way
      * they override `name()`. Return `null` to fall back to `name()`.
