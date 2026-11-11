@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
 use Martis\Sso\SignedToken\IssuerSettings;
 use Martis\Sso\SignedToken\TokenIssuer;
 use Martis\Sso\SignedToken\Urls;
+use Martis\Support\TranslatedLine;
 
 /**
  * The issuing side of the signed-token SSO (v2.21.0), for the panel whose
@@ -65,7 +66,7 @@ class SsoIssuerController extends Controller
         // gate lets through (an app gate or a permission package's check).
         $ability = $issuer->abilityFor($audience);
         if ($ability !== null && ! Gate::forUser($user)->allows($ability)) {
-            abort(403, __('martis::messages.sso_issue_forbidden'));
+            abort(403, TranslatedLine::get('martis::messages.sso_issue_forbidden'));
         }
 
         $token = $issuer->issue($user, $audience, $state);
