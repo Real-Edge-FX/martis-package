@@ -1308,9 +1308,21 @@ return [
     | Configure the position of toast notifications.
     | Options: 'top-right', 'top-left', 'bottom-right', 'bottom-left',
     |          'top-center', 'bottom-center'
+    |
+    | `durations` is how long a toast stays, per severity, in milliseconds.
+    | `null` keeps the toast until the person closes it. A toast with a link
+    | stays at least 10000 ms unless it is sticky. Anything other than null or
+    | a positive integer throws. A single call can override it with
+    | `addToast(type, message, { life })`.
     */
     'toast' => [
         'position' => env('MARTIS_TOAST_POSITION', 'bottom-right'),
+        'durations' => [
+            'success' => 5000,
+            'info' => 5000,
+            'warning' => 5000,
+            'error' => 5000,
+        ],
     ],
 
     /*
