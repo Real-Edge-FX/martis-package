@@ -392,12 +392,13 @@ abstract class Metric implements MetricContract
         // Fall through to the central MartisCache so the runtime kill-
         // switch ("cache.metrics.enabled = false", `martis:cache:disable
         // metrics`, `?nocache=1`) and the master switch all apply.
-        return $this->resolveInLayer($request, $this->defaultCacheSeconds());
+        return $this->resolveInLayer($request, null);
     }
 
     /**
      * Resolve through the `metrics` cache layer: for `$seconds` when given,
-     * otherwise for the layer's TTL in minutes.
+     * otherwise for `default_ttl_seconds` when set, otherwise for the layer's
+     * TTL in minutes.
      *
      * @return array<string, mixed>
      */
@@ -415,6 +416,8 @@ abstract class Metric implements MetricContract
         if ($key === null) {
             return $this->resolveResult($request);
         }
+
+        $seconds ??= $this->defaultCacheSeconds();
 
         return $seconds === null
             ? $cache->remember('metrics', $key, fn () => $this->resolveResult($request))
