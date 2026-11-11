@@ -1252,10 +1252,23 @@ return [
         'metrics' => [
             'enabled' => env('MARTIS_CACHE_METRICS_ENABLED', true),
             'ttl' => env('MARTIS_CACHE_METRICS_TTL', env('MARTIS_CACHE_METRICS', 5)),
+            // TTL in SECONDS for a metric that sets none of its own (v2.20.0).
+            // null keeps `ttl` above (minutes). A metric's `$cacheSeconds` or
+            // `cacheFor()` wins over it, and a metric with `live()` is never
+            // cached. A value that is set but is not a whole number of
+            // seconds (1 or more) throws.
+            'default_ttl_seconds' => env('MARTIS_CACHE_METRICS_DEFAULT_TTL_SECONDS'),
         ],
         'navigation' => [
             'enabled' => env('MARTIS_CACHE_NAVIGATION_ENABLED', true),
             'ttl' => env('MARTIS_CACHE_NAVIGATION_TTL', env('MARTIS_CACHE_NAVIGATION', 1)),
+            // TTL in SECONDS of each user's sidebar badge map, for a unit
+            // finer than the whole minutes of `ttl` (v2.20.0). null keeps
+            // `ttl` above. Set it to the shortest `menuCountCache()['ttl']`
+            // you use, so a shared count is not held back by the map. A value
+            // that is set but is not a whole number of seconds (1 or more)
+            // throws.
+            'badge_ttl_seconds' => env('MARTIS_CACHE_BADGE_TTL_SECONDS'),
         ],
         'dashboards' => [
             'enabled' => env('MARTIS_CACHE_DASHBOARDS_ENABLED', true),

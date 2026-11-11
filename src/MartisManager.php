@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use Martis\Contracts\DashboardContract;
 use Martis\Contracts\ToolContract;
@@ -36,6 +37,9 @@ class MartisManager
 
     /** @var (Closure(Request): mixed)|null checked at resolve time: a string or null */
     protected ?Closure $cacheScopeResolver = null;
+
+    /** @var (Closure(Request, Collection<int, class-string<\Martis\Resource>>): mixed)|null checked at resolve time: an array */
+    protected ?Closure $menuCountsResolver = null;
 
     /** @var list<class-string<DashboardContract>|DashboardContract> */
     protected array $dashboards = [];
@@ -606,6 +610,61 @@ class MartisManager
             'icon' => is_string($resolved['icon'] ?? null) ? $resolved['icon'] : null,
             'group' => $group,
         ];
+    }
+
+    // -------------------------------------------------------------------------
+    // Menu counts
+    // -------------------------------------------------------------------------
+
+    /**
+     * Resolve the sidebar count badges of several resources in one go
+     * (v2.20.0), so an app can answer them with one `UNION ALL` query
+     * instead of one `COUNT(*)` per resource.
+     *
+     *     Martis::menuCountsUsing(function (Request $request, Collection $resources): array {
+     *         return MyCounts::forResources($resources->all());   // [ResourceClass => int]
+     *     });
+     *
+     * The resolver receives the current request and the class names of the
+     * resources whose badge the badges endpoint (`/api/navigation/badges`)
+     * is about to resolve: only those that show in the navigation, are
+     * routable, opt into `showMenuCount()`, are authorised for the user
+     * (`authorizedToViewAny()`) and are not locked. It answers a map of
+     * resource class to count (`null` hides that badge). A class it leaves
+     * out is resolved by its own `menuCount()` as before, and so are all of
+     * them when the resolver throws: the failure is reported like a
+     * `menuCount()` failure (`MenuCountFailedException`, the
+     * `martis.navigation.counts.report_failures` switch).
+     *
+     * The resolver runs once per badge map built, and only when at least
+     * one count is not served from the cache (a resource whose
+     * `menuCountCache()` has a live entry never reaches it). It does not
+     * apply to the badges `GET /api/navigation` embeds in the menu, nor to
+     * tools. `null` removes the resolver.
+     *
+     * @param  (Closure(Request, Collection<int, class-string<\Martis\Resource>>): array<class-string, int|null>)|null  $resolver
+     */
+    public function menuCountsUsing(?Closure $resolver): static
+    {
+        $this->menuCountsResolver = $resolver;
+
+        return $this;
+    }
+
+    public function forgetMenuCounts(): static
+    {
+        return $this->menuCountsUsing(null);
+    }
+
+    /**
+     * The registered menu counts resolver, if any. The one reader is
+     * `MenuCountResolver::resolveBatch()`.
+     *
+     * @return (Closure(Request, Collection<int, class-string<\Martis\Resource>>): mixed)|null
+     */
+    public function menuCountsResolver(): ?Closure
+    {
+        return $this->menuCountsResolver;
     }
 
     // -------------------------------------------------------------------------

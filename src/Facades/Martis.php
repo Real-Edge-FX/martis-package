@@ -23,6 +23,8 @@ use Martis\MartisManager;
  * @method static MartisManager scopeNotificationsUsing(\Closure|null $scope)
  * @method static MartisManager forgetNotificationScope()
  * @method static bool hasNotificationScope()
+ * @method static MartisManager menuCountsUsing((\Closure(\Illuminate\Http\Request, \Illuminate\Support\Collection<int, class-string<\Martis\Resource>>): array<class-string, int|null>)|null $resolver)
+ * @method static MartisManager forgetMenuCounts()
  * @method static MartisManager cacheScopeUsing((\Closure(\Illuminate\Http\Request): ?string)|null $resolver)
  * @method static MartisManager forgetCacheScope()
  * @method static void applyNotificationScope(\Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>|\Illuminate\Database\Eloquent\Relations\Relation<\Illuminate\Database\Eloquent\Model, \Illuminate\Database\Eloquent\Model, mixed> $query, \Illuminate\Http\Request $request)

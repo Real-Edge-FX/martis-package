@@ -7,6 +7,7 @@ use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Str;
 use Martis\Cache\MartisCache;
 use Martis\Contracts\MetricContract;
@@ -92,6 +93,26 @@ abstract class Metric implements MetricContract
      * permissions can set it to false to share one entry across users.
      */
     protected bool $cachePerUser = true;
+
+    /**
+     * How long, in seconds, this metric's result is cached (v2.20.0). Null
+     * (the default) leaves the layer's own rule: `martis.cache.metrics.ttl`
+     * in minutes, or `martis.cache.metrics.default_ttl_seconds` when that is
+     * set. A value here wins over both, so one metric can be fresher or
+     * staler than the rest. The entry lives in the `metrics` layer, so
+     * `martis:cache:clear metrics`, the per-request bypass and the scope of
+     * `Martis::cacheScopeUsing()` apply to it. Set it in the constructor, as
+     * a property default, or with `cacheForSeconds()`.
+     */
+    protected ?int $cacheSeconds = null;
+
+    /**
+     * A live metric is never cached (v2.20.0), whatever the layer's TTL,
+     * `default_ttl_seconds`, `$cacheSeconds` or `cacheFor()` say: every
+     * request computes it. Use it for a figure that must be current (money,
+     * a just-edited view) when the rest of the dashboard is cached.
+     */
+    protected bool $live = false;
 
     public function __construct(
         protected string $name,
@@ -267,10 +288,73 @@ abstract class Metric implements MetricContract
     // Caching
     // -------------------------------------------------------------------------
 
-    /** {@inheritdoc} */
+    /**
+     * {@inheritdoc}
+     *
+     * The moment the result expires: `$cacheSeconds` from now when set,
+     * otherwise null (the metric's cache follows the `metrics` layer). A
+     * metric that overrides this keeps the pre-2.20 behaviour: its result is
+     * cached through the application's cache store, outside the `metrics`
+     * layer. Prefer `$cacheSeconds` where a TTL in seconds is all you need.
+     */
     public function cacheFor(): ?DateTimeInterface
     {
-        return null;
+        return $this->cacheSeconds === null
+            ? null
+            : Date::now()->addSeconds($this->cacheSeconds);
+    }
+
+    /**
+     * Cache this metric's result for `$seconds` (null: back to the layer's
+     * rule). Fluent form of `$cacheSeconds`.
+     */
+    public function cacheForSeconds(?int $seconds): static
+    {
+        if ($seconds !== null && $seconds < 1) {
+            throw new \InvalidArgumentException(sprintf(
+                'cacheForSeconds() takes 1 second or more, or null; %d given.',
+                $seconds,
+            ));
+        }
+
+        $this->cacheSeconds = $seconds;
+
+        return $this;
+    }
+
+    /** Never cache this metric (see `$live`). */
+    public function live(bool $live = true): static
+    {
+        $this->live = $live;
+
+        return $this;
+    }
+
+    /**
+     * `martis.cache.metrics.default_ttl_seconds`: the TTL, in seconds, of a
+     * metric that sets none of its own. Null (unset or the empty string of an
+     * empty env var) keeps `martis.cache.metrics.ttl` in minutes. A value
+     * that is set but is not a whole number of seconds of 1 or more throws,
+     * naming the key.
+     *
+     * @throws \InvalidArgumentException
+     */
+    protected function defaultCacheSeconds(): ?int
+    {
+        $raw = config('martis.cache.metrics.default_ttl_seconds');
+
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        if ((! is_int($raw) && ! (is_string($raw) && ctype_digit($raw))) || (int) $raw < 1) {
+            throw new \InvalidArgumentException(sprintf(
+                'martis.cache.metrics.default_ttl_seconds must be a whole number of seconds, 1 or more, or null; %s given.',
+                is_scalar($raw) ? var_export($raw, true) : get_debug_type($raw),
+            ));
+        }
+
+        return (int) $raw;
     }
 
     /**
@@ -280,6 +364,17 @@ abstract class Metric implements MetricContract
      */
     public function resolve(Request $request): array
     {
+        // A live metric is computed on every request, whatever else is set.
+        if ($this->live) {
+            return $this->resolveResult($request);
+        }
+
+        // `$cacheSeconds` (v2.20.0) goes through the `metrics` layer in
+        // seconds; an overridden `cacheFor()` keeps its own path below.
+        if ($this->cacheSeconds !== null) {
+            return $this->resolveInLayer($request, $this->cacheSeconds);
+        }
+
         $cacheFor = $this->cacheFor();
 
         // Per-class `cacheFor()` short-circuits the global Martis cache —
@@ -297,6 +392,18 @@ abstract class Metric implements MetricContract
         // Fall through to the central MartisCache so the runtime kill-
         // switch ("cache.metrics.enabled = false", `martis:cache:disable
         // metrics`, `?nocache=1`) and the master switch all apply.
+        return $this->resolveInLayer($request, null);
+    }
+
+    /**
+     * Resolve through the `metrics` cache layer: for `$seconds` when given,
+     * otherwise for `default_ttl_seconds` when set, otherwise for the layer's
+     * TTL in minutes.
+     *
+     * @return array<string, mixed>
+     */
+    private function resolveInLayer(Request $request, ?int $seconds): array
+    {
         try {
             $cache = app(MartisCache::class);
         } catch (\Throwable) {
@@ -306,9 +413,15 @@ abstract class Metric implements MetricContract
 
         $key = $this->resultCacheKey($request);
 
-        return $key === null
-            ? $this->resolveResult($request)
-            : $cache->remember('metrics', $key, fn () => $this->resolveResult($request));
+        if ($key === null) {
+            return $this->resolveResult($request);
+        }
+
+        $seconds ??= $this->defaultCacheSeconds();
+
+        return $seconds === null
+            ? $cache->remember('metrics', $key, fn () => $this->resolveResult($request))
+            : $cache->rememberFor('metrics', $key, fn () => $this->resolveResult($request), $seconds);
     }
 
     /**

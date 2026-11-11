@@ -110,6 +110,7 @@ Tool::make(__('Finance Imports'))
 | `belongsToSystemSection()` | `true` when the Tool is docked in the bundled "System" sidebar section. Defaults to `false`. v1.35.0+. |
 | `systemSectionOrder()` | Weight of the Tool inside the "System" section, lowest first. Defaults to `100`. v1.38.0+. |
 | `menuCount(Request)` | Sidebar count badge for this tool. Returns `null` (no badge) by default. Override to return a count. v1.29.0+. |
+| `menuCountCache()` | Caches the count on its own: `null` (default) or `['scope' => 'shared'\|'user', 'ttl' => <seconds>]`. Same rules as the resource hook, see [Cache](cache.md#badge-counts-and-metric-ttls-in-seconds-v2200). v2.20.0+. |
 | `showMenuCount()` | Whether the count badge renders. Defaults to `true`; the badge only appears when `menuCount()` also returns non-null. v1.29.0+. |
 | `meta()` | The accumulated metadata array (mirrors what `withMeta()` set). |
 | `withIcon(string)` | Phosphor icon for the menu entry. Chainable. |
@@ -226,7 +227,7 @@ Behaviour:
 - The value serialises on the tool's nav item under the `count` key.
 - It is also included in the lightweight `GET /api/navigation/badges` payload, keyed by the tool's `uriKey`, so tool counts **live-poll** on the same interval as resource counts (`MARTIS_NAV_BADGES_POLL_MS`, default 5 min).
 - The badge respects `authorizedToSee()` — a user who can't see the Tool never receives its count, exactly like a resource count.
-- `menuCount()` runs per request; keep the query cheap (it also fires on every badge poll). Cache it if it's expensive.
+- `menuCount()` runs per request; keep the query cheap (it also fires on every badge poll). Cache it if it's expensive: override `menuCountCache()` (v2.20.0) to have Martis cache it, shared or per user, for a number of seconds.
 
 ### Lifecycle: `boot()`
 

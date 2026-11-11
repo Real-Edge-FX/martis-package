@@ -342,7 +342,13 @@ class MenuItem
         return MenuCountResolver::resolve(
             $tool::class,
             'tool:'.$tool->uriKey(),
-            fn (): ?int => $tool->menuCount($request),
+            fn (): ?int => MenuCountCache::remember(
+                $tool::class,
+                'tool:'.$tool->uriKey(),
+                method_exists($tool, 'menuCountCache') ? $tool->menuCountCache() : null,
+                $request,
+                fn (): ?int => $tool->menuCount($request),
+            ),
         );
     }
 
@@ -527,7 +533,13 @@ class MenuItem
         return MenuCountResolver::resolve(
             $resourceClass,
             'resource:'.$resourceClass::uriKey(),
-            fn (): ?int => $resourceClass::menuCount($request),
+            fn (): ?int => MenuCountCache::remember(
+                $resourceClass,
+                'resource:'.$resourceClass::uriKey(),
+                $resourceClass::menuCountCache(),
+                $request,
+                fn (): ?int => $resourceClass::menuCount($request),
+            ),
         );
     }
 }

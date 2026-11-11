@@ -10,9 +10,11 @@ use Martis\Contracts\ToolContract;
 use Martis\Exceptions\MenuCountFailedException;
 use Martis\Gates\SoftGate;
 use Martis\MartisManager;
+use Martis\Menu\MenuCountCache;
 use Martis\Menu\MenuCountResolver;
 use Martis\Menu\MenuItem;
 use Martis\Menu\MenuSection;
+use Martis\Resource;
 use Martis\ResourceRegistry;
 use Martis\Support\TranslatedLine;
 
@@ -95,11 +97,43 @@ class NavigationController extends MartisController
         $locale = app()->getLocale();
         $cacheKey = 'badges:'.$userKey.':'.$locale;
 
-        $payload = $this->cache->remember('navigation', $cacheKey, function () use ($request) {
-            return $this->buildBadges($request);
-        });
+        $build = fn (): array => $this->buildBadges($request);
+        $seconds = $this->badgeTtlSeconds();
+
+        // `badge_ttl_seconds` (v2.20.0) sets the map's TTL in seconds; left
+        // unset the map lives for the navigation TTL in minutes, as before.
+        $payload = $seconds === null
+            ? $this->cache->remember('navigation', $cacheKey, $build)
+            : $this->cache->rememberFor('navigation', $cacheKey, $build, $seconds);
 
         return response()->json($payload);
+    }
+
+    /**
+     * `martis.cache.navigation.badge_ttl_seconds`: the TTL of the per-user
+     * badge map in seconds, or null (unset, or the empty string an empty env
+     * var gives) to fall back to the navigation TTL in minutes. A value that
+     * is set but is not a whole number of seconds of 1 or more throws, naming
+     * the key, instead of quietly falling back.
+     *
+     * @throws \InvalidArgumentException
+     */
+    protected function badgeTtlSeconds(): ?int
+    {
+        $raw = config('martis.cache.navigation.badge_ttl_seconds');
+
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        if ((! is_int($raw) && ! (is_string($raw) && ctype_digit($raw))) || (int) $raw < 1) {
+            throw new \InvalidArgumentException(sprintf(
+                'martis.cache.navigation.badge_ttl_seconds must be a whole number of seconds, 1 or more, or null; %s given.',
+                is_scalar($raw) ? var_export($raw, true) : get_debug_type($raw),
+            ));
+        }
+
+        return (int) $raw;
     }
 
     /**
@@ -129,6 +163,12 @@ class NavigationController extends MartisController
             $failed[$failure->badgeKey()] = $failure->describeCause();
         };
 
+        // First the resources that may show a badge: navigable, opted in,
+        // authorised and not locked. Only these are offered to the batch
+        // resolver (`Martis::menuCountsUsing()`), never an unauthorised one.
+        /** @var list<class-string<\Martis\Resource>> $candidates */
+        $candidates = [];
+
         foreach ($this->registry->list() as $resourceClass) {
             if (! $resourceClass::displayInNavigation() || ! $resourceClass::routable()) {
                 continue;
@@ -148,6 +188,28 @@ class NavigationController extends MartisController
                 continue;
             }
 
+            $candidates[] = $resourceClass;
+        }
+
+        // Resolved lazily and once: a map whose counts all come from the
+        // cache never calls the app's resolver.
+        $batched = null;
+        $batch = function () use (&$batched, $request, $candidates, $collectFailure): array {
+            if ($batched !== null) {
+                return $batched;
+            }
+
+            $resolver = $this->martis->menuCountsResolver();
+
+            return $batched = $resolver === null
+                ? []
+                : MenuCountResolver::resolveBatch(
+                    fn (): mixed => $resolver($request, collect($candidates)),
+                    $collectFailure,
+                );
+        };
+
+        foreach ($candidates as $resourceClass) {
             // Keyed by "resource:{uriKey}" so a resource and a tool that happen
             // to share a uriKey never conflate their count badges (v1.29.0).
             $key = 'resource:'.$resourceClass::uriKey();
@@ -155,7 +217,31 @@ class NavigationController extends MartisController
             $count = MenuCountResolver::resolve(
                 $resourceClass,
                 $key,
-                fn (): ?int => $resourceClass::menuCount($request),
+                fn (): ?int => MenuCountCache::remember(
+                    $resourceClass,
+                    $key,
+                    $resourceClass::menuCountCache(),
+                    $request,
+                    function () use ($resourceClass, $request, $batch): ?int {
+                        // A class the batch answers is not counted again; one it
+                        // leaves out (or every class, when it failed) falls back
+                        // to its own `menuCount()`.
+                        $answers = $batch();
+                        if (array_key_exists($resourceClass, $answers)) {
+                            $answer = $answers[$resourceClass];
+
+                            if ($answer === null) {
+                                return null;
+                            }
+
+                            if (is_int($answer) || is_numeric($answer)) {
+                                return (int) $answer;
+                            }
+                        }
+
+                        return $resourceClass::menuCount($request);
+                    },
+                ),
                 $collectFailure,
             );
 
@@ -184,7 +270,13 @@ class NavigationController extends MartisController
             $count = MenuCountResolver::resolve(
                 $tool::class,
                 $key,
-                fn (): ?int => $tool->menuCount($request),
+                fn (): ?int => MenuCountCache::remember(
+                    $tool::class,
+                    $key,
+                    method_exists($tool, 'menuCountCache') ? $tool->menuCountCache() : null,
+                    $request,
+                    fn (): ?int => $tool->menuCount($request),
+                ),
                 $collectFailure,
             );
 
