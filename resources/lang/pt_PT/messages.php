@@ -289,6 +289,7 @@ return [
     // SSO subsystem (Task 14)
     'sso_provider_disabled' => 'Este método de início de sessão não está disponível neste momento.',
     'sso_callback_failed' => 'Falha no início de sessão. Tenta novamente ou contacta o administrador.',
+    'sso_issue_forbidden' => 'Não tens permissão para iniciar sessão nessa aplicação com esta conta.',
     'sso_user_not_provisioned' => 'A tua conta ainda não está provisionada neste workspace. Contacta o administrador.',
     'sso_account_unverified' => 'Já existe uma conta com este email que não pode ser associada a este início de sessão. Contacta o administrador.',
     'sso_no_role_match' => 'A tua conta não tem as roles necessárias para aceder a este workspace.',

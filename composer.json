@@ -55,6 +55,7 @@
     "minimum-stability": "stable",
     "prefer-stable": true,
     "suggest": {
+        "ext-sodium": "Required for the signed-token SSO driver and the issuer (martis:sso:keys): PASETO v4.public tokens between two Martis apps",
         "laravel/scout": "Required for Scout search integration (auto-detected when model uses Searchable trait)",
         "laravel/socialite": "Required when using martis:sso (any provider)",
         "socialiteproviders/microsoft": "Required when using martis:sso azure",

@@ -963,6 +963,13 @@ return [
         | Use `php artisan martis:sso azure` to scaffold a provider
         | block, or hand-craft any combination here. See `docs/sso.md`
         | for the full reference and the four canonical recipes.
+        |
+        | Two Martis panels can sign each other's users in with a built-in
+        | signed token (v2.21.0, no OAuth server, no new store): the panel
+        | whose users sign in configures `issuer` below, the other one a
+        | provider block with `driver => 'signed-token'`. Generate the key
+        | pair with `php artisan martis:sso:keys`. See "Signed token between
+        | two Martis apps" in `docs/sso.md`.
         */
         'sso' => [
             'enabled' => env('MARTIS_SSO_ENABLED', false),
@@ -1111,6 +1118,106 @@ return [
                 //     // and returns a Collection of role models. Same forms.
                 //     // 'role_callable' => App\Martis\SsoRoleMapper::class,
                 // ],
+
+                // Sign in through another Martis panel (v2.21.0). Any name works;
+                // `driver => 'signed-token'` selects the built-in provider. Scaffold
+                // it with `php artisan martis:sso panel-a --driver=signed-token`.
+                // Needs ext-sodium. The token is a PASETO v4.public signed by the
+                // other panel's `issuer` block (below); only its PUBLIC key goes here.
+                // 'panel_a' => [
+                //     'enabled' => env('MARTIS_SSO_PANEL_A_ENABLED', false),
+                //     'driver' => 'signed-token',
+                //     'label' => 'Continue with Panel A',
+                //     'icon' => 'lock-key',
+                //
+                //     // The issuing panel's /{martis}/sso/issue/{audience} URL.
+                //     'authorize_url' => env('MARTIS_SSO_PANEL_A_AUTHORIZE_URL'),
+                //
+                //     // Base64 Ed25519 public keys. Every one is accepted, so a key
+                //     // can be rotated without a gap (add the new, remove the old).
+                //     'public_keys' => array_values(array_filter(array_map('trim', explode(',', (string) env('MARTIS_SSO_PANEL_A_PUBLIC_KEYS', ''))))),
+                //
+                //     // What the token must say: `iss` is the issuing panel's
+                //     // `issuer`, `aud` the audience name it knows this panel by.
+                //     'issuer' => env('MARTIS_SSO_PANEL_A_ISSUER'),
+                //     'audience' => env('MARTIS_SSO_PANEL_A_AUDIENCE'),
+                //
+                //     'max_age_seconds' => 60,      // refuse a token issued longer ago
+                //     'clock_skew_seconds' => 30,   // tolerated clock difference
+                //     'role_claim' => 'roles',      // claim holding the role names
+                //
+                //     // Second lock (optional): accept only tokens whose claim equals
+                //     // this value, so a staging token never signs in to production.
+                //     // 'environment' => 'production',
+                //     // 'environment_claim' => 'env',
+                //
+                //     // The user id at the issuer is the stable identity: match by it.
+                //     'identity_match_attribute' => 'external_id',
+                //     'role_strategy' => 'column',
+                //     'role_column' => 'panel_a_group_name',
+                //     'auto_create_user' => true,
+                //     'sync_user_attributes' => ['name', 'email'],
+                //     'sync_roles' => true,
+                //     'permission_adapter' => 'auto',
+                //     'on_no_role_match' => 'deny',
+                //     'redirect_to' => null,
+                //     'remember' => false,
+                // ],
+            ],
+
+            /*
+            |------------------------------------------------------------------
+            | SSO issuer (v2.21.0)
+            |------------------------------------------------------------------
+            |
+            | Lets the users of THIS panel sign in to another Martis panel. The
+            | other panel redirects the browser to
+            | `GET /{martis.path}/sso/issue/{audience}?state=...`; a signed-in
+            | user (2FA passed, `viewMartis` allowed) is sent back to the
+            | audience's `callback_url` with a signed token (PASETO v4.public,
+            | Ed25519) and the `state`. Off by default: the route answers 404.
+            |
+            |   enabled      Master switch of the issuing side.
+            |   issuer       This panel's name in the `iss` claim. The other
+            |                panel's provider block must have the same `issuer`.
+            |   private_key  Base64 Ed25519 secret key (64 bytes). Generate the
+            |                pair with `php artisan martis:sso:keys`, keep this half
+            |                in the environment only: no command writes it to a file.
+            |   ttl_seconds  How long a token lives (1 to 600, default 60). It
+            |                is also valid once only, on the other side.
+            |   environment  Optional. Put in the token (claim `environment_claim`,
+            |                default `env`) so a verifier locked to production
+            |                refuses a token from staging.
+            |   claims       Optional invokable class (or [Class::class, 'method'])
+            |                `(Authenticatable $user, string $audience): array`
+            |                that adds or replaces `email`, `name` and the roles
+            |                (claim `role_claim`, default `roles`). The claims that
+            |                bind the token (iss, aud, sub, iat, exp, jti, state)
+            |                cannot be set. Default roles: the user's Spatie role
+            |                names, else none.
+            |   audiences    `'<audience>' => ['callback_url' => 'https://...']`.
+            |                An audience name is the value of the other panel's
+            |                provider `audience`. The token is sent ONLY to that
+            |                callback URL (https, or http on localhost, *.localhost
+            |                and *.test), never to a URL of the request. Optional
+            |                `'ability' => 'sign-in-to-b'`: only users for whom
+            |                `Gate::forUser($user)->allows($ability)` is true get a
+            |                token for that audience (403 otherwise); a Spatie
+            |                permission name works. Unset: any panel user.
+            |
+            | The token is in the query string of the callback URL: keep query
+            | strings of that path out of access logs. See docs/sso.md.
+            */
+            'issuer' => [
+                'enabled' => env('MARTIS_SSO_ISSUER_ENABLED', false),
+                'issuer' => env('MARTIS_SSO_ISSUER'),
+                'private_key' => env('MARTIS_SSO_ISSUER_PRIVATE_KEY'),
+                'ttl_seconds' => 60,
+                'environment' => env('MARTIS_SSO_ISSUER_ENVIRONMENT'),
+                'claims' => null,
+                'audiences' => [
+                    // 'panel-b' => ['callback_url' => env('MARTIS_SSO_ISSUER_AUDIENCE_PANEL_B_CALLBACK_URL')],
+                ],
             ],
         ],
 

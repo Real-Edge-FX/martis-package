@@ -19,6 +19,7 @@ use Martis\Sso\PermissionAdapters\CallableAdapter;
 use Martis\Sso\PermissionAdapters\NativeAdapter;
 use Martis\Sso\PermissionAdapters\SpatieAdapter;
 use Martis\Sso\Providers\AzureProvider;
+use Martis\Sso\Providers\SignedTokenProvider;
 
 /**
  * Central SSO subsystem orchestrator.
@@ -35,6 +36,16 @@ class SsoManager
 {
     /** @var array<string, class-string<SsoProviderContract>> */
     protected array $providers = [];
+
+    /**
+     * Built-in drivers a provider block names with `driver`, whatever the block
+     * is called (v2.21.0). Only a driver that takes its name from the block
+     * belongs here: the Azure provider reads `providers.azure.*` itself, so it
+     * is registered under its own name only.
+     *
+     * @var array<string, class-string<SsoProviderContract>>
+     */
+    protected array $namedDrivers = [];
 
     /**
      * Registration order is the run order. `provider` null means every provider.
@@ -79,11 +90,16 @@ class SsoManager
         }
 
         $class = $this->providers[$name] ?? null;
+        if ($class !== null) {
+            return app($class);
+        }
+
+        $class = $this->namedDriverClass($name);
         if ($class === null) {
             return null;
         }
 
-        return app($class);
+        return app()->make($class, ['name' => $name]);
     }
 
     /**
@@ -117,7 +133,7 @@ class SsoManager
         $providers = (array) config('martis.auth.sso.providers', []);
         $out = [];
         foreach ($providers as $name => $cfg) {
-            if (is_string($name) && (bool) ($cfg['enabled'] ?? false) && isset($this->providers[$name])) {
+            if (is_string($name) && (bool) ($cfg['enabled'] ?? false) && (isset($this->providers[$name]) || $this->namedDriverClass($name) !== null)) {
                 $out[] = $name;
             }
         }
@@ -370,5 +386,19 @@ class SsoManager
         // when actually instantiated, so apps that never enable Azure
         // pay no overhead.
         $this->providers['azure'] = AzureProvider::class;
+        $this->namedDrivers['signed-token'] = SignedTokenProvider::class;
+    }
+
+    /**
+     * The class of the built-in driver the block `$name` selects with its
+     * `driver` key, or null (no block, no such driver).
+     *
+     * @return class-string<SsoProviderContract>|null
+     */
+    protected function namedDriverClass(string $name): ?string
+    {
+        $driver = config("martis.auth.sso.providers.{$name}.driver");
+
+        return is_string($driver) ? ($this->namedDrivers[strtolower($driver)] ?? null) : null;
     }
 }

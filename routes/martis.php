@@ -33,11 +33,14 @@ use Martis\Http\Controllers\ResourceController;
 use Martis\Http\Controllers\SearchController;
 use Martis\Http\Controllers\SlugController;
 use Martis\Http\Controllers\SsoController;
+use Martis\Http\Controllers\SsoIssuerController;
 use Martis\Http\Controllers\ToolFieldsController;
 use Martis\Http\Controllers\ToolsController;
 use Martis\Http\Controllers\TranslationsController;
 use Martis\Http\Controllers\TwoFactorController;
+use Martis\Http\Middleware\RememberIntendedUrl;
 use Martis\Http\RouteMiddleware;
+use Martis\Sso\SignedToken\IssuerSettings;
 
 // The middleware of every group below comes from RouteMiddleware, which
 // also gives a Tool's routes (Tool::loadRoutes()) the stack of the
@@ -108,6 +111,23 @@ Route::middleware(RouteMiddleware::base())
                 ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
                 ->name('sso.callback');
         }
+
+        // SSO issuer (v2.21.0): this panel signs its users in to another Martis
+        // panel with a short-lived signed token. Always registered; the
+        // controller answers 404 while `martis.auth.sso.issuer.enabled` is
+        // false, so the route inventory does not change with the config. The
+        // full protected stack, the same as the API's (an anonymous visitor
+        // goes through the login page, RememberIntendedUrl keeps this URL),
+        // and registered before the SPA catch-all.
+        Route::get('/sso/issue/{audience}', [SsoIssuerController::class, 'issue'])
+            ->where('audience', IssuerSettings::AUDIENCE_PATTERN)
+            ->middleware([
+                RememberIntendedUrl::class,
+                ...RouteMiddleware::authenticated(),
+                ...RouteMiddleware::verified(),
+                ...RouteMiddleware::throttle(),
+            ])
+            ->name('sso.issue');
 
         // Favicon — public, served from configured path, published assets,
         // or the package's own resources/ directory as final fallback (so

@@ -27,6 +27,7 @@ This document is the long-form reference. For a 30-second TL;DR see the **Quick 
 15. [Security considerations](#15-security-considerations)
 16. [Troubleshooting](#16-troubleshooting)
 17. [Test coverage](#17-test-coverage)
+18. [Signed token between two Martis apps (v2.21.0)](#18-signed-token-between-two-martis-apps-v2210)
 
 ---
 
@@ -870,6 +871,14 @@ Both routes register only when `auth.sso.enabled = true`. They're unauthenticate
 
 The `provider` segment is **whatever the user registered** — `azure`, `google`, `github`, `okta`, custom names. Routes only resolve if the provider is registered AND enabled.
 
+A third route belongs to the issuing side of the [signed token](#18-signed-token-between-two-martis-apps-v2210) (v2.21.0). It is always registered, runs the full protected stack, and answers 404 while `auth.sso.issuer.enabled` is false:
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/{martis}/sso/issue/{audience}?state=...` | A signed-in user (2FA passed, `viewMartis` allowed) is redirected to the audience's configured `callback_url` with a signed `token` and the `state`. An anonymous visitor goes to the login page first. |
+
+The provider route `driver => 'signed-token'` uses the same two `/{martis}/sso/{provider}/...` routes as every provider.
+
 ---
 
 ## 11. Generator command
@@ -882,6 +891,8 @@ php artisan martis:sso <provider>
     [--strategy=column|config|callable]
     [--no-auto-create-user]
     [--custom]
+    [--driver=signed-token]     # v2.21.0: a block of any name that signs in through another Martis app
+    [--issuer]                  # v2.21.0: add an audience to the issuing block instead
     # Skip flags (opt-out of automated steps)
     [--no-composer]
     [--no-publish-spatie]
@@ -899,6 +910,10 @@ php artisan martis:sso <provider>
 | `--strategy` | Sets the default `role_strategy` (default `column`). |
 | `--no-auto-create-user` | Sets `auto_create_user = false` in the generated config. |
 | `--custom` | Skips the validation that the provider is one of `azure / google / github`. Use when registering a custom provider via `MartisSso::extend()`. |
+| `--driver=signed-token` | (v2.21.0) The `provider` argument is any name (`panel-a` becomes `panel_a`); the block gets `driver => 'signed-token'`, the `MARTIS_SSO_{NAME}_*` env stubs (provider disabled until filled) and `identity_match_attribute = external_id`. Nothing is installed: no Socialite, no listener. |
+| `--issuer` | (v2.21.0) The argument is an audience name (kept as typed, lowercased: `panel-b`). Adds `'panel-b' => ['callback_url' => env(...)]` to `auth.sso.issuer.audiences` and the `MARTIS_SSO_ISSUER_*` env stubs. The private key stub is left empty: no command writes a key. Not combinable with `--driver` or `--custom`. |
+
+The key pair comes from its own command, `php artisan martis:sso:keys` (v2.21.0): it prints a new Ed25519 pair as base64 with where each half goes, and writes nothing.
 
 ### Skip flags
 
@@ -922,7 +937,7 @@ The generator is fully idempotent. Re-running with the same provider name on a f
 | Step | What "already done" looks like |
 |---|---|
 | Composer require | All packages already declared in `composer.json` |
-| Config block | `'azure' => [` already present in `config/martis.php` |
+| Config block | `'azure' => [` already declared in `config/martis.php` (a commented example does not count) |
 | Env vars | Each `MARTIS_SSO_*` / `AZURE_*` line already in `.env` |
 | Listener | `MicrosoftExtendSocialite` string already in `AppServiceProvider.php` |
 | Spatie publish | `config/permission.php` AND `*_create_permission_tables.php` already exist |
@@ -1250,6 +1265,11 @@ The user has no Azure App Role assignment that matches a local role's `azure_gro
 | `tests/Feature/SsoSessionMarkerTest.php` | The SSO origin across a remember-me re-login: the forced password change gate and the federated logout still see it; a cookie for another user or not encrypted by Martis counts for nothing; every other sign-in and both sign-outs drop it. |
 | `tests/Feature/SsoSessionRevalidationTest.php` | The sign-in time and external id in the session (kept across a remember-me re-login), `max_session_minutes` (JSON 401 with `sso_reauth_url`, page redirect, boundary, sessions without a time), `MartisSso::revokeFor()` (array and database drivers, remember cookie, nonces, later sign-in, impersonation, cache failures), `RevalidatesSessions` (false, true, throwing, interval, misconfiguration), password sessions untouched, invokable `logout_url`. |
 | `resources/js/lib/api.ssoReauth.test.ts` | The SPA's 401 handler: follows a same-origin path under the Martis base path, ignores absolute, protocol-relative and base-escaping URLs. |
+| `tests/Unit/Sso/SignedToken/PasetoV4PublicTest.php` | The PASETO v4.public codec against the official `4-S-*` and `4-F-*` test vectors, PAE, strict base64url, trailing data, canonical encoding. |
+| `tests/Feature/SsoSignedTokenProviderTest.php` | Driver resolution by block name, `redirect()`, every refusal with its own reason, key rotation, one-time `jti`, fail-closed cache, config errors. |
+| `tests/Feature/SsoSignedTokenIssuerTest.php` | The issue route (login, 2FA, gate, 404, state, redirect target, headers, Fetch Metadata), `TokenIssuer` claims and config errors. |
+| `tests/Feature/SsoSignedTokenEndToEndTest.php` | One app as both panels: issue route, callback, `external_id` linking, role mapping, `SsoFailed`, no token or key in logs. |
+| `tests/Feature/SsoSignedTokenCommandsTest.php` | `martis:sso:keys` (never writes), `martis:sso --driver=signed-token` and `--issuer`. |
 | `tests/Feature/SsoMakeCommandTest.php` | Generator idempotency: composer skip, config-block insert, env stub, listener register, Spatie publish, migration publish, role-mapping prompt. |
 
 Run the SSO slice with:
@@ -1258,6 +1278,187 @@ Run the SSO slice with:
 vendor/bin/pest tests/Unit/Sso tests/Feature/SsoControllerTest.php tests/Feature/SsoFailureReasonTest.php tests/Feature/SsoLoggedInEventTest.php tests/Feature/SsoDenyBeforeProvisioningTest.php tests/Feature/SsoSessionMarkerTest.php tests/Feature/SsoSessionRevalidationTest.php tests/Feature/SsoMakeCommandTest.php
 ```
 
+The signed-token slice (v2.21.0) on its own:
+
+```bash
+vendor/bin/pest tests/Unit/Sso/SignedToken tests/Feature/SsoSignedTokenProviderTest.php tests/Feature/SsoSignedTokenIssuerTest.php tests/Feature/SsoSignedTokenEndToEndTest.php tests/Feature/SsoSignedTokenCommandsTest.php
+```
+
 The counts grow with each release — see CI output for the live total.
 
 > Looking to swap the React `LoginPage` (multi-provider button strip + email/password form) for a custom shell? See [Override System](overrides.md) — the auth pages sit under registry keys `auth:login`, `auth:register`, `auth:forgot-password`, `auth:reset-password`, `auth:email-verify-notice`.
+
+
+---
+
+## 18. Signed token between two Martis apps (v2.21.0)
+
+Panel B signs its users in through panel A, when both are Martis apps, with one redirect and a short-lived, one-time token that panel A signs with a private key and panel B verifies with the matching public key. No OAuth server, no client secret, no new table.
+
+It is **not OIDC** and not OAuth: there is no discovery document, no authorization code, no refresh token, and only a Martis panel issues the token. For a third-party identity provider (Microsoft, Google, GitHub, Okta) use the [Socialite providers](#4-azure-ad--full-step-by-step) above.
+
+The token is a [PASETO](https://paseto.io) `v4.public` token (Ed25519): `v4.public.<base64url(payload || signature)>.<base64url(footer)>`. There is no algorithm header and nothing to negotiate. The codec uses `ext-sodium` only, so no Composer package is added. Without the extension the feature throws an exception that says to enable it. The codec is tested against the official PASETO v4 test vectors.
+
+### The flow
+
+```
+ browser                  panel B (consumer)                 panel A (issuer)
+    | click "Continue with Panel A"                                 |
+    |--------------------->|  GET /martis/sso/panel_a/redirect      |
+    |                      | random state kept in B's session       |
+    |<---------------------|  302 authorize_url?audience&state      |
+    |------------------------------------------------------------->|
+    |                      GET /martis/sso/issue/panel-b?state=...  |
+    |                      (signed in, 2FA passed, viewMartis)      |
+    |<-------------------------------------------------------------|
+    |                      302 callback_url?token&state             |
+    |--------------------->|  GET /martis/sso/panel_a/callback      |
+    |                      | verify signature, claims, state, jti   |
+    |                      | find or create the local user, sign in |
+```
+
+An anonymous visitor at panel A is sent to its login page first and the issue URL is kept as the session's intended URL. The Martis login screen signs in over JSON and then opens the dashboard, so after signing in at panel A, go back to panel B and click the button again (the second pass finds you signed in).
+
+### 1. Generate the key pair
+
+```bash
+php artisan martis:sso:keys
+```
+
+It prints a new Ed25519 pair as base64 and says where each half goes. It writes nothing: not to `.env`, a config file or a log. The secret key goes into the environment of panel A only (`MARTIS_SSO_ISSUER_PRIVATE_KEY`). The public key is not secret and goes to panel B. The output carries the `kid` too: the first 16 hex characters of the SHA-256 of the public key, which the token's footer names so a verifier can pick the key during a rotation.
+
+### 2. Panel A: the issuer block
+
+```bash
+php artisan martis:sso panel-b --issuer   # adds the audience and the env stubs, writes no key
+```
+
+```php
+// config/martis.php, auth.sso
+'issuer' => [
+    'enabled' => env('MARTIS_SSO_ISSUER_ENABLED', false),
+    'issuer' => env('MARTIS_SSO_ISSUER'),                  // https://panel-a.example
+    'private_key' => env('MARTIS_SSO_ISSUER_PRIVATE_KEY'),  // base64, from martis:sso:keys
+    'ttl_seconds' => 60,
+    'environment' => env('MARTIS_SSO_ISSUER_ENVIRONMENT'),  // 'production' | 'staging' | null
+    'claims' => null,                                       // App\Martis\SsoClaims::class
+    'audiences' => [
+        'panel-b' => [
+            'callback_url' => 'https://panel-b.example/martis/sso/panel_a/callback',
+            'ability' => 'sign-in-to-panel-b',   // optional; null = any panel user
+        ],
+    ],
+],
+```
+
+| Key | Meaning |
+|---|---|
+| `enabled` | Master switch of the issuing side (default `false`). The issue route answers 404 while it is off. |
+| `issuer` | This panel's name in the `iss` claim. Panel B's provider block must carry the same string. |
+| `private_key` | Base64 Ed25519 secret key (64 bytes). Read from the environment: no command ever writes it to a file. A key that is not 64 bytes, or whose public half does not match its seed, throws naming this key. |
+| `ttl_seconds` | Token life, 1 to 600 (default 60). |
+| `environment` | Optional. Added to the token as the claim `environment_claim` (default `env`), so a verifier locked to `production` refuses a staging token. |
+| `role_claim`, `environment_claim` | Optional claim names (defaults `roles` and `env`). Keep them equal to panel B's `role_claim` and `environment_claim`. |
+| `claims` | Optional invokable class, `(Authenticatable $user, string $audience): array`, that adds claims and replaces `email`, `name` and the roles. Use the name of a class or a `[Class::class, 'method']` array, never a closure (`config:cache`). `iss`, `aud`, `sub`, `iat`, `exp`, `jti` and `state` (and the environment claim when `environment` is set) cannot be set: the class throws if it tries. |
+| `audiences` | `'<audience>' => ['callback_url' => '...', 'ability' => null]`. `ability` (optional, a non-empty string; anything else throws naming the key) limits who may obtain a token for that audience: the issue route checks `Gate::forUser($user)->allows($ability)`, so an app gate or a Spatie permission name both work. A refusal answers 403 with a translated message, issues nothing and redirects nowhere. Unset, any user who can open the panel gets a token.  The audience is the name panel B uses as its `audience`. A name is 1 to 64 letters, digits, `.`, `-` or `_`, and is not `callback` or `redirect`. |
+
+The claims of the token:
+
+| Claim | Value |
+|---|---|
+| `iss` | `issuer` |
+| `aud` | the audience of the request |
+| `sub` | the user's id at panel A, as a string |
+| `iat`, `exp` | RFC 3339 UTC; `exp` is `iat + ttl_seconds` |
+| `jti` | 128 random bits (hex), used once on the other side |
+| `state` | the value panel B kept in the browser's session |
+| `email`, `name` | the user's attributes (a user with no email cannot be signed for: panel B requires one) |
+| `roles` | the user's Spatie role names when the model has `getRoleNames()`, else an empty list |
+| `env` | only when `environment` is set |
+
+`Martis\Sso\SignedToken\TokenIssuer::fromConfig()->issue($user, $audience, $state)` issues the same token from your own code.
+
+The issue route runs the whole protected stack (signed in, 2FA passed, email verified when required, the `viewMartis` gate) and then the audience's `ability`, when it sets one. It redirects **only** to the `callback_url` of the audience, never to a URL from the request, with `token` and `state` appended. A `callback_url` must be an absolute `https` URL without credentials or a fragment (`http` is accepted for `localhost`, `*.localhost` and `*.test` hosts); anything else throws naming the key. The response carries `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. When the browser sends Fetch Metadata the request must be a top-level navigation (`Sec-Fetch-Mode: navigate` and `Sec-Fetch-Dest: document`): an XHR, an iframe or an image is refused with 403, so another site cannot make a signed-in browser fetch a token. The `state` parameter is required (`^[A-Za-z0-9_-]{16,128}$`, else 422). One audit line is logged per token (audience and user id, never the token).
+
+### 3. Panel B: the provider block
+
+```bash
+php artisan martis:sso panel-a --driver=signed-token
+```
+
+```php
+// config/martis.php, auth.sso.providers
+'panel_a' => [
+    'enabled' => env('MARTIS_SSO_PANEL_A_ENABLED', false),
+    'driver' => 'signed-token',
+    'label' => 'Continue with Panel A',
+    'authorize_url' => 'https://panel-a.example/martis/sso/issue/panel-b',
+    'public_keys' => [env('MARTIS_SSO_PANEL_A_PUBLIC_KEY')],
+    'issuer' => 'https://panel-a.example',
+    'audience' => 'panel-b',
+    'max_age_seconds' => 60,
+    'clock_skew_seconds' => 30,
+    'role_claim' => 'roles',
+    // 'environment' => 'production',   // optional second lock
+    // 'environment_claim' => 'env',
+    'identity_match_attribute' => 'external_id',
+    // ...the usual role_strategy, auto_create_user, permission_adapter, on_no_role_match keys
+],
+```
+
+The block may be named anything and there may be several: `driver => 'signed-token'` selects the built-in provider (`MartisSso::extend()` registrations keep precedence). The name must be lowercase, because routes and config keys are matched in lowercase.
+
+| Key | Meaning |
+|---|---|
+| `authorize_url` | Panel A's issue route for this panel's audience. The redirect appends `audience` and `state` to it and sends nothing else. |
+| `public_keys` | List of base64 Ed25519 public keys. Every one is accepted, which is how a key is rotated. At least one; a value that is not 32 bytes throws naming the key. |
+| `issuer`, `audience` | The `iss` and `aud` the token must carry. |
+| `max_age_seconds` | A token issued longer ago than this (plus the skew) is refused, whatever its `exp` says (default 60). |
+| `clock_skew_seconds` | Clock difference tolerated for `exp` and `iat` (default 30). |
+| `role_claim` | The claim that holds the role names (default `roles`). The roles feed the usual `role_strategy` mapping. |
+| `environment`, `environment_claim` | Optional second lock: only tokens whose `environment_claim` (default `env`) equals `environment` are accepted. |
+
+The provider sets `externalId = sub`, so **set `identity_match_attribute = external_id`** (see [Matching by `external_id`](#matching-by-external_id-v2210)): the id at panel A is the stable identity, an email is not. A block with a missing or unusable key throws an exception that names it.
+
+### Rotating the key
+
+1. Run `php artisan martis:sso:keys` for a second pair.
+2. On panel B add the new public key to `public_keys`, next to the old one. Deploy.
+3. On panel A switch `MARTIS_SSO_ISSUER_PRIVATE_KEY` to the new secret key. New tokens are signed with it and still verify.
+4. After `ttl_seconds` plus the skew (a couple of minutes) no token signed by the old key is alive: remove the old public key from panel B.
+
+A token signed by a key that is not in `public_keys` is refused as `bad_signature`; the footer's `kid` only picks which configured key to try first, it never adds one.
+
+### What the verifier checks
+
+In this order, each refusal with its own reason (they reach the log line and the [`SsoFailed`](#failed-sign-ins-reason-log-and-event-v2210) event of the callback):
+
+| Reason | Refused because |
+|---|---|
+| `malformed` | Not a `v4.public` token: wrong prefix, bad or non-canonical base64url, trailing data, too long, a footer or payload that is not a JSON object, a claim of the wrong type or a time that is not RFC 3339. |
+| `bad_signature` | No configured public key verifies the signature (checked before any claim is read). |
+| `missing_claim` | A required claim is missing or empty: `iss`, `aud`, `sub`, `iat`, `exp`, `jti`, `state`, `email`. |
+| `issuer` | `iss` is not the configured `issuer`. |
+| `audience` | `aud` is not the configured `audience`. |
+| `expired` | `exp` has passed beyond the skew, or `iat` is older than `max_age_seconds` plus the skew. |
+| `not_yet_valid` | `iat` is in the future beyond the skew. |
+| `environment` | The verifier has an `environment` and the token's claim differs or is absent. |
+| `state` | The state in the browser's session (taken out of it once, whatever the outcome), the `state` of the callback URL and the `state` claim are not all the same. |
+| `replayed` | The `jti` was already used. |
+| `replay_store` | The cache failed while recording the `jti`: the token is refused, never let through. |
+
+The `jti` is recorded last (`Cache::add`, kept until the token could not be accepted any more), so a token the verifier rejected for any other reason is not used up. Comparisons of the issuer, audience, environment and state are constant time.
+
+### Security notes
+
+- **The token is in a URL.** It travels in the query string of the callback URL, so it can reach browser history and any access log of that path. The mitigations are built in: it lives 60 seconds by default, is accepted once, is bound to the browser session that started the flow through `state`, and the issue response says `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. Operators should keep query strings out of the access logs of `/{martis}/sso/{provider}/callback` (nginx: log `$uri` instead of `$request_uri` for that location; most load balancers can drop the query from the logged path).
+- **The cache must be shared.** The one-time `jti` lives in Laravel's default cache store. With several servers use a shared store (Redis, database, Memcached); the `array` and `file` stores are per process or per host, and the `null` store refuses every sign-in as `replayed`. A cache that is down refuses sign-ins.
+- **The private key is the trust root.** Whoever holds it can sign in to panel B as anyone panel B links by `external_id`. Keep it in the environment of panel A only, give it its own value per environment, and rotate it as above. Panel B holds public keys only. Use the `environment` lock so a staging key (or token) cannot sign in to production.
+- **Use HTTPS.** `authorize_url` and `callback_url` must be `https`, except `localhost`, `*.localhost` and `*.test` for local development.
+- **Clocks.** Keep both servers on NTP; `clock_skew_seconds` is the tolerance and `max_age_seconds` the window.
+- **One flow per browser session.** Starting a second flow in another tab replaces the state of the first, which then fails as `state`.
+- Provider blocks, including `public_keys`, are server-side config and are not published to the browser.
+
+### Tests
+
+The codec is checked against the official `4-S-*` (sign and verify, byte for byte) and `4-F-*` (must fail) vectors of the PASETO test-vector repository, kept in `tests/Fixtures/Paseto/v4-public-vectors.json`. See the [test coverage](#17-test-coverage) table for the specs of the rest.
