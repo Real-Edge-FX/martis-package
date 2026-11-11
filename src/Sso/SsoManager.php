@@ -30,11 +30,18 @@ class SsoManager
     /** @var array<string, class-string<SsoProviderContract>> */
     protected array $providers = [];
 
-    /** @var (Closure(User, SsoIdentity, string): mixed)|null */
-    protected ?Closure $afterLoginCallback = null;
+    /**
+     * Registration order is the run order. `provider` null means every provider.
+     *
+     * @var list<array{callback: Closure(User, SsoIdentity, string): mixed, provider: string|null}>
+     */
+    protected array $afterLoginCallbacks = [];
 
-    /** @var Closure(SsoIdentity, string): mixed|null */
+    /** @var (Closure(SsoIdentity, string): mixed)|null */
     protected ?Closure $onNoRoleMatchCallback = null;
+
+    /** @var array<string, Closure(SsoIdentity, string): mixed> */
+    protected array $onNoRoleMatchProviderCallbacks = [];
 
     public function __construct()
     {
@@ -169,11 +176,18 @@ class SsoManager
      * Side-effect hook fired after a successful SSO login + role sync.
      * Use it for audit logging, welcome emails, denormalized counters.
      *
+     * Callbacks accumulate: every registration is kept and they run in the
+     * order they were registered. Pass a provider name to run the callback for
+     * that provider only; without one it runs for every provider.
+     *
      * @param  Closure(User, SsoIdentity, string): mixed  $callback
      */
-    public function afterLogin(Closure $callback): void
+    public function afterLogin(Closure $callback, ?string $provider = null): void
     {
-        $this->afterLoginCallback = $callback;
+        $this->afterLoginCallbacks[] = [
+            'callback' => $callback,
+            'provider' => $provider === null ? null : strtolower($provider),
+        ];
     }
 
     /**
@@ -182,29 +196,66 @@ class SsoManager
      * return a redirect / response, or a string to flash, or null to
      * use the default deny page.
      *
+     * Single-valued per scope: one global slot and one slot per provider, the
+     * last registration for a scope replaces the earlier one. For a provider
+     * its own slot wins; the global one answers every provider without a slot.
+     *
      * @param  Closure(SsoIdentity, string): mixed  $callback
      */
-    public function onNoRoleMatchUsing(Closure $callback): void
+    public function onNoRoleMatchUsing(Closure $callback, ?string $provider = null): void
     {
-        $this->onNoRoleMatchCallback = $callback;
-    }
+        if ($provider === null) {
+            $this->onNoRoleMatchCallback = $callback;
 
-    public function fireAfterLogin(User $user, SsoIdentity $identity, string $provider): void
-    {
-        if ($this->afterLoginCallback === null) {
             return;
         }
 
-        ($this->afterLoginCallback)($user, $identity, $provider);
+        $this->onNoRoleMatchProviderCallbacks[strtolower($provider)] = $callback;
+    }
+
+    /**
+     * Run, in registration order, every afterLogin callback that is global or
+     * scoped to this provider.
+     */
+    public function fireAfterLogin(User $user, SsoIdentity $identity, string $provider): void
+    {
+        $scope = strtolower($provider);
+
+        foreach ($this->afterLoginCallbacks as $entry) {
+            if ($entry['provider'] === null || $entry['provider'] === $scope) {
+                ($entry['callback'])($user, $identity, $provider);
+            }
+        }
     }
 
     public function fireNoRoleMatch(SsoIdentity $identity, string $provider): mixed
     {
-        if ($this->onNoRoleMatchCallback === null) {
+        $callback = $this->onNoRoleMatchProviderCallbacks[strtolower($provider)] ?? $this->onNoRoleMatchCallback;
+
+        if ($callback === null) {
             return null;
         }
 
-        return ($this->onNoRoleMatchCallback)($identity, $provider);
+        return $callback($identity, $provider);
+    }
+
+    // -------------------------------------------------------------------------
+    // Hook lifecycle
+    // -------------------------------------------------------------------------
+
+    /**
+     * Drop every host-app hook: the afterLogin and no-role-match callbacks
+     * (global and per provider) and the user, role and sync overrides.
+     * For tests and for apps that rebuild their hooks (Octane workers).
+     */
+    public function forgetHooks(): void
+    {
+        $this->afterLoginCallbacks = [];
+        $this->onNoRoleMatchCallback = null;
+        $this->onNoRoleMatchProviderCallbacks = [];
+        IdentityResolver::forgetResolver();
+        RoleMapper::forgetResolver();
+        CallableAdapter::forgetCallback();
     }
 
     // -------------------------------------------------------------------------
@@ -213,11 +264,7 @@ class SsoManager
 
     public function flushHooksForTesting(): void
     {
-        $this->afterLoginCallback = null;
-        $this->onNoRoleMatchCallback = null;
-        IdentityResolver::forgetResolver();
-        RoleMapper::forgetResolver();
-        CallableAdapter::forgetCallback();
+        $this->forgetHooks();
     }
 
     // -------------------------------------------------------------------------

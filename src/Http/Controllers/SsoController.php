@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Martis\Auth\TwoFactorPass;
 use Martis\Events\SsoFailed;
+use Martis\Events\SsoLoggedIn;
 use Martis\Sso\IdentityResolver;
 use Martis\Sso\RoleMapper;
 use Martis\Sso\SsoException;
@@ -150,6 +151,8 @@ class SsoController extends Controller
         // remember-me it survives a remember-me re-login (the cookie), and
         // it is dropped on sign-out and on a non-SSO sign-in.
         SsoSession::start($request, $user, $provider, is_string($guard) ? $guard : null, $remember);
+
+        SsoLoggedIn::dispatch($user, $identity, $provider);
 
         $redirectTo = (string) (config("martis.auth.sso.providers.{$provider}.redirect_to") ?? '/'.config('martis.path', 'martis'));
 
