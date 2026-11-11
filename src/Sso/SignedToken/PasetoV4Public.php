@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martis\Sso\SignedToken;
 
 use InvalidArgumentException;
+use Martis\Sso\Providers\SignedTokenProvider;
 use Martis\Sso\SsoException;
 use RuntimeException;
 use SodiumException;
@@ -18,7 +19,7 @@ use SodiumException;
  * The signature covers PAE("v4.public.", message, footer, implicit assertion),
  * so the footer is authenticated along with the message. There is no algorithm
  * header and no negotiation: the prefix is the only accepted one. The codec
- * knows nothing of claims, keys in config or time; {@see \Martis\Sso\Providers\SignedTokenProvider}
+ * knows nothing of claims, keys in config or time; {@see SignedTokenProvider}
  * and {@see TokenIssuer} sit on top of it. It is checked against the official
  * test vectors (tests/Fixtures/Paseto).
  *
@@ -130,8 +131,13 @@ final class PasetoV4Public
             throw new InvalidArgumentException('An Ed25519 public key is '.SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES.' bytes.');
         }
 
+        $signature = $token->signature;
+        if ($signature === '') {
+            return false;
+        }
+
         return sodium_crypto_sign_verify_detached(
-            $token->signature,
+            $signature,
             self::pae([self::HEADER, $token->message, $token->footer, $implicit]),
             $publicKey,
         );

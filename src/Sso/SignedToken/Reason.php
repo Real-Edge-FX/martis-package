@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Martis\Sso\SignedToken;
 
+use Martis\Events\SsoFailed;
+use Martis\Sso\SsoException;
+
 /**
- * The `reason` of the {@see \Martis\Sso\SsoException} the signed-token driver
+ * The `reason` of the {@see SsoException} the signed-token driver
  * throws for a refused token (v2.21.0). The values reach the log line and the
- * {@see \Martis\Events\SsoFailed} event of the failed callback.
+ * {@see SsoFailed} event of the failed callback.
  */
 final class Reason
 {
