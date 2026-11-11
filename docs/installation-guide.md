@@ -483,6 +483,8 @@ The shims and the scaffold's `index.ts` read this global, so a consumer extensio
 
 ### Configuring multiple bundle URLs
 
+From v2.20.0 the shell appends `?v=<content hash>` to a built bundle's URL (`martis.extensions_versioned_urls`), and a heavy tool or card can be split into a chunk with `componentRegistry.registerLazy` (see [Overrides](overrides.md#lazy-registration-v2200)); serve the folder with the headers in [Extensions: caching](extensions-caching.md).
+
 The auto-published `MARTIS_EXTENSIONS` line points at a single bundle (`/vendor/martis-user/extensions.js`). That bundle is optional: the shell leaves it out while `public/vendor/martis-user/extensions.js` does not exist, so an app that never runs `npm run build:extensions` logs no 404 (v2.1.0). Any other URL is loaded as configured. To load additional bundles — e.g. a Composer-distributed package's prebuilt extensions, or a separate dev/staging override — comma-separate them:
 
 ```env

@@ -56,6 +56,7 @@ export { iconRegistry } from '@/lib/iconRegistry'
 export { ResourceIcon } from '@/components/ResourceIcon'
 export { layoutRegistry } from '@/lib/layoutRegistry'
 export { routeRegistry } from '@/lib/routeRegistry'
+export { reloadOnStaleChunk } from '@/lib/staleChunk'
 
 // Page and override hooks
 export { usePageTitle } from '@/hooks/usePageTitle'

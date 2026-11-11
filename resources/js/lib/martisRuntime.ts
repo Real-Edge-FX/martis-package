@@ -76,6 +76,7 @@ import { iconRegistry } from '@/lib/iconRegistry'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { layoutRegistry } from '@/lib/layoutRegistry'
 import { routeRegistry } from '@/lib/routeRegistry'
+import { reloadOnStaleChunk } from '@/lib/staleChunk'
 import { useDynamicCrumb } from '@/contexts/DynamicCrumbContext'
 import { useAuthLinkParams, parseAuthLinkFragment } from '@/lib/authLink'
 import { ForbiddenPage } from '@/pages/Forbidden'
@@ -227,6 +228,12 @@ export const martisRuntime = {
   // extension registers at the top level of its bundle. See
   // docs/custom-pages.md.
   routeRegistry,
+
+  // Stale chunk recovery (since v2.20.0): the rejection handler of a dynamic
+  // import in an extension, `import('./Page').catch(reloadOnStaleChunk)`.
+  // Reloads the tab once when the chunk is gone (a deploy replaced it) and
+  // rethrows otherwise. `componentRegistry.registerLazy()` applies it itself.
+  reloadOnStaleChunk,
 
   // Page and override hooks (since v1.38.0), the ones the package's own
   // pages and drawers use: the tab title of a custom page, the back-button
