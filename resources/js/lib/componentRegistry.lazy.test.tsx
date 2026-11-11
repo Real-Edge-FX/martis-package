@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Component, memo } from 'react'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ComponentRegistry } from '@/lib/componentRegistry'
 import { STALE_CHUNK_RELOAD_KEY } from '@/lib/staleChunk'
 
@@ -353,13 +353,61 @@ describe('stale chunk', () => {
     expect(reload).not.toHaveBeenCalled()
   })
 
-  it('forgets the reload guard once a chunk loads, so a later deploy can reload again', async () => {
-    window.sessionStorage.setItem(STALE_CHUNK_RELOAD_KEY, '1')
-    registry.registerLazy('tool:lazy', () => Promise.resolve({ default: Hello }))
+  it('does not reload in a loop when a good chunk loads between two failures of a missing one', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const chunkError = () => new TypeError('Failed to fetch dynamically imported module: /chunks/Gone.js')
+
+    // Three simulated page loads in the same tab (same sessionStorage): a good chunk, then a missing one.
+    for (let load = 0; load < 3; load++) {
+      const page = new ComponentRegistry()
+      page.registerLazy('tool:good', () => Promise.resolve({ default: Hello }))
+      page.registerLazy('card:gone', () => Promise.reject(chunkError()))
+
+      const { unmount } = mount(page, 'tool:good')
+      await waitFor(() => expect(screen.getByTestId('hello')).toBeTruthy())
+      unmount()
+      const gone = mount(page, 'card:gone')
+      await act(async () => {
+        await Promise.resolve()
+      })
+      gone.unmount()
+    }
+
+    expect(reload).toHaveBeenCalledTimes(1)
+    consoleError.mockRestore()
+  })
+
+  it('does not reload while offline: the error state shows instead', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false)
+    registry.registerLazy('tool:lazy', () => Promise.reject(new TypeError('Failed to fetch dynamically imported module: /a.js')))
 
     mount(registry, 'tool:lazy')
 
+    await waitFor(() => expect(screen.getByText(/unexpected error/i)).toBeTruthy())
+    expect(reload).not.toHaveBeenCalled()
+    vi.restoreAllMocks()
+    consoleError.mockRestore()
+  })
+})
+
+describe('retry after a failed load', () => {
+  it('Try again calls the loader again and renders the component', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const loader = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Network down'))
+      .mockResolvedValueOnce({ default: Hello })
+    registry.registerLazy('tool:lazy', loader)
+
+    mount(registry, 'tool:lazy')
+    await waitFor(() => expect(screen.getByText(/unexpected error/i)).toBeTruthy())
+    expect(loader).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: /try again/i }))
+
     await waitFor(() => expect(screen.getByTestId('hello')).toBeTruthy())
-    expect(window.sessionStorage.getItem(STALE_CHUNK_RELOAD_KEY)).toBeNull()
+    expect(loader).toHaveBeenCalledTimes(2)
+    consoleError.mockRestore()
   })
 })
