@@ -60,6 +60,8 @@ export interface MartisDashboardConfig {
 }
 
 export interface MartisToastConfig {
+  /** Lifetime per severity in milliseconds; `null` = stays until closed. */
+  durations?: Partial<Record<"success" | "info" | "warning" | "error", number | null>>
   position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "top-center" | "bottom-center"
 }
 

@@ -3,6 +3,7 @@ import {
   useContext,
   useRef,
   useCallback,
+  useEffect,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react"
@@ -31,8 +32,25 @@ export interface ToastLink {
   label: string
 }
 
+export interface ToastOptions {
+  link?: ToastLink
+  /** Lifetime in ms; `null` keeps the toast until closed. Beats `martis.toast.durations`. */
+  life?: number | null
+  /** Remove a sticky toast when the route changes. Default false. */
+  dismissOnNavigate?: boolean
+}
+
+/** The part of a react-router data router the provider observes. */
+export interface ToastNavigationSource {
+  state?: { location: { key?: string; pathname: string } }
+  subscribe: (listener: (state: { location: { key?: string; pathname: string } }) => void) => () => void
+}
+
+const DEFAULT_LIFE = 5000
+const LINK_MIN_LIFE = 10000
+
 interface ToastContextValue {
-  addToast: (type: ToastType, message: string, options?: { link?: ToastLink }) => void
+  addToast: (type: ToastType, message: string, options?: ToastOptions) => void
   toastRef: React.RefObject<Toast | null>
 }
 
@@ -69,26 +87,57 @@ function SeverityIcon({ type }: { type: ToastType }) {
   }
 }
 
-export function ToastProvider({ children }: { children: ReactNode }) {
+export function ToastProvider({
+  children,
+  router,
+}: {
+  children: ReactNode
+  /** Navigation source for `dismissOnNavigate`. The provider sits above the
+   *  router, so the app passes the data router instead of a hook. */
+  router?: ToastNavigationSource
+}) {
   const toastRef = useRef<Toast>(null)
+  const navigateDismissible = useRef<Set<ToastMessage>>(new Set())
   const { t } = useTranslation("messages")
 
+  useEffect(() => {
+    if (!router) return
+    let last: string | null = router.state ? (router.state.location.key ?? router.state.location.pathname) : null
+    return router.subscribe((state) => {
+      const key = state.location.key ?? state.location.pathname
+      if (last !== null && key !== last) {
+        navigateDismissible.current.forEach((m) => toastRef.current?.remove(m))
+        navigateDismissible.current.clear()
+      }
+      last = key
+    })
+  }, [router])
+
   const addToast = useCallback(
-    (type: ToastType, message: string, options?: { link?: ToastLink }) => {
+    (type: ToastType, message: string, options?: ToastOptions) => {
       // Only an http(s), mailto:/tel: or same-origin link renders: an
       // extension may build it from stored data (a `javascript:` href would
       // run in the panel on click).
       const link = options?.link
       const linkHref = link ? safeHref(link.href) : undefined
-      // A toast with a link stays longer: the person has to reach it.
-      const life = linkHref ? 10000 : 5000
+      // Lifetime: the call's `life` (null = sticky), else the severity's
+      // configured duration, longer when a link has to be reachable.
+      let life: number | null
+      if (options && "life" in options && options.life !== undefined) {
+        life = options.life
+      } else {
+        const configured = config.toast?.durations?.[type]
+        const duration = configured === undefined ? DEFAULT_LIFE : configured
+        life = duration !== null && linkHref ? Math.max(duration, LINK_MIN_LIFE) : duration
+      }
+      const sticky = life === null
       // Build the message object first so we can pass the same reference to
       // remove() in the safety-net timeout. Using clear() would wipe every
       // active toast; remove() targets only this specific message.
       const msg: ToastMessage = {
         severity: severityMap[type] ?? "info",
-        life,
-        sticky: false,
+        ...(sticky ? {} : { life: life as number }),
+        sticky,
         // v1.8.7 — `closable: false` here because the custom `content`
         // below renders its own Phosphor `<XIcon>` close button styled
         // with `.martis-toast-close`. Leaving `closable: true` made
@@ -135,12 +184,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
       toastRef.current?.show(msg)
 
+      if (sticky) {
+        if (options?.dismissOnNavigate) navigateDismissible.current.add(msg)
+        return
+      }
+
       // Safety-net: remove only THIS message after life + 1s in case
       // PrimeReact's internal timer doesn't fire (CSS transition edge-case).
       // Previously called clear(), which silently wiped all queued toasts.
       setTimeout(() => {
         toastRef.current?.remove(msg)
-      }, life + 1000)
+      }, (life as number) + 1000)
     },
     [t],
   )

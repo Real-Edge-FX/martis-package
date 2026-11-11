@@ -639,10 +639,25 @@ Each item accepts `label` (i18n key or literal), `icon` (**Phosphor icon name** 
 ```php
 'toast' => [
     'position' => env('MARTIS_TOAST_POSITION', 'bottom-right'),
+    'durations' => [
+        'success' => 5000,
+        'info' => 5000,
+        'warning' => 5000,
+        'error' => 5000,
+    ],
 ],
 ```
 
-Options: `'top-right'`, `'top-left'`, `'bottom-right'`, `'bottom-left'`, `'top-center'`, `'bottom-center'`.
+Options for `position`: `'top-right'`, `'top-left'`, `'bottom-right'`, `'bottom-left'`, `'top-center'`, `'bottom-center'`.
+
+`durations` (v2.21.0) is how long a toast stays, per severity, in milliseconds. `null` keeps the toast until the person closes it (every toast has a close button, reachable by keyboard). The defaults match the behaviour before v2.21.0. A toast with a safe link stays at least 10000 ms, unless its duration is `null`. A value that is neither `null` nor a positive integer throws an `InvalidArgumentException` naming the key, for example `martis.toast.durations.error`.
+
+```php
+// Errors stay until closed, successes go after 3 seconds.
+'durations' => ['success' => 3000, 'error' => null],
+```
+
+A single call overrides the config: see `addToast` options in [Components](components.md).
 
 ## Index (Resource Listing)
 

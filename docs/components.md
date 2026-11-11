@@ -487,6 +487,21 @@ addToast('success', 'Record saved successfully')
 addToast('error', 'Failed to save record')
 ```
 
+`addToast(type, message, options?)` (options since v2.21.0):
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `link` | `{ href, label }` | A link under the message, opened in a new tab. Only a safe href renders. |
+| `life` | `number \| null` | Lifetime in ms; `null` keeps the toast until closed. Beats `martis.toast.durations`. |
+| `dismissOnNavigate` | `boolean` | Default `false`. A sticky toast with it set is removed on route change. |
+
+Without `life`, the lifetime is the severity's `martis.toast.durations` value (5000 ms by default); a toast with a link stays at least 10000 ms unless it is sticky.
+
+```typescript
+// A sticky error that goes away when the person leaves the page.
+addToast('error', 'Sync failed', { life: null, dismissOnNavigate: true })
+```
+
 ## Drawer Components
 
 Slide-in panels for inline CRUD operations. See [Override System](overrides.md) for configuration details.

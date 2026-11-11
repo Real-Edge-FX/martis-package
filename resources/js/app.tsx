@@ -111,7 +111,7 @@ function App({ router }: { router: AppRouter }) {
             <AuthProvider>
               <PreferencesProvider>
                 <ThemeProvider>
-                  <ToastProvider>
+                  <ToastProvider router={router}>
                     <DynamicCrumbProvider>
                       <GateProvider>
                         <RouterProvider router={router} />

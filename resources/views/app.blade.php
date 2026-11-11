@@ -143,7 +143,7 @@
             search: {!! json_encode(config('martis.search', ['enabled' => true])) !!},
             dashboard: {!! json_encode(config('martis.dashboard', ['showGreeting' => true, 'showWelcome' => true, 'showWelcomeCard' => true, 'showMetrics' => true, 'showResourceCards' => true])) !!},
             welcome: {!! json_encode(config('martis.welcome', ['heading' => null, 'description' => null])) !!},
-            toast: {!! json_encode(config('martis.toast', ['position' => 'bottom-right'])) !!},
+            toast: {!! json_encode(\Martis\Support\ToastDurations::config(config('martis.toast'))) !!},
             footer: {!! json_encode(config('martis.footer', ['enabled' => true, 'text' => null])) !!},
             drawer: {!! json_encode([
                 'width' => config('martis.drawer.width', '560px'),
