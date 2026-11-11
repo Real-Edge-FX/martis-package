@@ -479,6 +479,10 @@ If your tool's `component()` returns a key that has no registration in `componen
 
 > **Navigating between tools.** Switching from one Tool to another (`/tools/:uriKey` → `/tools/:otherUriKey`) fully unmounts and remounts `ToolPage`, so the outgoing tool's state and in-flight fetch are torn down cleanly instead of flashing stale data from the previous tool. A top progress bar (mounted once in the shell layout) reflects any in-flight navigation or query across the whole app, tool pages included.
 
+### Loading a heavy Tool on demand (v2.20.0+)
+
+A Tool's component is imported with the rest of `extensions.js` by default. For a heavy one (charts, an editor), register it with `componentRegistry.registerLazy('tool:reports', () => import('./heavy/Reports'), { preload: 'idle' })`: its chunk is fetched when the Tool opens (or when the browser is idle after boot), `ToolPage` shows the Martis loader meanwhile, and a stale chunk after a deploy reloads the tab once. See [Overrides → Lazy registration](overrides.md#lazy-registration-v2200) and [Extensions: caching](extensions-caching.md).
+
 ### Pages at URLs of your own (v2.2.0+)
 
 A Tool's page lives at `/tools/{uriKey}`. For a product URL (`/findings`, `/findings/{finding}`), register the page with `routeRegistry` and bind it to the Tool with `tool: '{uriKey}'`: the page renders inside the shell, and the Tool's `canSee()` and soft lock guard it exactly as they guard `/tools/{uriKey}`. See [Custom pages](custom-pages.md).

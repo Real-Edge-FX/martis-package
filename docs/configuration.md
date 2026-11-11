@@ -740,6 +740,21 @@ Namespace for auto-discovery of resource policies. When a resource does not defi
 
 Where Martis scans for `Martis\Tools\Tool` subclasses (since v1.8.20). `tools_namespace` follows the same precedence as `resources_namespace` (explicit string, then Composer's PSR-4 map, then `App\Martis\Tools`); a config published before v1.36.0 still carries the literal `'App\\Martis\\Tools'`, which keeps working. Discovery merges with any `Martis::tools([...])` registration via dedup by class-string, so adopting it does not break apps that already registered Tools manually. Set `discovery.tools` to `false` (or `MARTIS_DISCOVERY_TOOLS=false`) to opt out and keep manual registration.
 
+## Extension bundles: versioned URLs and stale chunks (v2.20.0)
+
+```php
+// config/martis.php
+'extensions_versioned_urls' => (bool) env('MARTIS_EXTENSIONS_VERSIONED_URLS', true),
+'extensions_reload_on_stale' => (bool) env('MARTIS_EXTENSIONS_RELOAD_ON_STALE', true),
+```
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `extensions_versioned_urls` | `true` | A root-relative URL in `extensions` that is a file under `public/` is emitted as `/vendor/martis-user/extensions.js?v=<12 hex of the content hash>`. The URL changes only when the file does, so the bundle can be cached for a year (`immutable`). Absolute `http(s)://` and protocol-relative URLs, URLs that already have a query string or a fragment, and paths of missing files are emitted as configured. `false` emits every URL exactly as listed. |
+| `extensions_reload_on_stale` | `true` | A lazily loaded extension chunk (`componentRegistry.registerLazy`) that cannot be fetched because a deploy replaced it reloads the tab once, then shows an error state. `false` never reloads. Surfaced to the SPA as `window.MartisConfig.extensionsReloadOnStale`. |
+
+See [Extensions: caching](extensions-caching.md) for the response headers and [Overrides](overrides.md#lazy-registration-v2200) for lazy registration.
+
 ## Attachments
 
 ```php
