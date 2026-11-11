@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 use Martis\Auth\GuardCatalog;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -37,11 +38,28 @@ use Throwable;
  * from the forced password change. A user who signs in through SSO on two
  * devices keeps both nonces; the sign-out drops only the nonce of the
  * browser it ends.
+ *
+ * Since v2.21.0 the session also keeps when the SSO sign-in happened
+ * (`martis_sso_at`, unix time) and the external id the IdP issued
+ * (`martis_sso_external_id`), which the `martis.sso.session` middleware reads
+ * to end a session by age, by revocation ({@see revokeUser()}) or when the
+ * provider says the person is gone. A remember-me re-login restores both from
+ * the cookie, so the sign-in time is the cookie's issue time, never the time
+ * of the re-login.
  */
 final class SsoSession
 {
     /** The session key the SSO callback sets. */
     public const SESSION_KEY = 'martis_sso_provider';
+
+    /** The session key of the unix time the SSO sign-in happened (v2.21.0). */
+    public const SESSION_AT = 'martis_sso_at';
+
+    /** The session key of the external id the IdP issued for the signed-in identity (v2.21.0). */
+    public const SESSION_EXTERNAL_ID = 'martis_sso_external_id';
+
+    /** The session key of the unix time the provider last confirmed the session (v2.21.0). */
+    public const SESSION_CHECKED_AT = 'martis_sso_checked_at';
 
     /** The cookie that carries the origin across a remember-me re-login. */
     public const COOKIE = 'martis_sso_provider';
@@ -59,9 +77,12 @@ final class SsoSession
      * ($remember): without a remember cookie nothing signs the user back in
      * after the session ends, so there is no origin to carry across.
      */
-    public static function start(Request $request, Authenticatable $user, string $provider, ?string $guard, bool $remember = true): void
+    public static function start(Request $request, Authenticatable $user, string $provider, ?string $guard, bool $remember = true, ?string $externalId = null): void
     {
+        $now = self::now();
+
         $request->session()->put(self::SESSION_KEY, $provider);
+        self::writeSignIn($request, $now, $externalId);
 
         if (! $remember) {
             return;
@@ -82,7 +103,8 @@ final class SsoSession
                 'u' => (string) $user->getAuthIdentifier(),
                 'p' => $provider,
                 'n' => $nonce,
-                'i' => time(),
+                'i' => $now,
+                ...($externalId !== null ? ['e' => $externalId] : []),
             ])),
             $minutes,
         ));
@@ -99,7 +121,7 @@ final class SsoSession
     public static function forget(Request $request, ?Authenticatable $user = null): void
     {
         if ($request->hasSession()) {
-            $request->session()->forget(self::SESSION_KEY);
+            $request->session()->forget([self::SESSION_KEY, self::SESSION_AT, self::SESSION_EXTERNAL_ID, self::SESSION_CHECKED_AT]);
         }
 
         if ($user !== null) {
@@ -134,16 +156,115 @@ final class SsoSession
             }
         }
 
-        $provider = $user === null ? null : self::fromCookie($request, $user);
+        $claims = $user === null ? null : self::fromCookie($request, $user);
 
-        if ($provider !== null && $request->hasSession()) {
-            $request->session()->put(self::SESSION_KEY, $provider);
+        if ($claims === null) {
+            return null;
         }
 
-        return $provider;
+        // A remember-me re-login: the origin comes back with the time of the
+        // sign-in it began with (the cookie's issue time, never now) and the
+        // external id of that sign-in.
+        if ($request->hasSession()) {
+            $request->session()->put(self::SESSION_KEY, $claims['p']);
+            self::writeSignIn($request, $claims['i'], $claims['e'] ?? null);
+        }
+
+        return $claims['p'];
     }
 
-    private static function fromCookie(Request $request, Authenticatable $user): ?string
+    /**
+     * When the SSO sign-in of the session happened (unix time), or null for a
+     * session that has the origin and no time (opened before v2.21.0).
+     */
+    public static function signedInAt(Request $request): ?int
+    {
+        $at = $request->hasSession() ? $request->session()->get(self::SESSION_AT) : null;
+
+        return is_int($at) ? $at : null;
+    }
+
+    /** The external id the IdP issued for the signed-in identity, when the session recorded it. */
+    public static function externalId(Request $request): ?string
+    {
+        $id = $request->hasSession() ? $request->session()->get(self::SESSION_EXTERNAL_ID) : null;
+
+        return is_string($id) && $id !== '' ? $id : null;
+    }
+
+    /** When the provider last confirmed the session (unix time), or null when it never did. */
+    public static function checkedAt(Request $request): ?int
+    {
+        $at = $request->hasSession() ? $request->session()->get(self::SESSION_CHECKED_AT) : null;
+
+        return is_int($at) ? $at : null;
+    }
+
+    /** Record that the provider confirmed the session now. */
+    public static function markChecked(Request $request): void
+    {
+        if ($request->hasSession()) {
+            $request->session()->put(self::SESSION_CHECKED_AT, self::now());
+        }
+    }
+
+    /**
+     * Revoke every SSO session of the user (v2.21.0): remember the time, for
+     * the remember lifetime, and drop every SSO-origin nonce of the user, so no
+     * cookie of an earlier sign-in gives an origin back. {@see isRevoked()}
+     * compares the sign-in time of a session with that time.
+     *
+     * The time is written first, and a cache that cannot take it throws: a
+     * revocation that did not stick must not look as if it had.
+     *
+     * @throws RuntimeException
+     */
+    public static function revokeUser(string $userId): void
+    {
+        try {
+            $stored = Cache::put(self::revokedKey($userId), self::now(), now()->addMinutes(self::lifetimeMinutes(null)));
+        } catch (Throwable $e) {
+            throw new RuntimeException("Martis could not record the SSO revocation of user [{$userId}]: the cache refused the write.", 0, $e);
+        }
+
+        if (! $stored) {
+            throw new RuntimeException("Martis could not record the SSO revocation of user [{$userId}]: the cache refused the write.");
+        }
+
+        self::revokeAll($userId);
+    }
+
+    /**
+     * Whether a session of the user that signed in through SSO at
+     * `$signedInAt` was revoked: the user was revoked at or after it. A
+     * session with no sign-in time counts as older than any revocation. A cache
+     * that cannot be read is reported and counts as revoked (fail closed).
+     */
+    public static function isRevoked(string $userId, ?int $signedInAt): bool
+    {
+        try {
+            $revokedAt = Cache::get(self::revokedKey($userId));
+        } catch (Throwable $e) {
+            report($e);
+
+            return true;
+        }
+
+        if ($revokedAt === null) {
+            return false;
+        }
+
+        return ! is_int($revokedAt) || $signedInAt === null || $signedInAt <= $revokedAt;
+    }
+
+    /**
+     * The claims of the origin cookie when it counts: it names this user, is
+     * younger than the remember lifetime and carries a nonce the server still
+     * holds.
+     *
+     * @return array{u: string, p: string, n: string, i: int, e?: string}|null
+     */
+    private static function fromCookie(Request $request, Authenticatable $user): ?array
     {
         $claims = self::claims($request);
 
@@ -151,22 +272,23 @@ final class SsoSession
             return null;
         }
 
-        $age = time() - $claims['i'];
+        $age = self::now() - $claims['i'];
 
         // Older than a remember cookie can be, or issued in the future.
         if ($age < -60 || $age > self::lifetimeMinutes(null) * 60) {
             return null;
         }
 
-        return self::holds($claims['u'], $claims['n']) ? $claims['p'] : null;
+        return self::holds($claims['u'], $claims['n']) ? $claims : null;
     }
 
     /**
      * What the cookie of the request says, when it decrypts and has the
      * shape Martis writes: the user's id (`u`), the provider (`p`), the
-     * nonce (`n`) and the issue time (`i`).
+     * nonce (`n`), the issue time (`i`) and, when the sign-in recorded one,
+     * the external id of the identity (`e`, v2.21.0).
      *
-     * @return array{u: string, p: string, n: string, i: int}|null
+     * @return array{u: string, p: string, n: string, i: int, e?: string}|null
      */
     private static function claims(Request $request): ?array
     {
@@ -190,7 +312,31 @@ final class SsoSession
             return null;
         }
 
-        return ['u' => $claims['u'], 'p' => $claims['p'], 'n' => $claims['n'], 'i' => $claims['i']];
+        $out = ['u' => $claims['u'], 'p' => $claims['p'], 'n' => $claims['n'], 'i' => $claims['i']];
+
+        if (is_string($claims['e'] ?? null) && $claims['e'] !== '') {
+            $out['e'] = $claims['e'];
+        }
+
+        return $out;
+    }
+
+    /** Write the sign-in time and external id of the session, and start its revalidation clock over. */
+    private static function writeSignIn(Request $request, int $at, ?string $externalId): void
+    {
+        $session = $request->session();
+        $session->put(self::SESSION_AT, $at);
+        $session->forget(self::SESSION_CHECKED_AT);
+
+        $externalId !== null && $externalId !== ''
+            ? $session->put(self::SESSION_EXTERNAL_ID, $externalId)
+            : $session->forget(self::SESSION_EXTERNAL_ID);
+    }
+
+    /** The current unix time, through Carbon so a test can travel. */
+    private static function now(): int
+    {
+        return now()->getTimestamp();
     }
 
     /** The remember lifetime of the guard, in minutes. */
@@ -204,6 +350,12 @@ final class SsoSession
     private static function key(string $userId): string
     {
         return 'martis.sso-origin.'.sha1(GuardCatalog::martis().'|'.$userId);
+    }
+
+    /** The cache key of the time the user was revoked, scoped by guard like {@see key()}. */
+    private static function revokedKey(string $userId): string
+    {
+        return 'martis.sso-revoked.'.sha1(GuardCatalog::martis().'|'.$userId);
     }
 
     /** Keep the nonce for the user, for $minutes. False when the cache could not take it. */

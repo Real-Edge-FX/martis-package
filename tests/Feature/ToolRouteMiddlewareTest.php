@@ -254,6 +254,7 @@ it('gives a tool route the middleware of the protected API routes, then the tool
         ->and($api)->toBe([
             'web',
             'martis.auth',
+            'martis.sso.session',
             'martis.impersonation.duration',
             'martis.2fa',
             'martis.locale',
@@ -274,6 +275,7 @@ it('builds the tool route stack from martis.auth_middleware and martis.throttle.
         'web',
         'martis.auth',
         'app.tenant',
+        'martis.sso.session',
         'martis.impersonation.duration',
         'martis.2fa',
         'martis.locale',
@@ -381,12 +383,12 @@ it('reads a middleware config value as a name or a list, null as the default', f
     config()->set('martis.auth_middleware', 'martis.auth');
     config()->set('martis.middleware', null);
 
-    expect(RouteMiddleware::authenticated())->toBe(['martis.auth', 'martis.impersonation.duration'])
+    expect(RouteMiddleware::authenticated())->toBe(['martis.auth', 'martis.sso.session', 'martis.impersonation.duration'])
         ->and(RouteMiddleware::base())->toBe(['web']);
 
     config()->set('martis.auth_middleware', null);
 
-    expect(RouteMiddleware::authenticated())->toBe(['martis.auth', 'martis.impersonation.duration']);
+    expect(RouteMiddleware::authenticated())->toBe(['martis.auth', 'martis.sso.session', 'martis.impersonation.duration']);
 });
 
 it('refuses a middleware config value that is neither a name nor a list of names', function (string $key, mixed $value) {

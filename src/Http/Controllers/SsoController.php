@@ -144,8 +144,10 @@ class SsoController extends Controller
         // through the IdP's federated logout URL (AuthController::logout)
         // and the forced password change gate never holds the session. With
         // remember-me it survives a remember-me re-login (the cookie), and
-        // it is dropped on sign-out and on a non-SSO sign-in.
-        SsoSession::start($request, $user, $provider, is_string($guard) ? $guard : null, $remember);
+        // it is dropped on sign-out and on a non-SSO sign-in. The sign-in
+        // time and the IdP's external id go with it (v2.21.0), for the
+        // `martis.sso.session` middleware.
+        SsoSession::start($request, $user, $provider, is_string($guard) ? $guard : null, $remember, $identity->externalId);
 
         SsoLoggedIn::dispatch($user, $identity, $provider);
 

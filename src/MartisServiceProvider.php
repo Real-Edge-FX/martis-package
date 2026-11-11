@@ -88,6 +88,7 @@ use Martis\Http\Middleware\AuthorizePanelAccess;
 use Martis\Http\Middleware\AuthorizeTool;
 use Martis\Http\Middleware\EnforceImpersonationDuration;
 use Martis\Http\Middleware\EnforceSoftGate;
+use Martis\Http\Middleware\EnforceSsoSession;
 use Martis\Http\Middleware\EnsureEmailIsVerified;
 use Martis\Http\Middleware\EnsurePasswordIsChanged;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
@@ -586,6 +587,9 @@ class MartisServiceProvider extends ServiceProvider
         /** @var Router $router */
         $router = $this->app->make('router');
         $router->aliasMiddleware('martis.auth', MartisAuthenticate::class);
+        // Ends an SSO-opened session that is too old, revoked or no longer
+        // valid at the IdP (v2.21.0), right after `martis.auth`.
+        $router->aliasMiddleware('martis.sso.session', EnforceSsoSession::class);
         $router->aliasMiddleware('martis.2fa', EnsureTwoFactorChallenge::class);
         $router->aliasMiddleware('martis.locale', ApplyUserPreferencesLocale::class);
         $router->aliasMiddleware('martis.verified', EnsureEmailIsVerified::class);

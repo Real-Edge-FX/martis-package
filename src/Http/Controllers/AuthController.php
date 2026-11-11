@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 use Martis\Auth\AccountLoginThrottle;
 use Martis\Auth\PanelAccess;
 use Martis\Auth\PasswordBrokerConfigurationException;
@@ -234,8 +235,9 @@ class AuthController extends MartisController
         // signing out: after a remember-me re-login the origin is in
         // the SSO cookie of this user (SsoSession).
         $ssoProvider = (string) (SsoSession::provider($request, $auth->user()) ?? '');
+        $loginUrl = (string) url('/'.ltrim((string) config('martis.path', 'martis'), '/').'/login');
         $logoutUrl = $ssoProvider !== ''
-            ? (string) (config("martis.auth.sso.providers.{$ssoProvider}.logout_url") ?? '')
+            ? $this->federatedLogoutUrl($request, $ssoProvider, $auth->user(), $loginUrl)
             : '';
 
         $auth->logout();
@@ -246,16 +248,6 @@ class AuthController extends MartisController
         RememberedTwoFactor::forget();
 
         if ($logoutUrl !== '') {
-            // Replace `{post_logout_redirect_uri}` with the canonical
-            // post-logout target (Martis login page) so consumers can
-            // template the redirect inside the env var.
-            $loginUrl = (string) url('/'.ltrim((string) config('martis.path', 'martis'), '/').'/login');
-            $logoutUrl = str_replace(
-                '{post_logout_redirect_uri}',
-                rawurlencode($loginUrl),
-                $logoutUrl,
-            );
-
             if ($request->expectsJson()) {
                 return response()->json([
                     'message' => 'Logged out',
@@ -271,6 +263,53 @@ class AuthController extends MartisController
         }
 
         return redirect()->route('martis.login');
+    }
+
+    /**
+     * The federated logout URL of an SSO provider, or '' for a local logout
+     * only. `logout_url` is a URL, in which `{post_logout_redirect_uri}` is
+     * replaced with the urlencoded Martis login page URL, or (v2.21.0) the name
+     * of an invokable class, called as `__invoke(Request $request,
+     * ?Authenticatable $user, string $postLogoutRedirectUri): ?string` with the
+     * login page URL as it is (the class encodes it where its URL needs that)
+     * and answering the URL, or null for a local logout only. It runs before
+     * the local logout, while the user is still signed in.
+     *
+     * @throws InvalidArgumentException when the value names a class that is
+     *                                  not invokable, or the class answers
+     *                                  something that is neither a string nor null
+     */
+    private function federatedLogoutUrl(Request $request, string $provider, ?Authenticatable $user, string $loginUrl): string
+    {
+        $key = "martis.auth.sso.providers.{$provider}.logout_url";
+        $configured = config($key);
+
+        if ($configured === null || $configured === '') {
+            return '';
+        }
+
+        if (! is_string($configured)) {
+            throw new InvalidArgumentException("The [{$key}] config value must be a URL or the name of an invokable class, got ".get_debug_type($configured).'.');
+        }
+
+        // A URL never looks like a class name, so it never reaches the autoloader.
+        if (preg_match('/^\\\\?[A-Za-z_]\w*(\\\\[A-Za-z_]\w*)*$/', $configured) !== 1 || ! class_exists($configured)) {
+            return str_replace('{post_logout_redirect_uri}', rawurlencode($loginUrl), $configured);
+        }
+
+        $resolver = app($configured);
+
+        if (! is_callable($resolver)) {
+            throw new InvalidArgumentException("The [{$key}] config value names the class [{$configured}], which is not invokable: give it an __invoke(Request, ?Authenticatable, string): ?string method, or a plain URL.");
+        }
+
+        $url = $resolver($request, $user, $loginUrl);
+
+        if ($url !== null && ! is_string($url)) {
+            throw new InvalidArgumentException("The class [{$configured}] named by [{$key}] must return a URL string or null, got ".get_debug_type($url).'.');
+        }
+
+        return $url ?? '';
     }
 
     /**

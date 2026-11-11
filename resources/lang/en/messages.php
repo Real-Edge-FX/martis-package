@@ -289,6 +289,7 @@ return [
     'sso_user_not_provisioned' => 'Your account is not provisioned in this workspace yet. Contact your administrator.',
     'sso_account_unverified' => 'An account with this email already exists here but cannot be linked to this sign-in. Contact your administrator.',
     'sso_no_role_match' => "Your account doesn't have the roles required to access this workspace.",
+    'sso_session_ended' => 'Your session has ended. Please sign in again.',
     'reset_to_defaults' => 'Reset to defaults',
     'theme' => 'Theme',
     'theme_dark' => 'Dark',
