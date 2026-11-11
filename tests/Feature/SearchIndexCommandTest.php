@@ -196,7 +196,8 @@ it('writes a non-transactional migration with the missing indexes only', functio
         ->toContain('CREATE INDEX CONCURRENTLY IF NOT EXISTS "si_orders_code_trgm_idx" ON "si_orders" USING gin (("code"::text) gin_trgm_ops)')
         ->toContain('CREATE INDEX CONCURRENTLY IF NOT EXISTS "si_lines_label_trgm_idx" ON "si_lines" USING gin (("label"::text) gin_trgm_ops)')
         ->toContain('DROP INDEX CONCURRENTLY IF EXISTS "si_lines_label_trgm_idx"')
-        ->not->toContain('si_orders_name_trgm_idx');
+        ->not->toContain('si_orders_name_trgm_idx')
+        ->not->toContain('DB::connection(NULL)');
 });
 
 it('writes nothing when every column is indexed', function () {
