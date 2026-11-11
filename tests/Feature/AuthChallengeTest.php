@@ -222,7 +222,10 @@ it('still challenges a break-glass sign-in', function () {
     config()->set('martis.auth.password_login.break_glass_emails', ['person@example.com']);
     $credentials = ['email' => 'person@example.com', 'password' => 'secret-pass-123'];
 
-    $this->postJson('/martis/api/auth/login', $credentials)->assertStatus(422)->assertJsonValidationErrors(['challenge_token']);
+    // Still challenged, but the refusal is the 403 every address gets while
+    // password sign-in is off: the break-glass list is not an oracle.
+    $this->postJson('/martis/api/auth/login', $credentials)->assertForbidden()->assertJsonMissingValidationErrors(['challenge_token']);
+    $this->assertGuest();
     $this->postJson('/martis/api/auth/login', $credentials + ['challenge_token' => 'valid-token'])->assertOk();
 });
 

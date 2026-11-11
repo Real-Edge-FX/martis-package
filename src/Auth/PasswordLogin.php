@@ -144,7 +144,12 @@ final class PasswordLogin
         return false;
     }
 
-    private static function normalise(string $email): string
+    /**
+     * The form an address is compared and looked up in: trimmed and
+     * lower-cased. The middleware hands it to the controller, so the account
+     * signed in is the one the list names.
+     */
+    public static function normalise(string $email): string
     {
         return mb_strtolower(trim($email));
     }

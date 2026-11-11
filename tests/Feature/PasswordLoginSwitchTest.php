@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Testing\TestResponse;
+use Martis\Auth\AccountLoginThrottle;
 use Martis\Auth\AuthConfigurationException;
 use Martis\Auth\PasswordLogin;
 use Martis\MartisServiceProvider;
@@ -118,13 +120,128 @@ it('matches the break-glass list case-insensitively and trimmed', function () {
         ->and(PasswordLogin::isBreakGlass(['person@example.com']))->toBeFalse();
 });
 
-it('still refuses an address that is not on the break-glass list, and a wrong password stays a 422 for one that is', function () {
+// --- the break-glass list is not an oracle -----------------------------------
+
+/** What a refusal shows a caller: status, content type and body. */
+function refusalOf(TestResponse $response): array
+{
+    return [
+        'status' => $response->getStatusCode(),
+        'content-type' => $response->headers->get('Content-Type'),
+        'body' => $response->getContent(),
+    ];
+}
+
+it('answers a failed break-glass sign-in exactly as it answers an address that is not listed', function (string $method, string $uri) {
     passwordLoginUser();
     config()->set('martis.auth.password_login.enabled', false);
     config()->set('martis.auth.password_login.break_glass_emails', ['person@example.com']);
 
-    $this->postJson('/martis/api/auth/login', ['email' => 'other@example.com', 'password' => 'secret-pass-123'])->assertForbidden();
+    $unlisted = refusalOf($this->{$method}($uri, ['email' => 'other@example.com', 'password' => 'secret-pass-123']));
+
+    $failures = [
+        'wrong password' => ['email' => 'person@example.com', 'password' => 'wrong-password'],
+        'no password' => ['email' => 'person@example.com'],
+        'a malformed body' => ['email' => ['person@example.com'], 'password' => 'x'],
+    ];
+
+    expect($unlisted['status'])->toBe(403);
+
+    foreach ($failures as $label => $body) {
+        expect(refusalOf($this->{$method}($uri, $body)))->toBe($unlisted, $label);
+    }
+})->with('password sign-in routes');
+
+it('answers a listed address with no account like any other address', function () {
+    passwordLoginUser();
+    config()->set('martis.auth.password_login.enabled', false);
+    config()->set('martis.auth.password_login.break_glass_emails', ['ghost@example.com']);
+
+    $unlisted = refusalOf($this->postJson('/martis/api/auth/login', ['email' => 'other@example.com', 'password' => 'x']));
+
+    expect(refusalOf($this->postJson('/martis/api/auth/login', ['email' => 'ghost@example.com', 'password' => 'x'])))->toBe($unlisted);
+    $this->assertGuest();
+});
+
+it('leaves no validation errors or old input in the session of a refused form sign-in', function () {
+    passwordLoginUser();
+    config()->set('martis.auth.password_login.enabled', false);
+    config()->set('martis.auth.password_login.break_glass_emails', ['person@example.com']);
+
+    $this->post('/martis/login', ['email' => 'person@example.com', 'password' => 'wrong-password'])->assertForbidden();
+
+    expect(session()->has('errors'))->toBeFalse()
+        ->and(session()->has('_old_input'))->toBeFalse();
+});
+
+it('does not let the per-account throttle tell a break-glass address apart', function () {
+    $user = passwordLoginUser();
+    config()->set('martis.auth.password_login.enabled', false);
+    config()->set('martis.auth.password_login.break_glass_emails', ['person@example.com']);
+    config()->set('martis.throttle.login_email_attempts', 2);
+
+    $unlisted = refusalOf($this->postJson('/martis/api/auth/login', ['email' => 'other@example.com', 'password' => 'x']));
+
+    // Spend the account's bucket, which the controller answers with a 429.
+    foreach (range(1, 2) as $ignored) {
+        AccountLoginThrottle::hit(AccountLoginThrottle::PASSWORD, 'person@example.com', $user);
+    }
+
+    expect(refusalOf($this->postJson('/martis/api/auth/login', ['email' => 'person@example.com', 'password' => 'secret-pass-123'])))
+        ->toBe($unlisted);
+    $this->assertGuest();
+});
+
+it('keeps counting a failed break-glass sign-in against the account', function () {
+    $user = passwordLoginUser();
+    config()->set('martis.auth.password_login.enabled', false);
+    config()->set('martis.auth.password_login.break_glass_emails', ['person@example.com']);
+
+    $this->postJson('/martis/api/auth/login', ['email' => 'person@example.com', 'password' => 'wrong-password'])->assertForbidden();
+
+    expect(AccountLoginThrottle::tooMany(AccountLoginThrottle::PASSWORD, 'person@example.com', $user))->toBeFalse();
+    expect(RateLimiter::attempts(AccountLoginThrottle::key(AccountLoginThrottle::PASSWORD, 'person@example.com', $user)))->toBe(1);
+});
+
+it('lets the listed address sign in with the right password, and shows the next step after correct credentials', function () {
+    $user = passwordLoginUser();
+    config()->set('martis.auth.password_login.enabled', false);
+    config()->set('martis.auth.password_login.break_glass_emails', ['person@example.com']);
+
+    $this->postJson('/martis/api/auth/login', ['email' => 'person@example.com', 'password' => 'secret-pass-123'])
+        ->assertOk()->assertJsonPath('email', 'person@example.com');
+    $this->assertAuthenticatedAs($user);
+});
+
+it('shows the email verification step after correct break-glass credentials', function () {
+    $user = passwordLoginUser();
+    config()->set('martis.auth.email_verification.enabled', true);
+    config()->set('martis.auth.password_login.enabled', false);
+    config()->set('martis.auth.password_login.break_glass_emails', ['person@example.com']);
+
+    $this->postJson('/martis/api/auth/login', ['email' => 'person@example.com', 'password' => 'secret-pass-123'])
+        ->assertOk()->assertJsonPath('email_verification_required', true);
+    $this->assertAuthenticatedAs($user);
+});
+
+it('looks the account up by the same normalised address the list is matched on', function () {
+    $user = passwordLoginUser();
+    config()->set('martis.auth.password_login.enabled', false);
+    config()->set('martis.auth.password_login.break_glass_emails', ['  Person@Example.COM ']);
+
+    // A case variant reaches the account of the listed (lower-cased) address,
+    // on a database whose comparison is case-sensitive too.
+    $this->postJson('/martis/api/auth/login', ['email' => 'PERSON@Example.com', 'password' => 'secret-pass-123'])->assertOk();
+    $this->assertAuthenticatedAs($user);
+});
+
+it('does not normalise anything while password sign-in is on', function () {
+    passwordLoginUser();
+    config()->set('martis.auth.password_login.break_glass_emails', ['person@example.com']);
+
+    // On: the controller answers as it always did (a wrong password is a 422).
     $this->postJson('/martis/api/auth/login', ['email' => 'person@example.com', 'password' => 'wrong-password'])->assertStatus(422);
+    $this->postJson('/martis/api/auth/login', ['email' => 'PERSON@example.com', 'password' => 'secret-pass-123'])->assertStatus(422);
 });
 
 it('runs the throttles before the switch', function () {

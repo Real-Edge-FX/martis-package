@@ -1265,7 +1265,7 @@ Toggles the theme switcher and locale picker that float on the auth pages.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `auth.password_login.enabled` | `bool` | `true` | `false` turns email and password sign-in off for an SSO-only panel: `POST /login` and `POST /api/auth/login` answer 403 for every address before the controller reads a credential, the password reset flow is off with it, and the login page shows the SSO buttons only (`?password_login=1` still shows the form). Anything that is not a boolean or a boolean string throws, naming the key. |
-| `auth.password_login.break_glass_emails` | `array<string>` | `[]` | Addresses (trimmed, case-insensitive) that may still sign in with a password while it is off. Never published to the browser. A value that is not an array of strings throws, naming the key. |
+| `auth.password_login.break_glass_emails` | `array<string>` | `[]` | Addresses (trimmed, case-insensitive) that may still sign in with a password while it is off; the account is looked up by the trimmed, lower-cased address, so store it that way. A failed break-glass sign-in answers with the same 403 as any other address. Never published to the browser. A value that is not an array of strings throws, naming the key. |
 
 Magic-link sign-in, invitations and registration keep their own switches: an SSO-only panel turns them off. One warning a day is logged when password sign-in is off and no SSO provider is enabled and magic link is off. See [Authentication → Password sign-in switch](authentication.md#password-sign-in-switch-v2210).
 

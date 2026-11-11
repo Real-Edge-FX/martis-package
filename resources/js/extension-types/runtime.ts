@@ -121,6 +121,7 @@ export type {
   ActionResponseModalProps,
   TopbarSlotProps,
   TopbarSlotPlacement,
+  AuthChallengeProps,
   LayoutProps,
   OverrideProps,
   MartisLoaderProps,

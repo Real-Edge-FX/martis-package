@@ -272,6 +272,8 @@ With `enabled` false:
 
 - `POST /{martis-path}/login` and `POST /{martis-path}/api/auth/login` answer **403** with the translated `password_login_disabled` message, the same answer for every address, **before** the controller runs: no credential is read, validated or checked, so the response says nothing about whether an account exists. The login throttles still run first.
 - An address in `break_glass_emails` passes through to the normal sign-in (the way back in when the identity provider is down). Keep the list short: it is the one place a password still works. A break-glass sign-in goes through the same throttles and, when configured, the [challenge](#challenge-captcha-hook-v2210).
+- **The list is not an oracle.** A break-glass sign-in that does not succeed (no such account, a wrong password, a malformed body, the per-account throttle, a missing challenge token) gets exactly the 403 and body every other address gets, on both routes, and what the controller flashed to the session is dropped. Only a sign-in that succeeds, or the legitimate next step after correct credentials (the 2FA challenge, the email verification or password change pages), shows the controller's answer. Failed attempts still count against the per-account throttle. A request that is already signed in as the same account cannot tell it apart from a failure: sign out first.
+- The address is compared and looked up in the same form: trimmed and lower-cased. `Admin@X.com ` signs in as the account `admin@x.com`, never as another one, so the account of a break-glass address must be stored in lower case (or on a case-insensitive collation). Only break-glass requests are rewritten; while password sign-in is on nothing changes.
 - **Password reset is off with it**: the forgot and reset endpoints answer as they do when `passwordReset.enabled` is `false` (404), their pages redirect to `/login`, and the SPA hides the "Forgot?" link. A reset link would hand a password sign-in back through the inbox. Break-glass addresses cannot reset either: an administrator sets their password.
 - The login page shows the SSO buttons only: no divider, no email and password form, no "Forgot?" link, and the SSO-only subtitle (`login_sub_sso_only`, or `auth.copy.login.subtitle_sso_only` / `MARTIS_AUTH_LOGIN_SUBTITLE_SSO_ONLY`). `/martis/login?password_login=1` renders the form anyway, the entry point for a break-glass sign-in. The page decides nothing about who may use it: the server answers 403 to any other address, and the break-glass list is never published.
 
@@ -363,17 +365,11 @@ class TurnstileVerifier implements ChallengeVerifier
 }
 ```
 
-The component, in your extension bundle (`resources/js/martis-extensions/overrides/TurnstileChallenge.tsx`):
+The component, in your extension bundle (`resources/js/martis-extensions/overrides/TurnstileChallenge.tsx`). `AuthChallengeProps` is exported by `@martis/runtime` (republish the extension shims to get the type, see [Refreshing the extension scaffold](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade)):
 
 ```tsx
 import { useEffect, useRef } from 'react'
-
-interface Props {
-  siteKey: string | null
-  surface: string
-  onToken: (token: string | null) => void
-  resetSignal: number
-}
+import type { AuthChallengeProps } from '@martis/runtime'
 
 interface TurnstileApi {
   render: (el: HTMLElement, options: Record<string, unknown>) => string
@@ -397,7 +393,7 @@ function loadTurnstile(): Promise<TurnstileApi> {
   return loading
 }
 
-export default function TurnstileChallenge({ siteKey, surface, onToken, resetSignal }: Props) {
+export default function TurnstileChallenge({ siteKey, surface, onToken, resetSignal }: AuthChallengeProps) {
   const box = useRef<HTMLDivElement>(null)
   const widget = useRef<string | null>(null)
 

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 
@@ -54,6 +54,8 @@ vi.mock('@images/logo.png', () => ({ default: '/logo.png' }))
 
 import { componentRegistry } from '@/lib/componentRegistry'
 import { CHALLENGE_REGISTRY_KEY, type AuthChallengeProps } from '@/components/auth/AuthChallenge'
+import type { AuthChallengeProps as RuntimeAuthChallengeProps } from '@/lib/martisRuntime'
+import type { AuthChallengeProps as ExtensionAuthChallengeProps } from '@/extension-types/runtime'
 import { LoginPage } from '@/pages/Login'
 import { ForgotPasswordPage } from '@/pages/ForgotPassword'
 
@@ -92,6 +94,13 @@ function submitLogin() {
   fireEvent.change(document.querySelector('input[name="password"]') as HTMLInputElement, { target: { value: 'secret' } })
   fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 }
+
+describe('the props type for extension authors', () => {
+  it('is the one `@martis/runtime` and its extension types export', () => {
+    expectTypeOf<RuntimeAuthChallengeProps>().toEqualTypeOf<AuthChallengeProps>()
+    expectTypeOf<ExtensionAuthChallengeProps>().toEqualTypeOf<AuthChallengeProps>()
+  })
+})
 
 describe('login page', () => {
   it('renders the widget with the site key and surface, and sends its token with the sign-in', async () => {
