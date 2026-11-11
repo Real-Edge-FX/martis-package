@@ -64,6 +64,7 @@ use Martis\Console\PublishAssetsCommand;
 use Martis\Console\ResourceMakeCommand;
 use Martis\Console\RolesScaffoldCommand;
 use Martis\Console\SearchIndexCommand;
+use Martis\Console\SsoKeysCommand;
 use Martis\Console\SsoMakeCommand;
 use Martis\Console\StubsCommand;
 use Martis\Console\ThemeDiffCommand;
@@ -316,6 +317,7 @@ class MartisServiceProvider extends ServiceProvider
                 CacheEnableCommand::class,
                 ListOverridesCommand::class,
                 ListEnvVarsCommand::class,
+                SsoKeysCommand::class,
                 SsoMakeCommand::class,
                 RolesScaffoldCommand::class,
                 InvitationsScaffoldCommand::class,
