@@ -283,6 +283,10 @@ public function searchQuery(Builder $query, string $term): ?Builder
 
 > **You own the WHERE — in place.** Constrain and return the **given** `$query` (Eloquent `where`/scope calls return `$this`, so `return $query->search($term)` is correct). Returning a **different** Builder instance throws `LogicException` — it would drop the index/filter scoping already applied and be ignored by relation-picker pagination. A non-null return that adds no predicate bypasses the empty-set guard and dumps every row — the same trust the package places in `indexQuery()`. Keep the driver-specific SQL in your own model scope; the package ships only the seam. A resource that opts into `usesScout()` uses Scout instead — `searchQuery()` is the non-Scout path.
 
+### Search mode — `searchMode()`
+
+`public static ?string $searchMode` (or override `searchMode()`) sets how the database search matches a term: `contains` (default, `ILIKE '%term%'`), `prefix` (`ILIKE 'term%'`) or `columns` (only the columns named by `col:term` tokens; a bare term acts as `contains`). It falls back to the `martis.search.match_mode` config key; an unknown value throws an `InvalidArgumentException` naming the resource. See [search-performance.md](search-performance.md), and `php artisan martis:search-index` to check the indexes behind a resource's search.
+
 ### `$stickyView` (⭐ Martis differential)
 
 Controls whether this resource participates in the [Sticky Views](sticky_views.md) feature — per-user view state persistence on the index page (filters, sort, pagination, per-page, search). Default: `true`.

@@ -1411,6 +1411,7 @@ Hides the global pre-hydration loader. Useful when you embed Martis inside an ou
     'mobile_mode'   => env('MARTIS_SEARCH_MOBILE_MODE', 'icon'),
     'default_limit' => (int) env('MARTIS_SEARCH_DEFAULT_LIMIT', 5),
     'min_query'     => (int) env('MARTIS_SEARCH_MIN_QUERY', 2),
+    'match_mode'    => env('MARTIS_SEARCH_MATCH_MODE', 'contains'),
 ],
 ```
 
@@ -1420,6 +1421,7 @@ Hides the global pre-hydration loader. Useful when you embed Martis inside an ou
 | `mobile_mode` | `icon` | Equivalent for mobile viewports. |
 | `default_limit` | `5` | Result rows per resource in the omnisearch dropdown. |
 | `min_query` | `2` | Don't trigger a search until the query has this many characters. |
+| `match_mode` | `contains` | How the database search matches a term for every resource without its own `searchMode()`: `contains` (`ILIKE '%term%'`), `prefix` (`ILIKE 'term%'`) or `columns` (only `col:term` tokens). An unknown value throws. See [search-performance.md](search-performance.md). |
 
 ## Default row actions
 
@@ -1663,6 +1665,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_ROW_CLICK_OPENS_DETAIL` | `true` |
 | `MARTIS_RTL_LOCALES` | `'ar,fa,he,ur'` |
 | `MARTIS_SEARCH_DEFAULT_LIMIT` | `5` |
+| `MARTIS_SEARCH_MATCH_MODE` | `'contains'` |
 | `MARTIS_SEARCH_MIN_QUERY` | `2` |
 | `MARTIS_SEARCH_MOBILE_MODE` | `'icon'` |
 | `MARTIS_SEARCH_MODE` | `'bar'` |

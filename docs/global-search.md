@@ -336,6 +336,10 @@ Both values are clamped to a minimum of 1 at request time, so a misconfigured en
 
 Both paths integrate identically with the Cmd+K palette — `searchOrderBy()` runs in either case.
 
+### Match mode
+
+`ILIKE '%term%'` (`contains`) is the default. A resource can switch to `prefix` (`'term%'`) or `columns` (only the `col:term` tokens) with `searchMode()` or the `martis.search.match_mode` config key, which lets a trigram or btree index serve the search. See [search-performance.md](search-performance.md).
+
 ### Case-insensitivity across drivers
 
 The `LIKE` pipeline is **case-insensitive on every supported database**. PostgreSQL's `LIKE` is case-sensitive, so the resolver emits `ILIKE` there; MySQL, SQLite, and SQL Server treat `LIKE` case-insensitively already and keep `LIKE` (byte-for-byte unchanged). The operator is chosen once per query by `SearchResolver::likeOperator($driver)` — the single source of truth reused by both the global-search pipeline and the relatable / BelongsTo dropdown search in `ResourceController`. So `RP` and `rp` return the same results regardless of the underlying database. This mirrors Laravel's own `whereLike($col, $val, caseSensitive: false)` default; column type / collation is irrelevant.

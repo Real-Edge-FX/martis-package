@@ -1768,6 +1768,15 @@ abstract class Resource implements ResourceContract
     public static ?int $scoutSearchResults = null;
 
     /**
+     * How the database search matches a term: `contains` (`col ILIKE '%term%'`,
+     * the default), `prefix` (`col ILIKE 'term%'`) or `columns` (only the
+     * columns named by `col:term` tokens; a bare term falls back to
+     * `contains`). `null` defers to `martis.search.match_mode`. An unknown
+     * value throws when a search runs.
+     */
+    public static ?string $searchMode = null;
+
+    /**
      * Hard cap on the number of results returned by relatable lookups
      * (BelongsTo / MorphTo / BelongsToMany attach modal pickers).
      *
@@ -2059,6 +2068,16 @@ abstract class Resource implements ResourceContract
     public static function searchableRelations(): array
     {
         return [];
+    }
+
+    /**
+     * The match mode of this resource's database search: `contains`
+     * (default), `prefix` or `columns`. Reads `$searchMode`, then the
+     * `martis.search.match_mode` config key. See docs/search-performance.md.
+     */
+    public static function searchMode(): string
+    {
+        return static::$searchMode ?? (string) config('martis.search.match_mode', 'contains');
     }
 
     /**
