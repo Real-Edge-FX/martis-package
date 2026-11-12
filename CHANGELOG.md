@@ -26,6 +26,8 @@ Minor release that hardens the signed-token SSO of v2.21.0 after a review of the
 
 ### Changed
 
+- **A configuration error of a signed-token provider block is a 500 on the callback, naming the key**, not an `unknown` refusal with the generic text; a refusal is an `SsoException` only. The refusal of an expired state says it is older than the ten-minute lifetime (reason still `state`).
+- **An unusable SSO cache store fails a sign-in before anyone is signed in**: password (SPA and form), magic link and invitation call `SsoCache::assertUsable()` ahead of the guard (a no-op with SSO off), so the answer is the error and nobody is authenticated. The magic link and the invitation are not spent.
 - **A provider `label` that is neither a string nor a map of strings throws**, naming the key. It used to be dropped without a word. An empty-string `label` now reads as unset (the button says "Continue with <name>"); it rendered an empty button before.
 - A signed-token callback whose `jti` was already used answers `replayed` even when its state is also wrong (it answered `state` before).
 
