@@ -6,6 +6,7 @@ import { apiPath, routePath } from "@/lib/apiPath"
 import { deleteErrorMessage } from "@/lib/deleteError"
 import type { ResourceRecord, ResourceSchema, OverrideProps, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from "@/types"
 import { FieldDisplay } from "@/components/fields/FieldRenderer"
+import { DetailRow } from "@/components/DetailRow"
 import { PanelDisplay } from "@/components/fields/PanelRenderer"
 import { TabsDisplay } from "@/components/fields/TabsRenderer"
 import { SectionDisplay } from "@/components/fields/SectionRenderer"
@@ -206,6 +207,11 @@ export function ResourceDetailPage() {
   const sidebarFields = withoutHiddenFields(schema.detailSidebar ?? [], hidden)
   const sidebarAttrs = new Set(sidebarFields.map((f) => f.attribute))
   const hasSidebar = sidebarFields.length > 0
+  // `Resource::detailKicker()`: null keeps the translated "Details", a string
+  // is shown verbatim, false hides the heading above both field blocks.
+  const detailKicker = schema.detailKicker === undefined || schema.detailKicker === null
+    ? tMsg("details")
+    : schema.detailKicker
   const panelItems = detailFields.filter(f => f.type === 'panel') as PanelDefinition[]
   const tabGroupItems = detailFields.filter(f => f.type === 'tab_group') as TabGroupDefinition[]
   const sectionItems = detailFields.filter(f => f.type === 'section') as SectionDefinition[]
@@ -334,15 +340,10 @@ export function ResourceDetailPage() {
            *  fields read as a named block instead of a generic card. */}
           {scalarFields.length > 0 && (
             <div>
-              <div className="martis-detail-kicker">{tMsg("details")}</div>
+              {detailKicker !== false && <div className="martis-detail-kicker">{detailKicker}</div>}
               <dl className="martis-detail-panel">
                 {scalarFields.map((field) => (
-                  <div key={field.attribute} className="martis-detail-row">
-                    <dt className="martis-detail-label">{field.label}</dt>
-                    <dd className="martis-detail-value">
-                      <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} resourceId={id} context="detail" />
-                    </dd>
-                  </div>
+                  <DetailRow key={field.attribute} field={field} record={record} resourceKey={resource} resourceId={id} />
                 ))}
               </dl>
             </div>
@@ -359,15 +360,10 @@ export function ResourceDetailPage() {
 
         {hasSidebar && (
           <aside className="martis-detail-sidebar">
-            <div className="martis-detail-kicker">{tMsg("details")}</div>
+            {detailKicker !== false && <div className="martis-detail-kicker">{detailKicker}</div>}
             <dl className="martis-detail-panel is-drawer">
               {sidebarFields.map((field) => (
-                <div key={field.attribute} className="martis-detail-row">
-                  <dt className="martis-detail-label">{field.label}</dt>
-                  <dd className="martis-detail-value">
-                    <FieldDisplay field={field} value={record[field.attribute]} resourceKey={resource} resourceId={id} context="detail" />
-                  </dd>
-                </div>
+                <DetailRow key={field.attribute} field={field} record={record} resourceKey={resource} resourceId={id} />
               ))}
             </dl>
           </aside>

@@ -285,6 +285,10 @@ interface FieldDefinition {
         minWidth?: string | null;
         maxWidth?: string | null;
         truncate?: boolean;
+        /** `Field::textAlign()`: explicit index column alignment. */
+        textAlign?: 'left' | 'center' | 'right' | null;
+        /** `Field::hideBelow()`: breakpoint below which the index column is hidden. */
+        hideBelow?: 'sm' | 'md' | 'lg' | 'xl' | null;
     };
     options?: SelectOption[];
     relatedResource?: string;
@@ -360,6 +364,8 @@ interface FieldDefinition {
     fullWidth?: boolean;
     /** Whether the label is stacked above (true) or inline (false). */
     stacked?: boolean;
+    /** `Field::hideLabelOnDetail()`: the detail row renders the value without its label. */
+    hideLabelOnDetail?: boolean;
     /** Allow access to arbitrary meta properties set via withMeta(). */
     [key: string]: unknown;
 }
@@ -484,6 +490,10 @@ interface ResourceSchema extends ResourceEmbedded {
     tableSize?: 'normal' | 'small' | 'large';
     tableRowHover?: boolean;
     tableLayout?: 'auto' | 'fixed';
+    /** `Resource::stickyActions()`: pin the index actions column to the right edge. */
+    stickyActions?: boolean;
+    /** `Resource::detailKicker()`: null = translated "Details", string = verbatim, false = hidden. */
+    detailKicker?: string | false | null;
     /** The sort applied on the initial index load, most significant key first (empty = none). */
     defaultSort?: Array<{
         attribute: string;

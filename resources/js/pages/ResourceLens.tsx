@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { PerPageSelect, TrashedSelect } from '@/components/CompactSelect'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -420,41 +421,28 @@ function LensPage() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <label className="text-xs martis-text-muted whitespace-nowrap">{t('per_page', 'Per page')}:</label>
-                  <select
-                    value={effectivePerPage}
-                    onChange={(e) => mutateParams((p) => {
-                      p.set('per_page', e.target.value)
-                      p.set('page', '1')
-                    })}
-                    className="martis-perpage-select"
-                  >
-                    {perPageOptions.map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                </div>
+                <PerPageSelect
+                  value={effectivePerPage}
+                  options={perPageOptions}
+                  onChange={(next) => mutateParams((p) => {
+                    p.set('per_page', String(next))
+                    p.set('page', '1')
+                  })}
+                />
 
                 {schema.softDeletes && (
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <select
-                      value={trashedFilter}
-                      onChange={(e) => {
-                        const next = e.target.value as '' | 'with' | 'only'
-                        mutateParams((p) => {
-                          if (next) p.set('trashed', next)
-                          else p.delete('trashed')
-                          p.set('page', '1')
-                        })
-                      }}
-                      className="martis-perpage-select"
-                    >
-                      <option value="">{t('trashed_active', 'Active')}</option>
-                      <option value="with">{t('trashed_with', 'With trashed')}</option>
-                      <option value="only">{t('trashed_only', 'Only trashed')}</option>
-                    </select>
-                  </div>
+                  <TrashedSelect
+                    value={trashedFilter}
+                    onChange={(next) => {
+                      mutateParams((p) => {
+                        if (next) p.set('trashed', next)
+                        else p.delete('trashed')
+                        p.set('page', '1')
+                      })
+                    }}
+                    labels={{ active: t('trashed_active', 'Active'), with: t('trashed_with', 'With trashed'), only: t('trashed_only', 'Only trashed') }}
+                    ariaLabel={t('trashed_filter', 'Soft-delete filter')}
+                  />
                 )}
               </div>
             </div>
@@ -536,6 +524,7 @@ function LensPage() {
             size: schema.tableSize,
             rowHover: schema.tableRowHover,
             layout: schema.tableLayout,
+          stickyActions: schema.stickyActions,
           }}
         />
         )}

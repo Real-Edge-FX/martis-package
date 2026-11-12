@@ -78,6 +78,8 @@ export interface TableProps {
     rowHover?: boolean
     /** `fixed` respects explicit column widths pixel-for-pixel; `auto` lets content size each column. */
     layout?: "auto" | "fixed"
+    /** Pin the row-actions column to the right edge while the table scrolls sideways. */
+    stickyActions?: boolean
   }
 }
 
@@ -86,6 +88,8 @@ interface ColumnWidth {
   minWidth?: string | null
   maxWidth?: string | null
   truncate?: boolean
+  textAlign?: "left" | "center" | "right" | null
+  hideBelow?: "sm" | "md" | "lg" | "xl" | null
 }
 
 /**
@@ -99,7 +103,21 @@ function columnStyleFrom(meta: ColumnWidth | null | undefined): React.CSSPropert
   if (meta.width) style.width = meta.width
   if (meta.minWidth) style.minWidth = meta.minWidth
   if (meta.maxWidth) style.maxWidth = meta.maxWidth
+  if (meta.textAlign) style.textAlign = meta.textAlign
   return Object.keys(style).length === 0 ? undefined : style
+}
+
+/**
+ * Class names a field's column metadata adds to its header and body cells:
+ * the responsive hide class (`hideBelow`), and the alignment classes that
+ * give right-aligned figures tabular digits. Both default to nothing.
+ */
+function columnClassesFrom(meta: ColumnWidth | null | undefined): string {
+  if (!meta) return ""
+  return [
+    meta.hideBelow && `martis-col-hide-${meta.hideBelow}`,
+    meta.textAlign && `martis-col-align-${meta.textAlign}`,
+  ].filter(Boolean).join(" ")
 }
 
 /* ── Inline Action Menu (3-dot grouped) with submenu support ──────── */
@@ -625,6 +643,7 @@ function DefaultTable({
     size === "small" && "martis-datatable-sm",
     size === "large" && "martis-datatable-lg",
     !rowHover && "martis-datatable-no-hover",
+    tableConfig?.stickyActions === true && "martis-datatable-sticky-actions",
   ].filter(Boolean).join(" ")
 
   // Convert selectedIds Set to array of row objects for PrimeReact native selection
@@ -734,13 +753,15 @@ function DefaultTable({
           const col = field.column as ColumnWidth | undefined
           const style = columnStyleFrom(col)
           const truncateClass = col?.truncate ? "martis-col-truncate" : undefined
+          const colClasses = columnClassesFrom(col)
+          const bodyClasses = [truncateClass, colClasses].filter(Boolean).join(" ") || undefined
           return (
           <Column
             key={field.attribute}
             field={field.attribute}
             header={
               field.sortable ? (
-                <SortHeader attribute={field.attribute} label={field.label} sort={sort} onSort={onSort} />
+                <SortHeader attribute={field.attribute} label={field.label} sort={sort} onSort={onSort} align={col?.textAlign ?? undefined} />
               ) : (
                 <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--martis-table-header-text)" }}>
                   {field.label}
@@ -756,7 +777,8 @@ function DefaultTable({
             sortable={false}
             style={style}
             headerStyle={style}
-            bodyClassName={truncateClass}
+            headerClassName={colClasses || undefined}
+            bodyClassName={bodyClasses}
           />
           )
         })}
@@ -768,7 +790,8 @@ function DefaultTable({
                 ? tAct("actions", { defaultValue: "Actions" })
                 : actionsColumnLabel ?? ""
             }
-            headerClassName="text-right"
+            headerClassName="text-right martis-actions-col"
+            bodyClassName="martis-actions-col"
             body={(row: ResourceRecord) => {
               const viewDisabled = row._authorization?.authorizedToView === false
               const editDisabled = row._authorization?.authorizedToUpdate === false

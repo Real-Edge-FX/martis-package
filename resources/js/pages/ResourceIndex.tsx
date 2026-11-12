@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { PerPageSelect, TrashedSelect } from '@/components/CompactSelect'
 import { useParams, useNavigate, useLocation } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
@@ -875,31 +876,15 @@ export function ResourceIndexPage() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <label className="text-xs martis-text-muted whitespace-nowrap">{t('per_page')}:</label>
-                  <select
-                    value={effectivePerPage}
-                    onChange={(e) => handlePerPageChange(Number(e.target.value))}
-                    className="martis-perpage-select"
-                  >
-                    {perPageOptions.map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                </div>
+                <PerPageSelect value={effectivePerPage} options={perPageOptions} onChange={handlePerPageChange} />
 
                 {showTrashed && (
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <select
-                      value={trashedFilter}
-                      onChange={(e) => { markUserDriven(); setTrashedFilter(e.target.value as "" | "with" | "only"); setPage(1) }}
-                      className="martis-perpage-select"
-                    >
-                      <option value="">{t("trashed_active")}</option>
-                      <option value="with">{t("trashed_with")}</option>
-                      <option value="only">{t("trashed_only")}</option>
-                    </select>
-                  </div>
+                  <TrashedSelect
+                    value={trashedFilter}
+                    onChange={(next) => { markUserDriven(); setTrashedFilter(next); setPage(1) }}
+                    labels={{ active: t("trashed_active"), with: t("trashed_with"), only: t("trashed_only") }}
+                    ariaLabel={t("trashed_filter", "Soft-delete filter")}
+                  />
                 )}
               </div>
             </div>
@@ -952,6 +937,7 @@ export function ResourceIndexPage() {
           size: schema.tableSize,
           rowHover: schema.tableRowHover,
           layout: schema.tableLayout,
+          stickyActions: schema.stickyActions,
         }}
       />
       )}

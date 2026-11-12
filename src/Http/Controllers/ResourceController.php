@@ -1343,6 +1343,7 @@ class ResourceController extends MartisController
             'fieldsForIndex' => $fieldsForIndex,
             'fieldsForDetail' => $fieldsForDetail,
             'detailSidebar' => $detailSidebar,
+            'detailKicker' => $instance->detailKicker($request),
             'fieldsForCreate' => $fieldsForCreate,
             'fieldsForUpdate' => $fieldsForUpdate,
             'fieldsForInlineCreate' => $fieldsForInlineCreate,
@@ -1373,6 +1374,7 @@ class ResourceController extends MartisController
             'rowClickOpensDetail' => $instance->resolveRowClickOpensDetail($request),
             'actions' => $actions,
             'tableLayout' => $resourceClass::tableLayout()->value,
+            'stickyActions' => $resourceClass::stickyActions(),
             'defaultSort' => $this->serializeDefaultSort($resourceClass, $instance, $request),
         ];
 

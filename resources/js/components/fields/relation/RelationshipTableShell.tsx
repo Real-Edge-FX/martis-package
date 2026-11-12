@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { PerPageSelect, TrashedSelect } from '@/components/CompactSelect'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
@@ -345,33 +346,16 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
             data-has-trashed={showSoftDeleteToggle ? 'true' : 'false'}
           >
             {showPerPage && (
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <label className="text-xs martis-text-muted whitespace-nowrap">{tRes('per_page')}:</label>
-                <select
-                  value={perPage}
-                  onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
-                  className="martis-perpage-select"
-                >
-                  {perPageOptions.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              </div>
+              <PerPageSelect value={perPage} options={perPageOptions} onChange={(next) => { setPerPage(next); setPage(1) }} />
             )}
             {showSoftDeleteToggle && (
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <select
-                  value={trashed}
-                  onChange={(e) => { setTrashed(e.target.value as 'active' | 'with' | 'only'); setPage(1) }}
-                  className="martis-perpage-select"
-                  data-pr-tooltip={tMsg('trashed_filter_tooltip', 'Soft-delete filter')}
-                  data-pr-position="top"
-                >
-                  <option value="active">{tAct('trashed_active', 'Active')}</option>
-                  <option value="with">{tAct('trashed_with', 'With trashed')}</option>
-                  <option value="only">{tAct('trashed_only', 'Only trashed')}</option>
-                </select>
-              </div>
+              <TrashedSelect
+                value={trashed === 'active' ? '' : trashed}
+                onChange={(next) => { setTrashed(next === '' ? 'active' : next); setPage(1) }}
+                labels={{ active: tAct('trashed_active', 'Active'), with: tAct('trashed_with', 'With trashed'), only: tAct('trashed_only', 'Only trashed') }}
+                ariaLabel={tMsg('trashed_filter_tooltip', 'Soft-delete filter')}
+                tooltip={tMsg('trashed_filter_tooltip', 'Soft-delete filter')}
+              />
             )}
           </div>
         )}
