@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -33,6 +35,12 @@ class StIssuerRoleUser extends StIssuerUser
     {
         return collect(['editor', 'admin']);
     }
+}
+
+/** A user model that asks for email verification. */
+class StIssuerVerifyingUser extends StIssuerUser implements MustVerifyEmail
+{
+    use MustVerifyEmailTrait;
 }
 
 class StIssuerClaims
@@ -345,7 +353,7 @@ it('refuses a claims class that overrides a reserved claim, naming the key', fun
 
     expect(fn () => TokenIssuer::fromConfig()->issue($this->user, 'panel-b', $this->state))
         ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.issuer.claims');
-})->with(['iss', 'aud', 'sub', 'iat', 'exp', 'jti', 'state']);
+})->with(['iss', 'aud', 'sub', 'iat', 'exp', 'jti', 'state', 'email_verified']);
 
 it('refuses a claims class that answers with the wrong types, naming the key', function (array $result) {
     config(['martis.auth.sso.issuer.claims' => StIssuerClaims::class]);
@@ -599,4 +607,33 @@ it('keeps the 403 for an impersonation under a custom session key', function () 
         'custom.impersonation' => ['original' => $this->user->getKey(), 'target' => $bob->getKey(), 'started_at' => now()->toIso8601String(), 'two_factor_passed' => true],
         TwoFactorPass::SESSION_KEY => (string) $bob->getKey(),
     ])->get(stIssueUrl())->assertForbidden();
+});
+
+// -----------------------------------------------------------------------------
+// email_verified (review M3)
+// -----------------------------------------------------------------------------
+
+it('signs email_verified true for a user model that does not ask for verification', function () {
+    $response = stSignedIn()->get(stIssueUrl());
+
+    expect(stClaimsOf((string) $response->headers->get('Location'), $this->keys['public']))->toHaveKey('email_verified', true);
+});
+
+it('signs the verification state of a user model that asks for it', function (bool $verified) {
+    config(['auth.providers.users.model' => StIssuerVerifyingUser::class]);
+    $user = StIssuerVerifyingUser::query()->findOrFail($this->user->getKey());
+    $user->forceFill(['email_verified_at' => $verified ? now() : null])->save();
+
+    $token = TokenIssuer::fromConfig()->issue($user, 'panel-b', $this->state);
+    $claims = json_decode(PasetoV4Public::parse($token)->message, true, 8, JSON_THROW_ON_ERROR);
+
+    expect($claims['email_verified'])->toBe($verified);
+})->with([true, false]);
+
+it('does not let a claims class set email_verified', function () {
+    config(['martis.auth.sso.issuer.claims' => StIssuerClaims::class]);
+    StIssuerClaims::$result = ['email_verified' => true];
+
+    expect(fn () => TokenIssuer::fromConfig()->issue($this->user, 'panel-b', $this->state))
+        ->toThrow(InvalidArgumentException::class, 'email_verified');
 });

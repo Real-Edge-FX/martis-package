@@ -42,6 +42,9 @@ class SsoException extends RuntimeException
     /** The local row already stores a different external id than the IdP sent. */
     public const REASON_EXTERNAL_ID_MISMATCH = 'external_id_mismatch';
 
+    /** The provider says the identity's email is not verified, and a local row holds that address: it is not adopted (v2.21.0). */
+    public const REASON_EMAIL_UNVERIFIED = 'email_unverified';
+
     /**
      * @param  string  $reason  Short snake_case slug, see the REASON_* constants.
      * @param  string|null  $messageKey  Translation key of the login page text (e.g. `martis::messages.sso_no_role_match`);

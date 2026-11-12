@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
@@ -31,6 +33,12 @@ class StE2eUser extends User
     protected $table = 'users';
 
     protected $guarded = [];
+}
+
+/** The model of a panel that asks for email verification. */
+class StE2eVerifyingUser extends StE2eUser implements MustVerifyEmail
+{
+    use MustVerifyEmailTrait;
 }
 
 class StE2eRole extends Model
@@ -279,4 +287,55 @@ it('answers 404 to the redirect of a provider name in another letter case and st
 
     expect(session('martis_sso_state.panel_a'))->toBeNull()
         ->and(session('martis_sso_state.Panel_A'))->toBeNull();
+});
+
+// ---------------------------------------------------------------------------
+// An email the issuing panel never verified (review M3)
+// ---------------------------------------------------------------------------
+
+it('does not adopt a local row by an email the issuing panel has not verified', function (string $strategy) {
+    config([
+        'auth.providers.users.model' => StE2eVerifyingUser::class,
+        'martis.auth.sso.providers.panel_a.identity_match_attribute' => $strategy,
+        'martis.auth.sso.providers.panel_a.link_by_email' => true,
+    ]);
+    $this->issuerUser->forceFill(['email_verified_at' => null])->save();
+    $this->issuerUser = StE2eVerifyingUser::query()->findOrFail($this->issuerUser->getKey());
+    $victim = StE2eUser::query()->create([
+        'name' => 'Victim', 'email' => 'remote.person@b.example', 'password' => Hash::make('x'), 'email_verified_at' => now(),
+    ]);
+    Event::fake([SsoFailed::class]);
+
+    stRunFlow()->assertRedirect(route('martis.login'));
+
+    // The browser still holds the issuer's session of this one-app test: it is not signed in as the victim.
+    expect(auth()->id())->not->toBe($victim->getKey())
+        ->and($victim->fresh()->panel_a_external_id)->toBeNull();
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'email_unverified');
+})->with(['email', 'external_id']);
+
+it('adopts the same row once the issuing panel has verified the email', function () {
+    config([
+        'auth.providers.users.model' => StE2eVerifyingUser::class,
+        'martis.auth.sso.providers.panel_a.identity_match_attribute' => 'email',
+    ]);
+    $this->issuerUser = StE2eVerifyingUser::query()->findOrFail($this->issuerUser->getKey());
+    $victim = StE2eUser::query()->create([
+        'name' => 'Remote', 'email' => 'remote.person@b.example', 'password' => Hash::make('x'), 'email_verified_at' => now(),
+    ]);
+
+    stRunFlow()->assertRedirect();
+
+    expect(auth()->id())->toBe($victim->getKey());
+});
+
+it('creates a new user from an unverified email at the issuing panel: only adopting is refused', function () {
+    config(['auth.providers.users.model' => StE2eVerifyingUser::class]);
+    $this->issuerUser->forceFill(['email_verified_at' => null])->save();
+    $this->issuerUser = StE2eVerifyingUser::query()->findOrFail($this->issuerUser->getKey());
+
+    stRunFlow()->assertRedirect();
+
+    expect(auth()->check())->toBeTrue()
+        ->and(auth()->user()->email)->toBe('remote.person@b.example');
 });

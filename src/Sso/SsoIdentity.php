@@ -25,6 +25,10 @@ final class SsoIdentity
      * @param  string|null  $accessToken  OAuth access token. Provided so
      *                                    apps can hit downstream APIs in `afterLogin` hooks. Not stored
      *                                    by Martis itself.
+     * @param  bool|null  $emailVerified  Whether the provider vouches for the email:
+     *                                    `false` is an explicit "not verified", which stops the identity from
+     *                                    adopting an existing local row by its email (v2.21.0). `null` (the
+     *                                    default) is no statement, as for the providers that make none.
      */
     public function __construct(
         public readonly string $provider,
@@ -34,5 +38,6 @@ final class SsoIdentity
         public readonly array $externalRoles = [],
         public readonly array $raw = [],
         public readonly ?string $accessToken = null,
+        public readonly ?bool $emailVerified = null,
     ) {}
 }

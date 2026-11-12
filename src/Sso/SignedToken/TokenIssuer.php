@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martis\Sso\SignedToken;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use InvalidArgumentException;
 use Martis\Support\ConfigCallable;
 use RuntimeException;
@@ -21,6 +22,12 @@ use RuntimeException;
  *   jti    128 random bits, hex: the verifier accepts each once
  *   state  the value the other panel kept in the browser's session
  *   email, name, roles (under `role_claim`), env (when `environment` is set)
+ *   email_verified  true unless the user model implements MustVerifyEmail and
+ *          the address is not verified (v2.21.0): the verifying panel refuses
+ *          to adopt an existing local row by an email that says false
+ *
+ * `email_verified` describes the user's own address at this panel. A `claims`
+ * class that replaces `email` with another one answers for that address itself.
  *
  * The role names are the user's Spatie roles when the model has
  * `getRoleNames()`, else none. A `claims` class
@@ -92,6 +99,7 @@ final class TokenIssuer
                 'exp' => gmdate('Y-m-d\TH:i:sP', $now + $s->ttlSeconds),
                 'jti' => bin2hex(random_bytes(16)),
                 'state' => $state,
+                'email_verified' => ! $user instanceof MustVerifyEmail || $user->hasVerifiedEmail(),
             ],
         );
 
@@ -167,7 +175,7 @@ final class TokenIssuer
             throw new InvalidArgumentException("The [{$key}] class must return an array of claims, got ".get_debug_type($result).'.');
         }
 
-        $reserved = [...IssuerSettings::RESERVED_CLAIMS, ...($this->settings->environment !== null ? [$this->settings->environmentClaim] : [])];
+        $reserved = [...IssuerSettings::RESERVED_CLAIMS, $this->settings->environmentClaim];
 
         foreach ($result as $claim => $value) {
             if (! is_string($claim) || $claim === '' || in_array($claim, $reserved, true)) {

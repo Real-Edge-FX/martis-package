@@ -1197,7 +1197,8 @@ return [
             |                `(Authenticatable $user, string $audience): array`
             |                that adds or replaces `email`, `name` and the roles
             |                (claim `role_claim`, default `roles`). The claims that
-            |                bind the token (iss, aud, sub, iat, exp, jti, state)
+            |                bind the token (iss, aud, sub, iat, exp, jti, state), the
+            |                `email_verified` it states and the environment claim
             |                cannot be set. Default roles: the user's Spatie role
             |                names, else none.
             |   audiences    `'<audience>' => ['callback_url' => 'https://...']`.

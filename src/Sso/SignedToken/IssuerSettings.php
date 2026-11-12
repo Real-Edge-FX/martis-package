@@ -20,9 +20,10 @@ final class IssuerSettings
 
     /**
      * The claims a claims class cannot set: they bind the token to its
-     * issuer, audience, user, time, browser session and one use.
+     * issuer, audience, user, time, browser session and one use, and
+     * `email_verified`, which the issuer states from the user model (v2.21.0).
      */
-    public const RESERVED_CLAIMS = ['iss', 'aud', 'sub', 'iat', 'exp', 'jti', 'state'];
+    public const RESERVED_CLAIMS = ['iss', 'aud', 'sub', 'iat', 'exp', 'jti', 'state', 'email_verified'];
 
     /** Longer than this is not a one-time link any more. */
     public const MAX_TTL_SECONDS = 600;

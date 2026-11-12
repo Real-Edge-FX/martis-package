@@ -98,6 +98,7 @@ if (! function_exists('stKeys')) {
             'jti' => bin2hex(random_bytes(16)),
             'state' => $state,
             'email' => 'person@example.com',
+            'email_verified' => true,
             'name' => 'Some Person',
             'roles' => ['PMI ADMIN'],
         ], $overrides);

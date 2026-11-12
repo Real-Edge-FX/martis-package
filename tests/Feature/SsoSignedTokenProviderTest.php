@@ -437,7 +437,7 @@ it('refuses a token that lacks a required claim with the missing_claim reason', 
     $token = stSign(stClaims($flow['state'], [$claim => null]), $this->keys['secret']);
 
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::MISSING_CLAIM);
-})->with(['iss', 'aud', 'sub', 'iat', 'exp', 'jti', 'state', 'email']);
+})->with(['iss', 'aud', 'sub', 'iat', 'exp', 'jti', 'state', 'email', 'email_verified']);
 
 it('counts an empty required claim as missing', function (string $claim) {
     $flow = stBegin(stProvider());
@@ -584,3 +584,24 @@ it('says what to do when ext-sodium is missing', function () {
     expect($process->getExitCode())->toBe(0, $process->getErrorOutput())
         ->and($out)->toContain('ext-sodium')->toContain('docs/sso.md');
 });
+
+// -----------------------------------------------------------------------------
+// email_verified (review M3)
+// -----------------------------------------------------------------------------
+
+it('refuses an email_verified that is not a boolean as malformed', function (mixed $value) {
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state'], ['email_verified' => $value]), $this->keys['secret']);
+
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::MALFORMED);
+})->with(['a string' => ['true'], 'a number' => [1], 'an array' => [[true]], 'empty string' => ['']]);
+
+it('carries the verification state of the issuer on the identity', function (bool $verified) {
+    $provider = stProvider();
+    $flow = stBegin($provider);
+    $token = stSign(stClaims($flow['state'], ['email_verified' => $verified]), $this->keys['secret']);
+
+    $identity = $provider->resolveIdentity(stCallback($flow['session'], $token, $flow['state']));
+
+    expect($identity->emailVerified)->toBe($verified);
+})->with([true, false]);

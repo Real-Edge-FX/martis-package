@@ -481,6 +481,7 @@ Every refusal of the callback (the IdP call failed, the account may not be adopt
 | `unknown` | The provider threw anything that is not a `Martis\Sso\SsoException` (an unreachable IdP, a rejected code, a malformed token). |
 | `account_unverified` | A local row holds the IdP's address and the sign-in may not adopt it (`SsoAdoptionRefusedException`). |
 | `missing_external_id`, `external_id_mismatch` | See [Matching by `external_id`](#matching-by-external_id-v2210). |
+| `email_unverified` | The provider says the identity's email is not verified (`SsoIdentity::$emailVerified === false`) and a local row holds that address: the row is not adopted, on the `email` strategy or with `link_by_email`. The signed-token provider sets it from the issuer's `email_verified` claim. A provider that makes no statement (`null`, the default and Azure's case) is unaffected. The login page shows the generic text. |
 | `not_provisioned` | No local user, and `auto_create_user` is off (or the user resolver returned `null`). |
 | `no_role_match` | No role maps and `on_no_role_match` denies (also when a `callable` hook returned a redirect: the person is not signed in, the hook decides where they go). |
 
@@ -1212,7 +1213,7 @@ Event::listen(SocialiteWasCalled::class, [
 
 ### Callback returns 302 to `/martis/login` and the login page shows a generic text
 
-The reason is in the log, not on the page. Search the log for `SSO callback failed`: its `reason` (`unknown`, `account_unverified`, `missing_external_id`, `external_id_mismatch`, `not_provisioned`, `no_role_match`), `exception` class and redacted `error` say what happened, and `request_id` ties the line to the request (send an `X-Request-Id` header from your proxy to correlate it with the access log). See [Failed sign-ins](#failed-sign-ins-reason-log-and-event-v2210).
+The reason is in the log, not on the page. Search the log for `SSO callback failed`: its `reason` (`unknown`, `account_unverified`, `email_unverified`, `missing_external_id`, `external_id_mismatch`, `not_provisioned`, `no_role_match`), `exception` class and redacted `error` say what happened, and `request_id` ties the line to the request (send an `X-Request-Id` header from your proxy to correlate it with the access log). See [Failed sign-ins](#failed-sign-ins-reason-log-and-event-v2210).
 
 ### Callback returns 302 to `/martis/login` with `sso_no_role_match`
 
@@ -1363,7 +1364,7 @@ php artisan martis:sso panel-b --issuer   # adds the audience and the env stubs,
 | `ttl_seconds` | Token life, 1 to 600 (default 60). |
 | `environment` | Optional. Added to the token as the claim `environment_claim` (default `env`), so a verifier locked to `production` refuses a staging token. |
 | `role_claim`, `environment_claim` | Optional claim names (defaults `roles` and `env`). Keep them equal to panel B's `role_claim` and `environment_claim`. |
-| `claims` | Optional invokable class, `(Authenticatable $user, string $audience): array`, that adds claims and replaces `email`, `name` and the roles. Use the name of a class or a `[Class::class, 'method']` array, never a closure (`config:cache`). `iss`, `aud`, `sub`, `iat`, `exp`, `jti` and `state` (and the environment claim when `environment` is set) cannot be set: the class throws if it tries. |
+| `claims` | Optional invokable class, `(Authenticatable $user, string $audience): array`, that adds claims and replaces `email`, `name` and the roles. Use the name of a class or a `[Class::class, 'method']` array, never a closure (`config:cache`). `iss`, `aud`, `sub`, `iat`, `exp`, `jti`, `state`, `email_verified` and the environment claim (`environment_claim`, always, whether or not `environment` is set) cannot be set: the class throws if it tries. |
 | `audiences` | `'<audience>' => ['callback_url' => '...', 'ability' => null]`. `ability` (optional, a non-empty string; anything else throws naming the key) limits who may obtain a token for that audience: the issue route checks `Gate::forUser($user)->allows($ability)`, so an app gate or a Spatie permission name both work. A refusal answers 403 with a translated message, issues nothing and redirects nowhere. Unset, any user who can open the panel gets a token.  The audience is the name panel B uses as its `audience`. A name is 1 to 64 letters, digits, `.`, `-` or `_`, and is not `callback` or `redirect`. |
 
 The claims of the token:
@@ -1377,6 +1378,7 @@ The claims of the token:
 | `jti` | 128 random bits (hex), used once on the other side |
 | `state` | the value panel B kept in the browser's session |
 | `email`, `name` | the user's attributes (a user with no email cannot be signed for: panel B requires one) |
+| `email_verified` | boolean: `true` when the user model does not implement `Illuminate\Contracts\Auth\MustVerifyEmail`, else `hasVerifiedEmail()`. It describes the user's own address at panel A: a `claims` class that replaces `email` answers for the address it puts there. |
 | `roles` | the user's Spatie role names when the model has `getRoleNames()`, else an empty list |
 | `env` | only when `environment` is set |
 
@@ -1441,7 +1443,7 @@ In this order, each refusal with its own reason (they reach the log line and the
 |---|---|
 | `malformed` | Not a `v4.public` token: wrong prefix, bad or non-canonical base64url, trailing data, too long, a footer or payload that is not a JSON object, a claim of the wrong type or a time that is not RFC 3339. |
 | `bad_signature` | No configured public key verifies the signature (checked before any claim is read). |
-| `missing_claim` | A required claim is missing or empty: `iss`, `aud`, `sub`, `iat`, `exp`, `jti`, `state`, `email`. |
+| `missing_claim` | A required claim is missing or empty: `iss`, `aud`, `sub`, `iat`, `exp`, `jti`, `state`, `email`, `email_verified` (a boolean: any other type is `malformed`). |
 | `issuer` | `iss` is not the configured `issuer`. |
 | `audience` | `aud` is not the configured `audience`. |
 | `expired` | `exp` has passed beyond the skew, or `iat` is older than `max_age_seconds` plus the skew. |
@@ -1457,6 +1459,9 @@ The `jti` is recorded last (`Cache::add`, kept until the token could not be acce
 
 - **The token is in a URL.** It travels in the query string of the callback URL, so it can reach browser history and any access log of that path. The mitigations are built in: it lives 60 seconds by default, is accepted once, is bound to the browser session that started the flow through `state`, and the issue response says `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. Operators should keep query strings out of the access logs of `/{martis}/sso/{provider}/callback` (nginx: log `$uri` instead of `$request_uri` for that location; most load balancers can drop the query from the logged path).
 - **The cache must be shared.** The one-time `jti` lives in Laravel's default cache store. With several servers use a shared store (Redis, database, Memcached); the `array` and `file` stores are per process or per host, and the `null` store refuses every sign-in as `replayed`. A cache that is down refuses sign-ins.
+- **Panel B trusts what panel A signs about the person.** Two things, and neither is a flaw to patch: they are what a single sign-on is.
+  - *The email.* Panel A signs the address its user row holds, and panel B may adopt a local row by it (`identity_match_attribute => 'email'`, or `external_id` with `link_by_email => true`). So that an attacker cannot register at panel A with an address they do not own and be signed in as its holder at panel B, the token carries `email_verified`, and panel B **refuses to adopt** an existing local row by an email that says `false` (reason `email_unverified`; creating a new user and matching by `external_id` are not affected). Panel A needs a user model that implements `MustVerifyEmail` for the claim to mean anything: without it the claim is always `true`. The default scaffold matches by `external_id` without `link_by_email`, which does not rely on the address at all.
+  - *The roles.* With `role_strategy => 'column'` panel B maps the role **names** panel A signs onto its own roles. Whoever can assign roles at panel A, or write the `claims` class, controls which roles that user gets at panel B. Treat the right to assign roles at the issuing panel as a right at every panel that trusts it.
 - **The private key is the trust root.** Whoever holds it can sign in to panel B as anyone panel B links by `external_id`. Keep it in the environment of panel A only, give it its own value per environment, and rotate it as above. Panel B holds public keys only. Use the `environment` lock so a staging key (or token) cannot sign in to production.
 - **Use HTTPS.** `authorize_url` and `callback_url` must be `https`, except `localhost`, `*.localhost` and `*.test` for local development.
 - **Clocks.** Keep both servers on NTP; `clock_skew_seconds` is the tolerance and `max_age_seconds` the window.

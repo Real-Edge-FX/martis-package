@@ -45,6 +45,7 @@ use Throwable;
  */
 final class SignedTokenProvider implements SsoProviderContract
 {
+    /** String claims every token carries; `email_verified` (a boolean) is checked apart. */
     private const REQUIRED_CLAIMS = ['iss', 'aud', 'sub', 'iat', 'exp', 'jti', 'state', 'email'];
 
     /** Bounds the cache key and the memory a hostile jti can take. */
@@ -124,6 +125,7 @@ final class SignedTokenProvider implements SsoProviderContract
             name: is_string($name) && $name !== '' ? $name : null,
             externalRoles: is_array($roles) ? array_values(array_map('strval', $roles)) : [],
             raw: $claims,
+            emailVerified: $claims['email_verified'],
         );
     }
 
@@ -196,6 +198,16 @@ final class SignedTokenProvider implements SsoProviderContract
             if (! is_string($claims[$claim])) {
                 throw $this->refuse(Reason::MALFORMED, "the claim [{$claim}] is not a string");
             }
+        }
+
+        // The issuer states whether the address is verified (a boolean, so it
+        // is checked apart from the string claims above).
+        if (! array_key_exists('email_verified', $claims) || $claims['email_verified'] === null) {
+            throw $this->refuse(Reason::MISSING_CLAIM, 'the claim [email_verified] is missing');
+        }
+
+        if (! is_bool($claims['email_verified'])) {
+            throw $this->refuse(Reason::MALFORMED, 'the claim [email_verified] is not a boolean');
         }
 
         if (strlen($claims['jti']) > self::MAX_JTI_LENGTH) {
