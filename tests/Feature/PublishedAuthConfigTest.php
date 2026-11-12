@@ -105,6 +105,49 @@ it('throws naming the key when a provider public list is not a list of key names
         ->toThrow(AuthConfigurationException::class, 'martis.auth.sso.providers.azure.public');
 })->with(['a string' => 'tenant', 'a nested array' => [[['tenant']]], 'an empty name' => [['']]]);
 
+it('publishes a label given as a map of locale to string, as it is', function () {
+    config()->set('martis.auth.sso.providers.azure.label', ['en' => 'Continue with Microsoft', 'pt_PT' => 'Continuar com a Microsoft']);
+
+    $azure = renderedAuthConfig()['sso']['providers']['azure'];
+
+    expect($azure['label'])->toBe(['en' => 'Continue with Microsoft', 'pt_PT' => 'Continuar com a Microsoft']);
+});
+
+it('publishes an unset or empty label as null, so the page keeps its Continue with fallback', function (mixed $label) {
+    config()->set('martis.auth.sso.providers.azure.label', $label);
+
+    expect(renderedAuthConfig()['sso']['providers']['azure']['label'])->toBeNull();
+})->with(['null' => [null], 'an empty map' => [[]]]);
+
+it('keeps an unset label out of the way when the key is absent', function () {
+    $block = config('martis.auth.sso.providers.azure');
+    unset($block['label']);
+    config()->set('martis.auth.sso.providers.azure', $block);
+
+    expect(renderedAuthConfig()['sso']['providers']['azure']['label'])->toBeNull();
+});
+
+it('throws naming the key when a provider label is neither a string nor a map of strings', function (mixed $label) {
+    config()->set('martis.auth.sso.providers.azure.label', $label);
+
+    expect(fn () => PublishedAuthConfig::toArray())
+        ->toThrow(AuthConfigurationException::class, 'martis.auth.sso.providers.azure.label');
+})->with([
+    'a number' => [5],
+    'true' => [true],
+    'a list' => [['Continue with Microsoft']],
+    'a map with a non-string value' => [['en' => 5]],
+    'a map with a nested array' => [['en' => ['Continue']]],
+    'a map with a null value' => [['en' => null]],
+    'a map with a numeric key' => [[0 => 'a', 'en' => 'b']],
+]);
+
+it('does not check the label of a provider that is not enabled', function () {
+    config()->set('martis.auth.sso.providers.okta.label', 5);
+
+    expect(renderedAuthConfig()['sso']['providers'])->toHaveKey('azure')->not->toHaveKey('okta');
+});
+
 it('publishes no provider while the SSO master switch is off', function () {
     config()->set('martis.auth.sso.enabled', false);
 

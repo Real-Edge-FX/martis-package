@@ -974,12 +974,27 @@ return [
         'sso' => [
             'enabled' => env('MARTIS_SSO_ENABLED', false),
 
+            // Cache store of everything SSO keeps in a cache (v2.22.0): the
+            // signed token's one-time `jti`, the revocation of `revokeFor()`,
+            // the origin nonces, the ended-session markers and the Azure
+            // tenant lookup. Null is the application's default store. The
+            // store MUST be shared by every server of the panel, MUST NOT
+            // evict early (a store that forgets a `jti` or a revocation
+            // reopens a used token or an ended session) and MUST NOT be
+            // flushed on a deploy. A name that is not in `cache.stores` throws,
+            // naming this key; so does an `array` or `null` store while SSO is
+            // on (outside tests). Empty = unset. See docs/sso.md.
+            'cache_store' => env('MARTIS_SSO_CACHE_STORE'),
+
             'providers' => [
                 // Microsoft Azure AD example block — flip MARTIS_SSO_AZURE_ENABLED
                 // and fill the AZURE_* env vars to activate.
                 // 'azure' => [
                 //     'enabled' => env('MARTIS_SSO_AZURE_ENABLED', false),
                 //     'driver' => 'azure',
+                //     // A string, or one per language (v2.22.0), resolved against the
+                //     // active language like `auth.copy`:
+                //     // 'label' => ['en' => 'Continue with Microsoft', 'pt_PT' => 'Continuar com a Microsoft'],
                 //     'label' => 'Continue with Microsoft',
                 //     'icon' => 'microsoft-outlook-logo',
                 //     'scopes' => [
@@ -1154,8 +1169,10 @@ return [
                 //
                 //     // Second lock (optional): accept only tokens whose claim equals
                 //     // this value, so a staging token never signs in to production.
+                //     // Set it when the issuer sets `environment`: a token that carries
+                //     // the `env` claim is refused by a verifier with none. The claim
+                //     // name is always `env` (`environment_claim` was removed in v2.22.0).
                 //     // 'environment' => 'production',
-                //     // 'environment_claim' => 'env',
                 //
                 //     // The user id at the issuer is the stable identity: match by it.
                 //     'identity_match_attribute' => 'external_id',
@@ -1191,9 +1208,11 @@ return [
             |                in the environment only: no command writes it to a file.
             |   ttl_seconds  How long a token lives (1 to 600, default 60). It
             |                is also valid once only, on the other side.
-            |   environment  Optional. Put in the token (claim `environment_claim`,
-            |                default `env`) so a verifier locked to production
-            |                refuses a token from staging.
+            |   environment  Optional. Put in the token (claim `env`) so a verifier
+            |                locked to production refuses a token from staging.
+            |                The verifier must set its own `environment` too: it
+            |                refuses a token that carries the claim when it has
+            |                none. `environment_claim` was removed in v2.22.0.
             |   claims       Optional invokable class (or [Class::class, 'method'])
             |                `(Authenticatable $user, string $audience): array`
             |                that adds or replaces `email`, `name` and the roles

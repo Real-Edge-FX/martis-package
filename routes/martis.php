@@ -39,6 +39,7 @@ use Martis\Http\Controllers\ToolsController;
 use Martis\Http\Controllers\TranslationsController;
 use Martis\Http\Controllers\TwoFactorController;
 use Martis\Http\Middleware\RememberIntendedUrl;
+use Martis\Http\Middleware\SpendSignedToken;
 use Martis\Http\RouteMiddleware;
 use Martis\Sso\SignedToken\IssuerSettings;
 
@@ -107,8 +108,12 @@ Route::middleware(RouteMiddleware::base())
             Route::get('/sso/{provider}/redirect', [SsoController::class, 'redirect'])
                 ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
                 ->name('sso.redirect');
+            // The signed token is used up BEFORE the throttle (v2.22.0): the
+            // SpendSignedToken middleware does that and then applies the
+            // throttle itself, so no ordering between two middleware names
+            // (Laravel sorts `throttle` by its priority list) can undo it.
             Route::get('/sso/{provider}/callback', [SsoController::class, 'callback'])
-                ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+                ->middleware(SpendSignedToken::class.':'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
                 ->name('sso.callback');
         }
 

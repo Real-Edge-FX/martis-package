@@ -5,7 +5,7 @@ import { isBuiltInPasswordChangeUrl, passwordChangeUrl, PASSWORD_CHANGE_ROUTE } 
 import { useToast } from "@/contexts/ToastContext"
 import { api, ApiError } from "@/lib/api"
 import { config } from "@/lib/config"
-import { useAuthCopy } from "@/lib/authCopy"
+import { useAuthCopy, useResolveCopy } from "@/lib/authCopy"
 import { useTranslation } from "react-i18next"
 import { ArrowRightIcon, BuildingsIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import { AuthFrame } from "@/components/auth/AuthFrame"
@@ -31,6 +31,7 @@ export function LoginPage() {
   const { t } = useTranslation("auth")
   const { t: tProfile } = useTranslation("profile")
   const tCopy = useAuthCopy()
+  const resolveCopy = useResolveCopy()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -321,7 +322,7 @@ export function LoginPage() {
           {provider.icon
             ? <ResourceIcon iconName={provider.icon} size={14} />
             : <BuildingsIcon size={14} />}
-          {provider.label ?? t('continue_with', { provider: providerName, defaultValue: `Continue with ${providerName}` })}
+          {resolveCopy(provider.label) ?? t('continue_with', { provider: providerName, defaultValue: `Continue with ${providerName}` })}
         </button>
       ))}
 

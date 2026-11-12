@@ -133,7 +133,10 @@ if (! function_exists('stKeys')) {
      * Start the flow of a provider: run redirect() and return the browser
      * session it wrote to and the state it sent.
      *
-     * @return array{session: Session, state: string, location: string}
+     * `entry` is what redirect() kept in the session (the state with its
+     * creation time): stRestoreState() puts it back.
+     *
+     * @return array{session: Session, state: string, location: string, entry: mixed}
      */
     function stBegin(SignedTokenProvider $provider, ?Session $session = null): array
     {
@@ -144,7 +147,24 @@ if (! function_exists('stKeys')) {
         $location = $provider->redirect($request)->getTargetUrl();
         parse_str((string) parse_url($location, PHP_URL_QUERY), $query);
 
-        return ['session' => $session, 'state' => (string) $query['state'], 'location' => $location];
+        return [
+            'session' => $session,
+            'state' => (string) $query['state'],
+            'location' => $location,
+            'entry' => $session->get('martis_sso_state.'.$provider->name()),
+        ];
+    }
+
+    /**
+     * Put the state of a flow back into its browser session, as redirect()
+     * kept it (two tabs, a session restore): the one-time store is then the
+     * only lock left for the same token.
+     *
+     * @param  array{session: Session, state: string, location: string, entry: mixed}  $flow
+     */
+    function stRestoreState(array $flow, string $name = 'panel_a'): void
+    {
+        $flow['session']->put('martis_sso_state.'.$name, $flow['entry']);
     }
 
     /** A callback request in the browser session of stBegin(). */

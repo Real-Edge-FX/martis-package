@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -12,6 +13,7 @@ use Martis\Sso\SignedToken\Reason;
 use Martis\Sso\SsoException;
 use Martis\Sso\SsoIdentity;
 use Martis\Sso\SsoManager;
+use Mockery\MockInterface;
 use Symfony\Component\Process\Process;
 
 require_once __DIR__.'/../Support/signed-token.php';
@@ -30,6 +32,18 @@ function stProvider(string $name = 'panel_a'): SignedTokenProvider
     expect($provider)->toBeInstanceOf(SignedTokenProvider::class);
 
     return $provider;
+}
+
+/**
+ * A mock of the cache repository the one-time store resolves (the
+ * configured SSO store, else the default one).
+ */
+function stCacheMock(): MockInterface
+{
+    $repository = Mockery::mock(Repository::class);
+    Cache::shouldReceive('store')->andReturn($repository);
+
+    return $repository;
 }
 
 /** The reason an attempt is refused with. */
@@ -300,16 +314,72 @@ it('refuses a staging token on a production verifier and a token without the env
     expect(stReason(stProvider(), $flow['session'], $production, $flow['state']))->toBe('accepted');
 });
 
-it('reads the environment from environment_claim, and does not lock when no environment is configured', function () {
-    stConsumer([$this->keys['public_b64']], 'panel_a', ['environment' => 'production', 'environment_claim' => 'deployment']);
+it('refuses a token that carries the environment claim when this verifier has no environment', function () {
+    // The issuer is locked to an environment, this verifier is not: half a lock refuses.
+    stConsumer([$this->keys['public_b64']]);
+
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state'], ['env' => 'staging']), $this->keys['secret']);
+    $provider = stProvider();
+
+    try {
+        $provider->resolveIdentity(stCallback($flow['session'], $token, $flow['state']));
+        $this->fail('the token was accepted');
+    } catch (SsoException $e) {
+        expect($e->reason)->toBe(Reason::ENVIRONMENT)
+            ->and($e->getMessage())->toContain('environment');
+    }
+});
+
+it('refuses a token that carries an empty environment claim when this verifier has no environment', function () {
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state'], ['env' => '']), $this->keys['secret']);
+
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::ENVIRONMENT);
+});
+
+it('accepts a token without the environment claim when this verifier has no environment', function () {
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state']), $this->keys['secret']);
+
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
+});
+
+it('says to set environment in the refusal of a locked token at an unlocked verifier', function () {
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state'], ['env' => 'staging']), $this->keys['secret']);
+
+    expect(fn () => stProvider()->resolveIdentity(stCallback($flow['session'], $token, $flow['state'])))
+        ->toThrow(fn (SsoException $e) => expect($e->getMessage())->toContain('set `environment`'));
+});
+
+it('throws, naming the key and saying it was removed, for an environment_claim (the claim is always env)', function (mixed $claim, ?string $environment) {
+    stConsumer([$this->keys['public_b64']], 'panel_a', ['environment_claim' => $claim, 'environment' => $environment]);
+
+    expect(fn () => stBegin(stProvider()))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.panel_a.environment_claim')
+        ->and(fn () => stBegin(stProvider()))
+        ->toThrow(InvalidArgumentException::class, 'removed in v2.22.0');
+})->with([
+    'a custom name, no environment' => ['deployment', null],
+    'a custom name with an environment' => ['deployment', 'production'],
+    'the default name written out' => ['env', 'production'],
+    'an empty string' => ['', null],
+]);
+
+it('locks on the env claim only', function () {
+    stConsumer([$this->keys['public_b64']], 'panel_a', ['environment' => 'production']);
 
     $flow = stBegin(stProvider());
     $token = stSign(stClaims($flow['state'], ['deployment' => 'production']), $this->keys['secret']);
-    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::ENVIRONMENT);
+});
 
-    stConsumer([$this->keys['public_b64']]);
+it('does not read a claim of another name as an environment', function () {
+    // The environment claim is always env: a token with a claim of another name carries none.
     $flow = stBegin(stProvider());
-    $token = stSign(stClaims($flow['state'], ['env' => 'staging']), $this->keys['secret']);
+    $token = stSign(stClaims($flow['state'], ['stage' => 'staging']), $this->keys['secret']);
+
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
 });
 
@@ -342,9 +412,91 @@ it('pulls the state from the session once', function () {
 
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
     expect($flow['session']->has('martis_sso_state.panel_a'))->toBeFalse();
-    // The same token and state again: no state left in the session.
-    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::STATE);
+    // The same token and state again: the jti was used up by the first arrival, before the state.
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAYED);
+
+    // A fresh token for the same state: no state is left in the session.
+    $fresh = stSign(stClaims($flow['state']), $this->keys['secret']);
+    expect(stReason(stProvider(), $flow['session'], $fresh, $flow['state']))->toBe(Reason::STATE);
 });
+
+it('accepts a state of exactly ten minutes and refuses one a second older', function () {
+    $start = 1_800_000_000;
+    Carbon::setTestNow(Carbon::createFromTimestamp($start));
+    $provider = stProvider();
+
+    // 600 s after redirect(): still good (the token is issued just before it comes back).
+    $flow = stBegin($provider);
+    Carbon::setTestNow(Carbon::createFromTimestamp($start + 600));
+    $token = stSign(stClaims($flow['state'], ['iat' => stTime($start + 600), 'exp' => stTime($start + 660)]), $this->keys['secret']);
+    expect(stReason($provider, $flow['session'], $token, $flow['state']))->toBe('accepted');
+
+    // 601 s: refused as state.
+    Carbon::setTestNow(Carbon::createFromTimestamp($start));
+    $flow = stBegin($provider);
+    Carbon::setTestNow(Carbon::createFromTimestamp($start + 601));
+    $token = stSign(stClaims($flow['state'], ['iat' => stTime($start + 601), 'exp' => stTime($start + 661)]), $this->keys['secret']);
+    expect(stReason($provider, $flow['session'], $token, $flow['state']))->toBe(Reason::STATE);
+    // Pulled once, expired or not.
+    expect($flow['session']->has('martis_sso_state.panel_a'))->toBeFalse();
+    Carbon::setTestNow();
+});
+
+it('says in the refusal that an expired state is older than its lifetime, and a mismatch does not', function () {
+    $start = 1_800_000_000;
+    Carbon::setTestNow(Carbon::createFromTimestamp($start));
+    $provider = stProvider();
+    $flow = stBegin($provider);
+    Carbon::setTestNow(Carbon::createFromTimestamp($start + 601));
+    $token = stSign(stClaims($flow['state'], ['iat' => stTime($start + 601), 'exp' => stTime($start + 661)]), $this->keys['secret']);
+
+    try {
+        $provider->resolveIdentity(stCallback($flow['session'], $token, $flow['state']));
+        $this->fail('an expired state was accepted');
+    } catch (SsoException $e) {
+        expect($e->reason)->toBe(Reason::STATE)
+            ->and($e->getMessage())->toContain('older than')->toContain('10 minutes');
+    }
+
+    // A state that is simply not this browser's: the old text, no mention of age.
+    Carbon::setTestNow(Carbon::createFromTimestamp($start));
+    $flow = stBegin($provider);
+    $token = stSign(stClaims($flow['state'], ['iat' => stTime($start), 'exp' => stTime($start + 60)]), $this->keys['secret']);
+    try {
+        $provider->resolveIdentity(stCallback($flow['session'], $token, str_repeat('x', 43)));
+        $this->fail('a wrong state was accepted');
+    } catch (SsoException $e) {
+        expect($e->reason)->toBe(Reason::STATE)->and($e->getMessage())->not->toContain('older than');
+    }
+    Carbon::setTestNow();
+});
+
+it('still uses up the jti of a token whose state had expired', function () {
+    $start = 1_800_000_000;
+    Carbon::setTestNow(Carbon::createFromTimestamp($start));
+    $provider = stProvider();
+    $flow = stBegin($provider);
+
+    Carbon::setTestNow(Carbon::createFromTimestamp($start + 700));
+    $token = stSign(stClaims($flow['state'], ['iat' => stTime($start + 700), 'exp' => stTime($start + 760)]), $this->keys['secret']);
+    expect(stReason($provider, $flow['session'], $token, $flow['state']))->toBe(Reason::STATE);
+
+    stRestoreState($flow);
+    expect(stReason($provider, $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAYED);
+    Carbon::setTestNow();
+});
+
+it('refuses a state kept in the session without its creation time', function (mixed $entry) {
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state']), $this->keys['secret']);
+    $flow['session']->put('martis_sso_state.panel_a', $entry === 'plain' ? $flow['state'] : $entry);
+
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::STATE);
+})->with([
+    'a bare string (a flow started before v2.22.0)' => ['plain'],
+    'an array without the time' => [['value' => 'x']],
+    'a time that is not a number' => [['value' => 'x', 'at' => 'yesterday']],
+]);
 
 it('refuses a replayed jti', function () {
     $flow = stBegin(stProvider());
@@ -354,7 +506,7 @@ it('refuses a replayed jti', function () {
 
     // The browser session starts a second flow with the same state, and the
     // same token comes back: only the one-time jti stops it.
-    $flow['session']->put('martis_sso_state.panel_a', $flow['state']);
+    stRestoreState($flow);
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAYED);
 });
 
@@ -383,21 +535,67 @@ it('does not burn the jti of a token the verifier rejected', function () {
     stConsumer([$this->keys['public_b64']], 'panel_a', ['environment' => 'production']);
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::ENVIRONMENT);
 
-    // Same token, verifier no longer locked: the jti was never recorded.
-    stConsumer([$this->keys['public_b64']]);
-    $flow['session']->put('martis_sso_state.panel_a', $flow['state']);
+    // Same token, verifier now locked to the token's environment: the jti was never recorded.
+    stConsumer([$this->keys['public_b64']], 'panel_a', ['environment' => 'staging']);
+    stRestoreState($flow);
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
 });
 
-it('does not burn the jti of a token refused for its state', function () {
+it('uses up the jti of a validly signed token even when its state is wrong (state fixation)', function () {
     $flow = stBegin(stProvider());
     $token = stSign(stClaims($flow['state']), $this->keys['secret']);
 
-    expect(stReason(stProvider(), $flow['session'], $token, str_repeat('x', 43)))->toBe(Reason::STATE);
+    // The victim's browser has another session: the state does not match, and the token is spent anyway.
+    expect(stReason(stProvider(), stSession(), $token, $flow['state']))->toBe(Reason::STATE);
 
-    // The person starts over with the same state and the same token: the jti was never recorded.
-    $flow['session']->put('martis_sso_state.panel_a', $flow['state']);
-    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
+    // The attacker's browser holds the state and gets the token back from a log: it is already used.
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAYED);
+});
+
+it('uses up the jti when the state query parameter is missing or differs', function (?string $query) {
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state']), $this->keys['secret']);
+
+    expect(stReason(stProvider(), $flow['session'], $token, $query))->toBe(Reason::STATE);
+
+    stRestoreState($flow);
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAYED);
+})->with(['missing' => [null], 'different' => [str_repeat('x', 43)]]);
+
+it('uses up the jti of a token whose own state claim differs', function () {
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims(str_repeat('y', 43)), $this->keys['secret']);
+
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::STATE);
+    expect(stReason(stProvider(), $flow['session'], $token, str_repeat('y', 43)))->toBe(Reason::REPLAYED);
+});
+
+it('does not use up the jti of a token refused before the one-time check', function (array $claims, string $reason) {
+    $flow = stBegin(stProvider());
+    $jti = bin2hex(random_bytes(16));
+    $token = stSign(stClaims($flow['state'], $claims + ['jti' => $jti]), $this->keys['secret']);
+
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe($reason);
+
+    // The same jti in a good token is still usable: nothing was recorded.
+    $flow = stBegin(stProvider());
+    $good = stSign(stClaims($flow['state'], ['jti' => $jti]), $this->keys['secret']);
+    expect(stReason(stProvider(), $flow['session'], $good, $flow['state']))->toBe('accepted');
+})->with([
+    'another audience' => [['aud' => 'https://elsewhere.example'], Reason::AUDIENCE],
+    'another issuer' => [['iss' => 'https://elsewhere.example'], Reason::ISSUER],
+    'expired' => [['iat' => '2020-01-01T00:00:00+00:00', 'exp' => '2020-01-01T00:01:00+00:00'], Reason::EXPIRED],
+]);
+
+it('does not use up the jti of a token with a bad signature', function () {
+    $flow = stBegin(stProvider());
+    $claims = stClaims($flow['state']);
+    $forged = stSign($claims, stKeys()['secret']);
+
+    expect(stReason(stProvider(), $flow['session'], $forged, $flow['state']))->toBe(Reason::BAD_SIGNATURE);
+
+    $genuine = stSign($claims, $this->keys['secret']);
+    expect(stReason(stProvider(), $flow['session'], $genuine, $flow['state']))->toBe('accepted');
 });
 
 it('checks the signature before any claim', function () {
@@ -415,7 +613,7 @@ it('refuses when the one-time store fails (fail closed) with its own reason', fu
     $flow = stBegin(stProvider());
     $token = stSign(stClaims($flow['state']), $this->keys['secret']);
 
-    Cache::shouldReceive('add')->once()->andThrow(new RuntimeException('redis is down'));
+    stCacheMock()->shouldReceive('add')->once()->andThrow(new RuntimeException('redis is down'));
 
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAY_STORE);
 });
@@ -424,7 +622,7 @@ it('refuses when the one-time store answers that it did not add the key', functi
     $flow = stBegin(stProvider());
     $token = stSign(stClaims($flow['state']), $this->keys['secret']);
 
-    Cache::shouldReceive('add')->once()->andReturn(false);
+    stCacheMock()->shouldReceive('add')->once()->andReturn(false);
 
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAYED);
 });
@@ -434,7 +632,7 @@ it('asks the cache to add the jti for the time the token can still be used', fun
     $now = time();
     $token = stSign(stClaims($flow['state'], ['iat' => stTime($now), 'exp' => stTime($now + 60)]), $this->keys['secret']);
 
-    Cache::shouldReceive('add')->once()->withArgs(function (string $key, mixed $value, mixed $ttl): bool {
+    stCacheMock()->shouldReceive('add')->once()->withArgs(function (string $key, mixed $value, mixed $ttl): bool {
         // min(exp, iat + max_age) + skew + 1 = 60 + 30 + 1 seconds, give or take the clock.
         return str_starts_with($key, 'martis_sso_jti:panel_a:')
             && $value === true
@@ -572,7 +770,7 @@ it('throws, naming the config key, for a block that is set but unusable', functi
     'negative clock_skew_seconds' => [['clock_skew_seconds' => -1], 'martis.auth.sso.providers.panel_a.clock_skew_seconds'],
     'empty role_claim' => [['role_claim' => ''], 'martis.auth.sso.providers.panel_a.role_claim'],
     'empty environment' => [['environment' => ''], 'martis.auth.sso.providers.panel_a.environment'],
-    'empty environment_claim' => [['environment_claim' => ''], 'martis.auth.sso.providers.panel_a.environment_claim'],
+    'environment_claim (removed)' => [['environment_claim' => 'deployment'], 'martis.auth.sso.providers.panel_a.environment_claim'],
 ]);
 
 it('accepts the numeric strings an env() value gives for the numbers', function () {
@@ -635,12 +833,12 @@ it('still refuses the jti on the last second the token would be accepted, and no
     // The last accepted second is min(exp, iat + max_age) + skew = now + 90. The state is put back
     // so that the one-time store is the only lock left.
     Carbon::setTestNow(Carbon::createFromTimestamp($now + 90));
-    $begin['session']->put('martis_sso_state.panel_a', $begin['state']);
+    stRestoreState($begin);
     expect(stReason($provider, $begin['session'], $token, $begin['state']))->toBe(Reason::REPLAYED);
 
     // One second later the token is expired, whatever the store holds.
     Carbon::setTestNow(Carbon::createFromTimestamp($now + 91));
-    $begin['session']->put('martis_sso_state.panel_a', $begin['state']);
+    stRestoreState($begin);
     expect(stReason($provider, $begin['session'], $token, $begin['state']))->toBe(Reason::EXPIRED);
     Carbon::setTestNow();
 });
@@ -652,4 +850,102 @@ it('keeps the record at least one second, even for a token that expires at once'
 
     // Refused as expired before the store is touched: nothing is recorded for it.
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::EXPIRED);
+});
+
+// -----------------------------------------------------------------------------
+// spend(): the part of the sign-in that must not depend on the throttle (v2.22.0)
+// -----------------------------------------------------------------------------
+
+it('spends the token ahead of resolveIdentity() and resolveIdentity() only checks the state', function () {
+    $flow = stBegin(stProvider());
+    $claims = stClaims($flow['state']);
+    $token = stSign($claims, $this->keys['secret']);
+    $request = stCallback($flow['session'], $token, $flow['state']);
+
+    stProvider()->spend($request);
+
+    // The jti is recorded already, before the state is looked at.
+    expect(Cache::has('martis_sso_jti:panel_a:'.hash('sha256', $claims['jti'])))->toBeTrue();
+
+    $identity = stProvider()->resolveIdentity($request);
+    expect($identity->externalId)->toBe('42');
+
+    // Nothing was recorded twice: another request with the token is a replay.
+    stRestoreState($flow);
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAYED);
+});
+
+it('keeps the refusal of spend() for resolveIdentity() and does not record a token it refused', function (Closure $mutate, string $reason) {
+    $flow = stBegin(stProvider());
+    $claims = stClaims($flow['state']);
+    $token = $mutate($claims, $this->keys, $flow);
+    $request = stCallback($flow['session'], $token, $flow['state']);
+
+    stProvider()->spend($request);
+
+    expect(fn () => stProvider()->resolveIdentity($request))
+        ->toThrow(fn (SsoException $e) => expect($e->reason)->toBe($reason));
+    expect(Cache::has('martis_sso_jti:panel_a:'.hash('sha256', $claims['jti'])))->toBeFalse();
+})->with([
+    'a bad signature' => [fn ($claims, $keys) => stSign($claims, stKeys()['secret']), Reason::BAD_SIGNATURE],
+    'another audience' => [fn ($claims, $keys) => stSign([...$claims, 'aud' => 'https://x.example'], $keys['secret']), Reason::AUDIENCE],
+    'garbage' => [fn () => 'not-a-token', Reason::MALFORMED],
+]);
+
+it('keeps the state refusal for resolveIdentity() after spend(), with the token already used up', function () {
+    $flow = stBegin(stProvider());
+    $claims = stClaims($flow['state']);
+    $token = stSign($claims, $this->keys['secret']);
+    $request = stCallback($flow['session'], $token, str_repeat('x', 43));
+
+    stProvider()->spend($request);
+
+    expect(fn () => stProvider()->resolveIdentity($request))
+        ->toThrow(fn (SsoException $e) => expect($e->reason)->toBe(Reason::STATE));
+    expect(Cache::has('martis_sso_jti:panel_a:'.hash('sha256', $claims['jti'])))->toBeTrue();
+});
+
+it('does not keep a configuration error: spend() throws it, naming the key', function () {
+    $flow = stBegin(stProvider());
+    stConsumer([$this->keys['public_b64']], 'panel_a', ['issuer' => '']);
+    $request = stCallback($flow['session'], 'v4.public.x', $flow['state']);
+
+    expect(fn () => stProvider()->spend($request))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.panel_a.issuer');
+});
+
+it('refuses a token over the fixed length before it parses it, and records nothing', function () {
+    $flow = stBegin(stProvider());
+    $request = stCallback($flow['session'], 'v4.public.'.str_repeat('A', PasetoV4Public::MAX_TOKEN_LENGTH), $flow['state']);
+    stCacheMock()->shouldNotReceive('add');
+
+    stProvider()->spend($request);
+
+    expect(fn () => stProvider()->resolveIdentity($request))
+        ->toThrow(fn (SsoException $e) => expect($e->reason)->toBe(Reason::MALFORMED));
+});
+
+it('still does everything itself when spend() did not run', function () {
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state']), $this->keys['secret']);
+
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
+});
+
+it('keeps the state and the jti out of the trace of a refused callback', function () {
+    $flow = stBegin(stProvider());
+    $claims = stClaims('SECRETSTATE-IN-THE-CLAIM-0123456789abcdef');
+    $token = stSign($claims, $this->keys['secret']);
+    $previous = ini_set('zend.exception_ignore_args', '0');
+
+    try {
+        stProvider()->resolveIdentity(stCallback($flow['session'], $token, str_repeat('x', 43)));
+        $this->fail('the state was accepted');
+    } catch (SsoException $e) {
+        $trace = $e->getTraceAsString();
+    } finally {
+        ini_set('zend.exception_ignore_args', $previous === false ? '1' : $previous);
+    }
+
+    expect($trace)->not->toContain('SECRETSTATE')->not->toContain($claims['jti']);
 });

@@ -13,7 +13,7 @@ use InvalidArgumentException;
 final class ConfigReader
 {
     /** A non-empty string. */
-    public static function string(mixed $value, string $key): string
+    public static function string(#[\SensitiveParameter] mixed $value, string $key): string
     {
         if (! is_string($value) || trim($value) === '') {
             throw self::unusable($key, 'must be a non-empty string', $value);
@@ -23,22 +23,38 @@ final class ConfigReader
     }
 
     /** A non-empty string, or `$default` when the value is unset (null). */
-    public static function stringOr(mixed $value, string $key, string $default): string
+    public static function stringOr(#[\SensitiveParameter] mixed $value, string $key, string $default): string
     {
         return $value === null ? $default : self::string($value, $key);
     }
 
     /** A string, or null when the value is unset (null). An empty string is refused. */
-    public static function optionalString(mixed $value, string $key): ?string
+    public static function optionalString(#[\SensitiveParameter] mixed $value, string $key): ?string
     {
         return $value === null ? null : self::string($value, $key);
+    }
+
+    /**
+     * A key that an earlier release read and this one no longer does. Setting
+     * it at all (null counts as unset) throws, naming the key and why, so a
+     * block written for the old release does not run on a silently changed
+     * rule. `environment_claim` is the one so far: since v2.22.0 the claim
+     * that carries the environment is always `env` (a locked issuer and an
+     * unlocked verifier that read different claim names disagreed with no
+     * error at all).
+     */
+    public static function removed(#[\SensitiveParameter] mixed $value, string $key, string $why): void
+    {
+        if ($value !== null) {
+            throw new InvalidArgumentException("The [{$key}] config value was removed in v2.22.0: {$why}");
+        }
     }
 
     /**
      * An integer from `$min` up, given as an int or as the digits of one (what
      * `env()` returns); `$default` when the value is unset (null).
      */
-    public static function int(mixed $value, string $key, int $default, int $min, ?int $max = null): int
+    public static function int(#[\SensitiveParameter] mixed $value, string $key, int $default, int $min, ?int $max = null): int
     {
         if ($value === null) {
             return $default;
@@ -55,7 +71,7 @@ final class ConfigReader
         return $value;
     }
 
-    public static function bool(mixed $value, string $key): bool
+    public static function bool(#[\SensitiveParameter] mixed $value, string $key): bool
     {
         if (is_bool($value)) {
             return $value;
@@ -76,7 +92,7 @@ final class ConfigReader
      * A standard base64 value (padded or not) that decodes to exactly
      * `$length` bytes: the raw bytes.
      */
-    public static function base64Key(mixed $value, string $key, int $length, string $what): string
+    public static function base64Key(#[\SensitiveParameter] mixed $value, string $key, int $length, string $what): string
     {
         if (! is_string($value) || trim($value) === '') {
             throw self::unusable($key, "must be the base64 of {$what} ({$length} bytes)", $value);
@@ -93,7 +109,7 @@ final class ConfigReader
         return $raw;
     }
 
-    private static function unusable(string $key, string $expected, mixed $value): InvalidArgumentException
+    private static function unusable(string $key, string $expected, #[\SensitiveParameter] mixed $value): InvalidArgumentException
     {
         // Only the type of the value: it may be a secret.
         return new InvalidArgumentException("The [{$key}] config value {$expected}, got ".get_debug_type($value).'.');

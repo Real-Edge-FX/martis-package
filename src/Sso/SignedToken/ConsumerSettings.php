@@ -9,7 +9,8 @@ use InvalidArgumentException;
 /**
  * The block of a `driver => 'signed-token'` provider
  * (`martis.auth.sso.providers.{name}`), validated: a value that is set but
- * unusable throws, naming its key.
+ * unusable throws, naming its key. `environment_claim` was removed in v2.22.0
+ * (the claim is always `env`) and throws.
  */
 final class ConsumerSettings
 {
@@ -26,7 +27,6 @@ final class ConsumerSettings
         public readonly int $clockSkewSeconds,
         public readonly string $roleClaim,
         public readonly ?string $environment,
-        public readonly string $environmentClaim,
     ) {}
 
     /**
@@ -47,6 +47,8 @@ final class ConsumerSettings
             $publicKeys[] = ConfigReader::base64Key($key, "{$prefix}public_keys.{$i}", SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES, 'an Ed25519 public key');
         }
 
+        ConfigReader::removed($get('environment_claim'), $prefix.'environment_claim', 'the claim that carries the environment is always `'.IssuerSettings::ENVIRONMENT_CLAIM.'`. Remove the key.');
+
         return new self(
             name: $name,
             authorizeUrl: Urls::assertUsable($get('authorize_url'), $prefix.'authorize_url'),
@@ -57,7 +59,6 @@ final class ConsumerSettings
             clockSkewSeconds: ConfigReader::int($get('clock_skew_seconds'), $prefix.'clock_skew_seconds', 30, 0),
             roleClaim: ConfigReader::stringOr($get('role_claim'), $prefix.'role_claim', 'roles'),
             environment: ConfigReader::optionalString($get('environment'), $prefix.'environment'),
-            environmentClaim: ConfigReader::stringOr($get('environment_claim'), $prefix.'environment_claim', 'env'),
         );
     }
 }

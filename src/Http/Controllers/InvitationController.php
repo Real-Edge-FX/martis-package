@@ -14,6 +14,7 @@ use Martis\Auth\TwoFactorPass;
 use Martis\Contracts\RegistersUsers;
 use Martis\Invitations\InvalidInvitationException;
 use Martis\Invitations\InvitationManager;
+use Martis\Sso\SsoCache;
 use Martis\Sso\SsoSession;
 use Martis\Support\TokenLink;
 
@@ -99,6 +100,13 @@ class InvitationController extends MartisController
         $this->abortUnlessInvitationsEnabled();
 
         $request->validate($this->acceptRules());
+
+        // The invitee is logged in afterwards, which drops the SSO origin of
+        // the session: an unusable SSO cache store fails before the
+        // invitation is used, not after the user is signed in.
+        if ((bool) config('martis.invitations.login_after_accept', true)) {
+            SsoCache::assertUsable();
+        }
 
         try {
             $user = app(InvitationManager::class)->accept(

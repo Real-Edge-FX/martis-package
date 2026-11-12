@@ -20,10 +20,17 @@ final class IssuerSettings
 
     /**
      * The claims a claims class cannot set: they bind the token to its
-     * issuer, audience, user, time, browser session and one use, and
-     * `email_verified`, which the issuer states from the user model (v2.21.0).
+     * issuer, audience, user, time, browser session and one use, the
+     * `email_verified` the issuer states from the user model (v2.21.0) and the
+     * environment claim (always, whether or not `environment` is set).
      */
-    public const RESERVED_CLAIMS = ['iss', 'aud', 'sub', 'iat', 'exp', 'jti', 'state', 'email_verified'];
+    public const RESERVED_CLAIMS = ['iss', 'aud', 'sub', 'iat', 'exp', 'jti', 'state', 'email_verified', self::ENVIRONMENT_CLAIM];
+
+    /**
+     * The claim that carries the issuer's `environment`, on both sides. Not
+     * configurable since v2.22.0 (see {@see ConfigReader::removed()}).
+     */
+    public const ENVIRONMENT_CLAIM = 'env';
 
     /** Longer than this is not a one-time link any more. */
     public const MAX_TTL_SECONDS = 600;
@@ -34,11 +41,10 @@ final class IssuerSettings
      */
     private function __construct(
         public readonly string $issuer,
-        public readonly string $secretKey,
+        #[\SensitiveParameter] public readonly string $secretKey,
         public readonly string $publicKey,
         public readonly int $ttlSeconds,
         public readonly ?string $environment,
-        public readonly string $environmentClaim,
         public readonly string $roleClaim,
         public readonly mixed $claims,
         public readonly array $audiences,
@@ -90,13 +96,14 @@ final class IssuerSettings
 
         $audiences = self::audiences($block['audiences'] ?? []);
 
+        ConfigReader::removed($block['environment_claim'] ?? null, "{$key}.environment_claim", 'the claim that carries the environment is always `'.self::ENVIRONMENT_CLAIM.'`. Remove the key.');
+
         return new self(
             issuer: ConfigReader::string($block['issuer'] ?? null, "{$key}.issuer"),
             secretKey: $secret,
             publicKey: $public,
             ttlSeconds: ConfigReader::int($block['ttl_seconds'] ?? null, "{$key}.ttl_seconds", 60, 1, self::MAX_TTL_SECONDS),
             environment: ConfigReader::optionalString($block['environment'] ?? null, "{$key}.environment"),
-            environmentClaim: ConfigReader::stringOr($block['environment_claim'] ?? null, "{$key}.environment_claim", 'env'),
             roleClaim: ConfigReader::stringOr($block['role_claim'] ?? null, "{$key}.role_claim", 'roles'),
             claims: $block['claims'] ?? null,
             audiences: $audiences['urls'],
