@@ -53,10 +53,14 @@ export function LoginPage() {
   const [magicLinkSubmitting, setMagicLinkSubmitting] = useState(false)
 
   // Password sign-in switched off (v2.21.0): the page shows the SSO buttons
-  // only. `?password_login=1` still opens the form, the break-glass entry:
-  // the page decides nothing about who may use it, the server does.
+  // only. `?password_login=1` opens the form, the break-glass entry, but only
+  // when the server says a break-glass address exists (`breakGlass`, v2.23.0):
+  // with an empty list nobody could use the form, so it never shows. The page
+  // decides nothing about who may use it, the server does.
   const passwordLoginOn = config.auth?.passwordLogin?.enabled !== false
-  const breakGlassEntry = new URLSearchParams(window.location.search).get('password_login') === '1'
+  const breakGlassAvailable = config.auth?.passwordLogin?.breakGlass === true
+  const breakGlassEntry = breakGlassAvailable
+    && new URLSearchParams(window.location.search).get('password_login') === '1'
   const showPasswordForm = passwordLoginOn || breakGlassEntry
   // The email field serves the password form and the magic-link request.
   const showEmailField = showPasswordForm || showMagicLink

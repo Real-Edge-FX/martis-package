@@ -5,8 +5,10 @@ import { MemoryRouter } from 'react-router'
 /*
  * v2.21.0: with `martis.auth.password_login.enabled` false the login page
  * renders the SSO buttons only (no divider, no form, no forgot link, the
- * SSO-only subtitle). `?password_login=1` opens the form again: the
- * break-glass entry; which address may use it is the server's call.
+ * SSO-only subtitle). `?password_login=1` opens the form again, the
+ * break-glass entry, only when the server publishes `breakGlass` (v2.23.0:
+ * the switch is off and the break-glass list is not empty); which address may
+ * use it is the server's call.
  */
 
 const { configMock } = vi.hoisted(() => ({ configMock: { value: {} as Record<string, unknown> } }))
@@ -101,9 +103,9 @@ describe('LoginPage: password sign-in switch', () => {
     expect(screen.getByText('Use your company account.')).toBeTruthy()
   })
 
-  it('when off, still shows the form on ?password_login=1', () => {
+  it('when off with a break-glass address, shows the form on ?password_login=1', () => {
     arriveWith('?password_login=1')
-    configMock.value = { auth: { sso, passwordReset: { enabled: false, url: null }, passwordLogin: { enabled: false } } }
+    configMock.value = { auth: { sso, passwordReset: { enabled: false, url: null }, passwordLogin: { enabled: false, breakGlass: true } } }
 
     const { container } = renderLogin()
 
@@ -114,9 +116,38 @@ describe('LoginPage: password sign-in switch', () => {
     expect(screen.queryByText('Forgot?')).toBeNull()
   })
 
+  it('when off with no break-glass address, ignores ?password_login=1: the SSO buttons only', () => {
+    arriveWith('?password_login=1')
+    configMock.value = { auth: { sso, passwordReset: { enabled: false, url: null }, passwordLogin: { enabled: false, breakGlass: false } } }
+
+    const { container } = renderLogin()
+
+    expect(container.querySelector('form')).toBeNull()
+    expect(container.querySelector('input')).toBeNull()
+    expect(screen.getByText('Continue with Microsoft')).toBeTruthy()
+    expect(screen.getByText('Welcome back. Continue with your organisation sign-in.')).toBeTruthy()
+  })
+
+  it('when off and the server does not say, ignores ?password_login=1', () => {
+    arriveWith('?password_login=1')
+    configMock.value = { auth: { sso, passwordLogin: { enabled: false } } }
+
+    const { container } = renderLogin()
+
+    expect(container.querySelector('form')).toBeNull()
+  })
+
+  it('when on, shows the form whatever breakGlass says', () => {
+    configMock.value = { auth: { sso, passwordLogin: { enabled: true, breakGlass: false } } }
+
+    const { container } = renderLogin()
+
+    expect(container.querySelector('form')).not.toBeNull()
+  })
+
   it('when off, ignores any other value of the password_login parameter', () => {
     arriveWith('?password_login=0')
-    configMock.value = { auth: { sso, passwordLogin: { enabled: false } } }
+    configMock.value = { auth: { sso, passwordLogin: { enabled: false, breakGlass: true } } }
 
     const { container } = renderLogin()
 

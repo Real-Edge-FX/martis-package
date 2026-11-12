@@ -1267,6 +1267,22 @@ Translations remain the recommended path for multi-locale apps. Use these env va
 
 Toggles the theme switcher and locale picker that float on the auth pages.
 
+## Session guards (v2.23.0)
+
+```php
+'auth' => [
+    'session_guards' => null, // or a list of guard names, e.g. ['site']
+],
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `auth.session_guards` | `array<string>\|null` | `null` | The guards, besides the Martis guard, that sign in people and write Laravel's `sessions.user_id`. `null` (default): every `session` guard of `config/auth.php` and the app's default guard count, as before. A list: only the Martis guard and the guards named there count. `[]` means the Martis guard only. The Martis guard is always counted. A value that is not a list of names, or a name that is not in `auth.guards`, throws an `InvalidArgumentException` naming the key, the first time a revocation, a demotion sweep or the profile reads it (it is not read at boot). |
+
+Why it exists: when the guards that write the column sign in users of more than one table, one id can be two people, so Martis neither deletes the session rows (SSO `revokeFor()`, `authz.revoke_sessions_on_demote`) nor lists them (the profile's Browser sessions) and logs a warning. Laravel merges its own `web` guard, on the `users` provider, into every application's `auth.guards`, so an admin-only app whose people live in another table reads as ambiguous although nothing signs in through `web`. Declare the guards that really write the column to lift that.
+
+**The list must be complete.** A guard that signs in people but is left out of it can make Martis delete, or list in the profile, the session of another person who has the same id in another table. That is why the default stays `null`: the risk moves to the application only by an explicit setting. The tables the guards read are still compared by connection and table, so guards that share one table never count as ambiguous. See [SSO → revocation](sso.md#ending-an-sso-session-age-revocation-revalidation-v2210) and [Authorization → Revoke sessions on demote](authorization.md#revoke-sessions-on-demote).
+
 ## Password sign-in switch (v2.21.0)
 
 ```php
@@ -1280,8 +1296,8 @@ Toggles the theme switcher and locale picker that float on the auth pages.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `auth.password_login.enabled` | `bool` | `true` | `false` turns email and password sign-in off for an SSO-only panel: `POST /login` and `POST /api/auth/login` answer 403 for every address before the controller reads a credential, the password reset flow is off with it, and the login page shows the SSO buttons only (`?password_login=1` still shows the form). An empty string (`MARTIS_PASSWORD_LOGIN_ENABLED=`) is "unset": on. Anything else that is not a boolean or a boolean string throws, naming the key, on a sign-in request or the login page (the provider boot stays up). Turning it off does not end existing sessions or remember-me cookies. |
-| `auth.password_login.break_glass_emails` | `array<string>` | `[]` | Addresses (trimmed, case-insensitive) that may still sign in with a password while it is off; the account is looked up by the trimmed, lower-cased address, so store it that way. A failed break-glass sign-in answers with the same 403 as any other address. Never published to the browser. A value that is not an array of strings throws, naming the key. |
+| `auth.password_login.enabled` | `bool` | `true` | `false` turns email and password sign-in off for an SSO-only panel: `POST /login` and `POST /api/auth/login` answer 403 for every address before the controller reads a credential, the password reset flow is off with it, and the login page shows the SSO buttons only (`?password_login=1` still shows the form when `break_glass_emails` is not empty, v2.23.0). An empty string (`MARTIS_PASSWORD_LOGIN_ENABLED=`) is "unset": on. Anything else that is not a boolean or a boolean string throws, naming the key, on a sign-in request or the login page (the provider boot stays up). Turning it off does not end existing sessions or remember-me cookies. |
+| `auth.password_login.break_glass_emails` | `array<string>` | `[]` | Addresses (trimmed, case-insensitive) that may still sign in with a password while it is off; the account is looked up by the trimmed, lower-cased address, so store it that way. A failed break-glass sign-in answers with the same 403 as any other address. Never published to the browser: only whether it holds an address (`passwordLogin.breakGlass`, v2.23.0), which is what lets the login page open the form on `?password_login=1`. A value that is not an array of strings throws, naming the key. |
 
 Magic-link sign-in, invitations and registration keep their own switches: an SSO-only panel turns them off. One warning a day (with a persistent cache store) is logged when password sign-in is off and no SSO provider is enabled and magic link is off. See [Authentication → Password sign-in switch](authentication.md#password-sign-in-switch-v2210).
 

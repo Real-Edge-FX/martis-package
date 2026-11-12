@@ -418,10 +418,13 @@ export interface MartisAuthConfig {
   /** Magic-link (passwordless) sign-in. v1.8.8. */
   magicLink?: MartisMagicLinkConfig
   /** Email and password sign-in. Off, the login page shows the SSO buttons
-   *  only, unless the URL carries `?password_login=1` (the server decides
-   *  who may then sign in). v2.21.0. */
+   *  only. `?password_login=1` opens the form again only when `breakGlass`
+   *  is true (the server decides who may then sign in). v2.21.0. */
   passwordLogin?: {
     enabled?: boolean
+    /** Password sign-in is off AND `break_glass_emails` holds an address
+     *  (never the list). v2.23.0. */
+    breakGlass?: boolean
   }
   /** The challenge (captcha) hook of the public forms. v2.21.0. */
   challenge?: MartisAuthChallengeConfig

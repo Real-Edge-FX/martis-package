@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use Illuminate\Cache\RedisStore;
 use Illuminate\Contracts\Cache\Repository;
+use Illuminate\Contracts\Redis\Factory as RedisFactory;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -27,6 +29,57 @@ require_once __DIR__.'/../Support/signed-token.php';
 class SsoCacheStoreUser extends User
 {
     protected $guarded = [];
+}
+
+/**
+ * A Redis connection that keeps what it is given as text, as a real server
+ * does: `setex` stores the string and `get` hands the string back.
+ */
+class SsoCacheTextConnection
+{
+    /** @var array<string, string> */
+    public array $data = [];
+
+    public function setex(string $key, int $seconds, mixed $value): bool
+    {
+        $this->data[$key] = (string) $value;
+
+        return true;
+    }
+
+    public function get(string $key): ?string
+    {
+        return $this->data[$key] ?? null;
+    }
+
+    public function del(string ...$keys): int
+    {
+        foreach ($keys as $key) {
+            unset($this->data[$key]);
+        }
+
+        return count($keys);
+    }
+
+    public function mget(array $keys): array
+    {
+        return array_map(fn (string $key) => $this->data[$key] ?? null, $keys);
+    }
+}
+
+class SsoCacheTextFactory implements RedisFactory
+{
+    public SsoCacheTextConnection $connection;
+
+    public function __construct()
+    {
+        $this->connection = new SsoCacheTextConnection;
+    }
+
+    public function connection($name = null): SsoCacheTextConnection
+    {
+        return $this->connection;
+    }
 }
 
 beforeEach(function () {
@@ -126,6 +179,62 @@ it('keeps the revocation in the configured store', function () {
     Cache::store('sso_shared')->flush();
     expect(SsoSession::isRevoked('7', 1))->toBeFalse();
 });
+
+/** Routes the SSO store to a real RedisStore over a connection that returns text. */
+function ssoCacheRedisLike(): SsoCacheTextConnection
+{
+    $factory = new SsoCacheTextFactory;
+    Cache::extend('sso_text', fn () => Cache::repository(new RedisStore($factory, 'sso:')));
+    config()->set('cache.stores.sso_text', ['driver' => 'sso_text']);
+    config()->set('martis.auth.sso.cache_store', 'sso_text');
+    Cache::forgetDriver('sso_text');
+
+    return $factory->connection;
+}
+
+it('reads the revocation time back from a store that returns numbers as text (Redis)', function () {
+    $connection = ssoCacheRedisLike();
+
+    // The premise: the store really hands the integer back as a string.
+    SsoSession::revokeUser('7');
+    $key = 'sso:martis.sso-revoked.'.sha1(GuardCatalog::martis().'|7');
+    expect($connection->data)->toHaveKey($key)
+        ->and(SsoCache::store()->get('martis.sso-revoked.'.sha1(GuardCatalog::martis().'|7')))->toBeString();
+
+    $at = (int) $connection->data[$key];
+
+    expect(SsoSession::isRevoked('7', $at))->toBeTrue()
+        ->and(SsoSession::isRevoked('7', $at - 60))->toBeTrue()
+        ->and(SsoSession::isRevoked('7', $at + 1))->toBeFalse()
+        ->and(SsoSession::isRevoked('7', null))->toBeTrue();
+});
+
+it('still reads an integer marker', function () {
+    $key = 'martis.sso-revoked.'.sha1(GuardCatalog::martis().'|7');
+    Cache::store('sso_shared')->put($key, 1700000000, 600);
+
+    expect(SsoSession::isRevoked('7', 1700000000))->toBeTrue()
+        ->and(SsoSession::isRevoked('7', 1700000001))->toBeFalse();
+});
+
+it('counts a marker that is not a time as revoked', function (mixed $marker) {
+    $key = 'martis.sso-revoked.'.sha1(GuardCatalog::martis().'|7');
+    Cache::store('sso_shared')->put($key, $marker, 600);
+
+    expect(SsoSession::isRevoked('7', PHP_INT_MAX))->toBeTrue();
+})->with([
+    'array' => [['at' => 1700000000]],
+    'bool' => [true],
+    'word' => ['abc'],
+    'digits then letters' => ['12abc'],
+    'float string' => ['1700000000.5'],
+    'negative' => ['-1'],
+    'signed' => ['+1700000000'],
+    'empty' => [''],
+    'padded' => [' 1700000000'],
+    'too long' => ['1234567890123456'],
+    'float' => [1700000000.5],
+]);
 
 it('throws, naming the key, for an unknown store instead of reporting a revocation failure', function () {
     config()->set('martis.auth.sso.cache_store', 'nope');

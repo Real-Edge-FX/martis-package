@@ -540,7 +540,7 @@ Up to v2.3.0 the sweep deleted the sessions whose `user_id` equalled the id of w
 
 Use this in regulated apps where a demotion must take immediate effect on every device the user is signed in on, without waiting for the session cookie to expire.
 
-The sweep deletes the session rows by the demoted user's id, and Laravel's `sessions.user_id` stores no table. When the session guards of `config/auth.php` (with the Martis and the default guard) sign in users of more than one table, such as a custom `MARTIS_GUARD` whose model has its own table beside the site's `users`, that id can be another person's, so the sweep is skipped and a warning names the tables (v2.0.0+). Guards that share one table keep the sweep.
+The sweep deletes the session rows by the demoted user's id, and Laravel's `sessions.user_id` stores no table. When the session guards of `config/auth.php` (with the Martis and the default guard) sign in users of more than one table, such as a custom `MARTIS_GUARD` whose model has its own table beside the site's `users`, that id can be another person's, so the sweep is skipped and a warning names the tables (v2.0.0+). Guards that share one table keep the sweep, and so do the guards listed in [`martis.auth.session_guards`](configuration.md#session-guards-v2230) (v2.23.0), the way out for an admin-only app that only has Laravel's merged `web` guard in the way: the list must be complete, or the sweep can delete the session of another person with the same id.
 
 ## Testing helpers
 
