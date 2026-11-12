@@ -240,7 +240,7 @@ Since v2.21.0 `window.MartisConfig.auth` is an allow-list, built by `Martis\Auth
 
 | Key | Published | Not published (stopped in v2.21.0) |
 |---|---|---|
-| `sso` | `enabled`, and for each **enabled** provider only `enabled`, `label`, `icon` plus the keys of its `public` array (see [SSO](sso.md#what-reaches-the-browser-v2210)). No provider while `sso.enabled` is `false`. | Disabled providers; every other key of a provider block (`driver`, `scopes`, `role_*`, `tenant`, `resource_id`, `logout_url`, `redirect_to`, `remember`, …). |
+| `sso` | `enabled`, and for each **enabled** provider only `enabled`, `label` (a string or a `locale => string` map, v2.22.0), `icon` plus the keys of its `public` array (see [SSO](sso.md#what-reaches-the-browser-v2210)). No provider while `sso.enabled` is `false`. | Disabled providers; every other key of a provider block (`driver`, `scopes`, `role_*`, `tenant`, `resource_id`, `logout_url`, `redirect_to`, `remember`, …). |
 | `passwordReset` | `enabled` (off while password sign-in is), `url` | `broker` |
 | `registration` | `enabled`, `url` | `default_role` |
 | `controls` | `theme`, `locale` | |

@@ -30,7 +30,7 @@ export type AuthCopyKey =
   | 'subtitle_with_sso'
   | 'subtitle_sso_only'
 
-type AuthCopyValue = string | Record<string, string> | null | undefined
+export type AuthCopyValue = string | Record<string, string> | null | undefined
 
 function pickFromMap(map: Record<string, string>, locale: string): string | null {
   // Resolution order: exact match → locale prefix (en_US → en) → 'en' → first non-empty.
@@ -61,6 +61,41 @@ function pickFromMap(map: Record<string, string>, locale: string): string | null
 }
 
 /**
+ * Resolve one configured value of the shapes above against a locale: a
+ * non-empty string is returned verbatim, a map of locale → string through
+ * {@link pickFromMap}, anything else (null, undefined, an empty or blank
+ * string, an array, a map with no usable entry) is `null`, which the caller
+ * answers with its own default. The shared core of `useAuthCopy()` and of the
+ * SSO button label (`auth.sso.providers.<name>.label`, v2.22.0).
+ */
+export function resolveCopyValue(value: AuthCopyValue, locale: string): string | null {
+  if (typeof value === 'string') {
+    return value.trim() !== '' ? value : null
+  }
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return pickFromMap(value, locale)
+  }
+  return null
+}
+
+/**
+ * Hook variant of {@link resolveCopyValue}: resolves a configured value
+ * against the active language, and re-renders when it changes. For a value
+ * that has no page and key of its own in `config.auth.copy`.
+ *
+ * @example
+ *   const resolveCopy = useResolveCopy()
+ *   const label = resolveCopy(provider.label) ?? t('continue_with', { ... })
+ */
+export function useResolveCopy() {
+  const { i18n: i18nInstance } = useTranslation('auth')
+
+  return function resolve(value: AuthCopyValue): string | null {
+    return resolveCopyValue(value, i18nInstance?.language || i18n.language || 'en')
+  }
+}
+
+/**
  * Hook variant — call from inside an auth page component.
  *
  * @example
@@ -83,14 +118,8 @@ export function useAuthCopy() {
     const pageOverrides = overrides?.[page] as Record<string, AuthCopyValue> | undefined
     const override = pageOverrides?.[key]
 
-    if (typeof override === 'string' && override.trim() !== '') {
-      return override
-    }
-    if (override && typeof override === 'object') {
-      const locale = i18nInstance?.language || i18n.language || 'en'
-      const fromMap = pickFromMap(override as Record<string, string>, locale)
-      if (fromMap !== null) return fromMap
-    }
+    const resolved = resolveCopyValue(override, i18nInstance?.language || i18n.language || 'en')
+    if (resolved !== null) return resolved
     return t(translationKey, { defaultValue })
   }
 }

@@ -991,6 +991,9 @@ return [
                 // 'azure' => [
                 //     'enabled' => env('MARTIS_SSO_AZURE_ENABLED', false),
                 //     'driver' => 'azure',
+                //     // A string, or one per language (v2.22.0), resolved against the
+                //     // active language like `auth.copy`:
+                //     // 'label' => ['en' => 'Continue with Microsoft', 'pt_PT' => 'Continuar com a Microsoft'],
                 //     'label' => 'Continue with Microsoft',
                 //     'icon' => 'microsoft-outlook-logo',
                 //     'scopes' => [

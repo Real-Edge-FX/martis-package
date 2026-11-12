@@ -1060,6 +1060,22 @@ The Login page reads `auth.sso.providers` and renders one button per enabled pro
 
 Result: three buttons stacked above the email/password form. Click → `/sso/{name}/redirect`.
 
+#### A translated button label (v2.22.0)
+
+`label` is a string, or a map of `locale => string` that the login page resolves against the active language the way it resolves [`auth.copy`](authentication.md#customising-the-auth-copy) values: the exact locale (`pt_PT`), then its prefix (`pt`), then `en`, then the first non-empty entry. The button follows the language picker without a reload.
+
+```php
+'azure' => [
+    'enabled' => true,
+    'label' => [
+        'en' => 'Continue with Microsoft',
+        'pt_PT' => 'Continuar com a Microsoft',
+    ],
+],
+```
+
+Unset (`null`), an empty string, an empty map or a map with no usable entry, the button reads "Continue with `<provider name>`" from the bundled translation. A `label` that is set but is neither a string nor a map of strings (a number, a list, a map with a non-string value) throws an exception naming `martis.auth.sso.providers.{provider}.label` when the login page is built; before v2.22.0 it was dropped without a word. The label of a provider that is not enabled is not read.
+
 When `auth.sso.enabled = false`, no buttons render and no routes register.
 
 ---

@@ -317,8 +317,10 @@ export interface MartisAuthControlsConfig {
 export interface MartisSsoProviderConfig {
   /** Always `true`: only an enabled provider is published (v2.21.0). */
   enabled?: boolean
-  /** Human-readable button label. */
-  label?: string | null
+  /** Button label: a string, or a map of locale → string resolved against
+   *  the active language like `auth.copy` (v2.22.0). Unset, the button reads
+   *  "Continue with <name>". */
+  label?: MartisAuthCopyEntry
   /** Phosphor icon name. */
   icon?: string | null
   /** The other keys the provider block lists in its `public` array, for a
