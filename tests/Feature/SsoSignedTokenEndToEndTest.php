@@ -8,6 +8,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Http\Request;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Cache;
@@ -19,6 +20,7 @@ use Illuminate\Testing\TestResponse;
 use Martis\Auth\TwoFactorPass;
 use Martis\Events\SsoFailed;
 use Martis\Events\SsoLoggedIn;
+use Martis\Http\Controllers\SsoController;
 use Martis\Http\Middleware\SpendSignedToken;
 use Martis\Sso\Facades\MartisSso;
 use Martis\Sso\Providers\SignedTokenProvider;
@@ -384,6 +386,30 @@ it('does not read a provider name in another letter case, so the token is not sp
     $this->get($lower)->assertRedirect();
 
     expect(auth()->check())->toBeTrue();
+});
+
+it('throws a configuration error of the provider block on the callback, on both routes, and refuses nobody for it', function () {
+    $start = $this->get('/martis/sso/panel_a/redirect');
+    $issue = $this->actingAs($this->issuerUser)
+        ->withSession([TwoFactorPass::SESSION_KEY => (string) $this->issuerUser->getKey()])
+        ->get((string) $start->headers->get('Location'));
+    $callback = (string) $issue->headers->get('Location');
+    auth()->logout();
+    config(['martis.auth.sso.providers.panel_a.environment_claim' => 'deployment']);
+    Event::fake([SsoFailed::class]);
+
+    // Through the route: SpendSignedToken ran first.
+    expect(fn () => $this->withoutExceptionHandling()->get($callback))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.panel_a.environment_claim');
+    $this->withExceptionHandling()->get($callback)->assertStatus(500);
+
+    // The provider alone (no middleware): the controller answers the same.
+    $request = Request::create($callback);
+    $request->setLaravelSession(session()->driver());
+    expect(fn () => app(SsoController::class)->callback($request, 'panel_a'))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.panel_a.environment_claim');
+
+    Event::assertNotDispatched(SsoFailed::class);
 });
 
 it('leaves the callback of another provider alone', function () {

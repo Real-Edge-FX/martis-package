@@ -905,14 +905,13 @@ it('keeps the state refusal for resolveIdentity() after spend(), with the token 
     expect(Cache::has('martis_sso_jti:panel_a:'.hash('sha256', $claims['jti'])))->toBeTrue();
 });
 
-it('keeps a configuration error of spend() for resolveIdentity()', function () {
+it('does not keep a configuration error: spend() throws it, naming the key', function () {
     $flow = stBegin(stProvider());
     stConsumer([$this->keys['public_b64']], 'panel_a', ['issuer' => '']);
     $request = stCallback($flow['session'], 'v4.public.x', $flow['state']);
 
-    stProvider()->spend($request);
-
-    expect(fn () => stProvider()->resolveIdentity($request))->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.panel_a.issuer');
+    expect(fn () => stProvider()->spend($request))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.panel_a.issuer');
 });
 
 it('refuses a token over the fixed length before it parses it, and records nothing', function () {

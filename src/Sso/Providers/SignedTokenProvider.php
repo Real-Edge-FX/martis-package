@@ -98,7 +98,7 @@ final class SignedTokenProvider implements SsoProviderContract
      * Steps 1 to 3 of the sign-in (v2.22.0): the structure, the signature, the
      * claims and times, the environment and the ONE-TIME `jti`, with their
      * outcome kept on the request for {@see resolveIdentity()}. A refusal is
-     * kept, not thrown, and so is a configuration error.
+     * kept, not thrown; a configuration error is thrown (a 500, naming the key).
      *
      * The callback route runs it from a middleware that applies the throttle
      * only afterwards ({@see SpendSignedToken}), so that using the
@@ -111,9 +111,12 @@ final class SignedTokenProvider implements SsoProviderContract
      */
     public function spend(Request $request): void
     {
+        // Only a refusal is kept. A configuration error (an unusable key of the
+        // block or of the cache store) or a missing ext-sodium is thrown, so it
+        // surfaces as the loud failure it is, never as a refusal of the visitor.
         try {
             $outcome = $this->verifyAndSpend($request);
-        } catch (Throwable $e) {
+        } catch (SsoException $e) {
             $outcome = $e;
         }
 

@@ -18,6 +18,7 @@ use Martis\Auth\TwoFactorPass;
 use Martis\Events\SsoFailed;
 use Martis\Events\SsoLoggedIn;
 use Martis\Sso\IdentityResolver;
+use Martis\Sso\Providers\SignedTokenProvider;
 use Martis\Sso\RoleMapper;
 use Martis\Sso\SsoDenial;
 use Martis\Sso\SsoException;
@@ -113,7 +114,17 @@ class SsoController extends Controller
 
         try {
             $identity = $driver->resolveIdentity($request);
+        } catch (SsoException $e) {
+            return $this->refuse($request, $provider, $e);
         } catch (Throwable $e) {
+            // The signed-token provider refuses only with an SsoException:
+            // anything else is its configuration (a key of the block, the
+            // cache store) or its environment (ext-sodium), and is loud, like
+            // the limits check above, never a refusal of the visitor.
+            if ($driver instanceof SignedTokenProvider) {
+                throw $e;
+            }
+
             return $this->refuse($request, $provider, $e);
         }
 
