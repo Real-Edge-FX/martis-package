@@ -123,6 +123,18 @@ describe('LoginPage: password sign-in switch', () => {
     expect(container.querySelector('form')).toBeNull()
   })
 
+  it.each([
+    ['a magic-link request', { magicLink: { enabled: true } }],
+    ['a registration link', { registration: { enabled: true, url: null } }],
+  ])('when off, uses the existing subtitle, not the SSO-only one, while the page also offers %s', (_label, extra) => {
+    configMock.value = { auth: { sso, passwordLogin: { enabled: false }, ...extra } }
+
+    renderLogin()
+
+    expect(screen.queryByText('Welcome back. Continue with your organisation sign-in.')).toBeNull()
+    expect(screen.getByText('Welcome back. Continue with SSO or use your email.')).toBeTruthy()
+  })
+
   it('when off, keeps the magic-link request reachable with the email field only', () => {
     configMock.value = { auth: { sso, passwordLogin: { enabled: false }, magicLink: { enabled: true } } }
 
