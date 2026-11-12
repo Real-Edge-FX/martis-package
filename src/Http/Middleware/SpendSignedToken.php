@@ -6,20 +6,25 @@ namespace Martis\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Martis\Sso\Providers\SignedTokenProvider;
 use Martis\Sso\SsoManager;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Uses the signed token up before the callback's throttle (v2.22.0).
+ * Uses the signed token up before the callback's throttle (v2.22.0), then
+ * applies that throttle (`SpendSignedToken:<max attempts>,<decay minutes>`,
+ * the same limit the callback had as `throttle:<max>,<decay>`).
  *
  * The callback route is rate limited, and a request the limit answers with 429
  * never reaches the provider. An attacker who lured a signed-in user into
  * fetching a token for the attacker's state (state fixation) can fill the
  * victim's throttle bucket first, so that the victim's callback is answered
  * 429, the one-time `jti` is never recorded, and the token stays good, in the
- * URL of an access log, for its lifetime. This middleware runs BEFORE the
- * throttle and, only for a provider whose driver is `signed-token`, runs the
+ * URL of an access log, for its lifetime. This middleware spends the token
+ * first and only then hands the request to the throttle (it runs the app's
+ * `throttle` alias itself, so the order does not depend on Laravel's
+ * middleware priority list, which sorts `throttle`), and, only for a provider whose driver is `signed-token`, runs the
  * provider's steps up to and including the `jti` record
  * ({@see SignedTokenProvider::spend()}) and keeps the outcome on the request
  * for the controller. A provider of another driver is not touched, and the
@@ -39,26 +44,36 @@ final class SpendSignedToken
 {
     public function __construct(private readonly SsoManager $manager) {}
 
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next, int|string $maxAttempts = 20, int|string $decayMinutes = 1): Response
     {
         $name = $request->route('provider');
 
-        if (! is_string($name) || $name !== strtolower($name)) {
-            return $next($request);
+        if (is_string($name) && $name === strtolower($name)) {
+            $driver = $this->manager->driver($name);
+
+            if ($driver instanceof SignedTokenProvider) {
+                if ($request->isMethod('HEAD')) {
+                    abort(405, '', ['Allow' => 'GET']);
+                }
+
+                $driver->spend($request);
+            }
         }
 
-        $driver = $this->manager->driver($name);
+        return $this->throttle($request, $next, $maxAttempts, $decayMinutes);
+    }
 
-        if (! $driver instanceof SignedTokenProvider) {
-            return $next($request);
-        }
+    /**
+     * The callback's rate limit, through the app's `throttle` alias (so
+     * `throttleWithRedis()` and a replaced alias keep working).
+     */
+    private function throttle(Request $request, Closure $next, int|string $maxAttempts, int|string $decayMinutes): Response
+    {
+        $class = app('router')->getMiddleware()['throttle'] ?? ThrottleRequests::class;
 
-        if ($request->isMethod('HEAD')) {
-            abort(405, '', ['Allow' => 'GET']);
-        }
+        /** @var ThrottleRequests $throttle */
+        $throttle = app($class);
 
-        $driver->spend($request);
-
-        return $next($request);
+        return $throttle->handle($request, $next, $maxAttempts, $decayMinutes);
     }
 }

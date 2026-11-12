@@ -12,8 +12,6 @@ use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Foundation\CachesRoutes;
-use Illuminate\Contracts\Http\Kernel as HttpKernel;
-use Illuminate\Foundation\Http\Kernel as FoundationHttpKernel;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Carbon;
@@ -99,7 +97,6 @@ use Martis\Http\Middleware\EnsurePasswordIsChanged;
 use Martis\Http\Middleware\EnsurePasswordLoginAllowed;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
 use Martis\Http\Middleware\MartisAuthenticate;
-use Martis\Http\Middleware\SpendSignedToken;
 use Martis\Http\Middleware\VerifyChallenge;
 use Martis\Http\RouteMiddleware;
 use Martis\Impersonation\Events\ImpersonationStarted;
@@ -601,15 +598,6 @@ class MartisServiceProvider extends ServiceProvider
         // valid at the IdP (v2.21.0), right after `martis.auth`.
         $router->aliasMiddleware('martis.sso.session', EnforceSsoSession::class);
 
-        // The signed token is used up before the callback's throttle (v2.22.0).
-        // `throttle` is in Laravel's middleware priority list, and a listed
-        // middleware runs in the list's order wherever the route names it, so
-        // SpendSignedToken must be in the list, ahead of it, or the order the
-        // route declares would be undone.
-        $kernel = $this->app->make(HttpKernel::class);
-        if ($kernel instanceof FoundationHttpKernel) {
-            $kernel->prependToMiddlewarePriority(SpendSignedToken::class);
-        }
         $router->aliasMiddleware('martis.2fa', EnsureTwoFactorChallenge::class);
         $router->aliasMiddleware('martis.locale', ApplyUserPreferencesLocale::class);
         $router->aliasMiddleware('martis.verified', EnsureEmailIsVerified::class);

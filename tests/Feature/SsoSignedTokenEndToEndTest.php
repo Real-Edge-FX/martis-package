@@ -338,13 +338,16 @@ it('uses the token up even when the victim callback is throttled (429): the repl
     Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'replayed');
 });
 
-it('runs the one-time check before the throttle on the callback route', function () {
+it('keeps the callback rate limit of every provider, after the one-time check', function () {
     $middleware = app('router')->getRoutes()->getByName('martis.sso.callback')->gatherMiddleware();
 
-    $spend = array_search(SpendSignedToken::class, $middleware, true);
-    $throttle = collect($middleware)->search(fn ($m) => is_string($m) && str_starts_with($m, 'throttle:'));
+    expect($middleware)->toContain(SpendSignedToken::class.':20,1');
 
-    expect($spend)->not->toBeFalse()->and($throttle)->not->toBeFalse()->and($spend)->toBeLessThan($throttle);
+    // The limit still answers 429 on the 21st request of an address, for any provider name.
+    for ($i = 0; $i < 20; $i++) {
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.50'])->get('/martis/sso/nobody/callback')->assertRedirect();
+    }
+    $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.50'])->get('/martis/sso/nobody/callback')->assertStatus(429);
 });
 
 it('answers 405 to a HEAD request on the callback and does not spend the token', function () {
