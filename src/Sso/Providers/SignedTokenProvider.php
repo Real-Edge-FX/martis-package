@@ -30,7 +30,8 @@ use Throwable;
  *   resolveIdentity()  the callback's `token` (PASETO v4.public, see
  *                      {@see PasetoV4Public}) is checked, in this order: its
  *                      shape, its signature against every configured key, its
- *                      claims (issuer, audience, expiry, age, environment), the
+ *                      claims (issuer, audience, expiry, age, environment: a token that carries the
+ *                      environment claim needs a verifier with `environment`), the
  *                      one-time `jti`, and last the state (session = query =
  *                      claim, pulled once, at most ten minutes old)
  *
@@ -274,13 +275,20 @@ final class SignedTokenProvider implements SsoProviderContract
 
     /**
      * A verifier locked to an environment (`environment`) takes only tokens
-     * that carry it: a staging token does not sign in to production.
+     * that carry it: a staging token does not sign in to production. The lock
+     * is a pair (v2.22.0): a token that carries the environment claim at a
+     * verifier with no `environment` is refused too, because the issuer is
+     * locked and this side would ignore it.
      *
      * @param  array<string, mixed>  $claims
      */
     private function checkEnvironment(array $claims, ConsumerSettings $settings): void
     {
         if ($settings->environment === null) {
+            if (array_key_exists($settings->environmentClaim, $claims)) {
+                throw $this->refuse(Reason::ENVIRONMENT, 'the issuer is locked to an environment and this verifier is not: set `environment` in the provider block');
+            }
+
             return;
         }
 

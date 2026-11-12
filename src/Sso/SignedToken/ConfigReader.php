@@ -35,6 +35,19 @@ final class ConfigReader
     }
 
     /**
+     * The environment lock is a pair: `environment` names the lock and
+     * `environment_claim` names the claim that carries it (default `env`).
+     * A claim name with no environment is half a lock, which looks configured
+     * and locks nothing, so it is refused (v2.22.0). Set both or neither.
+     */
+    public static function assertEnvironmentPair(?string $environment, mixed $claim, string $environmentKey, string $claimKey): void
+    {
+        if ($environment === null && $claim !== null) {
+            throw new InvalidArgumentException("The [{$claimKey}] config value is set but [{$environmentKey}] is not: the environment lock needs both. Set [{$environmentKey}] too, or remove [{$claimKey}].");
+        }
+    }
+
+    /**
      * An integer from `$min` up, given as an int or as the digits of one (what
      * `env()` returns); `$default` when the value is unset (null).
      */

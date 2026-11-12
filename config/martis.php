@@ -1154,6 +1154,9 @@ return [
                 //
                 //     // Second lock (optional): accept only tokens whose claim equals
                 //     // this value, so a staging token never signs in to production.
+                //     // Set it when the issuer sets `environment`: a token that carries
+                //     // the claim is refused by a verifier with none. Naming
+                //     // `environment_claim` without `environment` throws.
                 //     // 'environment' => 'production',
                 //     // 'environment_claim' => 'env',
                 //
@@ -1193,7 +1196,10 @@ return [
             |                is also valid once only, on the other side.
             |   environment  Optional. Put in the token (claim `environment_claim`,
             |                default `env`) so a verifier locked to production
-            |                refuses a token from staging.
+            |                refuses a token from staging. The verifier must set
+            |                its own `environment` too: it refuses a token that
+            |                carries the claim when it has none. `environment_claim`
+            |                without `environment` throws.
             |   claims       Optional invokable class (or [Class::class, 'method'])
             |                `(Authenticatable $user, string $audience): array`
             |                that adds or replaces `email`, `name` and the roles

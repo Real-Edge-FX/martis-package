@@ -1377,8 +1377,8 @@ php artisan martis:sso panel-b --issuer   # adds the audience and the env stubs,
 | `issuer` | This panel's name in the `iss` claim. Panel B's provider block must carry the same string. |
 | `private_key` | Base64 Ed25519 secret key (64 bytes). Read from the environment: no command ever writes it to a file. A key that is not 64 bytes, or whose public half does not match its seed, throws naming this key. |
 | `ttl_seconds` | Token life, 1 to 600 (default 60). |
-| `environment` | Optional. Added to the token as the claim `environment_claim` (default `env`), so a verifier locked to `production` refuses a staging token. |
-| `role_claim`, `environment_claim` | Optional claim names (defaults `roles` and `env`). Keep them equal to panel B's `role_claim` and `environment_claim`. |
+| `environment` | Optional. Added to the token as the claim `environment_claim` (default `env`), so a verifier locked to `production` refuses a staging token. The lock is a pair (v2.22.0): panel B must set the same `environment` too, because a token that carries the claim is refused by a verifier with no `environment`. |
+| `role_claim`, `environment_claim` | Optional claim names (defaults `roles` and `env`). Keep them equal to panel B's `role_claim` and `environment_claim`. Setting `environment_claim` while `environment` is not set throws, naming both keys (v2.22.0): it would look like a lock and lock nothing. |
 | `claims` | Optional invokable class, `(Authenticatable $user, string $audience): array`, that adds claims and replaces `email`, `name` and the roles. Use the name of a class or a `[Class::class, 'method']` array, never a closure (`config:cache`). `iss`, `aud`, `sub`, `iat`, `exp`, `jti`, `state`, `email_verified` and the environment claim (`environment_claim`, always, whether or not `environment` is set) cannot be set: the class throws if it tries. |
 | `audiences` | `'<audience>' => ['callback_url' => '...', 'ability' => null]`. `ability` (optional, a non-empty string; anything else throws naming the key) limits who may obtain a token for that audience: the issue route checks `Gate::forUser($user)->allows($ability)`, so an app gate or a Spatie permission name both work. A refusal answers 403 with a translated message, issues nothing and redirects nowhere. Unset, any user who can open the panel gets a token.  The audience is the name panel B uses as its `audience`. A name is 1 to 64 letters, digits, `.`, `-` or `_`, and is not `callback` or `redirect`. |
 
@@ -1439,7 +1439,7 @@ The block may be named anything and there may be several: `driver => 'signed-tok
 | `max_age_seconds` | A token issued longer ago than this (plus the skew) is refused, whatever its `exp` says (default 60). |
 | `clock_skew_seconds` | Clock difference tolerated for `exp` and `iat` (default 30). |
 | `role_claim` | The claim that holds the role names (default `roles`). The roles feed the usual `role_strategy` mapping. |
-| `environment`, `environment_claim` | Optional second lock: only tokens whose `environment_claim` (default `env`) equals `environment` are accepted. |
+| `environment`, `environment_claim` | Optional second lock: only tokens whose `environment_claim` (default `env`) equals `environment` are accepted. With no `environment`, a token that carries the environment claim at all is refused (reason `environment`, the text says to set `environment`): the issuer is locked and this verifier is not. Setting `environment_claim` while `environment` is not set throws, naming both keys (v2.22.0). |
 
 #### The columns panel B needs
 
@@ -1485,7 +1485,7 @@ In this order, each refusal with its own reason (they reach the log line and the
 | `audience` | `aud` is not the configured `audience`. |
 | `expired` | `exp` has passed beyond the skew, or `iat` is older than `max_age_seconds` plus the skew. |
 | `not_yet_valid` | `iat` is in the future beyond the skew. |
-| `environment` | The verifier has an `environment` and the token's claim differs or is absent. |
+| `environment` | The verifier has an `environment` and the token's claim differs or is absent; or the verifier has none and the token carries the environment claim (the issuer is locked, this side is not: set `environment`). |
 | `replayed` | The `jti` was already used. |
 | `replay_store` | The cache failed while recording the `jti`: the token is refused, never let through. |
 | `state` | The state in the browser's session (taken out of it once, whatever the outcome, and no older than 10 minutes since the redirect: v2.22.0, a fixed limit with no config key, so a sign-in slower than that starts over), the `state` of the callback URL and the `state` claim are not all the same. |
@@ -1506,7 +1506,7 @@ The `jti` is recorded (`Cache::add`, kept until the token could not be accepted 
   - *Why PKCE or a state that panel B signs would not help.* The attacker starts the flow, so they hold the PKCE verifier and they can produce a valid signed state for their own session. Both proofs would be in the attacker's hand when the token is replayed. The one-time `jti` is what ends the window.
   - If an audience should not be reachable this way at all, give it an `ability` the user must hold deliberately, or do not issue to it.
 - **Revocation does not cross panels.** `MartisSso::revokeFor()` on panel A ends A's SSO sessions; it does **not** end the sessions panel B opened from A's tokens (the signed-token provider does not implement `RevalidatesSessions`), and on panel B it ends B's sessions but the middleware then sends the person to `/{martis}/sso/{name}/redirect`, which signs them straight back in for as long as their session at panel A (or at the IdP, for Azure) lives. Revoke at **every** layer: the IdP or the issuing panel first (`revokeFor()` on A, which also drops A's sessions), then `revokeFor()` on each consuming panel; set `max_session_minutes` on B so a token cannot keep a session going longer than you accept.
-- **The private key is the trust root.** Whoever holds it can sign in to panel B as anyone panel B links by `external_id`. Keep it in the environment of panel A only, give it its own value per environment, and rotate it as above. Panel B holds public keys only. Use the `environment` lock so a staging key (or token) cannot sign in to production.
+- **The private key is the trust root.** Whoever holds it can sign in to panel B as anyone panel B links by `external_id`. Keep it in the environment of panel A only, give it its own value per environment, and rotate it as above. Panel B holds public keys only. Use the `environment` lock on **both** sides so a staging key (or token) cannot sign in to production: the issuer adds the claim, the verifier refuses what does not match, and since v2.22.0 a pair where only the issuer is locked stops signing in until the verifier sets `environment` too, instead of silently ignoring the lock.
 - **Use HTTPS.** `authorize_url` and `callback_url` must be `https`, except `localhost`, `*.localhost`, `*.test`, `127.0.0.1` and `[::1]` for local development.
 - **Clocks.** Keep both servers on NTP; `clock_skew_seconds` is the tolerance and `max_age_seconds` the window.
 - **One flow per browser session.** Starting a second flow in another tab replaces the state of the first, which then fails as `state`.

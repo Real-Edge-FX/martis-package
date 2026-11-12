@@ -645,13 +645,39 @@ it('does not let a claims class set email_verified', function () {
 // The environment claim is the issuer's alone (review D4)
 // -----------------------------------------------------------------------------
 
-it('reserves the environment claim even when the issuer sets no environment', function (?string $claimName) {
+it('reserves the environment claim even when the issuer sets no environment', function () {
     config(['martis.auth.sso.issuer.claims' => StIssuerClaims::class, 'martis.auth.sso.issuer.environment' => null]);
-    if ($claimName !== null) {
-        config(['martis.auth.sso.issuer.environment_claim' => $claimName]);
-    }
-    StIssuerClaims::$result = [$claimName ?? 'env' => 'production'];
+    StIssuerClaims::$result = ['env' => 'production'];
 
     expect(fn () => TokenIssuer::fromConfig()->issue($this->user, 'panel-b', $this->state))
         ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.issuer.claims');
-})->with(['the default name' => [null], 'a custom name' => ['deployment']]);
+});
+
+it('reserves a custom environment claim name', function () {
+    config([
+        'martis.auth.sso.issuer.claims' => StIssuerClaims::class,
+        'martis.auth.sso.issuer.environment' => 'staging',
+        'martis.auth.sso.issuer.environment_claim' => 'deployment',
+    ]);
+    StIssuerClaims::$result = ['deployment' => 'production'];
+
+    expect(fn () => TokenIssuer::fromConfig()->issue($this->user, 'panel-b', $this->state))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.issuer.claims');
+});
+
+it('throws, naming both keys, when environment_claim is set and environment is not', function () {
+    config(['martis.auth.sso.issuer.environment' => null, 'martis.auth.sso.issuer.environment_claim' => 'deployment']);
+
+    expect(fn () => TokenIssuer::fromConfig())
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.issuer.environment_claim')
+        ->and(fn () => TokenIssuer::fromConfig())
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.issuer.environment]');
+});
+
+it('accepts environment_claim together with environment, and the default claim name with none', function () {
+    config(['martis.auth.sso.issuer.environment' => 'staging', 'martis.auth.sso.issuer.environment_claim' => 'deployment']);
+    expect(TokenIssuer::fromConfig())->toBeInstanceOf(TokenIssuer::class);
+
+    config(['martis.auth.sso.issuer.environment' => null, 'martis.auth.sso.issuer.environment_claim' => null]);
+    expect(TokenIssuer::fromConfig())->toBeInstanceOf(TokenIssuer::class);
+});

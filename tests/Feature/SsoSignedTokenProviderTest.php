@@ -300,17 +300,71 @@ it('refuses a staging token on a production verifier and a token without the env
     expect(stReason(stProvider(), $flow['session'], $production, $flow['state']))->toBe('accepted');
 });
 
-it('reads the environment from environment_claim, and does not lock when no environment is configured', function () {
+it('reads the environment from environment_claim', function () {
     stConsumer([$this->keys['public_b64']], 'panel_a', ['environment' => 'production', 'environment_claim' => 'deployment']);
 
     $flow = stBegin(stProvider());
     $token = stSign(stClaims($flow['state'], ['deployment' => 'production']), $this->keys['secret']);
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
 
+    // The default claim name is not the one this block reads.
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state'], ['env' => 'production']), $this->keys['secret']);
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::ENVIRONMENT);
+});
+
+it('refuses a token that carries the environment claim when this verifier has no environment', function () {
+    // The issuer is locked to an environment, this verifier is not: half a lock refuses.
     stConsumer([$this->keys['public_b64']]);
+
     $flow = stBegin(stProvider());
     $token = stSign(stClaims($flow['state'], ['env' => 'staging']), $this->keys['secret']);
+    $provider = stProvider();
+
+    try {
+        $provider->resolveIdentity(stCallback($flow['session'], $token, $flow['state']));
+        $this->fail('the token was accepted');
+    } catch (SsoException $e) {
+        expect($e->reason)->toBe(Reason::ENVIRONMENT)
+            ->and($e->getMessage())->toContain('environment');
+    }
+});
+
+it('refuses a token that carries an empty environment claim when this verifier has no environment', function () {
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state'], ['env' => '']), $this->keys['secret']);
+
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::ENVIRONMENT);
+});
+
+it('accepts a token without the environment claim when this verifier has no environment', function () {
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state']), $this->keys['secret']);
+
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
+});
+
+it('says to set environment in the refusal of a locked token at an unlocked verifier', function () {
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state'], ['env' => 'staging']), $this->keys['secret']);
+
+    expect(fn () => stProvider()->resolveIdentity(stCallback($flow['session'], $token, $flow['state'])))
+        ->toThrow(fn (SsoException $e) => expect($e->getMessage())->toContain('set `environment`'));
+});
+
+it('throws, naming both keys, when environment_claim is set and environment is not', function () {
+    stConsumer([$this->keys['public_b64']], 'panel_a', ['environment_claim' => 'deployment']);
+
+    expect(fn () => stBegin(stProvider()))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.panel_a.environment_claim')
+        ->and(fn () => stBegin(stProvider()))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.panel_a.environment]');
+});
+
+it('accepts environment_claim together with environment', function () {
+    stConsumer([$this->keys['public_b64']], 'panel_a', ['environment' => 'production', 'environment_claim' => 'deployment']);
+
+    expect(stBegin(stProvider())['state'])->not->toBe('');
 });
 
 it('refuses a state that does not match the callback query, or the claim, or the session', function () {
@@ -436,8 +490,8 @@ it('does not burn the jti of a token the verifier rejected', function () {
     stConsumer([$this->keys['public_b64']], 'panel_a', ['environment' => 'production']);
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::ENVIRONMENT);
 
-    // Same token, verifier no longer locked: the jti was never recorded.
-    stConsumer([$this->keys['public_b64']]);
+    // Same token, verifier now locked to the token's environment: the jti was never recorded.
+    stConsumer([$this->keys['public_b64']], 'panel_a', ['environment' => 'staging']);
     stRestoreState($flow);
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
 });

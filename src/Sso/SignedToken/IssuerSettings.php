@@ -90,13 +90,17 @@ final class IssuerSettings
 
         $audiences = self::audiences($block['audiences'] ?? []);
 
+        $environment = ConfigReader::optionalString($block['environment'] ?? null, "{$key}.environment");
+        $environmentClaim = ConfigReader::stringOr($block['environment_claim'] ?? null, "{$key}.environment_claim", 'env');
+        ConfigReader::assertEnvironmentPair($environment, $block['environment_claim'] ?? null, "{$key}.environment", "{$key}.environment_claim");
+
         return new self(
             issuer: ConfigReader::string($block['issuer'] ?? null, "{$key}.issuer"),
             secretKey: $secret,
             publicKey: $public,
             ttlSeconds: ConfigReader::int($block['ttl_seconds'] ?? null, "{$key}.ttl_seconds", 60, 1, self::MAX_TTL_SECONDS),
-            environment: ConfigReader::optionalString($block['environment'] ?? null, "{$key}.environment"),
-            environmentClaim: ConfigReader::stringOr($block['environment_claim'] ?? null, "{$key}.environment_claim", 'env'),
+            environment: $environment,
+            environmentClaim: $environmentClaim,
             roleClaim: ConfigReader::stringOr($block['role_claim'] ?? null, "{$key}.role_claim", 'roles'),
             claims: $block['claims'] ?? null,
             audiences: $audiences['urls'],
