@@ -151,6 +151,38 @@ it('scaffolds the consumer block of the signed-token driver', function () {
     expect($env)->not->toContain('AZURE_');
 });
 
+it('lists the columns the consuming app needs in the steps it prints', function () {
+    stHostApp($this);
+
+    $this->artisan('martis:sso', [
+        'provider' => 'panel-a',
+        '--driver' => 'signed-token',
+        '--no-composer' => true,
+        '--no-migrate' => true,
+        '--no-map' => true,
+    ])
+        ->expectsOutputToContain('users.panel_a_external_id')
+        ->expectsOutputToContain('roles.panel_a_group_name')
+        ->expectsOutputToContain('--with-migration')
+        ->assertSuccessful();
+});
+
+it('leaves the roles column out of the printed steps for a strategy that does not read it', function () {
+    stHostApp($this);
+
+    $this->artisan('martis:sso', [
+        'provider' => 'panel-a',
+        '--driver' => 'signed-token',
+        '--strategy' => 'config',
+        '--no-composer' => true,
+        '--no-migrate' => true,
+        '--no-map' => true,
+    ])
+        ->expectsOutputToContain('users.panel_a_external_id')
+        ->doesntExpectOutputToContain('roles.panel_a_group_name')
+        ->assertSuccessful();
+});
+
 it('does not duplicate the block when run twice', function () {
     stHostApp($this);
     $arguments = ['provider' => 'panel-a', '--driver' => 'signed-token', '--no-composer' => true, '--no-migrate' => true, '--no-map' => true];

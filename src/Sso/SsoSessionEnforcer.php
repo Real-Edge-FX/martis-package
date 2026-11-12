@@ -44,6 +44,12 @@ use Throwable;
  * on purpose), the session invalidated with a new CSRF token, the SSO origin and
  * the remembered 2FA device dropped. No federated logout: the IdP's session is
  * the one that is gone, or the person is about to sign in at it again.
+ *
+ * For {@see SsoSession::ENDED_SECONDS} seconds afterwards the browser's other
+ * unauthenticated JSON requests are answered with the same way back
+ * ({@see pendingReauthUrl()}): a page fires several API requests at once and
+ * only the first one meets the session; the rest would answer a bare 401 and
+ * the SPA would send the person to the login page, past the provider.
  */
 final class SsoSessionEnforcer
 {
@@ -77,7 +83,7 @@ final class SsoSessionEnforcer
             return null;
         }
 
-        $this->end($request, $auth);
+        $this->end($request, $auth, $provider);
 
         return $provider;
     }
@@ -93,6 +99,20 @@ final class SsoSessionEnforcer
         return $this->manager->isEnabled($provider)
             ? $base.'/sso/'.rawurlencode($provider).'/redirect'
             : $base.'/login';
+    }
+
+    /**
+     * Where an unauthenticated JSON request goes to sign in again when the SSO
+     * session of its browser ended less than {@see SsoSession::ENDED_SECONDS}
+     * seconds ago, else null (a plain 401). Asked by `martis.auth`, so the
+     * concurrent requests of a page whose first request ended the session
+     * answer the same way as that first request did.
+     */
+    public function pendingReauthUrl(Request $request): ?string
+    {
+        $provider = SsoSession::endedProvider($request);
+
+        return $provider === null ? null : $this->reauthUrl($provider);
     }
 
     private function mustEnd(Request $request, Authenticatable $subject, string $provider): bool
@@ -196,8 +216,10 @@ final class SsoSessionEnforcer
         return $driver;
     }
 
-    private function end(Request $request, StatefulGuard $auth): void
+    private function end(Request $request, StatefulGuard $auth, string $provider): void
     {
+        $endedSessionId = $request->session()->getId();
+
         // This device only: Laravel's logout() would cycle the remember token
         // and so sign the user out of every other device too.
         method_exists($auth, 'logoutCurrentDevice') ? $auth->logoutCurrentDevice() : $auth->logout();
@@ -206,5 +228,11 @@ final class SsoSessionEnforcer
         $request->session()->regenerateToken();
         SsoSession::forget($request);
         RememberedTwoFactor::forget();
+
+        // The requests of the same page that are still on their way (or sent
+        // before the browser learns the new session id) are plain
+        // unauthenticated requests: leave them the way back. After forget(),
+        // which clears a marker.
+        SsoSession::markEnded($request, $provider, $endedSessionId);
     }
 }

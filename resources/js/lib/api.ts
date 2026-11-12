@@ -62,9 +62,42 @@ function normalizeErrors(raw: unknown): ValidationError[] | undefined {
 }
 
 
-/** Redirect to login with session-expired flag. Used when the server returns 401 mid-session. */
+/**
+ * How long a 401 that carries no way back waits before it sends the page to
+ * the login page. A page fires several requests at once and, when the server
+ * ended an SSO session, only some of the answers may carry `sso_reauth_url`:
+ * the login redirect gives the others this long to arrive, so it never
+ * overrides the way back through the provider.
+ */
+const SESSION_EXPIRY_GRACE_MS = 300
+
+/** A page that is on its way to the provider again: nothing else navigates it. */
+let reauthNavigationStarted = false
+
+/** The login redirect that is waiting out its grace period, if any. */
+let sessionExpiryTimer: number | null = null
+
+// Back from the provider's page, the browser can restore this page as it was
+// (the back-forward cache), with the flag set and no navigation under way.
+if (typeof window !== 'undefined') {
+  window.addEventListener('pageshow', (event) => {
+    if ((event as PageTransitionEvent).persisted) reauthNavigationStarted = false
+  })
+}
+
+/**
+ * Redirect to login with session-expired flag. Used when the server returns 401 mid-session.
+ * Deferred by {@link SESSION_EXPIRY_GRACE_MS}, once however many 401s ask for it,
+ * and dropped when a way back through the provider is followed meanwhile.
+ */
 function redirectOnSessionExpiry(): void {
-  window.location.href = BASE_PATH + '/login?expired=1'
+  if (reauthNavigationStarted || sessionExpiryTimer !== null) return
+
+  sessionExpiryTimer = window.setTimeout(() => {
+    sessionExpiryTimer = null
+    if (reauthNavigationStarted) return
+    window.location.href = BASE_PATH + '/login?expired=1'
+  }, SESSION_EXPIRY_GRACE_MS)
 }
 
 /**
@@ -82,12 +115,21 @@ function ssoReauthTarget(payload: unknown): string | null {
 
 /**
  * A 401 mid-session: an SSO session the server ended goes back through its
- * provider (a full page navigation); any other goes to the login page, except
- * for the probes that answer 401 on public pages.
+ * provider (a full page navigation, once per page life); any other goes to the
+ * login page, except for the probes that answer 401 on public pages.
  */
 function handleUnauthorized(path: string, payload: unknown): void {
   const reauth = ssoReauthTarget(payload)
   if (reauth !== null) {
+    // The way back wins over the login redirect of any other 401 of this page,
+    // whichever arrived first, and is followed once: the 401s that come after
+    // it (the rest of the requests the page fired) do nothing.
+    if (reauthNavigationStarted) return
+    reauthNavigationStarted = true
+    if (sessionExpiryTimer !== null) {
+      window.clearTimeout(sessionExpiryTimer)
+      sessionExpiryTimer = null
+    }
     window.location.href = reauth
     return
   }

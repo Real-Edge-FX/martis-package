@@ -1205,8 +1205,9 @@ return [
             |   audiences    `'<audience>' => ['callback_url' => 'https://...']`.
             |                An audience name is the value of the other panel's
             |                provider `audience`. The token is sent ONLY to that
-            |                callback URL (https, or http on localhost, *.localhost
-            |                and *.test), never to a URL of the request. Optional
+            |                callback URL (https, or http on localhost, *.localhost,
+            |                *.test, 127.0.0.1 and [::1]), never to a URL of the
+            |                request. Optional
             |                `'ability' => 'sign-in-to-b'`: only users for whom
             |                `Gate::forUser($user)->allows($ability)` is true get a
             |                token for that audience (403 otherwise); a Spatie

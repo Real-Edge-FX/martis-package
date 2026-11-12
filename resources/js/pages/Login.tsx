@@ -94,6 +94,25 @@ export function LoginPage() {
     return () => window.clearTimeout(handle)
   }, [addToast, t])
 
+  // Detect arrival from a refused SSO sign-in (v2.21.0): the callback redirects
+  // here with an error, and the shell publishes its text as
+  // `MartisConfig.flash.sso` (once: the server reads it from the session
+  // flash). Same deferred-toast pattern as the session-expired branch above,
+  // and the toast consumes the entry, so a re-run shows nothing twice. It
+  // does not depend on the SSO buttons or the password form being on the page.
+  useEffect(() => {
+    const flash = config.flash
+    if (typeof flash?.sso !== 'string' || flash.sso === '') return
+
+    const handle = window.setTimeout(() => {
+      if (typeof flash.sso !== 'string' || flash.sso === '') return
+      addToast('error', flash.sso)
+      flash.sso = null
+    }, 0)
+
+    return () => window.clearTimeout(handle)
+  }, [addToast])
+
   // Detect arrival from the verification-link controller (v1.8.16). Same
   // deferred-toast pattern as the session-expired branch above so the
   // portal mount race stays clear.

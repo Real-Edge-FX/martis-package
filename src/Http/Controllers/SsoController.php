@@ -81,6 +81,10 @@ class SsoController extends Controller
     {
         $this->requireCanonicalName($provider);
 
+        // The person is on their way to the provider: the marker an ended
+        // session left (SsoSession::markEnded) has done its job.
+        SsoSession::forgetEnded($request);
+
         $driver = $this->manager->driver($provider);
 
         if ($driver === null) {

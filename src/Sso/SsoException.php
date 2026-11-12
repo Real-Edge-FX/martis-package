@@ -27,8 +27,16 @@ class SsoException extends RuntimeException
     /** A Throwable that is not an SsoException (an unreachable IdP, a malformed token, a bug). */
     public const REASON_UNKNOWN = 'unknown';
 
-    /** A local row holds the IdP's address and may not be adopted (unverified email, or an address the strategy did not link). */
+    /** A local row holds the IdP's address and may not be adopted: its email is unverified while the panel lets anyone register. */
     public const REASON_ACCOUNT_UNVERIFIED = 'account_unverified';
+
+    /**
+     * `identity_match_attribute = external_id`, no row carries the IdP's id, and a local row holds
+     * the IdP's address: `link_by_email` is off, so the sign-in neither links that row nor creates a
+     * second one beside it (v2.21.0). Shows the generic text: the page must not reveal that a local
+     * row exists.
+     */
+    public const REASON_UNLINKED_ACCOUNT = 'unlinked_account';
 
     /** No local user matches the identity and the provider does not create users. */
     public const REASON_NOT_PROVISIONED = 'not_provisioned';
