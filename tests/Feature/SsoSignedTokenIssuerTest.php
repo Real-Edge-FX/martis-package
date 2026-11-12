@@ -545,3 +545,58 @@ it('throws, naming the key, for an ability that is set but not a non-empty strin
         ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.issuer.audiences.panel-b.ability');
     stSignedIn()->get(stIssueUrl())->assertStatus(500);
 })->with(['empty' => [''], 'blank' => ['  '], 'number' => [5], 'array' => [['a']], 'true' => [true]]);
+
+// -----------------------------------------------------------------------------
+// While an impersonation is active (review H3)
+// -----------------------------------------------------------------------------
+
+/** The session of an operator impersonating $target: the guard holds the target. */
+function stImpersonating(User $operator, User $target): mixed
+{
+    config(['martis.impersonation.enabled' => true]);
+
+    return test()->actingAs($target)->withSession([
+        'martis.impersonation' => ['original' => $operator->getKey(), 'target' => $target->getKey(), 'started_at' => now()->toIso8601String(), 'two_factor_passed' => true],
+        TwoFactorPass::SESSION_KEY => (string) $target->getKey(),
+    ]);
+}
+
+it('answers 403 with a translated message and issues nothing while an impersonation is active', function () {
+    $bob = StIssuerUser::query()->create(['name' => 'Bob', 'email' => 'bob@a.example', 'password' => Hash::make('x'), 'email_verified_at' => now()]);
+    $logged = new ArrayObject;
+    $logger = Mockery::mock(LoggerInterface::class);
+    $logger->shouldReceive('info')->andReturnUsing(function (string $message) use ($logged) {
+        $logged[] = $message;
+    });
+    Log::shouldReceive('channel')->andReturn($logger);
+
+    $response = stImpersonating($this->user, $bob)->get(stIssueUrl());
+
+    $response->assertForbidden();
+    expect($response->headers->has('Location'))->toBeFalse()
+        ->and($response->getContent())->toContain(__('martis::messages.sso_issue_impersonating'))
+        ->and($response->getContent())->not->toContain('token=')
+        ->and($logged)->toHaveCount(0);
+    expect(__('martis::messages.sso_issue_impersonating'))->not->toBe('martis::messages.sso_issue_impersonating');
+});
+
+it('issues again once the impersonation has ended', function () {
+    $bob = StIssuerUser::query()->create(['name' => 'Bob', 'email' => 'bob@a.example', 'password' => Hash::make('x'), 'email_verified_at' => now()]);
+    stImpersonating($this->user, $bob)->get(stIssueUrl())->assertForbidden();
+
+    $response = stSignedIn($this->user)->withSession(['martis.impersonation' => null])->get(stIssueUrl());
+
+    $response->assertStatus(302);
+    $claims = stClaimsOf((string) $response->headers->get('Location'), $this->keys['public']);
+    expect($claims['sub'])->toBe((string) $this->user->getKey());
+});
+
+it('keeps the 403 for an impersonation under a custom session key', function () {
+    $bob = StIssuerUser::query()->create(['name' => 'Bob', 'email' => 'bob@a.example', 'password' => Hash::make('x'), 'email_verified_at' => now()]);
+    config(['martis.impersonation.enabled' => true, 'martis.impersonation.session_key' => 'custom.impersonation']);
+
+    test()->actingAs($bob)->withSession([
+        'custom.impersonation' => ['original' => $this->user->getKey(), 'target' => $bob->getKey(), 'started_at' => now()->toIso8601String(), 'two_factor_passed' => true],
+        TwoFactorPass::SESSION_KEY => (string) $bob->getKey(),
+    ])->get(stIssueUrl())->assertForbidden();
+});
