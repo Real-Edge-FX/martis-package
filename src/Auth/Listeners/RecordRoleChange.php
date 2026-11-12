@@ -161,10 +161,11 @@ class RecordRoleChange
         }
 
         if (GuardCatalog::sessionUserIdsAreAmbiguous()) {
-            Log::warning('Martis: revoke_sessions_on_demote skipped. The session guards of config/auth.php sign in users of more than one table and sessions.user_id stores no table, so the sessions of the demoted user cannot be told apart from those of another user with the same id.', [
+            Log::warning('Martis: revoke_sessions_on_demote skipped. The session guards of config/auth.php sign in users of more than one table and sessions.user_id stores no table, so the sessions of the demoted user cannot be told apart from those of another user with the same id. When only some of these guards sign in people, list them in martis.auth.session_guards.', [
                 'model' => $model::class,
                 'id' => $modelId,
                 'tables' => GuardCatalog::sessionUserTables(),
+                'guards' => GuardCatalog::sessionGuardTables(),
             ]);
 
             return;

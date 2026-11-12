@@ -5,6 +5,7 @@ namespace Martis\Auth;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use InvalidArgumentException;
 
 /**
  * Helper that exposes the auth guards configured by the host app, and the
@@ -26,6 +27,9 @@ use Illuminate\Support\Facades\Auth;
  */
 class GuardCatalog
 {
+    /** The config key that declares which guards write `sessions.user_id`. */
+    public const SESSION_GUARDS_KEY = 'martis.auth.session_guards';
+
     /**
      * @return list<string> Sorted list of guard names from `config/auth.guards`.
      */
@@ -218,23 +222,47 @@ class GuardCatalog
 
     /**
      * The tables whose ids the `sessions.user_id` column can hold: those of
-     * the providers of the guards that write it (every `session` guard, the
-     * Martis guard and the app's default guard), one entry per table
-     * (`{connection}|{table}`). A provider whose table cannot be told (a
+     * the providers of the guards that write it, one entry per table
+     * (`{connection}|{table}`). By default those guards are every `session`
+     * guard, the Martis guard and the app's default guard; with
+     * `martis.auth.session_guards` set they are the Martis guard and the
+     * guards that setting lists. A provider whose table cannot be told (a
      * custom driver, a model class that does not exist) counts as a table of
      * its own, so the answer errs on the ambiguous side.
      *
      * @return list<string>
+     *
+     * @throws InvalidArgumentException when `martis.auth.session_guards` is set and unusable
      */
     public static function sessionUserTables(): array
     {
-        $guards = (array) config('auth.guards', []);
+        return array_values(array_unique(array_values(self::sessionGuardTables())));
+    }
 
-        $names = [self::martis(), self::default()];
-        foreach ($guards as $name => $guard) {
-            if (is_array($guard) && ($guard['driver'] ?? null) === 'session') {
-                $names[] = (string) $name;
+    /**
+     * The guards counted by {@see sessionUserTables()}, each with the table
+     * of its provider's users. It names the guards behind a warning, so the
+     * person who reads the log knows which `martis.auth.session_guards`
+     * entry to leave out.
+     *
+     * @return array<string, string> guard name => `{connection}|{table}`
+     *
+     * @throws InvalidArgumentException when `martis.auth.session_guards` is set and unusable
+     */
+    public static function sessionGuardTables(): array
+    {
+        $guards = (array) config('auth.guards', []);
+        $declared = self::declaredSessionGuards();
+
+        if ($declared === null) {
+            $names = [self::martis(), self::default()];
+            foreach ($guards as $name => $guard) {
+                if (is_array($guard) && ($guard['driver'] ?? null) === 'session') {
+                    $names[] = (string) $name;
+                }
             }
+        } else {
+            $names = [self::martis(), ...$declared];
         }
 
         $tables = [];
@@ -242,11 +270,53 @@ class GuardCatalog
             $guard = $guards[$name] ?? null;
             $provider = is_array($guard) ? ($guard['provider'] ?? null) : null;
             if (is_string($provider) && $provider !== '') {
-                $tables[self::providerTable($provider)] = true;
+                $tables[$name] = self::providerTable($provider);
             }
         }
 
-        return array_keys($tables);
+        return $tables;
+    }
+
+    /**
+     * The guards `martis.auth.session_guards` declares as the ones that write
+     * `sessions.user_id`, besides the Martis guard; null when it is unset (the
+     * default: every session guard counts). A value that is set but unusable
+     * throws, naming the key, and is never read as "unset": a list that
+     * silently dropped a guard would let Martis delete, or list, the session
+     * rows of another person with the same id.
+     *
+     * @return list<string>|null
+     *
+     * @throws InvalidArgumentException
+     */
+    private static function declaredSessionGuards(): ?array
+    {
+        $key = self::SESSION_GUARDS_KEY;
+        $value = config($key);
+
+        if ($value === null) {
+            return null;
+        }
+
+        if (! is_array($value) || ! array_is_list($value)) {
+            throw new InvalidArgumentException("The [{$key}] config value must be null or a list of guard names from config/auth.php (guards), got ".get_debug_type($value).'.');
+        }
+
+        $guards = (array) config('auth.guards', []);
+        $names = [];
+        foreach ($value as $name) {
+            if (! is_string($name) || $name === '') {
+                throw new InvalidArgumentException("The [{$key}] config value must hold guard names, got an entry of type ".get_debug_type($name).'.');
+            }
+
+            if (! is_array($guards[$name] ?? null)) {
+                throw new InvalidArgumentException("The [{$key}] config value names the guard [{$name}], which is not defined in [auth.guards].");
+            }
+
+            $names[] = $name;
+        }
+
+        return array_values(array_unique($names));
     }
 
     /** The provider of a guard, the `users` provider when it names none. */

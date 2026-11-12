@@ -1267,6 +1267,22 @@ Translations remain the recommended path for multi-locale apps. Use these env va
 
 Toggles the theme switcher and locale picker that float on the auth pages.
 
+## Session guards (v2.23.0)
+
+```php
+'auth' => [
+    'session_guards' => null, // or a list of guard names, e.g. ['site']
+],
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `auth.session_guards` | `array<string>\|null` | `null` | The guards, besides the Martis guard, that sign in people and write Laravel's `sessions.user_id`. `null` (default): every `session` guard of `config/auth.php` and the app's default guard count, as before. A list: only the Martis guard and the guards named there count. `[]` means the Martis guard only. The Martis guard is always counted. A value that is not a list of names, or a name that is not in `auth.guards`, throws an `InvalidArgumentException` naming the key, the first time a revocation, a demotion sweep or the profile reads it (it is not read at boot). |
+
+Why it exists: when the guards that write the column sign in users of more than one table, one id can be two people, so Martis neither deletes the session rows (SSO `revokeFor()`, `authz.revoke_sessions_on_demote`) nor lists them (the profile's Browser sessions) and logs a warning. Laravel merges its own `web` guard, on the `users` provider, into every application's `auth.guards`, so an admin-only app whose people live in another table reads as ambiguous although nothing signs in through `web`. Declare the guards that really write the column to lift that.
+
+**The list must be complete.** A guard that signs in people but is left out of it can make Martis delete, or list in the profile, the session of another person who has the same id in another table. That is why the default stays `null`: the risk moves to the application only by an explicit setting. The tables the guards read are still compared by connection and table, so guards that share one table never count as ambiguous. See [SSO → revocation](sso.md#ending-an-sso-session-age-revocation-revalidation-v2210) and [Authorization → Revoke sessions on demote](authorization.md#revoke-sessions-on-demote).
+
 ## Password sign-in switch (v2.21.0)
 
 ```php

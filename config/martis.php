@@ -1248,6 +1248,26 @@ return [
             ],
         ],
 
+        // The guards, besides the Martis guard, that sign in people and write
+        // Laravel's `sessions.user_id` (v2.23.0). Null (default): every
+        // `session` guard of config/auth.php and the app's default guard
+        // count, and when they sign in users of more than one table the
+        // session rows cannot be told apart by id: Martis then neither
+        // deletes them (SSO revocation, `authz.revoke_sessions_on_demote`)
+        // nor lists them (profile Browser sessions). Laravel merges its own
+        // `web` guard (on the `users` provider) into every app, so an
+        // admin-only app that keeps its people in another table reads as
+        // ambiguous although nothing signs in through `web`. Set a list of
+        // guard names, e.g. ['site'], to say which guards really write the
+        // column: the Martis guard is always counted, and the default guard
+        // and the other session guards are not. The list must be COMPLETE: a
+        // guard that signs in people but is left out can make Martis delete,
+        // or list, the session of another person who has the same id in
+        // another table. `[]` means the Martis guard only. A name that is not
+        // in `auth.guards`, or a value that is not a list of names, throws,
+        // naming this key, the first time a revocation or the profile reads it.
+        'session_guards' => null,
+
         // Email and password sign-in (v2.21.0). Off, POST /login and
         // POST /api/auth/login refuse every address with a 403 before their
         // controller reads a credential, and the password reset flow
