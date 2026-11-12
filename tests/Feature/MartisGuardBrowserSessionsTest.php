@@ -232,6 +232,32 @@ it('throws, naming the key, for a session_guards that is not usable', function (
     'a bool' => [false],
 ]);
 
+it('throws, naming the key and the guard, for a listed guard whose driver is not session', function (array $guard) {
+    config()->set('auth.guards.api', $guard);
+    config()->set('martis.auth.session_guards', ['api']);
+
+    expect(fn () => GuardCatalog::sessionUserTables())
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.session_guards')
+        ->and(fn () => GuardCatalog::sessionUserIdsAreAmbiguous())->toThrow(InvalidArgumentException::class, '[api]')
+        ->and(fn () => MartisSso::revokeFor($this->admin->getKey()))->toThrow(InvalidArgumentException::class, 'session_guards');
+})->with([
+    'a token guard' => [['driver' => 'token', 'provider' => 'users']],
+    'a guard with no driver' => [['provider' => 'users']],
+    'a custom driver' => [['driver' => 'jwt', 'provider' => 'users']],
+]);
+
+it('names the driver in that exception, and accepts a session guard beside the Martis one', function () {
+    config()->set('auth.guards.api', ['driver' => 'token', 'provider' => 'users']);
+    config()->set('martis.auth.session_guards', ['api']);
+
+    expect(fn () => GuardCatalog::sessionUserTables())->toThrow(InvalidArgumentException::class, '[token]');
+
+    config()->set('auth.guards.site', ['driver' => 'session', 'provider' => 'users']);
+    config()->set('martis.auth.session_guards', ['site']);
+
+    expect(GuardCatalog::sessionUserTables())->toBe(['sqlite|martis_test_guard_users_admins', 'sqlite|users']);
+});
+
 it('names the unknown guard in the exception', function () {
     config()->set('martis.auth.session_guards', ['nope']);
 

@@ -77,8 +77,9 @@ final class PublishedAuthConfig
     /**
      * `enabled`: the password sign-in switch. `breakGlass`: whether the form
      * may still be opened on `?password_login=1`, that is, password sign-in is
-     * off and `break_glass_emails` holds an address. A boolean only, never
-     * the list.
+     * off and `break_glass_emails` holds an entry. A boolean only, never the
+     * list, and computed without validating it: a malformed list is reported
+     * where a break-glass sign-in reads it, not by every page render.
      *
      * @return array{enabled: bool, breakGlass: bool}
      */
@@ -88,7 +89,7 @@ final class PublishedAuthConfig
 
         return [
             'enabled' => $enabled,
-            'breakGlass' => ! $enabled && PasswordLogin::breakGlassEmails() !== [],
+            'breakGlass' => ! $enabled && PasswordLogin::hasBreakGlassEmails(),
         ];
     }
 

@@ -105,6 +105,32 @@ final class PasswordLogin
     }
 
     /**
+     * Whether `break_glass_emails` holds an entry, for the login page that
+     * decides whether to open the form on `?password_login=1`. It reads the
+     * setting without validating it, unlike {@see breakGlassEmails()}: the
+     * page shell of every user is built from it, so a malformed list must not
+     * fail every render. A list that is not an array holds none; an entry that
+     * is not a string counts (the list is wrong and the sign-in that reads it
+     * throws, naming the key); an entry that is a blank string does not.
+     */
+    public static function hasBreakGlassEmails(): bool
+    {
+        $value = config(self::BREAK_GLASS_KEY, []);
+
+        if (! is_array($value)) {
+            return false;
+        }
+
+        foreach ($value as $email) {
+            if (! is_string($email) || self::normalise($email) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @return list<string> The addresses, trimmed and lower-cased.
      */
     public static function breakGlassEmails(): array

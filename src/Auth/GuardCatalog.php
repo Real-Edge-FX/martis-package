@@ -281,7 +281,8 @@ class GuardCatalog
      * The guards `martis.auth.session_guards` declares as the ones that write
      * `sessions.user_id`, besides the Martis guard; null when it is unset (the
      * default: every session guard counts). A value that is set but unusable
-     * throws, naming the key, and is never read as "unset": a list that
+     * (not a list of names, a guard that is not defined or whose driver is not
+     * `session`) throws, naming the key, and is never read as "unset": a list that
      * silently dropped a guard would let Martis delete, or list, the session
      * rows of another person with the same id.
      *
@@ -311,6 +312,16 @@ class GuardCatalog
 
             if (! is_array($guards[$name] ?? null)) {
                 throw new InvalidArgumentException("The [{$key}] config value names the guard [{$name}], which is not defined in [auth.guards].");
+            }
+
+            // Only a `session` guard writes `sessions.user_id`: a listed token
+            // or custom-driver guard would count users that never appear in
+            // the column, and the list would no longer say what it means.
+            $driver = $guards[$name]['driver'] ?? null;
+            if ($driver !== 'session') {
+                $shown = is_string($driver) ? $driver : get_debug_type($driver);
+
+                throw new InvalidArgumentException("The [{$key}] config value names the guard [{$name}], whose driver is [{$shown}]; only `session` guards write the sessions table.");
             }
 
             $names[] = $name;

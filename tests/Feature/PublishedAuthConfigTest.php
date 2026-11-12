@@ -226,10 +226,34 @@ it('never publishes the break-glass addresses', function () {
     expect($html)->not->toContain('ops-secret')->not->toContain('break_glass');
 });
 
-it('throws, naming the key, for a break-glass list that is not usable while password sign-in is off', function () {
-    config()->set('martis.auth.password_login.enabled', false);
-    config()->set('martis.auth.password_login.break_glass_emails', 'ops@example.com');
+// The page must never depend on the list being valid: a malformed list is
+// reported where it is used (a sign-in of a string address), not by every page
+// render of every user while password sign-in is off.
 
-    expect(fn () => PublishedAuthConfig::toArray())
+it('renders the shell and the login page with a malformed break-glass list', function (mixed $list, bool $expected) {
+    config()->set('martis.auth.password_login.enabled', false);
+    config()->set('martis.auth.password_login.break_glass_emails', $list);
+
+    expect(PublishedAuthConfig::toArray()['passwordLogin'])->toBe(['enabled' => false, 'breakGlass' => $expected])
+        ->and(renderedAuthConfig()['passwordLogin'])->toBe(['enabled' => false, 'breakGlass' => $expected]);
+})->with([
+    'a string' => ['ops@example.com', false],
+    'an int' => [5, false],
+    'a bool' => [true, false],
+    'a non-string entry' => [[1], true],
+    'a nested array' => [[['ops@example.com']], true],
+    'a valid entry beside a null' => [['ops@example.com', null], true],
+]);
+
+it('still throws, naming the key, when a break-glass sign-in reads a malformed list', function (mixed $list) {
+    config()->set('martis.auth.password_login.enabled', false);
+    config()->set('martis.auth.password_login.break_glass_emails', $list);
+
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->postJson('/martis/login', ['email' => 'ops@example.com', 'password' => 'x']))
         ->toThrow(AuthConfigurationException::class, 'martis.auth.password_login.break_glass_emails');
-});
+})->with([
+    'a string' => ['ops@example.com'],
+    'a non-string entry' => [[1]],
+]);
