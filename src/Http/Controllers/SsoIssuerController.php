@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Martis\Http\Controllers;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Martis\Events\SsoIssueDenied;
+use Martis\Events\SsoTokenIssued;
 use Martis\Impersonation\ImpersonationManager;
 use Martis\Sso\SignedToken\IssuerSettings;
 use Martis\Sso\SignedToken\TokenIssuer;
@@ -42,6 +45,13 @@ use Martis\Support\TranslatedLine;
  * No token is issued while an impersonation is active (403): the session
  * belongs to the operator, and the token would be the impersonated user's.
  *
+ * Audit (v2.22.0): every token signed dispatches {@see SsoTokenIssued} and
+ * every refusal after the issuer is known to be on dispatches
+ * {@see SsoIssueDenied} (reasons `unknown_audience`, `not_navigation`,
+ * `invalid_state`, `impersonating`, `forbidden`) and logs a warning with the
+ * same `request_id`. The HTTP answers are unchanged. A disabled issuer stays a
+ * silent 404. No token and no `state` goes into an event or a log line.
+ *
  * An audience may set an `ability`: only users the gate allows for it get a
  * token (403 otherwise, nothing issued, no redirect).
  *
@@ -52,22 +62,37 @@ use Martis\Support\TranslatedLine;
  */
 class SsoIssuerController extends Controller
 {
+    /** Longest audience name (see {@see IssuerSettings::AUDIENCE_PATTERN}) that reaches a log line or an event. */
+    private const MAX_AUDIENCE_LENGTH = 64;
+
+    /** Longest `X-Request-Id` kept (same bound as the failed-callback log line). */
+    private const MAX_REQUEST_ID_LENGTH = 128;
+
     public function issue(Request $request, string $audience): RedirectResponse
     {
-        // 404 for everything the route should not reveal: the issuer is off,
-        // or the audience is not one of ours.
-        if (! IssuerSettings::enabled() || ! IssuerSettings::hasAudience($audience)) {
+        // A disabled issuer is a silent 404: no log line, no event, so a
+        // panel that does not use the issuer shows nothing for the route.
+        if (! IssuerSettings::enabled()) {
             abort(404);
         }
 
-        $this->requireNavigation($request);
+        $requestId = $this->requestId($request);
+        $user = $request->user();
+
+        // 404 for an audience that is not one of ours.
+        if (! IssuerSettings::hasAudience($audience)) {
+            $this->deny($user, $audience, SsoIssueDenied::UNKNOWN_AUDIENCE, $requestId, 404);
+        }
+
+        if (! $this->isNavigation($request)) {
+            $this->deny($user, $audience, SsoIssueDenied::NOT_NAVIGATION, $requestId, 403);
+        }
 
         $state = $request->query('state');
         if (! is_string($state) || preg_match(TokenIssuer::STATE_PATTERN, $state) !== 1) {
-            abort(422, 'The state parameter is required: 16 to 128 characters of A-Z, a-z, 0-9, - and _.');
+            $this->deny($user, $audience, SsoIssueDenied::INVALID_STATE, $requestId, 422, 'The state parameter is required: 16 to 128 characters of A-Z, a-z, 0-9, - and _.');
         }
 
-        $user = $request->user();
         if ($user === null) {
             abort(401);
         }
@@ -78,7 +103,7 @@ class SsoIssuerController extends Controller
         // that panel's admins never granted the operator the impersonation.
         // Issuing for the operator instead would be a surprise: refuse.
         if (app(ImpersonationManager::class)->isActive()) {
-            abort(403, TranslatedLine::get('martis::messages.sso_issue_impersonating'));
+            $this->deny($user, $audience, SsoIssueDenied::IMPERSONATING, $requestId, 403, TranslatedLine::get('martis::messages.sso_issue_impersonating'));
         }
 
         $issuer = TokenIssuer::fromConfig();
@@ -87,17 +112,17 @@ class SsoIssuerController extends Controller
         // gate lets through (an app gate or a permission package's check).
         $ability = $issuer->abilityFor($audience);
         if ($ability !== null && ! Gate::forUser($user)->allows($ability)) {
-            abort(403, TranslatedLine::get('martis::messages.sso_issue_forbidden'));
+            $this->deny($user, $audience, SsoIssueDenied::FORBIDDEN, $requestId, 403, TranslatedLine::get('martis::messages.sso_issue_forbidden'));
         }
 
         $token = $issuer->issue($user, $audience, $state);
 
-        $requestId = $request->headers->get('X-Request-Id');
         Log::channel(config('logging.default'))->info('SSO token issued', [
             'audience' => $audience,
             'user_id' => $user->getAuthIdentifier(),
-            'request_id' => is_string($requestId) && $requestId !== '' ? mb_substr($requestId, 0, 128) : (string) Str::uuid(),
+            'request_id' => $requestId,
         ]);
+        SsoTokenIssued::dispatch($user, $audience, $requestId);
 
         $response = redirect()->away(Urls::withQuery($issuer->callbackUrl($audience), ['token' => $token, 'state' => $state]));
         $response->headers->set('Cache-Control', 'no-store');
@@ -107,17 +132,53 @@ class SsoIssuerController extends Controller
     }
 
     /**
+     * Refuse the request: one warning line and one {@see SsoIssueDenied}, then
+     * the HTTP answer the route always gave. Neither the token (none was made)
+     * nor the caller's `state` goes into either.
+     */
+    private function deny(?Authenticatable $user, string $audience, string $reason, string $requestId, int $status, ?string $message = null): never
+    {
+        $audience = $this->boundedAudience($audience);
+
+        Log::channel(config('logging.default'))->warning('SSO token issue denied', [
+            'audience' => $audience,
+            'user_id' => $user?->getAuthIdentifier(),
+            'reason' => $reason,
+            'request_id' => $requestId,
+        ]);
+        SsoIssueDenied::dispatch($user, $audience, $reason, $requestId);
+
+        abort($status, $message ?? '');
+    }
+
+    /**
+     * The audience of the URL as it may be logged: cut to 64 characters and
+     * reduced to printable ASCII (anything else, a control character or a byte
+     * of broken UTF-8 included, becomes `?`), because on the unknown-audience
+     * path it is whatever the caller put in the URL.
+     */
+    private function boundedAudience(string $audience): string
+    {
+        return substr((string) preg_replace('/[^\x20-\x7E]/', '?', substr($audience, 0, self::MAX_AUDIENCE_LENGTH)), 0, self::MAX_AUDIENCE_LENGTH);
+    }
+
+    private function requestId(Request $request): string
+    {
+        $requestId = $request->headers->get('X-Request-Id');
+
+        return is_string($requestId) && $requestId !== '' ? mb_substr($requestId, 0, self::MAX_REQUEST_ID_LENGTH) : (string) Str::uuid();
+    }
+
+    /**
      * When the browser sends Fetch Metadata, it has to say this is a
      * top-level navigation. A client that sends none (an old browser, curl)
      * is not refused: it still needs the signed-in session's cookie.
      */
-    private function requireNavigation(Request $request): void
+    private function isNavigation(Request $request): bool
     {
         $mode = $request->headers->get('Sec-Fetch-Mode');
         $dest = $request->headers->get('Sec-Fetch-Dest');
 
-        if (($mode !== null && strtolower($mode) !== 'navigate') || ($dest !== null && strtolower($dest) !== 'document')) {
-            abort(403);
-        }
+        return ! (($mode !== null && strtolower($mode) !== 'navigate') || ($dest !== null && strtolower($dest) !== 'document'));
     }
 }

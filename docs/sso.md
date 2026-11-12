@@ -868,12 +868,13 @@ Hooks compose with each other AND with config — you can override `resolveUserU
 
 ### Events (v2.21.0)
 
-Two events complement the hooks. Listen with `Event::listen()` or a subscriber:
+Two events complement the hooks, and the issuing side of the [signed token](#issuer-audit-events-v2220) has two of its own. Listen with `Event::listen()` or a subscriber:
 
 | Event | Dispatched | Properties |
 |---|---|---|
 | `Martis\Events\SsoLoggedIn` | Exactly once per successful sign-in, after `Auth::login()` and after the SSO session marker is set (the `afterLogin` hooks run before the sign-in). | `Authenticatable $user`, `SsoIdentity $identity`, `string $provider` |
 | `Martis\Events\SsoFailed` | Once per refused callback, after the log line and after any provisioning was rolled back. See [Failed sign-ins](#failed-sign-ins-reason-log-and-event-v2210). | `string $provider`, `string $reason`, `?Throwable $exception` |
+| `Martis\Events\SsoTokenIssued`, `Martis\Events\SsoIssueDenied` (v2.22.0) | The signed-token issuer signed a token, or refused to. See [Issuer audit events](#issuer-audit-events-v2220). | `Authenticatable $user`, `string $audience`, `string $requestId` (and `string $reason` on the denial; its `user` may be `null`) |
 
 ---
 
@@ -1399,7 +1400,46 @@ The claims of the token:
 
 `Martis\Sso\SignedToken\TokenIssuer::fromConfig()->issue($user, $audience, $state)` issues the same token from your own code.
 
-The issue route runs the whole protected stack (signed in, 2FA passed, email verified when required, the `viewMartis` gate) and then the audience's `ability`, when it sets one. While an **impersonation** is active it answers 403 with a translated message and issues nothing: the guard then holds the impersonated user, and a token for them would open a full session at the other panel with no impersonation marker and none of its limits, which that panel's admins never granted the operator. It redirects **only** to the `callback_url` of the audience, never to a URL from the request, with `token` and `state` appended. A `callback_url` must be an absolute `https` URL without credentials or a fragment (`http` is accepted for `localhost`, `*.localhost`, `*.test`, `127.0.0.1` and `[::1]` hosts, so two apps on loopback ports work locally; no other loopback address, such as `127.0.0.2`); anything else throws naming the key. The response carries `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. When the browser sends Fetch Metadata the request must be a top-level navigation (`Sec-Fetch-Mode: navigate` and `Sec-Fetch-Dest: document`): an XHR, an iframe or an image is refused with 403, so another site cannot make a signed-in browser fetch a token. The `state` parameter is required (`^[A-Za-z0-9_-]{16,128}$`, else 422). One audit line is logged per token (audience and user id, never the token).
+The issue route runs the whole protected stack (signed in, 2FA passed, email verified when required, the `viewMartis` gate) and then the audience's `ability`, when it sets one. While an **impersonation** is active it answers 403 with a translated message and issues nothing: the guard then holds the impersonated user, and a token for them would open a full session at the other panel with no impersonation marker and none of its limits, which that panel's admins never granted the operator. It redirects **only** to the `callback_url` of the audience, never to a URL from the request, with `token` and `state` appended. A `callback_url` must be an absolute `https` URL without credentials or a fragment (`http` is accepted for `localhost`, `*.localhost`, `*.test`, `127.0.0.1` and `[::1]` hosts, so two apps on loopback ports work locally; no other loopback address, such as `127.0.0.2`); anything else throws naming the key. The response carries `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. When the browser sends Fetch Metadata the request must be a top-level navigation (`Sec-Fetch-Mode: navigate` and `Sec-Fetch-Dest: document`): an XHR, an iframe or an image is refused with 403, so another site cannot make a signed-in browser fetch a token. The `state` parameter is required (`^[A-Za-z0-9_-]{16,128}$`, else 422). One audit line is logged per token (audience and user id, never the token), and since v2.22.0 every token and every refusal is also an event: see [Issuer audit events](#issuer-audit-events-v2220).
+
+### Issuer audit events (v2.22.0)
+
+The issue route reports what it signs and what it refuses, so panel A can keep an audit trail of who got a token for which panel:
+
+| Event | Dispatched | Properties |
+|---|---|---|
+| `Martis\Events\SsoTokenIssued` | Once per token signed, before the redirect. The log line `SSO token issued` (info) is unchanged and has the same `request_id`. | `Authenticatable $user`, `string $audience`, `string $requestId` |
+| `Martis\Events\SsoIssueDenied` | Once per refused request, after a warning log line `SSO token issue denied` (`audience`, `user_id`, `reason`, `request_id`). The HTTP answer is the one the route always gave. | `?Authenticatable $user`, `string $audience`, `string $reason`, `string $requestId` |
+
+The `reason` of `SsoIssueDenied` is one of its constants:
+
+| Reason | Answer | When |
+|---|---|---|
+| `unknown_audience` | 404 | The issuer is on and the audience in the URL is not one of `audiences`. |
+| `not_navigation` | 403 | The browser's Fetch Metadata says the request is not a top-level navigation (an XHR, an iframe, an image). |
+| `invalid_state` | 422 | The `state` parameter is missing or not `^[A-Za-z0-9_-]{16,128}$`. |
+| `impersonating` | 403 | An impersonation is active. `user` is the impersonated user, the one the guard holds. |
+| `forbidden` | 403 | The audience's `ability` does not allow the user. |
+
+A **disabled** issuer stays a silent 404: no line, no event. An audience name the route's own shape constraint rejects (more than 64 characters, a character outside letters, digits, `.`, `-`, `_`) never reaches the controller, so it is a plain 404 with no event either. The `audience` of an event or a line is cut to 64 characters and anything but printable ASCII in it becomes `?`: on the unknown-audience path it is whatever the caller put in the URL. `requestId` is the request's `X-Request-Id` (cut to 128 characters), else a UUID, and is the `request_id` of the log line. Nothing of the token or of the caller's `state` is in an event or a line.
+
+```php
+use Illuminate\Support\Facades\Event;
+use Martis\Events\SsoIssueDenied;
+use Martis\Events\SsoTokenIssued;
+
+Event::listen(SsoTokenIssued::class, function (SsoTokenIssued $event) {
+    AuditLog::record('sso.issued', $event->user, ['audience' => $event->audience, 'request_id' => $event->requestId]);
+});
+
+Event::listen(SsoIssueDenied::class, function (SsoIssueDenied $event) {
+    AuditLog::record('sso.issue_denied', $event->user, [
+        'audience' => $event->audience,
+        'reason' => $event->reason,
+        'request_id' => $event->requestId,
+    ]);
+});
+```
 
 ### 3. Panel B: the provider block
 

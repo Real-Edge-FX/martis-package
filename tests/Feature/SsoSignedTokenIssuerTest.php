@@ -7,11 +7,16 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Collection;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Martis\Auth\TwoFactorPass;
+use Martis\Events\SsoIssueDenied;
+use Martis\Events\SsoTokenIssued;
+use Martis\Http\Controllers\SsoIssuerController;
 use Martis\Sso\SignedToken\PasetoV4Public;
 use Martis\Sso\SignedToken\TokenIssuer;
 use Psr\Log\LoggerInterface;
@@ -522,6 +527,7 @@ it('answers 403 with a translated message, issues nothing and redirects nowhere 
     $logger->shouldReceive('info')->andReturnUsing(function (string $message) use ($logged) {
         $logged[] = $message;
     });
+    $logger->shouldReceive('warning')->once();
     Log::shouldReceive('channel')->andReturn($logger);
 
     $response = stSignedIn()->get(stIssueUrl());
@@ -579,6 +585,7 @@ it('answers 403 with a translated message and issues nothing while an impersonat
     $logger->shouldReceive('info')->andReturnUsing(function (string $message) use ($logged) {
         $logged[] = $message;
     });
+    $logger->shouldReceive('warning')->once();
     Log::shouldReceive('channel')->andReturn($logger);
 
     $response = stImpersonating($this->user, $bob)->get(stIssueUrl());
@@ -680,4 +687,205 @@ it('accepts environment_claim together with environment, and the default claim n
 
     config(['martis.auth.sso.issuer.environment' => null, 'martis.auth.sso.issuer.environment_claim' => null]);
     expect(TokenIssuer::fromConfig())->toBeInstanceOf(TokenIssuer::class);
+});
+
+// -----------------------------------------------------------------------------
+// Audit events and the denial log (v2.22.0)
+// -----------------------------------------------------------------------------
+
+/**
+ * Capture the lines of the default channel's logger: [level, message, context].
+ */
+function stCaptureLog(): ArrayObject
+{
+    $lines = new ArrayObject;
+    $logger = Mockery::mock(LoggerInterface::class);
+    foreach (['info', 'warning'] as $level) {
+        $logger->shouldReceive($level)->andReturnUsing(function (string $message, array $context = []) use ($lines, $level) {
+            $lines[] = ['level' => $level, 'message' => $message, 'context' => $context];
+        });
+    }
+    Log::shouldReceive('channel')->andReturn($logger);
+
+    return $lines;
+}
+
+it('dispatches SsoTokenIssued with the user, the audience and the request id of the log line', function () {
+    Event::fake([SsoTokenIssued::class, SsoIssueDenied::class]);
+    $lines = stCaptureLog();
+
+    $response = stSignedIn()->withHeaders(['X-Request-Id' => 'req-123'])->get(stIssueUrl());
+    $response->assertStatus(302);
+
+    Event::assertDispatched(SsoTokenIssued::class, fn (SsoTokenIssued $e) => $e->user->is($this->user)
+        && $e->audience === 'panel-b'
+        && $e->requestId === 'req-123');
+    Event::assertNotDispatched(SsoIssueDenied::class);
+    expect($lines)->toHaveCount(1)
+        ->and($lines[0]['level'])->toBe('info')
+        ->and($lines[0]['message'])->toBe('SSO token issued')
+        ->and($lines[0]['context']['request_id'])->toBe('req-123');
+});
+
+it('generates a request id when the request has none, the same one for the event and the line', function () {
+    Event::fake([SsoTokenIssued::class]);
+    $lines = stCaptureLog();
+
+    stSignedIn()->get(stIssueUrl())->assertStatus(302);
+
+    Event::assertDispatched(SsoTokenIssued::class, fn (SsoTokenIssued $e) => $e->requestId === $lines[0]['context']['request_id']
+        && preg_match('/\A[0-9a-f-]{36}\z/', $e->requestId) === 1);
+});
+
+it('cuts a long X-Request-Id to 128 characters in the event and the line', function () {
+    Event::fake([SsoTokenIssued::class]);
+    $lines = stCaptureLog();
+
+    stSignedIn()->withHeaders(['X-Request-Id' => str_repeat('r', 300)])->get(stIssueUrl())->assertStatus(302);
+
+    Event::assertDispatched(SsoTokenIssued::class, fn (SsoTokenIssued $e) => strlen($e->requestId) === 128);
+    expect(strlen($lines[0]['context']['request_id']))->toBe(128);
+});
+
+it('dispatches SsoIssueDenied and logs a warning for each reason, with the answer unchanged', function (
+    Closure $arrange,
+    int $status,
+    string $reason,
+) {
+    Event::fake([SsoTokenIssued::class, SsoIssueDenied::class]);
+    $lines = stCaptureLog();
+
+    $response = $arrange($this);
+    expect($response->status())->toBe($status);
+
+    Event::assertNotDispatched(SsoTokenIssued::class);
+    Event::assertDispatchedTimes(SsoIssueDenied::class, 1);
+    Event::assertDispatched(SsoIssueDenied::class, function (SsoIssueDenied $e) use ($reason, $lines) {
+        return $e->reason === $reason
+            && $e->audience === ($reason === SsoIssueDenied::UNKNOWN_AUDIENCE ? 'nobody' : 'panel-b')
+            && ($reason === SsoIssueDenied::IMPERSONATING || $e->user?->is($this->user) === true)
+            && $e->requestId === 'req-deny'
+            && $lines[0]['context']['request_id'] === $e->requestId;
+    });
+
+    expect($lines)->toHaveCount(1)
+        ->and($lines[0]['level'])->toBe('warning')
+        ->and($lines[0]['message'])->toBe('SSO token issue denied')
+        ->and($lines[0]['context']['reason'])->toBe($reason)
+        ->and($lines[0]['context']['user_id'])->not->toBeNull();
+    // Nothing of a token or of the caller's state goes into the log line.
+    expect(json_encode($lines[0]['context']))->not->toContain($this->state)->not->toContain('token');
+})->with([
+    'unknown_audience' => [
+        fn ($t) => stSignedIn()->withHeaders(['X-Request-Id' => 'req-deny'])->get(stIssueUrl('nobody')),
+        404,
+        SsoIssueDenied::UNKNOWN_AUDIENCE,
+    ],
+    'not_navigation' => [
+        fn ($t) => stSignedIn()->withHeaders(['X-Request-Id' => 'req-deny', 'Sec-Fetch-Mode' => 'cors', 'Sec-Fetch-Dest' => 'empty'])->get(stIssueUrl()),
+        403,
+        SsoIssueDenied::NOT_NAVIGATION,
+    ],
+    'invalid_state' => [
+        fn ($t) => stSignedIn()->withHeaders(['X-Request-Id' => 'req-deny'])->get(stIssueUrl('panel-b', 'short')),
+        422,
+        SsoIssueDenied::INVALID_STATE,
+    ],
+    'forbidden' => [
+        function ($t) {
+            config(['martis.auth.sso.issuer.audiences.panel-b.ability' => 'sign-in-to-b']);
+            Gate::define('sign-in-to-b', fn () => false);
+
+            return stSignedIn()->withHeaders(['X-Request-Id' => 'req-deny'])->get(stIssueUrl());
+        },
+        403,
+        SsoIssueDenied::FORBIDDEN,
+    ],
+    'impersonating' => [
+        function ($t) {
+            $bob = StIssuerUser::query()->create(['name' => 'Bob', 'email' => 'bob@a.example', 'password' => Hash::make('x'), 'email_verified_at' => now()]);
+
+            return stImpersonating($t->user, $bob)->withHeaders(['X-Request-Id' => 'req-deny'])->get(stIssueUrl());
+        },
+        403,
+        SsoIssueDenied::IMPERSONATING,
+    ],
+]);
+
+it('names the impersonated user, the one the guard holds, in the denial of an impersonation', function () {
+    $bob = StIssuerUser::query()->create(['name' => 'Bob', 'email' => 'bob@a.example', 'password' => Hash::make('x'), 'email_verified_at' => now()]);
+    Event::fake([SsoIssueDenied::class]);
+    stCaptureLog();
+
+    stImpersonating($this->user, $bob)->get(stIssueUrl())->assertForbidden();
+
+    Event::assertDispatched(SsoIssueDenied::class, fn (SsoIssueDenied $e) => $e->reason === 'impersonating' && $e->user?->is($bob) === true);
+});
+
+it('stays silent for a disabled issuer: a 404, no event and no log line', function () {
+    config(['martis.auth.sso.issuer.enabled' => false]);
+    Event::fake([SsoTokenIssued::class, SsoIssueDenied::class]);
+    $logger = Mockery::mock(LoggerInterface::class);
+    $logger->shouldNotReceive('info');
+    $logger->shouldNotReceive('warning');
+    Log::shouldReceive('channel')->andReturn($logger);
+
+    stSignedIn()->get(stIssueUrl('nobody'))->assertNotFound();
+    stSignedIn()->get(stIssueUrl())->assertNotFound();
+
+    Event::assertNotDispatched(SsoIssueDenied::class);
+    Event::assertNotDispatched(SsoTokenIssued::class);
+});
+
+it('does not dispatch for an audience name the route constraint already rejects', function () {
+    Event::fake([SsoIssueDenied::class]);
+
+    // The SPA fallback answers it, never the issuer controller.
+    $response = stSignedIn()->get('/martis/sso/issue/'.str_repeat('a', 65).'?state='.$this->state);
+    expect((string) $response->headers->get('Location'))->not->toContain('token=');
+
+    Event::assertNotDispatched(SsoIssueDenied::class);
+});
+
+it('cuts the audience to 64 characters and keeps printable ASCII only before it reaches a log line or an event', function () {
+    Event::fake([SsoIssueDenied::class]);
+    $lines = stCaptureLog();
+
+    $request = Request::create('/martis/sso/issue/x', 'GET', ['state' => $this->state]);
+    $request->setUserResolver(fn () => $this->user);
+    $hostile = str_repeat('a', 500)."\n\x1b[31mevil\xff";
+
+    try {
+        app(SsoIssuerController::class)->issue($request, $hostile);
+        $this->fail('the unknown audience was not refused');
+    } catch (Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        expect($e->getStatusCode())->toBe(404);
+    }
+
+    Event::assertDispatched(SsoIssueDenied::class, fn (SsoIssueDenied $e) => strlen($e->audience) === 64 && $e->audience === str_repeat('a', 64));
+    expect(strlen($lines[0]['context']['audience']))->toBe(64);
+
+    $hostile = "a\nb\x1b[31m\xffc";
+    Event::fake([SsoIssueDenied::class]);
+    try {
+        app(SsoIssuerController::class)->issue($request, $hostile);
+    } catch (Symfony\Component\HttpKernel\Exception\HttpException) {
+    }
+    Event::assertDispatched(SsoIssueDenied::class, fn (SsoIssueDenied $e) => $e->audience === 'a?b?[31m?c');
+});
+
+it('puts neither the token nor the state into the issued event or the log line', function () {
+    Event::fake([SsoTokenIssued::class]);
+    $lines = stCaptureLog();
+
+    $location = (string) stSignedIn()->get(stIssueUrl())->headers->get('Location');
+    parse_str((string) parse_url($location, PHP_URL_QUERY), $query);
+
+    $dump = json_encode([$lines->getArrayCopy()], JSON_THROW_ON_ERROR);
+    expect($dump)->not->toContain($query['token'])->not->toContain($this->state);
+    Event::assertDispatched(SsoTokenIssued::class, function (SsoTokenIssued $e) use ($query) {
+        $dump = json_encode(['audience' => $e->audience, 'request_id' => $e->requestId]);
+
+        return ! str_contains($dump, $query['token']) && ! str_contains($dump, $this->state);
+    });
 });
