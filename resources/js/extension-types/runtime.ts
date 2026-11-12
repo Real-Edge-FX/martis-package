@@ -37,6 +37,7 @@ export { NotFoundPage } from '@/pages/NotFound'
 
 // Composition components
 export { FieldInput, FieldDisplay } from '@/components/fields/FieldRenderer'
+export { FieldError, useFieldError } from '@/components/fields/FieldError'
 export { DrawerShell } from '@/components/overrides/DrawerShell'
 export { Tooltip } from 'primereact/tooltip'
 export { htmlTooltip, trustHtmlTooltip } from '@/lib/htmlTooltip'

@@ -521,6 +521,8 @@ Shipped locales: `en` (English), `pt_BR` (Brazilian Portuguese), `pt_PT` (Europe
     'enabled' => env('MARTIS_THROTTLE_ENABLED', true),
     'max_attempts' => (int) env('MARTIS_THROTTLE_MAX', 120),
     'decay_minutes' => (int) env('MARTIS_THROTTLE_DECAY', 1),
+    'metrics_max_attempts' => env('MARTIS_THROTTLE_METRICS_MAX'),     // null: metrics stay in the API bucket (v2.23.0)
+    'metrics_decay_minutes' => env('MARTIS_THROTTLE_METRICS_DECAY'),  // null: decay_minutes
 ],
 ```
 
@@ -529,8 +531,12 @@ Shipped locales: `en` (English), `pt_BR` (Brazilian Portuguese), `pt_PT` (Europe
 | `enabled` | `bool` | `true` | Set `false` to disable API rate limiting. |
 | `max_attempts` | `int` | `120` | Maximum requests per window, per signed-in user of the Martis guard, counted across the Martis API and every Tool's routes (v2.0). |
 | `decay_minutes` | `int` | `1` | Rate limit window in minutes. |
+| `metrics_max_attempts` | `int\|null` | `null` | A bucket of its own for the metric and dashboard read routes (v2.23.0). `null` keeps them in the API bucket, as before. |
+| `metrics_decay_minutes` | `int\|null` | `null` | Window of the metrics bucket in minutes; `null` takes `decay_minutes`. |
 
 The limit is Laravel's `throttle` middleware with a key prefix, `throttle:{max},{decay},martis-api:{guard}:` (`RouteMiddleware::throttlePrefix('api')`, v2.0.1). Laravel keys a signed-in user's bucket on `sha1()` of the identifier alone, so without the prefix the Martis guard's user 5 shared a bucket with a site route's plain `throttle` for the site user 5 (an `admins` guard beside the site's `users`), or for the same person. The verification email resend (`martis-verification:{guard}:`) keeps its own limit in its own bucket: before v2.0.1 it counted in the API's, so a resend answered `429` after three API requests in the same minute. The 2FA challenge has a named limiter of its own since v2.4.0 (`martis-2fa-challenge`, see [2FA challenge throttle](#2fa-challenge-throttle)), with the Martis guard in its keys.
+
+**A bucket for the metrics (v2.23.0).** A dashboard of many cards computes one request per card and refreshes them on a timer, so it can use up the API bucket and make the rest of the panel answer `429`. Set `MARTIS_THROTTLE_METRICS_MAX` (and, if the window differs, `MARTIS_THROTTLE_METRICS_DECAY`) and the routes that read a dashboard or compute a metric (`GET /api/dashboards`, `/api/dashboards/{dashboard}`, `/api/dashboards/{dashboard}/cards/{card}` and `/api/resources/{resource}/cards/{card}`) count against `throttle:{max},{decay},martis-metrics:{guard}:` (`RouteMiddleware::throttlePrefix('metrics')`) and only against it: they leave the API throttle, so a metric read never also counts in the API bucket, and the API bucket never sees them. Every other route keeps the API bucket. Unset (the default) changes nothing. `MARTIS_THROTTLE_ENABLED=false` turns both buckets off. A value that is not a positive whole number throws an `InvalidArgumentException` naming the key when the routes are registered.
 
 ## Theme
 
@@ -1786,6 +1792,8 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_THROTTLE_DECAY` | `1` |
 | `MARTIS_THROTTLE_ENABLED` | `true` |
 | `MARTIS_THROTTLE_MAX` | `120` |
+| `MARTIS_THROTTLE_METRICS_DECAY` | `null` (the API decay) |
+| `MARTIS_THROTTLE_METRICS_MAX` | `null` (metrics stay in the API bucket) |
 | `MARTIS_TOAST_POSITION` | `'bottom-right'` |
 | `MARTIS_UI_LOCALES` | `'en,pt_PT,pt_BR'` |
 | `MARTIS_UI_LOCALE_LABELS` | `(no default)` |

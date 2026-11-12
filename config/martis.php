@@ -593,10 +593,12 @@ return [
     |--------------------------------------------------------------------------
     | Throttling
     |--------------------------------------------------------------------------
-    | Rate limits for Martis routes. Two distinct buckets:
+    | Rate limits for Martis routes. Distinct buckets:
     |   - `api` — protects general authenticated API routes (resource CRUD,
     |     dashboards, metrics). Default 120 req/min is generous because the
     |     SPA is chatty on navigation.
+    |   - `metrics` (optional) — the metric and dashboard read routes, when
+    |     `metrics_max_attempts` is set; they then leave the `api` bucket.
     |   - `login` — brute-force protection on the login form, 2FA challenge,
     |     and API login endpoint. Tight by design (20 req/min) but loose
     |     enough that a typo-prone human doesn't get locked out.
@@ -606,6 +608,15 @@ return [
         'enabled' => env('MARTIS_THROTTLE_ENABLED', true),
         'max_attempts' => (int) env('MARTIS_THROTTLE_MAX', 120),
         'decay_minutes' => (int) env('MARTIS_THROTTLE_DECAY', 1),
+        // A bucket of its own for the metric and dashboard read routes (v2.23.0):
+        // a dashboard of many cards polls often and would use up the `api`
+        // bucket above. Unset (null, the default) keeps those routes in the
+        // `api` bucket. When set they count against this bucket only, never
+        // against the `api` one too, so the rest of the API keeps its full
+        // allowance. `metrics_decay_minutes` defaults to `decay_minutes`.
+        // `enabled` = false disables both buckets.
+        'metrics_max_attempts' => env('MARTIS_THROTTLE_METRICS_MAX') === null ? null : (int) env('MARTIS_THROTTLE_METRICS_MAX'),
+        'metrics_decay_minutes' => env('MARTIS_THROTTLE_METRICS_DECAY') === null ? null : (int) env('MARTIS_THROTTLE_METRICS_DECAY'),
         'login_attempts' => (int) env('MARTIS_LOGIN_THROTTLE_ATTEMPTS', 20),
         'login_minutes' => (int) env('MARTIS_LOGIN_THROTTLE_MINUTES', 1),
         // The per-account limit of the sign-in (v2.4.0), applied by the login

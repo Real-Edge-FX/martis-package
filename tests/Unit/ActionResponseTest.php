@@ -136,4 +136,28 @@ class ActionResponseTest extends TestCase
         // Another response's empty data is left alone.
         $this->assertSame('{"type":"message","data":{"message":"Done"}}', json_encode(ActionResponse::message('Done')));
     }
+
+    public function test_emit_with_a_message_adds_it_to_the_payload(): void
+    {
+        $this->assertSame(
+            '{"type":"emit","data":{"event":"reports:refresh","data":{"id":7},"message":"Queued"}}',
+            json_encode(ActionResponse::emit('reports:refresh', ['id' => 7], 'Queued')),
+        );
+    }
+
+    public function test_silent_emit_marks_the_payload_and_leaves_the_original_alone(): void
+    {
+        $emit = ActionResponse::emit('reports:copy');
+
+        $this->assertSame('{"type":"emit","data":{"event":"reports:copy","data":{},"silent":true}}', json_encode($emit->silent()));
+        $this->assertSame('{"type":"emit","data":{"event":"reports:copy","data":{}}}', json_encode($emit));
+    }
+
+    public function test_silent_throws_on_a_response_that_is_not_an_emit(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('silent()');
+
+        ActionResponse::message('Done')->silent();
+    }
 }

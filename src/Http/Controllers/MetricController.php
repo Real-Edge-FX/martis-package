@@ -81,20 +81,43 @@ class MetricController
         // A locked card's `meta` is left out of the payload, so the lock state
         // of the cards is part of the key: a plan change shows at once.
         // The same holds for the dashboard's filters (their options and meta).
-        $lockedCards = SoftGate::fingerprint([...$instance->cards($request), ...$instance->filters($request)], $request);
+        $cards = $instance->cards($request);
+        $filters = $instance->filters($request);
+        $lockedCards = SoftGate::fingerprint([...$cards, ...$filters], $request);
         if ($lockedCards !== '') {
             $cacheKey .= ':locked-'.$lockedCards;
         }
+        // The shape of the payload is part of the key too: a card or filter
+        // added, removed or reordered in code lands on a fresh key at once
+        // instead of serving the old shape until the layer TTL expires.
+        $cacheKey .= ':shape-'.self::shapeFingerprint($cards, $filters);
 
-        $payload = $cache->remember('dashboards', $cacheKey, function () use ($instance, $request): array {
+        $payload = $cache->remember('dashboards', $cacheKey, function () use ($instance, $request, $cards, $filters): array {
             return [
                 'dashboard' => $instance->toArray(),
-                'cards' => $this->serializeCards($instance->cards($request), $request),
-                'filters' => $this->serializeFilters($instance->filters($request), $request),
+                'cards' => $this->serializeCards($cards, $request),
+                'filters' => $this->serializeFilters($filters, $request),
             ];
         });
 
         return JsonResponse::make($payload)->toResponse();
+    }
+
+    /**
+     * Order-sensitive fingerprint of the cards and filters (class and uriKey).
+     *
+     * @param  array<mixed>  $cards
+     * @param  array<mixed>  $filters
+     */
+    private static function shapeFingerprint(array $cards, array $filters): string
+    {
+        $describe = static fn (mixed $entity): string => is_object($entity) && method_exists($entity, 'uriKey')
+            ? $entity::class.'@'.$entity->uriKey()
+            : get_debug_type($entity);
+
+        return substr(sha1(
+            implode('|', array_map($describe, $cards)).'#'.implode('|', array_map($describe, $filters))
+        ), 0, 10);
     }
 
     // -------------------------------------------------------------------------
