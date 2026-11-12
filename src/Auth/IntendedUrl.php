@@ -6,6 +6,7 @@ namespace Martis\Auth;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
+use Martis\Profile\TwoFactorService;
 
 /**
  * The page a person asked for before they were sent to the login page, handed
@@ -119,8 +120,8 @@ final class IntendedUrl
     /** Whether a step before the dashboard still holds the user. */
     private static function heldByAGate(Request $request, Authenticatable $user): bool
     {
-        if (app(\Martis\Profile\TwoFactorService::class)->isActive($user)
-            && ! TwoFactorPass::holds($request->session(), $user)) {
+        if (! TwoFactorPass::holds($request->session(), $user)
+            && app(TwoFactorService::class)->isActive($user)) {
             return true;
         }
 
