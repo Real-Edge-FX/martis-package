@@ -65,6 +65,12 @@ final class SsoSession
     /** The session key of the unix time before which the provider is not asked again after it threw (v2.21.0). */
     public const SESSION_RETRY_AT = 'martis_sso_retry_at';
 
+    /** The session key of the marker an ended SSO session leaves in the new anonymous session (v2.21.0). */
+    public const SESSION_ENDED = 'martis_sso_ended';
+
+    /** How long the marker of an ended session answers, in seconds (v2.21.0). */
+    public const ENDED_SECONDS = 60;
+
     /** The cookie that carries the origin across a remember-me re-login. */
     public const COOKIE = 'martis_sso_provider';
 
@@ -86,6 +92,7 @@ final class SsoSession
         $now = self::now();
 
         $request->session()->put(self::SESSION_KEY, $provider);
+        $request->session()->forget(self::SESSION_ENDED);
         self::writeSignIn($request, $now, $externalId);
 
         if (! $remember) {
@@ -156,7 +163,7 @@ final class SsoSession
     public static function forget(Request $request, ?Authenticatable $user = null): void
     {
         if ($request->hasSession()) {
-            $request->session()->forget([self::SESSION_KEY, self::SESSION_AT, self::SESSION_EXTERNAL_ID, self::SESSION_CHECKED_AT, self::SESSION_RETRY_AT]);
+            $request->session()->forget([self::SESSION_KEY, self::SESSION_AT, self::SESSION_EXTERNAL_ID, self::SESSION_CHECKED_AT, self::SESSION_RETRY_AT, self::SESSION_ENDED]);
         }
 
         if ($user !== null) {
@@ -258,6 +265,109 @@ final class SsoSession
         if ($request->hasSession()) {
             $request->session()->put(self::SESSION_RETRY_AT, self::now() + $seconds);
         }
+    }
+
+    /**
+     * Leave the marker of an SSO session that just ended (v2.21.0), for
+     * {@see ENDED_SECONDS} seconds: the provider's name and the time, nothing of
+     * the user.
+     *
+     * A page fires several API requests at once and the first one ends the
+     * session, so the others reach the server as plain unauthenticated
+     * requests. The marker lets them be answered with the way back through the
+     * provider instead of a bare 401. It is kept in the new anonymous session
+     * (what the browser sends next) and in the cache under a hash of the id of
+     * the session that ended (what the requests already in flight still send,
+     * the old session being gone). A cache that cannot take it is reported and
+     * the session half still answers.
+     *
+     * Call it after the session was invalidated: that clears the marker with it.
+     */
+    public static function markEnded(Request $request, string $provider, ?string $endedSessionId): void
+    {
+        $marker = ['p' => $provider, 'at' => self::now()];
+
+        if ($request->hasSession()) {
+            $request->session()->put(self::SESSION_ENDED, $marker);
+        }
+
+        if ($endedSessionId === null || $endedSessionId === '') {
+            return;
+        }
+
+        try {
+            Cache::put(self::endedKey($endedSessionId), $marker, now()->addSeconds(self::ENDED_SECONDS));
+        } catch (Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * The provider whose SSO session ended less than {@see ENDED_SECONDS}
+     * seconds ago in this browser, or null: the marker of the session, else
+     * the cache entry of the session id the request carries.
+     */
+    public static function endedProvider(Request $request): ?string
+    {
+        if (! $request->hasSession()) {
+            return null;
+        }
+
+        $session = $request->session();
+        $marker = self::liveMarker($session->get(self::SESSION_ENDED));
+
+        if ($marker === null) {
+            // Past its minute (or never valid): drop what is left.
+            $session->forget(self::SESSION_ENDED);
+
+            try {
+                $marker = self::liveMarker(Cache::get(self::endedKey($session->getId())));
+            } catch (Throwable $e) {
+                report($e);
+
+                return null;
+            }
+        }
+
+        return $marker;
+    }
+
+    /**
+     * Drop the marker of an ended session: the person is on their way to the
+     * provider (its redirect route was visited), or signed in.
+     */
+    public static function forgetEnded(Request $request): void
+    {
+        if (! $request->hasSession()) {
+            return;
+        }
+
+        $session = $request->session();
+        $session->forget(self::SESSION_ENDED);
+
+        try {
+            Cache::forget(self::endedKey($session->getId()));
+        } catch (Throwable $e) {
+            report($e);
+        }
+    }
+
+    /** The provider of a marker that is well formed and younger than {@see ENDED_SECONDS}, else null. */
+    private static function liveMarker(mixed $marker): ?string
+    {
+        if (! is_array($marker) || ! is_string($marker['p'] ?? null) || $marker['p'] === '' || ! is_int($marker['at'] ?? null)) {
+            return null;
+        }
+
+        $age = self::now() - $marker['at'];
+
+        return $age >= 0 && $age < self::ENDED_SECONDS ? $marker['p'] : null;
+    }
+
+    /** The cache key of the marker of an ended session: a hash, never the session id itself. */
+    private static function endedKey(string $sessionId): string
+    {
+        return 'martis.sso-ended.'.sha1($sessionId);
     }
 
     /**

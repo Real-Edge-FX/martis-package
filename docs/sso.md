@@ -540,6 +540,10 @@ Ending a session does what a local sign-out does on **this device** (the guard's
 - a request that expects JSON gets `401 {"message": "...", "sso_reauth_url": "/martis/sso/azure/redirect"}`. The SPA's global 401 handler navigates to that URL (a full page load) instead of the session-expired login page. It follows only a path under the Martis base path on its own origin: an absolute URL, a protocol-relative one, or a path that dot segments or a backslash would move out of the base path is ignored and the normal session-expired redirect happens;
 - any other request is redirected to `/{martis}/sso/{name}/redirect`.
 
+A page fires several API requests at once, and only the first one meets the session; the rest are plain unauthenticated requests. So that they do not answer a bare 401 (which would send the SPA to the login page, past the provider), the session that ends leaves a marker for **60 seconds**: the provider's name and the time, nothing of the user. It lives in the new anonymous session and, for the requests the browser sent before it learned the new session id, in the cache under a hash of the old id. While it holds, an unauthenticated JSON request of that browser (the `martis.auth` middleware answers it) gets the same `401 {"message", "sso_reauth_url"}`. The marker is dropped when the provider's redirect route is visited, on any sign-in or sign-out, and after the minute; a browser that never had an SSO session gets the plain 401. If the cache cannot take the marker the failure is reported and only the session half answers.
+
+On the SPA side the way back is followed **once** per page life: the 401s that come after it do nothing, and a 401 without the key waits 300 ms before it sends the page to the login page, so it can never override a way back that arrives a moment later. A page restored from the browser's back-forward cache (Back from the provider's page) follows it again.
+
 #### Revocation: `MartisSso::revokeFor()`
 
 ```php

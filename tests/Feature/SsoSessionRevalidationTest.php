@@ -355,6 +355,9 @@ it('ends an SSO session older than max_session_minutes: a JSON request gets 401 
     expect(Auth::guard()->check())->toBeFalse()
         ->and(session(SsoSession::SESSION_KEY))->toBeNull()
         ->and(session(SsoSession::SESSION_AT))->toBeNull();
+
+    // The way back is offered for a minute (section 7), then the 401 is plain.
+    $this->travel(61)->seconds();
     $this->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonMissingPath('sso_reauth_url');
 });
 
@@ -1124,4 +1127,157 @@ it('lets /api/auth/user answer for a password session that the SSO settings woul
     $this->travel(3)->hours();
 
     $this->getJson('/martis/api/auth/user')->assertOk()->assertJsonPath('email', 'p@example.com');
+});
+
+// ---------------------------------------------------------------------------
+// 7. The requests that follow the end of a session (v2.21.0)
+//
+// A page fires several API requests at once. The first one ends the session;
+// the others are plain unauthenticated requests, and a bare 401 sends the SPA
+// to the login page, past the provider. So for a minute the unauthenticated
+// JSON 401 of the browser whose session ended carries the same
+// `sso_reauth_url`, from a marker in the new anonymous session and, for the
+// requests already in flight with the old session id, from the cache.
+// ---------------------------------------------------------------------------
+
+/** End the SSO session by age. */
+function ssoRevEndByAge(): void
+{
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 10);
+    ssoRevSignIn();
+    test()->travel(11)->minutes();
+}
+
+it('answers the requests that follow the end of the session with the way back through the provider', function () {
+    ssoRevEndByAge();
+
+    $this->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect');
+    $this->getJson('/martis/api/tools')
+        ->assertUnauthorized()
+        ->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect')
+        ->assertJsonPath('message', __('martis::messages.sso_session_ended'));
+    $this->getJson('/martis/api/resources/users')->assertUnauthorized()->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect');
+});
+
+it('leaves the marker when /api/auth/user ends the session too', function () {
+    ssoRevEndByAge();
+
+    $this->getJson('/martis/api/auth/user')->assertOk();
+
+    $this->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect');
+});
+
+it('stops answering with the way back after 60 seconds', function () {
+    ssoRevEndByAge();
+    $this->getJson('/martis/api/tools')->assertUnauthorized();
+
+    $this->travel(59)->seconds();
+    $this->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect');
+
+    $this->travel(2)->seconds();
+    $this->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonMissingPath('sso_reauth_url');
+    expect(session(SsoSession::SESSION_ENDED))->toBeNull();
+});
+
+it('stops once the person visits the redirect route of the provider', function () {
+    ssoRevEndByAge();
+    $this->getJson('/martis/api/tools')->assertUnauthorized();
+
+    $this->get('/martis/sso/azure/redirect')->assertRedirect();
+
+    $this->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonMissingPath('sso_reauth_url');
+});
+
+it('stops on any sign-in: SSO, password, and a later sign-out never brings it back', function () {
+    ssoRevEndByAge();
+    $this->getJson('/martis/api/tools')->assertUnauthorized();
+    ssoRevPasswordUser();
+
+    $this->postJson('/martis/api/auth/login', ['email' => 'p@example.com', 'password' => 'Password-Pass-1'])->assertOk();
+    expect(session(SsoSession::SESSION_ENDED))->toBeNull();
+
+    $this->postJson('/martis/api/auth/logout')->assertOk();
+    $this->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonMissingPath('sso_reauth_url');
+
+    // And the SSO sign-in itself.
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 10);
+    ssoRevSignIn();
+    expect(session(SsoSession::SESSION_ENDED))->toBeNull();
+});
+
+it('gives a browser that never had an SSO session the plain 401', function () {
+    $this->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonMissingPath('sso_reauth_url');
+
+    ssoRevPasswordUser();
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 1);
+    $this->postJson('/martis/api/auth/login', ['email' => 'p@example.com', 'password' => 'Password-Pass-1'])->assertOk();
+    $this->postJson('/martis/api/auth/logout')->assertOk();
+
+    $this->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonMissingPath('sso_reauth_url');
+});
+
+it('answers a request that still carries the id of the ended session, from the cache', function () {
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 10);
+    $cookie = config('session.cookie');
+
+    // The id the browser holds after the sign-in (the callback migrates it).
+    $this->get('/martis/sso/azure/callback')->assertRedirect();
+    $oldId = session()->getId();
+    $this->travel(11)->minutes();
+
+    // The request that ends the session, sent with the id of the old one.
+    $this->withCredentials()->withCookie($cookie, $oldId)->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect');
+
+    // The browser's other requests were sent before it learned the new id: no
+    // data of the new session, the old id.
+    $this->flushSession();
+    $this->withCredentials()->withCookie($cookie, $oldId)->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect');
+
+    // Another id gets none, and neither does the old one after a minute.
+    $this->flushSession();
+    $this->withCredentials()->withCookie($cookie, Str::random(40))->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonMissingPath('sso_reauth_url');
+    $this->flushSession();
+    $this->travel(61)->seconds();
+    $this->withCredentials()->withCookie($cookie, $oldId)->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonMissingPath('sso_reauth_url');
+});
+
+it('keeps no user data in the marker, and no session id in the cache key', function () {
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 10);
+    $cookie = config('session.cookie');
+    $this->get('/martis/sso/azure/callback')->assertRedirect();
+    $oldId = session()->getId();
+    $this->travel(11)->minutes();
+
+    $this->withCredentials()->withCookie($cookie, $oldId)->getJson('/martis/api/tools')->assertUnauthorized();
+
+    $now = Carbon::now()->getTimestamp();
+    expect(session(SsoSession::SESSION_ENDED))->toBe(['p' => 'azure', 'at' => $now]);
+
+    $stored = Cache::get('martis.sso-ended.'.sha1($oldId));
+    expect($stored)->toBe(['p' => 'azure', 'at' => $now])
+        ->and(Cache::get('martis.sso-ended.'.$oldId))->toBeNull();
+});
+
+it('does not make a failing cache a failing request', function () {
+    Exceptions::fake();
+    Cache::extend('sso-rev-failing', fn () => Cache::repository(new SsoRevFailingStore));
+    config()->set('cache.stores.sso_rev_failing', ['driver' => 'sso-rev-failing']);
+    config()->set('cache.default', 'sso_rev_failing');
+    ssoRevEndByAge();
+    SsoRevFailingStore::$failWrites = true;
+
+    $this->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect');
+
+    // The session half of the marker still answers.
+    SsoRevFailingStore::$failWrites = false;
+    $this->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect');
+    Exceptions::assertReported(fn (RuntimeException $e) => $e->getMessage() === 'cache write failed');
+});
+
+it('sends the login page when the provider was turned off in the meantime', function () {
+    ssoRevEndByAge();
+    $this->getJson('/martis/api/tools')->assertUnauthorized();
+    config()->set('martis.auth.sso.providers.azure.enabled', false);
+
+    $this->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonPath('sso_reauth_url', '/martis/login');
 });
