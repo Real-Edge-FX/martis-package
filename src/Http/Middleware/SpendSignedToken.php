@@ -74,6 +74,9 @@ final class SpendSignedToken
         /** @var ThrottleRequests $throttle */
         $throttle = app($class);
 
-        return $throttle->handle($request, $next, $maxAttempts, $decayMinutes);
+        // Route parameters arrive as strings: the limit is a number, as `throttle:20,1` gives it.
+        $decay = is_numeric($decayMinutes) ? $decayMinutes + 0 : 1;
+
+        return $throttle->handle($request, $next, $maxAttempts, $decay);
     }
 }
