@@ -761,7 +761,8 @@ class SsoMakeCommand extends Command
         $this->line("     <fg=gray>users.{$name}_external_id   (or set identity_external_id_column in the block)</>");
 
         // Only the `column` strategy reads a roles column.
-        if (((string) ($this->option('strategy') ?: 'column')) === 'column') {
+        $strategy = $this->option('strategy');
+        if ($strategy === null || $strategy === '' || $strategy === 'column') {
             $this->line("     <fg=gray>roles.{$name}_group_name    holds the role name the issuing app sends</>");
             $this->line('     <fg=gray>(run this command again with --with-migration to publish a migration for that roles column)</>');
         }

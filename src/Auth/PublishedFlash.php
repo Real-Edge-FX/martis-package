@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Martis\Auth;
 
+use Illuminate\Support\Arr;
 use Illuminate\Support\ViewErrorBag;
 
 /**
@@ -45,7 +46,9 @@ final class PublishedFlash
             return null;
         }
 
-        $message = $errors->getBag('default')->first('sso');
+        // Read as data, not through first(): a flashed value is whatever the
+        // app put in the bag, and only a string is published.
+        $message = Arr::get($errors->getBag('default')->getMessages(), 'sso.0');
 
         return is_string($message) && $message !== '' ? $message : null;
     }
