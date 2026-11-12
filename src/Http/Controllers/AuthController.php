@@ -28,7 +28,9 @@ use Martis\Contracts\SendsPasswordResetLinks;
 use Martis\Http\Controllers\Concerns\AuthenticatesWithRememberMe;
 use Martis\Profile\TwoFactorService;
 use Martis\Sso\SsoSession;
+use Martis\Sso\SsoSessionEnforcer;
 use Martis\Support\Initials;
+use Throwable;
 
 class AuthController extends MartisController
 {
@@ -55,7 +57,18 @@ class AuthController extends MartisController
         /** @var string|null $guardName */
         $guardName = config('martis.guard');
 
-        $user = auth()->guard($guardName)->user();
+        $guard = auth()->guard($guardName);
+
+        // A session the `martis.sso.session` middleware would end (too old,
+        // revoked, or the provider says the person is gone) answers as signed
+        // out, and is ended here by the same logic: this route runs without
+        // the middleware, so the SPA would otherwise bootstrap into a session
+        // that every other route refuses.
+        if ($guard instanceof StatefulGuard && app(SsoSessionEnforcer::class)->endIfRequired($request, $guard) !== null) {
+            return response('null', 200)->header('Content-Type', 'application/json');
+        }
+
+        $user = $guard->user();
 
         if ($user === null) {
             // Laravel 12 response()->json(null) returns {} due to Symfony null coalescing.
@@ -280,7 +293,8 @@ class AuthController extends MartisController
      * ?Authenticatable $user, string $postLogoutRedirectUri): ?string` with the
      * login page URL as it is (the class encodes it where its URL needs that)
      * and answering the URL, or null for a local logout only. It runs before
-     * the local logout, while the user is still signed in.
+     * the local logout, while the user is still signed in. A class that throws
+     * is reported and the sign-out goes on locally (v2.21.0).
      *
      * @throws InvalidArgumentException when the value names a class that is
      *                                  not invokable, or the class answers
@@ -310,7 +324,17 @@ class AuthController extends MartisController
             throw new InvalidArgumentException("The [{$key}] config value names the class [{$configured}], which is not invokable: give it an __invoke(Request, ?Authenticatable, string): ?string method, or a plain URL.");
         }
 
-        $url = $resolver($request, $user, $loginUrl);
+        // The class asks the IdP for things (discovery, an id_token_hint): an
+        // IdP that is down must not make the sign-out impossible. The local
+        // logout always happens; the failure is reported and there is no
+        // federated URL. Configuration errors (above and below) still throw.
+        try {
+            $url = $resolver($request, $user, $loginUrl);
+        } catch (Throwable $e) {
+            report($e);
+
+            return '';
+        }
 
         if ($url !== null && ! is_string($url)) {
             throw new InvalidArgumentException("The class [{$configured}] named by [{$key}] must return a URL string or null, got ".get_debug_type($url).'.');
@@ -398,7 +422,7 @@ class AuthController extends MartisController
             // configuration error, not an unavailable mailer: let it fail
             // loudly, naming the config key.
             throw $e;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             report($e);
 
             return response()->json([

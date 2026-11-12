@@ -38,4 +38,5 @@ it('SsoIdentity defaults are reasonable for minimal payloads', function () {
     expect($id->externalRoles)->toBe([]);
     expect($id->raw)->toBe([]);
     expect($id->accessToken)->toBeNull();
+    expect($id->emailVerified)->toBeNull();
 });

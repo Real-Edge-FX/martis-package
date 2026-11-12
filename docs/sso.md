@@ -389,11 +389,13 @@ The **Continue with Microsoft** button is there. Click → Azure consent screen 
                 // session follows SESSION_LIFETIME and a fresh IdP round-trip
                 // decides after it, so revoking access at the IdP ends panel
                 // access. On, the remember cookie signs the user back in for
-                // auth.guards.{guard}.remember minutes whatever the IdP says.
+                // auth.guards.{guard}.remember minutes whatever the IdP says,
+                // and only MartisSso::revokeFor() ends it: it cannot be set
+                // together with the two limits below (v2.21.0, it throws).
                 'remember' => false,
 
                 // Absolute age and revalidation of an SSO-opened session
-                // (v2.21.0). Both null (off) by default.
+                // (v2.21.0). Both null (off) by default. Not with 'remember' => true.
                 'max_session_minutes'      => env('MARTIS_SSO_AZURE_MAX_SESSION_MINUTES'),
                 'revalidate_every_minutes' => env('MARTIS_SSO_AZURE_REVALIDATE_EVERY_MINUTES'),
 
@@ -476,13 +478,18 @@ Every refusal of the callback (the IdP call failed, the account may not be adopt
 
 | Reason | When |
 |---|---|
-| `unknown` | The provider threw anything that is not a `Martis\Sso\SsoException` (an unreachable IdP, a rejected code, a malformed token). |
+| `unknown` | Anything thrown that is not a `Martis\Sso\SsoException`: the provider (an unreachable IdP, a rejected code, a malformed token), the user step (a unique index on the email, the two concurrent first sign-ins of one identity, an IdP email change onto an address another row holds), the role sync or an `afterLogin` hook. |
 | `account_unverified` | A local row holds the IdP's address and the sign-in may not adopt it (`SsoAdoptionRefusedException`). |
-| `missing_external_id`, `external_id_mismatch` | See [Matching by `external_id`](#matching-by-external_id-v2210). |
+| `missing_external_id`, `external_id_mismatch` | See [Matching by `external_id`](#matching-by-external_id-v2210). Both show the generic text on the login page: a more specific one would tell whoever holds an IdP account that a local account with that address exists. |
+| `email_unverified` | The provider says the identity's email is not verified (`SsoIdentity::$emailVerified === false`) and a local row holds that address: the row is not adopted, on the `email` strategy or with `link_by_email`. The signed-token provider sets it from the issuer's `email_verified` claim. A provider that makes no statement (`null`, the default and Azure's case) is unaffected. The login page shows the generic text. |
 | `not_provisioned` | No local user, and `auto_create_user` is off (or the user resolver returned `null`). |
 | `no_role_match` | No role maps and `on_no_role_match` denies (also when a `callable` hook returned a redirect: the person is not signed in, the hook decides where they go). |
 
-The log line (`SSO callback failed`, on the default log channel) carries `provider`, `reason`, `request_id` (the request's `X-Request-Id` header, else a UUID generated for this line), `exception` (the class name) and `error` (the message). The message is **redacted** first: HTTP client exceptions embed the request URL and the response body, so the values of `code`, `state`, `token`, `id_token`, `access_token`, `refresh_token` and `client_secret` are replaced with `[redacted]` whether they appear as query pairs or JSON pairs, and so is a `Bearer` credential.
+The log line (`SSO callback failed`, on the default log channel) carries `provider`, `reason`, `request_id` (the request's `X-Request-Id` header, else a UUID generated for this line), `exception` (the class name) and `error` (the message). The message is **redacted** first: HTTP client exceptions embed the request URL and the response body, so the values of `code`, `state`, `token`, `id_token`, `access_token`, `refresh_token`, `client_secret`, `code_verifier`, `client_assertion`, `assertion`, `SAMLResponse`, `SAMLRequest`, `password`, `id_token_hint` and `private_key` are replaced with `[redacted]` whether they appear as query pairs or JSON pairs, and so is a `Bearer` credential.
+
+A refusal never becomes a 500 page: whatever the user step, the role sync or an `afterLogin` hook throws (an `InvalidArgumentException` from a hook included) is logged through the redactor, dispatched as `SsoFailed` with reason `unknown`, and shown as the generic text; nobody is signed in. The one exception is a **configuration error** of the user or role step (an `InvalidArgumentException` naming the key, such as an unsupported `on_no_role_match`): that is thrown, so a typo is loud.
+
+What stays written when a sign-in is refused after the user step depends on the order of [Deny before provisioning](#deny-before-provisioning-v2210). The role sync and the `afterLogin` hooks run right after the user is resolved. On the **transaction** order (a role mapping that needs the user) they run inside the transaction, so a failure of either rolls the user row back too. On the **pre-check** order (and with `provision_on_deny`) there is no transaction: a row the sign-in already created or updated **stays**, the person is not signed in, and the next attempt finds the row.
 
 The login page shows the exception's `messageKey` text when the exception sets one and the key is translated, and the generic `sso_callback_failed` text otherwise (a plain exception never shows its message). A provider or a `resolveUserUsing` closure can choose both by throwing `Martis\Sso\SsoException`:
 
@@ -501,16 +508,21 @@ use Illuminate\Support\Facades\Event;
 use Martis\Events\SsoFailed;
 
 Event::listen(SsoFailed::class, function (SsoFailed $event) {
-    // $event->provider, $event->reason, $event->exception (?Throwable, message not redacted)
+    // $event->provider, $event->reason, $event->exception (?Throwable, the RAW exception:
+    // its message and trace are not redacted, so do not log or ship it as it is)
     AuditLog::record('sso.failed', ['provider' => $event->provider, 'reason' => $event->reason]);
 });
 ```
 
 ### Ending an SSO session: age, revocation, revalidation (v2.21.0)
 
-Once a person is signed in through SSO, nothing asks the IdP again: the session lives until `SESSION_LIFETIME`, and with `remember` on, a cookie signs the user back in for up to 400 days. Three independent, **off by default** mechanisms end an SSO-opened session before that. They share one middleware, `martis.sso.session`, which sits right after `martis.auth` in the authenticated stack (`Martis\Http\RouteMiddleware::authenticated()`), ahead of every gate (2FA, email verification, forced password change). A session that SSO did not open (password, magic link, invitation) is **never touched** by any of them.
+Once a person is signed in through SSO, nothing asks the IdP again: the session lives until `SESSION_LIFETIME`, and with `remember` on, a cookie signs the user back in for up to 400 days (only revocation reaches a remembered session, see below). Three independent, **off by default** mechanisms end an SSO-opened session before that. They share one middleware, `martis.sso.session`, which sits right after `martis.auth` in the authenticated stack (`Martis\Http\RouteMiddleware::authenticated()`), ahead of every gate (2FA, email verification, forced password change). A session that SSO did not open (password, magic link, invitation) is **never touched** by any of them.
 
-The session records, at sign-in, when the SSO sign-in happened (`martis_sso_at`, unix time) and the identity's external id (`martis_sso_external_id`). After a remember-me re-login, the new session gets the **original** sign-in time back from the SSO cookie (its issue time), never the time of the re-login, so the re-login cannot reset the clock.
+The middleware is also on the two routes that run `martis.auth` alone (`GET /email/verify`, `POST /api/auth/email/verification-notification`), and `GET /api/auth/user`, which is public and runs without it, answers as **signed out** (literal `null`) for a session the middleware would end, and ends it, using the same code (`Martis\Sso\SsoSessionEnforcer`). So a revoked or expired session cannot keep reading the current user or sending mail.
+
+The session records, at sign-in, when the SSO sign-in happened (`martis_sso_at`, unix time) and the identity's external id (`martis_sso_external_id`). After a remember-me re-login, the new session gets the **original** sign-in time back from the SSO cookie (its issue time), never the time of the re-login, so that the revocation time of the next paragraph compares with the real sign-in.
+
+**`remember` and the two limits exclude each other.** A provider with `remember => true` together with `max_session_minutes` or `revalidate_every_minutes` is a configuration error: the sign-in and every request of an SSO session throw an `InvalidArgumentException` naming the keys. The reason is that a remembered re-login (the session ended, Laravel's remember cookie signs the user in again) is recognised as an SSO one only through the `martis_sso_provider` cookie and its nonce in the cache. The server cannot rely on either: the person can delete the cookie, and a cache flush (a deploy, an eviction, a restart) drops every nonce. A re-login that is not recognised is a session no limit applies to, so the limits could not be enforced. Pick one: no remember cookie, and the session ends on its own and the limits apply, or a remember cookie and revocation (`revokeFor()`) as the way to end it. Revocation does not depend on the origin cookie: it cycles the user's remember token, so it still covers remembered sessions.
 
 #### Absolute age: `max_session_minutes`
 
@@ -523,7 +535,7 @@ The session records, at sign-in, when the SSO sign-in happened (`martis_sso_at`,
 
 A session this provider opened that is that old or older ends on its next request. A session opened before v2.21.0 carries the origin but no sign-in time and counts as expired. The value is a positive whole number of minutes (an environment string such as `"480"` is fine); anything else throws an `InvalidArgumentException` naming the key.
 
-Ending a session does what a local sign-out does (guard logout, session invalidated, new CSRF token, the SSO origin and the remembered 2FA device dropped) **without** the federated logout: the IdP session is the one that is gone, or the person is about to sign in at it again. The response then sends the person back through the provider:
+Ending a session does what a local sign-out does on **this device** (the guard's current-device logout, session invalidated, new CSRF token, the SSO origin and the remembered 2FA device dropped) **without** the federated logout: the IdP session is the one that is gone, or the person is about to sign in at it again. It also does **not** cycle the user's remember token, so an SSO session that reaches `max_session_minutes` on a laptop does not kill the remember-me cookie of the same user's password session on a phone; `revokeFor()` cycles it on purpose. The response then sends the person back through the provider:
 
 - a request that expects JSON gets `401 {"message": "...", "sso_reauth_url": "/martis/sso/azure/redirect"}`. The SPA's global 401 handler navigates to that URL (a full page load) instead of the session-expired login page. It follows only a path under the Martis base path on its own origin: an absolute URL, a protocol-relative one, or a path that dot segments or a backslash would move out of the base path is ignored and the normal session-expired redirect happens;
 - any other request is redirected to `/{martis}/sso/{name}/redirect`.
@@ -543,9 +555,9 @@ MartisSso::revokeFor($user->getKey());
 2. It drops every SSO-origin nonce of the user and cycles the user's remember token, so no remember cookie or SSO origin cookie signs them back in.
 3. On the **`database` session driver** it also deletes the user's rows of the `sessions` table. That ends **every** session of the user, including ones opened with a password, a magic link or an invitation, which the middleware cannot tell apart from the rest. The rows are matched by `sessions.user_id`; when the app's session guards sign in users of more than one table that column cannot be attributed to one person, so the rows are left alone (a warning is logged) and only the SSO sessions end, through step 1.
 
-A sign-in after the revocation works normally: its sign-in time is later. The times are whole seconds, so a sign-in in the very second of the revocation counts as revoked.
+A sign-in after the revocation works normally: its sign-in time is later. That includes the one the middleware's redirect starts: while the person's session at the IdP (or, with the [signed token](#18-signed-token-between-two-martis-apps-v2210), at the issuing panel) is alive they are signed in again at once, so a revocation that must hold is done at the IdP (or the issuing panel) as well, and `revokeFor()` on one panel never ends the sessions of another. The times are whole seconds, so a sign-in in the very second of the revocation counts as revoked.
 
-A cache that cannot be **read** while the middleware looks for the revocation is reported and treated as "revoked" (fail closed: the session ends and the person signs in again). A cache that cannot be **written** makes `revokeFor()` throw a `RuntimeException`, so a revocation that did not stick never looks as if it had. While an impersonation is active the session belongs to the operator who signed in through SSO, so the checks run against the operator.
+A cache that cannot be **read** while the middleware looks for the revocation is reported and treated as "revoked" (fail closed: the session ends and the person signs in again). Because the revocation read runs on every SSO request, a cache outage ends every SSO session, fresh sign-ins included (sign in, the next request ends it, and so on) until the cache is back: that is the price of a revocation that cannot be skipped. A cache that cannot be **written** makes `revokeFor()` throw a `RuntimeException`, so a revocation that did not stick never looks as if it had. While an impersonation is active the session belongs to the operator who signed in through SSO, so the checks run against the operator.
 
 #### Revalidation: `revalidate_every_minutes`
 
@@ -575,11 +587,11 @@ final class OktaProvider implements SsoProviderContract, RevalidatesSessions
 ],
 ```
 
-The middleware calls `stillValid()` at most once per interval per session (the last check time is kept in the session; the SSO sign-in itself counts as the first check, and a re-login by the remember cookie counts from the sign-in it restored). `externalId` is the id the IdP issued at sign-in (null for a session opened before v2.21.0).
+The middleware calls `stillValid()` at most once per interval per session (the last check time is kept in the session; the SSO sign-in itself counts as the first check). `externalId` is the id the IdP issued at sign-in (null for a session opened before v2.21.0).
 
 - `true`: the session goes on.
 - `false`: the session ends as above.
-- **a throwable**: it is reported and the session is **kept**, and the check runs again on the **next request** instead of after a whole interval. An IdP outage must not sign every user out; the hard bound is `max_session_minutes`, so set both when an outage must not stretch a session forever.
+- **a throwable**: it is reported and the session is **kept**, and the check runs again **no sooner than one minute later** (kept in the session) instead of after a whole interval, and not on every request. An IdP outage must not sign every user out, nor turn every request of every SSO user into a synchronous IdP call; the hard bound is `max_session_minutes`, so set both when an outage must not stretch a session forever. Even so, `stillValid()` runs inside a request: give its HTTP client a **short timeout** (a few seconds), because every session waits that long once a minute while the IdP is down.
 
 `revalidate_every_minutes` set on a provider whose class does not implement the contract throws an `InvalidArgumentException` naming the key.
 
@@ -869,7 +881,7 @@ Both routes register only when `auth.sso.enabled = true`. They're unauthenticate
 | `GET` | `/{martis}/sso/{provider}/redirect` | Kicks off the OAuth flow. Returns 302 to the IdP authorize URL. |
 | `GET` | `/{martis}/sso/{provider}/callback` | Handles the IdP callback. Resolves identity → roles → user → login. Redirects to `provider.redirect_to` (or `/martis` by default) on success, `/martis/login` with errors on failure. |
 
-The `provider` segment is **whatever the user registered** — `azure`, `google`, `github`, `okta`, custom names. Routes only resolve if the provider is registered AND enabled.
+The `provider` segment is **whatever the user registered** — `azure`, `google`, `github`, `okta`, custom names. Routes only resolve if the provider is registered AND enabled. The segment must be the provider's **lower-case** name, exactly as its config key is spelled: `/sso/AZURE/callback` answers **404** (v2.21.0). The name used to be lowercased only to find the driver, so a path in another letter case ran the sign-in with every other setting of the provider (identity matching, role mapping, session limits, federated logout) read under a key that does not exist, that is, on the defaults.
 
 A third route belongs to the issuing side of the [signed token](#18-signed-token-between-two-martis-apps-v2210) (v2.21.0). It is always registered, runs the full protected stack, and answers 404 while `auth.sso.issuer.enabled` is false:
 
@@ -1122,7 +1134,7 @@ final class AzureLogoutUrl
 }
 ```
 
-It runs **before** the local logout (the user is still signed in), receives the login page URL as it is (encode it where your URL needs that: the `{post_logout_redirect_uri}` replacement is for plain URL strings only), and answers the URL, or `null` (or an empty string) for a local logout only. A plain URL string keeps today's behaviour. A string that names a class which is not invokable, or a class that answers something other than a string or `null`, throws an `InvalidArgumentException` naming `martis.auth.sso.providers.{name}.logout_url`.
+It runs **before** the local logout (the user is still signed in), receives the login page URL as it is (encode it where your URL needs that: the `{post_logout_redirect_uri}` replacement is for plain URL strings only), and answers the URL, or `null` (or an empty string) for a local logout only. A plain URL string keeps today's behaviour. A string that names a class which is not invokable, or a class that answers something other than a string or `null`, throws an `InvalidArgumentException` naming `martis.auth.sso.providers.{name}.logout_url`. A class whose `__invoke` **throws** (it asked the IdP for its discovery document and the IdP is down) is reported and the sign-out completes locally, with no federated URL: the person is always signed out of the panel.
 
 The JSON variant of the logout endpoint surfaces the IdP URL as `logout_url`, so a SPA can drive the redirect itself if it needs to add UI between local and federated logout.
 
@@ -1208,7 +1220,7 @@ Event::listen(SocialiteWasCalled::class, [
 
 ### Callback returns 302 to `/martis/login` and the login page shows a generic text
 
-The reason is in the log, not on the page. Search the log for `SSO callback failed`: its `reason` (`unknown`, `account_unverified`, `missing_external_id`, `external_id_mismatch`, `not_provisioned`, `no_role_match`), `exception` class and redacted `error` say what happened, and `request_id` ties the line to the request (send an `X-Request-Id` header from your proxy to correlate it with the access log). See [Failed sign-ins](#failed-sign-ins-reason-log-and-event-v2210).
+The reason is in the log, not on the page. Search the log for `SSO callback failed`: its `reason` (`unknown`, `account_unverified`, `email_unverified`, `missing_external_id`, `external_id_mismatch`, `not_provisioned`, `no_role_match`), `exception` class and redacted `error` say what happened, and `request_id` ties the line to the request (send an `X-Request-Id` header from your proxy to correlate it with the access log). See [Failed sign-ins](#failed-sign-ins-reason-log-and-event-v2210).
 
 ### Callback returns 302 to `/martis/login` with `sso_no_role_match`
 
@@ -1261,14 +1273,14 @@ The user has no Azure App Role assignment that matches a local role's `azure_gro
 | `tests/Unit/Sso/IdentityResolverExternalIdTest.php` | `external_id` matching: id stored on create, second sign-in, `link_by_email`, mismatch, unverified refusal, empty id, `sync_user_attributes: external_id`, config errors. |
 | `tests/Feature/SsoFailureReasonTest.php` | The reason, log context (request id, redaction) and `SsoFailed` event of every refusal, and the login page text. |
 | `tests/Feature/SsoLoggedInEventTest.php` | `SsoLoggedIn`: once per sign-in, after the login and the SSO marker, never on a refusal. |
-| `tests/Feature/SsoDenyBeforeProvisioningTest.php` | Deny before provisioning on the pre-check and the transaction path, `guest`, `provision_on_deny`, rollback of resolver writes. |
+| `tests/Feature/SsoDenyBeforeProvisioningTest.php` | Deny before provisioning on the pre-check and the transaction path, `guest`, `provision_on_deny`, rollback of resolver writes, a refusal that is not an `SsoException` (unique index, throwing hook or role sync) is a refusal and not a 500. |
 | `tests/Feature/SsoSessionMarkerTest.php` | The SSO origin across a remember-me re-login: the forced password change gate and the federated logout still see it; a cookie for another user or not encrypted by Martis counts for nothing; every other sign-in and both sign-outs drop it. |
-| `tests/Feature/SsoSessionRevalidationTest.php` | The sign-in time and external id in the session (kept across a remember-me re-login), `max_session_minutes` (JSON 401 with `sso_reauth_url`, page redirect, boundary, sessions without a time), `MartisSso::revokeFor()` (array and database drivers, remember cookie, nonces, later sign-in, impersonation, cache failures), `RevalidatesSessions` (false, true, throwing, interval, misconfiguration), password sessions untouched, invokable `logout_url`. |
+| `tests/Feature/SsoSessionRevalidationTest.php` | The sign-in time and external id in the session (kept across a remember-me re-login), `max_session_minutes` (JSON 401 with `sso_reauth_url`, page redirect, boundary, sessions without a time), the refusal of `remember` together with a limit, the 404 for a provider name that is not lower case, `MartisSso::revokeFor()` (array and database drivers, remember cookie, nonces, later sign-in, impersonation, cache failures), `RevalidatesSessions` (false, true, throwing, interval, misconfiguration), password sessions untouched, invokable `logout_url`. |
 | `resources/js/lib/api.ssoReauth.test.ts` | The SPA's 401 handler: follows a same-origin path under the Martis base path, ignores absolute, protocol-relative and base-escaping URLs. |
 | `tests/Unit/Sso/SignedToken/PasetoV4PublicTest.php` | The PASETO v4.public codec against the official `4-S-*` and `4-F-*` test vectors, PAE, strict base64url, trailing data, canonical encoding. |
-| `tests/Feature/SsoSignedTokenProviderTest.php` | Driver resolution by block name, `redirect()`, every refusal with its own reason, key rotation, one-time `jti`, fail-closed cache, config errors. |
-| `tests/Feature/SsoSignedTokenIssuerTest.php` | The issue route (login, 2FA, gate, 404, state, redirect target, headers, Fetch Metadata), `TokenIssuer` claims and config errors. |
-| `tests/Feature/SsoSignedTokenEndToEndTest.php` | One app as both panels: issue route, callback, `external_id` linking, role mapping, `SsoFailed`, no token or key in logs. |
+| `tests/Feature/SsoSignedTokenProviderTest.php` | Driver resolution by block name, `redirect()`, every refusal with its own reason, key rotation, one-time `jti` (kept past the last accepted second), `email_verified`, fail-closed cache, config errors. |
+| `tests/Feature/SsoSignedTokenIssuerTest.php` | The issue route (login, 2FA, gate, 404, state, redirect target, headers, Fetch Metadata, impersonation 403), `TokenIssuer` claims (`email_verified`, reserved claims) and config errors. |
+| `tests/Feature/SsoSignedTokenEndToEndTest.php` | One app as both panels: issue route, callback, `external_id` linking, role mapping, `SsoFailed`, no token or key in logs, the `jti` as the second lock, a provider name in another letter case (404), an unverified email never adopting a row. |
 | `tests/Feature/SsoSignedTokenCommandsTest.php` | `martis:sso:keys` (never writes), `martis:sso --driver=signed-token` and `--issuer`. |
 | `tests/Feature/SsoMakeCommandTest.php` | Generator idempotency: composer skip, config-block insert, env stub, listener register, Spatie publish, migration publish, role-mapping prompt. |
 
@@ -1359,7 +1371,7 @@ php artisan martis:sso panel-b --issuer   # adds the audience and the env stubs,
 | `ttl_seconds` | Token life, 1 to 600 (default 60). |
 | `environment` | Optional. Added to the token as the claim `environment_claim` (default `env`), so a verifier locked to `production` refuses a staging token. |
 | `role_claim`, `environment_claim` | Optional claim names (defaults `roles` and `env`). Keep them equal to panel B's `role_claim` and `environment_claim`. |
-| `claims` | Optional invokable class, `(Authenticatable $user, string $audience): array`, that adds claims and replaces `email`, `name` and the roles. Use the name of a class or a `[Class::class, 'method']` array, never a closure (`config:cache`). `iss`, `aud`, `sub`, `iat`, `exp`, `jti` and `state` (and the environment claim when `environment` is set) cannot be set: the class throws if it tries. |
+| `claims` | Optional invokable class, `(Authenticatable $user, string $audience): array`, that adds claims and replaces `email`, `name` and the roles. Use the name of a class or a `[Class::class, 'method']` array, never a closure (`config:cache`). `iss`, `aud`, `sub`, `iat`, `exp`, `jti`, `state`, `email_verified` and the environment claim (`environment_claim`, always, whether or not `environment` is set) cannot be set: the class throws if it tries. |
 | `audiences` | `'<audience>' => ['callback_url' => '...', 'ability' => null]`. `ability` (optional, a non-empty string; anything else throws naming the key) limits who may obtain a token for that audience: the issue route checks `Gate::forUser($user)->allows($ability)`, so an app gate or a Spatie permission name both work. A refusal answers 403 with a translated message, issues nothing and redirects nowhere. Unset, any user who can open the panel gets a token.  The audience is the name panel B uses as its `audience`. A name is 1 to 64 letters, digits, `.`, `-` or `_`, and is not `callback` or `redirect`. |
 
 The claims of the token:
@@ -1373,12 +1385,13 @@ The claims of the token:
 | `jti` | 128 random bits (hex), used once on the other side |
 | `state` | the value panel B kept in the browser's session |
 | `email`, `name` | the user's attributes (a user with no email cannot be signed for: panel B requires one) |
+| `email_verified` | boolean: `true` when the user model does not implement `Illuminate\Contracts\Auth\MustVerifyEmail`, else `hasVerifiedEmail()`. It describes the user's own address at panel A: a `claims` class that replaces `email` answers for the address it puts there. |
 | `roles` | the user's Spatie role names when the model has `getRoleNames()`, else an empty list |
 | `env` | only when `environment` is set |
 
 `Martis\Sso\SignedToken\TokenIssuer::fromConfig()->issue($user, $audience, $state)` issues the same token from your own code.
 
-The issue route runs the whole protected stack (signed in, 2FA passed, email verified when required, the `viewMartis` gate) and then the audience's `ability`, when it sets one. It redirects **only** to the `callback_url` of the audience, never to a URL from the request, with `token` and `state` appended. A `callback_url` must be an absolute `https` URL without credentials or a fragment (`http` is accepted for `localhost`, `*.localhost` and `*.test` hosts); anything else throws naming the key. The response carries `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. When the browser sends Fetch Metadata the request must be a top-level navigation (`Sec-Fetch-Mode: navigate` and `Sec-Fetch-Dest: document`): an XHR, an iframe or an image is refused with 403, so another site cannot make a signed-in browser fetch a token. The `state` parameter is required (`^[A-Za-z0-9_-]{16,128}$`, else 422). One audit line is logged per token (audience and user id, never the token).
+The issue route runs the whole protected stack (signed in, 2FA passed, email verified when required, the `viewMartis` gate) and then the audience's `ability`, when it sets one. While an **impersonation** is active it answers 403 with a translated message and issues nothing: the guard then holds the impersonated user, and a token for them would open a full session at the other panel with no impersonation marker and none of its limits, which that panel's admins never granted the operator. It redirects **only** to the `callback_url` of the audience, never to a URL from the request, with `token` and `state` appended. A `callback_url` must be an absolute `https` URL without credentials or a fragment (`http` is accepted for `localhost`, `*.localhost` and `*.test` hosts); anything else throws naming the key. The response carries `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. When the browser sends Fetch Metadata the request must be a top-level navigation (`Sec-Fetch-Mode: navigate` and `Sec-Fetch-Dest: document`): an XHR, an iframe or an image is refused with 403, so another site cannot make a signed-in browser fetch a token. The `state` parameter is required (`^[A-Za-z0-9_-]{16,128}$`, else 422). One audit line is logged per token (audience and user id, never the token).
 
 ### 3. Panel B: the provider block
 
@@ -1437,7 +1450,7 @@ In this order, each refusal with its own reason (they reach the log line and the
 |---|---|
 | `malformed` | Not a `v4.public` token: wrong prefix, bad or non-canonical base64url, trailing data, too long, a footer or payload that is not a JSON object, a claim of the wrong type or a time that is not RFC 3339. |
 | `bad_signature` | No configured public key verifies the signature (checked before any claim is read). |
-| `missing_claim` | A required claim is missing or empty: `iss`, `aud`, `sub`, `iat`, `exp`, `jti`, `state`, `email`. |
+| `missing_claim` | A required claim is missing or empty: `iss`, `aud`, `sub`, `iat`, `exp`, `jti`, `state`, `email`, `email_verified` (a boolean: any other type is `malformed`). |
 | `issuer` | `iss` is not the configured `issuer`. |
 | `audience` | `aud` is not the configured `audience`. |
 | `expired` | `exp` has passed beyond the skew, or `iat` is older than `max_age_seconds` plus the skew. |
@@ -1453,6 +1466,11 @@ The `jti` is recorded last (`Cache::add`, kept until the token could not be acce
 
 - **The token is in a URL.** It travels in the query string of the callback URL, so it can reach browser history and any access log of that path. The mitigations are built in: it lives 60 seconds by default, is accepted once, is bound to the browser session that started the flow through `state`, and the issue response says `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. Operators should keep query strings out of the access logs of `/{martis}/sso/{provider}/callback` (nginx: log `$uri` instead of `$request_uri` for that location; most load balancers can drop the query from the logged path).
 - **The cache must be shared.** The one-time `jti` lives in Laravel's default cache store. With several servers use a shared store (Redis, database, Memcached); the `array` and `file` stores are per process or per host, and the `null` store refuses every sign-in as `replayed`. A cache that is down refuses sign-ins.
+- **Panel B trusts what panel A signs about the person.** Two things, and neither is a flaw to patch: they are what a single sign-on is.
+  - *The email.* Panel A signs the address its user row holds, and panel B may adopt a local row by it (`identity_match_attribute => 'email'`, or `external_id` with `link_by_email => true`). So that an attacker cannot register at panel A with an address they do not own and be signed in as its holder at panel B, the token carries `email_verified`, and panel B **refuses to adopt** an existing local row by an email that says `false` (reason `email_unverified`; creating a new user and matching by `external_id` are not affected). Panel A needs a user model that implements `MustVerifyEmail` for the claim to mean anything: without it the claim is always `true`. The default scaffold matches by `external_id` without `link_by_email`, which does not rely on the address at all.
+  - *The roles.* With `role_strategy => 'column'` panel B maps the role **names** panel A signs onto its own roles. Whoever can assign roles at panel A, or write the `claims` class, controls which roles that user gets at panel B. Treat the right to assign roles at the issuing panel as a right at every panel that trusts it.
+- **Any site can start an issuance.** The issue route is a `GET` the browser follows with its cookies, and Fetch Metadata allows a top-level navigation however it was started, so any page can send a signed-in user of panel A to `/{martis}/sso/issue/{audience}?state=X` (a link, a script redirect). What it gains is small: the token goes **only** to the audience's configured `callback_url`, where the victim's browser holds no matching `state` (so the token is refused as `state`); it can use up an in-progress flow of the victim at panel B (the state is taken out of the session), and, by starting panel B's flow in the victim's browser first, it can have the victim signed in to panel B **as themselves** without a click. It cannot read a token or sign anyone in as someone else. If that is not acceptable for an audience, give it an `ability` the user must hold deliberately, or do not issue to it.
+- **Revocation does not cross panels.** `MartisSso::revokeFor()` on panel A ends A's SSO sessions; it does **not** end the sessions panel B opened from A's tokens (the signed-token provider does not implement `RevalidatesSessions`), and on panel B it ends B's sessions but the middleware then sends the person to `/{martis}/sso/{name}/redirect`, which signs them straight back in for as long as their session at panel A (or at the IdP, for Azure) lives. Revoke at **every** layer: the IdP or the issuing panel first (`revokeFor()` on A, which also drops A's sessions), then `revokeFor()` on each consuming panel; set `max_session_minutes` on B so a token cannot keep a session going longer than you accept.
 - **The private key is the trust root.** Whoever holds it can sign in to panel B as anyone panel B links by `external_id`. Keep it in the environment of panel A only, give it its own value per environment, and rotate it as above. Panel B holds public keys only. Use the `environment` lock so a staging key (or token) cannot sign in to production.
 - **Use HTTPS.** `authorize_url` and `callback_url` must be `https`, except `localhost`, `*.localhost` and `*.test` for local development.
 - **Clocks.** Keep both servers on NTP; `clock_skew_seconds` is the tolerance and `max_age_seconds` the window.

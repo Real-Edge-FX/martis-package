@@ -6,6 +6,7 @@ namespace Martis\Events;
 
 use Illuminate\Foundation\Events\Dispatchable;
 use Martis\Sso\SsoException;
+use Martis\Sso\SsoLogRedactor;
 use Throwable;
 
 /**
@@ -36,7 +37,15 @@ class SsoFailed
         /** Short snake_case slug of why the sign-in was refused. */
         public readonly string $reason,
 
-        /** What was thrown, when the refusal had an exception. The message is not redacted. */
+        /**
+         * What was thrown, when the refusal had an exception. It is the raw
+         * exception: its message, trace and previous exceptions are NOT
+         * redacted (an HTTP client exception carries the request URL, the
+         * response body and so the codes and tokens in them). A listener must
+         * not log or ship it as it is: run `getMessage()` through
+         * {@see SsoLogRedactor::redact()} first, or log only the
+         * class and `reason`.
+         */
         public readonly ?Throwable $exception = null,
     ) {}
 }

@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Martis\Auth\GuardCatalog;
 use RuntimeException;
 use Throwable;
@@ -60,6 +61,9 @@ final class SsoSession
 
     /** The session key of the unix time the provider last confirmed the session (v2.21.0). */
     public const SESSION_CHECKED_AT = 'martis_sso_checked_at';
+
+    /** The session key of the unix time before which the provider is not asked again after it threw (v2.21.0). */
+    public const SESSION_RETRY_AT = 'martis_sso_retry_at';
 
     /** The cookie that carries the origin across a remember-me re-login. */
     public const COOKIE = 'martis_sso_provider';
@@ -111,6 +115,37 @@ final class SsoSession
     }
 
     /**
+     * A provider that remembers its users cannot also limit their sessions
+     * (v2.21.0): `remember` together with `max_session_minutes` or
+     * `revalidate_every_minutes` is a configuration error.
+     *
+     * After the session ends, a remember-me re-login is recognised as an SSO
+     * one only through the origin cookie and its nonce in the cache. The server
+     * cannot rely on either (the holder deletes the cookie, a cache flush drops
+     * every nonce), and a re-login that is not recognised is a session no limit
+     * applies to. Revocation does not depend on the origin: `revokeFor()` cycles
+     * the remember token, so it still covers remembered sessions.
+     *
+     * @throws InvalidArgumentException
+     */
+    public static function assertLimitsFitRemember(string $provider): void
+    {
+        $prefix = "martis.auth.sso.providers.{$provider}.";
+
+        if (! (bool) config($prefix.'remember', false)) {
+            return;
+        }
+
+        foreach (['max_session_minutes', 'revalidate_every_minutes'] as $limit) {
+            $value = config($prefix.$limit);
+
+            if ($value !== null && $value !== '') {
+                throw new InvalidArgumentException("The [{$prefix}remember] config value is true together with [{$prefix}{$limit}]: a remembered re-login is recognised as an SSO session only through a cookie and a cache entry the server cannot rely on, so the limit could not be enforced. Turn remember off, or unset [{$prefix}{$limit}].");
+            }
+        }
+    }
+
+    /**
      * Drop the origin: a sign-in that is not an SSO one, or a sign-out.
      *
      * A sign-in passes the signed-in $user, and every nonce of that user is
@@ -121,7 +156,7 @@ final class SsoSession
     public static function forget(Request $request, ?Authenticatable $user = null): void
     {
         if ($request->hasSession()) {
-            $request->session()->forget([self::SESSION_KEY, self::SESSION_AT, self::SESSION_EXTERNAL_ID, self::SESSION_CHECKED_AT]);
+            $request->session()->forget([self::SESSION_KEY, self::SESSION_AT, self::SESSION_EXTERNAL_ID, self::SESSION_CHECKED_AT, self::SESSION_RETRY_AT]);
         }
 
         if ($user !== null) {
@@ -200,11 +235,28 @@ final class SsoSession
         return is_int($at) ? $at : null;
     }
 
-    /** Record that the provider confirmed the session now. */
+    /** Record that the provider confirmed the session now (and drop any back-off). */
     public static function markChecked(Request $request): void
     {
         if ($request->hasSession()) {
             $request->session()->put(self::SESSION_CHECKED_AT, self::now());
+            $request->session()->forget(self::SESSION_RETRY_AT);
+        }
+    }
+
+    /** The unix time before which the provider is not asked again after it threw, or null when there is no back-off. */
+    public static function retryAt(Request $request): ?int
+    {
+        $at = $request->hasSession() ? $request->session()->get(self::SESSION_RETRY_AT) : null;
+
+        return is_int($at) ? $at : null;
+    }
+
+    /** Do not ask the provider again for $seconds: it threw (an outage), and every request must not wait on it. */
+    public static function deferRevalidation(Request $request, int $seconds): void
+    {
+        if ($request->hasSession()) {
+            $request->session()->put(self::SESSION_RETRY_AT, self::now() + $seconds);
         }
     }
 
@@ -326,7 +378,7 @@ final class SsoSession
     {
         $session = $request->session();
         $session->put(self::SESSION_AT, $at);
-        $session->forget(self::SESSION_CHECKED_AT);
+        $session->forget([self::SESSION_CHECKED_AT, self::SESSION_RETRY_AT]);
 
         $externalId !== null && $externalId !== ''
             ? $session->put(self::SESSION_EXTERNAL_ID, $externalId)

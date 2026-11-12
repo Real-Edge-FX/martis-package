@@ -9,14 +9,15 @@ namespace Martis\Sso;
  *
  * HTTP client exceptions embed the request URL and the response body in their
  * message, so an OAuth failure can carry the authorization code, the `state`,
- * a client secret or a token. The values of these keys are replaced with
+ * a client secret, a PKCE verifier, a client assertion, a SAML message or a
+ * token. The values of these keys are replaced with
  * `[redacted]`, whether they appear as a query pair (`code=abc`) or a JSON pair
  * (`"access_token":"abc"`, also when the JSON is itself escaped inside a
  * string), and so is a `Bearer` credential.
  */
 final class SsoLogRedactor
 {
-    private const KEYS = 'code|state|token|id_token|access_token|refresh_token|client_secret';
+    private const KEYS = 'code|state|token|id_token|access_token|refresh_token|client_secret|code_verifier|client_assertion|assertion|SAMLResponse|SAMLRequest|password|id_token_hint|private_key';
 
     public static function redact(string $text): string
     {

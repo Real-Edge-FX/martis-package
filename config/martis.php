@@ -1056,13 +1056,17 @@ return [
                 //     // round-trip decides after it, so revoking access at the IdP
                 //     // ends the panel access. On, the remember cookie signs the
                 //     // user back in for `auth.guards.{guard}.remember` minutes
-                //     // (576000 by default) whatever the IdP says meanwhile.
+                //     // (576000 by default) whatever the IdP says meanwhile, and only
+                //     // MartisSso::revokeFor() ends it. It cannot be set together with
+                //     // `max_session_minutes` or `revalidate_every_minutes` (v2.21.0):
+                //     // a remembered re-login is recognised as an SSO one only through
+                //     // a cookie and a cache entry, so the limits could not be enforced.
                 //     'remember' => false,
                 //
                 //     // Absolute age of an SSO-opened session (v2.21.0), in whole
                 //     // minutes. null (the default) is off. A session this provider
-                //     // opened that is that old, counted from the SSO sign-in (also
-                //     // after a remember-me re-login, which keeps the original time),
+                //     // opened that is that old, counted from the SSO sign-in (not
+                //     // with 'remember' => true, which it excludes),
                 //     // is ended on its next request: a JSON request answers 401 with
                 //     // `sso_reauth_url` and the SPA goes through the provider again,
                 //     // any other request is redirected to /{martis}/sso/{name}/redirect.
@@ -1077,8 +1081,9 @@ return [
                 //     // implements Martis\Sso\Contracts\RevalidatesSessions (set on one
                 //     // that does not, it throws). stillValid() false ends the session
                 //     // as above. A throwable is reported and the session is kept; it is
-                //     // asked again on the next request, so an IdP outage never signs
-                //     // everybody out (max_session_minutes is the hard bound).
+                //     // asked again no sooner than a minute later, so an IdP outage never
+                //     // signs everybody out (max_session_minutes is the hard bound). Give
+                //     // stillValid() a short HTTP timeout: it runs inside a request.
                 //     'revalidate_every_minutes' => env('MARTIS_SSO_AZURE_REVALIDATE_EVERY_MINUTES'),
                 //
                 //     // Federated logout (v1.8.8). Optional. When set,
@@ -1097,7 +1102,8 @@ return [
                 //     //   __invoke(Request $request, ?Authenticatable $user, string $postLogoutRedirectUri): ?string
                 //     // It runs before the local logout, gets the login page URL as it
                 //     // is (encode it where your URL needs that) and answers the URL, or
-                //     // null for a local logout only. A class that is not invokable throws.
+                //     // null for a local logout only. A class that is not invokable throws;
+                //     // one whose __invoke throws is reported and the logout stays local.
                 //     //
                 //     // Leave null (the default) to use Martis's own
                 //     // local-only logout (clears the cookie, redirects
@@ -1192,7 +1198,8 @@ return [
             |                `(Authenticatable $user, string $audience): array`
             |                that adds or replaces `email`, `name` and the roles
             |                (claim `role_claim`, default `roles`). The claims that
-            |                bind the token (iss, aud, sub, iat, exp, jti, state)
+            |                bind the token (iss, aud, sub, iat, exp, jti, state), the
+            |                `email_verified` it states and the environment claim
             |                cannot be set. Default roles: the user's Spatie role
             |                names, else none.
             |   audiences    `'<audience>' => ['callback_url' => 'https://...']`.

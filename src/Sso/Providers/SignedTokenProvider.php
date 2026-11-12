@@ -45,6 +45,7 @@ use Throwable;
  */
 final class SignedTokenProvider implements SsoProviderContract
 {
+    /** String claims every token carries; `email_verified` (a boolean) is checked apart. */
     private const REQUIRED_CLAIMS = ['iss', 'aud', 'sub', 'iat', 'exp', 'jti', 'state', 'email'];
 
     /** Bounds the cache key and the memory a hostile jti can take. */
@@ -124,6 +125,7 @@ final class SignedTokenProvider implements SsoProviderContract
             name: is_string($name) && $name !== '' ? $name : null,
             externalRoles: is_array($roles) ? array_values(array_map('strval', $roles)) : [],
             raw: $claims,
+            emailVerified: $claims['email_verified'],
         );
     }
 
@@ -196,6 +198,16 @@ final class SignedTokenProvider implements SsoProviderContract
             if (! is_string($claims[$claim])) {
                 throw $this->refuse(Reason::MALFORMED, "the claim [{$claim}] is not a string");
             }
+        }
+
+        // The issuer states whether the address is verified (a boolean, so it
+        // is checked apart from the string claims above).
+        if (! array_key_exists('email_verified', $claims) || $claims['email_verified'] === null) {
+            throw $this->refuse(Reason::MISSING_CLAIM, 'the claim [email_verified] is missing');
+        }
+
+        if (! is_bool($claims['email_verified'])) {
+            throw $this->refuse(Reason::MALFORMED, 'the claim [email_verified] is not a boolean');
         }
 
         if (strlen($claims['jti']) > self::MAX_JTI_LENGTH) {
@@ -277,8 +289,11 @@ final class SignedTokenProvider implements SsoProviderContract
     }
 
     /**
-     * Record the `jti` for as long as the token could still be accepted. The
-     * cache must be shared by every server of the panel and must not evict
+     * Record the `jti` for as long as the token could still be accepted, plus
+     * one second: the time checks accept the very last second of that window,
+     * while a cache entry is gone at its expiry second, so without the extra
+     * second the record vanishes on the last instant the token is still good.
+     * The cache must be shared by every server of the panel and must not evict
      * early; when it fails the token is refused, not let through.
      */
     private function useOnce(string $jti, int $seconds): void
@@ -286,7 +301,7 @@ final class SignedTokenProvider implements SsoProviderContract
         $key = 'martis_sso_jti:'.$this->name.':'.hash('sha256', $jti);
 
         try {
-            $added = Cache::add($key, true, max(1, $seconds));
+            $added = Cache::add($key, true, max(1, $seconds + 1));
         } catch (Throwable $e) {
             throw new SsoException('Signed token refused: the one-time store failed.', Reason::REPLAY_STORE, null, $e);
         }

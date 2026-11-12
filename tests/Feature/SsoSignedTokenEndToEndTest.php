@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
@@ -31,6 +33,12 @@ class StE2eUser extends User
     protected $table = 'users';
 
     protected $guarded = [];
+}
+
+/** The model of a panel that asks for email verification. */
+class StE2eVerifyingUser extends StE2eUser implements MustVerifyEmail
+{
+    use MustVerifyEmailTrait;
 }
 
 class StE2eRole extends Model
@@ -222,8 +230,31 @@ it('refuses the same callback URL a second time', function () {
     Event::fake([SsoFailed::class]);
     $this->get($callback)->assertRedirect(route('martis.login'));
 
+    // The state was pulled by the first use, so it is the state that refuses here.
     expect(auth()->check())->toBeFalse();
-    Event::assertDispatched(SsoFailed::class);
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'state');
+});
+
+it('refuses the same callback URL on the jti when the state is back in the session', function () {
+    $start = $this->get('/martis/sso/panel_a/redirect');
+    $toIssuer = (string) $start->headers->get('Location');
+    parse_str((string) parse_url($toIssuer, PHP_URL_QUERY), $query);
+    $issue = $this->actingAs($this->issuerUser)
+        ->withSession([TwoFactorPass::SESSION_KEY => (string) $this->issuerUser->getKey()])
+        ->get($toIssuer);
+    $callback = (string) $issue->headers->get('Location');
+
+    $this->get($callback)->assertRedirect();
+    expect(auth()->check())->toBeTrue();
+
+    // Two tabs, a session restore: the state is reproduced. The one-time store is the second lock.
+    auth()->logout();
+    session()->put('martis_sso_state.panel_a', $query['state']);
+    Event::fake([SsoFailed::class]);
+    $this->get($callback)->assertRedirect(route('martis.login'));
+
+    expect(auth()->check())->toBeFalse();
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'replayed');
 });
 
 it('refuses a token minted for a browser session other than the one that started the flow', function () {
@@ -246,4 +277,88 @@ it('refuses a token minted for a browser session other than the one that started
 
     expect(auth()->check())->toBeFalse();
     Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'state');
+});
+
+it('answers 404 to a callback path in another letter case, so an account is never adopted under defaults', function () {
+    // A local row of panel B that holds the address the issuer signs. The provider is
+    // configured to match by external_id, which refuses this row.
+    $victim = StE2eUser::query()->create([
+        'name' => 'Victim', 'email' => 'remote.person@b.example', 'password' => Hash::make('x'), 'email_verified_at' => now(),
+    ]);
+    MartisSso::resolveRolesUsing(fn (array $external, $user, string $provider) => StE2eRole::query()->whereIn('panel_a_group_name', $external)->get());
+
+    $start = $this->get('/martis/sso/panel_a/redirect');
+    $issue = $this->actingAs($this->issuerUser)
+        ->withSession([TwoFactorPass::SESSION_KEY => (string) $this->issuerUser->getKey()])
+        ->get((string) $start->headers->get('Location'));
+    auth()->logout();
+    $lower = (string) $issue->headers->get('Location');
+    $upper = str_replace('/sso/panel_a/callback', '/sso/PANEL_A/callback', $lower);
+
+    $this->get($upper)->assertNotFound();
+    expect(auth()->check())->toBeFalse()
+        ->and($victim->fresh()->panel_a_external_id)->toBeNull();
+
+    // The canonical path of the same URL is the one that applies the provider's config: the row is refused.
+    $this->get($lower)->assertRedirect(route('martis.login'));
+    expect(auth()->check())->toBeFalse()
+        ->and($victim->fresh()->panel_a_external_id)->toBeNull();
+});
+
+it('answers 404 to the redirect of a provider name in another letter case and starts no flow', function () {
+    $this->get('/martis/sso/Panel_A/redirect')->assertNotFound();
+
+    expect(session('martis_sso_state.panel_a'))->toBeNull()
+        ->and(session('martis_sso_state.Panel_A'))->toBeNull();
+});
+
+// ---------------------------------------------------------------------------
+// An email the issuing panel never verified (review M3)
+// ---------------------------------------------------------------------------
+
+it('does not adopt a local row by an email the issuing panel has not verified', function (string $strategy) {
+    config([
+        'auth.providers.users.model' => StE2eVerifyingUser::class,
+        'martis.auth.sso.providers.panel_a.identity_match_attribute' => $strategy,
+        'martis.auth.sso.providers.panel_a.link_by_email' => true,
+    ]);
+    $this->issuerUser->forceFill(['email_verified_at' => null])->save();
+    $this->issuerUser = StE2eVerifyingUser::query()->findOrFail($this->issuerUser->getKey());
+    $victim = StE2eUser::query()->create([
+        'name' => 'Victim', 'email' => 'remote.person@b.example', 'password' => Hash::make('x'), 'email_verified_at' => now(),
+    ]);
+    Event::fake([SsoFailed::class]);
+
+    stRunFlow()->assertRedirect(route('martis.login'));
+
+    // The browser still holds the issuer's session of this one-app test: it is not signed in as the victim.
+    expect(auth()->id())->not->toBe($victim->getKey())
+        ->and($victim->fresh()->panel_a_external_id)->toBeNull();
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'email_unverified');
+})->with(['email', 'external_id']);
+
+it('adopts the same row once the issuing panel has verified the email', function () {
+    config([
+        'auth.providers.users.model' => StE2eVerifyingUser::class,
+        'martis.auth.sso.providers.panel_a.identity_match_attribute' => 'email',
+    ]);
+    $this->issuerUser = StE2eVerifyingUser::query()->findOrFail($this->issuerUser->getKey());
+    $victim = StE2eUser::query()->create([
+        'name' => 'Remote', 'email' => 'remote.person@b.example', 'password' => Hash::make('x'), 'email_verified_at' => now(),
+    ]);
+
+    stRunFlow()->assertRedirect();
+
+    expect(auth()->id())->toBe($victim->getKey());
+});
+
+it('creates a new user from an unverified email at the issuing panel: only adopting is refused', function () {
+    config(['auth.providers.users.model' => StE2eVerifyingUser::class]);
+    $this->issuerUser->forceFill(['email_verified_at' => null])->save();
+    $this->issuerUser = StE2eVerifyingUser::query()->findOrFail($this->issuerUser->getKey());
+
+    stRunFlow()->assertRedirect();
+
+    expect(auth()->check())->toBeTrue()
+        ->and(auth()->user()->email)->toBe('remote.person@b.example');
 });

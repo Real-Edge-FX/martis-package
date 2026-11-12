@@ -804,31 +804,84 @@ class SsoMakeCommand extends Command
         }
 
         $contents = (string) file_get_contents($configPath);
+        $entry = "                '{$audience}' => ['callback_url' => env('MARTIS_SSO_ISSUER_AUDIENCE_{$envName}_CALLBACK_URL')],\n";
 
-        if ($this->isDeclared($contents, $audience)) {
+        // The `audiences` list of the issuer block: after the line `'issuer' => [`
+        // of its own (not the comment or the `issuer` key inside it).
+        $list = $this->issuerAudiencesList($contents);
+
+        if ($list === null) {
+            $this->components->warn('Could not find auth.sso.issuer.audiences in config/martis.php (publish the config again, or add the block). Paste this entry:');
+            $this->line(rtrim($entry));
+
+            return;
+        }
+
+        // Only the audiences list counts: a provider block, or any other key
+        // of the file, named like the audience does not make it "declared".
+        $body = substr($contents, $list['start'], $list['end'] - $list['start']);
+
+        if ($this->isDeclared($body, $audience)) {
             $this->components->twoColumnDetail('<fg=yellow>Skipping</> config', "auth.sso.issuer.audiences.{$audience} already declared (edit manually)");
 
             return;
         }
 
-        $entry = "                '{$audience}' => ['callback_url' => env('MARTIS_SSO_ISSUER_AUDIENCE_{$envName}_CALLBACK_URL')],\n";
+        file_put_contents($configPath, substr_replace($contents, $entry, $list['start'], 0));
+        $this->components->twoColumnDetail('<fg=green>Inserted</> config', "auth.sso.issuer.audiences.{$audience}");
+    }
 
-        // The `audiences` list of the issuer block: after the line `'issuer' => [`
-        // of its own (not the comment or the `issuer` key inside it).
-        if (preg_match('/^[ \t]*[\'"]issuer[\'"][ \t]*=>[ \t]*\[[ \t]*\n/m', $contents, $issuerBlock, PREG_OFFSET_CAPTURE) === 1) {
-            $from = $issuerBlock[0][1] + strlen($issuerBlock[0][0]);
+    /**
+     * Where the content of the `audiences` list of the issuer block starts (the
+     * line after its opening bracket) and where it ends (its closing bracket),
+     * as offsets into `$contents`, or null when the file has no such list.
+     * Brackets inside strings and `//` comments do not count.
+     *
+     * @return array{start: int, end: int}|null
+     */
+    protected function issuerAudiencesList(string $contents): ?array
+    {
+        if (preg_match('/^[ \t]*[\'"]issuer[\'"][ \t]*=>[ \t]*\[[ \t]*\n/m', $contents, $issuerBlock, PREG_OFFSET_CAPTURE) !== 1) {
+            return null;
+        }
 
-            if (preg_match('/^[ \t]*[\'"]audiences[\'"][ \t]*=>[ \t]*\[[ \t]*\n/m', $contents, $list, PREG_OFFSET_CAPTURE, $from) === 1) {
-                $at = $list[0][1] + strlen($list[0][0]);
-                file_put_contents($configPath, substr_replace($contents, $entry, $at, 0));
-                $this->components->twoColumnDetail('<fg=green>Inserted</> config', "auth.sso.issuer.audiences.{$audience}");
+        $from = $issuerBlock[0][1] + strlen($issuerBlock[0][0]);
 
-                return;
+        if (preg_match('/^[ \t]*[\'"]audiences[\'"][ \t]*=>[ \t]*\[[ \t]*\n/m', $contents, $list, PREG_OFFSET_CAPTURE, $from) !== 1) {
+            return null;
+        }
+
+        $start = $list[0][1] + strlen($list[0][0]);
+        $depth = 1;
+        $quote = null;
+        $length = strlen($contents);
+
+        for ($i = $start; $i < $length; $i++) {
+            $char = $contents[$i];
+
+            if ($quote !== null) {
+                if ($char === '\\') {
+                    $i++;
+                } elseif ($char === $quote) {
+                    $quote = null;
+                }
+
+                continue;
+            }
+
+            if ($char === "'" || $char === '"') {
+                $quote = $char;
+            } elseif ($char === '/' && ($contents[$i + 1] ?? '') === '/') {
+                $newline = strpos($contents, "\n", $i);
+                $i = $newline === false ? $length : $newline;
+            } elseif ($char === '[') {
+                $depth++;
+            } elseif ($char === ']' && --$depth === 0) {
+                return ['start' => $start, 'end' => $i];
             }
         }
 
-        $this->components->warn('Could not find auth.sso.issuer.audiences in config/martis.php (publish the config again, or add the block). Paste this entry:');
-        $this->line(rtrim($entry));
+        return null;
     }
 
     protected function updateIssuerEnv(string $envName): void

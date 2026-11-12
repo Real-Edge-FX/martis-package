@@ -121,6 +121,15 @@ class SsoRevLogoutUrl
 
 class SsoRevNotInvokable {}
 
+/** A logout_url class that cannot reach its IdP. */
+class SsoRevThrowingLogoutUrl
+{
+    public function __invoke(Request $request, ?Authenticatable $user, string $postLogoutRedirectUri): ?string
+    {
+        throw new RuntimeException('IdP discovery timed out');
+    }
+}
+
 /** An invokable with no return type, so it can hand back anything. */
 class SsoRevLooseLogoutUrl
 {
@@ -207,7 +216,7 @@ beforeEach(function () {
         'sync_roles' => true,
         'permission_adapter' => 'callable',
         'on_no_role_match' => 'deny',
-        'remember' => true,
+        'remember' => false,
     ]);
 
     $this->app->make(SsoManager::class)->flushHooksForTesting();
@@ -269,6 +278,12 @@ function ssoRevSignIn(): array
     return [$callback, ssoRevCookie($callback, 'remember_'), ssoRevCookie($callback, SsoSession::COOKIE)];
 }
 
+/** The provider keeps the panel open with a remember cookie (it cannot also carry a session limit). */
+function ssoRevRemember(): void
+{
+    config()->set('martis.auth.sso.providers.azure.remember', true);
+}
+
 function ssoRevUserId(): int
 {
     return (int) SsoRevUser::query()->where('email', 'sso@example.com')->value('id');
@@ -291,6 +306,7 @@ it('records when the SSO sign-in happened and the external id of the identity', 
 });
 
 it('keeps the original sign-in time after a remember-me re-login, never the time of the re-login', function () {
+    ssoRevRemember();
     [, $recaller, $marker] = ssoRevSignIn();
     $signedInAt = Carbon::now()->getTimestamp();
 
@@ -352,18 +368,16 @@ it('sends a page request of an expired SSO session through the provider again', 
     expect(Auth::guard()->check())->toBeFalse();
 });
 
-it('clears the origin cookie and its nonce when it ends a session', function () {
-    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 60);
+it('clears the origin cookie when it ends a session', function () {
+    ssoRevRemember();
     [, $recaller, $marker] = ssoRevSignIn();
 
-    $this->travel(61)->minutes();
+    // Revoked, not aged out: a limit and a remember cookie cannot share a provider.
+    SsoSession::revokeUser((string) ssoRevUserId());
+    $this->travel(2)->seconds();
 
     $ended = ssoRevBrowser($recaller, $marker)->getJson('/martis/api/tools')->assertUnauthorized();
     expect(ssoRevCookie($ended, SsoSession::COOKIE)?->isCleared())->toBeTrue();
-
-    // The remember cookie of the ended session no longer signs anyone in.
-    ssoRevExpireSession();
-    ssoRevBrowser($recaller, $marker)->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonMissingPath('sso_reauth_url');
 });
 
 it('leaves a younger SSO session untouched', function () {
@@ -399,18 +413,6 @@ it('ends nothing while max_session_minutes is unset, however old the session is'
     $this->travel(30)->days();
 
     $this->getJson('/martis/api/tools')->assertOk();
-});
-
-it('ends a remember-me re-login that is older than the limit: the age counts from the sign-in', function () {
-    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 60);
-    [, $recaller, $marker] = ssoRevSignIn();
-
-    ssoRevExpireSession();
-    $this->travel(61)->minutes();
-
-    ssoRevBrowser($recaller, $marker)->getJson('/martis/api/tools')
-        ->assertUnauthorized()
-        ->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect');
 });
 
 it('refuses a max_session_minutes that is not a positive whole number, naming the key', function (mixed $value) {
@@ -497,6 +499,7 @@ it('leaves the sessions of other users alone', function () {
 });
 
 it('kills the remember cookie and the origin cookie of the revoked user', function () {
+    ssoRevRemember();
     [, $recaller, $marker] = ssoRevSignIn();
     $before = SsoRevUser::query()->find(ssoRevUserId())->getRememberToken();
 
@@ -510,6 +513,7 @@ it('kills the remember cookie and the origin cookie of the revoked user', functi
 });
 
 it('drops every SSO-origin nonce of the revoked user', function () {
+    ssoRevRemember();
     [, , $marker] = ssoRevSignIn();
     $userId = ssoRevUserId();
     $user = SsoRevUser::query()->findOrFail($userId);
@@ -711,7 +715,7 @@ it('asks at most once per interval per session', function () {
     expect(SsoRevProvider::$calls)->toHaveCount(2);
 });
 
-it('reports a throwing stillValid(), keeps the session and asks again on the next request', function () {
+it('reports a throwing stillValid(), keeps the session and asks again no sooner than a minute later', function () {
     Exceptions::fake();
     config()->set('martis.auth.sso.providers.azure.revalidate_every_minutes', 10);
     ssoRevSignIn();
@@ -720,15 +724,44 @@ it('reports a throwing stillValid(), keeps the session and asks again on the nex
     $this->travel(11)->minutes();
     $this->getJson('/martis/api/tools')->assertOk();
     $this->getJson('/martis/api/tools')->assertOk();
+    $this->travel(59)->seconds();
+    $this->getJson('/martis/api/tools')->assertOk();
 
-    expect(SsoRevProvider::$calls)->toHaveCount(2);
+    // An outage is one call per minute per session, not one per request.
+    expect(SsoRevProvider::$calls)->toHaveCount(1);
     Exceptions::assertReported(fn (RuntimeException $e) => $e->getMessage() === 'the IdP is down');
 
-    // The outage ends: the next answer counts, and the interval starts again.
+    $this->travel(1)->seconds();
+    $this->getJson('/martis/api/tools')->assertOk();
+    expect(SsoRevProvider::$calls)->toHaveCount(2);
+
+    // The outage ends: the next answer counts, the back-off is gone and the interval starts again.
     SsoRevProvider::$answer = true;
+    $this->travel(1)->minutes();
     $this->getJson('/martis/api/tools')->assertOk();
     $this->getJson('/martis/api/tools')->assertOk();
     expect(SsoRevProvider::$calls)->toHaveCount(3);
+
+    $this->travel(9)->minutes();
+    $this->getJson('/martis/api/tools')->assertOk();
+    expect(SsoRevProvider::$calls)->toHaveCount(3);
+});
+
+it('does not keep the back-off of an earlier outage across a sign-out and a new sign-in', function () {
+    Exceptions::fake();
+    config()->set('martis.auth.sso.providers.azure.revalidate_every_minutes', 10);
+    ssoRevSignIn();
+    SsoRevProvider::$answer = new RuntimeException('the IdP is down');
+    $this->travel(11)->minutes();
+    $this->getJson('/martis/api/tools')->assertOk();
+    expect(session(SsoSession::SESSION_RETRY_AT))->toBeInt();
+
+    $this->postJson('/martis/api/auth/logout')->assertOk();
+
+    expect(session(SsoSession::SESSION_RETRY_AT))->toBeNull();
+    SsoRevProvider::$answer = true;
+    ssoRevSignIn();
+    expect(session(SsoSession::SESSION_RETRY_AT))->toBeNull();
 });
 
 it('keeps asking through an outage but max_session_minutes is still the hard bound', function () {
@@ -743,20 +776,6 @@ it('keeps asking through an outage but max_session_minutes is still the hard bou
     $this->travel(61)->minutes();
 
     $this->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect');
-});
-
-it('revalidates a remember-me re-login whose sign-in is older than the interval', function () {
-    config()->set('martis.auth.sso.providers.azure.revalidate_every_minutes', 10);
-    [, $recaller, $marker] = ssoRevSignIn();
-    SsoRevProvider::$answer = false;
-
-    ssoRevExpireSession();
-    $this->travel(11)->minutes();
-
-    ssoRevBrowser($recaller, $marker)->getJson('/martis/api/tools')
-        ->assertUnauthorized()
-        ->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect');
-    expect(SsoRevProvider::$calls[0][1])->toBe('azure-sso');
 });
 
 it('never calls stillValid() while revalidate_every_minutes is unset', function () {
@@ -879,4 +898,230 @@ it('throws, naming the key, when the class returns something that is not a strin
 
     expect(fn () => $this->postJson('/martis/api/auth/logout'))
         ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.azure.logout_url');
+});
+
+// ---------------------------------------------------------------------------
+// The provider name of the URL is the canonical one (review H2)
+// ---------------------------------------------------------------------------
+
+it('answers 404 to a provider name in another letter case, on the callback and the redirect, and signs nobody in', function (string $path) {
+    config()->set('martis.auth.sso.providers.azure.remember', false);
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 60);
+    MartisSso::resolveRolesUsing(fn (array $external, $user, string $provider) => SsoRevRole::query()->get());
+
+    $this->get('/martis/sso/'.$path)->assertNotFound();
+
+    expect(auth()->check())->toBeFalse()
+        ->and(session(SsoSession::SESSION_KEY))->toBeNull();
+})->with([
+    'callback, upper case' => ['AZURE/callback'],
+    'callback, mixed case' => ['Azure/callback'],
+    'redirect, upper case' => ['AZURE/redirect'],
+    'redirect, mixed case' => ['Azure/redirect'],
+]);
+
+it('still ends the session of the canonical path by max_session_minutes (control of the letter-case refusal)', function () {
+    config()->set('martis.auth.sso.providers.azure.remember', false);
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 60);
+    MartisSso::resolveRolesUsing(fn (array $external, $user, string $provider) => SsoRevRole::query()->get());
+
+    $this->get('/martis/sso/azure/callback')->assertRedirect();
+    expect(session(SsoSession::SESSION_KEY))->toBe('azure');
+
+    $this->travel(61)->minutes();
+    $this->getJson('/martis/api/tools')->assertUnauthorized();
+});
+
+// ---------------------------------------------------------------------------
+// A remember cookie and a session limit cannot share a provider (review H1)
+// ---------------------------------------------------------------------------
+
+it('refuses a provider that remembers its users and sets a session limit, at sign-in, naming both keys', function (string $limit) {
+    ssoRevRemember();
+    config()->set('martis.auth.sso.providers.azure.'.$limit, 30);
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->get('/martis/sso/azure/callback'))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.azure.remember');
+    expect(fn () => $this->get('/martis/sso/azure/callback'))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.azure.'.$limit);
+
+    expect(auth()->check())->toBeFalse()
+        ->and(SsoRevUser::query()->count())->toBe(0);
+})->with(['max_session_minutes', 'revalidate_every_minutes']);
+
+it('refuses it on every request of an SSO session too, naming both keys', function (string $limit) {
+    ssoRevRemember();
+    ssoRevSignIn();
+    config()->set('martis.auth.sso.providers.azure.'.$limit, 30);
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->getJson('/martis/api/tools'))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.azure.'.$limit);
+    expect(fn () => $this->getJson('/martis/api/tools'))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.azure.remember');
+})->with(['max_session_minutes', 'revalidate_every_minutes']);
+
+it('accepts a remember cookie with no limit, a limit with no remember cookie, and an empty limit from the environment', function () {
+    ssoRevRemember();
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', '');
+    config()->set('martis.auth.sso.providers.azure.revalidate_every_minutes', null);
+    ssoRevSignIn();
+    $this->getJson('/martis/api/tools')->assertOk();
+
+    $this->postJson('/martis/api/auth/logout')->assertOk();
+    config()->set('martis.auth.sso.providers.azure.remember', false);
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 60);
+    ssoRevSignIn();
+    $this->getJson('/martis/api/tools')->assertOk();
+});
+
+it('keeps a remembered session revocable, and revocation still ends the sessions of a user who has the cookies', function () {
+    ssoRevRemember();
+    [, $recaller, $marker] = ssoRevSignIn();
+
+    MartisSso::revokeFor(ssoRevUserId());
+
+    ssoRevExpireSession();
+    ssoRevBrowser($recaller, $marker)->getJson('/martis/api/tools')->assertUnauthorized();
+});
+
+// ---------------------------------------------------------------------------
+// A logout_url class that throws never blocks the local sign-out (review M2)
+// ---------------------------------------------------------------------------
+
+it('signs out locally, without a federated URL, and reports it, when the logout_url class throws', function () {
+    Exceptions::fake();
+    config()->set('martis.auth.sso.providers.azure.logout_url', SsoRevThrowingLogoutUrl::class);
+    ssoRevSignIn();
+
+    $this->postJson('/martis/api/auth/logout')
+        ->assertOk()
+        ->assertJsonMissingPath('logout_url');
+
+    expect(Auth::guard()->check())->toBeFalse()
+        ->and(session(SsoSession::SESSION_KEY))->toBeNull();
+    Exceptions::assertReported(fn (RuntimeException $e) => $e->getMessage() === 'IdP discovery timed out');
+    $this->getJson('/martis/api/tools')->assertUnauthorized();
+});
+
+it('redirects a page logout to the login page when the logout_url class throws', function () {
+    Exceptions::fake();
+    config()->set('martis.auth.sso.providers.azure.logout_url', SsoRevThrowingLogoutUrl::class);
+    ssoRevSignIn();
+
+    $this->post('/martis/api/auth/logout')->assertRedirect(route('martis.login'));
+
+    expect(Auth::guard()->check())->toBeFalse();
+});
+
+// ---------------------------------------------------------------------------
+// Ending a session does not cycle the remember token of the user's other devices (review L3)
+// ---------------------------------------------------------------------------
+
+it('ends a session by age without cycling the remember token of the user', function () {
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 60);
+    ssoRevSignIn();
+    // The remember token of another device of the same user (a password sign-in elsewhere).
+    SsoRevUser::query()->whereKey(ssoRevUserId())->update(['remember_token' => 'other-device-token']);
+    Auth::forgetGuards(); // the next request loads the user, with the token of the other device
+    $this->travel(61)->minutes();
+
+    $this->getJson('/martis/api/tools')->assertUnauthorized();
+
+    expect(SsoRevUser::query()->find(ssoRevUserId())->getRememberToken())->toBe('other-device-token');
+});
+
+it('ends a session by revalidation without cycling the remember token of the user', function () {
+    config()->set('martis.auth.sso.providers.azure.revalidate_every_minutes', 10);
+    ssoRevSignIn();
+    SsoRevUser::query()->whereKey(ssoRevUserId())->update(['remember_token' => 'other-device-token']);
+    Auth::forgetGuards();
+    SsoRevProvider::$answer = false;
+    $this->travel(11)->minutes();
+
+    $this->getJson('/martis/api/tools')->assertUnauthorized();
+
+    expect(SsoRevUser::query()->find(ssoRevUserId())->getRememberToken())->toBe('other-device-token');
+});
+
+it('still ends this device: its own remember cookie is cleared with the session', function () {
+    ssoRevRemember();
+    [, $recaller, $marker] = ssoRevSignIn();
+    SsoSession::revokeUser((string) ssoRevUserId());
+    $this->travel(2)->seconds();
+
+    $ended = ssoRevBrowser($recaller, $marker)->getJson('/martis/api/tools')->assertUnauthorized();
+
+    expect(ssoRevCookie($ended, $recaller->getName())?->isCleared())->toBeTrue();
+});
+
+it('keeps cycling the remember token on revokeFor(), on purpose', function () {
+    ssoRevSignIn();
+    SsoRevUser::query()->whereKey(ssoRevUserId())->update(['remember_token' => 'other-device-token']);
+
+    MartisSso::revokeFor(ssoRevUserId());
+
+    expect(SsoRevUser::query()->find(ssoRevUserId())->getRememberToken())->not->toBe('other-device-token');
+});
+
+// ---------------------------------------------------------------------------
+// The two martis.auth-only routes and /api/auth/user obey the same decision (review L2)
+// ---------------------------------------------------------------------------
+
+it('ends a revoked SSO session on the email verification routes too', function () {
+    ssoRevSignIn();
+    MartisSso::revokeFor(ssoRevUserId());
+
+    $this->postJson('/martis/api/auth/email/verification-notification')
+        ->assertUnauthorized()
+        ->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect');
+});
+
+it('redirects the verification notice of a revoked SSO session through the provider', function () {
+    ssoRevSignIn();
+    MartisSso::revokeFor(ssoRevUserId());
+
+    $this->get('/martis/email/verify')->assertRedirect('/martis/sso/azure/redirect');
+    expect(Auth::guard()->check())->toBeFalse();
+});
+
+it('puts the SSO session check right after martis.auth on the two routes that run no other stack', function () {
+    $routes = collect($this->app['router']->getRoutes()->getRoutes())->keyBy(fn ($route) => $route->getName());
+
+    foreach (['martis.email.verify.notice', 'martis.api.auth.email.verification.send'] as $name) {
+        $middleware = $routes[$name]->gatherMiddleware();
+        expect(array_search('martis.sso.session', $middleware, true))->toBe(array_search('martis.auth', $middleware, true) + 1);
+    }
+});
+
+it('answers /api/auth/user as signed out for a session the middleware would end, and ends it', function (string $how) {
+    config()->set('martis.auth.sso.providers.azure.'.($how === 'age' ? 'max_session_minutes' : 'revalidate_every_minutes'), 10);
+    ssoRevSignIn();
+    $this->getJson('/martis/api/auth/user')->assertOk()->assertJsonPath('email', 'sso@example.com');
+
+    match ($how) {
+        'age' => $this->travel(11)->minutes(),
+        'revalidation' => (function () {
+            SsoRevProvider::$answer = false;
+            test()->travel(11)->minutes();
+        })(),
+        'revocation' => (function () {
+            MartisSso::revokeFor(ssoRevUserId());
+        })(),
+    };
+
+    $response = $this->getJson('/martis/api/auth/user')->assertOk();
+    expect($response->getContent())->toBe('null')
+        ->and(Auth::guard()->check())->toBeFalse()
+        ->and(session(SsoSession::SESSION_KEY))->toBeNull();
+})->with(['age' => ['age'], 'revalidation' => ['revalidation'], 'revocation' => ['revocation']]);
+
+it('lets /api/auth/user answer for a password session that the SSO settings would end', function () {
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 1);
+    ssoRevPasswordUser();
+    $this->postJson('/martis/api/auth/login', ['email' => 'p@example.com', 'password' => 'Password-Pass-1'])->assertOk();
+    $this->travel(3)->hours();
+
+    $this->getJson('/martis/api/auth/user')->assertOk()->assertJsonPath('email', 'p@example.com');
 });

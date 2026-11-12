@@ -46,6 +46,11 @@ use InvalidArgumentException;
  * written into an empty column, and a different non-empty value is refused the
  * same way.
  *
+ * An identity the provider marks as having an unverified email
+ * (`SsoIdentity::$emailVerified === false`) never adopts an existing row by its
+ * email, on either strategy or with `link_by_email`
+ * ({@see SsoException::REASON_EMAIL_UNVERIFIED}, v2.21.0).
+ *
  * `auto_create_user` is opt-in per-provider. When `false`, missing
  * users get a `null` return and the controller short-circuits with a
  * 403 (defaults to a friendly "your account isn't provisioned" page).
@@ -147,6 +152,10 @@ class IdentityResolver
         /** @var User|null $user */
         $user = $userClass::query()->where('email', $identity->email)->first();
 
+        if ($user !== null) {
+            $this->assertEmailVerifiedForAdoption($identity);
+        }
+
         if ($user !== null && ! $this->mayAdoptByEmail($user)) {
             throw new SsoAdoptionRefusedException($identity->provider, $identity->email);
         }
@@ -191,6 +200,8 @@ class IdentityResolver
             return null;
         }
 
+        $this->assertEmailVerifiedForAdoption($identity);
+
         if (! $this->mayAdoptByEmail($row)) {
             throw new SsoAdoptionRefusedException($provider, $identity->email);
         }
@@ -200,6 +211,25 @@ class IdentityResolver
         $row->forceFill([$column => $identity->externalId])->save();
 
         return $row;
+    }
+
+    /**
+     * An identity whose provider says its email is NOT verified (`false`, not
+     * `null`) never adopts an existing local row by that email: whoever
+     * registered at the provider with an address they do not own would be
+     * signed in as the local holder of it. Creating a new row and matching by
+     * the external id do not adopt anything and are unaffected.
+     *
+     * @throws SsoException
+     */
+    protected function assertEmailVerifiedForAdoption(SsoIdentity $identity): void
+    {
+        if ($identity->emailVerified === false) {
+            throw new SsoException(
+                "SSO sign-in via [{$identity->provider}] refused: the provider says the identity's email is not verified, so the local account holding it is not adopted.",
+                SsoException::REASON_EMAIL_UNVERIFIED,
+            );
+        }
     }
 
     /**
@@ -217,7 +247,6 @@ class IdentityResolver
         throw new SsoException(
             "SSO sign-in via [{$provider}] refused: local account [{$user->getKey()}] already stores a different external id in [{$column}]; it is never overwritten.",
             SsoException::REASON_EXTERNAL_ID_MISMATCH,
-            'martis::messages.sso_account_unverified',
         );
     }
 

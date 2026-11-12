@@ -162,8 +162,10 @@ it('link_by_email never overwrites a different id: refuses with reason external_
         (new IdentityResolver)->resolve(extIdentity('idp-1'), 'azure');
         $this->fail('expected an SsoException');
     } catch (SsoException $e) {
+        // The generic text: the "an account with this email exists" one would tell the holder
+        // of an IdP account that a local account with that address exists (review D6).
         expect($e->reason)->toBe(SsoException::REASON_EXTERNAL_ID_MISMATCH)
-            ->and($e->messageKey)->toBe('martis::messages.sso_account_unverified');
+            ->and($e->messageKey)->toBeNull();
     }
 
     expect($row->refresh()->getAttribute('idp_subject'))->toBe('someone-elses-id');
@@ -288,4 +290,46 @@ it('throws naming the key for an identity_external_id_column that is not a non-e
 
     expect(fn () => (new IdentityResolver)->resolve(extIdentity(), 'azure'))
         ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.azure.identity_external_id_column');
+});
+
+// ---------------------------------------------------------------------------
+// An identity whose email the provider says is unverified (review M3)
+// ---------------------------------------------------------------------------
+
+function extUnverifiedIdentity(string $externalId = 'idp-1'): SsoIdentity
+{
+    return new SsoIdentity(provider: 'azure', externalId: $externalId, email: 'person@corp.example', name: 'Idp Name', emailVerified: false);
+}
+
+it('refuses to adopt a row by an email the provider calls unverified, with the email_unverified reason and the generic text', function (string $strategy) {
+    config()->set('martis.auth.sso.providers.azure.identity_match_attribute', $strategy);
+    config()->set('martis.auth.sso.providers.azure.link_by_email', true);
+    $row = extRow();
+
+    try {
+        (new IdentityResolver)->resolve(extUnverifiedIdentity(), 'azure');
+        $this->fail('the row was adopted');
+    } catch (SsoException $e) {
+        expect($e->reason)->toBe(SsoException::REASON_EMAIL_UNVERIFIED)
+            ->and($e->messageKey)->toBeNull();
+    }
+
+    expect($row->fresh()->idp_subject)->toBeNull();
+})->with(['email', 'external_id']);
+
+it('adopts a row by email when the provider says verified or says nothing', function (?bool $verified) {
+    config()->set('martis.auth.sso.providers.azure.identity_match_attribute', 'email');
+    $row = extRow();
+
+    $user = (new IdentityResolver)->resolve(new SsoIdentity(provider: 'azure', externalId: 'idp-1', email: 'person@corp.example', name: 'N', emailVerified: $verified), 'azure');
+
+    expect($user->getKey())->toBe($row->getKey());
+})->with([true, null]);
+
+it('still creates a user and matches by external id when the email is unverified', function () {
+    $user = (new IdentityResolver)->resolve(new SsoIdentity(provider: 'azure', externalId: 'idp-9', email: 'new@corp.example', name: 'New', emailVerified: false), 'azure');
+    expect($user->getAttribute('idp_subject'))->toBe('idp-9');
+
+    $again = (new IdentityResolver)->resolve(new SsoIdentity(provider: 'azure', externalId: 'idp-9', email: 'new@corp.example', name: 'New', emailVerified: false), 'azure');
+    expect($again->getKey())->toBe($user->getKey());
 });
