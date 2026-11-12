@@ -1081,8 +1081,9 @@ return [
                 //     // implements Martis\Sso\Contracts\RevalidatesSessions (set on one
                 //     // that does not, it throws). stillValid() false ends the session
                 //     // as above. A throwable is reported and the session is kept; it is
-                //     // asked again on the next request, so an IdP outage never signs
-                //     // everybody out (max_session_minutes is the hard bound).
+                //     // asked again no sooner than a minute later, so an IdP outage never
+                //     // signs everybody out (max_session_minutes is the hard bound). Give
+                //     // stillValid() a short HTTP timeout: it runs inside a request.
                 //     'revalidate_every_minutes' => env('MARTIS_SSO_AZURE_REVALIDATE_EVERY_MINUTES'),
                 //
                 //     // Federated logout (v1.8.8). Optional. When set,

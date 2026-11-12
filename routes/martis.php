@@ -243,7 +243,7 @@ Route::middleware(RouteMiddleware::base())
         // verified status if applied. The signed verify route uses
         // the framework's `signed` middleware for safety.
         Route::get('/email/verify', [EmailVerificationController::class, 'notice'])
-            ->middleware('martis.auth')
+            ->middleware(['martis.auth', 'martis.sso.session'])
             ->name('email.verify.notice');
         // Public route — the signed URL + `sha1(email)` hash in the
         // path are the proof of intent; requiring an active session
@@ -273,7 +273,7 @@ Route::middleware(RouteMiddleware::base())
         // 3/min is the conventional ceiling for password-reset and
         // verification re-send flows. v1.8.16+.
         Route::post('/api/auth/email/verification-notification', [EmailVerificationController::class, 'send'])
-            ->middleware(['martis.auth', 'throttle:3,1,'.RouteMiddleware::throttlePrefix('verification')])
+            ->middleware(['martis.auth', 'martis.sso.session', 'throttle:3,1,'.RouteMiddleware::throttlePrefix('verification')])
             ->name('api.auth.email.verification.send');
 
         // Translations — public, loaded before login

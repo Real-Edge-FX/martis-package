@@ -62,6 +62,9 @@ final class SsoSession
     /** The session key of the unix time the provider last confirmed the session (v2.21.0). */
     public const SESSION_CHECKED_AT = 'martis_sso_checked_at';
 
+    /** The session key of the unix time before which the provider is not asked again after it threw (v2.21.0). */
+    public const SESSION_RETRY_AT = 'martis_sso_retry_at';
+
     /** The cookie that carries the origin across a remember-me re-login. */
     public const COOKIE = 'martis_sso_provider';
 
@@ -153,7 +156,7 @@ final class SsoSession
     public static function forget(Request $request, ?Authenticatable $user = null): void
     {
         if ($request->hasSession()) {
-            $request->session()->forget([self::SESSION_KEY, self::SESSION_AT, self::SESSION_EXTERNAL_ID, self::SESSION_CHECKED_AT]);
+            $request->session()->forget([self::SESSION_KEY, self::SESSION_AT, self::SESSION_EXTERNAL_ID, self::SESSION_CHECKED_AT, self::SESSION_RETRY_AT]);
         }
 
         if ($user !== null) {
@@ -232,11 +235,28 @@ final class SsoSession
         return is_int($at) ? $at : null;
     }
 
-    /** Record that the provider confirmed the session now. */
+    /** Record that the provider confirmed the session now (and drop any back-off). */
     public static function markChecked(Request $request): void
     {
         if ($request->hasSession()) {
             $request->session()->put(self::SESSION_CHECKED_AT, self::now());
+            $request->session()->forget(self::SESSION_RETRY_AT);
+        }
+    }
+
+    /** The unix time before which the provider is not asked again after it threw, or null when there is no back-off. */
+    public static function retryAt(Request $request): ?int
+    {
+        $at = $request->hasSession() ? $request->session()->get(self::SESSION_RETRY_AT) : null;
+
+        return is_int($at) ? $at : null;
+    }
+
+    /** Do not ask the provider again for $seconds: it threw (an outage), and every request must not wait on it. */
+    public static function deferRevalidation(Request $request, int $seconds): void
+    {
+        if ($request->hasSession()) {
+            $request->session()->put(self::SESSION_RETRY_AT, self::now() + $seconds);
         }
     }
 
@@ -358,7 +378,7 @@ final class SsoSession
     {
         $session = $request->session();
         $session->put(self::SESSION_AT, $at);
-        $session->forget(self::SESSION_CHECKED_AT);
+        $session->forget([self::SESSION_CHECKED_AT, self::SESSION_RETRY_AT]);
 
         $externalId !== null && $externalId !== ''
             ? $session->put(self::SESSION_EXTERNAL_ID, $externalId)

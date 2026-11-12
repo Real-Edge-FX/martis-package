@@ -715,7 +715,7 @@ it('asks at most once per interval per session', function () {
     expect(SsoRevProvider::$calls)->toHaveCount(2);
 });
 
-it('reports a throwing stillValid(), keeps the session and asks again on the next request', function () {
+it('reports a throwing stillValid(), keeps the session and asks again no sooner than a minute later', function () {
     Exceptions::fake();
     config()->set('martis.auth.sso.providers.azure.revalidate_every_minutes', 10);
     ssoRevSignIn();
@@ -724,15 +724,44 @@ it('reports a throwing stillValid(), keeps the session and asks again on the nex
     $this->travel(11)->minutes();
     $this->getJson('/martis/api/tools')->assertOk();
     $this->getJson('/martis/api/tools')->assertOk();
+    $this->travel(59)->seconds();
+    $this->getJson('/martis/api/tools')->assertOk();
 
-    expect(SsoRevProvider::$calls)->toHaveCount(2);
+    // An outage is one call per minute per session, not one per request.
+    expect(SsoRevProvider::$calls)->toHaveCount(1);
     Exceptions::assertReported(fn (RuntimeException $e) => $e->getMessage() === 'the IdP is down');
 
-    // The outage ends: the next answer counts, and the interval starts again.
+    $this->travel(1)->seconds();
+    $this->getJson('/martis/api/tools')->assertOk();
+    expect(SsoRevProvider::$calls)->toHaveCount(2);
+
+    // The outage ends: the next answer counts, the back-off is gone and the interval starts again.
     SsoRevProvider::$answer = true;
+    $this->travel(1)->minutes();
     $this->getJson('/martis/api/tools')->assertOk();
     $this->getJson('/martis/api/tools')->assertOk();
     expect(SsoRevProvider::$calls)->toHaveCount(3);
+
+    $this->travel(9)->minutes();
+    $this->getJson('/martis/api/tools')->assertOk();
+    expect(SsoRevProvider::$calls)->toHaveCount(3);
+});
+
+it('does not keep the back-off of an earlier outage across a sign-out and a new sign-in', function () {
+    Exceptions::fake();
+    config()->set('martis.auth.sso.providers.azure.revalidate_every_minutes', 10);
+    ssoRevSignIn();
+    SsoRevProvider::$answer = new RuntimeException('the IdP is down');
+    $this->travel(11)->minutes();
+    $this->getJson('/martis/api/tools')->assertOk();
+    expect(session(SsoSession::SESSION_RETRY_AT))->toBeInt();
+
+    $this->postJson('/martis/api/auth/logout')->assertOk();
+
+    expect(session(SsoSession::SESSION_RETRY_AT))->toBeNull();
+    SsoRevProvider::$answer = true;
+    ssoRevSignIn();
+    expect(session(SsoSession::SESSION_RETRY_AT))->toBeNull();
 });
 
 it('keeps asking through an outage but max_session_minutes is still the hard bound', function () {
@@ -984,4 +1013,115 @@ it('redirects a page logout to the login page when the logout_url class throws',
     $this->post('/martis/api/auth/logout')->assertRedirect(route('martis.login'));
 
     expect(Auth::guard()->check())->toBeFalse();
+});
+
+// ---------------------------------------------------------------------------
+// Ending a session does not cycle the remember token of the user's other devices (review L3)
+// ---------------------------------------------------------------------------
+
+it('ends a session by age without cycling the remember token of the user', function () {
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 60);
+    ssoRevSignIn();
+    // The remember token of another device of the same user (a password sign-in elsewhere).
+    SsoRevUser::query()->whereKey(ssoRevUserId())->update(['remember_token' => 'other-device-token']);
+    Auth::forgetGuards(); // the next request loads the user, with the token of the other device
+    $this->travel(61)->minutes();
+
+    $this->getJson('/martis/api/tools')->assertUnauthorized();
+
+    expect(SsoRevUser::query()->find(ssoRevUserId())->getRememberToken())->toBe('other-device-token');
+});
+
+it('ends a session by revalidation without cycling the remember token of the user', function () {
+    config()->set('martis.auth.sso.providers.azure.revalidate_every_minutes', 10);
+    ssoRevSignIn();
+    SsoRevUser::query()->whereKey(ssoRevUserId())->update(['remember_token' => 'other-device-token']);
+    Auth::forgetGuards();
+    SsoRevProvider::$answer = false;
+    $this->travel(11)->minutes();
+
+    $this->getJson('/martis/api/tools')->assertUnauthorized();
+
+    expect(SsoRevUser::query()->find(ssoRevUserId())->getRememberToken())->toBe('other-device-token');
+});
+
+it('still ends this device: its own remember cookie is cleared with the session', function () {
+    ssoRevRemember();
+    [, $recaller, $marker] = ssoRevSignIn();
+    SsoSession::revokeUser((string) ssoRevUserId());
+    $this->travel(2)->seconds();
+
+    $ended = ssoRevBrowser($recaller, $marker)->getJson('/martis/api/tools')->assertUnauthorized();
+
+    expect(ssoRevCookie($ended, $recaller->getName())?->isCleared())->toBeTrue();
+});
+
+it('keeps cycling the remember token on revokeFor(), on purpose', function () {
+    ssoRevSignIn();
+    SsoRevUser::query()->whereKey(ssoRevUserId())->update(['remember_token' => 'other-device-token']);
+
+    MartisSso::revokeFor(ssoRevUserId());
+
+    expect(SsoRevUser::query()->find(ssoRevUserId())->getRememberToken())->not->toBe('other-device-token');
+});
+
+// ---------------------------------------------------------------------------
+// The two martis.auth-only routes and /api/auth/user obey the same decision (review L2)
+// ---------------------------------------------------------------------------
+
+it('ends a revoked SSO session on the email verification routes too', function () {
+    ssoRevSignIn();
+    MartisSso::revokeFor(ssoRevUserId());
+
+    $this->postJson('/martis/api/auth/email/verification-notification')
+        ->assertUnauthorized()
+        ->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect');
+});
+
+it('redirects the verification notice of a revoked SSO session through the provider', function () {
+    ssoRevSignIn();
+    MartisSso::revokeFor(ssoRevUserId());
+
+    $this->get('/martis/email/verify')->assertRedirect('/martis/sso/azure/redirect');
+    expect(Auth::guard()->check())->toBeFalse();
+});
+
+it('puts the SSO session check right after martis.auth on the two routes that run no other stack', function () {
+    $routes = collect($this->app['router']->getRoutes()->getRoutes())->keyBy(fn ($route) => $route->getName());
+
+    foreach (['martis.email.verify.notice', 'martis.api.auth.email.verification.send'] as $name) {
+        $middleware = $routes[$name]->gatherMiddleware();
+        expect(array_search('martis.sso.session', $middleware, true))->toBe(array_search('martis.auth', $middleware, true) + 1);
+    }
+});
+
+it('answers /api/auth/user as signed out for a session the middleware would end, and ends it', function (string $how) {
+    config()->set('martis.auth.sso.providers.azure.'.($how === 'age' ? 'max_session_minutes' : 'revalidate_every_minutes'), 10);
+    ssoRevSignIn();
+    $this->getJson('/martis/api/auth/user')->assertOk()->assertJsonPath('email', 'sso@example.com');
+
+    match ($how) {
+        'age' => $this->travel(11)->minutes(),
+        'revalidation' => (function () {
+            SsoRevProvider::$answer = false;
+            test()->travel(11)->minutes();
+        })(),
+        'revocation' => (function () {
+            MartisSso::revokeFor(ssoRevUserId());
+        })(),
+    };
+
+    $response = $this->getJson('/martis/api/auth/user')->assertOk();
+    expect($response->getContent())->toBe('null')
+        ->and(Auth::guard()->check())->toBeFalse()
+        ->and(session(SsoSession::SESSION_KEY))->toBeNull();
+})->with(['age' => ['age'], 'revalidation' => ['revalidation'], 'revocation' => ['revocation']]);
+
+it('lets /api/auth/user answer for a password session that the SSO settings would end', function () {
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 1);
+    ssoRevPasswordUser();
+    $this->postJson('/martis/api/auth/login', ['email' => 'p@example.com', 'password' => 'Password-Pass-1'])->assertOk();
+    $this->travel(3)->hours();
+
+    $this->getJson('/martis/api/auth/user')->assertOk()->assertJsonPath('email', 'p@example.com');
 });

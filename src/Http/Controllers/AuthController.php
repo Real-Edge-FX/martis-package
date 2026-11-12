@@ -27,6 +27,7 @@ use Martis\Contracts\SendsPasswordResetLinks;
 use Martis\Http\Controllers\Concerns\AuthenticatesWithRememberMe;
 use Martis\Profile\TwoFactorService;
 use Martis\Sso\SsoSession;
+use Martis\Sso\SsoSessionEnforcer;
 use Martis\Support\Initials;
 use Throwable;
 
@@ -55,7 +56,18 @@ class AuthController extends MartisController
         /** @var string|null $guardName */
         $guardName = config('martis.guard');
 
-        $user = auth()->guard($guardName)->user();
+        $guard = auth()->guard($guardName);
+
+        // A session the `martis.sso.session` middleware would end (too old,
+        // revoked, or the provider says the person is gone) answers as signed
+        // out, and is ended here by the same logic: this route runs without
+        // the middleware, so the SPA would otherwise bootstrap into a session
+        // that every other route refuses.
+        if ($guard instanceof StatefulGuard && app(SsoSessionEnforcer::class)->endIfRequired($request, $guard) !== null) {
+            return response('null', 200)->header('Content-Type', 'application/json');
+        }
+
+        $user = $guard->user();
 
         if ($user === null) {
             // Laravel 12 response()->json(null) returns {} due to Symfony null coalescing.

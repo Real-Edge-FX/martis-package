@@ -20,11 +20,13 @@ use Illuminate\Contracts\Auth\Authenticatable;
  *  - `false`: the session ends as an expired one does (sign-out without the
  *    federated logout, then the way back through the provider).
  *  - a thrown exception: reported, and the session is kept. The check runs
- *    again on the next request instead of after a whole interval, so an IdP
- *    outage never signs every user out; the hard bound of a session is
- *    `max_session_minutes`.
+ *    again no sooner than a minute later (kept in the session) instead of
+ *    after a whole interval, so an IdP outage never signs every user out; the
+ *    hard bound of a session is `max_session_minutes`.
  *
- * Keep it cheap: it runs inside a request.
+ * Keep it cheap: it runs inside a request. Give the HTTP client a short
+ * timeout (a few seconds): while the IdP is down every session waits that long
+ * once a minute.
  */
 interface RevalidatesSessions
 {
