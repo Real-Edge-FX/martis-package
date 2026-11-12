@@ -1056,13 +1056,17 @@ return [
                 //     // round-trip decides after it, so revoking access at the IdP
                 //     // ends the panel access. On, the remember cookie signs the
                 //     // user back in for `auth.guards.{guard}.remember` minutes
-                //     // (576000 by default) whatever the IdP says meanwhile.
+                //     // (576000 by default) whatever the IdP says meanwhile, and only
+                //     // MartisSso::revokeFor() ends it. It cannot be set together with
+                //     // `max_session_minutes` or `revalidate_every_minutes` (v2.21.0):
+                //     // a remembered re-login is recognised as an SSO one only through
+                //     // a cookie and a cache entry, so the limits could not be enforced.
                 //     'remember' => false,
                 //
                 //     // Absolute age of an SSO-opened session (v2.21.0), in whole
                 //     // minutes. null (the default) is off. A session this provider
-                //     // opened that is that old, counted from the SSO sign-in (also
-                //     // after a remember-me re-login, which keeps the original time),
+                //     // opened that is that old, counted from the SSO sign-in (not
+                //     // with 'remember' => true, which it excludes),
                 //     // is ended on its next request: a JSON request answers 401 with
                 //     // `sso_reauth_url` and the SPA goes through the provider again,
                 //     // any other request is redirected to /{martis}/sso/{name}/redirect.

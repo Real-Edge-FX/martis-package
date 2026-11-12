@@ -96,6 +96,9 @@ class SsoController extends Controller
                 ->withErrors(['sso' => __('martis::messages.sso_provider_disabled')]);
         }
 
+        // A configuration error is thrown before anything is read or written.
+        SsoSession::assertLimitsFitRemember($provider);
+
         try {
             $identity = $driver->resolveIdentity($request);
         } catch (Throwable $e) {

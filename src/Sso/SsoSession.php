@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Martis\Auth\GuardCatalog;
 use RuntimeException;
 use Throwable;
@@ -108,6 +109,37 @@ final class SsoSession
             ])),
             $minutes,
         ));
+    }
+
+    /**
+     * A provider that remembers its users cannot also limit their sessions
+     * (v2.21.0): `remember` together with `max_session_minutes` or
+     * `revalidate_every_minutes` is a configuration error.
+     *
+     * After the session ends, a remember-me re-login is recognised as an SSO
+     * one only through the origin cookie and its nonce in the cache. The server
+     * cannot rely on either (the holder deletes the cookie, a cache flush drops
+     * every nonce), and a re-login that is not recognised is a session no limit
+     * applies to. Revocation does not depend on the origin: `revokeFor()` cycles
+     * the remember token, so it still covers remembered sessions.
+     *
+     * @throws InvalidArgumentException
+     */
+    public static function assertLimitsFitRemember(string $provider): void
+    {
+        $prefix = "martis.auth.sso.providers.{$provider}.";
+
+        if (! (bool) config($prefix.'remember', false)) {
+            return;
+        }
+
+        foreach (['max_session_minutes', 'revalidate_every_minutes'] as $limit) {
+            $value = config($prefix.$limit);
+
+            if ($value !== null && $value !== '') {
+                throw new InvalidArgumentException("The [{$prefix}remember] config value is true together with [{$prefix}{$limit}]: a remembered re-login is recognised as an SSO session only through a cookie and a cache entry the server cannot rely on, so the limit could not be enforced. Turn remember off, or unset [{$prefix}{$limit}].");
+            }
+        }
     }
 
     /**

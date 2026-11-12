@@ -207,7 +207,7 @@ beforeEach(function () {
         'sync_roles' => true,
         'permission_adapter' => 'callable',
         'on_no_role_match' => 'deny',
-        'remember' => true,
+        'remember' => false,
     ]);
 
     $this->app->make(SsoManager::class)->flushHooksForTesting();
@@ -269,6 +269,12 @@ function ssoRevSignIn(): array
     return [$callback, ssoRevCookie($callback, 'remember_'), ssoRevCookie($callback, SsoSession::COOKIE)];
 }
 
+/** The provider keeps the panel open with a remember cookie (it cannot also carry a session limit). */
+function ssoRevRemember(): void
+{
+    config()->set('martis.auth.sso.providers.azure.remember', true);
+}
+
 function ssoRevUserId(): int
 {
     return (int) SsoRevUser::query()->where('email', 'sso@example.com')->value('id');
@@ -291,6 +297,7 @@ it('records when the SSO sign-in happened and the external id of the identity', 
 });
 
 it('keeps the original sign-in time after a remember-me re-login, never the time of the re-login', function () {
+    ssoRevRemember();
     [, $recaller, $marker] = ssoRevSignIn();
     $signedInAt = Carbon::now()->getTimestamp();
 
@@ -352,18 +359,16 @@ it('sends a page request of an expired SSO session through the provider again', 
     expect(Auth::guard()->check())->toBeFalse();
 });
 
-it('clears the origin cookie and its nonce when it ends a session', function () {
-    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 60);
+it('clears the origin cookie when it ends a session', function () {
+    ssoRevRemember();
     [, $recaller, $marker] = ssoRevSignIn();
 
-    $this->travel(61)->minutes();
+    // Revoked, not aged out: a limit and a remember cookie cannot share a provider.
+    SsoSession::revokeUser((string) ssoRevUserId());
+    $this->travel(2)->seconds();
 
     $ended = ssoRevBrowser($recaller, $marker)->getJson('/martis/api/tools')->assertUnauthorized();
     expect(ssoRevCookie($ended, SsoSession::COOKIE)?->isCleared())->toBeTrue();
-
-    // The remember cookie of the ended session no longer signs anyone in.
-    ssoRevExpireSession();
-    ssoRevBrowser($recaller, $marker)->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonMissingPath('sso_reauth_url');
 });
 
 it('leaves a younger SSO session untouched', function () {
@@ -399,18 +404,6 @@ it('ends nothing while max_session_minutes is unset, however old the session is'
     $this->travel(30)->days();
 
     $this->getJson('/martis/api/tools')->assertOk();
-});
-
-it('ends a remember-me re-login that is older than the limit: the age counts from the sign-in', function () {
-    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 60);
-    [, $recaller, $marker] = ssoRevSignIn();
-
-    ssoRevExpireSession();
-    $this->travel(61)->minutes();
-
-    ssoRevBrowser($recaller, $marker)->getJson('/martis/api/tools')
-        ->assertUnauthorized()
-        ->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect');
 });
 
 it('refuses a max_session_minutes that is not a positive whole number, naming the key', function (mixed $value) {
@@ -497,6 +490,7 @@ it('leaves the sessions of other users alone', function () {
 });
 
 it('kills the remember cookie and the origin cookie of the revoked user', function () {
+    ssoRevRemember();
     [, $recaller, $marker] = ssoRevSignIn();
     $before = SsoRevUser::query()->find(ssoRevUserId())->getRememberToken();
 
@@ -510,6 +504,7 @@ it('kills the remember cookie and the origin cookie of the revoked user', functi
 });
 
 it('drops every SSO-origin nonce of the revoked user', function () {
+    ssoRevRemember();
     [, , $marker] = ssoRevSignIn();
     $userId = ssoRevUserId();
     $user = SsoRevUser::query()->findOrFail($userId);
@@ -745,20 +740,6 @@ it('keeps asking through an outage but max_session_minutes is still the hard bou
     $this->getJson('/martis/api/tools')->assertUnauthorized()->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect');
 });
 
-it('revalidates a remember-me re-login whose sign-in is older than the interval', function () {
-    config()->set('martis.auth.sso.providers.azure.revalidate_every_minutes', 10);
-    [, $recaller, $marker] = ssoRevSignIn();
-    SsoRevProvider::$answer = false;
-
-    ssoRevExpireSession();
-    $this->travel(11)->minutes();
-
-    ssoRevBrowser($recaller, $marker)->getJson('/martis/api/tools')
-        ->assertUnauthorized()
-        ->assertJsonPath('sso_reauth_url', '/martis/sso/azure/redirect');
-    expect(SsoRevProvider::$calls[0][1])->toBe('azure-sso');
-});
-
 it('never calls stillValid() while revalidate_every_minutes is unset', function () {
     ssoRevSignIn();
     SsoRevProvider::$answer = false;
@@ -911,4 +892,58 @@ it('still ends the session of the canonical path by max_session_minutes (control
 
     $this->travel(61)->minutes();
     $this->getJson('/martis/api/tools')->assertUnauthorized();
+});
+
+// ---------------------------------------------------------------------------
+// A remember cookie and a session limit cannot share a provider (review H1)
+// ---------------------------------------------------------------------------
+
+it('refuses a provider that remembers its users and sets a session limit, at sign-in, naming both keys', function (string $limit) {
+    ssoRevRemember();
+    config()->set('martis.auth.sso.providers.azure.'.$limit, 30);
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->get('/martis/sso/azure/callback'))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.azure.remember');
+    expect(fn () => $this->get('/martis/sso/azure/callback'))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.azure.'.$limit);
+
+    expect(auth()->check())->toBeFalse()
+        ->and(SsoRevUser::query()->count())->toBe(0);
+})->with(['max_session_minutes', 'revalidate_every_minutes']);
+
+it('refuses it on every request of an SSO session too, naming both keys', function (string $limit) {
+    ssoRevRemember();
+    ssoRevSignIn();
+    config()->set('martis.auth.sso.providers.azure.'.$limit, 30);
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->getJson('/martis/api/tools'))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.azure.'.$limit);
+    expect(fn () => $this->getJson('/martis/api/tools'))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.azure.remember');
+})->with(['max_session_minutes', 'revalidate_every_minutes']);
+
+it('accepts a remember cookie with no limit, a limit with no remember cookie, and an empty limit from the environment', function () {
+    ssoRevRemember();
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', '');
+    config()->set('martis.auth.sso.providers.azure.revalidate_every_minutes', null);
+    ssoRevSignIn();
+    $this->getJson('/martis/api/tools')->assertOk();
+
+    $this->postJson('/martis/api/auth/logout')->assertOk();
+    config()->set('martis.auth.sso.providers.azure.remember', false);
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 60);
+    ssoRevSignIn();
+    $this->getJson('/martis/api/tools')->assertOk();
+});
+
+it('keeps a remembered session revocable, and revocation still ends the sessions of a user who has the cookies', function () {
+    ssoRevRemember();
+    [, $recaller, $marker] = ssoRevSignIn();
+
+    MartisSso::revokeFor(ssoRevUserId());
+
+    ssoRevExpireSession();
+    ssoRevBrowser($recaller, $marker)->getJson('/martis/api/tools')->assertUnauthorized();
 });

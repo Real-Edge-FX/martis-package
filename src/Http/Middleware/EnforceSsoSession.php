@@ -86,6 +86,7 @@ class EnforceSsoSession
 
         // Read (and so validate) the config first: a value that is set and
         // unusable throws on every SSO request, not only when it would matter.
+        SsoSession::assertLimitsFitRemember($provider);
         $max = $this->minutes($prefix.'max_session_minutes');
         $every = $this->minutes($prefix.'revalidate_every_minutes');
         $revalidator = $every === null ? null : $this->revalidator($provider, $prefix.'revalidate_every_minutes');

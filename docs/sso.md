@@ -389,11 +389,13 @@ The **Continue with Microsoft** button is there. Click → Azure consent screen 
                 // session follows SESSION_LIFETIME and a fresh IdP round-trip
                 // decides after it, so revoking access at the IdP ends panel
                 // access. On, the remember cookie signs the user back in for
-                // auth.guards.{guard}.remember minutes whatever the IdP says.
+                // auth.guards.{guard}.remember minutes whatever the IdP says,
+                // and only MartisSso::revokeFor() ends it: it cannot be set
+                // together with the two limits below (v2.21.0, it throws).
                 'remember' => false,
 
                 // Absolute age and revalidation of an SSO-opened session
-                // (v2.21.0). Both null (off) by default.
+                // (v2.21.0). Both null (off) by default. Not with 'remember' => true.
                 'max_session_minutes'      => env('MARTIS_SSO_AZURE_MAX_SESSION_MINUTES'),
                 'revalidate_every_minutes' => env('MARTIS_SSO_AZURE_REVALIDATE_EVERY_MINUTES'),
 
@@ -508,9 +510,11 @@ Event::listen(SsoFailed::class, function (SsoFailed $event) {
 
 ### Ending an SSO session: age, revocation, revalidation (v2.21.0)
 
-Once a person is signed in through SSO, nothing asks the IdP again: the session lives until `SESSION_LIFETIME`, and with `remember` on, a cookie signs the user back in for up to 400 days. Three independent, **off by default** mechanisms end an SSO-opened session before that. They share one middleware, `martis.sso.session`, which sits right after `martis.auth` in the authenticated stack (`Martis\Http\RouteMiddleware::authenticated()`), ahead of every gate (2FA, email verification, forced password change). A session that SSO did not open (password, magic link, invitation) is **never touched** by any of them.
+Once a person is signed in through SSO, nothing asks the IdP again: the session lives until `SESSION_LIFETIME`, and with `remember` on, a cookie signs the user back in for up to 400 days (only revocation reaches a remembered session, see below). Three independent, **off by default** mechanisms end an SSO-opened session before that. They share one middleware, `martis.sso.session`, which sits right after `martis.auth` in the authenticated stack (`Martis\Http\RouteMiddleware::authenticated()`), ahead of every gate (2FA, email verification, forced password change). A session that SSO did not open (password, magic link, invitation) is **never touched** by any of them.
 
-The session records, at sign-in, when the SSO sign-in happened (`martis_sso_at`, unix time) and the identity's external id (`martis_sso_external_id`). After a remember-me re-login, the new session gets the **original** sign-in time back from the SSO cookie (its issue time), never the time of the re-login, so the re-login cannot reset the clock.
+The session records, at sign-in, when the SSO sign-in happened (`martis_sso_at`, unix time) and the identity's external id (`martis_sso_external_id`). After a remember-me re-login, the new session gets the **original** sign-in time back from the SSO cookie (its issue time), never the time of the re-login, so that the revocation time of the next paragraph compares with the real sign-in.
+
+**`remember` and the two limits exclude each other.** A provider with `remember => true` together with `max_session_minutes` or `revalidate_every_minutes` is a configuration error: the sign-in and every request of an SSO session throw an `InvalidArgumentException` naming the keys. The reason is that a remembered re-login (the session ended, Laravel's remember cookie signs the user in again) is recognised as an SSO one only through the `martis_sso_provider` cookie and its nonce in the cache. The server cannot rely on either: the person can delete the cookie, and a cache flush (a deploy, an eviction, a restart) drops every nonce. A re-login that is not recognised is a session no limit applies to, so the limits could not be enforced. Pick one: no remember cookie, and the session ends on its own and the limits apply, or a remember cookie and revocation (`revokeFor()`) as the way to end it. Revocation does not depend on the origin cookie: it cycles the user's remember token, so it still covers remembered sessions.
 
 #### Absolute age: `max_session_minutes`
 
@@ -575,7 +579,7 @@ final class OktaProvider implements SsoProviderContract, RevalidatesSessions
 ],
 ```
 
-The middleware calls `stillValid()` at most once per interval per session (the last check time is kept in the session; the SSO sign-in itself counts as the first check, and a re-login by the remember cookie counts from the sign-in it restored). `externalId` is the id the IdP issued at sign-in (null for a session opened before v2.21.0).
+The middleware calls `stillValid()` at most once per interval per session (the last check time is kept in the session; the SSO sign-in itself counts as the first check). `externalId` is the id the IdP issued at sign-in (null for a session opened before v2.21.0).
 
 - `true`: the session goes on.
 - `false`: the session ends as above.
@@ -1263,7 +1267,7 @@ The user has no Azure App Role assignment that matches a local role's `azure_gro
 | `tests/Feature/SsoLoggedInEventTest.php` | `SsoLoggedIn`: once per sign-in, after the login and the SSO marker, never on a refusal. |
 | `tests/Feature/SsoDenyBeforeProvisioningTest.php` | Deny before provisioning on the pre-check and the transaction path, `guest`, `provision_on_deny`, rollback of resolver writes. |
 | `tests/Feature/SsoSessionMarkerTest.php` | The SSO origin across a remember-me re-login: the forced password change gate and the federated logout still see it; a cookie for another user or not encrypted by Martis counts for nothing; every other sign-in and both sign-outs drop it. |
-| `tests/Feature/SsoSessionRevalidationTest.php` | The sign-in time and external id in the session (kept across a remember-me re-login), `max_session_minutes` (JSON 401 with `sso_reauth_url`, page redirect, boundary, sessions without a time), `MartisSso::revokeFor()` (array and database drivers, remember cookie, nonces, later sign-in, impersonation, cache failures), `RevalidatesSessions` (false, true, throwing, interval, misconfiguration), password sessions untouched, invokable `logout_url`. |
+| `tests/Feature/SsoSessionRevalidationTest.php` | The sign-in time and external id in the session (kept across a remember-me re-login), `max_session_minutes` (JSON 401 with `sso_reauth_url`, page redirect, boundary, sessions without a time), the refusal of `remember` together with a limit, the 404 for a provider name that is not lower case, `MartisSso::revokeFor()` (array and database drivers, remember cookie, nonces, later sign-in, impersonation, cache failures), `RevalidatesSessions` (false, true, throwing, interval, misconfiguration), password sessions untouched, invokable `logout_url`. |
 | `resources/js/lib/api.ssoReauth.test.ts` | The SPA's 401 handler: follows a same-origin path under the Martis base path, ignores absolute, protocol-relative and base-escaping URLs. |
 | `tests/Unit/Sso/SignedToken/PasetoV4PublicTest.php` | The PASETO v4.public codec against the official `4-S-*` and `4-F-*` test vectors, PAE, strict base64url, trailing data, canonical encoding. |
 | `tests/Feature/SsoSignedTokenProviderTest.php` | Driver resolution by block name, `redirect()`, every refusal with its own reason, key rotation, one-time `jti`, fail-closed cache, config errors. |
