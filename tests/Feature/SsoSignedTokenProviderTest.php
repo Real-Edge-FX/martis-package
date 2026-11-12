@@ -442,6 +442,35 @@ it('accepts a state of exactly ten minutes and refuses one a second older', func
     Carbon::setTestNow();
 });
 
+it('says in the refusal that an expired state is older than its lifetime, and a mismatch does not', function () {
+    $start = 1_800_000_000;
+    Carbon::setTestNow(Carbon::createFromTimestamp($start));
+    $provider = stProvider();
+    $flow = stBegin($provider);
+    Carbon::setTestNow(Carbon::createFromTimestamp($start + 601));
+    $token = stSign(stClaims($flow['state'], ['iat' => stTime($start + 601), 'exp' => stTime($start + 661)]), $this->keys['secret']);
+
+    try {
+        $provider->resolveIdentity(stCallback($flow['session'], $token, $flow['state']));
+        $this->fail('an expired state was accepted');
+    } catch (SsoException $e) {
+        expect($e->reason)->toBe(Reason::STATE)
+            ->and($e->getMessage())->toContain('older than')->toContain('10 minutes');
+    }
+
+    // A state that is simply not this browser's: the old text, no mention of age.
+    Carbon::setTestNow(Carbon::createFromTimestamp($start));
+    $flow = stBegin($provider);
+    $token = stSign(stClaims($flow['state'], ['iat' => stTime($start), 'exp' => stTime($start + 60)]), $this->keys['secret']);
+    try {
+        $provider->resolveIdentity(stCallback($flow['session'], $token, str_repeat('x', 43)));
+        $this->fail('a wrong state was accepted');
+    } catch (SsoException $e) {
+        expect($e->reason)->toBe(Reason::STATE)->and($e->getMessage())->not->toContain('older than');
+    }
+    Carbon::setTestNow();
+});
+
 it('still uses up the jti of a token whose state had expired', function () {
     $start = 1_800_000_000;
     Carbon::setTestNow(Carbon::createFromTimestamp($start));

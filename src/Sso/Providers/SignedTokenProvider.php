@@ -366,8 +366,12 @@ final class SignedTokenProvider implements SsoProviderContract
         $query = $request->query('state');
 
         $expected = null;
-        if (is_array($kept) && is_string($kept['value'] ?? null) && is_int($kept['at'] ?? null)
-            && now()->getTimestamp() - $kept['at'] <= self::STATE_LIFETIME_SECONDS) {
+        if (is_array($kept) && is_string($kept['value'] ?? null) && is_int($kept['at'] ?? null)) {
+            if (now()->getTimestamp() - $kept['at'] > self::STATE_LIFETIME_SECONDS) {
+                // Same reason as a mismatch (`state`), but the log says which.
+                throw $this->refuse(Reason::STATE, 'the state is older than its '.(self::STATE_LIFETIME_SECONDS / 60).' minutes lifetime, so the sign-in has to start again');
+            }
+
             $expected = $kept['value'];
         }
 
