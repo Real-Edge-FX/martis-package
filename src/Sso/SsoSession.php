@@ -408,6 +408,11 @@ final class SsoSession
      * `$signedInAt` was revoked: the user was revoked at or after it. A
      * session with no sign-in time counts as older than any revocation. A cache
      * that cannot be read is reported and counts as revoked (fail closed).
+     *
+     * The marker is read back as an int, or as a string of digits: the Redis
+     * store keeps a number raw and returns it as a string. Any other value
+     * (an array, a word, a float, a number with a sign) is not a time Martis
+     * wrote and counts as revoked.
      */
     public static function isRevoked(string $userId, ?int $signedInAt): bool
     {
@@ -425,7 +430,23 @@ final class SsoSession
             return false;
         }
 
-        return ! is_int($revokedAt) || $signedInAt === null || $signedInAt <= $revokedAt;
+        $at = self::markerTime($revokedAt);
+
+        return $at === null || $signedInAt === null || $signedInAt <= $at;
+    }
+
+    /** The time a revocation marker holds, or null when the value is not one. */
+    private static function markerTime(mixed $marker): ?int
+    {
+        if (is_int($marker)) {
+            return $marker;
+        }
+
+        if (is_string($marker) && preg_match('/\A[0-9]{1,15}\z/', $marker) === 1) {
+            return (int) $marker;
+        }
+
+        return null;
     }
 
     /**
