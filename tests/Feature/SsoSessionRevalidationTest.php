@@ -121,6 +121,15 @@ class SsoRevLogoutUrl
 
 class SsoRevNotInvokable {}
 
+/** A logout_url class that cannot reach its IdP. */
+class SsoRevThrowingLogoutUrl
+{
+    public function __invoke(Request $request, ?Authenticatable $user, string $postLogoutRedirectUri): ?string
+    {
+        throw new RuntimeException('IdP discovery timed out');
+    }
+}
+
 /** An invokable with no return type, so it can hand back anything. */
 class SsoRevLooseLogoutUrl
 {
@@ -946,4 +955,33 @@ it('keeps a remembered session revocable, and revocation still ends the sessions
 
     ssoRevExpireSession();
     ssoRevBrowser($recaller, $marker)->getJson('/martis/api/tools')->assertUnauthorized();
+});
+
+// ---------------------------------------------------------------------------
+// A logout_url class that throws never blocks the local sign-out (review M2)
+// ---------------------------------------------------------------------------
+
+it('signs out locally, without a federated URL, and reports it, when the logout_url class throws', function () {
+    Exceptions::fake();
+    config()->set('martis.auth.sso.providers.azure.logout_url', SsoRevThrowingLogoutUrl::class);
+    ssoRevSignIn();
+
+    $this->postJson('/martis/api/auth/logout')
+        ->assertOk()
+        ->assertJsonMissingPath('logout_url');
+
+    expect(Auth::guard()->check())->toBeFalse()
+        ->and(session(SsoSession::SESSION_KEY))->toBeNull();
+    Exceptions::assertReported(fn (RuntimeException $e) => $e->getMessage() === 'IdP discovery timed out');
+    $this->getJson('/martis/api/tools')->assertUnauthorized();
+});
+
+it('redirects a page logout to the login page when the logout_url class throws', function () {
+    Exceptions::fake();
+    config()->set('martis.auth.sso.providers.azure.logout_url', SsoRevThrowingLogoutUrl::class);
+    ssoRevSignIn();
+
+    $this->post('/martis/api/auth/logout')->assertRedirect(route('martis.login'));
+
+    expect(Auth::guard()->check())->toBeFalse();
 });

@@ -1101,7 +1101,8 @@ return [
                 //     //   __invoke(Request $request, ?Authenticatable $user, string $postLogoutRedirectUri): ?string
                 //     // It runs before the local logout, gets the login page URL as it
                 //     // is (encode it where your URL needs that) and answers the URL, or
-                //     // null for a local logout only. A class that is not invokable throws.
+                //     // null for a local logout only. A class that is not invokable throws;
+                //     // one whose __invoke throws is reported and the logout stays local.
                 //     //
                 //     // Leave null (the default) to use Martis's own
                 //     // local-only logout (clears the cookie, redirects

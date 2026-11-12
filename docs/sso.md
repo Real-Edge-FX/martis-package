@@ -1126,7 +1126,7 @@ final class AzureLogoutUrl
 }
 ```
 
-It runs **before** the local logout (the user is still signed in), receives the login page URL as it is (encode it where your URL needs that: the `{post_logout_redirect_uri}` replacement is for plain URL strings only), and answers the URL, or `null` (or an empty string) for a local logout only. A plain URL string keeps today's behaviour. A string that names a class which is not invokable, or a class that answers something other than a string or `null`, throws an `InvalidArgumentException` naming `martis.auth.sso.providers.{name}.logout_url`.
+It runs **before** the local logout (the user is still signed in), receives the login page URL as it is (encode it where your URL needs that: the `{post_logout_redirect_uri}` replacement is for plain URL strings only), and answers the URL, or `null` (or an empty string) for a local logout only. A plain URL string keeps today's behaviour. A string that names a class which is not invokable, or a class that answers something other than a string or `null`, throws an `InvalidArgumentException` naming `martis.auth.sso.providers.{name}.logout_url`. A class whose `__invoke` **throws** (it asked the IdP for its discovery document and the IdP is down) is reported and the sign-out completes locally, with no federated URL: the person is always signed out of the panel.
 
 The JSON variant of the logout endpoint surfaces the IdP URL as `logout_url`, so a SPA can drive the redirect itself if it needs to add UI between local and federated logout.
 
