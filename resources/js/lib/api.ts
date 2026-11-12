@@ -2,6 +2,7 @@ import { API_BASE_URL, BASE_PATH } from "@/lib/config"
 import i18n from "@/lib/i18n"
 import { isOnPage, passwordChangeUrl } from "@/lib/passwordChange"
 import { hasDotSegment } from "@/lib/apiPath"
+import { panelUrlTarget } from "@/lib/panelUrl"
 import { ApiError, type ValidationError } from "@/lib/apiError"
 
 export { apiPath, routePath, pathSegment, withQuery } from "@/lib/apiPath"
@@ -72,25 +73,11 @@ function redirectOnSessionExpiry(): void {
  * `EnforceSsoSession`, v2.21.0), or null when the body carries none or carries
  * one that is not safe to follow.
  *
- * Only a path under the Martis base path, on this origin, is followed: never an
- * absolute or protocol-relative URL, and never a path the browser would
- * rewrite out of the base path (a dot segment, an encoded one, a backslash).
- * What is returned is the path as the browser resolves it, so the value that
- * was checked is the value that is opened.
+ * Only a path under the Martis base path, on this origin, is followed
+ * (`panelUrlTarget`).
  */
 function ssoReauthTarget(payload: unknown): string | null {
-  const url = (payload as { sso_reauth_url?: unknown } | null)?.sso_reauth_url
-  if (typeof url !== 'string' || !url.startsWith(BASE_PATH + '/')) return null
-
-  let resolved: URL
-  try {
-    resolved = new URL(url, window.location.origin)
-  } catch {
-    return null
-  }
-  if (resolved.origin !== window.location.origin || !resolved.pathname.startsWith(BASE_PATH + '/')) return null
-
-  return resolved.pathname + resolved.search
+  return panelUrlTarget((payload as { sso_reauth_url?: unknown } | null)?.sso_reauth_url)
 }
 
 /**
