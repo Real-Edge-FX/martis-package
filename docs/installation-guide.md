@@ -553,6 +553,7 @@ Your extension build resolves `@martis/runtime` to `.shims/runtime.mjs`, which r
 | `useModalFocus`, the `ModalFocusOptions` type | v2.7.0 |
 | `useDashboardFilters`, the `ActiveFilters`, `SetDashboardFilters`, `DashboardFiltersUpdate`, `DashboardFiltersOptions` and `DashboardFiltersContextValue` types | v2.9.0 |
 | `ResourceIcon`, the `ResourceIconProps` type | v2.10.0 |
+| `useAuthChallenge`, `AuthChallenge`, the `AuthChallengeProps`, `AuthChallengeState` and `ChallengeSurface` types | v2.21.0 |
 
 v2.3.0 also publishes `.shims/i18next.d.mts`, the i18next types the shims share; republishing the shims adds it.
 

@@ -27,8 +27,23 @@ it('keeps a positive integer and null (sticky) per severity', function () {
 
 it('throws naming the key for an unusable duration', function (mixed $bad) {
     ToastDurations::resolve(['warning' => $bad]);
-})->with([[0], [-5], [1.5], ['5000'], [true], [[]]])
+})->with([[0], [-5], [1.5], ['5000.5'], ['-5'], ['0'], [''], [' 5000'], ['fast'], [true], [[]], [2147483648], ['2147483648'], ['99999999999999999999']])
     ->throws(InvalidArgumentException::class, 'martis.toast.durations.warning');
+
+it('accepts digit strings, which is what env() yields, as integers', function () {
+    $out = ToastDurations::resolve(['success' => '8000', 'error' => '2147483647']);
+
+    expect($out['success'])->toBe(8000)
+        ->and($out['error'])->toBe(2147483647);
+});
+
+it('accepts the largest delay a browser timer holds', function () {
+    expect(ToastDurations::resolve(['info' => 2147483647])['info'])->toBe(2147483647);
+});
+
+it('names the maximum when a duration is too long for a timer', function () {
+    ToastDurations::resolve(['error' => 3000000000]);
+})->throws(InvalidArgumentException::class, '2147483647');
 
 it('throws naming the key for an unknown severity', function () {
     ToastDurations::resolve(['danger' => 1000]);

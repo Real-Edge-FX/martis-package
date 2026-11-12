@@ -61,7 +61,9 @@ export function LoginPage() {
   const showEmailField = showPasswordForm || showMagicLink
   const showForm = showEmailField || showRegister
   const showDivider = ssoProviders.length > 0 && showForm
-  const ssoOnly = !showPasswordForm
+  // The SSO-only subtitle belongs to a page where the SSO buttons are all there
+  // is: no password form, no magic-link request and no registration link.
+  const ssoOnly = ssoProviders.length > 0 && !showForm
 
   // The challenge covers the surfaces this page can submit to.
   const challengeSurfaces: ChallengeSurface[] = []
@@ -253,6 +255,9 @@ export function LoginPage() {
       // path here is the same convention every other auth call uses
       // (see `ForgotPassword.tsx` for a parallel).
       await api.post('/api/auth/magic-link/request', { email, ...challenge.fields('magic_link') })
+      // The token is spent by the request that succeeded too: the next one
+      // needs a fresh one, not a refusal first.
+      challenge.reset()
       addToast(
         'success',
         t('magic_link_sent', { defaultValue: 'If an account exists for that email, a sign-in link is on its way.' }),

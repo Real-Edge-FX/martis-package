@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { api, ApiError } from '@/lib/api'
 import { BASE_PATH } from '@/lib/config'
+import { panelUrlTarget } from '@/lib/panelUrl'
 import { AuthFrame } from '@/components/auth/AuthFrame'
 import { FieldError } from '@/components/auth/FieldError'
 import { PasswordFieldInput } from '@/components/fields/PasswordField'
@@ -46,7 +47,7 @@ export function PasswordChangeRequiredPage() {
     }
     setSubmitting(true)
     try {
-      const res = await api.post<{ message?: string }>('/api/auth/password/change', {
+      const res = await api.post<{ message?: string; intended_url?: string }>('/api/auth/password/change', {
         current_password: current,
         password,
         password_confirmation: passwordConfirmation,
@@ -54,7 +55,9 @@ export function PasswordChangeRequiredPage() {
       addToast('success', res?.message ?? t('password_change_done', { defaultValue: 'Your password was changed.' }))
       // A full load: the shell, its queries and the session bootstrap start
       // over without the gate.
-      window.location.href = BASE_PATH + '/'
+      // ... on the page asked for before the sign-in when the server sent one
+      // (v2.21.0) and it is a path under the base path on this origin.
+      window.location.href = panelUrlTarget(res?.intended_url) ?? BASE_PATH + '/'
     } catch (err) {
       if (err instanceof ApiError && err.status === 422 && err.errors) {
         setErrors(err.errorsByField())

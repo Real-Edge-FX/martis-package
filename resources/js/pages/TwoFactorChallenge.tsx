@@ -6,6 +6,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { BASE_PATH } from '@/lib/config'
 import { passwordChangeUrl } from '@/lib/passwordChange'
+import { panelUrlTarget } from '@/lib/panelUrl'
 import { AuthFrame } from '@/components/auth/AuthFrame'
 
 /** Inactivity timeout for the challenge session — matches the backend TTL. */
@@ -107,13 +108,18 @@ export function TwoFactorChallengePage() {
     setError('')
     setSubmitting(true)
     try {
-      const res = await api.post<{ password_change_required?: boolean }>('/api/2fa/challenge', {
+      const res = await api.post<{ password_change_required?: boolean; intended_url?: string }>('/api/2fa/challenge', {
         code,
         use_recovery_code: useRecovery,
       })
       // Full page reload so AuthContext re-fetches the authenticated user; a
       // user the forced password change gate holds goes there next (v2.3.0).
-      window.location.href = res?.password_change_required ? passwordChangeUrl() : BASE_PATH + '/'
+      // The server sends the page asked for before the sign-in only when this
+      // challenge completes it (v2.21.0); the SPA opens it when it is a path
+      // under the base path on this origin.
+      window.location.href = res?.password_change_required
+        ? passwordChangeUrl()
+        : (panelUrlTarget(res?.intended_url) ?? BASE_PATH + '/')
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
         // Too many consecutive wrong codes: the server ended the session and

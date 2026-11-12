@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Martis\Auth;
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -25,9 +26,18 @@ final class PasswordLogin
     /** Cache key the boot warning is rate limited with. */
     public const WARNING_KEY = 'martis:password-login-locked-out-warning';
 
+    /**
+     * The switch. An empty string (`MARTIS_PASSWORD_LOGIN_ENABLED=` in a
+     * `.env`, which `env()` reads as '') is "unset": the default (on) applies,
+     * so a copied example line never locks everyone out.
+     */
     public static function enabled(): bool
     {
         $value = config(self::ENABLED_KEY, true);
+
+        if (is_string($value) && trim($value) === '') {
+            return true;
+        }
 
         if (is_bool($value)) {
             return $value;
@@ -51,6 +61,33 @@ final class PasswordLogin
     public static function passwordResetEnabled(): bool
     {
         return (bool) config('martis.auth.passwordReset.enabled', false) && self::enabled();
+    }
+
+    /**
+     * The work of one failed password check, for a refusal that never reaches
+     * the controller: the sign-in routes answer an address that may not use
+     * them only after this, so the answer takes about as long as a listed
+     * address with a wrong password (the lookup is the caller's).
+     */
+    public static function spendCheck(mixed $password): void
+    {
+        Hash::check(is_string($password) ? $password : '', self::decoyHash());
+    }
+
+    /**
+     * A hash of nothing anyone knows, made with the hasher settings in force
+     * (driver, rounds, memory), once per process and setting: the cost of
+     * checking a password against it is the cost of checking one against a
+     * stored hash.
+     */
+    public static function decoyHash(): string
+    {
+        /** @var array<string, string> $made */
+        static $made = [];
+
+        $settings = md5(json_encode(config('hashing'), JSON_PARTIAL_OUTPUT_ON_ERROR) ?: '');
+
+        return $made[$settings] ??= Hash::make(bin2hex(random_bytes(16)));
     }
 
     /**

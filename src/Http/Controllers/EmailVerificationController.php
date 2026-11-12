@@ -3,6 +3,7 @@
 namespace Martis\Http\Controllers;
 
 use Illuminate\Auth\Events\Verified;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Model;
@@ -11,6 +12,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Martis\Auth\GuardCatalog;
+use Martis\Auth\IntendedUrl;
 use Martis\Contracts\SendsEmailVerification;
 
 /**
@@ -137,7 +139,11 @@ class EmailVerificationController extends MartisController
             && (string) auth()->guard($guardName)->id() === (string) $user->getKey();
 
         if ($authenticated) {
-            return redirect()->route('martis.index');
+            // The page asked for before the sign-in, when this closes the last
+            // step that held the person (IntendedUrl).
+            $intended = $user instanceof Authenticatable ? IntendedUrl::pullWhenSignedIn($request, $user) : null;
+
+            return $intended !== null ? redirect($intended) : redirect()->route('martis.index');
         }
 
         // Bounce to login with a verified marker so the page can show

@@ -48,6 +48,21 @@ export interface ToastNavigationSource {
 
 const DEFAULT_LIFE = 5000
 const LINK_MIN_LIFE = 10000
+/** The longest delay a browser timer holds (2^31 - 1 ms): a longer one fires at once. */
+const MAX_TIMER_MS = 2147483647
+/** The longest lifetime, short of the timer maximum by the margin of the safety net. */
+const MAX_LIFE = 2147483000
+
+/**
+ * A lifetime the toast can use: `null` (sticky), or a finite positive number
+ * of ms, clamped to what a timer holds. Anything else (0, a negative, NaN,
+ * Infinity, a string) is unusable (`undefined`) and the caller falls back.
+ */
+function usableLife(value: unknown): number | null | undefined {
+  if (value === null) return null
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) return Math.min(value, MAX_LIFE)
+  return undefined
+}
 
 interface ToastContextValue {
   addToast: (type: ToastType, message: string, options?: ToastOptions) => void
@@ -122,11 +137,14 @@ export function ToastProvider({
       const linkHref = link ? safeHref(link.href) : undefined
       // Lifetime: the call's `life` (null = sticky), else the severity's
       // configured duration, longer when a link has to be reachable.
+      // A per-call `life` that is neither null nor a finite positive number is
+      // ignored, as if it had not been passed.
       let life: number | null
-      if (options && "life" in options && options.life !== undefined) {
-        life = options.life
+      const requested = options && "life" in options ? usableLife(options.life) : undefined
+      if (requested !== undefined) {
+        life = requested
       } else {
-        const configured = config.toast?.durations?.[type]
+        const configured = usableLife(config.toast?.durations?.[type])
         const duration = configured === undefined ? DEFAULT_LIFE : configured
         life = duration !== null && linkHref ? Math.max(duration, LINK_MIN_LIFE) : duration
       }
@@ -194,7 +212,7 @@ export function ToastProvider({
       // Previously called clear(), which silently wiped all queued toasts.
       setTimeout(() => {
         toastRef.current?.remove(msg)
-      }, (life as number) + 1000)
+      }, Math.min((life as number) + 1000, MAX_TIMER_MS))
     },
     [t],
   )
@@ -204,7 +222,14 @@ export function ToastProvider({
   return (
     <ToastContext.Provider value={{ addToast, toastRef }}>
       {children}
-      <Toast ref={toastRef} position={position} baseZIndex={50000} />
+      <Toast
+        ref={toastRef}
+        position={position}
+        baseZIndex={50000}
+        // A toast that is gone (closed, expired or removed) leaves the set of
+        // those a navigation dismisses.
+        onRemove={(message) => navigateDismissible.current.delete(message)}
+      />
     </ToastContext.Provider>
   )
 }

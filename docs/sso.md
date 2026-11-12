@@ -1317,7 +1317,7 @@ The token is a [PASETO](https://paseto.io) `v4.public` token (Ed25519): `v4.publ
     |                      | find or create the local user, sign in |
 ```
 
-An anonymous visitor at panel A is sent to its login page first and the issue URL is kept as the session's intended URL. The Martis login screen signs in over JSON and then opens the dashboard, so after signing in at panel A, go back to panel B and click the button again (the second pass finds you signed in).
+An anonymous visitor at panel A is sent to its login page first and the issue URL is kept as the session's intended URL. The Martis login screen signs in over JSON, and the response that completes the sign-in (after the 2FA challenge, the email verification or a forced password change, when one sits in between) carries that URL, so the screen opens it and the flow carries on to panel B without a second click. Only a same-origin path under panel A's Martis base path is followed; see [Authentication](authentication.md#landing-page-after-sign-in-v2210).
 
 ### 1. Generate the key pair
 

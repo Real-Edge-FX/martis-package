@@ -75,6 +75,23 @@ describe('PasswordChangeRequiredPage', () => {
     })
   })
 
+  it('opens the page asked for before the sign-in when the server sends one (v2.21.0)', async () => {
+    post.mockResolvedValue({ message: 'Your password was changed.', intended_url: '/martis/sso/issue/partner?state=abc' })
+    fill('Temporary-Pass-1', 'Brand-New-Pass-1')
+
+    await waitFor(() => expect(location.href).toBe('/martis/sso/issue/partner?state=abc'))
+  })
+
+  it.each(['https://evil.example/martis/x', '//evil.example/martis/x', '/other'])(
+    'ignores the intended URL %s and loads the dashboard',
+    async (intended) => {
+      post.mockResolvedValue({ message: 'Your password was changed.', intended_url: intended })
+      fill('Temporary-Pass-1', 'Brand-New-Pass-1')
+
+      await waitFor(() => expect(location.href).toBe('/martis/'))
+    },
+  )
+
   it('shows the server refusal on its field', async () => {
     post.mockRejectedValue(new MockApiError(422, 'The given data was invalid.', [{}], { current_password: 'The password is incorrect.' }))
     fill('Wrong-Pass-1', 'Brand-New-Pass-1')

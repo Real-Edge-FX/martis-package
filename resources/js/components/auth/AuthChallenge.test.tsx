@@ -200,6 +200,42 @@ describe('login page', () => {
   })
 })
 
+describe('login page, one widget for two surfaces', () => {
+  it('renews the widget after a magic-link request that succeeded, so the next one carries a fresh token', async () => {
+    configMock.value = { auth: { challenge: challenge(['login', 'magic_link']), magicLink: { enabled: true } } }
+    postMock.mockResolvedValue({})
+
+    render(<MemoryRouter><LoginPage /></MemoryRouter>)
+    fireEvent.click(screen.getByText('solve'))
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'person@example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Email me a sign-in link' }))
+
+    await waitFor(() => expect(postMock).toHaveBeenCalledTimes(1))
+    expect(postMock.mock.calls[0][1]).toEqual({ email: 'person@example.com', challenge_token: 'token-0' })
+    await waitFor(() => expect(screen.getByTestId('reset-signal').textContent).toBe('1'))
+
+    // The spent token is gone: nothing is sent until the widget solves again.
+    fireEvent.click(screen.getByRole('button', { name: 'Email me a sign-in link' }))
+    await waitFor(() => expect(postMock).toHaveBeenCalledTimes(2))
+    expect(postMock.mock.calls[1][1]).toEqual({ email: 'person@example.com' })
+
+    // That request succeeded too, so the widget renewed once more (signal 2).
+    await waitFor(() => expect(screen.getByTestId('reset-signal').textContent).toBe('2'))
+    fireEvent.click(screen.getByText('solve'))
+    fireEvent.click(screen.getByRole('button', { name: 'Email me a sign-in link' }))
+    await waitFor(() => expect(postMock).toHaveBeenCalledTimes(3))
+    expect(postMock.mock.calls[2][1]).toEqual({ email: 'person@example.com', challenge_token: 'token-2' })
+  })
+
+  it('tells the widget the first surface the page covers when it serves both', () => {
+    configMock.value = { auth: { challenge: challenge(['login', 'magic_link']), magicLink: { enabled: true } } }
+
+    render(<MemoryRouter><LoginPage /></MemoryRouter>)
+
+    expect(screen.getByTestId('surface').textContent).toBe('login')
+  })
+})
+
 describe('forgot-password page', () => {
   function renderForgot() {
     return render(<MemoryRouter><ForgotPasswordPage /></MemoryRouter>)

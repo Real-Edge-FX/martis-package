@@ -28,6 +28,7 @@ export { martisEventBus } from '@/lib/eventBus'
 
 // Layout components
 export { AuthFrame } from '@/components/auth/AuthFrame'
+export { AuthChallenge, useAuthChallenge } from '@/components/auth/AuthChallenge'
 export { Sidebar } from '@/components/Sidebar'
 export { Topbar } from '@/components/Topbar'
 export { Footer } from '@/components/Footer'
@@ -122,6 +123,8 @@ export type {
   TopbarSlotProps,
   TopbarSlotPlacement,
   AuthChallengeProps,
+  AuthChallengeState,
+  ChallengeSurface,
   LayoutProps,
   OverrideProps,
   MartisLoaderProps,

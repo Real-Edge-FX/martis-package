@@ -24,6 +24,7 @@ use InvalidArgumentException;
 use Laravel\Mcp\Facades\Mcp;
 use Laravel\Mcp\Server\McpServiceProvider;
 use Martis\Actions\ActionEventRedactor;
+use Martis\Auth\AuthConfigurationException;
 use Martis\Auth\DefaultRegistersUsers;
 use Martis\Auth\DefaultResetsUserPasswords;
 use Martis\Auth\DefaultSendsEmailVerification;
@@ -724,7 +725,15 @@ class MartisServiceProvider extends ServiceProvider
      */
     protected function registerPasswordResetUrl(): void
     {
-        if (! PasswordLogin::passwordResetEnabled()) {
+        // An unusable `password_login.enabled` must not stop the boot (every
+        // artisan command, worker and request goes through it): the reset
+        // URL builder stays unset and the sign-in routes still throw, naming
+        // the key, when they are called.
+        try {
+            if (! PasswordLogin::passwordResetEnabled()) {
+                return;
+            }
+        } catch (AuthConfigurationException) {
             return;
         }
 

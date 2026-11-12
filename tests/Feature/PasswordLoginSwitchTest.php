@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Hashing\BcryptHasher;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -91,6 +93,7 @@ it('answers the same for a known address, an unknown one and an empty body', fun
 });
 
 it('refuses before the controller validates or reads a credential', function () {
+    passwordLoginUser();
     config()->set('martis.auth.password_login.enabled', false);
 
     // A malformed body would be a 422 from the controller's validation.
@@ -121,6 +124,102 @@ it('matches the break-glass list case-insensitively and trimmed', function () {
 });
 
 // --- the break-glass list is not an oracle -----------------------------------
+
+/** A bcrypt hasher that counts the checks made, to see where a request spends them. */
+class CountingBcryptHasher extends BcryptHasher
+{
+    public static int $checks = 0;
+
+    public function check($value, $hashedValue, array $options = []): bool
+    {
+        self::$checks++;
+
+        return parent::check($value, $hashedValue, $options);
+    }
+}
+
+/** Route the app's hasher through CountingBcryptHasher. */
+function countPasswordChecks(): void
+{
+    CountingBcryptHasher::$checks = 0;
+    Hash::extend('counting-bcrypt', fn () => new CountingBcryptHasher(['rounds' => (int) config('hashing.bcrypt.rounds', 4)]));
+    config()->set('hashing.driver', 'counting-bcrypt');
+    Hash::forgetDrivers();
+}
+
+/** The SQL of the user lookups made while `$callback` runs. */
+function userLookupsDuring(Closure $callback): int
+{
+    $lookups = 0;
+    DB::listen(function ($query) use (&$lookups) {
+        if (str_contains($query->sql, 'from "users"') || str_contains($query->sql, 'from `users`')) {
+            $lookups++;
+        }
+    });
+
+    $callback();
+
+    return $lookups;
+}
+
+it('spends a user lookup and one password check on an address that is not listed, as a failed sign-in does', function (string $method, string $uri) {
+    passwordLoginUser();
+    config()->set('martis.auth.password_login.enabled', false);
+    config()->set('martis.auth.password_login.break_glass_emails', ['person@example.com']);
+    countPasswordChecks();
+
+    $lookups = userLookupsDuring(function () use ($method, $uri) {
+        $this->{$method}($uri, ['email' => 'other@example.com', 'password' => 'whatever'])->assertForbidden();
+    });
+
+    expect($lookups)->toBeGreaterThanOrEqual(1)
+        ->and(CountingBcryptHasher::$checks)->toBe(1);
+})->with('password sign-in routes');
+
+it('spends the same check on an unlisted address whatever the body holds', function () {
+    passwordLoginUser();
+    config()->set('martis.auth.password_login.enabled', false);
+    countPasswordChecks();
+
+    $this->postJson('/martis/api/auth/login', ['email' => ['not', 'a', 'string'], 'password' => ['x']])->assertForbidden();
+    $this->postJson('/martis/api/auth/login', [])->assertForbidden();
+
+    expect(CountingBcryptHasher::$checks)->toBe(2);
+});
+
+it('spends a password check on a listed address that has no account too', function () {
+    passwordLoginUser();
+    config()->set('martis.auth.password_login.enabled', false);
+    config()->set('martis.auth.password_login.break_glass_emails', ['ghost@example.com']);
+    countPasswordChecks();
+
+    $this->postJson('/martis/api/auth/login', ['email' => 'ghost@example.com', 'password' => 'x'])->assertForbidden();
+
+    expect(CountingBcryptHasher::$checks)->toBe(1);
+});
+
+it('spends nothing extra while password sign-in is on', function () {
+    passwordLoginUser();
+    countPasswordChecks();
+
+    $this->postJson('/martis/api/auth/login', ['email' => 'nobody@example.com', 'password' => 'x'])->assertStatus(422);
+
+    expect(CountingBcryptHasher::$checks)->toBe(0);
+});
+
+it('makes the decoy hash with the hasher settings in force, once per process and setting', function () {
+    countPasswordChecks();
+
+    $first = PasswordLogin::decoyHash();
+    expect(PasswordLogin::decoyHash())->toBe($first);
+
+    config()->set('hashing.bcrypt.rounds', 5);
+    Hash::forgetDrivers();
+
+    $second = PasswordLogin::decoyHash();
+    expect($second)->not->toBe($first)
+        ->and(password_get_info($second)['options']['cost'])->toBe(5);
+});
 
 /** What a refusal shows a caller: status, content type and body. */
 function refusalOf(TestResponse $response): array
@@ -245,6 +344,7 @@ it('does not normalise anything while password sign-in is on', function () {
 });
 
 it('runs the throttles before the switch', function () {
+    passwordLoginUser();
     config()->set('martis.auth.password_login.enabled', false);
     config()->set('martis.throttle.login_attempts', 2);
 
@@ -316,6 +416,25 @@ it('throws naming the key when the switch or the break-glass list is unusable', 
 
     config()->set('martis.auth.password_login.break_glass_emails', [['a@example.com']]);
     expect(fn () => PasswordLogin::breakGlassEmails())->toThrow(AuthConfigurationException::class, 'martis.auth.password_login.break_glass_emails');
+});
+
+it('treats an empty value of the switch as unset, so password sign-in stays on', function (mixed $value) {
+    config()->set('martis.auth.password_login.enabled', $value);
+
+    expect(PasswordLogin::enabled())->toBeTrue();
+})->with(['empty string' => [''], 'blank' => ['  ']]);
+
+it('boots the provider and keeps the sign-in routes loud when the switch is unusable', function () {
+    config()->set('martis.auth.passwordReset.enabled', true);
+    config()->set('martis.auth.password_login.enabled', 'maybe');
+
+    // Boot (every artisan command, every worker) must not die of it.
+    bootMartisProvider();
+
+    // The request path still throws, naming the key.
+    $this->withoutExceptionHandling();
+    expect(fn () => $this->postJson('/martis/api/auth/login', ['email' => 'a@example.com', 'password' => 'x']))
+        ->toThrow(AuthConfigurationException::class, 'martis.auth.password_login.enabled');
 });
 
 it('reads the env var forms of the switch', function (mixed $value, bool $expected) {
