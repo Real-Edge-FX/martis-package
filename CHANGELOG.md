@@ -40,6 +40,7 @@ Minor release from ten consumer requests about sign-in: a panel that signs in on
 ### Fixed
 
 - **`identity_match_attribute = external_id` never stored the id**, so the second sign-in of an auto-created user was refused. The id column is written on create, an existing row can be linked by email when `link_by_email` is on, and a row holding a different id is never re-linked.
+- **A refused SSO sign-in showed nothing on the login page.** The callback flashed its message but the SPA never read it, so the visitor was sent back to the login page in silence. The shell publishes it once as `window.MartisConfig.flash.sso` and the login page shows it as an error toast.
 - **`php artisan martis:sso azure` did not insert its block** into a freshly published config: the commented example counted as "already declared".
 
 ## [2.20.0] — 2026-11-11

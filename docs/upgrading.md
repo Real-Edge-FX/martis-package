@@ -14,6 +14,9 @@ v2.21.0 is about sign-in: SSO-only panels, a signed token between two Martis app
 - **Values that were silently ignored now throw**, naming the key: an unknown `identity_match_attribute`, a non-string `identity_external_id_column`, an `on_no_role_match` other than `deny`, `guest` or `callable` (it signed the user in role-less), a `logout_url` that is neither a string nor null.
 - **SSO callback URLs are lower case.** `/sso/Azure/callback` is a 404. Check the redirect URI registered at the IdP.
 - **The failed-callback log line changed**: its context is `provider`, `reason`, `request_id`, `exception`, `error` (credentials masked); the `email` key is gone. A failure after the user was resolved (a throwing `afterLogin` hook, a unique index) is now a refusal on the login page, not a 500.
+- **A refused SSO sign-in shows an error toast on the login page** (the text of the exception's `messageKey`, else the generic one). It showed nothing before. A custom `auth:login` component reads it from `window.MartisConfig.flash.sso`.
+- **New refusal reason `unlinked_account`**: an `external_id` sign-in whose address is held by a local row with no id, with `link_by_email` off. It was reported as `account_unverified`; a listener on `SsoFailed` or a log alert keyed on that reason adds the new one.
+- **The SPA waits 300 ms before it leaves for `login?expired=1` on a 401**, so a response that carries `sso_reauth_url` can win.
 - **`MartisSso::afterLogin()` appends.** Registering twice ran only the last closure; both run now, in order. `MartisSso::forgetHooks()` clears them.
 - **`RouteMiddleware::authenticated()` includes `martis.sso.session`.** A host that copies the middleware list by hand adds it after the guard. An SSO session costs one cache read per request, and a failing cache store ends SSO sessions.
 - **`php artisan martis:sso azure|google|github` now inserts its block** into a published config that only had the commented example.
