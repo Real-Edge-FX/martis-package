@@ -778,6 +778,10 @@ function DefaultTable({
             style={style}
             headerStyle={style}
             headerClassName={colClasses || undefined}
+            // PrimeReact draws a header in a flex box that `text-align` on the
+            // th does not move; `align` adds the `p-align-*` class its
+            // `justify-content` rule is keyed on.
+            align={col?.textAlign ?? undefined}
             bodyClassName={bodyClasses}
           />
           )

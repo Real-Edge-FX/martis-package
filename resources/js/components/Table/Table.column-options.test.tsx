@@ -64,6 +64,22 @@ describe('Table column options', () => {
     expect(td.classList.contains('martis-col-align-right')).toBe(true)
   })
 
+  it('moves the header content of a non-sortable column, not only its text-align', () => {
+    // PrimeReact draws the header in a flex box (`.p-column-header-content`),
+    // which `text-align` on the th does not move: the header must carry the
+    // class its `justify-content` rule is keyed on (the rule itself is pinned
+    // in tableColumnCss.test.ts; jsdom cannot read PrimeReact's `@layer`).
+    const { container } = renderTable([
+      field('amount', 'Amount', { textAlign: 'right' }),
+      field('note', 'Note', { textAlign: 'center' }),
+      field('name', 'Name'),
+    ])
+    const ths = container.querySelectorAll('thead th')
+    expect(ths[0].classList.contains('p-align-right')).toBe(true)
+    expect(ths[1].classList.contains('p-align-center')).toBe(true)
+    expect(ths[2].className).not.toMatch(/p-align-/)
+  })
+
   it('keeps the sort icon beside the label of an aligned sortable column', () => {
     const { container } = renderTable([field('amount', 'Amount', { textAlign: 'right' }, true)])
     const button = container.querySelector('thead th button') as HTMLElement

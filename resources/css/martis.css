@@ -3535,6 +3535,17 @@ html:not(.dark) .martis-dropzone {
   font-variant-numeric: tabular-nums;
 }
 
+/* `Field::textAlign()` on a header: PrimeReact draws the header in a flex box
+   (`.p-column-header-content`) that `text-align` on the th does not move, so
+   the content is placed with `justify-content`. A sortable column's button
+   does it on its own; this is for the plain label. */
+.martis-datatable th.martis-col-align-right > .p-column-header-content {
+  justify-content: flex-end;
+}
+.martis-datatable th.martis-col-align-center > .p-column-header-content {
+  justify-content: center;
+}
+
 /* `Field::hideBelow()`: hide the column (header and cells) under a viewport
    width. sm 640px, md 768px, lg 1024px, xl 1280px, the panel's own
    breakpoints; "below md" means a viewport narrower than 768px. */
@@ -3565,8 +3576,11 @@ html:not(.dark) .martis-dropzone {
 
 /* `Resource::stickyActions()`: the actions column stays at the right edge
    while the table scrolls sideways. The cells need an opaque background of
-   their own (the row's is transparent for selected rows and varies for
-   zebra and hover), so each row state sets the matching surface. */
+   their own, equal to what the row shows in each state. The row's colour is
+   not on one element: a plain row takes it from the TR (`--martis-sidebar`,
+   `--martis-surface` in light), an even row and a hovered row from the TDs
+   (`--martis-row-even`, `--martis-row-hover`, whether or not the table is
+   striped), a selected row is transparent over the card behind the table. */
 .martis-datatable.martis-datatable-sticky-actions th.martis-actions-col,
 .martis-datatable.martis-datatable-sticky-actions td.martis-actions-col {
   position: sticky;
@@ -3579,12 +3593,23 @@ html:not(.dark) .martis-dropzone {
 }
 .martis-datatable.martis-datatable-sticky-actions .p-datatable-tbody > tr > td.martis-actions-col {
   z-index: 1;
-  background-color: var(--martis-card) !important;
+  background-color: var(--martis-sidebar) !important;
 }
-.martis-datatable.martis-datatable-striped.martis-datatable-sticky-actions .p-datatable-tbody > tr:nth-child(even) > td.martis-actions-col {
+/* `:where()` keeps the light rule as specific as the dark one, so the even,
+   selected and hover rules below still win over it in both themes. */
+:where(html:not(.dark)) .martis-datatable.martis-datatable-sticky-actions .p-datatable-tbody > tr > td.martis-actions-col {
+  background-color: var(--martis-surface) !important;
+}
+.martis-datatable.martis-datatable-sticky-actions .p-datatable-tbody > tr:nth-child(even) > td.martis-actions-col {
   background-color: var(--martis-row-even) !important;
 }
-.martis-datatable.martis-datatable-sticky-actions:not(.martis-datatable-no-hover) .p-datatable-tbody > tr:hover > td.martis-actions-col {
+.martis-datatable.martis-datatable-sticky-actions .p-datatable-tbody > tr.martis-row-selected > td.martis-actions-col,
+.martis-datatable.martis-datatable-sticky-actions .p-datatable-tbody > tr.p-highlight > td.martis-actions-col {
+  background-color: var(--martis-card) !important;
+}
+.martis-datatable.martis-datatable-sticky-actions .p-datatable-tbody > tr:hover > td.martis-actions-col,
+.martis-datatable.martis-datatable-sticky-actions .p-datatable-tbody > tr.martis-row-selected:hover > td.martis-actions-col,
+.martis-datatable.martis-datatable-sticky-actions .p-datatable-tbody > tr.p-highlight:hover > td.martis-actions-col {
   background-color: var(--martis-row-hover) !important;
 }
 
