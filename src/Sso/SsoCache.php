@@ -43,6 +43,22 @@ final class SsoCache
     }
 
     /**
+     * The one guard every sign-in path calls BEFORE the guard signs anyone in
+     * (password, magic link, invitation): each of them drops the SSO origin of
+     * the session afterwards, which reads this cache, and an unusable store
+     * that threw only then would answer a 500 with the user already
+     * authenticated. A no-op with SSO off.
+     *
+     * @throws InvalidArgumentException
+     */
+    public static function assertUsable(): void
+    {
+        if (self::enabled()) {
+            self::store();
+        }
+    }
+
+    /**
      * An empty or blank value is unset (what `env()` yields for `KEY=`).
      * Anything else must name a store of `cache.stores`.
      *
