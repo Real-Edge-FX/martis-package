@@ -119,6 +119,33 @@ describe('handleActionResponse', () => {
     expect(ctx.refresh).toHaveBeenCalled()
   })
 
+  it('shows the generic toast after an emit without a message', () => {
+    const ctx = context()
+    handleActionResponse({ type: 'emit', data: { event: 'reports:refresh', data: {} } }, ctx)
+
+    expect(ctx.addToast).toHaveBeenCalledWith('success', 'action_success')
+  })
+
+  it('shows the message an emit carries instead of the generic toast', () => {
+    const ctx = context()
+    handleActionResponse({ type: 'emit', data: { event: 'reports:refresh', data: {}, message: 'Queued' } }, ctx)
+
+    expect(ctx.addToast).toHaveBeenCalledTimes(1)
+    expect(ctx.addToast).toHaveBeenCalledWith('success', 'Queued')
+  })
+
+  it('shows no toast for a silent emit, but still emits and refreshes', () => {
+    const listener = vi.fn()
+    martisEventBus.on('reports:copy', listener)
+    const ctx = context()
+    handleActionResponse({ type: 'emit', data: { event: 'reports:copy', data: { id: 1 }, silent: true, message: 'ignored' } }, ctx)
+    martisEventBus.off('reports:copy', listener)
+
+    expect(ctx.addToast).not.toHaveBeenCalled()
+    expect(listener).toHaveBeenCalledWith({ id: 1 })
+    expect(ctx.refresh).toHaveBeenCalled()
+  })
+
   // The answers below are what PHP sends for `emit('reports:refresh')` and
   // `modal('generated-token')` with no data: `json_encode` writes the empty
   // array as `[]` (recorded with `json_encode(ActionResponse::modal(...))`).
