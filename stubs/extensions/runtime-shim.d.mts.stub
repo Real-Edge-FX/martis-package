@@ -1962,6 +1962,14 @@ interface MartisConfigShape {
      */
     locales?: MartisLocalesConfig;
     auth?: MartisAuthConfig;
+    /**
+     * The one message the server flashed for the page it renders, published by
+     * `Martis\Auth\PublishedFlash` (v2.21.0). `sso` is the text of a refused SSO
+     * sign-in; the login page shows it as an error toast and clears it.
+     */
+    flash?: {
+        sso?: string | null;
+    };
     stickyViews?: MartisStickyViewsConfig;
     notifications?: MartisNotificationsConfig;
     impersonation?: MartisImpersonationConfig;
