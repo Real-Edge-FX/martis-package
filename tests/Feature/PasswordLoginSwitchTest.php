@@ -386,7 +386,7 @@ it('publishes the switch and hides the reset link for the SPA, without the break
     preg_match('/^\s*auth: (.*),$/m', $html, $match);
     $auth = json_decode($match[1], true);
 
-    expect($auth['passwordLogin'])->toBe(['enabled' => false])
+    expect($auth['passwordLogin'])->toBe(['enabled' => false, 'breakGlass' => true])
         ->and($auth['passwordReset']['enabled'])->toBeFalse()
         ->and($html)->not->toContain('secret-breakglass');
 });

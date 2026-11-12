@@ -83,7 +83,7 @@ Landing page after login. Configurable via `config/martis.php`:
 
 All six unauthenticated surfaces (Login, Register, 2FA challenge, 404, 403, 500) share the `components/auth/AuthFrame.tsx` shell — dot-grid background, brand-only logo row, centered Shell footer, and a guest-mode theme + language picker in the top-right via `AuthControls.tsx`.
 
-- **Login** — email + password + `Keep me signed in` toggle. SSO, Google, Forgot password, and "Create an account" render only when the matching `config.auth.*.enabled` flag is set. With `auth.password_login.enabled` off (v2.21.0) it shows the SSO buttons only, and the form again on `?password_login=1`.
+- **Login** — email + password + `Keep me signed in` toggle. SSO, Google, Forgot password, and "Create an account" render only when the matching `config.auth.*.enabled` flag is set. With `auth.password_login.enabled` off (v2.21.0) it shows the SSO buttons only, and the form again on `?password_login=1` when a break-glass address is configured (v2.23.0).
 - **Register** — `/register` route gated by `config.auth.registration.enabled`. Posts to `/{martis-path}/api/auth/register` (consumer-provided endpoint).
 - **2FA challenge** — 6-cell OTP row with auto-advance + paste-to-fill, a 30 s visual countdown, and a backup-code toggle that swaps the OTP grid for a plain recovery-code input.
 - **Error pages** — `ErrorScreen.tsx` drives 404 / 403 / 500 with a faded watermark code, accent icon, optional `incidentId` chip with copy button, and primary + secondary CTAs. `ForbiddenPage` and `NotFoundPage` are on `@martis/runtime` (v2.2.0+), so a custom page shows the 403 or 404 screen in place.

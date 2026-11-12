@@ -55,11 +55,12 @@ final class PublishedAuthConfig
                 'enabled' => PasswordChangeRequirement::enabled(),
                 'url' => PasswordChangeRequirement::pageUrl(),
             ],
-            // Only whether: the break-glass list stays on the server. The
-            // login page opens the form on `?password_login=1`.
-            'passwordLogin' => [
-                'enabled' => PasswordLogin::enabled(),
-            ],
+            // Only whether: the break-glass list itself stays on the server.
+            // `breakGlass` is true when password sign-in is off AND the list
+            // holds an address (v2.23.0): the login page opens the form on
+            // `?password_login=1` only then, so an SSO-only panel with no
+            // break-glass address never shows a form nobody can use.
+            'passwordLogin' => self::passwordLogin(),
             'challenge' => ChallengeConfig::published(),
             // `auth.copy.*` accepts strings or `array<locale, string>`; the
             // React helper `useAuthCopy()` resolves the active locale.
@@ -70,6 +71,24 @@ final class PublishedAuthConfig
                 'reset_password' => ['title' => null, 'subtitle' => null],
                 'invitation_accept' => ['title' => null, 'subtitle' => null],
             ]),
+        ];
+    }
+
+    /**
+     * `enabled`: the password sign-in switch. `breakGlass`: whether the form
+     * may still be opened on `?password_login=1`, that is, password sign-in is
+     * off and `break_glass_emails` holds an address. A boolean only, never
+     * the list.
+     *
+     * @return array{enabled: bool, breakGlass: bool}
+     */
+    private static function passwordLogin(): array
+    {
+        $enabled = PasswordLogin::enabled();
+
+        return [
+            'enabled' => $enabled,
+            'breakGlass' => ! $enabled && PasswordLogin::breakGlassEmails() !== [],
         ];
     }
 

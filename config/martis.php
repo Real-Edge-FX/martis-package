@@ -1274,8 +1274,9 @@ return [
         // (`passwordReset` below) is off with it. For a panel whose people
         // sign in through SSO only. Magic-link sign-in, invitations and
         // registration keep their own switches: an SSO-only panel turns them
-        // off. The login page then shows the SSO buttons only; it still shows
-        // the form on `?password_login=1` (the server decides who may use it).
+        // off. The login page then shows the SSO buttons only; it shows the
+        // form on `?password_login=1` only when `break_glass_emails` holds an
+        // address (v2.23.0; the server decides who may use it).
         'password_login' => [
             'enabled' => env('MARTIS_PASSWORD_LOGIN_ENABLED', true),
             // Addresses (case-insensitive, trimmed) that may still sign in
