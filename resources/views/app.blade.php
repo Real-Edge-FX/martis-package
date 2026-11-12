@@ -199,6 +199,10 @@
             // An allow-list, never `config('martis.auth')` itself: this page is
             // public (v2.21.0). See Martis\Auth\PublishedAuthConfig.
             auth: {!! json_encode(\Martis\Auth\PublishedAuthConfig::toArray()) !!},
+            {{-- v2.21.0: the flashed `sso` refusal of the request, once, and nothing
+                 else of the error bag (Martis\Auth\PublishedFlash). Hex flags
+                 keep a text holding "</script>" inside the string. --}}
+            flash: {!! json_encode(\Martis\Auth\PublishedFlash::toArray(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!},
             profile: {!! json_encode([
                 'enabled' => (bool) config('martis.profile.enabled', true),
                 'sections' => array_values(array_intersect(
