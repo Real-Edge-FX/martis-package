@@ -819,7 +819,8 @@ The package ships 35 commands (plus the aliases `martis:override` → `martis:co
 | `martis:component` | Scaffold a React override (TSX) under `resources/js/martis-extensions/overrides/`. Every `--type` auto-registers on the next `npm run build:extensions`. See [Overrides](overrides.md#6-creating-custom-components-artisan) for the filename → key table |
 | `martis:theme` | Scaffold a custom theme in `resources/css/martis/<name>.css`, publish it and set `theme.name` in a published `config/martis.php` |
 | `martis:theme:diff` | Compare a consumer theme against the bundled package tokens (exit `0` aligned, `2` drift) |
-| `martis:sso` | Scaffold an SSO provider end to end (composer deps, config, env, listener, migrations); pass `--no-composer --no-migrate` in CI or agent shells |
+| `martis:sso` | Scaffold an SSO provider end to end (composer deps, config, env, listener, migrations); pass `--no-composer --no-migrate` in CI or agent shells. `--driver=signed-token` scaffolds a signed-token consumer and `--issuer` an audience of the issuing panel (v2.21.0) |
+| `martis:sso:keys` | Print a new Ed25519 key pair for the signed-token SSO (v2.21.0); it writes nothing |
 
 ## Next Steps
 
