@@ -240,6 +240,8 @@ public function tableRowHover(): bool       { return true; }
 
 Page navigation controls showing current page, total records, and per-page selector.
 
+The per-page and soft-delete ("trashed") selects of the index, lenses and relationship tables (`BelongsToMany`, `MorphToMany` included) are PrimeReact `Dropdown`s since v2.23.0 (before, native `<select>` elements), so the control and its option panel follow the theme and dark mode like the filters do. The root keeps the `martis-perpage-select` class and the compact 2.25rem height; host CSS that targeted `select.martis-perpage-select` must target `.p-dropdown.martis-perpage-select` instead. The other native selects (repeater, morph-to, metric range, preferences, the sort chip) are unchanged.
+
 ### DeleteModal
 
 Confirmation dialog for delete/archive operations.
@@ -1255,7 +1257,9 @@ Stacked label/value rows used by the resource detail page right rail and the dra
 </dl>
 ```
 
-Add `.martis-detail-panel.is-drawer` on the wrapper for drawer-tighter spacing. `.martis-detail-kicker` is the eyebrow text rendered above the panel title.
+Add `.martis-detail-panel.is-drawer` on the wrapper for drawer-tighter spacing. `.martis-detail-kicker` is the eyebrow text rendered above the panel title (its text comes from `Resource::detailKicker()`, see [resources.md](resources.md#detailkicker)).
+
+Rows the package renders carry hooks for host CSS (v2.23.0): `data-field` (the field attribute) and `data-type` (the field component), plus `.is-full-width` for a `fullWidth()` field (one column, label above the value) and `.is-label-hidden` for `hideLabelOnDetail()` (the `dt` gets `sr-only`).
 
 ### Form density helpers
 

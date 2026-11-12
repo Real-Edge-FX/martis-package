@@ -258,6 +258,9 @@ abstract class Field implements FieldContract
     /** Whether the field label is stacked above (true) or inline (false). */
     protected bool $stacked = true;
 
+    /** Whether the detail row hides the field label (see hideLabelOnDetail()). */
+    protected bool $hideLabelOnDetail = false;
+
     protected mixed $defaultValue = null;
 
     protected bool $hasDefault = false;
@@ -539,6 +542,7 @@ abstract class Field implements FieldContract
             'tooltip' => $this->getTooltip(),
             'fullWidth' => $this->fullWidth,
             'stacked' => $this->stacked,
+            'hideLabelOnDetail' => $this->hideLabelOnDetail,
             'colSpan' => $this->colSpan,
             'colSpanMd' => $this->colSpanMd,
             'colSpanLg' => $this->colSpanLg,
@@ -964,6 +968,20 @@ abstract class Field implements FieldContract
     public function fullWidth(bool $fullWidth = true): static
     {
         $this->fullWidth = $fullWidth;
+
+        return $this;
+    }
+
+    /**
+     * Hide the field label on the detail page and in the detail drawer.
+     *
+     * The value then renders without its label cell. Combine with
+     * `fullWidth()` to let a long value (a note, a block of text) use the
+     * whole row. Forms keep their label.
+     */
+    public function hideLabelOnDetail(bool $hide = true): static
+    {
+        $this->hideLabelOnDetail = $hide;
 
         return $this;
     }
@@ -2177,6 +2195,12 @@ abstract class Field implements FieldContract
      */
     protected ?bool $columnTruncate = null;
 
+    /** Explicit horizontal text alignment of the index column, or null. */
+    protected ?string $columnTextAlign = null;
+
+    /** Breakpoint below which the index column is hidden, or null. */
+    protected ?string $columnHideBelow = null;
+
     /**
      * Set a fixed column width for the index table (e.g. "80px", "10rem").
      *
@@ -2224,6 +2248,51 @@ abstract class Field implements FieldContract
     }
 
     /**
+     * Align the index column (header and cells): `left`, `center` or
+     * `right`. Opt-in: without this call the column keeps its default
+     * alignment. A right-aligned column also uses tabular figures so
+     * digits line up.
+     *
+     * @throws \InvalidArgumentException When the value is not one of the three.
+     */
+    public function textAlign(string $align): static
+    {
+        if (! in_array($align, ['left', 'center', 'right'], true)) {
+            throw new \InvalidArgumentException(sprintf(
+                'Field::textAlign() expects "left", "center" or "right", got "%s" (field "%s").',
+                $align,
+                $this->attribute,
+            ));
+        }
+
+        $this->columnTextAlign = $align;
+
+        return $this;
+    }
+
+    /**
+     * Hide the column on the index below a viewport breakpoint: `sm`
+     * (640px), `md` (768px), `lg` (1024px) or `xl` (1280px). The field
+     * stays on the detail page and in forms.
+     *
+     * @throws \InvalidArgumentException When the value is not a known breakpoint.
+     */
+    public function hideBelow(string $breakpoint): static
+    {
+        if (! in_array($breakpoint, ['sm', 'md', 'lg', 'xl'], true)) {
+            throw new \InvalidArgumentException(sprintf(
+                'Field::hideBelow() expects "sm", "md", "lg" or "xl", got "%s" (field "%s").',
+                $breakpoint,
+                $this->attribute,
+            ));
+        }
+
+        $this->columnHideBelow = $breakpoint;
+
+        return $this;
+    }
+
+    /**
      * Resolve the effective column width metadata, blending explicit
      * `->width()` / `->minWidth()` / ... calls with per-type defaults
      * defined in `defaultColumnWidth()`. Explicit user calls always win.
@@ -2233,7 +2302,7 @@ abstract class Field implements FieldContract
      * Apps that want the pre-v0.7.0 fully auto-sizing behaviour set the
      * flag to false.
      *
-     * @return array{width: ?string, minWidth: ?string, maxWidth: ?string, truncate: bool}
+     * @return array{width: ?string, minWidth: ?string, maxWidth: ?string, truncate: bool, textAlign: ?string, hideBelow: ?string}
      */
     public function resolveColumnWidth(): array
     {
@@ -2261,6 +2330,8 @@ abstract class Field implements FieldContract
             'minWidth' => $this->columnMinWidth ?? ($defaults['minWidth'] ?? null),
             'maxWidth' => $this->columnMaxWidth ?? ($defaults['maxWidth'] ?? null),
             'truncate' => $this->columnTruncate ?? ($defaults['truncate'] ?? false),
+            'textAlign' => $this->columnTextAlign,
+            'hideBelow' => $this->columnHideBelow,
         ];
     }
 

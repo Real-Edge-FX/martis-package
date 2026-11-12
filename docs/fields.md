@@ -225,8 +225,9 @@ Before v1.37.3 a cast attribute was double-encoded (a JSON string *of* a JSON st
 | `help` | `help(string\|Closure $text): static` | `$this` | Set help text displayed below the field input. Supports inline HTML (Martis extension): the panel sanitises it (links, bold, code, lists and line breaks stay; scripts, event handlers, `javascript:` URLs, the `style` attribute and element, `id`, `name`, forms and form controls are removed), but it is still output you author, so never interpolate unescaped user or record data into it (use `e()`). Accepts a closure for request-time resolution. |
 | `tooltip` | `tooltip(string\|Closure\|null $text): static` | `$this` | ⭐ Martis differential. Attach a hover tooltip to the field label — shown via a `(?)` icon next to the label. Supports raw HTML so authors can use `<br />`, `<strong>`, `<em>`, `<ul>`, etc. for multi-line rich hints. Accepts a closure for request-time resolution. Pass `null` to clear. See [Tooltips](#tooltips-martis-differential). |
 | `withLabel` | `withLabel(string\|Closure $value): static` | `$this` | Override the constructor label after construction. Accepts a closure for request-time resolution. |
-| `fullWidth` | `fullWidth(bool $fullWidth = true): static` | `$this` | Make the field span the full width of the form. |
-| `stacked` | `stacked(bool $stacked = true): static` | `$this` | Control label position: stacked above (true) or inline (false). |
+| `fullWidth` | `fullWidth(bool $fullWidth = true): static` | `$this` | Make the field span the full width of the form. On the detail page and in the detail drawer the row becomes a single column with the label above the value (v2.23.0+; before, the flag was ignored there). |
+| `hideLabelOnDetail` | `hideLabelOnDetail(bool $hide = true): static` | `$this` | Hide the field label on the detail page and in the detail drawer, so a long value uses the whole row. The label stays in the markup for screen readers; forms keep it. Implies the single-column row of `fullWidth()`. v2.23.0+. |
+| `stacked` | `stacked(bool $stacked = true): static` | `$this` | Control label position on forms: stacked above (true) or inline (false). The detail rows do not read it (it defaults to `true`); use `fullWidth()` there. |
 | `default` | `default(mixed $value): static` | `$this` | Set a default value for the field on create forms. Accepts a closure for request-time resolution, resolved on the server. The create page, the create drawer, the inline create modal and the action modals open the field on it (v2.16.0+; before, only a `Repeater` row and the attach modal's pivot fields did). A copy made with Replicate opens on the copied record's values instead. |
 | `sticky` | `sticky(bool $value = true): static` | `$this` | Keep the value the user submitted when they choose "Create & add another", so the next record starts from it instead of the field's default; the other fields return to their defaults. Serialised as `sticky` in the field descriptor. Has no effect on update, replicate or the other submit buttons. |
 
@@ -778,6 +779,10 @@ Controls how the field renders as a column in the index table. See [resources.md
 | `minWidth` | `minWidth(string $value): static` | Minimum width. Useful on title columns that would otherwise collapse. |
 | `maxWidth` | `maxWidth(string $value): static` | Maximum width. Pair with `truncate()` on URL / email columns. |
 | `truncate` | `truncate(bool $value = true): static` | Clip overflow with an ellipsis. Call with `false` to cancel a type default. |
+| `textAlign` | `textAlign(string $align): static` | Align the column header and cells: `left`, `center` or `right` (the Nova method). The sort icon stays beside the label, and a right-aligned column uses tabular figures so digits line up. Opt-in: without the call the column keeps today's alignment. Any other value throws `InvalidArgumentException` naming it. v2.23.0+. |
+| `hideBelow` | `hideBelow(string $breakpoint): static` | Hide the column (header and cells) on the index when the viewport is narrower than the breakpoint: `sm` (640px), `md` (768px), `lg` (1024px) or `xl` (1280px). A pure CSS rule on the viewport width, so `hideBelow('md')` hides the column below 768px. The field stays on the detail page and in forms. Any other value throws `InvalidArgumentException` naming it. v2.23.0+. |
+
+`textAlign` and `hideBelow` apply to the resource index and lenses. The relationship tables on a detail page do not read the column metadata.
 
 Type defaults (applied automatically unless overridden):
 

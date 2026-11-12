@@ -10,7 +10,11 @@ export interface SortHeaderProps {
   sort: readonly SortKey[]
   /** `additive` is true for Shift+click and Shift+Enter. */
   onSort: (attribute: string, additive: boolean) => void
+  /** Column alignment (`Field::textAlign()`); the sort icon stays beside the label. */
+  align?: 'left' | 'center' | 'right'
 }
+
+const ALIGN_JUSTIFY = { left: 'flex-start', center: 'center', right: 'flex-end' } as const
 
 /**
  * The header button of a sortable column, shared by the index, the lens and
@@ -22,7 +26,7 @@ export interface SortHeaderProps {
  * asks for one sorted header at a time); the others say their place in the
  * order in visually hidden text.
  */
-export function SortHeader({ attribute, label, sort, onSort }: SortHeaderProps) {
+export function SortHeader({ attribute, label, sort, onSort, align }: SortHeaderProps) {
   const { t } = useTranslation('resources')
   const buttonRef = useRef<HTMLButtonElement>(null)
 
@@ -47,7 +51,10 @@ export function SortHeader({ attribute, label, sort, onSort }: SortHeaderProps) 
       ref={buttonRef}
       type="button"
       className="martis-th-sortable flex items-center gap-1 font-bold uppercase tracking-wider text-xs"
-      style={{ color: 'var(--martis-table-header-text)' }}
+      style={{
+        color: 'var(--martis-table-header-text)',
+        ...(align ? { width: '100%', justifyContent: ALIGN_JUSTIFY[align] } : {}),
+      }}
       onClick={(e) => onSort(attribute, e.shiftKey)}
       onKeyDown={(e) => {
         // Enter on a button clicks it without the Shift state in every

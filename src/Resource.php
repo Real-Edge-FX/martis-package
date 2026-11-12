@@ -518,6 +518,17 @@ abstract class Resource implements ResourceContract
         return [];
     }
 
+    /**
+     * The small heading above the detail field block (and the sidebar).
+     *
+     * `null` (default) keeps the translated "Details". A string is shown
+     * verbatim (translate it yourself), `false` hides the heading.
+     */
+    public function detailKicker(Request $request): string|false|null
+    {
+        return null;
+    }
+
     /** {@inheritdoc} */
     public function fieldsForCreate(Request $request): array
     {
@@ -1262,6 +1273,15 @@ abstract class Resource implements ResourceContract
     public static function tableLayout(): TableLayout
     {
         return TableLayout::Auto;
+    }
+
+    /**
+     * Keep the row-actions column pinned to the right edge of the index
+     * table while the table scrolls horizontally. Default false.
+     */
+    public static function stickyActions(): bool
+    {
+        return false;
     }
 
     /** {@inheritdoc} */

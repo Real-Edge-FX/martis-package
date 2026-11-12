@@ -505,6 +505,19 @@ Hide additional surfaces by attribute: `<div data-print-hide="true">…` is not 
 
 ---
 
+### Table and detail class hooks (v2.23.0)
+
+No new variables; these classes are the stable hooks for host CSS:
+
+| Class or attribute | Where | Set by |
+|--------------------|-------|--------|
+| `.martis-col-hide-sm` / `-md` / `-lg` / `-xl` | `th` and `td` of an index column | `Field::hideBelow()`; `display: none` under 640 / 768 / 1024 / 1280px |
+| `.martis-col-align-left` / `-center` / `-right` | `th` and `td` of an index column | `Field::textAlign()`; `-right` cells use tabular figures |
+| `.martis-datatable-sticky-actions`, `.martis-actions-col` | the table root, the actions `th` / `td` | `Resource::stickyActions()` |
+| `.martis-detail-row[data-field][data-type]` | every detail row (page, sidebar, drawer) | always |
+| `.martis-detail-row.is-full-width`, `.is-label-hidden` | a detail row | `Field::fullWidth()`, `Field::hideLabelOnDetail()` |
+| `.p-dropdown.martis-perpage-select` | the per-page and trashed selects | always (a PrimeReact `Dropdown` since v2.23.0) |
+
 ## Using Variables in Custom Components
 
 ### In TSX (inline style)
