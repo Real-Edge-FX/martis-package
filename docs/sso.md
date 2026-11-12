@@ -478,14 +478,18 @@ Every refusal of the callback (the IdP call failed, the account may not be adopt
 
 | Reason | When |
 |---|---|
-| `unknown` | The provider threw anything that is not a `Martis\Sso\SsoException` (an unreachable IdP, a rejected code, a malformed token). |
+| `unknown` | Anything thrown that is not a `Martis\Sso\SsoException`: the provider (an unreachable IdP, a rejected code, a malformed token), the user step (a unique index on the email, the two concurrent first sign-ins of one identity, an IdP email change onto an address another row holds), the role sync or an `afterLogin` hook. |
 | `account_unverified` | A local row holds the IdP's address and the sign-in may not adopt it (`SsoAdoptionRefusedException`). |
 | `missing_external_id`, `external_id_mismatch` | See [Matching by `external_id`](#matching-by-external_id-v2210). |
 | `email_unverified` | The provider says the identity's email is not verified (`SsoIdentity::$emailVerified === false`) and a local row holds that address: the row is not adopted, on the `email` strategy or with `link_by_email`. The signed-token provider sets it from the issuer's `email_verified` claim. A provider that makes no statement (`null`, the default and Azure's case) is unaffected. The login page shows the generic text. |
 | `not_provisioned` | No local user, and `auto_create_user` is off (or the user resolver returned `null`). |
 | `no_role_match` | No role maps and `on_no_role_match` denies (also when a `callable` hook returned a redirect: the person is not signed in, the hook decides where they go). |
 
-The log line (`SSO callback failed`, on the default log channel) carries `provider`, `reason`, `request_id` (the request's `X-Request-Id` header, else a UUID generated for this line), `exception` (the class name) and `error` (the message). The message is **redacted** first: HTTP client exceptions embed the request URL and the response body, so the values of `code`, `state`, `token`, `id_token`, `access_token`, `refresh_token` and `client_secret` are replaced with `[redacted]` whether they appear as query pairs or JSON pairs, and so is a `Bearer` credential.
+The log line (`SSO callback failed`, on the default log channel) carries `provider`, `reason`, `request_id` (the request's `X-Request-Id` header, else a UUID generated for this line), `exception` (the class name) and `error` (the message). The message is **redacted** first: HTTP client exceptions embed the request URL and the response body, so the values of `code`, `state`, `token`, `id_token`, `access_token`, `refresh_token`, `client_secret`, `code_verifier`, `client_assertion`, `assertion`, `SAMLResponse`, `SAMLRequest`, `password`, `id_token_hint` and `private_key` are replaced with `[redacted]` whether they appear as query pairs or JSON pairs, and so is a `Bearer` credential.
+
+A refusal never becomes a 500 page: whatever the user step, the role sync or an `afterLogin` hook throws (an `InvalidArgumentException` from a hook included) is logged through the redactor, dispatched as `SsoFailed` with reason `unknown`, and shown as the generic text; nobody is signed in. The one exception is a **configuration error** of the user or role step (an `InvalidArgumentException` naming the key, such as an unsupported `on_no_role_match`): that is thrown, so a typo is loud.
+
+What stays written when a sign-in is refused after the user step depends on the order of [Deny before provisioning](#deny-before-provisioning-v2210). The role sync and the `afterLogin` hooks run right after the user is resolved. On the **transaction** order (a role mapping that needs the user) they run inside the transaction, so a failure of either rolls the user row back too. On the **pre-check** order (and with `provision_on_deny`) there is no transaction: a row the sign-in already created or updated **stays**, the person is not signed in, and the next attempt finds the row.
 
 The login page shows the exception's `messageKey` text when the exception sets one and the key is translated, and the generic `sso_callback_failed` text otherwise (a plain exception never shows its message). A provider or a `resolveUserUsing` closure can choose both by throwing `Martis\Sso\SsoException`:
 
@@ -504,7 +508,8 @@ use Illuminate\Support\Facades\Event;
 use Martis\Events\SsoFailed;
 
 Event::listen(SsoFailed::class, function (SsoFailed $event) {
-    // $event->provider, $event->reason, $event->exception (?Throwable, message not redacted)
+    // $event->provider, $event->reason, $event->exception (?Throwable, the RAW exception:
+    // its message and trace are not redacted, so do not log or ship it as it is)
     AuditLog::record('sso.failed', ['provider' => $event->provider, 'reason' => $event->reason]);
 });
 ```

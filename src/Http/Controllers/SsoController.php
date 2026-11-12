@@ -58,8 +58,16 @@ use Throwable;
  * connection, and the model events a rolled-back row fired, are the app's to
  * handle.
  *
+ * The role sync and the post-login hooks run right after the user is
+ * resolved: inside the transaction when there is one, so a failure of either
+ * rolls the user row back too. On the pre-check order (no transaction) and with
+ * `provision_on_deny` the row the sign-in wrote stays, and nobody is signed in.
+ *
  * Every refusal is one log line, one SsoFailed event and a redirect to the
- * login page.
+ * login page, including any Throwable the user step, the role sync or a hook
+ * throws (reason `unknown`, the message redacted, the generic text). An
+ * InvalidArgumentException of the user or role step is a configuration error
+ * and is thrown, not refused: it names the key.
  */
 class SsoController extends Controller
 {
@@ -105,11 +113,17 @@ class SsoController extends Controller
             return $this->refuse($request, $provider, $e);
         }
 
-        // Steps 1 and 2: the user and the roles, deny before provisioning
-        // (see the class docblock for the three orders).
+        // Steps 1 to 4: the user and the roles (deny before provisioning, see
+        // the class docblock for the three orders), the role sync and the
+        // post-login hooks.
         try {
             $admission = $this->admit($identity, $provider);
-        } catch (SsoException $e) {
+        } catch (InvalidArgumentException $e) {
+            // A configuration error: loud, naming the key, never a quiet refusal.
+            throw $e;
+        } catch (Throwable $e) {
+            // A refusal that is not an SsoException (a unique index, a failing
+            // hook): one log line, one SsoFailed, the generic text. Never a 500.
             return $this->refuse($request, $provider, $e);
         }
 
@@ -123,15 +137,7 @@ class SsoController extends Controller
             return $this->refuse($request, $provider, null, $admission->reason, $admission->messageKey);
         }
 
-        [$user, $roles] = $admission;
-
-        // Step 3: sync roles via the configured adapter.
-        if ((bool) (config("martis.auth.sso.providers.{$provider}.sync_roles", true))) {
-            $this->manager->adapterFor($provider)->syncRoles($user, $roles);
-        }
-
-        // Step 4: post-login side effects.
-        $this->manager->fireAfterLogin($user, $identity, $provider);
+        [$user] = $admission;
 
         // Step 5: log the user in via the Martis-configured guard. The
         // remember-me cookie is the provider's opt-in (`remember`, default
@@ -187,14 +193,14 @@ class SsoController extends Controller
      *
      * @return SsoDenial|array{0: User, 1: Collection<int, Model>}
      *
-     * @throws SsoException
+     * @throws Throwable
      */
     private function admit(SsoIdentity $identity, string $provider): SsoDenial|array
     {
         $cfg = config("martis.auth.sso.providers.{$provider}", []);
 
         if ((bool) ($cfg['provision_on_deny'] ?? false)) {
-            return $this->provisionThenMap($identity, $provider);
+            return $this->completed($this->provisionThenMap($identity, $provider), $identity, $provider);
         }
 
         if (! $this->mappingNeedsUser($provider)) {
@@ -211,7 +217,7 @@ class SsoController extends Controller
 
             return $user === null
                 ? new SsoDenial(SsoException::REASON_NOT_PROVISIONED, 'martis::messages.sso_user_not_provisioned')
-                : [$user, $roles];
+                : $this->completed([$user, $roles], $identity, $provider);
         }
 
         $connection = $this->identityResolver->connection();
@@ -219,7 +225,9 @@ class SsoController extends Controller
         $connection->beginTransaction();
 
         try {
-            $result = $this->provisionThenMap($identity, $provider);
+            // The role sync and the hooks run inside the transaction too, so a
+            // failure of either takes the row the sign-in wrote back with it.
+            $result = $this->completed($this->provisionThenMap($identity, $provider), $identity, $provider);
 
             if ($result instanceof SsoDenial) {
                 $connection->rollBack();
@@ -235,6 +243,38 @@ class SsoController extends Controller
         }
 
         return $result;
+    }
+
+    /**
+     * Steps 3 and 4 for an admitted identity: sync the roles through the
+     * configured adapter, then fire the post-login hooks. A denial passes
+     * through untouched.
+     *
+     * @param  SsoDenial|array{0: User, 1: Collection<int, Model>}  $admission
+     * @return SsoDenial|array{0: User, 1: Collection<int, Model>}
+     */
+    private function completed(SsoDenial|array $admission, SsoIdentity $identity, string $provider): SsoDenial|array
+    {
+        if ($admission instanceof SsoDenial) {
+            return $admission;
+        }
+
+        [$user, $roles] = $admission;
+
+        try {
+            if ((bool) (config("martis.auth.sso.providers.{$provider}.sync_roles", true))) {
+                $this->manager->adapterFor($provider)->syncRoles($user, $roles);
+            }
+
+            $this->manager->fireAfterLogin($user, $identity, $provider);
+        } catch (InvalidArgumentException $e) {
+            // Host code (a sync callback, a hook): whatever it throws is a
+            // refusal. The caller keeps an InvalidArgumentException loud as a
+            // configuration error, so this one is wrapped.
+            throw new SsoException('SSO post-login step failed: '.$e->getMessage(), SsoException::REASON_UNKNOWN, null, $e);
+        }
+
+        return $admission;
     }
 
     /**

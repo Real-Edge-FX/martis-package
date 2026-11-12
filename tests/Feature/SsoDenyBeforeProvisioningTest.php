@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\RedirectResponse;
@@ -10,8 +11,10 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Martis\Events\SsoFailed;
+use Martis\Events\SsoLoggedIn;
 use Martis\Sso\Facades\MartisSso;
 use Martis\Sso\IdentityResolver;
 use Martis\Sso\Providers\AzureProvider;
@@ -374,7 +377,7 @@ it('transaction: an SsoException from the resolver rolls back and is reported wi
     Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'custom_refusal');
 });
 
-it('transaction: an unexpected exception rolls back and still propagates', function () {
+it('transaction: an unexpected exception rolls back and is refused as unknown', function () {
     ssoDenyNeedsUser('resolveRolesUsing closure');
     MartisSso::resolveUserUsing(function (SsoIdentity $identity) {
         SsoDenyUser::query()->create(['name' => 'Half Done', 'email' => 'halfdone@example.com', 'password' => bcrypt('x')]);
@@ -382,13 +385,18 @@ it('transaction: an unexpected exception rolls back and still propagates', funct
         throw new LogicException('a bug in the host closure');
     });
     ssoDenyServe($this->app, ssoDenyIdentity(['PMI ADMIN']));
-    $this->withoutExceptionHandling();
+    Event::fake([SsoFailed::class]);
     // The test case may hold a transaction of its own: the sign-in must hand back the level it found.
     $baseLevel = DB::connection()->transactionLevel();
 
-    expect(fn () => $this->get('/martis/sso/azure/callback'))->toThrow(LogicException::class);
+    $this->get('/martis/sso/azure/callback')
+        ->assertRedirect(route('martis.login'))
+        ->assertSessionHasErrors(['sso' => __('martis::messages.sso_callback_failed')]);
+
     expect(SsoDenyUser::query()->count())->toBe(0)
-        ->and(DB::connection()->transactionLevel())->toBe($baseLevel);
+        ->and(DB::connection()->transactionLevel())->toBe($baseLevel)
+        ->and(auth()->check())->toBeFalse();
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'unknown' && $e->exception instanceof LogicException);
 });
 
 it('transaction: SsoFailed is dispatched after the rollback, so a listener sees no row', function () {
@@ -448,4 +456,115 @@ it('throws naming the key for an on_no_role_match value it does not know, and wr
         ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.azure.on_no_role_match');
     expect(SsoDenyUser::query()->count())->toBe(0)
         ->and(auth()->check())->toBeFalse();
+});
+
+// -----------------------------------------------------------------------------
+// A refusal that is not an SsoException is a refusal, not a 500 (review M4)
+// -----------------------------------------------------------------------------
+
+it('refuses as unknown, with the generic text and nothing signed in, when the user row cannot be written (unique email)', function () {
+    ssoDenyExisting('taken@example.com');
+    // What two concurrent first sign-ins meet: the check passed, the unique index did not.
+    MartisSso::resolveUserUsing(fn (SsoIdentity $identity) => SsoDenyUser::query()->create(['name' => 'Dup', 'email' => 'taken@example.com', 'password' => bcrypt('x')]));
+    ssoDenyServe($this->app, ssoDenyIdentity(['PMI ADMIN'], 'taken@example.com'));
+    Event::fake([SsoFailed::class]);
+
+    $response = $this->get('/martis/sso/azure/callback')->assertRedirect(route('martis.login'));
+
+    $response->assertSessionHasErrors(['sso' => __('martis::messages.sso_callback_failed')]);
+    expect(auth()->check())->toBeFalse();
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'unknown' && $e->exception instanceof QueryException);
+});
+
+it('refuses, and leaves the row as it was, when an IdP email change collides with another row', function () {
+    Schema::table('users', fn ($table) => $table->string('azure_external_id')->nullable());
+    config()->set('martis.auth.sso.providers.azure.identity_match_attribute', 'external_id');
+    $mine = SsoDenyUser::query()->create(['name' => 'Mine', 'email' => 'mine@example.com', 'password' => bcrypt('x'), 'azure_external_id' => 'azure-mine']);
+    ssoDenyExisting('other@example.com');
+    ssoDenyServe($this->app, new SsoIdentity('azure', 'azure-mine', 'other@example.com', 'Mine', ['PMI ADMIN']));
+    Event::fake([SsoFailed::class]);
+
+    $this->get('/martis/sso/azure/callback')
+        ->assertRedirect(route('martis.login'))
+        ->assertSessionHasErrors(['sso' => __('martis::messages.sso_callback_failed')]);
+
+    expect(auth()->check())->toBeFalse()
+        ->and($mine->refresh()->email)->toBe('mine@example.com');
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'unknown');
+});
+
+it('masks the credentials of the exception in the log line of such a refusal', function () {
+    ssoDenyServe($this->app, ssoDenyIdentity(['PMI ADMIN']));
+    MartisSso::afterLogin(fn () => throw new RuntimeException('IdP said https://idp.example/cb?code=SECRETCODE&password=hunter2'));
+    $logged = new ArrayObject;
+    $logger = Mockery::mock(Psr\Log\LoggerInterface::class);
+    $logger->shouldReceive('warning')->andReturnUsing(function (string $message, array $context = []) use ($logged) {
+        $logged[] = $context;
+    });
+    Log::shouldReceive('channel')->andReturn($logger);
+
+    $this->get('/martis/sso/azure/callback')->assertRedirect(route('martis.login'));
+
+    expect($logged)->toHaveCount(1)
+        ->and($logged[0]['reason'])->toBe('unknown')
+        ->and(json_encode($logged[0]))->not->toContain('SECRETCODE')->not->toContain('hunter2');
+});
+
+it('pre-check: a throwing afterLogin hook refuses the sign-in; the row written before it stays (documented)', function () {
+    MartisSso::afterLogin(fn () => throw new RuntimeException('hook failed'));
+    ssoDenyServe($this->app, ssoDenyIdentity(['PMI ADMIN']));
+    Event::fake([SsoFailed::class, SsoLoggedIn::class]);
+
+    $this->get('/martis/sso/azure/callback')
+        ->assertRedirect(route('martis.login'))
+        ->assertSessionHasErrors(['sso' => __('martis::messages.sso_callback_failed')]);
+
+    expect(auth()->check())->toBeFalse()
+        ->and(SsoDenyUser::query()->where('email', 'person@example.com')->exists())->toBeTrue();
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'unknown');
+    Event::assertNotDispatched(SsoLoggedIn::class);
+});
+
+it('transaction: a throwing afterLogin hook rolls the user row back', function (string $failing) {
+    ssoDenyNeedsUser('resolveRolesUsing closure');
+    if ($failing === 'hook') {
+        MartisSso::afterLogin(fn () => throw new RuntimeException('hook failed'));
+    } else {
+        MartisSso::syncRolesUsing(fn () => throw new RuntimeException('sync failed'));
+    }
+    ssoDenyServe($this->app, ssoDenyIdentity(['PMI ADMIN']));
+    Event::fake([SsoFailed::class, SsoLoggedIn::class]);
+    $baseLevel = DB::connection()->transactionLevel();
+
+    $this->get('/martis/sso/azure/callback')
+        ->assertRedirect(route('martis.login'))
+        ->assertSessionHasErrors(['sso' => __('martis::messages.sso_callback_failed')]);
+
+    expect(SsoDenyUser::query()->count())->toBe(0)
+        ->and(DB::connection()->transactionLevel())->toBe($baseLevel)
+        ->and(auth()->check())->toBeFalse();
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'unknown');
+    Event::assertNotDispatched(SsoLoggedIn::class);
+})->with(['hook' => ['hook'], 'role sync' => ['sync']]);
+
+it('pre-check: a throwing role sync refuses the sign-in', function () {
+    MartisSso::syncRolesUsing(fn () => throw new RuntimeException('sync failed'));
+    ssoDenyServe($this->app, ssoDenyIdentity(['PMI ADMIN']));
+    Event::fake([SsoFailed::class]);
+
+    $this->get('/martis/sso/azure/callback')->assertRedirect(route('martis.login'));
+
+    expect(auth()->check())->toBeFalse();
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'unknown');
+});
+
+it('transaction: a configuration error still throws, loudly, and rolls back', function () {
+    ssoDenyNeedsUser('resolveRolesUsing closure');
+    config()->set('martis.auth.sso.providers.azure.on_no_role_match', 'allow');
+    ssoDenyServe($this->app, ssoDenyIdentity(['NOT A ROLE']));
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->get('/martis/sso/azure/callback'))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.azure.on_no_role_match');
+    expect(SsoDenyUser::query()->count())->toBe(0);
 });
