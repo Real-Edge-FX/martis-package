@@ -126,6 +126,56 @@ describe('toast lifetime', () => {
   })
 })
 
+describe('unusable and oversized lifetimes', () => {
+  it.each([[0], [-5], [Number.NaN], [Number.POSITIVE_INFINITY], ['1000' as unknown as number]])(
+    'ignores a per-call life of %s and uses the configured duration',
+    (life) => {
+      cfg.toast = { durations: { error: 1000 } }
+      renderProvider()
+      act(() => add('error', 'Fallback', { life }))
+      tick(500)
+      expect(screen.queryByText('Fallback')).toBeTruthy()
+      tick(3000)
+      expect(screen.queryByText('Fallback')).toBeNull()
+    },
+  )
+
+  it('falls back to the 5000 ms default when neither call nor config gives a usable life', () => {
+    cfg.toast = { durations: { error: 0 } }
+    renderProvider()
+    act(() => add('error', 'Default', { life: Number.NaN }))
+    tick(4000)
+    expect(screen.queryByText('Default')).toBeTruthy()
+    tick(2500)
+    expect(screen.queryByText('Default')).toBeNull()
+  })
+
+  it('keeps a toast whose life exceeds the browser timer maximum instead of removing it at once', () => {
+    renderProvider()
+    act(() => add('info', 'Very long', { life: 3_000_000_000 }))
+    tick(10000)
+    expect(screen.queryByText('Very long')).toBeTruthy()
+  })
+
+  it('clamps a configured duration over the timer maximum too', () => {
+    cfg.toast = { durations: { warning: 3_000_000_000 } }
+    renderProvider()
+    act(() => add('warning', 'Configured long'))
+    tick(10000)
+    expect(screen.queryByText('Configured long')).toBeTruthy()
+  })
+
+  it('keeps the safety-net timer inside the timer maximum', () => {
+    const spy = vi.spyOn(globalThis, 'setTimeout')
+    renderProvider()
+    act(() => add('info', 'Long', { life: 2_147_483_600 }))
+    const delays = spy.mock.calls.map((c) => c[1]).filter((d): d is number => typeof d === 'number' && d > 1_000_000)
+    expect(delays.length).toBeGreaterThan(0)
+    expect(Math.max(...delays)).toBeLessThanOrEqual(2_147_483_647)
+    spy.mockRestore()
+  })
+})
+
 describe('sticky toast close control', () => {
   it('is a real, named, keyboard-reachable button', () => {
     cfg.toast = { durations: { error: null } }
