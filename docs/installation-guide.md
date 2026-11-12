@@ -821,6 +821,7 @@ The package ships 35 commands (plus the aliases `martis:override` → `martis:co
 | `martis:theme:diff` | Compare a consumer theme against the bundled package tokens (exit `0` aligned, `2` drift) |
 | `martis:sso` | Scaffold an SSO provider end to end (composer deps, config, env, listener, migrations); pass `--no-composer --no-migrate` in CI or agent shells. `--driver=signed-token` scaffolds a signed-token consumer and `--issuer` an audience of the issuing panel (v2.21.0) |
 | `martis:sso:keys` | Print a new Ed25519 key pair for the signed-token SSO (v2.21.0); it writes nothing |
+| `martis:sso:check` | Validate the SSO issuer block, each enabled signed-token provider block and the SSO cache store as the runtime reads them (v2.23.0). Read-only, prints no key, exit `1` when a block fails. See [SSO](sso.md#checking-the-configuration-martissocheck-v2230) |
 
 ## Next Steps
 
