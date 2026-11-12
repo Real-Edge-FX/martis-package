@@ -430,12 +430,24 @@ Route::middleware(RouteMiddleware::base())
                                 }
 
                                 // Dashboards and Metrics
+                                // The read routes below may count against a bucket of
+                                // their own (`martis.throttle.metrics_max_attempts`):
+                                // they then leave the API throttle, so a request counts
+                                // against one bucket only. Both lists are empty by default.
+                                $metricsThrottle = RouteMiddleware::metricsThrottle();
+                                $apiThrottle = $metricsThrottle === [] ? [] : RouteMiddleware::throttle();
+
                                 Route::get('/dashboards', [MetricController::class, 'dashboards'])
+                                    ->middleware($metricsThrottle)
+                                    ->withoutMiddleware($apiThrottle)
                                     ->name('dashboards.index');
                                 Route::get('/dashboards/{dashboard}', [MetricController::class, 'show'])
-                                    ->withoutMiddleware('martis.gate')
+                                    ->middleware($metricsThrottle)
+                                    ->withoutMiddleware(['martis.gate', ...$apiThrottle])
                                     ->name('dashboards.show');
                                 Route::get('/dashboards/{dashboard}/cards/{card}', [MetricController::class, 'computeDashboardMetric'])
+                                    ->middleware($metricsThrottle)
+                                    ->withoutMiddleware($apiThrottle)
                                     ->name('dashboards.cards.compute');
 
                                 // Global Search
@@ -623,6 +635,8 @@ Route::middleware(RouteMiddleware::base())
                                     ->name('resources.peek');
                                 // Resource metric cards
                                 Route::get('/resources/{resource}/cards/{card}', [MetricController::class, 'computeResourceMetric'])
+                                    ->middleware($metricsThrottle)
+                                    ->withoutMiddleware($apiThrottle)
                                     ->name('resources.cards.compute');
 
                                 // Action routes
