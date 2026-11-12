@@ -203,6 +203,41 @@ it('does not duplicate the audience when run twice', function () {
     expect(stDeclarations('panel-b'))->toBe(1);
 });
 
+it('looks for the audience only inside the audiences list (review L6)', function () {
+    stHostApp($this);
+    // A provider block, an unrelated key and a comment, all named like the audience.
+    $config = (string) file_get_contents(config_path('martis.php'));
+    $config = preg_replace('/^([ \t]*\'providers\'[ \t]*=>[ \t]*\[[ \t]*\n)/m', "$1                'panel-b' => ['enabled' => false],\n", $config, 1);
+    $config = preg_replace('/^([ \t]*\'sso\'[ \t]*=>[ \t]*\[[ \t]*\n)/m', "$1            'panel-b' => ['unrelated' => true],\n", $config, 1);
+    file_put_contents(config_path('martis.php'), $config);
+    expect(stDeclarations('panel-b'))->toBe(2);
+
+    $this->artisan('martis:sso', ['provider' => 'panel-b', '--issuer' => true])
+        ->expectsOutputToContain('Inserted')
+        ->assertSuccessful();
+
+    expect(stHostConfig()['auth']['sso']['issuer']['audiences'])->toHaveKey('panel-b')
+        ->and(stDeclarations('panel-b'))->toBe(3);
+
+    // And it is still idempotent: the second run finds the audience in its list.
+    $this->artisan('martis:sso', ['provider' => 'panel-b', '--issuer' => true])
+        ->expectsOutputToContain('already declared')
+        ->assertSuccessful();
+    expect(stDeclarations('panel-b'))->toBe(3);
+});
+
+it('is not fooled by brackets in the comments or strings of the audiences list', function () {
+    stHostApp($this);
+    $config = (string) file_get_contents(config_path('martis.php'));
+    $config = preg_replace('/^([ \t]*\'audiences\'[ \t]*=>[ \t]*\[[ \t]*\n)/m', "$1                // 'old-one' => ['callback_url' => 'https://x.example/[cb]'],\n                'quoted' => ['callback_url' => 'https://x.example/a]b'],\n", $config, 1);
+    file_put_contents(config_path('martis.php'), $config);
+
+    $this->artisan('martis:sso', ['provider' => 'quoted', '--issuer' => true])->expectsOutputToContain('already declared')->assertSuccessful();
+    $this->artisan('martis:sso', ['provider' => 'old-one', '--issuer' => true])->expectsOutputToContain('Inserted')->assertSuccessful();
+
+    expect(stHostConfig()['auth']['sso']['issuer']['audiences'])->toHaveKeys(['quoted', 'old-one']);
+});
+
 it('does not take --issuer together with --driver', function () {
     $this->artisan('martis:sso', ['provider' => 'panel-b', '--issuer' => true, '--driver' => 'signed-token'])
         ->assertFailed();
