@@ -36,10 +36,11 @@ use InvalidArgumentException;
  * The `external_id` strategy matches an id the IdP issued, stores it in the
  * column when it creates a user, and refuses a sign-in with no id
  * ({@see SsoException::REASON_MISSING_EXTERNAL_ID}). A row that holds the
- * IdP's address but not its id is refused ({@see SsoAdoptionRefusedException}),
- * unless the provider sets `link_by_email` (default false): then a row that
- * passes the same adoption check and has an empty id column is linked (the id
- * is written), and one that holds a different id is refused
+ * IdP's address but not its id is refused ({@see SsoException::REASON_UNLINKED_ACCOUNT},
+ * v2.21.0; it was `account_unverified` before), unless the provider sets
+ * `link_by_email` (default false): then a row that passes the same adoption
+ * check and has an empty id column is linked (the id is written), and one that
+ * holds a different id is refused
  * ({@see SsoException::REASON_EXTERNAL_ID_MISMATCH}), never overwritten.
  *
  * `sync_user_attributes` may list `external_id` on either strategy: the id is
@@ -129,7 +130,11 @@ class IdentityResolver
             // case): creating beside it would collide on the unique email or
             // duplicate the account.
             if ($identity->email !== null && $userClass::query()->where('email', $identity->email)->exists()) {
-                throw new SsoAdoptionRefusedException($provider, $identity->email);
+                // On the external_id strategy the cause is that nothing linked
+                // the row, whatever its verification: say so (v2.21.0).
+                throw $matchAttribute === 'external_id'
+                    ? $this->unlinkedAccount($provider, $identity->email, $this->externalIdColumn($provider, $cfg))
+                    : new SsoAdoptionRefusedException($provider, $identity->email);
             }
 
             $user = $this->create($userClass, $identity, $provider, $cfg, $matchAttribute === 'external_id');
@@ -138,6 +143,20 @@ class IdentityResolver
         $this->syncAttributes($user, $identity, $provider, $cfg);
 
         return $user;
+    }
+
+    /**
+     * The refusal of an `external_id` sign-in whose address is held by a row
+     * that carries no id: the log says why and what changes it, the login page
+     * shows the generic text (no message key), so it does not tell whoever
+     * holds an IdP account that a local row with that address exists.
+     */
+    protected function unlinkedAccount(string $provider, string $email, string $column): SsoException
+    {
+        return new SsoException(
+            "SSO sign-in via [{$provider}] refused: a local account already holds [{$email}] but does not carry this identity's external id in [{$column}], and [martis.auth.sso.providers.{$provider}.link_by_email] is off, so the account is not linked and no second one is created beside it. Set link_by_email to true to link it by email, or store the IdP's id in [{$column}] for that account.",
+            SsoException::REASON_UNLINKED_ACCOUNT,
+        );
     }
 
     /**

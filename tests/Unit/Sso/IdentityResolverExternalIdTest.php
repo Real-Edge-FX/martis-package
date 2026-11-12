@@ -104,11 +104,24 @@ it('leaves the email of an id-matched row alone when email is not in sync_user_a
     expect($row->refresh()->email)->toBe('person@corp.example');
 });
 
-it('refuses a row that holds the IdP address when link_by_email is off (default)', function () {
+it('refuses a row that holds the IdP address when link_by_email is off (default), as an account that was not linked', function () {
     $row = extRow();
 
-    expect(fn () => (new IdentityResolver)->resolve(extIdentity('idp-1'), 'azure'))
-        ->toThrow(SsoAdoptionRefusedException::class);
+    try {
+        (new IdentityResolver)->resolve(extIdentity('idp-1'), 'azure');
+        $this->fail('The sign-in should have been refused.');
+    } catch (SsoException $e) {
+        // Not "unverified": the row is verified, it just was not linked.
+        expect($e)->not->toBeInstanceOf(SsoAdoptionRefusedException::class)
+            ->and($e->reason)->toBe(SsoException::REASON_UNLINKED_ACCOUNT)
+            ->and($e->reason)->toBe('unlinked_account')
+            // The login page shows the generic text: no hint that a local row exists.
+            ->and($e->messageKey)->toBeNull()
+            // The log names the real cause and the key that changes it.
+            ->and($e->getMessage())->toContain('martis.auth.sso.providers.azure.link_by_email')
+            ->and($e->getMessage())->toContain('idp_subject')
+            ->and($e->getMessage())->not->toContain('unverified');
+    }
 
     expect($row->refresh()->getAttribute('idp_subject'))->toBeNull()
         ->and(ExternalIdUser::query()->count())->toBe(1);

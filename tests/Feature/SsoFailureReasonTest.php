@@ -218,6 +218,26 @@ it('reports an adoption refusal as reason "account_unverified" with its own text
     expect($this->logged[0]['context']['reason'])->toBe('account_unverified');
 });
 
+it('reports an email held by a row the external_id strategy did not link as reason "unlinked_account", with the generic text', function () {
+    Event::fake([SsoFailed::class]);
+    IdentityResolver::forgetResolver();
+    Schema::table('users', fn ($table) => $table->string('azure_external_id')->nullable());
+    config()->set('martis.auth.sso.providers.azure.identity_match_attribute', 'external_id');
+    config()->set('martis.auth.sso.providers.azure.link_by_email', false);
+    // A verified row: the cause is not an unverified address.
+    SsoReasonUser::query()->create(['name' => 'Local', 'email' => 'someone@example.com', 'password' => bcrypt('x'), 'email_verified_at' => now()]);
+    ssoReasonProvider($this->app, ssoReasonIdentity('someone@example.com'));
+
+    $response = $this->get('/martis/sso/azure/callback');
+
+    // The page says nothing of a local row: the generic text, never the unverified one.
+    $response->assertSessionHasErrors(['sso' => __('martis::messages.sso_callback_failed')]);
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'unlinked_account' && $e->exception !== null);
+    expect($this->logged[0]['context']['reason'])->toBe('unlinked_account')
+        ->and($this->logged[0]['context']['error'])->toContain('link_by_email')
+        ->and(auth()->check())->toBeFalse();
+});
+
 it('reports a user that is not provisioned as reason "not_provisioned"', function () {
     Event::fake([SsoFailed::class]);
     config()->set('martis.auth.sso.providers.azure.auto_create_user', false);
