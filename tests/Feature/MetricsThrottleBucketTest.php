@@ -144,3 +144,88 @@ it('counts metric reads against their own bucket and never the API one', functio
     $this->getJson('/martis/api/search?q=a')->assertStatus(200);
     $this->getJson('/martis/api/search?q=a')->assertStatus(429);
 });
+
+// An empty `.env` line (`MARTIS_THROTTLE_METRICS_MAX=`, as a copied example
+// leaves it) reads as '' and means "unset", like every other empty env value
+// of the package; a value that is set and unusable still throws.
+
+/** The shipped throttle block with the two env variables set (null: unset). */
+function mtbShippedThrottle(?string $max, ?string $decay): array
+{
+    $previous = [];
+    foreach (['MARTIS_THROTTLE_METRICS_MAX' => $max, 'MARTIS_THROTTLE_METRICS_DECAY' => $decay] as $key => $value) {
+        $previous[$key] = getenv($key);
+        if ($value === null) {
+            putenv($key);
+            unset($_ENV[$key], $_SERVER[$key]);
+        } else {
+            putenv("{$key}={$value}");
+            $_ENV[$key] = $value;
+            $_SERVER[$key] = $value;
+        }
+    }
+
+    try {
+        return (function () {
+            return require __DIR__.'/../../config/martis.php';
+        })()['throttle'];
+    } finally {
+        foreach ($previous as $key => $value) {
+            if ($value === false) {
+                putenv($key);
+                unset($_ENV[$key], $_SERVER[$key]);
+            } else {
+                putenv("{$key}={$value}");
+                $_ENV[$key] = $value;
+                $_SERVER[$key] = $value;
+            }
+        }
+    }
+}
+
+it('reads an empty metrics env value as unset', function (?string $max, ?string $decay) {
+    $shipped = mtbShippedThrottle($max, $decay);
+    config()->set('martis.throttle', array_merge(config('martis.throttle'), [
+        'max_attempts' => 5,
+        'decay_minutes' => 1,
+        'metrics_max_attempts' => $shipped['metrics_max_attempts'],
+        'metrics_decay_minutes' => $shipped['metrics_decay_minutes'],
+    ]));
+
+    expect(RouteMiddleware::metricsThrottle())->toBe([]);
+    mtbReloadRoutes();
+    foreach (MTB_METRIC_ROUTES as $name) {
+        expect(mtbStack($name))->toBe(['throttle:5,1,'.RouteMiddleware::throttlePrefix('api')]);
+    }
+})->with([
+    'both unset' => [null, null],
+    'both empty' => ['', ''],
+    'max empty' => ['', '2'],
+]);
+
+it('reads an empty metrics decay as the API decay, and a numeric string as a number', function () {
+    $shipped = mtbShippedThrottle('50', '');
+    config()->set('martis.throttle', array_merge(config('martis.throttle'), [
+        'decay_minutes' => 3,
+        'metrics_max_attempts' => $shipped['metrics_max_attempts'],
+        'metrics_decay_minutes' => $shipped['metrics_decay_minutes'],
+    ]));
+
+    expect(RouteMiddleware::metricsThrottle())->toBe(['throttle:50,3,'.RouteMiddleware::throttlePrefix('metrics')]);
+});
+
+it('still throws, naming the key, for a metrics env value that is set and unusable', function (string $max, string $decay, string $key) {
+    $shipped = mtbShippedThrottle($max, $decay);
+    config()->set('martis.throttle', array_merge(config('martis.throttle'), [
+        'metrics_max_attempts' => $shipped['metrics_max_attempts'],
+        'metrics_decay_minutes' => $shipped['metrics_decay_minutes'],
+    ]));
+
+    expect(fn () => RouteMiddleware::metricsThrottle())->toThrow(InvalidArgumentException::class, "[{$key}]");
+})->with([
+    'zero max' => ['0', '', 'martis.throttle.metrics_max_attempts'],
+    'negative max' => ['-5', '', 'martis.throttle.metrics_max_attempts'],
+    'text max' => ['lots', '', 'martis.throttle.metrics_max_attempts'],
+    'zero decay' => ['10', '0', 'martis.throttle.metrics_decay_minutes'],
+    'text decay' => ['10', 'soon', 'martis.throttle.metrics_decay_minutes'],
+]);

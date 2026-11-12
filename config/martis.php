@@ -614,9 +614,13 @@ return [
         // `api` bucket. When set they count against this bucket only, never
         // against the `api` one too, so the rest of the API keeps its full
         // allowance. `metrics_decay_minutes` defaults to `decay_minutes`.
-        // `enabled` = false disables both buckets.
-        'metrics_max_attempts' => env('MARTIS_THROTTLE_METRICS_MAX') === null ? null : (int) env('MARTIS_THROTTLE_METRICS_MAX'),
-        'metrics_decay_minutes' => env('MARTIS_THROTTLE_METRICS_DECAY') === null ? null : (int) env('MARTIS_THROTTLE_METRICS_DECAY'),
+        // `enabled` = false disables both buckets. The env values are passed
+        // on as they are: an empty one (`MARTIS_THROTTLE_METRICS_MAX=`) means
+        // unset, and one that is set and is not a positive whole number
+        // throws, naming the key, when the routes are registered (a `(int)`
+        // cast here would turn '' and 'lots' into 0).
+        'metrics_max_attempts' => env('MARTIS_THROTTLE_METRICS_MAX'),
+        'metrics_decay_minutes' => env('MARTIS_THROTTLE_METRICS_DECAY'),
         'login_attempts' => (int) env('MARTIS_LOGIN_THROTTLE_ATTEMPTS', 20),
         'login_minutes' => (int) env('MARTIS_LOGIN_THROTTLE_MINUTES', 1),
         // The per-account limit of the sign-in (v2.4.0), applied by the login
@@ -1275,7 +1279,8 @@ return [
         // guard that signs in people but is left out can make Martis delete,
         // or list, the session of another person who has the same id in
         // another table. `[]` means the Martis guard only. A name that is not
-        // in `auth.guards`, or a value that is not a list of names, throws,
+        // in `auth.guards`, a guard whose driver is not `session`, or a value
+        // that is not a list of names, throws,
         // naming this key, the first time a revocation or the profile reads it.
         'session_guards' => null,
 
