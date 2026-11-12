@@ -650,7 +650,7 @@ Each item accepts `label` (i18n key or literal), `icon` (**Phosphor icon name** 
 
 Options for `position`: `'top-right'`, `'top-left'`, `'bottom-right'`, `'bottom-left'`, `'top-center'`, `'bottom-center'`.
 
-`durations` (v2.21.0) is how long a toast stays, per severity, in milliseconds. `null` keeps the toast until the person closes it (every toast has a close button, reachable by keyboard). The defaults match the behaviour before v2.21.0. A toast with a safe link stays at least 10000 ms, unless its duration is `null`. A value that is neither `null` nor a positive integer throws an `InvalidArgumentException` naming the key, for example `martis.toast.durations.error`.
+`durations` (v2.21.0) is how long a toast stays, per severity, in milliseconds. `null` keeps the toast until the person closes it (every toast has a close button, reachable by keyboard). The defaults match the behaviour before v2.21.0. A toast with a safe link stays at least 10000 ms, unless its duration is `null`. A value that is neither `null` nor a positive integer of at most 2147483647 (the longest delay a browser timer holds; a longer one makes the toast vanish at once) throws an `InvalidArgumentException` naming the key, for example `martis.toast.durations.error`. A string of digits is accepted as that integer, which is what `env()` yields (`'error' => env('MARTIS_TOAST_ERROR_MS')` with `8000` in `.env`). A sticky severity (`null`) has no cap: a toast raised in a loop (a retry or a poll that fails every few seconds) stacks without bound until the person closes them, so keep `null` for severities that fire rarely.
 
 ```php
 // Errors stay until closed, successes go after 3 seconds.
@@ -1280,10 +1280,10 @@ Toggles the theme switcher and locale picker that float on the auth pages.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `auth.password_login.enabled` | `bool` | `true` | `false` turns email and password sign-in off for an SSO-only panel: `POST /login` and `POST /api/auth/login` answer 403 for every address before the controller reads a credential, the password reset flow is off with it, and the login page shows the SSO buttons only (`?password_login=1` still shows the form). Anything that is not a boolean or a boolean string throws, naming the key. |
+| `auth.password_login.enabled` | `bool` | `true` | `false` turns email and password sign-in off for an SSO-only panel: `POST /login` and `POST /api/auth/login` answer 403 for every address before the controller reads a credential, the password reset flow is off with it, and the login page shows the SSO buttons only (`?password_login=1` still shows the form). An empty string (`MARTIS_PASSWORD_LOGIN_ENABLED=`) is "unset": on. Anything else that is not a boolean or a boolean string throws, naming the key, on a sign-in request or the login page (the provider boot stays up). Turning it off does not end existing sessions or remember-me cookies. |
 | `auth.password_login.break_glass_emails` | `array<string>` | `[]` | Addresses (trimmed, case-insensitive) that may still sign in with a password while it is off; the account is looked up by the trimmed, lower-cased address, so store it that way. A failed break-glass sign-in answers with the same 403 as any other address. Never published to the browser. A value that is not an array of strings throws, naming the key. |
 
-Magic-link sign-in, invitations and registration keep their own switches: an SSO-only panel turns them off. One warning a day is logged when password sign-in is off and no SSO provider is enabled and magic link is off. See [Authentication → Password sign-in switch](authentication.md#password-sign-in-switch-v2210).
+Magic-link sign-in, invitations and registration keep their own switches: an SSO-only panel turns them off. One warning a day (with a persistent cache store) is logged when password sign-in is off and no SSO provider is enabled and magic link is off. See [Authentication → Password sign-in switch](authentication.md#password-sign-in-switch-v2210).
 
 ## Challenge (captcha) hook (v2.21.0)
 
@@ -1300,12 +1300,12 @@ Magic-link sign-in, invitations and registration keep their own switches: an SSO
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `auth.challenge.enabled` | `bool` | `false` | Turns the hook on. |
+| `auth.challenge.enabled` | `bool` | `false` | Turns the hook on. An empty string (`MARTIS_AUTH_CHALLENGE_ENABLED=`) is "unset": off. |
 | `auth.challenge.verifier` | `?class-string` | `null` | A class implementing `Martis\Contracts\ChallengeVerifier`, resolved from the container. Required while enabled; never published. |
 | `auth.challenge.site_key` | `?string` | `null` | Public key, published as `window.MartisConfig.auth.challenge.siteKey` for the `auth:challenge` component. |
 | `auth.challenge.applies_to` | `array<string>` | `['login', 'forgot', 'magic_link', 'register']` | Surfaces covered. Allowed: `login`, `forgot`, `reset`, `magic_link`, `register`, `invitation`. |
 
-A POST to a covered route without a token the verifier accepts answers 422 `errors.challenge_token`, before its controller; a verifier that throws refuses too (fail closed). An enabled hook with a missing, unknown or wrong-type `verifier`, or an unknown name in `applies_to`, throws naming the key. The `auth` entry the page publishes is an allow-list since v2.21.0. See [Authentication → Challenge (captcha) hook](authentication.md#challenge-captcha-hook-v2210), which has a complete Cloudflare Turnstile example, and [What reaches the browser](authentication.md#what-reaches-the-browser-v2210).
+A POST to a covered route without a token the verifier accepts answers 422 `errors.challenge_token`, before its controller (a flow that is switched off answers its own 404 or 503 and the verifier is not called); a verifier that throws refuses too (fail closed). An enabled hook with a missing, unknown or wrong-type `verifier`, or an unknown name in `applies_to`, throws naming the key. The `auth` entry the page publishes is an allow-list since v2.21.0. See [Authentication → Challenge (captcha) hook](authentication.md#challenge-captcha-hook-v2210), which has a complete Cloudflare Turnstile example, and [What reaches the browser](authentication.md#what-reaches-the-browser-v2210).
 
 ## Password reset
 

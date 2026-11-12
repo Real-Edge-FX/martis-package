@@ -88,7 +88,7 @@ All six unauthenticated surfaces (Login, Register, 2FA challenge, 404, 403, 500)
 - **2FA challenge** — 6-cell OTP row with auto-advance + paste-to-fill, a 30 s visual countdown, and a backup-code toggle that swaps the OTP grid for a plain recovery-code input.
 - **Error pages** — `ErrorScreen.tsx` drives 404 / 403 / 500 with a faded watermark code, accent icon, optional `incidentId` chip with copy button, and primary + secondary CTAs. `ForbiddenPage` and `NotFoundPage` are on `@martis/runtime` (v2.2.0+), so a custom page shows the 403 or 404 screen in place.
 
-**Challenge widget (v2.21.0).** While `martis.auth.challenge` is enabled, the Login, Forgot password, Reset password, Register and invitation-accept forms render the component registered under the registry key `auth:challenge` (props `{ siteKey, surface, onToken, resetSignal }`), send its token as `challenge_token`, and bump `resetSignal` after a failed submit. A form with the challenge on and no component registered shows a configuration error and does not submit. See [Authentication → Challenge (captcha) hook](authentication.md#challenge-captcha-hook-v2210) for the contract and a Cloudflare Turnstile example.
+**Challenge widget (v2.21.0).** While `martis.auth.challenge` is enabled, the Login, Forgot password, Reset password, Register and invitation-accept forms render the component registered under the registry key `auth:challenge` (props `{ siteKey, surface, onToken, resetSignal }`), send its token as `challenge_token`, and bump `resetSignal` after a failed submit. A form with the challenge on and no component registered shows a configuration error and does not submit. `useAuthChallenge` and `AuthChallenge` are exported by `@martis/runtime` for an `auth:*` override that keeps the wiring. See [Authentication → Challenge (captcha) hook](authentication.md#challenge-captcha-hook-v2210) for the contract and a Cloudflare Turnstile example.
 
 See [Authentication](authentication.md) for the full config surface (`config.auth`), backend recipes for SSO / Google, and the registration contract.
 
@@ -494,10 +494,10 @@ addToast('error', 'Failed to save record')
 | Option | Type | Description |
 |--------|------|-------------|
 | `link` | `{ href, label }` | A link under the message, opened in a new tab. Only a safe href renders. |
-| `life` | `number \| null` | Lifetime in ms; `null` keeps the toast until closed. Beats `martis.toast.durations`. |
+| `life` | `number \| null` | Lifetime in ms; `null` keeps the toast until closed. Beats `martis.toast.durations`. A value that is neither `null` nor a finite positive number (`0`, a negative, `NaN`, `Infinity`, a string) is ignored and the configured duration applies; one above 2147483000 is clamped, since a browser timer cannot hold more. |
 | `dismissOnNavigate` | `boolean` | Default `false`. A sticky toast with it set is removed on route change. |
 
-Without `life`, the lifetime is the severity's `martis.toast.durations` value (5000 ms by default); a toast with a link stays at least 10000 ms unless it is sticky.
+Without `life`, the lifetime is the severity's `martis.toast.durations` value (5000 ms by default); a toast with a link stays at least 10000 ms unless it is sticky. Sticky toasts stack: nothing caps their number or merges repeats, so do not raise one from a loop. A sticky toast the person closes, or that expires or is removed, also leaves the set `dismissOnNavigate` clears.
 
 ```typescript
 // A sticky error that goes away when the person leaves the page.
