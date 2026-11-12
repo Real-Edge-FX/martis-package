@@ -100,6 +100,17 @@ it('redirects to authorize_url with the audience and a fresh state, and nothing 
     expect($again['state'])->not->toBe($flow['state']);
 });
 
+it('redirects to an authorize_url on a local host over http', function (string $url) {
+    stConsumer([$this->keys['public_b64']], 'panel_a', ['authorize_url' => $url]);
+
+    expect(stBegin(stProvider())['location'])->toStartWith($url.'?');
+})->with([
+    'http://localhost:8199/martis/sso/issue/panel-b',
+    'http://a.localhost:8199/martis/sso/issue/panel-b',
+    'http://127.0.0.1:8199/martis/sso/issue/panel-b',
+    'http://[::1]:8199/martis/sso/issue/panel-b',
+]);
+
 it('keeps the query string the authorize_url already has', function () {
     stConsumer([$this->keys['public_b64']], 'panel_a', ['authorize_url' => 'https://a.example/issue?tenant=7']);
 
@@ -547,6 +558,7 @@ it('throws, naming the config key, for a block that is set but unusable', functi
 })->with([
     'no authorize_url' => [['authorize_url' => null], 'martis.auth.sso.providers.panel_a.authorize_url'],
     'relative authorize_url' => [['authorize_url' => '/issue'], 'martis.auth.sso.providers.panel_a.authorize_url'],
+    'http authorize_url on another loopback address' => [['authorize_url' => 'http://127.0.0.2/issue'], 'martis.auth.sso.providers.panel_a.authorize_url'],
     'http authorize_url on a real host' => [['authorize_url' => 'http://a.example/issue'], 'martis.auth.sso.providers.panel_a.authorize_url'],
     'no public_keys' => [['public_keys' => null], 'martis.auth.sso.providers.panel_a.public_keys'],
     'empty public_keys' => [['public_keys' => []], 'martis.auth.sso.providers.panel_a.public_keys'],

@@ -14,8 +14,9 @@ use InvalidArgumentException;
 final class Urls
 {
     /**
-     * An absolute https URL, or http on localhost, `*.localhost` and `*.test`
-     * only; no credentials, no fragment (the token travels in the query), no
+     * An absolute https URL, or http on a local host only (localhost,
+     * `*.localhost`, `*.test`, and the loopback addresses 127.0.0.1 and [::1]);
+     * no credentials, no fragment (the token travels in the query), no
      * backslash, space or control character (a browser reads `\` as `/`).
      *
      * @throws InvalidArgumentException naming `$key`
@@ -40,7 +41,7 @@ final class Urls
 
         if (! $usable) {
             throw new InvalidArgumentException(
-                "The [{$key}] config value must be an absolute https URL without credentials or a fragment (http only on localhost, *.localhost and *.test hosts).",
+                "The [{$key}] config value must be an absolute https URL without credentials or a fragment (http only on localhost, *.localhost, *.test, 127.0.0.1 and [::1] hosts).",
             );
         }
 
@@ -65,8 +66,12 @@ final class Urls
 
     private static function isLocalHost(string $host): bool
     {
+        // `parse_url()` keeps the brackets of an IPv6 host. Only the two
+        // loopback addresses, not the rest of 127.0.0.0/8 or an IPv4-mapped form.
         return $host === 'localhost'
             || str_ends_with($host, '.localhost')
-            || str_ends_with($host, '.test');
+            || str_ends_with($host, '.test')
+            || $host === '127.0.0.1'
+            || $host === '[::1]';
     }
 }

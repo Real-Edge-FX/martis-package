@@ -433,6 +433,7 @@ it('throws, naming the config key, for an issuer block that is set but unusable'
     'audiences not an array' => [['audiences' => 'panel-b'], 'martis.auth.sso.issuer.audiences'],
     'audience without a callback_url' => [['audiences' => ['panel-b' => []]], 'martis.auth.sso.issuer.audiences.panel-b.callback_url'],
     'relative callback_url' => [['audiences' => ['panel-b' => ['callback_url' => '/cb']]], 'martis.auth.sso.issuer.audiences.panel-b.callback_url'],
+    'http callback_url on another loopback address' => [['audiences' => ['panel-b' => ['callback_url' => 'http://127.0.0.2/cb']]], 'martis.auth.sso.issuer.audiences.panel-b.callback_url'],
     'http callback_url on a real host' => [['audiences' => ['panel-b' => ['callback_url' => 'http://b.example/cb']]], 'martis.auth.sso.issuer.audiences.panel-b.callback_url'],
     'callback_url with credentials' => [['audiences' => ['panel-b' => ['callback_url' => 'https://user:pw@b.example/cb']]], 'martis.auth.sso.issuer.audiences.panel-b.callback_url'],
     'callback_url with a fragment' => [['audiences' => ['panel-b' => ['callback_url' => 'https://b.example/cb#x']]], 'martis.auth.sso.issuer.audiences.panel-b.callback_url'],
@@ -453,7 +454,7 @@ it('rejects a private key whose public half was swapped', function () {
         ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.issuer.private_key');
 });
 
-it('allows http for localhost, .localhost and .test callback hosts', function (string $url) {
+it('allows http for localhost, .localhost, .test, 127.0.0.1 and [::1] callback hosts', function (string $url) {
     config(['martis.auth.sso.issuer.audiences' => ['panel-b' => ['callback_url' => $url]]]);
 
     $location = (string) stSignedIn()->get(stIssueUrl())->headers->get('Location');
@@ -463,6 +464,8 @@ it('allows http for localhost, .localhost and .test callback hosts', function (s
     'http://localhost:8001/martis/sso/panel_a/callback',
     'http://b.localhost/cb',
     'http://panel-b.test/cb',
+    'http://127.0.0.1:8198/martis/sso/panel_a/callback',
+    'http://[::1]:8198/martis/sso/panel_a/callback',
 ]);
 
 it('says what to do when the private key is missing', function () {
