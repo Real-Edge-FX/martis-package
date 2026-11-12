@@ -757,7 +757,16 @@ class SsoMakeCommand extends Command
         $this->line("     <fg=gray>MARTIS_SSO_{$upperName}_AUDIENCE        the audience name, as the issuing app lists it</>");
         $this->line('  3. The issuing app lists this app\'s callback URL for that audience:');
         $this->line('     <fg=gray>'.url('/'.$path."/sso/{$name}/callback").'</>');
-        $this->line("  4. Set MARTIS_SSO_{$upperName}_ENABLED=true. The token travels in that callback URL's query string:");
+        $this->line('  4. THIS app needs a column the token\'s identity is stored in (migrate it yourself, nullable string, unique):');
+        $this->line("     <fg=gray>users.{$name}_external_id   (or set identity_external_id_column in the block)</>");
+
+        // Only the `column` strategy reads a roles column.
+        if (((string) ($this->option('strategy') ?: 'column')) === 'column') {
+            $this->line("     <fg=gray>roles.{$name}_group_name    holds the role name the issuing app sends</>");
+            $this->line('     <fg=gray>(run this command again with --with-migration to publish a migration for that roles column)</>');
+        }
+
+        $this->line("  5. Set MARTIS_SSO_{$upperName}_ENABLED=true. The token travels in that callback URL's query string:");
         $this->line('     keep query strings out of the access logs of that path.');
         $this->newLine();
     }

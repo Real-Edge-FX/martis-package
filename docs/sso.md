@@ -642,7 +642,7 @@ A value that resolves to no callable throws an `InvalidArgumentException` naming
 
 | Value | Behaviour |
 |---|---|
-| `auto` (default) | Picks `SpatieAdapter` when `spatie/laravel-permission` is installed, `NativeAdapter` otherwise. |
+| `auto` (default) | Picks `SpatieAdapter` when `spatie/laravel-permission` is installed, `NativeAdapter` otherwise. It never picks `callable`: a `MartisSso::syncRolesUsing()` callback is ignored while this is `auto`. |
 | `spatie` | Calls `$user->syncRoles($collection)` (Spatie's `HasRoles` trait). The user model must `use HasRoles`. |
 | `native` | Direct attach/detach against `model_has_roles`. Pivot table name and column names are config-driven (`auth.sso.native_pivot.*`). |
 | `callable` | Defers to `MartisSso::syncRolesUsing($user, $roles)` registered in your service provider. Use when you have bespoke rules (custom main_role flag, dual tables, audit triggers). |
@@ -1411,7 +1411,7 @@ php artisan martis:sso panel-a --driver=signed-token
     'driver' => 'signed-token',
     'label' => 'Continue with Panel A',
     'authorize_url' => 'https://panel-a.example/martis/sso/issue/panel-b',
-    'public_keys' => [env('MARTIS_SSO_PANEL_A_PUBLIC_KEY')],
+    'public_keys' => array_values(array_filter(array_map('trim', explode(',', (string) env('MARTIS_SSO_PANEL_A_PUBLIC_KEYS', ''))))),
     'issuer' => 'https://panel-a.example',
     'audience' => 'panel-b',
     'max_age_seconds' => 60,
@@ -1424,6 +1424,8 @@ php artisan martis:sso panel-a --driver=signed-token
 ],
 ```
 
+`MARTIS_SSO_<NAME>_PUBLIC_KEYS` (the name in upper case, here `MARTIS_SSO_PANEL_A_PUBLIC_KEYS`) holds the public key, or several separated by commas during a rotation: that is the variable the generator writes into `.env` and the one `martis:sso:keys` names. Spaces around a key and empty entries are dropped.
+
 The block may be named anything and there may be several: `driver => 'signed-token'` selects the built-in provider (`MartisSso::extend()` registrations keep precedence). The name must be lowercase, because routes and config keys are matched in lowercase.
 
 | Key | Meaning |
@@ -1435,6 +1437,26 @@ The block may be named anything and there may be several: `driver => 'signed-tok
 | `clock_skew_seconds` | Clock difference tolerated for `exp` and `iat` (default 30). |
 | `role_claim` | The claim that holds the role names (default `roles`). The roles feed the usual `role_strategy` mapping. |
 | `environment`, `environment_claim` | Optional second lock: only tokens whose `environment_claim` (default `env`) equals `environment` are accepted. |
+
+#### The columns panel B needs
+
+The generated block does not work until panel B's database has what it reads and writes. Panel B owns these columns, no flag creates the first one:
+
+- **`users.<name>_external_id`** (here `panel_a_external_id`), a nullable string, ideally unique. The `external_id` strategy stores the id of the token's `sub` there on the first sign-in and finds the user by it after that. A column of another name goes in `identity_external_id_column`. Add it in a migration of your own:
+
+  ```php
+  Schema::table('users', function (Blueprint $table) {
+      $table->string('panel_a_external_id')->nullable()->unique();
+  });
+  ```
+
+- **`roles.<name>_group_name`** (here `panel_a_group_name`), for the generated `'role_strategy' => 'column'` (the default of `--strategy`): the role whose column equals a role name in the token's `roles` claim is the one the user gets. `php artisan martis:sso panel-a --driver=signed-token --with-migration` publishes a migration that adds the column to an existing `roles` table (Spatie's, or yours); it refuses when there is none. The `config` and `callable` strategies read no column.
+
+The command prints both in its list of next steps. A missing column is a refused sign-in (reason `unknown`, the database error in the log line); a roles column that exists but holds no role name the token sends refuses with `no_role_match`.
+
+#### Which adapter writes the roles
+
+`permission_adapter => 'auto'` (what the generator writes, or `spatie` with `--with-spatie`) picks the Spatie adapter when `spatie/laravel-permission` is installed and the native adapter (direct writes to `model_has_roles`) otherwise. It does **not** look at `MartisSso::syncRolesUsing()`: registering that callback changes nothing until the block says `'permission_adapter' => 'callable'`. An app with its own role tables sets `callable` and registers the callback, or the native adapter writes to a pivot it does not have.
 
 The provider sets `externalId = sub`, so **set `identity_match_attribute = external_id`** (see [Matching by `external_id`](#matching-by-external_id-v2210)): the id at panel A is the stable identity, an email is not. A block with a missing or unusable key throws an exception that names it.
 
