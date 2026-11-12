@@ -112,7 +112,7 @@ public function detailKicker(Request $request): string|false|null
 
 The detail drawer has no such heading, so the method does not affect it. The value is sent with the resource schema as `detailKicker`.
 
-Detail rows honour `Field::fullWidth()` and `Field::hideLabelOnDetail()` (see [fields.md](fields.md)), and each row carries `data-field` (the attribute) and `data-type` (the field component) for host CSS.
+Detail rows honour `Field::fullWidth()` and `Field::hideLabelOnDetail()` (see [fields.md](fields.md)), and each row carries `data-field` (the attribute) and `data-type` (the field component) for host CSS. Fields inside a `Section` or `Panel` follow the same rules: `fullWidth()` takes the whole row of the section grid (whatever `colSpan()` says), `hideLabelOnDetail()` keeps a screen-reader label, and each row carries the same hooks.
 
 ### Context-specific field overrides
 

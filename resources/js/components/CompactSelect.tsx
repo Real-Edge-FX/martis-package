@@ -33,6 +33,9 @@ export function CompactSelect<V extends string | number>({ value, options, onCha
       optionValue="value"
       onChange={(e) => onChange(e.value as V)}
       ariaLabel={ariaLabel}
+      // PrimeReact puts `ariaLabel` on the non-focusable trigger only; the
+      // focused element is its hidden readonly input, which takes aria-*.
+      aria-label={ariaLabel}
       className="martis-perpage-select"
       appendTo={typeof document !== 'undefined' ? document.body : undefined}
     />
@@ -92,6 +95,9 @@ export function TrashedSelect({ value, onChange, labels, ariaLabel, tooltip }: T
         ]}
         onChange={onChange}
         ariaLabel={ariaLabel}
+      // PrimeReact puts `ariaLabel` on the non-focusable trigger only; the
+      // focused element is its hidden readonly input, which takes aria-*.
+      aria-label={ariaLabel}
         tooltip={tooltip}
       />
     </div>

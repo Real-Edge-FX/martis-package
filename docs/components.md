@@ -1259,7 +1259,7 @@ Stacked label/value rows used by the resource detail page right rail and the dra
 
 Add `.martis-detail-panel.is-drawer` on the wrapper for drawer-tighter spacing. `.martis-detail-kicker` is the eyebrow text rendered above the panel title (its text comes from `Resource::detailKicker()`, see [resources.md](resources.md#detailkicker)).
 
-Rows the package renders carry hooks for host CSS (v2.23.0): `data-field` (the field attribute) and `data-type` (the field component), plus `.is-full-width` for a `fullWidth()` field (one column, label above the value) and `.is-label-hidden` for `hideLabelOnDetail()` (the `dt` gets `sr-only`).
+Rows the package renders carry hooks for host CSS (v2.23.0): `data-field` (the field attribute) and `data-type` (the field component), plus `.is-full-width` for a `fullWidth()` field (one column, label above the value) and `.is-label-hidden` for `hideLabelOnDetail()` (the `dt` gets `sr-only`). Rows inside a `Section` use `.martis-section-row` with the same modifiers.
 
 ### Form density helpers
 

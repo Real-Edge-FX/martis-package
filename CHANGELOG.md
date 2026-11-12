@@ -32,8 +32,8 @@ Minor release from three batches of consumer requests: SSO operations (a check c
 ### Changed
 
 - **The login page opens the password form on `?password_login=1` only when `passwordLogin.breakGlass` is true.** With password sign-in off and an empty `break_glass_emails`, the parameter is ignored (nobody could use the form). The flag is computed without validating `break_glass_emails`, so a malformed list never fails a page render: it is reported by the break-glass sign-in that reads it, naming `martis.auth.password_login.break_glass_emails`, as in v2.22.0.
-- **Detail rows and the drawer honour `Field::fullWidth()`**: one column, the label above the value. It was ignored there before.
-- **The per-page and trashed selects** on the index, lenses and relationship tables are PrimeReact dropdowns instead of native selects. The class `martis-perpage-select` stays on the root.
+- **Detail rows and the drawer honour `Field::fullWidth()`**: one column, the label above the value, the value aligned with the label (the browser's 40px `dd` indent is reset). It was ignored there before. Fields inside a `Section` honour `fullWidth()` (the whole row of the section grid, whatever `colSpan()` says) and `hideLabelOnDetail()`, and carry `data-field` / `data-type`, the same as plain rows.
+- **The per-page and trashed selects** on the index, lenses and relationship tables are PrimeReact dropdowns instead of native selects. The class `martis-perpage-select` stays on the root, and the focusable input carries the accessible name.
 
 ### Fixed
 

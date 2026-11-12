@@ -17,7 +17,7 @@ describe('PerPageSelect', () => {
 
   it('exposes an accessible name', () => {
     render(<PerPageSelect value={25} options={[10, 25, 50]} onChange={vi.fn()} />)
-    expect(screen.getByLabelText('Per page')).toBeTruthy()
+    expect(screen.getAllByLabelText('Per page').length).toBeGreaterThan(0)
   })
 
   it('reports the chosen number', () => {
@@ -50,5 +50,13 @@ describe('CompactSelect tooltip', () => {
     plain.unmount()
     const withTip = render(<CompactSelect {...base} tooltip="Hint" />)
     expect(withTip.container.querySelector('[data-pr-tooltip="Hint"]')).toBeTruthy()
+  })
+})
+
+describe('CompactSelect focusable element', () => {
+  it('names the focusable input, not only the trigger', () => {
+    const { container } = render(<PerPageSelect value={25} options={[10, 25, 50]} onChange={vi.fn()} />)
+    const input = container.querySelector('input[aria-haspopup="listbox"]')!
+    expect(input.getAttribute('aria-label')).toBe('Per page')
   })
 })

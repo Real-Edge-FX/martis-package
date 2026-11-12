@@ -7285,6 +7285,11 @@ html[data-density="dense"] .martis-drawer-icon {
   gap: 6px;
   align-items: start;
 }
+.martis-detail-row.is-full-width .martis-detail-value,
+.martis-section-row.is-full-width > dd {
+  /* Reset the browser's 40px `dd` indent: the value lines up with its label. */
+  margin: 0;
+}
 .martis-detail-row.is-label-hidden,
 .martis-detail-panel.is-drawer .martis-detail-row.is-label-hidden {
   gap: 0;
