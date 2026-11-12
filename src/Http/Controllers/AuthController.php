@@ -416,7 +416,7 @@ class AuthController extends MartisController
             // configuration error, not an unavailable mailer: let it fail
             // loudly, naming the config key.
             throw $e;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             report($e);
 
             return response()->json([

@@ -7,7 +7,6 @@ namespace Martis\Http\Middleware;
 use Closure;
 use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Http\Request;
-use Martis\Sso\SsoManager;
 use Martis\Sso\SsoSessionEnforcer;
 use Symfony\Component\HttpFoundation\Response;
 

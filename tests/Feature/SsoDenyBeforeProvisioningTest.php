@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\QueryException;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,6 +21,7 @@ use Martis\Sso\Providers\AzureProvider;
 use Martis\Sso\SsoException;
 use Martis\Sso\SsoIdentity;
 use Martis\Sso\SsoManager;
+use Psr\Log\LoggerInterface;
 
 class SsoDenyUser extends User
 {
@@ -497,7 +498,7 @@ it('masks the credentials of the exception in the log line of such a refusal', f
     ssoDenyServe($this->app, ssoDenyIdentity(['PMI ADMIN']));
     MartisSso::afterLogin(fn () => throw new RuntimeException('IdP said https://idp.example/cb?code=SECRETCODE&password=hunter2'));
     $logged = new ArrayObject;
-    $logger = Mockery::mock(Psr\Log\LoggerInterface::class);
+    $logger = Mockery::mock(LoggerInterface::class);
     $logger->shouldReceive('warning')->andReturnUsing(function (string $message, array $context = []) use ($logged) {
         $logged[] = $context;
     });

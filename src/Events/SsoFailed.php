@@ -6,6 +6,7 @@ namespace Martis\Events;
 
 use Illuminate\Foundation\Events\Dispatchable;
 use Martis\Sso\SsoException;
+use Martis\Sso\SsoLogRedactor;
 use Throwable;
 
 /**
@@ -42,7 +43,7 @@ class SsoFailed
          * redacted (an HTTP client exception carries the request URL, the
          * response body and so the codes and tokens in them). A listener must
          * not log or ship it as it is: run `getMessage()` through
-         * {@see \Martis\Sso\SsoLogRedactor::redact()} first, or log only the
+         * {@see SsoLogRedactor::redact()} first, or log only the
          * class and `reason`.
          */
         public readonly ?Throwable $exception = null,
