@@ -238,7 +238,7 @@ it('refuses the same callback URL a second time', function () {
 it('refuses the same callback URL on the jti when the state is back in the session', function () {
     $start = $this->get('/martis/sso/panel_a/redirect');
     $toIssuer = (string) $start->headers->get('Location');
-    parse_str((string) parse_url($toIssuer, PHP_URL_QUERY), $query);
+    $stateEntry = session('martis_sso_state.panel_a');
     $issue = $this->actingAs($this->issuerUser)
         ->withSession([TwoFactorPass::SESSION_KEY => (string) $this->issuerUser->getKey()])
         ->get($toIssuer);
@@ -249,7 +249,7 @@ it('refuses the same callback URL on the jti when the state is back in the sessi
 
     // Two tabs, a session restore: the state is reproduced. The one-time store is the second lock.
     auth()->logout();
-    session()->put('martis_sso_state.panel_a', $query['state']);
+    session()->put('martis_sso_state.panel_a', $stateEntry);
     Event::fake([SsoFailed::class]);
     $this->get($callback)->assertRedirect(route('martis.login'));
 

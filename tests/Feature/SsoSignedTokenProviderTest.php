@@ -350,6 +350,55 @@ it('pulls the state from the session once', function () {
     expect(stReason(stProvider(), $flow['session'], $fresh, $flow['state']))->toBe(Reason::STATE);
 });
 
+it('accepts a state of exactly ten minutes and refuses one a second older', function () {
+    $start = 1_800_000_000;
+    Carbon::setTestNow(Carbon::createFromTimestamp($start));
+    $provider = stProvider();
+
+    // 600 s after redirect(): still good (the token is issued just before it comes back).
+    $flow = stBegin($provider);
+    Carbon::setTestNow(Carbon::createFromTimestamp($start + 600));
+    $token = stSign(stClaims($flow['state'], ['iat' => stTime($start + 600), 'exp' => stTime($start + 660)]), $this->keys['secret']);
+    expect(stReason($provider, $flow['session'], $token, $flow['state']))->toBe('accepted');
+
+    // 601 s: refused as state.
+    Carbon::setTestNow(Carbon::createFromTimestamp($start));
+    $flow = stBegin($provider);
+    Carbon::setTestNow(Carbon::createFromTimestamp($start + 601));
+    $token = stSign(stClaims($flow['state'], ['iat' => stTime($start + 601), 'exp' => stTime($start + 661)]), $this->keys['secret']);
+    expect(stReason($provider, $flow['session'], $token, $flow['state']))->toBe(Reason::STATE);
+    // Pulled once, expired or not.
+    expect($flow['session']->has('martis_sso_state.panel_a'))->toBeFalse();
+    Carbon::setTestNow();
+});
+
+it('still uses up the jti of a token whose state had expired', function () {
+    $start = 1_800_000_000;
+    Carbon::setTestNow(Carbon::createFromTimestamp($start));
+    $provider = stProvider();
+    $flow = stBegin($provider);
+
+    Carbon::setTestNow(Carbon::createFromTimestamp($start + 700));
+    $token = stSign(stClaims($flow['state'], ['iat' => stTime($start + 700), 'exp' => stTime($start + 760)]), $this->keys['secret']);
+    expect(stReason($provider, $flow['session'], $token, $flow['state']))->toBe(Reason::STATE);
+
+    stRestoreState($flow);
+    expect(stReason($provider, $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAYED);
+    Carbon::setTestNow();
+});
+
+it('refuses a state kept in the session without its creation time', function (mixed $entry) {
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state']), $this->keys['secret']);
+    $flow['session']->put('martis_sso_state.panel_a', $entry === 'plain' ? $flow['state'] : $entry);
+
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::STATE);
+})->with([
+    'a bare string (a flow started before v2.22.0)' => ['plain'],
+    'an array without the time' => [['value' => 'x']],
+    'a time that is not a number' => [['value' => 'x', 'at' => 'yesterday']],
+]);
+
 it('refuses a replayed jti', function () {
     $flow = stBegin(stProvider());
     $token = stSign(stClaims($flow['state']), $this->keys['secret']);
@@ -358,7 +407,7 @@ it('refuses a replayed jti', function () {
 
     // The browser session starts a second flow with the same state, and the
     // same token comes back: only the one-time jti stops it.
-    $flow['session']->put('martis_sso_state.panel_a', $flow['state']);
+    stRestoreState($flow);
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAYED);
 });
 
@@ -389,7 +438,7 @@ it('does not burn the jti of a token the verifier rejected', function () {
 
     // Same token, verifier no longer locked: the jti was never recorded.
     stConsumer([$this->keys['public_b64']]);
-    $flow['session']->put('martis_sso_state.panel_a', $flow['state']);
+    stRestoreState($flow);
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
 });
 
@@ -410,7 +459,7 @@ it('uses up the jti when the state query parameter is missing or differs', funct
 
     expect(stReason(stProvider(), $flow['session'], $token, $query))->toBe(Reason::STATE);
 
-    $flow['session']->put('martis_sso_state.panel_a', $flow['state']);
+    stRestoreState($flow);
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAYED);
 })->with(['missing' => [null], 'different' => [str_repeat('x', 43)]]);
 
@@ -685,12 +734,12 @@ it('still refuses the jti on the last second the token would be accepted, and no
     // The last accepted second is min(exp, iat + max_age) + skew = now + 90. The state is put back
     // so that the one-time store is the only lock left.
     Carbon::setTestNow(Carbon::createFromTimestamp($now + 90));
-    $begin['session']->put('martis_sso_state.panel_a', $begin['state']);
+    stRestoreState($begin);
     expect(stReason($provider, $begin['session'], $token, $begin['state']))->toBe(Reason::REPLAYED);
 
     // One second later the token is expired, whatever the store holds.
     Carbon::setTestNow(Carbon::createFromTimestamp($now + 91));
-    $begin['session']->put('martis_sso_state.panel_a', $begin['state']);
+    stRestoreState($begin);
     expect(stReason($provider, $begin['session'], $token, $begin['state']))->toBe(Reason::EXPIRED);
     Carbon::setTestNow();
 });

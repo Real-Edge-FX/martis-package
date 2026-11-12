@@ -25,14 +25,14 @@ use Throwable;
  * short-lived, one-time, asymmetric token (v2.21.0): `driver => 'signed-token'`
  * in a provider block, whatever the block is named.
  *
- *   redirect()         a random `state` goes into the browser's session, the
- *                      browser goes to `authorize_url` with `audience` and `state`
+ *   redirect()         a random `state` and its creation time go into the
+ *                      browser's session, the browser goes to `authorize_url` with `audience` and `state`
  *   resolveIdentity()  the callback's `token` (PASETO v4.public, see
  *                      {@see PasetoV4Public}) is checked, in this order: its
  *                      shape, its signature against every configured key, its
  *                      claims (issuer, audience, expiry, age, environment), the
  *                      one-time `jti`, and last the state (session = query =
- *                      claim, pulled once)
+ *                      claim, pulled once, at most ten minutes old)
  *
  * Every refusal is an {@see SsoException} with its own
  * {@see Reason}. The jti is recorded after the checks that say the token is
@@ -53,6 +53,14 @@ final class SignedTokenProvider implements SsoProviderContract
     /** String claims every token carries; `email_verified` (a boolean) is checked apart. */
     private const REQUIRED_CLAIMS = ['iss', 'aud', 'sub', 'iat', 'exp', 'jti', 'state', 'email'];
 
+    /**
+     * How long the state `redirect()` put in the session is good for (v2.22.0):
+     * the person has this long to sign in at the issuing panel and come back.
+     * Not a config key; a slow sign-in (an MFA prompt, a forgotten password)
+     * that takes longer starts over.
+     */
+    public const STATE_LIFETIME_SECONDS = 600;
+
     /** Bounds the cache key and the memory a hostile jti can take. */
     private const MAX_JTI_LENGTH = 255;
 
@@ -69,7 +77,7 @@ final class SignedTokenProvider implements SsoProviderContract
         $settings = ConsumerSettings::fromConfig($this->name);
 
         $state = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
-        $request->session()->put($this->stateKey(), $state);
+        $request->session()->put($this->stateKey(), ['value' => $state, 'at' => now()->getTimestamp()]);
 
         return redirect()->away(Urls::withQuery($settings->authorizeUrl, [
             'audience' => $settings->audience,
@@ -281,13 +289,21 @@ final class SignedTokenProvider implements SsoProviderContract
 
     /**
      * The state the flow put in the session (pulled: it is good for one
-     * attempt), the callback's `state` query parameter and the token's `state`
-     * claim must all be the same.
+     * attempt, and for {@see self::STATE_LIFETIME_SECONDS} from the redirect),
+     * the callback's `state` query parameter and the token's `state` claim
+     * must all be the same. A state kept without its creation time (a flow
+     * started before v2.22.0) is refused: the person starts over.
      */
     private function checkState(Request $request, string $claimed): void
     {
-        $expected = $request->hasSession() ? $request->session()->pull($this->stateKey()) : null;
+        $kept = $request->hasSession() ? $request->session()->pull($this->stateKey()) : null;
         $query = $request->query('state');
+
+        $expected = null;
+        if (is_array($kept) && is_string($kept['value'] ?? null) && is_int($kept['at'] ?? null)
+            && now()->getTimestamp() - $kept['at'] <= self::STATE_LIFETIME_SECONDS) {
+            $expected = $kept['value'];
+        }
 
         $matches = is_string($expected) && $expected !== ''
             && is_string($query)

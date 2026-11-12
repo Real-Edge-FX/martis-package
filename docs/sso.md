@@ -1488,7 +1488,7 @@ In this order, each refusal with its own reason (they reach the log line and the
 | `environment` | The verifier has an `environment` and the token's claim differs or is absent. |
 | `replayed` | The `jti` was already used. |
 | `replay_store` | The cache failed while recording the `jti`: the token is refused, never let through. |
-| `state` | The state in the browser's session (taken out of it once, whatever the outcome), the `state` of the callback URL and the `state` claim are not all the same. |
+| `state` | The state in the browser's session (taken out of it once, whatever the outcome, and no older than 10 minutes since the redirect: v2.22.0, a fixed limit with no config key, so a sign-in slower than that starts over), the `state` of the callback URL and the `state` claim are not all the same. |
 
 The `jti` is recorded (`Cache::add`, kept until the token could not be accepted any more) **before** the state is checked (v2.22.0), so a token that is validly signed, in time and meant for this audience is used up by its first arrival, whatever the state of that request. A token refused earlier in the list (bad signature, another audience or issuer, expired, another environment) is not recorded. Comparisons of the issuer, audience, environment and state are constant time.
 
