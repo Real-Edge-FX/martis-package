@@ -247,7 +247,6 @@ class IdentityResolver
         throw new SsoException(
             "SSO sign-in via [{$provider}] refused: local account [{$user->getKey()}] already stores a different external id in [{$column}]; it is never overwritten.",
             SsoException::REASON_EXTERNAL_ID_MISMATCH,
-            'martis::messages.sso_account_unverified',
         );
     }
 

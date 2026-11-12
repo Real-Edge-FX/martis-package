@@ -480,7 +480,7 @@ Every refusal of the callback (the IdP call failed, the account may not be adopt
 |---|---|
 | `unknown` | Anything thrown that is not a `Martis\Sso\SsoException`: the provider (an unreachable IdP, a rejected code, a malformed token), the user step (a unique index on the email, the two concurrent first sign-ins of one identity, an IdP email change onto an address another row holds), the role sync or an `afterLogin` hook. |
 | `account_unverified` | A local row holds the IdP's address and the sign-in may not adopt it (`SsoAdoptionRefusedException`). |
-| `missing_external_id`, `external_id_mismatch` | See [Matching by `external_id`](#matching-by-external_id-v2210). |
+| `missing_external_id`, `external_id_mismatch` | See [Matching by `external_id`](#matching-by-external_id-v2210). Both show the generic text on the login page: a more specific one would tell whoever holds an IdP account that a local account with that address exists. |
 | `email_unverified` | The provider says the identity's email is not verified (`SsoIdentity::$emailVerified === false`) and a local row holds that address: the row is not adopted, on the `email` strategy or with `link_by_email`. The signed-token provider sets it from the issuer's `email_verified` claim. A provider that makes no statement (`null`, the default and Azure's case) is unaffected. The login page shows the generic text. |
 | `not_provisioned` | No local user, and `auto_create_user` is off (or the user resolver returned `null`). |
 | `no_role_match` | No role maps and `on_no_role_match` denies (also when a `callable` hook returned a redirect: the person is not signed in, the hook decides where they go). |

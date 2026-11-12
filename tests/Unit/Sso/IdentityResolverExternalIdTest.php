@@ -162,8 +162,10 @@ it('link_by_email never overwrites a different id: refuses with reason external_
         (new IdentityResolver)->resolve(extIdentity('idp-1'), 'azure');
         $this->fail('expected an SsoException');
     } catch (SsoException $e) {
+        // The generic text: the "an account with this email exists" one would tell the holder
+        // of an IdP account that a local account with that address exists (review D6).
         expect($e->reason)->toBe(SsoException::REASON_EXTERNAL_ID_MISMATCH)
-            ->and($e->messageKey)->toBe('martis::messages.sso_account_unverified');
+            ->and($e->messageKey)->toBeNull();
     }
 
     expect($row->refresh()->getAttribute('idp_subject'))->toBe('someone-elses-id');
