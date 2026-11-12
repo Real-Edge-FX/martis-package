@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -30,6 +31,18 @@ function stProvider(string $name = 'panel_a'): SignedTokenProvider
     expect($provider)->toBeInstanceOf(SignedTokenProvider::class);
 
     return $provider;
+}
+
+/**
+ * A mock of the cache repository the one-time store resolves (the
+ * configured SSO store, else the default one).
+ */
+function stCacheMock(): Mockery\MockInterface
+{
+    $repository = Mockery::mock(Repository::class);
+    Cache::shouldReceive('store')->andReturn($repository);
+
+    return $repository;
 }
 
 /** The reason an attempt is refused with. */
@@ -568,7 +581,7 @@ it('refuses when the one-time store fails (fail closed) with its own reason', fu
     $flow = stBegin(stProvider());
     $token = stSign(stClaims($flow['state']), $this->keys['secret']);
 
-    Cache::shouldReceive('add')->once()->andThrow(new RuntimeException('redis is down'));
+    stCacheMock()->shouldReceive('add')->once()->andThrow(new RuntimeException('redis is down'));
 
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAY_STORE);
 });
@@ -577,7 +590,7 @@ it('refuses when the one-time store answers that it did not add the key', functi
     $flow = stBegin(stProvider());
     $token = stSign(stClaims($flow['state']), $this->keys['secret']);
 
-    Cache::shouldReceive('add')->once()->andReturn(false);
+    stCacheMock()->shouldReceive('add')->once()->andReturn(false);
 
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAYED);
 });
@@ -587,7 +600,7 @@ it('asks the cache to add the jti for the time the token can still be used', fun
     $now = time();
     $token = stSign(stClaims($flow['state'], ['iat' => stTime($now), 'exp' => stTime($now + 60)]), $this->keys['secret']);
 
-    Cache::shouldReceive('add')->once()->withArgs(function (string $key, mixed $value, mixed $ttl): bool {
+    stCacheMock()->shouldReceive('add')->once()->withArgs(function (string $key, mixed $value, mixed $ttl): bool {
         // min(exp, iat + max_age) + skew + 1 = 60 + 30 + 1 seconds, give or take the clock.
         return str_starts_with($key, 'martis_sso_jti:panel_a:')
             && $value === true

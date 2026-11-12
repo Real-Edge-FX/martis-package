@@ -323,6 +323,10 @@ The **Continue with Microsoft** button is there. Click → Azure consent screen 
     'sso' => [
         'enabled' => env('MARTIS_SSO_ENABLED', false),
 
+        // v2.22.0: the cache store of everything SSO keeps in a cache.
+        // Null = the default store. See "The cache store" below.
+        'cache_store' => env('MARTIS_SSO_CACHE_STORE'),
+
         'providers' => [
             'azure' => [
                 // Master gate per provider.
@@ -411,6 +415,12 @@ The **Continue with Microsoft** button is there. Click → Azure consent screen 
     ],
 ],
 ```
+
+### The cache store (v2.22.0)
+
+`martis.auth.sso.cache_store` (env `MARTIS_SSO_CACHE_STORE`) names the Laravel cache store, from `cache.stores`, that holds everything the SSO subsystem keeps in a cache: the signed token's one-time `jti` ([section 18](#18-signed-token-between-two-martis-apps-v2210)), the revocation time and the origin nonces ([Ending an SSO session](#ending-an-sso-session-age-revocation-revalidation-v2210)), the ended-session markers, and the Azure tenant lookup. Unset (`null`, the default) it is the application's default store, as before.
+
+The store is **security state**, so it must be shared by every server of the panel (Redis, database or Memcached; `array` is per process and `file` per host), must not evict early, and must not be flushed on a deploy: a store that forgets a `jti` reopens a used token, and one that forgets a revocation reopens an ended session. Naming a store of its own keeps a `cache:clear` or a short-lived default store from touching them. A name that is not a string, is empty, or is not in `cache.stores` throws an `InvalidArgumentException` naming `martis.auth.sso.cache_store`, at the first use, instead of being read as a cache outage.
 
 ### What reaches the browser (v2.21.0)
 
@@ -1287,9 +1297,10 @@ The user has no Azure App Role assignment that matches a local role's `azure_gro
 | `resources/js/pages/Login.ssoFlash.test.tsx` | The login page toasts the flashed text once, also on an SSO-only page, and nothing for an empty or non-string value. |
 | `tests/Unit/Sso/SignedToken/UrlsTest.php` | The URL rule of `authorize_url` and `callback_url`: https, or http on `localhost`, `*.localhost`, `*.test`, `127.0.0.1` and `[::1]` only. |
 | `tests/Unit/Sso/SignedToken/PasetoV4PublicTest.php` | The PASETO v4.public codec against the official `4-S-*` and `4-F-*` test vectors, PAE, strict base64url, trailing data, canonical encoding. |
-| `tests/Feature/SsoSignedTokenProviderTest.php` | Driver resolution by block name, `redirect()`, every refusal with its own reason, key rotation, one-time `jti` (kept past the last accepted second), `email_verified`, fail-closed cache, config errors. |
-| `tests/Feature/SsoSignedTokenIssuerTest.php` | The issue route (login, 2FA, gate, 404, state, redirect target, headers, Fetch Metadata, impersonation 403), `TokenIssuer` claims (`email_verified`, reserved claims) and config errors. |
-| `tests/Feature/SsoSignedTokenEndToEndTest.php` | One app as both panels: issue route, callback, `external_id` linking, role mapping, `SsoFailed`, no token or key in logs, the `jti` as the second lock, a provider name in another letter case (404), an unverified email never adopting a row. |
+| `tests/Feature/SsoSignedTokenProviderTest.php` | Driver resolution by block name, `redirect()`, every refusal with its own reason, key rotation, one-time `jti` (kept past the last accepted second, used up before the state is checked), the state lifetime, the environment lock, `email_verified`, fail-closed cache, config errors. |
+| `tests/Feature/SsoSignedTokenIssuerTest.php` | The issue route (login, 2FA, gate, 404, state, redirect target, headers, Fetch Metadata, impersonation 403), the audit events and the denial log (v2.22.0), `TokenIssuer` claims (`email_verified`, reserved claims) and config errors. |
+| `tests/Feature/SsoSignedTokenEndToEndTest.php` | One app as both panels: issue route, callback, `external_id` linking, role mapping, `SsoFailed`, no token or key in logs, the `jti` as the second lock, a provider name in another letter case (404), an unverified email never adopting a row, the state-fixation replay refused. |
+| `tests/Feature/SsoCacheStoreTest.php` | `auth.sso.cache_store` (v2.22.0): the `jti`, the revocation, the origin nonce, the ended marker and the Azure tenant lookup land in the configured store and not in the default one; an unknown or unusable name throws naming the key. |
 | `tests/Feature/SsoSignedTokenCommandsTest.php` | `martis:sso:keys` (never writes), `martis:sso --driver=signed-token` and `--issuer`. |
 | `tests/Feature/SsoMakeCommandTest.php` | Generator idempotency: composer skip, config-block insert, env stub, listener register, Spatie publish, migration publish, role-mapping prompt. |
 
@@ -1535,7 +1546,7 @@ The `jti` is recorded (`Cache::add`, kept until the token could not be accepted 
 ### Security notes
 
 - **The token is in a URL.** It travels in the query string of the callback URL, so it can reach browser history and any access log of that path. The mitigations are built in: it lives 60 seconds by default, is accepted once, is bound to the browser session that started the flow through `state`, and the issue response says `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. Operators should keep query strings out of the access logs of `/{martis}/sso/{provider}/callback` (nginx: log `$uri` instead of `$request_uri` for that location; most load balancers can drop the query from the logged path).
-- **The cache must be shared.** The one-time `jti` lives in Laravel's default cache store. With several servers use a shared store (Redis, database, Memcached); the `array` and `file` stores are per process or per host, and the `null` store refuses every sign-in as `replayed`. A cache that is down refuses sign-ins.
+- **The cache must be shared.** The one-time `jti` lives in Laravel's default cache store, or in the one `martis.auth.sso.cache_store` names ([The cache store](#the-cache-store-v2220)). With several servers use a shared store (Redis, database, Memcached); the `array` and `file` stores are per process or per host, and the `null` store refuses every sign-in as `replayed`. A cache that is down refuses sign-ins.
 - **Panel B trusts what panel A signs about the person.** Two things, and neither is a flaw to patch: they are what a single sign-on is.
   - *The email.* Panel A signs the address its user row holds, and panel B may adopt a local row by it (`identity_match_attribute => 'email'`, or `external_id` with `link_by_email => true`). So that an attacker cannot register at panel A with an address they do not own and be signed in as its holder at panel B, the token carries `email_verified`, and panel B **refuses to adopt** an existing local row by an email that says `false` (reason `email_unverified`; creating a new user and matching by `external_id` are not affected). Panel A needs a user model that implements `MustVerifyEmail` for the claim to mean anything: without it the claim is always `true`. The default scaffold matches by `external_id` without `link_by_email`, which does not rely on the address at all.
   - *The roles.* With `role_strategy => 'column'` panel B maps the role **names** panel A signs onto its own roles. Whoever can assign roles at panel A, or write the `claims` class, controls which roles that user gets at panel B. Treat the right to assign roles at the issuing panel as a right at every panel that trusts it.

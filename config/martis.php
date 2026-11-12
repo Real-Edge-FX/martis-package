@@ -974,6 +974,17 @@ return [
         'sso' => [
             'enabled' => env('MARTIS_SSO_ENABLED', false),
 
+            // Cache store of everything SSO keeps in a cache (v2.22.0): the
+            // signed token's one-time `jti`, the revocation of `revokeFor()`,
+            // the origin nonces, the ended-session markers and the Azure
+            // tenant lookup. Null is the application's default store. The
+            // store MUST be shared by every server of the panel, MUST NOT
+            // evict early (a store that forgets a `jti` or a revocation
+            // reopens a used token or an ended session) and MUST NOT be
+            // flushed on a deploy. A name that is not in `cache.stores`
+            // throws, naming this key.
+            'cache_store' => env('MARTIS_SSO_CACHE_STORE'),
+
             'providers' => [
                 // Microsoft Azure AD example block — flip MARTIS_SSO_AZURE_ENABLED
                 // and fill the AZURE_* env vars to activate.

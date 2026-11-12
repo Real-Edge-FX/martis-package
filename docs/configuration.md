@@ -1750,6 +1750,7 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_SHOW_PROFILE_MENU` | `true` |
 | `MARTIS_SSO_AZURE_ENABLED` | `false` |
 | `MARTIS_SSO_AZURE_LOGOUT_URL` | `(no default)` |
+| `MARTIS_SSO_CACHE_STORE` | `(no default)` |
 | `MARTIS_SSO_ENABLED` | `false` |
 | `MARTIS_SSO_ISSUER` | `(no default)` |
 | `MARTIS_SSO_ISSUER_AUDIENCE_PANEL_B_CALLBACK_URL` | `(no default)` |

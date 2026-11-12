@@ -7,7 +7,6 @@ namespace Martis\Sso;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
@@ -295,8 +294,10 @@ final class SsoSession
             return;
         }
 
+        $cache = SsoCache::store();
+
         try {
-            Cache::put(self::endedKey($endedSessionId), $marker, now()->addSeconds(self::ENDED_SECONDS));
+            $cache->put(self::endedKey($endedSessionId), $marker, now()->addSeconds(self::ENDED_SECONDS));
         } catch (Throwable $e) {
             report($e);
         }
@@ -320,8 +321,10 @@ final class SsoSession
             // Past its minute (or never valid): drop what is left.
             $session->forget(self::SESSION_ENDED);
 
+            $cache = SsoCache::store();
+
             try {
-                $marker = self::liveMarker(Cache::get(self::endedKey($session->getId())));
+                $marker = self::liveMarker($cache->get(self::endedKey($session->getId())));
             } catch (Throwable $e) {
                 report($e);
 
@@ -345,8 +348,10 @@ final class SsoSession
         $session = $request->session();
         $session->forget(self::SESSION_ENDED);
 
+        $cache = SsoCache::store();
+
         try {
-            Cache::forget(self::endedKey($session->getId()));
+            $cache->forget(self::endedKey($session->getId()));
         } catch (Throwable $e) {
             report($e);
         }
@@ -383,8 +388,10 @@ final class SsoSession
      */
     public static function revokeUser(string $userId): void
     {
+        $cache = SsoCache::store();
+
         try {
-            $stored = Cache::put(self::revokedKey($userId), self::now(), now()->addMinutes(self::lifetimeMinutes(null)));
+            $stored = $cache->put(self::revokedKey($userId), self::now(), now()->addMinutes(self::lifetimeMinutes(null)));
         } catch (Throwable $e) {
             throw new RuntimeException("Martis could not record the SSO revocation of user [{$userId}]: the cache refused the write.", 0, $e);
         }
@@ -404,8 +411,10 @@ final class SsoSession
      */
     public static function isRevoked(string $userId, ?int $signedInAt): bool
     {
+        $cache = SsoCache::store();
+
         try {
-            $revokedAt = Cache::get(self::revokedKey($userId));
+            $revokedAt = $cache->get(self::revokedKey($userId));
         } catch (Throwable $e) {
             report($e);
 
@@ -523,13 +532,15 @@ final class SsoSession
     /** Keep the nonce for the user, for $minutes. False when the cache could not take it. */
     private static function remember(Authenticatable $user, string $nonce, int $minutes): bool
     {
+        $cache = SsoCache::store();
+
         try {
             $key = self::key((string) $user->getAuthIdentifier());
-            $held = Cache::get($key, []);
+            $held = $cache->get($key, []);
             $held = is_array($held) ? array_values(array_filter($held, 'is_string')) : [];
             $held[] = hash('sha256', $nonce);
 
-            return Cache::put($key, array_slice($held, -self::MAX_NONCES), now()->addMinutes($minutes));
+            return $cache->put($key, array_slice($held, -self::MAX_NONCES), now()->addMinutes($minutes));
         } catch (Throwable $e) {
             report($e);
 
@@ -539,8 +550,10 @@ final class SsoSession
 
     private static function holds(string $userId, string $nonce): bool
     {
+        $cache = SsoCache::store();
+
         try {
-            $held = Cache::get(self::key($userId), []);
+            $held = $cache->get(self::key($userId), []);
         } catch (Throwable $e) {
             report($e);
 
@@ -552,16 +565,18 @@ final class SsoSession
 
     private static function revoke(string $userId, string $nonce): void
     {
+        $cache = SsoCache::store();
+
         try {
             $key = self::key($userId);
-            $held = Cache::get($key, []);
+            $held = $cache->get($key, []);
 
             if (! is_array($held)) {
                 return;
             }
 
             $left = array_values(array_diff($held, [hash('sha256', $nonce)]));
-            $left === [] ? Cache::forget($key) : Cache::put($key, $left, now()->addMinutes(self::lifetimeMinutes(null)));
+            $left === [] ? $cache->forget($key) : $cache->put($key, $left, now()->addMinutes(self::lifetimeMinutes(null)));
         } catch (Throwable $e) {
             report($e);
         }
@@ -569,8 +584,10 @@ final class SsoSession
 
     private static function revokeAll(string $userId): void
     {
+        $cache = SsoCache::store();
+
         try {
-            Cache::forget(self::key($userId));
+            $cache->forget(self::key($userId));
         } catch (Throwable $e) {
             report($e);
         }

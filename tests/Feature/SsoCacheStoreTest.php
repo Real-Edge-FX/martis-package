@@ -1,0 +1,183 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Cache\Repository;
+use Illuminate\Foundation\Auth\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Martis\Auth\GuardCatalog;
+use Martis\Sso\Providers\AzureProvider;
+use Martis\Sso\SsoCache;
+use Martis\Sso\SsoException;
+use Martis\Sso\SsoManager;
+use Martis\Sso\SsoSession;
+
+require_once __DIR__.'/../Support/signed-token.php';
+
+// ===========================================================================
+// martis.auth.sso.cache_store (v2.22.0): the store of every cache entry the
+// SSO subsystem makes (the one-time jti, the revocation, the origin nonces,
+// the ended-session markers and the Azure tenant lookup). Null is the default
+// store; a name that is not in `cache.stores` throws, naming the key.
+// ===========================================================================
+
+class SsoCacheStoreUser extends User
+{
+    protected $guarded = [];
+}
+
+beforeEach(function () {
+    config()->set('cache.stores.sso_shared', ['driver' => 'array']);
+    config()->set('martis.auth.sso.cache_store', 'sso_shared');
+    Cache::store('array')->flush();
+    Cache::store('sso_shared')->flush();
+});
+
+/** The entry of the shared store, and what the default store holds under the same key. */
+function ssoCacheLanded(string $key): array
+{
+    return [Cache::store('sso_shared')->has($key), Cache::store('array')->has($key)];
+}
+
+it('names the default store when no cache_store is set', function () {
+    config()->set('martis.auth.sso.cache_store', null);
+
+    expect(SsoCache::store())->toBe(Cache::store());
+});
+
+it('names the configured store', function () {
+    expect(SsoCache::store())->toBeInstanceOf(Repository::class)
+        ->and(SsoCache::store())->toBe(Cache::store('sso_shared'))
+        ->and(SsoCache::store())->not->toBe(Cache::store('array'));
+});
+
+it('throws, naming the key, for a cache_store that is not a configured store', function (mixed $value) {
+    config()->set('martis.auth.sso.cache_store', $value);
+
+    expect(fn () => SsoCache::store())->toThrow(InvalidArgumentException::class, 'martis.auth.sso.cache_store');
+})->with([
+    'a name that is not in cache.stores' => ['nope'],
+    'an empty string' => [''],
+    'a number' => [3],
+    'a list' => [['redis']],
+    'true' => [true],
+]);
+
+it('records the one-time jti in the configured store and not in the default one', function () {
+    $keys = stKeys();
+    stConsumer([$keys['public_b64']]);
+    $provider = app(SsoManager::class)->driver('panel_a');
+    $flow = stBegin($provider);
+    $claims = stClaims($flow['state']);
+
+    $provider->resolveIdentity(stCallback($flow['session'], stSign($claims, $keys['secret']), $flow['state']));
+
+    $key = 'martis_sso_jti:panel_a:'.hash('sha256', $claims['jti']);
+    expect(ssoCacheLanded($key))->toBe([true, false]);
+});
+
+it('refuses a replay through the configured store, which the default store knows nothing about', function () {
+    $keys = stKeys();
+    stConsumer([$keys['public_b64']]);
+    $provider = app(SsoManager::class)->driver('panel_a');
+    $flow = stBegin($provider);
+    $token = stSign(stClaims($flow['state']), $keys['secret']);
+
+    $provider->resolveIdentity(stCallback($flow['session'], $token, $flow['state']));
+    // The default store is wiped (a deploy): the configured one still knows the jti.
+    Cache::store('array')->flush();
+    stRestoreState($flow);
+
+    expect(fn () => $provider->resolveIdentity(stCallback($flow['session'], $token, $flow['state'])))
+        ->toThrow(fn (SsoException $e) => expect($e->reason)->toBe('replayed'));
+});
+
+it('throws, naming the key, instead of refusing the token as a store failure, for an unknown store', function () {
+    $keys = stKeys();
+    stConsumer([$keys['public_b64']]);
+    $provider = app(SsoManager::class)->driver('panel_a');
+    $flow = stBegin($provider);
+    $token = stSign(stClaims($flow['state']), $keys['secret']);
+    config()->set('martis.auth.sso.cache_store', 'nope');
+
+    expect(fn () => $provider->resolveIdentity(stCallback($flow['session'], $token, $flow['state'])))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.cache_store');
+});
+
+it('keeps the revocation in the configured store', function () {
+    SsoSession::revokeUser('7');
+
+    $key = 'martis.sso-revoked.'.sha1(GuardCatalog::martis().'|7');
+    expect(ssoCacheLanded($key))->toBe([true, false])
+        ->and(SsoSession::isRevoked('7', 1))->toBeTrue();
+
+    // Wiping the default store does not lift it, wiping the configured one does.
+    Cache::store('array')->flush();
+    expect(SsoSession::isRevoked('7', 1))->toBeTrue();
+    Cache::store('sso_shared')->flush();
+    expect(SsoSession::isRevoked('7', 1))->toBeFalse();
+});
+
+it('throws, naming the key, for an unknown store instead of reporting a revocation failure', function () {
+    config()->set('martis.auth.sso.cache_store', 'nope');
+
+    expect(fn () => SsoSession::revokeUser('7'))->toThrow(InvalidArgumentException::class, 'martis.auth.sso.cache_store')
+        ->and(fn () => SsoSession::isRevoked('7', 1))->toThrow(InvalidArgumentException::class, 'martis.auth.sso.cache_store');
+});
+
+it('keeps the origin nonce of a remembered sign-in in the configured store', function () {
+    $request = Request::create('/martis/sso/azure/callback');
+    $request->setLaravelSession(stSession());
+    $user = new SsoCacheStoreUser;
+    $user->forceFill(['id' => 9]);
+
+    SsoSession::start($request, $user, 'azure', null, true);
+
+    $key = 'martis.sso-origin.'.sha1(GuardCatalog::martis().'|9');
+    expect(ssoCacheLanded($key))->toBe([true, false]);
+});
+
+it('keeps the ended-session marker in the configured store', function () {
+    $request = Request::create('/martis/api/tools');
+    $request->setLaravelSession(stSession());
+    $oldId = str_repeat('a', 40);
+
+    SsoSession::markEnded($request, 'azure', $oldId);
+
+    $key = 'martis.sso-ended.'.sha1($oldId);
+    expect(ssoCacheLanded($key))->toBe([true, false]);
+
+    // Read back by a request that carries the old session id, and dropped from the same store.
+    $next = Request::create('/martis/api/tools');
+    $session = stSession();
+    $session->setId($oldId);
+    $next->setLaravelSession($session);
+    expect(SsoSession::endedProvider($next))->toBe('azure');
+
+    SsoSession::forgetEnded($next);
+    expect(Cache::store('sso_shared')->has($key))->toBeFalse();
+});
+
+it('keeps the Azure tenant lookup in the configured store', function () {
+    $tenant = '11111111-2222-3333-4444-555555555555';
+    Http::fake(['login.microsoftonline.com/*' => Http::response(['issuer' => 'https://login.microsoftonline.com/'.$tenant.'/v2.0'])]);
+
+    $provider = new class extends AzureProvider
+    {
+        public function lookup(string $tenant): ?string
+        {
+            return $this->tenantIdOf($tenant);
+        }
+    };
+
+    expect($provider->lookup('contoso.onmicrosoft.com'))->toBe($tenant);
+
+    $key = 'martis.sso.azure.tenant-id.'.sha1('contoso.onmicrosoft.com');
+    expect(ssoCacheLanded($key))->toBe([true, false]);
+    // Asked once: the second answer comes from the configured store.
+    $provider->lookup('contoso.onmicrosoft.com');
+    Http::assertSentCount(1);
+});

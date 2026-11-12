@@ -7,7 +7,6 @@ namespace Martis\Sso\Providers;
 use DateTimeImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use JsonException;
 use Martis\Sso\Contracts\SsoProviderContract;
 use Martis\Sso\SignedToken\ConsumerSettings;
@@ -15,6 +14,7 @@ use Martis\Sso\SignedToken\ParsedToken;
 use Martis\Sso\SignedToken\PasetoV4Public;
 use Martis\Sso\SignedToken\Reason;
 use Martis\Sso\SignedToken\Urls;
+use Martis\Sso\SsoCache;
 use Martis\Sso\SsoException;
 use Martis\Sso\SsoIdentity;
 use stdClass;
@@ -327,15 +327,18 @@ final class SignedTokenProvider implements SsoProviderContract
      * one second: the time checks accept the very last second of that window,
      * while a cache entry is gone at its expiry second, so without the extra
      * second the record vanishes on the last instant the token is still good.
-     * The cache must be shared by every server of the panel and must not evict
+     * The cache store ({@see SsoCache}) must be shared by every server of the panel and must not evict
      * early; when it fails the token is refused, not let through.
      */
     private function useOnce(string $jti, int $seconds): void
     {
         $key = 'martis_sso_jti:'.$this->name.':'.hash('sha256', $jti);
+        // Resolved outside the try: an unknown store is a config error that
+        // names the key, not a store failure.
+        $cache = SsoCache::store();
 
         try {
-            $added = Cache::add($key, true, max(1, $seconds + 1));
+            $added = $cache->add($key, true, max(1, $seconds + 1));
         } catch (Throwable $e) {
             throw new SsoException('Signed token refused: the one-time store failed.', Reason::REPLAY_STORE, null, $e);
         }
