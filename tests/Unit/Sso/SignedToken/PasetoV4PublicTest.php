@@ -171,3 +171,45 @@ it('refuses keys of the wrong length when signing or verifying', function () {
     $parsed = PasetoV4Public::parse(PasetoV4Public::sign('{}', $secret));
     expect(fn () => PasetoV4Public::verify($parsed, 'short'))->toThrow(InvalidArgumentException::class);
 });
+
+// -----------------------------------------------------------------------------
+// A token and a key never reach a stack trace (#[\SensitiveParameter], v2.22.0)
+// -----------------------------------------------------------------------------
+
+/** The trace of what $attempt throws, with the trace arguments switched on (the development default). */
+function pasetoTraceOf(Closure $attempt): string
+{
+    $previous = ini_set('zend.exception_ignore_args', '0');
+
+    try {
+        $attempt();
+    } catch (Throwable $e) {
+        return $e->getTraceAsString();
+    } finally {
+        ini_set('zend.exception_ignore_args', $previous === false ? '1' : $previous);
+    }
+
+    throw new RuntimeException('nothing was thrown');
+}
+
+it('keeps the token out of the trace of a refused token', function (string $token) {
+    $trace = pasetoTraceOf(fn () => PasetoV4Public::parse($token));
+
+    // Only the frames of the codec: the test's own frame carries the dataset value.
+    $frames = implode("\n", array_filter(explode("\n", $trace), fn (string $line) => str_contains($line, 'PasetoV4Public::parse')));
+
+    expect($frames)->not->toContain(substr($token, 0, 15))->and($frames)->toContain('SensitiveParameterValue');
+})->with([
+    'not a v4.public token' => ['v3.public.SECRET-TOKEN-BODY-0123456789'],
+    'a bad base64 body' => ['v4.public.SECRET*TOKEN*BODY*0123456789'],
+]);
+
+it('keeps the secret key and the message out of the trace of a bad key', function () {
+    $secret = 'SECRET-KEY-OF-THE-WRONG-LENGTH';
+    $message = '{"state":"SECRET-STATE-IN-THE-MESSAGE"}';
+
+    $trace = pasetoTraceOf(fn () => PasetoV4Public::sign($message, $secret));
+
+    // A trace cuts a string argument to its first 15 characters: that prefix is what must not appear.
+    expect($trace)->not->toContain('SECRET-KEY-OF-T')->not->toContain('{"state":"SECRE');
+});

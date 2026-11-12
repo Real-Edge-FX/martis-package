@@ -77,7 +77,7 @@ final class TokenIssuer
      * @throws InvalidArgumentException for an unknown audience, a state of the wrong shape or a bad claims class
      * @throws RuntimeException when the user has no email to sign
      */
-    public function issue(Authenticatable $user, string $audience, string $state): string
+    public function issue(Authenticatable $user, string $audience, #[\SensitiveParameter] string $state): string
     {
         $this->callbackUrl($audience);
 

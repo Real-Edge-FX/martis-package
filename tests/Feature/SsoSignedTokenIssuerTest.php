@@ -892,3 +892,44 @@ it('puts neither the token nor the state into the issued event or the log line',
         return ! str_contains($dump, $query['token']) && ! str_contains($dump, $this->state);
     });
 });
+
+// -----------------------------------------------------------------------------
+// The state never reaches a stack trace (#[\SensitiveParameter], v2.22.0)
+// -----------------------------------------------------------------------------
+
+it('keeps the state out of the trace of an exception thrown through issue()', function () {
+    config(['martis.auth.sso.issuer.claims' => StIssuerClaims::class]);
+    StIssuerClaims::$result = ['name' => 'No email', 'email' => ''];
+    $state = 'SECRETSTATE0123456789abcdef';
+    $previous = ini_set('zend.exception_ignore_args', '0');
+
+    try {
+        TokenIssuer::fromConfig()->issue($this->user, 'panel-b', $state);
+        $this->fail('signing did not fail');
+    } catch (RuntimeException $e) {
+        $trace = $e->getTraceAsString();
+    } finally {
+        ini_set('zend.exception_ignore_args', $previous === false ? '1' : $previous);
+    }
+
+    expect($trace)->not->toContain('SECRETSTATE')->and($trace)->toContain('SensitiveParameterValue');
+});
+
+it('keeps the state out of the logged trace of the cannot_sign failure', function () {
+    config(['martis.auth.sso.issuer.claims' => StIssuerClaims::class]);
+    StIssuerClaims::$result = ['name' => 'No email', 'email' => ''];
+    $previous = ini_set('zend.exception_ignore_args', '0');
+    Event::fake([SsoIssueDenied::class]);
+    stCaptureLog();
+    $trace = null;
+
+    try {
+        stSignedIn()->withoutExceptionHandling()->get(stIssueUrl('panel-b', 'SECRETSTATE0123456789abcdef'));
+    } catch (RuntimeException $e) {
+        $trace = $e->getTraceAsString();
+    } finally {
+        ini_set('zend.exception_ignore_args', $previous === false ? '1' : $previous);
+    }
+
+    expect($trace)->not->toBeNull()->and($trace)->not->toContain('SECRETSTATE');
+});

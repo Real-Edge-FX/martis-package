@@ -57,7 +57,7 @@ final class PasetoV4Public
     /**
      * @param  string  $secretKey  the 64 raw bytes of an Ed25519 secret key (libsodium form: seed then public key)
      */
-    public static function sign(string $message, string $secretKey, string $footer = '', string $implicit = ''): string
+    public static function sign(#[\SensitiveParameter] string $message, #[\SensitiveParameter] string $secretKey, string $footer = '', string $implicit = ''): string
     {
         self::ensureAvailable();
 
@@ -79,7 +79,7 @@ final class PasetoV4Public
      *
      * @throws SsoException reason `malformed`
      */
-    public static function parse(string $token): ParsedToken
+    public static function parse(#[\SensitiveParameter] string $token): ParsedToken
     {
         self::ensureAvailable();
 
@@ -171,7 +171,7 @@ final class PasetoV4Public
      *
      * @throws SsoException reason `malformed`
      */
-    private static function decode(string $encoded): string
+    private static function decode(#[\SensitiveParameter] string $encoded): string
     {
         if ($encoded === '' || preg_match('/\A[A-Za-z0-9_-]+\z/', $encoded) !== 1 || strlen($encoded) % 4 === 1) {
             throw self::malformed('a segment is not base64url');

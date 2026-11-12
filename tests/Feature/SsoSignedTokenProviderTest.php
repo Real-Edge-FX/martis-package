@@ -903,3 +903,21 @@ it('still does everything itself when spend() did not run', function () {
 
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
 });
+
+it('keeps the state and the jti out of the trace of a refused callback', function () {
+    $flow = stBegin(stProvider());
+    $claims = stClaims('SECRETSTATE-IN-THE-CLAIM-0123456789abcdef');
+    $token = stSign($claims, $this->keys['secret']);
+    $previous = ini_set('zend.exception_ignore_args', '0');
+
+    try {
+        stProvider()->resolveIdentity(stCallback($flow['session'], $token, str_repeat('x', 43)));
+        $this->fail('the state was accepted');
+    } catch (SsoException $e) {
+        $trace = $e->getTraceAsString();
+    } finally {
+        ini_set('zend.exception_ignore_args', $previous === false ? '1' : $previous);
+    }
+
+    expect($trace)->not->toContain('SECRETSTATE')->not->toContain($claims['jti']);
+});

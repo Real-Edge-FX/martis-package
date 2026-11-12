@@ -41,7 +41,7 @@ final class IssuerSettings
      */
     private function __construct(
         public readonly string $issuer,
-        public readonly string $secretKey,
+        #[\SensitiveParameter] public readonly string $secretKey,
         public readonly string $publicKey,
         public readonly int $ttlSeconds,
         public readonly ?string $environment,

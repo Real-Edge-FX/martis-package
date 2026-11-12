@@ -11,8 +11,8 @@ namespace Martis\Sso\SignedToken;
 final class ParsedToken
 {
     public function __construct(
-        public readonly string $message,
-        public readonly string $signature,
+        #[\SensitiveParameter] public readonly string $message,
+        #[\SensitiveParameter] public readonly string $signature,
         public readonly string $footer,
     ) {}
 }

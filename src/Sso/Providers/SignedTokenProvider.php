@@ -360,7 +360,7 @@ final class SignedTokenProvider implements SsoProviderContract
      * must all be the same. A state kept without its creation time (a flow
      * started before v2.22.0) is refused: the person starts over.
      */
-    private function checkState(Request $request, string $claimed): void
+    private function checkState(Request $request, #[\SensitiveParameter] string $claimed): void
     {
         $kept = $request->hasSession() ? $request->session()->pull($this->stateKey()) : null;
         $query = $request->query('state');
@@ -388,7 +388,7 @@ final class SignedTokenProvider implements SsoProviderContract
      * The cache store ({@see SsoCache}) must be shared by every server of the panel and must not evict
      * early; when it fails the token is refused, not let through.
      */
-    private function useOnce(string $jti, int $seconds): void
+    private function useOnce(#[\SensitiveParameter] string $jti, int $seconds): void
     {
         $key = 'martis_sso_jti:'.$this->name.':'.hash('sha256', $jti);
         // Resolved outside the try: an unknown store is a config error that
